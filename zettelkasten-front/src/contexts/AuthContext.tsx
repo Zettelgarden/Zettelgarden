@@ -5,10 +5,14 @@ import React, {
   useContext,
   ReactNode,
 } from "react";
-import { checkAdmin, updateUser as apiUpdateUser } from "../api/users";
+import {
+  checkAdmin,
+  updateUser as apiUpdateUser,
+  getUserSubscription,
+} from "../api/users";
 import { getCurrentUser } from "../api/users";
 import { LoginResponse } from "../models/Auth";
-import { User } from "../models/User";
+import { User, UserSubscription } from "../models/User";
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -48,28 +52,39 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setIsLoading(true);
       const token = localStorage.getItem("token");
       if (token) {
-        setIsAuthenticated(true);
-        // Assume checkAdmin will resolve to true/false based on the admin status
-        const adminStatus = await checkAdmin();
-        setIsAdmin(adminStatus);
-        const currentUser = await getCurrentUser();
-        setCurrentUser(currentUser);
-        setUser(currentUser);
-        console.log("user", currentUser);
-        setHasSubscription(currentUser.stripe_subscription_status === "active");
-        //setHasSubscription(true)
+        try {
+          setIsAuthenticated(true);
+          const adminStatus = await checkAdmin();
+          setIsAdmin(adminStatus);
+          const currentUser = await getCurrentUser();
+          setCurrentUser(currentUser);
+          setUser(currentUser);
+          if (currentUser && currentUser.id) {
+            const subscription = await getUserSubscription(currentUser.id);
+            setHasSubscription(
+              subscription &&
+              subscription.stripe_subscription_status === "active",
+            );
+          } else {
+            setHasSubscription(false);
+          }
+        } catch (error) {
+          console.error("Failed to initialize auth:", error);
+          // Gently handle auth initialization failure
+          logoutUser();
+        }
       }
       setIsLoading(false);
     };
-
     initializeAuth();
   }, []);
 
   const loginUser = (data: LoginResponse) => {
     localStorage.setItem("token", data["access_token"]);
     localStorage.setItem("username", data["user"]["username"]);
-    setHasSubscription(true);
-    // setHasSubscription(data["user"].stripe_subscription_status === "active");
+    setHasSubscription(
+      data["user"].stripe_subscription_status === "active",
+    );
     setIsAuthenticated(true);
   };
 

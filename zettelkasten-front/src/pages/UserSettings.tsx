@@ -1,9 +1,9 @@
 import React, { useState, useEffect, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { getUserSubscription, getCurrentUser, editUser, getUserMemory } from "../api/users";
+import { getUserMemory } from "../api/users";
 import { getBillingPortalUrl } from "../api/billing";
 import { requestPasswordReset } from "../api/auth";
-import { User, EditUserParams, UserSubscription } from "../models/User";
+import { User, EditUserParams } from "../models/User";
 import { useAuth } from "../contexts/AuthContext";
 import { H6 } from "../components/Header";
 import { TemplatesList } from "../components/templates/TemplatesList";
@@ -15,17 +15,14 @@ type Tab = "profile" | "templates" | "tags" | "files";
 
 export function UserSettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
-  const [user, setUser] = useState<User | null>(null);
-  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [userMemory, setUserMemory] = useState<string | null>(null);
   const [billingUrl, setBillingUrl] = useState<string | null>(null);
 
-
   const navigate = useNavigate();
-  const { logoutUser } = useAuth();
+  const { user, hasSubscription, updateUser, logoutUser } = useAuth();
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault(); // Prevent the default form submit action
@@ -41,25 +38,17 @@ export function UserSettingsPage() {
     }
 
     // Prepare the data to be updated
-    const updateData = {
+    const updatedUser = {
+      ...user,
       username: updatedUsername,
       email: updatedEmail,
-      is_admin: user.is_admin,
     };
 
     try {
-      // Call the editUser function with userId and the update data
-      await editUser(user.id.toString(), updateData as EditUserParams);
-      // Optionally, navigate to another route upon success or just show success message
-      // navigate('/some-success-page'); or
+      await updateUser(updatedUser as User);
       alert("User updated successfully");
-
-      const currentUser = await getCurrentUser();
-      setUser(currentUser);
-
-      localStorage.setItem("username", currentUser["username"]);
+      localStorage.setItem("username", updatedUser.username as string);
     } catch (error: any) {
-      // Handle any errors that occur during the update
       console.error("Failed to update user:", error);
       setError(error.message);
     }
@@ -83,33 +72,9 @@ export function UserSettingsPage() {
     }
   };
 
-  const subscriptionEnabled = import.meta.env.VITE_FEATURE_SUBSCRIPTION === "true";
-
+  const subscriptionEnabled =
+    import.meta.env.VITE_FEATURE_SUBSCRIPTION === "true";
   useEffect(() => {
-    async function fetchUserAndSubscription() {
-      let userResponse = await getCurrentUser();
-      console.log(userResponse);
-      setUser(userResponse);
-      console.log(userResponse);
-
-      // Now that we have the user, fetch their subscription using the user ID
-      if (userResponse && userResponse["id"]) {
-        let subscriptionResponse = await getUserSubscription(
-          userResponse["id"],
-        );
-        console.log(subscriptionResponse);
-        setSubscription(subscriptionResponse);
-
-        // Add this section to fetch LLM configurations
-        try {
-          const memory = await getUserMemory();
-          setUserMemory(memory.memory);
-        } catch (error) {
-          console.error("Failed to fetch LLM providers:", error);
-        }
-
-      }
-    }
     async function fetchBillingUrl() {
       try {
         const response = await getBillingPortalUrl();
@@ -119,10 +84,21 @@ export function UserSettingsPage() {
       }
     }
 
+    async function fetchUserMemory() {
+      try {
+        const memory = await getUserMemory();
+        setUserMemory(memory.memory);
+      } catch (error) {
+        console.error("Failed to fetch LLM providers:", error);
+      }
+    }
+
     setDocumentTitle("Settings");
-    fetchUserAndSubscription();
-    fetchBillingUrl();
-  }, []);
+    if (subscriptionEnabled) {
+      fetchBillingUrl();
+    }
+    fetchUserMemory();
+  }, [subscriptionEnabled]);
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -176,9 +152,12 @@ export function UserSettingsPage() {
             {subscriptionEnabled && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-semibold mb-4">Subscription</h2>
-                {subscription && subscription.stripe_subscription_status === "active" ? (
+                {hasSubscription ? (
                   <div className="space-y-2">
-                    <p>Status: <span className="font-medium">{subscription.stripe_subscription_status}</span></p>
+                    <p>
+                      Status:{" "}
+                      <span className="font-medium">active</span>
+                    </p>
                     <a
                       href={billingUrl || "#"}
                       className="text-blue-500 hover:underline"

@@ -1,31 +1,23 @@
 import React from "react";
-import { fetchPartialCards, getCard } from "../api/cards";
-import { sortCards } from "../utils/cards";
 import { useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
 import { useTaskContext } from "../contexts/TaskContext";
 import { usePartialCardContext } from "../contexts/CardContext";
-import { SearchResultList } from "../components/cards/SearchResultList";
 import { useNavigate } from "react-router-dom";
-import { TasksIcon } from "../assets/icons/TasksIcon";
-
-import { defaultCard } from "../models/Card";
-import { FileUpload } from "../components/files/FileUpload";
-
-import { useShortcutContext } from "../contexts/ShortcutContext";
 import { CardList } from "../components/cards/CardList";
-
 import { setDocumentTitle } from "../utils/title";
+import { useAuth } from "../contexts/AuthContext";
 
 export function DashboardPage() {
   const { partialCards } = usePartialCardContext();
   const [refresh, setRefresh] = React.useState<boolean>(false);
   const { tasks, setRefreshTasks } = useTaskContext();
   const [message, setMessage] = React.useState<string>("");
-
+  const { hasSubscription, isLoading } = useAuth();
   const navigate = useNavigate();
+  const subscriptionEnabled =
+    import.meta.env.VITE_FEATURE_SUBSCRIPTION === "true";
 
-  const recentCards = partialCards.slice(0, 10).sort((a, b) => 
+  const recentCards = partialCards.slice(0, 10).sort((a, b) =>
     new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
@@ -47,6 +39,20 @@ export function DashboardPage() {
               thoughts, and watch your knowledge garden flourish.
             </p>
           </div>
+          {!isLoading && !hasSubscription && subscriptionEnabled && (
+            <div className="bg-blue-50 border-t border-b border-blue-200 text-blue-800 px-4 py-3 text-center">
+              <p>
+                <strong>Unlock powerful AI features!</strong> Subscribe now to
+                enable summarization, entity extraction, and fact analysis.
+                <a
+                  href="/app/subscription"
+                  className="ml-2 bg-blue-500 text-white font-bold py-1 px-3 rounded hover:bg-blue-600"
+                >
+                  Upgrade
+                </a>
+              </p>
+            </div>
+          )}
         </div>
       </div>
       <div className="flex flex-col md:flex-row border-t">
