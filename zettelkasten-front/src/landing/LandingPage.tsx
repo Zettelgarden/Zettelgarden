@@ -43,25 +43,6 @@ function LandingPage() {
 
   useEffect(() => {
     setDocumentTitle();
-
-    // Twitter conversion tracking base code
-    const twitterScript = document.createElement('script');
-    twitterScript.id = 'twitter-tracking';
-    document.body.appendChild(twitterScript);
-    twitterScript.innerHTML = `
-      !function(e,t,n,s,u,a){e.twq||(s=e.twq=function(){s.exe?s.exe.apply(s,arguments):s.queue.push(arguments);
-      },s.version='1.1',s.queue=[],u=t.createElement(n),u.async=!0,u.src='https://static.ads-twitter.com/uwt.js',
-      a=t.getElementsByTagName(n)[0],a.parentNode.insertBefore(u,a))}(window,document,'script');
-      twq('config','qgdfg');
-    `;
-
-    return () => {
-      // Clean up the script when the component unmounts
-      const script = document.getElementById('twitter-tracking');
-      if (script) {
-        document.body.removeChild(script);
-      }
-    };
   }, []);
 
   //  const subscriptionEnabled = import.meta.env.VITE_FEATURE_SUBSCRIPTION === "true";
