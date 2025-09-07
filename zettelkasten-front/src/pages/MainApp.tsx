@@ -21,7 +21,6 @@ import { TagProvider } from "../contexts/TagContext";
 import { ChatProvider, useChatContext } from "../contexts/ChatContext";
 import {
   PartialCardProvider,
-  usePartialCardContext,
 } from "../contexts/CardContext";
 import { ShortcutProvider } from "../contexts/ShortcutContext";
 import { FileProvider } from "../contexts/FileContext";
@@ -60,8 +59,6 @@ function MainAppContent() {
     updateUser,
   } = useAuth();
   const { setRefreshTasks } = useTaskContext();
-  const { setRefreshPartialCards } = usePartialCardContext();
-  const { showChat, setShowChat } = useChatContext();
 
   // changing pages
 
@@ -77,7 +74,6 @@ function MainAppContent() {
 
   useEffect(() => {
     setRefreshTasks(true);
-    setRefreshPartialCards(true);
   }, []);
 
   if (isLoading) {

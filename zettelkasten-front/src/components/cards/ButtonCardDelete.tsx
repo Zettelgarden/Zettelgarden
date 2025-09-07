@@ -2,7 +2,6 @@ import React from "react";
 import { Button } from "../Button";
 import { Card } from "../../models/Card";
 import { deleteCard } from "../../api/cards";
-import { usePartialCardContext } from "../../contexts/CardContext";
 
 interface ButtonCardDeleteProps {
   card: Card;
@@ -10,7 +9,6 @@ interface ButtonCardDeleteProps {
 }
 
 export function ButtonCardDelete({ card, setMessage }: ButtonCardDeleteProps) {
-  const { setRefreshPartialCards } = usePartialCardContext();
   function handleDeleteButtonClick() {
     if (
       window.confirm(
@@ -18,7 +16,6 @@ export function ButtonCardDelete({ card, setMessage }: ButtonCardDeleteProps) {
       )
     ) {
       deleteCard(card.id)
-        .then(() => setRefreshPartialCards(true))
         .catch((error) =>
           setMessage(
             "Unable to delete card. Does it have backlinks, children or files?"

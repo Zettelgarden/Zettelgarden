@@ -25,7 +25,7 @@ import { useShortcutContext } from "../contexts/ShortcutContext";
 import { QuickSearchWindow } from "./cards/QuickSearchWindow";
 
 import { PartialCard, Card } from "../models/Card";
-import { fetchPartialCards, getPinnedCards, unpinCard, saveNewCard, getNextRootId } from "../api/cards";
+import { getPinnedCards, unpinCard } from "../api/cards";
 import { PinnedSearch } from "../models/PinnedSearch";
 import { getPinnedSearches, unpinSearch } from "../api/pinnedSearches";
 import { parseURL } from "../api/references";

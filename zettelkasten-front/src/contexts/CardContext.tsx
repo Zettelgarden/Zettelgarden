@@ -1,5 +1,4 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
-import { fetchPartialCards } from "../api/cards";
 import { PartialCard, Card } from "../models/Card";
 
 
@@ -9,10 +8,6 @@ interface PartialCardContextType {
   setLastCard: (card: PartialCard) => void;
   nextCardId: string | null;
   setNextCardId: (id: string | null) => void;
-  partialCards: PartialCard[];
-  refreshPartialCards: boolean;
-  setRefreshPartialCards: (refresh: boolean) => void;
-  getPartialCards: () => Promise<void>;
 }
 const PartialCardContext = createContext<PartialCardContextType | undefined>(
   undefined,
@@ -21,14 +16,10 @@ const PartialCardContext = createContext<PartialCardContextType | undefined>(
 export const PartialCardProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [partialCards, setPartialCards] = useState<PartialCard[]>([]);
   const [lastCard, setLastCard] = useState<PartialCard | null>(null);
   const [nextCardId, setNextCardId] = useState<string | null>(null);
-  const [refreshPartialCards, setRefreshPartialCards] =
-    useState<boolean>(false);
+  useState<boolean>(false);
 
-  const getPartialCards = async () => {
-  };
   return (
     <PartialCardContext.Provider
       value={{
@@ -36,10 +27,6 @@ export const PartialCardProvider: React.FC<{ children: React.ReactNode }> = ({
         setLastCard,
         nextCardId,
         setNextCardId,
-        partialCards,
-        refreshPartialCards,
-        setRefreshPartialCards,
-        getPartialCards,
       }}
     >
       {children}
