@@ -4,6 +4,7 @@ import { CardIcon } from "../../assets/icons/CardIcon";
 import { PersonIcon } from "../../assets/icons/PersonIcon";
 import { Link } from "react-router-dom";
 import { formatDate } from "../../utils/dates";
+import { getFact } from "../../api/facts";
 import { FactWithCard } from "../../models/Fact";
 import { useState } from "react";
 
@@ -14,7 +15,7 @@ interface SearchResultItemProps {
   showPreview: boolean;
   onEntityClick?: (entityName: string) => void;
   onTagClick?: (tagName: string) => void;
-  onFactClick?: (fact: FactWithCard) => void;
+  onFactClick?: (factId: number) => void;
 }
 
 function SearchResultItem({ result, showPreview, onEntityClick, onTagClick, onFactClick }: SearchResultItemProps) {
@@ -32,7 +33,8 @@ function SearchResultItem({ result, showPreview, onEntityClick, onTagClick, onFa
     }
     if (isFact && onFactClick) {
       e.preventDefault();
-      onFactClick(result.metadata as FactWithCard);
+      console.log("going to fetch", result)
+      onFactClick(Number(result.id));
     }
   };
 
@@ -162,7 +164,8 @@ export function SearchResultList({
     setSelectedFact,
   } = useShortcutContext();
 
-  const handleFactClick = (fact: FactWithCard) => {
+  const handleFactClick = async (factId: number) => {
+    const fact = await getFact(factId);
     setSelectedFact(fact);
     setShowFactDialog(true);
   };
