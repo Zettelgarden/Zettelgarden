@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useTaskContext } from "../contexts/TaskContext";
-import { useNavigate } from "react-router-dom";
 import { CardList } from "../components/cards/CardList";
 import { setDocumentTitle } from "../utils/title";
 import { useAuth } from "../contexts/AuthContext";
@@ -10,9 +8,7 @@ import { PartialCard } from "../models/Card";
 export function DashboardPage() {
   const [recentCards, setRecentCards] = useState<PartialCard[]>([]);
   const [unsortedCards, setUnsortedCards] = useState<PartialCard[]>([]);
-  const { tasks, setRefreshTasks } = useTaskContext();
   const { hasSubscription, isLoading } = useAuth();
-  const navigate = useNavigate();
   const subscriptionEnabled =
     import.meta.env.VITE_FEATURE_SUBSCRIPTION === "true";
 
