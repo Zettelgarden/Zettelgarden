@@ -126,8 +126,7 @@ export function EntityPage() {
       const searchTerm = filterText.toLowerCase();
       return (
         entity.name.toLowerCase().includes(searchTerm) ||
-        entity.type.toLowerCase().includes(searchTerm) ||
-        entity.description.toLowerCase().includes(searchTerm)
+        entity.type.toLowerCase().includes(searchTerm)
       );
     });
     setFilteredEntities(filtered);
