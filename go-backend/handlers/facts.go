@@ -546,6 +546,50 @@ func (s *Handler) LinkFactToCardHandler(w http.ResponseWriter, r *http.Request) 
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": "linked"})
 }
 
+// GetFact returns a single fact with its associated card
+func (s *Handler) GetFact(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	vars := mux.Vars(r)
+
+	factIDStr := vars["id"]
+	factID, err := strconv.Atoi(factIDStr)
+	if err != nil {
+		http.Error(w, "Invalid fact id", http.StatusBadRequest)
+		return
+	}
+
+	var fact FactWithCard
+	err = s.DB.QueryRow(`
+		SELECT f.id, f.fact, f.created_at, f.updated_at,
+		       c.id, c.card_id, c.user_id, c.title, c.parent_id,
+		       c.created_at, c.updated_at
+		FROM facts f
+		JOIN cards c ON f.card_pk = c.id
+		WHERE f.id = $1 AND f.user_id = $2
+	`, factID, userID).Scan(
+		&fact.ID,
+		&fact.Fact,
+		&fact.CreatedAt,
+		&fact.UpdatedAt,
+		&fact.Card.ID,
+		&fact.Card.CardID,
+		&fact.Card.UserID,
+		&fact.Card.Title,
+		&fact.Card.ParentID,
+		&fact.Card.CreatedAt,
+		&fact.Card.UpdatedAt,
+	)
+	if err != nil {
+		http.Error(w, "Fact not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(fact); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // GetSimilarFacts returns facts with embeddings similar to a target fact
 func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)

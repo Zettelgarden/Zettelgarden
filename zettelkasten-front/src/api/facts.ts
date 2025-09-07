@@ -75,6 +75,19 @@ export async function getCardFacts(cardId: number): Promise<Fact[]> {
   return res.json();
 }
 
+export async function getFact(factId: number): Promise<FactWithCard> {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${base_url}/facts/${factId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!res.ok) {
+    throw new Error("Failed to fetch fact");
+  }
+  return res.json();
+}
+
 export async function deleteFact(factId: number): Promise<void> {
   const token = localStorage.getItem("token");
   const res = await fetch(`${base_url}/facts/${factId}`, {
