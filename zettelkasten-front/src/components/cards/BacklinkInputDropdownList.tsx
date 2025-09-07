@@ -7,7 +7,6 @@ import { semanticSearchCards } from "../../api/cards";
 interface BacklinkInputDropdownListProps {
   onSelect: (card: PartialCard) => void;
   onSearch: (searchTerm: string) => void;
-  cards: PartialCard[];
   placeholder?: string;
   className?: string;
 }
@@ -15,7 +14,6 @@ interface BacklinkInputDropdownListProps {
 export function BacklinkInputDropdownList({
   onSelect,
   onSearch,
-  cards,
   placeholder = "Search...",
   className = "",
 }: BacklinkInputDropdownListProps) {

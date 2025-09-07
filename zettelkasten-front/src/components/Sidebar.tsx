@@ -47,7 +47,7 @@ export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [message, setMessage] = useState<string>("");
-  const { partialCards, lastCard } = usePartialCardContext();
+  const { lastCard } = usePartialCardContext();
   const { tasks } = useTaskContext();
   const username = localStorage.getItem("username");
   const [isNewDropdownOpen, setIsNewDropdownOpen] = useState(false);

@@ -176,7 +176,6 @@ export function FactDialog({ onClose }: FactDialogProps) {
                     <BacklinkInputDropdownList
                         onSelect={handleCardSelect}
                         onSearch={() => { }}
-                        cards={cards}
                         placeholder="Link a card..."
                         className="mb-2"
                     />

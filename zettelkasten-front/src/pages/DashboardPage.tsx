@@ -1,29 +1,45 @@
-import React from "react";
-import { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useTaskContext } from "../contexts/TaskContext";
-import { usePartialCardContext } from "../contexts/CardContext";
 import { useNavigate } from "react-router-dom";
 import { CardList } from "../components/cards/CardList";
 import { setDocumentTitle } from "../utils/title";
 import { useAuth } from "../contexts/AuthContext";
+import { semanticSearchCards } from "../api/cards";
+import { PartialCard } from "../models/Card";
 
 export function DashboardPage() {
-  const { partialCards } = usePartialCardContext();
-  const [refresh, setRefresh] = React.useState<boolean>(false);
+  const [recentCards, setRecentCards] = useState<PartialCard[]>([]);
+  const [unsortedCards, setUnsortedCards] = useState<PartialCard[]>([]);
   const { tasks, setRefreshTasks } = useTaskContext();
-  const [message, setMessage] = React.useState<string>("");
   const { hasSubscription, isLoading } = useAuth();
   const navigate = useNavigate();
   const subscriptionEnabled =
     import.meta.env.VITE_FEATURE_SUBSCRIPTION === "true";
 
-  const recentCards = partialCards.slice(0, 10).sort((a, b) =>
-    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
-
   useEffect(() => {
     setDocumentTitle("Index");
-  })
+
+    // Fetch recent cards
+    semanticSearchCards("", false, false, true, "sortByDate").then((results) => {
+      const cards: PartialCard[] = results.map((result) => ({
+        id: Number(result.metadata?.id) || 0,
+        card_id: result.metadata.card_id,
+        title: result.title,
+        body: result.preview || "",
+        tags: result.tags || [],
+        is_deleted: false,
+        created_at: new Date(result.created_at),
+        updated_at: new Date(result.updated_at),
+        parent_id: result.metadata?.parent_id || 0,
+        user_id: 0,
+        link: "",
+        parent: null,
+      }));
+      setRecentCards(cards.slice(0, 10));
+      const unsorted = cards.filter((card) => card.card_id === "");
+      setUnsortedCards(unsorted.slice(0, 10));
+    });
+  }, []);
 
   return (
     <div>
@@ -62,7 +78,7 @@ export function DashboardPage() {
           <a href="/app/search?recent=true">
             <span className="font-bold">Recent Cards</span>
           </a>
-          {partialCards && <CardList sort={false} cards={recentCards} />}
+          <CardList sort={false} cards={recentCards} />
           <hr />
         </div>
 
@@ -70,13 +86,7 @@ export function DashboardPage() {
         <div className="flex-shrink-0 md:w-4/12 border-l p-4">
           <div>
             <span className="font-bold">Unsorted Cards</span>
-            {partialCards && (
-              <CardList
-                cards={partialCards
-                  .filter((card) => card.card_id === "")
-                  .slice(0, 10)}
-              />
-            )}
+            <CardList cards={unsortedCards} />
           </div>
           <hr />
         </div>

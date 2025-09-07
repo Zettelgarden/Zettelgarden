@@ -2,8 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, PartialCard, Entity } from "../../models/Card";
 import { File } from "../../models/File";
-import { removeEntityFromCard, addEntityToCard, fetchEntities } from "../../api/entities";
-import { saveExistingCard, getCardAuditEvents } from "../../api/cards";
+import { removeEntityFromCard, addEntityToCard } from "../../api/entities";
+import {
+  saveExistingCard,
+  getCardAuditEvents,
+  semanticSearchCards,
+} from "../../api/cards";
 
 import {
   HeaderSubSection,
@@ -144,7 +148,7 @@ export function ViewCardTabbedDisplay({
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>("Entities");
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [allEntities, setAllEntities] = useState<Entity[]>([]);
+  const [searchResults, setSearchResults] = useState<Entity[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [auditEvents, setAuditEvents] = useState<any[]>([]);
   const [fileFilterString, setFileFilterString] = useState<string>("");
@@ -191,18 +195,8 @@ export function ViewCardTabbedDisplay({
   }
 
   useEffect(() => {
-    loadEntities();
     fetchFactsForCard();
   }, []);
-
-  async function loadEntities() {
-    try {
-      const entities = await fetchEntities();
-      setAllEntities(entities.sort((a, b) => a.name.localeCompare(b.name)));
-    } catch (error) {
-      setError("Failed to load entities");
-    }
-  }
 
   async function fetchFactsForCard() {
     try {
@@ -216,12 +210,12 @@ export function ViewCardTabbedDisplay({
   async function handleAddEntity(entityId: number) {
     try {
       await addEntityToCard(entityId, viewingCard.id);
-      // Find the entity in allEntities and add it to the card
-      const entityToAdd = allEntities.find(e => e.id === entityId);
+      // Find the entity in searchResults and add it to the card
+      const entityToAdd = searchResults.find((e) => e.id === entityId);
       if (entityToAdd && viewingCard.entities) {
         setViewCard({
           ...viewingCard,
-          entities: [...viewingCard.entities, entityToAdd]
+          entities: [...viewingCard.entities, entityToAdd],
         });
       }
       setSearchTerm("");
@@ -230,9 +224,43 @@ export function ViewCardTabbedDisplay({
     }
   }
 
-  const filteredEntities = allEntities.filter(entity =>
-    !viewingCard.entities?.some(e => e.id === entity.id) && // Not already added
-    (entity.name.toLowerCase().includes(searchTerm.toLowerCase())));
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (searchTerm) {
+        setIsLoading(true);
+        semanticSearchCards(searchTerm, false, true, false)
+          .then((results) => {
+            const entities = results
+              .filter((r) => r.type === "entity")
+              .map(
+                (r) =>
+                ({
+                  id: r.metadata.id,
+                  name: r.title,
+                  description: r.preview,
+                  type: r.metadata.entityType,
+                  card_pk: r.metadata.card_pk,
+                  user_id: r.metadata.user_id,
+                  created_at: r.created_at,
+                  updated_at: r.updated_at,
+                  card_count: r.metadata.card_count,
+                } as Entity),
+              );
+            setSearchResults(entities);
+          })
+          .catch((error) => setError("Failed to search entities"))
+          .finally(() => setIsLoading(false));
+      } else {
+        setSearchResults([]);
+      }
+    }, 300); // 300ms debounce time
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchTerm]);
+
+  const filteredEntities = searchResults.filter(
+    (entity) => !viewingCard.entities?.some((e) => e.id === entity.id),
+  );
 
   useEffect(() => {
     if (activeTab === "History") {

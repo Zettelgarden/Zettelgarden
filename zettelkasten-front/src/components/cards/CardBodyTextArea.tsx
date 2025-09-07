@@ -4,10 +4,6 @@ import remarkGfm from 'remark-gfm';
 import { PartialCard, Card } from "../../models/Card";
 import { File } from "../../models/File";
 import { uploadFile } from "../../api/files";
-import { findWordBoundaries } from "../../utils/strings";
-import { usePartialCardContext } from "../../contexts/CardContext";
-import { BacklinkInputDropdownList } from "./BacklinkInputDropdownList";
-import { quickFilterCards } from "../../utils/cards";
 
 interface CardBodyTextAreaProps {
   editingCard: Card;
@@ -32,7 +28,6 @@ export const CardBodyTextArea = forwardRef<CardBodyTextAreaHandle, CardBodyTextA
   setFilesToUpdate,
 }: CardBodyTextAreaProps, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { partialCards } = usePartialCardContext();
   const [isPreviewMode, setIsPreviewMode] = useState<boolean>(false);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {

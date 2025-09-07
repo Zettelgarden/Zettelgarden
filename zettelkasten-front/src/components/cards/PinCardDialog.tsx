@@ -2,8 +2,6 @@ import React, { useState } from "react";
 import { BacklinkInputDropdownList } from "./BacklinkInputDropdownList";
 import { PartialCard } from "../../models/Card";
 import { pinCard } from "../../api/cards";
-import { quickFilterCards } from "../../utils/cards";
-import { usePartialCardContext } from "../../contexts/CardContext";
 
 interface PinCardDialogProps {
   onClose: () => void;
@@ -12,16 +10,7 @@ interface PinCardDialogProps {
 }
 
 export function PinCardDialog({ onClose, onPinSuccess, setMessage }: PinCardDialogProps) {
-  const [searchResults, setSearchResults] = useState<PartialCard[]>([]);
-  const { partialCards } = usePartialCardContext();
-
   function handleSearch(searchTerm: string) {
-    if (searchTerm.length > 0) {
-      const results = quickFilterCards(partialCards, searchTerm);
-      setSearchResults(results);
-    } else {
-      setSearchResults([]);
-    }
   }
 
   function handleSelect(card: PartialCard) {
@@ -44,7 +33,6 @@ export function PinCardDialog({ onClose, onPinSuccess, setMessage }: PinCardDial
         <BacklinkInputDropdownList
           onSelect={handleSelect}
           onSearch={handleSearch}
-          cards={searchResults}
           placeholder="Search for a card to pin..."
         />
         <div className="mt-4 flex justify-end">

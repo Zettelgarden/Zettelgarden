@@ -47,7 +47,7 @@ export function EditPage({ newCard }: EditPageProps) {
   const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
   const [showBacklinkDialog, setShowBacklinkDialog] = useState(false);
   const [previewModeActive, setPreviewModeActive] = useState(false); // Added for preview toggle
-  const { partialCards, setRefreshPartialCards, lastCard, nextCardId, setNextCardId } =
+  const { setRefreshPartialCards, lastCard, nextCardId, setNextCardId } =
     usePartialCardContext();
   const [filesToUpdate, setFilesToUpdate] = useState<File[]>([]);
   const cardBodyRef = useRef<CardBodyTextAreaHandle>(null);
@@ -307,7 +307,6 @@ export function EditPage({ newCard }: EditPageProps) {
                     </button>
                   )}
                 </div>
-                {newCard && renderWarningLabel(partialCards, editingCard)}
               </div>
             </div>
 

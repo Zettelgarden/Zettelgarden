@@ -28,29 +28,12 @@ export const PartialCardProvider: React.FC<{ children: React.ReactNode }> = ({
     useState<boolean>(false);
 
   const getPartialCards = async () => {
-    console.log("hmm?");
-    await fetchPartialCards("", "date").then((data) => {
-      setPartialCards(data);
-      setRefreshPartialCards(false);
-    });
   };
-
-  useEffect(() => {
-    if (refreshPartialCards) {
-      getPartialCards();
-    }
-    const intervalId = setInterval(() => {
-      getPartialCards();
-    }, 60000);
-
-    return () => clearInterval(intervalId); // Cleanup on component unmount
-  }, [refreshPartialCards]);
-
   return (
     <PartialCardContext.Provider
       value={{
-	lastCard,
-	setLastCard,
+        lastCard,
+        setLastCard,
         nextCardId,
         setNextCardId,
         partialCards,
