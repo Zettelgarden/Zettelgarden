@@ -170,122 +170,123 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
             <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
             <div className="fixed inset-0 flex items-center justify-center p-4">
-                <Dialog.Panel className="w-full max-w-3xl transform overflow-y-auto max-h-[90vh] rounded-2xl bg-white p-6 shadow-xl transition-all">
+                <Dialog.Panel className="w-full max-w-3xl transform max-h-[90vh] rounded-2xl bg-white p-6 shadow-xl transition-all flex flex-col">
                     <Dialog.Title className="text-lg font-medium leading-6 text-gray-900 mb-2">
                         {selectedFact && !isEditing ? `Fact: ${selectedFact.fact.slice(0, 50)}...` : "Fact Details"}
                     </Dialog.Title>
+                    <div className="overflow-y-auto">
+                        {selectedFact ? (
+                            <div className="mb-4 space-y-2 text-sm text-gray-700">
+                                {isEditing ? (
 
-                    {selectedFact ? (
-                        <div className="mb-4 space-y-2 text-sm text-gray-700">
-                            {isEditing ? (
+                                    <textarea
+                                        value={editedFact}
+                                        onChange={(e) => setEditedFact(e.target.value)}
+                                        className="w-full h-40 p-2 border rounded"
+                                    />
+                                ) : (
+                                    <p onClick={handleStartEditing} className="cursor-pointer hover:bg-gray-100 p-2 rounded">
+                                        {selectedFact.fact}
+                                    </p>
+                                )}
+                                {selectedFact.card && (
+                                    <div>
+                                        <span className="text-xs text-gray-600">From: </span>
+                                        <Link
+                                            to={`/app/card/${selectedFact.card.id}`}
+                                            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                                        >
+                                            <div className="w-4 h-4 mr-1 text-gray-400">
+                                                <CardIcon />
+                                            </div>
+                                            [{selectedFact.card.card_id}] {selectedFact.card.title}
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-gray-500">No fact selected.</p>
+                        )}
 
-                                <textarea
-                                    value={editedFact}
-                                    onChange={(e) => setEditedFact(e.target.value)}
-                                    className="w-full h-40 p-2 border rounded"
-                                />
-                            ) : (
-                                <p onClick={handleStartEditing} className="cursor-pointer hover:bg-gray-100 p-2 rounded">
-                                    {selectedFact.fact}
-                                </p>
-                            )}
-                            {selectedFact.card && (
-                                <div>
-                                    <span className="text-xs text-gray-600">From: </span>
-                                    <Link
-                                        to={`/app/card/${selectedFact.card.id}`}
-                                        className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline"
-                                    >
-                                        <div className="w-4 h-4 mr-1 text-gray-400">
-                                            <CardIcon />
-                                        </div>
-                                        [{selectedFact.card.card_id}] {selectedFact.card.title}
-                                    </Link>
-                                </div>
+                        <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">Linked Entities:</h4>
+                        <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
+                            {loading && <p>Loading entities...</p>}
+                            {error && <p className="text-red-600">{error}</p>}
+                            {!loading && entities.length === 0 && <p>No entities linked.</p>}
+                            {!loading && entities.length > 0 && (
+                                <ul className="space-y-1 text-sm">
+                                    {entities.map((e) => (
+                                        <li key={e.id} onClick={() => handleEntityClick(e)}>
+                                            <span className="text-xs text-blue-600 cursor-pointer">
+                                                {e.name}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
                             )}
                         </div>
-                    ) : (
-                        <p className="text-sm text-gray-500">No fact selected.</p>
-                    )}
 
-                    <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">Linked Entities:</h4>
-                    <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
-                        {loading && <p>Loading entities...</p>}
-                        {error && <p className="text-red-600">{error}</p>}
-                        {!loading && entities.length === 0 && <p>No entities linked.</p>}
-                        {!loading && entities.length > 0 && (
-                            <ul className="space-y-1 text-sm">
-                                {entities.map((e) => (
-                                    <li key={e.id} onClick={() => handleEntityClick(e)}>
-                                        <span className="text-xs text-blue-600 cursor-pointer">
-                                            {e.name}
-                                        </span>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
+                        <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">Linked Cards:</h4>
+
+                        <BacklinkInputDropdownList
+                            onSelect={handleCardSelect}
+                            onSearch={() => { }}
+                            placeholder="Link a card..."
+                            className="mb-2"
+                        />
+
+                        <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
+                            {loadingCards && <p>Loading cards...</p>}
+                            {cardsError && <p className="text-red-600">{cardsError}</p>}
+                            {!loadingCards && cards.length === 0 && <p>No cards linked.</p>}
+                            {!loadingCards && cards.length > 0 && (
+                                <ul className="space-y-1 text-sm">
+                                    {cards.map((c) => (
+                                        <li key={c.id}>
+                                            <Link
+                                                to={`/app/card/${c.id}`}
+                                                className="text-blue-600 hover:text-blue-800 hover:underline"
+                                            >
+                                                <CardTag card={c} showTitle={true} />
+                                            </Link>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+
+                        <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">Similar Facts:</h4>
+                        <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
+                            {loadingSimilar && <p>Loading similar facts...</p>}
+                            {similarError && <p className="text-red-600">{similarError}</p>}
+                            {!loadingSimilar && similarFacts.length === 0 && <p>No similar facts.</p>}
+                            {!loadingSimilar && similarFacts.length > 0 && (
+                                <ul className="space-y-1 text-sm">
+                                    {similarFacts.map((f) => (
+                                        <li
+                                            key={f.id}
+                                            className="flex items-center justify-between hover:bg-gray-100 p-1 rounded"
+                                        >
+                                            <span
+                                                onClick={() => handleFactClick(f)}
+                                                className="text-gray-700 cursor-pointer"
+                                            >
+                                                • {f.fact}
+                                            </span>
+                                            <Button
+                                                className="ml-2 text-xs bg-green-500 text-white px-2 py-1 rounded"
+                                                onClick={() => handleInitiateMerge(f)}
+                                            >
+                                                Merge
+                                            </Button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
                     </div>
 
-                    <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">Linked Cards:</h4>
-
-                    <BacklinkInputDropdownList
-                        onSelect={handleCardSelect}
-                        onSearch={() => { }}
-                        placeholder="Link a card..."
-                        className="mb-2"
-                    />
-
-                    <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
-                        {loadingCards && <p>Loading cards...</p>}
-                        {cardsError && <p className="text-red-600">{cardsError}</p>}
-                        {!loadingCards && cards.length === 0 && <p>No cards linked.</p>}
-                        {!loadingCards && cards.length > 0 && (
-                            <ul className="space-y-1 text-sm">
-                                {cards.map((c) => (
-                                    <li key={c.id}>
-                                        <Link
-                                            to={`/app/card/${c.id}`}
-                                            className="text-blue-600 hover:text-blue-800 hover:underline"
-                                        >
-                                            <CardTag card={c} showTitle={true} />
-                                        </Link>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-
-                    <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">Similar Facts:</h4>
-                    <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
-                        {loadingSimilar && <p>Loading similar facts...</p>}
-                        {similarError && <p className="text-red-600">{similarError}</p>}
-                        {!loadingSimilar && similarFacts.length === 0 && <p>No similar facts.</p>}
-                        {!loadingSimilar && similarFacts.length > 0 && (
-                            <ul className="space-y-1 text-sm">
-                                {similarFacts.map((f) => (
-                                    <li
-                                        key={f.id}
-                                        className="flex items-center justify-between hover:bg-gray-100 p-1 rounded"
-                                    >
-                                        <span
-                                            onClick={() => handleFactClick(f)}
-                                            className="text-gray-700 cursor-pointer"
-                                        >
-                                            • {f.fact}
-                                        </span>
-                                        <Button
-                                            className="ml-2 text-xs bg-green-500 text-white px-2 py-1 rounded"
-                                            onClick={() => handleInitiateMerge(f)}
-                                        >
-                                            Merge
-                                        </Button>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-
-                    <div className="mt-6 flex justify-between items-center">
+                    <div className="mt-6 flex justify-between items-center border-t pt-4">
                         <div>
                             <Button
                                 onClick={() => setShowDeleteConfirm(true)}
