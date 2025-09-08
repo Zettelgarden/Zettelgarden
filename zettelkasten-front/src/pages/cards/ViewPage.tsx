@@ -3,6 +3,7 @@ import { setDocumentTitle } from "../../utils/title";
 import { CardItem } from "../../components/cards/CardItem";
 import { BacklinkInput } from "../../components/cards/BacklinkInput";
 import { getCard, saveExistingCard, pinCard, unpinCard, getCardReferences, getCardChildren, getCardFiles, getCardTags, getCardTasks, getCardEntities, getLinkedEntitiesByCardPK } from "../../api/cards";
+import { Menu } from "@headlessui/react";
 import { useParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 
@@ -288,6 +289,41 @@ export function ViewPage({ }: ViewPageProps) {
                 </Button>
               )}
               <Button onClick={handleEditCard}>Edit</Button>
+              <Menu as="div" className="relative inline-block text-left">
+                <div>
+                  <Menu.Button className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-2 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-indigo-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                    </svg>
+                  </Menu.Button>
+                </div>
+                <Menu.Items className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                  <div className="py-1">
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          onClick={toggleCreateTaskWindow}
+                          className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                            } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                        >
+                          Add Task
+                        </button>
+                      )}
+                    </Menu.Item>
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          onClick={handleTogglePin}
+                          className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                            } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                        >
+                          {viewingCard.is_pinned ? 'Unpin Card' : 'Pin Card'}
+                        </button>
+                      )}
+                    </Menu.Item>
+                  </div>
+                </Menu.Items>
+              </Menu>
             </div>
           </div>
 
@@ -464,12 +500,6 @@ export function ViewPage({ }: ViewPageProps) {
                   <HeaderSubSection text="Actions" />
                   <div className="mt-2 space-y-2">
                     <Button onClick={handleCreateChildCard}>Add Child Card</Button>
-                    <Button onClick={toggleCreateTaskWindow}>Add Task</Button>
-                    {viewingCard.is_pinned ? (
-                      <Button onClick={handleTogglePin}>Unpin Card</Button>
-                    ) : (
-                      <Button onClick={handleTogglePin}>Pin Card</Button>
-                    )}
                   </div>
                   <div className="mt-4">
                     <BacklinkInput addBacklink={handleAddBacklink} />
