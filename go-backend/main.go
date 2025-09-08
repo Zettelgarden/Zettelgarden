@@ -239,6 +239,7 @@ func main() {
 	addProtectedRoute(r, "/api/facts/{id}/entities", h.GetFactEntities, "GET")
 	addProtectedRoute(r, "/api/facts", h.GetAllFacts, "GET")
 	addProtectedRoute(r, "/api/facts/{id}", h.GetFact, "GET")
+	addProtectedRoute(r, "/api/facts/{id}", h.UpdateFact, "PUT")
 	addProtectedRoute(r, "/api/facts/{factID}/cards/{cardID}", h.LinkFactToCardHandler, "POST")
 	addProtectedRoute(r, "/api/facts/merge", h.MergeFactsRoute, "POST")
 	addProtectedRoute(r, "/api/facts/{id}/cards", h.GetFactCards, "GET")

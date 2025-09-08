@@ -6,7 +6,7 @@ import { CardTag } from "../cards/CardTag";
 import { Button } from "../Button";
 import { Entity } from "../../models/Card";
 import { getFactEntities } from "../../api/entities";
-import { getFactCards, getSimilarFacts, linkFactToCard, mergeFacts, deleteFact } from "../../api/facts";
+import { getFactCards, getSimilarFacts, linkFactToCard, mergeFacts, deleteFact, updateFact } from "../../api/facts";
 import { CardIcon } from "../../assets/icons/CardIcon";
 import { BacklinkInputDropdownList } from "../cards/BacklinkInputDropdownList";
 import { PartialCard } from "../../models/Card";
@@ -99,6 +99,27 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
 
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedFact, setEditedFact] = useState("");
+
+    function handleStartEditing() {
+        if (!selectedFact) return;
+        setIsEditing(true);
+        setEditedFact(selectedFact.fact);
+    }
+
+    async function handleSave() {
+        if (!selectedFact) return;
+        try {
+            await updateFact(selectedFact.id, editedFact);
+            setSelectedFact({ ...selectedFact, fact: editedFact });
+            setIsEditing(false);
+        } catch (err) {
+            console.error(err);
+            setError("Failed to update fact");
+        }
+    }
+
 
     function handleInitiateMerge(fact: FactWithCard) {
         setFactToMerge(fact);
@@ -151,12 +172,23 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
             <div className="fixed inset-0 flex items-center justify-center p-4">
                 <Dialog.Panel className="w-full max-w-3xl transform overflow-y-auto max-h-[90vh] rounded-2xl bg-white p-6 shadow-xl transition-all">
                     <Dialog.Title className="text-lg font-medium leading-6 text-gray-900 mb-2">
-                        {selectedFact ? `Fact: ${selectedFact.fact.slice(0, 50)}...` : "Fact Details"}
+                        {selectedFact && !isEditing ? `Fact: ${selectedFact.fact.slice(0, 50)}...` : "Fact Details"}
                     </Dialog.Title>
 
                     {selectedFact ? (
                         <div className="mb-4 space-y-2 text-sm text-gray-700">
-                            <p>{selectedFact.fact}</p>
+                            {isEditing ? (
+
+                                <textarea
+                                    value={editedFact}
+                                    onChange={(e) => setEditedFact(e.target.value)}
+                                    className="w-full h-40 p-2 border rounded"
+                                />
+                            ) : (
+                                <p onClick={handleStartEditing} className="cursor-pointer hover:bg-gray-100 p-2 rounded">
+                                    {selectedFact.fact}
+                                </p>
+                            )}
                             {selectedFact.card && (
                                 <div>
                                     <span className="text-xs text-gray-600">From: </span>
@@ -263,6 +295,12 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                             </Button>
                         </div>
                         <div className="flex justify-end gap-3">
+                            {isEditing && (
+                                <>
+                                    <Button onClick={handleSave}>Save</Button>
+                                    <Button onClick={() => setIsEditing(false)} className="bg-gray-300">Cancel</Button>
+                                </>
+                            )}
                             <Button onClick={onClose}>Close</Button>
                         </div>
                     </div>

@@ -688,6 +688,94 @@ func (s *Handler) DeleteFactRoute(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
 }
 
+type UpdateFactRequest struct {
+	Fact string `json:"fact"`
+}
+
+func (s *Handler) UpdateFact(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	vars := mux.Vars(r)
+
+	factIDStr := vars["id"]
+	factID, err := strconv.Atoi(factIDStr)
+	if err != nil {
+		http.Error(w, "Invalid fact id", http.StatusBadRequest)
+		return
+	}
+
+	var req UpdateFactRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Fact == "" {
+		http.Error(w, "Fact text cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	embedding, err := llms.GetEmbedding1024(req.Fact, false)
+	if err != nil {
+		log.Printf("error generating embedding for fact: %v", err)
+		http.Error(w, "Failed to generate embedding", http.StatusInternalServerError)
+		return
+	}
+
+	tx, err := s.DB.Begin()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
+		UPDATE facts
+		SET fact = $1, embedding_1024 = $2, updated_at = NOW()
+		WHERE id = $3 AND user_id = $4
+	`, req.Fact, embedding, factID, userID)
+	if err != nil {
+		http.Error(w, "Failed to update fact", http.StatusInternalServerError)
+		return
+	}
+
+	if err = tx.Commit(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Re-fetch the fact and card info to update Typesense
+	var fact models.Fact
+	var card models.PartialCard
+	err = s.DB.QueryRow(`
+		SELECT f.id, f.user_id, fcj.card_pk, f.fact, f.created_at, f.updated_at,
+		c.id, c.card_id, c.title, c.parent_id
+		FROM facts f
+		JOIN fact_card_junction fcj ON f.id = fcj.fact_id
+		JOIN cards c ON c.id = f.card_pk
+		WHERE f.id = $1 AND f.user_id = $2
+	`, factID, userID).Scan(
+		&fact.ID,
+		&fact.UserID,
+		&fact.CardPK,
+		&fact.Fact,
+		&fact.CreatedAt,
+		&fact.UpdatedAt,
+		&card.ID,
+		&card.CardID,
+		&card.Title,
+		&card.ParentID,
+	)
+	if err != nil {
+		log.Printf("Failed to fetch fact for typesense update: %v", err)
+		// Non-fatal, as the main update succeeded
+	} else {
+		s.upsertFactToTypesense(fact, card)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "Fact updated successfully"})
+}
+
 func (s *Handler) GetFactCards(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 	vars := mux.Vars(r)

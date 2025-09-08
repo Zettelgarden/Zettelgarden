@@ -1,7 +1,4 @@
 // API for fetching facts
-// API for fetching facts
-// API for fetching facts
-import { collapseTextChangeRangesAcrossMultipleVersions } from "typescript";
 import { Fact, FactWithCard } from "../models/Fact";
 import { PartialCard } from "../models/Card";
 
@@ -112,5 +109,20 @@ export async function linkFactToCard(factId: number, cardId: number): Promise<vo
   });
   if (!res.ok) {
     throw new Error("Failed to link fact to card");
+  }
+}
+
+export async function updateFact(factId: number, fact: string): Promise<void> {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${base_url}/facts/${factId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fact }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to update fact");
   }
 }
