@@ -18,6 +18,8 @@ import { getCardFacts } from "../../api/facts";
 import { Fact, FactWithCard } from "../../models/Fact";
 
 import { FileListItem } from "../../components/files/FileListItem";
+import { FileUpload } from "../../components/files/FileUpload";
+import { Button } from "../../components/Button";
 
 import { ChildrenCards } from "../../components/cards/ChildrenCards";
 
@@ -32,6 +34,7 @@ interface ViewCardTabbedDisplayProps {
   summaries: SummarizeJobResponse[] | null;
   setSelectedFact: (fact: FactWithCard | null) => void;
   setShowFactDialog: (show: boolean) => void;
+  fileUploadRef: React.RefObject<HTMLInputElement>;
 }
 
 interface AuditChange {
@@ -144,6 +147,7 @@ export function ViewCardTabbedDisplay({
   // Use new props interface
   setSelectedFact,
   setShowFactDialog,
+  fileUploadRef,
 }: ViewCardTabbedDisplayProps) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>("Entities");
@@ -326,6 +330,15 @@ export function ViewCardTabbedDisplay({
       )}
       {activeTab === "Files" && (
         <div>
+          <div className="flex p-2">
+            <a
+              onClick={() => fileUploadRef.current?.click()}
+              className="text-blue-600 hover:text-blue-800 cursor-pointer"
+            >
+              Upload File
+            </a>
+            <FileUpload ref={fileUploadRef} setMessage={setError} card={viewingCard} />
+          </div>
           {viewingCard.files.length > 0 && (
             <div>
               <ul>

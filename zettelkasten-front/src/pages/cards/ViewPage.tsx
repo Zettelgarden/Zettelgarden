@@ -127,7 +127,7 @@ export function ViewPage({ }: ViewPageProps) {
   }
 
   function toggleTagMenu() {
-    setShowTagMenu(true);
+    setShowTagMenu(!showTagMenu);
   }
 
 
@@ -370,6 +370,7 @@ export function ViewPage({ }: ViewPageProps) {
                     summaries={summaries}
                     setSelectedFact={setSelectedFact}
                     setShowFactDialog={setShowFactDialog}
+                    fileUploadRef={fileUploadRef}
                   />
                 </div>
 
@@ -377,129 +378,126 @@ export function ViewPage({ }: ViewPageProps) {
 
               {/* Backlink and Options Section */}
               <div className="md:w-1/3 bg-white rounded-lg p-4 shadow-sm space-y-4">
-
-
+                {/* Parent Card Section */}
                 {parentCard && (
                   <div>
-                    <span className="font-bold">Parent</span>
-                    <CardItem card={parentCard} />
-                    <hr />
+                    <HeaderSubSection text="Parent" />
+                    <div className="mt-2">
+                      <CardItem card={parentCard} />
+                    </div>
+                    <hr className="my-4" />
                   </div>
                 )}
 
+                {/* Linked Entities Section */}
                 {linkedEntities.length > 0 && (
                   <div>
-                    <span className="font-bold">Linked Entities</span>
+                    <HeaderSubSection text="Linked Entities" />
                     <div className="mt-2 space-y-2">
                       {linkedEntities.map(entity => (
                         <div
                           key={entity.id}
-                          className="text-xs text-blue-600 cursor-pointer"
+                          className="text-xs text-blue-600 cursor-pointer hover:underline"
                           onClick={() => handleOpenEntity(entity)}
                         >
                           {entity.name}
                         </div>
                       ))}
                     </div>
-                    <hr />
+                    <hr className="my-4" />
                   </div>
                 )}
+
+                {/* Tags Section */}
                 <div>
-                  <div>
+                  <div className="flex items-center justify-between">
                     <HeaderSubSection text="Tags" />
-                    <div className="flex flex-wrap gap-1.5">
-                      {viewingCard.tags.map((tag) => (
-                        <span
-                          key={tag.name}
-                          className="inline-flex items-center px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full"
-                        >
-                          <span
-                            className="cursor-pointer hover:bg-purple-100"
-                            onClick={() => navigate(`/app/search?term=${encodeURIComponent('#' + tag.name)}`)}
-                          >
-                            #{tag.name}
-                          </span>
-                          {viewingCard.body.includes(`#${tag.name}`) && (
-                            <button
-                              onClick={() => handleRemoveTag(tag.name)}
-                              className="ml-1.5 text-purple-400 hover:text-purple-600"
-                            >
-                              &times;
-                            </button>
-                          )}
-                        </span>
-                      ))}
+                    <div className="relative">
+                      <button
+                        onClick={toggleTagMenu}
+                        className="text-blue-500 hover:text-blue-700"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                      {showTagMenu && (
+                        <div className="absolute right-0 mt-2 z-10">
+                          <SearchTagDropdown
+                            tags={tags}
+                            handleTagClick={handleTagClick}
+                            setShowTagMenu={setShowTagMenu}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {viewingCard.tags.map((tag) => (
+                      <span
+                        key={tag.name}
+                        className="inline-flex items-center px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full"
+                      >
+                        <span
+                          className="cursor-pointer hover:bg-purple-100"
+                          onClick={() => navigate(`/app/search?term=${encodeURIComponent('#' + tag.name)}`)}
+                        >
+                          #{tag.name}
+                        </span>
+                        {viewingCard.body.includes(`#${tag.name}`) && (
+                          <button
+                            onClick={() => handleRemoveTag(tag.name)}
+                            className="ml-1.5 text-purple-400 hover:text-purple-600"
+                          >
+                            &times;
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                  <hr className="my-4" />
+                </div>
 
-                  <div>
-                    <Button onClick={toggleTagMenu}>Add Tags</Button>
 
-                    <hr />
-                    {showTagMenu && (
-                      <SearchTagDropdown
-                        tags={tags}
-                        handleTagClick={handleTagClick}
-                        setShowTagMenu={setShowTagMenu}
-                      />
+                {/* Actions Section */}
+                <div>
+                  <HeaderSubSection text="Actions" />
+                  <div className="mt-2 space-y-2">
+                    <Button onClick={handleCreateChildCard}>Add Child Card</Button>
+                    <Button onClick={toggleCreateTaskWindow}>Add Task</Button>
+                    {viewingCard.is_pinned ? (
+                      <Button onClick={handleTogglePin}>Unpin Card</Button>
+                    ) : (
+                      <Button onClick={handleTogglePin}>Pin Card</Button>
                     )}
                   </div>
+                  <div className="mt-4">
+                    <BacklinkInput addBacklink={handleAddBacklink} />
+                  </div>
+                  <hr className="my-4" />
                 </div>
 
-                {viewingCard.link && (
-                  <div>
-                    <span className="font-bold">Link</span>
-                    <div className="px-2.5 py-2">
-                      <span
-                        dangerouslySetInnerHTML={{
-                          __html: linkifyWithDefaultOptions(viewingCard.link),
-                        }}
+                {/* Details Section */}
+                <div className="text-xs text-gray-600 space-y-1 pt-4 border-t">
+                  {viewingCard.link && (
+                    <div className="flex items-start">
+                      <span className="font-medium w-20">Link:</span>
+                      <div
+                        className="flex-1 break-all"
+                        dangerouslySetInnerHTML={{ __html: linkifyWithDefaultOptions(viewingCard.link) }}
                       />
                     </div>
-                  </div>
-                )}
-                <div>
-                  <BacklinkInput addBacklink={handleAddBacklink} />
-                </div>
-                <div>
-                  <Button onClick={handleCreateChildCard}>Add Child Card</Button>
-                </div>
-                <div>
-                  <Button onClick={toggleCreateTaskWindow}>Add Task</Button>
-                </div>
-                <div>
-                  <Button onClick={() => {
-                    if (fileUploadRef.current) {
-                      fileUploadRef.current.click();
-                    }
-                  }}>Upload File</Button>
-
-                  <FileUpload
-                    ref={fileUploadRef}
-                    setMessage={setError}
-                    card={viewingCard}
-                  />
-                </div>
-
-                <div>
-                  {viewingCard && viewingCard.is_pinned ? (
-                    <Button onClick={handleTogglePin}>Unpin Card</Button>
-                  ) : (
-                    <Button onClick={handleTogglePin}>Pin Card</Button>
                   )}
-                </div>
-
-
-                <div className="text-xs text-gray-600 space-y-1">
-                  <div>
-                    <span className="font-medium">Created At:</span>
-                    <span> {viewingCard.created_at.toISOString()}</span>
+                  <div className="flex items-start">
+                    <span className="font-medium w-20">Created:</span>
+                    <span className="flex-1">{viewingCard.created_at.toISOString()}</span>
                   </div>
-                  <div>
-                    <span className="font-medium">Updated At:</span>
-                    <span> {viewingCard.updated_at.toISOString()}</span>
+                  <div className="flex items-start">
+                    <span className="font-medium w-20">Updated:</span>
+                    <span className="flex-1">{viewingCard.updated_at.toISOString()}</span>
                   </div>
                 </div>
+
               </div>
             </div>
 
@@ -507,8 +505,7 @@ export function ViewPage({ }: ViewPageProps) {
 
           </div>
         </div>
-      )
-      }
-    </div >
+      )}
+    </div>
   );
 }
