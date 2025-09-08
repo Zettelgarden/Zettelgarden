@@ -511,6 +511,7 @@ export function Sidebar() {
       />
       <FactDialog
         onClose={() => setShowFactDialog(false)}
+        onFactDeleted={() => setShowFactDialog(false)}
       />
       <AddArticleDialog
         show={showAddArticleDialog}
