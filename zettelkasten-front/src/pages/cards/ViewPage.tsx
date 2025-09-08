@@ -283,11 +283,6 @@ export function ViewPage({ }: ViewPageProps) {
               </div>
             </div>
             <div className="mt-2 md:mt-0 md:ml-4 flex gap-2">
-              {latestSummary && (
-                <Button onClick={() => setShowingSummary(!showingSummary)}>
-                  {showingSummary ? "Show Card" : "Show Summary"}
-                </Button>
-              )}
               <Button onClick={handleEditCard}>Edit</Button>
               <Menu as="div" className="relative inline-block text-left">
                 <div>
@@ -321,6 +316,19 @@ export function ViewPage({ }: ViewPageProps) {
                         </button>
                       )}
                     </Menu.Item>
+                    {latestSummary && (
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={() => setShowingSummary(!showingSummary)}
+                            className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                              } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                          >
+                            {showingSummary ? "Show Card" : "Show Summary"}
+                          </button>
+                        )}
+                      </Menu.Item>
+                    )}
                   </div>
                 </Menu.Items>
               </Menu>
@@ -352,32 +360,44 @@ export function ViewPage({ }: ViewPageProps) {
 
 
                 <div>
-                  {viewingCard.children.length > 0 && (
-                    <div>
-                      <HeaderSubSection text="Children" />
-                      <ChildrenCards
-                        allChildren={viewingCard.children.sort((a, b) =>
-                          compareCardIds(a.card_id, b.card_id),
-                        )}
-                        card={viewingCard}
-                      />
-                      <hr />
-
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <HeaderSubSection text="Children" />
+                    <button
+                      onClick={handleCreateChildCard}
+                      className="text-blue-500 hover:text-blue-700"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                  {viewingCard.children.length > 0 ? (
+                    <ChildrenCards
+                      allChildren={viewingCard.children.sort((a, b) =>
+                        compareCardIds(a.card_id, b.card_id),
+                      )}
+                      card={viewingCard}
+                    />
+                  ) : (
+                    <div className="text-gray-500 text-sm mt-2">No children yet.</div>
                   )}
+                  <hr className="my-4" />
                 </div>
                 <div>
-                  {viewingCard.references.length > 0 && (
-                    <div>
-                      <HeaderSubSection text="References" />
-                      <CardList
-                        cards={viewingCard.references.sort((a, b) =>
-                          compareCardIds(a.card_id, b.card_id),
-                        )}
-                      />
-                      <hr />
-                    </div>
+                  <HeaderSubSection text="References" />
+                  {viewingCard.references.length > 0 ? (
+                    <CardList
+                      cards={viewingCard.references.sort((a, b) =>
+                        compareCardIds(a.card_id, b.card_id),
+                      )}
+                    />
+                  ) : (
+                    <div className="text-gray-500 text-sm mt-2">No references yet.</div>
                   )}
+                  <div className="mt-4">
+                    <BacklinkInput addBacklink={handleAddBacklink} />
+                  </div>
+                  <hr className="my-4" />
                 </div>
                 {/* Tasks Section */}
                 {viewingCard.tasks.length > 0 && (
@@ -495,17 +515,6 @@ export function ViewPage({ }: ViewPageProps) {
                 </div>
 
 
-                {/* Actions Section */}
-                <div>
-                  <HeaderSubSection text="Actions" />
-                  <div className="mt-2 space-y-2">
-                    <Button onClick={handleCreateChildCard}>Add Child Card</Button>
-                  </div>
-                  <div className="mt-4">
-                    <BacklinkInput addBacklink={handleAddBacklink} />
-                  </div>
-                  <hr className="my-4" />
-                </div>
 
                 {/* Details Section */}
                 <div className="text-xs text-gray-600 space-y-1 pt-4 border-t">
