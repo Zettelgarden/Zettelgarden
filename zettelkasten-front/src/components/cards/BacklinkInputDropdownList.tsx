@@ -98,7 +98,7 @@ export function BacklinkInputDropdownList({
             />
           </div>
           {(searchResults.length > 0 || inputValue.length > 0) && (
-            <Combobox.Options className="absolute w-full mt-1 z-50 overflow-hidden bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-y-auto">
+            <Combobox.Options className="w-full mt-1 overflow-hidden bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-y-auto">
               {isLoading ? (
                 <div className="p-3 text-gray-500">Loading...</div>
               ) : searchResults.length > 0 ? (
