@@ -723,14 +723,7 @@ func (s *Handler) RemoveEntityFromCardRoute(w http.ResponseWriter, r *http.Reque
 	})
 }
 
-func (s *Handler) GetEntityByIDRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
-	entityID, err := strconv.Atoi(mux.Vars(r)["id"])
-	if err != nil {
-		http.Error(w, "Invalid entity ID", http.StatusBadRequest)
-		return
-	}
-
+func (s *Handler) GetEntityByID(userID int, entityID int) (models.Entity, error) {
 	query := `
         SELECT 
             e.id,
@@ -766,7 +759,7 @@ func (s *Handler) GetEntityByIDRoute(w http.ResponseWriter, r *http.Request) {
 	var cardUserID, cardParentID sql.NullInt64
 	var cardCreatedAt, cardUpdatedAt sql.NullTime
 
-	err = s.DB.QueryRow(query, userID, entityID).Scan(
+	err := s.DB.QueryRow(query, userID, entityID).Scan(
 		&entity.ID,
 		&entity.UserID,
 		&entity.Name,
@@ -785,13 +778,7 @@ func (s *Handler) GetEntityByIDRoute(w http.ResponseWriter, r *http.Request) {
 		&cardUpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, "Entity not found", http.StatusNotFound)
-			return
-		}
-		log.Printf("error querying entity by id: %v", err)
-		http.Error(w, "Failed to query entity", http.StatusInternalServerError)
-		return
+		return models.Entity{}, err
 	}
 
 	if cardID.Valid {
@@ -804,6 +791,28 @@ func (s *Handler) GetEntityByIDRoute(w http.ResponseWriter, r *http.Request) {
 			CreatedAt: cardCreatedAt.Time,
 			UpdatedAt: cardUpdatedAt.Time,
 		}
+	}
+
+	return entity, nil
+}
+
+func (s *Handler) GetEntityByIDRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	entityID, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil {
+		http.Error(w, "Invalid entity ID", http.StatusBadRequest)
+		return
+	}
+
+	entity, err := s.GetEntityByID(userID, entityID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Entity not found", http.StatusNotFound)
+			return
+		}
+		log.Printf("error querying entity by id: %v", err)
+		http.Error(w, "Failed to query entity", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1052,18 +1061,19 @@ func (s *Handler) upsertEntityToTypesense(entity models.Entity, card *models.Par
 	}
 	collectionName := os.Getenv("TYPESENSE_COLLECTION")
 	doc := map[string]interface{}{
-		"id":         "entity-" + strconv.Itoa(entity.ID),
-		"fact_pk":    -1,
-		"card_id":    "",
-		"card_pk":    -1,
-		"entity_pk":  entity.ID,
-		"user_id":    entity.UserID,
-		"type":       "entity",
-		"title":      entity.Name,
-		"preview":    entity.Description,
-		"parent_id":  -1,
-		"created_at": entity.CreatedAt.Unix(),
-		"updated_at": entity.UpdatedAt.Unix(),
+		"id":             "entity-" + strconv.Itoa(entity.ID),
+		"fact_pk":        -1,
+		"card_id":        "",
+		"card_pk":        -1,
+		"entity_pk":      entity.ID,
+		"user_id":        entity.UserID,
+		"type":           "entity",
+		"title":          entity.Name,
+		"preview":        entity.Description,
+		"parent_id":      -1,
+		"created_at":     entity.CreatedAt.Unix(),
+		"updated_at":     entity.UpdatedAt.Unix(),
+		"embedding_1024": entity.Embedding,
 	}
 
 	doc["linked_card_id"] = ""
@@ -1084,6 +1094,111 @@ func (s *Handler) upsertEntityToTypesense(entity models.Entity, card *models.Par
 	if err != nil {
 		log.Printf("failed to upsert entity ID %d: %v", entity.ID, err)
 	}
+}
+
+func (s *Handler) GetSimilarEntitiesRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	vars := mux.Vars(r)
+
+	entityID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid entity ID", http.StatusBadRequest)
+		return
+	}
+
+	limit := 10
+	if lStr := r.URL.Query().Get("limit"); lStr != "" {
+		if l, err := strconv.Atoi(lStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	query := `
+        SELECT 
+            e.id,
+            e.user_id,
+            e.name,
+            e.description,
+            e.type,
+            e.created_at,
+            e.updated_at,
+            e.card_pk,
+            (SELECT COUNT(DISTINCT ecj.card_pk) FROM entity_card_junction ecj WHERE ecj.entity_id = e.id) as card_count,
+            c.id as linked_card_id,
+            c.card_id as linked_card_card_id,
+            c.title as linked_card_title,
+            c.user_id as linked_card_user_id,
+            c.parent_id as linked_card_parent_id,
+            c.created_at as linked_card_created_at,
+            c.updated_at as linked_card_updated_at
+        FROM 
+            entities e
+            LEFT JOIN cards c ON e.card_pk = c.id AND c.is_deleted = FALSE
+        WHERE 
+            e.user_id = $2 AND e.id != $1
+        ORDER BY 
+            e.embedding_1024 <-> (SELECT embedding_1024 FROM entities WHERE id=$1 AND user_id=$2)
+        LIMIT $3
+    `
+
+	rows, err := s.DB.Query(query, entityID, userID, limit)
+	if err != nil {
+		log.Printf("error querying similar entities: %v", err)
+		http.Error(w, "Failed to query similar entities", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var entities []models.Entity
+	for rows.Next() {
+		var entity models.Entity
+		var cardID sql.NullInt64
+		var cardCardID, cardTitle sql.NullString
+		var cardUserID, cardParentID sql.NullInt64
+		var cardCreatedAt, cardUpdatedAt sql.NullTime
+
+		err := rows.Scan(
+			&entity.ID,
+			&entity.UserID,
+			&entity.Name,
+			&entity.Description,
+			&entity.Type,
+			&entity.CreatedAt,
+			&entity.UpdatedAt,
+			&entity.CardPK,
+			&entity.CardCount,
+			&cardID,
+			&cardCardID,
+			&cardTitle,
+			&cardUserID,
+			&cardParentID,
+			&cardCreatedAt,
+			&cardUpdatedAt,
+		)
+		if err != nil {
+			log.Printf("error scanning similar entity: %v", err)
+			http.Error(w, "Failed to scan similar entities", http.StatusInternalServerError)
+			return
+		}
+
+		if cardID.Valid {
+			entity.Card = &models.PartialCard{
+				ID:        int(cardID.Int64),
+				CardID:    cardCardID.String,
+				Title:     cardTitle.String,
+				UserID:    int(cardUserID.Int64),
+				ParentID:  int(cardParentID.Int64),
+				CreatedAt: cardCreatedAt.Time,
+				UpdatedAt: cardUpdatedAt.Time,
+				Tags:      []models.Tag{},
+			}
+		}
+
+		entities = append(entities, entity)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(entities)
 }
 
 func (s *Handler) deleteEntityTypesense(entityPK int) {

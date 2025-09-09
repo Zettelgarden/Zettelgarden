@@ -8,7 +8,7 @@ import { CardList } from "../cards/CardList";
 import { CardTag } from "../cards/CardTag"; // Import CardTag
 import { Button } from "../Button";
 import { FactWithCard } from "../../models/Fact";
-import { getEntityFacts } from "../../api/entities";
+import { getEntityFacts, getSimilarEntities, mergeEntities } from "../../api/entities";
 import { useShortcutContext } from "../../contexts/ShortcutContext";
 
 interface EntityDialogProps {
@@ -23,6 +23,14 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
     const [facts, setFacts] = useState<FactWithCard[]>([]);
     const [factsError, setFactsError] = useState<string | null>(null);
     const [factsLoading, setFactsLoading] = useState(false);
+    const [similarEntities, setSimilarEntities] = useState<Entity[]>([]);
+    const [loadingSimilar, setLoadingSimilar] = useState(false);
+    const [similarError, setSimilarError] = useState<string | null>(null);
+    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+    const [entityToMerge, setEntityToMerge] = useState<Entity | null>(null);
+    const [isMerging, setIsMerging] = useState(false);
+    const [mergeError, setMergeError] = useState<string | null>(null);
+
 
     const {
         showEntityDialog,
@@ -39,6 +47,35 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
         setSelectedFact(fact)
         setShowFactDialog(true)
         setShowEntityDialog(false)
+    }
+
+    function handleEntityClick(entity: Entity) {
+        setSelectedEntity(entity)
+        setShowEntityDialog(true)
+    }
+
+    function handleInitiateMerge(entity: Entity) {
+        setEntityToMerge(entity);
+        setShowConfirmDialog(true);
+    }
+
+    async function handleConfirmMerge() {
+        if (!selectedEntity || !entityToMerge) return;
+        setIsMerging(true);
+        setMergeError(null);
+        try {
+            await mergeEntities(selectedEntity.id, entityToMerge.id);
+            // Refresh data
+            const updatedSimilar = await getSimilarEntities(selectedEntity.id);
+            setSimilarEntities(updatedSimilar);
+            setShowConfirmDialog(false);
+            setEntityToMerge(null);
+        } catch (err) {
+            setMergeError("Failed to merge entities");
+            console.error(err);
+        } finally {
+            setIsMerging(false);
+        }
     }
 
     const handleEditClick = () => {
@@ -108,10 +145,18 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
                     setFacts([]); // keep array
                 })
                 .finally(() => setFactsLoading(false));
+
+            setLoadingSimilar(true);
+            setSimilarError(null);
+            getSimilarEntities(selectedEntity.id)
+                .then(setSimilarEntities)
+                .catch(() => setSimilarError("Failed to load similar entities"))
+                .finally(() => setLoadingSimilar(false));
         }
     }, [showEntityDialog, selectedEntity]);
 
     return (
+        <>
         <Dialog open={showEntityDialog} onClose={onClose} className="relative z-50">
             <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
@@ -183,6 +228,39 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
                         )}
                     </div>
 
+                    <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">Similar Entities:</h4>
+                    <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
+                        {loadingSimilar && <p>Loading similar entities...</p>}
+                        {similarError && <p className="text-red-600">{similarError}</p>}
+                        {!loadingSimilar && similarEntities.length === 0 && <p>No similar entities.</p>}
+                        {!loadingSimilar && similarEntities.length > 0 && (
+                            <ul className="space-y-1 text-sm">
+                                {similarEntities.map((e) => (
+                                    <li
+                                        key={e.id}
+                                        className="flex items-center justify-between hover:bg-gray-100 p-1 rounded"
+                                    >
+                                        <span
+                                            onClick={() => handleEntityClick(e)}
+                                            className="text-gray-700 cursor-pointer flex-grow"
+                                        >
+                                            • {e.name}
+                                        </span>
+                                        <div className="flex items-center ml-2">
+                                            <Button
+                                                className="text-xs bg-green-500 text-white px-2 py-1 rounded"
+                                                onClick={() => handleInitiateMerge(e)}
+                                            >
+                                                Merge
+                                            </Button>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+
+
                     <div className="mt-6 flex justify-end gap-3">
                         {selectedEntity && onEdit && (
                             <Button
@@ -199,5 +277,47 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
                 </Dialog.Panel>
             </div>
         </Dialog>
+        {showConfirmDialog && entityToMerge && (
+                <Dialog
+                    open={showConfirmDialog}
+                    onClose={() => setShowConfirmDialog(false)}
+                    className="fixed inset-0 z-50 flex items-center justify-center"
+                >
+                    <div className="fixed inset-0 bg-black bg-opacity-30" aria-hidden="true" />
+                    <Dialog.Panel className="bg-white p-6 rounded-lg max-w-md mx-auto relative">
+                        <Dialog.Title className="text-lg font-semibold mb-4">
+                            Confirm Merge
+                        </Dialog.Title>
+                        <div className="mb-4">
+                            <p className="font-medium text-green-600 mb-2">
+                                Primary Entity (will be kept):<br />
+                                {selectedEntity?.name}
+                            </p>
+                            <p className="text-gray-600 mb-2">This entity will be merged into the primary:</p>
+                            <p className="text-gray-800">• {entityToMerge.name}</p>
+                        </div>
+                        <p className="text-red-600 text-sm mb-4">
+                            This action cannot be undone. The merged entity will be deleted.
+                        </p>
+                        {mergeError && <p className="text-red-600 mb-2">{mergeError}</p>}
+                        <div className="flex justify-end gap-4">
+                            <button
+                                onClick={() => setShowConfirmDialog(false)}
+                                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmMerge}
+                                disabled={isMerging}
+                                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                            >
+                                {isMerging ? "Merging..." : "Merge"}
+                            </button>
+                        </div>
+                    </Dialog.Panel>
+                </Dialog>
+            )}
+        </>
     );
 }

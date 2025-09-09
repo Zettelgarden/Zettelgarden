@@ -236,6 +236,7 @@ func main() {
 	addProtectedRoute(r, "/api/entities/{entityId}/cards/{cardId}", h.AddEntityToCardRoute, "POST")
 	addProtectedRoute(r, "/api/entities/{entityId}/cards/{cardId}", h.RemoveEntityFromCardRoute, "DELETE")
 	addProtectedRoute(r, "/api/entities/{id}/facts", h.GetEntityFacts, "GET")
+	addProtectedRoute(r, "/api/entities/{id}/similar", h.GetSimilarEntitiesRoute, "GET")
 	addProtectedRoute(r, "/api/facts/{id}/entities", h.GetFactEntities, "GET")
 	addProtectedRoute(r, "/api/facts", h.GetAllFacts, "GET")
 	addProtectedRoute(r, "/api/facts/{id}", h.GetFact, "GET")
