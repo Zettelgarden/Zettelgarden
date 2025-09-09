@@ -261,7 +261,7 @@ export function ViewPage({ }: ViewPageProps) {
   }, [summaries]);
 
   return (
-    <div className="max-w-3/4 mx-auto px-4 py-6">
+    <div className="max-w-3/4 mx-auto">
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
           <div className="text-red-700">{error}</div>
@@ -273,13 +273,16 @@ export function ViewPage({ }: ViewPageProps) {
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white rounded-lg p-3 shadow-sm">
             <div className="flex-grow">
               <div className="flex items-center flex-wrap gap-2">
+                <span className="font-bold text-gray-600">
+                  Viewing:
+                </span>
+
                 <span className="text-blue-600">
                   [{viewingCard.card_id}]
                 </span>
-                <span className="text-gray-600">:</span>
-                <h1 className="text-lg font-bold">
+                <span className="text-gray-600">{"- "}
                   {viewingCard.title}
-                </h1>
+                </span>
               </div>
             </div>
             <div className="mt-2 md:mt-0 md:ml-4 flex gap-2">
@@ -335,12 +338,12 @@ export function ViewPage({ }: ViewPageProps) {
             </div>
           </div>
 
-          <div>
+          <div className="">
             <div className="flex flex-col md:flex-row gap-4">
               {/* Card Body */}
-              <div className="md:w-2/3 space-y-4">
+              <div className="md:w-2/3 space-y-4 px-4">
                 <div
-                  className={`rounded-lg p-6 prose shadow-sm max-w-none ${showingSummary ? "bg-yellow-50 border border-yellow-200" : "bg-white"
+                  className={`rounded-lg py-4 prose shadow-sm max-w-none ${showingSummary ? "bg-yellow-50 border border-yellow-200" : "bg-white"
                     }`}
                 >
                   {showingSummary && latestSummary?.result ? (
