@@ -151,94 +151,95 @@ function LandingPage() {
               </div>
             </motion.div>
           </div>
+
+
           <motion.div
+            id="pricing"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="mt-24 mb-12"
+            className="py-24 text-center"
           >
-            <h2 className="text-3xl font-bold text-center mb-8">See Zettelgarden in Action</h2>
-            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-              <iframe
-                src="https://www.youtube.com/embed/0kSAhX2R7eM"
-                title="Zettelgarden Demo"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="absolute top-0 left-0 w-full h-full rounded-xl shadow-2xl"
-              ></iframe>
-            </div>
-          </motion.div>
+            <h2 className="text-3xl font-bold mb-6">Simple, Transparent Pricing</h2>
+            <p className="text-gray-600 mb-12 max-w-2xl mx-auto">
+              Upgrade to Zettelgarden Pro to unlock advanced AI summarization, fact extraction,
+              and early access to new features.
+            </p>
 
-          {subscriptionEnabled && (
+            <div className="flex flex-col md:flex-row gap-8 justify-center items-stretch flex-wrap">
+              <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-sm flex flex-col">
+                <h3 className="text-xl font-semibold text-indigo-700 mb-2">Free</h3>
+                <p className="text-gray-700 mb-4">$0 / forever</p>
+                <ul className="text-left mb-6 space-y-2">
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Create and Organize Cards</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Knowledge Linking and Organization</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Manage your Todos With Your Cards</li>
+                </ul>
+                <button
+                  onClick={() => navigate("/app")}
+                  className="mt-auto w-full bg-green-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-green-700 transition-colors"
+                >
+                  Get Started Free
+                </button>
+              </div>
+              <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-sm flex flex-col">
+                <h3 className="text-xl font-semibold text-indigo-700 mb-2">Monthly</h3>
+                <p className="text-gray-700 mb-1">$10 / month</p>
+                <p className="text-sm text-green-600 mb-3">30-day free trial included</p>
+                <ul className="text-left mb-6 space-y-2">
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Create and Organize Cards</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Knowledge Linking and Organization</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Manage your Todos With Your Cards</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI-Powered Entity and Fact Extraction</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Card Summarization and Analysis</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Early Access To New Features</li>
+                </ul>
+                <button
+                  onClick={() => navigate("/subscribe")}
+                  className="mt-auto w-full bg-indigo-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+                >
+                  Choose Monthly
+                </button>
+              </div>
+              <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-sm flex flex-col">
+                <h3 className="text-xl font-semibold text-indigo-700 mb-2">Annual</h3>
+                <p className="text-gray-700 mb-1">$100 / year <span className="text-green-600">(Save 20%)</span></p>
+                <p className="text-sm text-green-600 mb-3">30-day free trial included</p>
+                <ul className="text-left mb-6 space-y-2">
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Create and Organize Cards</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Knowledge Linking and Organization</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Manage your Todos With Your Cards</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI-Powered Entity and Fact Extraction</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Card Summarization and Analysis</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Early Access To New Features</li>
+                </ul>
+                <button
+                  onClick={() => navigate("/subscribe")}
+                  className="mt-auto w-full bg-indigo-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+                >
+                  Choose Annual
+                </button>
+              </div>
+            </div>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="py-24 text-center"
+              className="mt-24 mb-12"
             >
-              <h2 className="text-3xl font-bold mb-6">Simple, Transparent Pricing</h2>
-              <p className="text-gray-600 mb-12 max-w-2xl mx-auto">
-                Upgrade to Zettelgarden Pro to unlock advanced AI summarization, fact extraction,
-                and early access to new features.
-              </p>
-
-              <div className="flex flex-col md:flex-row gap-8 justify-center items-stretch flex-wrap">
-                <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-sm flex flex-col">
-                  <h3 className="text-xl font-semibold text-indigo-700 mb-2">Free</h3>
-                  <p className="text-gray-700 mb-4">$0 / forever</p>
-                  <ul className="text-left mb-6 space-y-2">
-                    <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Create and Organize Cards</li>
-                    <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Knowledge Linking and Organization</li>
-                    <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Manage your Todos With Your Cards</li>
-                  </ul>
-                  <button
-                    onClick={() => navigate("/app")}
-                    className="mt-auto w-full bg-green-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-green-700 transition-colors"
-                  >
-                    Get Started Free
-                  </button>
-                </div>
-                <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-sm flex flex-col">
-                  <h3 className="text-xl font-semibold text-indigo-700 mb-2">Monthly</h3>
-                  <p className="text-gray-700 mb-4">$10 / month</p>
-                  <ul className="text-left mb-6 space-y-2">
-                    <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Create and Organize Cards</li>
-                    <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Knowledge Linking and Organization</li>
-                    <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Manage your Todos With Your Cards</li>
-                    <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI-Powered Entity and Fact Extraction</li>
-                    <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Card Summarization and Analysis</li>
-                    <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Early Access To New Features</li>
-                  </ul>
-                  <button
-                    onClick={() => navigate("/subscribe")}
-                    className="mt-auto w-full bg-indigo-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
-                  >
-                    Choose Monthly
-                  </button>
-                </div>
-                <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-sm flex flex-col">
-                  <h3 className="text-xl font-semibold text-indigo-700 mb-2">Annual</h3>
-                  <p className="text-gray-700 mb-1">$100 / year <span className="text-green-600">(Save 20%)</span></p>
-                  <ul className="text-left mb-6 space-y-2">
-                    <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Create and Organize Cards</li>
-                    <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Knowledge Linking and Organization</li>
-                    <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Manage your Todos With Your Cards</li>
-                    <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI-Powered Entity and Fact Extraction</li>
-                    <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Card Summarization and Analysis</li>
-                    <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Early Access To New Features</li>
-                  </ul>
-                  <button
-                    onClick={() => navigate("/subscribe")}
-                    className="mt-auto w-full bg-indigo-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
-                  >
-                    Choose Annual
-                  </button>
-                </div>
+              <h2 className="text-3xl font-bold text-center mb-8">See Zettelgarden in Action</h2>
+              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                <iframe
+                  src="https://www.youtube.com/embed/0kSAhX2R7eM"
+                  title="Zettelgarden Demo"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="absolute top-0 left-0 w-full h-full rounded-xl shadow-2xl"
+                ></iframe>
               </div>
-            </motion.div>
-          )}
+            </motion.div>           </motion.div>
 
           <RecentBlogPosts />
 

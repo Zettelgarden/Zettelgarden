@@ -193,7 +193,7 @@ func (s *Handler) GetUserSubscriptionRoute(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trial" {
+	if user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trialing" {
 		userSub.IsActive = true
 	} else {
 		userSub.IsActive = false
@@ -328,7 +328,7 @@ func (s *Handler) QueryUsers() ([]models.User, error) {
 		); err != nil {
 			return users, err
 		}
-		if user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trial" {
+		if user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trialing" {
 			user.IsActive = true
 		} else {
 			user.IsActive = false
@@ -373,7 +373,7 @@ func (s *Handler) QueryUserByEmail(email string) (models.User, error) {
 		log.Printf("err %v", err)
 		return models.User{}, fmt.Errorf("something went wrong")
 	}
-	if user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trial" {
+	if user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trialing" {
 		user.IsActive = true
 	} else {
 		user.IsActive = false
@@ -411,7 +411,7 @@ func (s *Handler) QueryUser(id int) (models.User, error) {
 		log.Printf("errsd %v", err)
 		return models.User{}, fmt.Errorf("something went wrong")
 	}
-	if user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trial" {
+	if user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trialing" {
 		user.IsActive = true
 	} else {
 		user.IsActive = false
@@ -593,7 +593,7 @@ func (s *Handler) UserHasSubscription(userID int) bool {
 	if err != nil {
 		return false
 	}
-	return user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trial"
+	return user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trialing"
 }
 
 func (s *Handler) UpdateLastSeen(userID int) error {

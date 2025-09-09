@@ -26,13 +26,18 @@ export function LandingHeader() {
       </Link>
       
       <div className="flex-grow flex justify-center space-x-8">
-        <a 
-          href="/#features" 
+        <a
+          href="/#features"
           className="text-gray-600 hover:text-gray-900 font-medium transition-colors duration-200">
           Features
         </a>
-        <a 
-          href="/blog" 
+        <a
+          href="/#pricing"
+          className="text-gray-600 hover:text-gray-900 font-medium transition-colors duration-200">
+          Pricing
+        </a>
+        <a
+          href="/blog"
           className="text-gray-600 hover:text-gray-900 font-medium transition-colors duration-200">
           Blog
         </a>

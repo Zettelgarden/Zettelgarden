@@ -101,6 +101,9 @@ func (s *Handler) CreateSubscriptionRoute(w http.ResponseWriter, r *http.Request
 				Quantity: stripe.Int64(1),
 			},
 		},
+		SubscriptionData: &stripe.CheckoutSessionSubscriptionDataParams{
+			TrialPeriodDays: stripe.Int64(30),
+		},
 	}
 	sess, err := session.New(params)
 	if err != nil {
@@ -160,9 +163,20 @@ func (s *Handler) StripeWebhookRoute(w http.ResponseWriter, r *http.Request) {
 		err := json.Unmarshal(event.Data.Raw, &sess)
 		if err == nil && sess.Subscription != nil && sess.Customer != nil {
 			_, dberr := s.DB.Exec(
-				`UPDATE users SET stripe_subscription_id=$1, stripe_subscription_status='active' 
+				`UPDATE users SET stripe_subscription_id=$1
 				WHERE stripe_customer_id=$2`,
 				sess.Subscription.ID, sess.Customer.ID,
+			)
+			if dberr != nil {
+				log.Printf("DB update error: %v", dberr)
+			}
+		}
+	case "customer.subscription.created", "customer.subscription.updated":
+		var sub stripe.Subscription
+		if err := json.Unmarshal(event.Data.Raw, &sub); err == nil {
+			_, dberr := s.DB.Exec(
+				`UPDATE users SET stripe_subscription_status=$1 WHERE stripe_customer_id=$2`,
+				sub.Status, sub.Customer.ID,
 			)
 			if dberr != nil {
 				log.Printf("DB update error: %v", dberr)

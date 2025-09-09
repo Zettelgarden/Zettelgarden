@@ -63,7 +63,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             const subscription = await getUserSubscription(currentUser.id);
             setHasSubscription(
               subscription &&
-              subscription.stripe_subscription_status === "active",
+              subscription.stripe_subscription_status === "active" ||
+              subscription.stripe_subscription_status === "trialing",
             );
           } else {
             setHasSubscription(false);

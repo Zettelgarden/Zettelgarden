@@ -102,7 +102,8 @@ export default function SubscribePage() {
         {/* Monthly Plan */}
         <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-sm flex flex-col">
           <h3 className="text-xl font-semibold text-indigo-700 mb-2">Monthly</h3>
-          <p className="text-gray-700 mb-4">$10 / month</p>
+          <p className="text-gray-700 mb-1">$10 / month</p>
+          <p className="text-sm text-green-600 mb-3">30-day free trial included</p>
           <ul className="text-left mb-6 space-y-2">
             <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Create and Organize Cards</li>
             <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Knowledge Linking and Organization</li>
@@ -124,6 +125,7 @@ export default function SubscribePage() {
         <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-sm flex flex-col">
           <h3 className="text-xl font-semibold text-indigo-700 mb-2">Annual</h3>
           <p className="text-gray-700 mb-1">$100 / year <span className="text-green-600">(Save 20%)</span></p>
+          <p className="text-sm text-green-600 mb-3">30-day free trial included</p>
           <ul className="text-left mb-6 space-y-2">
             <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Create and Organize Cards</li>
             <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Knowledge Linking and Organization</li>
