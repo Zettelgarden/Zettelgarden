@@ -381,6 +381,46 @@ func (s *Handler) QueryUserByEmail(email string) (models.User, error) {
 	return user, nil
 
 }
+
+func (s *Handler) QueryUserByStripeID(stripeID string) (models.User, error) {
+
+	var user models.User
+	err := s.DB.QueryRow(`
+	SELECT
+	id, username, email, password, created_at, updated_at,
+	is_admin, email_validated, can_upload_files,
+	stripe_subscription_status, max_file_storage, last_login,
+	last_seen, dashboard_card_pk, has_seen_getting_started
+	FROM users WHERE stripe_customer_id = $1
+	`, stripeID).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.Password,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+		&user.IsAdmin,
+		&user.EmailValidated,
+		&user.CanUploadFiles,
+		&user.StripeSubscriptionStatus,
+		&user.MaxFileStorage,
+		&user.LastLogin,
+		&user.LastSeen,
+		&user.DashboardCardPK,
+		&user.HasSeenGettingStarted,
+	)
+	if err != nil {
+		log.Printf("err %v", err)
+		return models.User{}, fmt.Errorf("something went wrong")
+	}
+	if user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trialing" {
+		user.IsActive = true
+	} else {
+		user.IsActive = false
+	}
+	return user, nil
+}
+
 func (s *Handler) QueryUser(id int) (models.User, error) {
 	var user models.User
 	err := s.DB.QueryRow(`
@@ -538,7 +578,7 @@ func (s *Handler) CreateUser(params models.CreateUserParams) (int, error) {
 	stripe_customer_id, stripe_subscription_id, stripe_subscription_status, 
 	stripe_subscription_frequency, stripe_current_plan, dashboard_card_pk
 	)
-	VALUES ($1, $2, $3, NOW(), NOW(), '', '', '', '', '', 0) RETURNING id
+	VALUES ($1, $2, $3, NOW(), NOW(), '', '', 'free', '', '', 0) RETURNING id
 	`
 
 	err = s.DB.QueryRow(query, params.Username, params.Email, hashedPassword).Scan(&newID)

@@ -139,6 +139,19 @@ func (s *Handler) StripePublicKeyRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+func (s *Handler) EmailAdminOnSubscription(sess stripe.CheckoutSession) {
+	user, err := s.QueryUserByStripeID(sess.Customer.ID)
+	if err != nil {
+		log.Printf("error getting user from stripe id %v", err)
+	}
+
+	subject := "New subscription at Zettelgarden!"
+	recipient := os.Getenv("ZETTEL_ADMIN_EMAIL")
+	body := fmt.Sprintf("A new user has subscribed at Zettelgarden: %v, %v", user.Username, user.Email)
+	s.Server.Mail.SendEmail(subject, recipient, body)
+	log.Printf("New user subscription: %v, %v", user.Username, user.Email)
+}
+
 // POST /api/stripe/webhook
 func (s *Handler) StripeWebhookRoute(w http.ResponseWriter, r *http.Request) {
 	const MaxBodyBytes = int64(65536)
@@ -160,6 +173,7 @@ func (s *Handler) StripeWebhookRoute(w http.ResponseWriter, r *http.Request) {
 	switch event.Type {
 	case "checkout.session.completed":
 		var sess stripe.CheckoutSession
+		log.Printf("ding %v", sess)
 		err := json.Unmarshal(event.Data.Raw, &sess)
 		if err == nil && sess.Subscription != nil && sess.Customer != nil {
 			_, dberr := s.DB.Exec(
@@ -170,6 +184,10 @@ func (s *Handler) StripeWebhookRoute(w http.ResponseWriter, r *http.Request) {
 			if dberr != nil {
 				log.Printf("DB update error: %v", dberr)
 			}
+			s.EmailAdminOnSubscription(sess)
+
+		} else {
+			log.Printf("err %v", err)
 		}
 	case "customer.subscription.created", "customer.subscription.updated":
 		var sub stripe.Subscription
