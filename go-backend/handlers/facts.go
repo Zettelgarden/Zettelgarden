@@ -610,9 +610,12 @@ func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := s.DB.Query(`
-		SELECT id, user_id, card_pk, fact, created_at, updated_at
-		FROM facts
-		WHERE user_id = $2 AND id != $1
+		SELECT f.id, f.fact, f.created_at, f.updated_at,
+		       c.id, c.card_id, c.user_id, c.title, c.parent_id,
+		       c.created_at, c.updated_at
+		FROM facts f
+		JOIN cards c ON f.card_pk = c.id
+		WHERE f.user_id = $2 AND f.id != $1
 		ORDER BY embedding_1024 <-> (SELECT embedding_1024 FROM facts WHERE id=$1 AND user_id=$2)
 		LIMIT $3
 	`, factID, userID, limit)
@@ -622,10 +625,22 @@ func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var facts []models.Fact
+	var facts []FactWithCard
 	for rows.Next() {
-		var f models.Fact
-		if err := rows.Scan(&f.ID, &f.UserID, &f.CardPK, &f.Fact, &f.CreatedAt, &f.UpdatedAt); err != nil {
+		var f FactWithCard
+		if err := rows.Scan(
+			&f.ID,
+			&f.Fact,
+			&f.CreatedAt,
+			&f.UpdatedAt,
+			&f.Card.ID,
+			&f.Card.CardID,
+			&f.Card.UserID,
+			&f.Card.Title,
+			&f.Card.ParentID,
+			&f.Card.CreatedAt,
+			&f.Card.UpdatedAt,
+		); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

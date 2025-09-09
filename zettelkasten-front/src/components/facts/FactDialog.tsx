@@ -170,7 +170,7 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
             <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
             <div className="fixed inset-0 flex items-center justify-center p-4">
-                <Dialog.Panel className="w-full max-w-3xl transform max-h-[90vh] rounded-2xl bg-white p-6 shadow-xl transition-all flex flex-col">
+                <Dialog.Panel className="w-full max-w-4xl transform max-h-[90vh] rounded-2xl bg-white p-6 shadow-xl transition-all flex flex-col">
                     <Dialog.Title className="text-lg font-medium leading-6 text-gray-900 mb-2">
                         {selectedFact && !isEditing ? `Fact: ${selectedFact.fact.slice(0, 50)}...` : "Fact Details"}
                     </Dialog.Title>
@@ -269,16 +269,21 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                                         >
                                             <span
                                                 onClick={() => handleFactClick(f)}
-                                                className="text-gray-700 cursor-pointer"
+                                                className="text-gray-700 cursor-pointer flex-grow"
                                             >
                                                 • {f.fact}
                                             </span>
-                                            <Button
-                                                className="ml-2 text-xs bg-green-500 text-white px-2 py-1 rounded"
-                                                onClick={() => handleInitiateMerge(f)}
-                                            >
-                                                Merge
-                                            </Button>
+                                            <div className="flex items-center ml-2">
+                                                <span className="text-xs text-blue-600 mr-2">
+                                                    [{f.card.card_id}]
+                                                </span>
+                                                <Button
+                                                    className="text-xs bg-green-500 text-white px-2 py-1 rounded"
+                                                    onClick={() => handleInitiateMerge(f)}
+                                                >
+                                                    Merge
+                                                </Button>
+                                            </div>
                                         </li>
                                     ))}
                                 </ul>
