@@ -21,6 +21,8 @@ import { SaveAsTemplateDialog } from "../../components/cards/SaveAsTemplateDialo
 import { TemplateVariablesHelp } from "../../components/templates/TemplateVariablesHelp";
 import { processTemplateVariables } from "../../utils/templateVariables";
 
+
+import { FaCloudDownloadAlt } from "react-icons/fa";
 import { BacklinkInput } from "../../components/cards/BacklinkInput";
 import { useTagContext } from "../../contexts/TagContext";
 import { SearchTagDropdown } from "../../components/tags/SearchTagDropdown";
@@ -260,7 +262,7 @@ export function EditPage({ newCard }: EditPageProps) {
 
   return (
 
-    <div>
+    <div className="pb-10">
       <div className="space-y-6">
 
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white rounded-lg p-3 shadow-sm">
@@ -269,17 +271,29 @@ export function EditPage({ newCard }: EditPageProps) {
               <span className="font-bold text-gray-600">
                 Editing:
               </span>
-              <span className="text-blue-600">
-                [{originalCard.card_id}]
-              </span>
-              <span className="text-gray-600">{"- "}
-                {originalCard.title}
-              </span>
+              {newCard ? (
+                <div>
+                  <span className="text-gray-600">{"New Card"}
+                  </span>
+                </div>
+
+              ) : (
+
+                <div>
+
+                  <span className="text-blue-600">
+                    [{originalCard.card_id}]
+                  </span>
+                  <span className="text-gray-600">{"- "}
+                    {originalCard.title}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           <div className="mt-2 md:mt-0 md:ml-4 flex gap-2">
 
-            <Menu as="div" className="relative inline-block text-left z-1000">
+            <Menu as="div" className="relative inline-block text-left">
               <div>
                 <Menu.Button className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-2 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-indigo-500">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5" viewBox="0 0 20 20" fill="currentColor">
@@ -323,10 +337,10 @@ export function EditPage({ newCard }: EditPageProps) {
             </Menu>
           </div>
         </div>
-        <div className="px-4 md:px-20 py-8 max-w-3/4 mx-auto">
 
+        <div className="">
           {editingCard && (
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col md:flex-row gap-4 px-4">
               <div className="md:w-2/3 space-y-6">
                 {(message || error) && (
                   <div className={`p-4 rounded-md ${error ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'
@@ -427,32 +441,6 @@ export function EditPage({ newCard }: EditPageProps) {
                 </div>
                 <TemplateVariablesHelp />
 
-                <div className="space-y-2">
-                  <label htmlFor="link" className="block text-sm font-medium text-gray-700">
-                    Source/URL:
-                  </label>
-                  <div className="flex gap-3">
-                    <input
-                      type="text"
-                      id="link"
-                      value={editingCard.link}
-                      onChange={(e) =>
-                        setEditingCard({ ...editingCard, link: e.target.value })
-                      }
-                      placeholder="Source/URL"
-                      className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                    />
-                    <Button
-                      onClick={handleClickFillCard}
-                      variant="secondary"
-                      size="medium"
-                      className="whitespace-nowrap"
-                    >
-                      Fill Card From URL
-                    </Button>
-                  </div>
-                </div>
-
                 <div className="flex flex-wrap gap-3 pt-4">
                   <Button onClick={handleSaveCard} variant="primary">Save</Button>
                   <Button onClick={handleCancelButtonClick} variant="outline">Cancel</Button>
@@ -518,7 +506,7 @@ export function EditPage({ newCard }: EditPageProps) {
                         </Button>
 
                         {showTemplateDropdown && (
-                          <div className="absolute z-10 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
+                          <div className="absolute mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
                             <div className="py-1" role="menu" aria-orientation="vertical">
                               {templates.map((template) => (
                                 <button
@@ -534,8 +522,30 @@ export function EditPage({ newCard }: EditPageProps) {
                         )}
                       </div>
                     )}
+
+                    <hr className="my-4" />
                   </div>
                 )}
+
+                <div className="space-y-2">
+
+                  <HeaderSubSection text="Link" />
+                  <div className="flex gap-3 items-center">
+                    <input
+                      type="text"
+                      id="link"
+                      value={editingCard.link}
+                      onChange={(e) =>
+                        setEditingCard({ ...editingCard, link: e.target.value })
+                      }
+                      placeholder="Source"
+                      className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                    <span className="cursor-pointer items-center" onClick={handleClickFillCard} title="Fill Card from URL"><FaCloudDownloadAlt /></span>
+                  </div>
+                </div>
+
+                <hr className="my-4" />
 
                 <div className="flex items-center justify-between">
                   <HeaderSubSection text="Tags" />
@@ -549,7 +559,7 @@ export function EditPage({ newCard }: EditPageProps) {
                       </svg>
                     </button>
                     {showTagMenu && (
-                      <div className="absolute right-0 mt-2 z-10">
+                      <div className="right-0 mt-2">
                         <SearchTagDropdown
                           tags={tags}
                           handleTagClick={handleTagClick}
