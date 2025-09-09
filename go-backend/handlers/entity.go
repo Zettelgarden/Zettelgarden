@@ -14,6 +14,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/lib/pq"
+	"github.com/typesense/typesense-go/typesense/api"
 )
 
 const SIMILARITY_THRESHOLD = 0.15
@@ -1096,13 +1098,36 @@ func (s *Handler) upsertEntityToTypesense(entity models.Entity, card *models.Par
 	}
 }
 
+func floatsToString(floats []float32) string {
+	if floats == nil {
+		return "[]"
+	}
+	var b strings.Builder
+	b.WriteString("[")
+	for i, f := range floats {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		b.WriteString(strconv.FormatFloat(float64(f), 'f', -1, 32))
+	}
+	b.WriteString("]")
+	return b.String()
+}
+
 func (s *Handler) GetSimilarEntitiesRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 	vars := mux.Vars(r)
 
 	entityID, err := strconv.Atoi(vars["id"])
+	// if err != nil {
+	// 	http.Error(w, "Invalid entity ID", http.StatusBadRequest)
+	// 	return
+	// }
+	entity, err := s.GetEntityByID(userID, entityID)
 	if err != nil {
-		http.Error(w, "Invalid entity ID", http.StatusBadRequest)
+		log.Printf("error getting entity for similar entity: %v", err)
+
+		http.Error(w, "Entity not found", http.StatusNotFound)
 		return
 	}
 
@@ -1112,38 +1137,73 @@ func (s *Handler) GetSimilarEntitiesRoute(w http.ResponseWriter, r *http.Request
 			limit = l
 		}
 	}
+	// 2. Use Typesense for similarity search
+	collectionName := os.Getenv("TYPESENSE_COLLECTION")
+	if collectionName == "" {
+		log.Printf("TYPESENSE_COLLECTION env var not set")
+		http.Error(w, "Typesense not configured", http.StatusInternalServerError)
+		return
+	}
 
+	filter := fmt.Sprintf("user_id:=%d && type:=entity ", userID)
+	log.Printf("filter %v", filter)
+	perPage := limit
+
+	searchParams := &api.SearchCollectionParams{
+		Q:        entity.Name,
+		QueryBy:  "title,embedding",
+		FilterBy: &filter,
+		PerPage:  &perPage,
+	}
+
+	searchResult, err := s.Server.TypesenseClient.Collection(collectionName).Documents().Search(r.Context(), searchParams)
+	if err != nil {
+		log.Printf("error searching typesense for similar entities: %v", err)
+		http.Error(w, "Failed to search for similar entities", http.StatusInternalServerError)
+		return
+	}
+
+	var entityIDs []int
+	if searchResult.Hits != nil {
+		for _, hit := range *searchResult.Hits {
+			if hit.Document != nil {
+				doc := *hit.Document
+				if pk, ok := doc["entity_pk"].(float64); ok {
+					if pk == float64(entityID) {
+						continue
+					}
+					entityIDs = append(entityIDs, int(pk))
+				}
+			}
+		}
+	}
+
+	if len(entityIDs) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]models.Entity{})
+		return
+	}
+
+	// 3. Fetch full entity data from DB
 	query := `
         SELECT 
-            e.id,
-            e.user_id,
-            e.name,
-            e.description,
-            e.type,
-            e.created_at,
-            e.updated_at,
-            e.card_pk,
+            e.id, e.user_id, e.name, e.description, e.type, e.created_at, e.updated_at, e.card_pk,
             (SELECT COUNT(DISTINCT ecj.card_pk) FROM entity_card_junction ecj WHERE ecj.entity_id = e.id) as card_count,
-            c.id as linked_card_id,
-            c.card_id as linked_card_card_id,
-            c.title as linked_card_title,
-            c.user_id as linked_card_user_id,
-            c.parent_id as linked_card_parent_id,
-            c.created_at as linked_card_created_at,
-            c.updated_at as linked_card_updated_at
+            c.id as linked_card_id, c.card_id as linked_card_card_id, c.title as linked_card_title,
+            c.user_id as linked_card_user_id, c.parent_id as linked_card_parent_id,
+            c.created_at as linked_card_created_at, c.updated_at as linked_card_updated_at
         FROM 
             entities e
             LEFT JOIN cards c ON e.card_pk = c.id AND c.is_deleted = FALSE
         WHERE 
-            e.user_id = $2 AND e.id != $1
+            e.id = ANY($1)
         ORDER BY 
-            e.embedding_1024 <-> (SELECT embedding_1024 FROM entities WHERE id=$1 AND user_id=$2)
-        LIMIT $3
+            array_position($1, e.id)
     `
 
-	rows, err := s.DB.Query(query, entityID, userID, limit)
+	rows, err := s.DB.Query(query, pq.Array(entityIDs))
 	if err != nil {
-		log.Printf("error querying similar entities: %v", err)
+		log.Printf("error querying similar entities from db: %v", err)
 		http.Error(w, "Failed to query similar entities", http.StatusInternalServerError)
 		return
 	}
@@ -1158,22 +1218,10 @@ func (s *Handler) GetSimilarEntitiesRoute(w http.ResponseWriter, r *http.Request
 		var cardCreatedAt, cardUpdatedAt sql.NullTime
 
 		err := rows.Scan(
-			&entity.ID,
-			&entity.UserID,
-			&entity.Name,
-			&entity.Description,
-			&entity.Type,
-			&entity.CreatedAt,
-			&entity.UpdatedAt,
-			&entity.CardPK,
-			&entity.CardCount,
-			&cardID,
-			&cardCardID,
-			&cardTitle,
-			&cardUserID,
-			&cardParentID,
-			&cardCreatedAt,
-			&cardUpdatedAt,
+			&entity.ID, &entity.UserID, &entity.Name, &entity.Description, &entity.Type,
+			&entity.CreatedAt, &entity.UpdatedAt, &entity.CardPK, &entity.CardCount,
+			&cardID, &cardCardID, &cardTitle, &cardUserID, &cardParentID,
+			&cardCreatedAt, &cardUpdatedAt,
 		)
 		if err != nil {
 			log.Printf("error scanning similar entity: %v", err)
