@@ -8,6 +8,7 @@ import { editFile } from "../../api/files";
 import { getTemplates } from "../../api/templates";
 import { FileListItem } from "../../components/files/FileListItem";
 import { BacklinkDialog } from "../../components/cards/BacklinkDialog";
+import { BacklinkInputDropdownList } from "../../components/cards/BacklinkInputDropdownList";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, PartialCard, defaultCard, CardTemplate } from "../../models/Card";
 import { File } from "../../models/File";
@@ -278,13 +279,46 @@ export function EditPage({ newCard }: EditPageProps) {
           </div>
           <div className="mt-2 md:mt-0 md:ml-4 flex gap-2">
 
-            <Menu as="div" className="relative inline-block text-left">
+            <Menu as="div" className="relative inline-block text-left z-1000">
               <div>
                 <Menu.Button className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-2 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-indigo-500">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
                   </svg>
                 </Menu.Button>
+                <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                  <div className="px-1 py-1 ">
+                    {!newCard && (
+                      <Menu.Item>
+                        <div className="flex items-center gap-2 p-2">
+                          <input
+                            type="checkbox"
+                            id="process_entities_and_facts"
+                            checked={editingCard.process_entities_and_facts || false}
+                            onChange={(e) =>
+                              setEditingCard({ ...editingCard, process_entities_and_facts: e.target.checked })
+                            }
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <label htmlFor="process_entities_and_facts" className="text-sm text-gray-700">
+                            Process Entities & Facts
+                          </label>
+                        </div>
+                      </Menu.Item>
+                    )}
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          onClick={() => setShowSaveAsTemplate(true)}
+                          className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                            } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                        >
+                          <span className="flex-grow text-left">Save as Template</span>
+                        </button>
+                      )}
+                    </Menu.Item>
+                  </div>
+                </Menu.Items>
               </div>
             </Menu>
           </div>
@@ -391,6 +425,7 @@ export function EditPage({ newCard }: EditPageProps) {
                     setFilesToUpdate={setFilesToUpdate}
                   />
                 </div>
+                <TemplateVariablesHelp />
 
                 <div className="space-y-2">
                   <label htmlFor="link" className="block text-sm font-medium text-gray-700">
@@ -417,25 +452,6 @@ export function EditPage({ newCard }: EditPageProps) {
                     </Button>
                   </div>
                 </div>
-
-                {!newCard && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="process_entities_and_facts"
-                        checked={editingCard.process_entities_and_facts || false}
-                        onChange={(e) =>
-                          setEditingCard({ ...editingCard, process_entities_and_facts: e.target.checked })
-                        }
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <label htmlFor="process_entities_and_facts" className="text-sm text-gray-700">
-                        Process Entities & Facts
-                      </label>
-                    </div>
-                  </div>
-                )}
 
                 <div className="flex flex-wrap gap-3 pt-4">
                   <Button onClick={handleSaveCard} variant="primary">Save</Button>
@@ -521,53 +537,62 @@ export function EditPage({ newCard }: EditPageProps) {
                   </div>
                 )}
 
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={() => setShowSaveAsTemplate(true)}
-                    variant="secondary"
-                  >
-                    Save as Template
-                  </Button>
-                  <TemplateVariablesHelp />
-                </div>
-                <div className="py-2">
-                  <BacklinkInput addBacklink={addBacklink} />
-                </div>
-                <div>
+                <div className="flex items-center justify-between">
                   <HeaderSubSection text="Tags" />
-                  <div className="flex flex-wrap gap-1.5">
-                    {editingCard.tags.map((tag) => (
-                      <span
-                        key={tag.name}
-                        className="inline-flex items-center px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full"
-                      >
-                        <span
-                          className="cursor-pointer hover:bg-purple-100"
-                          onClick={() => navigate(`/app/search?term=${encodeURIComponent('#' + tag.name)}`)}
-                        >
-                          #{tag.name}
-                        </span>
-                        {editingCard.body.includes(`#${tag.name}`) && (
-                          <button
-                            onClick={() => handleRemoveTag(tag.name)}
-                            className="ml-1.5 text-purple-400 hover:text-purple-600"
-                          >
-                            &times;
-                          </button>
-                        )}
-                      </span>
-                    ))}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowTagMenu(!showTagMenu)}
+                      className="text-blue-500 hover:text-blue-700"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    {showTagMenu && (
+                      <div className="absolute right-0 mt-2 z-10">
+                        <SearchTagDropdown
+                          tags={tags}
+                          handleTagClick={handleTagClick}
+                          setShowTagMenu={setShowTagMenu}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div>
-                  <Button onClick={() => setShowTagMenu(true)}>Add Tags</Button>
-                  {showTagMenu && (
-                    <SearchTagDropdown
-                      tags={tags}
-                      handleTagClick={handleTagClick}
-                      setShowTagMenu={setShowTagMenu}
-                    />
-                  )}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {editingCard.tags.map((tag) => (
+                    <span
+                      key={tag.name}
+                      className="inline-flex items-center px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full"
+                    >
+                      <span
+                        className="cursor-pointer hover:bg-purple-100"
+                        onClick={() => navigate(`/app/search?term=${encodeURIComponent('#' + tag.name)}`)}
+                      >
+                        #{tag.name}
+                      </span>
+                      {editingCard.body.includes(`#${tag.name}`) && (
+                        <button
+                          onClick={() => handleRemoveTag(tag.name)}
+                          className="ml-1.5 text-purple-400 hover:text-purple-600"
+                        >
+                          &times;
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+                <hr className="my-4" />
+
+                <div className="py-2">
+                  <HeaderSubSection text="References" />
+
+                  <BacklinkInputDropdownList
+                    onSelect={addBacklink}
+                    onSearch={() => { }}
+                    placeholder="Add Backlink"
+                    className="max-w-md"
+                  />
                 </div>
               </div>
             </div>
