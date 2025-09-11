@@ -31,8 +31,3 @@ CREATE TABLE IF NOT EXISTS summary_arguments (
     importance INTEGER NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-
--- Add foreign keys to the facts table to link to summarization and theses
-ALTER TABLE facts
-ADD COLUMN IF NOT EXISTS summarization_id INTEGER REFERENCES summarizations(id) ON DELETE CASCADE,
-ADD COLUMN IF NOT EXISTS thesis_id INTEGER REFERENCES summary_theses(id) ON DELETE CASCADE;

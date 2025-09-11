@@ -222,17 +222,6 @@ func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []l
 					return fmt.Errorf("failed to insert argument: %w", err)
 				}
 			}
-
-			// Insert Facts for the thesis
-			for _, fact := range thesisEntry.Facts {
-				_, err := tx.Exec(`
-					INSERT INTO facts (user_id, card_pk, fact, summarization_id, thesis_id)
-					VALUES ($1, $2, $3, $4, $5)
-				`, userID, cardPK, fact, summarizationID, thesisID)
-				if err != nil {
-					return fmt.Errorf("failed to insert fact: %w", err)
-				}
-			}
 		}
 	}
 
