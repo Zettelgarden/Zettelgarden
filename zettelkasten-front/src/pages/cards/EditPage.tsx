@@ -350,49 +350,6 @@ export function EditPage({ newCard }: EditPageProps) {
                 )}
 
                 <div className="space-y-2">
-                  <label htmlFor="card_id" className="block text-sm font-medium text-gray-700">
-                    Card ID:
-                    <span className="ml-2 inline-block text-gray-500 hover:text-gray-700 cursor-help" title="Card IDs follow a hierarchical structure (e.g., 'A.1/B' or '104/A.6'). Numbers and letters alternate in the hierarchy. After a number comes a letter (A.1/A), after a letter comes a number (A.1/A.1). IDs must be unique.">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 inline">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm-.25 3a.75.75 0 100 1.5.75.75 0 000-1.5z" clipRule="evenodd" />
-                      </svg>
-                    </span>
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 relative">
-                      <input
-                        type="text"
-                        id="card_id"
-                        value={editingCard.card_id}
-                        onChange={(e) =>
-                          setEditingCard({ ...editingCard, card_id: e.target.value })
-                        }
-                        placeholder="ID"
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-24"
-                      />
-                      {newCard && (
-                        <button
-                          onClick={async () => {
-                            try {
-                              const response = await getNextRootId();
-                              if (!response.error) {
-                                setEditingCard({ ...editingCard, card_id: response.new_id });
-                              }
-                            } catch (error) {
-                              console.error("Failed to get next ID:", error);
-                            }
-                          }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-blue-600 hover:text-blue-800"
-                          type="button"
-                        >
-                          Get Next ID
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
                   <label htmlFor="title" className="block text-sm font-medium text-gray-700">
                     Title:
                   </label>
@@ -528,6 +485,56 @@ export function EditPage({ newCard }: EditPageProps) {
                 )}
 
                 <div className="space-y-2">
+                  <HeaderSubSection text="Card ID" />
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 relative">
+                      <input
+                        type="text"
+                        id="card_id"
+                        value={editingCard.card_id}
+                        onChange={(e) =>
+                          setEditingCard({ ...editingCard, card_id: e.target.value })
+                        }
+                        placeholder="ID"
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-24"
+                      />
+                      {newCard && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              const response = await getNextRootId();
+                              if (!response.error) {
+                                setEditingCard({ ...editingCard, card_id: response.new_id });
+                              }
+                            } catch (error) {
+                              console.error("Failed to get next ID:", error);
+                            }
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-blue-600 hover:text-blue-800"
+                          type="button"
+                        >
+                          Get Next ID
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <hr className="my-4" />
+
+
+                <div className="py-2">
+                  <HeaderSubSection text="References" />
+
+                  <BacklinkInputDropdownList
+                    onSelect={addBacklink}
+                    onSearch={() => { }}
+                    placeholder="Add Backlink"
+                    className="max-w-md"
+                  />
+                </div>
+                <hr className="my-4" />
+                <div className="space-y-2">
 
                   <HeaderSubSection text="Link" />
                   <div className="flex gap-3 items-center">
@@ -594,16 +601,21 @@ export function EditPage({ newCard }: EditPageProps) {
                 </div>
                 <hr className="my-4" />
 
-                <div className="py-2">
-                  <HeaderSubSection text="References" />
 
-                  <BacklinkInputDropdownList
-                    onSelect={addBacklink}
-                    onSearch={() => { }}
-                    placeholder="Add Backlink"
-                    className="max-w-md"
-                  />
-                </div>
+                {/* Details Section */}
+                {!newCard && (
+                  <div className="text-xs text-gray-600 space-y-1 pt-4 border-t">
+                    <div className="flex items-start">
+                      <span className="font-medium w-20">Created:</span>
+                      <span className="flex-1">{originalCard.created_at.toISOString()}</span>
+                    </div>
+                    <div className="flex items-start">
+                      <span className="font-medium w-20">Updated:</span>
+                      <span className="flex-1">{originalCard.updated_at.toISOString()}</span>
+                    </div>
+                  </div>
+
+                )}
               </div>
             </div>
           )}
