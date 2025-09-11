@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"go-backend/llms"
 	"go-backend/models"
 	"log"
@@ -137,20 +138,105 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 			h.LinkCardToEntityIfPossible(userID, card)
 			return
 		}
+
+		// Run the summarization job to get a job ID
+		jobID, err := h.runSummarizationJob(userID, analyses, usage, &card.ID)
+		if err != nil {
+			log.Printf("Failed to run summarization job: %v", err)
+			return
+		}
+
+		// Save the detailed analysis linked to the job ID
+		if err := h.SaveAnalysis(userID, card.ID, jobID, analyses); err != nil {
+			log.Printf("Failed to save analysis: %v", err)
+			// Even if saving analysis fails, we can still try to link entities
+		}
+
+		// Extract entities from the originally extracted facts and link them.
+		// This can be refactored to use the newly saved facts if needed, but for now, retains existing entity logic.
 		var allFacts []string
 		for _, analysis := range analyses {
 			for _, th := range analysis.Theses {
 				allFacts = append(allFacts, th.Facts...)
 			}
 		}
-		_, err = h.runSummarizationJob(userID, analyses, usage, &card.ID)
-		log.Printf("found facts %v", len(allFacts))
 		if len(allFacts) > 0 {
+			// Note: This creates facts that are not linked to a thesis/summarization.
+			// The SaveAnalysis function already saves facts correctly.
+			// We are only running this to feed the entity extractor.
+			// This could be refactored to extract entities from the `analyses` directly.
 			facts, _ := h.ExtractSaveCardFacts(userID, card.ID, allFacts)
 			_ = h.ExtractSaveFactEntities(userID, card, facts)
 		}
+
 		h.LinkCardToEntityIfPossible(userID, card)
 	}()
+}
+
+// SaveAnalysis persists the structured analysis from the LLM into the database.
+func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []llms.SectionAnalysis) error {
+	tx, err := h.DB.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback() // Rollback on error, if commit fails
+
+	for _, analysis := range analyses {
+		// Insert Section
+		var sectionID int
+		// Use ON CONFLICT DO NOTHING to handle unique constraint violation gracefully, though it implies the section already exists for this job.
+		// A better approach might be to query first, but for this workflow, assuming titles are unique per job run is okay.
+		err := tx.QueryRow(`
+			INSERT INTO summary_sections (user_id, card_pk, summarization_id, section_title)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (summarization_id, section_title) DO UPDATE SET section_title = EXCLUDED.section_title
+			RETURNING id
+		`, userID, cardPK, summarizationID, analysis.Section).Scan(&sectionID)
+		if err != nil {
+			return fmt.Errorf("failed to insert or get section: %w", err)
+		}
+
+		for _, thesisEntry := range analysis.Theses {
+			if thesisEntry.Thesis == "" {
+				continue
+			}
+
+			// Insert Thesis
+			var thesisID int
+			err := tx.QueryRow(`
+				INSERT INTO summary_theses (user_id, card_pk, summarization_id, section_id, thesis)
+				VALUES ($1, $2, $3, $4, $5)
+				RETURNING id
+			`, userID, cardPK, summarizationID, sectionID, thesisEntry.Thesis).Scan(&thesisID)
+			if err != nil {
+				return fmt.Errorf("failed to insert thesis: %w", err)
+			}
+
+			// Insert Arguments for the thesis
+			for _, arg := range thesisEntry.Arguments {
+				_, err := tx.Exec(`
+					INSERT INTO summary_arguments (user_id, card_pk, summarization_id, thesis_id, argument, importance)
+					VALUES ($1, $2, $3, $4, $5, $6)
+				`, userID, cardPK, summarizationID, thesisID, arg.Argument, arg.Importance)
+				if err != nil {
+					return fmt.Errorf("failed to insert argument: %w", err)
+				}
+			}
+
+			// Insert Facts for the thesis
+			for _, fact := range thesisEntry.Facts {
+				_, err := tx.Exec(`
+					INSERT INTO facts (user_id, card_pk, fact, summarization_id, thesis_id)
+					VALUES ($1, $2, $3, $4, $5)
+				`, userID, cardPK, fact, summarizationID, thesisID)
+				if err != nil {
+					return fmt.Errorf("failed to insert fact: %w", err)
+				}
+			}
+		}
+	}
+
+	return tx.Commit()
 }
 
 // runSummarizationJob inserts a summarization job and runs it asynchronously.

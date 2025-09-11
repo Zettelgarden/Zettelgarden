@@ -62,6 +62,9 @@ func ResetDatabase(S *Server) error {
 			DROP TABLE IF EXISTS fact_card_junction CASCADE;
 			DROP TABLE IF EXISTS llm_query_log CASCADE;
 			DROP TABLE IF EXISTS revenue CASCADE;
+			DROP TABLE IF EXISTS summary_sections CASCADE;
+			DROP TABLE IF EXISTS summary_theses CASCADE;
+			DROP TABLE IF EXISTS summary_arguments CASCADE;
 
 			CREATE TABLE IF NOT EXISTS migrations (
 				id SERIAL PRIMARY KEY,
