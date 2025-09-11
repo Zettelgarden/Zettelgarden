@@ -275,62 +275,58 @@ func (h *Handler) LoadAnalysis(userID int, cardPK int) ([]llms.SectionAnalysis, 
 	defer sectionRows.Close()
 
 	var analyses []llms.SectionAnalysis
-	sectionMap := make(map[int]*llms.SectionAnalysis)
-
 	for sectionRows.Next() {
 		var sectionID int
 		var section llms.SectionAnalysis
 		if err := sectionRows.Scan(&sectionID, &section.Section); err != nil {
 			return nil, fmt.Errorf("failed to scan section: %w", err)
 		}
+
+		// Fetch theses for the current section
+		thesisRows, err := h.DB.Query(`
+			SELECT id, thesis FROM summary_theses
+			WHERE user_id = $1 AND section_id = $2
+			ORDER BY id
+		`, userID, sectionID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query theses for section %d: %w", sectionID, err)
+		}
+		defer thesisRows.Close()
+
+		var theses []llms.ThesisEntry
+		for thesisRows.Next() {
+			var thesisID int
+			var thesis llms.ThesisEntry
+			if err := thesisRows.Scan(&thesisID, &thesis.Thesis); err != nil {
+				return nil, fmt.Errorf("failed to scan thesis: %w", err)
+			}
+
+			log.Printf("thesis %v", thesis)
+			// Fetch arguments for the current thesis
+			argRows, err := h.DB.Query(`
+				SELECT argument, importance FROM summary_arguments
+				WHERE user_id = $1 AND thesis_id = $2
+				ORDER BY id
+			`, userID, thesisID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to query arguments for thesis %d: %w", thesisID, err)
+			}
+			defer argRows.Close()
+
+			var arguments []llms.Argument
+			for argRows.Next() {
+				var arg llms.Argument
+				if err := argRows.Scan(&arg.Argument, &arg.Importance); err != nil {
+					return nil, fmt.Errorf("failed to scan argument: %w", err)
+				}
+				log.Printf("argument %v", arg)
+				arguments = append(arguments, arg)
+			}
+			thesis.Arguments = arguments
+			theses = append(theses, thesis)
+		}
+		section.Theses = theses
 		analyses = append(analyses, section)
-		sectionMap[sectionID] = &analyses[len(analyses)-1]
-	}
-
-	// Fetch theses
-	thesisRows, err := h.DB.Query(`
-		SELECT id, section_id, thesis FROM summary_theses
-		WHERE user_id = $1 AND summarization_id = $2
-		ORDER BY id
-	`, userID, summarizationID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query theses: %w", err)
-	}
-	defer thesisRows.Close()
-
-	thesisMap := make(map[int]*llms.ThesisEntry)
-	for thesisRows.Next() {
-		var thesisID, sectionID int
-		var thesis llms.ThesisEntry
-		if err := thesisRows.Scan(&thesisID, &sectionID, &thesis.Thesis); err != nil {
-			return nil, fmt.Errorf("failed to scan thesis: %w", err)
-		}
-		if section, ok := sectionMap[sectionID]; ok {
-			section.Theses = append(section.Theses, thesis)
-			thesisMap[thesisID] = &section.Theses[len(section.Theses)-1]
-		}
-	}
-
-	// Fetch arguments
-	argRows, err := h.DB.Query(`
-		SELECT thesis_id, argument, importance FROM summary_arguments
-		WHERE user_id = $1 AND summarization_id = $2
-		ORDER BY id
-	`, userID, summarizationID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query arguments: %w", err)
-	}
-	defer argRows.Close()
-
-	for argRows.Next() {
-		var thesisID int
-		var arg llms.Argument
-		if err := argRows.Scan(&thesisID, &arg.Argument, &arg.Importance); err != nil {
-			return nil, fmt.Errorf("failed to scan argument: %w", err)
-		}
-		if thesis, ok := thesisMap[thesisID]; ok {
-			thesis.Arguments = append(thesis.Arguments, arg)
-		}
 	}
 
 	return analyses, nil
