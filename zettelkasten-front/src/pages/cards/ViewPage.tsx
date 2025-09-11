@@ -394,17 +394,17 @@ export function ViewPage({ }: ViewPageProps) {
                           <h2 className="font-bold text-lg">{section.section}</h2>
                           {section.theses && section.theses.map((thesis, thesisIndex) => (
                             <div key={thesisIndex} className="ml-4 mt-2">
-                              <h3 className="font-semibold">{thesis.thesis}</h3>
+                              <span className="text-base">{thesis.thesis}</span>
                               {thesis.arguments.length > 0 && (
                                 <div className="ml-4">
-                                  <h4 className="font-medium text-sm">Arguments:</h4>
                                   <ul className="list-disc ml-5">
                                     {thesis.arguments.map((arg, argIndex) => (
-                                      <li key={argIndex}>({arg.importance}) {arg.argument}</li>
+                                      <li key={argIndex}>{arg.argument}</li>
                                     ))}
                                   </ul>
                                 </div>
                               )}
+                              <hr />
                             </div>
                           ))}
                         </div>
