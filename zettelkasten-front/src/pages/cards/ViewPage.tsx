@@ -35,7 +35,7 @@ import ReactMarkdown from "react-markdown";
 
 import { CardList } from "../../components/cards/CardList";
 import { CardBody } from "../../components/cards/CardBody";
-import { fetchSummariesForCard, fetchSummarizations, SummarizeJobResponse } from "../../api/summarizer";
+import { fetchSummariesForCard, fetchAnalysisForCard, SectionAnalysis, SummarizeJobResponse } from "../../api/summarizer";
 import { FactWithCard } from "../../models/Fact";
 
 interface ViewPageProps { }
@@ -66,6 +66,8 @@ export function ViewPage({ }: ViewPageProps) {
   const [summaries, setSummaries] = useState<SummarizeJobResponse[] | null>(null);
   const [latestSummary, setLatestSummary] = useState<SummarizeJobResponse | null>(null);
   const [showingSummary, setShowingSummary] = useState(false);
+  const [analysis, setAnalysis] = useState<SectionAnalysis[] | null>(null);
+  const [showingAnalysis, setShowingAnalysis] = useState(false);
 
 
   const [linkedEntities, setLinkedEntities] = useState<Entity[]>([]);
@@ -156,6 +158,15 @@ export function ViewPage({ }: ViewPageProps) {
     }
   }
 
+  async function loadAnalysis(id: number) {
+    try {
+      const analysisData = await fetchAnalysisForCard(id);
+      setAnalysis(analysisData);
+    } catch (err: any) {
+      console.error("Failed to fetch analysis", err);
+    }
+  }
+
   async function fetchCard(id: string) {
     try {
       let refreshed = await getCard(id);
@@ -237,6 +248,7 @@ export function ViewPage({ }: ViewPageProps) {
     fetchCard(id!);
     if (id) {
       loadSummaries(parseInt(id));
+      loadAnalysis(parseInt(id));
     }
   }, [id, refreshTasks, refreshFiles, refreshTrigger]);
 
@@ -323,11 +335,30 @@ export function ViewPage({ }: ViewPageProps) {
                       <Menu.Item>
                         {({ active }) => (
                           <button
-                            onClick={() => setShowingSummary(!showingSummary)}
+                            onClick={() => {
+                              setShowingSummary(!showingSummary);
+                              if (showingAnalysis) setShowingAnalysis(false);
+                            }}
                             className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                               } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
                           >
                             {showingSummary ? "Show Card" : "Show Summary"}
+                          </button>
+                        )}
+                      </Menu.Item>
+                    )}
+                    {analysis && analysis.length > 0 && (
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={() => {
+                              setShowingAnalysis(!showingAnalysis)
+                              if (showingSummary) setShowingSummary(false);
+                            }}
+                            className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                              } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                          >
+                            {showingAnalysis ? "Show Card" : "Show Analysis"}
                           </button>
                         )}
                       </Menu.Item>
@@ -343,7 +374,7 @@ export function ViewPage({ }: ViewPageProps) {
               {/* Card Body */}
               <div className="md:w-2/3 space-y-4 px-4">
                 <div
-                  className={`rounded-lg py-4 prose shadow-sm max-w-none ${showingSummary ? "bg-yellow-50 border border-yellow-200" : "bg-white"
+                  className={`rounded-lg py-4 prose shadow-sm max-w-none ${showingSummary ? "bg-yellow-50 border border-yellow-200" : showingAnalysis ? "bg-blue-50 border border-blue-200" : "bg-white"
                     }`}
                 >
                   {showingSummary && latestSummary?.result ? (
@@ -352,6 +383,32 @@ export function ViewPage({ }: ViewPageProps) {
                         Summary View
                       </div>
                       <ReactMarkdown>{latestSummary.result}</ReactMarkdown>
+                    </div>
+                  ) : showingAnalysis && analysis ? (
+                    <div>
+                      <div className="bg-blue-100 text-blue-800 font-semibold px-3 py-2 rounded-md mb-4">
+                        Analysis View
+                      </div>
+                      {analysis.map((section, index) => (
+                        <div key={index} className="mb-4">
+                          <h2 className="font-bold text-lg">{section.section}</h2>
+                          {section.theses && section.theses.map((thesis, thesisIndex) => (
+                            <div key={thesisIndex} className="ml-4 mt-2">
+                              <h3 className="font-semibold">{thesis.thesis}</h3>
+                              {thesis.arguments.length > 0 && (
+                                <div className="ml-4">
+                                  <h4 className="font-medium text-sm">Arguments:</h4>
+                                  <ul className="list-disc ml-5">
+                                    {thesis.arguments.map((arg, argIndex) => (
+                                      <li key={argIndex}>({arg.importance}) {arg.argument}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <CardBody

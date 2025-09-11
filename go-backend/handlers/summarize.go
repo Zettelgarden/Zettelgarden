@@ -228,6 +228,114 @@ func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []l
 	return tx.Commit()
 }
 
+// GetCardAnalysisRoute retrieves the analysis for the most recent summarization of a card.
+func (h *Handler) GetCardAnalysisRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	cardPKStr := mux.Vars(r)["card_pk"]
+	cardPK, err := strconv.Atoi(cardPKStr)
+	if err != nil {
+		http.Error(w, "Invalid card_pk", http.StatusBadRequest)
+		return
+	}
+
+	analysis, err := h.LoadAnalysis(userID, cardPK)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to load analysis: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(analysis)
+}
+
+// LoadAnalysis reconstructs the analysis data structure from the database for a given card.
+// It fetches the most recent summarization for the card.
+func (h *Handler) LoadAnalysis(userID int, cardPK int) ([]llms.SectionAnalysis, error) {
+	// Find the most recent summarization ID for the card
+	var summarizationID int
+	err := h.DB.QueryRow(`
+		SELECT id FROM summarizations
+		WHERE user_id = $1 AND card_pk = $2
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, userID, cardPK).Scan(&summarizationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find summarization for card: %w", err)
+	}
+
+	// Fetch sections
+	sectionRows, err := h.DB.Query(`
+		SELECT id, section_title FROM summary_sections
+		WHERE user_id = $1 AND summarization_id = $2
+		ORDER BY id
+	`, userID, summarizationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query sections: %w", err)
+	}
+	defer sectionRows.Close()
+
+	var analyses []llms.SectionAnalysis
+	sectionMap := make(map[int]*llms.SectionAnalysis)
+
+	for sectionRows.Next() {
+		var sectionID int
+		var section llms.SectionAnalysis
+		if err := sectionRows.Scan(&sectionID, &section.Section); err != nil {
+			return nil, fmt.Errorf("failed to scan section: %w", err)
+		}
+		analyses = append(analyses, section)
+		sectionMap[sectionID] = &analyses[len(analyses)-1]
+	}
+
+	// Fetch theses
+	thesisRows, err := h.DB.Query(`
+		SELECT id, section_id, thesis FROM summary_theses
+		WHERE user_id = $1 AND summarization_id = $2
+		ORDER BY id
+	`, userID, summarizationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query theses: %w", err)
+	}
+	defer thesisRows.Close()
+
+	thesisMap := make(map[int]*llms.ThesisEntry)
+	for thesisRows.Next() {
+		var thesisID, sectionID int
+		var thesis llms.ThesisEntry
+		if err := thesisRows.Scan(&thesisID, &sectionID, &thesis.Thesis); err != nil {
+			return nil, fmt.Errorf("failed to scan thesis: %w", err)
+		}
+		if section, ok := sectionMap[sectionID]; ok {
+			section.Theses = append(section.Theses, thesis)
+			thesisMap[thesisID] = &section.Theses[len(section.Theses)-1]
+		}
+	}
+
+	// Fetch arguments
+	argRows, err := h.DB.Query(`
+		SELECT thesis_id, argument, importance FROM summary_arguments
+		WHERE user_id = $1 AND summarization_id = $2
+		ORDER BY id
+	`, userID, summarizationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query arguments: %w", err)
+	}
+	defer argRows.Close()
+
+	for argRows.Next() {
+		var thesisID int
+		var arg llms.Argument
+		if err := argRows.Scan(&thesisID, &arg.Argument, &arg.Importance); err != nil {
+			return nil, fmt.Errorf("failed to scan argument: %w", err)
+		}
+		if thesis, ok := thesisMap[thesisID]; ok {
+			thesis.Arguments = append(thesis.Arguments, arg)
+		}
+	}
+
+	return analyses, nil
+}
+
 // runSummarizationJob inserts a summarization job and runs it asynchronously.
 func (h *Handler) runSummarizationJob(userID int, analyses []llms.SectionAnalysis, usage llms.Usage, cardPK *int) (int, error) {
 	var id int

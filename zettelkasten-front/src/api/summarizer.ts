@@ -8,6 +8,37 @@ export interface SummarizeJobResponse {
     result?: string;
 }
 
+export interface Argument {
+    argument: string;
+    importance: number;
+}
+
+export interface ThesisEntry {
+    thesis: string;
+    facts: string[];
+    arguments: Argument[];
+}
+
+export interface SectionAnalysis {
+    section: string;
+    theses: ThesisEntry[];
+}
+
+export function fetchAnalysisForCard(cardId: number): Promise<SectionAnalysis[]> {
+    let token = localStorage.getItem("token");
+    return fetch(`${base_url}/cards/${cardId}/analysis`, {
+        headers: { Authorization: `Bearer ${token}` },
+    })
+        .then(checkStatus)
+        .then((response) => {
+            if (response) {
+                return response.json() as Promise<SectionAnalysis[]>;
+            } else {
+                return Promise.reject(new Error("Response is undefined"));
+            }
+        });
+}
+
 export function fetchSummariesForCard(cardId: number): Promise<SummarizeJobResponse[]> {
     let token = localStorage.getItem("token");
     return fetch(`${base_url}/cards/${cardId}/summaries`, {
