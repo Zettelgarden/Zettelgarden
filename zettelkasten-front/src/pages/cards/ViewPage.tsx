@@ -284,7 +284,7 @@ export function ViewPage({ }: ViewPageProps) {
           {/* Header Section */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white rounded-lg p-3 shadow-sm">
             <div className="flex-grow">
-              <div className="flex items-center flex-wrap gap-2">
+              <div className="flex items-center flex-wrap md:flex-nowrap gap-2">
                 <span className="font-bold text-gray-600">
                   Viewing:
                 </span>
@@ -292,12 +292,12 @@ export function ViewPage({ }: ViewPageProps) {
                 <span className="text-blue-600">
                   [{viewingCard.card_id}]
                 </span>
-                <span className="text-gray-600">{"- "}
+                <span className="text-gray-600 md:truncate">{"- "}
                   {viewingCard.title}
                 </span>
               </div>
             </div>
-            <div className="mt-2 md:mt-0 w-full flex justify-end gap-2">
+            <div className="mt-2 md:mt-0 w-full flex justify-end gap-2 flex-shrink">
               <Button onClick={handleEditCard}>Edit</Button>
               <Menu as="div" className="relative inline-block text-right">
                 <div>
