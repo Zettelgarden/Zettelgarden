@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Dialog } from "@headlessui/react";
+import { Dialog, Menu } from "@headlessui/react";
 import { Link } from "react-router-dom"; // Import Link
 import { Entity } from "../../models/Card";
 import { PartialCard, SearchResult, defaultPartialCard } from "../../models/Card";
@@ -30,6 +30,7 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
     const [entityToMerge, setEntityToMerge] = useState<Entity | null>(null);
     const [isMerging, setIsMerging] = useState(false);
     const [mergeError, setMergeError] = useState<string | null>(null);
+    const [mergeDirection, setMergeDirection] = useState<'into-current' | 'from-current'>('into-current');
 
 
     const {
@@ -54,20 +55,33 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
         setShowEntityDialog(true)
     }
 
-    function handleInitiateMerge(entity: Entity) {
+    function handleInitiateMerge(entity: Entity, direction: 'into-current' | 'from-current') {
+        setMergeDirection(direction);
         setEntityToMerge(entity);
         setShowConfirmDialog(true);
     }
 
     async function handleConfirmMerge() {
         if (!selectedEntity || !entityToMerge) return;
+
         setIsMerging(true);
         setMergeError(null);
+
+        const primaryEntityId = mergeDirection === 'into-current' ? selectedEntity.id : entityToMerge.id;
+        const secondaryEntityId = mergeDirection === 'into-current' ? entityToMerge.id : selectedEntity.id;
+
         try {
-            await mergeEntities(selectedEntity.id, entityToMerge.id);
-            // Refresh data
-            const updatedSimilar = await getSimilarEntities(selectedEntity.id);
-            setSimilarEntities(updatedSimilar);
+            await mergeEntities(primaryEntityId, secondaryEntityId);
+
+            if (mergeDirection === 'from-current') {
+                // The current entity was merged, so we need to update the dialog to show the new primary entity
+                setSelectedEntity(entityToMerge);
+            } else {
+                // The other entity was merged into the current one, so we just refresh the similar entities
+                const updatedSimilar = await getSimilarEntities(selectedEntity.id);
+                setSimilarEntities(updatedSimilar);
+            }
+
             setShowConfirmDialog(false);
             setEntityToMerge(null);
         } catch (err) {
@@ -157,127 +171,156 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
 
     return (
         <>
-        <Dialog open={showEntityDialog} onClose={onClose} className="relative z-50">
-            <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+            <Dialog open={showEntityDialog} onClose={onClose} className="relative z-50">
+                <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
-            <div className="fixed inset-0 flex items-center justify-center p-4">
-                <Dialog.Panel className="w-full max-w-3xl transform overflow-y-auto max-h-[90vh] rounded-2xl bg-white p-6 shadow-xl transition-all">
-                    <Dialog.Title className="text-lg font-medium leading-6 text-gray-900 mb-2">
-                        {selectedEntity ? `Entity: ${selectedEntity.name}` : "Entity Details"}
-                    </Dialog.Title>
+                <div className="fixed inset-0 flex items-center justify-center p-4">
+                    <Dialog.Panel className="w-full max-w-3xl transform overflow-y-auto max-h-[90vh] rounded-2xl bg-white p-6 shadow-xl transition-all">
+                        <Dialog.Title className="text-lg font-medium leading-6 text-gray-900 mb-2">
+                            {selectedEntity ? `Entity: ${selectedEntity.name}` : "Entity Details"}
+                        </Dialog.Title>
 
-                    {selectedEntity && (
-                        <div className="mb-4 space-y-2 text-sm">
-                            {selectedEntity.description && (
-                                <p className="text-gray-700">{selectedEntity.description}</p>
-                            )}
-                            <div className="text-xs text-gray-500">
-                                <p>Created: {new Date(selectedEntity.created_at).toLocaleDateString()}</p>
-                                <p>Updated: {new Date(selectedEntity.updated_at).toLocaleDateString()}</p>
-                            </div>
-
-                            <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">Facts:</h4>
-                            <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
-                                {factsLoading && <p>Loading facts...</p>}
-                                {factsError && <p className="text-red-600">{factsError}</p>}
-                                {!factsLoading && !factsError && facts.length === 0 && (
-                                    <p>No facts linked to this entity.</p>
+                        {selectedEntity && (
+                            <div className="mb-4 space-y-2 text-sm">
+                                {selectedEntity.description && (
+                                    <p className="text-gray-700">{selectedEntity.description}</p>
                                 )}
-                                {!factsLoading && !factsError && facts.length > 0 && (
-                                    <ul className="space-y-2">
-                                        {facts.map((f) => (
-                                            <li
-                                                key={f.id}
-                                                onClick={() => handleFactClick(f)}
-                                                className="cursor-pointer hover:bg-gray-100 p-1 rounded"
-                                            >
-                                                <p className="text-sm text-gray-700">• {f.fact}</p>
-                                                {f.card && (
-                                                    <span className="text-xs text-blue-600">
-                                                        <CardTag card={f.card} showTitle={true} />
-                                                    </span>
-                                                )}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
-                            {selectedEntity.card && selectedEntity.card.id > 0 && (
-                                <div className="mt-1">
-                                    <span className="text-xs text-gray-600">Linked Card: </span>
-                                    <Link
-                                        to={`/app/card/${selectedEntity.card.id}`}
-                                        className="text-blue-600 hover:text-blue-800 hover:underline"
-                                    >
-                                        <CardTag card={selectedEntity.card} showTitle={true} />
-                                    </Link>
+                                <div className="text-xs text-gray-500">
+                                    <p>Created: {new Date(selectedEntity.created_at).toLocaleDateString()}</p>
+                                    <p>Updated: {new Date(selectedEntity.updated_at).toLocaleDateString()}</p>
                                 </div>
+
+                                <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">Facts:</h4>
+                                <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
+                                    {factsLoading && <p>Loading facts...</p>}
+                                    {factsError && <p className="text-red-600">{factsError}</p>}
+                                    {!factsLoading && !factsError && facts.length === 0 && (
+                                        <p>No facts linked to this entity.</p>
+                                    )}
+                                    {!factsLoading && !factsError && facts.length > 0 && (
+                                        <ul className="space-y-2">
+                                            {facts.map((f) => (
+                                                <li
+                                                    key={f.id}
+                                                    onClick={() => handleFactClick(f)}
+                                                    className="cursor-pointer hover:bg-gray-100 p-1 rounded"
+                                                >
+                                                    <p className="text-sm text-gray-700">• {f.fact}</p>
+                                                    {f.card && (
+                                                        <span className="text-xs text-blue-600">
+                                                            <CardTag card={f.card} showTitle={true} />
+                                                        </span>
+                                                    )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                                {selectedEntity.card && selectedEntity.card.id > 0 && (
+                                    <div className="mt-1">
+                                        <span className="text-xs text-gray-600">Linked Card: </span>
+                                        <Link
+                                            to={`/app/card/${selectedEntity.card.id}`}
+                                            className="text-blue-600 hover:text-blue-800 hover:underline"
+                                        >
+                                            <CardTag card={selectedEntity.card} showTitle={true} />
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <h4 className="text-md font-medium text-gray-800 mb-2 border-t pt-3">Associated Cards:</h4>
+                        <div className="min-h-[150px] max-h-[50vh] overflow-y-auto pr-2">
+                            {isLoading && <p>Loading cards...</p>}
+                            {error && <p className="text-red-600">{error}</p>}
+                            {!isLoading && !error && associatedCards.length === 0 && (
+                                <p>No cards found for this entity.</p>
+                            )}
+                            {!isLoading && !error && associatedCards.length > 0 && (
+                                <CardList cards={associatedCards} showAddButton={false} />
                             )}
                         </div>
-                    )}
 
-                    <h4 className="text-md font-medium text-gray-800 mb-2 border-t pt-3">Associated Cards:</h4>
-                    <div className="min-h-[150px] max-h-[50vh] overflow-y-auto pr-2">
-                        {isLoading && <p>Loading cards...</p>}
-                        {error && <p className="text-red-600">{error}</p>}
-                        {!isLoading && !error && associatedCards.length === 0 && (
-                            <p>No cards found for this entity.</p>
-                        )}
-                        {!isLoading && !error && associatedCards.length > 0 && (
-                            <CardList cards={associatedCards} showAddButton={false} />
-                        )}
-                    </div>
-
-                    <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">Similar Entities:</h4>
-                    <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
-                        {loadingSimilar && <p>Loading similar entities...</p>}
-                        {similarError && <p className="text-red-600">{similarError}</p>}
-                        {!loadingSimilar && similarEntities.length === 0 && <p>No similar entities.</p>}
-                        {!loadingSimilar && similarEntities.length > 0 && (
-                            <ul className="space-y-1 text-sm">
-                                {similarEntities.map((e) => (
-                                    <li
-                                        key={e.id}
-                                        className="flex items-center justify-between hover:bg-gray-100 p-1 rounded"
-                                    >
-                                        <span
-                                            onClick={() => handleEntityClick(e)}
-                                            className="text-gray-700 cursor-pointer flex-grow"
+                        <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">Similar Entities:</h4>
+                        <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
+                            {loadingSimilar && <p>Loading similar entities...</p>}
+                            {similarError && <p className="text-red-600">{similarError}</p>}
+                            {!loadingSimilar && similarEntities.length === 0 && <p>No similar entities.</p>}
+                            {!loadingSimilar && similarEntities.length > 0 && (
+                                <ul className="space-y-1 text-sm">
+                                    {similarEntities.map((e) => (
+                                        <li
+                                            key={e.id}
+                                            className="flex items-center justify-between hover:bg-gray-100 p-1 rounded"
                                         >
-                                            • {e.name}
-                                        </span>
-                                        <div className="flex items-center ml-2">
-                                            <Button
-                                                className="text-xs bg-green-500 text-white px-2 py-1 rounded"
-                                                onClick={() => handleInitiateMerge(e)}
+                                            <span
+                                                onClick={() => handleEntityClick(e)}
+                                                className="text-gray-700 cursor-pointer flex-grow"
                                             >
-                                                Merge
-                                            </Button>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
+                                                • {e.name}
+                                            </span>
+                                            <div className="flex items-center ml-2">
+                                                <Menu as="div" className="relative inline-block text-left">
+                                                    <div>
+                                                        <Menu.Button className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5" viewBox="0 0 20 20" fill="currentColor">
+                                                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                                            </svg>
+                                                        </Menu.Button>
+                                                    </div>
+                                                    <Menu.Items className="absolute right-0 w-56 mt-2 origin-top-right bg-white divide-y divide-gray-100 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                                                        <div className="px-1 py-1 ">
+                                                            <Menu.Item>
+                                                                {({ active }) => (
+                                                                    <button
+                                                                        onClick={() => handleInitiateMerge(e, 'into-current')}
+                                                                        className={`${active ? 'bg-blue-500 text-white' : 'text-gray-900'
+                                                                            } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                                                                    >
+                                                                        Merge '{e.name}' into '{selectedEntity?.name}'
+                                                                    </button>
+                                                                )}
+                                                            </Menu.Item>
+                                                            <Menu.Item>
+                                                                {({ active }) => (
+                                                                    <button
+                                                                        onClick={() => handleInitiateMerge(e, 'from-current')}
+                                                                        className={`${active ? 'bg-blue-500 text-white' : 'text-gray-900'
+                                                                            } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                                                                    >
+                                                                        Merge '{selectedEntity?.name}' into '{e.name}'
+                                                                    </button>
+                                                                )}
+                                                            </Menu.Item>
+                                                        </div>
+                                                    </Menu.Items>
+                                                </Menu>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
 
 
-                    <div className="mt-6 flex justify-end gap-3">
-                        {selectedEntity && onEdit && (
-                            <Button
-                                onClick={handleEditClick}
-                                className="bg-blue-500 text-white hover:bg-blue-600"
-                            >
-                                Edit
+                        <div className="mt-6 flex justify-end gap-3">
+                            {selectedEntity && onEdit && (
+                                <Button
+                                    onClick={handleEditClick}
+                                    className="bg-blue-500 text-white hover:bg-blue-600"
+                                >
+                                    Edit
+                                </Button>
+                            )}
+                            <Button onClick={onClose}>
+                                Close
                             </Button>
-                        )}
-                        <Button onClick={onClose}>
-                            Close
-                        </Button>
-                    </div>
-                </Dialog.Panel>
-            </div>
-        </Dialog>
-        {showConfirmDialog && entityToMerge && (
+                        </div>
+                    </Dialog.Panel>
+                </div>
+            </Dialog>
+            {showConfirmDialog && entityToMerge && (
                 <Dialog
                     open={showConfirmDialog}
                     onClose={() => setShowConfirmDialog(false)}
@@ -291,10 +334,10 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
                         <div className="mb-4">
                             <p className="font-medium text-green-600 mb-2">
                                 Primary Entity (will be kept):<br />
-                                {selectedEntity?.name}
+                                {mergeDirection === 'into-current' ? selectedEntity?.name : entityToMerge.name}
                             </p>
                             <p className="text-gray-600 mb-2">This entity will be merged into the primary:</p>
-                            <p className="text-gray-800">• {entityToMerge.name}</p>
+                            <p className="text-gray-800">• {mergeDirection === 'into-current' ? entityToMerge.name : selectedEntity?.name}</p>
                         </div>
                         <p className="text-red-600 text-sm mb-4">
                             This action cannot be undone. The merged entity will be deleted.

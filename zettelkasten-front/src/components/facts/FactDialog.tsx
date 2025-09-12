@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Dialog } from "@headlessui/react";
+import { Dialog, Menu } from "@headlessui/react";
 import { Link } from "react-router-dom";
 import { FactWithCard } from "../../models/Fact";
 import { CardTag } from "../cards/CardTag";
@@ -94,6 +94,7 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
     const [factToMerge, setFactToMerge] = useState<FactWithCard | null>(null);
     const [isMerging, setIsMerging] = useState(false);
     const [mergeError, setMergeError] = useState<string | null>(null);
+    const [mergeDirection, setMergeDirection] = useState<'into-current' | 'from-current'>('into-current');
 
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -121,7 +122,8 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
     }
 
 
-    function handleInitiateMerge(fact: FactWithCard) {
+    function handleInitiateMerge(fact: FactWithCard, direction: 'into-current' | 'from-current') {
+        setMergeDirection(direction);
         setFactToMerge(fact);
         setShowConfirmDialog(true);
     }
@@ -130,14 +132,23 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
         if (!selectedFact || !factToMerge) return;
         setIsMerging(true);
         setMergeError(null);
+
+        const primaryFactId = mergeDirection === 'into-current' ? selectedFact.id : factToMerge.id;
+        const secondaryFactId = mergeDirection === 'into-current' ? factToMerge.id : selectedFact.id;
+
         try {
-            await mergeFacts(selectedFact.id, factToMerge.id);
-            const updatedEntities = await getFactEntities(selectedFact.id);
-            const updatedCards = await getFactCards(selectedFact.id);
-            const updatedSimilar = await getSimilarFacts(selectedFact.id);
-            setEntities(updatedEntities);
-            setCards(updatedCards);
-            setSimilarFacts(updatedSimilar);
+            await mergeFacts(primaryFactId, secondaryFactId);
+
+            if (mergeDirection === 'from-current') {
+                setSelectedFact(factToMerge);
+            } else {
+                const updatedEntities = await getFactEntities(selectedFact.id);
+                const updatedCards = await getFactCards(selectedFact.id);
+                const updatedSimilar = await getSimilarFacts(selectedFact.id);
+                setEntities(updatedEntities);
+                setCards(updatedCards);
+                setSimilarFacts(updatedSimilar);
+            }
             setShowConfirmDialog(false);
             setFactToMerge(null);
         } catch (err) {
@@ -277,12 +288,41 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                                                 <span className="text-xs text-blue-600 mr-2">
                                                     [{f.card.card_id}]
                                                 </span>
-                                                <Button
-                                                    className="text-xs bg-green-500 text-white px-2 py-1 rounded"
-                                                    onClick={() => handleInitiateMerge(f)}
-                                                >
-                                                    Merge
-                                                </Button>
+                                                <Menu as="div" className="relative inline-block text-left">
+                                                    <div>
+                                                        <Menu.Button className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5" viewBox="0 0 20 20" fill="currentColor">
+                                                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                                            </svg>
+                                                        </Menu.Button>
+                                                    </div>
+                                                    <Menu.Items className="absolute right-0 w-64 mt-2 origin-top-right bg-white divide-y divide-gray-100 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                                                        <div className="px-1 py-1 ">
+                                                            <Menu.Item>
+                                                                {({ active }) => (
+                                                                    <button
+                                                                        onClick={() => handleInitiateMerge(f, 'into-current')}
+                                                                        className={`${active ? 'bg-blue-500 text-white' : 'text-gray-900'
+                                                                            } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                                                                    >
+                                                                        Merge '{f.fact.slice(0, 20)}...' into current
+                                                                    </button>
+                                                                )}
+                                                            </Menu.Item>
+                                                            <Menu.Item>
+                                                                {({ active }) => (
+                                                                    <button
+                                                                        onClick={() => handleInitiateMerge(f, 'from-current')}
+                                                                        className={`${active ? 'bg-blue-500 text-white' : 'text-gray-900'
+                                                                            } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                                                                    >
+                                                                        Merge current into '{f.fact.slice(0, 20)}...'
+                                                                    </button>
+                                                                )}
+                                                            </Menu.Item>
+                                                        </div>
+                                                    </Menu.Items>
+                                                </Menu>
                                             </div>
                                         </li>
                                     ))}
@@ -360,10 +400,10 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                         <div className="mb-4">
                             <p className="font-medium text-green-600 mb-2">
                                 Primary Fact (will be kept):<br />
-                                {selectedFact?.fact}
+                                {mergeDirection === 'into-current' ? selectedFact?.fact : factToMerge.fact}
                             </p>
                             <p className="text-gray-600 mb-2">This fact will be merged into the primary:</p>
-                            <p className="text-gray-800">• {factToMerge.fact}</p>
+                            <p className="text-gray-800">• {mergeDirection === 'into-current' ? factToMerge.fact : selectedFact?.fact}</p>
                         </div>
                         <p className="text-red-600 text-sm mb-4">
                             This action cannot be undone. The merged fact will be deleted.
