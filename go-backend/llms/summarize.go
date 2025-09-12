@@ -83,11 +83,12 @@ Instructions:
 - Importance must be an integer on a scale of 1–10 (10 = crucial to the central thesis, 1 = marginal).
 - Facts should be discrete, verifiable statements (events, statistics, claims of evidence). 
 - Do not use pronouns (he, she, this, that, etc) unless it directly refers to an object in the fact. Facts will likely be viewed out of context and will not make sense otherwise.
-- Avoid duplicating previously extracted theses or arguments unless new context meaningfully alters them.
 - When you detect a new section, give it a descriptive name based on the text.
 - Start with section 1. If a section has no theses, arguments or facts, still include the section in the output, just empty
+- If you have received existing analyses, make sure to update them and return the entire result
 
 Format Example:
+[
 {
   "section": "Section [number]: [title]",
   "theses": [
@@ -100,7 +101,22 @@ Format Example:
       ]
     }
   ]
-}`,
+},
+{
+  "section": "Section [number]: [title]",
+  "theses": [
+    {
+      "thesis": "...",
+      "facts": ["...", "..."],
+      "arguments": [
+        {"argument": "...", "importance": 8},
+        {"argument": "...", "importance": 5}
+      ]
+    }
+  ]
+}
+
+]`,
 			},
 			{
 				Role:    openai.ChatMessageRoleUser,
@@ -118,11 +134,13 @@ Format Example:
 		}
 
 		content := cleanContent(resp.Choices[0].Message.Content)
-		var analysis SectionAnalysis
+		var analysis []SectionAnalysis
 		if err := json.Unmarshal([]byte(content), &analysis); err != nil {
+			log.Printf("err on analysis: %v", err)
+			log.Printf("content: %v", content)
 			continue
 		}
-		allAnalyses = append(allAnalyses, analysis)
+		allAnalyses = analysis
 		totalPromptTokens += resp.Usage.PromptTokens
 		totalCompletionTokens += resp.Usage.CompletionTokens
 	}
