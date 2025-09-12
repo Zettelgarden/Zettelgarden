@@ -287,7 +287,7 @@ export function ViewCardTabbedDisplay({
 
   return (
     <div>
-      <div className="flex">
+      <div className="flex flex-wrap">
         {tabs.map((tab) => (
           <span
             key={tab.label}

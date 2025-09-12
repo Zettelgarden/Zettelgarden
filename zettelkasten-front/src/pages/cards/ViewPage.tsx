@@ -273,7 +273,7 @@ export function ViewPage({ }: ViewPageProps) {
   }, [summaries]);
 
   return (
-    <div className="">
+    <div className="overflow-x-hidden">
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
           <div className="text-red-700">{error}</div>
@@ -297,9 +297,9 @@ export function ViewPage({ }: ViewPageProps) {
                 </span>
               </div>
             </div>
-            <div className="mt-2 md:mt-0 md:ml-4 flex gap-2">
+            <div className="mt-2 md:mt-0 w-full flex justify-end gap-2">
               <Button onClick={handleEditCard}>Edit</Button>
-              <Menu as="div" className="relative inline-block text-left">
+              <Menu as="div" className="relative inline-block text-right">
                 <div>
                   <Menu.Button className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-2 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-indigo-500">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5" viewBox="0 0 20 20" fill="currentColor">
@@ -372,9 +372,9 @@ export function ViewPage({ }: ViewPageProps) {
           <div className="">
             <div className="flex flex-col md:flex-row gap-4">
               {/* Card Body */}
-              <div className="md:w-2/3 space-y-4 px-4">
+              <div className="md:w-2/3 space-y-4">
                 <div
-                  className={`rounded-lg py-4 prose shadow-sm max-w-none ${showingSummary ? "bg-yellow-50 border border-yellow-200" : showingAnalysis ? "bg-blue-50 border border-blue-200" : "bg-white"
+                  className={`rounded-lg py-4 prose shadow-sm max-w-none px-4 ${showingSummary ? "bg-yellow-50 border border-yellow-200" : showingAnalysis ? "bg-blue-50 border border-blue-200" : "bg-white"
                     }`}
                 >
                   {showingSummary && latestSummary?.result ? (
