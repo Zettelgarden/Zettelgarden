@@ -297,7 +297,7 @@ export function ViewPage({ }: ViewPageProps) {
                 </span>
               </div>
             </div>
-            <div className="mt-2 md:mt-0 w-full flex justify-end gap-2 flex-shrink">
+            <div className="mt-2 md:mt-0 flex justify-end gap-2 flex-shrink">
               <Button onClick={handleEditCard}>Edit</Button>
               <Menu as="div" className="relative inline-block text-right">
                 <div>
