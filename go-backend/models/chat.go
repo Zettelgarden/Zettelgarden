@@ -9,20 +9,23 @@ import (
 
 // Conversation holds metadata for a chat session.
 type Conversation struct {
-	ID        string    `json:"id"`
-	UserID    int       `json:"user_id"`
-	Title     string    `json:"title"`
-	CreatedAt time.Time `json:"created_at"`
+	ID           string    `json:"id"`
+	UserID       int       `json:"user_id"`
+	Title        string    `json:"title"`
+	CreatedAt    time.Time `json:"created_at"`
+	Model        string    `json:"model"`
+	MessageCount int       `json:"message_count"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // ChatMessage represents a single message in a conversation.
 type ChatMessage struct {
-	ID                int       `json:"id"`
-	ConversationID    string    `json:"conversation_id"`
-	Role              string    `json:"role"` // "user" or "assistant"
-	Content           string    `json:"content"`
-	CreatedAt         time.Time `json:"created_at"`
-	ReferencedCardPKs []int     `json:"referenced_card_pks"`
+	ID             int       `json:"id"`
+	ConversationID string    `json:"conversation_id"`
+	Role           string    `json:"role"` // "user" or "assistant"
+	Content        string    `json:"content"`
+	CreatedAt      time.Time `json:"created_at"`
+	CardChunks     []int     `json:"card_chunks" db:"card_chunks"`
 }
 
 // LLMClient will be simplified for the new implementation.
