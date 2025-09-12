@@ -248,57 +248,6 @@ func importTestData(s *server.Server) error {
 		}
 	}
 
-	if err := loadChatData(tx); err != nil {
-		return err
-	}
-	if err := loadChatConversationsData(tx); err != nil {
-		return err
-	}
-
-	for _, provider := range data["llm_providers"].([]models.LLMProvider) {
-		_, err := tx.Exec(`
-			INSERT INTO llm_providers 
-			(name, base_url, api_key_required, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5)`,
-			provider.Name, provider.BaseURL, provider.APIKeyRequired,
-			provider.CreatedAt, provider.UpdatedAt,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to insert llm provider: %w", err)
-		}
-	}
-
-	for _, model := range data["llm_models"].([]models.LLMModel) {
-		_, err := tx.Exec(`
-			INSERT INTO llm_models 
-			(provider_id, name, model_identifier, description, is_active, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-			model.ProviderID, model.Name, model.ModelIdentifier,
-			model.Description, model.IsActive, model.CreatedAt, model.UpdatedAt,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to insert llm model: %w", err)
-		}
-	}
-
-	for _, config := range data["llm_configurations"].([]models.UserLLMConfiguration) {
-		customSettingsJSON, err := json.Marshal(config.CustomSettings)
-		if err != nil {
-			return fmt.Errorf("failed to marshal custom settings: %w", err)
-		}
-
-		_, err = tx.Exec(`
-			INSERT INTO user_llm_configurations 
-			(user_id, model_id, api_key, custom_settings, is_default, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-			config.UserID, config.ModelID, config.APIKey,
-			customSettingsJSON, config.IsDefault, config.CreatedAt, config.UpdatedAt,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to insert user llm configuration: %w", err)
-		}
-	}
-
 	tx.Commit()
 	return nil
 }
@@ -582,20 +531,17 @@ func generateData() map[string]interface{} {
 	}
 
 	results := map[string]interface{}{
-		"users":              users,
-		"cards":              cards,
-		"backlinks":          backlinks,
-		"files":              files,
-		"tasks":              tasks,
-		"keywords":           keywords,
-		"tags":               tags,
-		"card_tags":          card_tags,
-		"embeddings":         embeddings,
-		"entities":           entities,
-		"entity_cards":       entity_cards,
-		"llm_providers":      generateLLMProviders(),
-		"llm_models":         generateLLMModels(),
-		"llm_configurations": generateLLMConfigurations(),
+		"users":        users,
+		"cards":        cards,
+		"backlinks":    backlinks,
+		"files":        files,
+		"tasks":        tasks,
+		"keywords":     keywords,
+		"tags":         tags,
+		"card_tags":    card_tags,
+		"embeddings":   embeddings,
+		"entities":     entities,
+		"entity_cards": entity_cards,
 	}
 	return results
 }
@@ -645,150 +591,6 @@ func GenerateTestJWT(userID int) (string, error) {
 		return "", err
 	}
 	return tokenString, nil
-}
-func loadChatData(tx *sql.Tx) error {
-	// Read the JSON file
-	jsonData, err := os.ReadFile("../tests/chat.json")
-	if err != nil {
-		return fmt.Errorf("failed to read chat JSON file: %w", err)
-	}
-
-	var chatData models.ChatData
-	if err := json.Unmarshal(jsonData, &chatData); err != nil {
-		return fmt.Errorf("failed to unmarshal chat data: %w", err)
-	}
-
-	// Insert each chat completion
-	for _, chat := range chatData.ChatCompletions {
-		_, err := tx.Exec(`
-            INSERT INTO chat_completions 
-            (user_id, conversation_id, sequence_number, role, content, refusal, model, tokens, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-			chat.UserID,
-			chat.ConversationID,
-			chat.SequenceNumber,
-			chat.Role,
-			chat.Content,
-			chat.Refusal,
-			chat.Model,
-			chat.Tokens,
-			chat.CreatedAt,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to insert chat completion: %w", err)
-		}
-	}
-
-	return nil
-}
-func loadChatConversationsData(tx *sql.Tx) error {
-	// Read the JSON file
-	jsonData, err := os.ReadFile("../tests/chat_conversations.json")
-	if err != nil {
-		return fmt.Errorf("failed to read chat conversations JSON file: %w", err)
-	}
-
-	var conversationsData []models.ConversationSummary
-	if err := json.Unmarshal(jsonData, &conversationsData); err != nil {
-		return fmt.Errorf("failed to unmarshal chat conversations data: %w", err)
-	}
-
-	// Insert each chat conversation
-	for _, conversation := range conversationsData {
-		_, err := tx.Exec(`
-            INSERT INTO chat_conversations
-            (id, title, user_id, model, message_count, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6)`,
-			conversation.ID,
-			conversation.Title,
-			conversation.UserID,
-			conversation.Model,
-			conversation.MessageCount,
-			conversation.CreatedAt,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to insert chat conversation: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func generateLLMProviders() []models.LLMProvider {
-	return []models.LLMProvider{
-		{
-			ID:             1,
-			Name:           "OpenAI",
-			BaseURL:        "https://api.openai.com/v1",
-			APIKeyRequired: true,
-			CreatedAt:      time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-			UpdatedAt:      time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-		{
-			ID:             2,
-			Name:           "Anthropic",
-			BaseURL:        "https://api.anthropic.com/v1",
-			APIKeyRequired: true,
-			CreatedAt:      time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-			UpdatedAt:      time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-	}
-}
-
-func generateLLMModels() []models.LLMModel {
-	return []models.LLMModel{
-		{
-			ID:              1,
-			ProviderID:      1,
-			Name:            "GPT-4",
-			ModelIdentifier: "gpt-4",
-			Description:     "Most capable GPT-4 model",
-			IsActive:        true,
-			CreatedAt:       time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-			UpdatedAt:       time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-		{
-			ID:              2,
-			ProviderID:      1,
-			Name:            "GPT-3.5 Turbo",
-			ModelIdentifier: "gpt-3.5-turbo",
-			Description:     "Most capable GPT-3.5 model",
-			IsActive:        true,
-			CreatedAt:       time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-			UpdatedAt:       time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-	}
-}
-
-func generateLLMConfigurations() []models.UserLLMConfiguration {
-	return []models.UserLLMConfiguration{
-		{
-			ID:      1,
-			UserID:  1,
-			ModelID: 1,
-			APIKey:  "sk-test-key-1",
-			CustomSettings: map[string]interface{}{
-				"temperature": 0.7,
-				"max_tokens":  1000,
-			},
-			IsDefault: true,
-			CreatedAt: time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-			UpdatedAt: time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-		{
-			ID:      2,
-			UserID:  2,
-			ModelID: 2,
-			APIKey:  "sk-test-key-2",
-			CustomSettings: map[string]interface{}{
-				"temperature": 0.5,
-				"max_tokens":  2000,
-			},
-			IsDefault: true,
-			CreatedAt: time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-			UpdatedAt: time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-	}
 }
 
 func CreateJsonBody(t *testing.T, v interface{}) *bytes.Reader {

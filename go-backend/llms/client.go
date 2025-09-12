@@ -11,27 +11,11 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
-func NewClientFromModel(db *sql.DB, model models.LLMModel, userID int) *models.LLMClient {
-	config := openai.DefaultConfig(model.Provider.APIKey)
-	config.BaseURL = model.Provider.BaseURL
-
-	client := NewClient(db, config, userID)
-	client.Model = &model
-	return client
-}
-
 func NewDefaultClient(db *sql.DB, userID int) *models.LLMClient {
 	config := openai.DefaultConfig(os.Getenv("ZETTEL_LLM_KEY"))
 	config.BaseURL = os.Getenv("ZETTEL_LLM_ENDPOINT")
 	client := NewClient(db, config, userID)
-	provider := models.LLMProvider{
-		APIKey:  os.Getenv("ZETTEL_LLM_KEY"),
-		BaseURL: os.Getenv("ZETTEL_LLM_ENDPOINT"),
-	}
-	client.Model = &models.LLMModel{
-		ModelIdentifier: os.Getenv("ZETTEL_LLM_DEFAULT_MODEL"),
-		Provider:        &provider,
-	}
+	client.Model = os.Getenv("ZETTEL_LLM_DEFAULT_MODEL")
 	return client
 }
 
@@ -63,7 +47,7 @@ func ExecuteLLMRequest(c *models.LLMClient, messages []openai.ChatCompletionMess
 	resp, err := c.Client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
-			Model:    c.Model.ModelIdentifier,
+			Model:    c.Model,
 			Messages: messages,
 		},
 	)
@@ -89,7 +73,7 @@ func logLLMRequest(c *models.LLMClient, resp openai.ChatCompletionResponse) {
 		}
 
 		var cost *float64
-		if pricing, ok := modelPricing[c.Model.ModelIdentifier]; ok {
+		if pricing, ok := modelPricing[c.Model]; ok {
 			est := float64(resp.Usage.PromptTokens)/1000.0*pricing.PromptPer1K +
 				float64(resp.Usage.CompletionTokens)/1000.0*pricing.CompletionPer1K
 			cost = &est
@@ -98,7 +82,7 @@ func logLLMRequest(c *models.LLMClient, resp openai.ChatCompletionResponse) {
 		_, err := c.DB.Exec(`
 			INSERT INTO llm_query_log (user_id, model, prompt_tokens, completion_tokens, cost_usd)
 			VALUES ($1, $2, $3, $4, $5)
-		`, c.UserID, c.Model.ModelIdentifier, resp.Usage.PromptTokens, resp.Usage.CompletionTokens, cost)
+		`, c.UserID, c.Model, resp.Usage.PromptTokens, resp.Usage.CompletionTokens, cost)
 		if err != nil {
 			log.Printf("Error logging llm request: %v", err)
 		}

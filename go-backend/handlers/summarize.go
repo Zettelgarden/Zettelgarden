@@ -95,7 +95,7 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	client := llms.NewDefaultClient(h.DB, userID)
-	client.Model.ModelIdentifier = "openai/gpt-5-chat"
+	// client.Model.ModelIdentifier = "openai/gpt-5-chat"
 	analyses, usage, err := llms.ExtractThesesAndArguments(client, req.Text)
 	id, err := h.runSummarizationJob(userID, analyses, usage, nil)
 	if err != nil {
@@ -129,7 +129,7 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 	//wordCount := len(strings.Fields(card.Body))
 	go func() {
 		client := llms.NewDefaultClient(h.DB, userID)
-		client.Model.ModelIdentifier = "openai/gpt-5-chat"
+		// client.Model.ModelIdentifier = "openai/gpt-5-chat"
 		analyses, usage, err := llms.ExtractThesesAndArguments(client, card.Body)
 		if err != nil {
 			log.Printf("Fact extraction failed: %v", err)
@@ -365,12 +365,12 @@ func (h *Handler) runSummarizationJob(userID int, analyses []llms.SectionAnalysi
 			return
 		}
 
-		modelName := client.Model.ModelIdentifier
+		// modelName := client.Model.ModelIdentifier
 
 		_, _ = h.DB.Exec(`UPDATE summarizations 
 			SET status='complete', result=$2, prompt_tokens=$3, completion_tokens=$4, total_tokens=$5, cost=$6, model=$7, updated_at=$8 
 			WHERE id=$1`,
-			jobID, result, usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens, usage.TotalCost, modelName, time.Now())
+			jobID, result, usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens, usage.TotalCost, "deprecated", time.Now())
 
 	}(id, analyses, usage, userID)
 

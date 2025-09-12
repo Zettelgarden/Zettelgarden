@@ -7,100 +7,31 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
-type LLMProvider struct {
-	ID             int       `json:"id"`
-	Name           string    `json:"name"`
-	BaseURL        string    `json:"base_url"`
-	APIKeyRequired bool      `json:"api_key_required"`
-	APIKey         string    `json:"api_key,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+// Conversation holds metadata for a chat session.
+type Conversation struct {
+	ID        string    `json:"id"`
+	UserID    int       `json:"user_id"`
+	Title     string    `json:"title"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
-type LLMModel struct {
-	ID              int          `json:"id"`
-	ProviderID      int          `json:"provider_id"`
-	Name            string       `json:"name"`
-	ModelIdentifier string       `json:"model_identifier"`
-	Description     string       `json:"description"`
-	IsActive        bool         `json:"is_active"`
-	IsDefault       bool         `json:"is_default"`
-	CreatedAt       time.Time    `json:"created_at"`
-	UpdatedAt       time.Time    `json:"updated_at"`
-	Provider        *LLMProvider `json:"provider,omitempty"`
+// ChatMessage represents a single message in a conversation.
+type ChatMessage struct {
+	ID                int       `json:"id"`
+	ConversationID    string    `json:"conversation_id"`
+	Role              string    `json:"role"` // "user" or "assistant"
+	Content           string    `json:"content"`
+	CreatedAt         time.Time `json:"created_at"`
+	ReferencedCardPKs []int     `json:"referenced_card_pks"`
 }
 
-type UserLLMConfiguration struct {
-	ID             int                    `json:"id"`
-	UserID         int                    `json:"user_id"`
-	ModelID        int                    `json:"model_id"`
-	APIKey         string                 `json:"api_key,omitempty"`
-	CustomSettings map[string]interface{} `json:"custom_settings"`
-	IsDefault      bool                   `json:"is_default"`
-	CreatedAt      time.Time              `json:"created_at"`
-	UpdatedAt      time.Time              `json:"updated_at"`
-	Model          *LLMModel              `json:"model,omitempty"`
-}
-
-type LLMRequest struct {
-	UserID  int
-	Text    string
-	CardPK  int
-	Chunk   CardChunk
-	Retries int
-}
-
+// LLMClient will be simplified for the new implementation.
 type LLMClient struct {
 	Client  *openai.Client
 	Testing bool
-	Model   *LLMModel
+	Model   string // Just the model identifier string
 	UserID  int
 	DB      *sql.DB
 }
 
-type ChatCompletion struct {
-	ID                int           `json:"id"`
-	UserID            int           `json:"user_id"`
-	ConversationID    string        `json:"conversation_id"`
-	SequenceNumber    int           `json:"sequence_number"`
-	Role              string        `json:"role"`
-	Content           string        `json:"content"`
-	Refusal           *string       `json:"refusal"`
-	Model             string        `json:"model"`
-	Tokens            int           `json:"tokens"`
-	CreatedAt         time.Time     `json:"created_at"`
-	ReferencedCardPKs []int         `json:"referenced_card_pks"`
-	ReferencedCards   []PartialCard `json:"cards"`
-	UserQuery         string        `json:"user_query"`
-	ConfigurationID   int           `json:"configuration_id"`
-}
-
-type ChatData struct {
-	ChatCompletions []ChatCompletion `json:"chat_completions"`
-}
-
-const MODEL = "gpt-3.5-turbo"
-
-type ConversationSummary struct {
-	ID           string    `json:"id"`
-	MessageCount int       `json:"message_count"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-	Model        string    `json:"model"`
-	Title        string    `json:"title"`
-	UserID       int       `json:"user_id"`
-}
-
-type ChatOption = string
-
-const (
-	Chat     ChatOption = "Chat"
-	Cards    ChatOption = "Cards"
-	UserInfo ChatOption = "UserInfo"
-)
-
-type CreateLLMModelRequest struct {
-	ProviderID      int    `json:"provider_id"`
-	Name            string `json:"name"`
-	ModelIdentifier string `json:"model_identifier"`
-}
+const MODEL = "gpt-3.5-turbo" // We can keep this constant for now.
