@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"go-backend/models"
+	"log"
 	"strings"
 	"time"
 
@@ -43,38 +44,26 @@ func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]SectionAnal
 	totalPromptTokens := 0
 	totalCompletionTokens := 0
 	var allAnalyses []SectionAnalysis
-	collectedTheses := []string{}
-	collectedArguments := []Argument{}
-
-	formatArguments := func(args []Argument) string {
-		var out []string
-		for _, a := range args {
-			out = append(out, fmt.Sprintf("(importance %d) %s", a.Importance, a.Argument))
-		}
-		return strings.Join(out, "\n- ")
-	}
 
 	for _, chunk := range chunks {
 		contextIntro := ""
-		if len(collectedTheses) > 0 || len(collectedArguments) > 0 {
-			if len(collectedTheses) > 0 {
-				contextIntro += "Previously extracted theses:\n- " + strings.Join(collectedTheses, "\n- ") + "\n"
+		if len(allAnalyses) > 0 {
+			existingAnalysesJSON, err := json.Marshal(allAnalyses)
+			if err == nil { // Proceed only if marshaling is successful
+				contextIntro = "<existing_analyses>\n" + string(existingAnalysesJSON) + "\n</existing_analyses>\n"
 			}
-			if len(collectedArguments) > 0 {
-				contextIntro += "Previously extracted arguments:\n- " + formatArguments(collectedArguments) + "\n"
-			}
-			contextIntro += "\n"
 		}
+
 		userContent := contextIntro +
-			fmt.Sprintf("Previously, the last analyzed chunk ended in Section %s.\n",
+			fmt.Sprintf("The last analyzed chunk ended in Section %s.\n",
 				func() string {
 					if len(allAnalyses) > 0 && allAnalyses[len(allAnalyses)-1].Section != "" {
 						return allAnalyses[len(allAnalyses)-1].Section
 					}
-					return "1"
+					return "1: Introduction"
 				}()) +
 			"Now analyze the following text. " +
-			"If you believe the author has started a new section, record that section number or title. " +
+			"If you believe the author has started a new section (e.g., with a title), create a new section with a descriptive name (e.g., \"Section 2: [New Section Title]\"). " +
 			"Otherwise, continue assigning output under the previous section. " +
 			"Always include \"section\" explicitly in your JSON output.\n" + chunk
 
@@ -83,9 +72,9 @@ func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]SectionAnal
 				Role: openai.ChatMessageRoleSystem,
 				Content: `You are an assistant that extracts theses, facts, and arguments from text.
 				We are trying to come up with a coherent summary of the article/podcast/book/etc. You will be looking at
-				some or all of the writing and need to extract certain things from it. You will see the previously extracted
-				theses and arguments from earlier chunks of the work. Please use this to inform yourself on where we have been
-				and based on that, where the writer has taken the arguments in this section. 
+				some or all of the writing and need to extract certain things from it. 
+				Inside the <existing_analyses> block, you will find the full JSON of all analyses extracted so far. 
+				Use this to understand the context and avoid duplicating information.
 
 Instructions:
 - Respond ONLY in pure JSON with the following format.
@@ -95,10 +84,12 @@ Instructions:
 - Facts should be discrete, verifiable statements (events, statistics, claims of evidence). 
 - Do not use pronouns (he, she, this, that, etc) unless it directly refers to an object in the fact. Facts will likely be viewed out of context and will not make sense otherwise.
 - Avoid duplicating previously extracted theses or arguments unless new context meaningfully alters them.
+- When you detect a new section, give it a descriptive name based on the text.
+- Start with section 1. If a section has no theses, arguments or facts, still include the section in the output, just empty
 
 Format Example:
 {
-  "section": "Section 2",
+  "section": "Section [number]: [title]",
   "theses": [
     {
       "thesis": "...",
@@ -116,6 +107,7 @@ Format Example:
 				Content: userContent,
 			},
 		}
+		log.Printf("userContent %v", userContent)
 
 		resp, err := ExecuteLLMRequest(c, messages)
 		if err != nil {
@@ -131,12 +123,6 @@ Format Example:
 			continue
 		}
 		allAnalyses = append(allAnalyses, analysis)
-		for _, th := range analysis.Theses {
-			if th.Thesis != "" {
-				collectedTheses = append(collectedTheses, th.Thesis)
-			}
-			collectedArguments = append(collectedArguments, th.Arguments...)
-		}
 		totalPromptTokens += resp.Usage.PromptTokens
 		totalCompletionTokens += resp.Usage.CompletionTokens
 	}

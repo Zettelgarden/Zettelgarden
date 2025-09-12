@@ -263,6 +263,7 @@ func (h *Handler) LoadAnalysis(userID int, cardPK int) ([]llms.SectionAnalysis, 
 		return nil, fmt.Errorf("failed to find summarization for card: %w", err)
 	}
 
+	log.Printf("getting %v", summarizationID)
 	// Fetch sections
 	sectionRows, err := h.DB.Query(`
 		SELECT id, section_title FROM summary_sections
@@ -301,7 +302,6 @@ func (h *Handler) LoadAnalysis(userID int, cardPK int) ([]llms.SectionAnalysis, 
 				return nil, fmt.Errorf("failed to scan thesis: %w", err)
 			}
 
-			log.Printf("thesis %v", thesis)
 			// Fetch arguments for the current thesis
 			argRows, err := h.DB.Query(`
 				SELECT argument, importance FROM summary_arguments
@@ -319,7 +319,6 @@ func (h *Handler) LoadAnalysis(userID int, cardPK int) ([]llms.SectionAnalysis, 
 				if err := argRows.Scan(&arg.Argument, &arg.Importance); err != nil {
 					return nil, fmt.Errorf("failed to scan argument: %w", err)
 				}
-				log.Printf("argument %v", arg)
 				arguments = append(arguments, arg)
 			}
 			thesis.Arguments = arguments
