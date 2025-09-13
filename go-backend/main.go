@@ -165,7 +165,6 @@ func main() {
 	addProtectedRoute(r, "/api/files/{id}", h.DeleteFileRoute, "DELETE")
 	addProtectedRoute(r, "/api/files/download/{id}", h.DownloadFileRoute, "GET")
 
-	addProtectedRoute(r, "/api/cards", h.GetCardsRoute, "GET")
 	addProtectedRoute(r, "/api/cards", h.CreateCardRoute, "POST")
 	addProtectedRoute(r, "/api/cards/next-root-id", h.GetNextRootCardIDRoute, "GET")
 	addProtectedRoute(r, "/api/cards/pinned", h.GetPinnedCardsRoute, "GET")
@@ -253,11 +252,6 @@ func main() {
 	addProtectedRoute(r, "/api/summarize/{id}", h.GetSummarizationRoute, "GET")
 	addProtectedRoute(r, "/api/summarizations", h.ListSummarizationsRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{card_pk:[0-9]+}/summaries", h.GetSummariesByCardRoute, "GET")
-
-	// Chat routes
-	addProtectedRoute(r, "/api/chat/completions", h.CreateChatCompletion, "POST")
-	addProtectedRoute(r, "/api/chat/conversations", h.GetConversations, "GET")
-	addProtectedRoute(r, "/api/chat/conversations/{id}", h.GetConversationMessages, "GET")
 
 	// Pinned searches routes
 	addProtectedRoute(r, "/api/searches/pin", h.PinSearchRoute, "POST")

@@ -494,60 +494,6 @@ func (s *Handler) GetCardRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(card)
 }
 
-func (s *Handler) GetCardsRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
-	searchTerm := r.URL.Query().Get("search_term")
-	partial := r.URL.Query().Get("partial")
-	sortMethod := r.URL.Query().Get("sort_method")
-
-	if sortMethod == "" {
-		sortMethod = "date"
-	}
-
-	searchParams := SearchRequestParams{
-		SearchTerm: searchTerm,
-	}
-	cards, err := s.ClassicCardSearch(userID, searchParams)
-	if err != nil {
-		log.Printf("err %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Sort the results
-	if sortMethod == "id" {
-		sort.Slice(cards, func(x, y int) bool {
-			return cards[x].ID > cards[y].ID
-		})
-	} else if sortMethod == "date" {
-		sort.Slice(cards, func(x, y int) bool {
-			return cards[y].CreatedAt.Before(cards[x].CreatedAt)
-		})
-	}
-
-	// Convert to partial cards if requested
-	if partial == "true" {
-		partialCards := make([]models.PartialCard, len(cards))
-		for i, card := range cards {
-			partialCards[i] = models.PartialCard{
-				ID:        card.ID,
-				CardID:    card.CardID,
-				UserID:    card.UserID,
-				Title:     card.Title,
-				ParentID:  card.ParentID,
-				CreatedAt: card.CreatedAt,
-				UpdatedAt: card.UpdatedAt,
-			}
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(partialCards)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cards)
-}
-
 func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 
 	userID := r.Context().Value("current_user").(int)

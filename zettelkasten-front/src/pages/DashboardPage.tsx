@@ -16,7 +16,7 @@ export function DashboardPage() {
     setDocumentTitle("Index");
 
     // Fetch recent cards
-    semanticSearchCards("", false, false, true, "sortByDate").then((results) => {
+    semanticSearchCards("", false, false, false, "sortByDate").then((results) => {
       const cards: PartialCard[] = results.map((result) => ({
         id: Number(result.metadata?.id) || 0,
         card_id: result.metadata.card_id,

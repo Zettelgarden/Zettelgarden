@@ -97,43 +97,6 @@ export function fetchCards(searchTerm = "", fullText = false): Promise<Card[]> {
   });
 }
 
-export function fetchPartialCards(
-  searchTerm = "",
-  sortMethod = "",
-): Promise<PartialCard[]> {
-  let token = localStorage.getItem("token");
-  let url = base_url + "/cards?partial=true";
-  if (searchTerm) {
-    url += `&search_term=${encodeURIComponent(searchTerm)}`;
-  }
-  if (sortMethod) {
-    url += `&sort_method=${encodeURIComponent(sortMethod)}`;
-  }
-
-  console.log(url);
-  return fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((cards: PartialCard[]) => {
-          if (cards === null) {
-            return [];
-          }
-          let results = cards.map((card) => ({
-            ...card,
-            created_at: new Date(card.created_at),
-            updated_at: new Date(card.updated_at),
-          }));
-          return results;
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
-}
-
 export function getCard(id: string): Promise<Card> {
   let encoded = encodeURIComponent(id);
   const url = base_url + `/cards/${encoded}`;
