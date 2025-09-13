@@ -8,7 +8,6 @@ import { SearchConfig } from "../../models/PinnedSearch";
 import { sortCards } from "../../utils/cards";
 import { Button } from "../../components/Button";
 import { SearchResultList } from "../../components/cards/SearchResultList";
-import { SearchTagMenu } from "../../components/tags/SearchTagMenu";
 import { PinSearchDialog } from "../../components/search/PinSearchDialog";
 import { getPinnedSearches } from "../../api/pinnedSearches";
 import { useTagContext } from "../../contexts/TagContext";
@@ -239,132 +238,207 @@ export function SearchPage({
   return (
     <div>
       <div>
-        <div className="bg-slate-200 p-2 border-slate-400 border">
-          <input
-            style={{ display: "block", width: "100%", marginBottom: "10px" }}
-            type="text"
-            id="title"
-            value={searchTerm}
-            placeholder="Search"
-            onChange={handleSearchUpdate}
-            onKeyPress={(event: KeyboardEvent<HTMLInputElement>) => {
-              if (event.key === "Enter") {
-                handleSearch(searchTerm, searchConfig);
-              }
-            }}
-          />
-
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={() => handleSearch(searchTerm, searchConfig)}
-              children={"Search"}
-            />
-            <select value={searchConfig.sortBy} onChange={handleSortChange}>
-              <option value="sortByRanking">Ranking Score</option>
-              <option value="sortCreatedNewOld">Creation Date (Newest)</option>
-              <option value="sortCreatedOldNew">Creation Date (Oldest)</option>
-              <option value="sortNewOld">Last Updated (Newest)</option>
-              <option value="sortOldNew">Last Updated (Oldest)</option>
-              <option value="sortBigSmall">A to Z</option>
-              <option value="sortSmallBig">Z to A</option>
-            </select>
-            <SearchTagMenu
-              tags={tags}
-              handleTagClick={handleTagClick}
-            />
-            {!pinnedId &&
-              <Button
-                onClick={() => setShowPinSearchDialog(true)}
-                children={"Pin Search"}
+        <div className="bg-slate-100 p-4 border-b border-slate-300">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* Search input section */}
+            <div className="flex-grow flex items-center gap-2">
+              <input
+                type="text"
+                id="title"
+                value={searchTerm}
+                placeholder="Search cards, entities, facts..."
+                onChange={handleSearchUpdate}
+                onKeyPress={(event: KeyboardEvent<HTMLInputElement>) => {
+                  if (event.key === "Enter") {
+                    handleSearch(searchTerm, searchConfig);
+                  }
+                }}
+                className="flex-grow h-9 px-3 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
-            }
+              <Button
+                onClick={() => handleSearch(searchTerm, searchConfig)}
+                className="h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-md px-4 text-sm flex-shrink-0"
+              >
+                Search
+              </Button>
+            </div>
 
-            <Menu as="div" className="relative">
-              <Menu.Button className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                Search Options
-              </Menu.Button>
-              <Menu.Items className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-md shadow-lg py-1 z-10">
-                <div className="py-1">
-                  <div className="px-4 py-2 hover:bg-gray-100">
-                    <label className="flex items-center text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={searchConfig.useFullText}
-                        onChange={handleFullTextChange}
-                        className="mr-2"
-                      />
-                      Search Full Text
-                    </label>
+            {/* Controls section */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Menu as="div" className="relative">
+                <Menu.Button className="h-9 inline-flex items-center justify-center px-3 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  Options
+                </Menu.Button>
+              <Menu.Items className="absolute right-0 mt-2 w-96 bg-white border border-gray-200 rounded-md shadow-lg py-3 z-10">
+                <div className="flex">
+                  {/* Left Column */}
+                  <div className="w-1/2 px-4 border-r border-gray-200">
+                    {/* Pin Search Option */}
+                    {!pinnedId && (
+                      <>
+                        <Menu.Item>
+                          {({ active }) => (
+                            <button
+                              onClick={() => setShowPinSearchDialog(true)}
+                              className={`${
+                                active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                              } group flex rounded-md items-center w-full px-2 py-2 text-sm mb-2`}
+                            >
+                              Pin This Search
+                            </button>
+                          )}
+                        </Menu.Item>
+                        <div className="border-t border-gray-100 my-2"></div>
+                      </>
+                    )}
+
+                    {/* Sorting Section */}
+                    <div className="mb-4">
+                      <div className="text-xs text-gray-500 mb-2 font-semibold">Sort Results</div>
+                      <div className="space-y-1">
+                        {[
+                          { value: 'sortByRanking', label: 'Ranking Score' },
+                          { value: 'sortCreatedNewOld', label: 'Created (Newest)' },
+                          { value: 'sortCreatedOldNew', label: 'Created (Oldest)' },
+                          { value: 'sortNewOld', label: 'Updated (Newest)' },
+                          { value: 'sortOldNew', label: 'Updated (Oldest)' },
+                          { value: 'sortBigSmall', label: 'A to Z' },
+                          { value: 'sortSmallBig', label: 'Z to A' }
+                        ].map((option) => (
+                          <Menu.Item key={option.value}>
+                            {({ active }) => (
+                              <button
+                                onClick={() => setSearchConfig({ ...searchConfig, sortBy: option.value })}
+                                className={`${
+                                  searchConfig.sortBy === option.value
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : active
+                                      ? 'bg-gray-100 text-gray-900'
+                                      : 'text-gray-700'
+                                } group flex rounded-md items-center w-full px-2 py-1.5 text-xs border ${
+                                  searchConfig.sortBy === option.value ? 'border-blue-200' : 'border-transparent'
+                                }`}
+                              >
+                                {option.label}
+                                {searchConfig.sortBy === option.value && (
+                                  <span className="ml-auto text-blue-600">✓</span>
+                                )}
+                              </button>
+                            )}
+                          </Menu.Item>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Tags Section */}
+                    <div>
+                      <div className="text-xs text-gray-500 mb-2 font-semibold">Search by Tag</div>
+                      <div className="max-h-32 overflow-y-auto space-y-1">
+                        {tags && tags.slice(0, 8).map((tag) => (
+                          <Menu.Item key={tag.id}>
+                            {({ active }) => (
+                              <button
+                                onClick={() => handleTagClick(tag.name)}
+                                className={`${
+                                  active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                } group flex rounded-md items-center w-full px-2 py-1 text-xs`}
+                              >
+                                #{tag.name}
+                              </button>
+                            )}
+                          </Menu.Item>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                  <div className="px-4 py-2 hover:bg-gray-100">
-                    <label className="flex items-center text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={searchConfig.onlyParentCards}
-                        onChange={handleOnlyParentCardsChange}
-                        className="mr-2"
-                      />
-                      Only Parent Cards
-                    </label>
-                  </div>
-                  <div className="px-4 py-2 hover:bg-gray-100">
-                    <label className="flex items-center text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={searchConfig.showPreview}
-                        onChange={handleShowPreviewChange}
-                        className="mr-2"
-                      />
-                      Show Preview
-                    </label>
-                  </div>
-                  <div className="px-4 py-2 hover:bg-gray-100">
-                    <label className="flex items-center text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={searchConfig.showEntities}
-                        onChange={handleShowEntitiesChange}
-                        className="mr-2"
-                      />
-                      Show Entities
-                    </label>
-                  </div>
-                  <div className="px-4 py-2 hover:bg-gray-100">
-                    <label className="flex items-center text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={searchConfig.showFacts}
-                        onChange={handleShowFactsChange}
-                        className="mr-2"
-                      />
-                      Show Facts
-                    </label>
-                  </div>
-                  <div className="px-4 py-2 hover:bg-gray-100">
-                    <label className="flex items-center text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={searchConfig.showCards}
-                        onChange={handleShowCardsChange}
-                        className="mr-2"
-                      />
-                      Show Cards
-                    </label>
-                  </div>
-                  <div className="px-4 py-2 hover:bg-gray-100">
-                    <label className="flex items-center text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={searchConfig.searchType === "typesense"}
-                        onChange={handleSearchTypeChange}
-                        className="mr-2"
-                      />
-                      New Search (Experimental)
-                    </label>
+
+                  {/* Right Column */}
+                  <div className="w-1/2 px-4">
+                    <div className="text-xs text-gray-500 mb-2 font-semibold">Search Settings</div>
+                    <div className="space-y-2">
+                      <div className="hover:bg-gray-50 rounded px-2 py-1">
+                        <label className="flex items-center text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={searchConfig.useFullText}
+                            onChange={handleFullTextChange}
+                            className="mr-2"
+                          />
+                          Search Full Text
+                        </label>
+                      </div>
+                      <div className="hover:bg-gray-50 rounded px-2 py-1">
+                        <label className="flex items-center text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={searchConfig.onlyParentCards}
+                            onChange={handleOnlyParentCardsChange}
+                            className="mr-2"
+                          />
+                          Only Parent Cards
+                        </label>
+                      </div>
+                      <div className="hover:bg-gray-50 rounded px-2 py-1">
+                        <label className="flex items-center text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={searchConfig.showPreview}
+                            onChange={handleShowPreviewChange}
+                            className="mr-2"
+                          />
+                          Show Preview
+                        </label>
+                      </div>
+                      <div className="hover:bg-gray-50 rounded px-2 py-1">
+                        <label className="flex items-center text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={searchConfig.showEntities}
+                            onChange={handleShowEntitiesChange}
+                            className="mr-2"
+                          />
+                          Show Entities
+                        </label>
+                      </div>
+                      <div className="hover:bg-gray-50 rounded px-2 py-1">
+                        <label className="flex items-center text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={searchConfig.showFacts}
+                            onChange={handleShowFactsChange}
+                            className="mr-2"
+                          />
+                          Show Facts
+                        </label>
+                      </div>
+                      <div className="hover:bg-gray-50 rounded px-2 py-1">
+                        <label className="flex items-center text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={searchConfig.showCards}
+                            onChange={handleShowCardsChange}
+                            className="mr-2"
+                          />
+                          Show Cards
+                        </label>
+                      </div>
+                      <div className="hover:bg-gray-50 rounded px-2 py-1">
+                        <label className="flex items-center text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={searchConfig.searchType === "typesense"}
+                            onChange={handleSearchTypeChange}
+                            className="mr-2"
+                          />
+                          New Search (Experimental)
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </Menu.Items>
-            </Menu>
+              </Menu>
+            </div>
           </div>
         </div>
         {isLoading ? (
