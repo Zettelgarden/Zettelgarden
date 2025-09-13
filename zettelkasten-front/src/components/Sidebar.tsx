@@ -16,7 +16,6 @@ import { FileIcon } from "../assets/icons/FileIcon";
 import { ChatIcon } from "../assets/icons/ChatIcon";
 import { MenuIcon } from "../assets/icons/MenuIcon";
 import { Button } from "./Button";
-import { ConversationSummary } from "../models/Chat";
 import { useAuth } from "../contexts/AuthContext";
 
 import { GettingStartedPage } from "../pages/GettingStartedPage";
@@ -53,9 +52,6 @@ export function Sidebar() {
   const username = localStorage.getItem("username");
   const [isNewDropdownOpen, setIsNewDropdownOpen] = useState(false);
   const [showPinDialog, setShowPinDialog] = useState(false);
-  const [chatConversations, setChatConversations] = useState<
-    ConversationSummary[]
-  >([]);
   const [pinnedCards, setPinnedCards] = useState<Card[]>([]);
   const [pinnedSearches, setPinnedSearches] = useState<PinnedSearch[]>([]);
   const { setConversationId } = useChatContext();
