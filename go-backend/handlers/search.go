@@ -26,6 +26,10 @@ type SearchParams struct {
 	NegateEntities []string
 }
 
+func (sp *SearchParams) HasAdvancedFilters() bool {
+	return len(sp.Entities) > 0 || len(sp.NegateEntities) > 0 || len(sp.Tags) > 0 || len(sp.NegateTags) > 0
+}
+
 func (s *Handler) InitSearchCollection() {
 	start := time.Now()
 	var cardCount, factCount, entityCount int
@@ -677,10 +681,32 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 	//return reranked, nil
 	return results, nil
 }
+func convertCardsToSearchResults(cards []models.Card) []models.SearchResult {
+	var searchResults []models.SearchResult
+	for _, card := range cards {
+		searchResult := models.SearchResult{
+			ID:        strconv.Itoa(card.ID),
+			Title:     card.Title,
+			Type:      "card",
+			Preview:   card.Body, // Assuming Card has a Body field for preview
+			Score:     0.0,       // Classic search doesn't provide a score
+			CreatedAt: card.CreatedAt,
+			UpdatedAt: card.UpdatedAt,
+			Metadata: map[string]interface{}{
+				"id":        strconv.Itoa(card.ID),
+				"card_id":   card.CardID,
+				"parent_id": card.ParentID,
+			},
+		}
+		searchResults = append(searchResults, searchResult)
+	}
+	return searchResults
+}
+
 func (s *Handler) SearchRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
-	var searchParams SearchRequestParams
-	err := json.NewDecoder(r.Body).Decode(&searchParams)
+	var reqParams SearchRequestParams
+	err := json.NewDecoder(r.Body).Decode(&reqParams)
 	if err != nil {
 		log.Printf("json decode error %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -688,12 +714,24 @@ func (s *Handler) SearchRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var searchResults []models.SearchResult
+	parsedParams := ParseSearchText(reqParams.SearchTerm)
 
-	searchResults, err = s.TypesenseSearch(searchParams, userID)
-
-	if err != nil {
-		log.Printf("search err %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	// If the search contains entities or tags, use ClassicCardSearch, otherwise use Typesense
+	if parsedParams.HasAdvancedFilters() {
+		cards, err := s.ClassicCardSearch(userID, reqParams)
+		if err != nil {
+			log.Printf("ClassicCardSearch error: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		searchResults = convertCardsToSearchResults(cards)
+	} else {
+		searchResults, err = s.TypesenseSearch(reqParams, userID)
+		if err != nil {
+			log.Printf("TypesenseSearch error: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
