@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pgvector/pgvector-go"
 	openai "github.com/sashabaranov/go-openai"
 )
 
@@ -86,18 +85,8 @@ Return only valid JSON matching the specified structure.`
 
 		}
 	}
-	var results []models.Entity
-	for _, entity := range entities {
-		text := fmt.Sprintf("%v - %v - %v", entity.Name, entity.Type, entity.Description)
-		embedding, err := GetEmbedding1024(text, false)
-		if err != nil {
-			continue
-		}
-		entity.Embedding = embedding
-		results = append(results, entity)
-	}
 
-	return results, nil
+	return entities, nil
 
 }
 
@@ -182,19 +171,6 @@ Return JSON in this format:
 
 	// If no matches found or new entity is always preferred
 	return entity, nil
-}
-
-func GenerateEntityEmbedding(c *models.LLMClient, entity models.Entity) (pgvector.Vector, error) {
-	// Combine entity fields into a single text for embedding
-	text := fmt.Sprintf("%s - %s - %s", entity.Name, entity.Type, entity.Description)
-
-	// Generate embedding using existing function
-	embedding, err := GetEmbedding1024(text, false)
-	if err != nil {
-		return pgvector.Vector{}, fmt.Errorf("failed to generate embedding: %w", err)
-	}
-
-	return embedding, nil
 }
 
 // FindEntitiesBatch processes multiple cards (title, body) together and returns entities per card.
@@ -292,12 +268,6 @@ Return only valid JSON matching the specified structure.`
 	for _, resp := range parsed {
 		var entitiesWithEmb []models.Entity
 		for _, entity := range resp.Entities {
-			text := fmt.Sprintf("%v - %v - %v", entity.Name, entity.Type, entity.Description)
-			embedding, err := GetEmbedding1024(text, false)
-			if err != nil {
-				continue
-			}
-			entity.Embedding = embedding
 			entitiesWithEmb = append(entitiesWithEmb, entity)
 		}
 		if resp.CardIndex >= 0 && resp.CardIndex < len(facts) {

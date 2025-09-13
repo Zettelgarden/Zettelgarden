@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"log"
 	"time"
-
-	"github.com/pgvector/pgvector-go"
 )
 
 type Card struct {
@@ -26,8 +24,7 @@ type Card struct {
 	Keywords   []Keyword     `json:"keywords"`
 	Tags       []Tag         `json:"tags"`
 	Tasks      []Task        `json:"tasks"`
-	Embedding  pgvector.Vector
-	Entities   []Entity `json:"entities"`
+	Entities   []Entity      `json:"entities"`
 	TagCount   int
 	IsPinned   bool `json:"is_pinned"`
 }

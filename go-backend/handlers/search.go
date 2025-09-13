@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"go-backend/llms"
 	"go-backend/models"
 	"log"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"github.com/typesense/typesense-go/typesense/api"
+	"github.com/typesense/typesense-go/typesense/api/pointer"
 )
 
 type SearchParams struct {
@@ -583,11 +583,12 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 	}
 
 	typesenseParams := &api.SearchCollectionParams{
-		Q:        searchTerm,
-		QueryBy:  "card_id, title, embedding",
-		FilterBy: &filter,
-		SortBy:   &sortBy,
-		PerPage:  &perPage,
+		Q:             searchTerm,
+		QueryBy:       "card_id, title, embedding",
+		FilterBy:      &filter,
+		SortBy:        &sortBy,
+		PerPage:       &perPage,
+		ExcludeFields: pointer.String("embedding"),
 	}
 	log.Printf("%v", typesenseParams)
 	collectionName := os.Getenv("TYPESENSE_COLLECTION")
@@ -603,10 +604,11 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 		if hit.Document != nil {
 			doc := *hit.Document
 			item := models.SearchResult{
-				Title:     doc["title"].(string),
-				Type:      doc["type"].(string),
-				Preview:   doc["preview"].(string),
-				Score:     0.0,
+				Title:   doc["title"].(string),
+				Type:    doc["type"].(string),
+				Preview: doc["preview"].(string),
+				Score:   0.0,
+				//				Score:     doc["_text_match"].(float64),
 				CreatedAt: time.Unix(int64(doc["created_at"].(float64)), 0),
 				UpdatedAt: time.Unix(int64(doc["updated_at"].(float64)), 0),
 			}
@@ -657,22 +659,23 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 		}
 	}
 
-	var reranked []models.SearchResult
-	if s.Server.Testing {
-		reranked = results
-	} else if !searchParams.Rerank {
-		reranked = results
-	} else {
-		log.Printf("reranking")
-		if len(results) > 0 {
-			client := llms.NewDefaultClient(s.DB, userID)
-			reranked, err = llms.RerankSearchResults(client, searchParams.SearchTerm, results)
-			if err != nil {
-				return results, nil
-			}
-		}
-	}
-	return reranked, nil
+	// var reranked []models.SearchResult
+	// if s.Server.Testing {
+	// 	reranked = results
+	// } else if !searchParams.Rerank {
+	// 	reranked = results
+	// } else {
+	// 	log.Printf("reranking")
+	// 	if len(results) > 0 {
+	// 		client := llms.NewDefaultClient(s.DB, userID)
+	// 		reranked, err = llms.RerankSearchResults(client, searchParams.SearchTerm, results)
+	// 		if err != nil {
+	// 			return results, nil
+	// 		}
+	// 	}
+	// }
+	//return reranked, nil
+	return results, nil
 }
 func (s *Handler) SearchRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)

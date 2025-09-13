@@ -128,13 +128,6 @@ function SearchResultItem({ result, showPreview, onEntityClick, onTagClick, onFa
       </div>
       <div className="flex flex-col items-end text-xs text-gray-500">
         <div>{formatDate(result.created_at.toISOString())}</div>
-        {!isClassicSearch && (
-          <div className="mt-1">
-            <span className="bg-gray-100 rounded px-2 py-0.5">
-              {(result.score * 100).toFixed(0)}%
-            </span>
-          </div>
-        )}
       </div>
     </div>
   );

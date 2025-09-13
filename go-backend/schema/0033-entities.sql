@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS entities (
     type text,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    embedding vector(1024),
     FOREIGN KEY (user_id) REFERENCES users(id),
     UNIQUE(user_id, name)
 );

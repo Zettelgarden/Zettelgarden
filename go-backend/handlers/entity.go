@@ -27,34 +27,6 @@ type UpdateEntityRequest struct {
 	CardPK      *int   `json:"card_pk"`
 }
 
-func (s *Handler) FindPotentialDuplicates(userID int, entity models.Entity) ([]models.Entity, error) {
-	const query = `
-        SELECT id, name, description, type
-        FROM entities
-        WHERE user_id = $1 AND (embedding_1024 <=> $2) < $3
-        ORDER BY embedding_1024 <=> $2
-        LIMIT 5;
-    `
-
-	rows, err := s.DB.Query(query, userID, entity.Embedding, SIMILARITY_THRESHOLD)
-	if err != nil {
-		return nil, fmt.Errorf("error querying similar entities: %w", err)
-	}
-	defer rows.Close()
-
-	var similarEntities []models.Entity
-	for rows.Next() {
-		var e models.Entity
-		err := rows.Scan(&e.ID, &e.Name, &e.Description, &e.Type)
-		if err != nil {
-			return nil, fmt.Errorf("error scanning entity: %w", err)
-		}
-		similarEntities = append(similarEntities, e)
-	}
-
-	return similarEntities, nil
-}
-
 func (s *Handler) GetEntitiesRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
@@ -300,12 +272,6 @@ func (s *Handler) MergeEntities(userID int, entity1ID int, entity2ID int) error 
 		}
 		s.upsertEntityToTypesense(entity1, partialCard)
 		s.deleteEntityTypesense(entity2.ID)
-
-		// Recalculate embedding for surviving entity
-		err := s.CalculateEmbeddingForEntity(entity1)
-		if err != nil {
-			log.Printf("Error recalculating embedding for merged entity %d: %v", entity1.ID, err)
-		}
 	}()
 
 	return nil
@@ -536,10 +502,6 @@ func (s *Handler) UpdateEntity(userID int, entityID int, params UpdateEntityRequ
 				return
 			}
 
-			if err := s.CalculateEmbeddingForEntity(entity); err != nil {
-				log.Printf("Error calculating embedding for entity %d: %v", entityID, err)
-			}
-
 			// Also update Typesense with card if available
 			var partialCard *models.PartialCard
 			if entity.CardPK != nil {
@@ -550,43 +512,6 @@ func (s *Handler) UpdateEntity(userID int, entityID int, params UpdateEntityRequ
 			}
 			s.upsertEntityToTypesense(entity, partialCard)
 		}()
-	}
-
-	return nil
-}
-
-func (s *Handler) CalculateEmbeddingForEntity(entity models.Entity) error {
-
-	client := llms.NewDefaultClient(s.DB, entity.UserID)
-
-	embedding, err := llms.GenerateEntityEmbedding(client, entity)
-	if err != nil {
-		log.Printf("Error generating embedding for entity %d: %v", entity.ID, err)
-		return err
-	}
-
-	// Update the embedding in a new transaction
-	tx, err := s.DB.Begin()
-	if err != nil {
-		log.Printf("Error starting transaction for embedding update for entity %d: %v", entity.ID, err)
-		return err
-	}
-	defer tx.Rollback()
-
-	_, err = tx.Exec(`
-				UPDATE entities 
-				SET embedding_1024 = $1,
-					updated_at = NOW()
-				WHERE id = $2 AND user_id = $3`,
-		embedding, entity.ID, entity.UserID)
-	if err != nil {
-		log.Printf("Error updating embedding for entity %d: %v", entity.ID, err)
-		return err
-	}
-
-	if err = tx.Commit(); err != nil {
-		log.Printf("Error committing embedding update for entity %d: %v", entity.ID, err)
-		return err
 	}
 
 	return nil
@@ -1063,19 +988,18 @@ func (s *Handler) upsertEntityToTypesense(entity models.Entity, card *models.Par
 	}
 	collectionName := os.Getenv("TYPESENSE_COLLECTION")
 	doc := map[string]interface{}{
-		"id":             "entity-" + strconv.Itoa(entity.ID),
-		"fact_pk":        -1,
-		"card_id":        "",
-		"card_pk":        -1,
-		"entity_pk":      entity.ID,
-		"user_id":        entity.UserID,
-		"type":           "entity",
-		"title":          entity.Name,
-		"preview":        entity.Description,
-		"parent_id":      -1,
-		"created_at":     entity.CreatedAt.Unix(),
-		"updated_at":     entity.UpdatedAt.Unix(),
-		"embedding_1024": entity.Embedding,
+		"id":         "entity-" + strconv.Itoa(entity.ID),
+		"fact_pk":    -1,
+		"card_id":    "",
+		"card_pk":    -1,
+		"entity_pk":  entity.ID,
+		"user_id":    entity.UserID,
+		"type":       "entity",
+		"title":      entity.Name,
+		"preview":    entity.Description,
+		"parent_id":  -1,
+		"created_at": entity.CreatedAt.Unix(),
+		"updated_at": entity.UpdatedAt.Unix(),
 	}
 
 	doc["linked_card_id"] = ""

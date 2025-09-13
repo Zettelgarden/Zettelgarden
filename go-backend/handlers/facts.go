@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"go-backend/llms"
 	"go-backend/models"
 	"log"
@@ -12,6 +13,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/lib/pq"
+	"github.com/typesense/typesense-go/typesense/api"
 )
 
 // ExtractSaveCardFacts deletes and re-inserts facts for a given card.
@@ -53,18 +56,12 @@ func (s *Handler) ExtractSaveCardFacts(userID int, cardPK int, facts []string) (
 		if fact == "" {
 			continue
 		}
-		embedding, err := llms.GetEmbedding1024(fact, false)
-		if err != nil {
-			log.Printf("error generating embedding for fact: %v", err)
-			tx.Rollback()
-			return results, err
-		}
 		var factID int
 		err = tx.QueryRow(`
-			INSERT INTO facts (card_pk, user_id, fact, embedding_1024, created_at, updated_at)
+			INSERT INTO facts (card_pk, user_id, fact, created_at, updated_at)
 			VALUES ($1, $2, $3, $4, NOW(), NOW())
 			RETURNING id
-		`, cardPK, userID, fact, embedding).Scan(&factID)
+		`, cardPK, userID, fact).Scan(&factID)
 		if err != nil {
 			log.Printf("error inserting fact: %v", err)
 			tx.Rollback()
@@ -363,15 +360,6 @@ func (s *Handler) ExtractSaveFactEntities(userID int, card models.Card, factObjs
 		fact := factObjs[i]
 
 		for _, entity := range entities {
-			// similarEntities, err := s.FindPotentialDuplicates(userID, entity)
-			// if err != nil {
-			// 	return err
-			// }
-			// entity, err = llms.CheckExistingEntities(client, similarEntities, entity)
-			// if err != nil {
-			// 	log.Printf("error checking existing entities: %v", err)
-			// 	return err
-			// }
 			log.Printf("entity %v", entity.Name)
 
 			var entityID int
@@ -382,10 +370,10 @@ func (s *Handler) ExtractSaveFactEntities(userID int, card models.Card, factObjs
 			if err != nil {
 				// no entity found, insert
 				err = s.DB.QueryRow(`
-					INSERT INTO entities (user_id, name, description, type, embedding_1024, card_pk)
+					INSERT INTO entities (user_id, name, description, type, card_pk)
 					VALUES ($1, $2, $3, $4, $5, $6)
 					RETURNING id
-				`, userID, entity.Name, entity.Description, entity.Type, entity.Embedding, entity.CardPK).Scan(&entityID)
+				`, userID, entity.Name, entity.Description, entity.Type, entity.CardPK).Scan(&entityID)
 				if err != nil {
 					log.Printf("error inserting entity (from fact): %v", err)
 					continue
@@ -590,6 +578,27 @@ func (s *Handler) GetFact(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetFactByID returns a single fact by ID
+func (s *Handler) GetFactByID(userID int, factID int) (*models.Fact, error) {
+	var fact models.Fact
+	err := s.DB.QueryRow(`
+		SELECT id, user_id, card_pk, fact, created_at, updated_at
+		FROM facts
+		WHERE id = $1 AND user_id = $2
+	`, factID, userID).Scan(
+		&fact.ID,
+		&fact.UserID,
+		&fact.CardPK,
+		&fact.Fact,
+		&fact.CreatedAt,
+		&fact.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &fact, nil
+}
+
 // GetSimilarFacts returns facts with embeddings similar to a target fact
 func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
@@ -602,6 +611,14 @@ func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get the fact to search for similar facts
+	fact, err := s.GetFactByID(userID, factID)
+	if err != nil {
+		log.Printf("error getting fact for similar facts: %v", err)
+		http.Error(w, "Fact not found", http.StatusNotFound)
+		return
+	}
+
 	limit := 10
 	if lStr := r.URL.Query().Get("limit"); lStr != "" {
 		if l, err := strconv.Atoi(lStr); err == nil && l > 0 {
@@ -609,18 +626,68 @@ func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	rows, err := s.DB.Query(`
+	// Use Typesense for similarity search
+	collectionName := os.Getenv("TYPESENSE_COLLECTION")
+	if collectionName == "" {
+		log.Printf("TYPESENSE_COLLECTION env var not set")
+		http.Error(w, "Typesense not configured", http.StatusInternalServerError)
+		return
+	}
+
+	filter := fmt.Sprintf("user_id:=%d && type:=fact", userID)
+	log.Printf("filter %v", filter)
+	perPage := limit
+
+	searchParams := &api.SearchCollectionParams{
+		Q:        fact.Fact,
+		QueryBy:  "title,embedding",
+		FilterBy: &filter,
+		PerPage:  &perPage,
+	}
+
+	searchResult, err := s.Server.TypesenseClient.Collection(collectionName).Documents().Search(r.Context(), searchParams)
+	if err != nil {
+		log.Printf("error searching typesense for similar facts: %v", err)
+		http.Error(w, "Failed to search for similar facts", http.StatusInternalServerError)
+		return
+	}
+
+	var factIDs []int
+	if searchResult.Hits != nil {
+		for _, hit := range *searchResult.Hits {
+			if hit.Document != nil {
+				doc := *hit.Document
+				if pk, ok := doc["fact_pk"].(float64); ok {
+					if pk == float64(factID) {
+						continue // Skip the original fact
+					}
+					factIDs = append(factIDs, int(pk))
+				}
+			}
+		}
+	}
+
+	if len(factIDs) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]FactWithCard{})
+		return
+	}
+
+	// Fetch full fact data from DB
+	query := `
 		SELECT f.id, f.fact, f.created_at, f.updated_at,
 		       c.id, c.card_id, c.user_id, c.title, c.parent_id,
 		       c.created_at, c.updated_at
 		FROM facts f
 		JOIN cards c ON f.card_pk = c.id
-		WHERE f.user_id = $2 AND f.id != $1
-		ORDER BY embedding_1024 <-> (SELECT embedding_1024 FROM facts WHERE id=$1 AND user_id=$2)
-		LIMIT $3
-	`, factID, userID, limit)
+		WHERE f.id = ANY($1)
+		ORDER BY array_position($1, f.id)
+	`
+
+	rows, err := s.DB.Query(query, pq.Array(factIDs))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("error querying similar facts from db: %v", err)
+		http.Error(w, "Failed to query similar facts", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -641,7 +708,8 @@ func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 			&f.Card.CreatedAt,
 			&f.Card.UpdatedAt,
 		); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			log.Printf("error scanning similar fact: %v", err)
+			http.Error(w, "Failed to scan similar facts", http.StatusInternalServerError)
 			return
 		}
 		facts = append(facts, f)
@@ -729,13 +797,6 @@ func (s *Handler) UpdateFact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	embedding, err := llms.GetEmbedding1024(req.Fact, false)
-	if err != nil {
-		log.Printf("error generating embedding for fact: %v", err)
-		http.Error(w, "Failed to generate embedding", http.StatusInternalServerError)
-		return
-	}
-
 	tx, err := s.DB.Begin()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -745,9 +806,9 @@ func (s *Handler) UpdateFact(w http.ResponseWriter, r *http.Request) {
 
 	_, err = tx.Exec(`
 		UPDATE facts
-		SET fact = $1, embedding_1024 = $2, updated_at = NOW()
-		WHERE id = $3 AND user_id = $4
-	`, req.Fact, embedding, factID, userID)
+		SET fact = $1, updated_at = NOW()
+		WHERE id = $2 AND user_id = $4
+	`, req.Fact, factID, userID)
 	if err != nil {
 		http.Error(w, "Failed to update fact", http.StatusInternalServerError)
 		return
