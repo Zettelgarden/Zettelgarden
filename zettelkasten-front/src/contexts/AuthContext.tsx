@@ -20,7 +20,7 @@ interface AuthContextType {
   isAdmin: boolean;
   hasSubscription: boolean;
   loginUser: (data: LoginResponse) => void;
-  loginUserFromToken: (token: string) => void;
+  loginUserFromToken: (token: string) => Promise<void>;
   logoutUser: () => void;
   currentUser: User | null;
   user: User | null;
@@ -89,9 +89,38 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setIsAuthenticated(true);
   };
 
-  const loginUserFromToken = (token: string) => {
+  const loginUserFromToken = async (token: string) => {
     localStorage.setItem("token", token);
     setIsAuthenticated(true);
+
+    try {
+      // Fetch user data to get username and subscription info
+      const adminStatus = await checkAdmin();
+      setIsAdmin(adminStatus);
+      const currentUser = await getCurrentUser();
+      setCurrentUser(currentUser);
+      setUser(currentUser);
+
+      // Set username in localStorage like regular login
+      if (currentUser && currentUser.username) {
+        localStorage.setItem("username", currentUser.username);
+      }
+
+      // Update subscription status
+      if (currentUser && currentUser.id) {
+        const subscription = await getUserSubscription(currentUser.id);
+        setHasSubscription(
+          subscription &&
+          (subscription.stripe_subscription_status === "active" ||
+          subscription.stripe_subscription_status === "trialing"),
+        );
+      } else {
+        setHasSubscription(false);
+      }
+    } catch (error) {
+      console.error("Failed to fetch user data after OAuth login:", error);
+      // Don't logout on error, just continue with basic auth
+    }
   };
 
   const logoutUser = () => {

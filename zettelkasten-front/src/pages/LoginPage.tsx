@@ -31,13 +31,22 @@ function LoginForm() {
   };
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const token = params.get("token");
+    const handleOAuthCallback = async () => {
+      const params = new URLSearchParams(location.search);
+      const token = params.get("token");
 
-    if (token) {
-      loginUserFromToken(token);
-      navigate("/app/");
-    }
+      if (token) {
+        try {
+          await loginUserFromToken(token);
+          navigate("/app/");
+        } catch (error) {
+          console.error("OAuth login failed:", error);
+          setError("OAuth login failed. Please try again.");
+        }
+      }
+    };
+
+    handleOAuthCallback();
   }, [location, loginUserFromToken, navigate]);
 
   return (
