@@ -283,10 +283,77 @@ function renderCardText(
 
 export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities }) => {
   const navigate = useNavigate();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [shouldShowToggle, setShouldShowToggle] = useState(false);
+  const contentRef = React.useRef<HTMLDivElement>(null);
+
+  // Height threshold for showing the collapse toggle (in pixels)
+  const HEIGHT_THRESHOLD = 600;
 
   function handleCardClick(card_id: number) {
     navigate(`/app/card/${card_id}`);
   }
 
-  return <div>{renderCardTextWithDialog(viewingCard, handleCardClick, entities)}</div>;
+  useEffect(() => {
+    // Check if content height exceeds threshold
+    if (contentRef.current) {
+      const height = contentRef.current.scrollHeight;
+      setShouldShowToggle(height > HEIGHT_THRESHOLD);
+      // Start collapsed if content is too long
+      if (height > HEIGHT_THRESHOLD) {
+        setIsCollapsed(true);
+      }
+    }
+  }, [viewingCard.body]);
+
+  const toggleCollapse = () => {
+    setIsCollapsed(!isCollapsed);
+  };
+
+  return (
+    <div className="relative">
+      <div
+        ref={contentRef}
+        className={`transition-all duration-300 overflow-hidden ${
+          isCollapsed && shouldShowToggle ? `max-h-[${HEIGHT_THRESHOLD}px]` : 'max-h-none'
+        }`}
+        style={{
+          maxHeight: isCollapsed && shouldShowToggle ? `${HEIGHT_THRESHOLD}px` : 'none'
+        }}
+      >
+        {renderCardTextWithDialog(viewingCard, handleCardClick, entities)}
+      </div>
+
+      {/* Gradient fade effect when collapsed */}
+      {isCollapsed && shouldShowToggle && (
+        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+      )}
+
+      {/* Toggle button */}
+      {shouldShowToggle && (
+        <div className="mt-4 text-center">
+          <button
+            onClick={toggleCollapse}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+          >
+            {isCollapsed ? (
+              <>
+                Show more
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </>
+            ) : (
+              <>
+                Show less
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+    </div>
+  );
 };
