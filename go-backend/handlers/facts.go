@@ -59,7 +59,7 @@ func (s *Handler) ExtractSaveCardFacts(userID int, cardPK int, facts []string) (
 		var factID int
 		err = tx.QueryRow(`
 			INSERT INTO facts (card_pk, user_id, fact, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, NOW(), NOW())
+			VALUES ($1, $2, $3, NOW(), NOW())
 			RETURNING id
 		`, cardPK, userID, fact).Scan(&factID)
 		if err != nil {
@@ -371,7 +371,7 @@ func (s *Handler) ExtractSaveFactEntities(userID int, card models.Card, factObjs
 				// no entity found, insert
 				err = s.DB.QueryRow(`
 					INSERT INTO entities (user_id, name, description, type, card_pk)
-					VALUES ($1, $2, $3, $4, $5, $6)
+					VALUES ($1, $2, $3, $4, $5)
 					RETURNING id
 				`, userID, entity.Name, entity.Description, entity.Type, entity.CardPK).Scan(&entityID)
 				if err != nil {

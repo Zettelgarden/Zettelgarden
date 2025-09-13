@@ -160,11 +160,8 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 				allFacts = append(allFacts, th.Facts...)
 			}
 		}
+		log.Printf("facts %v", allFacts)
 		if len(allFacts) > 0 {
-			// Note: This creates facts that are not linked to a thesis/summarization.
-			// The SaveAnalysis function already saves facts correctly.
-			// We are only running this to feed the entity extractor.
-			// This could be refactored to extract entities from the `analyses` directly.
 			facts, _ := h.ExtractSaveCardFacts(userID, card.ID, allFacts)
 			_ = h.ExtractSaveFactEntities(userID, card, facts)
 		}
@@ -181,19 +178,17 @@ func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []l
 	}
 	defer tx.Rollback() // Rollback on error, if commit fails
 
-	for _, analysis := range analyses {
-		// Insert Section
+	for sectionIndex, analysis := range analyses {
+		// Insert Section - remove ON CONFLICT to allow multiple sections with same title
+		// Add section_order to distinguish between sections with identical titles
 		var sectionID int
-		// Use ON CONFLICT DO NOTHING to handle unique constraint violation gracefully, though it implies the section already exists for this job.
-		// A better approach might be to query first, but for this workflow, assuming titles are unique per job run is okay.
 		err := tx.QueryRow(`
-			INSERT INTO summary_sections (user_id, card_pk, summarization_id, section_title)
-			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (summarization_id, section_title) DO UPDATE SET section_title = EXCLUDED.section_title
+			INSERT INTO summary_sections (user_id, card_pk, summarization_id, section_title, section_order)
+			VALUES ($1, $2, $3, $4, $5)
 			RETURNING id
-		`, userID, cardPK, summarizationID, analysis.Section).Scan(&sectionID)
+		`, userID, cardPK, summarizationID, analysis.Section, sectionIndex).Scan(&sectionID)
 		if err != nil {
-			return fmt.Errorf("failed to insert or get section: %w", err)
+			return fmt.Errorf("failed to insert section: %w", err)
 		}
 
 		for _, thesisEntry := range analysis.Theses {
@@ -268,7 +263,7 @@ func (h *Handler) LoadAnalysis(userID int, cardPK int) ([]llms.SectionAnalysis, 
 	sectionRows, err := h.DB.Query(`
 		SELECT id, section_title FROM summary_sections
 		WHERE user_id = $1 AND summarization_id = $2
-		ORDER BY id
+		ORDER BY COALESCE(section_order, 0), id
 	`, userID, summarizationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query sections: %w", err)
