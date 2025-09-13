@@ -15,7 +15,7 @@ import { TaskOpenIcon } from "../../assets/icons/TaskOpenIcon";
 import { TaskTagDisplay } from "./TaskTagDisplay";
 import { removeTagsFromTitle, parseTags } from "../../utils/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
-import { TaskDialog } from "./TaskDialog";
+import { useShortcutContext } from "../../contexts/ShortcutContext";
 
 interface TaskListItemProps {
   task: Task;
@@ -30,11 +30,12 @@ export function TaskListItem({
   const [newTitle, setNewTitle] = useState<string>("");
   const [showCardLink, setShowCardLink] = useState<boolean>(false);
   const [tags, setTags] = useState<Tag[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { setRefreshTasks } = useTaskContext();
+  const { setShowTaskDialog, setSelectedTask } = useShortcutContext();
 
   async function handleTitleClick() {
-    setIsDialogOpen(true);
+    setSelectedTask(task);
+    setShowTaskDialog(true);
   }
 
   async function handleBacklink(card: PartialCard) {
@@ -117,15 +118,12 @@ export function TaskListItem({
             </div>
           ))}
       </div>
-      <button onClick={() => setIsDialogOpen(true)} className="menu-button">
+      <button onClick={() => {
+        setSelectedTask(task);
+        setShowTaskDialog(true);
+      }} className="menu-button">
         ⋮
       </button>
-      <TaskDialog
-        task={task}
-        isOpen={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
-        onTagClick={onTagClick}
-      />
     </div>
   );
 }

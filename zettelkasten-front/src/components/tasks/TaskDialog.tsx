@@ -16,7 +16,7 @@ import { TaskClosedIcon } from "../../assets/icons/TaskClosedIcon";
 import { TaskOpenIcon } from "../../assets/icons/TaskOpenIcon";
 
 interface TaskDialogProps {
-  task: Task;
+  task: Task | null;
   isOpen: boolean;
   onClose: () => void;
   onTagClick: (tag: string) => void;
@@ -84,7 +84,7 @@ function formatAuditEvent(event: TaskAuditEvent): string {
 }
 
 export function TaskDialog({ task, isOpen, onClose, onTagClick }: TaskDialogProps) {
-  const [editedTask, setEditedTask] = useState<Task>(task);
+  const [editedTask, setEditedTask] = useState<Task | null>(task);
   const [isEditing, setIsEditing] = useState(false);
   const [showCardLink, setShowCardLink] = useState<boolean>(false);
   const [auditEvents, setAuditEvents] = useState<TaskAuditEvent[]>([]);
@@ -92,18 +92,27 @@ export function TaskDialog({ task, isOpen, onClose, onTagClick }: TaskDialogProp
 
   useEffect(() => {
     setEditedTask(task);
-    if (task.id) {
+    if (task && task.id) {
       fetchTaskAuditEvents(task.id)
         .then(events => setAuditEvents(events))
         .catch(error => console.error("Error fetching audit events:", error));
     }
   }, [task]);
 
+  // Return null if task is not provided
+  if (!task || !editedTask) {
+    return null;
+  }
+
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEditedTask({ ...editedTask, title: e.target.value });
+    if (editedTask) {
+      setEditedTask({ ...editedTask, title: e.target.value });
+    }
   };
 
   const handleSave = async () => {
+    if (!editedTask) return;
+
     // Log the task to verify priority is included
     console.log("Saving edited task with priority:", editedTask.priority);
 
@@ -123,6 +132,8 @@ export function TaskDialog({ task, isOpen, onClose, onTagClick }: TaskDialogProp
   };
 
   const handleBacklink = async (card: PartialCard) => {
+    if (!editedTask) return;
+
     const updatedTask = { ...editedTask, card_pk: card.id };
     const response = await saveExistingTask(updatedTask);
     if (!("error" in response)) {
@@ -133,6 +144,8 @@ export function TaskDialog({ task, isOpen, onClose, onTagClick }: TaskDialogProp
   };
 
   const handleToggleComplete = async () => {
+    if (!editedTask) return;
+
     // Make a complete copy of the task to ensure all properties are included
     const updatedTask = {
       ...editedTask,

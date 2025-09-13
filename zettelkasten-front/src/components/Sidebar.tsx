@@ -41,6 +41,7 @@ import { MemoryIcon } from "../assets/icons/MemoryIcon";
 import { EntityDialog } from "./entities/EntityDialog";
 import { FactDialog } from "./facts/FactDialog";
 import { AddArticleDialog } from "./cards/AddArticleDialog";
+import { TaskDialog } from "./tasks/TaskDialog";
 
 
 export function Sidebar() {
@@ -75,6 +76,9 @@ export function Sidebar() {
     showFactDialog,
     setShowFactDialog,
     selectedFact,
+    showTaskDialog,
+    setShowTaskDialog,
+    selectedTask,
   } = useShortcutContext();
 
   function getCurrentCard(): PartialCard | Card | null {
@@ -512,6 +516,15 @@ export function Sidebar() {
       <FactDialog
         onClose={() => setShowFactDialog(false)}
         onFactDeleted={() => setShowFactDialog(false)}
+      />
+      <TaskDialog
+        task={selectedTask}
+        isOpen={showTaskDialog}
+        onClose={() => setShowTaskDialog(false)}
+        onTagClick={(tag: string) => {
+          // Handle tag click if needed - navigate to tasks filtered by tag
+          navigate(`/app/tasks?tag=${encodeURIComponent(tag)}`);
+        }}
       />
       <AddArticleDialog
         show={showAddArticleDialog}

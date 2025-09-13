@@ -1,6 +1,7 @@
 import React, { createContext, ReactNode, useContext, useState } from "react";
 import { Entity } from "../models/Card";
 import { Fact, FactWithCard } from "../models/Fact";
+import { Task } from "../models/Task";
 
 interface ChildrenProviderProps {
   children: ReactNode;
@@ -15,10 +16,14 @@ interface ShortcutProviderType {
   setShowEntityDialog: (show: boolean) => void;
   showFactDialog: boolean;
   setShowFactDialog: (show: boolean) => void;
+  showTaskDialog: boolean;
+  setShowTaskDialog: (show: boolean) => void;
   selectedEntity: Entity | null;
   setSelectedEntity: (entity: Entity | null) => void;
   selectedFact: FactWithCard | null;
   setSelectedFact: (fact: FactWithCard | null) => void;
+  selectedTask: Task | null;
+  setSelectedTask: (task: Task | null) => void;
 }
 
 const ShortcutContext = createContext<ShortcutProviderType>({
@@ -30,10 +35,14 @@ const ShortcutContext = createContext<ShortcutProviderType>({
   setShowEntityDialog: () => { },
   showFactDialog: false,
   setShowFactDialog: () => { },
+  showTaskDialog: false,
+  setShowTaskDialog: () => { },
   selectedEntity: null,
   setSelectedEntity: (entity: Entity | null) => { },
   selectedFact: null,
   setSelectedFact: (fact: FactWithCard | null) => { },
+  selectedTask: null,
+  setSelectedTask: (task: Task | null) => { },
 });
 
 export const ShortcutProvider = ({ children }: ChildrenProviderProps) => {
@@ -43,6 +52,8 @@ export const ShortcutProvider = ({ children }: ChildrenProviderProps) => {
   const [showEntityDialog, setShowEntityDialog] = useState(false);
   const [selectedFact, setSelectedFact] = useState<FactWithCard | null>(null);
   const [showFactDialog, setShowFactDialog] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [showTaskDialog, setShowTaskDialog] = useState(false);
 
 
   return (
@@ -56,10 +67,14 @@ export const ShortcutProvider = ({ children }: ChildrenProviderProps) => {
         setShowEntityDialog,
         showFactDialog,
         setShowFactDialog,
+        showTaskDialog,
+        setShowTaskDialog,
         selectedEntity,
         setSelectedEntity,
         selectedFact,
         setSelectedFact,
+        selectedTask,
+        setSelectedTask,
       }}
     >
       {children}
