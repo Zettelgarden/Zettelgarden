@@ -105,7 +105,6 @@ func main() {
 
 	params := handlers.SearchRequestParams{
 		SearchTerm:   "",
-		SearchType:   "classic",
 		FullText:     false,
 		ShowEntities: true,
 		ShowFacts:    true,
