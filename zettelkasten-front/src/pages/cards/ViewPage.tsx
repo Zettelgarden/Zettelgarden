@@ -61,7 +61,6 @@ export function ViewPage({ }: ViewPageProps) {
   } = useShortcutContext();
 
   const { tags } = useTagContext();
-  const [showTagMenu, setShowTagMenu] = useState<boolean>(false);
 
   const [summaries, setSummaries] = useState<SummarizeJobResponse[] | null>(null);
   const [latestSummary, setLatestSummary] = useState<SummarizeJobResponse | null>(null);
@@ -129,9 +128,6 @@ export function ViewPage({ }: ViewPageProps) {
     fetchCard(id!);
   }
 
-  function toggleTagMenu() {
-    setShowTagMenu(!showTagMenu);
-  }
 
 
   function handleEditCard() {
@@ -546,25 +542,10 @@ export function ViewPage({ }: ViewPageProps) {
                 <div>
                   <div className="flex items-center justify-between">
                     <HeaderSubSection text="Tags" />
-                    <div className="relative">
-                      <button
-                        onClick={toggleTagMenu}
-                        className="text-blue-500 hover:text-blue-700"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                      {showTagMenu && (
-                        <div className="absolute right-0 mt-2 z-10">
-                          <SearchTagDropdown
-                            tags={tags}
-                            handleTagClick={handleTagClick}
-                            setShowTagMenu={setShowTagMenu}
-                          />
-                        </div>
-                      )}
-                    </div>
+                    <SearchTagDropdown
+                      tags={tags}
+                      handleTagClick={handleTagClick}
+                    />
                   </div>
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {viewingCard.tags.map((tag) => (
