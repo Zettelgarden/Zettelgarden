@@ -56,16 +56,32 @@ docker-compose up  # Start all services locally
 - **Models**: `src/models/` - TypeScript type definitions
 
 ### Key Features
-- **Cards**: Atomic notes with markdown support and backlinking
-- **Tasks**: Task management with recurring capability and priorities
-- **Files**: File upload/storage with S3 integration
-- **Chat**: AI-powered chat with RAG capabilities
-- **Entities**: Named entity recognition and management
-- **Search**: Vector search with embeddings and traditional text search
+- **Cards**: Atomic notes with markdown support, backlinking, starring, and AI-powered summaries/analysis
+  - Card hierarchies with parent-child relationships
+  - Multiple view modes: normal, summary, and analysis views
+  - Linked entities and references tracking
+  - Tabbed interface for files, facts, and metadata
+- **Tasks**: Task management with recurring capability, priorities, and scheduling
+  - Today's task counter in sidebar
+  - Task creation shortcuts and dialogs
+  - Task tagging and filtering
+- **Files**: File upload/storage with S3 integration and card attachment
+- **Search**: Vector search with embeddings, traditional text search, and starred searches
+  - Quick search functionality with keyboard shortcuts
+  - Search result starring and management
+- **Entities**: Named entity recognition, management, and linking (PRO feature)
+  - Entity dialogs for viewing and editing
+  - Entity-card relationship tracking
+- **Facts**: Structured fact management and storage (PRO feature)
+- **Memory**: Personal knowledge retention and recall system
+- **Starring**: Bookmark system for both cards and searches with sidebar management
 - **Templates**: Card templates with variable substitution
+- **Keyboard Shortcuts**: 'c' (create card), 't' (create task), 's' (search)
+- **Subscription Features**: PRO gating for advanced features like entities and facts
 
 ### Database
-- PostgreSQL with pgvector extension for embeddings
+- PostgreSQL with pgvector extension
+- Typesense as a search cache with built in embeddings
 - Migration-based schema management in `go-backend/schema/`
 - Models use database/sql with manual query construction
 
@@ -76,8 +92,7 @@ docker-compose up  # Start all services locally
 
 ### AI/ML Integration
 - OpenAI-compatible LLM client for chat and embeddings
-- Configurable LLM providers and models per user
-- Vector embeddings stored in PostgreSQL with pgvector
+- Vector search available through Typesense
 - Entity extraction and processing pipeline
 
 ### Testing
