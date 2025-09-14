@@ -307,7 +307,7 @@ export function ViewPage({ }: ViewPageProps) {
                     </svg>
                   </Menu.Button>
                 </div>
-                <Menu.Items className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                <Menu.Items className="origin-top-left md:origin-top-right absolute right-0 md:right-0 left-0 md:left-auto mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
                   <div className="py-1">
                     <Menu.Item>
                       {({ active }) => (
