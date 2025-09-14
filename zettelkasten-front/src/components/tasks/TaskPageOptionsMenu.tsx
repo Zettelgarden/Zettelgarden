@@ -18,17 +18,10 @@ export function TaskPageOptionsMenu({
   tasks,
 }: TaskPageOptionsMenu) {
   const { setRefreshTasks } = useTaskContext();
-  const [showTagMenu, setShowTagMenu] = useState<boolean>(false);
   const [showBulkEdit, setShowBulkEdit] = useState<boolean>(false);
 
-  function toggleTagMenu() {
-    setShowTagMenu(true);
-    setShowBulkEdit(false);
-  }
-
   function toggleBulkEdit() {
-    setShowTagMenu(false);
-    setShowBulkEdit(true);
+    setShowBulkEdit(!showBulkEdit);
   }
 
   return (
@@ -41,18 +34,6 @@ export function TaskPageOptionsMenu({
         </div>
         <Menu.Items className="origin-top-right absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
           <div className="py-1">
-            <Menu.Item>
-              {({ active }) => (
-                <button
-                  onClick={toggleTagMenu}
-                  className={`${
-                    active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                  } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
-                >
-                  Add Tags
-                </button>
-              )}
-            </Menu.Item>
             <Menu.Item>
               {({ active }) => (
                 <button
@@ -69,16 +50,15 @@ export function TaskPageOptionsMenu({
         </Menu.Items>
       </Menu>
 
-      {showTagMenu && (
+      <div className="absolute top-full left-0 mt-2 flex gap-2">
         <SearchTagDropdown
           tags={tags}
           handleTagClick={handleTagClick}
-          setShowTagMenu={setShowTagMenu}
         />
-      )}
-      {showBulkEdit && (
-        <BulkTaskDateDisplay tasks={tasks} setShowBulkEdit={setShowBulkEdit} />
-      )}
+        {showBulkEdit && (
+          <BulkTaskDateDisplay tasks={tasks} setShowBulkEdit={setShowBulkEdit} />
+        )}
+      </div>
     </div>
   );
 }

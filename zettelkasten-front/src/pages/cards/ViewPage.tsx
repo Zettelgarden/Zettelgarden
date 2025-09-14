@@ -81,7 +81,6 @@ export function ViewPage({ }: ViewPageProps) {
   }
 
   async function handleTagClick(tagName: string) {
-    setShowTagMenu(false);
     if (viewingCard === null) {
       return;
     }

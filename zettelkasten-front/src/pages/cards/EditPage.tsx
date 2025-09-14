@@ -211,7 +211,6 @@ export function EditPage({ newCard }: EditPageProps) {
     }));
   }
   function handleTagClick(tagName: string) {
-    setShowTagMenu(false);
     setEditingCard((prevEditingCard) => ({
       ...prevEditingCard,
       body: prevEditingCard.body + "\n\n#" + tagName,
