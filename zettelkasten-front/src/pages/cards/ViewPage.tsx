@@ -331,38 +331,6 @@ export function ViewPage({ }: ViewPageProps) {
                         </button>
                       )}
                     </Menu.Item>
-                    {latestSummary && (
-                      <Menu.Item>
-                        {({ active }) => (
-                          <button
-                            onClick={() => {
-                              setShowingSummary(!showingSummary);
-                              if (showingAnalysis) setShowingAnalysis(false);
-                            }}
-                            className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                              } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
-                          >
-                            {showingSummary ? "Show Card" : "Show Summary"}
-                          </button>
-                        )}
-                      </Menu.Item>
-                    )}
-                    {analysis && analysis.length > 0 && (
-                      <Menu.Item>
-                        {({ active }) => (
-                          <button
-                            onClick={() => {
-                              setShowingAnalysis(!showingAnalysis)
-                              if (showingSummary) setShowingSummary(false);
-                            }}
-                            className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                              } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
-                          >
-                            {showingAnalysis ? "Show Card" : "Show Analysis"}
-                          </button>
-                        )}
-                      </Menu.Item>
-                    )}
                   </div>
                 </Menu.Items>
               </Menu>
@@ -519,6 +487,56 @@ export function ViewPage({ }: ViewPageProps) {
                           {entity.name}
                         </div>
                       ))}
+                    </div>
+                    <hr className="my-4" />
+                  </div>
+                )}
+
+                {/* Card Views Section */}
+                {(latestSummary || (analysis && analysis.length > 0)) && (
+                  <div>
+                    <HeaderSubSection text="Card Views" />
+                    <div className="">
+                      <button
+                        onClick={() => {
+                          setShowingSummary(false);
+                          setShowingAnalysis(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${!showingSummary && !showingAnalysis
+                          ? 'bg-blue-100 text-blue-800 font-medium'
+                          : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                      >
+                        📄 Show Card
+                      </button>
+                      {latestSummary && (
+                        <button
+                          onClick={() => {
+                            setShowingSummary(!showingSummary);
+                            if (showingAnalysis) setShowingAnalysis(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${showingSummary
+                            ? 'bg-yellow-100 text-yellow-800 font-medium'
+                            : 'text-gray-600 hover:bg-gray-100'
+                            }`}
+                        >
+                          📝 Show Summary
+                        </button>
+                      )}
+                      {analysis && analysis.length > 0 && (
+                        <button
+                          onClick={() => {
+                            setShowingAnalysis(!showingAnalysis);
+                            if (showingSummary) setShowingSummary(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${showingAnalysis
+                            ? 'bg-blue-100 text-blue-800 font-medium'
+                            : 'text-gray-600 hover:bg-gray-100'
+                            }`}
+                        >
+                          🔍 Show Analysis
+                        </button>
+                      )}
                     </div>
                     <hr className="my-4" />
                   </div>
