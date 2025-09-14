@@ -23,7 +23,7 @@ import { GettingStartedPage } from "../pages/GettingStartedPage";
 import { useShortcutContext } from "../contexts/ShortcutContext";
 import { QuickSearchWindow } from "./cards/QuickSearchWindow";
 
-import { PartialCard, Card } from "../models/Card";
+import { PartialCard, Card, Entity } from "../models/Card";
 import { getPinnedCards, unpinCard } from "../api/cards";
 import { PinnedSearch } from "../models/PinnedSearch";
 import { getPinnedSearches, unpinSearch } from "../api/pinnedSearches";
@@ -38,6 +38,7 @@ import { FactsIcon } from "../assets/icons/FactsIcon";
 import { MemoryIcon } from "../assets/icons/MemoryIcon";
 
 import { EntityDialog } from "./entities/EntityDialog";
+import { EditEntityDialog } from "./entities/EditEntityDialog";
 import { FactDialog } from "./facts/FactDialog";
 import { AddArticleDialog } from "./cards/AddArticleDialog";
 import { TaskDialog } from "./tasks/TaskDialog";
@@ -61,6 +62,8 @@ export function Sidebar() {
   const { hasSubscription, user, updateUser } = useAuth();
 
   const [showGettingStarted, setShowGettingStarted] = useState(false);
+  const [showEditEntityDialog, setShowEditEntityDialog] = useState(false);
+  const [entityToEdit, setEntityToEdit] = useState<Entity | null>(null);
   const {
     showCreateTaskWindow,
     setShowCreateTaskWindow,
@@ -69,6 +72,7 @@ export function Sidebar() {
     showEntityDialog,
     setShowEntityDialog,
     selectedEntity,
+    setSelectedEntity,
     showFactDialog,
     setShowFactDialog,
     selectedFact,
@@ -508,6 +512,10 @@ export function Sidebar() {
       )}
       <EntityDialog
         onClose={() => { setShowEntityDialog(false) }}
+        onEdit={(entity) => {
+          setEntityToEdit(entity);
+          setShowEditEntityDialog(true);
+        }}
       />
       <FactDialog
         onClose={() => setShowFactDialog(false)}
@@ -520,6 +528,32 @@ export function Sidebar() {
         onTagClick={(tag: string) => {
           // Handle tag click if needed - navigate to tasks filtered by tag
           navigate(`/app/tasks?tag=${encodeURIComponent(tag)}`);
+        }}
+      />
+      <EditEntityDialog
+        entity={entityToEdit}
+        isOpen={showEditEntityDialog}
+        onClose={() => {
+          setShowEditEntityDialog(false);
+          setEntityToEdit(null);
+        }}
+        onSuccess={() => {
+          // Refresh the entity dialog if it's still open
+          if (selectedEntity && entityToEdit && selectedEntity.id === entityToEdit.id) {
+            // Force refresh of the entity dialog by toggling it
+            setShowEntityDialog(false);
+            setTimeout(() => {
+              setSelectedEntity(entityToEdit);
+              setShowEntityDialog(true);
+            }, 100);
+          }
+        }}
+        onDelete={(entity) => {
+          // Close edit dialog and entity dialog
+          setShowEditEntityDialog(false);
+          setShowEntityDialog(false);
+          setEntityToEdit(null);
+          setSelectedEntity(null);
         }}
       />
       <AddArticleDialog
