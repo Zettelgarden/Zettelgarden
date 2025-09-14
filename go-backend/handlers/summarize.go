@@ -94,10 +94,23 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
+
+	var jobID int
+	err := h.DB.QueryRow(`
+			INSERT INTO summarizations (user_id, input_text, status, created_at, updated_at)
+			VALUES ($1, $2, 'pending', NOW(), NOW())
+			RETURNING id
+		`, userID, "").Scan(&jobID)
+
+	if err != nil {
+		log.Printf("error starting summarization %v", err)
+		return
+	}
+	_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
 	client := llms.NewDefaultClient(h.DB, userID)
 	// client.Model.ModelIdentifier = "openai/gpt-5-chat"
 	analyses, usage, err := llms.ExtractThesesAndArguments(client, req.Text)
-	id, err := h.runSummarizationJob(userID, analyses, usage, nil)
+	id, err := h.runSummarizationJob(userID, analyses, usage, nil, jobID)
 	if err != nil {
 		log.Printf("err %v", err)
 		http.Error(w, "Failed to create summarization job", http.StatusInternalServerError)
@@ -125,7 +138,19 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 	if h.Server.Testing {
 		return
 	}
+	var jobID int
 
+	err := h.DB.QueryRow(`
+			INSERT INTO summarizations (user_id, card_pk, input_text, status, created_at, updated_at)
+			VALUES ($1, $2, $3, 'pending', NOW(), NOW())
+			RETURNING id
+		`, userID, card.ID, "").Scan(&jobID)
+
+	if err != nil {
+		log.Printf("error starting summarization %v", err)
+		return
+	}
+	_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
 	//wordCount := len(strings.Fields(card.Body))
 	go func() {
 		client := llms.NewDefaultClient(h.DB, userID)
@@ -140,7 +165,7 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 		}
 
 		// Run the summarization job to get a job ID
-		jobID, err := h.runSummarizationJob(userID, analyses, usage, &card.ID)
+		jobID, err := h.runSummarizationJob(userID, analyses, usage, &card.ID, jobID)
 		if err != nil {
 			log.Printf("Failed to run summarization job: %v", err)
 			return
@@ -327,27 +352,7 @@ func (h *Handler) LoadAnalysis(userID int, cardPK int) ([]llms.SectionAnalysis, 
 }
 
 // runSummarizationJob inserts a summarization job and runs it asynchronously.
-func (h *Handler) runSummarizationJob(userID int, analyses []llms.SectionAnalysis, usage llms.Usage, cardPK *int) (int, error) {
-	var id int
-	var err error
-
-	if cardPK != nil {
-		err = h.DB.QueryRow(`
-			INSERT INTO summarizations (user_id, card_pk, input_text, status, created_at, updated_at)
-			VALUES ($1, $2, $3, 'pending', NOW(), NOW())
-			RETURNING id
-		`, userID, *cardPK, "").Scan(&id)
-	} else {
-		err = h.DB.QueryRow(`
-			INSERT INTO summarizations (user_id, input_text, status, created_at, updated_at)
-			VALUES ($1, $2, 'pending', NOW(), NOW())
-			RETURNING id
-		`, userID, "").Scan(&id)
-	}
-	if err != nil {
-		return 0, err
-	}
-
+func (h *Handler) runSummarizationJob(userID int, analyses []llms.SectionAnalysis, usage llms.Usage, cardPK *int, jobID int) (int, error) {
 	// Background job
 	go func(jobID int, analyses []llms.SectionAnalysis, usage llms.Usage, uid int) {
 		client := llms.NewDefaultClient(h.DB, uid)
@@ -367,9 +372,9 @@ func (h *Handler) runSummarizationJob(userID int, analyses []llms.SectionAnalysi
 			WHERE id=$1`,
 			jobID, result, usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens, usage.TotalCost, "deprecated", time.Now())
 
-	}(id, analyses, usage, userID)
+	}(jobID, analyses, usage, userID)
 
-	return id, nil
+	return jobID, nil
 }
 
 // GetSummarizationRoute fetches a summarization job by id
