@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// PinnedSearch represents a search that has been pinned by a user
-type PinnedSearch struct {
+// StarredSearch represents a search that has been starred by a user
+type StarredSearch struct {
 	ID           int             `json:"id"`
 	UserID       int             `json:"user_id"`
 	Title        string          `json:"title"`
@@ -15,8 +15,8 @@ type PinnedSearch struct {
 	CreatedAt    time.Time       `json:"created_at"`
 }
 
-// PinnedSearchRequest is used for API requests to create a pinned search
-type PinnedSearchRequest struct {
+// StarredSearchRequest is used for API requests to create a starred search
+type StarredSearchRequest struct {
 	Title        string          `json:"title"`
 	SearchTerm   string          `json:"search_term"`
 	SearchConfig json.RawMessage `json:"search_config"`

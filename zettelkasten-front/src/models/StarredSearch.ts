@@ -1,4 +1,4 @@
-export interface PinnedSearch {
+export interface StarredSearch {
     id: number;
     title: string;
     searchTerm: string;

@@ -31,7 +31,7 @@ import { FactPage } from "./FactPage";
 import { MemoryPage } from "./MemoryPage";
 import { GettingStartedPage } from "../pages/GettingStartedPage";
 
-import { SearchConfig } from "../models/PinnedSearch";
+import { SearchConfig } from "../models/StarredSearch";
 
 function MainAppContent() {
   const navigate = useNavigate();

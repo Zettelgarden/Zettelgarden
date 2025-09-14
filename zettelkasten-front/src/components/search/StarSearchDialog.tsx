@@ -1,46 +1,46 @@
 import React, { useState } from "react";
-import { pinSearch } from "../../api/pinnedSearches";
-import { SearchConfig } from "../../models/PinnedSearch";
+import { starSearch } from "../../api/starredSearches";
+import { SearchConfig } from "../../models/StarredSearch";
 
-interface PinSearchDialogProps {
+interface StarSearchDialogProps {
   searchTerm: string;
   searchConfig: SearchConfig;
   onClose: () => void;
-  onPinSuccess: () => void;
+  onStarSuccess: () => void;
   setMessage: (message: string) => void;
 }
 
-export function PinSearchDialog({
+export function StarSearchDialog({
   searchTerm,
   searchConfig,
   onClose,
-  onPinSuccess,
+  onStarSuccess,
   setMessage
-}: PinSearchDialogProps) {
+}: StarSearchDialogProps) {
   const [title, setTitle] = useState<string>(searchTerm || "Untitled Search");
 
   function handleSave() {
     if (!title.trim()) {
-      setMessage("Please enter a title for the pinned search");
+      setMessage("Please enter a title for the starred search");
       return;
     }
 
-    pinSearch(title, searchTerm, searchConfig)
+    starSearch(title, searchTerm, searchConfig)
       .then(() => {
-        setMessage(`Search "${title}" pinned successfully`);
-        onPinSuccess();
+        setMessage(`Search "${title}" starred successfully`);
+        onStarSuccess();
         onClose();
       })
       .catch(error => {
-        console.error("Error pinning search:", error);
-        setMessage(`Error pinning search: ${error.message}`);
+        console.error("Error starring search:", error);
+        setMessage(`Error starring search: ${error.message}`);
       });
   }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]">
       <div className="bg-white p-4 rounded-lg shadow-lg w-full max-w-md mx-4">
-        <h3 className="text-lg font-medium mb-4">Pin Current Search</h3>
+        <h3 className="text-lg font-medium mb-4">Star Current Search</h3>
 
         <div className="mb-4">
           <label htmlFor="search-title" className="block text-sm font-medium text-gray-700 mb-1">
@@ -68,7 +68,7 @@ export function PinSearchDialog({
             <p><strong>Show Facts:</strong> {searchConfig.showFacts ? "Yes" : "No"}</p>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            These search settings will be saved and applied when you click on this pinned search.
+            These search settings will be saved and applied when you click on this starred search.
           </p>
         </div>
 

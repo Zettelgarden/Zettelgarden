@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { setDocumentTitle } from "../../utils/title";
 import { CardItem } from "../../components/cards/CardItem";
 import { BacklinkInput } from "../../components/cards/BacklinkInput";
-import { getCard, saveExistingCard, pinCard, unpinCard, getCardReferences, getCardChildren, getCardFiles, getCardTags, getCardTasks, getCardEntities, getLinkedEntitiesByCardPK } from "../../api/cards";
+import { getCard, saveExistingCard, starCard, unstarCard, getCardReferences, getCardChildren, getCardFiles, getCardTags, getCardTasks, getCardEntities, getLinkedEntitiesByCardPK } from "../../api/cards";
 import { Menu } from "@headlessui/react";
 import { useParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
@@ -208,25 +208,25 @@ export function ViewPage({ }: ViewPageProps) {
       setError(error.message);
     }
   }
-  const handleTogglePin = async () => {
+  const handleToggleStar = async () => {
     if (viewingCard === null) {
       return
     }
     console.log("?", viewingCard)
     const card = viewingCard
     try {
-      console.log(viewingCard, viewingCard.is_pinned)
-      if (viewingCard.is_pinned) {
-        await unpinCard(viewingCard.id);
+      console.log(viewingCard, viewingCard.is_starred)
+      if (viewingCard.is_starred) {
+        await unstarCard(viewingCard.id);
         setViewCard({
           ...card,
-          is_pinned: false
+          is_starred: false
         })
       } else {
-        await pinCard(viewingCard.id);
+        await starCard(viewingCard.id);
         setViewCard({
           ...card,
-          is_pinned: true
+          is_starred: true
         })
       }
     } catch (error) {
@@ -318,11 +318,11 @@ export function ViewPage({ }: ViewPageProps) {
                     <Menu.Item>
                       {({ active }) => (
                         <button
-                          onClick={handleTogglePin}
+                          onClick={handleToggleStar}
                           className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                             } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
                         >
-                          {viewingCard.is_pinned ? 'Unpin Card' : 'Pin Card'}
+                          {viewingCard.is_starred ? 'Unstar Card' : 'Star Card'}
                         </button>
                       )}
                     </Menu.Item>

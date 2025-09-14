@@ -1,39 +1,39 @@
 import React, { useState } from "react";
 import { BacklinkInputDropdownList } from "./BacklinkInputDropdownList";
 import { PartialCard } from "../../models/Card";
-import { pinCard } from "../../api/cards";
+import { starCard } from "../../api/cards";
 
-interface PinCardDialogProps {
+interface StarCardDialogProps {
   onClose: () => void;
-  onPinSuccess: () => void;
+  onStarSuccess: () => void;
   setMessage: (message: string) => void;
 }
 
-export function PinCardDialog({ onClose, onPinSuccess, setMessage }: PinCardDialogProps) {
+export function StarCardDialog({ onClose, onStarSuccess, setMessage }: StarCardDialogProps) {
   function handleSearch(searchTerm: string) {
   }
 
   function handleSelect(card: PartialCard) {
-    pinCard(card.id)
+    starCard(card.id)
       .then(() => {
-        setMessage(`Card "${card.title}" pinned successfully`);
-        onPinSuccess(); // Refresh the pinned cards list
+        setMessage(`Card "${card.title}" starred successfully`);
+        onStarSuccess(); // Refresh the starred cards list
         onClose(); // Close the dialog
       })
       .catch(error => {
-        console.error("Error pinning card:", error);
-        setMessage(`Error pinning card: ${error.message}`);
+        console.error("Error starring card:", error);
+        setMessage(`Error starring card: ${error.message}`);
       });
   }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]">
       <div className="bg-white p-4 rounded-lg shadow-lg w-full max-w-md mx-4">
-        <h3 className="text-lg font-medium mb-4">Pin Existing Card</h3>
+        <h3 className="text-lg font-medium mb-4">Star Existing Card</h3>
         <BacklinkInputDropdownList
           onSelect={handleSelect}
           onSearch={handleSearch}
-          placeholder="Search for a card to pin..."
+          placeholder="Search for a card to star..."
         />
         <div className="mt-4 flex justify-end">
           <button

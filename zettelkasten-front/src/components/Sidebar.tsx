@@ -6,7 +6,7 @@ import { useChatContext } from "../contexts/ChatContext";
 import { isTodayOrPast } from "../utils/dates";
 import { usePartialCardContext } from "../contexts/CardContext";
 import { CreateTaskWindow } from "./tasks/CreateTaskWindow";
-import { PinCardDialog } from "./cards/PinCardDialog";
+import { StarCardDialog } from "./cards/StarCardDialog";
 import logo from "../assets/logo.png";
 import { useNavigate } from "react-router-dom";
 import { SidebarLink } from "./SidebarLink";
@@ -24,9 +24,9 @@ import { useShortcutContext } from "../contexts/ShortcutContext";
 import { QuickSearchWindow } from "./cards/QuickSearchWindow";
 
 import { PartialCard, Card, Entity } from "../models/Card";
-import { getPinnedCards, unpinCard } from "../api/cards";
-import { PinnedSearch } from "../models/PinnedSearch";
-import { getPinnedSearches, unpinSearch } from "../api/pinnedSearches";
+import { getStarredCards, unstarCard } from "../api/cards";
+import { StarredSearch } from "../models/StarredSearch";
+import { getStarredSearches, unstarSearch } from "../api/starredSearches";
 import { parseURL } from "../api/references";
 
 import { defaultCard } from "../models/Card";
@@ -52,9 +52,9 @@ export function Sidebar() {
   const { tasks } = useTaskContext();
   const username = localStorage.getItem("username");
   const [isNewDropdownOpen, setIsNewDropdownOpen] = useState(false);
-  const [showPinDialog, setShowPinDialog] = useState(false);
-  const [pinnedCards, setPinnedCards] = useState<Card[]>([]);
-  const [pinnedSearches, setPinnedSearches] = useState<PinnedSearch[]>([]);
+  const [showStarCardDialog, setShowStarCardDialog] = useState(false);
+  const [starredCards, setStarredCards] = useState<Card[]>([]);
+  const [starredSearches, setStarredSearches] = useState<StarredSearch[]>([]);
   const { setConversationId } = useChatContext();
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const { showChat, setShowChat } = useChatContext();
@@ -169,55 +169,55 @@ export function Sidebar() {
     };
   }, []);
 
-  // Function to unpin a card
-  const handleUnpinCard = (cardId: number) => {
-    unpinCard(cardId)
+  // Function to unstar a card
+  const handleUnstarCard = (cardId: number) => {
+    unstarCard(cardId)
       .then(() => {
-        // Refresh the pinned cards list after unpinning
-        refreshPinnedCards();
+        // Refresh the starred cards list after unstarring
+        refreshStarredCards();
         // Show a success message
-        setMessage("Card unpinned successfully");
+        setMessage("Card unstarred successfully");
       })
       .catch(error => {
-        console.error("Error unpinning card:", error);
-        setMessage("Error unpinning card");
+        console.error("Error unstarring card:", error);
+        setMessage("Error unstarring card");
       });
   };
 
-  // Function to unpin a search
-  const handleUnpinSearch = (searchId: number) => {
-    unpinSearch(searchId)
+  // Function to unstar a search
+  const handleUnstarSearch = (searchId: number) => {
+    unstarSearch(searchId)
       .then(() => {
-        // Refresh the pinned searches list after unpinning
-        refreshPinnedSearches();
+        // Refresh the starred searches list after unstarring
+        refreshStarredSearches();
         // Show a success message
-        setMessage("Search unpinned successfully");
+        setMessage("Search unstarred successfully");
       })
       .catch(error => {
-        console.error("Error unpinning search:", error);
-        setMessage("Error unpinning search");
+        console.error("Error unstarring search:", error);
+        setMessage("Error unstarring search");
       });
   };
 
-  // Function to refresh pinned cards
-  const refreshPinnedCards = () => {
-    getPinnedCards()
+  // Function to refresh starred cards
+  const refreshStarredCards = () => {
+    getStarredCards()
       .then((cards) => {
-        setPinnedCards(cards);
+        setStarredCards(cards);
       })
       .catch(error => {
-        console.error("Error fetching pinned cards:", error);
+        console.error("Error fetching starred cards:", error);
       });
   };
 
-  // Function to refresh pinned searches
-  const refreshPinnedSearches = () => {
-    getPinnedSearches()
+  // Function to refresh starred searches
+  const refreshStarredSearches = () => {
+    getStarredSearches()
       .then((searches) => {
-        setPinnedSearches(searches);
+        setStarredSearches(searches);
       })
       .catch(error => {
-        console.error("Error fetching pinned searches:", error);
+        console.error("Error fetching starred searches:", error);
       });
   };
 
@@ -226,15 +226,15 @@ export function Sidebar() {
     //   setChatConversations(conversations);
     // });
 
-    // Fetch pinned cards and searches
-    refreshPinnedCards();
-    refreshPinnedSearches();
+    // Fetch starred cards and searches
+    refreshStarredCards();
+    refreshStarredSearches();
   }, []);
 
-  // Refresh pinned items when location changes (navigation occurs)
+  // Refresh starred items when location changes (navigation occurs)
   useEffect(() => {
-    refreshPinnedCards();
-    refreshPinnedSearches();
+    refreshStarredCards();
+    refreshStarredSearches();
   }, [location.pathname]);
   return (
     <>
@@ -390,35 +390,35 @@ export function Sidebar() {
             </ul>
           </div>
 
-          {/* Pinned Searches Section */}
+          {/* Starred Searches Section */}
           <>
             <hr />
             <div className="p-2">
               <div className="flex items-center justify-between mb-2 px-2">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Pinned Searches
+                  Starred Searches
                 </h3>
               </div>
-              {pinnedSearches.length > 0 ? (
+              {starredSearches.length > 0 ? (
                 <ul className="space-y-0.5">
-                  {pinnedSearches.map((search) => (
+                  {starredSearches.map((search) => (
                     <li key={search.id} className="px-2 py-0.5 text-sm group">
                       <div className="flex items-center">
                         <Link
-                          to={`/app/search?term=${encodeURIComponent(search.searchTerm)}&pinned=${search.id}`}
+                          to={`/app/search?term=${encodeURIComponent(search.searchTerm)}&starred=${search.id}`}
                           className="flex-grow hover:bg-gray-100 rounded p-1 truncate"
                           title={search.title}
                           onClick={() => {
-                            // This will be handled in SearchPage.tsx when it detects the pinned parameter
+                            // This will be handled in SearchPage.tsx when it detects the starred parameter
                           }}
                         >
                           <span className="mr-1">•</span>
                           {search.title}
                         </Link>
                         <button
-                          onClick={() => handleUnpinSearch(search.id)}
+                          onClick={() => handleUnstarSearch(search.id)}
                           className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity px-1"
-                          title="Unpin search"
+                          title="Unstar search"
                         >
                           ×
                         </button>
@@ -427,30 +427,30 @@ export function Sidebar() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-gray-400 px-2">No pinned searches yet</p>
+                <p className="text-xs text-gray-400 px-2">No starred searches yet</p>
               )}
             </div>
           </>
 
-          {/* Pinned Cards Section */}
+          {/* Starred Cards Section */}
           <>
             <hr />
             <div className="p-2">
               <div className="flex items-center justify-between mb-2 px-2">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Pinned Cards
+                  Starred Cards
                 </h3>
                 <button
-                  onClick={() => setShowPinDialog(true)}
+                  onClick={() => setShowStarCardDialog(true)}
                   className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-blue-500 rounded-full"
-                  title="Pin a card"
+                  title="Star a card"
                 >
                   +
                 </button>
               </div>
-              {pinnedCards.length > 0 ? (
+              {starredCards.length > 0 ? (
                 <ul className="space-y-0.5">
-                  {pinnedCards.map((card) => (
+                  {starredCards.map((card) => (
                     <li key={card.id} className="px-2 py-0.5 text-sm group">
                       <div className="flex items-center">
                         <Link
@@ -462,9 +462,9 @@ export function Sidebar() {
                           {card.title}
                         </Link>
                         <button
-                          onClick={() => handleUnpinCard(card.id)}
+                          onClick={() => handleUnstarCard(card.id)}
                           className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity px-1"
-                          title="Unpin card"
+                          title="Unstar card"
                         >
                           ×
                         </button>
@@ -473,7 +473,7 @@ export function Sidebar() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-gray-400 px-2">No pinned cards yet</p>
+                <p className="text-xs text-gray-400 px-2">No starred cards yet</p>
               )}
             </div>
           </>
@@ -503,10 +503,10 @@ export function Sidebar() {
         <QuickSearchWindow setShowWindow={setShowQuickSearchWindow} />
       )}
 
-      {showPinDialog && (
-        <PinCardDialog
-          onClose={() => setShowPinDialog(false)}
-          onPinSuccess={refreshPinnedCards}
+      {showStarCardDialog && (
+        <StarCardDialog
+          onClose={() => setShowStarCardDialog(false)}
+          onStarSuccess={refreshStarredCards}
           setMessage={setMessage}
         />
       )}

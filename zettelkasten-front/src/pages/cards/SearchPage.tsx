@@ -4,12 +4,12 @@ import { semanticSearchCards } from "../../api/cards";
 import { fetchUserTags } from "../../api/tags";
 import { SearchResult } from "../../models/Card";
 import { Tag } from "../../models/Tags";
-import { SearchConfig } from "../../models/PinnedSearch";
+import { SearchConfig } from "../../models/StarredSearch";
 import { sortCards } from "../../utils/cards";
 import { Button } from "../../components/Button";
 import { SearchResultList } from "../../components/cards/SearchResultList";
-import { PinSearchDialog } from "../../components/search/PinSearchDialog";
-import { getPinnedSearches } from "../../api/pinnedSearches";
+import { StarSearchDialog } from "../../components/search/StarSearchDialog";
+import { getStarredSearches } from "../../api/starredSearches";
 import { useTagContext } from "../../contexts/TagContext";
 import { Entity } from "../../models/Card";
 import { fetchEntityByName } from "../../api/entities";
@@ -37,7 +37,7 @@ export function SearchPage({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
   const { tags } = useTagContext();
-  const [showPinSearchDialog, setShowPinSearchDialog] = useState<boolean>(false);
+  const [showStarSearchDialog, setShowStarSearchDialog] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
   const latestRequestId = React.useRef(0);
   const {
@@ -48,7 +48,7 @@ export function SearchPage({
   } = useShortcutContext();
 
   const params = new URLSearchParams(location.search);
-  const pinnedId = params.get("pinned");
+  const starredId = params.get("starred");
 
   function handleSearchUpdate(e: ChangeEvent<HTMLInputElement>) {
     setSearchTerm(e.target.value);
@@ -94,34 +94,34 @@ export function SearchPage({
       const params = new URLSearchParams(location.search);
       const recent = params.get("recent");
       const term = params.get("term") || "";
-      const pinnedId = params.get("pinned");
+      const starredId = params.get("starred");
 
-      // Check if we're loading a pinned search
-      if (pinnedId) {
+      // Check if we're loading a starred search
+      if (starredId) {
         try {
-          const pinnedSearches = await getPinnedSearches();
-          const pinnedSearch = pinnedSearches.find(search => search.id === parseInt(pinnedId));
+          const starredSearches = await getStarredSearches();
+          const starredSearch = starredSearches.find(search => search.id === parseInt(starredId));
 
-          console.log("search", pinnedSearch)
-          if (pinnedSearch) {
-            // Apply the pinned search configuration
-            setSearchTerm(pinnedSearch.searchTerm);
+          console.log("search", starredSearch)
+          if (starredSearch) {
+            // Apply the starred search configuration
+            setSearchTerm(starredSearch.searchTerm);
             setSearchConfig({
               ...searchConfig,
-              ...pinnedSearch.searchConfig
+              ...starredSearch.searchConfig
             });
 
-            // Execute the search with the pinned configuration
-            await handleSearch(pinnedSearch.searchTerm, pinnedSearch.searchConfig);
+            // Execute the search with the starred configuration
+            await handleSearch(starredSearch.searchTerm, starredSearch.searchConfig);
             return; // Exit early since we've handled the search
           }
         } catch (error) {
-          console.error("Error loading pinned search:", error);
-          setMessage("Error loading pinned search");
+          console.error("Error loading starred search:", error);
+          setMessage("Error loading starred search");
         }
       }
 
-      // Regular search initialization if not a pinned search
+      // Regular search initialization if not a starred search
       if (recent !== null) {
         let config = { ...searchConfig, useClassicSearch: true }
         setSearchConfig(config);
@@ -273,18 +273,18 @@ export function SearchPage({
                 <div className="flex">
                   {/* Left Column */}
                   <div className="w-1/2 px-4 border-r border-gray-200">
-                    {/* Pin Search Option */}
-                    {!pinnedId && (
+                    {/* Star Search Option */}
+                    {!starredId && (
                       <>
                         <Menu.Item>
                           {({ active }) => (
                             <button
-                              onClick={() => setShowPinSearchDialog(true)}
+                              onClick={() => setShowStarSearchDialog(true)}
                               className={`${
                                 active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                               } group flex rounded-md items-center w-full px-2 py-2 text-sm mb-2`}
                             >
-                              Pin This Search
+                              Star This Search
                             </button>
                           )}
                         </Menu.Item>
@@ -493,13 +493,13 @@ export function SearchPage({
         </div>
       )}
 
-      {/* Pin Search Dialog */}
-      {showPinSearchDialog && (
-        <PinSearchDialog
+      {/* Star Search Dialog */}
+      {showStarSearchDialog && (
+        <StarSearchDialog
           searchTerm={searchTerm}
           searchConfig={searchConfig}
-          onClose={() => setShowPinSearchDialog(false)}
-          onPinSuccess={() => {
+          onClose={() => setShowStarSearchDialog(false)}
+          onStarSuccess={() => {
             // You might want to refresh something here
           }}
           setMessage={setMessage}

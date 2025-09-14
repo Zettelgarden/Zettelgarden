@@ -11,8 +11,8 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// PinCardRoute handles the request to pin a card
-func (s *Handler) PinCardRoute(w http.ResponseWriter, r *http.Request) {
+// StarCardRoute handles the request to star a card
+func (s *Handler) StarCardRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 	cardID, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil {
@@ -27,22 +27,22 @@ func (s *Handler) PinCardRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Pin the card
+	// Star the card
 	_, err = s.DB.Exec(
-		"INSERT INTO pinned_cards (card_pk, user_id, created_at) VALUES ($1, $2, NOW()) ON CONFLICT (card_pk, user_id) DO NOTHING",
+		"INSERT INTO starred_cards (card_pk, user_id, created_at) VALUES ($1, $2, NOW()) ON CONFLICT (card_pk, user_id) DO NOTHING",
 		cardID, userID,
 	)
 	if err != nil {
-		log.Printf("Error pinning card: %v", err)
-		http.Error(w, "Failed to pin card", http.StatusInternalServerError)
+		log.Printf("Error starring card: %v", err)
+		http.Error(w, "Failed to star card", http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
 }
 
-// UnpinCardRoute handles the request to unpin a card
-func (s *Handler) UnpinCardRoute(w http.ResponseWriter, r *http.Request) {
+// UnstarCardRoute handles the request to unstar a card
+func (s *Handler) UnstarCardRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 	cardID, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil {
@@ -50,14 +50,14 @@ func (s *Handler) UnpinCardRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete the pin
+	// Delete the star
 	result, err := s.DB.Exec(
-		"DELETE FROM pinned_cards WHERE card_pk = $1 AND user_id = $2",
+		"DELETE FROM starred_cards WHERE card_pk = $1 AND user_id = $2",
 		cardID, userID,
 	)
 	if err != nil {
-		log.Printf("Error unpinning card: %v", err)
-		http.Error(w, "Failed to unpin card", http.StatusInternalServerError)
+		log.Printf("Error unstarring card: %v", err)
+		http.Error(w, "Failed to unstar card", http.StatusInternalServerError)
 		return
 	}
 
@@ -65,52 +65,52 @@ func (s *Handler) UnpinCardRoute(w http.ResponseWriter, r *http.Request) {
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		log.Printf("Error getting rows affected: %v", err)
-		http.Error(w, "Failed to unpin card", http.StatusInternalServerError)
+		http.Error(w, "Failed to unstar card", http.StatusInternalServerError)
 		return
 	}
 
 	if rowsAffected == 0 {
-		http.Error(w, "Card was not pinned", http.StatusNotFound)
+		http.Error(w, "Card was not starred", http.StatusNotFound)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// GetPinnedCardsRoute handles the request to get all pinned cards for a user
-func (s *Handler) GetPinnedCardsRoute(w http.ResponseWriter, r *http.Request) {
+// GetStarredCardsRoute handles the request to get all starred cards for a user
+func (s *Handler) GetStarredCardsRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
-	// Query for pinned cards with full card data
+	// Query for starred cards with full card data
 	rows, err := s.DB.Query(`
-		SELECT 
-			pc.id, pc.card_pk, pc.user_id, pc.created_at,
+		SELECT
+			sc.id, sc.card_pk, sc.user_id, sc.created_at,
 			c.id, c.card_id, c.user_id, c.title, c.body, c.link, c.parent_id, c.created_at, c.updated_at
-		FROM pinned_cards pc
-		JOIN cards c ON pc.card_pk = c.id
-		WHERE pc.user_id = $1 AND c.is_deleted = FALSE
-		ORDER BY pc.created_at DESC
+		FROM starred_cards sc
+		JOIN cards c ON sc.card_pk = c.id
+		WHERE sc.user_id = $1 AND c.is_deleted = FALSE
+		ORDER BY sc.created_at DESC
 	`, userID)
 	if err != nil {
-		log.Printf("Error querying pinned cards: %v", err)
-		http.Error(w, "Failed to retrieve pinned cards", http.StatusInternalServerError)
+		log.Printf("Error querying starred cards: %v", err)
+		http.Error(w, "Failed to retrieve starred cards", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
-	var pinnedCards []models.PinnedCardResponse
+	var starredCards []models.StarredCardResponse
 	for rows.Next() {
-		var pinnedCard models.PinnedCardResponse
+		var starredCard models.StarredCardResponse
 		var card models.Card
 
 		err := rows.Scan(
-			&pinnedCard.ID, &pinnedCard.CardPK, &pinnedCard.UserID, &pinnedCard.CreatedAt,
+			&starredCard.ID, &starredCard.CardPK, &starredCard.UserID, &starredCard.CreatedAt,
 			&card.ID, &card.CardID, &card.UserID, &card.Title, &card.Body, &card.Link,
 			&card.ParentID, &card.CreatedAt, &card.UpdatedAt,
 		)
 		if err != nil {
-			log.Printf("Error scanning pinned card: %v", err)
-			http.Error(w, "Failed to process pinned cards", http.StatusInternalServerError)
+			log.Printf("Error scanning starred card: %v", err)
+			http.Error(w, "Failed to process starred cards", http.StatusInternalServerError)
 			return
 		}
 
@@ -130,41 +130,41 @@ func (s *Handler) GetPinnedCardsRoute(w http.ResponseWriter, r *http.Request) {
 		}
 		card.Tags = tags
 
-		pinnedCard.Card = card
-		pinnedCards = append(pinnedCards, pinnedCard)
+		starredCard.Card = card
+		starredCards = append(starredCards, starredCard)
 	}
 
 	if err = rows.Err(); err != nil {
-		log.Printf("Error iterating pinned cards: %v", err)
-		http.Error(w, "Failed to process pinned cards", http.StatusInternalServerError)
+		log.Printf("Error iterating starred cards: %v", err)
+		http.Error(w, "Failed to process starred cards", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(pinnedCards)
+	json.NewEncoder(w).Encode(starredCards)
 }
 
-// IsCardPinned checks if a card is pinned by the current user
-func (s *Handler) IsCardPinned(userID, cardID int) (bool, error) {
+// IsCardStarred checks if a card is starred by the current user
+func (s *Handler) IsCardStarred(userID, cardID int) (bool, error) {
 	var count int
 	err := s.DB.QueryRow(
-		"SELECT COUNT(*) FROM pinned_cards WHERE card_pk = $1 AND user_id = $2",
+		"SELECT COUNT(*) FROM starred_cards WHERE card_pk = $1 AND user_id = $2",
 		cardID, userID,
 	).Scan(&count)
 
 	if err != nil {
-		return false, fmt.Errorf("error checking if card is pinned: %w", err)
+		return false, fmt.Errorf("error checking if card is starred: %w", err)
 	}
 
 	return count > 0, nil
 }
 
-// PinSearchRoute handles the request to pin a search
-func (s *Handler) PinSearchRoute(w http.ResponseWriter, r *http.Request) {
+// StarSearchRoute handles the request to star a search
+func (s *Handler) StarSearchRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
 	// Parse the request body
-	var req models.PinnedSearchRequest
+	var req models.StarredSearchRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -177,26 +177,26 @@ func (s *Handler) PinSearchRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Insert the pinned search
+	// Insert the starred search
 	var id int
 	err = s.DB.QueryRow(
-		"INSERT INTO pinned_searches (user_id, title, search_term, search_config, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING id",
+		"INSERT INTO starred_searches (user_id, title, search_term, search_config, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING id",
 		userID, req.Title, req.SearchTerm, req.SearchConfig,
 	).Scan(&id)
 	if err != nil {
-		log.Printf("Error pinning search: %v", err)
-		http.Error(w, "Failed to pin search", http.StatusInternalServerError)
+		log.Printf("Error starring search: %v", err)
+		http.Error(w, "Failed to star search", http.StatusInternalServerError)
 		return
 	}
 
-	// Return the ID of the newly created pinned search
+	// Return the ID of the newly created starred search
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]int{"id": id})
 }
 
-// UnpinSearchRoute handles the request to unpin a search
-func (s *Handler) UnpinSearchRoute(w http.ResponseWriter, r *http.Request) {
+// UnstarSearchRoute handles the request to unstar a search
+func (s *Handler) UnstarSearchRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 	searchID, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil {
@@ -204,14 +204,14 @@ func (s *Handler) UnpinSearchRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete the pin
+	// Delete the star
 	result, err := s.DB.Exec(
-		"DELETE FROM pinned_searches WHERE id = $1 AND user_id = $2",
+		"DELETE FROM starred_searches WHERE id = $1 AND user_id = $2",
 		searchID, userID,
 	)
 	if err != nil {
-		log.Printf("Error unpinning search: %v", err)
-		http.Error(w, "Failed to unpin search", http.StatusInternalServerError)
+		log.Printf("Error unstarring search: %v", err)
+		http.Error(w, "Failed to unstar search", http.StatusInternalServerError)
 		return
 	}
 
@@ -219,62 +219,62 @@ func (s *Handler) UnpinSearchRoute(w http.ResponseWriter, r *http.Request) {
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		log.Printf("Error getting rows affected: %v", err)
-		http.Error(w, "Failed to unpin search", http.StatusInternalServerError)
+		http.Error(w, "Failed to unstar search", http.StatusInternalServerError)
 		return
 	}
 
 	if rowsAffected == 0 {
-		http.Error(w, "Search was not pinned", http.StatusNotFound)
+		http.Error(w, "Search was not starred", http.StatusNotFound)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// GetPinnedSearchesRoute handles the request to get all pinned searches for a user
-func (s *Handler) GetPinnedSearchesRoute(w http.ResponseWriter, r *http.Request) {
+// GetStarredSearchesRoute handles the request to get all starred searches for a user
+func (s *Handler) GetStarredSearchesRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
-	// Query for pinned searches
+	// Query for starred searches
 	rows, err := s.DB.Query(`
 		SELECT id, user_id, title, search_term, search_config, created_at
-		FROM pinned_searches
+		FROM starred_searches
 		WHERE user_id = $1
 		ORDER BY created_at DESC
 	`, userID)
 	if err != nil {
-		log.Printf("Error querying pinned searches: %v", err)
-		http.Error(w, "Failed to retrieve pinned searches", http.StatusInternalServerError)
+		log.Printf("Error querying starred searches: %v", err)
+		http.Error(w, "Failed to retrieve starred searches", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
-	var pinnedSearches []models.PinnedSearch
+	var starredSearches []models.StarredSearch
 	for rows.Next() {
-		var pinnedSearch models.PinnedSearch
+		var starredSearch models.StarredSearch
 		err := rows.Scan(
-			&pinnedSearch.ID,
-			&pinnedSearch.UserID,
-			&pinnedSearch.Title,
-			&pinnedSearch.SearchTerm,
-			&pinnedSearch.SearchConfig,
-			&pinnedSearch.CreatedAt,
+			&starredSearch.ID,
+			&starredSearch.UserID,
+			&starredSearch.Title,
+			&starredSearch.SearchTerm,
+			&starredSearch.SearchConfig,
+			&starredSearch.CreatedAt,
 		)
 		if err != nil {
-			log.Printf("Error scanning pinned search: %v", err)
-			http.Error(w, "Failed to process pinned searches", http.StatusInternalServerError)
+			log.Printf("Error scanning starred search: %v", err)
+			http.Error(w, "Failed to process starred searches", http.StatusInternalServerError)
 			return
 		}
 
-		pinnedSearches = append(pinnedSearches, pinnedSearch)
+		starredSearches = append(starredSearches, starredSearch)
 	}
 
 	if err = rows.Err(); err != nil {
-		log.Printf("Error iterating pinned searches: %v", err)
-		http.Error(w, "Failed to process pinned searches", http.StatusInternalServerError)
+		log.Printf("Error iterating starred searches: %v", err)
+		http.Error(w, "Failed to process starred searches", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(pinnedSearches)
+	json.NewEncoder(w).Encode(starredSearches)
 }

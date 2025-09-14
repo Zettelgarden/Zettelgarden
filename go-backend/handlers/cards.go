@@ -474,13 +474,13 @@ func (s *Handler) GetCardRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if the card is pinned by the current user
-	isPinned, err := s.IsCardPinned(userID, id)
+	// Check if the card is starred by the current user
+	isStarred, err := s.IsCardStarred(userID, id)
 	if err != nil {
-		log.Printf("Error checking if card is pinned: %v", err)
-		// Continue even if we can't determine pin status
+		log.Printf("Error checking if card is starred: %v", err)
+		// Continue even if we can't determine star status
 	} else {
-		card.IsPinned = isPinned
+		card.IsStarred = isStarred
 	}
 	parent, err := s.QueryPartialCardByID(userID, card.ParentID)
 	if err != nil {

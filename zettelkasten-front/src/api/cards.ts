@@ -430,12 +430,12 @@ export async function getNextRootId(): Promise<NextIdResponse> {
 }
 
 /**
- * Pin a card to make it easily accessible
- * @param cardId The ID of the card to pin
- * @returns A promise that resolves when the card is pinned
+ * Star a card to make it easily accessible
+ * @param cardId The ID of the card to star
+ * @returns A promise that resolves when the card is starred
  */
-export function pinCard(cardId: number): Promise<void> {
-  const url = `${base_url}/cards/${cardId}/pin`;
+export function starCard(cardId: number): Promise<void> {
+  const url = `${base_url}/cards/${cardId}/star`;
   let token = localStorage.getItem("token");
 
   return fetch(url, {
@@ -449,12 +449,12 @@ export function pinCard(cardId: number): Promise<void> {
 }
 
 /**
- * Unpin a previously pinned card
- * @param cardId The ID of the card to unpin
- * @returns A promise that resolves when the card is unpinned
+ * Unstar a previously starred card
+ * @param cardId The ID of the card to unstar
+ * @returns A promise that resolves when the card is unstarred
  */
-export function unpinCard(cardId: number): Promise<void> {
-  const url = `${base_url}/cards/${cardId}/pin`;
+export function unstarCard(cardId: number): Promise<void> {
+  const url = `${base_url}/cards/${cardId}/star`;
   let token = localStorage.getItem("token");
 
   return fetch(url, {
@@ -468,11 +468,11 @@ export function unpinCard(cardId: number): Promise<void> {
 }
 
 /**
- * Get all cards that have been pinned by the current user
- * @returns A promise that resolves to an array of pinned cards with their full data
+ * Get all cards that have been starred by the current user
+ * @returns A promise that resolves to an array of starred cards with their full data
  */
-export function getPinnedCards(): Promise<Card[]> {
-  const url = `${base_url}/cards/pinned`;
+export function getStarredCards(): Promise<Card[]> {
+  const url = `${base_url}/cards/starred`;
   let token = localStorage.getItem("token");
 
   return fetch(url, {
@@ -481,14 +481,14 @@ export function getPinnedCards(): Promise<Card[]> {
     .then(checkStatus)
     .then((response) => {
       if (response) {
-        return response.json().then((pinnedCards: any[]) => {
-          if (pinnedCards === null) {
+        return response.json().then((starredCards: any[]) => {
+          if (starredCards === null) {
             return [];
           }
 
           // Transform the response into Card objects
-          return pinnedCards.map((pinnedCard) => {
-            const card = pinnedCard.card;
+          return starredCards.map((starredCard) => {
+            const card = starredCard.card;
 
             // Process dates and nested objects
             return {
@@ -513,7 +513,7 @@ export function getPinnedCards(): Promise<Card[]> {
                 updated_at: new Date(task.updated_at),
                 completed_at: task.completed_at ? new Date(task.completed_at) : null,
               })) : [],
-              is_pinned: true, // Mark as pinned since it's coming from the pinned cards endpoint
+              is_pinned: true, // Mark as starred since it's coming from the starred cards endpoint
             };
           });
         });

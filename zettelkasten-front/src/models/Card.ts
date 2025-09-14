@@ -44,7 +44,7 @@ export interface Card {
   tags: Tag[];
   tasks: Task[];
   entities: Entity[];
-  is_pinned?: boolean; // Whether the current user has pinned this card
+  is_starred?: boolean; // Whether the current user has starred this card
   process_entities_and_facts?: boolean; // Whether to process entities and facts on save
 }
 
@@ -111,7 +111,7 @@ export const defaultCard: Card = {
   tags: [],
   tasks: [],
   entities: [],
-  is_pinned: false,
+  is_starred: false,
   process_entities_and_facts: false,
 };
 

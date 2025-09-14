@@ -26,7 +26,7 @@ type Card struct {
 	Tasks      []Task        `json:"tasks"`
 	Entities   []Entity      `json:"entities"`
 	TagCount   int
-	IsPinned   bool `json:"is_pinned"`
+	IsStarred  bool `json:"is_starred"`
 }
 
 func ScanCards(rows *sql.Rows) ([]Card, error) {

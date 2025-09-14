@@ -167,13 +167,13 @@ func main() {
 
 	addProtectedRoute(r, "/api/cards", h.CreateCardRoute, "POST")
 	addProtectedRoute(r, "/api/cards/next-root-id", h.GetNextRootCardIDRoute, "GET")
-	addProtectedRoute(r, "/api/cards/pinned", h.GetPinnedCardsRoute, "GET")
+	addProtectedRoute(r, "/api/cards/starred", h.GetStarredCardsRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}", h.GetCardRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}", h.UpdateCardRoute, "PUT")
 	addProtectedRoute(r, "/api/cards/{id}", h.DeleteCardRoute, "DELETE")
 	addProtectedRoute(r, "/api/cards/{id}/audit", h.GetCardAuditEventsRoute, "GET")
-	addProtectedRoute(r, "/api/cards/{id}/pin", h.PinCardRoute, "POST")
-	addProtectedRoute(r, "/api/cards/{id}/pin", h.UnpinCardRoute, "DELETE")
+	addProtectedRoute(r, "/api/cards/{id}/star", h.StarCardRoute, "POST")
+	addProtectedRoute(r, "/api/cards/{id}/star", h.UnstarCardRoute, "DELETE")
 	addProtectedRoute(r, "/api/cards/{id}/facts", h.GetCardFacts, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/references", h.GetCardReferencesRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/children", h.GetCardChildrenRoute, "GET")
@@ -254,9 +254,9 @@ func main() {
 	addProtectedRoute(r, "/api/cards/{card_pk:[0-9]+}/summaries", h.GetSummariesByCardRoute, "GET")
 
 	// Pinned searches routes
-	addProtectedRoute(r, "/api/searches/pin", h.PinSearchRoute, "POST")
-	addProtectedRoute(r, "/api/searches/pin/{id}", h.UnpinSearchRoute, "DELETE")
-	addProtectedRoute(r, "/api/searches/pinned", h.GetPinnedSearchesRoute, "GET")
+	addProtectedRoute(r, "/api/searches/star", h.StarSearchRoute, "POST")
+	addProtectedRoute(r, "/api/searches/star/{id}", h.UnstarSearchRoute, "DELETE")
+	addProtectedRoute(r, "/api/searches/starred", h.GetStarredSearchesRoute, "GET")
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{os.Getenv("ZETTEL_URL")},

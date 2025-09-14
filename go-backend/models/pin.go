@@ -4,8 +4,8 @@ import (
 	"time"
 )
 
-// PinnedCard represents a card that has been pinned by a user
-type PinnedCard struct {
+// StarredCard represents a card that has been starred by a user
+type StarredCard struct {
 	ID        int       `json:"id"`
 	CardPK    int       `json:"card_pk"`
 	UserID    int       `json:"user_id"`
@@ -13,8 +13,8 @@ type PinnedCard struct {
 	Card      Card      `json:"card,omitempty"` // Optional embedded card for API responses
 }
 
-// PinnedCardResponse is used for API responses that include the full card data
-type PinnedCardResponse struct {
+// StarredCardResponse is used for API responses that include the full card data
+type StarredCardResponse struct {
 	ID        int       `json:"id"`
 	CardPK    int       `json:"card_pk"`
 	UserID    int       `json:"user_id"`

@@ -1,21 +1,21 @@
-import { PinnedSearch, SearchConfig } from "../models/PinnedSearch";
+import { StarredSearch, SearchConfig } from "../models/StarredSearch";
 import { checkStatus } from "./common";
 
 const base_url = import.meta.env.VITE_URL;
 
 /**
- * Save a search configuration to pinned searches
- * @param title The title for the pinned search
+ * Save a search configuration to starred searches
+ * @param title The title for the starred search
  * @param searchTerm The search term
  * @param searchConfig The search configuration options
- * @returns A promise that resolves when the search is pinned
+ * @returns A promise that resolves when the search is starred
  */
-export function pinSearch(
+export function starSearch(
     title: string,
     searchTerm: string,
     searchConfig: SearchConfig
 ): Promise<void> {
-    const url = `${base_url}/searches/pin`;
+    const url = `${base_url}/searches/star`;
     let token = localStorage.getItem("token");
 
     return fetch(url, {
@@ -37,12 +37,12 @@ export function pinSearch(
 }
 
 /**
- * Remove a pinned search
- * @param id The ID of the pinned search to remove
- * @returns A promise that resolves when the search is unpinned
+ * Remove a starred search
+ * @param id The ID of the starred search to remove
+ * @returns A promise that resolves when the search is unstarred
  */
-export function unpinSearch(id: number): Promise<void> {
-    const url = `${base_url}/searches/pin/${id}`;
+export function unstarSearch(id: number): Promise<void> {
+    const url = `${base_url}/searches/star/${id}`;
     let token = localStorage.getItem("token");
 
     return fetch(url, {
@@ -56,11 +56,11 @@ export function unpinSearch(id: number): Promise<void> {
 }
 
 /**
- * Get all pinned searches for the current user
- * @returns A promise that resolves to an array of pinned searches
+ * Get all starred searches for the current user
+ * @returns A promise that resolves to an array of starred searches
  */
-export function getPinnedSearches(): Promise<PinnedSearch[]> {
-    const url = `${base_url}/searches/pinned`;
+export function getStarredSearches(): Promise<StarredSearch[]> {
+    const url = `${base_url}/searches/starred`;
     let token = localStorage.getItem("token");
 
     return fetch(url, {
@@ -69,16 +69,16 @@ export function getPinnedSearches(): Promise<PinnedSearch[]> {
         .then(checkStatus)
         .then((response) => {
             if (response) {
-                return response.json().then((pinnedSearches: any[]) => {
-                    if (pinnedSearches === null) {
+                return response.json().then((starredSearches: any[]) => {
+                    if (starredSearches === null) {
                         return [];
                     }
 
-                    // Transform the response into PinnedSearch objects
-                    return pinnedSearches.map((pinnedSearch) => {
+                    // Transform the response into StarredSearch objects
+                    return starredSearches.map((starredSearch) => {
                         return {
-                            ...pinnedSearch,
-                            created_at: new Date(pinnedSearch.created_at),
+                            ...starredSearch,
+                            created_at: new Date(starredSearch.created_at),
                         };
                     });
                 });
