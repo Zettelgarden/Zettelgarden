@@ -25,9 +25,11 @@ import { findNextChildId } from "../../utils/cards";
 
 import { useShortcutContext } from "../../contexts/ShortcutContext";
 import { useTagContext } from "../../contexts/TagContext";
+import { usePinContext } from "../../contexts/PinContext";
 
 import { SearchTagDropdown } from "../../components/tags/SearchTagDropdown";
 import { FileUpload } from "../../components/files/FileUpload";
+import { PinButton } from "../../components/cards/PinButton";
 
 import { ChildrenCards } from "../../components/cards/ChildrenCards";
 import { compareCardIds } from "../../utils/cards";
@@ -38,15 +40,18 @@ import { CardBody } from "../../components/cards/CardBody";
 import { fetchSummariesForCard, fetchAnalysisForCard, SectionAnalysis, SummarizeJobResponse } from "../../api/summarizer";
 import { FactWithCard } from "../../models/Fact";
 
-interface ViewPageProps { }
+interface ViewPageProps {
+  cardId?: string; // Optional card ID prop for pinned cards
+}
 
-export function ViewPage({ }: ViewPageProps) {
+export function ViewPage({ cardId }: ViewPageProps) {
   const [error, setError] = useState("");
   const [viewingCard, setViewCard] = useState<Card | null>(null);
   const [parentCard, setParentCard] = useState<Card | null>(null);
   const { refreshTasks, setRefreshTasks } = useTaskContext();
   const { refreshFiles } = useFileContext();
-  const { id } = useParams<{ id: string }>();
+  const { id: urlId } = useParams<{ id: string }>();
+  const id = cardId || urlId; // Use prop cardId if provided, otherwise use URL param
   const { refreshTrigger } = useCardRefresh();
 
   const fileUploadRef = React.useRef<HTMLInputElement>(null);
@@ -61,6 +66,7 @@ export function ViewPage({ }: ViewPageProps) {
   } = useShortcutContext();
 
   const { tags } = useTagContext();
+  const { pinnedCard, setPinnedCard } = usePinContext();
 
   const [summaries, setSummaries] = useState<SummarizeJobResponse[] | null>(null);
   const [latestSummary, setLatestSummary] = useState<SummarizeJobResponse | null>(null);
@@ -237,6 +243,20 @@ export function ViewPage({ }: ViewPageProps) {
   function toggleCreateTaskWindow() {
     setShowCreateTaskWindow(!showCreateTaskWindow);
   }
+
+  const handleTogglePin = () => {
+    if (!viewingCard) return;
+
+    if (pinnedCard && pinnedCard.id === viewingCard.id) {
+      // Unpin if this card is currently pinned
+      setPinnedCard(null);
+    } else {
+      // Pin this card
+      setPinnedCard(viewingCard);
+    }
+  };
+
+  const isPinned = pinnedCard && viewingCard && pinnedCard.id === viewingCard.id;
   // For initial fetch and when id changes
   useEffect(() => {
     setError("");
@@ -267,7 +287,7 @@ export function ViewPage({ }: ViewPageProps) {
     }
   }, [summaries]);
 
-  return (
+  const renderViewPageContent = () => (
     <div className="overflow-x-hidden">
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
@@ -293,6 +313,11 @@ export function ViewPage({ }: ViewPageProps) {
               </div>
             </div>
             <div className="mt-2 md:mt-0 flex justify-end gap-2 flex-shrink">
+              <PinButton
+                card={viewingCard}
+                isPinned={!!isPinned}
+                onTogglePin={handleTogglePin}
+              />
               <Button onClick={handleEditCard}>Edit</Button>
               <Menu as="div" className="relative inline-block text-right">
                 <div>
@@ -312,6 +337,17 @@ export function ViewPage({ }: ViewPageProps) {
                             } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
                         >
                           Add Task
+                        </button>
+                      )}
+                    </Menu.Item>
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          onClick={handleTogglePin}
+                          className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                            } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                        >
+                          {isPinned ? 'Unpin Card' : 'Pin Card'}
                         </button>
                       )}
                     </Menu.Item>
@@ -605,4 +641,6 @@ export function ViewPage({ }: ViewPageProps) {
       )}
     </div>
   );
+
+  return renderViewPageContent();
 }

@@ -24,6 +24,9 @@ import {
 } from "../contexts/CardContext";
 import { ShortcutProvider } from "../contexts/ShortcutContext";
 import { FileProvider } from "../contexts/FileContext";
+import { PinProvider, usePinContext } from "../contexts/PinContext";
+import { SplitViewLayout } from "../components/cards/SplitViewLayout";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { EntityPage } from "./EntityPage";
 import { CardRefreshProvider } from "../contexts/CardRefreshContext";
 import { Summarizer } from "./Summarizer";
@@ -59,6 +62,7 @@ function MainAppContent() {
     updateUser,
   } = useAuth();
   const { setRefreshTasks } = useTaskContext();
+  const { pinnedCard, isPinMode } = usePinContext();
 
   // changing pages
 
@@ -89,50 +93,105 @@ function MainAppContent() {
       <div className="flex h-screen overflow-hidden">
         <Sidebar />
         <div className="flex-grow overflow-y-auto">
-          <div className="">
-            <EmailValidationBanner />
-            <Routes>
-              <Route path="subscription" element={<SubscribePage />} />
-              <Route path="settings/billing/success" element={<Success />} />
-              <Route path="settings/billing/cancel" element={<Cancel />} />
-              <>
-                <Route
-                  path="search"
-                  element={
-                    <SearchPage
-                      searchTerm={searchTerm}
-                      setSearchTerm={setSearchTerm}
-                      searchResults={searchResults}
-                      setSearchResults={setSearchResults}
-                      searchConfig={searchConfig}
-                      setSearchConfig={setSearchConfig}
-                    />
-                  }
-                />
-                <Route path="card/:id" element={<ViewPage />} />
-                <Route
-                  path="card/:id/edit"
-                  element={<EditPage newCard={false} />}
-                />
+          {isPinMode && pinnedCard ? (
+            <ErrorBoundary>
+              <SplitViewLayout pinnedCard={pinnedCard}>
+              <div className="">
+                <EmailValidationBanner />
+                <Routes>
+                  <Route path="subscription" element={<SubscribePage />} />
+                  <Route path="settings/billing/success" element={<Success />} />
+                  <Route path="settings/billing/cancel" element={<Cancel />} />
+                  {hasSubscription ? (
+                    <>
+                      <Route
+                        path="search"
+                        element={
+                          <SearchPage
+                            searchTerm={searchTerm}
+                            setSearchTerm={setSearchTerm}
+                            searchResults={searchResults}
+                            setSearchResults={setSearchResults}
+                            searchConfig={searchConfig}
+                            setSearchConfig={setSearchConfig}
+                          />
+                        }
+                      />
+                      <Route path="card/:id" element={<ViewPage />} />
+                      <Route
+                        path="card/:id/edit"
+                        element={<EditPage newCard={false} />}
+                      />
 
-                <Route path="card/new" element={<EditPage newCard={true} />} />
-                <Route path="settings" element={<UserSettingsPage />} />
-                <Route path="help" element={<GettingStartedPage />} />
-                <Route path="files" element={<FileVault />} />
-                <Route path="tasks" element={<TaskPage />} />
-                <Route path="entities" element={<EntityPage />} />
-                <Route path="summarizer" element={<Summarizer />} />
-                <Route path="facts" element={<FactPage />} />
-                <Route path="memory" element={<MemoryPage />} />
-                <Route path="*" element={<DashboardPage />} />
-              </>
-              ) : (
-              <Route
-                path="*"
-                element={<Navigate to="/app/subscription" replace />}
-              />
-            </Routes>
-          </div>
+                      <Route path="card/new" element={<EditPage newCard={true} />} />
+                      <Route path="settings" element={<UserSettingsPage />} />
+                      <Route path="help" element={<GettingStartedPage />} />
+                      <Route path="files" element={<FileVault />} />
+                      <Route path="tasks" element={<TaskPage />} />
+                      <Route path="entities" element={<EntityPage />} />
+                      <Route path="summarizer" element={<Summarizer />} />
+                      <Route path="facts" element={<FactPage />} />
+                      <Route path="memory" element={<MemoryPage />} />
+                      <Route path="*" element={<DashboardPage />} />
+                    </>
+                  ) : (
+                    <Route
+                      path="*"
+                      element={<Navigate to="/app/subscription" replace />}
+                    />
+                  )}
+                </Routes>
+              </div>
+              </SplitViewLayout>
+            </ErrorBoundary>
+          ) : (
+            <div className="">
+              <EmailValidationBanner />
+              <Routes>
+                <Route path="subscription" element={<SubscribePage />} />
+                <Route path="settings/billing/success" element={<Success />} />
+                <Route path="settings/billing/cancel" element={<Cancel />} />
+                {hasSubscription ? (
+                  <>
+                    <Route
+                      path="search"
+                      element={
+                        <SearchPage
+                          searchTerm={searchTerm}
+                          setSearchTerm={setSearchTerm}
+                          searchResults={searchResults}
+                          setSearchResults={setSearchResults}
+                          searchConfig={searchConfig}
+                          setSearchConfig={setSearchConfig}
+                        />
+                      }
+                    />
+                    <Route path="card/:id" element={<ViewPage />} />
+                    <Route
+                      path="card/:id/edit"
+                      element={<EditPage newCard={false} />}
+                    />
+
+                    <Route path="card/new" element={<EditPage newCard={true} />} />
+                    <Route path="settings" element={<UserSettingsPage />} />
+                    <Route path="help" element={<GettingStartedPage />} />
+                    <Route path="files" element={<FileVault />} />
+                    <Route path="tasks" element={<TaskPage />} />
+                    <Route path="entities" element={<EntityPage />} />
+                    <Route path="summarizer" element={<Summarizer />} />
+                    <Route path="facts" element={<FactPage />} />
+                    <Route path="memory" element={<MemoryPage />} />
+                    <Route path="*" element={<DashboardPage />} />
+                  </>
+                ) : (
+                  <Route
+                    path="*"
+                    element={<Navigate to="/app/subscription" replace />}
+                  />
+                )}
+              </Routes>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -147,9 +206,11 @@ function MainApp() {
           <TaskProvider>
             <ShortcutProvider>
               <FileProvider>
-                <CardRefreshProvider>
-                  <MainAppContent />
-                </CardRefreshProvider>
+                <PinProvider>
+                  <CardRefreshProvider>
+                    <MainAppContent />
+                  </CardRefreshProvider>
+                </PinProvider>
               </FileProvider>
             </ShortcutProvider>
           </TaskProvider>
