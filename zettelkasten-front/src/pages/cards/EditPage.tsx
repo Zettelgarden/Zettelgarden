@@ -136,27 +136,32 @@ export function EditPage({ newCard }: EditPageProps) {
 
   // clear draft on save
   async function handleSaveCard() {
-    let response;
-    if (newCard) {
-      response = await saveNewCard(editingCard);
-    } else {
-      response = await saveExistingCard(editingCard);
-    }
-
-    if (!("error" in response)) {
+    try {
+      let response;
       if (newCard) {
-        localStorage.removeItem('newCardBodyDraft');
+        response = await saveNewCard(editingCard);
+      } else {
+        response = await saveExistingCard(editingCard);
       }
-      filesToUpdate.map((file) =>
-        editFile(file["id"].toString(), {
-          name: file.name,
-          card_pk: response.id,
-        }),
-      );
 
-      navigate(`/app/card/${response.id}`);
-    } else {
-      setError("Unable to save card, something has gone wrong.");
+      if (!("error" in response)) {
+        if (newCard) {
+          localStorage.removeItem('newCardBodyDraft');
+        }
+        filesToUpdate.map((file) =>
+          editFile(file["id"].toString(), {
+            name: file.name,
+            card_pk: response.id,
+          }),
+        );
+
+        navigate(`/app/card/${response.id}`);
+      } else {
+        setError("Unable to save card, something has gone wrong.");
+      }
+    } catch (error: any) {
+      console.error('Error saving card:', error);
+      setError(error.message || "Failed to save card. Please try again.");
     }
   }
 
