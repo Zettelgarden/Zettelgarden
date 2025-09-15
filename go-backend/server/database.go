@@ -54,7 +54,7 @@ func ResetDatabase(S *Server) error {
 			DROP TABLE IF EXISTS user_llm_configurations CASCADE;
 			DROP TABLE IF EXISTS pinned_cards CASCADE;
 			DROP TABLE IF EXISTS card_templates CASCADE;
-			DROP TABLE IF EXISTS pinned_searches CASCADE;
+			DROP TABLE IF EXISTS starred_searches CASCADE;
 			DROP TABLE IF EXISTS user_memories CASCADE;
 			DROP TABLE IF EXISTS summarizations CASCADE;
 			DROP TABLE IF EXISTS facts CASCADE;
