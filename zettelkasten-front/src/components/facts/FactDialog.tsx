@@ -7,10 +7,13 @@ import { Button } from "../Button";
 import { Entity } from "../../models/Card";
 import { getFactEntities } from "../../api/entities";
 import { getFactCards, getSimilarFacts, linkFactToCard, mergeFacts, deleteFact, updateFact } from "../../api/facts";
+import { getNextRootId, saveNewCard } from "../../api/cards";
+import { defaultCard } from "../../models/Card";
 import { CardIcon } from "../../assets/icons/CardIcon";
 import { BacklinkInputDropdownList } from "../cards/BacklinkInputDropdownList";
 import { PartialCard } from "../../models/Card";
 import { useShortcutContext } from "../../contexts/ShortcutContext";
+import { useNavigate } from "react-router-dom";
 
 interface FactDialogProps {
     onClose: () => void;
@@ -103,10 +106,62 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editedFact, setEditedFact] = useState("");
 
+    const [showConvertDialog, setShowConvertDialog] = useState(false);
+    const [isConverting, setIsConverting] = useState(false);
+    const [convertError, setConvertError] = useState<string | null>(null);
+    const [cardTitle, setCardTitle] = useState("");
+    const [cardBody, setCardBody] = useState("");
+
+    const navigate = useNavigate();
+
     function handleStartEditing() {
         if (!selectedFact) return;
         setIsEditing(true);
         setEditedFact(selectedFact.fact);
+    }
+
+    function handleStartConversion() {
+        if (!selectedFact) return;
+        const truncatedTitle = selectedFact.fact.length > 50
+            ? selectedFact.fact.slice(0, 50) + "..."
+            : selectedFact.fact;
+        setCardTitle(truncatedTitle);
+        setCardBody(selectedFact.fact);
+        setShowConvertDialog(true);
+        setConvertError(null);
+    }
+
+    async function handleConvertToCard() {
+        if (!selectedFact) return;
+        setIsConverting(true);
+        setConvertError(null);
+
+        try {
+
+            const newCard = await saveNewCard({
+                ...defaultCard,
+                card_id: "",
+                title: cardTitle,
+                body: cardBody,
+            });
+
+            if ("error" in newCard) {
+                throw new Error("Failed to create card");
+            }
+
+            await linkFactToCard(selectedFact.id, newCard.id);
+
+            const updatedCards = await getFactCards(selectedFact.id);
+            setCards(updatedCards);
+
+            setShowConvertDialog(false);
+            navigate(`/app/card/${newCard.id}`);
+        } catch (err) {
+            console.error(err);
+            setConvertError("Failed to convert fact to card");
+        } finally {
+            setIsConverting(false);
+        }
     }
 
     async function handleSave() {
@@ -332,12 +387,18 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                     </div>
 
                     <div className="mt-6 flex justify-between items-center border-t pt-4">
-                        <div>
+                        <div className="flex gap-3">
                             <Button
                                 onClick={() => setShowDeleteConfirm(true)}
                                 className="bg-red-500 text-white"
                             >
                                 Delete Fact
+                            </Button>
+                            <Button
+                                onClick={handleStartConversion}
+                                disabled={!selectedFact}
+                            >
+                                Create Card
                             </Button>
                         </div>
                         <div className="flex justify-end gap-3">
@@ -422,6 +483,62 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                                 className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                             >
                                 {isMerging ? "Merging..." : "Merge"}
+                            </button>
+                        </div>
+                    </Dialog.Panel>
+                </Dialog>
+            )}
+            {showConvertDialog && (
+                <Dialog
+                    open={showConvertDialog}
+                    onClose={() => setShowConvertDialog(false)}
+                    className="fixed inset-0 z-50 flex items-center justify-center"
+                >
+                    <div className="fixed inset-0 bg-black bg-opacity-30" aria-hidden="true" />
+                    <Dialog.Panel className="bg-white p-6 rounded-lg max-w-2xl mx-auto relative w-full">
+                        <Dialog.Title className="text-lg font-semibold mb-4">
+                            Convert Fact to Card
+                        </Dialog.Title>
+                        <div className="space-y-4 mb-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Card Title
+                                </label>
+                                <input
+                                    type="text"
+                                    value={cardTitle}
+                                    onChange={(e) => setCardTitle(e.target.value)}
+                                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Enter card title..."
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Card Content
+                                </label>
+                                <textarea
+                                    value={cardBody}
+                                    onChange={(e) => setCardBody(e.target.value)}
+                                    className="w-full h-32 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Enter card content..."
+                                />
+                            </div>
+                        </div>
+                        {convertError && <p className="text-red-600 mb-4">{convertError}</p>}
+                        <div className="flex justify-end gap-4">
+                            <button
+                                onClick={() => setShowConvertDialog(false)}
+                                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                                disabled={isConverting}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConvertToCard}
+                                disabled={isConverting || !cardTitle.trim() || !cardBody.trim()}
+                                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+                            >
+                                {isConverting ? "Converting..." : "Create Card"}
                             </button>
                         </div>
                     </Dialog.Panel>
