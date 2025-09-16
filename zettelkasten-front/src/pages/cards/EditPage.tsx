@@ -20,6 +20,7 @@ import { MarkdownToolbar } from "../../components/cards/MarkdownToolbar";
 import { SaveAsTemplateDialog } from "../../components/cards/SaveAsTemplateDialog";
 import { TemplateVariablesHelp } from "../../components/templates/TemplateVariablesHelp";
 import { processTemplateVariables } from "../../utils/templateVariables";
+import { CardIdDiscoveryDialog } from "../../components/cards/CardIdDiscoveryDialog";
 
 
 import { FaCloudDownloadAlt } from "react-icons/fa";
@@ -51,6 +52,7 @@ export function EditPage({ newCard }: EditPageProps) {
   const [editingCard, setEditingCard] = useState<Card>(defaultCard);
   const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
   const [showBacklinkDialog, setShowBacklinkDialog] = useState(false);
+  const [showCardIdDiscovery, setShowCardIdDiscovery] = useState(false);
   const [previewModeActive, setPreviewModeActive] = useState(false); // Added for preview toggle
   const { lastCard, nextCardId, setNextCardId } =
     usePartialCardContext();
@@ -426,6 +428,16 @@ export function EditPage({ newCard }: EditPageProps) {
                   />
                 )}
 
+                {showCardIdDiscovery && (
+                  <CardIdDiscoveryDialog
+                    onClose={() => setShowCardIdDiscovery(false)}
+                    onSelectId={(cardId) => {
+                      setEditingCard({ ...editingCard, card_id: cardId });
+                      setShowCardIdDiscovery(false);
+                    }}
+                  />
+                )}
+
                 {!newCard && (
                   <div className="mt-8">
                     <h4 className="text-lg font-medium text-gray-900 mb-4">Files:</h4>
@@ -503,20 +515,11 @@ export function EditPage({ newCard }: EditPageProps) {
                       />
                       {newCard && (
                         <button
-                          onClick={async () => {
-                            try {
-                              const response = await getNextRootId();
-                              if (!response.error) {
-                                setEditingCard({ ...editingCard, card_id: response.new_id });
-                              }
-                            } catch (error) {
-                              console.error("Failed to get next ID:", error);
-                            }
-                          }}
+                          onClick={() => setShowCardIdDiscovery(true)}
                           className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-blue-600 hover:text-blue-800"
                           type="button"
                         >
-                          Get Next ID
+                          Discover ID
                         </button>
                       )}
                     </div>
