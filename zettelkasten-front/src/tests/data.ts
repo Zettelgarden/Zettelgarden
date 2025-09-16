@@ -9,6 +9,9 @@ export function sampleTasks(): Task[] {
 export function sampleCards(): Card[] {
   return sampleCardData;
 }
+export function samplePartialCards(): PartialCard[] {
+  return samplePartialCardData;
+}
 export function sampleTags(): Tag[] {
   return sampleTagData;
 }
@@ -21,6 +24,7 @@ export const sampleTagData: Tag[] = [
     user_id: 1,
   },
 ];
+
 
 export const sampleTaskData: Task[] = [
   {
@@ -158,23 +162,53 @@ export const sampleEntityData: Entity[] = [
 const samplePartialCardData: PartialCard[] = [
   {
     id: 1,
-    card_id: "1",
+    card_id: "A.1",
     user_id: 1,
-    title: "hello world",
-    created_at: new Date(),
-    updated_at: new Date(),
-    parent_id: 1,
-    tags: [],
+    title: "Introduction to Machine Learning",
+    parent_id: 0,
+    created_at: new Date("2024-01-15T10:00:00Z"),
+    updated_at: new Date("2024-01-15T10:00:00Z"),
+    tags: [
+      {
+        id: 1,
+        name: "ML",
+        color: "blue",
+        user_id: 1,
+      },
+      {
+        id: 2,
+        name: "study",
+        color: "green",
+        user_id: 1,
+      },
+    ],
   },
   {
     id: 2,
-    card_id: "1/A",
+    card_id: "A.1/A",
     user_id: 1,
-    title: "update",
-    created_at: new Date(),
-    updated_at: new Date(),
-    parent_id: 2,
+    title: "Supervised Learning Algorithms",
+    parent_id: 1,
+    created_at: new Date("2024-01-16T11:00:00Z"),
+    updated_at: new Date("2024-01-16T11:00:00Z"),
     tags: [],
+  },
+  {
+    id: 3,
+    card_id: "B.1",
+    user_id: 1,
+    title: "Card with Long Title That Should Test Text Wrapping and Display",
+    parent_id: 0,
+    created_at: new Date("2024-01-17T12:00:00Z"),
+    updated_at: new Date("2024-01-17T12:00:00Z"),
+    tags: [
+      {
+        id: 3,
+        name: "test",
+        color: "red",
+        user_id: 1,
+      },
+    ],
   },
 ];
 

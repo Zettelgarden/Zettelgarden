@@ -5,12 +5,9 @@ import react from '@vitejs/plugin-react-swc'
 export default defineConfig({
   base: '/',
   plugins: [react()],
-  define: {
-    'import.meta.env.VITE_URL': JSON.stringify(env.VITE_URL),
-  },
   test: {
     globals: true,
-    environment: 'happy-dom'
-
+    environment: 'happy-dom',
+    setupFiles: ['./src/setupTests.js']
   }
 })

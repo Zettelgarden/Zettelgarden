@@ -1,5 +1,6 @@
 import React, { ReactElement } from "react";
 import { render } from "@testing-library/react";
+import { BrowserRouter } from "react-router-dom";
 import { PartialCardProvider } from "../contexts/CardContext";
 import { TaskProvider } from "../contexts/TaskContext";
 import { TagProvider } from "../contexts/TagContext";
@@ -9,17 +10,19 @@ import { sampleTasks, sampleTags } from "../tests/data";
 
 function AllTheProviders({ children }) {
   return (
-    <TagProvider testing={true} testTags={sampleTags()} >
-      <PartialCardProvider>
-        <TaskProvider testing={true} testTasks={sampleTasks()}>
-          <ShortcutProvider>
-            <PinProvider>
-              {children}
-            </PinProvider>
-          </ShortcutProvider>
-        </TaskProvider>
-      </PartialCardProvider>
-    </TagProvider>
+    <BrowserRouter>
+      <TagProvider testing={true} testTags={sampleTags()} >
+        <PartialCardProvider>
+          <TaskProvider testing={true} testTasks={sampleTasks()}>
+            <ShortcutProvider>
+              <PinProvider>
+                {children}
+              </PinProvider>
+            </ShortcutProvider>
+          </TaskProvider>
+        </PartialCardProvider>
+      </TagProvider>
+    </BrowserRouter>
   );
 }
 
