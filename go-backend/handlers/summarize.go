@@ -7,15 +7,50 @@ import (
 	"go-backend/models"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
 )
 
+// removeReferences removes card reference lines from text before summarization
+// References are lines that start with [tag] - title and end with newline
+func removeReferences(text string) string {
+	// Pattern matches: [anything] - anything followed by newline
+	// Also handles the case where reference is at the end without trailing newline
+	referencePattern := regexp.MustCompile(`\[[^\]]+\] - [^\n]*\n?`)
+	result := referencePattern.ReplaceAllString(text, "")
+
+	// Clean up any resulting double newlines to avoid empty lines
+	doubleNewlinePattern := regexp.MustCompile(`\n\n+`)
+	result = doubleNewlinePattern.ReplaceAllString(result, "\n\n")
+
+	// Trim trailing whitespace
+	result = regexp.MustCompile(`\s+$`).ReplaceAllString(result, "")
+
+	return result
+}
+
+// prepareTextForAnalysis prepares text for LLM analysis by adding title and removing references
+func prepareTextForAnalysis(title, body string) string {
+	var text string
+	if title != "" {
+		if body != "" {
+			text = fmt.Sprintf("# %s\n\n%s", title, body)
+		} else {
+			text = fmt.Sprintf("# %s", title)
+		}
+	} else {
+		text = body
+	}
+	return removeReferences(text)
+}
+
 // SummarizeRequest defines the payload for creating a summarization job
 type SummarizeRequest struct {
 	Text  string `json:"text"`
+	Title string `json:"title,omitempty"`
 	Model string `json:"model,omitempty"`
 }
 
@@ -109,7 +144,8 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 	_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
 	client := llms.NewDefaultClient(h.DB, userID)
 	// client.Model.ModelIdentifier = "openai/gpt-5-chat"
-	analyses, usage, err := llms.ExtractThesesAndArguments(client, req.Text)
+	processedText := prepareTextForAnalysis(req.Title, req.Text)
+	analyses, usage, err := llms.ExtractThesesAndArguments(client, processedText)
 	id, err := h.runSummarizationJob(userID, analyses, usage, nil, jobID)
 	if err != nil {
 		log.Printf("err %v", err)
@@ -155,7 +191,8 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 	go func() {
 		client := llms.NewDefaultClient(h.DB, userID)
 		// client.Model.ModelIdentifier = "openai/gpt-5-chat"
-		analyses, usage, err := llms.ExtractThesesAndArguments(client, card.Body)
+		processedText := prepareTextForAnalysis(card.Title, card.Body)
+		analyses, usage, err := llms.ExtractThesesAndArguments(client, processedText)
 		if err != nil {
 			log.Printf("Fact extraction failed: %v", err)
 
