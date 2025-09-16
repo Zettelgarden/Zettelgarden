@@ -23,6 +23,57 @@ import (
 	"golang.org/x/net/html"
 )
 
+// getParentId supports both old alternating format and new flexible format
+func getParentId(cardID string) string {
+	// Try new format first - find last separator and remove everything after it
+	parentFromNew := getParentIdNewFormat(cardID)
+	if parentFromNew != cardID {
+		// New format worked (found a separator and removed something)
+		return parentFromNew
+	}
+
+	// If no separators found, it's a root card
+	if !hasAnySeparators(cardID) {
+		return cardID
+	}
+
+	// Fall back to old alternating format
+	return getParentIdAlternating(cardID)
+}
+
+// getParentIdNewFormat handles the new format: remove last segment after any separator
+func getParentIdNewFormat(cardID string) string {
+	// Find the last occurrence of any separator
+	lastSlash := strings.LastIndex(cardID, "/")
+	lastDot := strings.LastIndex(cardID, ".")
+	lastDash := strings.LastIndex(cardID, "-")
+
+	lastSeparatorIndex := -1
+	if lastSlash > lastSeparatorIndex {
+		lastSeparatorIndex = lastSlash
+	}
+	if lastDot > lastSeparatorIndex {
+		lastSeparatorIndex = lastDot
+	}
+	if lastDash > lastSeparatorIndex {
+		lastSeparatorIndex = lastDash
+	}
+
+	if lastSeparatorIndex == -1 {
+		// No separator found, return as-is (root card)
+		return cardID
+	}
+
+	// Return everything before the last separator
+	return cardID[:lastSeparatorIndex]
+}
+
+// hasAnySeparators checks if the cardID contains any of the supported separators
+func hasAnySeparators(cardID string) bool {
+	return strings.ContainsAny(cardID, "/.-")
+}
+
+// getParentIdAlternating handles the old alternating separator format
 func getParentIdAlternating(cardID string) string {
 	parts := []string{}
 	currentPart := ""
@@ -720,7 +771,7 @@ func (s *Handler) UpdateCard(userID int, cardPK int, params models.EditCardParam
 	}
 
 	var parent_id int
-	parent, _ := s.QueryPartialCard(userID, getParentIdAlternating(params.CardID))
+	parent, _ := s.QueryPartialCard(userID, getParentId(params.CardID))
 
 	// set parent id to id if there's no parent
 	if parent.ID == 0 || params.CardID == "" {
@@ -769,7 +820,7 @@ func (s *Handler) CreateCard(userID int, params models.EditCardParams) (models.C
 	params.CardID = strings.ReplaceAll(params.CardID, " ", "")
 	params.CardID = regexp.MustCompile(`\s+`).ReplaceAllString(params.CardID, "")
 
-	parent, err := s.QueryPartialCard(userID, getParentIdAlternating(params.CardID))
+	parent, err := s.QueryPartialCard(userID, getParentId(params.CardID))
 	query := `
 	INSERT INTO cards 
 	(title, body, link, user_id, card_id, parent_id, created_at, updated_at)

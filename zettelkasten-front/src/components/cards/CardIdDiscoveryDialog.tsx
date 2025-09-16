@@ -50,17 +50,66 @@ export function CardIdDiscoveryDialog({ onClose, onSelectId }: CardIdDiscoveryDi
     setBreadcrumb(prev => prev.slice(0, index + 1));
   }
 
-  function handleAddChild(parentCard: PartialCard) {
-    // Generate a suggested child ID pattern
-    const suggestedId = generateChildId(parentCard.card_id);
-    onSelectId(suggestedId);
-    onClose();
+  async function handleAddChild(parentCard: PartialCard) {
+    try {
+      // Get children of the parent card to generate the correct child ID
+      const parentChildren = await getCardChildren(parentCard.id.toString());
+      const directChildren = parentChildren.filter(child => child.parent_id === parentCard.id);
+
+      // Generate a suggested child ID pattern
+      const suggestedId = generateChildId(parentCard.card_id, directChildren);
+      onSelectId(suggestedId);
+      onClose();
+    } catch (error) {
+      console.error("Failed to get children for ID generation:", error);
+      // Fallback to simple pattern if API call fails
+      const suggestedId = `${parentCard.card_id}.1`;
+      onSelectId(suggestedId);
+      onClose();
+    }
   }
 
-  function generateChildId(parentId: string): string {
-    // Simple pattern: if parent is "ABC", suggest "ABC.1"
-    // If parent is "ABC.1", suggest "ABC.1.1"
-    return `${parentId}.1`;
+  function generateChildId(parentId: string, existingChildren: PartialCard[]): string {
+    // Find the highest numbered child and increment
+    // Supports both old format (alternating separators) and new format (any separators)
+
+    if (existingChildren.length === 0) {
+      // No children exist, start with 1
+      return `${parentId}.1`;
+    }
+
+    // Extract numeric suffixes from all children
+    const childNumbers: number[] = [];
+
+    for (const child of existingChildren) {
+      const childId = child.card_id;
+
+      // Make sure this is actually a direct child by checking it starts with parent ID
+      if (!childId.startsWith(parentId)) {
+        continue;
+      }
+
+      // Get the part after the parent ID
+      const suffix = childId.substring(parentId.length);
+
+      // Extract the first number after any separator
+      const match = suffix.match(/^[.\/-]+(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num)) {
+          childNumbers.push(num);
+        }
+      }
+    }
+
+    if (childNumbers.length === 0) {
+      // No numbered children found, start with 1
+      return `${parentId}.1`;
+    }
+
+    // Find the highest number and increment
+    const maxNumber = Math.max(...childNumbers);
+    return `${parentId}.${maxNumber + 1}`;
   }
 
   async function handleGetNextId() {
