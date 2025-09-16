@@ -14,6 +14,7 @@ import { BacklinkInputDropdownList } from "../cards/BacklinkInputDropdownList";
 import { PartialCard } from "../../models/Card";
 import { useShortcutContext } from "../../contexts/ShortcutContext";
 import { useNavigate } from "react-router-dom";
+import { CardIdDiscoveryDialog } from "../cards/CardIdDiscoveryDialog";
 
 interface FactDialogProps {
     onClose: () => void;
@@ -111,6 +112,8 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
     const [convertError, setConvertError] = useState<string | null>(null);
     const [cardTitle, setCardTitle] = useState("");
     const [cardBody, setCardBody] = useState("");
+    const [cardId, setCardId] = useState("");
+    const [showCardIdDiscovery, setShowCardIdDiscovery] = useState(false);
 
     const navigate = useNavigate();
 
@@ -127,6 +130,7 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
             : selectedFact.fact;
         setCardTitle(truncatedTitle);
         setCardBody(selectedFact.fact);
+        setCardId("");
         setShowConvertDialog(true);
         setConvertError(null);
     }
@@ -140,7 +144,7 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
 
             const newCard = await saveNewCard({
                 ...defaultCard,
-                card_id: "",
+                card_id: cardId,
                 title: cardTitle,
                 body: cardBody,
             });
@@ -502,6 +506,27 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                         <div className="space-y-4 mb-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Card ID
+                                </label>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="text"
+                                        value={cardId}
+                                        onChange={(e) => setCardId(e.target.value)}
+                                        className="flex-1 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="Enter card ID..."
+                                    />
+                                    <button
+                                        onClick={() => setShowCardIdDiscovery(true)}
+                                        className="px-3 py-2 text-sm text-blue-600 border border-blue-600 rounded hover:bg-blue-50"
+                                        type="button"
+                                    >
+                                        Discover ID
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Card Title
                                 </label>
                                 <input
@@ -543,6 +568,15 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                         </div>
                     </Dialog.Panel>
                 </Dialog>
+            )}
+            {showCardIdDiscovery && (
+                <CardIdDiscoveryDialog
+                    onClose={() => setShowCardIdDiscovery(false)}
+                    onSelectId={(selectedCardId) => {
+                        setCardId(selectedCardId);
+                        setShowCardIdDiscovery(false);
+                    }}
+                />
             )}
         </Dialog>
     );

@@ -23,7 +23,11 @@ export function CardIdDiscoveryDialog({ onClose, onSelectId }: CardIdDiscoveryDi
       setLoadingChildren(true);
       setChildrenError(null);
       getCardChildren(currentCard.id.toString())
-        .then(setChildren)
+        .then((allChildren) => {
+          // Filter to only show direct children (where parent_id matches current card's id)
+          const directChildren = allChildren.filter(child => child.parent_id === currentCard.id);
+          setChildren(directChildren);
+        })
         .catch(() => setChildrenError("Failed to load children"))
         .finally(() => setLoadingChildren(false));
     } else {
