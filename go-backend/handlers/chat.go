@@ -4,14 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"go-backend/llms"
 	"go-backend/models"
 	"log"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	openai "github.com/sashabaranov/go-openai"
 )
 
@@ -473,13 +472,37 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 	// Convert messages to OpenAI format
 	var openaiMessages []openai.ChatCompletionMessage
 
-	// Add system prompt if exists
+	// Add enhanced system prompt that encourages subagent usage
+	systemPrompt := ""
 	if conversation.SystemPrompt != nil && *conversation.SystemPrompt != "" {
-		openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
-			Role:    openai.ChatMessageRoleSystem,
-			Content: *conversation.SystemPrompt,
-		})
+		systemPrompt = *conversation.SystemPrompt + "\n\n"
 	}
+
+	systemPrompt += `When you need to search for information, retrieve cards, or perform complex knowledge base operations, consider using the Task tool to launch specialized subagents rather than directly calling the knowledge base tools yourself. This helps preserve our conversation context while delegating specific research tasks.
+
+Use the Task tool when:
+- You need to perform multiple related searches or queries
+- The user asks exploratory questions that might require browsing card hierarchies
+- You need to research a topic comprehensively across the knowledge base
+- The task involves filtering and analyzing multiple cards
+- You want to maintain conversation flow while gathering detailed information
+
+For simple, direct operations (like getting a specific card by ID when you know the exact ID), you can use the tools directly.
+
+Available subagent:
+- general-purpose: For complex research, searches, and multi-step knowledge base operations
+
+You have access to these knowledge base tools (available both directly and through subagents):
+- Task: Launch a subagent for complex multi-step research tasks
+- search_cards: Search for cards using text or semantic similarity
+- get_card_by_id: Retrieve a specific card by its ID
+- browse_card_hierarchy: Browse parent/child relationships between cards
+- filter_cards_by_metadata: Filter cards by dates, tags, or starred status`
+
+	openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
+		Role:    openai.ChatMessageRoleSystem,
+		Content: systemPrompt,
+	})
 
 	// Add conversation messages
 	for _, msg := range messages {
@@ -570,7 +593,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 			var args map[string]interface{}
 			json.Unmarshal([]byte(tc.Function.Arguments), &args)
 
-			result, err := toolRegistry.ExecuteTool(tc.Function.Name, args, userID, s.DB)
+			result, err := toolRegistry.ExecuteTool(tc.Function.Name, args, userID, s.DB, s.Server.TypesenseClient)
 			if err != nil {
 				log.Printf("Error executing tool %s: %v", tc.Function.Name, err)
 				result = map[string]interface{}{
@@ -666,29 +689,30 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 
 // CheckChatUsageQuota checks if user has exceeded their quota
 func (s *Handler) CheckChatUsageQuota(userID int, quotaType string) error {
-	quota, err := s.getChatUsageQuota(userID, quotaType)
-	if err != nil {
-		// If no quota exists, create default quotas
-		if err == sql.ErrNoRows {
-			err = s.initializeDefaultQuotas(userID)
-			if err != nil {
-				return err
-			}
-			quota, err = s.getChatUsageQuota(userID, quotaType)
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
-
-	// Check if quota is exceeded
-	if quota.CurrentUsage >= quota.MaxLimit {
-		return fmt.Errorf("quota exceeded for %s", quotaType)
-	}
-
 	return nil
+	// quota, err := s.getChatUsageQuota(userID, quotaType)
+	// if err != nil {
+	// 	// If no quota exists, create default quotas
+	// 	if err == sql.ErrNoRows {
+	// 		err = s.initializeDefaultQuotas(userID)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		quota, err = s.getChatUsageQuota(userID, quotaType)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 	} else {
+	// 		return err
+	// 	}
+	// }
+
+	// // Check if quota is exceeded
+	// if quota.CurrentUsage >= quota.MaxLimit {
+	// 	return fmt.Errorf("quota exceeded for %s", quotaType)
+	// }
+
+	// return nil
 }
 
 // IncrementChatUsageQuota increments the usage counter
