@@ -65,6 +65,11 @@ func ResetDatabase(S *Server) error {
 			DROP TABLE IF EXISTS summary_sections CASCADE;
 			DROP TABLE IF EXISTS summary_theses CASCADE;
 			DROP TABLE IF EXISTS summary_arguments CASCADE;
+			DROP TABLE IF EXISTS chat_messages CASCADE;
+			DROP TABLE IF EXISTS chat_tool_calls CASCADE;
+			DROP TABLE IF EXISTS chat_usage_quotas CASCADE;
+			DROP TABLE IF EXISTS starred_cards CASCADE;
+
 
 			CREATE TABLE IF NOT EXISTS migrations (
 				id SERIAL PRIMARY KEY,

@@ -354,11 +354,6 @@ export function Sidebar() {
                   {todayTasks.length}
                 </span>
               </SidebarLink>
-
-              <SidebarLink to="/app/chat">
-                <ChatIcon />
-                <span className="px-2 flex-grow">Chat</span>
-              </SidebarLink>
             </ul>
           </div>
           <hr />
