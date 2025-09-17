@@ -257,6 +257,14 @@ func main() {
 	addProtectedRoute(r, "/api/searches/star", h.StarSearchRoute, "POST")
 	addProtectedRoute(r, "/api/searches/star/{id}", h.UnstarSearchRoute, "DELETE")
 	addProtectedRoute(r, "/api/searches/starred", h.GetStarredSearchesRoute, "GET")
+	// Chat routes
+	addProtectedRoute(r, "/api/chat/conversations", h.CreateConversationRoute, "POST")
+	addProtectedRoute(r, "/api/chat/conversations", h.GetConversationsRoute, "GET")
+	addProtectedRoute(r, "/api/chat/conversations/{id}", h.GetConversationRoute, "GET")
+	addProtectedRoute(r, "/api/chat/conversations/{id}/messages", h.SendMessageRoute, "POST")
+	addProtectedRoute(r, "/api/chat/conversations/{id}", h.DeleteConversationRoute, "DELETE")
+	addProtectedRoute(r, "/api/chat/conversations/{id}/star", h.StarConversationRoute, "POST")
+	addProtectedRoute(r, "/api/chat/usage", h.GetUsageQuotaRoute, "GET")
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{os.Getenv("ZETTEL_URL")},

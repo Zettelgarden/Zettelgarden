@@ -33,6 +33,7 @@ import { Summarizer } from "./Summarizer";
 import { FactPage } from "./FactPage";
 import { MemoryPage } from "./MemoryPage";
 import { GettingStartedPage } from "../pages/GettingStartedPage";
+import { ChatPage } from "./ChatPage";
 
 import { SearchConfig } from "../models/StarredSearch";
 
@@ -132,6 +133,7 @@ function MainAppContent() {
                       <Route path="summarizer" element={<Summarizer />} />
                       <Route path="facts" element={<FactPage />} />
                       <Route path="memory" element={<MemoryPage />} />
+                      <Route path="chat" element={<ChatPage />} />
                       <Route path="*" element={<DashboardPage />} />
                     </>
                   ) : (
@@ -181,6 +183,7 @@ function MainAppContent() {
                     <Route path="summarizer" element={<Summarizer />} />
                     <Route path="facts" element={<FactPage />} />
                     <Route path="memory" element={<MemoryPage />} />
+                    <Route path="chat" element={<ChatPage />} />
                     <Route path="*" element={<DashboardPage />} />
                   </>
                 ) : (

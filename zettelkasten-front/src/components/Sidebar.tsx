@@ -55,9 +55,8 @@ export function Sidebar() {
   const [showStarCardDialog, setShowStarCardDialog] = useState(false);
   const [starredCards, setStarredCards] = useState<Card[]>([]);
   const [starredSearches, setStarredSearches] = useState<StarredSearch[]>([]);
-  const { setConversationId } = useChatContext();
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
-  const { showChat, setShowChat } = useChatContext();
+  const { conversationId, setConversationId } = useChatContext();
   const [showAddArticleDialog, setShowAddArticleDialog] = useState(false);
   const { hasSubscription, user, updateUser } = useAuth();
 
@@ -97,7 +96,7 @@ export function Sidebar() {
   function handleNewChat() {
     toggleNewDropdown();
     setConversationId("");
-    setShowChat(true);
+    navigate("/app/chat");
   }
   function handleNewTask() {
     toggleNewDropdown();
@@ -326,12 +325,12 @@ export function Sidebar() {
                     Upload File
                   </button>
                 </FileUpload>
-                {/* <button
+                <button
                   onClick={handleNewChat}
                   className="w-full text-left px-4 py-2 hover:bg-gray-100"
                 >
                   New Chat
-                </button> */}
+                </button>
               </div>
             )}
           </div>
@@ -356,13 +355,10 @@ export function Sidebar() {
                 </span>
               </SidebarLink>
 
-              {/* <span onClick={() => setShowChat(!showChat)}>
-
-              <SidebarLink to="#">
-                  <ChatIcon />
-                <span className="flex-grow">Chat</span>
+              <SidebarLink to="/app/chat">
+                <ChatIcon />
+                <span className="px-2 flex-grow">Chat</span>
               </SidebarLink>
-              </span> */}
             </ul>
           </div>
           <hr />

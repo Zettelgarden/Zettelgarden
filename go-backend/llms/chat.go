@@ -18,9 +18,13 @@ func CreateChatCompletion(c *models.LLMClient, ctx context.Context, messages []m
 	}
 
 	for _, msg := range messages {
+		var content string
+		if msg.Content != nil {
+			content = *msg.Content
+		}
 		openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
 			Role:    msg.Role,
-			Content: msg.Content,
+			Content: content,
 		})
 	}
 
