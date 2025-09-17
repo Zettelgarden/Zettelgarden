@@ -1,96 +1,90 @@
-import React from "react";
+import React, { useState } from 'react';
+import { helpCategories, helpSections } from '../data/helpContent';
+import { HelpSection } from '../components/help/HelpSection';
+import { HelpCategory } from '../types/help';
 
 export function GettingStartedPage() {
+  const [activeCategory, setActiveCategory] = useState<HelpCategory['id']>('quickstart');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredSections = helpSections
+    .filter(section => {
+      const matchesCategory = section.category === activeCategory;
+      const matchesSearch = searchQuery === '' ||
+        section.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        section.content.some(content =>
+          typeof content.data === 'string' &&
+          content.data.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      return matchesCategory && matchesSearch;
+    })
+    .sort((a, b) => a.order - b.order);
+
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Welcome to Zettelgarden! 🌱</h1>
-      <p className="text-lg mb-8">
-        Welcome to your knowledge garden! Zettelgarden is an open-source personal knowledge management system
-        that preserves human insight while leveraging modern technology. Built on zettelkasten principles,
-        it helps you develop and maintain your own understanding of the world.
-      </p>
-
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">🤖 AI-Powered Analysis & Summarization</h2>
-        <p className="mb-4">
-          While other tools rush to automate everything with LLMs, Zettelgarden
-          takes a measured approach. AI features are designed to augment your
-          thinking process, not replace it. Our summarization pipeline delivers both
-          high-level insights through executive summaries and detailed evidence-driven
-          reference summaries with theses, arguments, and facts — helping you see the big
-          picture without losing important nuance.
+    <div className="p-8 max-w-6xl mx-auto">
+      <header className="mb-8">
+        <h1 className="text-4xl font-bold mb-4">Zettelgarden Help Center</h1>
+        <p className="text-lg text-gray-600 mb-6">
+          Learn how to make the most of your personal knowledge management system.
         </p>
-        <p className="mb-4">
-          Transform dense articles, podcasts, or research into clear two-part outputs:
-        </p>
-        <ul className="list-disc ml-6 space-y-2">
-          <li>
-            <strong>Executive Summaries:</strong> Concise, strategic, and outcome-focused summaries for decision-makers.
-          </li>
-          <li>
-            <strong>Reference Summaries:</strong> Detailed, factual, and precise summaries with ranked arguments and verifiable facts for researchers.
-          </li>
-        </ul>
-      </section>
 
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">🔬 Facts & Entities - Granular Insights</h2>
-        <p className="mb-4">
-          Go beyond high-level summaries and explore the building blocks of knowledge:
-        </p>
-        <ul className="list-disc ml-6 space-y-2">
-          <li>
-            <strong>Entities:</strong> Automatically identify and extract key concepts, people, places, and organizations from your notes to reveal hidden connections.
-          </li>
-          <li>
-            <strong>Facts:</strong> Automatically pull out discrete, verifiable statements (like statistics, events, or claims of evidence) from your source material, allowing you to build arguments on a solid foundation.
-          </li>
-        </ul>
-      </section>
+        <div className="mb-6">
+          <input
+            type="text"
+            placeholder="Search help articles..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      </header>
 
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">📝 Cards - Your Knowledge Building Blocks</h2>
-        <p className="mb-4">
-          Cards are the fundamental building blocks of your knowledge garden. Each card represents a single idea, concept, or piece of information.
-          You can:
-        </p>
-        <ul className="list-disc ml-6 space-y-2">
-          <li>Create new cards for any type of content</li>
-          <li>Link cards together to create knowledge networks</li>
-          <li>Create hierarchical relationships between cards</li>
-          <li>Use markdown formatting for rich content</li>
-        </ul>
-      </section>
+      <nav className="mb-8">
+        <div className="flex flex-wrap gap-4">
+          {helpCategories.map(category => (
+            <button
+              key={category.id}
+              onClick={() => setActiveCategory(category.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                activeCategory === category.id
+                  ? 'bg-blue-100 border-blue-300 text-blue-800'
+                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <span>{category.icon}</span>
+              <span className="font-medium">{category.label}</span>
+            </button>
+          ))}
+        </div>
 
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">✅ Tasks - Turn Knowledge Into Action</h2>
-        <p className="mb-4">
-          Transform your knowledge into actionable items:
-        </p>
-        <ul className="list-disc ml-6 space-y-2">
-          <li>Create tasks directly from your cards</li>
-          <li>Track progress on your projects</li>
-          <li>Set priorities and due dates</li>
-          <li>Organize tasks into projects and sprints</li>
-        </ul>
-      </section>
+        <div className="mt-4">
+          <p className="text-gray-600">
+            {helpCategories.find(cat => cat.id === activeCategory)?.description}
+          </p>
+        </div>
+      </nav>
 
-      <section className="mt-12 p-6 bg-green-50 rounded-lg border border-green-200">
-        <h2 className="text-2xl font-semibold mb-4">🌿 Getting Started</h2>
-        <ol className="list-decimal ml-6 space-y-3">
-          <li>Create your first card by clicking the "+" button</li>
-          <li>Experiment with different card types and relationships</li>
-          <li>Use the search function to explore your growing knowledge base</li>
-        </ol>
-      </section>
+      <main>
+        {filteredSections.length > 0 ? (
+          <div className="space-y-8">
+            {filteredSections.map(section => (
+              <HelpSection key={section.id} section={section} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-gray-500">No articles found matching your search.</p>
+          </div>
+        )}
+      </main>
 
-      <section className="mt-8 p-4 bg-gray-50 rounded-lg">
-        <h2 className="text-xl font-semibold mb-2">Need More Help?</h2>
-        <p>
-          This is just an overview of Zettelgarden's features. For more detailed information,
-          hover over interface elements to see tooltips or explore the interface.
+      <footer className="mt-16 p-6 bg-gray-50 rounded-lg">
+        <h2 className="text-xl font-semibold mb-2">Still Need Help?</h2>
+        <p className="text-gray-600">
+          Can't find what you're looking for? Try exploring the interface directly -
+          many elements have helpful tooltips when you hover over them.
         </p>
-      </section>
+      </footer>
     </div>
   );
 }
