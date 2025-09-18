@@ -16,6 +16,8 @@ import { Button } from "../components/Button";
 import { useChatContext } from "../contexts/ChatContext";
 import { renderTextWithCardLinks, parseMessageContent } from "../utils/chatUtils";
 import { CardsSection } from "../components/chat/CardsSection";
+import { BacklinkInputDropdownList } from "../components/cards/BacklinkInputDropdownList";
+import { PartialCard } from "../models/Card";
 
 interface ChatPageProps { }
 
@@ -31,7 +33,11 @@ export function ChatPage({ }: ChatPageProps) {
   const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
   const [collapsedToolResults, setCollapsedToolResults] = useState<Set<string>>(new Set());
   const [showAllRecent, setShowAllRecent] = useState(false);
+  const [showCardDropdown, setShowCardDropdown] = useState(false);
+  const [referencedCards, setReferencedCards] = useState<Set<string>>(new Set());
+  const [atTriggerPosition, setAtTriggerPosition] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { conversationId, setConversationId } = useChatContext();
 
   useEffect(() => {
@@ -128,7 +134,10 @@ export function ChatPage({ }: ChatPageProps) {
     if (!messageInput.trim() || !currentConversation || isSending) return;
 
     const userMessage = messageInput.trim();
+    const cardIds = Array.from(referencedCards);
+
     setMessageInput("");
+    setReferencedCards(new Set()); // Clear referenced cards
     setIsSending(true);
 
     try {
@@ -139,12 +148,13 @@ export function ChatPage({ }: ChatPageProps) {
         role: "user",
         content: userMessage,
         sequence_number: messages.length + 1,
+        referenced_cards: cardIds.length > 0 ? cardIds : undefined,
         created_at: new Date().toISOString(),
       };
       setMessages(prev => [...prev, tempUserMessage]);
 
-      // Send to API
-      const newMessages = await apiSendMessage(currentConversation.id, userMessage);
+      // Send to API with referenced cards
+      const newMessages = await apiSendMessage(currentConversation.id, userMessage, cardIds.length > 0 ? cardIds : undefined);
 
       // Reload the full conversation to get all messages including tool calls
       await loadConversation(currentConversation.id);
@@ -200,11 +210,69 @@ export function ChatPage({ }: ChatPageProps) {
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+
+    setMessageInput(value);
+
+    // Check for @ trigger
+    const textBeforeCursor = value.substring(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+      // Only show dropdown if @ is at start or preceded by whitespace, and no whitespace after @
+      const charBeforeAt = lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : ' ';
+      if ((charBeforeAt === ' ' || lastAtIndex === 0) && !textAfterAt.includes(' ')) {
+        setAtTriggerPosition(lastAtIndex);
+        setShowCardDropdown(true);
+      } else {
+        setShowCardDropdown(false);
+      }
+    } else {
+      setShowCardDropdown(false);
+    }
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
+    } else if (e.key === 'Escape') {
+      setShowCardDropdown(false);
     }
+  };
+
+  const handleCardSelect = (card: PartialCard) => {
+    if (!textareaRef.current) return;
+
+    const textarea = textareaRef.current;
+    const value = messageInput;
+
+    // Replace from @ to current cursor position with the card reference
+    const beforeAt = value.substring(0, atTriggerPosition);
+    const afterAt = value.substring(atTriggerPosition + 1); // Skip the @ character
+    const cardReference = `@[${card.title}]`;
+    const newValue = beforeAt + cardReference + afterAt;
+
+    setMessageInput(newValue);
+
+    // Add card to referenced cards set
+    setReferencedCards(prev => new Set(prev).add(String(card.id)));
+
+    // Position cursor after the card reference
+    const newCursorPosition = atTriggerPosition + cardReference.length;
+    setTimeout(() => {
+      textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+      textarea.focus();
+    }, 0);
+
+    setShowCardDropdown(false);
+  };
+
+  const handleCardDropdownSearch = (searchTerm: string) => {
+    // BacklinkInputDropdownList handles its own search
   };
 
   const handleCardClick = (cardPk: string) => {
@@ -653,15 +721,18 @@ export function ChatPage({ }: ChatPageProps) {
             {/* Message Input */}
             <div className="bg-white border-t border-gray-200 p-6">
               <div className="flex items-end gap-3">
-                <textarea
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Ask about your cards..."
-                  className="flex-1 resize-none rounded-2xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-200 hover:border-gray-400 focus:shadow-md"
-                  rows={3}
-                  disabled={isSending}
-                />
+                <div className="flex-1 relative">
+                  <textarea
+                    ref={textareaRef}
+                    value={messageInput}
+                    onChange={handleInputChange}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Ask about your cards... Type @ to mention a card"
+                    className="w-full resize-none rounded-2xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-200 hover:border-gray-400 focus:shadow-md"
+                    rows={3}
+                    disabled={isSending}
+                  />
+                </div>
                 <Button
                   onClick={sendMessage}
                   disabled={!messageInput.trim() || isSending}
@@ -722,6 +793,39 @@ export function ChatPage({ }: ChatPageProps) {
           </div>
         )}
       </div>
+
+      {/* Card Selection Modal */}
+      {showCardDropdown && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowCardDropdown(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a Card</h3>
+              <p className="text-sm text-gray-600">Choose a card to reference in your message</p>
+            </div>
+            <BacklinkInputDropdownList
+              onSelect={handleCardSelect}
+              onSearch={handleCardDropdownSearch}
+              placeholder="Search cards..."
+              className="w-full"
+              autoFocus={true}
+            />
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setShowCardDropdown(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

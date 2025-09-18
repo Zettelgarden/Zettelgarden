@@ -23,6 +23,7 @@ export interface ChatMessage {
   tool_calls?: ChatToolCall[];
   tool_call_id?: string;
   sequence_number: number;
+  referenced_cards?: string[];
   created_at: string;
 }
 
@@ -48,6 +49,7 @@ export interface CreateConversationRequest {
 
 export interface SendMessageRequest {
   content: string;
+  referenced_cards?: string[];
 }
 
 export interface UsageQuota {
@@ -119,9 +121,14 @@ export function getConversation(conversationId: string): Promise<ConversationWit
     });
 }
 
-export function sendMessage(conversationId: string, content: string): Promise<ChatMessage[]> {
+export function sendMessage(conversationId: string, content: string, referencedCards?: string[]): Promise<ChatMessage[]> {
   const url = `${base_url}/chat/conversations/${conversationId}/messages`;
   const token = localStorage.getItem("token");
+
+  const payload: SendMessageRequest = { content };
+  if (referencedCards && referencedCards.length > 0) {
+    payload.referenced_cards = referencedCards;
+  }
 
   return fetch(url, {
     method: "POST",
@@ -129,7 +136,7 @@ export function sendMessage(conversationId: string, content: string): Promise<Ch
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify(payload),
   })
     .then(checkStatus)
     .then((response) => {

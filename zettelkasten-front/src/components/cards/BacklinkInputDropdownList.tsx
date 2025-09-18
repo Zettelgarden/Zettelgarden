@@ -9,6 +9,7 @@ interface BacklinkInputDropdownListProps {
   onSearch: (searchTerm: string) => void;
   placeholder?: string;
   className?: string;
+  autoFocus?: boolean;
 }
 
 export function BacklinkInputDropdownList({
@@ -16,14 +17,23 @@ export function BacklinkInputDropdownList({
   onSearch,
   placeholder = "Search...",
   className = "",
+  autoFocus = false,
 }: BacklinkInputDropdownListProps) {
   const [inputValue, setInputValue] = useState<string>("");
 
   const [searchResults, setSearchResults] = useState<PartialCard[]>([]);
   const latestRequestId = React.useRef(0);
   const [isLoading, setIsLoading] = useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
   const debounceTimer = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Auto focus when component mounts if autoFocus is true
+  React.useEffect(() => {
+    if (autoFocus && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [autoFocus]);
 
   function handleInputChange(value: string) {
     setInputValue(value);
@@ -91,6 +101,7 @@ export function BacklinkInputDropdownList({
         <div className="w-full">
           <div className="relative">
             <Combobox.Input
+              ref={inputRef}
               className="w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
               placeholder={placeholder}
               displayValue={() => inputValue}
