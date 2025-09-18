@@ -394,7 +394,7 @@ export function ViewPage({ cardId }: ViewPageProps) {
                           {section.theses && section.theses.map((thesis, thesisIndex) => (
                             <div key={thesisIndex} className="ml-4 mt-2">
                               <span className="text-base">{thesis.thesis}</span>
-                              {thesis.arguments.length > 0 && (
+                              {thesis.arguments && thesis.arguments.length > 0 && (
                                 <div className="ml-4">
                                   <ul className="list-disc ml-5">
                                     {thesis.arguments.map((arg, argIndex) => (
