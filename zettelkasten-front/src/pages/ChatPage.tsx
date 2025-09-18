@@ -12,7 +12,8 @@ import {
 import { setDocumentTitle } from "../utils/title";
 import { Button } from "../components/Button";
 import { useChatContext } from "../contexts/ChatContext";
-import { renderTextWithCardLinks, parseMessageContent, CardsSection } from "../utils/cardReferences";
+import { renderTextWithCardLinks, parseMessageContent } from "../utils/chatUtils";
+import { CardsSection } from "../components/chat/CardsSection";
 
 interface ChatPageProps { }
 
