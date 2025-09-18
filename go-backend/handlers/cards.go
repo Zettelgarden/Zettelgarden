@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"go-backend/models"
+	"go-backend/services"
 	"log"
 	"net/http"
 	"net/url"
@@ -731,36 +732,8 @@ func (s *Handler) QueryPartialCard(userID int, cardID string) (models.PartialCar
 }
 
 func (s *Handler) QueryFullCard(userID int, id int) (models.Card, error) {
-	var card models.Card
-
-	err := s.DB.QueryRow(`
-	SELECT 
-	id, card_id, user_id, title, body, link, parent_id,
-        created_at, updated_at
-	FROM 
-	cards
-	WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE
-	`, id, userID).Scan(
-		&card.ID,
-		&card.CardID,
-		&card.UserID,
-		&card.Title,
-		&card.Body,
-		&card.Link,
-		&card.ParentID,
-		&card.CreatedAt,
-		&card.UpdatedAt,
-	)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return models.Card{}, fmt.Errorf("card not found")
-		}
-		log.Printf("query error: %v", err)
-		return models.Card{}, fmt.Errorf("unable to access card")
-	}
-
 	s.logCardView(id, userID)
-	return card, nil
+	return services.GetFullCard(s.DB, userID, id)
 }
 
 func (s *Handler) UpdateCard(userID int, cardPK int, params models.EditCardParams) (models.Card, error) {

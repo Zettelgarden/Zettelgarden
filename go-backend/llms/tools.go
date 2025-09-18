@@ -6,16 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"go-backend/prompts"
+	"go-backend/services"
 	"log"
-	"os"
-	"strconv"
-	"strings"
+	"reflect"
 	"time"
 
 	openai "github.com/sashabaranov/go-openai"
 	"github.com/typesense/typesense-go/typesense"
-	"github.com/typesense/typesense-go/typesense/api"
-	"github.com/typesense/typesense-go/typesense/api/pointer"
 )
 
 // Tool represents a tool that can be called by the LLM
@@ -165,48 +162,6 @@ func (tr *ToolRegistry) registerBrowseCardHierarchy() {
 	}
 }
 
-func (tr *ToolRegistry) registerFilterCardsByMetadata() {
-	tr.tools["filter_cards_by_metadata"] = Tool{
-		Definition: openai.Tool{
-			Type: openai.ToolTypeFunction,
-			Function: &openai.FunctionDefinition{
-				Name:        "filter_cards_by_metadata",
-				Description: "Filter cards by metadata like creation date, starred status, or tags.",
-				Parameters: map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"starred_only": map[string]interface{}{
-							"type":        "boolean",
-							"description": "If true, only return starred cards",
-						},
-						"tags": map[string]interface{}{
-							"type":        "array",
-							"items":       map[string]interface{}{"type": "string"},
-							"description": "Filter by specific tags",
-						},
-						"created_after": map[string]interface{}{
-							"type":        "string",
-							"description": "Filter cards created after this date (YYYY-MM-DD format)",
-						},
-						"created_before": map[string]interface{}{
-							"type":        "string",
-							"description": "Filter cards created before this date (YYYY-MM-DD format)",
-						},
-						"limit": map[string]interface{}{
-							"type":        "integer",
-							"description": "Maximum number of cards to return (default: 20, max: 100)",
-							"default":     20,
-							"minimum":     1,
-							"maximum":     100,
-						},
-					},
-				},
-			},
-		},
-		Handler: handleFilterCardsByMetadata,
-	}
-}
-
 func (tr *ToolRegistry) registerTask() {
 	tr.tools["Task"] = Tool{
 		Definition: openai.Tool{
@@ -263,9 +218,9 @@ func handleSearchCards(args map[string]interface{}, userID int, db *sql.DB, type
 	var err error
 
 	if searchType == "text" {
-		cards, err = executeTextSearch(db, userID, query, limit, typesenseClient)
+		cards, err = services.ExecuteTextSearch(db, userID, query, limit, typesenseClient)
 	} else {
-		cards, err = executeSemanticSearch(db, userID, query, limit, typesenseClient)
+		cards, err = services.ExecuteSemanticSearch(db, userID, query, limit, typesenseClient)
 	}
 
 	if err != nil {
@@ -280,6 +235,28 @@ func handleSearchCards(args map[string]interface{}, userID int, db *sql.DB, type
 	}, nil
 }
 
+func StructToMap(obj interface{}) map[string]interface{} {
+	v := reflect.ValueOf(obj)
+	t := reflect.TypeOf(obj)
+
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+		t = t.Elem()
+	}
+
+	result := make(map[string]interface{})
+	for i := 0; i < v.NumField(); i++ {
+		field := t.Field(i)
+		fieldValue := v.Field(i)
+
+		// Only exported fields can be accessed
+		if field.PkgPath == "" {
+			result[field.Name] = fieldValue.Interface()
+		}
+	}
+	return result
+}
+
 func handleGetCardByID(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (map[string]interface{}, error) {
 	cardIDFloat, ok := args["card_id"].(float64)
 	if !ok {
@@ -287,12 +264,12 @@ func handleGetCardByID(args map[string]interface{}, userID int, db *sql.DB, type
 	}
 	cardID := int(cardIDFloat)
 
-	card, err := getFullCard(db, userID, cardID)
+	card, err := services.GetFullCard(db, userID, cardID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get card: %v", err)
 	}
 
-	return card, nil
+	return StructToMap(card), nil
 }
 
 func handleBrowseCardHierarchy(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (map[string]interface{}, error) {
@@ -300,7 +277,7 @@ func handleBrowseCardHierarchy(args map[string]interface{}, userID int, db *sql.
 	if !ok {
 		return nil, fmt.Errorf("card_id parameter is required")
 	}
-	cardID := int(cardIDFloat)
+	cardPK := int(cardIDFloat)
 
 	direction, ok := args["direction"].(string)
 	if !ok {
@@ -311,9 +288,9 @@ func handleBrowseCardHierarchy(args map[string]interface{}, userID int, db *sql.
 	var err error
 
 	if direction == "children" {
-		cards, err = getChildCards(db, userID, cardID)
+		cards, err = services.GetChildCards(db, userID, cardPK)
 	} else if direction == "parent" {
-		cards, err = getParentCard(db, userID, cardID)
+		cards, err = services.GetParentCard(db, userID, cardPK)
 	} else {
 		return nil, fmt.Errorf("invalid direction: %s", direction)
 	}
@@ -326,23 +303,6 @@ func handleBrowseCardHierarchy(args map[string]interface{}, userID int, db *sql.
 		"cards":     cards,
 		"direction": direction,
 		"total":     len(cards),
-	}, nil
-}
-
-func handleFilterCardsByMetadata(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (map[string]interface{}, error) {
-	limit := 20
-	if l, ok := args["limit"].(float64); ok {
-		limit = int(l)
-	}
-
-	cards, err := filterCards(db, userID, args, limit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to filter cards: %v", err)
-	}
-
-	return map[string]interface{}{
-		"cards": cards,
-		"total": len(cards),
 	}, nil
 }
 
@@ -390,7 +350,6 @@ func executeSubagentTask(prompt, subagentType string, userID int, db *sql.DB, ty
 	subagentRegistry.registerSearchCards()
 	subagentRegistry.registerGetCardByID()
 	subagentRegistry.registerBrowseCardHierarchy()
-	subagentRegistry.registerFilterCardsByMetadata()
 
 	tools := subagentRegistry.GetToolDefinitions()
 
@@ -468,358 +427,6 @@ func executeSubagentTask(prompt, subagentType string, userID int, db *sql.DB, ty
 }
 
 // Database helper functions
-
-func executeTextSearch(db *sql.DB, userID int, query string, limit int, typesenseClient *typesense.Client) ([]map[string]interface{}, error) {
-	// Use Typesense for text search
-	collectionName := os.Getenv("TYPESENSE_COLLECTION")
-	if collectionName == "" {
-		collectionName = "cards"
-	}
-
-	filter := "user_id:=" + strconv.Itoa(userID) + " && type:=card"
-	sortBy := "_text_match:desc"
-
-	typesenseParams := &api.SearchCollectionParams{
-		Q:             query,
-		QueryBy:       "card_id, title, preview",
-		FilterBy:      &filter,
-		SortBy:        &sortBy,
-		PerPage:       &limit,
-		ExcludeFields: pointer.String("embedding"),
-	}
-
-	typesenseResults, err := typesenseClient.Collection(collectionName).Documents().Search(context.Background(), typesenseParams)
-	if err != nil {
-		log.Printf("Typesense search error: %v", err)
-		// Fallback to SQL search if Typesense fails
-		return executeTextSearchFallback(db, userID, query, limit)
-	}
-
-	var cards []map[string]interface{}
-	for _, hit := range *typesenseResults.Hits {
-		if hit.Document != nil {
-			doc := *hit.Document
-			if doc["type"].(string) == "card" {
-				card := map[string]interface{}{
-					"id":           int(doc["card_pk"].(float64)),
-					"title":        doc["title"].(string),
-					"body_preview": doc["preview"].(string),
-					"card_id":      doc["card_id"].(string),
-					"created_at":   time.Unix(int64(doc["created_at"].(float64)), 0),
-					"updated_at":   time.Unix(int64(doc["updated_at"].(float64)), 0),
-				}
-				cards = append(cards, card)
-			}
-		}
-	}
-
-	return cards, nil
-}
-
-// executeTextSearchFallback provides SQL-based fallback when Typesense is unavailable
-func executeTextSearchFallback(db *sql.DB, userID int, query string, limit int) ([]map[string]interface{}, error) {
-	searchQuery := `
-		SELECT id, title, LEFT(body, 200) as body_preview, created_at, updated_at, card_id
-		FROM cards
-		WHERE user_id = $1 AND (
-			title ILIKE $2 OR
-			body ILIKE $2 OR
-			card_id ILIKE $2
-		)
-		ORDER BY
-			CASE WHEN title ILIKE $2 THEN 1 ELSE 2 END,
-			updated_at DESC
-		LIMIT $3
-	`
-
-	searchPattern := "%" + query + "%"
-	rows, err := db.Query(searchQuery, userID, searchPattern, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var cards []map[string]interface{}
-	for rows.Next() {
-		var card map[string]interface{} = make(map[string]interface{})
-		var title, bodyPreview, cardID sql.NullString
-		var id int
-		var createdAt, updatedAt time.Time
-
-		err := rows.Scan(&id, &title, &bodyPreview, &createdAt, &updatedAt, &cardID)
-		if err != nil {
-			continue
-		}
-
-		card["id"] = id
-		card["title"] = title.String
-		card["body_preview"] = bodyPreview.String + "..."
-		card["card_id"] = cardID.String
-		card["created_at"] = createdAt
-		card["updated_at"] = updatedAt
-
-		cards = append(cards, card)
-	}
-
-	return cards, nil
-}
-
-func executeSemanticSearch(db *sql.DB, userID int, query string, limit int, typesenseClient *typesense.Client) ([]map[string]interface{}, error) {
-	// Use Typesense with embedding search for semantic search
-	collectionName := os.Getenv("TYPESENSE_COLLECTION")
-	if collectionName == "" {
-		collectionName = "cards"
-	}
-
-	filter := "user_id:=" + strconv.Itoa(userID) + " && type:=card"
-	sortBy := "_text_match:desc"
-
-	typesenseParams := &api.SearchCollectionParams{
-		Q:             query,
-		QueryBy:       "card_id, title, embedding", // Include embedding for semantic search
-		FilterBy:      &filter,
-		SortBy:        &sortBy,
-		PerPage:       &limit,
-		ExcludeFields: pointer.String("embedding"),
-	}
-
-	typesenseResults, err := typesenseClient.Collection(collectionName).Documents().Search(context.Background(), typesenseParams)
-	if err != nil {
-		log.Printf("Typesense semantic search error: %v", err)
-		// Fallback to text search if semantic search fails
-		return executeTextSearch(db, userID, query, limit, typesenseClient)
-	}
-
-	var cards []map[string]interface{}
-	for _, hit := range *typesenseResults.Hits {
-		if hit.Document != nil {
-			doc := *hit.Document
-			if doc["type"].(string) == "card" {
-				card := map[string]interface{}{
-					"id":           int(doc["card_pk"].(float64)),
-					"title":        doc["title"].(string),
-					"body_preview": doc["preview"].(string),
-					"card_id":      doc["card_id"].(string),
-					"created_at":   time.Unix(int64(doc["created_at"].(float64)), 0),
-					"updated_at":   time.Unix(int64(doc["updated_at"].(float64)), 0),
-				}
-				cards = append(cards, card)
-			}
-		}
-	}
-
-	return cards, nil
-}
-
-func getFullCard(db *sql.DB, userID int, cardID int) (map[string]interface{}, error) {
-	query := `
-		SELECT id, title, body, card_id, created_at, updated_at
-		FROM cards
-		WHERE id = $1 AND user_id = $2
-	`
-
-	var card map[string]interface{} = make(map[string]interface{})
-	var title, body, cardIDStr sql.NullString
-	var id int
-	var createdAt, updatedAt time.Time
-
-	err := db.QueryRow(query, cardID, userID).Scan(&id, &title, &body, &cardIDStr, &createdAt, &updatedAt)
-	if err != nil {
-		return nil, err
-	}
-
-	card["id"] = id
-	card["title"] = title.String
-	card["body"] = body.String
-	card["card_id"] = cardIDStr.String
-	card["created_at"] = createdAt
-	card["updated_at"] = updatedAt
-
-	// Get tags
-	tags, err := getCardTags(db, id)
-	if err == nil {
-		card["tags"] = tags
-	}
-
-	return card, nil
-}
-
-func getChildCards(db *sql.DB, userID int, cardID int) ([]map[string]interface{}, error) {
-	// Get the parent card's card_id first
-	var parentCardID string
-	err := db.QueryRow("SELECT card_id FROM cards WHERE id = $1 AND user_id = $2", cardID, userID).Scan(&parentCardID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Find child cards based on card_id hierarchy
-	query := `
-		SELECT id, title, LEFT(body, 200) as body_preview, card_id, created_at, updated_at
-		FROM cards
-		WHERE user_id = $1 AND card_id LIKE $2 AND card_id != $3
-		ORDER BY card_id
-		LIMIT 50
-	`
-
-	pattern := parentCardID + "%"
-	rows, err := db.Query(query, userID, pattern, parentCardID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var cards []map[string]interface{}
-	for rows.Next() {
-		var card map[string]interface{} = make(map[string]interface{})
-		var title, bodyPreview, cardIDStr sql.NullString
-		var id int
-		var createdAt, updatedAt time.Time
-
-		err := rows.Scan(&id, &title, &bodyPreview, &cardIDStr, &createdAt, &updatedAt)
-		if err != nil {
-			continue
-		}
-
-		card["id"] = id
-		card["title"] = title.String
-		card["body_preview"] = bodyPreview.String + "..."
-		card["card_id"] = cardIDStr.String
-		card["created_at"] = createdAt
-		card["updated_at"] = updatedAt
-
-		cards = append(cards, card)
-	}
-
-	return cards, nil
-}
-
-func getParentCard(db *sql.DB, userID int, cardID int) ([]map[string]interface{}, error) {
-	// Get the card's card_id first
-	var currentCardID string
-	err := db.QueryRow("SELECT card_id FROM cards WHERE id = $1 AND user_id = $2", cardID, userID).Scan(&currentCardID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Find parent by removing last segment
-	parts := strings.Split(currentCardID, "/")
-	if len(parts) <= 1 {
-		return []map[string]interface{}{}, nil // No parent (root card)
-	}
-
-	parentCardID := strings.Join(parts[:len(parts)-1], "/")
-
-	query := `
-		SELECT id, title, LEFT(body, 200) as body_preview, card_id, created_at, updated_at
-		FROM cards
-		WHERE user_id = $1 AND card_id = $2
-	`
-
-	var card map[string]interface{} = make(map[string]interface{})
-	var title, bodyPreview, cardIDStr sql.NullString
-	var id int
-	var createdAt, updatedAt time.Time
-
-	err = db.QueryRow(query, userID, parentCardID).Scan(&id, &title, &bodyPreview, &cardIDStr, &createdAt, &updatedAt)
-	if err != nil {
-		return []map[string]interface{}{}, nil // Parent not found
-	}
-
-	card["id"] = id
-	card["title"] = title.String
-	card["body_preview"] = bodyPreview.String + "..."
-	card["card_id"] = cardIDStr.String
-	card["created_at"] = createdAt
-	card["updated_at"] = updatedAt
-
-	return []map[string]interface{}{card}, nil
-}
-
-func filterCards(db *sql.DB, userID int, filters map[string]interface{}, limit int) ([]map[string]interface{}, error) {
-	query := "SELECT id, title, LEFT(body, 200) as body_preview, card_id, created_at, updated_at FROM cards WHERE user_id = $1"
-	args := []interface{}{userID}
-	argIndex := 2
-
-	// Add filters
-	if starredOnly, ok := filters["starred_only"].(bool); ok && starredOnly {
-		query += fmt.Sprintf(" AND id IN (SELECT card_id FROM starred_cards WHERE user_id = $%d)", argIndex)
-		args = append(args, userID)
-		argIndex++
-	}
-
-	if createdAfter, ok := filters["created_after"].(string); ok {
-		query += fmt.Sprintf(" AND created_at >= $%d", argIndex)
-		args = append(args, createdAfter)
-		argIndex++
-	}
-
-	if createdBefore, ok := filters["created_before"].(string); ok {
-		query += fmt.Sprintf(" AND created_at <= $%d", argIndex)
-		args = append(args, createdBefore)
-		argIndex++
-	}
-
-	query += " ORDER BY updated_at DESC"
-	query += fmt.Sprintf(" LIMIT $%d", argIndex)
-	args = append(args, limit)
-
-	rows, err := db.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var cards []map[string]interface{}
-	for rows.Next() {
-		var card map[string]interface{} = make(map[string]interface{})
-		var title, bodyPreview, cardIDStr sql.NullString
-		var id int
-		var createdAt, updatedAt time.Time
-
-		err := rows.Scan(&id, &title, &bodyPreview, &cardIDStr, &createdAt, &updatedAt)
-		if err != nil {
-			continue
-		}
-
-		card["id"] = id
-		card["title"] = title.String
-		card["body_preview"] = bodyPreview.String + "..."
-		card["card_id"] = cardIDStr.String
-		card["created_at"] = createdAt
-		card["updated_at"] = updatedAt
-
-		cards = append(cards, card)
-	}
-
-	return cards, nil
-}
-
-func getCardTags(db *sql.DB, cardID int) ([]string, error) {
-	query := `
-		SELECT t.name
-		FROM tags t
-		JOIN card_tags ct ON t.id = ct.tag_id
-		WHERE ct.card_id = $1
-		ORDER BY t.name
-	`
-
-	rows, err := db.Query(query, cardID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var tags []string
-	for rows.Next() {
-		var tag string
-		if err := rows.Scan(&tag); err != nil {
-			continue
-		}
-		tags = append(tags, tag)
-	}
-
-	return tags, nil
-}
 
 func logToolExecution(db *sql.DB, userID int, toolName string, args map[string]interface{}, result map[string]interface{}, executionTimeMs int, execErr error, conversationID, messageID *string) error {
 	argsJSON, _ := json.Marshal(args)
