@@ -82,24 +82,24 @@ func GetParentCard(db *sql.DB, userID int, cardID int) ([]map[string]interface{}
 	parentCardID := strings.Join(parts[:len(parts)-1], "/")
 
 	query := `
-		SELECT id, title, LEFT(body, 200) as body_preview, card_id, created_at, updated_at
+		SELECT id, title, body, card_id, created_at, updated_at
 		FROM cards
 		WHERE user_id = $1 AND card_id = $2
 	`
 
 	var card map[string]interface{} = make(map[string]interface{})
-	var title, bodyPreview, cardIDStr sql.NullString
+	var title, body, cardIDStr sql.NullString
 	var id int
 	var createdAt, updatedAt time.Time
 
-	err = db.QueryRow(query, userID, parentCardID).Scan(&id, &title, &bodyPreview, &cardIDStr, &createdAt, &updatedAt)
+	err = db.QueryRow(query, userID, parentCardID).Scan(&id, &title, &body, &cardIDStr, &createdAt, &updatedAt)
 	if err != nil {
 		return []map[string]interface{}{}, nil // Parent not found
 	}
 
 	card["id"] = id
 	card["title"] = title.String
-	card["body_preview"] = bodyPreview.String + "..."
+	card["body"] = body
 	card["card_id"] = cardIDStr.String
 	card["created_at"] = createdAt
 	card["updated_at"] = updatedAt
@@ -139,12 +139,12 @@ func ExecuteTextSearch(db *sql.DB, userID int, query string, limit int, typesens
 			doc := *hit.Document
 			if doc["type"].(string) == "card" {
 				card := map[string]interface{}{
-					"id":           int(doc["card_pk"].(float64)),
-					"title":        doc["title"].(string),
-					"body_preview": doc["preview"].(string),
-					"card_id":      doc["card_id"].(string),
-					"created_at":   time.Unix(int64(doc["created_at"].(float64)), 0),
-					"updated_at":   time.Unix(int64(doc["updated_at"].(float64)), 0),
+					"id":         int(doc["card_pk"].(float64)),
+					"title":      doc["title"].(string),
+					"body":       doc["preview"].(string),
+					"card_id":    doc["card_id"].(string),
+					"created_at": time.Unix(int64(doc["created_at"].(float64)), 0),
+					"updated_at": time.Unix(int64(doc["updated_at"].(float64)), 0),
 				}
 				cards = append(cards, card)
 			}
@@ -157,7 +157,7 @@ func ExecuteTextSearch(db *sql.DB, userID int, query string, limit int, typesens
 // executeTextSearchFallback provides SQL-based fallback when Typesense is unavailable
 func executeTextSearchFallback(db *sql.DB, userID int, query string, limit int) ([]map[string]interface{}, error) {
 	searchQuery := `
-		SELECT id, title, LEFT(body, 200) as body_preview, created_at, updated_at, card_id
+		SELECT id, title, body, created_at, updated_at, card_id
 		FROM cards
 		WHERE user_id = $1 AND (
 			title ILIKE $2 OR
@@ -180,18 +180,18 @@ func executeTextSearchFallback(db *sql.DB, userID int, query string, limit int) 
 	var cards []map[string]interface{}
 	for rows.Next() {
 		var card map[string]interface{} = make(map[string]interface{})
-		var title, bodyPreview, cardID sql.NullString
+		var title, body, cardID sql.NullString
 		var id int
 		var createdAt, updatedAt time.Time
 
-		err := rows.Scan(&id, &title, &bodyPreview, &createdAt, &updatedAt, &cardID)
+		err := rows.Scan(&id, &title, &body, &createdAt, &updatedAt, &cardID)
 		if err != nil {
 			continue
 		}
 
 		card["id"] = id
 		card["title"] = title.String
-		card["body_preview"] = bodyPreview.String + "..."
+		card["body"] = body.String
 		card["card_id"] = cardID.String
 		card["created_at"] = createdAt
 		card["updated_at"] = updatedAt
@@ -234,12 +234,12 @@ func ExecuteSemanticSearch(db *sql.DB, userID int, query string, limit int, type
 			doc := *hit.Document
 			if doc["type"].(string) == "card" {
 				card := map[string]interface{}{
-					"id":           int(doc["card_pk"].(float64)),
-					"title":        doc["title"].(string),
-					"body_preview": doc["preview"].(string),
-					"card_id":      doc["card_id"].(string),
-					"created_at":   time.Unix(int64(doc["created_at"].(float64)), 0),
-					"updated_at":   time.Unix(int64(doc["updated_at"].(float64)), 0),
+					"id":         int(doc["card_pk"].(float64)),
+					"title":      doc["title"].(string),
+					"body":       doc["preview"].(string),
+					"card_id":    doc["card_id"].(string),
+					"created_at": time.Unix(int64(doc["created_at"].(float64)), 0),
+					"updated_at": time.Unix(int64(doc["updated_at"].(float64)), 0),
 				}
 				cards = append(cards, card)
 			}

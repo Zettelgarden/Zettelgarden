@@ -27,11 +27,11 @@ export function CardPreview({ card, onCardClick }: CardPreviewProps) {
                 <span>{card.title}</span>
               </button>
             </div>
-            {card.body_preview && (
+            {card.body && (
               <div className="mt-0.5 pl-2 text-sm italic text-gray-600">
-                {card.body_preview.length > 200
-                  ? `${card.body_preview.substring(0, 200)}...`
-                  : card.body_preview}
+                {card.body.length > 200
+                  ? `${card.body.substring(0, 200)}...`
+                  : card.body}
               </div>
             )}
           </div>

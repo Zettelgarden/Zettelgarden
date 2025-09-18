@@ -40,7 +40,7 @@ Available Subagent:
       "id": 123,
       "card_id": "2.54.1",
       "title": "AI Research Project",
-      "body_preview": "This project focuses on...",
+      "body": "This project focuses on...",
       "created_at": "2024-01-15T10:30:00Z",
       "updated_at": "2024-01-16T14:20:00Z",
       "tags": ["ai", "research", "project"]

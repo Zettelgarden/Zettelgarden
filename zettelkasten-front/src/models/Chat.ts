@@ -10,7 +10,7 @@ export interface ChatCardData {
   id: number;
   card_id: string;
   title: string;
-  body_preview?: string;
+  body?: string;
   created_at: string;
   updated_at: string;
   tags?: string[];
