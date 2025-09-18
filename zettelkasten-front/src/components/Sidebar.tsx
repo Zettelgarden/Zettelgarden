@@ -562,7 +562,7 @@ export function Sidebar() {
             className="bg-white p-5 rounded-md shadow-lg max-w-4xl w-[90%] max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <GettingStartedPage />
+            <GettingStartedPage setShowGettingStarted={setShowGettingStarted} />
           </div>
         </div>
       )}
