@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"go-backend/llms"
 	"go-backend/models"
 	"go-backend/prompts"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,7 +28,8 @@ type CreateConversationRequest struct {
 
 // SendMessageRequest represents the request to send a message
 type SendMessageRequest struct {
-	Content string `json:"content"`
+	Content         string   `json:"content"`
+	ReferencedCards []string `json:"referenced_cards,omitempty"`
 }
 
 // UpdateConversationTitleRequest represents the request to update a conversation title
@@ -158,8 +161,50 @@ func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fetch referenced card data if any cards are referenced
+	var referencedCardsContext string
+	if len(req.ReferencedCards) > 0 {
+		// Remove duplicates
+		cardIDSet := make(map[string]bool)
+		var uniqueCardIDs []string
+		for _, cardID := range req.ReferencedCards {
+			if !cardIDSet[cardID] {
+				cardIDSet[cardID] = true
+				uniqueCardIDs = append(uniqueCardIDs, cardID)
+			}
+		}
+		log.Printf("referenced cards: %v", uniqueCardIDs)
+
+		var cards []models.Card
+		for _, idString := range uniqueCardIDs {
+			id, err := strconv.Atoi(idString)
+			if err != nil {
+				continue
+			}
+
+			log.Printf("id %v", id)
+			card, err := s.QueryFullCard(userID, id)
+			if err != nil {
+				continue
+			}
+			log.Printf("card %v", card)
+			cards = append(cards, card)
+
+		}
+		if len(cards) > 0 {
+			var cardContexts []string
+			for _, card := range cards {
+				cardContext := fmt.Sprintf("Card ID: %s\nTitle: %s\nContent:\n%s",
+					card.CardID, card.Title, card.Body)
+				cardContexts = append(cardContexts, cardContext)
+			}
+			referencedCardsContext = "\n\nReferenced Cards:\n" + strings.Join(cardContexts, "\n\n---\n")
+		}
+	}
+
+	content := req.Content + referencedCardsContext
 	// Save user message
-	userMessage, err := s.SaveChatMessage(conversationID, "user", &req.Content, nil, nil)
+	userMessage, err := s.SaveChatMessage(conversationID, "user", &content, nil, nil, req.ReferencedCards)
 	if err != nil {
 		log.Printf("Error saving user message: %v", err)
 		http.Error(w, "Failed to save message", http.StatusInternalServerError)
@@ -418,7 +463,7 @@ func (s *Handler) GetConversation(userID int, conversationID string) (*models.Ch
 // GetConversationMessages gets all messages for a conversation
 func (s *Handler) GetConversationMessages(conversationID string) ([]models.ChatMessage, error) {
 	query := `
-		SELECT id, conversation_id, role, content, tool_calls, tool_call_id, sequence_number, created_at
+		SELECT id, conversation_id, role, content, tool_calls, tool_call_id, sequence_number, referenced_cards, created_at
 		FROM chat_messages
 		WHERE conversation_id = $1
 		ORDER BY sequence_number ASC
@@ -434,6 +479,7 @@ func (s *Handler) GetConversationMessages(conversationID string) ([]models.ChatM
 	for rows.Next() {
 		var msg models.ChatMessage
 		var toolCalls *string
+		var referencedCards *string
 
 		err := rows.Scan(
 			&msg.ID,
@@ -443,6 +489,7 @@ func (s *Handler) GetConversationMessages(conversationID string) ([]models.ChatM
 			&toolCalls,
 			&msg.ToolCallID,
 			&msg.SequenceNumber,
+			&referencedCards,
 			&msg.CreatedAt,
 		)
 		if err != nil {
@@ -456,6 +503,13 @@ func (s *Handler) GetConversationMessages(conversationID string) ([]models.ChatM
 			}
 		}
 
+		// Parse referenced cards JSON
+		if referencedCards != nil && *referencedCards != "" {
+			if err := json.Unmarshal([]byte(*referencedCards), &msg.ReferencedCards); err != nil {
+				log.Printf("Error parsing referenced cards: %v", err)
+			}
+		}
+
 		messages = append(messages, msg)
 	}
 
@@ -463,7 +517,7 @@ func (s *Handler) GetConversationMessages(conversationID string) ([]models.ChatM
 }
 
 // SaveChatMessage saves a chat message
-func (s *Handler) SaveChatMessage(conversationID, role string, content *string, toolCalls []models.ChatToolCall, toolCallID *string) (*models.ChatMessage, error) {
+func (s *Handler) SaveChatMessage(conversationID, role string, content *string, toolCalls []models.ChatToolCall, toolCallID *string, referencedCards []string) (*models.ChatMessage, error) {
 	// Get next sequence number
 	var sequenceNumber int
 	err := s.DB.QueryRow("SELECT COALESCE(MAX(sequence_number), 0) + 1 FROM chat_messages WHERE conversation_id = $1", conversationID).Scan(&sequenceNumber)
@@ -486,16 +540,30 @@ func (s *Handler) SaveChatMessage(conversationID, role string, content *string, 
 		toolCallsJSON = nil
 	}
 
+	// Convert referenced cards to JSON
+	var referencedCardsJSON *string
+	if referencedCards != nil && len(referencedCards) > 0 {
+		referencedCardsData, err := json.Marshal(referencedCards)
+		if err != nil {
+			return nil, err
+		}
+		referencedCardsStr := string(referencedCardsData)
+		referencedCardsJSON = &referencedCardsStr
+	} else {
+		referencedCardsJSON = nil
+	}
+
 	query := `
-		INSERT INTO chat_messages (id, conversation_id, role, content, tool_calls, tool_call_id, sequence_number, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-		RETURNING id, conversation_id, role, content, tool_calls, tool_call_id, sequence_number, created_at
+		INSERT INTO chat_messages (id, conversation_id, role, content, tool_calls, tool_call_id, sequence_number, referenced_cards, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+		RETURNING id, conversation_id, role, content, tool_calls, tool_call_id, sequence_number, referenced_cards, created_at
 	`
 
 	var message models.ChatMessage
 	var returnedToolCalls *string
+	var returnedReferencedCards *string
 
-	err = s.DB.QueryRow(query, id, conversationID, role, content, toolCallsJSON, toolCallID, sequenceNumber).Scan(
+	err = s.DB.QueryRow(query, id, conversationID, role, content, toolCallsJSON, toolCallID, sequenceNumber, referencedCardsJSON).Scan(
 		&message.ID,
 		&message.ConversationID,
 		&message.Role,
@@ -503,6 +571,7 @@ func (s *Handler) SaveChatMessage(conversationID, role string, content *string, 
 		&returnedToolCalls,
 		&message.ToolCallID,
 		&message.SequenceNumber,
+		&returnedReferencedCards,
 		&message.CreatedAt,
 	)
 	if err != nil {
@@ -513,6 +582,13 @@ func (s *Handler) SaveChatMessage(conversationID, role string, content *string, 
 	if returnedToolCalls != nil && *returnedToolCalls != "" {
 		if err := json.Unmarshal([]byte(*returnedToolCalls), &message.ToolCalls); err != nil {
 			log.Printf("Error parsing returned tool calls: %v", err)
+		}
+	}
+
+	// Parse returned referenced cards
+	if returnedReferencedCards != nil && *returnedReferencedCards != "" {
+		if err := json.Unmarshal([]byte(*returnedReferencedCards), &message.ReferencedCards); err != nil {
+			log.Printf("Error parsing returned referenced cards: %v", err)
 		}
 	}
 
@@ -552,6 +628,14 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 		log.Printf("Error loading system prompt: %v, using fallback", err)
 		// Fallback to a basic prompt if file loading fails
 		systemPrompt = "You are the Research Assistant for a Zettelkasten knowledge base. Help users explore and synthesize information across their cards."
+	}
+
+	// Collect all referenced card IDs from user messages
+	var allReferencedCardIDs []string
+	for _, msg := range messages {
+		if msg.Role == "user" && len(msg.ReferencedCards) > 0 {
+			allReferencedCardIDs = append(allReferencedCardIDs, msg.ReferencedCards...)
+		}
 	}
 
 	openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
@@ -624,7 +708,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 
 		// If no tool calls, save the final response and return
 		if len(assistantMessage.ToolCalls) == 0 {
-			return s.SaveChatMessage(conversation.ID, "assistant", &assistantMessage.Content, nil, nil)
+			return s.SaveChatMessage(conversation.ID, "assistant", &assistantMessage.Content, nil, nil, nil)
 		}
 
 		// Save assistant message with tool calls
@@ -643,7 +727,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 			})
 		}
 
-		assistantMsg, err := s.SaveChatMessage(conversation.ID, "assistant", &assistantMessage.Content, toolCalls, nil)
+		assistantMsg, err := s.SaveChatMessage(conversation.ID, "assistant", &assistantMessage.Content, toolCalls, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -666,7 +750,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 			resultStr := string(resultJSON)
 
 			// Save tool response message
-			_, err = s.SaveChatMessage(conversation.ID, "tool", &resultStr, nil, &tc.ID)
+			_, err = s.SaveChatMessage(conversation.ID, "tool", &resultStr, nil, &tc.ID, nil)
 			if err != nil {
 				log.Printf("Error saving tool response: %v", err)
 			}
@@ -814,6 +898,58 @@ func (s *Handler) GetChatUsageQuotas(userID int) ([]models.ChatUsageQuota, error
 
 // Helper methods
 
+// GetCardsByCardIDs retrieves card data for the given card IDs
+func (s *Handler) GetCardsByCardIDs(userID int, cardIDs []string) ([]models.Card, error) {
+	if len(cardIDs) == 0 {
+		return []models.Card{}, nil
+	}
+
+	// Create placeholders for the IN clause
+	placeholders := make([]string, len(cardIDs))
+	args := make([]interface{}, len(cardIDs)+1)
+	args[0] = userID
+
+	for i, cardID := range cardIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+2)
+		args[i+1] = cardID
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, card_id, user_id, title, body, link, parent_id, created_at, updated_at
+		FROM cards
+		WHERE user_id = $1 AND id IN (%s) AND is_deleted = FALSE
+		ORDER BY created_at DESC
+	`, strings.Join(placeholders, ", "))
+
+	rows, err := s.DB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var cards []models.Card
+	for rows.Next() {
+		var card models.Card
+		err := rows.Scan(
+			&card.ID,
+			&card.CardID,
+			&card.UserID,
+			&card.Title,
+			&card.Body,
+			&card.Link,
+			&card.ParentID,
+			&card.CreatedAt,
+			&card.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		cards = append(cards, card)
+	}
+
+	return cards, nil
+}
+
 func (s *Handler) getChatUsageQuota(userID int, quotaType string) (*models.ChatUsageQuota, error) {
 	query := `
 		SELECT id, user_id, quota_type, current_usage, max_limit, reset_date, created_at, updated_at
@@ -890,7 +1026,7 @@ func (s *Handler) generateConversationTitle(userMessage string, model string) st
 
 	// Create LLM client for title generation
 	client := llms.NewDefaultClient(s.DB, 0) // Use system user ID for title generation
-	client.Model = "gpt-4o-mini" // Use faster, cheaper model for title generation
+	client.Model = "gpt-4o-mini"             // Use faster, cheaper model for title generation
 
 	messages := []openai.ChatCompletionMessage{
 		{
@@ -910,7 +1046,7 @@ func (s *Handler) generateConversationTitle(userMessage string, model string) st
 	resp, err := client.Client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 		Model:       client.Model,
 		Messages:    messages,
-		MaxTokens:   20, // Keep titles short
+		MaxTokens:   20,  // Keep titles short
 		Temperature: 0.3, // Lower temperature for more consistent titles
 	})
 

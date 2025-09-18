@@ -24,21 +24,22 @@ type ChatConversation struct {
 
 // ChatMessage represents a single message in a conversation with tool calling support
 type ChatMessage struct {
-	ID             string           `json:"id"`
-	ConversationID string           `json:"conversation_id"`
-	Role           string           `json:"role"` // "user", "assistant", "system", "tool"
-	Content        *string          `json:"content"`
-	ToolCalls      []ChatToolCall   `json:"tool_calls,omitempty"`
-	ToolCallID     *string          `json:"tool_call_id,omitempty"`
-	SequenceNumber int              `json:"sequence_number"`
-	CreatedAt      time.Time        `json:"created_at"`
+	ID              string         `json:"id"`
+	ConversationID  string         `json:"conversation_id"`
+	Role            string         `json:"role"` // "user", "assistant", "system", "tool"
+	Content         *string        `json:"content"`
+	ToolCalls       []ChatToolCall `json:"tool_calls,omitempty"`
+	ToolCallID      *string        `json:"tool_call_id,omitempty"`
+	SequenceNumber  int            `json:"sequence_number"`
+	ReferencedCards []string       `json:"referenced_cards,omitempty"`
+	CreatedAt       time.Time      `json:"created_at"`
 }
 
 // ChatToolCall represents a tool call within a message
 type ChatToolCall struct {
-	ID       string                 `json:"id"`
-	Type     string                 `json:"type"` // "function"
-	Function ChatToolCallFunction   `json:"function"`
+	ID       string               `json:"id"`
+	Type     string               `json:"type"` // "function"
+	Function ChatToolCallFunction `json:"function"`
 }
 
 // ChatToolCallFunction represents the function part of a tool call
