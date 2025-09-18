@@ -26,7 +26,7 @@ func GetChildCards(db *sql.DB, userID int, cardID int) ([]map[string]interface{}
 
 	// Find child cards based on card_id hierarchy
 	query := `
-		SELECT id, title, LEFT(body, 200) as body_preview, card_id, created_at, updated_at
+		SELECT id, title, body, card_id, created_at, updated_at
 		FROM cards
 		WHERE user_id = $1 AND card_id LIKE $2 AND card_id != $3
 		ORDER BY card_id
@@ -54,7 +54,7 @@ func GetChildCards(db *sql.DB, userID int, cardID int) ([]map[string]interface{}
 
 		card["id"] = id
 		card["title"] = title.String
-		card["body_preview"] = bodyPreview.String + "..."
+		card["body"] = bodyPreview.String + "..."
 		card["card_id"] = cardIDStr.String
 		card["created_at"] = createdAt
 		card["updated_at"] = updatedAt
@@ -279,4 +279,94 @@ func GetFullCard(db *sql.DB, userID int, cardPK int) (models.Card, error) {
 	}
 
 	return card, nil
+}
+func GetPartialCardByCardID(db *sql.DB, userID int, cardID string) (models.PartialCard, error) {
+	var card models.PartialCard
+
+	err := db.QueryRow(`
+	SELECT
+	id, card_id, user_id, title, parent_id, created_at, updated_at
+	FROM cards 
+	WHERE is_deleted = FALSE AND card_id = $1 AND user_id = $2
+	`, cardID, userID).Scan(
+		&card.ID,
+		&card.CardID,
+		&card.UserID,
+		&card.Title,
+		&card.ParentID,
+		&card.CreatedAt,
+		&card.UpdatedAt,
+	)
+	if err != nil {
+		log.Printf("query partial err %v", err)
+		return models.PartialCard{}, fmt.Errorf("something went wrong")
+	}
+	return card, nil
+}
+
+func GetPartialCard(db *sql.DB, userID, id int) (models.PartialCard, error) {
+	var card models.PartialCard
+
+	err := db.QueryRow(`
+	SELECT
+	id, card_id, user_id, title, parent_id, created_at, updated_at
+	FROM cards 
+	WHERE is_deleted = FALSE AND id = $1 AND user_id = $2
+	`, id, userID).Scan(
+		&card.ID,
+		&card.CardID,
+		&card.UserID,
+		&card.Title,
+		&card.ParentID,
+		&card.CreatedAt,
+		&card.UpdatedAt,
+	)
+	if err != nil {
+		log.Printf("query partial by id err %v", err)
+		return models.PartialCard{}, fmt.Errorf("something went wrong")
+	}
+	return card, nil
+}
+func GetBacklinks(db *sql.DB, userID int, cardID string) ([]models.PartialCard, error) {
+
+	query := `
+	SELECT
+    cards.id, 
+	cards.card_id,
+    cards.user_id, 
+    cards.title, 
+    cards.created_at, 
+    cards.updated_at
+FROM backlinks
+JOIN cards ON backlinks.source_id_int = cards.id
+JOIN cards target_card ON backlinks.target_id_int = target_card.id
+WHERE target_card.card_id = $1 AND cards.user_id = $2 AND cards.is_deleted = FALSE;`
+
+	rows, err := db.Query(query, cardID, userID)
+	if err != nil {
+		log.Printf("cardid %v", cardID)
+		log.Printf("err %v", err)
+	}
+	var cards []models.PartialCard
+
+	for rows.Next() {
+		card := models.PartialCard{}
+		if err := rows.Scan(
+			&card.ID,
+			&card.CardID,
+			&card.UserID,
+			&card.Title,
+			&card.CreatedAt,
+			&card.UpdatedAt,
+		); err != nil {
+			log.Printf("err %v", err)
+			return cards, err
+		}
+
+		if card.CardID != cardID {
+			cards = append(cards, card)
+		}
+	}
+	return cards, nil
+
 }

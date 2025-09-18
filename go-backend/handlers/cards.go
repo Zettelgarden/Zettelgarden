@@ -245,64 +245,6 @@ func (s *Handler) getChildren(userID int, cardID string) ([]models.PartialCard, 
 	return results, nil
 }
 
-func (s *Handler) getBacklinks(userID int, cardID string) ([]models.PartialCard, error) {
-
-	query := `
-	SELECT
-    cards.id, 
-	cards.card_id,
-    cards.user_id, 
-    cards.title, 
-    cards.created_at, 
-    cards.updated_at
-FROM backlinks
-JOIN cards ON backlinks.source_id_int = cards.id
-JOIN cards target_card ON backlinks.target_id_int = target_card.id
-WHERE target_card.card_id = $1 AND cards.user_id = $2 AND cards.is_deleted = FALSE;`
-
-	rows, err := s.DB.Query(query, cardID, userID)
-	if err != nil {
-		log.Printf("cardid %v", cardID)
-		log.Printf("err %v", err)
-	}
-	var cards []models.PartialCard
-
-	for rows.Next() {
-		card := models.PartialCard{}
-		if err := rows.Scan(
-			&card.ID,
-			&card.CardID,
-			&card.UserID,
-			&card.Title,
-			&card.CreatedAt,
-			&card.UpdatedAt,
-		); err != nil {
-			log.Printf("err %v", err)
-			return cards, err
-		}
-
-		if card.CardID != cardID {
-			cards = append(cards, card)
-		}
-	}
-	return cards, nil
-
-}
-
-func Ints(input []int) []int {
-	u := make([]int, 0, len(input))
-	m := make(map[int]bool)
-
-	for _, val := range input {
-		if _, ok := m[val]; !ok {
-			m[val] = true
-			u = append(u, val)
-		}
-	}
-
-	return u
-}
-
 func getUniqueCards(input []models.PartialCard) []models.PartialCard {
 	u := make([]models.PartialCard, 0, len(input))
 	m := make(map[string]bool)
@@ -318,7 +260,7 @@ func getUniqueCards(input []models.PartialCard) []models.PartialCard {
 
 func (s *Handler) getReferences(userID int, card models.Card) ([]models.PartialCard, error) {
 	directLinks := s.getDirectlinks(userID, card)
-	backlinks, _ := s.getBacklinks(userID, card.CardID)
+	backlinks, _ := services.GetBacklinks(s.DB, userID, card.CardID)
 	links := append(directLinks, backlinks...)
 	if len(links) == 0 {
 		return []models.PartialCard{}, nil
@@ -682,52 +624,11 @@ func (s *Handler) getNextRootCardID(userID int) string {
 }
 
 func (s *Handler) QueryPartialCardByID(userID, id int) (models.PartialCard, error) {
-	var card models.PartialCard
-
-	err := s.DB.QueryRow(`
-	SELECT
-	id, card_id, user_id, title, parent_id, created_at, updated_at
-	FROM cards 
-	WHERE is_deleted = FALSE AND id = $1 AND user_id = $2
-	`, id, userID).Scan(
-		&card.ID,
-		&card.CardID,
-		&card.UserID,
-		&card.Title,
-		&card.ParentID,
-		&card.CreatedAt,
-		&card.UpdatedAt,
-	)
-	if err != nil {
-		log.Printf("query partial by id err %v", err)
-		return models.PartialCard{}, fmt.Errorf("something went wrong")
-	}
-	return card, nil
-
+	return services.GetPartialCard(s.DB, userID, id)
 }
 
 func (s *Handler) QueryPartialCard(userID int, cardID string) (models.PartialCard, error) {
-	var card models.PartialCard
-
-	err := s.DB.QueryRow(`
-	SELECT
-	id, card_id, user_id, title, parent_id, created_at, updated_at
-	FROM cards 
-	WHERE is_deleted = FALSE AND card_id = $1 AND user_id = $2
-	`, cardID, userID).Scan(
-		&card.ID,
-		&card.CardID,
-		&card.UserID,
-		&card.Title,
-		&card.ParentID,
-		&card.CreatedAt,
-		&card.UpdatedAt,
-	)
-	if err != nil {
-		log.Printf("query partial err %v", err)
-		return models.PartialCard{}, fmt.Errorf("something went wrong")
-	}
-	return card, nil
+	return services.GetPartialCardByCardID(s.DB, userID, cardID)
 
 }
 
@@ -844,7 +745,7 @@ func (s *Handler) DeleteCard(userID int, id int) error {
 		return err
 	}
 
-	backlinks, _ := s.getBacklinks(userID, card.CardID)
+	backlinks, _ := services.GetBacklinks(s.DB, userID, card.CardID)
 	if len(backlinks) > 0 {
 		return fmt.Errorf("card has backlinks, cannot be deleted")
 	}
