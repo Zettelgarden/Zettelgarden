@@ -180,6 +180,33 @@ export function UserSettingsPage() {
             )}
 
             <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold mb-4">Data & Privacy</h2>
+              <div className="space-y-4">
+                <div className="border border-orange-200 bg-orange-50 rounded-lg p-4">
+                  <h3 className="text-lg font-medium text-orange-800 mb-2">Account Deletion & Data Export</h3>
+                  <p className="text-orange-700 text-sm mb-3">
+                    Need to delete your account or export your data? We're happy to help! Our team can assist you with:
+                  </p>
+                  <ul className="text-orange-700 text-sm mb-3 ml-4 list-disc space-y-1">
+                    <li>Complete account deletion</li>
+                    <li>Data export in various formats</li>
+                    <li>Selective data removal</li>
+                  </ul>
+                  <p className="text-orange-700 text-sm mb-3">
+                    Please email us at{" "}
+                    <a
+                      href="mailto:info@zettelgarden.com"
+                      className="font-medium text-orange-800 hover:underline"
+                    >
+                      info@zettelgarden.com
+                    </a>{" "}
+                    with your request, and we'll take care of it promptly.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold mb-4">Account Actions</h2>
               <button
                 onClick={() => {
