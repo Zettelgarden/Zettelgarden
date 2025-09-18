@@ -12,6 +12,7 @@ import {
 import { setDocumentTitle } from "../utils/title";
 import { Button } from "../components/Button";
 import { useChatContext } from "../contexts/ChatContext";
+import { renderTextWithCardLinks, parseMessageContent, CardsSection } from "../utils/cardReferences";
 
 interface ChatPageProps { }
 
@@ -193,6 +194,11 @@ export function ChatPage({ }: ChatPageProps) {
     }
   };
 
+  const handleCardClick = (cardPk: string) => {
+    // Navigate to the card page using the card_id
+    window.open(`/app/card/${encodeURIComponent(cardPk)}`, '_blank');
+  };
+
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "user":
@@ -235,6 +241,22 @@ export function ChatPage({ }: ChatPageProps) {
         );
       }
     }
+
+    // For assistant messages, parse and render card references as clickable links
+    if (message.role === "assistant" && message.content) {
+      console.log(message.content)
+      const { text, cards } = parseMessageContent(message.content);
+
+      return (
+        <div>
+          <div className="whitespace-pre-wrap break-words leading-relaxed">
+            {renderTextWithCardLinks(text, handleCardClick)}
+          </div>
+          <CardsSection cards={cards} onCardClick={handleCardClick} />
+        </div>
+      );
+    }
+
     return (
       <div className="whitespace-pre-wrap break-words leading-relaxed">
         {message.content}
@@ -442,8 +464,8 @@ export function ChatPage({ }: ChatPageProps) {
                       <div className="flex items-center gap-3 text-gray-600">
                         <div className="flex space-x-1">
                           <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                         </div>
                         <span className="text-sm font-medium">Assistant is thinking...</span>
                       </div>

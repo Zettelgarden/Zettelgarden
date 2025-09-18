@@ -472,32 +472,73 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 	// Convert messages to OpenAI format
 	var openaiMessages []openai.ChatCompletionMessage
 
-	// Add enhanced system prompt that encourages subagent usage
-	systemPrompt := ""
-	if conversation.SystemPrompt != nil && *conversation.SystemPrompt != "" {
-		systemPrompt = *conversation.SystemPrompt + "\n\n"
-	}
+	log.Printf("Starting prompting")
+	systemPrompt := `
+	You are the Research Assistant for a Zettelkasten knowledge base.  
+Your role is to help the user explore, retrieve, and synthesize information across their cards.  
+You can interact with the knowledge base directly, but for complex or exploratory tasks you should delegate work to specialized subagents using the 'Task' tool.
 
-	systemPrompt += `When you need to search for information, retrieve cards, or perform complex knowledge base operations, consider using the Task tool to launch specialized subagents rather than directly calling the knowledge base tools yourself. This helps preserve our conversation context while delegating specific research tasks.
+### Core Behaviors:
+- Always aim to preserve conversation flow with the user.  
+- You likely should not be calling many tools except for Task. Let the subagents do the work.
+- When a user request involves **searching, multiple queries, uncertain directions, or research across many cards**, break the problem down into subtasks and launch one or more subagents using the 'Task' tool.  
+- Think step-by-step: consider whether you’d benefit from launching subtasks before trying to answer directly.  
+- Only use knowledge base tools directly when the operation is **simple and direct** (e.g., fetching a single known card by ID).  
 
-Use the Task tool when:
-- You need to perform multiple related searches or queries
-- The user asks exploratory questions that might require browsing card hierarchies
-- You need to research a topic comprehensively across the knowledge base
-- The task involves filtering and analyzing multiple cards
-- You want to maintain conversation flow while gathering detailed information
+### Subtasks & Subagents:
+- Use the 'Task' tool to launch a subagent for:  
+  - research queries such as "find me cards about..."
+  - Searches requiring semantic exploration or card hierarchy traversal  
+  - Filtering and analyzing results across many cards  
+  - Gathering supporting evidence before synthesizing an answer  
+- Prefer spawning **more than one subtask** if distinct branches of exploration are possible. For example: “search one way by tag, another by semantic similarity.”
 
-For simple, direct operations (like getting a specific card by ID when you know the exact ID), you can use the tools directly.
+Available Subagent:
+- 'general-purpose': General research, searching, and multi-step exploration.
 
-Available subagent:
-- general-purpose: For complex research, searches, and multi-step knowledge base operations
+### Knowledge Base Tools:
+- 'Task': Launch a subagent for multi-step research tasks  
+- 'search_cards': Text/semantic search for cards  
+- 'get_card_by_id': Retrieve a card by exact ID  
+- 'browse_card_hierarchy': Navigate parent/child/card relationships  
+- 'filter_cards_by_metadata': Filter cards by tags, stars, or dates  
 
-You have access to these knowledge base tools (available both directly and through subagents):
-- Task: Launch a subagent for complex multi-step research tasks
-- search_cards: Search for cards using text or semantic similarity
-- get_card_by_id: Retrieve a specific card by its ID
-- browse_card_hierarchy: Browse parent/child relationships between cards
-- filter_cards_by_metadata: Filter cards by dates, tags, or starred status`
+### Responding to the User:
+- Always answer naturally and clearly in plain language first.  
+- When referencing **cards** in your response:
+  - If you mention **2 or more cards**, or include detailed card information, also provide a structured JSON block at the end of your answer.  
+  - The JSON must use **exactly** the schema returned by the knowledge base tools.  
+  - Do **not** invent fields—only include what the tools provide.  
+
+### JSON Card Block Format:
+---CARDS---
+` +
+		"```" + `json
+{
+  "cards": [
+    {
+      "id": 123,
+      "card_id": "2.54.1",
+      "title": "AI Research Project",
+      "body_preview": "This project focuses on...",
+      "created_at": "2024-01-15T10:30:00Z",
+      "updated_at": "2024-01-16T14:20:00Z",
+      "tags": ["ai", "research", "project"]
+    }
+  ]
+}
+  ` +
+		"```" + `
+
+### Error & Fallbacks:
+- If a subagent fails or gives no useful results, explain this briefly and suggest next steps.  
+- If the user request is ambiguous, clarify it or launch parallel subtasks to cover different interpretations.  
+
+Remember:  
+- **Decompose first.** If the problem can be broken down, launch subtasks.  
+- **Respond clearly.** Use JSON only when needed.  
+- **Preserve context.** The conversation should feel continuous even while research is delegated.  
+`
 
 	openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleSystem,
@@ -549,24 +590,29 @@ You have access to these knowledge base tools (available both directly and throu
 	toolRegistry := llms.NewToolRegistry()
 	tools := toolRegistry.GetToolDefinitions()
 
-	// Make request with tools
-	resp, err := client.Client.CreateChatCompletion(
-		context.Background(),
-		openai.ChatCompletionRequest{
-			Model:    conversation.Model,
-			Messages: openaiMessages,
-			Tools:    tools,
-		},
-	)
+	// Loop until no more tool calls are needed
+	for {
+		// Make request with tools
+		resp, err := client.Client.CreateChatCompletion(
+			context.Background(),
+			openai.ChatCompletionRequest{
+				Model:    conversation.Model,
+				Messages: openaiMessages,
+				Tools:    tools,
+			},
+		)
 
-	if err != nil {
-		return nil, err
-	}
+		if err != nil {
+			return nil, err
+		}
 
-	assistantMessage := resp.Choices[0].Message
+		assistantMessage := resp.Choices[0].Message
 
-	// Handle tool calls if present
-	if len(assistantMessage.ToolCalls) > 0 {
+		// If no tool calls, save the final response and return
+		if len(assistantMessage.ToolCalls) == 0 {
+			return s.SaveChatMessage(conversation.ID, "assistant", &assistantMessage.Content, nil, nil)
+		}
+
 		// Save assistant message with tool calls
 		var toolCalls []models.ChatToolCall
 		for _, tc := range assistantMessage.ToolCalls {
@@ -583,7 +629,7 @@ You have access to these knowledge base tools (available both directly and throu
 			})
 		}
 
-		_, err := s.SaveChatMessage(conversation.ID, "assistant", &assistantMessage.Content, toolCalls, nil)
+		assistantMsg, err := s.SaveChatMessage(conversation.ID, "assistant", &assistantMessage.Content, toolCalls, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -593,7 +639,7 @@ You have access to these knowledge base tools (available both directly and throu
 			var args map[string]interface{}
 			json.Unmarshal([]byte(tc.Function.Arguments), &args)
 
-			result, err := toolRegistry.ExecuteTool(tc.Function.Name, args, userID, s.DB, s.Server.TypesenseClient)
+			result, err := toolRegistry.ExecuteTool(tc.Function.Name, args, userID, s.DB, s.Server.TypesenseClient, &conversation.ID, &assistantMsg.ID)
 			if err != nil {
 				log.Printf("Error executing tool %s: %v", tc.Function.Name, err)
 				result = map[string]interface{}{
@@ -612,20 +658,18 @@ You have access to these knowledge base tools (available both directly and throu
 			}
 		}
 
-		// Make another request to get the final response
-		// Get updated messages including tool responses
+		// Get updated messages including tool responses for next iteration
 		updatedMessages, err := s.GetConversationMessages(conversation.ID)
 		if err != nil {
 			return nil, err
 		}
 
-		// Convert to OpenAI format again
-		var finalOpenaiMessages []openai.ChatCompletionMessage
-		if conversation.SystemPrompt != nil && *conversation.SystemPrompt != "" {
-			finalOpenaiMessages = append(finalOpenaiMessages, openai.ChatCompletionMessage{
+		// Convert to OpenAI format for next request
+		openaiMessages = []openai.ChatCompletionMessage{
+			{
 				Role:    openai.ChatMessageRoleSystem,
-				Content: *conversation.SystemPrompt,
-			})
+				Content: systemPrompt,
+			},
 		}
 
 		for _, msg := range updatedMessages {
@@ -659,29 +703,8 @@ You have access to these knowledge base tools (available both directly and throu
 				openaiMsg.ToolCallID = *msg.ToolCallID
 			}
 
-			finalOpenaiMessages = append(finalOpenaiMessages, openaiMsg)
+			openaiMessages = append(openaiMessages, openaiMsg)
 		}
-
-		// Get final response
-		finalResp, err := client.Client.CreateChatCompletion(
-			context.Background(),
-			openai.ChatCompletionRequest{
-				Model:    conversation.Model,
-				Messages: finalOpenaiMessages,
-				Tools:    tools,
-			},
-		)
-
-		if err != nil {
-			return nil, err
-		}
-
-		finalMessage := finalResp.Choices[0].Message
-		return s.SaveChatMessage(conversation.ID, "assistant", &finalMessage.Content, nil, nil)
-
-	} else {
-		// No tool calls, just save the response
-		return s.SaveChatMessage(conversation.ID, "assistant", &assistantMessage.Content, nil, nil)
 	}
 }
 

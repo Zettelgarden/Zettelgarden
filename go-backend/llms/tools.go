@@ -20,7 +20,7 @@ import (
 // Tool represents a tool that can be called by the LLM
 type Tool struct {
 	Definition openai.Tool
-	Handler    func(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client) (map[string]interface{}, error)
+	Handler    func(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (map[string]interface{}, error)
 }
 
 // ToolRegistry holds all available tools
@@ -54,19 +54,19 @@ func (tr *ToolRegistry) GetToolDefinitions() []openai.Tool {
 }
 
 // ExecuteTool executes a tool by name with given arguments
-func (tr *ToolRegistry) ExecuteTool(name string, args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client) (map[string]interface{}, error) {
+func (tr *ToolRegistry) ExecuteTool(name string, args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID, messageID *string) (map[string]interface{}, error) {
 	tool, exists := tr.tools[name]
 	if !exists {
 		return nil, fmt.Errorf("tool %s not found", name)
 	}
 
 	start := time.Now()
-	result, err := tool.Handler(args, userID, db, typesenseClient)
+	result, err := tool.Handler(args, userID, db, typesenseClient, conversationID, messageID)
 	executionTime := int(time.Since(start).Milliseconds())
 
 	// Log tool execution for analytics
 	go func() {
-		logErr := logToolExecution(db, userID, name, args, result, executionTime, err)
+		logErr := logToolExecution(db, userID, name, args, result, executionTime, err, conversationID, messageID)
 		if logErr != nil {
 			log.Printf("Error logging tool execution: %v", logErr)
 		}
@@ -241,7 +241,7 @@ func (tr *ToolRegistry) registerTask() {
 
 // Tool handlers
 
-func handleSearchCards(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client) (map[string]interface{}, error) {
+func handleSearchCards(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (map[string]interface{}, error) {
 	query, ok := args["query"].(string)
 	if !ok {
 		return nil, fmt.Errorf("query parameter is required")
@@ -279,7 +279,7 @@ func handleSearchCards(args map[string]interface{}, userID int, db *sql.DB, type
 	}, nil
 }
 
-func handleGetCardByID(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client) (map[string]interface{}, error) {
+func handleGetCardByID(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (map[string]interface{}, error) {
 	cardIDFloat, ok := args["card_id"].(float64)
 	if !ok {
 		return nil, fmt.Errorf("card_id parameter is required")
@@ -294,7 +294,7 @@ func handleGetCardByID(args map[string]interface{}, userID int, db *sql.DB, type
 	return card, nil
 }
 
-func handleBrowseCardHierarchy(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client) (map[string]interface{}, error) {
+func handleBrowseCardHierarchy(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (map[string]interface{}, error) {
 	cardIDFloat, ok := args["card_id"].(float64)
 	if !ok {
 		return nil, fmt.Errorf("card_id parameter is required")
@@ -328,7 +328,7 @@ func handleBrowseCardHierarchy(args map[string]interface{}, userID int, db *sql.
 	}, nil
 }
 
-func handleFilterCardsByMetadata(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client) (map[string]interface{}, error) {
+func handleFilterCardsByMetadata(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (map[string]interface{}, error) {
 	limit := 20
 	if l, ok := args["limit"].(float64); ok {
 		limit = int(l)
@@ -345,7 +345,7 @@ func handleFilterCardsByMetadata(args map[string]interface{}, userID int, db *sq
 	}, nil
 }
 
-func handleTask(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client) (map[string]interface{}, error) {
+func handleTask(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (map[string]interface{}, error) {
 	description, ok := args["description"].(string)
 	if !ok {
 		return nil, fmt.Errorf("description parameter is required")
@@ -364,7 +364,7 @@ func handleTask(args map[string]interface{}, userID int, db *sql.DB, typesenseCl
 	log.Printf("Launching subagent - Description: %s, Type: %s", description, subagentType)
 
 	// Execute the subagent task
-	result, err := executeSubagentTask(prompt, subagentType, userID, db, typesenseClient)
+	result, err := executeSubagentTask(prompt, subagentType, userID, db, typesenseClient, conversationID, messageID)
 	if err != nil {
 		return nil, fmt.Errorf("subagent execution failed: %v", err)
 	}
@@ -378,7 +378,7 @@ func handleTask(args map[string]interface{}, userID int, db *sql.DB, typesenseCl
 }
 
 // executeSubagentTask runs a subagent with access to knowledge base tools
-func executeSubagentTask(prompt, subagentType string, userID int, db *sql.DB, typesenseClient *typesense.Client) (string, error) {
+func executeSubagentTask(prompt, subagentType string, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (string, error) {
 	// Create LLM client for the subagent
 	client := NewDefaultClient(db, userID)
 
@@ -431,7 +431,6 @@ Be thorough in your research and provide comprehensive, well-organized results. 
 		}
 
 		assistantMessage := resp.Choices[0].Message
-		log.Printf("task message %v", assistantMessage)
 		messages = append(messages, assistantMessage)
 
 		// If no tool calls, we're done
@@ -447,9 +446,7 @@ Be thorough in your research and provide comprehensive, well-organized results. 
 				continue
 			}
 
-			log.Printf("function call %v args %v", tc.Function.Name, args)
-			result, err := subagentRegistry.ExecuteTool(tc.Function.Name, args, userID, db, typesenseClient)
-			log.Printf("tool result %v", result)
+			result, err := subagentRegistry.ExecuteTool(tc.Function.Name, args, userID, db, typesenseClient, conversationID, messageID)
 			if err != nil {
 				log.Printf("Error executing tool %s: %v", tc.Function.Name, err)
 				result = map[string]interface{}{
@@ -826,15 +823,16 @@ func getCardTags(db *sql.DB, cardID int) ([]string, error) {
 	return tags, nil
 }
 
-func logToolExecution(db *sql.DB, userID int, toolName string, args map[string]interface{}, result map[string]interface{}, executionTimeMs int, execErr error) error {
+func logToolExecution(db *sql.DB, userID int, toolName string, args map[string]interface{}, result map[string]interface{}, executionTimeMs int, execErr error, conversationID, messageID *string) error {
 	argsJSON, _ := json.Marshal(args)
 	resultJSON, _ := json.Marshal(result)
 
 	query := `
-		INSERT INTO chat_tool_calls (id, user_id, tool_name, tool_arguments, tool_result, execution_time_ms, created_at)
-		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, NOW())
+		INSERT INTO chat_tool_calls (id, user_id, conversation_id, message_id, tool_name, tool_arguments, tool_result, execution_time_ms, created_at)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, NOW())
 	`
+	fmt.Printf("Tool call: %v", toolName)
 
-	_, err := db.Exec(query, userID, toolName, argsJSON, resultJSON, executionTimeMs)
+	_, err := db.Exec(query, userID, conversationID, messageID, toolName, argsJSON, resultJSON, executionTimeMs)
 	return err
 }
