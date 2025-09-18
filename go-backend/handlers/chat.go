@@ -126,6 +126,49 @@ func (s *Handler) GetConversationRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+func (s *Handler) GetReferencedCards(userID int, cardIDs []string) string {
+	// Fetch referenced card data if any cards are referenced
+	referencedCardsContext := ""
+	if len(cardIDs) > 0 {
+		// Remove duplicates
+		cardIDSet := make(map[string]bool)
+		var uniqueCardIDs []string
+		for _, cardID := range cardIDs {
+			if !cardIDSet[cardID] {
+				cardIDSet[cardID] = true
+				uniqueCardIDs = append(uniqueCardIDs, cardID)
+			}
+		}
+
+		var cards []models.Card
+		for _, idString := range uniqueCardIDs {
+			id, err := strconv.Atoi(idString)
+			if err != nil {
+				continue
+			}
+
+			card, err := s.QueryFullCard(userID, id)
+			if err != nil {
+				continue
+			}
+			cards = append(cards, card)
+
+		}
+		if len(cards) > 0 {
+			var cardContexts []string
+			for _, card := range cards {
+				cardContext := fmt.Sprintf("Card ID: %s\nTitle: %s\nContent:\n%s",
+					card.CardID, card.Title, card.Body)
+				cardContexts = append(cardContexts, cardContext)
+			}
+			referencedCardsContext = "\n\n<referenced cards>\n" + strings.Join(cardContexts, "\n\n---\n")
+			referencedCardsContext += "</referenced cards>"
+		}
+	}
+	return referencedCardsContext
+
+}
+
 // SendMessageRoute sends a message and gets LLM response
 func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
@@ -161,48 +204,9 @@ func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch referenced card data if any cards are referenced
-	var referencedCardsContext string
-	if len(req.ReferencedCards) > 0 {
-		// Remove duplicates
-		cardIDSet := make(map[string]bool)
-		var uniqueCardIDs []string
-		for _, cardID := range req.ReferencedCards {
-			if !cardIDSet[cardID] {
-				cardIDSet[cardID] = true
-				uniqueCardIDs = append(uniqueCardIDs, cardID)
-			}
-		}
-		log.Printf("referenced cards: %v", uniqueCardIDs)
+	referencedCardContext := s.GetReferencedCards(userID, req.ReferencedCards)
 
-		var cards []models.Card
-		for _, idString := range uniqueCardIDs {
-			id, err := strconv.Atoi(idString)
-			if err != nil {
-				continue
-			}
-
-			log.Printf("id %v", id)
-			card, err := s.QueryFullCard(userID, id)
-			if err != nil {
-				continue
-			}
-			log.Printf("card %v", card)
-			cards = append(cards, card)
-
-		}
-		if len(cards) > 0 {
-			var cardContexts []string
-			for _, card := range cards {
-				cardContext := fmt.Sprintf("Card ID: %s\nTitle: %s\nContent:\n%s",
-					card.CardID, card.Title, card.Body)
-				cardContexts = append(cardContexts, cardContext)
-			}
-			referencedCardsContext = "\n\nReferenced Cards:\n" + strings.Join(cardContexts, "\n\n---\n")
-		}
-	}
-
-	content := req.Content + referencedCardsContext
+	content := req.Content + referencedCardContext
 	// Save user message
 	userMessage, err := s.SaveChatMessage(conversationID, "user", &content, nil, nil, req.ReferencedCards)
 	if err != nil {

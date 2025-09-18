@@ -4,11 +4,17 @@ import { setDocumentTitle } from "../utils/title";
 import { useAuth } from "../contexts/AuthContext";
 import { semanticSearchCards } from "../api/cards";
 import { PartialCard } from "../models/Card";
+import { createConversation, sendMessage } from "../api/chat";
+import { useChatContext } from "../contexts/ChatContext";
+import { ChatInput } from "../components/chat/ChatInput";
 
 export function DashboardPage() {
   const [recentCards, setRecentCards] = useState<PartialCard[]>([]);
   const [unsortedCards, setUnsortedCards] = useState<PartialCard[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
   const { hasSubscription, isLoading } = useAuth();
+  const { setConversationId } = useChatContext();
   const subscriptionEnabled =
     import.meta.env.VITE_FEATURE_SUBSCRIPTION === "true";
 
@@ -37,6 +43,41 @@ export function DashboardPage() {
     });
   }, []);
 
+  const handleChatSubmit = async (referencedCards?: string[]) => {
+    if (!chatInput.trim() || isCreatingChat) return;
+
+    const messageToSend = chatInput.trim();
+    setIsCreatingChat(true);
+
+    try {
+      // Create a new conversation
+      const conversation = await createConversation({
+        title: "", // Will be auto-generated from the first message
+        model: "gpt-4o-mini"
+      });
+
+      // Set the conversation ID in context and navigate immediately
+      setConversationId(conversation.id);
+
+      // Navigate to chat page right away
+      window.location.href = "/app/chat";
+
+      // Send the initial message asynchronously (this will happen in the background)
+      sendMessage(conversation.id, messageToSend, referencedCards).catch(error => {
+        console.error("Failed to send initial message:", error);
+      });
+
+    } catch (error) {
+      console.error("Failed to create chat:", error);
+      alert("Failed to start chat. Please try again.");
+      setIsCreatingChat(false);
+    }
+  };
+
+  const handleCardReference = (cardIds: string[]) => {
+    // Cards are handled directly by ChatInput component
+  };
+
   return (
     <div>
       {/* Main Content Section */}
@@ -46,10 +87,27 @@ export function DashboardPage() {
             <h1 className="text-3xl font-bold text-gray-900 mb-3 p-10">
               Welcome to Zettelgarden 🌱
             </h1>
-            <p className="text-lg text-gray-600 max-w-full">
+            <p className="text-lg text-gray-600 max-w-full mb-8">
               Your personal space for growing ideas. Create cards, connect
               thoughts, and watch your knowledge garden flourish.
             </p>
+
+            {/* Quick Chat Box */}
+            <div className="max-w-4xl mx-auto mb-8">
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+                <ChatInput
+                  value={chatInput}
+                  onChange={setChatInput}
+                  onSubmit={handleChatSubmit}
+                  onCardReference={handleCardReference}
+                  placeholder="Ask your knowledge base anything..."
+                  disabled={isCreatingChat}
+                  isLoading={isCreatingChat}
+                  submitButtonText="Chat"
+                  multiline={false}
+                />
+              </div>
+            </div>
           </div>
           {!isLoading && !hasSubscription && subscriptionEnabled && (
             <div className="bg-blue-50 border-t border-b border-blue-200 text-blue-800 px-4 py-3 text-center">
