@@ -1,1 +1,0 @@
-ALTER TABLE chat_completions ADD COLUMN user_query TEXT;
