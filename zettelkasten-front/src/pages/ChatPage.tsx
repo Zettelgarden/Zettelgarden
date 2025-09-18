@@ -42,7 +42,85 @@ export function ChatPage({ }: ChatPageProps) {
   useEffect(() => {
     setDocumentTitle("Chat");
     loadConversations();
+    handleUrlParams();
   }, []);
+
+  const handleUrlParams = async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const message = urlParams.get('message');
+    const cardsParam = urlParams.get('cards');
+
+    if (message) {
+      // Clear URL params to avoid re-triggering
+      window.history.replaceState({}, '', '/app/chat');
+
+      // Parse referenced cards
+      const referencedCards = cardsParam ? cardsParam.split(',').filter(Boolean) : undefined;
+
+      // Create new conversation and send message
+      await createNewConversationWithMessage(message, referencedCards);
+    }
+  };
+
+  const createNewConversationWithMessage = async (message: string, referencedCards?: string[]) => {
+    try {
+      setIsLoading(true);
+      const newConv = await createConversation({
+        title: "",
+        model: selectedModel
+      });
+
+      setConversations(prev => [newConv, ...prev]);
+      setCurrentConversation(newConv);
+      setMessages([]);
+      setConversationId(newConv.id);
+      setError(null);
+
+      // Set message input and send it
+      setMessageInput(message);
+      await sendMessageToConversation(newConv.id, message, referencedCards);
+    } catch (error) {
+      console.error("Failed to create conversation with message:", error);
+      setError("Failed to create conversation");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const sendMessageToConversation = async (conversationId: string, message: string, referencedCards?: string[]) => {
+    setIsSending(true);
+
+    try {
+      // Add user message to UI immediately
+      const tempUserMessage: ChatMessage = {
+        id: `temp-${Date.now()}`,
+        conversation_id: conversationId,
+        role: "user",
+        content: message,
+        sequence_number: messages.length + 1,
+        referenced_cards: referencedCards?.length ? referencedCards : undefined,
+        created_at: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, tempUserMessage]);
+
+      // Send to API with referenced cards
+      await apiSendMessage(conversationId, message, referencedCards?.length ? referencedCards : undefined);
+
+      // Reload the full conversation to get all messages including tool calls
+      await loadConversation(conversationId);
+
+      // Update conversations list to reflect new message count
+      await loadConversations();
+
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      setError("Failed to send message");
+      // Remove the temporary user message on error
+      setMessages(prev => prev.slice(0, -1));
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   useEffect(() => {
     scrollToBottom();
