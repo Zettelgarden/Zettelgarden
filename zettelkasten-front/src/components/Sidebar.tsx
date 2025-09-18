@@ -30,7 +30,6 @@ import { getStarredSearches, unstarSearch } from "../api/starredSearches";
 import { parseURL } from "../api/references";
 
 import { defaultCard } from "../models/Card";
-import { FileUpload } from "../components/files/FileUpload";
 import { EntityIcon } from "../assets/icons/EntityIcon";
 import { BookOpenIcon } from "../assets/icons/BookOpenIcon";
 import { SettingsIcon } from "../assets/icons/SettingsIcon";
@@ -317,14 +316,6 @@ export function Sidebar() {
                 >
                   Create Task
                 </button>
-                <FileUpload
-                  setMessage={setMessage}
-                  card={defaultCard}
-                >
-                  <button className="w-full text-left px-4 py-2 hover:bg-gray-100">
-                    Upload File
-                  </button>
-                </FileUpload>
                 {hasSubscription && (
                   <button
                     onClick={handleNewChat}
