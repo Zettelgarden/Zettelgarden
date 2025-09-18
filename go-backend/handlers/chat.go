@@ -9,6 +9,8 @@ import (
 	"go-backend/prompts"
 	"log"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -157,6 +159,16 @@ func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error saving user message: %v", err)
 		http.Error(w, "Failed to save message", http.StatusInternalServerError)
 		return
+	}
+
+	// Generate title if this is the first message (and conversation has no title)
+	if conversation.Title == nil || *conversation.Title == "" {
+		generatedTitle := s.generateConversationTitle(req.Content, conversation.Model)
+		err := s.UpdateConversationTitle(conversationID, generatedTitle)
+		if err != nil {
+			log.Printf("Error updating conversation title: %v", err)
+			// Don't fail the request if title update fails, just log it
+		}
 	}
 
 	// Get conversation history for LLM
@@ -464,6 +476,13 @@ func (s *Handler) DeleteConversation(conversationID string) error {
 func (s *Handler) UpdateConversationStarred(conversationID string, starred bool) error {
 	query := `UPDATE chat_conversations SET starred = $1, updated_at = NOW() WHERE id = $2`
 	_, err := s.DB.Exec(query, starred, conversationID)
+	return err
+}
+
+// UpdateConversationTitle updates the title of a conversation
+func (s *Handler) UpdateConversationTitle(conversationID string, title string) error {
+	query := `UPDATE chat_conversations SET title = $1, updated_at = NOW() WHERE id = $2`
+	_, err := s.DB.Exec(query, title, conversationID)
 	return err
 }
 
@@ -800,4 +819,70 @@ func (s *Handler) getDefaultQuotaLimit(quotaType string) int {
 	default:
 		return 10
 	}
+}
+
+// generateConversationTitle generates a title for a conversation based on the user's first message
+func (s *Handler) generateConversationTitle(userMessage string, model string) string {
+	// Load title generation prompt
+	titlePrompt, err := prompts.GetTitleGeneratorPrompt()
+	if err != nil {
+		log.Printf("Error loading title generation prompt: %v", err)
+		// Fallback to truncated user message
+		if len(userMessage) > 40 {
+			return userMessage[:40] + "..."
+		}
+		return userMessage
+	}
+
+	// Create LLM client for title generation
+	client := llms.NewDefaultClient(s.DB, 0) // Use system user ID for title generation
+	client.Model = "gpt-4o-mini" // Use faster, cheaper model for title generation
+
+	messages := []openai.ChatCompletionMessage{
+		{
+			Role:    openai.ChatMessageRoleSystem,
+			Content: titlePrompt,
+		},
+		{
+			Role:    openai.ChatMessageRoleUser,
+			Content: userMessage,
+		},
+	}
+
+	// Generate title with a short timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	resp, err := client.Client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+		Model:       client.Model,
+		Messages:    messages,
+		MaxTokens:   20, // Keep titles short
+		Temperature: 0.3, // Lower temperature for more consistent titles
+	})
+
+	if err != nil {
+		log.Printf("Error generating conversation title: %v", err)
+		// Fallback to truncated user message
+		if len(userMessage) > 40 {
+			return userMessage[:40] + "..."
+		}
+		return userMessage
+	}
+
+	title := strings.TrimSpace(resp.Choices[0].Message.Content)
+
+	// Ensure title isn't too long
+	if len(title) > 50 {
+		title = title[:50] + "..."
+	}
+
+	// If title generation failed or returned empty, use fallback
+	if title == "" {
+		if len(userMessage) > 40 {
+			return userMessage[:40] + "..."
+		}
+		return userMessage
+	}
+
+	return title
 }

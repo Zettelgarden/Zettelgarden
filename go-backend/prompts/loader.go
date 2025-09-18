@@ -35,3 +35,8 @@ func GetResearchAssistantPrompt() (string, error) {
 func GetSubagentResearcherPrompt() (string, error) {
 	return LoadPrompt("subagent_researcher.md")
 }
+
+// GetTitleGeneratorPrompt loads the title generator system prompt
+func GetTitleGeneratorPrompt() (string, error) {
+	return LoadPrompt("title_generator.md")
+}
