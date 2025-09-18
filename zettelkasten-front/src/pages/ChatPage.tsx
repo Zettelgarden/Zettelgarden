@@ -17,6 +17,8 @@ import { useChatContext } from "../contexts/ChatContext";
 import { parseMessageContent } from "../utils/chatUtils";
 import { CardsSection } from "../components/chat/CardsSection";
 import { ChatInput } from "../components/chat/ChatInput";
+import { Link } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
 interface ChatPageProps { }
 
@@ -35,6 +37,7 @@ export function ChatPage({ }: ChatPageProps) {
   const [referencedCards, setReferencedCards] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { conversationId, setConversationId } = useChatContext();
+  const { hasSubscription } = useAuth();
 
   useEffect(() => {
     setDocumentTitle("Chat");
@@ -706,9 +709,18 @@ export function ChatPage({ }: ChatPageProps) {
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-3">Welcome to Chat</h3>
                 <p className="text-gray-600 mb-6 leading-relaxed">Create a new conversation to start chatting with your knowledge base.</p>
+                {!hasSubscription && (
+                  <div className="text-center text-gray-500 mb-6 p-4 bg-gray-50 rounded-lg">
+                    Chat functionality is a Pro feature.
+                    <br />
+                    <Link to="/app/subscribe" className="text-blue-500 hover:underline">
+                      Upgrade to Pro to unlock AI-powered conversations with your notes.
+                    </Link>
+                  </div>
+                )}
                 <Button
                   onClick={createNewConversation}
-                  disabled={isLoading}
+                  disabled={isLoading || !hasSubscription}
                   className="bg-black hover:bg-gray-800 text-white rounded-lg px-6 py-3 transition-colors duration-200 disabled:opacity-50"
                 >
                   <span className="flex items-center gap-2">

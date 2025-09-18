@@ -53,6 +53,12 @@ type ConversationWithMessagesResponse struct {
 func (s *Handler) CreateConversationRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
+	// Check if user has subscription for chat functionality
+	if !s.UserHasSubscription(userID) {
+		http.Error(w, "Chat functionality requires a Pro subscription", http.StatusForbidden)
+		return
+	}
+
 	var req CreateConversationRequest
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&req); err != nil {
@@ -173,6 +179,12 @@ func (s *Handler) GetReferencedCards(userID int, cardIDs []string) string {
 func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 	conversationID := mux.Vars(r)["id"]
+
+	// Check if user has subscription for chat functionality
+	if !s.UserHasSubscription(userID) {
+		http.Error(w, "Chat functionality requires a Pro subscription", http.StatusForbidden)
+		return
+	}
 
 	var req SendMessageRequest
 	decoder := json.NewDecoder(r.Body)

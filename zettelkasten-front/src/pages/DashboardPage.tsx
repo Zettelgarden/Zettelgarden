@@ -95,22 +95,24 @@ export function DashboardPage() {
             </p>
             </div>
 
-            {/* Quick Chat Box */}
-            <div className="max-w-4xl mx-auto mb-8">
-              <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-                <ChatInput
-                  value={chatInput}
-                  onChange={setChatInput}
-                  onSubmit={handleChatSubmit}
-                  onCardReference={handleCardReference}
-                  placeholder="Ask your knowledge base anything..."
-                  disabled={isCreatingChat}
-                  isLoading={isCreatingChat}
-                  submitButtonText="Chat"
-                  multiline={false}
-                />
+            {/* Quick Chat Box - only show for subscribers */}
+            {hasSubscription && (
+              <div className="max-w-4xl mx-auto mb-8">
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+                  <ChatInput
+                    value={chatInput}
+                    onChange={setChatInput}
+                    onSubmit={handleChatSubmit}
+                    onCardReference={handleCardReference}
+                    placeholder="Ask your knowledge base anything..."
+                    disabled={isCreatingChat}
+                    isLoading={isCreatingChat}
+                    submitButtonText="Chat"
+                    multiline={false}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
           {!isLoading && !hasSubscription && subscriptionEnabled && (
             <div className="bg-blue-50 border-t border-b border-blue-200 text-blue-800 px-4 py-3 text-center">

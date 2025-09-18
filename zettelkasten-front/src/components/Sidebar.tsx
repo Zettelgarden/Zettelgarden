@@ -325,12 +325,14 @@ export function Sidebar() {
                     Upload File
                   </button>
                 </FileUpload>
-                <button
-                  onClick={handleNewChat}
-                  className="w-full text-left px-4 py-2 hover:bg-gray-100"
-                >
-                  New Chat
-                </button>
+                {hasSubscription && (
+                  <button
+                    onClick={handleNewChat}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                  >
+                    New Chat
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -353,6 +355,14 @@ export function Sidebar() {
                 <span className="px-2 py-1 text-xs bg-blue-100 rounded-full">
                   {todayTasks.length}
                 </span>
+              </SidebarLink>
+
+              <SidebarLink to="/app/chat">
+                <ChatIcon />
+                <span className="px-2 flex-grow">Chat</span>
+                {!hasSubscription && (
+                  <span className="ml-2 bg-purple-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">PRO</span>
+                )}
               </SidebarLink>
             </ul>
           </div>
