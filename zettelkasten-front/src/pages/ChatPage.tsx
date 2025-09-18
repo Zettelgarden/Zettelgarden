@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   ChatConversation,
   ChatMessage,
@@ -27,6 +29,7 @@ export function ChatPage({ }: ChatPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
+  const [collapsedToolResults, setCollapsedToolResults] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { conversationId, setConversationId } = useChatContext();
 
@@ -37,6 +40,14 @@ export function ChatPage({ }: ChatPageProps) {
 
   useEffect(() => {
     scrollToBottom();
+    // Reset collapsed state when messages change and add new tool results as collapsed by default
+    const newCollapsedSet = new Set<string>();
+    messages.forEach(msg => {
+      if (msg.role === "tool") {
+        newCollapsedSet.add(msg.id);
+      }
+    });
+    setCollapsedToolResults(newCollapsedSet);
   }, [messages]);
 
   // Load specific conversation if set in context
@@ -200,6 +211,18 @@ export function ChatPage({ }: ChatPageProps) {
     window.open(`/app/card/${encodeURIComponent(cardPk)}`, '_blank');
   };
 
+  const toggleToolResult = (messageId: string) => {
+    setCollapsedToolResults(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+      } else {
+        newSet.add(messageId);
+      }
+      return newSet;
+    });
+  };
+
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "user":
@@ -215,43 +238,87 @@ export function ChatPage({ }: ChatPageProps) {
 
   const formatMessageContent = (message: ChatMessage) => {
     if (message.role === "tool" && message.content) {
+      const isCollapsed = collapsedToolResults.has(message.id);
+
       try {
         const toolResult = JSON.parse(message.content);
         return (
-          <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-lg p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-3 text-amber-700">
-              <span className="text-lg">🔧</span>
-              <span className="font-medium text-sm">Tool Output</span>
-            </div>
-            <pre className="text-xs text-amber-800 overflow-x-auto whitespace-pre-wrap break-words font-mono bg-amber-50/50 p-2 rounded border">
-              {JSON.stringify(toolResult, null, 2)}
-            </pre>
+          <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-lg shadow-sm">
+            <button
+              onClick={() => toggleToolResult(message.id)}
+              className="w-full p-4 text-left hover:bg-amber-100/50 transition-colors rounded-lg"
+            >
+              <div className="flex items-center justify-between text-amber-700">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🔧</span>
+                  <span className="font-medium text-sm">Tool Output</span>
+                </div>
+                <svg
+                  className={`w-4 h-4 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </button>
+            {!isCollapsed && (
+              <div className="px-4 pb-4">
+                <pre className="text-xs text-amber-800 overflow-x-auto whitespace-pre-wrap break-words font-mono bg-amber-50/50 p-2 rounded border">
+                  {JSON.stringify(toolResult, null, 2)}
+                </pre>
+              </div>
+            )}
           </div>
         );
       } catch {
         return (
-          <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-lg p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-3 text-amber-700">
-              <span className="text-lg">🔧</span>
-              <span className="font-medium text-sm">Tool Output</span>
-            </div>
-            <pre className="text-xs text-amber-800 whitespace-pre-wrap break-words font-mono bg-amber-50/50 p-2 rounded border">
-              {message.content}
-            </pre>
+          <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-lg shadow-sm">
+            <button
+              onClick={() => toggleToolResult(message.id)}
+              className="w-full p-4 text-left hover:bg-amber-100/50 transition-colors rounded-lg"
+            >
+              <div className="flex items-center justify-between text-amber-700">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🔧</span>
+                  <span className="font-medium text-sm">Tool Output</span>
+                </div>
+                <svg
+                  className={`w-4 h-4 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </button>
+            {!isCollapsed && (
+              <div className="px-4 pb-4">
+                <pre className="text-xs text-amber-800 whitespace-pre-wrap break-words font-mono bg-amber-50/50 p-2 rounded border">
+                  {message.content}
+                </pre>
+              </div>
+            )}
           </div>
         );
       }
     }
 
-    // For assistant messages, parse and render card references as clickable links
+    // For assistant messages, parse and render card references as clickable links with markdown
     if (message.role === "assistant" && message.content) {
       console.log(message.content)
       const { text, cards } = parseMessageContent(message.content);
 
       return (
         <div>
-          <div className="whitespace-pre-wrap break-words leading-relaxed">
-            {renderTextWithCardLinks(text, handleCardClick)}
+          <div className="prose prose-sm max-w-none">
+            <Markdown
+              remarkPlugins={[remarkGfm]}
+            >
+              {text}
+            </Markdown>
           </div>
           <CardsSection cards={cards} onCardClick={handleCardClick} />
         </div>
@@ -289,7 +356,7 @@ export function ChatPage({ }: ChatPageProps) {
     <div className="flex h-screen bg-white">
       {/* Conversations Sidebar */}
       <div className={`${sidebarOpen ? 'w-80' : 'w-0'} bg-gray-50 border-r border-gray-200 flex flex-col transition-all duration-300 overflow-hidden`}>
-        <div className="p-4">
+        <div className="pt-4 px-4 pb-2">
           <div className="flex items-center justify-between mb-6">
             <Button
               onClick={createNewConversation}
@@ -338,7 +405,7 @@ export function ChatPage({ }: ChatPageProps) {
               <div
                 key={conv.id}
                 onClick={() => loadConversation(conv.id)}
-                className={`group relative p-3 mx-2 mb-1 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white ${
+                className={`group relative p-2 mx-1 mb-1 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white ${
                   currentConversation?.id === conv.id ? 'bg-white shadow-sm' : ''
                 }`}
               >
@@ -347,9 +414,6 @@ export function ChatPage({ }: ChatPageProps) {
                     <h3 className="font-medium text-gray-900 text-sm truncate">
                       {conv.title || "Untitled Chat"}
                     </h3>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {conv.message_count || 0} messages • {new Date(conv.updated_at).toLocaleDateString()}
-                    </div>
                   </div>
                   <div className="flex items-center space-x-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button

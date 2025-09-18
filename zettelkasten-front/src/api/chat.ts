@@ -174,6 +174,28 @@ export function starConversation(conversationId: string): Promise<ChatConversati
     });
 }
 
+export function updateConversationTitle(conversationId: string, title: string): Promise<ChatConversation> {
+  const url = `${base_url}/chat/conversations/${conversationId}/title`;
+  const token = localStorage.getItem("token");
+
+  return fetch(url, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ title }),
+  })
+    .then(checkStatus)
+    .then((response) => {
+      if (response) {
+        return response.json() as Promise<ChatConversation>;
+      } else {
+        return Promise.reject(new Error("Response is undefined"));
+      }
+    });
+}
+
 export function getUsageQuotas(): Promise<UsageQuota[]> {
   const url = `${base_url}/chat/usage`;
   const token = localStorage.getItem("token");
