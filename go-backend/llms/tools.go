@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"go-backend/prompts"
 	"log"
 	"os"
 	"strconv"
@@ -393,16 +394,13 @@ func executeSubagentTask(prompt, subagentType string, userID int, db *sql.DB, ty
 
 	tools := subagentRegistry.GetToolDefinitions()
 
-	// System prompt for the subagent
-	systemPrompt := `You are a specialized research assistant with access to a user's knowledge base. Your task is to help answer questions and gather information using the available tools.
-
-Available tools:
-- search_cards: Search for cards using text or semantic similarity
-- get_card_by_id: Retrieve a specific card by its ID
-- browse_card_hierarchy: Browse parent/child relationships between cards
-- filter_cards_by_metadata: Filter cards by dates, tags, or starred status
-
-Be thorough in your research and provide comprehensive, well-organized results. Use multiple tools if needed to gather complete information.`
+	// Load system prompt for the subagent
+	systemPrompt, err := prompts.GetSubagentResearcherPrompt()
+	if err != nil {
+		log.Printf("Error loading subagent system prompt: %v, using fallback", err)
+		// Fallback to a basic prompt if file loading fails
+		systemPrompt = "You are a specialized research assistant with access to a user's knowledge base. Use the available tools to help answer questions and gather information."
+	}
 
 	messages := []openai.ChatCompletionMessage{
 		{
