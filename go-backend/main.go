@@ -264,6 +264,7 @@ func main() {
 	addProtectedRoute(r, "/api/chat/conversations/{id}/messages", h.SendMessageRoute, "POST")
 	addProtectedRoute(r, "/api/chat/conversations/{id}", h.DeleteConversationRoute, "DELETE")
 	addProtectedRoute(r, "/api/chat/conversations/{id}/star", h.StarConversationRoute, "POST")
+	addProtectedRoute(r, "/api/chat/conversations/{id}/title", h.UpdateConversationTitleRoute, "PUT")
 	addProtectedRoute(r, "/api/chat/usage", h.GetUsageQuotaRoute, "GET")
 
 	c := cors.New(cors.Options{

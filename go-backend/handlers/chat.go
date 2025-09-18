@@ -29,6 +29,11 @@ type SendMessageRequest struct {
 	Content string `json:"content"`
 }
 
+// UpdateConversationTitleRequest represents the request to update a conversation title
+type UpdateConversationTitleRequest struct {
+	Title string `json:"title"`
+}
+
 // ConversationResponse includes the conversation with message count
 type ConversationResponse struct {
 	models.ChatConversation
@@ -251,6 +256,55 @@ func (s *Handler) StarConversationRoute(w http.ResponseWriter, r *http.Request) 
 	}
 
 	conversation.Starred = newStarred
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(conversation)
+}
+
+// UpdateConversationTitleRoute updates the title of a conversation
+func (s *Handler) UpdateConversationTitleRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	conversationID := mux.Vars(r)["id"]
+
+	var req UpdateConversationTitleRequest
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&req); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	// Validate title
+	if req.Title == "" {
+		http.Error(w, "Title is required", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Title) > 100 {
+		http.Error(w, "Title too long (max 100 characters)", http.StatusBadRequest)
+		return
+	}
+
+	// Verify conversation exists and belongs to user
+	conversation, err := s.GetConversation(userID, conversationID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Conversation not found", http.StatusNotFound)
+		} else {
+			log.Printf("Error getting conversation: %v", err)
+			http.Error(w, "Failed to get conversation", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Update conversation title
+	err = s.UpdateConversationTitle(conversationID, req.Title)
+	if err != nil {
+		log.Printf("Error updating conversation title: %v", err)
+		http.Error(w, "Failed to update conversation title", http.StatusInternalServerError)
+		return
+	}
+
+	// Update the conversation object with new title
+	conversation.Title = &req.Title
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(conversation)
 }
