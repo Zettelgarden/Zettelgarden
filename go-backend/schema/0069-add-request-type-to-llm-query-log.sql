@@ -1,0 +1,1 @@
+ALTER TABLE llm_query_log ADD COLUMN request_type TEXT;
