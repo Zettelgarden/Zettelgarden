@@ -10,6 +10,7 @@ import (
 
 func processUserMemory(s *server.Server, userID uint) {
 	client := llms.NewDefaultClient(s.DB, int(userID))
+	client.RequestType = "memory"
 	llms.CompressUserMemory(s.DB, client, userID)
 
 	_, err := s.DB.Exec("UPDATE users SET memory_has_changed = false WHERE id = $1", userID)

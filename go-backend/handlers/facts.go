@@ -351,6 +351,7 @@ func (s *Handler) GetAllFacts(w http.ResponseWriter, r *http.Request) {
 // ExtractSaveFactEntities runs entity extraction on facts and links them in entity_fact_junction
 func (s *Handler) ExtractSaveFactEntities(userID int, card models.Card, factObjs []models.Fact) error {
 	client := llms.NewDefaultClient(s.DB, userID)
+	client.RequestType = "analysis"
 
 	factEntities, err := llms.FindEntitiesBatch(client, factObjs)
 	if err != nil {

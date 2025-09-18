@@ -25,10 +25,11 @@ func NewClient(db *sql.DB, config openai.ClientConfig, userID int) *models.LLMCl
 	}
 
 	return &models.LLMClient{
-		Client:  openai.NewClientWithConfig(config),
-		Testing: false,
-		UserID:  userID,
-		DB:      db,
+		Client:      openai.NewClientWithConfig(config),
+		Testing:     false,
+		UserID:      userID,
+		DB:          db,
+		RequestType: "other", // default to chat, can be overridden
 	}
 }
 
@@ -53,13 +54,13 @@ func ExecuteLLMRequest(c *models.LLMClient, messages []openai.ChatCompletionMess
 	)
 
 	if err == nil {
-		logLLMRequest(c, resp)
+		logLLMRequest(c, resp, c.RequestType)
 	}
 
 	return resp, err
 }
 
-func logLLMRequest(c *models.LLMClient, resp openai.ChatCompletionResponse) {
+func logLLMRequest(c *models.LLMClient, resp openai.ChatCompletionResponse, requestType string) {
 	// fire and forget
 	go func() {
 		// simple model pricing table (per 1k tokens in USD)
@@ -80,9 +81,9 @@ func logLLMRequest(c *models.LLMClient, resp openai.ChatCompletionResponse) {
 		}
 
 		_, err := c.DB.Exec(`
-			INSERT INTO llm_query_log (user_id, model, prompt_tokens, completion_tokens, cost_usd)
-			VALUES ($1, $2, $3, $4, $5)
-		`, c.UserID, c.Model, resp.Usage.PromptTokens, resp.Usage.CompletionTokens, cost)
+			INSERT INTO llm_query_log (user_id, model, prompt_tokens, completion_tokens, cost_usd, request_type)
+			VALUES ($1, $2, $3, $4, $5, $6)
+		`, c.UserID, c.Model, resp.Usage.PromptTokens, resp.Usage.CompletionTokens, cost, requestType)
 		if err != nil {
 			log.Printf("Error logging llm request: %v", err)
 		}

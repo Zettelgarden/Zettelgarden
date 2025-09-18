@@ -143,6 +143,7 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 	}
 	_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
 	client := llms.NewDefaultClient(h.DB, userID)
+	client.RequestType = "analysis"
 	// client.Model.ModelIdentifier = "openai/gpt-5-chat"
 	processedText := prepareTextForAnalysis(req.Title, req.Text)
 	analyses, usage, err := llms.ExtractThesesAndArguments(client, processedText)
@@ -190,6 +191,7 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 	//wordCount := len(strings.Fields(card.Body))
 	go func() {
 		client := llms.NewDefaultClient(h.DB, userID)
+	client.RequestType = "analysis"
 		// client.Model.ModelIdentifier = "openai/gpt-5-chat"
 		processedText := prepareTextForAnalysis(card.Title, card.Body)
 		analyses, usage, err := llms.ExtractThesesAndArguments(client, processedText)
@@ -393,6 +395,7 @@ func (h *Handler) runSummarizationJob(userID int, analyses []llms.SectionAnalysi
 	// Background job
 	go func(jobID int, analyses []llms.SectionAnalysis, usage llms.Usage, uid int) {
 		client := llms.NewDefaultClient(h.DB, uid)
+		client.RequestType = "analysis"
 		_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
 
 		result, _, usage, err := llms.AnalyzeAndSummarizeText(client, analyses, usage)

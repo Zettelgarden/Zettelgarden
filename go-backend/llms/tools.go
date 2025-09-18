@@ -342,6 +342,7 @@ func handleTask(args map[string]interface{}, userID int, db *sql.DB, typesenseCl
 func executeSubagentTask(prompt, subagentType string, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (string, error) {
 	// Create LLM client for the subagent
 	client := NewDefaultClient(db, userID)
+	client.RequestType = "tools"
 
 	// Create a tool registry for the subagent (excluding the Task tool to prevent recursion)
 	subagentRegistry := &ToolRegistry{

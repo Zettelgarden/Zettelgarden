@@ -97,11 +97,12 @@ type LegacyChatMessage struct {
 
 // LLMClient will be simplified for the new implementation.
 type LLMClient struct {
-	Client  *openai.Client
-	Testing bool
-	Model   string // Just the model identifier string
-	UserID  int
-	DB      *sql.DB
+	Client      *openai.Client
+	Testing     bool
+	Model       string // Just the model identifier string
+	UserID      int
+	DB          *sql.DB
+	RequestType string // "analysis", "tools", "chat"
 }
 
 const MODEL = "gpt-3.5-turbo" // We can keep this constant for now.

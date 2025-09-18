@@ -236,6 +236,7 @@ func (s *Handler) MergeEntities(userID int, entity1ID int, entity2ID int) error 
 	}
 
 	client := llms.NewDefaultClient(s.DB, userID)
+	client.RequestType = "other"
 
 	newDescription, err := llms.GenerateNewEntityDescription(client, entity1, entity2, entity1.Name)
 	if err != nil {

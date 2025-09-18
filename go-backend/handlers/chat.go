@@ -699,6 +699,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 	// Create LLM client
 	client := llms.NewDefaultClient(s.DB, userID)
 	client.Model = conversation.Model
+	client.RequestType = "chat"
 
 	// Get tools registry
 	toolRegistry := llms.NewToolRegistry()
@@ -1042,6 +1043,7 @@ func (s *Handler) generateConversationTitle(userMessage string, model string) st
 
 	// Create LLM client for title generation
 	client := llms.NewDefaultClient(s.DB, 0) // Use system user ID for title generation
+	client.RequestType = "chat"
 	client.Model = "gpt-4o-mini"             // Use faster, cheaper model for title generation
 
 	messages := []openai.ChatCompletionMessage{
