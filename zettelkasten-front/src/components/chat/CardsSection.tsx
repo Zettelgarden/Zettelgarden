@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { ChatCardData } from '../../models/Chat';
+
+import { Card } from '../../models/Card';
 import { CardPreview } from './CardPreview';
 
 interface CardsSectionProps {
-  cards: ChatCardData[];
+  cards: Card[];
   onCardClick?: (cardId: string) => void;
 }
 

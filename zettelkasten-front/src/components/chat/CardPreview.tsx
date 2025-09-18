@@ -1,9 +1,9 @@
 import React from 'react';
-import { ChatCardData } from '../../models/Chat';
+import { Card } from '../../models/Card';
 import { CardIcon } from '../../assets/icons/CardIcon';
 
 interface CardPreviewProps {
-  card: ChatCardData;
+  card: Card;
   onCardClick?: (cardId: string) => void;
 }
 

@@ -1,3 +1,5 @@
+import { Card } from './Card';
+
 export interface CardReference {
   cardId: string;
   title: string;
@@ -6,17 +8,7 @@ export interface CardReference {
   endIndex: number;
 }
 
-export interface ChatCardData {
-  id: number;
-  card_id: string;
-  title: string;
-  body?: string;
-  created_at: string;
-  updated_at: string;
-  tags?: string[];
-}
-
 export interface ParsedMessageContent {
   text: string;
-  cards: ChatCardData[];
+  cards: Card[];
 }

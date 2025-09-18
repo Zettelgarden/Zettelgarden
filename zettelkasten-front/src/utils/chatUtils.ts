@@ -1,5 +1,7 @@
 import React from 'react';
-import { CardReference, ChatCardData, ParsedMessageContent } from '../models/Chat';
+import { CardReference, ParsedMessageContent } from '../models/Chat';
+
+import { Card } from '../models/Card';
 
 /**
  * Parses card references from text in the format: [Card: card_id | title]
@@ -42,7 +44,7 @@ export function parseMessageContent(content: string): ParsedMessageContent {
   const text = content.substring(0, match.index).trim();
 
   // Parse the JSON cards data
-  let cards: ChatCardData[] = [];
+  let cards: Card[] = [];
   try {
     const jsonData = JSON.parse(match[1]);
     if (jsonData.cards && Array.isArray(jsonData.cards)) {
