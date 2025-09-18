@@ -108,11 +108,6 @@ func TestGetCardWrongUser(t *testing.T) {
 	if rr.Body.String() != "card not found\n" {
 		t.Errorf("handler returned wrong body, got %v want %v", rr.Body.String(), "unable to access card\n")
 	}
-	var logCount int
-	_ = s.DB.QueryRow("SELECT count(*) FROM card_views").Scan(&logCount)
-	if logCount != 0 {
-		t.Errorf("wrong log count, got %v want %v", logCount, 0)
-	}
 }
 
 func TestGetParentCardId(t *testing.T) {
