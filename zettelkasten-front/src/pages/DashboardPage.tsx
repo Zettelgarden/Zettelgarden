@@ -82,8 +82,10 @@ export function DashboardPage() {
     <div>
       {/* Main Content Section */}
       <div className="p-2">
-        <div className="text-center">
+        <div className="">
           <div className="mb-8">
+            <div className="text-center">
+
             <h1 className="text-3xl font-bold text-gray-900 mb-3 p-10">
               Welcome to Zettelgarden 🌱
             </h1>
@@ -91,6 +93,7 @@ export function DashboardPage() {
               Your personal space for growing ideas. Create cards, connect
               thoughts, and watch your knowledge garden flourish.
             </p>
+            </div>
 
             {/* Quick Chat Box */}
             <div className="max-w-4xl mx-auto mb-8">
