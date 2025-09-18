@@ -78,7 +78,7 @@ export default function SubscribePage() {
     <div className="max-w-5xl mx-auto px-6 py-12">
       <h1 className="text-3xl font-bold text-center mb-6 text-indigo-700">Simple, Transparent Pricing</h1>
       <p className="text-gray-600 text-center mb-12 max-w-2xl mx-auto">
-        Upgrade to Zettelgarden Pro to unlock advanced AI summarization, fact extraction, and early access to new features.
+        Upgrade to Zettelgarden Pro to unlock intelligent AI agents that can work with your knowledge base, advanced summarization, fact extraction, and early access to new features.
       </p>
 
       <div className="flex flex-col md:flex-row gap-8 justify-center items-stretch flex-wrap">
@@ -108,7 +108,8 @@ export default function SubscribePage() {
             <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Create and Organize Cards</li>
             <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Knowledge Linking and Organization</li>
             <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Manage your Todos With Your Cards</li>
-            <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI-Powered Entity and Fact Extraction</li>
+            <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI Agents with Tool-Using Capabilities</li>
+            <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI Entity and Fact Extraction</li>
             <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Card Summarization and Analysis</li>
             <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Early Access To New Features</li>
           </ul>
@@ -130,7 +131,8 @@ export default function SubscribePage() {
             <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Create and Organize Cards</li>
             <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Knowledge Linking and Organization</li>
             <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Manage your Todos With Your Cards</li>
-            <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI-Powered Entity and Fact Extraction</li>
+            <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI Agents with Tool-Using Capabilities</li>
+            <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI Entity and Fact Extraction</li>
             <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Card Summarization and Analysis</li>
             <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Early Access To New Features</li>
           </ul>

@@ -711,10 +711,10 @@ export function ChatPage({ }: ChatPageProps) {
                 <p className="text-gray-600 mb-6 leading-relaxed">Create a new conversation to start chatting with your knowledge base.</p>
                 {!hasSubscription && (
                   <div className="text-center text-gray-500 mb-6 p-4 bg-gray-50 rounded-lg">
-                    Chat functionality is a Pro feature.
+                    AI Agents are a Pro feature.
                     <br />
                     <Link to="/app/subscribe" className="text-blue-500 hover:underline">
-                      Upgrade to Pro to unlock AI-powered conversations with your notes.
+                      Upgrade to Pro to unlock intelligent AI agents that can work with your knowledge base.
                     </Link>
                   </div>
                 )}

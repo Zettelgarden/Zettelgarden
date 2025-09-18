@@ -59,6 +59,13 @@ function LandingPage() {
 
   const features = [
     {
+      id: "ai-chat",
+      title: "AI Agents for Your Knowledge Base",
+      summary: "Intelligent AI agents that can search, analyze, and synthesize information from your personal knowledge collection.",
+      details: "Our AI agents don't just chat—they actively work with your knowledge base using sophisticated tools. They can search through your cards, create new notes, analyze patterns, and provide insights by combining information from multiple sources. These agents understand context and can perform complex reasoning tasks across your entire knowledge graph.",
+      icon: "🤖"
+    },
+    {
       id: "ai-integration",
       title: "Thoughtful AI Integration",
       summary: "While other tools rush to automate everything with LLMs, Zettelgarden takes a measured approach.",
@@ -370,7 +377,8 @@ function LandingPage() {
                   <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Create and Organize Cards</li>
                   <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Knowledge Linking and Organization</li>
                   <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Manage your Todos With Your Cards</li>
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI-Powered Entity and Fact Extraction</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI Agents with Tool-Using Capabilities</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI Entity and Fact Extraction</li>
                   <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Card Summarization and Analysis</li>
                   <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Early Access To New Features</li>
                 </ul>
@@ -389,7 +397,8 @@ function LandingPage() {
                   <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Create and Organize Cards</li>
                   <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Knowledge Linking and Organization</li>
                   <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Manage your Todos With Your Cards</li>
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI-Powered Entity and Fact Extraction</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI Agents with Tool-Using Capabilities</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI Entity and Fact Extraction</li>
                   <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Card Summarization and Analysis</li>
                   <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Early Access To New Features</li>
                 </ul>
