@@ -36,10 +36,10 @@ func NewToolRegistry() *ToolRegistry {
 	}
 
 	// Register all tools
-	registry.registerSearchCards()
+	//	registry.registerSearchCards()
 	registry.registerGetCardByID()
-	registry.registerBrowseCardHierarchy()
-	registry.registerFilterCardsByMetadata()
+	//registry.registerBrowseCardHierarchy()
+	//registry.registerFilterCardsByMetadata()
 	registry.registerTask()
 
 	return registry
@@ -253,7 +253,7 @@ func handleSearchCards(args map[string]interface{}, userID int, db *sql.DB, type
 		searchType = st
 	}
 
-	limit := 10
+	limit := 100
 	if l, ok := args["limit"].(float64); ok {
 		limit = int(l)
 	}
@@ -829,7 +829,7 @@ func logToolExecution(db *sql.DB, userID int, toolName string, args map[string]i
 		INSERT INTO chat_tool_calls (id, user_id, conversation_id, message_id, tool_name, tool_arguments, tool_result, execution_time_ms, created_at)
 		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, NOW())
 	`
-	fmt.Printf("Tool call: %v", toolName)
+	fmt.Printf("Tool call: %v\n", toolName)
 
 	_, err := db.Exec(query, userID, conversationID, messageID, toolName, argsJSON, resultJSON, executionTimeMs)
 	return err
