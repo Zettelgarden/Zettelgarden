@@ -24,93 +24,6 @@ import (
 	"golang.org/x/net/html"
 )
 
-// getParentId supports both old alternating format and new flexible format
-func getParentId(cardID string) string {
-	// Try new format first - find last separator and remove everything after it
-	parentFromNew := getParentIdNewFormat(cardID)
-	if parentFromNew != cardID {
-		// New format worked (found a separator and removed something)
-		return parentFromNew
-	}
-
-	// If no separators found, it's a root card
-	if !hasAnySeparators(cardID) {
-		return cardID
-	}
-
-	// Fall back to old alternating format
-	return getParentIdAlternating(cardID)
-}
-
-// getParentIdNewFormat handles the new format: remove last segment after any separator
-func getParentIdNewFormat(cardID string) string {
-	// Find the last occurrence of any separator
-	lastSlash := strings.LastIndex(cardID, "/")
-	lastDot := strings.LastIndex(cardID, ".")
-	lastDash := strings.LastIndex(cardID, "-")
-
-	lastSeparatorIndex := -1
-	if lastSlash > lastSeparatorIndex {
-		lastSeparatorIndex = lastSlash
-	}
-	if lastDot > lastSeparatorIndex {
-		lastSeparatorIndex = lastDot
-	}
-	if lastDash > lastSeparatorIndex {
-		lastSeparatorIndex = lastDash
-	}
-
-	if lastSeparatorIndex == -1 {
-		// No separator found, return as-is (root card)
-		return cardID
-	}
-
-	// Return everything before the last separator
-	return cardID[:lastSeparatorIndex]
-}
-
-// hasAnySeparators checks if the cardID contains any of the supported separators
-func hasAnySeparators(cardID string) bool {
-	return strings.ContainsAny(cardID, "/.-")
-}
-
-// getParentIdAlternating handles the old alternating separator format
-func getParentIdAlternating(cardID string) string {
-	parts := []string{}
-	currentPart := ""
-
-	for _, char := range cardID {
-		if char == '/' || char == '.' {
-			parts = append(parts, currentPart)
-			currentPart = ""
-		} else {
-			currentPart += string(char)
-		}
-	}
-
-	if currentPart != "" {
-		parts = append(parts, currentPart)
-	}
-
-	if len(parts) == 1 {
-		return cardID
-	}
-
-	parentID := ""
-	for i := 0; i < len(parts)-1; i++ {
-		parentID += parts[i]
-		if i < len(parts)-2 {
-			if i%2 == 0 {
-				parentID += "/"
-			} else {
-				parentID += "."
-			}
-		}
-	}
-
-	return parentID
-}
-
 func (s *Handler) checkIsCardIDUnique(userID int, cardID string) bool {
 	if cardID == "" {
 		return true
@@ -127,41 +40,6 @@ func (s *Handler) checkIsCardIDUnique(userID int, cardID string) bool {
 	} else {
 		return true
 	}
-}
-
-func extractBacklinks(text string) []string {
-	// Match all text within square brackets
-	re := regexp.MustCompile(`\[([^\]]+)\]`)
-
-	// Find all matches
-	matches := re.FindAllStringSubmatch(text, -1)
-
-	// Extract the first capturing group from each match
-	var backlinks []string
-	for _, match := range matches {
-		if len(match) > 1 {
-			// Check if the match is not followed by a parenthesis
-			if !isMarkdownLink(text, match[0]) {
-				backlinks = append(backlinks, match[1])
-			}
-		}
-	}
-
-	return backlinks
-}
-
-// Helper function to check if a match is part of a markdown link
-func isMarkdownLink(text, match string) bool {
-	// Find the position of the match in the text
-	pos := strings.Index(text, match)
-	if pos == -1 {
-		return false
-	}
-	// Check if the match is followed by an opening parenthesis
-	if pos+len(match) < len(text) && text[pos+len(match)] == '(' {
-		return true
-	}
-	return false
 }
 
 func (s *Handler) updateBacklinks(cardPK int, backlinks []string) error {
@@ -199,11 +77,10 @@ FROM target_id;
 }
 
 func (s *Handler) getDirectlinks(userID int, card models.Card) []models.PartialCard {
-	backlinks := extractBacklinks(card.Body)
+	backlinks := services.ExtractBacklinks(card.Body)
 	var directLinks []models.PartialCard
 
 	for _, value := range backlinks {
-		log.Printf("value %v", value)
 		card, err := s.QueryPartialCard(userID, value)
 		if err == nil {
 			directLinks = append(directLinks, card)
@@ -212,37 +89,6 @@ func (s *Handler) getDirectlinks(userID int, card models.Card) []models.PartialC
 	}
 
 	return directLinks
-}
-
-func (s *Handler) getChildren(userID int, cardID string) ([]models.PartialCard, error) {
-
-	query := `
-	SELECT
-	id, card_id, user_id, title, parent_id, created_at, updated_at 
-	FROM cards 
-	WHERE is_deleted = FALSE AND user_id = $1 and (card_id like $2 or card_id like $3)
-	`
-	rows, err := s.DB.Query(query, userID, cardID+".%", cardID+"/%")
-	if err != nil {
-		log.Printf("err %v", err)
-		return []models.PartialCard{}, err
-	}
-
-	cards, err := models.ScanPartialCards(rows)
-	if err != nil {
-		log.Printf("err %v", err)
-		return []models.PartialCard{}, err
-	}
-
-	var results []models.PartialCard
-	for _, card := range cards {
-		log.Printf("card %v", card)
-		if card.CardID != cardID {
-			results = append(results, card)
-		}
-	}
-
-	return results, nil
 }
 
 func getUniqueCards(input []models.PartialCard) []models.PartialCard {
@@ -417,7 +263,7 @@ func (s *Handler) GetCardChildrenRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	children, err := s.getChildren(userID, card.CardID)
+	children, err := services.GetChildCards(s.DB, userID, card.ID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -645,7 +491,7 @@ func (s *Handler) UpdateCard(userID int, cardPK int, params models.EditCardParam
 	}
 
 	var parent_id int
-	parent, _ := s.QueryPartialCard(userID, getParentId(params.CardID))
+	parent, _ := s.QueryPartialCard(userID, services.DiscoverParentId(params.CardID))
 
 	// set parent id to id if there's no parent
 	if parent.ID == 0 || params.CardID == "" {
@@ -672,9 +518,9 @@ func (s *Handler) UpdateCard(userID int, cardPK int, params models.EditCardParam
 	}
 
 	// Create audit event
-	s.CreateAuditEvent(userID, cardPK, "card", "update", oldCard, newCard)
+	services.CreateAuditEvent(s.DB, userID, cardPK, "card", "update", oldCard, newCard)
 
-	backlinks := extractBacklinks(newCard.Body)
+	backlinks := services.ExtractBacklinks(newCard.Body)
 	s.updateBacklinks(newCard.ID, backlinks)
 
 	s.upsertCardToTypesense(newCard)
@@ -694,7 +540,7 @@ func (s *Handler) CreateCard(userID int, params models.EditCardParams) (models.C
 	params.CardID = strings.ReplaceAll(params.CardID, " ", "")
 	params.CardID = regexp.MustCompile(`\s+`).ReplaceAllString(params.CardID, "")
 
-	parent, err := s.QueryPartialCard(userID, getParentId(params.CardID))
+	parent, err := s.QueryPartialCard(userID, services.DiscoverParentId(params.CardID))
 	query := `
 	INSERT INTO cards 
 	(title, body, link, user_id, card_id, parent_id, created_at, updated_at)
@@ -716,7 +562,7 @@ func (s *Handler) CreateCard(userID int, params models.EditCardParams) (models.C
 	s.upsertCardToTypesense(newCard)
 
 	// Create audit event for creation
-	s.CreateAuditEvent(userID, id, "card", "create", nil, newCard)
+	services.CreateAuditEvent(s.DB, userID, id, "card", "create", nil, newCard)
 
 	// set parent id to id if there's no parent
 	if parent.ID == 0 || params.CardID == "" {
@@ -726,7 +572,7 @@ func (s *Handler) CreateCard(userID int, params models.EditCardParams) (models.C
 		}
 	}
 
-	backlinks := extractBacklinks(newCard.Body)
+	backlinks := services.ExtractBacklinks(newCard.Body)
 	s.updateBacklinks(newCard.ID, backlinks)
 
 	s.AddTagsFromCard(userID, id)
@@ -749,7 +595,7 @@ func (s *Handler) DeleteCard(userID int, id int) error {
 	if len(backlinks) > 0 {
 		return fmt.Errorf("card has backlinks, cannot be deleted")
 	}
-	children, _ := s.getChildren(userID, card.CardID)
+	children, err := services.GetChildCards(s.DB, userID, card.ID)
 	if len(children) > 0 {
 		return fmt.Errorf("card has children, cannot be deleted")
 	}
@@ -767,7 +613,7 @@ func (s *Handler) DeleteCard(userID int, id int) error {
 	s.deleteCardTypesense(card.ID)
 
 	// Create audit event for deletion
-	err = s.CreateAuditEvent(userID, id, "card", "delete", card, nil)
+	err = services.CreateAuditEvent(s.DB, userID, id, "card", "delete", card, nil)
 	if err != nil {
 		log.Printf("Error creating audit event: %v", err)
 		// Don't return here as deletion was successful
@@ -791,7 +637,7 @@ func (s *Handler) GetCardAuditEventsRoute(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	events, err := s.GetAuditEvents("card", cardID)
+	events, err := services.GetAuditEvents(s.DB, "card", cardID)
 	if err != nil {
 		log.Printf("Error getting audit events: %v", err)
 		http.Error(w, "Error retrieving audit events", http.StatusInternalServerError)

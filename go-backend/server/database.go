@@ -69,6 +69,7 @@ func ResetDatabase(S *Server) error {
 			DROP TABLE IF EXISTS chat_tool_calls CASCADE;
 			DROP TABLE IF EXISTS chat_usage_quotas CASCADE;
 			DROP TABLE IF EXISTS starred_cards CASCADE;
+			DROP TABLE IF EXISTS pinned_searches CASCADE;
 
 
 			CREATE TABLE IF NOT EXISTS migrations (

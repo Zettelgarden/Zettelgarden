@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"go-backend/models"
+	"go-backend/services"
 	"io"
 	"log"
 	"net/http"
@@ -229,7 +230,7 @@ func (s *Handler) UpdateTask(userID int, id int, task models.Task) error {
 	if err != nil {
 		log.Printf("Error querying updated task for audit: %v", err)
 	} else {
-		err = s.CreateAuditEvent(userID, id, "task", "update", oldTask, newTask)
+		err = services.CreateAuditEvent(s.DB, userID, id, "task", "update", oldTask, newTask)
 		if err != nil {
 			log.Printf("Error creating audit event: %v", err)
 		}
@@ -327,7 +328,7 @@ func (s *Handler) CreateTask(task models.Task) (int, error) {
 	if err != nil {
 		log.Printf("Error querying new task for audit: %v", err)
 	} else {
-		err = s.CreateAuditEvent(task.UserID, taskID, "task", "create", nil, newTask)
+		err = services.CreateAuditEvent(s.DB, task.UserID, taskID, "task", "create", nil, newTask)
 		if err != nil {
 			log.Printf("Error creating audit event: %v", err)
 		}
@@ -408,7 +409,7 @@ func (s *Handler) DeleteTask(userID int, id int) error {
 		return fmt.Errorf("unable to delete task")
 	}
 
-	err = s.CreateAuditEvent(userID, id, "task", "delete", oldTask, nil)
+	err = services.CreateAuditEvent(s.DB, userID, id, "task", "delete", oldTask, nil)
 	if err != nil {
 		log.Printf("Error creating audit event: %v", err)
 	}
@@ -539,7 +540,7 @@ func (s *Handler) GetTaskAuditEventsRoute(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	events, err := s.GetAuditEvents("task", taskID)
+	events, err := services.GetAuditEvents(s.DB, "task", taskID)
 	if err != nil {
 		log.Printf("Error getting audit events: %v", err)
 		http.Error(w, "Error retrieving audit events", http.StatusInternalServerError)

@@ -66,3 +66,4 @@ jobs:
         cd go-backend
         go test ./handlers/
         go test ./llms/
+        go test ./services/

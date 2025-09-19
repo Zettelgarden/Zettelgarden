@@ -7,6 +7,7 @@ import (
 	"go-backend/models"
 	"log"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -16,7 +17,41 @@ import (
 	"github.com/typesense/typesense-go/typesense/api/pointer"
 )
 
-func GetChildCards(db *sql.DB, userID int, cardID int) ([]map[string]interface{}, error) {
+// Helper function to check if a match is part of a markdown link
+func isMarkdownLink(text, match string) bool {
+	// Find the position of the match in the text
+	pos := strings.Index(text, match)
+	if pos == -1 {
+		return false
+	}
+	// Check if the match is followed by an opening parenthesis
+	if pos+len(match) < len(text) && text[pos+len(match)] == '(' {
+		return true
+	}
+	return false
+}
+func ExtractBacklinks(text string) []string {
+	// Match all text within square brackets
+	re := regexp.MustCompile(`\[([^\]]+)\]`)
+
+	// Find all matches
+	matches := re.FindAllStringSubmatch(text, -1)
+
+	// Extract the first capturing group from each match
+	var backlinks []string
+	for _, match := range matches {
+		if len(match) > 1 {
+			// Check if the match is not followed by a parenthesis
+			if !isMarkdownLink(text, match[0]) {
+				backlinks = append(backlinks, match[1])
+			}
+		}
+	}
+
+	return backlinks
+}
+
+func GetChildCards(db *sql.DB, userID int, cardID int) ([]models.PartialCard, error) {
 	// Get the parent card's card_id first
 	var parentCardID string
 	err := db.QueryRow("SELECT card_id FROM cards WHERE id = $1 AND user_id = $2", cardID, userID).Scan(&parentCardID)
@@ -40,71 +75,23 @@ func GetChildCards(db *sql.DB, userID int, cardID int) ([]map[string]interface{}
 	}
 	defer rows.Close()
 
-	var cards []map[string]interface{}
-	for rows.Next() {
-		var card map[string]interface{} = make(map[string]interface{})
-		var title, bodyPreview, cardIDStr sql.NullString
-		var id int
-		var createdAt, updatedAt time.Time
-
-		err := rows.Scan(&id, &title, &bodyPreview, &cardIDStr, &createdAt, &updatedAt)
-		if err != nil {
-			continue
-		}
-
-		card["id"] = id
-		card["title"] = title.String
-		card["body"] = bodyPreview.String + "..."
-		card["card_id"] = cardIDStr.String
-		card["created_at"] = createdAt
-		card["updated_at"] = updatedAt
-
-		cards = append(cards, card)
-	}
-
-	return cards, nil
+	cards, err := models.ScanPartialCards(rows)
+	return cards, err
 }
 
-func GetParentCard(db *sql.DB, userID int, cardID int) ([]map[string]interface{}, error) {
-	// Get the card's card_id first
-	var currentCardID string
-	err := db.QueryRow("SELECT card_id FROM cards WHERE id = $1 AND user_id = $2", cardID, userID).Scan(&currentCardID)
+func GetParentCard(db *sql.DB, userID int, cardPK int) ([]models.PartialCard, error) {
+	var results []models.PartialCard
+
+	card, err := GetPartialCard(db, userID, cardPK)
 	if err != nil {
-		return nil, err
+		return results, err
 	}
-
-	// Find parent by removing last segment
-	parts := strings.Split(currentCardID, "/")
-	if len(parts) <= 1 {
-		return []map[string]interface{}{}, nil // No parent (root card)
-	}
-
-	parentCardID := strings.Join(parts[:len(parts)-1], "/")
-
-	query := `
-		SELECT id, title, body, card_id, created_at, updated_at
-		FROM cards
-		WHERE user_id = $1 AND card_id = $2
-	`
-
-	var card map[string]interface{} = make(map[string]interface{})
-	var title, body, cardIDStr sql.NullString
-	var id int
-	var createdAt, updatedAt time.Time
-
-	err = db.QueryRow(query, userID, parentCardID).Scan(&id, &title, &body, &cardIDStr, &createdAt, &updatedAt)
+	parent, err := GetPartialCard(db, userID, card.ParentID)
 	if err != nil {
-		return []map[string]interface{}{}, nil // Parent not found
+		return results, err
 	}
-
-	card["id"] = id
-	card["title"] = title.String
-	card["body"] = body
-	card["card_id"] = cardIDStr.String
-	card["created_at"] = createdAt
-	card["updated_at"] = updatedAt
-
-	return []map[string]interface{}{card}, nil
+	results = append(results, parent)
+	return results, nil
 }
 
 func ExecuteTextSearch(db *sql.DB, userID int, query string, limit int, typesenseClient *typesense.Client) ([]map[string]interface{}, error) {
@@ -369,4 +356,91 @@ WHERE target_card.card_id = $1 AND cards.user_id = $2 AND cards.is_deleted = FAL
 	}
 	return cards, nil
 
+}
+
+// getParentId supports both old alternating format and new flexible format
+func DiscoverParentId(cardID string) string {
+	// Try new format first - find last separator and remove everything after it
+	parentFromNew := getParentIdNewFormat(cardID)
+	if parentFromNew != cardID {
+		// New format worked (found a separator and removed something)
+		return parentFromNew
+	}
+
+	// If no separators found, it's a root card
+	if !hasAnySeparators(cardID) {
+		return cardID
+	}
+
+	// Fall back to old alternating format
+	return getParentIdAlternating(cardID)
+}
+
+// getParentIdNewFormat handles the new format: remove last segment after any separator
+func getParentIdNewFormat(cardID string) string {
+	// Find the last occurrence of any separator
+	lastSlash := strings.LastIndex(cardID, "/")
+	lastDot := strings.LastIndex(cardID, ".")
+	lastDash := strings.LastIndex(cardID, "-")
+
+	lastSeparatorIndex := -1
+	if lastSlash > lastSeparatorIndex {
+		lastSeparatorIndex = lastSlash
+	}
+	if lastDot > lastSeparatorIndex {
+		lastSeparatorIndex = lastDot
+	}
+	if lastDash > lastSeparatorIndex {
+		lastSeparatorIndex = lastDash
+	}
+
+	if lastSeparatorIndex == -1 {
+		// No separator found, return as-is (root card)
+		return cardID
+	}
+
+	// Return everything before the last separator
+	return cardID[:lastSeparatorIndex]
+}
+
+// hasAnySeparators checks if the cardID contains any of the supported separators
+func hasAnySeparators(cardID string) bool {
+	return strings.ContainsAny(cardID, "/.-")
+}
+
+// getParentIdAlternating handles the old alternating separator format
+func getParentIdAlternating(cardID string) string {
+	parts := []string{}
+	currentPart := ""
+
+	for _, char := range cardID {
+		if char == '/' || char == '.' {
+			parts = append(parts, currentPart)
+			currentPart = ""
+		} else {
+			currentPart += string(char)
+		}
+	}
+
+	if currentPart != "" {
+		parts = append(parts, currentPart)
+	}
+
+	if len(parts) == 1 {
+		return cardID
+	}
+
+	parentID := ""
+	for i := 0; i < len(parts)-1; i++ {
+		parentID += parts[i]
+		if i < len(parts)-2 {
+			if i%2 == 0 {
+				parentID += "/"
+			} else {
+				parentID += "."
+			}
+		}
+	}
+
+	return parentID
 }

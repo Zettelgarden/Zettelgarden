@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"go-backend/models"
 	"go-backend/prompts"
 	"go-backend/services"
 	"log"
@@ -293,7 +294,7 @@ func handleBrowseCardHierarchy(args map[string]interface{}, ctx *ToolContext) (m
 		return nil, fmt.Errorf("direction parameter is required")
 	}
 
-	var cards []map[string]interface{}
+	var cards []models.PartialCard
 	var err error
 
 	if direction == "children" {
@@ -303,13 +304,17 @@ func handleBrowseCardHierarchy(args map[string]interface{}, ctx *ToolContext) (m
 	} else {
 		return nil, fmt.Errorf("invalid direction: %s", direction)
 	}
+	var results []map[string]interface{}
+	for _, card := range cards {
+		results = append(results, StructToMap(card))
+	}
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to browse hierarchy: %v", err)
 	}
 
 	return map[string]interface{}{
-		"cards":     cards,
+		"cards":     results,
 		"direction": direction,
 		"total":     len(cards),
 	}, nil
