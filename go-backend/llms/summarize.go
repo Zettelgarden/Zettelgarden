@@ -12,38 +12,15 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
-type Argument struct {
-	Argument   string `json:"argument"`
-	Importance int    `json:"importance"`
-}
-
-type SectionAnalysis struct {
-	Section string        `json:"section"`
-	Theses  []ThesisEntry `json:"theses"`
-}
-
-type ThesisEntry struct {
-	Thesis    string     `json:"thesis"`
-	Facts     []string   `json:"facts"`
-	Arguments []Argument `json:"arguments"`
-}
-
-type Usage struct {
-	PromptTokens     int
-	CompletionTokens int
-	TotalTokens      int
-	TotalCost        float64
-}
-
 // ExtractThesesAndArguments processes input text into SectionAnalysis entries,
 // aggregating theses, facts, and arguments from each chunk.
 // Returns all analyses and usage statistics.
-func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]SectionAnalysis, Usage, error) {
+func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.SectionAnalysis, models.Usage, error) {
 	chunks := chunkText(input, 25000)
 
 	totalPromptTokens := 0
 	totalCompletionTokens := 0
-	var allAnalyses []SectionAnalysis
+	var allAnalyses []models.SectionAnalysis
 
 	for _, chunk := range chunks {
 		contextIntro := ""
@@ -127,14 +104,14 @@ Format Example:
 
 		resp, err := ExecuteLLMRequest(c, messages)
 		if err != nil {
-			return nil, Usage{}, err
+			return nil, models.Usage{}, err
 		}
 		if len(resp.Choices) == 0 {
 			continue
 		}
 
 		content := cleanContent(resp.Choices[0].Message.Content)
-		var analysis []SectionAnalysis
+		var analysis []models.SectionAnalysis
 		if err := json.Unmarshal([]byte(content), &analysis); err != nil {
 			log.Printf("err on analysis: %v", err)
 			log.Printf("content: %v", content)
@@ -146,10 +123,10 @@ Format Example:
 	}
 
 	if len(allAnalyses) == 0 {
-		return nil, Usage{}, errors.New("no valid analyses returned")
+		return nil, models.Usage{}, errors.New("no valid analyses returned")
 	}
 
-	return allAnalyses, Usage{
+	return allAnalyses, models.Usage{
 		PromptTokens:     totalPromptTokens,
 		CompletionTokens: totalCompletionTokens,
 		TotalTokens:      totalPromptTokens + totalCompletionTokens,
@@ -166,7 +143,7 @@ func cleanContent(content string) string {
 }
 
 // AnalyzeAndSummarizeText: the advanced pipeline
-func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []SectionAnalysis, usage Usage) (string, []SectionAnalysis, Usage, error) {
+func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []models.SectionAnalysis, usage models.Usage) (string, []models.SectionAnalysis, models.Usage, error) {
 	start := time.Now()
 	c.Model = "openai/gpt-5-chat"
 
@@ -193,7 +170,7 @@ func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []SectionAnalysis,
 	}
 
 	// Deduplicate and rank with another LLM call
-	formatArguments := func(args []Argument) string {
+	formatArguments := func(args []models.Argument) string {
 		var out []string
 		for _, a := range args {
 			out = append(out, fmt.Sprintf("(importance %d) %s", a.Importance, a.Argument))
@@ -226,10 +203,10 @@ Respond ONLY in JSON with the following format:
 	}
 	dedupResp, err := ExecuteLLMRequest(c, dedupMessages)
 	if err != nil {
-		return "", nil, Usage{}, err
+		return "", nil, models.Usage{}, err
 	}
 	if len(dedupResp.Choices) == 0 {
-		return "", nil, Usage{}, errors.New("no deduplicated results returned")
+		return "", nil, models.Usage{}, errors.New("no deduplicated results returned")
 	}
 	dedupContent := strings.TrimSpace(dedupResp.Choices[0].Message.Content)
 	dedupContent = strings.TrimPrefix(dedupContent, "```json")
@@ -291,10 +268,10 @@ Input (including deduplicated theses, facts, and arguments with importance/rank)
 
 	finalResp, err := ExecuteLLMRequest(c, finalMessages)
 	if err != nil {
-		return "", nil, Usage{}, err
+		return "", nil, models.Usage{}, err
 	}
 	if len(finalResp.Choices) == 0 {
-		return "", nil, Usage{}, errors.New("no summary returned")
+		return "", nil, models.Usage{}, errors.New("no summary returned")
 	}
 	totalPromptTokens += finalResp.Usage.PromptTokens
 	totalCompletionTokens += finalResp.Usage.CompletionTokens
@@ -328,8 +305,8 @@ Input (including deduplicated theses, facts, and arguments with importance/rank)
 }
 
 // flattenArguments combines arguments from multiple analyses
-func flattenArguments(analyses []SectionAnalysis) []Argument {
-	var args []Argument
+func flattenArguments(analyses []models.SectionAnalysis) []models.Argument {
+	var args []models.Argument
 	for _, sec := range analyses {
 		for _, th := range sec.Theses {
 			args = append(args, th.Arguments...)

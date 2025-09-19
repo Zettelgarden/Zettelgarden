@@ -18,9 +18,13 @@ You can interact with the knowledge base directly, but for complex or explorator
 - Get explicit permission from the user before updating a card.
 - Query the full card with 'get_card_by_id' after updating and show it to the user
 
+### Summarize Cards
+- If a user asks you to summarize a card, use the 'Task' tool, don't summarize it yourself
+
 ## Subtasks & Subagents:
 - Use the 'Task' tool to launch a subagent for:
   - research queries such as "find me cards about..."
+  - summarizing cards
   - Searches requiring semantic exploration or card hierarchy traversal
   - Filtering and analyzing results across many cards
   - Gathering supporting evidence before synthesizing an answer

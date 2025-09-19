@@ -71,6 +71,9 @@ func ExecuteLLMToolRequest(c *models.LLMClient, messages []openai.ChatCompletion
 
 	if err == nil {
 		logLLMRequest(c, resp, c.RequestType)
+	} else {
+		log.Printf("errored resp %v", resp)
+		log.Printf("error in getting a response: %v", err)
 	}
 
 	return resp, err

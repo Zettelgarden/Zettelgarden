@@ -49,6 +49,7 @@ func NewToolRegistry() *ToolRegistry {
 	//registry.registerFilterCardsByMetadata()
 	registry.registerCreateCard()
 	registry.registerUpdateCard()
+	registry.registerGetCardAnalysis()
 	registry.registerTask()
 
 	return registry
@@ -202,6 +203,29 @@ func (tr *ToolRegistry) registerCreateCard() {
 			},
 		},
 		Handler: handleCreateCard,
+	}
+}
+
+func (tr *ToolRegistry) registerGetCardAnalysis() {
+	tr.tools["get_card_analysis"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "get_card_analysis",
+				Description: "Retrieve the analysis/summary for a specific card by its primary key ID. Returns structured analysis with sections, theses, and arguments.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"card_pk": map[string]interface{}{
+							"type":        "integer",
+							"description": "The primary key ID of the card to get analysis for",
+						},
+					},
+					"required": []string{"card_id"},
+				},
+			},
+		},
+		Handler: handleGetCardAnalysis,
 	}
 }
 
@@ -386,6 +410,26 @@ func handleCreateCard(args map[string]interface{}, ctx *ToolContext) (map[string
 	}
 
 	return StructToMap(newCard), nil
+}
+
+func handleGetCardAnalysis(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	cardIDFloat, ok := args["card_id"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("card_id parameter is required")
+	}
+	cardPK := int(cardIDFloat)
+
+	// Get the card analysis using the services function
+	analysis, err := services.GetCardAnalysis(ctx.DB, ctx.UserID, cardPK)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get card analysis: %v", err)
+	}
+
+	// Convert analysis to map for tool response
+	return map[string]interface{}{
+		"card_id":  cardPK,
+		"analysis": analysis,
+	}, nil
 }
 
 func handleUpdateCard(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {

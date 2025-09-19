@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go-backend/llms"
 	"go-backend/models"
+	"go-backend/services"
 	"log"
 	"net/http"
 	"regexp"
@@ -191,7 +192,7 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 	//wordCount := len(strings.Fields(card.Body))
 	go func() {
 		client := llms.NewDefaultClient(h.DB, userID)
-	client.RequestType = "analysis"
+		client.RequestType = "analysis"
 		// client.Model.ModelIdentifier = "openai/gpt-5-chat"
 		processedText := prepareTextForAnalysis(card.Title, card.Body)
 		analyses, usage, err := llms.ExtractThesesAndArguments(client, processedText)
@@ -235,7 +236,7 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 }
 
 // SaveAnalysis persists the structured analysis from the LLM into the database.
-func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []llms.SectionAnalysis) error {
+func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []models.SectionAnalysis) error {
 	tx, err := h.DB.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -297,7 +298,7 @@ func (h *Handler) GetCardAnalysisRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	analysis, err := h.LoadAnalysis(userID, cardPK)
+	analysis, err := services.GetCardAnalysis(h.DB, userID, cardPK)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to load analysis: %v", err), http.StatusInternalServerError)
 		return
@@ -307,93 +308,10 @@ func (h *Handler) GetCardAnalysisRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(analysis)
 }
 
-// LoadAnalysis reconstructs the analysis data structure from the database for a given card.
-// It fetches the most recent summarization for the card.
-func (h *Handler) LoadAnalysis(userID int, cardPK int) ([]llms.SectionAnalysis, error) {
-	// Find the most recent summarization ID for the card
-	var summarizationID int
-	err := h.DB.QueryRow(`
-		SELECT id FROM summarizations
-		WHERE user_id = $1 AND card_pk = $2
-		ORDER BY created_at DESC
-		LIMIT 1
-	`, userID, cardPK).Scan(&summarizationID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find summarization for card: %w", err)
-	}
-
-	log.Printf("getting %v", summarizationID)
-	// Fetch sections
-	sectionRows, err := h.DB.Query(`
-		SELECT id, section_title FROM summary_sections
-		WHERE user_id = $1 AND summarization_id = $2
-		ORDER BY COALESCE(section_order, 0), id
-	`, userID, summarizationID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query sections: %w", err)
-	}
-	defer sectionRows.Close()
-
-	var analyses []llms.SectionAnalysis
-	for sectionRows.Next() {
-		var sectionID int
-		var section llms.SectionAnalysis
-		if err := sectionRows.Scan(&sectionID, &section.Section); err != nil {
-			return nil, fmt.Errorf("failed to scan section: %w", err)
-		}
-
-		// Fetch theses for the current section
-		thesisRows, err := h.DB.Query(`
-			SELECT id, thesis FROM summary_theses
-			WHERE user_id = $1 AND section_id = $2
-			ORDER BY id
-		`, userID, sectionID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to query theses for section %d: %w", sectionID, err)
-		}
-		defer thesisRows.Close()
-
-		var theses []llms.ThesisEntry
-		for thesisRows.Next() {
-			var thesisID int
-			var thesis llms.ThesisEntry
-			if err := thesisRows.Scan(&thesisID, &thesis.Thesis); err != nil {
-				return nil, fmt.Errorf("failed to scan thesis: %w", err)
-			}
-
-			// Fetch arguments for the current thesis
-			argRows, err := h.DB.Query(`
-				SELECT argument, importance FROM summary_arguments
-				WHERE user_id = $1 AND thesis_id = $2
-				ORDER BY id
-			`, userID, thesisID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to query arguments for thesis %d: %w", thesisID, err)
-			}
-			defer argRows.Close()
-
-			var arguments []llms.Argument
-			for argRows.Next() {
-				var arg llms.Argument
-				if err := argRows.Scan(&arg.Argument, &arg.Importance); err != nil {
-					return nil, fmt.Errorf("failed to scan argument: %w", err)
-				}
-				arguments = append(arguments, arg)
-			}
-			thesis.Arguments = arguments
-			theses = append(theses, thesis)
-		}
-		section.Theses = theses
-		analyses = append(analyses, section)
-	}
-
-	return analyses, nil
-}
-
 // runSummarizationJob inserts a summarization job and runs it asynchronously.
-func (h *Handler) runSummarizationJob(userID int, analyses []llms.SectionAnalysis, usage llms.Usage, cardPK *int, jobID int) (int, error) {
+func (h *Handler) runSummarizationJob(userID int, analyses []models.SectionAnalysis, usage models.Usage, cardPK *int, jobID int) (int, error) {
 	// Background job
-	go func(jobID int, analyses []llms.SectionAnalysis, usage llms.Usage, uid int) {
+	go func(jobID int, analyses []models.SectionAnalysis, usage models.Usage, uid int) {
 		client := llms.NewDefaultClient(h.DB, uid)
 		client.RequestType = "analysis"
 		_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())

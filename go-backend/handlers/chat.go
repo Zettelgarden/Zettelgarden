@@ -715,6 +715,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 		resp, err := llms.ExecuteLLMToolRequest(client, openaiMessages, tools)
 
 		if err != nil {
+			log.Printf("executing LLM error: %v", err)
 			return nil, err
 		}
 
