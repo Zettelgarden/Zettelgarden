@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go-backend/llms"
 	"go-backend/models"
 	"go-backend/services"
 	"log"
@@ -18,6 +19,7 @@ import (
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	readability "github.com/go-shiori/go-readability"
 	"github.com/gorilla/mux"
+	"github.com/sashabaranov/go-openai"
 	"golang.org/x/net/html"
 )
 
@@ -767,6 +769,98 @@ func (p *Parser) ParseHTML(htmlContent string, urlStr string) (ParseResult, erro
 	}
 
 	return result, nil
+}
+
+type SuggestTitleRequest struct {
+	Body string `json:"body"`
+}
+
+type SuggestTitleResponse struct {
+	SuggestedTitle string `json:"suggested_title"`
+}
+
+func (s *Handler) SuggestCardTitleRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	var req SuggestTitleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	if req.Body == "" {
+		http.Error(w, "body is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get user memory for context
+	userMemory, err := llms.GetUserMemory(s.DB, uint(userID))
+	if err != nil {
+		log.Printf("Error getting user memory: %v", err)
+		// Continue without memory if there's an error
+		userMemory = ""
+	}
+
+	suggestedTitle, err := s.suggestCardTitle(userID, req.Body, userMemory)
+	if err != nil {
+		log.Printf("Error suggesting card title: %v", err)
+		http.Error(w, "Error generating title suggestion", http.StatusInternalServerError)
+		return
+	}
+
+	response := SuggestTitleResponse{
+		SuggestedTitle: suggestedTitle,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (s *Handler) suggestCardTitle(userID int, body string, userMemory string) (string, error) {
+	client := llms.NewDefaultClient(s.DB, userID)
+	client.RequestType = "title_suggestion"
+
+	memoryContext := ""
+	if userMemory != "" {
+		memoryContext = fmt.Sprintf("\n\nUser Context (from their knowledge base):\n%s", userMemory)
+	}
+
+	prompt := fmt.Sprintf(`You are an expert at creating concise, meaningful titles for knowledge management notes. Your task is to suggest a title for a note based on its content.
+
+Guidelines:
+- Create a title that captures the main concept or key insight
+- Keep it concise (ideally 2-8 words)
+- Make it descriptive enough to be searchable and memorable
+- Consider the user's interests and knowledge domain when relevant
+- Avoid generic titles like "Notes" or "Thoughts"
+- Use title case
+
+Note Content:
+%s%s
+
+Respond with ONLY the suggested title, no explanation or additional text.`, body, memoryContext)
+
+	messages := []openai.ChatCompletionMessage{
+		{
+			Role:    openai.ChatMessageRoleUser,
+			Content: prompt,
+		},
+	}
+
+	response, err := llms.ExecuteLLMRequest(client, messages)
+	if err != nil {
+		return "", err
+	}
+
+	if len(response.Choices) == 0 {
+		return "", fmt.Errorf("no response from AI")
+	}
+
+	title := strings.TrimSpace(response.Choices[0].Message.Content)
+	// Remove any quotes that might be around the title
+	title = strings.Trim(title, "\"'")
+
+	return title, nil
 }
 
 type ParseURLRequest struct {

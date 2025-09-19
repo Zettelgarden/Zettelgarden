@@ -522,3 +522,32 @@ export function getStarredCards(): Promise<Card[]> {
       }
     });
 }
+
+/**
+ * Suggest a title for a card based on its body content using AI
+ * @param body The body content of the card
+ * @returns A promise that resolves to the suggested title
+ */
+export function suggestCardTitle(body: string): Promise<string> {
+  const url = `${base_url}/cards/suggest-title`;
+  let token = localStorage.getItem("token");
+
+  return fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ body }),
+  })
+    .then(checkStatus)
+    .then((response) => {
+      if (response) {
+        return response.json().then((data: { suggested_title: string }) => {
+          return data.suggested_title;
+        });
+      } else {
+        return Promise.reject(new Error("Response is undefined"));
+      }
+    });
+}

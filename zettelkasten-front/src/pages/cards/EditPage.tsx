@@ -3,7 +3,7 @@ import { isCardIdUnique } from "../../utils/cards";
 import { uploadFile } from "../../api/files";
 import { Menu } from "@headlessui/react";
 import { parseURL } from "../../api/references";
-import { saveNewCard, saveExistingCard, getCard, getNextRootId, getCardReferences, getCardChildren, getCardFiles, getCardTags, getCardTasks, getCardEntities } from "../../api/cards";
+import { saveNewCard, saveExistingCard, getCard, getNextRootId, getCardReferences, getCardChildren, getCardFiles, getCardTags, getCardTasks, getCardEntities, suggestCardTitle } from "../../api/cards";
 import { editFile } from "../../api/files";
 import { getTemplates } from "../../api/templates";
 import { FileListItem } from "../../components/files/FileListItem";
@@ -67,6 +67,7 @@ export function EditPage({ newCard }: EditPageProps) {
   const { tags } = useTagContext();
 
   const [fileFilterString, setFileFilterString] = useState<string>("");
+  const [suggestingTitle, setSuggestingTitle] = useState(false);
 
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -265,6 +266,31 @@ export function EditPage({ newCard }: EditPageProps) {
     }));
   }
 
+  async function handleSuggestTitle() {
+    if (!editingCard.body.trim()) {
+      setError("Please add some content to the card body before suggesting a title.");
+      return;
+    }
+
+    setSuggestingTitle(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const suggestedTitle = await suggestCardTitle(editingCard.body);
+      setEditingCard((prevCard) => ({
+        ...prevCard,
+        title: suggestedTitle,
+      }));
+      setMessage("Title suggestion applied successfully!");
+    } catch (error: any) {
+      console.error("Error suggesting title:", error);
+      setError(error.message || "Failed to suggest title. Please try again.");
+    } finally {
+      setSuggestingTitle(false);
+    }
+  }
+
   return (
 
     <div className="pb-10">
@@ -358,16 +384,26 @@ export function EditPage({ newCard }: EditPageProps) {
                   <label htmlFor="title" className="block text-sm font-medium text-gray-700">
                     Title:
                   </label>
-                  <input
-                    type="text"
-                    id="title"
-                    value={editingCard.title}
-                    onChange={(e) =>
-                      setEditingCard({ ...editingCard, title: e.target.value })
-                    }
-                    placeholder="Title"
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      id="title"
+                      value={editingCard.title}
+                      onChange={(e) =>
+                        setEditingCard({ ...editingCard, title: e.target.value })
+                      }
+                      placeholder="Title"
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-24"
+                    />
+                    <button
+                      onClick={handleSuggestTitle}
+                      disabled={suggestingTitle || !editingCard.body.trim()}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                      type="button"
+                    >
+                      {suggestingTitle ? "Suggesting..." : "Suggest"}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
