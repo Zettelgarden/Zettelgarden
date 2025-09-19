@@ -47,6 +47,7 @@ func NewToolRegistry() *ToolRegistry {
 	registry.registerGetCardByID()
 	//registry.registerBrowseCardHierarchy()
 	//registry.registerFilterCardsByMetadata()
+	registry.registerCreateCard()
 	registry.registerUpdateCard()
 	registry.registerTask()
 
@@ -170,6 +171,37 @@ func (tr *ToolRegistry) registerBrowseCardHierarchy() {
 			},
 		},
 		Handler: handleBrowseCardHierarchy,
+	}
+}
+
+func (tr *ToolRegistry) registerCreateCard() {
+	tr.tools["create_card"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "create_card",
+				Description: "Create a new card with title, body, and optional link. The card_id will be set to empty string for user categorization.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"title": map[string]interface{}{
+							"type":        "string",
+							"description": "Title for the new card (required)",
+						},
+						"body": map[string]interface{}{
+							"type":        "string",
+							"description": "Body content for the new card (required)",
+						},
+						"link": map[string]interface{}{
+							"type":        "string",
+							"description": "Optional link for the card (can be empty string)",
+						},
+					},
+					"required": []string{"title", "body"},
+				},
+			},
+		},
+		Handler: handleCreateCard,
 	}
 }
 
@@ -320,6 +352,40 @@ func handleGetCardByID(args map[string]interface{}, ctx *ToolContext) (map[strin
 	}
 
 	return StructToMap(card), nil
+}
+
+func handleCreateCard(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	title, ok := args["title"].(string)
+	if !ok {
+		return nil, fmt.Errorf("title parameter is required")
+	}
+
+	body, ok := args["body"].(string)
+	if !ok {
+		return nil, fmt.Errorf("body parameter is required")
+	}
+
+	// Link is optional, default to empty string
+	link := ""
+	if l, ok := args["link"].(string); ok {
+		link = l
+	}
+
+	// Create card parameters with empty card_id for user categorization
+	params := models.EditCardParams{
+		Title:  title,
+		Body:   body,
+		Link:   link,
+		CardID: "", // Empty string as requested
+	}
+
+	// Create the card
+	newCard, err := services.CreateCard(ctx.DB, ctx.UserID, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create card: %v", err)
+	}
+
+	return StructToMap(newCard), nil
 }
 
 func handleUpdateCard(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
