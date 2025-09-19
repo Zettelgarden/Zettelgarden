@@ -162,8 +162,8 @@ func (s *Handler) GetReferencedCards(userID int, cardIDs []string) string {
 		if len(cards) > 0 {
 			var cardContexts []string
 			for _, card := range cards {
-				cardContext := fmt.Sprintf("Card ID: %s\nTitle: %s\nContent:\n%s",
-					card.CardID, card.Title, card.Body)
+				cardContext := fmt.Sprintf("ID (primary key): %v\nCard ID: %s\nTitle: %s\nContent:\n%s",
+					card.ID, card.CardID, card.Title, card.Body)
 				cardContexts = append(cardContexts, cardContext)
 			}
 			referencedCardsContext = "\n\n<referenced cards>\n" + strings.Join(cardContexts, "\n\n---\n")
