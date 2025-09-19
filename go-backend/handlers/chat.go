@@ -645,6 +645,13 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 
 	log.Printf("Starting prompting")
 	systemPrompt, err := prompts.GetResearchAssistantPrompt()
+
+	memory, err := GetUserMemory(s.DB, userID)
+	if err != nil {
+		systemPrompt += "\n\n## Your Memory Of The User\n\n"
+		systemPrompt += memory
+	}
+
 	if err != nil {
 		log.Printf("Error loading system prompt: %v, using fallback", err)
 		// Fallback to a basic prompt if file loading fails
