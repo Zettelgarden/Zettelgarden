@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"go-backend/llms"
 	"go-backend/models"
 	"go-backend/services"
 	"log"
@@ -143,11 +142,11 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
-	client := llms.NewDefaultClient(h.DB, userID)
+	client := services.NewDefaultClient(h.DB, userID)
 	client.RequestType = "analysis"
 	// client.Model.ModelIdentifier = "openai/gpt-5-chat"
 	processedText := prepareTextForAnalysis(req.Title, req.Text)
-	analyses, usage, err := llms.ExtractThesesAndArguments(client, processedText)
+	analyses, usage, err := services.ExtractThesesAndArguments(client, processedText)
 	id, err := h.runSummarizationJob(userID, analyses, usage, nil, jobID)
 	if err != nil {
 		log.Printf("err %v", err)
@@ -191,11 +190,11 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 	_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
 	//wordCount := len(strings.Fields(card.Body))
 	go func() {
-		client := llms.NewDefaultClient(h.DB, userID)
+		client := services.NewDefaultClient(h.DB, userID)
 		client.RequestType = "analysis"
 		// client.Model.ModelIdentifier = "openai/gpt-5-chat"
 		processedText := prepareTextForAnalysis(card.Title, card.Body)
-		analyses, usage, err := llms.ExtractThesesAndArguments(client, processedText)
+		analyses, usage, err := services.ExtractThesesAndArguments(client, processedText)
 		if err != nil {
 			log.Printf("Fact extraction failed: %v", err)
 
@@ -312,11 +311,11 @@ func (h *Handler) GetCardAnalysisRoute(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) runSummarizationJob(userID int, analyses []models.SectionAnalysis, usage models.Usage, cardPK *int, jobID int) (int, error) {
 	// Background job
 	go func(jobID int, analyses []models.SectionAnalysis, usage models.Usage, uid int) {
-		client := llms.NewDefaultClient(h.DB, uid)
+		client := services.NewDefaultClient(h.DB, uid)
 		client.RequestType = "analysis"
 		_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
 
-		result, _, usage, err := llms.AnalyzeAndSummarizeText(client, analyses, usage)
+		result, _, usage, err := services.AnalyzeAndSummarizeText(client, analyses, usage)
 		if err != nil {
 			_, _ = h.DB.Exec(`UPDATE summarizations SET status='failed', result=$2, updated_at=$3 WHERE id=$1`,
 				jobID, err.Error(), time.Now())

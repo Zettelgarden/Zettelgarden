@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"go-backend/llms"
 	"go-backend/models"
 	"go-backend/services"
 	"log"
@@ -788,7 +787,7 @@ func (s *Handler) SuggestCardTitleRoute(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Get user memory for context
-	userMemory, err := llms.GetUserMemory(s.DB, uint(userID))
+	userMemory, err := GetUserMemory(s.DB, uint(userID))
 	if err != nil {
 		log.Printf("Error getting user memory: %v", err)
 		// Continue without memory if there's an error
@@ -811,7 +810,7 @@ func (s *Handler) SuggestCardTitleRoute(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Handler) suggestCardTitle(userID int, body string, userMemory string) (string, error) {
-	client := llms.NewDefaultClient(s.DB, userID)
+	client := services.NewDefaultClient(s.DB, userID)
 	client.RequestType = "title_suggestion"
 
 	memoryContext := ""
@@ -841,7 +840,7 @@ Respond with ONLY the suggested title, no explanation or additional text.`, body
 		},
 	}
 
-	response, err := llms.ExecuteLLMRequest(client, messages)
+	response, err := services.ExecuteLLMRequest(client, messages)
 	if err != nil {
 		return "", err
 	}

@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"go-backend/llms"
 	"go-backend/models"
 	"go-backend/prompts"
+	"go-backend/services"
 	"log"
 	"net/http"
 	"strconv"
@@ -702,17 +702,17 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 	}
 
 	// Create LLM client
-	client := llms.NewDefaultClient(s.DB, userID)
+	client := services.NewDefaultClient(s.DB, userID)
 	client.Model = model
 	client.RequestType = "chat"
 
 	// Get tools registry
-	toolRegistry := llms.NewToolRegistry()
+	toolRegistry := services.NewToolRegistry()
 	tools := toolRegistry.GetToolDefinitions()
 
 	// Loop until no more tool calls are needed
 	for {
-		resp, err := llms.ExecuteLLMToolRequest(client, openaiMessages, tools)
+		resp, err := services.ExecuteLLMToolRequest(client, openaiMessages, tools)
 
 		if err != nil {
 			log.Printf("executing LLM error: %v", err)
@@ -752,7 +752,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 			var args map[string]interface{}
 			json.Unmarshal([]byte(tc.Function.Arguments), &args)
 
-			ctx := &llms.ToolContext{
+			ctx := &services.ToolContext{
 				UserID:          userID,
 				DB:              s.DB,
 				TypesenseClient: s.Server.TypesenseClient,
@@ -1048,7 +1048,7 @@ func (s *Handler) generateConversationTitle(userID int, userMessage string) stri
 	}
 
 	// Create LLM client for title generation
-	client := llms.NewDefaultClient(s.DB, userID) // Use system user ID for title generation
+	client := services.NewDefaultClient(s.DB, userID) // Use system user ID for title generation
 	client.RequestType = "chat"
 	client.Model = "google/gemini-2.5-flash-lite" // Use faster, cheaper model for title generation
 
@@ -1063,7 +1063,7 @@ func (s *Handler) generateConversationTitle(userID int, userMessage string) stri
 		},
 	}
 
-	resp, err := llms.ExecuteLLMRequest(client, messages)
+	resp, err := services.ExecuteLLMRequest(client, messages)
 
 	if err != nil {
 		log.Printf("Error generating conversation title: %v", err)

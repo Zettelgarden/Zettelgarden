@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"go-backend/llms"
 	"go-backend/models"
+	"go-backend/services"
 	"log"
 	"net/http"
 	"os"
@@ -350,10 +350,10 @@ func (s *Handler) GetAllFacts(w http.ResponseWriter, r *http.Request) {
 
 // ExtractSaveFactEntities runs entity extraction on facts and links them in entity_fact_junction
 func (s *Handler) ExtractSaveFactEntities(userID int, card models.Card, factObjs []models.Fact) error {
-	client := llms.NewDefaultClient(s.DB, userID)
+	client := services.NewDefaultClient(s.DB, userID)
 	client.RequestType = "analysis"
 
-	factEntities, err := llms.FindEntitiesBatch(client, factObjs)
+	factEntities, err := services.FindEntitiesBatch(client, factObjs)
 	if err != nil {
 		log.Printf("find entities batch err %v", err)
 	}

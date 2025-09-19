@@ -1,4 +1,4 @@
-package llms
+package services
 
 import (
 	"database/sql"
@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"go-backend/models"
 	"go-backend/prompts"
-	"go-backend/services"
 	"log"
 	"reflect"
 	"time"
@@ -327,9 +326,9 @@ func handleSearchCards(args map[string]interface{}, ctx *ToolContext) (map[strin
 	var err error
 
 	if searchType == "text" {
-		cards, err = services.ExecuteTextSearch(ctx.DB, ctx.UserID, query, limit, ctx.TypesenseClient)
+		cards, err = ExecuteTextSearch(ctx.DB, ctx.UserID, query, limit, ctx.TypesenseClient)
 	} else {
-		cards, err = services.ExecuteSemanticSearch(ctx.DB, ctx.UserID, query, limit, ctx.TypesenseClient)
+		cards, err = ExecuteSemanticSearch(ctx.DB, ctx.UserID, query, limit, ctx.TypesenseClient)
 	}
 
 	if err != nil {
@@ -373,7 +372,7 @@ func handleGetCardByID(args map[string]interface{}, ctx *ToolContext) (map[strin
 	}
 	cardID := int(cardIDFloat)
 
-	card, err := services.GetFullCard(ctx.DB, ctx.UserID, cardID)
+	card, err := GetFullCard(ctx.DB, ctx.UserID, cardID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get card: %v", err)
 	}
@@ -407,7 +406,7 @@ func handleCreateCard(args map[string]interface{}, ctx *ToolContext) (map[string
 	}
 
 	// Create the card
-	newCard, err := services.CreateCard(ctx.DB, ctx.UserID, params)
+	newCard, err := CreateCard(ctx.DB, ctx.UserID, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create card: %v", err)
 	}
@@ -423,7 +422,7 @@ func handleGetCardAnalysis(args map[string]interface{}, ctx *ToolContext) (map[s
 	cardPK := int(cardIDFloat)
 
 	// Get the card analysis using the services function
-	analysis, err := services.GetCardAnalysis(ctx.DB, ctx.UserID, cardPK)
+	analysis, err := GetCardAnalysis(ctx.DB, ctx.UserID, cardPK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get card analysis: %v", err)
 	}
@@ -448,7 +447,7 @@ func handleUpdateCard(args map[string]interface{}, ctx *ToolContext) (map[string
 	}
 
 	// Get the current card
-	currentCard, err := services.GetFullCard(ctx.DB, ctx.UserID, cardPK)
+	currentCard, err := GetFullCard(ctx.DB, ctx.UserID, cardPK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get card: %v", err)
 	}
@@ -478,7 +477,7 @@ func handleUpdateCard(args map[string]interface{}, ctx *ToolContext) (map[string
 	}
 
 	// Update the card
-	updatedCard, err := services.UpdateCard(ctx.DB, ctx.UserID, cardPK, params)
+	updatedCard, err := UpdateCard(ctx.DB, ctx.UserID, cardPK, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update card: %v", err)
 	}
@@ -502,9 +501,9 @@ func handleBrowseCardHierarchy(args map[string]interface{}, ctx *ToolContext) (m
 	var err error
 
 	if direction == "children" {
-		cards, err = services.GetChildCards(ctx.DB, ctx.UserID, cardPK)
+		cards, err = GetChildCards(ctx.DB, ctx.UserID, cardPK)
 	} else if direction == "parent" {
-		cards, err = services.GetParentCard(ctx.DB, ctx.UserID, cardPK)
+		cards, err = GetParentCard(ctx.DB, ctx.UserID, cardPK)
 	} else {
 		return nil, fmt.Errorf("invalid direction: %s", direction)
 	}

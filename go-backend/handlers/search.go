@@ -671,7 +671,7 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 	// } else {
 	// 	log.Printf("reranking")
 	// 	if len(results) > 0 {
-	// 		client := llms.NewDefaultClient(s.DB, userID)
+	// 		client := services.NewDefaultClient(s.DB, userID)
 	// 		reranked, err = llms.RerankSearchResults(client, searchParams.SearchTerm, results)
 	// 		if err != nil {
 	// 			return results, nil

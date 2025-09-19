@@ -1,4 +1,4 @@
-package llms
+package services
 
 import (
 	"encoding/json"

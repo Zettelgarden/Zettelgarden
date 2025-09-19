@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"go-backend/llms"
 	"go-backend/models"
+	"go-backend/services"
 	"log"
 	"net/http"
 	"os"
@@ -235,10 +235,10 @@ func (s *Handler) MergeEntities(userID int, entity1ID int, entity2ID int) error 
 		return fmt.Errorf("failed to delete entity2 fact relationships: %w", err)
 	}
 
-	client := llms.NewDefaultClient(s.DB, userID)
+	client := services.NewDefaultClient(s.DB, userID)
 	client.RequestType = "other"
 
-	newDescription, err := llms.GenerateNewEntityDescription(client, entity1, entity2, entity1.Name)
+	newDescription, err := services.GenerateNewEntityDescription(client, entity1, entity2, entity1.Name)
 	if err != nil {
 		newDescription = entity1.Description
 	}
