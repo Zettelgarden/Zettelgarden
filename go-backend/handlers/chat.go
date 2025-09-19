@@ -751,7 +751,15 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 			var args map[string]interface{}
 			json.Unmarshal([]byte(tc.Function.Arguments), &args)
 
-			result, err := toolRegistry.ExecuteTool(tc.Function.Name, args, userID, s.DB, s.Server.TypesenseClient, &conversation.ID, &assistantMsg.ID)
+			ctx := &llms.ToolContext{
+				UserID:          userID,
+				DB:              s.DB,
+				TypesenseClient: s.Server.TypesenseClient,
+				ConversationID:  &conversation.ID,
+				MessageID:       &assistantMsg.ID,
+				Model:           model,
+			}
+			result, err := toolRegistry.ExecuteTool(tc.Function.Name, args, ctx)
 			if err != nil {
 				log.Printf("Error executing tool %s: %v", tc.Function.Name, err)
 				result = map[string]interface{}{

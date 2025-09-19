@@ -14,10 +14,20 @@ import (
 	"github.com/typesense/typesense-go/typesense"
 )
 
+// ToolContext contains all the context needed for tool execution
+type ToolContext struct {
+	UserID          int
+	DB              *sql.DB
+	TypesenseClient *typesense.Client
+	ConversationID  *string
+	MessageID       *string
+	Model           string
+}
+
 // Tool represents a tool that can be called by the LLM
 type Tool struct {
 	Definition openai.Tool
-	Handler    func(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (map[string]interface{}, error)
+	Handler    func(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error)
 }
 
 // ToolRegistry holds all available tools
@@ -51,19 +61,19 @@ func (tr *ToolRegistry) GetToolDefinitions() []openai.Tool {
 }
 
 // ExecuteTool executes a tool by name with given arguments
-func (tr *ToolRegistry) ExecuteTool(name string, args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID, messageID *string) (map[string]interface{}, error) {
+func (tr *ToolRegistry) ExecuteTool(name string, args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
 	tool, exists := tr.tools[name]
 	if !exists {
 		return nil, fmt.Errorf("tool %s not found", name)
 	}
 
 	start := time.Now()
-	result, err := tool.Handler(args, userID, db, typesenseClient, conversationID, messageID)
+	result, err := tool.Handler(args, ctx)
 	executionTime := int(time.Since(start).Milliseconds())
 
 	// Log tool execution for analytics
 	go func() {
-		logErr := logToolExecution(db, userID, name, args, result, executionTime, err, conversationID, messageID)
+		logErr := logToolExecution(ctx.DB, ctx.UserID, name, args, result, executionTime, err, ctx.ConversationID, ctx.MessageID)
 		if logErr != nil {
 			log.Printf("Error logging tool execution: %v", logErr)
 		}
@@ -196,7 +206,7 @@ func (tr *ToolRegistry) registerTask() {
 
 // Tool handlers
 
-func handleSearchCards(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (map[string]interface{}, error) {
+func handleSearchCards(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
 	query, ok := args["query"].(string)
 	if !ok {
 		return nil, fmt.Errorf("query parameter is required")
@@ -217,9 +227,9 @@ func handleSearchCards(args map[string]interface{}, userID int, db *sql.DB, type
 	var err error
 
 	if searchType == "text" {
-		cards, err = services.ExecuteTextSearch(db, userID, query, limit, typesenseClient)
+		cards, err = services.ExecuteTextSearch(ctx.DB, ctx.UserID, query, limit, ctx.TypesenseClient)
 	} else {
-		cards, err = services.ExecuteSemanticSearch(db, userID, query, limit, typesenseClient)
+		cards, err = services.ExecuteSemanticSearch(ctx.DB, ctx.UserID, query, limit, ctx.TypesenseClient)
 	}
 
 	if err != nil {
@@ -256,14 +266,14 @@ func StructToMap(obj interface{}) map[string]interface{} {
 	return result
 }
 
-func handleGetCardByID(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (map[string]interface{}, error) {
+func handleGetCardByID(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
 	cardIDFloat, ok := args["card_id"].(float64)
 	if !ok {
 		return nil, fmt.Errorf("card_id parameter is required")
 	}
 	cardID := int(cardIDFloat)
 
-	card, err := services.GetFullCard(db, userID, cardID)
+	card, err := services.GetFullCard(ctx.DB, ctx.UserID, cardID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get card: %v", err)
 	}
@@ -271,7 +281,7 @@ func handleGetCardByID(args map[string]interface{}, userID int, db *sql.DB, type
 	return StructToMap(card), nil
 }
 
-func handleBrowseCardHierarchy(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (map[string]interface{}, error) {
+func handleBrowseCardHierarchy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
 	cardIDFloat, ok := args["card_id"].(float64)
 	if !ok {
 		return nil, fmt.Errorf("card_id parameter is required")
@@ -287,9 +297,9 @@ func handleBrowseCardHierarchy(args map[string]interface{}, userID int, db *sql.
 	var err error
 
 	if direction == "children" {
-		cards, err = services.GetChildCards(db, userID, cardPK)
+		cards, err = services.GetChildCards(ctx.DB, ctx.UserID, cardPK)
 	} else if direction == "parent" {
-		cards, err = services.GetParentCard(db, userID, cardPK)
+		cards, err = services.GetParentCard(ctx.DB, ctx.UserID, cardPK)
 	} else {
 		return nil, fmt.Errorf("invalid direction: %s", direction)
 	}
@@ -305,7 +315,7 @@ func handleBrowseCardHierarchy(args map[string]interface{}, userID int, db *sql.
 	}, nil
 }
 
-func handleTask(args map[string]interface{}, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (map[string]interface{}, error) {
+func handleTask(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
 	description, ok := args["description"].(string)
 	if !ok {
 		return nil, fmt.Errorf("description parameter is required")
@@ -324,7 +334,7 @@ func handleTask(args map[string]interface{}, userID int, db *sql.DB, typesenseCl
 	log.Printf("Launching subagent - Description: %s, Type: %s", description, subagentType)
 
 	// Execute the subagent task
-	result, err := executeSubagentTask(prompt, subagentType, userID, db, typesenseClient, conversationID, messageID)
+	result, err := executeSubagentTask(prompt, subagentType, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("subagent execution failed: %v", err)
 	}
@@ -338,10 +348,11 @@ func handleTask(args map[string]interface{}, userID int, db *sql.DB, typesenseCl
 }
 
 // executeSubagentTask runs a subagent with access to knowledge base tools
-func executeSubagentTask(prompt, subagentType string, userID int, db *sql.DB, typesenseClient *typesense.Client, conversationID *string, messageID *string) (string, error) {
+func executeSubagentTask(prompt, subagentType string, ctx *ToolContext) (string, error) {
 	// Create LLM client for the subagent
-	client := NewDefaultClient(db, userID)
+	client := NewDefaultClient(ctx.DB, ctx.UserID)
 	client.RequestType = "tools"
+	client.Model = ctx.Model
 
 	// Create a tool registry for the subagent (excluding the Task tool to prevent recursion)
 	subagentRegistry := &ToolRegistry{
@@ -396,7 +407,7 @@ func executeSubagentTask(prompt, subagentType string, userID int, db *sql.DB, ty
 				continue
 			}
 
-			result, err := subagentRegistry.ExecuteTool(tc.Function.Name, args, userID, db, typesenseClient, conversationID, messageID)
+			result, err := subagentRegistry.ExecuteTool(tc.Function.Name, args, ctx)
 			if err != nil {
 				log.Printf("Error executing tool %s: %v", tc.Function.Name, err)
 				result = map[string]interface{}{

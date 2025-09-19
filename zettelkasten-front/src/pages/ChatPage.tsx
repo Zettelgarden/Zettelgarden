@@ -336,7 +336,7 @@ export function ChatPage({ }: ChatPageProps) {
           <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-lg shadow-sm">
             <button
               onClick={() => toggleToolResult(message.id)}
-              className="w-full p-4 text-left hover:bg-amber-100/50 transition-colors rounded-lg"
+              className="w-full px-4 py-1 text-left hover:bg-amber-100/50 transition-colors rounded-lg"
             >
               <div className="flex items-center justify-between text-amber-700">
                 <div className="flex items-center gap-2">
@@ -645,7 +645,7 @@ export function ChatPage({ }: ChatPageProps) {
         {currentConversation ? (
           <>
             {/* Chat Header */}
-            <div className="bg-white border-b border-gray-200 p-6 shadow-sm">
+            <div className="bg-white border-b border-gray-200 p-2 shadow-sm">
               <div className="flex items-center gap-3">
                 {!sidebarOpen && (
                   <button
@@ -658,10 +658,10 @@ export function ChatPage({ }: ChatPageProps) {
                   </button>
                 )}
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900">
+                  <h2 className="text-lg font-semibold text-gray-900">
                     {currentConversation.title || "Untitled Chat"}
                   </h2>
-                  <p className="text-sm text-gray-500 flex items-center gap-2">
+                  <p className="text-xs text-gray-500 flex items-center gap-2">
                     <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                     Model: {currentConversation.model}
                   </p>
@@ -683,18 +683,10 @@ export function ChatPage({ }: ChatPageProps) {
 
               {messages.map((message) => (
                 <div key={message.id} className="flex items-start gap-3 group">
-                  {message.role !== "user" && (
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center shadow-sm">
-                      <span className="text-sm">{getRoleIcon(message.role)}</span>
-                    </div>
-                  )}
+
                   <div className={`flex flex-col ${message.role === "user" ? "items-end w-full" : "flex-1"}`}>
-                    {message.role === "user" && (
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm mb-2">
-                        <span className="text-sm text-white">{getRoleIcon(message.role)}</span>
-                      </div>
-                    )}
-                    <div className={`${getMessageStyle(message.role)} ${message.role === "tool" ? "" : "p-4"}`}>
+
+                    <div className={`${getMessageStyle(message.role)} ${message.role === "tool" ? "" : "py-2 px-4 text-sm"}`}>
                       {message.role !== "tool" && (
                         <div className={`text-xs mb-2 flex items-center gap-2 ${message.role === "user" ? "text-blue-100 justify-end" : "text-gray-500"}`}>
                           <span className="font-medium capitalize">{message.role}</span>
