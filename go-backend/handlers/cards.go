@@ -787,7 +787,7 @@ func (s *Handler) SuggestCardTitleRoute(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Get user memory for context
-	userMemory, err := GetUserMemory(s.DB, uint(userID))
+	userMemory, err := GetUserMemory(s.DB, int(userID))
 	if err != nil {
 		log.Printf("Error getting user memory: %v", err)
 		// Continue without memory if there's an error

@@ -36,7 +36,7 @@ func (s *Handler) GenerateMemory(userID uint, cardContent string) {
 	}()
 }
 
-func GetUserMemory(db *sql.DB, userID uint) (string, error) {
+func GetUserMemory(db *sql.DB, userID int) (string, error) {
 	var memory string
 	err := db.QueryRow("SELECT memory FROM user_memories WHERE user_id = $1", userID).Scan(&memory)
 	if err != nil {
@@ -60,7 +60,7 @@ func UpdateUserMemory(db *sql.DB, userID uint, memory string) error {
 func (s *Handler) GetUserMemoryRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
-	memory, err := GetUserMemory(s.DB, uint(userID))
+	memory, err := GetUserMemory(s.DB, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -103,7 +103,8 @@ func (s *Handler) UpdateUserMemoryRoute(w http.ResponseWriter, r *http.Request) 
 }
 
 func GenerateUserMemory(db *sql.DB, client *models.LLMClient, userID uint, cardContent string) (string, error) {
-	userMemory, err := GetUserMemory(db, userID)
+	userMemory, err := GetUserMemory(db, int(userID))
+
 	if err != nil {
 		return "", err
 	}
@@ -168,7 +169,7 @@ You must follow this process precisely:
 }
 
 func CompressUserMemory(db *sql.DB, client *models.LLMClient, userID uint) (string, error) {
-	userMemory, err := GetUserMemory(db, userID)
+	userMemory, err := GetUserMemory(db, int(userID))
 	if err != nil {
 		log.Printf("error getting memory: %v", err)
 		return "", err
