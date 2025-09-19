@@ -448,10 +448,11 @@ export function ChatPage({ }: ChatPageProps) {
 
   const availableModels = [
     { value: "google/gemini-2.5-flash", label: "google/gemini-2.5-flash" },
+    { value: "google/gemini-2.5-flash-lite", label: "google/gemini-2.5-flash-lite" },
     { value: "google/gemini-2.5-pro", label: "google/gemini-2.5-pro" },
     { value: "gpt-4o-mini", label: "GPT-4o Mini" },
-    { value: "gpt-4o", label: "GPT-4o" },
     { value: "openai/gpt-5", label: "GPT-5" },
+    { value: "anthropic/claude-sonnet-4", label: "anthropic/claude-sonnet-4"},
 
   ];
 

@@ -228,7 +228,7 @@ func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 
 	// Generate title if this is the first message (and conversation has no title)
 	if conversation.Title == nil || *conversation.Title == "" {
-		generatedTitle := s.generateConversationTitle(req.Content, conversation.Model)
+		generatedTitle := s.generateConversationTitle(userID, req.Content)
 		err := s.UpdateConversationTitle(conversationID, generatedTitle)
 		if err != nil {
 			log.Printf("Error updating conversation title: %v", err)
@@ -1026,7 +1026,7 @@ func (s *Handler) getDefaultQuotaLimit(quotaType string) int {
 }
 
 // generateConversationTitle generates a title for a conversation based on the user's first message
-func (s *Handler) generateConversationTitle(userMessage string, model string) string {
+func (s *Handler) generateConversationTitle(userID int, userMessage string) string {
 	// Load title generation prompt
 	titlePrompt, err := prompts.GetTitleGeneratorPrompt()
 	if err != nil {
@@ -1039,9 +1039,9 @@ func (s *Handler) generateConversationTitle(userMessage string, model string) st
 	}
 
 	// Create LLM client for title generation
-	client := llms.NewDefaultClient(s.DB, 0) // Use system user ID for title generation
+	client := llms.NewDefaultClient(s.DB, userID) // Use system user ID for title generation
 	client.RequestType = "chat"
-	client.Model = "gpt-4o-mini" // Use faster, cheaper model for title generation
+	client.Model = "google/gemini-2.5-flash-lite" // Use faster, cheaper model for title generation
 
 	messages := []openai.ChatCompletionMessage{
 		{

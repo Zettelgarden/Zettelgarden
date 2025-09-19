@@ -83,9 +83,12 @@ func logLLMRequest(c *models.LLMClient, resp openai.ChatCompletionResponse, requ
 			PromptPer1K     float64
 			CompletionPer1K float64
 		}{
-			"google/gemini-2.5-flash": {PromptPer1K: 0.0003, CompletionPer1K: 0.0025},
-			"google/gemini-2.5-pro":   {PromptPer1K: 0.00125, CompletionPer1K: 0.010},
-			"openai/gpt-5-chat":       {PromptPer1K: 0.00125, CompletionPer1K: 0.010},
+			"google/gemini-2.5-flash":      {PromptPer1K: 0.0003, CompletionPer1K: 0.0025},
+			"google/gemini-2.5-pro":        {PromptPer1K: 0.00125, CompletionPer1K: 0.010},
+			"google/gemini-2.5-flash-lite": {PromptPer1K: 0.0001, CompletionPer1K: 0.0004},
+			"openai/gpt-5-chat":            {PromptPer1K: 0.00125, CompletionPer1K: 0.010},
+			"openai/gpt-4o-mini":           {PromptPer1K: 0.00015, CompletionPer1K: 0.0006},
+			"anthropic/claude-sonnet-4":    {PromptPer1K: 0.003, CompletionPer1K: 0.015},
 		}
 
 		var cost *float64
