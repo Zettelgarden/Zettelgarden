@@ -516,3 +516,94 @@ FROM target_id;
 	return nil
 
 }
+func UpdateCard(db *sql.DB, userID int, cardPK int, params models.EditCardParams) (models.Card, error) {
+	// Get the old state first
+	oldCard, err := GetFullCard(db, userID, cardPK)
+	if err != nil {
+		return models.Card{}, err
+	}
+
+	var parent_id int
+	parent, _ := GetPartialCardByCardID(db, userID, DiscoverParentId(params.CardID))
+
+	// set parent id to id if there's no parent
+	if parent.ID == 0 || params.CardID == "" {
+		parent_id = cardPK
+	} else {
+		parent_id = parent.ID
+	}
+
+	query := `
+	UPDATE cards SET title = $1, body = $2, link = $3, parent_id = $4, updated_at = NOW(), card_id = $5
+	WHERE
+	id = $6
+	`
+	_, err = db.Exec(query, params.Title, params.Body, params.Link, parent_id, params.CardID, cardPK)
+	if err != nil {
+		log.Printf("updatecard err %v", err)
+		return models.Card{}, err
+	}
+
+	// Get the new state
+	newCard, err := GetFullCard(db, userID, cardPK)
+	if err != nil {
+		return models.Card{}, err
+	}
+
+	// Create audit event
+	CreateAuditEvent(db, userID, cardPK, "card", "update", oldCard, newCard)
+
+	backlinks := ExtractBacklinks(newCard.Body)
+	UpdateBacklinks(db, newCard.ID, backlinks)
+
+	UpsertCardToTypesense(newCard)
+
+	AddTagsFromCard(db, userID, cardPK)
+
+	return GetFullCard(db, userID, cardPK)
+}
+
+func CreateCard(db *sql.DB, userID int, params models.EditCardParams) (models.Card, error) {
+	// Strip all whitespace from card_id before proceeding
+	params.CardID = strings.ReplaceAll(params.CardID, " ", "")
+	params.CardID = regexp.MustCompile(`\s+`).ReplaceAllString(params.CardID, "")
+
+	parent, err := GetPartialCardByCardID(db, userID, DiscoverParentId(params.CardID))
+	query := `
+	INSERT INTO cards 
+	(title, body, link, user_id, card_id, parent_id, created_at, updated_at)
+	VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+	RETURNING id;
+	`
+	var id int
+	err = db.QueryRow(query, params.Title, params.Body, params.Link, userID, params.CardID, parent.ID).Scan(&id)
+	if err != nil {
+		log.Printf("updatecard err %v", err)
+		return models.Card{}, err
+	}
+
+	// Get the created card
+	newCard, err := GetFullCard(db, userID, id)
+	if err != nil {
+		return models.Card{}, err
+	}
+	UpsertCardToTypesense(newCard)
+
+	// Create audit event for creation
+	CreateAuditEvent(db, userID, id, "card", "create", nil, newCard)
+
+	// set parent id to id if there's no parent
+	if parent.ID == 0 || params.CardID == "" {
+		_, err = db.Exec("UPDATE cards SET parent_id = $1 WHERE id = $1", id)
+		if err != nil {
+			return models.Card{}, err
+		}
+	}
+
+	backlinks := ExtractBacklinks(newCard.Body)
+	UpdateBacklinks(db, newCard.ID, backlinks)
+
+	AddTagsFromCard(db, userID, id)
+
+	return GetFullCard(db, userID, id)
+}

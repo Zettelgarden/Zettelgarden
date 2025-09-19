@@ -519,7 +519,7 @@ func (s *Handler) createDefaultCards(userID int) error {
 		Body:   s.getDefaultDashboardBody(),
 		Link:   "",
 	}
-	card, err := s.CreateCard(userID, params)
+	card, err := services.CreateCard(s.DB, userID, params)
 	if err != nil {
 		log.Printf("error creating default cards: %v", err)
 		return err

@@ -10,7 +10,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -322,13 +321,18 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
-	card, err := s.UpdateCard(userID, id, params)
+	card, err := services.UpdateCard(s.DB, userID, id, params)
 	if err != nil {
 		log.Printf("?")
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
+	if s.UserHasSubscription(userID) {
+		s.GenerateMemory(uint(userID), card.Body)
+		if params.ProcessEntitiesAndFacts != nil && *params.ProcessEntitiesAndFacts {
+			s.ProcessEntitiesAndFacts(userID, card)
+		}
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(card)
 }
@@ -350,12 +354,15 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	card, err := s.CreateCard(userID, params)
+	card, err := services.CreateCard(s.DB, userID, params)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
+	if s.UserHasSubscription(userID) {
+		s.GenerateMemory(uint(userID), card.Body)
+		s.ProcessEntitiesAndFacts(userID, card)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(card)
 }
@@ -445,107 +452,6 @@ func (s *Handler) QueryPartialCard(userID int, cardID string) (models.PartialCar
 func (s *Handler) QueryFullCard(userID int, id int) (models.Card, error) {
 	s.logCardView(id, userID)
 	return services.GetFullCard(s.DB, userID, id)
-}
-
-func (s *Handler) UpdateCard(userID int, cardPK int, params models.EditCardParams) (models.Card, error) {
-	// Get the old state first
-	oldCard, err := s.QueryFullCard(userID, cardPK)
-	if err != nil {
-		return models.Card{}, err
-	}
-
-	var parent_id int
-	parent, _ := s.QueryPartialCard(userID, services.DiscoverParentId(params.CardID))
-
-	// set parent id to id if there's no parent
-	if parent.ID == 0 || params.CardID == "" {
-		parent_id = cardPK
-	} else {
-		parent_id = parent.ID
-	}
-
-	query := `
-	UPDATE cards SET title = $1, body = $2, link = $3, parent_id = $4, updated_at = NOW(), card_id = $5
-	WHERE
-	id = $6
-	`
-	_, err = s.DB.Exec(query, params.Title, params.Body, params.Link, parent_id, params.CardID, cardPK)
-	if err != nil {
-		log.Printf("updatecard err %v", err)
-		return models.Card{}, err
-	}
-
-	// Get the new state
-	newCard, err := s.QueryFullCard(userID, cardPK)
-	if err != nil {
-		return models.Card{}, err
-	}
-
-	// Create audit event
-	services.CreateAuditEvent(s.DB, userID, cardPK, "card", "update", oldCard, newCard)
-
-	backlinks := services.ExtractBacklinks(newCard.Body)
-	services.UpdateBacklinks(s.DB, newCard.ID, backlinks)
-
-	services.UpsertCardToTypesense(newCard)
-
-	services.AddTagsFromCard(s.DB, userID, cardPK)
-	if s.UserHasSubscription(userID) {
-		s.GenerateMemory(uint(userID), newCard.Body)
-		if params.ProcessEntitiesAndFacts != nil && *params.ProcessEntitiesAndFacts {
-			s.ProcessEntitiesAndFacts(userID, newCard)
-		}
-	}
-	return s.QueryFullCard(userID, cardPK)
-}
-
-func (s *Handler) CreateCard(userID int, params models.EditCardParams) (models.Card, error) {
-	// Strip all whitespace from card_id before proceeding
-	params.CardID = strings.ReplaceAll(params.CardID, " ", "")
-	params.CardID = regexp.MustCompile(`\s+`).ReplaceAllString(params.CardID, "")
-
-	parent, err := s.QueryPartialCard(userID, services.DiscoverParentId(params.CardID))
-	query := `
-	INSERT INTO cards 
-	(title, body, link, user_id, card_id, parent_id, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-	RETURNING id;
-	`
-	var id int
-	err = s.DB.QueryRow(query, params.Title, params.Body, params.Link, userID, params.CardID, parent.ID).Scan(&id)
-	if err != nil {
-		log.Printf("updatecard err %v", err)
-		return models.Card{}, err
-	}
-
-	// Get the created card
-	newCard, err := s.QueryFullCard(userID, id)
-	if err != nil {
-		return models.Card{}, err
-	}
-	services.UpsertCardToTypesense(newCard)
-
-	// Create audit event for creation
-	services.CreateAuditEvent(s.DB, userID, id, "card", "create", nil, newCard)
-
-	// set parent id to id if there's no parent
-	if parent.ID == 0 || params.CardID == "" {
-		_, err = s.DB.Exec("UPDATE cards SET parent_id = $1 WHERE id = $1", id)
-		if err != nil {
-			return models.Card{}, err
-		}
-	}
-
-	backlinks := services.ExtractBacklinks(newCard.Body)
-	services.UpdateBacklinks(s.DB, newCard.ID, backlinks)
-
-	services.AddTagsFromCard(s.DB, userID, id)
-
-	if s.UserHasSubscription(userID) {
-		s.GenerateMemory(uint(userID), newCard.Body)
-		s.ProcessEntitiesAndFacts(userID, newCard)
-	}
-	return s.QueryFullCard(userID, id)
 }
 
 func (s *Handler) GetCardAuditEventsRoute(w http.ResponseWriter, r *http.Request) {
