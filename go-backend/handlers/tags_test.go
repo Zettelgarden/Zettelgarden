@@ -320,9 +320,6 @@ func TestAddTagsFromTaskQuery(t *testing.T) {
 }
 
 func TestParseTagsFromCardBody(t *testing.T) {
-	s := setup()
-	defer tests.Teardown()
-
 	body := "hello world \n\n#to-read #hello#world"
 
 	tags, err := services.ParseTagsFromCardBody(body)

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"go-backend/models"
+	"go-backend/services"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,7 @@ func createTestCard(t *testing.T, h *Handler, userID int) models.Card {
 		Body:   "Test Body",
 		CardID: "test-1",
 	}
-	card, err := h.CreateCard(userID, params)
+	card, err := services.CreateCard(h.DB, userID, params)
 	assert.NoError(t, err)
 	return card
 }

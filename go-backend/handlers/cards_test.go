@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"go-backend/models"
+	"go-backend/services"
 	"go-backend/tests"
 	"log"
 	"mime/multipart"
@@ -567,7 +568,7 @@ func TestGetNextRootCardID(t *testing.T) {
 		Link:   "",
 	}
 	var err error
-	_, err = s.CreateCard(1, data)
+	_, err = services.CreateCard(s.DB, 2, data)
 	if err != nil {
 		t.Fatalf("Failed to create test card: %v", err)
 	}
@@ -580,7 +581,7 @@ func TestGetNextRootCardID(t *testing.T) {
 
 	// Test that non-numeric IDs are ignored
 	data.CardID = "ABC123"
-	_, err = s.CreateCard(1, data)
+	_, err = services.CreateCard(s.DB, 1, data)
 	if err != nil {
 		t.Fatalf("Failed to create test card: %v", err)
 	}
