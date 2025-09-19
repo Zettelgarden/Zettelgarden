@@ -49,7 +49,6 @@ func NewToolRegistry() *ToolRegistry {
 	//registry.registerFilterCardsByMetadata()
 	registry.registerCreateCard()
 	registry.registerUpdateCard()
-	registry.registerGetCardAnalysis()
 	registry.registerTask()
 
 	return registry
@@ -218,10 +217,14 @@ func (tr *ToolRegistry) registerGetCardAnalysis() {
 					"properties": map[string]interface{}{
 						"card_pk": map[string]interface{}{
 							"type":        "integer",
-							"description": "The primary key ID of the card to get analysis for",
+							"description": "The primary key ID of the card to get analysis for. This is different from the card_id, which is meant to be human readable",
+						},
+						"card_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The human readable identifier of the card to get analysis for. This is different from the card_pk, which is just an int",
 						},
 					},
-					"required": []string{"card_id"},
+					"required": []string{"card_pk"},
 				},
 			},
 		},
@@ -413,9 +416,9 @@ func handleCreateCard(args map[string]interface{}, ctx *ToolContext) (map[string
 }
 
 func handleGetCardAnalysis(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	cardIDFloat, ok := args["card_id"].(float64)
+	cardIDFloat, ok := args["card_pk"].(float64)
 	if !ok {
-		return nil, fmt.Errorf("card_id parameter is required")
+		return nil, fmt.Errorf("card_pk parameter is required")
 	}
 	cardPK := int(cardIDFloat)
 
@@ -427,7 +430,7 @@ func handleGetCardAnalysis(args map[string]interface{}, ctx *ToolContext) (map[s
 
 	// Convert analysis to map for tool response
 	return map[string]interface{}{
-		"card_id":  cardPK,
+		"card_pk":  cardPK,
 		"analysis": analysis,
 	}, nil
 }
@@ -567,6 +570,7 @@ func executeSubagentTask(prompt, subagentType string, ctx *ToolContext) (string,
 	subagentRegistry.registerSearchCards()
 	subagentRegistry.registerGetCardByID()
 	subagentRegistry.registerBrowseCardHierarchy()
+	subagentRegistry.registerGetCardAnalysis()
 
 	tools := subagentRegistry.GetToolDefinitions()
 
