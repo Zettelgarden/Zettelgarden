@@ -67,7 +67,7 @@ func GetChildCards(db *sql.DB, userID int, cardID int) ([]models.PartialCard, er
 		ORDER BY card_id
 	`
 
-	rows, err := db.Query(query, userID, parent_id, cardID)
+	rows, err := db.Query(query, userID, cardID, cardID)
 	if err != nil {
 		return nil, err
 	}

@@ -222,13 +222,7 @@ func (s *Handler) GetCardChildrenRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	card, err := s.QueryFullCard(userID, id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-
-	children, err := services.GetChildCards(s.DB, userID, card.ID)
+	children, err := services.GetChildCards(s.DB, userID, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
