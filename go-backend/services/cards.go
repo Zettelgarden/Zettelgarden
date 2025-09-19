@@ -61,7 +61,7 @@ func GetChildCards(db *sql.DB, userID int, cardID int) ([]models.PartialCard, er
 
 	// Find child cards based on card_id hierarchy
 	query := `
-		SELECT id, title, body, card_id, created_at, updated_at
+		SELECT id, card_id, user_id, title, parent_id, created_at, updated_at
 		FROM cards
 		WHERE user_id = $1 AND card_id LIKE $2 AND card_id != $3
 		ORDER BY card_id
