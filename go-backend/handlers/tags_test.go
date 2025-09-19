@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"go-backend/models"
+	"go-backend/services"
 	"go-backend/tests"
 	"log"
 	"net/http"
@@ -22,7 +23,7 @@ func TestGetTag(t *testing.T) {
 	userID := 1
 	tagName := "test"
 
-	tag, err := s.GetTag(userID, tagName)
+	tag, err := services.GetTag(s.DB, userID, tagName)
 	if err != nil {
 		t.Errorf("handler returned error, %v", err.Error())
 	}
@@ -39,7 +40,7 @@ func TestGetTagNotFound(t *testing.T) {
 	userID := 1
 	tagName := "no tag by this name"
 
-	tag, err := s.GetTag(userID, tagName)
+	tag, err := services.GetTag(s.DB, userID, tagName)
 	if err == nil {
 		t.Errorf("handler did not return error when expecting error")
 	}
@@ -126,14 +127,14 @@ func TestCreateTag(t *testing.T) {
 		Color: "black",
 	}
 
-	tag, err := s.CreateTag(userID, tagData)
+	tag, err := services.CreateTag(s.DB, userID, tagData)
 	if err != nil {
 		t.Errorf("handler returned error, %v", err.Error())
 	}
 	if tag.Name != tagData.Name {
 		t.Errorf("handler returned wrong tag, got %v want %v", tag.Name, tagData.Name)
 	}
-	tag, err = s.GetTag(userID, tagData.Name)
+	tag, err = services.GetTag(s.DB, userID, tagData.Name)
 	if err != nil {
 		t.Errorf("handler returned error, %v", err.Error())
 	}
@@ -151,7 +152,7 @@ func TestEditTag(t *testing.T) {
 	userID := 1
 
 	tagName := "test"
-	tag, err := s.GetTag(userID, tagName)
+	tag, err := services.GetTag(s.DB, userID, tagName)
 
 	if err != nil {
 		t.Errorf("handler returned error, %v", err.Error())
@@ -164,14 +165,14 @@ func TestEditTag(t *testing.T) {
 		Color: "red",
 	}
 
-	tag, err = s.EditTag(userID, tagName, tagData)
+	tag, err = services.EditTag(s.DB, userID, tagName, tagData)
 	if err != nil {
 		t.Errorf("handler returned error, %v", err.Error())
 	}
 	if tag.Name != tagData.Name {
 		t.Errorf("handler returned wrong tag, got %v want %v", tag.Name, tagData.Name)
 	}
-	tag, err = s.GetTag(userID, tagData.Name)
+	tag, err = services.GetTag(s.DB, userID, tagData.Name)
 	if err != nil {
 		t.Errorf("handler returned err %v", err)
 	}
@@ -187,7 +188,7 @@ func TestCreateTagOverExisting(t *testing.T) {
 	userID := 1
 
 	tagName := "test"
-	tag, err := s.GetTag(userID, tagName)
+	tag, err := services.GetTag(s.DB, userID, tagName)
 	oldID := tag.ID
 
 	if err != nil {
@@ -200,14 +201,14 @@ func TestCreateTagOverExisting(t *testing.T) {
 		Name:  tagName,
 		Color: "red",
 	}
-	tag, err = s.CreateTag(userID, tagData)
+	tag, err = services.CreateTag(s.DB, userID, tagData)
 	if err != nil {
 		t.Errorf("handler returned error, %v", err.Error())
 	}
 	if tag.ID != oldID {
 		t.Errorf("handler returned wrong tag, got id %v want id %v", tag.ID, oldID)
 	}
-	tag, err = s.GetTag(userID, tagData.Name)
+	tag, err = services.GetTag(s.DB, userID, tagData.Name)
 	if err != nil {
 		t.Errorf("handler returned error, %v", err.Error())
 	}
@@ -234,7 +235,7 @@ func TestAddTagToCard(t *testing.T) {
 	var count int
 	_ = s.DB.QueryRow("SELECT count(*) FROM card_tags").Scan(&count)
 
-	err := s.AddTagToCard(userID, tagName, cardPK)
+	err := services.AddTagToCard(s.DB, userID, tagName, cardPK)
 	if err != nil {
 		t.Errorf("handler returned error, %v", err.Error())
 	}
@@ -259,7 +260,7 @@ func TestAddTagsFromCardQuery(t *testing.T) {
 	var count int
 	_ = s.DB.QueryRow("SELECT count(*) FROM card_tags").Scan(&count)
 
-	err := s.AddTagsFromCard(userID, cardPK)
+	err := services.AddTagsFromCard(s.DB, userID, cardPK)
 	if err != nil {
 		t.Errorf("handler returned error, %v", err.Error())
 	}
@@ -270,7 +271,7 @@ func TestAddTagsFromCardQuery(t *testing.T) {
 		t.Errorf("handler returned wrong number of card_tags, got %v want %v", newCount, count+1)
 	}
 
-	tags, err := s.QueryTagsForCard(userID, cardPK)
+	tags, err := services.QueryTagsForCard(s.DB, userID, cardPK)
 	if err != nil {
 		t.Errorf("handler returned error, %v", err.Error())
 	}
@@ -324,7 +325,7 @@ func TestParseTagsFromCardBody(t *testing.T) {
 
 	body := "hello world \n\n#to-read #hello#world"
 
-	tags, err := s.ParseTagsFromCardBody(body)
+	tags, err := services.ParseTagsFromCardBody(body)
 	if err != nil {
 		t.Errorf("handler returned error, %v", err.Error())
 	}
@@ -339,7 +340,7 @@ func TestParseTagsFromCardBody(t *testing.T) {
 	}
 
 	body = "hello world \n\nto-read#hello #world"
-	tags, err = s.ParseTagsFromCardBody(body)
+	tags, err = services.ParseTagsFromCardBody(body)
 	if err != nil {
 		t.Errorf("handler returned error, %v", err.Error())
 	}
@@ -377,7 +378,7 @@ func TestDeleteTag(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNoContent)
 	}
 
-	_, err = s.GetTag(2, "test")
+	_, err = services.GetTag(s.DB, 2, "test")
 	if err == nil {
 		t.Error("handler returned tag after it should have been deleted")
 	}
@@ -397,7 +398,7 @@ func TestIdentifyParentTags(t *testing.T) {
 	if err != nil {
 		t.Errorf("handler returned error finding card: %v", err.Error())
 	}
-	parent_tags, err := s.IdentifyParentTags(1, card)
+	parent_tags, err := services.IdentifyParentTags(s.DB, 1, card)
 	if err != nil {
 		t.Errorf("handler returned error: %v", err.Error())
 	}
@@ -446,7 +447,7 @@ func TestCreateCardSuccessRecursiveTags(t *testing.T) {
 	}
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &card)
 
-	tags, err := s.QueryTagsForCard(1, card.ID)
+	tags, err := services.QueryTagsForCard(s.DB, 1, card.ID)
 	if err != nil {
 		t.Errorf("handler returned error, %v", err.Error())
 	}

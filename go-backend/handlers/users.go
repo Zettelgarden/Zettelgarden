@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"go-backend/models"
+	"go-backend/services"
 	"log"
 	"net/http"
 	"os"
@@ -542,7 +543,7 @@ func (s *Handler) createDefaultTags(userID int) error {
 			Name:  tagName,
 			Color: "black", // default color
 		}
-		_, err := s.CreateTag(userID, params)
+		_, err := services.CreateTag(s.DB, userID, params)
 		if err != nil {
 			log.Printf("error creating default tag %s: %v", tagName, err)
 			return err

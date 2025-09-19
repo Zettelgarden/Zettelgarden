@@ -444,3 +444,75 @@ func getParentIdAlternating(cardID string) string {
 
 	return parentID
 }
+
+func DeleteCard(db *sql.DB, userID int, id int) error {
+	// Get the card before deletion for audit
+	card, err := GetFullCard(db, userID, id)
+	if err != nil {
+		return err
+	}
+
+	backlinks, _ := GetBacklinks(db, userID, card.CardID)
+	if len(backlinks) > 0 {
+		return fmt.Errorf("card has backlinks, cannot be deleted")
+	}
+	children, err := GetChildCards(db, userID, card.ID)
+	if len(children) > 0 {
+		return fmt.Errorf("card has children, cannot be deleted")
+	}
+
+	_, err = db.Exec(`
+	UPDATE cards SET is_deleted = TRUE, updated_at = NOW()
+	WHERE
+	id = $1 AND user_id = $2
+	`, id, userID)
+
+	if err != nil {
+		return err
+	}
+
+	deleteCardTypesense(card.ID)
+
+	// Create audit event for deletion
+	err = CreateAuditEvent(db, userID, id, "card", "delete", card, nil)
+	if err != nil {
+		log.Printf("Error creating audit event: %v", err)
+		// Don't return here as deletion was successful
+	}
+
+	return nil
+}
+
+func UpdateBacklinks(db *sql.DB, cardPK int, backlinks []string) error {
+	tx, _ := db.Begin()
+	_, err := tx.Exec("DELETE FROM backlinks WHERE source_id_int = $1", cardPK)
+	if err != nil {
+		log.Fatal(err.Error())
+		tx.Rollback()
+		return err
+	}
+	for _, targetID := range backlinks {
+		_, err = tx.Exec(`
+	WITH target_id AS (
+    SELECT id 
+    FROM cards 
+    WHERE card_id = $2
+)
+INSERT INTO backlinks (source_id_int, target_id_int, created_at, updated_at)
+SELECT $1, target_id.id, NOW(), NOW()
+FROM target_id;	
+		`,
+			cardPK, targetID,
+		)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
+
+}

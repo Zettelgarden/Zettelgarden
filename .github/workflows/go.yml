@@ -59,6 +59,7 @@ jobs:
         DB_USER: postgres
         DB_PASS: postgres
         DB_NAME: zettelkasten_testing
+        ZETTEL_IS_TESTING: "true"
         B2_ACCESS_KEY_ID: ${{ secrets.B2_ACCESS_KEY_ID }}
         B2_SECRET_ACCESS_KEY: ${{ secrets.B2_SECRET_ACCESS_KEY }}
         B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"go-backend/models"
+	"go-backend/services"
 	"log"
 	"net/http"
 	"strconv"
@@ -123,7 +124,7 @@ func (s *Handler) GetStarredCardsRoute(w http.ResponseWriter, r *http.Request) {
 		card.Parent = parent
 
 		// Get tags for the card
-		tags, err := s.QueryTagsForCard(userID, card.ID)
+		tags, err := services.QueryTagsForCard(s.DB, userID, card.ID)
 		if err != nil {
 			log.Printf("Error getting tags: %v", err)
 			// Continue even if tags can't be found

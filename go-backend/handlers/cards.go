@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -11,7 +10,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -40,40 +38,6 @@ func (s *Handler) checkIsCardIDUnique(userID int, cardID string) bool {
 	} else {
 		return true
 	}
-}
-
-func (s *Handler) updateBacklinks(cardPK int, backlinks []string) error {
-	tx, _ := s.DB.Begin()
-	_, err := tx.Exec("DELETE FROM backlinks WHERE source_id_int = $1", cardPK)
-	if err != nil {
-		log.Fatal(err.Error())
-		tx.Rollback()
-		return err
-	}
-	for _, targetID := range backlinks {
-		_, err = tx.Exec(`
-	WITH target_id AS (
-    SELECT id 
-    FROM cards 
-    WHERE card_id = $2
-)
-INSERT INTO backlinks (source_id_int, target_id_int, created_at, updated_at)
-SELECT $1, target_id.id, NOW(), NOW()
-FROM target_id;	
-		`,
-			cardPK, targetID,
-		)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-
-	return nil
-
 }
 
 func (s *Handler) getDirectlinks(userID int, card models.Card) []models.PartialCard {
@@ -188,7 +152,7 @@ func (s *Handler) GetCardTagsRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tags, err := s.QueryTagsForCard(userID, card.ID)
+	tags, err := services.QueryTagsForCard(s.DB, userID, card.ID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -404,7 +368,7 @@ func (s *Handler) DeleteCardRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.DeleteCard(userID, id)
+	err = services.DeleteCard(s.DB, userID, id)
 	if err != nil {
 		if err.Error() == "card not found" {
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -521,11 +485,11 @@ func (s *Handler) UpdateCard(userID int, cardPK int, params models.EditCardParam
 	services.CreateAuditEvent(s.DB, userID, cardPK, "card", "update", oldCard, newCard)
 
 	backlinks := services.ExtractBacklinks(newCard.Body)
-	s.updateBacklinks(newCard.ID, backlinks)
+	services.UpdateBacklinks(s.DB, newCard.ID, backlinks)
 
-	s.upsertCardToTypesense(newCard)
+	services.UpsertCardToTypesense(newCard)
 
-	s.AddTagsFromCard(userID, cardPK)
+	services.AddTagsFromCard(s.DB, userID, cardPK)
 	if s.UserHasSubscription(userID) {
 		s.GenerateMemory(uint(userID), newCard.Body)
 		if params.ProcessEntitiesAndFacts != nil && *params.ProcessEntitiesAndFacts {
@@ -559,7 +523,7 @@ func (s *Handler) CreateCard(userID int, params models.EditCardParams) (models.C
 	if err != nil {
 		return models.Card{}, err
 	}
-	s.upsertCardToTypesense(newCard)
+	services.UpsertCardToTypesense(newCard)
 
 	// Create audit event for creation
 	services.CreateAuditEvent(s.DB, userID, id, "card", "create", nil, newCard)
@@ -573,53 +537,15 @@ func (s *Handler) CreateCard(userID int, params models.EditCardParams) (models.C
 	}
 
 	backlinks := services.ExtractBacklinks(newCard.Body)
-	s.updateBacklinks(newCard.ID, backlinks)
+	services.UpdateBacklinks(s.DB, newCard.ID, backlinks)
 
-	s.AddTagsFromCard(userID, id)
+	services.AddTagsFromCard(s.DB, userID, id)
 
 	if s.UserHasSubscription(userID) {
 		s.GenerateMemory(uint(userID), newCard.Body)
 		s.ProcessEntitiesAndFacts(userID, newCard)
 	}
 	return s.QueryFullCard(userID, id)
-}
-
-func (s *Handler) DeleteCard(userID int, id int) error {
-	// Get the card before deletion for audit
-	card, err := s.QueryFullCard(userID, id)
-	if err != nil {
-		return err
-	}
-
-	backlinks, _ := services.GetBacklinks(s.DB, userID, card.CardID)
-	if len(backlinks) > 0 {
-		return fmt.Errorf("card has backlinks, cannot be deleted")
-	}
-	children, err := services.GetChildCards(s.DB, userID, card.ID)
-	if len(children) > 0 {
-		return fmt.Errorf("card has children, cannot be deleted")
-	}
-
-	_, err = s.DB.Exec(`
-	UPDATE cards SET is_deleted = TRUE, updated_at = NOW()
-	WHERE
-	id = $1 AND user_id = $2
-	`, id, userID)
-
-	if err != nil {
-		return err
-	}
-
-	s.deleteCardTypesense(card.ID)
-
-	// Create audit event for deletion
-	err = services.CreateAuditEvent(s.DB, userID, id, "card", "delete", card, nil)
-	if err != nil {
-		log.Printf("Error creating audit event: %v", err)
-		// Don't return here as deletion was successful
-	}
-
-	return nil
 }
 
 func (s *Handler) GetCardAuditEventsRoute(w http.ResponseWriter, r *http.Request) {
@@ -979,48 +905,4 @@ func (h *Handler) ParseURLRoute(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
-}
-
-// upsertCardToTypesense adds or updates a card document in Typesense
-func (s *Handler) upsertCardToTypesense(card models.Card) {
-	if s.Server.Testing {
-		return
-	}
-	collectionName := os.Getenv("TYPESENSE_COLLECTION")
-	doc := map[string]interface{}{
-		"id":                    "card-" + strconv.Itoa(card.ID),
-		"fact_pk":               -1,
-		"card_id":               card.CardID,
-		"card_pk":               card.ID,
-		"entity_pk":             -1,
-		"user_id":               card.UserID,
-		"type":                  "card",
-		"title":                 card.Title,
-		"preview":               card.Body,
-		"parent_id":             card.ParentID,
-		"created_at":            card.CreatedAt.Unix(),
-		"updated_at":            card.UpdatedAt.Unix(),
-		"linked_card_id":        "",
-		"linked_card_pk":        -1,
-		"linked_card_title":     "",
-		"linked_card_parent_id": -1,
-	}
-
-	_, err := s.Server.TypesenseClient.Collection(collectionName).
-		Documents().Upsert(context.Background(), doc)
-	if err != nil {
-		log.Printf("failed to upsert card ID %d: %v", card.ID, err)
-	}
-}
-
-func (s *Handler) deleteCardTypesense(cardPK int) {
-	if s.Server.Testing {
-		return
-	}
-	collectionName := os.Getenv("TYPESENSE_COLLECTION")
-	_, err := s.Server.TypesenseClient.Collection(collectionName).
-		Document("card-" + strconv.Itoa(cardPK)).Delete(context.Background())
-	if err != nil {
-		log.Printf("failed to delete card ID %d: %v", cardPK, err)
-	}
 }

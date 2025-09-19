@@ -9,14 +9,19 @@ import (
 	"github.com/typesense/typesense-go/typesense/api"
 )
 
-func InitTypesense() (*typesense.Client, error) {
-
-	ctx := context.Background()
-
+func GetTypesenseClient() *typesense.Client {
 	client := typesense.NewClient(
 		typesense.WithServer(os.Getenv("TYPESENSE_HOST")),
 		typesense.WithAPIKey(os.Getenv("TYPESENSE_PASSWORD")),
 	)
+	return client
+}
+
+func InitTypesense() (*typesense.Client, error) {
+
+	ctx := context.Background()
+
+	client := GetTypesenseClient()
 
 	collectionName := os.Getenv("TYPESENSE_COLLECTION")
 
