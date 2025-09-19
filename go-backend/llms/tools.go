@@ -47,6 +47,7 @@ func NewToolRegistry() *ToolRegistry {
 	registry.registerGetCardByID()
 	//registry.registerBrowseCardHierarchy()
 	//registry.registerFilterCardsByMetadata()
+	registry.registerUpdateCard()
 	registry.registerTask()
 
 	return registry
@@ -172,6 +173,45 @@ func (tr *ToolRegistry) registerBrowseCardHierarchy() {
 	}
 }
 
+func (tr *ToolRegistry) registerUpdateCard() {
+	tr.tools["update_card"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "update_card",
+				Description: "Update an existing card's title, body, or link. All fields except id and existing_card_id are optional - only provided fields will be updated.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The primary key ID of the card to update (required)",
+						},
+						"existing_card_id": map[string]interface{}{
+							"type":        "string",
+							"description": "The current card_id (user-readable identifier) for verification (required)",
+						},
+						"title": map[string]interface{}{
+							"type":        "string",
+							"description": "New title for the card (optional)",
+						},
+						"body": map[string]interface{}{
+							"type":        "string",
+							"description": "New body content for the card (optional)",
+						},
+						"link": map[string]interface{}{
+							"type":        "string",
+							"description": "New link for the card (optional)",
+						},
+					},
+					"required": []string{"id", "existing_card_id"},
+				},
+			},
+		},
+		Handler: handleUpdateCard,
+	}
+}
+
 func (tr *ToolRegistry) registerTask() {
 	tr.tools["Task"] = Tool{
 		Definition: openai.Tool{
@@ -280,6 +320,57 @@ func handleGetCardByID(args map[string]interface{}, ctx *ToolContext) (map[strin
 	}
 
 	return StructToMap(card), nil
+}
+
+func handleUpdateCard(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	cardIDFloat, ok := args["id"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("id parameter is required")
+	}
+	cardPK := int(cardIDFloat)
+
+	existingCardID, ok := args["existing_card_id"].(string)
+	if !ok {
+		return nil, fmt.Errorf("existing_card_id parameter is required")
+	}
+
+	// Get the current card
+	currentCard, err := services.GetFullCard(ctx.DB, ctx.UserID, cardPK)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get card: %v", err)
+	}
+
+	// Safety check: verify the existing_card_id matches what's on disk
+	if currentCard.CardID != existingCardID {
+		return nil, fmt.Errorf("card_id mismatch: expected %s but found %s", existingCardID, currentCard.CardID)
+	}
+
+	// Build update parameters, using current values as defaults
+	params := models.EditCardParams{
+		Title:  currentCard.Title,
+		Body:   currentCard.Body,
+		Link:   currentCard.Link,
+		CardID: currentCard.CardID,
+	}
+
+	// Update only provided fields
+	if title, ok := args["title"].(string); ok {
+		params.Title = title
+	}
+	if body, ok := args["body"].(string); ok {
+		params.Body = body
+	}
+	if link, ok := args["link"].(string); ok {
+		params.Link = link
+	}
+
+	// Update the card
+	updatedCard, err := services.UpdateCard(ctx.DB, ctx.UserID, cardPK, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update card: %v", err)
+	}
+
+	return StructToMap(updatedCard), nil
 }
 
 func handleBrowseCardHierarchy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
