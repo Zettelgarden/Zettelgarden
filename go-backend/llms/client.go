@@ -59,7 +59,22 @@ func ExecuteLLMRequest(c *models.LLMClient, messages []openai.ChatCompletionMess
 
 	return resp, err
 }
+func ExecuteLLMToolRequest(c *models.LLMClient, messages []openai.ChatCompletionMessage, tools []openai.Tool) (openai.ChatCompletionResponse, error) {
+	resp, err := c.Client.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model:    c.Model,
+			Messages: messages,
+			Tools:    tools,
+		},
+	)
 
+	if err == nil {
+		logLLMRequest(c, resp, c.RequestType)
+	}
+
+	return resp, err
+}
 func logLLMRequest(c *models.LLMClient, resp openai.ChatCompletionResponse, requestType string) {
 	// fire and forget
 	go func() {

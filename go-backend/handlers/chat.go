@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -12,7 +11,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -30,6 +28,7 @@ type CreateConversationRequest struct {
 type SendMessageRequest struct {
 	Content         string   `json:"content"`
 	ReferencedCards []string `json:"referenced_cards,omitempty"`
+	Model           *string  `json:"model,omitempty"`
 }
 
 // UpdateConversationTitleRequest represents the request to update a conversation title
@@ -245,8 +244,14 @@ func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Determine which model to use - request override or conversation default
+	modelToUse := conversation.Model
+	if req.Model != nil && *req.Model != "" {
+		modelToUse = *req.Model
+	}
+
 	// Generate LLM response with tools
-	assistantMessage, err := s.GenerateChatResponse(userID, conversation, messages)
+	assistantMessage, err := s.GenerateChatResponse(userID, conversation, messages, modelToUse)
 	if err != nil {
 		log.Printf("Error generating chat response: %v", err)
 		http.Error(w, "Failed to generate response", http.StatusInternalServerError)
@@ -633,7 +638,7 @@ func (s *Handler) UpdateConversationTitle(conversationID string, title string) e
 }
 
 // GenerateChatResponse generates an LLM response with tool calling support
-func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConversation, messages []models.ChatMessage) (*models.ChatMessage, error) {
+func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConversation, messages []models.ChatMessage, model string) (*models.ChatMessage, error) {
 	// Import the tools package (we'll need this in the imports)
 	// Convert messages to OpenAI format
 	var openaiMessages []openai.ChatCompletionMessage
@@ -698,7 +703,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 
 	// Create LLM client
 	client := llms.NewDefaultClient(s.DB, userID)
-	client.Model = conversation.Model
+	client.Model = model
 	client.RequestType = "chat"
 
 	// Get tools registry
@@ -707,15 +712,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 
 	// Loop until no more tool calls are needed
 	for {
-		// Make request with tools
-		resp, err := client.Client.CreateChatCompletion(
-			context.Background(),
-			openai.ChatCompletionRequest{
-				Model:    conversation.Model,
-				Messages: openaiMessages,
-				Tools:    tools,
-			},
-		)
+		resp, err := llms.ExecuteLLMToolRequest(client, openaiMessages, tools)
 
 		if err != nil {
 			return nil, err
@@ -1044,7 +1041,7 @@ func (s *Handler) generateConversationTitle(userMessage string, model string) st
 	// Create LLM client for title generation
 	client := llms.NewDefaultClient(s.DB, 0) // Use system user ID for title generation
 	client.RequestType = "chat"
-	client.Model = "gpt-4o-mini"             // Use faster, cheaper model for title generation
+	client.Model = "gpt-4o-mini" // Use faster, cheaper model for title generation
 
 	messages := []openai.ChatCompletionMessage{
 		{
@@ -1057,16 +1054,7 @@ func (s *Handler) generateConversationTitle(userMessage string, model string) st
 		},
 	}
 
-	// Generate title with a short timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	resp, err := client.Client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model:       client.Model,
-		Messages:    messages,
-		MaxTokens:   20,  // Keep titles short
-		Temperature: 0.3, // Lower temperature for more consistent titles
-	})
+	resp, err := llms.ExecuteLLMRequest(client, messages)
 
 	if err != nil {
 		log.Printf("Error generating conversation title: %v", err)

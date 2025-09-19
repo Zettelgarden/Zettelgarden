@@ -1,7 +1,6 @@
 package llms
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -376,14 +375,7 @@ func executeSubagentTask(prompt, subagentType string, userID int, db *sql.DB, ty
 	// Execute the subagent conversation with potential tool calls
 	maxIterations := 5 // Prevent infinite loops
 	for i := 0; i < maxIterations; i++ {
-		resp, err := client.Client.CreateChatCompletion(
-			context.Background(),
-			openai.ChatCompletionRequest{
-				Model:    client.Model,
-				Messages: messages,
-				Tools:    tools,
-			},
-		)
+		resp, err := ExecuteLLMToolRequest(client, messages, tools)
 		if err != nil {
 			return "", fmt.Errorf("LLM request failed: %v", err)
 		}

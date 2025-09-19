@@ -50,6 +50,7 @@ export interface CreateConversationRequest {
 export interface SendMessageRequest {
   content: string;
   referenced_cards?: string[];
+  model?: string;
 }
 
 export interface UsageQuota {
@@ -121,13 +122,16 @@ export function getConversation(conversationId: string): Promise<ConversationWit
     });
 }
 
-export function sendMessage(conversationId: string, content: string, referencedCards?: string[]): Promise<ChatMessage[]> {
+export function sendMessage(conversationId: string, content: string, referencedCards?: string[], model?: string): Promise<ChatMessage[]> {
   const url = `${base_url}/chat/conversations/${conversationId}/messages`;
   const token = localStorage.getItem("token");
 
   const payload: SendMessageRequest = { content };
   if (referencedCards && referencedCards.length > 0) {
     payload.referenced_cards = referencedCards;
+  }
+  if (model) {
+    payload.model = model;
   }
 
   return fetch(url, {
