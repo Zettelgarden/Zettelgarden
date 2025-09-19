@@ -53,8 +53,8 @@ func ExtractBacklinks(text string) []string {
 
 func GetChildCards(db *sql.DB, userID int, cardID int) ([]models.PartialCard, error) {
 	// Get the parent card's card_id first
-	var parentCardID string
-	err := db.QueryRow("SELECT card_id FROM cards WHERE id = $1 AND user_id = $2", cardID, userID).Scan(&parentCardID)
+	var parent_id int
+	err := db.QueryRow("SELECT parent_id FROM cards WHERE id = $1 AND user_id = $2", cardID, userID).Scan(&parent_id)
 	if err != nil {
 		return nil, err
 	}
@@ -63,13 +63,11 @@ func GetChildCards(db *sql.DB, userID int, cardID int) ([]models.PartialCard, er
 	query := `
 		SELECT id, card_id, user_id, title, parent_id, created_at, updated_at
 		FROM cards
-		WHERE user_id = $1 AND card_id LIKE $2 AND card_id != $3
+		WHERE user_id = $1 AND parent_id = $2 and id != $3
 		ORDER BY card_id
-		LIMIT 50
 	`
 
-	pattern := parentCardID + "%"
-	rows, err := db.Query(query, userID, pattern, parentCardID)
+	rows, err := db.Query(query, userID, parent_id, cardID)
 	if err != nil {
 		return nil, err
 	}
