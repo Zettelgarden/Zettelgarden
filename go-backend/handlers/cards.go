@@ -22,23 +22,6 @@ import (
 	"golang.org/x/net/html"
 )
 
-func (s *Handler) checkIsCardIDUnique(userID int, cardID string) bool {
-	if cardID == "" {
-		return true
-	}
-	var count int
-	err := s.DB.QueryRow(`SELECT count(*) FROM cards 
-		WHERE user_id = $1 AND card_id = $2 AND is_deleted = FALSE`, userID, cardID).Scan(&count)
-	if err != nil {
-		log.Printf("err %v", err)
-		return false
-	}
-	if count > 0 {
-		return false
-	} else {
-		return true
-	}
-}
 
 func (s *Handler) getDirectlinks(userID int, card models.Card) []models.PartialCard {
 	backlinks := services.ExtractBacklinks(card.Body)
@@ -342,10 +325,6 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("err? %v", err)
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
-		return
-	}
-	if !s.checkIsCardIDUnique(userID, params.CardID) {
-		http.Error(w, "card_id already exists", http.StatusBadRequest)
 		return
 	}
 

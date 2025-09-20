@@ -561,10 +561,33 @@ func UpdateCard(db *sql.DB, userID int, cardPK int, params models.EditCardParams
 	return GetFullCard(db, userID, cardPK)
 }
 
+func checkIsCardIDUnique(db *sql.DB, userID int, cardID string) bool {
+	if cardID == "" {
+		return true
+	}
+	var count int
+	err := db.QueryRow(`SELECT count(*) FROM cards
+		WHERE user_id = $1 AND card_id = $2 AND is_deleted = FALSE`, userID, cardID).Scan(&count)
+	if err != nil {
+		log.Printf("err %v", err)
+		return false
+	}
+	if count > 0 {
+		return false
+	} else {
+		return true
+	}
+}
+
 func CreateCard(db *sql.DB, userID int, params models.EditCardParams) (models.Card, error) {
 	// Strip all whitespace from card_id before proceeding
 	params.CardID = strings.ReplaceAll(params.CardID, " ", "")
 	params.CardID = regexp.MustCompile(`\s+`).ReplaceAllString(params.CardID, "")
+
+	// Check if card_id is unique
+	if !checkIsCardIDUnique(db, userID, params.CardID) {
+		return models.Card{}, fmt.Errorf("card_id already exists")
+	}
 
 	parent, err := GetPartialCardByCardID(db, userID, DiscoverParentId(params.CardID))
 	query := `
