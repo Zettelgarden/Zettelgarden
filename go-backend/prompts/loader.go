@@ -45,3 +45,8 @@ func GetTitleGeneratorPrompt() (string, error) {
 func GetChatMemoryAssistantPrompt() (string, error) {
 	return LoadPrompt("chat_memory_assistant.md")
 }
+
+// GetCardMemoryAssistantPrompt loads the card memory assistant system prompt
+func GetCardMemoryAssistantPrompt() (string, error) {
+	return LoadPrompt("card_memory_assistant.md")
+}
