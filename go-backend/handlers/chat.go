@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -907,6 +908,13 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 		systemPrompt += instructions.Instructions
 	}
 
+	// Add current date and time
+	currentTime := time.Now()
+	systemPrompt += "\n\n## Current Date and Time\n\n"
+	systemPrompt += fmt.Sprintf("Today's date is %s (UTC: %s)",
+		currentTime.Format("Monday, January 2, 2006"),
+		currentTime.UTC().Format("2006-01-02 15:04:05 UTC"))
+
 	if err != nil {
 		log.Printf("Error loading system prompt: %v, using fallback", err)
 		// Fallback to a basic prompt if file loading fails
@@ -1101,6 +1109,13 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 				currentSystemPrompt += "\n\n## User Instructions\n\n"
 				currentSystemPrompt += instructions.Instructions
 			}
+
+			// Add current date and time
+			currentTime := time.Now()
+			currentSystemPrompt += "\n\n## Current Date and Time\n\n"
+			currentSystemPrompt += fmt.Sprintf("Today's date is %s (UTC: %s)",
+				currentTime.Format("Monday, January 2, 2006"),
+				currentTime.UTC().Format("2006-01-02 15:04:05 UTC"))
 		}
 
 		openaiMessages = []openai.ChatCompletionMessage{
