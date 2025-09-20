@@ -209,6 +209,15 @@ func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Update conversation model if one is provided in the request
+	if req.Model != nil && *req.Model != "" && *req.Model != conversation.Model {
+		err := s.UpdateConversationModel(conversationID, *req.Model)
+		if err != nil {
+			log.Printf("Error updating conversation model: %v", err)
+			// Don't fail the request, just log the error
+		}
+	}
+
 	// Check usage quotas
 	if err := s.CheckChatUsageQuota(userID, "messages_per_day"); err != nil {
 		http.Error(w, "Daily message limit exceeded", http.StatusTooManyRequests)
@@ -233,6 +242,7 @@ func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to save assistant message", http.StatusInternalServerError)
 		return
 	}
+	log.Printf("created new message %v %v", conversationID, assistantMessage.ID)
 
 	// Update usage quota
 	s.IncrementChatUsageQuota(userID, "messages_per_day")
@@ -710,6 +720,7 @@ func (s *Handler) processAssistantResponse(userID int, conversation *models.Chat
 		return
 	}
 
+	log.Printf("finally update assistant %v", assistantMessageID)
 	// Update the assistant message with the actual content and mark as completed
 	s.updateAssistantMessage(assistantMessageID, finalAssistantMessage)
 }
@@ -736,6 +747,28 @@ func (s *Handler) updateAssistantMessage(messageID string, generatedMessage *mod
 	return err
 }
 
+// updateAssistantMessageWithToolCalls updates an existing assistant message with tool calls (but keeps status as processing)
+func (s *Handler) updateAssistantMessageWithToolCalls(messageID string, content *string, toolCalls []models.ChatToolCall) error {
+	// Convert tool calls to JSON if present
+	var toolCallsJSON *string
+	if toolCalls != nil && len(toolCalls) > 0 {
+		toolCallsData, err := json.Marshal(toolCalls)
+		if err != nil {
+			return err
+		}
+		toolCallsStr := string(toolCallsData)
+		toolCallsJSON = &toolCallsStr
+	}
+
+	query := `
+		UPDATE chat_messages
+		SET content = $1, tool_calls = $2
+		WHERE id = $3
+	`
+	_, err := s.DB.Exec(query, content, toolCallsJSON, messageID)
+	return err
+}
+
 // DeleteConversation deletes a conversation
 func (s *Handler) DeleteConversation(conversationID string) error {
 	query := `DELETE FROM chat_conversations WHERE id = $1`
@@ -754,6 +787,13 @@ func (s *Handler) UpdateConversationStarred(conversationID string, starred bool)
 func (s *Handler) UpdateConversationTitle(conversationID string, title string) error {
 	query := `UPDATE chat_conversations SET title = $1, updated_at = NOW() WHERE id = $2`
 	_, err := s.DB.Exec(query, title, conversationID)
+	return err
+}
+
+// UpdateConversationModel updates the model of a conversation
+func (s *Handler) UpdateConversationModel(conversationID string, model string) error {
+	query := `UPDATE chat_conversations SET model = $1, updated_at = NOW() WHERE id = $2`
+	_, err := s.DB.Exec(query, model, conversationID)
 	return err
 }
 
@@ -843,6 +883,24 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 
 		if err != nil {
 			log.Printf("executing LLM error: %v", err)
+
+			// Check if this is a context length error
+			if services.IsContextLengthError(err) {
+				log.Printf("Context length exceeded for conversation %s", conversation.ID)
+				// Update the message with a helpful error message instead of failing completely
+				errorMessage := "I apologize, but this conversation has become too long for me to process. The context exceeds the model's token limit. Please consider starting a new conversation or summarizing the key points you'd like to continue discussing."
+				finalMessage := &models.ChatMessage{
+					ID:      assistantMessageID,
+					Content: &errorMessage,
+				}
+				err := s.updateAssistantMessage(assistantMessageID, finalMessage)
+				if err != nil {
+					log.Printf("Error updating message with context length error: %v", err)
+					return nil, err
+				}
+				return finalMessage, nil
+			}
+
 			return nil, err
 		}
 
@@ -850,10 +908,12 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 
 		// If no tool calls, update the existing assistant message and return
 		if len(assistantMessage.ToolCalls) == 0 {
+			log.Printf("assisantmessage %v", resp)
 			finalMessage := &models.ChatMessage{
 				ID:      assistantMessageID,
 				Content: &assistantMessage.Content,
 			}
+			log.Printf("no more tool calls")
 			err := s.updateAssistantMessage(assistantMessageID, finalMessage)
 			if err != nil {
 				return nil, err
@@ -877,9 +937,15 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 			})
 		}
 
-		assistantMsg, err := s.SaveChatMessage(conversation.ID, "assistant", &assistantMessage.Content, toolCalls, nil, nil, "completed")
+		// Update the existing pending assistant message with tool calls
+		err = s.updateAssistantMessageWithToolCalls(assistantMessageID, &assistantMessage.Content, toolCalls)
 		if err != nil {
 			return nil, err
+		}
+
+		// Create a message object to reference for tool context
+		assistantMsg := &models.ChatMessage{
+			ID: assistantMessageID,
 		}
 
 		// Execute tool calls and save tool responses

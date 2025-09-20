@@ -32,7 +32,7 @@ export function ChatPage({ }: ChatPageProps) {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("google/gemini-2.5-flash");
+  const [selectedModel, setSelectedModel] = useState("google/gemini-2.5-pro");
   const [collapsedToolResults, setCollapsedToolResults] = useState<Set<string>>(new Set());
   const [showAllRecent, setShowAllRecent] = useState(false);
   const [referencedCards, setReferencedCards] = useState<string[]>([]);
@@ -535,7 +535,7 @@ export function ChatPage({ }: ChatPageProps) {
     { value: "google/gemini-2.5-pro", label: "google/gemini-2.5-pro" },
     { value: "gpt-4o-mini", label: "GPT-4o Mini" },
     { value: "openai/gpt-5", label: "GPT-5" },
-    { value: "anthropic/claude-sonnet-4", label: "anthropic/claude-sonnet-4"},
+    { value: "anthropic/claude-sonnet-4", label: "anthropic/claude-sonnet-4" },
 
   ];
 

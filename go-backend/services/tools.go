@@ -616,13 +616,25 @@ func executeSubagentTask(prompt, subagentType string, ctx *ToolContext) (string,
 				continue
 			}
 
+			start := time.Now()
+			log.Printf("subagent tool - %v", tc.Function.Name)
 			result, err := subagentRegistry.ExecuteTool(tc.Function.Name, args, ctx)
+			executionTime := int(time.Since(start).Milliseconds())
+
 			if err != nil {
 				log.Printf("Error executing tool %s: %v", tc.Function.Name, err)
 				result = map[string]interface{}{
 					"error": err.Error(),
 				}
 			}
+
+			// Log subagent tool execution
+			go func(toolName string, toolArgs, toolResult map[string]interface{}, execTime int, execErr error) {
+				logErr := logToolExecution(ctx.DB, ctx.UserID, toolName, toolArgs, toolResult, execTime, execErr, ctx.ConversationID, ctx.MessageID)
+				if logErr != nil {
+					log.Printf("Error logging subagent tool execution: %v", logErr)
+				}
+			}(tc.Function.Name, args, result, executionTime, err)
 
 			// Convert result to JSON string for tool response
 			resultJSON, _ := json.Marshal(result)

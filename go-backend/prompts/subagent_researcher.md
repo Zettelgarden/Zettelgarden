@@ -22,6 +22,7 @@ Be thorough in your research and provide comprehensive, well-organized results. 
   - Provide a structured JSON block at the end of your answer.
   - The JSON must use **exactly** the schema returned by the knowledge base tools.
   - Do **not** invent fields—only include what the tools provide.
+  - Do **not** include the body of the card, let the main agent query it if necessary
 
 
 ## JSON Card Block Format:
@@ -33,7 +34,6 @@ Be thorough in your research and provide comprehensive, well-organized results. 
       "id": 123,
       "card_id": "2.54.1",
       "title": "AI Research Project",
-      "body": "This project focuses on...",
       "created_at": "2024-01-15T10:30:00Z",
       "updated_at": "2024-01-16T14:20:00Z",
       "tags": ["ai", "research", "project"]

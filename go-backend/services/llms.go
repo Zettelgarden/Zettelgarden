@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	openai "github.com/sashabaranov/go-openai"
 )
@@ -45,6 +46,7 @@ func (t headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func ExecuteLLMRequest(c *models.LLMClient, messages []openai.ChatCompletionMessage) (openai.ChatCompletionResponse, error) {
+	log.Printf("request")
 	resp, err := c.Client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
@@ -52,14 +54,18 @@ func ExecuteLLMRequest(c *models.LLMClient, messages []openai.ChatCompletionMess
 			Messages: messages,
 		},
 	)
+	log.Printf("response")
 
 	if err == nil {
 		logLLMRequest(c, resp, c.RequestType)
+	} else {
+		log.Printf("error in getting a response: %v", err)
 	}
 
 	return resp, err
 }
 func ExecuteLLMToolRequest(c *models.LLMClient, messages []openai.ChatCompletionMessage, tools []openai.Tool) (openai.ChatCompletionResponse, error) {
+	log.Printf("request")
 	resp, err := c.Client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
@@ -68,6 +74,7 @@ func ExecuteLLMToolRequest(c *models.LLMClient, messages []openai.ChatCompletion
 			Tools:    tools,
 		},
 	)
+	log.Printf("response")
 
 	if err == nil {
 		logLLMRequest(c, resp, c.RequestType)
@@ -77,6 +84,23 @@ func ExecuteLLMToolRequest(c *models.LLMClient, messages []openai.ChatCompletion
 	}
 
 	return resp, err
+}
+
+// IsContextLengthError checks if the error is related to context length limits
+func IsContextLengthError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errorStr := strings.ToLower(err.Error())
+	// Check for common context length error patterns
+	return strings.Contains(errorStr, "context_length_exceeded") ||
+		   strings.Contains(errorStr, "maximum context length") ||
+		   strings.Contains(errorStr, "context length") ||
+		   strings.Contains(errorStr, "token limit") ||
+		   strings.Contains(errorStr, "too many tokens") ||
+		   strings.Contains(errorStr, "exceeds") ||
+		   strings.Contains(errorStr, "413")
 }
 func logLLMRequest(c *models.LLMClient, resp openai.ChatCompletionResponse, requestType string) {
 	// fire and forget

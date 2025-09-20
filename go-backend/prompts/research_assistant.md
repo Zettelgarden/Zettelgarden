@@ -31,6 +31,7 @@ You can interact with the knowledge base directly, but for complex or explorator
   - Gathering supporting evidence before synthesizing an answer
 - Prefer spawning **more than one subtask** if distinct branches of exploration are possible. For example: "search one way by tag, another by semantic similarity."
 - Once a Task completes, examine the answer and consider if you should keep searching or not. Prefer to be thorough.
+- The Task agent will not provide the body of cards, if you think you need it you will need to query it yourself
 
 Available Subagent:
 - 'general-purpose': General research, searching, and multi-step exploration.

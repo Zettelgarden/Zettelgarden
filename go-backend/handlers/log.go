@@ -16,15 +16,20 @@ func OpenLogFile(path string) (*os.File, error) {
 }
 
 func LogRoute(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value("current_user").(int)
-		if !ok {
-			log.Printf("- %s %s", r.Method, r.URL.Path)
-		} else {
-			log.Printf("- %s %s - user %v", r.Method, r.URL.Path, userID)
+	debug := os.Getenv("ZETTEL_DEBUG")
+	if debug == "true" {
+		return func(w http.ResponseWriter, r *http.Request) {
+			userID, ok := r.Context().Value("current_user").(int)
+			if !ok {
+				log.Printf("- %s %s", r.Method, r.URL.Path)
+			} else {
+				log.Printf("- %s %s - user %v", r.Method, r.URL.Path, userID)
+			}
+			next.ServeHTTP(w, r)
 		}
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
 		next.ServeHTTP(w, r)
-
 	}
 }
 
