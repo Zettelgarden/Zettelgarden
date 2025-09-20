@@ -32,6 +32,7 @@ type ChatMessage struct {
 	ToolCallID      *string        `json:"tool_call_id,omitempty"`
 	SequenceNumber  int            `json:"sequence_number"`
 	ReferencedCards []string       `json:"referenced_cards,omitempty"`
+	Status          string         `json:"status"` // "pending", "processing", "completed", "failed"
 	CreatedAt       time.Time      `json:"created_at"`
 }
 

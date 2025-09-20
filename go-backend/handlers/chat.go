@@ -174,7 +174,7 @@ func (s *Handler) GetReferencedCards(userID int, cardIDs []string) string {
 
 }
 
-// SendMessageRoute sends a message and gets LLM response
+// SendMessageRoute sends a message and returns immediately, processing async
 func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 	conversationID := mux.Vars(r)["id"]
@@ -219,49 +219,28 @@ func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 
 	content := req.Content + referencedCardContext
 	// Save user message
-	userMessage, err := s.SaveChatMessage(conversationID, "user", &content, nil, nil, req.ReferencedCards)
+	userMessage, err := s.SaveChatMessage(conversationID, "user", &content, nil, nil, req.ReferencedCards, "completed")
 	if err != nil {
 		log.Printf("Error saving user message: %v", err)
 		http.Error(w, "Failed to save message", http.StatusInternalServerError)
 		return
 	}
 
-	// Generate title if this is the first message (and conversation has no title)
-	if conversation.Title == nil || *conversation.Title == "" {
-		generatedTitle := s.generateConversationTitle(userID, req.Content)
-		err := s.UpdateConversationTitle(conversationID, generatedTitle)
-		if err != nil {
-			log.Printf("Error updating conversation title: %v", err)
-			// Don't fail the request if title update fails, just log it
-		}
-	}
-
-	// Get conversation history for LLM
-	messages, err := s.GetConversationMessages(conversationID)
+	// Create a pending assistant message
+	assistantMessage, err := s.SaveChatMessage(conversationID, "assistant", nil, nil, nil, nil, "pending")
 	if err != nil {
-		log.Printf("Error getting conversation history: %v", err)
-		http.Error(w, "Failed to get conversation history", http.StatusInternalServerError)
-		return
-	}
-
-	// Determine which model to use - request override or conversation default
-	modelToUse := conversation.Model
-	if req.Model != nil && *req.Model != "" {
-		modelToUse = *req.Model
-	}
-
-	// Generate LLM response with tools
-	assistantMessage, err := s.GenerateChatResponse(userID, conversation, messages, modelToUse)
-	if err != nil {
-		log.Printf("Error generating chat response: %v", err)
-		http.Error(w, "Failed to generate response", http.StatusInternalServerError)
+		log.Printf("Error saving assistant message: %v", err)
+		http.Error(w, "Failed to save assistant message", http.StatusInternalServerError)
 		return
 	}
 
 	// Update usage quota
 	s.IncrementChatUsageQuota(userID, "messages_per_day")
 
-	// Return both messages
+	// Start async processing
+	go s.processAssistantResponse(userID, conversation, assistantMessage.ID, req.Model)
+
+	// Return both messages immediately
 	response := []models.ChatMessage{*userMessage, *assistantMessage}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
@@ -390,6 +369,60 @@ func (s *Handler) GetUsageQuotaRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(quotas)
 }
 
+// ConversationStatusResponse represents the status of a conversation's processing
+type ConversationStatusResponse struct {
+	ConversationID string `json:"conversation_id"`
+	HasPending     bool   `json:"has_pending"`
+	HasProcessing  bool   `json:"has_processing"`
+	HasFailed      bool   `json:"has_failed"`
+}
+
+// GetConversationStatusRoute gets the processing status of a conversation
+func (s *Handler) GetConversationStatusRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	conversationID := mux.Vars(r)["id"]
+
+	// Verify conversation exists and belongs to user
+	_, err := s.GetConversation(userID, conversationID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Conversation not found", http.StatusNotFound)
+		} else {
+			log.Printf("Error getting conversation: %v", err)
+			http.Error(w, "Failed to get conversation", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Check for pending, processing, or failed messages
+	query := `
+		SELECT
+			COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) as pending_count,
+			COALESCE(SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END), 0) as processing_count,
+			COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) as failed_count
+		FROM chat_messages
+		WHERE conversation_id = $1
+	`
+
+	var pendingCount, processingCount, failedCount int
+	err = s.DB.QueryRow(query, conversationID).Scan(&pendingCount, &processingCount, &failedCount)
+	if err != nil {
+		log.Printf("Error getting conversation status: %v", err)
+		http.Error(w, "Failed to get conversation status", http.StatusInternalServerError)
+		return
+	}
+
+	status := ConversationStatusResponse{
+		ConversationID: conversationID,
+		HasPending:     pendingCount > 0,
+		HasProcessing:  processingCount > 0,
+		HasFailed:      failedCount > 0,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(status)
+}
+
 // Database methods for chat functionality
 
 // CreateConversation creates a new chat conversation
@@ -484,7 +517,7 @@ func (s *Handler) GetConversation(userID int, conversationID string) (*models.Ch
 // GetConversationMessages gets all messages for a conversation
 func (s *Handler) GetConversationMessages(conversationID string) ([]models.ChatMessage, error) {
 	query := `
-		SELECT id, conversation_id, role, content, tool_calls, tool_call_id, sequence_number, referenced_cards, created_at
+		SELECT id, conversation_id, role, content, tool_calls, tool_call_id, sequence_number, referenced_cards, status, created_at
 		FROM chat_messages
 		WHERE conversation_id = $1
 		ORDER BY sequence_number ASC
@@ -511,6 +544,7 @@ func (s *Handler) GetConversationMessages(conversationID string) ([]models.ChatM
 			&msg.ToolCallID,
 			&msg.SequenceNumber,
 			&referencedCards,
+			&msg.Status,
 			&msg.CreatedAt,
 		)
 		if err != nil {
@@ -538,7 +572,7 @@ func (s *Handler) GetConversationMessages(conversationID string) ([]models.ChatM
 }
 
 // SaveChatMessage saves a chat message
-func (s *Handler) SaveChatMessage(conversationID, role string, content *string, toolCalls []models.ChatToolCall, toolCallID *string, referencedCards []string) (*models.ChatMessage, error) {
+func (s *Handler) SaveChatMessage(conversationID, role string, content *string, toolCalls []models.ChatToolCall, toolCallID *string, referencedCards []string, status string) (*models.ChatMessage, error) {
 	// Get next sequence number
 	var sequenceNumber int
 	err := s.DB.QueryRow("SELECT COALESCE(MAX(sequence_number), 0) + 1 FROM chat_messages WHERE conversation_id = $1", conversationID).Scan(&sequenceNumber)
@@ -575,16 +609,16 @@ func (s *Handler) SaveChatMessage(conversationID, role string, content *string, 
 	}
 
 	query := `
-		INSERT INTO chat_messages (id, conversation_id, role, content, tool_calls, tool_call_id, sequence_number, referenced_cards, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-		RETURNING id, conversation_id, role, content, tool_calls, tool_call_id, sequence_number, referenced_cards, created_at
+		INSERT INTO chat_messages (id, conversation_id, role, content, tool_calls, tool_call_id, sequence_number, referenced_cards, status, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+		RETURNING id, conversation_id, role, content, tool_calls, tool_call_id, sequence_number, referenced_cards, status, created_at
 	`
 
 	var message models.ChatMessage
 	var returnedToolCalls *string
 	var returnedReferencedCards *string
 
-	err = s.DB.QueryRow(query, id, conversationID, role, content, toolCallsJSON, toolCallID, sequenceNumber, referencedCardsJSON).Scan(
+	err = s.DB.QueryRow(query, id, conversationID, role, content, toolCallsJSON, toolCallID, sequenceNumber, referencedCardsJSON, status).Scan(
 		&message.ID,
 		&message.ConversationID,
 		&message.Role,
@@ -593,6 +627,7 @@ func (s *Handler) SaveChatMessage(conversationID, role string, content *string, 
 		&message.ToolCallID,
 		&message.SequenceNumber,
 		&returnedReferencedCards,
+		&message.Status,
 		&message.CreatedAt,
 	)
 	if err != nil {
@@ -614,6 +649,91 @@ func (s *Handler) SaveChatMessage(conversationID, role string, content *string, 
 	}
 
 	return &message, nil
+}
+
+// UpdateMessageStatus updates the status of a message
+func (s *Handler) UpdateMessageStatus(messageID, status string) error {
+	query := `UPDATE chat_messages SET status = $1 WHERE id = $2`
+	_, err := s.DB.Exec(query, status, messageID)
+	return err
+}
+
+// processAssistantResponse handles the async processing of the assistant response
+func (s *Handler) processAssistantResponse(userID int, conversation *models.ChatConversation, assistantMessageID string, modelOverride *string) {
+	// Update status to processing
+	if err := s.UpdateMessageStatus(assistantMessageID, "processing"); err != nil {
+		log.Printf("Error updating message status to processing: %v", err)
+		return
+	}
+
+	// Generate title if this is the first message (and conversation has no title)
+	if conversation.Title == nil || *conversation.Title == "" {
+		// Get the latest user message to generate title
+		messages, err := s.GetConversationMessages(conversation.ID)
+		if err == nil && len(messages) > 0 {
+			var userContent string
+			for _, msg := range messages {
+				if msg.Role == "user" && msg.Content != nil {
+					userContent = *msg.Content
+					break
+				}
+			}
+			if userContent != "" {
+				generatedTitle := s.generateConversationTitle(userID, userContent)
+				err := s.UpdateConversationTitle(conversation.ID, generatedTitle)
+				if err != nil {
+					log.Printf("Error updating conversation title: %v", err)
+				}
+			}
+		}
+	}
+
+	// Get conversation history for LLM
+	messages, err := s.GetConversationMessages(conversation.ID)
+	if err != nil {
+		log.Printf("Error getting conversation history: %v", err)
+		s.UpdateMessageStatus(assistantMessageID, "failed")
+		return
+	}
+
+	// Determine which model to use - request override or conversation default
+	modelToUse := conversation.Model
+	if modelOverride != nil && *modelOverride != "" {
+		modelToUse = *modelOverride
+	}
+
+	// Generate LLM response with tools
+	finalAssistantMessage, err := s.GenerateChatResponse(userID, conversation, messages, modelToUse, assistantMessageID)
+	if err != nil {
+		log.Printf("Error generating chat response: %v", err)
+		s.UpdateMessageStatus(assistantMessageID, "failed")
+		return
+	}
+
+	// Update the assistant message with the actual content and mark as completed
+	s.updateAssistantMessage(assistantMessageID, finalAssistantMessage)
+}
+
+// updateAssistantMessage updates an existing assistant message with the generated content
+func (s *Handler) updateAssistantMessage(messageID string, generatedMessage *models.ChatMessage) error {
+	// Convert tool calls to JSON if present
+	var toolCallsJSON *string
+	if generatedMessage.ToolCalls != nil && len(generatedMessage.ToolCalls) > 0 {
+		toolCallsData, err := json.Marshal(generatedMessage.ToolCalls)
+		if err != nil {
+			return err
+		}
+		toolCallsStr := string(toolCallsData)
+		toolCallsJSON = &toolCallsStr
+	}
+
+	query := `
+		UPDATE chat_messages
+		SET content = $1, tool_calls = $2, status = 'completed'
+		WHERE id = $3
+	`
+	_, err := s.DB.Exec(query, generatedMessage.Content, toolCallsJSON, messageID)
+	return err
 }
 
 // DeleteConversation deletes a conversation
@@ -638,7 +758,7 @@ func (s *Handler) UpdateConversationTitle(conversationID string, title string) e
 }
 
 // GenerateChatResponse generates an LLM response with tool calling support
-func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConversation, messages []models.ChatMessage, model string) (*models.ChatMessage, error) {
+func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConversation, messages []models.ChatMessage, model string, assistantMessageID string) (*models.ChatMessage, error) {
 	// Import the tools package (we'll need this in the imports)
 	// Convert messages to OpenAI format
 	var openaiMessages []openai.ChatCompletionMessage
@@ -728,9 +848,17 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 
 		assistantMessage := resp.Choices[0].Message
 
-		// If no tool calls, save the final response and return
+		// If no tool calls, update the existing assistant message and return
 		if len(assistantMessage.ToolCalls) == 0 {
-			return s.SaveChatMessage(conversation.ID, "assistant", &assistantMessage.Content, nil, nil, nil)
+			finalMessage := &models.ChatMessage{
+				ID:      assistantMessageID,
+				Content: &assistantMessage.Content,
+			}
+			err := s.updateAssistantMessage(assistantMessageID, finalMessage)
+			if err != nil {
+				return nil, err
+			}
+			return finalMessage, nil
 		}
 
 		// Save assistant message with tool calls
@@ -749,7 +877,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 			})
 		}
 
-		assistantMsg, err := s.SaveChatMessage(conversation.ID, "assistant", &assistantMessage.Content, toolCalls, nil, nil)
+		assistantMsg, err := s.SaveChatMessage(conversation.ID, "assistant", &assistantMessage.Content, toolCalls, nil, nil, "completed")
 		if err != nil {
 			return nil, err
 		}
@@ -780,7 +908,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 			resultStr := string(resultJSON)
 
 			// Save tool response message
-			_, err = s.SaveChatMessage(conversation.ID, "tool", &resultStr, nil, &tc.ID, nil)
+			_, err = s.SaveChatMessage(conversation.ID, "tool", &resultStr, nil, &tc.ID, nil, "completed")
 			if err != nil {
 				log.Printf("Error saving tool response: %v", err)
 			}

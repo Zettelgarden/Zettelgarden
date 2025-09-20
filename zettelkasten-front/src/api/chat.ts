@@ -24,6 +24,7 @@ export interface ChatMessage {
   tool_call_id?: string;
   sequence_number: number;
   referenced_cards?: string[];
+  status: "pending" | "processing" | "completed" | "failed";
   created_at: string;
 }
 
@@ -62,6 +63,13 @@ export interface UsageQuota {
   reset_date: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface ConversationStatus {
+  conversation_id: string;
+  has_pending: boolean;
+  has_processing: boolean;
+  has_failed: boolean;
 }
 
 // API Functions
@@ -218,6 +226,23 @@ export function getUsageQuotas(): Promise<UsageQuota[]> {
     .then((response) => {
       if (response) {
         return response.json() as Promise<UsageQuota[]>;
+      } else {
+        return Promise.reject(new Error("Response is undefined"));
+      }
+    });
+}
+
+export function getConversationStatus(conversationId: string): Promise<ConversationStatus> {
+  const url = `${base_url}/chat/conversations/${conversationId}/status`;
+  const token = localStorage.getItem("token");
+
+  return fetch(url, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+    .then(checkStatus)
+    .then((response) => {
+      if (response) {
+        return response.json() as Promise<ConversationStatus>;
       } else {
         return Promise.reject(new Error("Response is undefined"));
       }

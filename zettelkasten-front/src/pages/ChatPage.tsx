@@ -10,6 +10,7 @@ import {
   sendMessage as apiSendMessage,
   deleteConversation as apiDeleteConversation,
   starConversation as apiStarConversation,
+  getConversationStatus,
 } from "../api/chat";
 import { setDocumentTitle } from "../utils/title";
 import { Button } from "../components/Button";
@@ -35,7 +36,9 @@ export function ChatPage({ }: ChatPageProps) {
   const [collapsedToolResults, setCollapsedToolResults] = useState<Set<string>>(new Set());
   const [showAllRecent, setShowAllRecent] = useState(false);
   const [referencedCards, setReferencedCards] = useState<string[]>([]);
+  const [isPolling, setIsPolling] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { conversationId, setConversationId } = useChatContext();
   const { hasSubscription } = useAuth();
 
@@ -91,23 +94,14 @@ export function ChatPage({ }: ChatPageProps) {
     setIsSending(true);
 
     try {
-      // Add user message to UI immediately
-      const tempUserMessage: ChatMessage = {
-        id: `temp-${Date.now()}`,
-        conversation_id: conversationId,
-        role: "user",
-        content: message,
-        sequence_number: messages.length + 1,
-        referenced_cards: referencedCards?.length ? referencedCards : undefined,
-        created_at: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, tempUserMessage]);
-
-      // Send to API with referenced cards
+      // Send to API with referenced cards - this now returns immediately with user message and pending assistant message
       await apiSendMessage(conversationId, message, referencedCards?.length ? referencedCards : undefined, selectedModel);
 
-      // Reload the full conversation to get all messages including tool calls
-      await loadConversation(conversationId);
+      // Reload conversation to get the new messages with correct status
+      await refreshMessages(conversationId);
+
+      // Start polling for status updates
+      startPolling(conversationId);
 
       // Update conversations list to reflect new message count
       await loadConversations();
@@ -115,12 +109,57 @@ export function ChatPage({ }: ChatPageProps) {
     } catch (error) {
       console.error("Failed to send message:", error);
       setError("Failed to send message");
-      // Remove the temporary user message on error
-      setMessages(prev => prev.slice(0, -1));
     } finally {
       setIsSending(false);
     }
   };
+
+  const startPolling = (conversationId: string) => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    setIsPolling(true);
+
+    pollingIntervalRef.current = setInterval(async () => {
+      try {
+        const status = await getConversationStatus(conversationId);
+
+        // If no pending or processing messages, stop polling and reload just the messages
+        if (!status.has_pending && !status.has_processing) {
+          stopPolling();
+          await refreshMessages(conversationId);
+        }
+      } catch (error) {
+        console.error("Failed to check conversation status:", error);
+        // Continue polling even if status check fails
+      }
+    }, 2000); // Poll every 2 seconds
+  };
+
+  const stopPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    setIsPolling(false);
+  };
+
+  const refreshMessages = async (conversationId: string) => {
+    try {
+      const data = await getConversation(conversationId);
+      setMessages(data.messages || []);
+    } catch (error) {
+      console.error("Failed to refresh messages:", error);
+    }
+  };
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      stopPolling();
+    };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -173,11 +212,23 @@ export function ChatPage({ }: ChatPageProps) {
   const loadConversation = async (conversationId: string) => {
     try {
       setIsLoading(true);
+
+      // Stop any existing polling when switching conversations
+      stopPolling();
+
       const data = await getConversation(conversationId);
       setCurrentConversation(data.conversation);
       setMessages(data.messages || []);
       setConversationId(conversationId);
       setError(null);
+
+      // Check if there are pending/processing messages and start polling if needed
+      const hasPendingOrProcessing = data.messages.some(msg =>
+        msg.status === 'pending' || msg.status === 'processing'
+      );
+      if (hasPendingOrProcessing) {
+        startPolling(conversationId);
+      }
     } catch (error) {
       console.error("Failed to load conversation:", error);
       setError("Failed to load conversation");
@@ -218,23 +269,14 @@ export function ChatPage({ }: ChatPageProps) {
     setIsSending(true);
 
     try {
-      // Add user message to UI immediately
-      const tempUserMessage: ChatMessage = {
-        id: `temp-${Date.now()}`,
-        conversation_id: currentConversation.id,
-        role: "user",
-        content: userMessage,
-        sequence_number: messages.length + 1,
-        referenced_cards: cardIds.length > 0 ? cardIds : undefined,
-        created_at: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, tempUserMessage]);
+      // Send to API with referenced cards - this now returns immediately with user message and pending assistant message
+      await apiSendMessage(currentConversation.id, userMessage, cardIds.length > 0 ? cardIds : undefined, selectedModel);
 
-      // Send to API with referenced cards
-      const newMessages = await apiSendMessage(currentConversation.id, userMessage, cardIds.length > 0 ? cardIds : undefined, selectedModel);
+      // Reload conversation to get the new messages with correct status
+      await refreshMessages(currentConversation.id);
 
-      // Reload the full conversation to get all messages including tool calls
-      await loadConversation(currentConversation.id);
+      // Start polling for status updates
+      startPolling(currentConversation.id);
 
       // Update conversations list to reflect new message count
       await loadConversations();
@@ -242,8 +284,6 @@ export function ChatPage({ }: ChatPageProps) {
     } catch (error) {
       console.error("Failed to send message:", error);
       setError("Failed to send message");
-      // Remove the temporary user message on error
-      setMessages(prev => prev.slice(0, -1));
     } finally {
       setIsSending(false);
     }
@@ -326,6 +366,38 @@ export function ChatPage({ }: ChatPageProps) {
     return content.replace(/<referenced cards>[\s\S]*?<\/referenced cards>/g, '').trim();
   };
 
+  const getStatusIndicator = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return (
+          <div className="flex items-center gap-2 text-amber-600 text-xs">
+            <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+            <span>Pending...</span>
+          </div>
+        );
+      case 'processing':
+        return (
+          <div className="flex items-center gap-2 text-blue-600 text-xs">
+            <div className="flex space-x-1">
+              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"></div>
+              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            </div>
+            <span>Processing...</span>
+          </div>
+        );
+      case 'failed':
+        return (
+          <div className="flex items-center gap-2 text-red-600 text-xs">
+            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+            <span>Failed</span>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   const formatMessageContent = (message: ChatMessage) => {
     if (message.role === "tool" && message.content) {
       const isCollapsed = collapsedToolResults.has(message.id);
@@ -397,22 +469,33 @@ export function ChatPage({ }: ChatPageProps) {
     }
 
     // For assistant messages, parse and render card references as clickable links with markdown
-    if (message.role === "assistant" && message.content) {
-      console.log(message.content)
-      const { text, cards } = parseMessageContent(message.content);
-
-      return (
-        <div>
-          <div className="prose prose-sm max-w-none">
-            <Markdown
-              remarkPlugins={[remarkGfm]}
-            >
-              {text}
-            </Markdown>
+    if (message.role === "assistant") {
+      // Show status indicator for pending, processing, or failed messages
+      if (message.status !== 'completed') {
+        return (
+          <div className="flex items-center justify-center py-4">
+            {getStatusIndicator(message.status)}
           </div>
-          <CardsSection cards={cards} onCardClick={handleCardClick} />
-        </div>
-      );
+        );
+      }
+
+      if (message.content) {
+        console.log(message.content)
+        const { text, cards } = parseMessageContent(message.content);
+
+        return (
+          <div>
+            <div className="prose prose-sm max-w-none">
+              <Markdown
+                remarkPlugins={[remarkGfm]}
+              >
+                {text}
+              </Markdown>
+            </div>
+            <CardsSection cards={cards} onCardClick={handleCardClick} />
+          </div>
+        );
+      }
     }
 
     // For user messages, filter out referenced cards section
@@ -700,25 +783,6 @@ export function ChatPage({ }: ChatPageProps) {
                 </div>
               ))}
 
-              {isSending && (
-                <div className="flex items-start gap-3 group">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center shadow-sm">
-                    <span className="text-sm">🤖</span>
-                  </div>
-                  <div className="flex-1">
-                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl rounded-bl-md border border-gray-200 p-4 shadow-sm">
-                      <div className="flex items-center gap-3 text-gray-600">
-                        <div className="flex space-x-1">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                        </div>
-                        <span className="text-sm font-medium">Assistant is thinking...</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               <div ref={messagesEndRef} />
             </div>

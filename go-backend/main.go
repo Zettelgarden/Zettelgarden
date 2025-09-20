@@ -263,6 +263,7 @@ func main() {
 	addProtectedRoute(r, "/api/chat/conversations", h.GetConversationsRoute, "GET")
 	addProtectedRoute(r, "/api/chat/conversations/{id}", h.GetConversationRoute, "GET")
 	addProtectedRoute(r, "/api/chat/conversations/{id}/messages", h.SendMessageRoute, "POST")
+	addProtectedRoute(r, "/api/chat/conversations/{id}/status", h.GetConversationStatusRoute, "GET")
 	addProtectedRoute(r, "/api/chat/conversations/{id}", h.DeleteConversationRoute, "DELETE")
 	addProtectedRoute(r, "/api/chat/conversations/{id}/star", h.StarConversationRoute, "POST")
 	addProtectedRoute(r, "/api/chat/conversations/{id}/title", h.UpdateConversationTitleRoute, "PUT")
