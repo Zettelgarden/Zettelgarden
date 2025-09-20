@@ -39,8 +39,10 @@ export function ChatPage({ }: ChatPageProps) {
   const [referencedCards, setReferencedCards] = useState<string[]>([]);
   const [isPolling, setIsPolling] = useState(false);
   const [showInstructionsMenu, setShowInstructionsMenu] = useState(false);
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const modelDropdownRef = useRef<HTMLDivElement>(null);
   const { conversationId, setConversationId } = useChatContext();
   const { hasSubscription } = useAuth();
 
@@ -162,6 +164,22 @@ export function ChatPage({ }: ChatPageProps) {
       stopPolling();
     };
   }, []);
+
+  // Handle clicking outside the model dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(event.target as Node)) {
+        setShowModelDropdown(false);
+      }
+    };
+
+    if (showModelDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showModelDropdown]);
 
   useEffect(() => {
     scrollToBottom();
@@ -800,40 +818,95 @@ export function ChatPage({ }: ChatPageProps) {
 
             {/* Message Input */}
             <div className="bg-white border-t border-gray-200 p-6">
-              {/* Model Selection */}
-              <div className="mb-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    Model:
-                  </label>
-                  <select
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    className="text-sm bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[200px]"
-                  >
-                    {availableModels.map((model) => (
-                      <option key={model.value} value={model.value}>
-                        {model.label}
-                      </option>
-                    ))}
-                  </select>
+              <div className="relative max-w-4xl mx-auto">
+                {/* Unified Input Container */}
+                <div className="relative border border-gray-300 rounded-2xl bg-white shadow-sm hover:shadow-md transition-all duration-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
+                  {/* Input Area with Controls */}
+                  <div className="flex items-end gap-3 p-4">
+                    {/* Main Input */}
+                    <div className="flex-1 relative">
+                      <ChatInput
+                        value={messageInput}
+                        onChange={setMessageInput}
+                        onSubmit={sendMessage}
+                        onCardReference={handleCardReference}
+                        placeholder="Ask about your cards... Type @ to mention a card"
+                        disabled={isSending}
+                        isLoading={isSending}
+                        submitButtonText=""
+                        multiline={true}
+                        className="border-0 rounded-none p-0"
+                      />
+                    </div>
+
+                    {/* Right Side Controls */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Model Dropdown - positioned absolutely */}
+                      {showModelDropdown && (
+                        <div ref={modelDropdownRef} className="absolute bottom-16 left-4 z-10">
+                          <div className="bg-white border border-gray-200 rounded-lg shadow-lg min-w-[200px] max-h-60 overflow-y-auto">
+                            {availableModels.map((model) => (
+                              <button
+                                key={model.value}
+                                onClick={() => {
+                                  setSelectedModel(model.value);
+                                  setShowModelDropdown(false);
+                                }}
+                                className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-50 transition-colors ${
+                                  selectedModel === model.value
+                                    ? 'bg-blue-50 text-blue-700 font-medium'
+                                    : 'text-gray-700'
+                                }`}
+                              >
+                                {model.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Send Button */}
+                      <button
+                        onClick={() => sendMessage()}
+                        disabled={!messageInput.trim() || isSending}
+                        className="p-2.5 bg-black hover:bg-gray-800 text-white rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black flex items-center justify-center min-w-[44px]"
+                      >
+                        {isSending ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Model indicator at bottom */}
+                  <div className="px-4 pb-3">
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <button
+                        onClick={() => setShowModelDropdown(!showModelDropdown)}
+                        className="flex items-center gap-2 hover:text-gray-700 transition-colors cursor-pointer rounded-md px-2 py-1 hover:bg-gray-50"
+                      >
+                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                        <span>Using {availableModels.find(m => m.value === selectedModel)?.label}</span>
+                        <svg
+                          className={`w-3 h-3 transition-transform duration-200 ${showModelDropdown ? 'rotate-180' : ''}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      <div className="text-gray-400">
+                        Press Enter to send • Shift+Enter for new line
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              <ChatInput
-                value={messageInput}
-                onChange={setMessageInput}
-                onSubmit={sendMessage}
-                onCardReference={handleCardReference}
-                placeholder="Ask about your cards... Type @ to mention a card"
-                disabled={isSending}
-                isLoading={isSending}
-                submitButtonText="Send"
-                multiline={true}
-              />
             </div>
           </>
         ) : (

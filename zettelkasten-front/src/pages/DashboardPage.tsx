@@ -78,18 +78,52 @@ export function DashboardPage() {
             {/* Quick Chat Box - only show for subscribers */}
             {hasSubscription && (
               <div className="max-w-4xl mx-auto mb-8">
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-                  <ChatInput
-                    value={chatInput}
-                    onChange={setChatInput}
-                    onSubmit={handleChatSubmit}
-                    onCardReference={handleCardReference}
-                    placeholder="Ask your knowledge base anything..."
-                    disabled={false}
-                    isLoading={false}
-                    submitButtonText="Chat"
-                    multiline={false}
-                  />
+                <div className="relative">
+                  {/* Unified Input Container */}
+                  <div className="relative border border-gray-300 rounded-2xl bg-white shadow-sm hover:shadow-md transition-all duration-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
+                    {/* Input Area with Controls */}
+                    <div className="flex items-center gap-3 p-4">
+                      {/* Main Input */}
+                      <div className="flex-1 relative">
+                        <ChatInput
+                          value={chatInput}
+                          onChange={setChatInput}
+                          onSubmit={handleChatSubmit}
+                          onCardReference={handleCardReference}
+                          placeholder="Ask your knowledge base anything..."
+                          disabled={false}
+                          isLoading={false}
+                          submitButtonText=""
+                          multiline={false}
+                          className="border-0 rounded-none p-0"
+                        />
+                      </div>
+
+                      {/* Send Button */}
+                      <button
+                        onClick={() => handleChatSubmit()}
+                        disabled={!chatInput.trim()}
+                        className="p-2.5 bg-black hover:bg-gray-800 text-white rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black flex items-center justify-center min-w-[44px]"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* Helper text at bottom */}
+                    <div className="px-4 pb-3">
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                          <span>Ask anything about your knowledge base</span>
+                        </div>
+                        <div className="text-gray-400">
+                          Press Enter to search
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

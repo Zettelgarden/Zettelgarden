@@ -101,9 +101,13 @@ export function ChatInput({
 
   const InputComponent = multiline ? 'textarea' : 'input';
 
+  // Determine if we're in borderless mode (when className contains border-0)
+  const isBorderless = className.includes('border-0');
+
   return (
     <div className={`relative ${className}`}>
-      <div className="flex gap-3">
+      {isBorderless ? (
+        // Borderless mode - just the input without external controls
         <InputComponent
           ref={inputRef as any}
           type={multiline ? undefined : "text"}
@@ -111,31 +115,49 @@ export function ChatInput({
           onChange={handleInputChange}
           onKeyPress={handleKeyPress}
           placeholder={placeholder}
-          className="flex-1 px-4 py-3 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+          className={`w-full px-0 py-0 text-sm bg-transparent border-none focus:outline-none resize-none ${multiline ? 'min-h-[48px]' : 'h-10'}`}
           disabled={disabled}
-          rows={multiline ? 3 : undefined}
+          rows={multiline ? 2 : undefined}
           style={multiline ? { resize: 'none' } : undefined}
         />
-        <button
-          onClick={() => onSubmit(referencedCards.size > 0 ? Array.from(referencedCards) : undefined)}
-          disabled={!value.trim() || disabled || isLoading}
-          className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          {isLoading ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              <span>Starting...</span>
-            </>
-          ) : (
-            <>
-              <span>{submitButtonText}</span>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            </>
+      ) : (
+        // Default mode - with border and submit button
+        <div className="flex gap-3">
+          <InputComponent
+            ref={inputRef as any}
+            type={multiline ? undefined : "text"}
+            value={value}
+            onChange={handleInputChange}
+            onKeyPress={handleKeyPress}
+            placeholder={placeholder}
+            className="flex-1 px-4 py-3 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+            disabled={disabled}
+            rows={multiline ? 2 : undefined}
+            style={multiline ? { resize: 'none' } : undefined}
+          />
+          {submitButtonText && (
+            <button
+              onClick={() => onSubmit(referencedCards.size > 0 ? Array.from(referencedCards) : undefined)}
+              disabled={!value.trim() || disabled || isLoading}
+              className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Starting...</span>
+                </>
+              ) : (
+                <>
+                  <span>{submitButtonText}</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </>
+              )}
+            </button>
           )}
-        </button>
-      </div>
+        </div>
+      )}
 
       {/* Card Selection Modal */}
       {showCardDropdown && (
