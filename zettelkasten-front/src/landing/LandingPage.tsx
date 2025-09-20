@@ -59,52 +59,45 @@ function LandingPage() {
 
   const features = [
     {
+      id: "human-centric",
+      title: "Human-Centric AI",
+      summary: "AI augments your thinking rather than replacing it. See relationships between ideas you never noticed before.",
+      details: "Built on time-tested zettelkasten principles, Zettelgarden helps you develop genuine insights rather than just collecting automated summaries. Every connection you make strengthens your personal knowledge graph, with AI helping you discover patterns you'd miss manually.",
+      icon: "🧠"
+    },
+    {
+      id: "zettelkasten-method",
+      title: "Proven Zettelkasten Method",
+      summary: "Based on the system used by history's most productive thinkers like Darwin and Luhmann.",
+      details: "Atomic notes with bidirectional linking create a knowledge network that grows smarter over time. This isn't just note-taking—it's a thinking methodology that has powered breakthrough insights for centuries, now enhanced with modern technology.",
+      icon: "🌱"
+    },
+    {
+      id: "connected-knowledge",
+      title: "Connected Knowledge Graph",
+      summary: "Every idea links to every other idea. Turn information silos into a living knowledge network.",
+      details: "Bidirectional linking reveals unexpected connections across time and topics. Your knowledge compounds instead of collecting dust, with visual representations showing how your understanding connects and evolves.",
+      icon: "🔗"
+    },
+    {
       id: "ai-chat",
-      title: "AI Agents for Your Knowledge Base",
+      title: "AI Agents for Discovery",
       summary: "Intelligent AI agents that can search, analyze, and synthesize information from your personal knowledge collection.",
       details: "Our AI agents don't just chat—they actively work with your knowledge base using sophisticated tools. They can search through your cards, create new notes, analyze patterns, and provide insights by combining information from multiple sources. These agents understand context and can perform complex reasoning tasks across your entire knowledge graph.",
       icon: "🤖"
     },
     {
-      id: "ai-integration",
-      title: "Thoughtful AI Integration",
-      summary: "While other tools rush to automate everything with LLMs, Zettelgarden takes a measured approach.",
-      details: "AI features are designed to augment your thinking process, not replace it. Our summarization pipeline delivers both high‑level insights through executive summaries and detailed evidence‑driven reference summaries with theses, arguments, and facts—helping you see the big picture without losing important nuance.",
-      icon: "🧠"
-    },
-    {
-      id: "human-centric",
-      title: "Human-Centric Knowledge Organization",
-      summary: "Create and connect atomic notes that reflect your understanding, not just store information.",
-      details: "Built on time-tested zettelkasten principles, Zettelgarden helps you develop genuine insights rather than just collecting automated summaries. Every connection you make strengthens your personal knowledge graph.",
-      icon: "🌱"
-    },
-    {
-      id: "scale",
-      title: "Built for Scale",
-      summary: "Whether you're managing personal notes or building a company knowledge base, Zettelgarden is designed to grow with you.",
-      details: "Powerful linking and organization features help maintain clarity even as your knowledge base expands. Advanced search capabilities and hierarchical organization ensure you can always find what you need.",
-      icon: "📈"
-    },
-    {
       id: "summaries",
-      title: "Structured Summaries",
-      summary: "Transform dense articles, podcasts, or research into clear two‑part outputs.",
+      title: "Structured Analysis",
+      summary: "Transform dense articles, podcasts, or research into clear, actionable insights.",
       details: "Concise executive summaries for decision‑makers and detailed reference summaries with theses, ranked arguments, and verifiable facts for researchers. Each summary preserves the original context while making information actionable.",
       icon: "📋"
     },
     {
-      id: "analysis",
-      title: "Research‑Grade Analysis",
-      summary: "Automatically extracts core claims, supports them with evidence, and ranks arguments by importance.",
-      details: "Summaries stay academically precise and fact driven, providing clarity while preserving nuance. Our analysis pipeline identifies key themes, cross-references claims, and maintains citation integrity.",
-      icon: "🔬"
-    },
-    {
       id: "open-source",
-      title: "Open Source and Transparent",
-      summary: "Zettelgarden is built in the open, using TypeScript and Go.",
-      details: "Your knowledge belongs to you—no vendor lock‑in, no black boxes, just clean, efficient knowledge management. Full source code is available on GitHub with comprehensive documentation.",
+      title: "Your Knowledge, Your Control",
+      summary: "Self-host for complete privacy or use our secure cloud. No vendor lock-in, no data mining.",
+      details: "Your knowledge belongs to you—export your data anytime, self-host for complete control, or trust our secure cloud infrastructure. Full source code is available on GitHub with comprehensive documentation.",
       icon: "🔓"
     }
   ];
@@ -214,15 +207,15 @@ function LandingPage() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
               >
-                Plant Your Thoughts, <span className="text-modern-emerald-600 relative">
-                  Cultivate
+                Build <span className="text-modern-emerald-600 relative">
+                  Understanding
                   <motion.div
                     className="absolute -bottom-1 left-0 w-full h-1 bg-gradient-to-r from-modern-emerald-400 to-modern-emerald-600"
                     initial={{ scaleX: 0 }}
                     animate={{ scaleX: 1 }}
                     transition={{ duration: 0.8, delay: 1 }}
                   />
-                </span> Your Ideas
+                </span>, Not Just Notes
               </motion.h1>
 
               <motion.p
@@ -231,10 +224,9 @@ function LandingPage() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.8, delay: 0.4 }}
               >
-                Zettelgarden is an open-source personal knowledge management system
-                that preserves human insight while leveraging modern technology.
-                Built on zettelkasten principles, it helps you develop and maintain
-                your own understanding of the world.
+                The knowledge management system that thinks with you. Zettelgarden combines
+                proven zettelkasten methodology with AI intelligence to help you discover
+                connections, build insights, and turn information overload into understanding.
               </motion.p>
 
               <motion.div
@@ -349,8 +341,8 @@ function LandingPage() {
           >
             <h2 className="text-3xl font-display font-bold mb-6 text-modern-slate-900">Simple, Transparent Pricing</h2>
             <p className="font-body text-modern-slate-600 mb-12 max-w-2xl mx-auto">
-              Upgrade to Zettelgarden Pro to unlock advanced AI summarization, fact extraction,
-              and early access to new features.
+              Start free and discover how AI can augment your thinking. Upgrade to unlock advanced
+              AI agents, content analysis, and discovery features. 30-day free trial included.
             </p>
 
             <div className="flex flex-col md:flex-row gap-8 justify-center items-stretch flex-wrap">
@@ -358,9 +350,10 @@ function LandingPage() {
                 <h3 className="text-xl font-display font-semibold text-modern-indigo-700 mb-2">Free</h3>
                 <p className="text-gray-700 mb-4">$0 / forever</p>
                 <ul className="text-left mb-6 space-y-2">
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Create and Organize Cards</li>
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Knowledge Linking and Organization</li>
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Manage your Todos With Your Cards</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Atomic Notes & Cards</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Bidirectional Linking</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Task Management</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Basic Search</li>
                 </ul>
                 <button
                   onClick={() => navigate("/app")}
@@ -370,17 +363,16 @@ function LandingPage() {
                 </button>
               </div>
               <div className="bg-white shadow-lg rounded-xl p-6 w-full max-w-sm flex flex-col border border-modern-slate-100 hover:shadow-xl transition-shadow duration-300">
-                <h3 className="text-xl font-display font-semibold text-modern-indigo-700 mb-2">Monthly</h3>
+                <h3 className="text-xl font-display font-semibold text-modern-indigo-700 mb-2">PRO Monthly</h3>
                 <p className="text-gray-700 mb-1">$10 / month</p>
-                <p className="text-sm text-green-600 mb-3">30-day free trial included</p>
+                <p className="text-sm text-green-600 mb-3">🎯 30-day free trial - Try all AI features</p>
                 <ul className="text-left mb-6 space-y-2">
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Create and Organize Cards</li>
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Knowledge Linking and Organization</li>
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Manage your Todos With Your Cards</li>
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI Agents with Tool-Using Capabilities</li>
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI Entity and Fact Extraction</li>
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Card Summarization and Analysis</li>
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Early Access To New Features</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Everything in Free</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> <strong>AI Chat with Knowledge Base</strong></li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> <strong>Vector/Semantic Search</strong></li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> <strong>Entity Recognition & Linking</strong></li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> <strong>Content Analysis & Summaries</strong></li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Early Access to New Features</li>
                 </ul>
                 <button
                   onClick={() => navigate("/subscribe")}
@@ -390,17 +382,16 @@ function LandingPage() {
                 </button>
               </div>
               <div className="bg-white shadow-lg rounded-xl p-6 w-full max-w-sm flex flex-col border border-modern-slate-100 hover:shadow-xl transition-shadow duration-300">
-                <h3 className="text-xl font-display font-semibold text-modern-indigo-700 mb-2">Annual</h3>
+                <h3 className="text-xl font-display font-semibold text-modern-indigo-700 mb-2">PRO Annual</h3>
                 <p className="text-gray-700 mb-1">$100 / year <span className="text-green-600">(Save 20%)</span></p>
-                <p className="text-sm text-green-600 mb-3">30-day free trial included</p>
+                <p className="text-sm text-green-600 mb-3">🎯 30-day free trial - Try all AI features</p>
                 <ul className="text-left mb-6 space-y-2">
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Create and Organize Cards</li>
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Knowledge Linking and Organization</li>
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Manage your Todos With Your Cards</li>
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI Agents with Tool-Using Capabilities</li>
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> AI Entity and Fact Extraction</li>
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Card Summarization and Analysis</li>
-                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Early Access To New Features</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Everything in Free</li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> <strong>AI Chat with Knowledge Base</strong></li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> <strong>Vector/Semantic Search</strong></li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> <strong>Entity Recognition & Linking</strong></li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> <strong>Content Analysis & Summaries</strong></li>
+                  <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Early Access to New Features</li>
                 </ul>
                 <button
                   onClick={() => navigate("/subscribe")}
