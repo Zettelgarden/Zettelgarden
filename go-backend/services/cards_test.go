@@ -593,3 +593,105 @@ func TestUpdateBacklinks(t *testing.T) {
 		t.Errorf("Expected 0 backlinks for target2 after update, got %v", len(backlinks2After))
 	}
 }
+
+func TestIsMarkdownLink(t *testing.T) {
+	testCases := []struct {
+		name     string
+		text     string
+		match    string
+		expected bool
+	}{
+		{"Markdown link", "Check out [link](http://example.com)", "[link]", true},
+		{"Backlink only", "This is a [backlink] reference", "[backlink]", false},
+		{"Mixed content", "Here's [link](url) and [backlink]", "[link]", true},
+		{"Mixed content backlink", "Here's [link](url) and [backlink]", "[backlink]", false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := isMarkdownLink(tc.text, tc.match)
+			if result != tc.expected {
+				t.Errorf("Expected %v, got %v for text %q and match %q", tc.expected, result, tc.text, tc.match)
+			}
+		})
+	}
+}
+
+func TestGetParentCard(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create parent card
+	parentParams := models.EditCardParams{
+		Title:  "Parent Card",
+		Body:   "Parent Body",
+		CardID: "parent_get",
+		Link:   "",
+	}
+	parentCard, err := CreateCard(s.DB, userID, parentParams)
+	if err != nil {
+		t.Fatalf("Failed to create parent card: %v", err)
+	}
+
+	// Create child card
+	childParams := models.EditCardParams{
+		Title:  "Child Card",
+		Body:   "Child Body",
+		CardID: "parent_get/child",
+		Link:   "",
+	}
+	childCard, err := CreateCard(s.DB, userID, childParams)
+	if err != nil {
+		t.Fatalf("Failed to create child card: %v", err)
+	}
+
+	// Get parent of child card
+	parents, err := GetParentCard(s.DB, userID, childCard.ID)
+	if err != nil {
+		t.Fatalf("GetParentCard failed: %v", err)
+	}
+
+	if len(parents) != 1 {
+		t.Errorf("Expected 1 parent, got %v", len(parents))
+	}
+
+	if len(parents) > 0 && parents[0].ID != parentCard.ID {
+		t.Errorf("Expected parent ID %v, got %v", parentCard.ID, parents[0].ID)
+	}
+}
+
+func TestCheckIsCardIDUnique(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Test with non-existent card ID
+	if !checkIsCardIDUnique(s.DB, userID, "unique_test") {
+		t.Error("Expected true for non-existent card ID")
+	}
+
+	// Create a card
+	params := models.EditCardParams{
+		Title:  "Test Card",
+		Body:   "Test Body",
+		CardID: "unique_test",
+		Link:   "",
+	}
+	_, err := CreateCard(s.DB, userID, params)
+	if err != nil {
+		t.Fatalf("Failed to create card: %v", err)
+	}
+
+	// Test with existing card ID
+	if checkIsCardIDUnique(s.DB, userID, "unique_test") {
+		t.Error("Expected false for existing card ID")
+	}
+
+	// Test with empty card ID
+	if !checkIsCardIDUnique(s.DB, userID, "") {
+		t.Error("Expected true for empty card ID")
+	}
+}
