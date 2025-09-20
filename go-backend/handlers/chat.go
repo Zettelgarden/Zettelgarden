@@ -235,6 +235,8 @@ func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Note: We'll update chat memory after we get the assistant response
+
 	// Create a pending assistant message
 	assistantMessage, err := s.SaveChatMessage(conversationID, "assistant", nil, nil, nil, nil, "pending")
 	if err != nil {
@@ -722,11 +724,11 @@ func (s *Handler) processAssistantResponse(userID int, conversation *models.Chat
 
 	log.Printf("finally update assistant %v", assistantMessageID)
 	// Update the assistant message with the actual content and mark as completed
-	s.updateAssistantMessage(assistantMessageID, finalAssistantMessage)
+	s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, finalAssistantMessage)
 }
 
 // updateAssistantMessage updates an existing assistant message with the generated content
-func (s *Handler) updateAssistantMessage(messageID string, generatedMessage *models.ChatMessage) error {
+func (s *Handler) updateAssistantMessage(userID int, conversationID, messageID string, generatedMessage *models.ChatMessage) error {
 	// Convert tool calls to JSON if present
 	var toolCallsJSON *string
 	if generatedMessage.ToolCalls != nil && len(generatedMessage.ToolCalls) > 0 {
@@ -744,6 +746,18 @@ func (s *Handler) updateAssistantMessage(messageID string, generatedMessage *mod
 		WHERE id = $3
 	`
 	_, err := s.DB.Exec(query, generatedMessage.Content, toolCallsJSON, messageID)
+
+	// Update user memory based on chat exchange (async) - if there's actual content
+	if err == nil && generatedMessage.Content != nil && *generatedMessage.Content != "" {
+		// Get the most recent user message to analyze the chat exchange
+		go func() {
+			userMessage := s.getLatestUserMessage(conversationID)
+			if userMessage != "" {
+				s.GenerateChatMemory(uint(userID), userMessage, *generatedMessage.Content)
+			}
+		}()
+	}
+
 	return err
 }
 
@@ -795,6 +809,23 @@ func (s *Handler) UpdateConversationModel(conversationID string, model string) e
 	query := `UPDATE chat_conversations SET model = $1, updated_at = NOW() WHERE id = $2`
 	_, err := s.DB.Exec(query, model, conversationID)
 	return err
+}
+
+// getLatestUserMessage gets the most recent user message from a conversation
+func (s *Handler) getLatestUserMessage(conversationID string) string {
+	var content *string
+	query := `
+		SELECT content
+		FROM chat_messages
+		WHERE conversation_id = $1 AND role = 'user' AND content IS NOT NULL
+		ORDER BY sequence_number DESC
+		LIMIT 1
+	`
+	err := s.DB.QueryRow(query, conversationID).Scan(&content)
+	if err != nil || content == nil {
+		return ""
+	}
+	return *content
 }
 
 // GenerateChatResponse generates an LLM response with tool calling support
@@ -893,7 +924,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 					ID:      assistantMessageID,
 					Content: &errorMessage,
 				}
-				err := s.updateAssistantMessage(assistantMessageID, finalMessage)
+				err := s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, finalMessage)
 				if err != nil {
 					log.Printf("Error updating message with context length error: %v", err)
 					return nil, err
@@ -914,7 +945,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 				Content: &assistantMessage.Content,
 			}
 			log.Printf("no more tool calls")
-			err := s.updateAssistantMessage(assistantMessageID, finalMessage)
+			err := s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, finalMessage)
 			if err != nil {
 				return nil, err
 			}

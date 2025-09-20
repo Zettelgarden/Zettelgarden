@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"go-backend/models"
+	"go-backend/prompts"
 	"go-backend/services"
 	"io"
 	"log"
@@ -26,6 +27,28 @@ func (s *Handler) GenerateMemory(userID uint, cardContent string) {
 		_, err := GenerateUserMemory(s.DB, client, userID, cardContent)
 		if err != nil {
 			log.Printf("error generating user memory: %v", err)
+			return
+		}
+		_, err = s.DB.Exec("UPDATE users SET memory_has_changed = true WHERE id = $1", userID)
+		if err != nil {
+			log.Printf("failed to update memory_has_changed flag for user %d: %v", userID, err)
+			return
+		}
+	}()
+}
+
+func (s *Handler) GenerateChatMemory(userID uint, userMessage, assistantMessage string) {
+
+	if s.Server.Testing {
+		return
+	}
+
+	go func() {
+		client := services.NewDefaultClient(s.DB, int(userID))
+		client.RequestType = "chat_memory"
+		_, err := GenerateUserChatMemory(s.DB, client, userID, userMessage, assistantMessage)
+		if err != nil {
+			log.Printf("error generating user chat memory: %v", err)
 			return
 		}
 		_, err = s.DB.Exec("UPDATE users SET memory_has_changed = true WHERE id = $1", userID)
@@ -227,6 +250,59 @@ Your task is to produce a new, superior, and more compact version of the entire 
 	}
 
 	err = UpdateUserMemory(db, uint(userID), response.Choices[0].Message.Content)
+	if err != nil {
+		return "", err
+	}
+
+	return response.Choices[0].Message.Content, nil
+}
+
+func GenerateUserChatMemory(db *sql.DB, client *models.LLMClient, userID uint, userMessage, assistantMessage string) (string, error) {
+	userMemory, err := GetUserMemory(db, int(userID))
+	if err != nil {
+		return "", err
+	}
+
+	// Load the chat memory prompt
+	promptTemplate, err := prompts.GetChatMemoryAssistantPrompt()
+	if err != nil {
+		log.Printf("Error loading chat memory prompt: %v, using fallback", err)
+		// Fallback to a basic prompt if file loading fails
+		promptTemplate = `You are analyzing a chat conversation to update user memory.
+
+**Existing Memory:**
+%s
+
+**Chat Exchange:**
+User: %s
+Assistant: %s
+
+**Please update the memory with observations about the user based on this conversation:**`
+	}
+
+	prompt := fmt.Sprintf(promptTemplate, userMemory, userMessage, assistantMessage)
+
+	messages := []openai.ChatCompletionMessage{
+		{
+			Role:    openai.ChatMessageRoleUser,
+			Content: prompt,
+		},
+	}
+
+	response, err := services.ExecuteLLMRequest(client, messages)
+	if err != nil {
+		return "", err
+	}
+
+	if len(response.Choices) == 0 {
+		return "", fmt.Errorf("no response from AI")
+	}
+
+	content := response.Choices[0].Message.Content
+	content = strings.TrimPrefix(content, "```json")
+	content = strings.TrimSuffix(content, "```")
+
+	err = UpdateUserMemory(db, uint(userID), content)
 	if err != nil {
 		return "", err
 	}

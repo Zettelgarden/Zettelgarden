@@ -40,3 +40,8 @@ func GetSubagentResearcherPrompt() (string, error) {
 func GetTitleGeneratorPrompt() (string, error) {
 	return LoadPrompt("title_generator.md")
 }
+
+// GetChatMemoryAssistantPrompt loads the chat memory assistant system prompt
+func GetChatMemoryAssistantPrompt() (string, error) {
+	return LoadPrompt("chat_memory_assistant.md")
+}
