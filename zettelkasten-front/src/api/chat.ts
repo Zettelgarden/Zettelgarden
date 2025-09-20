@@ -72,6 +72,14 @@ export interface ConversationStatus {
   has_failed: boolean;
 }
 
+export interface ChatInstructions {
+  id?: number;
+  user_id: number;
+  instructions: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // API Functions
 
 export function createConversation(params: CreateConversationRequest): Promise<ChatConversation> {
@@ -243,6 +251,45 @@ export function getConversationStatus(conversationId: string): Promise<Conversat
     .then((response) => {
       if (response) {
         return response.json() as Promise<ConversationStatus>;
+      } else {
+        return Promise.reject(new Error("Response is undefined"));
+      }
+    });
+}
+
+export function getChatInstructions(): Promise<ChatInstructions> {
+  const url = `${base_url}/chat/instructions`;
+  const token = localStorage.getItem("token");
+
+  return fetch(url, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+    .then(checkStatus)
+    .then((response) => {
+      if (response) {
+        return response.json() as Promise<ChatInstructions>;
+      } else {
+        return Promise.reject(new Error("Response is undefined"));
+      }
+    });
+}
+
+export function updateChatInstructions(instructions: string): Promise<ChatInstructions> {
+  const url = `${base_url}/chat/instructions`;
+  const token = localStorage.getItem("token");
+
+  return fetch(url, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ instructions }),
+  })
+    .then(checkStatus)
+    .then((response) => {
+      if (response) {
+        return response.json() as Promise<ChatInstructions>;
       } else {
         return Promise.reject(new Error("Response is undefined"));
       }

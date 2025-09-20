@@ -268,6 +268,8 @@ func main() {
 	addProtectedRoute(r, "/api/chat/conversations/{id}/star", h.StarConversationRoute, "POST")
 	addProtectedRoute(r, "/api/chat/conversations/{id}/title", h.UpdateConversationTitleRoute, "PUT")
 	addProtectedRoute(r, "/api/chat/usage", h.GetUsageQuotaRoute, "GET")
+	addProtectedRoute(r, "/api/chat/instructions", h.GetInstructionsRoute, "GET")
+	addProtectedRoute(r, "/api/chat/instructions", h.UpdateInstructionsRoute, "PUT")
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{os.Getenv("ZETTEL_URL")},

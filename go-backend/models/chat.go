@@ -74,6 +74,15 @@ type ChatUsageQuota struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+// ChatInstructions stores user-specific instructions for chat conversations
+type ChatInstructions struct {
+	ID           int       `json:"id"`
+	UserID       int       `json:"user_id"`
+	Instructions string    `json:"instructions"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
 // Legacy types for backward compatibility
 // Conversation holds metadata for a chat session (legacy).
 type Conversation struct {

@@ -18,6 +18,7 @@ import { useChatContext } from "../contexts/ChatContext";
 import { parseMessageContent } from "../utils/chatUtils";
 import { CardsSection } from "../components/chat/CardsSection";
 import { ChatInput } from "../components/chat/ChatInput";
+import { InstructionsMenu } from "../components/chat/InstructionsMenu";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -37,6 +38,7 @@ export function ChatPage({ }: ChatPageProps) {
   const [showAllRecent, setShowAllRecent] = useState(false);
   const [referencedCards, setReferencedCards] = useState<string[]>([]);
   const [isPolling, setIsPolling] = useState(false);
+  const [showInstructionsMenu, setShowInstructionsMenu] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { conversationId, setConversationId } = useChatContext();
@@ -740,7 +742,7 @@ export function ChatPage({ }: ChatPageProps) {
                     </svg>
                   </button>
                 )}
-                <div>
+                <div className="flex-1">
                   <h2 className="text-lg font-semibold text-gray-900">
                     {currentConversation.title || "Untitled Chat"}
                   </h2>
@@ -749,6 +751,15 @@ export function ChatPage({ }: ChatPageProps) {
                     Model: {currentConversation.model}
                   </p>
                 </div>
+                <button
+                  onClick={() => setShowInstructionsMenu(true)}
+                  className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  title="Chat Instructions"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                </button>
               </div>
             </div>
 
@@ -874,6 +885,12 @@ export function ChatPage({ }: ChatPageProps) {
           </div>
         )}
       </div>
+
+      {/* Instructions Menu */}
+      <InstructionsMenu
+        isOpen={showInstructionsMenu}
+        onClose={() => setShowInstructionsMenu(false)}
+      />
 
     </div>
   );
