@@ -1,0 +1,351 @@
+package services
+
+import (
+	"database/sql"
+	"fmt"
+	"go-backend/models"
+	"log"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// GetTask retrieves a single task by ID for a specific user
+func GetTask(db *sql.DB, userID int, id int) (models.Task, error) {
+	var task models.Task
+
+	err := db.QueryRow(`
+	SELECT id, card_pk, user_id, scheduled_date, due_date,
+	created_at, updated_at, completed_at, title, priority, is_complete
+	FROM
+	tasks
+	WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE
+	`, id, userID).Scan(
+		&task.ID,
+		&task.CardPK,
+		&task.UserID,
+		&task.ScheduledDate,
+		&task.DueDate,
+		&task.CreatedAt,
+		&task.UpdatedAt,
+		&task.CompletedAt,
+		&task.Title,
+		&task.Priority,
+		&task.IsComplete,
+	)
+	if err != nil {
+		log.Printf("err %v", err)
+		return models.Task{}, fmt.Errorf("unable to access task")
+	}
+	if task.CardPK > 0 {
+		card, err := GetPartialCard(db, userID, task.CardPK)
+		if err == nil {
+			task.Card = card
+		}
+	}
+	return task, nil
+}
+
+// GetTasks retrieves all tasks for a user, optionally including completed tasks
+func GetTasks(db *sql.DB, userID int, includeCompleted bool) ([]models.Task, error) {
+	var tasks []models.Task
+	query := `
+	SELECT id, card_pk, user_id, scheduled_date, due_date,
+	created_at, updated_at, completed_at, title, priority, is_complete
+	FROM
+	tasks
+	WHERE user_id = $1 AND is_deleted = FALSE
+	`
+	if !includeCompleted {
+		query += " AND is_complete = FALSE"
+	}
+
+	rows, err := db.Query(query, userID)
+	if err != nil {
+		log.Printf("err %v", err)
+		return []models.Task{}, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var task models.Task
+		if err := rows.Scan(
+			&task.ID,
+			&task.CardPK,
+			&task.UserID,
+			&task.ScheduledDate,
+			&task.DueDate,
+			&task.CreatedAt,
+			&task.UpdatedAt,
+			&task.CompletedAt,
+			&task.Title,
+			&task.Priority,
+			&task.IsComplete,
+		); err != nil {
+			log.Printf("err %v", err)
+			return []models.Task{}, fmt.Errorf("unable to access task")
+		}
+		if task.CardPK > 0 {
+			card, err := GetPartialCard(db, userID, task.CardPK)
+			if err == nil {
+				task.Card = card
+			}
+		}
+		// Note: Tag loading will need to be handled by the handler that calls this
+		// since QueryTagsForTask is in the handlers package
+		tasks = append(tasks, task)
+	}
+	return tasks, nil
+}
+
+// GetTasksByCard retrieves all tasks associated with a specific card
+func GetTasksByCard(db *sql.DB, userID int, cardPK int) ([]models.Task, error) {
+	var tasks []models.Task
+	query := `
+	SELECT id, card_pk, user_id, scheduled_date, due_date,
+	created_at, updated_at, completed_at, title, priority, is_complete
+	FROM
+	tasks
+	WHERE user_id = $1 AND is_deleted = FALSE AND card_pk = $2
+`
+	rows, err := db.Query(query, userID, cardPK)
+	if err != nil {
+		log.Printf("err %v", err)
+		return []models.Task{}, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var task models.Task
+		if err := rows.Scan(
+			&task.ID,
+			&task.CardPK,
+			&task.UserID,
+			&task.ScheduledDate,
+			&task.DueDate,
+			&task.CreatedAt,
+			&task.UpdatedAt,
+			&task.CompletedAt,
+			&task.Title,
+			&task.Priority,
+			&task.IsComplete,
+		); err != nil {
+			log.Printf("err %v", err)
+			return []models.Task{}, fmt.Errorf("unable to access task")
+		}
+		if task.CardPK > 0 {
+			card, err := GetPartialCard(db, userID, task.CardPK)
+			if err == nil {
+				task.Card = card
+			}
+		}
+		// Note: Tag loading will need to be handled by the handler that calls this
+		// since QueryTagsForTask is in the handlers package
+		tasks = append(tasks, task)
+	}
+	return tasks, nil
+}
+
+// UpdateTask updates an existing task
+func UpdateTask(db *sql.DB, userID int, id int, task models.Task) error {
+	oldTask, err := GetTask(db, userID, id)
+	if err != nil {
+		return fmt.Errorf("unable to query task: %v", err)
+	}
+
+	var completedAt *time.Time
+	if task.IsComplete && !oldTask.IsComplete {
+		now := time.Now()
+		completedAt = &now
+		err = checkRecurringTasks(db, task)
+		if err != nil {
+			log.Printf("err %v", err)
+		}
+	} else if oldTask.IsComplete {
+		completedAt = oldTask.CompletedAt
+	} else {
+		completedAt = nil
+	}
+
+	_, err = db.Exec(`
+		UPDATE tasks SET
+			card_pk = $1,
+			scheduled_date = $2,
+			updated_at = NOW(),
+			completed_at = $3,
+			title = $4,
+			priority = $5,
+			is_complete = $6
+		WHERE id = $7 AND user_id = $8 AND is_deleted = FALSE
+	`, task.CardPK, task.ScheduledDate, completedAt, task.Title, task.Priority, task.IsComplete, id, userID)
+
+	if err != nil {
+		log.Printf("error: %v", err)
+		return fmt.Errorf("unable to update task")
+	}
+
+	newTask, err := GetTask(db, userID, id)
+	if err != nil {
+		log.Printf("Error querying updated task for audit: %v", err)
+	} else {
+		err = CreateAuditEvent(db, userID, id, "task", "update", oldTask, newTask)
+		if err != nil {
+			log.Printf("Error creating audit event: %v", err)
+		}
+	}
+
+	return nil
+}
+
+// CreateTask creates a new task
+func CreateTask(db *sql.DB, task models.Task) (int, error) {
+	var taskID int
+
+	// Log the priority value for debugging
+	if task.Priority != nil {
+		log.Printf("Priority value: %s", *task.Priority)
+	} else {
+		log.Printf("Priority is nil")
+	}
+
+	err := db.QueryRow(`
+	INSERT INTO tasks (card_pk, user_id, scheduled_date, due_date, created_at, updated_at, completed_at, title, priority, is_complete, is_deleted)
+	VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, $7, $8, FALSE)
+	RETURNING id
+	`, task.CardPK, task.UserID, task.ScheduledDate, task.DueDate, task.CompletedAt, task.Title, task.Priority, task.IsComplete).Scan(&taskID)
+
+	if err != nil {
+		log.Printf("err %v", err)
+		return 0, fmt.Errorf("unable to create task")
+	}
+
+	newTask, err := GetTask(db, task.UserID, taskID)
+	if err != nil {
+		log.Printf("Error querying new task for audit: %v", err)
+	} else {
+		err = CreateAuditEvent(db, task.UserID, taskID, "task", "create", nil, newTask)
+		if err != nil {
+			log.Printf("Error creating audit event: %v", err)
+		}
+	}
+
+	return taskID, nil
+}
+
+// DeleteTask soft deletes a task
+func DeleteTask(db *sql.DB, userID int, id int) error {
+	oldTask, err := GetTask(db, userID, id)
+	if err != nil {
+		return fmt.Errorf("unable to query task: %v", err)
+	}
+
+	_, err = db.Exec(`
+	UPDATE tasks SET is_deleted = TRUE
+	WHERE id = $1 AND user_id = $2
+	`, id, userID)
+
+	if err != nil {
+		log.Printf("err %v", err)
+		return fmt.Errorf("unable to delete task")
+	}
+
+	err = CreateAuditEvent(db, userID, id, "task", "delete", oldTask, nil)
+	if err != nil {
+		log.Printf("Error creating audit event: %v", err)
+	}
+
+	return nil
+}
+
+// ParseRecurringTasks parses a task title to extract recurring task information
+func ParseRecurringTasks(title string) (models.RecurringTask, bool) {
+	patterns := []struct {
+		regex       *regexp.Regexp
+		frequency   string
+		getInterval func([]string) int
+	}{
+		{
+			regex:       regexp.MustCompile(`(?i)every day|daily`),
+			frequency:   "daily",
+			getInterval: func([]string) int { return 1 },
+		},
+		{
+			regex:     regexp.MustCompile(`(?i)every (\d+) days?`),
+			frequency: "daily",
+			getInterval: func(matches []string) int {
+				interval, _ := strconv.Atoi(matches[1])
+				return interval
+			},
+		},
+		// Weekly patterns
+		{
+			regex:       regexp.MustCompile(`(?i)every week|weekly`),
+			frequency:   "weekly",
+			getInterval: func([]string) int { return 7 },
+		},
+		{
+			regex:     regexp.MustCompile(`(?i)every (\d+) weeks?`),
+			frequency: "weekly",
+			getInterval: func(matches []string) int {
+				interval, _ := strconv.Atoi(matches[1])
+				return interval
+			},
+		},
+		// Monthly patterns
+		{
+			regex:       regexp.MustCompile(`(?i)every month|monthly`),
+			frequency:   "monthly",
+			getInterval: func([]string) int { return 30 },
+		},
+		{
+			regex:     regexp.MustCompile(`(?i)every (\d+) months?`),
+			frequency: "monthly",
+			getInterval: func(matches []string) int {
+				interval, _ := strconv.Atoi(matches[1])
+				return interval
+			},
+		},
+	}
+
+	lowercaseTitle := strings.ToLower(title)
+
+	for _, pattern := range patterns {
+		matches := pattern.regex.FindStringSubmatch(lowercaseTitle)
+		if matches != nil {
+			return models.RecurringTask{
+				Frequency: pattern.frequency,
+				Interval:  pattern.getInterval(matches),
+			}, true
+		}
+	}
+
+	return models.RecurringTask{}, false
+}
+
+// checkRecurringTasks handles creating recurring tasks when a task is completed
+func checkRecurringTasks(db *sql.DB, task models.Task) error {
+	recurringTask, found := ParseRecurringTasks(task.Title)
+	if !found {
+		return nil
+	}
+	var scheduledDate time.Time
+	now := time.Now()
+	scheduledDate = now.AddDate(0, 0, recurringTask.Interval)
+
+	newTask := models.Task{
+		CardPK:        task.CardPK,
+		UserID:        task.UserID,
+		ScheduledDate: &scheduledDate,
+		DueDate:       &scheduledDate,
+		CompletedAt:   nil,
+		Title:         task.Title,
+		Priority:      task.Priority,
+		IsComplete:    false,
+	}
+	_, err := CreateTask(db, newTask)
+	if err != nil {
+		return err
+	}
+	return nil
+}

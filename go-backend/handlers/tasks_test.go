@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"go-backend/models"
+	"go-backend/services"
 	"go-backend/tests"
 	"net/http"
 	"net/http/httptest"
@@ -351,7 +352,7 @@ func TestParseRecurringTasks(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			output, found := parseRecurringTasks(tc.input)
+			output, found := services.ParseRecurringTasks(tc.input)
 			if found != tc.found {
 				t.Errorf("expected found to be %v, but got %v", tc.found, found)
 			}
