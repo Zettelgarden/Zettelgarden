@@ -43,7 +43,7 @@ export function LandingHeader() {
             Pricing
           </a>
           <a
-            href="/blog"
+            href="https://nsavage.substack.com"
             className="font-body text-modern-slate-600 hover:text-modern-slate-900 font-medium transition-colors duration-200">
             Blog
           </a>
@@ -95,7 +95,7 @@ export function LandingHeader() {
                 Pricing
               </a>
               <a
-                href="/blog"
+                href="https://nsavage.substack.com"
                 onClick={() => setMobileMenuOpen(false)}
                 className="px-4 py-2 font-body text-modern-slate-600 hover:text-modern-slate-900 font-medium transition-colors duration-200">
                 Blog
