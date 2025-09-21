@@ -295,3 +295,24 @@ export function updateChatInstructions(instructions: string): Promise<ChatInstru
       }
     });
 }
+
+export function regenerateMessage(conversationId: string, messageId: string): Promise<ChatMessage> {
+  const url = `${base_url}/chat/conversations/${conversationId}/messages/${messageId}/regenerate`;
+  const token = localStorage.getItem("token");
+
+  return fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  })
+    .then(checkStatus)
+    .then((response) => {
+      if (response) {
+        return response.json() as Promise<ChatMessage>;
+      } else {
+        return Promise.reject(new Error("Response is undefined"));
+      }
+    });
+}

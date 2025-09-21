@@ -11,6 +11,7 @@ import {
   deleteConversation as apiDeleteConversation,
   starConversation as apiStarConversation,
   getConversationStatus,
+  regenerateMessage as apiRegenerateMessage,
 } from "../api/chat";
 import { setDocumentTitle } from "../utils/title";
 import { Button } from "../components/Button";
@@ -83,8 +84,7 @@ export function ChatPage({ }: ChatPageProps) {
       setConversationId(newConv.id);
       setError(null);
 
-      // Set message input and send it
-      setMessageInput(message);
+      // Send the message directly without setting the input
       await sendMessageToConversation(newConv.id, message, referencedCards);
     } catch (error) {
       console.error("Failed to create conversation with message:", error);
@@ -354,6 +354,23 @@ export function ChatPage({ }: ChatPageProps) {
   const handleCardClick = (cardPk: string) => {
     // Navigate to the card page using the card_id
     window.open(`/app/card/${encodeURIComponent(cardPk)}`, '_blank');
+  };
+
+  const handleRegenerateMessage = async (messageId: string) => {
+    if (!currentConversation) return;
+
+    try {
+      await apiRegenerateMessage(currentConversation.id, messageId);
+
+      // Refresh messages to get the updated message with pending status
+      await refreshMessages(currentConversation.id);
+
+      // Start polling for updates
+      startPolling(currentConversation.id);
+    } catch (error) {
+      console.error("Failed to regenerate message:", error);
+      setError("Failed to regenerate message");
+    }
   };
 
   const toggleToolResult = (messageId: string) => {
@@ -808,6 +825,22 @@ export function ChatPage({ }: ChatPageProps) {
                       )}
                       {formatMessageContent(message)}
                     </div>
+
+                    {/* Regenerate button for assistant messages */}
+                    {message.role === "assistant" && message.status === "completed" && (
+                      <div className="mt-2 flex justify-start">
+                        <button
+                          onClick={() => handleRegenerateMessage(message.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-gray-500 hover:text-gray-700 text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100"
+                          title="Regenerate this message"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Regenerate
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

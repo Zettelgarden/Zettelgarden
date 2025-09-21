@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { BacklinkInputDropdownList } from "../cards/BacklinkInputDropdownList";
 import { PartialCard } from "../../models/Card";
 
@@ -32,11 +32,40 @@ export function ChatInput({
   const [atTriggerPosition, setAtTriggerPosition] = useState(0);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
 
+  // Auto-resize functionality for textarea
+  const adjustTextareaHeight = () => {
+    if (multiline && inputRef.current) {
+      const textarea = inputRef.current as HTMLTextAreaElement;
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = 'auto';
+      // Set height to scrollHeight, with min and max limits
+      const minHeight = 48; // min-h-[48px] equivalent
+      const maxHeight = 200; // Maximum height before scrolling
+      const newHeight = Math.max(minHeight, Math.min(maxHeight, textarea.scrollHeight));
+      textarea.style.height = `${newHeight}px`;
+    }
+  };
+
+  // Adjust height whenever value changes
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [value, multiline]);
+
+  // Initial adjustment on mount
+  useEffect(() => {
+    if (multiline) {
+      adjustTextareaHeight();
+    }
+  }, [multiline]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     const cursorPosition = e.target.selectionStart || 0;
 
     onChange(newValue);
+
+    // Adjust textarea height immediately for responsive resizing
+    setTimeout(adjustTextareaHeight, 0);
 
     // Check for @ trigger
     const textBeforeCursor = newValue.substring(0, cursorPosition);
@@ -115,9 +144,9 @@ export function ChatInput({
           onChange={handleInputChange}
           onKeyPress={handleKeyPress}
           placeholder={placeholder}
-          className={`w-full px-0 py-0 text-sm bg-transparent border-none focus:outline-none resize-none ${multiline ? 'min-h-[48px]' : 'h-10'}`}
+          className={`w-full px-0 py-0 text-sm bg-transparent border-none focus:outline-none resize-none ${multiline ? 'min-h-[48px] overflow-hidden' : 'h-10'}`}
           disabled={disabled}
-          rows={multiline ? 2 : undefined}
+          rows={multiline ? 1 : undefined}
           style={multiline ? { resize: 'none' } : undefined}
         />
       ) : (
@@ -130,9 +159,9 @@ export function ChatInput({
             onChange={handleInputChange}
             onKeyPress={handleKeyPress}
             placeholder={placeholder}
-            className="flex-1 px-4 py-3 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+            className={`flex-1 px-4 py-3 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${multiline ? 'min-h-[48px] overflow-hidden resize-none' : ''}`}
             disabled={disabled}
-            rows={multiline ? 2 : undefined}
+            rows={multiline ? 1 : undefined}
             style={multiline ? { resize: 'none' } : undefined}
           />
           {submitButtonText && (

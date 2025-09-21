@@ -395,6 +395,94 @@ type ConversationStatusResponse struct {
 	HasFailed      bool   `json:"has_failed"`
 }
 
+// RegenerateMessageRoute regenerates a specific assistant message
+func (s *Handler) RegenerateMessageRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	conversationID := mux.Vars(r)["id"]
+	messageID := mux.Vars(r)["messageId"]
+
+	// Check if user has subscription for chat functionality
+	if !s.UserHasSubscription(userID) {
+		http.Error(w, "Chat functionality requires a Pro subscription", http.StatusForbidden)
+		return
+	}
+
+	// Verify conversation exists and belongs to user
+	conversation, err := s.GetConversation(userID, conversationID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Conversation not found", http.StatusNotFound)
+		} else {
+			log.Printf("Error getting conversation: %v", err)
+			http.Error(w, "Failed to get conversation", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Verify message exists and is an assistant message
+	message, err := s.GetChatMessage(messageID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Message not found", http.StatusNotFound)
+		} else {
+			log.Printf("Error getting message: %v", err)
+			http.Error(w, "Failed to get message", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Only allow regenerating assistant messages
+	if message.Role != "assistant" {
+		http.Error(w, "Can only regenerate assistant messages", http.StatusBadRequest)
+		return
+	}
+
+	// Verify message belongs to this conversation
+	if message.ConversationID != conversationID {
+		http.Error(w, "Message does not belong to this conversation", http.StatusBadRequest)
+		return
+	}
+
+	// Check usage quotas
+	if err := s.CheckChatUsageQuota(userID, "messages_per_day"); err != nil {
+		http.Error(w, "Daily message limit exceeded", http.StatusTooManyRequests)
+		return
+	}
+
+	// Reset the message to pending status
+	err = s.UpdateMessageStatus(messageID, "pending")
+	if err != nil {
+		log.Printf("Error updating message status: %v", err)
+		http.Error(w, "Failed to update message status", http.StatusInternalServerError)
+		return
+	}
+
+	// Clear the message content and tool calls
+	err = s.ClearMessageContent(messageID)
+	if err != nil {
+		log.Printf("Error clearing message content: %v", err)
+		http.Error(w, "Failed to clear message content", http.StatusInternalServerError)
+		return
+	}
+
+	// Update usage quota
+	s.IncrementChatUsageQuota(userID, "messages_per_day")
+
+	// Start async regeneration process
+	go s.processAssistantResponse(userID, conversation, messageID, nil)
+
+	// Return the updated message
+	updatedMessage, err := s.GetChatMessage(messageID)
+	if err != nil {
+		log.Printf("Error getting updated message: %v", err)
+		http.Error(w, "Failed to get updated message", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updatedMessage)
+}
+
 // GetConversationStatusRoute gets the processing status of a conversation
 func (s *Handler) GetConversationStatusRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
@@ -641,6 +729,70 @@ func (s *Handler) GetConversationMessages(conversationID string) ([]models.ChatM
 	return messages, nil
 }
 
+// GetConversationMessagesUpTo gets all messages for a conversation up to (but not including) a specific message
+func (s *Handler) GetConversationMessagesUpTo(conversationID, messageID string) ([]models.ChatMessage, error) {
+	// First get the sequence number of the target message
+	var targetSequence int
+	err := s.DB.QueryRow("SELECT sequence_number FROM chat_messages WHERE id = $1", messageID).Scan(&targetSequence)
+	if err != nil {
+		return nil, err
+	}
+
+	query := `
+		SELECT id, conversation_id, role, content, tool_calls, tool_call_id, sequence_number, referenced_cards, status, created_at
+		FROM chat_messages
+		WHERE conversation_id = $1 AND sequence_number < $2
+		ORDER BY sequence_number ASC
+	`
+
+	rows, err := s.DB.Query(query, conversationID, targetSequence)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []models.ChatMessage
+	for rows.Next() {
+		var msg models.ChatMessage
+		var toolCalls *string
+		var referencedCards *string
+
+		err := rows.Scan(
+			&msg.ID,
+			&msg.ConversationID,
+			&msg.Role,
+			&msg.Content,
+			&toolCalls,
+			&msg.ToolCallID,
+			&msg.SequenceNumber,
+			&referencedCards,
+			&msg.Status,
+			&msg.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Parse tool calls JSON
+		if toolCalls != nil && *toolCalls != "" {
+			if err := json.Unmarshal([]byte(*toolCalls), &msg.ToolCalls); err != nil {
+				log.Printf("Error parsing tool calls: %v", err)
+			}
+		}
+
+		// Parse referenced cards JSON
+		if referencedCards != nil && *referencedCards != "" {
+			if err := json.Unmarshal([]byte(*referencedCards), &msg.ReferencedCards); err != nil {
+				log.Printf("Error parsing referenced cards: %v", err)
+			}
+		}
+
+		messages = append(messages, msg)
+	}
+
+	return messages, nil
+}
+
 // SaveChatMessage saves a chat message
 func (s *Handler) SaveChatMessage(conversationID, role string, content *string, toolCalls []models.ChatToolCall, toolCallID *string, referencedCards []string, status string) (*models.ChatMessage, error) {
 	// Get next sequence number
@@ -728,6 +880,58 @@ func (s *Handler) UpdateMessageStatus(messageID, status string) error {
 	return err
 }
 
+// GetChatMessage gets a single chat message by ID
+func (s *Handler) GetChatMessage(messageID string) (*models.ChatMessage, error) {
+	query := `
+		SELECT id, conversation_id, role, content, tool_calls, tool_call_id, sequence_number, referenced_cards, status, created_at
+		FROM chat_messages
+		WHERE id = $1
+	`
+
+	var msg models.ChatMessage
+	var toolCalls *string
+	var referencedCards *string
+
+	err := s.DB.QueryRow(query, messageID).Scan(
+		&msg.ID,
+		&msg.ConversationID,
+		&msg.Role,
+		&msg.Content,
+		&toolCalls,
+		&msg.ToolCallID,
+		&msg.SequenceNumber,
+		&referencedCards,
+		&msg.Status,
+		&msg.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse tool calls JSON
+	if toolCalls != nil && *toolCalls != "" {
+		if err := json.Unmarshal([]byte(*toolCalls), &msg.ToolCalls); err != nil {
+			log.Printf("Error parsing tool calls: %v", err)
+		}
+	}
+
+	// Parse referenced cards JSON
+	if referencedCards != nil && *referencedCards != "" {
+		if err := json.Unmarshal([]byte(*referencedCards), &msg.ReferencedCards); err != nil {
+			log.Printf("Error parsing referenced cards: %v", err)
+		}
+	}
+
+	return &msg, nil
+}
+
+// ClearMessageContent clears the content and tool calls of a message
+func (s *Handler) ClearMessageContent(messageID string) error {
+	query := `UPDATE chat_messages SET content = NULL, tool_calls = NULL WHERE id = $1`
+	_, err := s.DB.Exec(query, messageID)
+	return err
+}
+
 // processAssistantResponse handles the async processing of the assistant response
 func (s *Handler) processAssistantResponse(userID int, conversation *models.ChatConversation, assistantMessageID string, modelOverride *string) {
 	// Update status to processing
@@ -758,8 +962,8 @@ func (s *Handler) processAssistantResponse(userID int, conversation *models.Chat
 		}
 	}
 
-	// Get conversation history for LLM
-	messages, err := s.GetConversationMessages(conversation.ID)
+	// Get conversation history for LLM (up to but not including the message being regenerated)
+	messages, err := s.GetConversationMessagesUpTo(conversation.ID, assistantMessageID)
 	if err != nil {
 		log.Printf("Error getting conversation history: %v", err)
 		s.UpdateMessageStatus(assistantMessageID, "failed")
@@ -985,7 +1189,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 		resp, err := services.ExecuteLLMToolRequest(client, openaiMessages, tools)
 
 		if err != nil {
-			log.Printf("executing LLM error: %v", err)
+			log.Printf("executing LLM error for conversation %s: %v", conversation.ID, err)
 
 			// Check if this is a context length error
 			if services.IsContextLengthError(err) {
@@ -1007,14 +1211,37 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 			return nil, err
 		}
 
+		// Validate response
+		if len(resp.Choices) == 0 {
+			log.Printf("Warning: LLM returned no choices for conversation %s", conversation.ID)
+			errorMessage := "I apologize, but I encountered an issue generating a response. Please try again."
+			finalMessage := &models.ChatMessage{
+				ID:      assistantMessageID,
+				Content: &errorMessage,
+			}
+			err := s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, finalMessage)
+			if err != nil {
+				return nil, err
+			}
+			return finalMessage, nil
+		}
+
 		assistantMessage := resp.Choices[0].Message
 
 		// If no tool calls, update the existing assistant message and return
 		if len(assistantMessage.ToolCalls) == 0 {
 			log.Printf("assisantmessage %v", resp)
+
+			// Check if content is empty and provide fallback
+			content := assistantMessage.Content
+			if strings.TrimSpace(content) == "" {
+				log.Printf("Warning: LLM returned empty content for conversation %s", conversation.ID)
+				content = "I apologize, but I wasn't able to generate a proper response. Could you please try rephrasing your question?"
+			}
+
 			finalMessage := &models.ChatMessage{
 				ID:      assistantMessageID,
-				Content: &assistantMessage.Content,
+				Content: &content,
 			}
 			log.Printf("no more tool calls")
 			err := s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, finalMessage)
