@@ -335,7 +335,9 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.UserHasSubscription(userID) {
 		s.GenerateMemory(uint(userID), card.Body)
-		s.ProcessEntitiesAndFacts(userID, card)
+		if params.ProcessEntitiesAndFacts == nil || *params.ProcessEntitiesAndFacts {
+			s.ProcessEntitiesAndFacts(userID, card)
+		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(card)

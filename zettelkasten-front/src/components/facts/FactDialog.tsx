@@ -7,7 +7,7 @@ import { Button } from "../Button";
 import { Entity } from "../../models/Card";
 import { getFactEntities } from "../../api/entities";
 import { getFactCards, getSimilarFacts, linkFactToCard, mergeFacts, deleteFact, updateFact } from "../../api/facts";
-import { getNextRootId, saveNewCard } from "../../api/cards";
+import { getNextRootId, saveNewCard, suggestCardTitle } from "../../api/cards";
 import { defaultCard } from "../../models/Card";
 import { CardIcon } from "../../assets/icons/CardIcon";
 import { BacklinkInputDropdownList } from "../cards/BacklinkInputDropdownList";
@@ -114,6 +114,7 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
     const [cardBody, setCardBody] = useState("");
     const [cardId, setCardId] = useState("");
     const [showCardIdDiscovery, setShowCardIdDiscovery] = useState(false);
+    const [suggestingTitle, setSuggestingTitle] = useState(false);
 
     const navigate = useNavigate();
 
@@ -135,6 +136,26 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
         setConvertError(null);
     }
 
+    async function handleSuggestTitle() {
+        if (!cardBody.trim()) {
+            setConvertError("Please add some content to the card body before suggesting a title.");
+            return;
+        }
+
+        setSuggestingTitle(true);
+        setConvertError(null);
+
+        try {
+            const suggestedTitle = await suggestCardTitle(cardBody);
+            setCardTitle(suggestedTitle);
+        } catch (error: any) {
+            console.error("Error suggesting title:", error);
+            setConvertError(error.message || "Failed to suggest title. Please try again.");
+        } finally {
+            setSuggestingTitle(false);
+        }
+    }
+
     async function handleConvertToCard() {
         if (!selectedFact) return;
         setIsConverting(true);
@@ -147,6 +168,7 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                 card_id: cardId,
                 title: cardTitle,
                 body: cardBody,
+                process_entities_and_facts: false,
             });
 
             if ("error" in newCard) {
@@ -529,13 +551,23 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Card Title
                                 </label>
-                                <input
-                                    type="text"
-                                    value={cardTitle}
-                                    onChange={(e) => setCardTitle(e.target.value)}
-                                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Enter card title..."
-                                />
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={cardTitle}
+                                        onChange={(e) => setCardTitle(e.target.value)}
+                                        className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-24"
+                                        placeholder="Enter card title..."
+                                    />
+                                    <button
+                                        onClick={handleSuggestTitle}
+                                        disabled={suggestingTitle || !cardBody.trim()}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                        type="button"
+                                    >
+                                        {suggestingTitle ? "Suggesting..." : "Suggest"}
+                                    </button>
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
