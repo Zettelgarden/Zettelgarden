@@ -49,6 +49,9 @@ func NewToolRegistry() *ToolRegistry {
 	registry.registerCreateCard()
 	registry.registerUpdateCard()
 	registry.registerTask()
+	registry.registerGetCardFacts()
+	registry.registerGetEntityFacts()
+	registry.registerGetFactCards()
 
 	return registry
 }
@@ -649,6 +652,144 @@ func executeSubagentTask(prompt, subagentType string, ctx *ToolContext) (string,
 	}
 
 	return "Subagent completed after maximum iterations", nil
+}
+
+func (tr *ToolRegistry) registerGetCardFacts() {
+	tr.tools["get_card_facts"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "get_card_facts",
+				Description: "Retrieve all facts associated with a specific card. Facts are auto-generated from card content.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"card_pk": map[string]interface{}{
+							"type":        "integer",
+							"description": "The primary key ID of the card to get facts for",
+						},
+					},
+					"required": []string{"card_pk"},
+				},
+			},
+		},
+		Handler: handleGetCardFacts,
+	}
+}
+
+func (tr *ToolRegistry) registerGetEntityFacts() {
+	tr.tools["get_entity_facts"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "get_entity_facts",
+				Description: "Retrieve all facts linked to a specific entity. Useful for understanding what information exists about a particular entity.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"entity_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The ID of the entity to get facts for",
+						},
+					},
+					"required": []string{"entity_id"},
+				},
+			},
+		},
+		Handler: handleGetEntityFacts,
+	}
+}
+
+func (tr *ToolRegistry) registerGetFactCards() {
+	tr.tools["get_fact_cards"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "get_fact_cards",
+				Description: "Retrieve all cards that are linked to a specific fact. Shows where a fact appears across the knowledge base.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"fact_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The ID of the fact to get linked cards for",
+						},
+					},
+					"required": []string{"fact_id"},
+				},
+			},
+		},
+		Handler: handleGetFactCards,
+	}
+}
+
+func handleGetCardFacts(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	cardPKFloat, ok := args["card_pk"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("card_pk parameter is required")
+	}
+	cardPK := int(cardPKFloat)
+
+	facts, err := GetCardFacts(ctx.DB, ctx.UserID, cardPK)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get card facts: %v", err)
+	}
+
+	var results []map[string]interface{}
+	for _, fact := range facts {
+		results = append(results, StructToMap(fact))
+	}
+
+	return map[string]interface{}{
+		"facts": results,
+		"total": len(facts),
+	}, nil
+}
+
+func handleGetEntityFacts(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	entityIDFloat, ok := args["entity_id"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("entity_id parameter is required")
+	}
+	entityID := int(entityIDFloat)
+
+	facts, err := GetEntityFacts(ctx.DB, ctx.UserID, entityID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get entity facts: %v", err)
+	}
+
+	var results []map[string]interface{}
+	for _, fact := range facts {
+		results = append(results, StructToMap(fact))
+	}
+
+	return map[string]interface{}{
+		"facts": results,
+		"total": len(facts),
+	}, nil
+}
+
+func handleGetFactCards(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	factIDFloat, ok := args["fact_id"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("fact_id parameter is required")
+	}
+	factID := int(factIDFloat)
+
+	cards, err := GetFactCards(ctx.DB, ctx.UserID, factID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get fact cards: %v", err)
+	}
+
+	var results []map[string]interface{}
+	for _, card := range cards {
+		results = append(results, StructToMap(card))
+	}
+
+	return map[string]interface{}{
+		"cards": results,
+		"total": len(cards),
+	}, nil
 }
 
 // Database helper functions

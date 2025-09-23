@@ -2,11 +2,10 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, PartialCard, Entity } from "../../models/Card";
 import { File } from "../../models/File";
-import { removeEntityFromCard, addEntityToCard } from "../../api/entities";
+import { removeEntityFromCard } from "../../api/entities";
 import {
   saveExistingCard,
   getCardAuditEvents,
-  semanticSearchCards,
 } from "../../api/cards";
 
 import {
@@ -151,12 +150,11 @@ export function ViewCardTabbedDisplay({
 }: ViewCardTabbedDisplayProps) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>("Entities");
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [searchResults, setSearchResults] = useState<Entity[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [auditEvents, setAuditEvents] = useState<any[]>([]);
   const [fileFilterString, setFileFilterString] = useState<string>("");
   const [facts, setFacts] = useState<Fact[]>([]);
+  const [factFilterString, setFactFilterString] = useState<string>("");
+  const [entityFilterString, setEntityFilterString] = useState<string>("");
 
   const tabs = [
     { label: "Entities" },
@@ -211,60 +209,6 @@ export function ViewCardTabbedDisplay({
     }
   }
 
-  async function handleAddEntity(entityId: number) {
-    try {
-      await addEntityToCard(entityId, viewingCard.id);
-      // Find the entity in searchResults and add it to the card
-      const entityToAdd = searchResults.find((e) => e.id === entityId);
-      if (entityToAdd && viewingCard.entities) {
-        setViewCard({
-          ...viewingCard,
-          entities: [...viewingCard.entities, entityToAdd],
-        });
-      }
-      setSearchTerm("");
-    } catch (error) {
-      setError("Failed to add entity to card");
-    }
-  }
-
-  useEffect(() => {
-    const debounceTimer = setTimeout(() => {
-      if (searchTerm) {
-        setIsLoading(true);
-        semanticSearchCards(searchTerm, false, true, false)
-          .then((results) => {
-            const entities = results
-              .filter((r) => r.type === "entity")
-              .map(
-                (r) =>
-                ({
-                  id: r.metadata.id,
-                  name: r.title,
-                  description: r.preview,
-                  type: r.metadata.entityType,
-                  card_pk: r.metadata.card_pk,
-                  user_id: r.metadata.user_id,
-                  created_at: r.created_at,
-                  updated_at: r.updated_at,
-                  card_count: r.metadata.card_count,
-                } as Entity),
-              );
-            setSearchResults(entities);
-          })
-          .catch((error) => setError("Failed to search entities"))
-          .finally(() => setIsLoading(false));
-      } else {
-        setSearchResults([]);
-      }
-    }, 300); // 300ms debounce time
-
-    return () => clearTimeout(debounceTimer);
-  }, [searchTerm]);
-
-  const filteredEntities = searchResults.filter(
-    (entity) => !viewingCard.entities?.some((e) => e.id === entity.id),
-  );
 
   useEffect(() => {
     if (activeTab === "History") {
@@ -360,83 +304,54 @@ export function ViewCardTabbedDisplay({
         </div>
       )}
       {activeTab === "Entities" && (
-        <div>
+        <div className="p-4">
           <div className="mb-4">
             <input
               type="text"
-              placeholder="Search entities..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Filter entities..."
+              value={entityFilterString}
+              onChange={(e) => setEntityFilterString(e.target.value)}
               className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-
-          {/* Existing entities */}
-          {searchTerm === "" &&
-            <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Attached Entities</h3>
-              <ul>
-                <div className="max-h-96 overflow-y-auto border rounded-md p-2">
-                  {viewingCard.entities &&
-                    [...viewingCard.entities]
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((entity) => (
-                        <li
-                          key={entity.id}
-                          className="mb-2 p-2 hover:bg-gray-100 rounded flex justify-between items-center"
-                        >
-                          <div
-                            className="cursor-pointer flex-grow"
-                            onClick={() => handleOpenEntity(entity)}
-                          >
-                            <div className="font-semibold">{entity.name}</div>
-                            <div className="text-sm text-gray-600">{entity.description}</div>
-                            <div className="text-xs text-gray-500">Type: {entity.type}</div>
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRemoveEntity(entity.id);
-                            }}
-                            className="ml-2 p-1 text-red-600 hover:bg-red-100 rounded"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                        </li>
-                      ))}
-                </div>
-              </ul>
-            </div>
-          }
-          {/* Search results */}
-          {searchTerm && (
-            <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Search Results</h3>
-              <ul>
-                {filteredEntities.map((entity) => (
-                  <li
+          {viewingCard.entities && viewingCard.entities.length > 0 ? (
+            <div className="max-h-96 overflow-y-auto border rounded-md p-2">
+              {viewingCard.entities
+                .filter((entity) =>
+                  entity.name.toLowerCase().includes(entityFilterString.toLowerCase()) ||
+                  entity.description?.toLowerCase().includes(entityFilterString.toLowerCase()) ||
+                  entity.type?.toLowerCase().includes(entityFilterString.toLowerCase())
+                )
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((entity) => (
+                  <div
                     key={entity.id}
-                    className="mb-2 p-2 hover:bg-gray-100 rounded flex justify-between items-center cursor-pointer"
-                    onClick={() => handleAddEntity(entity.id)}
+                    className="mb-2 p-2 hover:bg-gray-100 rounded flex justify-between items-center"
                   >
-                    <div>
+                    <div
+                      className="cursor-pointer flex-grow"
+                      onClick={() => handleOpenEntity(entity)}
+                    >
                       <div className="font-semibold">{entity.name}</div>
                       <div className="text-sm text-gray-600">{entity.description}</div>
                       <div className="text-xs text-gray-500">Type: {entity.type}</div>
                     </div>
                     <button
-                      className="ml-2 p-1 text-green-600 hover:bg-green-100 rounded"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveEntity(entity.id);
+                      }}
+                      className="ml-2 p-1 text-red-600 hover:bg-red-100 rounded"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                       </svg>
                     </button>
-                  </li>
+                  </div>
                 ))}
-              </ul>
             </div>
+          ) : (
+            <div className="text-gray-500">No entities available</div>
           )}
         </div>
       )}
@@ -503,20 +418,33 @@ export function ViewCardTabbedDisplay({
       )}
       {activeTab === "Facts" && (
         <div className="p-4">
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Filter facts..."
+              value={factFilterString}
+              onChange={(e) => setFactFilterString(e.target.value)}
+              className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
           {facts && facts.length > 0 ? (
             <div className="max-h-96 overflow-y-auto border rounded-md p-2">
-              {facts.map((fact) => (
-                <div
-                  key={fact.id}
-                  className="border-b pb-2 cursor-pointer hover:bg-gray-50"
-                  onClick={() => {
-                    setSelectedFact(fact as FactWithCard);
-                    setShowFactDialog(true);
-                  }}
-                >
-                  <div className="text-sm text-gray-700">{fact.fact}</div>
-                </div>
-              ))}
+              {facts
+                .filter((fact) =>
+                  fact.fact.toLowerCase().includes(factFilterString.toLowerCase())
+                )
+                .map((fact) => (
+                  <div
+                    key={fact.id}
+                    className="border-b pb-2 cursor-pointer hover:bg-gray-50"
+                    onClick={() => {
+                      setSelectedFact(fact as FactWithCard);
+                      setShowFactDialog(true);
+                    }}
+                  >
+                    <div className="text-sm text-gray-700">{fact.fact}</div>
+                  </div>
+                ))}
             </div>
           ) : (
             <div className="text-gray-500">No facts available</div>

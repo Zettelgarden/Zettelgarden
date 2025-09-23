@@ -1,0 +1,4 @@
+node_modules/
+*.zip
+web-ext-artifacts/
+.DS_Store

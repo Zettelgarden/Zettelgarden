@@ -1,0 +1,151 @@
+body {
+  width: 400px;
+  min-height: 300px;
+  margin: 0;
+  padding: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+}
+
+.screen {
+  display: block;
+}
+
+.screen.hidden {
+  display: none;
+}
+
+h2 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+  color: #374151;
+}
+
+input, textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+textarea {
+  resize: vertical;
+  font-family: 'Courier New', monospace;
+}
+
+button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+button.primary {
+  width: 100%;
+  background-color: #3b82f6;
+  color: white;
+}
+
+button.primary:hover {
+  background-color: #2563eb;
+}
+
+button.secondary {
+  width: 100%;
+  background-color: #6b7280;
+  color: white;
+  margin-bottom: 16px;
+}
+
+button.secondary:hover {
+  background-color: #4b5563;
+}
+
+button.text-btn {
+  background: none;
+  color: #6b7280;
+  padding: 4px 8px;
+}
+
+button.text-btn:hover {
+  color: #374151;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 16px;
+}
+
+.tab {
+  flex: 1;
+  padding: 8px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.tab.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
+.tab-content {
+  display: block;
+}
+
+.tab-content.hidden {
+  display: none;
+}
+
+.error {
+  padding: 8px;
+  margin-top: 12px;
+  background-color: #fef2f2;
+  color: #991b1b;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.success {
+  padding: 8px;
+  margin-top: 12px;
+  background-color: #f0fdf4;
+  color: #166534;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.hidden {
+  display: none;
+}
+
+#article-preview {
+  margin-top: 16px;
+}
