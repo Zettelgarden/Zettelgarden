@@ -59,6 +59,7 @@ export function SearchPage({
 
     setIsLoading(true);
     setError(null);
+    setSearchConfig({ ...config, currentPage: 1 });
 
     const term = searchTerm || "";
     console.log("searching for term:", term);

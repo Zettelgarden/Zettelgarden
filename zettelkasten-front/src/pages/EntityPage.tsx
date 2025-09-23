@@ -130,7 +130,7 @@ export function EntityPage() {
       );
     });
     setFilteredEntities(filtered);
-    //    setCurrentPage(1);
+    setCurrentPage(1);
   }, [filterText, entities]);
 
   const handleEntityClick = (entity: Entity, event: React.MouseEvent) => {
