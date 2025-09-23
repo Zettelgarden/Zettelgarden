@@ -287,6 +287,7 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                                         <Link
                                             to={`/app/card/${selectedFact.card.id}`}
                                             className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                                            onClick={onClose}
                                         >
                                             <div className="w-4 h-4 mr-1 text-gray-400">
                                                 <CardIcon />
@@ -338,6 +339,7 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                                             <Link
                                                 to={`/app/card/${c.id}`}
                                                 className="text-blue-600 hover:text-blue-800 hover:underline"
+                                                onClick={onClose}
                                             >
                                                 <CardTag card={c} showTitle={true} />
                                             </Link>

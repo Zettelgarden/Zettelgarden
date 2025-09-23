@@ -222,6 +222,7 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
                                         <Link
                                             to={`/app/card/${selectedEntity.card.id}`}
                                             className="text-blue-600 hover:text-blue-800 hover:underline"
+                                            onClick={onClose}
                                         >
                                             <CardTag card={selectedEntity.card} showTitle={true} />
                                         </Link>
