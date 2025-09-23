@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "description": "Create Zettelgarden cards directly from your browser",
   "icons": {
-    "48": "../shared/icons/icon-48.png",
-    "96": "../shared/icons/icon-96.png"
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
   },
   "permissions": [
     "storage",
@@ -22,7 +22,8 @@
     "default_popup": "../shared/ui/popup.html",
     "default_title": "Zettelgarden",
     "default_icon": {
-      "48": "../shared/icons/icon-48.png"
+      "48": "icons/icon-48.png",
+      "96": "icons/icon-96.png"
     }
   },
   "content_scripts": [

@@ -3,6 +3,10 @@
   "name": "Zettelgarden",
   "version": "1.0.0",
   "description": "Create Zettelgarden cards directly from your browser",
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
+  },
   "permissions": [
     "storage",
     "activeTab",
@@ -14,7 +18,11 @@
   },
   "browser_action": {
     "default_popup": "ui/popup.html",
-    "default_title": "Zettelgarden"
+    "default_title": "Zettelgarden",
+    "default_icon": {
+      "48": "icons/icon-48.png",
+      "96": "icons/icon-96.png"
+    }
   },
   "content_scripts": [
     {
