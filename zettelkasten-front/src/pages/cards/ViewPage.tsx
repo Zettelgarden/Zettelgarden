@@ -39,6 +39,7 @@ import { CardList } from "../../components/cards/CardList";
 import { CardBody } from "../../components/cards/CardBody";
 import { fetchSummariesForCard, fetchAnalysisForCard, SectionAnalysis, SummarizeJobResponse } from "../../api/summarizer";
 import { FactWithCard } from "../../models/Fact";
+import { CardIdDiscoveryDialog } from "../../components/cards/CardIdDiscoveryDialog";
 
 interface ViewPageProps {
   cardId?: string; // Optional card ID prop for pinned cards
@@ -73,6 +74,7 @@ export function ViewPage({ cardId }: ViewPageProps) {
   const [showingSummary, setShowingSummary] = useState(false);
   const [analysis, setAnalysis] = useState<SectionAnalysis[] | null>(null);
   const [showingAnalysis, setShowingAnalysis] = useState(false);
+  const [showIdDiscovery, setShowIdDiscovery] = useState(false);
 
 
   const [linkedEntities, setLinkedEntities] = useState<Entity[]>([]);
@@ -362,6 +364,19 @@ export function ViewPage({ cardId }: ViewPageProps) {
                         </button>
                       )}
                     </Menu.Item>
+                    {viewingCard.card_id === "" && (
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={() => setShowIdDiscovery(true)}
+                            className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                              } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                          >
+                            Discover Card ID
+                          </button>
+                        )}
+                      </Menu.Item>
+                    )}
                   </div>
                 </Menu.Items>
               </Menu>
@@ -638,6 +653,20 @@ export function ViewPage({ cardId }: ViewPageProps) {
 
           </div>
         </div>
+      )}
+      {showIdDiscovery && (
+        <CardIdDiscoveryDialog
+          onClose={() => setShowIdDiscovery(false)}
+          onSelectId={(cardId) => {
+            if (viewingCard) {
+              const updatedCard = { ...viewingCard, card_id: cardId };
+              saveExistingCard(updatedCard).then(() => {
+                fetchCard(id!);
+              });
+            }
+            setShowIdDiscovery(false);
+          }}
+        />
       )}
     </div>
   );
