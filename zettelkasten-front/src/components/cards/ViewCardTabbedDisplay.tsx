@@ -315,7 +315,7 @@ export function ViewCardTabbedDisplay({
             />
           </div>
           {viewingCard.entities && viewingCard.entities.length > 0 ? (
-            <div className="max-h-96 overflow-y-auto border rounded-md p-2">
+            <div className="max-h-[600px] overflow-y-auto border rounded-md p-2 pb-4">
               {viewingCard.entities
                 .filter((entity) =>
                   entity.name.toLowerCase().includes(entityFilterString.toLowerCase()) ||
@@ -428,7 +428,7 @@ export function ViewCardTabbedDisplay({
             />
           </div>
           {facts && facts.length > 0 ? (
-            <div className="max-h-96 overflow-y-auto border rounded-md p-2">
+            <div className="max-h-[600px] overflow-y-auto border rounded-md p-2 pb-4">
               {facts
                 .filter((fact) =>
                   fact.fact.toLowerCase().includes(factFilterString.toLowerCase())
