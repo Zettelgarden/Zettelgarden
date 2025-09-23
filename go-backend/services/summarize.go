@@ -22,13 +22,15 @@ func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.Sect
 
 	totalPromptTokens := 0
 	totalCompletionTokens := 0
-	var allAnalyses []models.SectionAnalysis
+	var completedSections []models.SectionAnalysis // Store completed sections
+	var currentSectionAnalyses []models.SectionAnalysis // Current working sections
+	var lastSectionName string // Track the last section name to detect transitions
 
 	for _, chunk := range chunks {
 		contextIntro := ""
-		if len(allAnalyses) > 0 {
-			// Create a copy of analyses without facts for LLM context
-			analysesWithoutFacts, newFacts := RemoveFactsFromAnalyses(allAnalyses)
+		if len(currentSectionAnalyses) > 0 {
+			// Only include current section for context, remove facts to save tokens
+			analysesWithoutFacts, newFacts := RemoveFactsFromAnalyses(currentSectionAnalyses)
 			facts = append(facts, newFacts...)
 			existingAnalysesJSON, err := json.Marshal(analysesWithoutFacts)
 			if err == nil { // Proceed only if marshaling is successful
@@ -39,8 +41,8 @@ func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.Sect
 		userContent := contextIntro +
 			fmt.Sprintf("The last analyzed chunk ended in Section %s.\n",
 				func() string {
-					if len(allAnalyses) > 0 && allAnalyses[len(allAnalyses)-1].Section != "" {
-						return allAnalyses[len(allAnalyses)-1].Section
+					if lastSectionName != "" {
+						return lastSectionName
 					}
 					return "1: Introduction"
 				}()) +
@@ -55,8 +57,8 @@ func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.Sect
 				Content: `You are an assistant that extracts theses, facts, and arguments from text.
 				We are trying to come up with a coherent summary of the article/podcast/book/etc. You will be looking at
 				some or all of the writing and need to extract certain things from it.
-				Inside the <existing_analyses> block, you will find the full JSON of all analyses extracted so far.
-				Use this to understand the context and avoid duplicating information.
+				Inside the <existing_analyses> block, you will find the current section being analyzed.
+				Use this to understand the context and continue building on the current section.
 
 Instructions:
 - Respond ONLY in pure JSON with the following format.
@@ -67,8 +69,8 @@ Instructions:
 - Do not use pronouns (he, she, this, that, etc) unless it directly refers to an object in the fact. Facts will likely be viewed out of context and will not make sense otherwise.
 - When you detect a new section, give it a descriptive name based on the text.
 - Start with section 1. If a section has no theses, arguments or facts, still include the section in the output, just empty
-- CRITICAL: You MUST include ALL existing sections from <existing_analyses> in your output. NEVER drop or omit old sections. Always preserve the complete history of all previously analyzed sections.
-- Your output must contain the complete set: all existing sections PLUS any new sections you identify from the current text chunk.
+- Continue working on the current section unless you detect a clear section break in the text.
+- Output only the sections you are currently working on (current section + any new sections detected).
 
 Format Example:
 [
@@ -124,10 +126,31 @@ Format Example:
 			continue
 		}
 		log.Printf("all analysis %v", analysis)
-		allAnalyses = analysis
+
+		// Check for section transitions and manage completed sections
+		if len(analysis) > 0 {
+			newSectionName := analysis[len(analysis)-1].Section
+
+			// If we have a new section and we were working on a previous section
+			if lastSectionName != "" && newSectionName != lastSectionName && len(currentSectionAnalyses) > 0 {
+				// Save the previous completed section
+				completedSections = append(completedSections, currentSectionAnalyses...)
+				log.Printf("Completed section %s, saving to completed sections", lastSectionName)
+			}
+
+			// Update current working sections and last section name
+			currentSectionAnalyses = analysis
+			lastSectionName = newSectionName
+		}
+
 		totalPromptTokens += resp.Usage.PromptTokens
 		totalCompletionTokens += resp.Usage.CompletionTokens
 	}
+
+	// Combine completed sections with current working sections for final output
+	var allAnalyses []models.SectionAnalysis
+	allAnalyses = append(allAnalyses, completedSections...)
+	allAnalyses = append(allAnalyses, currentSectionAnalyses...)
 
 	if len(allAnalyses) == 0 {
 		return nil, facts, models.Usage{}, errors.New("no valid analyses returned")
