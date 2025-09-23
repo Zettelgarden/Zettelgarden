@@ -32,6 +32,7 @@ export function AddArticleDialog({ show, onClose, setMessage }: AddArticleDialog
                 title: parsed.title || "Untitled",
                 body: (parsed.content || "") + "\n\n#to-read #reference",
                 link: url,
+                process_entities_and_facts: true,
             });
 
             if (!("error" in newCard)) {
