@@ -9,6 +9,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isValid = await checkAuth().catch(() => false);
     if (isValid) {
       showMainScreen();
+      // Restore last active tab
+      const lastTab = await getLastTab();
+      if (lastTab) {
+        switchTab(lastTab);
+      }
     } else {
       // Token exists but is invalid, clear it
       await logout();
@@ -141,6 +146,9 @@ function switchTab(tabName) {
   document.getElementById('article-tab').classList.toggle('hidden', tabName !== 'article');
 
   hideMessages();
+
+  // Save the current tab
+  saveLastTab(tabName);
 }
 
 function showLoginScreen() {
@@ -180,4 +188,13 @@ function showSuccess(message) {
 function hideMessages() {
   document.getElementById('error').classList.add('hidden');
   document.getElementById('success').classList.add('hidden');
+}
+
+async function saveLastTab(tabName) {
+  await browser.storage.local.set({ lastTab: tabName });
+}
+
+async function getLastTab() {
+  const result = await browser.storage.local.get('lastTab');
+  return result.lastTab || 'quick';
 }
