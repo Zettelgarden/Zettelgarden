@@ -8,9 +8,13 @@
    curl -O https://raw.githubusercontent.com/mozilla/readability/main/Readability.js
    ```
 
-2. Add extension icons (48x48 and 96x96 PNG):
-   - Create `shared/icons/icon-48.png`
-   - Create `shared/icons/icon-96.png`
+## Build
+
+Run the build script to copy shared files into browser directories:
+```bash
+cd browser-extension
+./build.sh
+```
 
 ## Firefox Setup
 
@@ -18,6 +22,7 @@
 1. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`
 2. Click "Load Temporary Add-on"
 3. Select the `firefox/manifest.json` file
+4. Reload the extension after making changes to shared files (run `./build.sh` again)
 
 ### Production Build
 ```bash

@@ -1,10 +1,19 @@
 let currentTab = 'quick';
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const isAuthenticated = await checkAuth().catch(() => false);
+  // Check if we have a stored token
+  const token = await getAuthToken();
 
-  if (isAuthenticated) {
-    showMainScreen();
+  if (token) {
+    // We have a token, try to validate it
+    const isValid = await checkAuth().catch(() => false);
+    if (isValid) {
+      showMainScreen();
+    } else {
+      // Token exists but is invalid, clear it
+      await logout();
+      showLoginScreen();
+    }
   } else {
     showLoginScreen();
   }

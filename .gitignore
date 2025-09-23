@@ -37,3 +37,13 @@ ios-app/Zettelgarden.xcodeproj/project.xcworkspace/xcuserdata/nick.xcuserdatad/U
 # TypeScript incremental build information
 tsconfig.tsbuildinfo
 main
+
+# Browser extension build artifacts
+browser-extension/firefox/api/
+browser-extension/firefox/content/
+browser-extension/firefox/ui/
+browser-extension/firefox/background.js
+browser-extension/chrome/api/
+browser-extension/chrome/content/
+browser-extension/chrome/ui/
+browser-extension/chrome/background.js

@@ -13,21 +13,35 @@ async function login(email, password) {
     throw new Error(response.error);
   }
 
-  await browser.storage.local.set({ authToken: response.token });
+  if (!response.access_token) {
+    throw new Error('No access token received from server');
+  }
+
+  await browser.storage.local.set({ authToken: response.access_token });
   return response;
 }
 
 async function checkAuth() {
-  const response = await browser.runtime.sendMessage({
-    type: 'API_CALL',
-    payload: {
-      endpoint: '/api/auth',
-      method: 'GET',
-      requiresAuth: true
-    }
-  });
+  try {
+    const response = await browser.runtime.sendMessage({
+      type: 'API_CALL',
+      payload: {
+        endpoint: '/api/auth',
+        method: 'GET',
+        requiresAuth: true
+      }
+    });
 
-  return !response.error;
+    // If there's an error in the response, auth failed
+    if (response.error) {
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Auth check failed:', error);
+    return false;
+  }
 }
 
 async function logout() {
