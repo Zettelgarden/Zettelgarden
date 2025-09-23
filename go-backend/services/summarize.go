@@ -17,14 +17,14 @@ import (
 // aggregating theses, facts, and arguments from each chunk.
 // Returns all analyses and usage statistics.
 func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.SectionAnalysis, []string, models.Usage, error) {
-	chunks := chunkText(input, 1000)
+	chunks := chunkText(input, 15000)
 	var facts []string
 
 	totalPromptTokens := 0
 	totalCompletionTokens := 0
-	var completedSections []models.SectionAnalysis // Store completed sections
+	var completedSections []models.SectionAnalysis      // Store completed sections
 	var currentSectionAnalyses []models.SectionAnalysis // Current working sections
-	var lastSectionName string // Track the last section name to detect transitions
+	var lastSectionName string                          // Track the last section name to detect transitions
 
 	for _, chunk := range chunks {
 		contextIntro := ""
