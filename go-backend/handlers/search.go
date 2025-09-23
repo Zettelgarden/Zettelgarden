@@ -113,7 +113,6 @@ func (s *Handler) InitSearchCollection() {
 		FROM facts f
 		JOIN cards c ON f.card_pk = c.id
 	`)
-	log.Printf("?")
 	if err != nil {
 		log.Printf("error querying facts: %v", err)
 	} else {
@@ -170,7 +169,6 @@ func (s *Handler) InitSearchCollection() {
 		LEFT JOIN cards c ON e.card_pk = c.id
 	`) // assuming user_id=1 here
 
-	log.Printf("?")
 	if err != nil {
 		log.Printf("error querying entities: %v", err)
 	} else {

@@ -84,7 +84,7 @@ func (s *Handler) UpdateUserRoute(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err = s.UpdateUser(id, user, params)
 	if err != nil {
-		log.Printf("?")
+		log.Printf("error updating user: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

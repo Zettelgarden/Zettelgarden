@@ -49,9 +49,6 @@ func NewToolRegistry() *ToolRegistry {
 	registry.registerCreateCard()
 	registry.registerUpdateCard()
 	registry.registerTask()
-	registry.registerGetCardFacts()
-	registry.registerGetEntityFacts()
-	registry.registerGetFactCards()
 
 	return registry
 }
@@ -270,6 +267,42 @@ func (tr *ToolRegistry) registerUpdateCard() {
 			},
 		},
 		Handler: handleUpdateCard,
+	}
+}
+
+func (tr *ToolRegistry) registerSearchFacts() {
+	tr.tools["search_facts"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "search_facts",
+				Description: "Search for facts in the user's knowledge base using text or semantic similarity. Returns relevant facts based on the search query.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"query": map[string]interface{}{
+							"type":        "string",
+							"description": "The search query to find relevant facts",
+						},
+						"search_type": map[string]interface{}{
+							"type":        "string",
+							"description": "Type of search: 'text' for exact text matching, 'semantic' for meaning-based search",
+							"enum":        []string{"text", "semantic"},
+							"default":     "semantic",
+						},
+						"limit": map[string]interface{}{
+							"type":        "integer",
+							"description": "Maximum number of facts to return (default: 10, max: 50)",
+							"default":     10,
+							"minimum":     1,
+							"maximum":     50,
+						},
+					},
+					"required": []string{"query"},
+				},
+			},
+		},
+		Handler: handleSearchFacts,
 	}
 }
 
@@ -573,6 +606,10 @@ func executeSubagentTask(prompt, subagentType string, ctx *ToolContext) (string,
 	subagentRegistry.registerGetCardByID()
 	subagentRegistry.registerBrowseCardHierarchy()
 	subagentRegistry.registerGetCardAnalysis()
+	subagentRegistry.registerSearchFacts()
+	subagentRegistry.registerGetCardFacts()
+	subagentRegistry.registerGetEntityFacts()
+	subagentRegistry.registerGetFactCards()
 
 	tools := subagentRegistry.GetToolDefinitions()
 
@@ -721,6 +758,43 @@ func (tr *ToolRegistry) registerGetFactCards() {
 		},
 		Handler: handleGetFactCards,
 	}
+}
+
+func handleSearchFacts(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	query, ok := args["query"].(string)
+	if !ok {
+		return nil, fmt.Errorf("query parameter is required")
+	}
+
+	searchType := "semantic"
+	if st, ok := args["search_type"].(string); ok {
+		searchType = st
+	}
+
+	limit := 10
+	if l, ok := args["limit"].(float64); ok {
+		limit = int(l)
+	}
+
+	var facts []map[string]interface{}
+	var err error
+
+	if searchType == "text" {
+		facts, err = ExecuteFactTextSearch(ctx.DB, ctx.UserID, query, limit, ctx.TypesenseClient)
+	} else {
+		facts, err = ExecuteFactSemanticSearch(ctx.DB, ctx.UserID, query, limit, ctx.TypesenseClient)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("search failed: %v", err)
+	}
+
+	return map[string]interface{}{
+		"facts":       facts,
+		"query":       query,
+		"search_type": searchType,
+		"total":       len(facts),
+	}, nil
 }
 
 func handleGetCardFacts(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {

@@ -22,7 +22,6 @@ import (
 	"golang.org/x/net/html"
 )
 
-
 func (s *Handler) getDirectlinks(userID int, card models.Card) []models.PartialCard {
 	backlinks := services.ExtractBacklinks(card.Body)
 	var directLinks []models.PartialCard
@@ -301,7 +300,7 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 	}
 	card, err := services.UpdateCard(s.DB, userID, id, params)
 	if err != nil {
-		log.Printf("?")
+		log.Printf("error updating card: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
