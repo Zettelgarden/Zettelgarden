@@ -179,7 +179,7 @@ export function EditPage({ newCard }: EditPageProps) {
         ...defaultCard,
         card_id: nextCardId || (lastCard ? lastCard.card_id : ""),
         body: draft,
-        process_entities_and_facts: false,
+        process_entities_and_facts: true,
       });
       if (nextCardId) {
         setNextCardId(null);
