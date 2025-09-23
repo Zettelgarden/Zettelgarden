@@ -16,8 +16,9 @@ import (
 // ExtractThesesAndArguments processes input text into SectionAnalysis entries,
 // aggregating theses, facts, and arguments from each chunk.
 // Returns all analyses and usage statistics.
-func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.SectionAnalysis, models.Usage, error) {
-	chunks := chunkText(input, 25000)
+func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.SectionAnalysis, []string, models.Usage, error) {
+	chunks := chunkText(input, 1000)
+	var facts []string
 
 	totalPromptTokens := 0
 	totalCompletionTokens := 0
@@ -26,7 +27,10 @@ func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.Sect
 	for _, chunk := range chunks {
 		contextIntro := ""
 		if len(allAnalyses) > 0 {
-			existingAnalysesJSON, err := json.Marshal(allAnalyses)
+			// Create a copy of analyses without facts for LLM context
+			analysesWithoutFacts, newFacts := RemoveFactsFromAnalyses(allAnalyses)
+			facts = append(facts, newFacts...)
+			existingAnalysesJSON, err := json.Marshal(analysesWithoutFacts)
 			if err == nil { // Proceed only if marshaling is successful
 				contextIntro = "<existing_analyses>\n" + string(existingAnalysesJSON) + "\n</existing_analyses>\n"
 			}
@@ -50,8 +54,8 @@ func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.Sect
 				Role: openai.ChatMessageRoleSystem,
 				Content: `You are an assistant that extracts theses, facts, and arguments from text.
 				We are trying to come up with a coherent summary of the article/podcast/book/etc. You will be looking at
-				some or all of the writing and need to extract certain things from it. 
-				Inside the <existing_analyses> block, you will find the full JSON of all analyses extracted so far. 
+				some or all of the writing and need to extract certain things from it.
+				Inside the <existing_analyses> block, you will find the full JSON of all analyses extracted so far.
 				Use this to understand the context and avoid duplicating information.
 
 Instructions:
@@ -59,11 +63,12 @@ Instructions:
 - Do not add commentary, explanations, or non‑JSON text.
 - If an item cannot be extracted, return an empty string or empty list.
 - Importance must be an integer on a scale of 1–10 (10 = crucial to the central thesis, 1 = marginal).
-- Facts should be discrete, verifiable statements (events, statistics, claims of evidence). 
+- Facts should be discrete, verifiable statements (events, statistics, claims of evidence).
 - Do not use pronouns (he, she, this, that, etc) unless it directly refers to an object in the fact. Facts will likely be viewed out of context and will not make sense otherwise.
 - When you detect a new section, give it a descriptive name based on the text.
 - Start with section 1. If a section has no theses, arguments or facts, still include the section in the output, just empty
-- If you have received existing analyses, make sure to update them and return the entire result
+- CRITICAL: You MUST include ALL existing sections from <existing_analyses> in your output. NEVER drop or omit old sections. Always preserve the complete history of all previously analyzed sections.
+- Your output must contain the complete set: all existing sections PLUS any new sections you identify from the current text chunk.
 
 Format Example:
 [
@@ -105,7 +110,7 @@ Format Example:
 
 		resp, err := ExecuteLLMRequest(c, messages)
 		if err != nil {
-			return nil, models.Usage{}, err
+			return nil, facts, models.Usage{}, err
 		}
 		if len(resp.Choices) == 0 {
 			continue
@@ -118,16 +123,17 @@ Format Example:
 			log.Printf("content: %v", content)
 			continue
 		}
+		log.Printf("all analysis %v", analysis)
 		allAnalyses = analysis
 		totalPromptTokens += resp.Usage.PromptTokens
 		totalCompletionTokens += resp.Usage.CompletionTokens
 	}
 
 	if len(allAnalyses) == 0 {
-		return nil, models.Usage{}, errors.New("no valid analyses returned")
+		return nil, facts, models.Usage{}, errors.New("no valid analyses returned")
 	}
 
-	return allAnalyses, models.Usage{
+	return allAnalyses, facts, models.Usage{
 		PromptTokens:     totalPromptTokens,
 		CompletionTokens: totalCompletionTokens,
 		TotalTokens:      totalPromptTokens + totalCompletionTokens,
@@ -144,7 +150,7 @@ func cleanContent(content string) string {
 }
 
 // AnalyzeAndSummarizeText: the advanced pipeline
-func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []models.SectionAnalysis, usage models.Usage) (string, []models.SectionAnalysis, models.Usage, error) {
+func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []models.SectionAnalysis, facts []string, usage models.Usage) (string, []models.SectionAnalysis, models.Usage, error) {
 	start := time.Now()
 	c.Model = "openai/gpt-5-chat"
 
@@ -153,7 +159,6 @@ func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []models.SectionAn
 
 	// Aggregate all results into one string
 	theses := []string{}
-	facts := []string{}
 	args := []string{}
 
 	for _, sec := range allAnalyses {
@@ -161,7 +166,6 @@ func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []models.SectionAn
 			if th.Thesis != "" {
 				theses = append(theses, th.Thesis)
 			}
-			facts = append(facts, th.Facts...)
 			for _, arg := range th.Arguments {
 				if arg.Importance >= 7 {
 					args = append(args, arg.Argument)
@@ -424,4 +428,31 @@ func GetCardAnalysis(db *sql.DB, userID int, cardPK int) ([]models.SectionAnalys
 	}
 
 	return analyses, nil
+}
+
+// RemoveFactsFromAnalyses creates a copy of the analyses structure without facts
+// to reduce context size when feeding back to the LLM
+func RemoveFactsFromAnalyses(analyses []models.SectionAnalysis) ([]models.SectionAnalysis, []string) {
+	var result []models.SectionAnalysis
+	var facts []string
+
+	for _, section := range analyses {
+		newSection := models.SectionAnalysis{
+			Section: section.Section,
+			Theses:  make([]models.ThesisEntry, len(section.Theses)),
+		}
+
+		for i, thesis := range section.Theses {
+			facts = append(facts, thesis.Facts...)
+			newSection.Theses[i] = models.ThesisEntry{
+				Thesis:    thesis.Thesis,
+				Facts:     []string{},       // Remove facts
+				Arguments: thesis.Arguments, // Keep arguments
+			}
+		}
+
+		result = append(result, newSection)
+	}
+
+	return result, facts
 }

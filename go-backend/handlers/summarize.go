@@ -146,8 +146,8 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 	client.RequestType = "analysis"
 	// client.Model.ModelIdentifier = "openai/gpt-5-chat"
 	processedText := prepareTextForAnalysis(req.Title, req.Text)
-	analyses, usage, err := services.ExtractThesesAndArguments(client, processedText)
-	id, err := h.runSummarizationJob(userID, analyses, usage, nil, jobID)
+	analyses, facts, usage, err := services.ExtractThesesAndArguments(client, processedText)
+	id, err := h.runSummarizationJob(userID, analyses, facts, usage, nil, jobID)
 	if err != nil {
 		log.Printf("err %v", err)
 		http.Error(w, "Failed to create summarization job", http.StatusInternalServerError)
@@ -194,7 +194,7 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 		client.RequestType = "analysis"
 		// client.Model.ModelIdentifier = "openai/gpt-5-chat"
 		processedText := prepareTextForAnalysis(card.Title, card.Body)
-		analyses, usage, err := services.ExtractThesesAndArguments(client, processedText)
+		analyses, facts, usage, err := services.ExtractThesesAndArguments(client, processedText)
 		if err != nil {
 			log.Printf("Fact extraction failed: %v", err)
 
@@ -204,7 +204,7 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 		}
 
 		// Run the summarization job to get a job ID
-		jobID, err := h.runSummarizationJob(userID, analyses, usage, &card.ID, jobID)
+		jobID, err := h.runSummarizationJob(userID, analyses, facts, usage, &card.ID, jobID)
 		if err != nil {
 			log.Printf("Failed to run summarization job: %v", err)
 			return
@@ -216,18 +216,10 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 			// Even if saving analysis fails, we can still try to link entities
 		}
 
-		// Extract entities from the originally extracted facts and link them.
-		// This can be refactored to use the newly saved facts if needed, but for now, retains existing entity logic.
-		var allFacts []string
-		for _, analysis := range analyses {
-			for _, th := range analysis.Theses {
-				allFacts = append(allFacts, th.Facts...)
-			}
-		}
-		log.Printf("facts %v", allFacts)
-		if len(allFacts) > 0 {
-			facts, _ := h.ExtractSaveCardFacts(userID, card.ID, allFacts)
-			_ = h.ExtractSaveFactEntities(userID, card, facts)
+		log.Printf("facts %v", facts)
+		if len(facts) > 0 {
+			factObjs, _ := h.ExtractSaveCardFacts(userID, card.ID, facts)
+			_ = h.ExtractSaveFactEntities(userID, card, factObjs)
 		}
 
 		h.LinkCardToEntityIfPossible(userID, card)
@@ -308,14 +300,14 @@ func (h *Handler) GetCardAnalysisRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 // runSummarizationJob inserts a summarization job and runs it asynchronously.
-func (h *Handler) runSummarizationJob(userID int, analyses []models.SectionAnalysis, usage models.Usage, cardPK *int, jobID int) (int, error) {
+func (h *Handler) runSummarizationJob(userID int, analyses []models.SectionAnalysis, facts []string, usage models.Usage, cardPK *int, jobID int) (int, error) {
 	// Background job
-	go func(jobID int, analyses []models.SectionAnalysis, usage models.Usage, uid int) {
+	go func(jobID int, analyses []models.SectionAnalysis, facts []string, usage models.Usage, uid int) {
 		client := services.NewDefaultClient(h.DB, uid)
 		client.RequestType = "analysis"
 		_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
 
-		result, _, usage, err := services.AnalyzeAndSummarizeText(client, analyses, usage)
+		result, _, usage, err := services.AnalyzeAndSummarizeText(client, analyses, facts, usage)
 		if err != nil {
 			_, _ = h.DB.Exec(`UPDATE summarizations SET status='failed', result=$2, updated_at=$3 WHERE id=$1`,
 				jobID, err.Error(), time.Now())
@@ -329,7 +321,7 @@ func (h *Handler) runSummarizationJob(userID int, analyses []models.SectionAnaly
 			WHERE id=$1`,
 			jobID, result, usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens, usage.TotalCost, "deprecated", time.Now())
 
-	}(jobID, analyses, usage, userID)
+	}(jobID, analyses, facts, usage, userID)
 
 	return jobID, nil
 }
