@@ -252,7 +252,22 @@ func (s *Handler) LoginRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Handler) CheckTokenRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	user, err := s.QueryUser(userID)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusBadRequest)
+		return
+	}
 
+	user.Password = ""
+
+	response := models.LoginResponse{
+		User:        user,
+		AccessToken: "",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func (s *Handler) RequestPasswordResetRoute(w http.ResponseWriter, r *http.Request) {
