@@ -30,9 +30,7 @@ func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.Sect
 		contextIntro := ""
 		if len(currentSectionAnalyses) > 0 {
 			// Only include current section for context, remove facts to save tokens
-			analysesWithoutFacts, newFacts := RemoveFactsFromAnalyses(currentSectionAnalyses)
-			facts = append(facts, newFacts...)
-			existingAnalysesJSON, err := json.Marshal(analysesWithoutFacts)
+			existingAnalysesJSON, err := json.Marshal(currentSectionAnalyses)
 			if err == nil { // Proceed only if marshaling is successful
 				contextIntro = "<existing_analyses>\n" + string(existingAnalysesJSON) + "\n</existing_analyses>\n"
 			}
@@ -49,7 +47,7 @@ func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.Sect
 			"Now analyze the following text. " +
 			"If you believe the author has started a new section (e.g., with a title), create a new section with a descriptive name (e.g., \"Section 2: [New Section Title]\"). " +
 			"Otherwise, continue assigning output under the previous section. " +
-			"Always include \"section\" explicitly in your JSON output.\n" + chunk
+			"Always include \"section\" explicitly in your JSON output.\n\n<CHUNK>\n\n" + chunk
 
 		messages := []openai.ChatCompletionMessage{
 			{
@@ -139,7 +137,9 @@ Format Example:
 			}
 
 			// Update current working sections and last section name
-			currentSectionAnalyses = analysis
+			analysesWithoutFacts, newFacts := RemoveFactsFromAnalyses(analysis)
+			facts = append(facts, newFacts...)
+			currentSectionAnalyses = analysesWithoutFacts
 			lastSectionName = newSectionName
 		}
 
