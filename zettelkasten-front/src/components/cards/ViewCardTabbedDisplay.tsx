@@ -200,7 +200,7 @@ export function ViewCardTabbedDisplay({
 
   useEffect(() => {
     fetchFactsForCard();
-  }, []);
+  }, [viewingCard.id]);
 
   async function fetchFactsForCard() {
     try {
