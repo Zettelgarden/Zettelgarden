@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Zettelgarden",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Create Zettelgarden cards directly from your browser",
   "icons": {
     "48": "icons/icon-48.png",
@@ -14,7 +14,9 @@
     "<all_urls>"
   ],
   "background": {
-    "scripts": ["background.js"]
+    "scripts": [
+      "background.js"
+    ]
   },
   "browser_action": {
     "default_popup": "ui/popup.html",
@@ -26,8 +28,13 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content/Readability.js", "content/extractor.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/Readability.js",
+        "content/extractor.js"
+      ],
       "run_at": "document_idle"
     }
   ]
