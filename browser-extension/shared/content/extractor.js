@@ -10,7 +10,6 @@ function extractArticle() {
   }
 
   const title = article.title || document.title;
-  const byline = article.byline || '';
   const content = article.content || '';
   const textContent = article.textContent || '';
 
@@ -22,7 +21,6 @@ function extractArticle() {
   return {
     success: true,
     title,
-    byline,
     content,
     textContent,
     metadata

@@ -35,8 +35,7 @@ async function createCard({ title, body, url, card_type = 'article', parent_id =
         link: url,
         parent_id,
         tags,
-        process_entities_and_facts: true,
-        card_type: card_type
+        process_entities_and_facts: true
       },
       requiresAuth: true
     }

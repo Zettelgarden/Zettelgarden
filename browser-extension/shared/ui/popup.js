@@ -124,7 +124,6 @@ async function handleExtractArticle() {
     }
 
     document.getElementById('article-title').value = response.title;
-    document.getElementById('article-author').value = response.byline;
     document.getElementById('article-body').value = response.textContent;
     document.getElementById('article-url').value = response.metadata.url;
     document.getElementById('article-preview').classList.remove('hidden');
