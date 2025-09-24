@@ -195,17 +195,21 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 shadow-xl transition-all">
+        <Dialog.Panel className={`w-full max-w-2xl transform overflow-hidden rounded-2xl p-6 shadow-xl transition-all ${
+          editedTask.is_complete ? 'bg-green-50 border-2 border-green-300' : 'bg-white'
+        }`}>
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center gap-4">
               <span
                 onClick={handleToggleComplete}
-                className="cursor-pointer"
+                className="cursor-pointer hover:scale-110 transition-transform"
               >
                 {editedTask.is_complete ? <TaskClosedIcon /> : <TaskOpenIcon />}
               </span>
-              <Dialog.Title className="text-lg font-medium leading-6 text-gray-900">
-                Task Details
+              <Dialog.Title className={`text-lg font-medium leading-6 ${
+                editedTask.is_complete ? 'text-green-800' : 'text-gray-900'
+              }`}>
+                {editedTask.is_complete ? '✓ Task Completed' : 'Task Details'}
               </Dialog.Title>
             </div>
             <TaskListOptionsMenu
@@ -228,7 +232,9 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
                 />
               ) : (
                 <div
-                  className="text-lg cursor-pointer hover:bg-gray-50 p-2 rounded flex-grow"
+                  className={`text-lg cursor-pointer hover:bg-gray-50 p-2 rounded flex-grow ${
+                    editedTask.is_complete ? 'line-through text-gray-500' : ''
+                  }`}
                   onClick={() => setIsEditing(true)}
                 >
                   {editedTask.title}
