@@ -2,6 +2,7 @@ import React from 'react';
 import { CardReference, ParsedMessageContent } from '../models/Chat';
 
 import { Card } from '../models/Card';
+import { Task } from '../models/Task';
 
 /**
  * Parses card references from text in the format: [Card: card_id | title]
@@ -26,37 +27,61 @@ export function parseCardReferences(text: string): CardReference[] {
 }
 
 /**
- * Parses a message that may contain both text and a JSON cards section
- * Returns the separated text content and parsed card data
+ * Parses a message that may contain text and JSON sections for cards and/or tasks
+ * Returns the separated text content and parsed card/task data
  */
 export function parseMessageContent(content: string): ParsedMessageContent {
   const cardsSectionRegex = /---CARDS---\s*```json\s*([\s\S]*?)\s*```/;
-  const match = content.match(cardsSectionRegex);
+  const tasksSectionRegex = /---TASKS---\s*```json\s*([\s\S]*?)\s*```/;
 
-  if (!match) {
-    return {
-      text: content,
-      cards: [],
-    };
+  const cardsMatch = content.match(cardsSectionRegex);
+  const tasksMatch = content.match(tasksSectionRegex);
+
+  // Extract text without any JSON sections
+  let text = content;
+  let minIndex = content.length;
+
+  if (cardsMatch && cardsMatch.index !== undefined && cardsMatch.index < minIndex) {
+    minIndex = cardsMatch.index;
+  }
+  if (tasksMatch && tasksMatch.index !== undefined && tasksMatch.index < minIndex) {
+    minIndex = tasksMatch.index;
   }
 
-  // Extract text without the cards section
-  const text = content.substring(0, match.index).trim();
+  if (minIndex < content.length) {
+    text = content.substring(0, minIndex).trim();
+  }
 
   // Parse the JSON cards data
   let cards: Card[] = [];
-  try {
-    const jsonData = JSON.parse(match[1]);
-    if (jsonData.cards && Array.isArray(jsonData.cards)) {
-      cards = jsonData.cards;
+  if (cardsMatch) {
+    try {
+      const jsonData = JSON.parse(cardsMatch[1]);
+      if (jsonData.cards && Array.isArray(jsonData.cards)) {
+        cards = jsonData.cards;
+      }
+    } catch (error) {
+      console.error('Failed to parse cards JSON:', error);
     }
-  } catch (error) {
-    console.error('Failed to parse cards JSON:', error);
+  }
+
+  // Parse the JSON tasks data
+  let tasks: Task[] = [];
+  if (tasksMatch) {
+    try {
+      const jsonData = JSON.parse(tasksMatch[1]);
+      if (jsonData.tasks && Array.isArray(jsonData.tasks)) {
+        tasks = jsonData.tasks;
+      }
+    } catch (error) {
+      console.error('Failed to parse tasks JSON:', error);
+    }
   }
 
   return {
     text,
     cards,
+    tasks,
   };
 }
 

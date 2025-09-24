@@ -18,8 +18,10 @@ import { Button } from "../components/Button";
 import { useChatContext } from "../contexts/ChatContext";
 import { parseMessageContent } from "../utils/chatUtils";
 import { CardsSection } from "../components/chat/CardsSection";
+import { TasksSection } from "../components/chat/TasksSection";
 import { ChatInput } from "../components/chat/ChatInput";
 import { InstructionsMenu } from "../components/chat/InstructionsMenu";
+import { TaskDialog } from "../components/tasks/TaskDialog";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -41,6 +43,8 @@ export function ChatPage({ }: ChatPageProps) {
   const [isPolling, setIsPolling] = useState(false);
   const [showInstructionsMenu, setShowInstructionsMenu] = useState(false);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [showTaskDialog, setShowTaskDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const modelDropdownRef = useRef<HTMLDivElement>(null);
@@ -356,6 +360,20 @@ export function ChatPage({ }: ChatPageProps) {
     window.open(`/app/card/${encodeURIComponent(cardPk)}`, '_blank');
   };
 
+  const handleTaskClick = (taskId: number) => {
+    setSelectedTaskId(taskId);
+    setShowTaskDialog(true);
+  };
+
+  const handleTaskDialogClose = () => {
+    setShowTaskDialog(false);
+    setSelectedTaskId(null);
+  };
+
+  const handleTagClick = (tag: string) => {
+    // No-op for now, could filter tasks by tag in the future
+  };
+
   const handleRegenerateMessage = async (messageId: string) => {
     if (!currentConversation) return;
 
@@ -518,7 +536,7 @@ export function ChatPage({ }: ChatPageProps) {
 
       if (message.content) {
         console.log(message.content)
-        const { text, cards } = parseMessageContent(message.content);
+        const { text, cards, tasks } = parseMessageContent(message.content);
 
         return (
           <div>
@@ -530,6 +548,7 @@ export function ChatPage({ }: ChatPageProps) {
               </Markdown>
             </div>
             <CardsSection cards={cards} onCardClick={handleCardClick} />
+            <TasksSection tasks={tasks} onTaskClick={handleTaskClick} />
           </div>
         );
       }
@@ -996,6 +1015,14 @@ export function ChatPage({ }: ChatPageProps) {
       <InstructionsMenu
         isOpen={showInstructionsMenu}
         onClose={() => setShowInstructionsMenu(false)}
+      />
+
+      {/* Task Dialog */}
+      <TaskDialog
+        taskId={selectedTaskId}
+        isOpen={showTaskDialog}
+        onClose={handleTaskDialogClose}
+        onTagClick={handleTagClick}
       />
 
     </div>

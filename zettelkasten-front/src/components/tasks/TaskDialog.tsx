@@ -7,7 +7,7 @@ import { BacklinkInput } from "../cards/BacklinkInput";
 import { PartialCard } from "../../models/Card";
 import { Link } from "react-router-dom";
 import { TaskTagDisplay } from "./TaskTagDisplay";
-import { saveExistingTask, deleteTask, fetchTaskAuditEvents } from "../../api/tasks";
+import { saveExistingTask, deleteTask, fetchTaskAuditEvents, fetchTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
 import { Button } from "../../components/Button";
 import { TaskListOptionsMenu } from "./TaskListOptionsMenu";
@@ -16,7 +16,7 @@ import { TaskClosedIcon } from "../../assets/icons/TaskClosedIcon";
 import { TaskOpenIcon } from "../../assets/icons/TaskOpenIcon";
 
 interface TaskDialogProps {
-  task: Task | null;
+  taskId: number | null;
   isOpen: boolean;
   onClose: () => void;
   onTagClick: (tag: string) => void;
@@ -83,25 +83,52 @@ function formatAuditEvent(event: TaskAuditEvent): string {
   return "Unknown change";
 }
 
-export function TaskDialog({ task, isOpen, onClose, onTagClick }: TaskDialogProps) {
-  const [editedTask, setEditedTask] = useState<Task | null>(task);
+export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogProps) {
+  const [editedTask, setEditedTask] = useState<Task | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showCardLink, setShowCardLink] = useState<boolean>(false);
   const [auditEvents, setAuditEvents] = useState<TaskAuditEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const { setRefreshTasks } = useTaskContext();
 
   useEffect(() => {
-    setEditedTask(task);
-    if (task && task.id) {
-      fetchTaskAuditEvents(task.id)
+    if (taskId && isOpen) {
+      setIsLoading(true);
+      fetchTask(taskId.toString())
+        .then(task => {
+          // Convert date strings to Date objects
+          const processedTask = {
+            ...task,
+            scheduled_date: task.scheduled_date ? new Date(task.scheduled_date) : null,
+            dueDate: task.dueDate ? new Date(task.dueDate) : null,
+            created_at: new Date(task.created_at),
+            updated_at: new Date(task.updated_at),
+            completed_at: task.completed_at ? new Date(task.completed_at) : null,
+            tags: task.tags || []
+          };
+          setEditedTask(processedTask);
+          return fetchTaskAuditEvents(taskId);
+        })
         .then(events => setAuditEvents(events))
-        .catch(error => console.error("Error fetching audit events:", error));
+        .catch(error => console.error("Error fetching task:", error))
+        .finally(() => setIsLoading(false));
     }
-  }, [task]);
+  }, [taskId, isOpen]);
 
-  // Return null if task is not provided
-  if (!task || !editedTask) {
-    return null;
+  // Return null if task is not loaded yet
+  if (!editedTask || isLoading) {
+    return (
+      <Dialog open={isOpen} onClose={onClose} className="relative z-50">
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 shadow-xl transition-all">
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            </div>
+          </Dialog.Panel>
+        </div>
+      </Dialog>
+    );
   }
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,8 +151,9 @@ export function TaskDialog({ task, isOpen, onClose, onTagClick }: TaskDialogProp
   };
 
   const handleDelete = async () => {
+    if (!editedTask) return;
     if (window.confirm("Are you sure you want to delete this task? This cannot be undone.")) {
-      await deleteTask(task.id);
+      await deleteTask(editedTask.id);
       setRefreshTasks(true);
       onClose();
     }

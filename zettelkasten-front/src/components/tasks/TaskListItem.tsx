@@ -31,10 +31,10 @@ export function TaskListItem({
   const [showCardLink, setShowCardLink] = useState<boolean>(false);
   const [tags, setTags] = useState<Tag[]>([]);
   const { setRefreshTasks } = useTaskContext();
-  const { setShowTaskDialog, setSelectedTask } = useShortcutContext();
+  const { setShowTaskDialog, setSelectedTaskId } = useShortcutContext();
 
   async function handleTitleClick() {
-    setSelectedTask(task);
+    setSelectedTaskId(task.id);
     setShowTaskDialog(true);
   }
 
@@ -119,7 +119,7 @@ export function TaskListItem({
           ))}
       </div>
       <button onClick={() => {
-        setSelectedTask(task);
+        setSelectedTaskId(task.id);
         setShowTaskDialog(true);
       }} className="menu-button">
         ⋮

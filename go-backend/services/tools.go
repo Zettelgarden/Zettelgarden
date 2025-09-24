@@ -1009,10 +1009,7 @@ func (tr *ToolRegistry) registerGetTaskByID() {
 }
 
 func handleGetTasks(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	includeCompleted := false
-	if ic, ok := args["include_completed"].(bool); ok {
-		includeCompleted = ic
-	}
+	includeCompleted := false // we do not want completed tasks, there are too many
 
 	var tasks []models.Task
 	var err error

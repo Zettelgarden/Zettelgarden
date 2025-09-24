@@ -22,8 +22,8 @@ interface ShortcutProviderType {
   setSelectedEntity: (entity: Entity | null) => void;
   selectedFact: FactWithCard | null;
   setSelectedFact: (fact: FactWithCard | null) => void;
-  selectedTask: Task | null;
-  setSelectedTask: (task: Task | null) => void;
+  selectedTaskId: number | null;
+  setSelectedTaskId: (taskId: number | null) => void;
 }
 
 const ShortcutContext = createContext<ShortcutProviderType>({
@@ -41,8 +41,8 @@ const ShortcutContext = createContext<ShortcutProviderType>({
   setSelectedEntity: (entity: Entity | null) => { },
   selectedFact: null,
   setSelectedFact: (fact: FactWithCard | null) => { },
-  selectedTask: null,
-  setSelectedTask: (task: Task | null) => { },
+  selectedTaskId: null,
+  setSelectedTaskId: (taskId: number | null) => { },
 });
 
 export const ShortcutProvider = ({ children }: ChildrenProviderProps) => {
@@ -52,7 +52,7 @@ export const ShortcutProvider = ({ children }: ChildrenProviderProps) => {
   const [showEntityDialog, setShowEntityDialog] = useState(false);
   const [selectedFact, setSelectedFact] = useState<FactWithCard | null>(null);
   const [showFactDialog, setShowFactDialog] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
 
 
@@ -73,8 +73,8 @@ export const ShortcutProvider = ({ children }: ChildrenProviderProps) => {
         setSelectedEntity,
         selectedFact,
         setSelectedFact,
-        selectedTask,
-        setSelectedTask,
+        selectedTaskId,
+        setSelectedTaskId,
       }}
     >
       {children}

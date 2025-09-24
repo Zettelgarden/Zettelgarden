@@ -76,7 +76,7 @@ export function Sidebar() {
     selectedFact,
     showTaskDialog,
     setShowTaskDialog,
-    selectedTask,
+    selectedTaskId,
   } = useShortcutContext();
 
   function getCurrentCard(): PartialCard | Card | null {
@@ -509,7 +509,7 @@ export function Sidebar() {
         onFactDeleted={() => setShowFactDialog(false)}
       />
       <TaskDialog
-        task={selectedTask}
+        taskId={selectedTaskId}
         isOpen={showTaskDialog}
         onClose={() => setShowTaskDialog(false)}
         onTagClick={(tag: string) => {

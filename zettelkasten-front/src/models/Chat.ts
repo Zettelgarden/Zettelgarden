@@ -1,4 +1,5 @@
 import { Card } from './Card';
+import { Task } from './Task';
 
 export interface CardReference {
   cardId: string;
@@ -11,4 +12,5 @@ export interface CardReference {
 export interface ParsedMessageContent {
   text: string;
   cards: Card[];
+  tasks: Task[];
 }
