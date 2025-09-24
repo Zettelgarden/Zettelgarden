@@ -218,6 +218,12 @@ func importTestData(s *server.Server) error {
 		}
 	}
 
+	_, err = tx.Exec(`SELECT setval('entities_id_seq', (SELECT MAX(id) FROM entities) + 1);`)
+	if err != nil {
+		log.Printf("error resetting entities sequence after inserts: %v", err)
+		return err
+	}
+
 	for _, junction := range data["entity_cards"].([]models.EntityCardJunction) {
 		_, err := tx.Exec(`
 			INSERT INTO entity_card_junction 
