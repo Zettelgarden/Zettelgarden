@@ -40,6 +40,13 @@ export interface Task {
   tags: Tag[];
 }
 
+export interface TasksResponse {
+  tasks: Task[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export const emptyTask: Task = {
   id: 0,
   card_pk: 0,

@@ -43,6 +43,23 @@ func (s *Handler) QueryTasks(userID int, includeCompleted bool) ([]models.Task, 
 
 	return tasks, nil
 }
+
+func (s *Handler) QueryTasksPaginated(userID int, limit, offset int, includeCompleted bool, cardID *int, priority *string) ([]models.Task, int, error) {
+	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority)
+	if err != nil {
+		return []models.Task{}, 0, err
+	}
+
+	// Load tags for each task
+	for i := range tasks {
+		tags, err := s.QueryTagsForTask(userID, tasks[i].ID)
+		if err == nil {
+			tasks[i].Tags = tags
+		}
+	}
+
+	return tasks, total, nil
+}
 func (s *Handler) QueryTasksByCard(userID int, cardPK int) ([]models.Task, error) {
 	tasks, err := services.GetTasksByCard(s.DB, userID, cardPK)
 	if err != nil {
@@ -83,22 +100,64 @@ func (s *Handler) GetTaskRoute(w http.ResponseWriter, r *http.Request) {
 func (s *Handler) GetTasksRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
+	// Parse query parameters
 	completed := r.URL.Query().Get("completed")
 	includeCompleted := false
 	if completed == "true" {
 		includeCompleted = true
 	}
 
-	tasks, err := s.QueryTasks(userID, includeCompleted)
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 100 {
+		limit = 20 // default limit
+	}
 
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if offset < 0 {
+		offset = 0
+	}
+
+	var cardID *int
+	if cardIDStr := r.URL.Query().Get("card_id"); cardIDStr != "" {
+		if id, err := strconv.Atoi(cardIDStr); err == nil {
+			cardID = &id
+		}
+	}
+
+	var priority *string
+	if priorityStr := r.URL.Query().Get("priority"); priorityStr != "" {
+		priority = &priorityStr
+	}
+
+	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
-
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tasks)
 
+	// Batch load tags for all tasks
+	taskIDs := make([]int, len(tasks))
+	for i, task := range tasks {
+		taskIDs[i] = task.ID
+	}
+
+	// Load tags for each task (keeping existing N+1 pattern for now)
+	for i := range tasks {
+		tags, err := s.QueryTagsForTask(userID, tasks[i].ID)
+		if err == nil {
+			tasks[i].Tags = tags
+		}
+	}
+
+	response := models.TasksResponse{
+		Tasks:  tasks,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func (s *Handler) UpdateTask(userID int, id int, task models.Task) error {

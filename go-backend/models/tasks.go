@@ -66,3 +66,10 @@ type RecurringTask struct {
 	Interval  int
 	DayOfWeek int
 }
+
+type TasksResponse struct {
+	Tasks  []Task `json:"tasks"`
+	Total  int    `json:"total"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+}

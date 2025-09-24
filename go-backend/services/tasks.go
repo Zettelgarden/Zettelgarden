@@ -47,24 +47,45 @@ func GetTask(db *sql.DB, userID int, id int) (models.Task, error) {
 	return task, nil
 }
 
-// GetTasks retrieves all tasks for a user, optionally including completed tasks
-func GetTasks(db *sql.DB, userID int, includeCompleted bool) ([]models.Task, error) {
+// GetTasksPaginated retrieves tasks for a user with pagination and filtering
+func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeCompleted bool, cardID *int, priority *string) ([]models.Task, int, error) {
 	var tasks []models.Task
+	var args []interface{}
+	argIndex := 1
+
+	// Build base query
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
 	created_at, updated_at, completed_at, title, priority, is_complete
-	FROM
-	tasks
-	WHERE user_id = $1 AND is_deleted = FALSE
-	`
+	FROM tasks
+	WHERE user_id = $` + fmt.Sprintf("%d", argIndex) + ` AND is_deleted = FALSE`
+	args = append(args, userID)
+	argIndex++
+
+	// Add filters
 	if !includeCompleted {
-		query += " AND is_complete = FALSE"
+		query += ` AND is_complete = FALSE`
+	}
+	if cardID != nil {
+		query += ` AND card_pk = $` + fmt.Sprintf("%d", argIndex)
+		args = append(args, *cardID)
+		argIndex++
+	}
+	if priority != nil {
+		query += ` AND priority = $` + fmt.Sprintf("%d", argIndex)
+		args = append(args, *priority)
+		argIndex++
 	}
 
-	rows, err := db.Query(query, userID)
+	// Add ordering and pagination
+	query += ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", argIndex) + ` OFFSET $` + fmt.Sprintf("%d", argIndex+1)
+	args = append(args, limit, offset)
+
+	// Execute main query
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		log.Printf("err %v", err)
-		return []models.Task{}, err
+		return []models.Task{}, 0, err
 	}
 	defer rows.Close()
 
@@ -84,7 +105,7 @@ func GetTasks(db *sql.DB, userID int, includeCompleted bool) ([]models.Task, err
 			&task.IsComplete,
 		); err != nil {
 			log.Printf("err %v", err)
-			return []models.Task{}, fmt.Errorf("unable to access task")
+			return []models.Task{}, 0, fmt.Errorf("unable to access task")
 		}
 		if task.CardPK > 0 {
 			card, err := GetPartialCard(db, userID, task.CardPK)
@@ -92,11 +113,41 @@ func GetTasks(db *sql.DB, userID int, includeCompleted bool) ([]models.Task, err
 				task.Card = card
 			}
 		}
-		// Note: Tag loading will need to be handled by the handler that calls this
-		// since QueryTagsForTask is in the handlers package
 		tasks = append(tasks, task)
 	}
-	return tasks, nil
+
+	// Get total count with same filters
+	countQuery := `SELECT COUNT(*) FROM tasks WHERE user_id = $1 AND is_deleted = FALSE`
+	countArgs := []interface{}{userID}
+	argIndex = 2
+
+	if !includeCompleted {
+		countQuery += ` AND is_complete = FALSE`
+	}
+	if cardID != nil {
+		countQuery += ` AND card_pk = $` + fmt.Sprintf("%d", argIndex)
+		countArgs = append(countArgs, *cardID)
+		argIndex++
+	}
+	if priority != nil {
+		countQuery += ` AND priority = $` + fmt.Sprintf("%d", argIndex)
+		countArgs = append(countArgs, *priority)
+	}
+
+	var total int
+	err = db.QueryRow(countQuery, countArgs...).Scan(&total)
+	if err != nil {
+		log.Printf("err counting tasks: %v", err)
+		return []models.Task{}, 0, err
+	}
+
+	return tasks, total, nil
+}
+
+// GetTasks retrieves all tasks for a user, optionally including completed tasks
+func GetTasks(db *sql.DB, userID int, includeCompleted bool) ([]models.Task, error) {
+	tasks, _, err := GetTasksPaginated(db, userID, 1000, 0, includeCompleted, nil, nil)
+	return tasks, err
 }
 
 // GetTasksByCard retrieves all tasks associated with a specific card

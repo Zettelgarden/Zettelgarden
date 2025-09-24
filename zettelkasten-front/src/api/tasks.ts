@@ -1,39 +1,51 @@
-import { Task, TaskAuditEvent } from "src/models/Task";
+import { Task, TaskAuditEvent, TasksResponse } from "src/models/Task";
 import { checkStatus } from "./common";
 
 const base_url = import.meta.env.VITE_URL;
 
 export function fetchTasks(showCompleted: boolean): Promise<Task[]> {
-  let token = localStorage.getItem("token");
-  let url = base_url + "/tasks";
-  if (showCompleted) {
-    url += "?completed=true"
-  }
+  const fetchAllTasks = async (offset = 0, allTasks: Task[] = []): Promise<Task[]> => {
+    let token = localStorage.getItem("token");
+    let url = base_url + `/tasks?limit=100&offset=${offset}`;
+    if (showCompleted) {
+      url += "&completed=true";
+    }
 
-  return fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((tasks: Task[]) => {
-          return tasks.map((task) => ({
-            ...task,
-            scheduled_date: task.scheduled_date
-              ? new Date(task.scheduled_date)
-              : null,
-            dueDate: task.dueDate ? new Date(task.dueDate) : null,
-            created_at: new Date(task.created_at),
-            updated_at: new Date(task.updated_at),
-            completed_at: task.completed_at
-              ? new Date(task.completed_at)
-              : null,
-          }));
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
     });
+
+    const checkedResponse = await checkStatus(response);
+    if (!checkedResponse) {
+      throw new Error("Response is undefined");
+    }
+
+    const tasksResponse: TasksResponse = await checkedResponse.json();
+    const formattedTasks = tasksResponse.tasks.map((task) => ({
+      ...task,
+      scheduled_date: task.scheduled_date
+        ? new Date(task.scheduled_date)
+        : null,
+      dueDate: task.dueDate ? new Date(task.dueDate) : null,
+      created_at: new Date(task.created_at),
+      updated_at: new Date(task.updated_at),
+      completed_at: task.completed_at
+        ? new Date(task.completed_at)
+        : null,
+    }));
+
+    const combinedTasks = [...allTasks, ...formattedTasks];
+
+    // If we got fewer tasks than the limit, we've reached the end
+    if (tasksResponse.tasks.length < tasksResponse.limit) {
+      return combinedTasks;
+    }
+
+    // If there are more tasks to fetch, make another request
+    return fetchAllTasks(offset + tasksResponse.limit, combinedTasks);
+  };
+
+  return fetchAllTasks();
 }
 
 export function fetchTask(id: string): Promise<Task> {
