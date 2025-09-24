@@ -122,59 +122,28 @@ export function sortCardIds(input: string[]): string[] {
   return results;
 }
 
-function getNextLetter(currentLetter: string): string {
-  if (currentLetter === 'Z') return 'AA';
-  if (currentLetter.endsWith('Z')) {
-    return currentLetter.slice(0, -1) + 'A' + 'A';
-  }
-  return currentLetter.slice(0, -1) + String.fromCharCode(currentLetter.charCodeAt(currentLetter.length - 1) + 1);
-}
-
 export function findNextChildId(parentId: string, existingChildren: PartialCard[]): string {
-  console.log('Starting findNextChildId with:', { parentId, existingChildren });
-  
-  // If no children exist, check if parent ends with a number
   if (existingChildren.length === 0) {
-    const segments = parentId.split(/[./]/);
-    const lastSegment = segments[segments.length - 1];
-    console.log('No children case:', { segments, lastSegment });
-    // If parent ends with a number (after a /), append /A
-    if (/^\d+$/.test(lastSegment)) {
-      return `${parentId}/A`;
-    }
-    // Otherwise append .1
     return `${parentId}.1`;
   }
 
-  // Get all child IDs and sort them numerically
   const childIds = existingChildren
     .map(child => child.card_id)
-    .sort((a, b) => compareCardIds(a, b));
-  
-  const lastChildId = childIds[childIds.length - 1];
-  console.log('Working with last child:', { childIds, lastChildId });
-  
-  // Get the immediate child segment after the parent ID
-  const immediateChildPattern = lastChildId.substring(parentId.length + 1).split(/[./]/)[0];
-  console.log('Analyzing immediate child pattern:', { immediateChildPattern });
-  
-  // Check if the immediate child pattern uses numbers
-  const usesNumbers = /^\d+$/.test(immediateChildPattern);
-  console.log('Checking if uses numbers:', { usesNumbers, immediateChildPattern });
-  
-  // Get the separator that was used after the parent ID
-  const separator = lastChildId.charAt(parentId.length);
-  
-  // If the immediate child pattern uses numbers, continue with numbers
-  if (usesNumbers) {
-    const nextNum = parseInt(immediateChildPattern, 10) + 1;
-    const result = `${parentId}${separator}${nextNum}`;
-    console.log('Numbers case:', { nextNum, separator, result });
-    return result;
+    .filter(childId => {
+      const childPrefix = childId.substring(0, parentId.length);
+      return childPrefix === parentId && childId.length > parentId.length;
+    });
+
+  let maxChildNumber = 0;
+
+  for (const childId of childIds) {
+    const childSuffix = childId.substring(parentId.length + 1);
+    const firstSegment = childSuffix.split(/[/.\-]/)[0];
+    const num = parseInt(firstSegment, 10);
+    if (!isNaN(num) && num > maxChildNumber) {
+      maxChildNumber = num;
+    }
   }
-  
-  // If immediate child pattern is a letter(s), get next letter
-  const result = `${parentId}${separator}${getNextLetter(immediateChildPattern)}`;
-  console.log('Letters case:', { separator, nextLetter: getNextLetter(immediateChildPattern), result });
-  return result;
+
+  return `${parentId}.${maxChildNumber + 1}`;
 }
