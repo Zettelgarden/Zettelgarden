@@ -443,19 +443,14 @@ export function Sidebar() {
               {starredCards.length > 0 ? (
                 <ul className="space-y-0.5">
                   {starredCards.map((card) => (
-                    <li key={card.id} className="px-2 py-0.5 text-sm group">
+                    <li key={card.id} className="text-sm group relative">
                       <div className="flex items-center">
-                        <Link
-                          to={`/app/card/${card.id}`}
-                          className="flex-grow hover:bg-gray-100 rounded p-1 truncate"
-                          title={`${card.card_id} - ${card.title}`}
-                        >
-                          <span className="text-blue-500 mr-1">[{card.card_id}]</span>
-                          {card.title}
-                        </Link>
+                        <div className="flex-grow min-w-0">
+                          <CardItem card={card} />
+                        </div>
                         <button
                           onClick={() => handleUnstarCard(card.id)}
-                          className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity px-1"
+                          className="absolute right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                           title="Unstar card"
                         >
                           ×

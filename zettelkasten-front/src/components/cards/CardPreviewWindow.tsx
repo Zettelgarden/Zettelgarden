@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-
+import { Transition } from "@headlessui/react";
 import { getCard } from "../../api/cards";
-import { PartialCard, Card } from "../../models/Card";
+import { Card } from "../../models/Card";
 import { CardBody } from "./CardBody";
 import { isErrorResponse } from "../../models/common";
+import { formatDate } from "../../utils/dates";
 
 interface CardPreviewWindowProps {
   cardPK: number;
@@ -16,6 +17,7 @@ export function CardPreviewWindow({
 }: CardPreviewWindowProps) {
   const [viewingCard, setViewingCard] = useState<Card | null>(null);
   const [error, setError] = useState("");
+  const [isVisible, setIsVisible] = useState(false);
 
   async function fetchCard(id: string) {
     let refreshed = await getCard(id);
@@ -24,43 +26,75 @@ export function CardPreviewWindow({
       setError(refreshed["error"]);
     } else {
       setViewingCard(refreshed);
+      setIsVisible(true);
     }
   }
+
   useEffect(() => {
-    console.log("asdasasdasd");
+    setIsVisible(false);
     fetchCard(cardPK.toString());
   }, [cardPK]);
+
   const windowHeight = window.innerHeight;
-  const previewHeight = 300; // Approximate height of your preview window, adjust as needed
+  const windowWidth = window.innerWidth;
+  const previewHeight = 400;
+  const previewWidth = 500;
+
   const topPosition =
     mousePosition.y + previewHeight > windowHeight
-      ? mousePosition.y - previewHeight
-      : mousePosition.y;
+      ? Math.max(10, mousePosition.y - previewHeight - 20)
+      : mousePosition.y + 10;
+
+  const leftPosition =
+    mousePosition.x + previewWidth > windowWidth
+      ? Math.max(10, mousePosition.x - previewWidth - 20)
+      : mousePosition.x + 10;
 
   return (
-    <div
-      className="card-preview-window"
-      style={{
-        top: topPosition,
-        left: mousePosition.x + 10,
-        position: "absolute",
-      }}
+    <Transition
+      show={isVisible}
+      enter="transition-opacity duration-150"
+      enterFrom="opacity-0"
+      enterTo="opacity-100"
+      leave="transition-opacity duration-100"
+      leaveFrom="opacity-100"
+      leaveTo="opacity-0"
     >
-      {error && <div>{error}</div>}
-      {viewingCard && (
-        <div>
-          <h3 style={{ marginBottom: "10px" }}>
-            <span style={{ fontWeight: "bold", color: "blue" }}>
-              {viewingCard.card_id}
-            </span>
-            <span>: {viewingCard.title}</span>
-          </h3>
-          <p className="text-xs">{viewingCard.created_at.toISOString()}</p>
-          <div>
-            <CardBody viewingCard={viewingCard} />
+      <div
+        className="fixed z-50 bg-white rounded-lg shadow-2xl border border-gray-200 p-4 max-w-xl"
+        style={{
+          top: topPosition,
+          left: leftPosition,
+          maxHeight: "400px",
+          width: "500px",
+        }}
+      >
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-3">
+            <div className="text-red-700 text-sm">{error}</div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+        {viewingCard && (
+          <div className="space-y-3">
+            <div className="border-b border-gray-200 pb-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-semibold text-blue-600 text-sm">
+                  [{viewingCard.card_id}]
+                </span>
+                <span className="text-gray-700 font-medium text-sm truncate">
+                  {viewingCard.title}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500">
+                {formatDate(viewingCard.created_at.toISOString())}
+              </p>
+            </div>
+            <div className="overflow-y-auto max-h-64 prose prose-sm max-w-none">
+              <CardBody viewingCard={viewingCard} entities={viewingCard.entities} />
+            </div>
+          </div>
+        )}
+      </div>
+    </Transition>
   );
 }
