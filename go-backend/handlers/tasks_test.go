@@ -106,10 +106,10 @@ func TestGetTasksSuccess(t *testing.T) {
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
-	var tasks []models.Task
-	tests.ParseJsonResponse(t, rr.Body.Bytes(), &tasks)
-	if len(tasks) != 19 {
-		t.Errorf("wrong number of tasks returned, got %v want %v", len(tasks), 19)
+	var response models.TasksResponse
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &response)
+	if len(response.Tasks) != 19 {
+		t.Errorf("wrong number of tasks returned, got %v want %v", len(response.Tasks), 19)
 	}
 }
 
