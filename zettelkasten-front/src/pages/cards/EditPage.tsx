@@ -18,12 +18,9 @@ import { ButtonCardDelete } from "../../components/cards/ButtonCardDelete";
 import { CardBodyTextArea, CardBodyTextAreaHandle } from "../../components/cards/CardBodyTextArea";
 import { MarkdownToolbar } from "../../components/cards/MarkdownToolbar";
 import { SaveAsTemplateDialog } from "../../components/cards/SaveAsTemplateDialog";
-import { TemplateVariablesHelp } from "../../components/templates/TemplateVariablesHelp";
 import { processTemplateVariables } from "../../utils/templateVariables";
 import { CardIdDiscoveryDialog } from "../../components/cards/CardIdDiscoveryDialog";
 
-
-import { FaCloudDownloadAlt } from "react-icons/fa";
 import { BacklinkInput } from "../../components/cards/BacklinkInput";
 import { useTagContext } from "../../contexts/TagContext";
 import { SearchTagDropdown } from "../../components/tags/SearchTagDropdown";
@@ -393,15 +390,25 @@ export function EditPage({ newCard }: EditPageProps) {
                         setEditingCard({ ...editingCard, title: e.target.value })
                       }
                       placeholder="Title"
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-24"
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-10"
                     />
                     <button
                       onClick={handleSuggestTitle}
                       disabled={suggestingTitle || !editingCard.body.trim()}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                       type="button"
+                      title={suggestingTitle ? "Suggesting title..." : "Suggest title from content"}
                     >
-                      {suggestingTitle ? "Suggesting..." : "Suggest"}
+                      {suggestingTitle ? (
+                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                        </svg>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -437,7 +444,6 @@ export function EditPage({ newCard }: EditPageProps) {
                     setFilesToUpdate={setFilesToUpdate}
                   />
                 </div>
-                <TemplateVariablesHelp />
 
                 <div className="flex flex-wrap gap-3 pt-4">
                   <Button onClick={handleSaveCard} variant="primary">Save</Button>
@@ -500,35 +506,36 @@ export function EditPage({ newCard }: EditPageProps) {
                 {newCard && (
                   <div className="mb-6">
                     {loadingTemplates ? (
-                      <div>Loading templates...</div>
+                      <div className="text-sm text-gray-500">Loading templates...</div>
                     ) : templateError ? (
-                      <div className="text-red-600">{templateError}</div>
+                      <div className="text-sm text-red-600">{templateError}</div>
                     ) : templates.length === 0 ? null : (
-                      <div className="relative">
-                        <Button
-                          onClick={() => setShowTemplateDropdown(!showTemplateDropdown)}
-                          variant="primary"
-                          size="medium"
-                        >
+                      <Menu as="div" className="relative">
+                        <Menu.Button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
+                          </svg>
                           Use Template
-                        </Button>
-
-                        {showTemplateDropdown && (
-                          <div className="absolute mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
-                            <div className="py-1" role="menu" aria-orientation="vertical">
-                              {templates.map((template) => (
-                                <button
-                                  key={template.id}
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                  onClick={() => handleSelectTemplate(template)}
-                                >
-                                  {template.title}
-                                </button>
-                              ))}
-                            </div>
+                        </Menu.Button>
+                        <Menu.Items className="absolute z-10 mt-2 w-full rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none max-h-60 overflow-auto">
+                          <div className="py-1">
+                            {templates.map((template) => (
+                              <Menu.Item key={template.id}>
+                                {({ active }) => (
+                                  <button
+                                    className={`${
+                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                    } w-full text-left px-4 py-2 text-sm`}
+                                    onClick={() => handleSelectTemplate(template)}
+                                  >
+                                    {template.title}
+                                  </button>
+                                )}
+                              </Menu.Item>
+                            ))}
                           </div>
-                        )}
-                      </div>
+                        </Menu.Items>
+                      </Menu>
                     )}
 
                     <hr className="my-4" />
@@ -547,16 +554,34 @@ export function EditPage({ newCard }: EditPageProps) {
                           setEditingCard({ ...editingCard, card_id: e.target.value })
                         }
                         placeholder="ID"
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-24"
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-20"
                       />
                       {(newCard || (!newCard && editingCard.card_id === "")) && (
-                        <button
-                          onClick={() => setShowCardIdDiscovery(true)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-blue-600 hover:text-blue-800"
-                          type="button"
-                        >
-                          Discover ID
-                        </button>
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
+                          <button
+                            onClick={async () => {
+                              const response = await getNextRootId();
+                              setEditingCard({ ...editingCard, card_id: response.new_id });
+                            }}
+                            className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                            type="button"
+                            title="Use next available root ID"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => setShowCardIdDiscovery(true)}
+                            className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                            type="button"
+                            title="Discover card ID from hierarchy"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -579,7 +604,7 @@ export function EditPage({ newCard }: EditPageProps) {
                 <div className="space-y-2">
 
                   <HeaderSubSection text="Link" />
-                  <div className="flex gap-3 items-center">
+                  <div className="relative">
                     <input
                       type="text"
                       id="link"
@@ -588,9 +613,18 @@ export function EditPage({ newCard }: EditPageProps) {
                         setEditingCard({ ...editingCard, link: e.target.value })
                       }
                       placeholder="Source"
-                      className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-10"
                     />
-                    <span className="cursor-pointer items-center" onClick={handleClickFillCard} title="Fill Card from URL"><FaCloudDownloadAlt /></span>
+                    <button
+                      onClick={handleClickFillCard}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                      type="button"
+                      title="Fill card from URL"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
 
