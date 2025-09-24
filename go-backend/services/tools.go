@@ -356,7 +356,7 @@ func handleSearchCards(args map[string]interface{}, ctx *ToolContext) (map[strin
 		searchType = st
 	}
 
-	limit := 100
+	limit := 20
 	if l, ok := args["limit"].(float64); ok {
 		limit = int(l)
 	}
