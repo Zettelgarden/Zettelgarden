@@ -12,7 +12,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
@@ -28,379 +27,36 @@ type UpdateEntityRequest struct {
 	CardPK      *int   `json:"card_pk"`
 }
 
-type EntityListResponse struct {
-	Entities   []models.Entity `json:"entities"`
-	Total      int             `json:"total"`
-	Page       int             `json:"page"`
-	PerPage    int             `json:"per_page"`
-	TotalPages int             `json:"total_pages"`
-}
-
 func (s *Handler) GetEntitiesRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
 	// Parse query parameters
 	searchTerm := r.URL.Query().Get("search")
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	if page < 1 {
-		page = 1
-	}
 	perPage, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
-	if perPage < 1 || perPage > 100 {
-		perPage = 20
-	}
 	sortBy := r.URL.Query().Get("sort_by")
-	if sortBy == "" {
-		sortBy = "name"
-	}
 	sortDirection := r.URL.Query().Get("sort_direction")
-	if sortDirection == "" {
-		sortDirection = "asc"
+
+	// Use the service layer for entity retrieval
+	params := services.EntityQueryParams{
+		SearchTerm:    searchTerm,
+		Page:          page,
+		PerPage:       perPage,
+		SortBy:        sortBy,
+		SortDirection: sortDirection,
 	}
 
-	// Use Typesense for main entity query, but with strategic fallbacks
-	collectionName := os.Getenv("TYPESENSE_COLLECTION")
-	if collectionName == "" {
-		log.Printf("TYPESENSE_COLLECTION env var not set, falling back to SQL")
-		s.GetEntitiesRouteFallback(w, r, searchTerm, page, perPage, sortBy, sortDirection)
-		return
-	}
-
-	// Determine if we should use Typesense or fall back to SQL
-	useTypesense := false
-	var typesenseSortBy string
-
-	// Build query and filter for Typesense
-	query := "*"
-	if searchTerm != "" {
-		query = searchTerm
-		useTypesense = true // Always use Typesense for search
-	}
-
-	filter := fmt.Sprintf("user_id:=%d && type:=entity", userID)
-
-	// Map sort parameters to Typesense format
-	switch sortBy {
-	case "name":
-		if searchTerm != "" {
-			// Use relevance-based sorting for search queries
-			typesenseSortBy = fmt.Sprintf("_text_match:%s", sortDirection)
-			useTypesense = true
-		} else {
-			// For name sorting without search, fall back to SQL to avoid schema issues
-			useTypesense = false
-		}
-	case "created_at":
-		// created_at should be available for sorting in Typesense
-		typesenseSortBy = fmt.Sprintf("created_at:%s", sortDirection)
-		useTypesense = true
-	case "cards":
-		// Card count sorting requires SQL
-		useTypesense = false
-	default:
-		if searchTerm != "" {
-			typesenseSortBy = "_text_match:desc"
-			useTypesense = true
-		} else {
-			useTypesense = false
-		}
-	}
-
-	// Fall back to SQL if Typesense can't handle this query
-	if !useTypesense {
-		s.GetEntitiesRouteFallback(w, r, searchTerm, page, perPage, sortBy, sortDirection)
-		return
-	}
-
-	// Calculate pagination parameters for Typesense
-	typesensePerPage := perPage
-	typesensePage := page
-
-	searchParams := &api.SearchCollectionParams{
-		Q:        query,
-		QueryBy:  "title,preview", // Search in name and description
-		FilterBy: &filter,
-		SortBy:   &typesenseSortBy,
-		PerPage:  &typesensePerPage,
-		Page:     &typesensePage,
-	}
-
-	searchResult, err := s.Server.TypesenseClient.Collection(collectionName).Documents().Search(r.Context(), searchParams)
+	response, err := services.GetEntities(s.DB, s.Server.TypesenseClient, userID, params)
 	if err != nil {
-		log.Printf("error searching typesense for entities: %v", err)
-		s.GetEntitiesRouteFallback(w, r, searchTerm, page, perPage, sortBy, sortDirection)
+		log.Printf("Error getting entities: %v", err)
+		http.Error(w, "Failed to retrieve entities", http.StatusInternalServerError)
 		return
-	}
-
-	var entityIDs []int
-	var entityMap = make(map[int]*models.Entity)
-	var entities []models.Entity
-
-	// Extract entity data from Typesense results
-	if searchResult.Hits != nil {
-		for _, hit := range *searchResult.Hits {
-			if hit.Document != nil {
-				doc := *hit.Document
-				if entityPK, ok := doc["entity_pk"].(float64); ok {
-					entityID := int(entityPK)
-					entityIDs = append(entityIDs, entityID)
-
-					entity := &models.Entity{
-						ID:          entityID,
-						UserID:      userID,
-						Name:        doc["title"].(string),
-						Description: doc["preview"].(string),
-						Type:        "entity", // We know it's an entity from our filter
-						CreatedAt:   time.Unix(int64(doc["created_at"].(float64)), 0),
-						UpdatedAt:   time.Unix(int64(doc["updated_at"].(float64)), 0),
-						CardCount:   0, // Will be filled in below
-					}
-
-					// Handle linked card data if available
-					if linkedCardPK, ok := doc["linked_card_pk"].(float64); ok && linkedCardPK > 0 {
-						entity.CardPK = new(int)
-						*entity.CardPK = int(linkedCardPK)
-
-						if linkedCardID, ok := doc["linked_card_id"].(string); ok && linkedCardID != "" {
-							entity.Card = &models.PartialCard{
-								ID:        int(linkedCardPK),
-								CardID:    linkedCardID,
-								Title:     doc["linked_card_title"].(string),
-								UserID:    userID,
-								ParentID:  int(doc["linked_card_parent_id"].(float64)),
-								CreatedAt: entity.CreatedAt, // Use entity dates as approximation
-								UpdatedAt: entity.UpdatedAt,
-								Tags:      []models.Tag{},
-							}
-						}
-					}
-
-					entityMap[entityID] = entity
-				}
-			}
-		}
-	}
-
-	// Get card counts from database in a single query if we have entities
-	if len(entityIDs) > 0 {
-		cardCountQuery := `
-			SELECT entity_id, COUNT(DISTINCT card_pk) as card_count
-			FROM entity_card_junction
-			WHERE entity_id = ANY($1) AND user_id = $2
-			GROUP BY entity_id
-		`
-
-		rows, err := s.DB.Query(cardCountQuery, pq.Array(entityIDs), userID)
-		if err != nil {
-			log.Printf("error querying entity card counts: %v", err)
-			// Continue without card counts rather than failing completely
-		} else {
-			defer rows.Close()
-			for rows.Next() {
-				var entityID int
-				var cardCount int
-				if err := rows.Scan(&entityID, &cardCount); err != nil {
-					log.Printf("error scanning card count: %v", err)
-					continue
-				}
-				if entity, exists := entityMap[entityID]; exists {
-					entity.CardCount = cardCount
-				}
-			}
-		}
-	}
-
-	// Convert map to slice, maintaining the order from Typesense
-	for _, entityID := range entityIDs {
-		if entity, exists := entityMap[entityID]; exists {
-			entities = append(entities, *entity)
-		}
-	}
-
-	// Prepare response with pagination info
-	totalFound := 0
-	if searchResult.Found != nil {
-		totalFound = int(*searchResult.Found)
-	}
-
-	totalPages := (totalFound + perPage - 1) / perPage
-	if totalPages < 1 {
-		totalPages = 1
-	}
-
-	response := EntityListResponse{
-		Entities:   entities,
-		Total:      totalFound,
-		Page:       page,
-		PerPage:    perPage,
-		TotalPages: totalPages,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-// Fallback to original SQL-based implementation with pagination and search
-func (s *Handler) GetEntitiesRouteFallback(w http.ResponseWriter, r *http.Request, searchTerm string, page, perPage int, sortBy, sortDirection string) {
-	userID := r.Context().Value("current_user").(int)
-
-	// Build WHERE clause for search
-	whereClause := "e.user_id = $1"
-	args := []interface{}{userID}
-	argIndex := 2
-
-	if searchTerm != "" {
-		whereClause += fmt.Sprintf(" AND (e.name ILIKE $%d OR e.description ILIKE $%d OR e.type ILIKE $%d)", argIndex, argIndex+1, argIndex+2)
-		searchPattern := "%" + searchTerm + "%"
-		args = append(args, searchPattern, searchPattern, searchPattern)
-		argIndex += 3
-	}
-
-	// Build ORDER BY clause
-	var orderBy string
-	switch sortBy {
-	case "name":
-		orderBy = fmt.Sprintf("e.name %s", strings.ToUpper(sortDirection))
-	case "cards":
-		orderBy = fmt.Sprintf("card_count %s", strings.ToUpper(sortDirection))
-	case "created_at":
-		orderBy = fmt.Sprintf("e.created_at %s", strings.ToUpper(sortDirection))
-	default:
-		orderBy = "e.name ASC"
-	}
-
-	// Count query for pagination
-	countQuery := fmt.Sprintf(`
-        SELECT COUNT(DISTINCT e.id)
-        FROM entities e
-        WHERE %s
-    `, whereClause)
-
-	// Use the correct args for count query (exclude pagination args)
-	countArgs := args
-	if searchTerm != "" {
-		countArgs = args[:argIndex-1] // Exclude pagination args, keep search args
-	} else {
-		countArgs = args[:1] // Only userID
-	}
-
-	var total int
-	err := s.DB.QueryRow(countQuery, countArgs...).Scan(&total)
-	if err != nil {
-		log.Printf("error counting entities: %v", err)
-		http.Error(w, "Failed to count entities", http.StatusInternalServerError)
-		return
-	}
-
-	// Main query with pagination
-	offset := (page - 1) * perPage
-	query := fmt.Sprintf(`
-        SELECT
-            e.id,
-            e.user_id,
-            e.name,
-            e.description,
-            e.type,
-            e.created_at,
-            e.updated_at,
-            e.card_pk,
-            COUNT(DISTINCT ecj.card_pk) as card_count,
-            c.id as linked_card_id,
-            c.card_id as linked_card_card_id,
-            c.title as linked_card_title,
-            c.user_id as linked_card_user_id,
-            c.parent_id as linked_card_parent_id,
-            c.created_at as linked_card_created_at,
-            c.updated_at as linked_card_updated_at
-        FROM
-            entities e
-            LEFT JOIN entity_card_junction ecj ON e.id = ecj.entity_id
-            LEFT JOIN cards c ON e.card_pk = c.id AND c.is_deleted = FALSE
-        WHERE
-            %s
-        GROUP BY
-            e.id, e.user_id, e.name, e.description, e.type, e.created_at, e.updated_at, e.card_pk,
-            c.id, c.card_id, c.title, c.user_id, c.parent_id, c.created_at, c.updated_at
-        ORDER BY
-            %s
-        LIMIT $%d OFFSET $%d
-    `, whereClause, orderBy, argIndex, argIndex+1)
-
-	args = append(args, perPage, offset)
-
-	rows, err := s.DB.Query(query, args...)
-	if err != nil {
-		log.Printf("error querying entities: %v", err)
-		http.Error(w, "Failed to query entities", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	var entities []models.Entity
-	for rows.Next() {
-		var entity models.Entity
-		var cardID sql.NullInt64
-		var cardCardID, cardTitle sql.NullString
-		var cardUserID, cardParentID sql.NullInt64
-		var cardCreatedAt, cardUpdatedAt sql.NullTime
-
-		err := rows.Scan(
-			&entity.ID,
-			&entity.UserID,
-			&entity.Name,
-			&entity.Description,
-			&entity.Type,
-			&entity.CreatedAt,
-			&entity.UpdatedAt,
-			&entity.CardPK,
-			&entity.CardCount,
-			&cardID,
-			&cardCardID,
-			&cardTitle,
-			&cardUserID,
-			&cardParentID,
-			&cardCreatedAt,
-			&cardUpdatedAt,
-		)
-		if err != nil {
-			log.Printf("error scanning entity: %v", err)
-			http.Error(w, "Failed to scan entities", http.StatusInternalServerError)
-			return
-		}
-
-		// If we have a linked card, populate the card field
-		if cardID.Valid {
-			entity.Card = &models.PartialCard{
-				ID:        int(cardID.Int64),
-				CardID:    cardCardID.String,
-				Title:     cardTitle.String,
-				UserID:    int(cardUserID.Int64),
-				ParentID:  int(cardParentID.Int64),
-				CreatedAt: cardCreatedAt.Time,
-				UpdatedAt: cardUpdatedAt.Time,
-				Tags:      []models.Tag{}, // Empty tags array since we don't need them here
-			}
-		}
-
-		entities = append(entities, entity)
-	}
-
-	totalPages := (total + perPage - 1) / perPage
-	if totalPages < 1 {
-		totalPages = 1
-	}
-
-	response := EntityListResponse{
-		Entities:   entities,
-		Total:      total,
-		Page:       page,
-		PerPage:    perPage,
-		TotalPages: totalPages,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
 
 func (s *Handler) QueryEntitiesForCard(userID int, cardPK int) ([]models.Entity, error) {
 	query := `
