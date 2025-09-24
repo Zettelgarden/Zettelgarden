@@ -22,63 +22,66 @@ test("sort card ids", () => {
 })
 
 describe('findNextChildId', () => {
-  it('handles parent ending in number with no children', () => {
-    expect(findNextChildId("A.1", [])).toBe("A.1/A");
+  it('handles parent with no children', () => {
+    expect(findNextChildId("A.1", [])).toBe("A.1.1");
   });
 
-  it('handles parent ending in letter with no children', () => {
-    expect(findNextChildId("A.1/A", [])).toBe("A.1/A.1");
+  it('handles parent with one child', () => {
+    expect(findNextChildId("A.1", [{ card_id: "A.1.1", id: 1 } as any])).toBe("A.1.2");
   });
 
-  it('increments existing number after letter', () => {
-    expect(findNextChildId("A.1/A", [{ card_id: "A.1/A.1", id: 1 } as any])).toBe("A.1/A.2");
-  });
-
-  it('increments letter after number', () => {
-    expect(findNextChildId("SP104/A.6", [{ card_id: "SP104/A.6/B", id: 1 } as any])).toBe("SP104/A.6/C");
-  });
-
-  it('handles Z to AA transition', () => {
-    expect(findNextChildId("A.1", [{ card_id: "A.1/Z", id: 1 } as any])).toBe("A.1/AA");
+  it('increments existing number', () => {
+    expect(findNextChildId("A.1", [{ card_id: "A.1.1", id: 1 } as any])).toBe("A.1.2");
   });
 
   it('handles multiple existing children', () => {
     const children = [
-      { card_id: "A.1/B.1", id: 1 },
-      { card_id: "A.1/B.2", id: 2 },
-      { card_id: "A.1/B.3", id: 3 }
+      { card_id: "A.1.1", id: 1 },
+      { card_id: "A.1.2", id: 2 },
+      { card_id: "A.1.3", id: 3 }
     ] as any[];
-    expect(findNextChildId("A.1/B", children)).toBe("A.1/B.4");
+    expect(findNextChildId("A.1", children)).toBe("A.1.4");
   });
 
-  it('handles complex paths with multiple segments', () => {
-    expect(findNextChildId("SP104/A.6/B.1", [{ card_id: "SP104/A.6/B.1/A", id: 1 } as any]))
-      .toBe("SP104/A.6/B.1/B");
+  it('handles complex parent ids', () => {
+    expect(findNextChildId("SP104.6", [{ card_id: "SP104.6.1", id: 1 } as any]))
+      .toBe("SP104.6.2");
+  });
+
+  it('handles nested paths', () => {
+    expect(findNextChildId("SP104.6.1", [{ card_id: "SP104.6.1.1", id: 1 } as any]))
+      .toBe("SP104.6.1.2");
   });
 
   it('handles real world example', () => {
-    expect(findNextChildId("SP104/A.6", [{ card_id: "SP104/A.6/B", id: 1 } as any]))
-      .toBe("SP104/A.6/C");
+    expect(findNextChildId("312", [{ card_id: "312.1", id: 1 } as any]))
+      .toBe("312.2");
   });
-  it('handles real world example 2', () => {
-    expect(findNextChildId("312/D", [{ card_id: "312/D.1", id: 1 } as any]))
-      .toBe("312/D.2");
-  });
+
   it('handles big numbers', () => {
     const children = [
-      { card_id: "A.1/B.1", id: 1 },
-      { card_id: "A.1/B.2", id: 2 },
-      { card_id: "A.1/B.3", id: 3 },
-      { card_id: "A.1/B.4", id: 4 },
-      { card_id: "A.1/B.5", id: 5 },
-      { card_id: "A.1/B.6", id: 6 },
-      { card_id: "A.1/B.7", id: 7 },
-      { card_id: "A.1/B.8", id: 8 },
-      { card_id: "A.1/B.9", id: 9 },
-      { card_id: "A.1/B.10", id: 10 },
-      { card_id: "A.1/B.11", id: 11 }
+      { card_id: "A.1.1", id: 1 },
+      { card_id: "A.1.2", id: 2 },
+      { card_id: "A.1.3", id: 3 },
+      { card_id: "A.1.4", id: 4 },
+      { card_id: "A.1.5", id: 5 },
+      { card_id: "A.1.6", id: 6 },
+      { card_id: "A.1.7", id: 7 },
+      { card_id: "A.1.8", id: 8 },
+      { card_id: "A.1.9", id: 9 },
+      { card_id: "A.1.10", id: 10 },
+      { card_id: "A.1.11", id: 11 }
     ] as any[];
-    expect(findNextChildId("A.1/B", children)).toBe("A.1/B.12");
+    expect(findNextChildId("A.1", children)).toBe("A.1.12");
+  });
+
+  it('handles children with non-matching prefixes', () => {
+    const children = [
+      { card_id: "A.1.1", id: 1 },
+      { card_id: "A.2.1", id: 2 }, // Different parent
+      { card_id: "A.1.2", id: 3 }
+    ] as any[];
+    expect(findNextChildId("A.1", children)).toBe("A.1.3");
   });
 });
 
