@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Entity } from "../models/Card";
-import { fetchEntities, mergeEntities, deleteEntity } from "../api/entities";
+import { fetchEntities, mergeEntities, deleteEntity, EntityListResponse, EntityQueryParams } from "../api/entities";
 import { HeaderSection } from "../components/Header";
 import { Dialog } from "@headlessui/react";
 import { EditEntityDialog } from "../components/entities/EditEntityDialog";
@@ -16,7 +16,8 @@ import { useShortcutContext } from "../contexts/ShortcutContext";
 export function EntityPage() {
   const { hasSubscription } = useAuth();
   const [entities, setEntities] = useState<Entity[]>([]);
-  const [filteredEntities, setFilteredEntities] = useState<Entity[]>([]);
+  const [totalEntities, setTotalEntities] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const STORAGE_KEY = "entityPageState";
   const SCROLL_KEY = "entityPageScroll";
 
@@ -52,12 +53,24 @@ export function EntityPage() {
     setSelectedEntity,
   } = useShortcutContext();
 
-  const loadEntities = () => {
+  const loadEntities = (page: number = currentPage, search: string = filterText) => {
     setLoading(true);
-    fetchEntities()
-      .then((fetchedEntities) => {
-        setEntities(fetchedEntities);
-        setFilteredEntities(fetchedEntities);
+    const params: EntityQueryParams = {
+      page,
+      per_page: itemsPerPage,
+      sort_by: sortBy,
+      sort_direction: sortDirection,
+    };
+
+    if (search.trim()) {
+      params.search = search.trim();
+    }
+
+    fetchEntities(params)
+      .then((response: EntityListResponse) => {
+        setEntities(response.entities);
+        setTotalEntities(response.total);
+        setTotalPages(response.total_pages);
         setLoading(false);
       })
       .catch((err) => {
@@ -105,33 +118,25 @@ export function EntityPage() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // // After entities load, reapply persisted filters without overriding them to empty
-  // useEffect(() => {
-  //   try {
-  //     const savedState = localStorage.getItem(STORAGE_KEY);
-  //     if (savedState) {
-  //       const { filterText: savedFilter, sortBy: savedSortBy, sortDirection: savedSortDirection, currentPage: savedPage } = JSON.parse(savedState);
-  //       if (savedFilter !== undefined && savedFilter !== filterText) setFilterText(savedFilter);
-  //       if (savedSortBy !== undefined && savedSortBy !== sortBy) setSortBy(savedSortBy);
-  //       if (savedSortDirection !== undefined && savedSortDirection !== sortDirection) setSortDirection(savedSortDirection);
-  //       if (savedPage !== undefined && savedPage !== currentPage) setCurrentPage(savedPage);
-  //     }
-  //   } catch (e) {
-  //     console.error("Failed to reapply saved entity page state", e);
-  //   }
-  // }, [entities]);
-
+  // Reload entities when sort changes
   useEffect(() => {
-    const filtered = entities.filter((entity) => {
-      const searchTerm = filterText.toLowerCase();
-      return (
-        entity.name.toLowerCase().includes(searchTerm) ||
-        entity.type.toLowerCase().includes(searchTerm)
-      );
-    });
-    setFilteredEntities(filtered);
-    setCurrentPage(1);
-  }, [filterText, entities]);
+    if (!loading) { // Don't reload on initial load
+      loadEntities(1); // Reset to first page when sorting changes
+      setCurrentPage(1);
+    }
+  }, [sortBy, sortDirection]);
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (!loading) { // Don't search on initial load
+        loadEntities(1, filterText); // Reset to first page when searching
+        setCurrentPage(1);
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [filterText]);
 
   const handleEntityClick = (entity: Entity, event: React.MouseEvent) => {
     if (selectionMode || event.ctrlKey || event.metaKey) {
@@ -230,25 +235,6 @@ export function EntityPage() {
       ?.name}`;
   };
 
-  const getSortedEntities = (entities: Entity[]) => {
-    return [...entities].sort((a, b) => {
-      if (sortBy === "name") {
-        return sortDirection === "asc"
-          ? a.name.localeCompare(b.name)
-          : b.name.localeCompare(a.name);
-      } else if (sortBy === "cards") {
-        return sortDirection === "asc"
-          ? a.card_count - b.card_count
-          : b.card_count - a.card_count;
-      } else { // created_at
-        const aDate = new Date(a.created_at).getTime();
-        const bDate = new Date(b.created_at).getTime();
-        return sortDirection === "asc"
-          ? aDate - bDate
-          : bDate - aDate;
-      }
-    });
-  };
 
   const handleEditClick = (entity: Entity, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -274,15 +260,9 @@ export function EntityPage() {
     setShowDeleteDialog(true);
   };
 
-  const getPagedEntities = () => {
-    const sortedEntities = getSortedEntities(filteredEntities);
-    const indexOfLastItem = currentPage * itemsPerPage;
-    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    return sortedEntities.slice(indexOfFirstItem, indexOfLastItem);
-  };
-
-  const getTotalPages = () => {
-    return Math.ceil(filteredEntities.length / itemsPerPage);
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    loadEntities(newPage);
   };
 
   if (loading) return <div className="p-4">Loading entities...</div>;
@@ -315,7 +295,7 @@ export function EntityPage() {
         onSortChange={(newSortBy, newDirection) => {
           setSortBy(newSortBy);
           setSortDirection(newDirection);
-          setCurrentPage(1);
+          // Page change and reload will happen in useEffect
         }}
       />
 
@@ -367,7 +347,7 @@ export function EntityPage() {
       </div>
 
       <EntityTable
-        entities={getPagedEntities()}
+        entities={entities}
         selectedEntities={selectedEntities}
         selectionMode={selectionMode}
         onEdit={handleEditClick}
@@ -375,27 +355,27 @@ export function EntityPage() {
         getSelectionInfo={getSelectionInfo}
       />
 
-      {filteredEntities.length === 0 && (
+      {entities.length === 0 && !loading && (
         <div className="text-center text-gray-500 mt-8">
-          {entities.length === 0 ? "No entities found" : "No matching entities"}
+          {filterText ? "No matching entities" : "No entities found"}
         </div>
       )}
 
-      {filteredEntities.length > 0 && (
+      {totalEntities > 0 && (
         <div className="flex justify-center gap-4 mt-4">
           <button
-            onClick={() => setCurrentPage(currentPage - 1)}
+            onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage === 1}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Previous
           </button>
           <span className="flex items-center">
-            Page {currentPage} of {getTotalPages()}
+            Page {currentPage} of {totalPages} ({totalEntities} total)
           </span>
           <button
-            onClick={() => setCurrentPage(currentPage + 1)}
-            disabled={currentPage === getTotalPages()}
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Next

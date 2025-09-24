@@ -30,9 +30,43 @@ import { FactWithCard } from "../models/Fact";
 
 const base_url = import.meta.env.VITE_URL;
 
-export function fetchEntities(): Promise<Entity[]> {
+export interface EntityListResponse {
+  entities: Entity[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
+
+export interface EntityQueryParams {
+  search?: string;
+  page?: number;
+  per_page?: number;
+  sort_by?: "name" | "cards" | "created_at";
+  sort_direction?: "asc" | "desc";
+}
+
+export function fetchEntities(params?: EntityQueryParams): Promise<EntityListResponse> {
   let token = localStorage.getItem("token");
-  const url = base_url + "/entities";
+  const urlParams = new URLSearchParams();
+
+  if (params?.search) {
+    urlParams.append("search", params.search);
+  }
+  if (params?.page) {
+    urlParams.append("page", params.page.toString());
+  }
+  if (params?.per_page) {
+    urlParams.append("per_page", params.per_page.toString());
+  }
+  if (params?.sort_by) {
+    urlParams.append("sort_by", params.sort_by);
+  }
+  if (params?.sort_direction) {
+    urlParams.append("sort_direction", params.sort_direction);
+  }
+
+  const url = base_url + "/entities" + (urlParams.toString() ? "?" + urlParams.toString() : "");
 
   return fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
@@ -40,15 +74,15 @@ export function fetchEntities(): Promise<Entity[]> {
     .then(checkStatus)
     .then((response) => {
       if (response) {
-        return response.json().then((entities: Entity[]) => {
-          if (entities === null) {
-            return [];
-          }
-          return entities.map((entity) => ({
-            ...entity,
-            created_at: new Date(entity.created_at),
-            updated_at: new Date(entity.updated_at),
-          }));
+        return response.json().then((data: EntityListResponse) => {
+          return {
+            ...data,
+            entities: data.entities?.map((entity) => ({
+              ...entity,
+              created_at: new Date(entity.created_at),
+              updated_at: new Date(entity.updated_at),
+            })) || [],
+          };
         });
       } else {
         return Promise.reject(new Error("Response is undefined"));

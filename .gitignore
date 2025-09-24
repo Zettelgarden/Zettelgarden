@@ -24,6 +24,7 @@ __pycache__/
 
 # Database file (if using SQLite for example)
 /backend/*.db
+/go-backend/go-backend
 
 # Log files
 *.log
