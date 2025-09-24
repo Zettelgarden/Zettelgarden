@@ -49,6 +49,10 @@ func NewToolRegistry() *ToolRegistry {
 	registry.registerCreateCard()
 	registry.registerUpdateCard()
 	registry.registerTask()
+	registry.registerGetTasks()
+	registry.registerCreateTask()
+	registry.registerUpdateTask()
+	registry.registerGetTaskByID()
 
 	return registry
 }
@@ -610,6 +614,8 @@ func executeSubagentTask(prompt, subagentType string, ctx *ToolContext) (string,
 	subagentRegistry.registerGetCardFacts()
 	subagentRegistry.registerGetEntityFacts()
 	subagentRegistry.registerGetFactCards()
+	subagentRegistry.registerGetTasks()
+	subagentRegistry.registerGetTaskByID()
 
 	tools := subagentRegistry.GetToolDefinitions()
 
@@ -864,6 +870,301 @@ func handleGetFactCards(args map[string]interface{}, ctx *ToolContext) (map[stri
 		"cards": results,
 		"total": len(cards),
 	}, nil
+}
+
+func (tr *ToolRegistry) registerGetTasks() {
+	tr.tools["get_tasks"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "get_tasks",
+				Description: "Retrieve a list of tasks for the user. Can optionally filter to include completed tasks or get tasks for a specific card.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"include_completed": map[string]interface{}{
+							"type":        "boolean",
+							"description": "Whether to include completed tasks in the results (default: false)",
+							"default":     false,
+						},
+						"card_pk": map[string]interface{}{
+							"type":        "integer",
+							"description": "Optional card primary key to filter tasks by card (returns only tasks linked to this card)",
+						},
+					},
+				},
+			},
+		},
+		Handler: handleGetTasks,
+	}
+}
+
+func (tr *ToolRegistry) registerCreateTask() {
+	tr.tools["create_task"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "create_task",
+				Description: "Create a new task with a title and optional scheduling, priority, and card linkage.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"title": map[string]interface{}{
+							"type":        "string",
+							"description": "Title of the task (required)",
+						},
+						"scheduled_date": map[string]interface{}{
+							"type":        "string",
+							"description": "Optional scheduled date in ISO 8601 format (e.g., 2024-01-15T10:30:00Z)",
+						},
+						"due_date": map[string]interface{}{
+							"type":        "string",
+							"description": "Optional due date in ISO 8601 format (e.g., 2024-01-15T10:30:00Z)",
+						},
+						"priority": map[string]interface{}{
+							"type":        "string",
+							"description": "Optional priority level (e.g., 'high', 'medium', 'low')",
+						},
+						"card_pk": map[string]interface{}{
+							"type":        "integer",
+							"description": "Optional card primary key to link the task to a specific card",
+						},
+					},
+					"required": []string{"title"},
+				},
+			},
+		},
+		Handler: handleCreateTask,
+	}
+}
+
+func (tr *ToolRegistry) registerUpdateTask() {
+	tr.tools["update_task"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "update_task",
+				Description: "Update an existing task's properties. Only provided fields will be updated.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"task_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The ID of the task to update (required)",
+						},
+						"title": map[string]interface{}{
+							"type":        "string",
+							"description": "Updated title for the task (optional)",
+						},
+						"scheduled_date": map[string]interface{}{
+							"type":        "string",
+							"description": "Updated scheduled date in ISO 8601 format (optional)",
+						},
+						"due_date": map[string]interface{}{
+							"type":        "string",
+							"description": "Updated due date in ISO 8601 format (optional)",
+						},
+						"priority": map[string]interface{}{
+							"type":        "string",
+							"description": "Updated priority level (optional)",
+						},
+						"is_complete": map[string]interface{}{
+							"type":        "boolean",
+							"description": "Whether the task is complete (optional)",
+						},
+						"card_pk": map[string]interface{}{
+							"type":        "integer",
+							"description": "Updated card primary key to link the task to (optional)",
+						},
+					},
+					"required": []string{"task_id"},
+				},
+			},
+		},
+		Handler: handleUpdateTask,
+	}
+}
+
+func (tr *ToolRegistry) registerGetTaskByID() {
+	tr.tools["get_task_by_id"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "get_task_by_id",
+				Description: "Retrieve a specific task by its ID.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"task_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The ID of the task to retrieve",
+						},
+					},
+					"required": []string{"task_id"},
+				},
+			},
+		},
+		Handler: handleGetTaskByID,
+	}
+}
+
+func handleGetTasks(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	includeCompleted := false
+	if ic, ok := args["include_completed"].(bool); ok {
+		includeCompleted = ic
+	}
+
+	var tasks []models.Task
+	var err error
+
+	if cardPKFloat, ok := args["card_pk"].(float64); ok {
+		cardPK := int(cardPKFloat)
+		tasks, err = GetTasksByCard(ctx.DB, ctx.UserID, cardPK)
+	} else {
+		tasks, err = GetTasks(ctx.DB, ctx.UserID, includeCompleted)
+	}
+	log.Printf("tasks")
+	for _, task := range tasks {
+		log.Printf("- %v", task)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tasks: %v", err)
+	}
+
+	var results []map[string]interface{}
+	for _, task := range tasks {
+		results = append(results, StructToMap(task))
+	}
+
+	return map[string]interface{}{
+		"tasks": results,
+		"total": len(tasks),
+	}, nil
+}
+
+func handleCreateTask(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	title, ok := args["title"].(string)
+	if !ok {
+		return nil, fmt.Errorf("title parameter is required")
+	}
+
+	task := models.Task{
+		UserID:     ctx.UserID,
+		Title:      title,
+		IsComplete: false,
+	}
+
+	if scheduledDateStr, ok := args["scheduled_date"].(string); ok {
+		scheduledDate, err := time.Parse(time.RFC3339, scheduledDateStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid scheduled_date format: %v", err)
+		}
+		task.ScheduledDate = &scheduledDate
+	}
+
+	if dueDateStr, ok := args["due_date"].(string); ok {
+		dueDate, err := time.Parse(time.RFC3339, dueDateStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid due_date format: %v", err)
+		}
+		task.DueDate = &dueDate
+	} else {
+		now := time.Now()
+		task.DueDate = &now
+	}
+
+	if priority, ok := args["priority"].(string); ok {
+		task.Priority = &priority
+	}
+
+	if cardPKFloat, ok := args["card_pk"].(float64); ok {
+		task.CardPK = int(cardPKFloat)
+	}
+
+	taskID, err := CreateTask(ctx.DB, task)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create task: %v", err)
+	}
+
+	newTask, err := GetTask(ctx.DB, ctx.UserID, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve created task: %v", err)
+	}
+
+	return StructToMap(newTask), nil
+}
+
+func handleUpdateTask(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	taskIDFloat, ok := args["task_id"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("task_id parameter is required")
+	}
+	taskID := int(taskIDFloat)
+
+	currentTask, err := GetTask(ctx.DB, ctx.UserID, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get task: %v", err)
+	}
+
+	if title, ok := args["title"].(string); ok {
+		currentTask.Title = title
+	}
+
+	if scheduledDateStr, ok := args["scheduled_date"].(string); ok {
+		scheduledDate, err := time.Parse(time.RFC3339, scheduledDateStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid scheduled_date format: %v", err)
+		}
+		currentTask.ScheduledDate = &scheduledDate
+	}
+
+	if dueDateStr, ok := args["due_date"].(string); ok {
+		dueDate, err := time.Parse(time.RFC3339, dueDateStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid due_date format: %v", err)
+		}
+		currentTask.DueDate = &dueDate
+	}
+
+	if priority, ok := args["priority"].(string); ok {
+		currentTask.Priority = &priority
+	}
+
+	if isComplete, ok := args["is_complete"].(bool); ok {
+		currentTask.IsComplete = isComplete
+	}
+
+	if cardPKFloat, ok := args["card_pk"].(float64); ok {
+		currentTask.CardPK = int(cardPKFloat)
+	}
+
+	err = UpdateTask(ctx.DB, ctx.UserID, taskID, currentTask)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update task: %v", err)
+	}
+
+	updatedTask, err := GetTask(ctx.DB, ctx.UserID, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve updated task: %v", err)
+	}
+
+	return StructToMap(updatedTask), nil
+}
+
+func handleGetTaskByID(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	taskIDFloat, ok := args["task_id"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("task_id parameter is required")
+	}
+	taskID := int(taskIDFloat)
+
+	task, err := GetTask(ctx.DB, ctx.UserID, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get task: %v", err)
+	}
+
+	return StructToMap(task), nil
 }
 
 // Database helper functions
