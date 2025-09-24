@@ -26,6 +26,11 @@
       "96": "icons/icon-96.png"
     }
   },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{811cf34f-34c1-47bc-85c9-b0f611a5cf71}"
+    }
+  },
   "content_scripts": [
     {
       "matches": [
