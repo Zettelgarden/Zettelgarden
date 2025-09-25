@@ -7,12 +7,26 @@ interface CardLinkProps {
   card: PartialCard;
   handleViewBacklink: (id: number) => void;
   showTitle: boolean;
+  showTags?: boolean;
 }
 
-export function CardLink({ card, showTitle }: CardLinkProps) {
+export function CardLink({ card, showTitle, showTags = false }: CardLinkProps) {
   return (
-    <Link to={`/app/card/${card.id}`}>
+    <Link to={`/app/card/${card.id}`} className="flex items-center flex-wrap gap-2">
       <CardTag card={card} showTitle={showTitle} />
+      {/* Display tags */}
+      {showTags && card.tags && card.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {card.tags.map((tag, index) => (
+            <span
+              key={index}
+              className="inline-flex items-center px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full"
+            >
+              {tag.name}
+            </span>
+          ))}
+        </div>
+      )}
     </Link>
   );
 }

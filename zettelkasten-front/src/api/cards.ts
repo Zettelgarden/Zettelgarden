@@ -118,31 +118,6 @@ export function semanticSearchCards(
   ).then(response => response.results);
 }
 
-export function fetchCards(searchTerm = "", fullText = false): Promise<Card[]> {
-  return semanticSearchCards(searchTerm, fullText).then((results) => {
-    if (results === null) return [];
-    return results.map(result => ({
-      id: Number(result.metadata?.id) || 0,
-      card_id: result.id,
-      title: result.title,
-      body: result.preview || "",
-      link: "",
-      is_deleted: false,
-      created_at: result.created_at,
-      updated_at: result.updated_at,
-      parent_id: result.metadata?.parent_id || 0,
-      user_id: 0,
-      parent: defaultPartialCard,
-      files: [],
-      children: [],
-      references: [],
-      tags: [],
-      tasks: [],
-      entities: [],
-    } as Card));
-  });
-}
-
 export function getCard(id: string): Promise<Card> {
   let encoded = encodeURIComponent(id);
   const url = base_url + `/cards/${encoded}`;

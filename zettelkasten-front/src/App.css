@@ -19,10 +19,13 @@ select {
   font-size: 16px;
   cursor: pointer;
   border: 1px solid #ccc;
-  border-radius: 5px; /* Rounded corners */
-  appearance: none; /* Remove default appearance */
+  border-radius: 5px;
+  /* Rounded corners */
+  appearance: none;
+  /* Remove default appearance */
   background-color: #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Add a subtle shadow */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  /* Add a subtle shadow */
 }
 
 /* Option Styles */
@@ -39,9 +42,6 @@ option {
 
 .card-item {
   color: #22577a;
-}
-.card-item:hover {
-  background-color: #c7f9cc;
 }
 
 .main-content p {
@@ -98,6 +98,7 @@ option {
   padding: 10px 20px;
   background-color: #22577a;
 }
+
 .sidebar-upper-username {
   color: white;
   font-size: 16px;
@@ -105,11 +106,9 @@ option {
   padding-left: 10px;
 }
 
-.sidebar-links {
-}
+.sidebar-links {}
 
-.sidebar-links li {
-}
+.sidebar-links li {}
 
 .sidebar-links a {
   display: flex;
@@ -127,7 +126,8 @@ option {
 /* Hover and active states */
 .sidebar-links a:hover,
 .sidebar-nav-link.active {
-  background-color: #c7f9cc; /* Active or hover background color */
+  background-color: #c7f9cc;
+  /* Active or hover background color */
 }
 
 .sidebar-nav-item {
@@ -139,7 +139,8 @@ option {
   align-items: center;
   justify-content: space-between;
   text-decoration: none;
-  color: #333; /* Adjust color as needed */
+  color: #333;
+  /* Adjust color as needed */
 }
 
 .sidebar-nav-badge {
@@ -150,7 +151,7 @@ option {
   right: 10px;
   top: 50%;
   transform: translateY(-50%);
-    padding: 10px;
+  padding: 10px;
 }
 
 .logo {
@@ -162,14 +163,17 @@ option {
 .content-display {
   padding: 10px;
 }
+
 .top-bar {
   display: flex;
-  background-color: white; /* A nice blue shade */
+  background-color: white;
+  /* A nice blue shade */
   color: white;
   width: 100%;
   height: 50px;
   top: 0;
-  align-items: center; /* Center items vertically */
+  align-items: center;
+  /* Center items vertically */
   justify-content: space-between;
 }
 
@@ -180,7 +184,8 @@ option {
 .top-bar-right {
   justify-content: flex-end;
   display: flex;
-  align-items: center; /* Center items vertically */
+  align-items: center;
+  /* Center items vertically */
 }
 
 .top-bar-index {
@@ -191,37 +196,51 @@ option {
 .file-item {
   display: flex;
   width: 100%;
-  align-items: center; /* Center items vertically */
+  align-items: center;
+  /* Center items vertically */
   justify-content: space-between;
 }
 
 .file-item-right {
   justify-content: flex-end;
   display: flex;
-  align-items: center; /* Center items vertically */
+  align-items: center;
+  /* Center items vertically */
 }
 
 /* Button-like styles */
 .btn {
   padding: 10px 20px;
-  background-color: #007bff; /* Blue background */
-  color: white; /* White text */
-  text-decoration: none; /* Removes underline from links */
-  border: none; /* Removes border from buttons */
-  border-radius: 5px; /* Optional: rounds the corners */
-  cursor: pointer; /* Changes cursor to pointer */
-  font-size: 16px; /* Sets the font size */
-  display: inline-block; /* Allows setting padding and width */
-  margin: 0 5px; /* Optional: adds some space around the buttons */
-  transition: background-color 0.3s; /* Smooth background color transition on hover */
+  background-color: #007bff;
+  /* Blue background */
+  color: white;
+  /* White text */
+  text-decoration: none;
+  /* Removes underline from links */
+  border: none;
+  /* Removes border from buttons */
+  border-radius: 5px;
+  /* Optional: rounds the corners */
+  cursor: pointer;
+  /* Changes cursor to pointer */
+  font-size: 16px;
+  /* Sets the font size */
+  display: inline-block;
+  /* Allows setting padding and width */
+  margin: 0 5px;
+  /* Optional: adds some space around the buttons */
+  transition: background-color 0.3s;
+  /* Smooth background color transition on hover */
 }
 
 .btn:hover {
-  background-color: #0056b3; /* Darker blue on hover */
+  background-color: #0056b3;
+  /* Darker blue on hover */
 }
 
 .btn:focus {
-  outline: none; /* Removes the outline on focus for buttons */
+  outline: none;
+  /* Removes the outline on focus for buttons */
 }
 
 /* Updated CSS for the login form, attempting to match the main app page style */
@@ -258,14 +277,22 @@ option {
 
 .input-link-dropdown {
   position: absolute;
-  max-height: 200px; /* Maximum height before scrolling */
-  overflow-y: auto; /* Scrollable */
-  background: white; /* Background color */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Simple shadow for depth */
-  border: 1px solid #ddd; /* Border for the dropdown */
-  border-radius: 4px; /* Optional: Rounded corners for the dropdown */
-  top: 100%; /* Position right below the input field */
-  left: 0; /* Align to the left side of the input field */
+  max-height: 200px;
+  /* Maximum height before scrolling */
+  overflow-y: auto;
+  /* Scrollable */
+  background: white;
+  /* Background color */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  /* Simple shadow for depth */
+  border: 1px solid #ddd;
+  /* Border for the dropdown */
+  border-radius: 4px;
+  /* Optional: Rounded corners for the dropdown */
+  top: 100%;
+  /* Position right below the input field */
+  left: 0;
+  /* Align to the left side of the input field */
 }
 
 /* Card Preview Window */
@@ -277,9 +304,12 @@ option {
   height: 25%;
   padding: 10px;
   border: 1px solid #635bff;
-  overflow: hidden; /* Hides overflow content */
-  text-overflow: ellipsis; /* Optionally, add ellipsis for overflow text */
+  overflow: hidden;
+  /* Hides overflow content */
+  text-overflow: ellipsis;
+  /* Optionally, add ellipsis for overflow text */
 }
+
 /* registration page */
 
 .registration-container {
@@ -296,9 +326,8 @@ input[type="text"],
 input[type="username"],
 input[type="email"],
 input[type="password"] {
-  width: calc(
-    100% - 10px
-  ); /* Adjust width as needed, considering padding and border */
+  width: calc(100% - 10px);
+  /* Adjust width as needed, considering padding and border */
   padding: 10px;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
@@ -306,6 +335,7 @@ input[type="password"] {
   font-size: 16px;
   color: #32325d;
 }
+
 /* Styling for form elements */
 label {
   display: block;
@@ -314,6 +344,7 @@ label {
   font-size: 14px;
   font-weight: 300;
 }
+
 /* Styling for the submit button */
 button[type="submit"] {
   width: 100%;
@@ -401,24 +432,31 @@ button[type="submit"] {
 }
 
 .create-task-window-top {
-  flex: 0 1 auto; /* Allow the top input to grow based on its content */
+  flex: 0 1 auto;
+  /* Allow the top input to grow based on its content */
 }
 
 .create-task-window-bottom {
   display: flex;
-  flex: 1 0 auto; /* Allow the bottom section to grow */
-  align-items: flex-end; /* Align items at the bottom */
+  flex: 1 0 auto;
+  /* Allow the bottom section to grow */
+  align-items: flex-end;
+  /* Align items at the bottom */
 }
 
 .create-task-window-bottom-left {
-  flex: 0 1 auto; /* Allow the bottom-left to be as small as its content */
+  flex: 0 1 auto;
+  /* Allow the bottom-left to be as small as its content */
 }
 
 .create-task-window-bottom-right {
-  flex: 1 1 auto; /* Allow the bottom-right to take up remaining space */
+  flex: 1 1 auto;
+  /* Allow the bottom-right to take up remaining space */
   display: flex;
-  justify-content: flex-end; /* Align the button to the right */
-  align-items: flex-end; /* Align the button at the bottom */
+  justify-content: flex-end;
+  /* Align the button to the right */
+  align-items: flex-end;
+  /* Align the button at the bottom */
 }
 
 .task-list-item {
@@ -443,7 +481,7 @@ button[type="submit"] {
 }
 
 .task-list-item-details {
-    display: flex;
+  display: flex;
   font-size: small;
 }
 
@@ -478,12 +516,12 @@ button[type="submit"] {
   color: red;
 }
 
-.task-date {
-}
+.task-date {}
 
 .task-recurring {
   color: #007bff;
 }
+
 .task-list-item {
   display: flex;
   align-items: center;
@@ -509,7 +547,7 @@ button[type="submit"] {
   border-radius: 4px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   z-index: 10;
-    
+
 }
 
 .popup-menu {
@@ -536,6 +574,7 @@ button[type="submit"] {
 .popup-menu button:hover {
   background-color: #f0f0f0;
 }
+
 .create-task-popup-overlay {
   position: fixed;
   top: 0;
@@ -572,13 +611,17 @@ button[type="submit"] {
   border-radius: 4px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   z-index: 10;
-  min-width: 200px;  /* Adjust this value to make it wider */
+  min-width: 200px;
+  /* Adjust this value to make it wider */
 }
+
 .toggle-slider {
   position: relative;
   display: inline-block;
-  width: 46px;  /* Reduced from 60px */
-  height: 24px; /* Reduced from 34px */
+  width: 46px;
+  /* Reduced from 60px */
+  height: 24px;
+  /* Reduced from 34px */
 }
 
 .toggle-slider input {
@@ -596,27 +639,33 @@ button[type="submit"] {
   bottom: 0;
   background-color: #ccc;
   transition: .4s;
-  border-radius: 24px; /* Adjusted to match new height */
+  border-radius: 24px;
+  /* Adjusted to match new height */
 }
 
 .slider:before {
   position: absolute;
   content: "";
-  height: 18px; /* Reduced from 26px */
-  width: 18px;  /* Reduced from 26px */
-  left: 3px;    /* Adjusted from 4px */
-  bottom: 3px;  /* Adjusted from 4px */
+  height: 18px;
+  /* Reduced from 26px */
+  width: 18px;
+  /* Reduced from 26px */
+  left: 3px;
+  /* Adjusted from 4px */
+  bottom: 3px;
+  /* Adjusted from 4px */
   background-color: white;
   transition: .4s;
   border-radius: 50%;
 }
 
-input:checked + .slider {
+input:checked+.slider {
   background-color: #2196F3;
 }
 
-input:checked + .slider:before {
-  transform: translateX(22px); /* Adjusted from 26px to match new width */
+input:checked+.slider:before {
+  transform: translateX(22px);
+  /* Adjusted from 26px to match new width */
 }
 
 .file-render-popup-overlay {

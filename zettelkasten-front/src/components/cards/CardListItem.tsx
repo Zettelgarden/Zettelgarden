@@ -74,8 +74,8 @@ export function CardListItem({
   }
 
   return (
-    <div key={card.id} className="card-item py-2 px-2.5 flex w-full text-sm items-center">
-      <div className="pr-4">
+    <div key={card.id} className="card-item py-2 px-2.5 flex w-full text-sm items-center hover:bg-gray-50 transition-colors duration-150 rounded-lg">
+      <div className="pr-4 flex-grow">
         <span
           onMouseEnter={handleMouseEnter}
           onMouseLeave={() => setShowHover(false)}
@@ -84,16 +84,9 @@ export function CardListItem({
             card={card}
             handleViewBacklink={(id: number) => { }}
             showTitle={true}
+            showTags={true}
           />
         </span>
-      </div>
-
-      <div className="flex-grow">
-        {showAddButton && (
-          <span onClick={handleAddCardClick}>
-            <PlusCircleIcon />
-          </span>
-        )}
       </div>
 
       <div className="flex text-xs">{formatDate(card.created_at.toISOString())}</div>
