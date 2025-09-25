@@ -639,7 +639,7 @@ func TestCheckCardLinkedOrRelated(t *testing.T) {
 	var mainCard models.Card
 	var testCard models.Card
 
-	cards, err := s.ClassicCardSearch(userID, SearchRequestParams{SearchTerm: ""})
+	cards, _, err := s.ClassicCardSearch(userID, SearchRequestParams{SearchTerm: ""})
 	if err != nil {
 		t.Fatal(err)
 	}

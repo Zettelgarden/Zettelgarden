@@ -109,7 +109,7 @@ func main() {
 		ShowEntities: true,
 		ShowFacts:    true,
 	}
-	cards, err := h.ClassicCardSearch(1, params)
+	cards, _, err := h.ClassicCardSearch(1, params)
 	log.Printf("%v cards", len(cards))
 
 	// // Start timer and counters

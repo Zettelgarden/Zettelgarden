@@ -13,7 +13,7 @@ type SearchResult struct {
 	CreatedAt time.Time   `json:"created_at"`
 	UpdatedAt time.Time   `json:"updated_at"`
 	Metadata  interface{} `json:"metadata"`
-	Tags      []Tag       `json:"tags,omitempty"`
+	Tags      []Tag       `json:"tags"`
 	CardID    string      `json:"card_id"`
 }
 
