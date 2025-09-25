@@ -943,6 +943,7 @@ func (s *Handler) upsertEntityToTypesense(entity models.Entity, card *models.Par
 	doc["linked_card_pk"] = -1
 	doc["linked_card_title"] = ""
 	doc["linked_card_parent_id"] = -1
+	doc["tags"] = []string{}
 
 	if card != nil {
 		doc["linked_card_id"] = card.CardID

@@ -27,7 +27,7 @@ type SearchParams struct {
 }
 
 func (sp *SearchParams) HasAdvancedFilters() bool {
-	return len(sp.Entities) > 0 || len(sp.NegateEntities) > 0 || len(sp.Tags) > 0 || len(sp.NegateTags) > 0
+	return len(sp.Entities) > 0 || len(sp.NegateEntities) > 0
 }
 
 func (s *Handler) InitSearchCollection() {
@@ -39,7 +39,6 @@ func (s *Handler) InitSearchCollection() {
 
 	rows, err := s.DB.Query(`
 		SELECT
-
 	    c.id,
 	    c.card_id,
 	    c.user_id,
@@ -47,8 +46,12 @@ func (s *Handler) InitSearchCollection() {
 		c.body,
 	    c.created_at,
 	    c.updated_at,
-		c.parent_id
+		c.parent_id,
+		STRING_AGG(CASE WHEN t.name IS NOT NULL AND t.is_deleted = FALSE THEN t.name END, ',' ORDER BY t.name) as tag_names
 	FROM cards c
+	LEFT JOIN card_tags ct ON c.id = ct.card_pk
+	LEFT JOIN tags t ON ct.tag_id = t.id
+	GROUP BY c.id, c.card_id, c.user_id, c.title, c.body, c.created_at, c.updated_at, c.parent_id
 		`)
 	if err != nil {
 		log.Printf("error querying cards: %v", err)
@@ -61,6 +64,7 @@ func (s *Handler) InitSearchCollection() {
 			var userID int
 			var parentID int
 			var title, body string
+			var tagNames sql.NullString
 			err := rows.Scan(
 				&cardPK,
 				&cardID,
@@ -70,11 +74,24 @@ func (s *Handler) InitSearchCollection() {
 				&createdAtTime,
 				&updatedAtTime,
 				&parentID,
+				&tagNames,
 			)
 			if err != nil {
 				log.Printf("error scanning fact: %v", err)
 				continue
 			}
+			// Parse tags from comma-separated string
+			var tags []string
+			if tagNames.Valid && tagNames.String != "" {
+				tags = strings.Split(tagNames.String, ",")
+				// Trim whitespace from each tag
+				for i, tag := range tags {
+					tags[i] = strings.TrimSpace(tag)
+				}
+			} else {
+				tags = []string{}
+			}
+
 			doc := map[string]interface{}{
 				"id":                    "card-" + strconv.Itoa(cardPK),
 				"fact_pk":               -1,
@@ -92,6 +109,7 @@ func (s *Handler) InitSearchCollection() {
 				"linked_card_pk":        -1,
 				"linked_card_title":     "",
 				"linked_card_parent_id": -1,
+				"tags":                  tags,
 			}
 
 			// Upsert (insert or overwrite if exists)
@@ -152,6 +170,7 @@ func (s *Handler) InitSearchCollection() {
 				"linked_card_pk":        cardPK,
 				"linked_card_title":     cardTitle,
 				"linked_card_parent_id": parentID,
+				"tags":                  []string{},
 			}
 			_, err = s.Server.TypesenseClient.Collection(collectionName).Documents().Upsert(context.Background(), doc)
 			if err != nil {
@@ -230,6 +249,7 @@ func (s *Handler) InitSearchCollection() {
 				"linked_card_pk":        linkedCardPK,
 				"linked_card_title":     linkedCardTitle,
 				"linked_card_parent_id": parentID,
+				"tags":                  []string{},
 			}
 			_, err = s.Server.TypesenseClient.Collection(collectionName).Documents().Upsert(context.Background(), doc)
 			if err != nil {
@@ -578,15 +598,46 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 		filter += " && " + strings.Join(typeFilters, " && ")
 	}
 
+	// Parse search term to handle tag filtering
+	parsedParams := ParseSearchText(searchParams.SearchTerm)
+
+	// Add tag filters
+	var tagFilters []string
+	for _, tag := range parsedParams.Tags {
+		tagFilters = append(tagFilters, "tags:=" + tag)
+	}
+	for _, tag := range parsedParams.NegateTags {
+		tagFilters = append(tagFilters, "tags:!=" + tag)
+	}
+	if len(tagFilters) > 0 {
+		filter += " && " + strings.Join(tagFilters, " && ")
+	}
+
+	// Remove tag and entity syntax from search term for Typesense query
+	cleanSearchTerm := searchParams.SearchTerm
+	for _, tag := range parsedParams.Tags {
+		cleanSearchTerm = strings.ReplaceAll(cleanSearchTerm, "#" + tag, "")
+	}
+	for _, tag := range parsedParams.NegateTags {
+		cleanSearchTerm = strings.ReplaceAll(cleanSearchTerm, "!#" + tag, "")
+	}
+	for _, entity := range parsedParams.Entities {
+		cleanSearchTerm = strings.ReplaceAll(cleanSearchTerm, "@[" + entity + "]", "")
+	}
+	for _, entity := range parsedParams.NegateEntities {
+		cleanSearchTerm = strings.ReplaceAll(cleanSearchTerm, "!@[" + entity + "]", "")
+	}
+	cleanSearchTerm = strings.TrimSpace(cleanSearchTerm)
+
 	var results []models.SearchResult
-	searchTerm := searchParams.SearchTerm
+	searchTerm := cleanSearchTerm
 	if searchTerm == "" {
 		searchTerm = "*"
 	}
 
 	typesenseParams := &api.SearchCollectionParams{
 		Q:             searchTerm,
-		QueryBy:       "card_id, title, embedding",
+		QueryBy:       "card_id, title, tags, embedding",
 		FilterBy:      &filter,
 		SortBy:        &sortBy,
 		PerPage:       &perPage,
@@ -605,6 +656,18 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 	for i, hit := range *typesenseResults.Hits {
 		if hit.Document != nil {
 			doc := *hit.Document
+			// Extract tags from document
+			var tags []models.Tag
+			if tagSlice, ok := doc["tags"].([]interface{}); ok {
+				for _, tagInterface := range tagSlice {
+					if tagName, ok := tagInterface.(string); ok {
+						tags = append(tags, models.Tag{
+							Name: tagName,
+						})
+					}
+				}
+			}
+
 			item := models.SearchResult{
 				Title:   doc["title"].(string),
 				Type:    doc["type"].(string),
@@ -613,6 +676,7 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 				//				Score:     doc["_text_match"].(float64),
 				CreatedAt: time.Unix(int64(doc["created_at"].(float64)), 0),
 				UpdatedAt: time.Unix(int64(doc["updated_at"].(float64)), 0),
+				Tags:      tags,
 			}
 			resultType := doc["type"]
 			if resultType == "card" {

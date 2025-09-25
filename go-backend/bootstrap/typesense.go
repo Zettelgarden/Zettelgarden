@@ -99,6 +99,10 @@ func InitTypesense() (*typesense.Client, error) {
 				Type: "int32",
 			},
 			{
+				Name: "tags",
+				Type: "string[]",
+			},
+			{
 				Name: "embedding",
 				Type: "float[]",
 				Embed: &struct {

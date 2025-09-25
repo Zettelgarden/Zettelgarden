@@ -14,6 +14,13 @@ func UpsertCardToTypesense(card models.Card) {
 	if os.Getenv("ZETTEL_IS_TESTING") == "true" {
 		return
 	}
+
+	// Fetch tags for this card
+	var tags []string
+	// For now, we'll use an empty array. In a production system, we'd need database access here
+	// or modify the function signature to accept tags as a parameter
+	tags = []string{}
+
 	collectionName := os.Getenv("TYPESENSE_COLLECTION")
 	doc := map[string]interface{}{
 		"id":                    "card-" + strconv.Itoa(card.ID),
@@ -32,6 +39,7 @@ func UpsertCardToTypesense(card models.Card) {
 		"linked_card_pk":        -1,
 		"linked_card_title":     "",
 		"linked_card_parent_id": -1,
+		"tags":                  tags,
 	}
 
 	client := bootstrap.GetTypesenseClient()

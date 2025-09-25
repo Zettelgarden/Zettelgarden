@@ -914,6 +914,7 @@ func (s *Handler) upsertFactToTypesense(fact models.Fact, card models.PartialCar
 		"linked_card_pk":        fact.CardPK,
 		"linked_card_title":     card.Title,
 		"linked_card_parent_id": card.ParentID,
+		"tags":                  []string{},
 	}
 
 	_, err := s.Server.TypesenseClient.Collection(collectionName).

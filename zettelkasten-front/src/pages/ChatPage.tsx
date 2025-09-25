@@ -36,7 +36,9 @@ export function ChatPage({ }: ChatPageProps) {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("google/gemini-2.5-pro");
+  const [selectedModel, setSelectedModel] = useState(() => {
+    return localStorage.getItem('chatSelectedModel') || "google/gemini-2.5-flash";
+  });
   const [collapsedToolResults, setCollapsedToolResults] = useState<Set<string>>(new Set());
   const [showAllRecent, setShowAllRecent] = useState(false);
   const [referencedCards, setReferencedCards] = useState<string[]>([]);
@@ -902,6 +904,7 @@ export function ChatPage({ }: ChatPageProps) {
                                 key={model.value}
                                 onClick={() => {
                                   setSelectedModel(model.value);
+                                  localStorage.setItem('chatSelectedModel', model.value);
                                   setShowModelDropdown(false);
                                 }}
                                 className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-50 transition-colors ${
