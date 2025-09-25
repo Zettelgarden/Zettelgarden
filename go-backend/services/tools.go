@@ -53,6 +53,8 @@ func NewToolRegistry() *ToolRegistry {
 	registry.registerCreateTask()
 	registry.registerUpdateTask()
 	registry.registerGetTaskByID()
+	registry.registerGetEntityByName()
+	registry.registerSearchEntities()
 
 	return registry
 }
@@ -616,6 +618,8 @@ func executeSubagentTask(prompt, subagentType string, ctx *ToolContext) (string,
 	subagentRegistry.registerGetFactCards()
 	subagentRegistry.registerGetTasks()
 	subagentRegistry.registerGetTaskByID()
+	subagentRegistry.registerGetEntityByName()
+	subagentRegistry.registerSearchEntities()
 
 	tools := subagentRegistry.GetToolDefinitions()
 
@@ -1162,6 +1166,96 @@ func handleGetTaskByID(args map[string]interface{}, ctx *ToolContext) (map[strin
 	}
 
 	return StructToMap(task), nil
+}
+
+func (tr *ToolRegistry) registerGetEntityByName() {
+	tr.tools["get_entity_by_name"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "get_entity_by_name",
+				Description: "Retrieve a specific entity by its name. Returns the full entity information including linked card if available.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"entity_name": map[string]interface{}{
+							"type":        "string",
+							"description": "The name of the entity to retrieve",
+						},
+					},
+					"required": []string{"entity_name"},
+				},
+			},
+		},
+		Handler: handleGetEntityByName,
+	}
+}
+
+func handleGetEntityByName(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	entityName, ok := args["entity_name"].(string)
+	if !ok {
+		return nil, fmt.Errorf("entity_name parameter is required")
+	}
+
+	entity, err := GetEntityByName(ctx.DB, ctx.UserID, entityName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get entity: %v", err)
+	}
+
+	return StructToMap(entity), nil
+}
+
+func (tr *ToolRegistry) registerSearchEntities() {
+	tr.tools["search_entities"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "search_entities",
+				Description: "Search for entities in the user's knowledge base using text or semantic similarity. Returns relevant entities based on the search query.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"query": map[string]interface{}{
+							"type":        "string",
+							"description": "The search query to find relevant entities",
+						},
+						"limit": map[string]interface{}{
+							"type":        "integer",
+							"description": "Maximum number of entities to return (default: 10, max: 50)",
+							"default":     10,
+							"minimum":     1,
+							"maximum":     50,
+						},
+					},
+					"required": []string{"query"},
+				},
+			},
+		},
+		Handler: handleSearchEntities,
+	}
+}
+
+func handleSearchEntities(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	query, ok := args["query"].(string)
+	if !ok {
+		return nil, fmt.Errorf("query parameter is required")
+	}
+
+	limit := 10
+	if l, ok := args["limit"].(float64); ok {
+		limit = int(l)
+	}
+
+	entities, err := SearchEntities(ctx.DB, ctx.TypesenseClient, ctx.UserID, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("search failed: %v", err)
+	}
+
+	return map[string]interface{}{
+		"entities": entities,
+		"query":    query,
+		"total":    len(entities),
+	}, nil
 }
 
 // Database helper functions

@@ -544,3 +544,192 @@ func getEntitiesTypesense(db *sql.DB, typesenseClient *typesense.Client, collect
 	}, nil
 }
 
+// GetEntityByName retrieves a specific entity by its name for a given user
+func GetEntityByName(db *sql.DB, userID int, entityName string) (models.Entity, error) {
+	query := `
+        SELECT
+            e.id,
+            e.user_id,
+            e.name,
+            e.description,
+            e.type,
+            e.created_at,
+            e.updated_at,
+            e.card_pk,
+            COUNT(DISTINCT ecj.card_pk) as card_count,
+            c.id as linked_card_id,
+            c.card_id as linked_card_card_id,
+            c.title as linked_card_title,
+            c.user_id as linked_card_user_id,
+            c.parent_id as linked_card_parent_id,
+            c.created_at as linked_card_created_at,
+            c.updated_at as linked_card_updated_at
+        FROM
+            entities e
+            LEFT JOIN entity_card_junction ecj ON e.id = ecj.entity_id
+            LEFT JOIN cards c ON e.card_pk = c.id AND c.is_deleted = FALSE
+        WHERE
+            e.user_id = $1 AND e.name = $2
+        GROUP BY
+            e.id, e.user_id, e.name, e.description, e.type, e.created_at, e.updated_at, e.card_pk,
+            c.id, c.card_id, c.title, c.user_id, c.parent_id, c.created_at, c.updated_at
+    `
+
+	var entity models.Entity
+	var cardID sql.NullInt64
+	var cardCardID, cardTitle sql.NullString
+	var cardUserID, cardParentID sql.NullInt64
+	var cardCreatedAt, cardUpdatedAt sql.NullTime
+
+	err := db.QueryRow(query, userID, entityName).Scan(
+		&entity.ID,
+		&entity.UserID,
+		&entity.Name,
+		&entity.Description,
+		&entity.Type,
+		&entity.CreatedAt,
+		&entity.UpdatedAt,
+		&entity.CardPK,
+		&entity.CardCount,
+		&cardID,
+		&cardCardID,
+		&cardTitle,
+		&cardUserID,
+		&cardParentID,
+		&cardCreatedAt,
+		&cardUpdatedAt,
+	)
+	if err != nil {
+		return models.Entity{}, err
+	}
+
+	if cardID.Valid {
+		entity.Card = &models.PartialCard{
+			ID:        int(cardID.Int64),
+			CardID:    cardCardID.String,
+			Title:     cardTitle.String,
+			UserID:    int(cardUserID.Int64),
+			ParentID:  int(cardParentID.Int64),
+			CreatedAt: cardCreatedAt.Time,
+			UpdatedAt: cardUpdatedAt.Time,
+			Tags:      []models.Tag{},
+		}
+	}
+
+	return entity, nil
+}
+
+// SearchEntities searches for entities using Typesense only
+func SearchEntities(db *sql.DB, typesenseClient *typesense.Client, userID int, query string, limit int) ([]models.Entity, error) {
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	collectionName := os.Getenv("TYPESENSE_COLLECTION")
+	if collectionName == "" {
+		return nil, fmt.Errorf("TYPESENSE_COLLECTION environment variable not set")
+	}
+
+	// Build filter for entities only
+	filter := fmt.Sprintf("user_id:=%d && type:=entity", userID)
+
+	searchParams := &api.SearchCollectionParams{
+		Q:        query,
+		QueryBy:  "title,preview", // Search in name and description
+		FilterBy: &filter,
+		PerPage:  &limit,
+	}
+
+	searchResult, err := typesenseClient.Collection(collectionName).Documents().Search(context.Background(), searchParams)
+	if err != nil {
+		return nil, fmt.Errorf("typesense search error: %w", err)
+	}
+
+	var entityIDs []int
+	var entityMap = make(map[int]*models.Entity)
+
+	// Extract entity data from Typesense results
+	if searchResult.Hits != nil {
+		for _, hit := range *searchResult.Hits {
+			if hit.Document != nil {
+				doc := *hit.Document
+				if entityPK, ok := doc["entity_pk"].(float64); ok {
+					entityID := int(entityPK)
+					entityIDs = append(entityIDs, entityID)
+
+					entity := &models.Entity{
+						ID:          entityID,
+						UserID:      userID,
+						Name:        doc["title"].(string),
+						Description: doc["preview"].(string),
+						Type:        "entity",
+						CreatedAt:   time.Unix(int64(doc["created_at"].(float64)), 0),
+						UpdatedAt:   time.Unix(int64(doc["updated_at"].(float64)), 0),
+						CardCount:   0, // Will be filled in below
+					}
+
+					// Handle linked card data if available
+					if linkedCardPK, ok := doc["linked_card_pk"].(float64); ok && linkedCardPK > 0 {
+						entity.CardPK = new(int)
+						*entity.CardPK = int(linkedCardPK)
+
+						if linkedCardID, ok := doc["linked_card_id"].(string); ok && linkedCardID != "" {
+							entity.Card = &models.PartialCard{
+								ID:        int(linkedCardPK),
+								CardID:    linkedCardID,
+								Title:     doc["linked_card_title"].(string),
+								UserID:    userID,
+								ParentID:  int(doc["linked_card_parent_id"].(float64)),
+								CreatedAt: entity.CreatedAt,
+								UpdatedAt: entity.UpdatedAt,
+								Tags:      []models.Tag{},
+							}
+						}
+					}
+
+					entityMap[entityID] = entity
+				}
+			}
+		}
+	}
+
+	// Get card counts from database in a single query if we have entities
+	if len(entityIDs) > 0 {
+		cardCountQuery := `
+			SELECT entity_id, COUNT(DISTINCT card_pk) as card_count
+			FROM entity_card_junction
+			WHERE entity_id = ANY($1) AND user_id = $2
+			GROUP BY entity_id
+		`
+
+		rows, err := db.Query(cardCountQuery, pq.Array(entityIDs), userID)
+		if err != nil {
+			log.Printf("error querying entity card counts: %v", err)
+			// Continue without card counts rather than failing completely
+		} else {
+			defer rows.Close()
+			for rows.Next() {
+				var entityID int
+				var cardCount int
+				if err := rows.Scan(&entityID, &cardCount); err != nil {
+					log.Printf("error scanning card count: %v", err)
+					continue
+				}
+				if entity, exists := entityMap[entityID]; exists {
+					entity.CardCount = cardCount
+				}
+			}
+		}
+	}
+
+	// Convert map to slice, maintaining the order from Typesense
+	var entities []models.Entity
+	for _, entityID := range entityIDs {
+		if entity, exists := entityMap[entityID]; exists {
+			entities = append(entities, *entity)
+		}
+	}
+
+	return entities, nil
+}
+
