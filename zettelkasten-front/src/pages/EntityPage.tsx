@@ -260,6 +260,14 @@ export function EntityPage() {
     setShowDeleteDialog(true);
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedEntities(entities.map(entity => entity.id));
+    } else {
+      setSelectedEntities([]);
+    }
+  };
+
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
     loadEntities(newPage);
@@ -353,6 +361,7 @@ export function EntityPage() {
         onEdit={handleEditClick}
         onClick={handleEntityClick}
         getSelectionInfo={getSelectionInfo}
+        onSelectAll={handleSelectAll}
       />
 
       {entities.length === 0 && !loading && (

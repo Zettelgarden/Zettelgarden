@@ -11,22 +11,33 @@ interface EntityTableProps {
   onEdit: (entity: Entity, event: React.MouseEvent) => void;
   onClick: (entity: Entity, event: React.MouseEvent) => void;
   getSelectionInfo: (entityId: number) => string | null;
+  onSelectAll: (checked: boolean) => void;
 }
 
-export function EntityTable({ 
-  entities, 
-  selectedEntities, 
-  selectionMode, 
-  onEdit, 
-  onClick, 
-  getSelectionInfo 
+export function EntityTable({
+  entities,
+  selectedEntities,
+  selectionMode,
+  onEdit,
+  onClick,
+  getSelectionInfo,
+  onSelectAll
 }: EntityTableProps) {
   return (
     <div className="overflow-x-auto">
       <Table>
         <TableHead>
           <TableRow>
-            {selectionMode && <TableHeader className="w-12">Select</TableHeader>}
+            {selectionMode && (
+              <TableHeader className="w-12">
+                <input
+                  type="checkbox"
+                  checked={selectedEntities.length === entities.length && entities.length > 0}
+                  onChange={(e) => onSelectAll(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+              </TableHeader>
+            )}
             <TableHeader>Name</TableHeader>
             <TableHeader>Type</TableHeader>
             <TableHeader>Description</TableHeader>
