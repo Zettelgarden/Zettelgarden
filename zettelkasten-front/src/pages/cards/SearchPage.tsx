@@ -1,6 +1,6 @@
 import React, { useState, useEffect, ChangeEvent, KeyboardEvent } from "react";
 import { Menu } from '@headlessui/react';
-import { semanticSearchCards } from "../../api/cards";
+import { semanticSearchCards, semanticSearchCardsPaginated } from "../../api/cards";
 import { fetchUserTags } from "../../api/tags";
 import { SearchResult } from "../../models/Card";
 import { Tag } from "../../models/Tags";
@@ -40,6 +40,12 @@ export function SearchPage({
   const [showStarSearchDialog, setShowStarSearchDialog] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
   const latestRequestId = React.useRef(0);
+
+  // Pagination state
+  const [totalResults, setTotalResults] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [perPage, setPerPage] = useState<number>(20);
   const {
     showEntityDialog,
     setShowEntityDialog,
@@ -54,18 +60,18 @@ export function SearchPage({
     setSearchTerm(e.target.value);
   }
 
-  async function handleSearch(searchTerm: string, config: SearchConfig) {
+  async function handleSearch(searchTerm: string, config: SearchConfig, page: number = 1) {
     const requestId = ++latestRequestId.current;
 
     setIsLoading(true);
     setError(null);
-    setSearchConfig({ ...config, currentPage: 1 });
+    setSearchConfig({ ...config, currentPage: page });
 
     const term = searchTerm || "";
-    console.log("searching for term:", term);
+    console.log("searching for term:", term, "page:", page);
 
     try {
-      const results = await semanticSearchCards(
+      const response = await semanticSearchCardsPaginated(
         term,
         config.useFullText,
         config.showEntities,
@@ -73,9 +79,14 @@ export function SearchPage({
         config.sortBy,
         config.searchType,
         config.rerank,
+        page,
+        perPage,
       );
       if (requestId === latestRequestId.current) {
-        setSearchResults(results || []);
+        setSearchResults(response.results || []);
+        setTotalResults(response.total);
+        setTotalPages(response.total_pages);
+        setCurrentPage(response.page);
       }
     } catch (error) {
       console.error("Search error:", error);
@@ -180,31 +191,18 @@ export function SearchPage({
     }
   }
 
-  function getPagedResults(): SearchResult[] {
-    const filteredResults = searchResults
+  function getFilteredResults(): SearchResult[] {
+    return searchResults
       .filter(result => !searchConfig.onlyParentCards || !result.id.includes("/"))
       .filter(result => searchConfig.showEntities || result.type !== "entity")
-      .filter(result => searchConfig.showFacts || result.type !== "fact");
-
-    const sortedResults = sortCards(
-      filteredResults
-        .filter(result => searchConfig.showCards || result.type !== "card"),
-      searchConfig.sortBy
-    );
-    const indexOfLastItem = searchConfig.currentPage * 20;
-    const indexOfFirstItem = indexOfLastItem - 20;
-    return sortedResults.slice(indexOfFirstItem, indexOfLastItem);
-  }
-
-  function getTotalPages() {
-    const totalItems = searchConfig.onlyParentCards
-      ? searchResults.filter(result => !result.id.includes("/")).length
-      : searchResults.length;
-    return Math.ceil(totalItems / 20);
+      .filter(result => searchConfig.showFacts || result.type !== "fact")
+      .filter(result => searchConfig.showCards || result.type !== "card");
   }
 
   const handleOnlyParentCardsChange = (event) => {
     setSearchConfig({ ...searchConfig, onlyParentCards: event.target.checked, currentPage: 1 });
+    setCurrentPage(1);
+    handleSearch(searchTerm, { ...searchConfig, onlyParentCards: event.target.checked }, 1);
   };
 
   const handleShowPreviewChange = (event) => {
@@ -214,26 +212,42 @@ export function SearchPage({
   const handleFullTextChange = (event) => {
     let config = { ...searchConfig, useFullText: event.target.checked }
     setSearchConfig(config);
-    handleSearch(searchTerm, config);
+    setCurrentPage(1);
+    handleSearch(searchTerm, config, 1);
   };
 
   const handleShowEntitiesChange = (event) => {
-    setSearchConfig({ ...searchConfig, showEntities: event.target.checked, currentPage: 1 });
+    let config = { ...searchConfig, showEntities: event.target.checked };
+    setSearchConfig(config);
+    setCurrentPage(1);
+    handleSearch(searchTerm, config, 1);
   };
 
   const handleShowFactsChange = (event) => {
-    setSearchConfig({ ...searchConfig, showFacts: event.target.checked, currentPage: 1 });
+    let config = { ...searchConfig, showFacts: event.target.checked };
+    setSearchConfig(config);
+    setCurrentPage(1);
+    handleSearch(searchTerm, config, 1);
   };
 
   const handleShowCardsChange = (event) => {
-    setSearchConfig({ ...searchConfig, showCards: event.target.checked, currentPage: 1 });
+    let config = { ...searchConfig, showCards: event.target.checked };
+    setSearchConfig(config);
+    setCurrentPage(1);
+    handleSearch(searchTerm, config, 1);
   };
 
   const handleSearchTypeChange = (event) => {
     const newType = event.target.checked ? "typesense" : "classic";
     let config = { ...searchConfig, searchType: newType };
     setSearchConfig(config);
-    handleSearch(searchTerm, config);
+    setCurrentPage(1);
+    handleSearch(searchTerm, config, 1);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    handleSearch(searchTerm, searchConfig, newPage);
   };
 
   return (
@@ -449,23 +463,23 @@ export function SearchPage({
             {searchResults.length > 0 ? (
               <div>
                 <SearchResultList
-                  results={getPagedResults()}
+                  results={getFilteredResults()}
                   showPreview={searchConfig.showPreview}
                   onEntityClick={handleEntityClick}
                   onTagClick={handleTagClick}
                 />
-                <div className="flex justify-center gap-4 mt-4">
+                <div className="flex justify-center items-center gap-4 mt-4 p-4">
                   <Button
-                    onClick={() => setSearchConfig({ ...searchConfig, currentPage: searchConfig.currentPage - 1 })}
-                    disabled={searchConfig.currentPage === 1}
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
                     children={"Previous"}
                   />
-                  <span className="flex items-center">
-                    Page {searchConfig.currentPage} of {getTotalPages()}
+                  <span className="flex items-center text-sm text-gray-600">
+                    Page {currentPage} of {totalPages} ({totalResults} results)
                   </span>
                   <Button
-                    onClick={() => setSearchConfig({ ...searchConfig, currentPage: searchConfig.currentPage + 1 })}
-                    disabled={searchConfig.currentPage === getTotalPages()}
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
                     children={"Next"}
                   />
                 </div>

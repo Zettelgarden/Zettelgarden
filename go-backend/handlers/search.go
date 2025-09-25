@@ -510,8 +510,40 @@ func BuildPartialEntitySqlSearchTermString(searchString string) string {
 	return result
 }
 
-func (s *Handler) ClassicCardSearch(userID int, params SearchRequestParams) ([]models.Card, error) {
+func (s *Handler) ClassicCardSearch(userID int, params SearchRequestParams) ([]models.Card, int, error) {
 	searchString := BuildPartialCardSqlSearchTermString(params.SearchTerm, params.FullText)
+
+	// Set pagination defaults
+	page := params.Page
+	if page < 1 {
+		page = 1
+	}
+
+	perPage := params.PerPage
+	if perPage <= 0 {
+		perPage = 50
+	}
+	if perPage > 100 {
+		perPage = 100
+	}
+
+	offset := (page - 1) * perPage
+
+	// First, get the total count
+	countQuery := `
+	SELECT COUNT(DISTINCT c.id)
+	FROM cards c
+	LEFT JOIN card_tags ct ON c.id = ct.card_pk
+	WHERE c.user_id = $1 AND c.is_deleted = FALSE
+	` + searchString
+
+	var total int
+	err := s.DB.QueryRow(countQuery, userID).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Then get the paginated results
 	query := `
 	SELECT
     c.id,
@@ -539,15 +571,21 @@ GROUP BY
     c.created_at,
     c.updated_at
 ORDER BY c.created_at DESC
+LIMIT $2 OFFSET $3
 	`
 
-	rows, err := s.DB.Query(query, userID)
+	rows, err := s.DB.Query(query, userID, perPage, offset)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
-	return models.ScanCards(rows)
+	cards, err := models.ScanCards(rows)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return cards, total, nil
 }
 
 type SearchRequestParams struct {
@@ -557,11 +595,34 @@ type SearchRequestParams struct {
 	ShowFacts    bool   `json:"show_facts"`
 	SortBy       string `json:"sort"`
 	Rerank       bool   `json:"rerank"`
+	Page         int    `json:"page"`
+	PerPage      int    `json:"per_page"`
 }
 
-func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) ([]models.SearchResult, error) {
+type PaginatedSearchResponse struct {
+	Results    []models.SearchResult `json:"results"`
+	Page       int                   `json:"page"`
+	PerPage    int                   `json:"per_page"`
+	Total      int                   `json:"total"`
+	TotalPages int                   `json:"total_pages"`
+}
+
+func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) (PaginatedSearchResponse, error) {
 	log.Printf("typesense")
-	perPage := 250
+
+	// Set default pagination values if not provided
+	page := searchParams.Page
+	if page < 1 {
+		page = 1
+	}
+
+	perPage := searchParams.PerPage
+	if perPage <= 0 {
+		perPage = 50 // Default page size
+	}
+	if perPage > 100 {
+		perPage = 100 // Maximum page size
+	}
 	var sortBy string
 	if searchParams.SearchTerm == "" {
 		sortBy = "created_at:desc"
@@ -641,6 +702,7 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 		FilterBy:      &filter,
 		SortBy:        &sortBy,
 		PerPage:       &perPage,
+		Page:          &page,
 		ExcludeFields: pointer.String("embedding"),
 	}
 	log.Printf("%v", typesenseParams)
@@ -649,7 +711,7 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 
 	if err != nil {
 		log.Printf("Search error: %v", err)
-		return results, err
+		return PaginatedSearchResponse{}, err
 	}
 
 	fmt.Printf("Found %d docs\n", *typesenseResults.Found)
@@ -740,10 +802,19 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 	// 		}
 	// 	}
 	// }
-	//return reranked, nil
-	return results, nil
+	// Calculate pagination info
+	total := int(*typesenseResults.Found)
+	totalPages := (total + perPage - 1) / perPage
+
+	return PaginatedSearchResponse{
+		Results:    results,
+		Page:       page,
+		PerPage:    perPage,
+		Total:      total,
+		TotalPages: totalPages,
+	}, nil
 }
-func convertCardsToSearchResults(cards []models.Card) []models.SearchResult {
+func convertCardsToSearchResults(cards []models.Card, total int, page int, perPage int) PaginatedSearchResponse {
 	var searchResults []models.SearchResult
 	for _, card := range cards {
 		searchResult := models.SearchResult{
@@ -762,7 +833,16 @@ func convertCardsToSearchResults(cards []models.Card) []models.SearchResult {
 		}
 		searchResults = append(searchResults, searchResult)
 	}
-	return searchResults
+
+	totalPages := (total + perPage - 1) / perPage
+
+	return PaginatedSearchResponse{
+		Results:    searchResults,
+		Page:       page,
+		PerPage:    perPage,
+		Total:      total,
+		TotalPages: totalPages,
+	}
 }
 
 func (s *Handler) SearchRoute(w http.ResponseWriter, r *http.Request) {
@@ -775,20 +855,34 @@ func (s *Handler) SearchRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var searchResults []models.SearchResult
+	var response PaginatedSearchResponse
 	parsedParams := ParseSearchText(reqParams.SearchTerm)
 
 	// If the search contains entities or tags, use ClassicCardSearch, otherwise use Typesense
 	if parsedParams.HasAdvancedFilters() {
-		cards, err := s.ClassicCardSearch(userID, reqParams)
+		cards, total, err := s.ClassicCardSearch(userID, reqParams)
 		if err != nil {
 			log.Printf("ClassicCardSearch error: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		searchResults = convertCardsToSearchResults(cards)
+
+		// Set pagination defaults for classic search response
+		page := reqParams.Page
+		if page < 1 {
+			page = 1
+		}
+		perPage := reqParams.PerPage
+		if perPage <= 0 {
+			perPage = 50
+		}
+		if perPage > 100 {
+			perPage = 100
+		}
+
+		response = convertCardsToSearchResults(cards, total, page, perPage)
 	} else {
-		searchResults, err = s.TypesenseSearch(reqParams, userID)
+		response, err = s.TypesenseSearch(reqParams, userID)
 		if err != nil {
 			log.Printf("TypesenseSearch error: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -797,5 +891,5 @@ func (s *Handler) SearchRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(searchResults)
+	json.NewEncoder(w).Encode(response)
 }

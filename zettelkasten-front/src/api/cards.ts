@@ -21,9 +21,19 @@ interface SearchRequestParams {
   show_facts?: boolean;
   search_type?: string; // classic or typesense
   rerank?: boolean;
+  page?: number;
+  per_page?: number;
 }
 
-export function semanticSearchCards(
+interface PaginatedSearchResponse {
+  results: SearchResult[];
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+}
+
+export function semanticSearchCardsPaginated(
   searchTerm = "",
   fullText = false,
   showEntities = false,
@@ -31,7 +41,9 @@ export function semanticSearchCards(
   sortBy = "sortByRanking",
   searchType = "classic",
   rerank = true,
-): Promise<SearchResult[]> {
+  page = 1,
+  perPage = 50,
+): Promise<PaginatedSearchResponse> {
   let token = localStorage.getItem("token");
   let url = base_url + "/search";
 
@@ -43,6 +55,8 @@ export function semanticSearchCards(
     show_facts: showFacts,
     sort: sortBy,
     rerank: rerank,
+    page: page,
+    per_page: perPage,
   };
 
   return fetch(url, {
@@ -56,20 +70,52 @@ export function semanticSearchCards(
     .then(checkStatus)
     .then((response) => {
       if (response) {
-        return response.json().then((results: SearchResult[]) => {
-          if (results === null) {
-            return [];
+        return response.json().then((paginatedResponse: PaginatedSearchResponse) => {
+          if (paginatedResponse === null || !paginatedResponse.results) {
+            return {
+              results: [],
+              page: page,
+              per_page: perPage,
+              total: 0,
+              total_pages: 0,
+            };
           }
-          return results.map((result) => ({
-            ...result,
-            created_at: new Date(result.created_at),
-            updated_at: new Date(result.updated_at),
-          }));
+          return {
+            ...paginatedResponse,
+            results: paginatedResponse.results.map((result) => ({
+              ...result,
+              created_at: new Date(result.created_at),
+              updated_at: new Date(result.updated_at),
+            }))
+          };
         });
       } else {
         return Promise.reject(new Error("Response is undefined"));
       }
     });
+}
+
+export function semanticSearchCards(
+  searchTerm = "",
+  fullText = false,
+  showEntities = false,
+  showFacts = true,
+  sortBy = "sortByRanking",
+  searchType = "classic",
+  rerank = true,
+): Promise<SearchResult[]> {
+  // For backward compatibility, use the paginated version and return just the results
+  return semanticSearchCardsPaginated(
+    searchTerm,
+    fullText,
+    showEntities,
+    showFacts,
+    sortBy,
+    searchType,
+    rerank,
+    1,
+    1000 // Large page size to get most results
+  ).then(response => response.results);
 }
 
 export function fetchCards(searchTerm = "", fullText = false): Promise<Card[]> {

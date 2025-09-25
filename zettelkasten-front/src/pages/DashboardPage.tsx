@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { CardList } from "../components/cards/CardList";
 import { setDocumentTitle } from "../utils/title";
 import { useAuth } from "../contexts/AuthContext";
-import { semanticSearchCards } from "../api/cards";
+import { semanticSearchCardsPaginated } from "../api/cards";
 import { PartialCard } from "../models/Card";
 import { ChatInput } from "../components/chat/ChatInput";
 
@@ -10,6 +10,7 @@ export function DashboardPage() {
   const [recentCards, setRecentCards] = useState<PartialCard[]>([]);
   const [unsortedCards, setUnsortedCards] = useState<PartialCard[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const [isLoadingCards, setIsLoadingCards] = useState<boolean>(true);
   const { hasSubscription, isLoading } = useAuth();
   const subscriptionEnabled =
     import.meta.env.VITE_FEATURE_SUBSCRIPTION === "true";
@@ -17,26 +18,82 @@ export function DashboardPage() {
   useEffect(() => {
     setDocumentTitle("Index");
 
-    // Fetch recent cards
-    semanticSearchCards("", false, false, false, "sortByDate").then((results) => {
-      const cards: PartialCard[] = results.map((result) => ({
-        id: Number(result.metadata?.id) || 0,
-        card_id: result.metadata.card_id,
-        title: result.title,
-        body: result.preview || "",
-        tags: result.tags || [],
-        is_deleted: false,
-        created_at: new Date(result.created_at),
-        updated_at: new Date(result.updated_at),
-        parent_id: result.metadata?.parent_id || 0,
-        user_id: 0,
-        link: "",
-        parent: null,
-      }));
-      setRecentCards(cards.slice(0, 10));
-      const unsorted = cards.filter((card) => card.card_id === "");
-      setUnsortedCards(unsorted.slice(0, 10));
-    });
+    const fetchDashboardData = async () => {
+      setIsLoadingCards(true);
+      try {
+        // Fetch recent cards using pagination (only get 10)
+        const recentResponse = await semanticSearchCardsPaginated(
+          "", // empty search term
+          false, // fullText
+          false, // showEntities
+          false, // showFacts
+          "sortCreatedNewOld", // sortBy recent
+          "classic", // searchType
+          false, // rerank
+          1, // page
+          10 // perPage - only get 10 cards
+        );
+
+        const recentCards: PartialCard[] = recentResponse.results.map((result) => ({
+          id: Number(result.metadata?.id) || 0,
+          card_id: result.metadata?.card_id || "",
+          title: result.title,
+          body: result.preview || "",
+          tags: result.tags || [],
+          is_deleted: false,
+          created_at: new Date(result.created_at),
+          updated_at: new Date(result.updated_at),
+          parent_id: result.metadata?.parent_id || 0,
+          user_id: 0,
+          link: "",
+          parent: null,
+        }));
+        setRecentCards(recentCards);
+
+        // Fetch unsorted cards (cards with empty card_id)
+        // We'll need to fetch a larger set and filter, or create a specific API endpoint
+        // For now, let's fetch more cards and filter client-side, but still paginated
+        const unsortedResponse = await semanticSearchCardsPaginated(
+          "", // empty search term
+          false, // fullText
+          false, // showEntities
+          false, // showFacts
+          "sortCreatedNewOld", // sortBy recent
+          "classic", // searchType
+          false, // rerank
+          1, // page
+          50 // perPage - get more to filter for unsorted
+        );
+
+        const allCards: PartialCard[] = unsortedResponse.results.map((result) => ({
+          id: Number(result.metadata?.id) || 0,
+          card_id: result.metadata?.card_id || "",
+          title: result.title,
+          body: result.preview || "",
+          tags: result.tags || [],
+          is_deleted: false,
+          created_at: new Date(result.created_at),
+          updated_at: new Date(result.updated_at),
+          parent_id: result.metadata?.parent_id || 0,
+          user_id: 0,
+          link: "",
+          parent: null,
+        }));
+
+        const unsorted = allCards.filter((card) => card.card_id === "").slice(0, 10);
+        setUnsortedCards(unsorted);
+
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+        // Set empty arrays on error to prevent infinite loading
+        setRecentCards([]);
+        setUnsortedCards([]);
+      } finally {
+        setIsLoadingCards(false);
+      }
+    };
+
+    fetchDashboardData();
   }, []);
 
   const handleChatSubmit = async (referencedCards?: string[]) => {
@@ -151,7 +208,13 @@ export function DashboardPage() {
           <a href="/app/search?recent=true">
             <span className="font-bold">Recent Cards</span>
           </a>
-          <CardList sort={false} cards={recentCards} />
+          {isLoadingCards ? (
+            <div className="flex justify-center py-8">
+              <div className="text-gray-500">Loading recent cards...</div>
+            </div>
+          ) : (
+            <CardList sort={false} cards={recentCards} />
+          )}
           <hr />
         </div>
 
@@ -159,7 +222,13 @@ export function DashboardPage() {
         <div className="flex-shrink-0 md:w-4/12 border-l p-4">
           <div>
             <span className="font-bold">Unsorted Cards</span>
-            <CardList cards={unsortedCards} />
+            {isLoadingCards ? (
+              <div className="flex justify-center py-8">
+                <div className="text-gray-500">Loading unsorted cards...</div>
+              </div>
+            ) : (
+              <CardList cards={unsortedCards} />
+            )}
           </div>
           <hr />
         </div>
