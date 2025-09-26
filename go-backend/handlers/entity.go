@@ -20,6 +20,34 @@ import (
 
 const SIMILARITY_THRESHOLD = 0.15
 
+func validateEntityName(name string) error {
+	if len(name) == 0 {
+		return fmt.Errorf("entity name cannot be empty")
+	}
+	if len(name) > 255 {
+		return fmt.Errorf("entity name cannot exceed 255 characters")
+	}
+
+	// Check for characters that could break search syntax
+	invalidChars := []string{"\n", "\r", "\t"}
+	for _, char := range invalidChars {
+		if strings.Contains(name, char) {
+			return fmt.Errorf("entity name cannot contain newlines or tab characters")
+		}
+	}
+
+	// Warn about potentially problematic characters but don't forbid them
+	// (since they can be escaped on the frontend)
+	return nil
+}
+
+func validateEntityDescription(description string) error {
+	if len(description) > 2000 {
+		return fmt.Errorf("entity description cannot exceed 2000 characters")
+	}
+	return nil
+}
+
 type UpdateEntityRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -497,9 +525,13 @@ func (s *Handler) UpdateEntityRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate required fields
-	if params.Name == "" {
-		http.Error(w, "Name is required", http.StatusBadRequest)
+	// Validate entity name and description
+	if err := validateEntityName(params.Name); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validateEntityDescription(params.Description); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

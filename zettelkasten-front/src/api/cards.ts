@@ -11,6 +11,12 @@ import {
 } from "../models/Card";
 import { checkStatus } from "./common";
 
+// Utility function to escape entity names for search queries
+export function escapeEntityNameForSearch(entityName: string): string {
+  // Escape characters that could break the @[...] syntax
+  return entityName.replace(/[\[\]\\]/g, '\\$&');
+}
+
 const base_url = import.meta.env.VITE_URL;
 
 interface SearchRequestParams {

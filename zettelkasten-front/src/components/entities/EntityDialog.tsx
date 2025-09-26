@@ -3,7 +3,7 @@ import { Dialog, Menu } from "@headlessui/react";
 import { Link, useNavigate } from "react-router-dom";
 import { Entity } from "../../models/Card";
 import { PartialCard, SearchResult, defaultPartialCard, Card, defaultCard } from "../../models/Card";
-import { semanticSearchCards, saveNewCard, getNextRootId, suggestCardTitle } from "../../api/cards";
+import { semanticSearchCards, saveNewCard, getNextRootId, suggestCardTitle, escapeEntityNameForSearch } from "../../api/cards";
 import { CardList } from "../cards/CardList";
 import { CardTag } from "../cards/CardTag";
 import { Button } from "../Button";
@@ -205,7 +205,7 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
             setError(null);
             setAssociatedCards([]); // Clear previous cards
 
-            semanticSearchCards(`@[${selectedEntity.name}]`, false, false, false)
+            semanticSearchCards(`@[${escapeEntityNameForSearch(selectedEntity.name)}]`, false, false, false)
                 .then((results: SearchResult[]) => {
                     if (results === null) {
                         setAssociatedCards([]);

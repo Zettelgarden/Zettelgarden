@@ -275,7 +275,37 @@ func contains[T comparable](collection []T, target T) bool {
 	}
 	return false
 }
+func sanitizeSearchInput(input string) string {
+	// Limit input length to prevent DoS
+	if len(input) > 1000 {
+		input = input[:1000]
+	}
+
+	// Remove or escape potentially dangerous characters
+	// Keep alphanumeric, spaces, and valid search syntax characters
+	var result strings.Builder
+	for _, r := range input {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			result.WriteRune(r)
+		case r == ' ', r == '@', r == '[', r == ']', r == '!', r == '#', r == '-', r == '_', r == '.', r == '\'':
+			result.WriteRune(r)
+		case r == '\\':
+			// Allow escaped characters but don't double-escape
+			result.WriteRune(r)
+		default:
+			// Skip potentially dangerous characters
+			continue
+		}
+	}
+
+	return result.String()
+}
+
 func ParseSearchText(input string) SearchParams {
+	// Sanitize input first
+	input = sanitizeSearchInput(input)
+
 	var searchParams SearchParams
 	var currentEntity strings.Builder
 	inEntity := false
@@ -369,64 +399,76 @@ func BuildPartialCardSqlSearchTermString(searchString string, fullText bool) str
 
 	// Add conditions for terms that search both card_id and title
 	for _, term := range searchParams.Terms {
+		// Escape single quotes to prevent SQL injection
+		escapedTerm := strings.ReplaceAll(term, "'", "''")
 		// Use ILIKE for case-insensitive pattern matching
 		var termCondition string
 		if fullText {
-			termCondition = fmt.Sprintf("(card_id ILIKE '%%%s%%' OR title ILIKE '%%%s%%' OR body ILIKE '%%%s%%')", term, term, term)
+			termCondition = fmt.Sprintf("(card_id ILIKE '%%%s%%' OR title ILIKE '%%%s%%' OR body ILIKE '%%%s%%')", escapedTerm, escapedTerm, escapedTerm)
 
 		} else {
-			termCondition = fmt.Sprintf("(card_id ILIKE '%%%s%%' OR title ILIKE '%%%s%%')", term, term)
+			termCondition = fmt.Sprintf("(card_id ILIKE '%%%s%%' OR title ILIKE '%%%s%%')", escapedTerm, escapedTerm)
 
 		}
 		termConditions = append(termConditions, termCondition)
 	}
 
 	for _, term := range searchParams.NegateTerms {
+		// Escape single quotes to prevent SQL injection
+		escapedTerm := strings.ReplaceAll(term, "'", "''")
 		var excludeCondition string
 		if fullText {
-			excludeCondition = fmt.Sprintf("NOT (card_id ILIKE '%%%s%%' OR title ILIKE '%%%s%%' OR body ILIKE '%%%s%%')", term, term, term)
+			excludeCondition = fmt.Sprintf("NOT (card_id ILIKE '%%%s%%' OR title ILIKE '%%%s%%' OR body ILIKE '%%%s%%')", escapedTerm, escapedTerm, escapedTerm)
 		} else {
-			excludeCondition = fmt.Sprintf("NOT (card_id ILIKE '%%%s%%' OR title ILIKE '%%%s%%')", term, term)
+			excludeCondition = fmt.Sprintf("NOT (card_id ILIKE '%%%s%%' OR title ILIKE '%%%s%%')", escapedTerm, escapedTerm)
 		}
 		excludeTerms = append(excludeTerms, excludeCondition)
 	}
 
 	// Add conditions for tags
 	for _, tag := range searchParams.Tags {
+		// Escape single quotes to prevent SQL injection
+		escapedTag := strings.ReplaceAll(tag, "'", "''")
 		tagCondition := fmt.Sprintf(`EXISTS (
             SELECT 1 FROM card_tags
             JOIN tags ON card_tags.tag_id = tags.id
             WHERE card_tags.card_pk = c.id AND tags.name = '%s' AND tags.is_deleted = FALSE
-        )`, tag)
+        )`, escapedTag)
 		tagConditions = append(tagConditions, tagCondition)
 	}
 	// Build SQL for tags that should NOT exist
 	for _, tag := range searchParams.NegateTags {
+		// Escape single quotes to prevent SQL injection
+		escapedTag := strings.ReplaceAll(tag, "'", "''")
 		tagCondition := fmt.Sprintf(`NOT EXISTS (
             SELECT 1 FROM card_tags
             JOIN tags ON card_tags.tag_id = tags.id
             WHERE card_tags.card_pk = c.id AND tags.name = '%s' AND tags.is_deleted = FALSE
-        )`, tag)
+        )`, escapedTag)
 		negateTagsConditions = append(negateTagsConditions, tagCondition)
 	}
 
 	// Add conditions for entities
 	for _, entity := range searchParams.Entities {
+		// Escape single quotes to prevent SQL injection
+		escapedEntity := strings.ReplaceAll(entity, "'", "''")
 		entityCondition := fmt.Sprintf(`EXISTS (
             SELECT 1 FROM entity_card_junction ecj
             JOIN entities e ON ecj.entity_id = e.id
             WHERE ecj.card_pk = c.id AND e.name = '%s'
-        )`, entity)
+        )`, escapedEntity)
 		entityConditions = append(entityConditions, entityCondition)
 	}
 
 	// Add conditions for negated entities
 	for _, entity := range searchParams.NegateEntities {
+		// Escape single quotes to prevent SQL injection
+		escapedEntity := strings.ReplaceAll(entity, "'", "''")
 		entityCondition := fmt.Sprintf(`NOT EXISTS (
             SELECT 1 FROM entity_card_junction ecj
             JOIN entities e ON ecj.entity_id = e.id
             WHERE ecj.card_pk = c.id AND e.name = '%s'
-        )`, entity)
+        )`, escapedEntity)
 		negateEntityConditions = append(negateEntityConditions, entityCondition)
 	}
 
@@ -465,25 +507,33 @@ func BuildPartialEntitySqlSearchTermString(searchString string) string {
 
 	// Add conditions for terms that search both name and description
 	for _, term := range searchParams.Terms {
-		termCondition := fmt.Sprintf("(name ILIKE '%%%s%%' OR description ILIKE '%%%s%%' OR type ILIKE '%%%s%%')", term, term, term)
+		// Escape single quotes to prevent SQL injection
+		escapedTerm := strings.ReplaceAll(term, "'", "''")
+		termCondition := fmt.Sprintf("(name ILIKE '%%%s%%' OR description ILIKE '%%%s%%' OR type ILIKE '%%%s%%')", escapedTerm, escapedTerm, escapedTerm)
 		termConditions = append(termConditions, termCondition)
 	}
 
 	// Add conditions for negated terms
 	for _, term := range searchParams.NegateTerms {
-		excludeCondition := fmt.Sprintf("NOT (name ILIKE '%%%s%%' OR description ILIKE '%%%s%%' OR type ILIKE '%%%s%%')", term, term, term)
+		// Escape single quotes to prevent SQL injection
+		escapedTerm := strings.ReplaceAll(term, "'", "''")
+		excludeCondition := fmt.Sprintf("NOT (name ILIKE '%%%s%%' OR description ILIKE '%%%s%%' OR type ILIKE '%%%s%%')", escapedTerm, escapedTerm, escapedTerm)
 		excludeTerms = append(excludeTerms, excludeCondition)
 	}
 
 	// Add conditions for tags
 	for _, tag := range searchParams.Tags {
-		tagCondition := fmt.Sprintf("EXISTS (SELECT 1 FROM card_tags JOIN tags ON card_tags.tag_id = tags.id WHERE card_tags.card_pk = ecj.card_pk AND tags.name = '%s' AND tags.is_deleted = FALSE)", tag)
+		// Escape single quotes to prevent SQL injection
+		escapedTag := strings.ReplaceAll(tag, "'", "''")
+		tagCondition := fmt.Sprintf("EXISTS (SELECT 1 FROM card_tags JOIN tags ON card_tags.tag_id = tags.id WHERE card_tags.card_pk = ecj.card_pk AND tags.name = '%s' AND tags.is_deleted = FALSE)", escapedTag)
 		tagConditions = append(tagConditions, tagCondition)
 	}
 
 	// Build SQL for tags that should NOT exist
 	for _, tag := range searchParams.NegateTags {
-		tagCondition := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM card_tags JOIN tags ON card_tags.tag_id = tags.id WHERE card_tags.card_pk = ecj.card_pk AND tags.name = '%s' AND tags.is_deleted = FALSE)", tag)
+		// Escape single quotes to prevent SQL injection
+		escapedTag := strings.ReplaceAll(tag, "'", "''")
+		tagCondition := fmt.Sprintf("NOT EXISTS (SELECT 1 FROM card_tags JOIN tags ON card_tags.tag_id = tags.id WHERE card_tags.card_pk = ecj.card_pk AND tags.name = '%s' AND tags.is_deleted = FALSE)", escapedTag)
 		negateTagsConditions = append(negateTagsConditions, tagCondition)
 	}
 

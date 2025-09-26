@@ -435,6 +435,16 @@ func (s *Handler) ExtractSaveFactEntities(userID int, card models.Card, factObjs
 			`, userID, entity.Name).Scan(&entityID)
 
 			if err != nil {
+				// Validate entity name and description before insertion
+				if validateErr := validateEntityName(entity.Name); validateErr != nil {
+					log.Printf("invalid entity name '%s': %v", entity.Name, validateErr)
+					continue
+				}
+				if validateErr := validateEntityDescription(entity.Description); validateErr != nil {
+					log.Printf("invalid entity description for '%s': %v", entity.Name, validateErr)
+					continue
+				}
+
 				// no entity found, insert
 				err = s.DB.QueryRow(`
 					INSERT INTO entities (user_id, name, description, type, card_pk)
