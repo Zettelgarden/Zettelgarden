@@ -24,7 +24,7 @@ func UpsertCardToTypesense(db *sql.DB, card models.Card) {
 	}
 
 	// Convert tags to string array for Typesense
-	var tags []string
+	tags := make([]string, 0)
 	for _, tag := range cardTags {
 		tags = append(tags, tag.Name)
 	}
@@ -51,9 +51,8 @@ func UpsertCardToTypesense(db *sql.DB, card models.Card) {
 	}
 
 	client := bootstrap.GetTypesenseClient()
-	result, err := client.Collection(collectionName).
+	_, err = client.Collection(collectionName).
 		Documents().Upsert(context.Background(), doc)
-	log.Printf("upserted %v", result)
 	if err != nil {
 		log.Printf("failed to upsert card ID %d: %v", card.ID, err)
 	}
