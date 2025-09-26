@@ -137,23 +137,23 @@ func (s *Handler) MergeEntities(userID int, entity1ID int, entity2ID int) error 
 	// Verify both entities exist and belong to the user
 	var entity1, entity2 models.Entity
 	err = tx.QueryRow(`
-		SELECT id, user_id, name, description, type
+		SELECT id, user_id, name, description, type, card_pk
 		FROM entities
 		WHERE id = $1 AND user_id = $2`,
 		entity1ID, userID).Scan(
 		&entity1.ID, &entity1.UserID, &entity1.Name,
-		&entity1.Description, &entity1.Type)
+		&entity1.Description, &entity1.Type, &entity1.CardPK)
 	if err != nil {
 		return fmt.Errorf("failed to find entity1: %w", err)
 	}
 
 	err = tx.QueryRow(`
-		SELECT id, user_id, name, description, type
+		SELECT id, user_id, name, description, type, card_pk
 		FROM entities
 		WHERE id = $1 AND user_id = $2`,
 		entity2ID, userID).Scan(
 		&entity2.ID, &entity2.UserID, &entity2.Name,
-		&entity2.Description, &entity2.Type)
+		&entity2.Description, &entity2.Type, &entity2.CardPK)
 	if err != nil {
 		return fmt.Errorf("failed to find entity2: %w", err)
 	}

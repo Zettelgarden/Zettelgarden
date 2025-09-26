@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"go-backend/models"
 	"go-backend/tests"
 	"net/http"
@@ -706,5 +707,125 @@ func TestGetEntityByNameRouteEmptyName(t *testing.T) {
 	// This should return 404 since the route won't match
 	if status := rr.Code; status != http.StatusNotFound {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNotFound)
+	}
+}
+
+func TestMergeEntitiesPreservesCardPK(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	// Create a test card first
+	var cardID int
+	err := s.DB.QueryRow(`
+		INSERT INTO cards (user_id, title, body)
+		VALUES ($1, 'Test Card', 'Test Content')
+		RETURNING id
+	`, 1).Scan(&cardID)
+	if err != nil {
+		t.Fatalf("Failed to create test card: %v", err)
+	}
+
+	// Create an entity with card_pk set
+	_, err = s.DB.Exec(`
+		INSERT INTO entities (id, user_id, name, description, type, card_pk, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+		100, 1, "Entity With Card", "Test description", "concept", cardID)
+	if err != nil {
+		t.Fatalf("Failed to create entity with card_pk: %v", err)
+	}
+
+	// Create another entity without card_pk
+	_, err = s.DB.Exec(`
+		INSERT INTO entities (id, user_id, name, description, type, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
+		101, 1, "Entity Without Card", "Test description", "concept")
+	if err != nil {
+		t.Fatalf("Failed to create entity without card_pk: %v", err)
+	}
+
+	// Merge entities: entity with card_pk (100) should preserve its card_pk
+	err = s.MergeEntities(1, 100, 101)
+	if err != nil {
+		t.Errorf("MergeEntities failed: %v", err)
+	}
+
+	// Verify entity 100 still has its card_pk
+	var resultCardPK sql.NullInt64
+	err = s.DB.QueryRow("SELECT card_pk FROM entities WHERE id = $1", 100).Scan(&resultCardPK)
+	if err != nil {
+		t.Errorf("Failed to check entity card_pk: %v", err)
+	}
+	if !resultCardPK.Valid || int(resultCardPK.Int64) != cardID {
+		t.Errorf("Expected card_pk to be %d, got %v", cardID, resultCardPK)
+	}
+
+	// Verify entity 101 is deleted
+	var count int
+	err = s.DB.QueryRow("SELECT COUNT(*) FROM entities WHERE id = $1", 101).Scan(&count)
+	if err != nil {
+		t.Errorf("Failed to check entity deletion: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("Entity 101 was not deleted")
+	}
+}
+
+func TestMergeEntitiesPreservesCardPKFromSecondEntity(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	// Create a test card first
+	var cardID int
+	err := s.DB.QueryRow(`
+		INSERT INTO cards (user_id, title, body)
+		VALUES ($1, 'Test Card', 'Test Content')
+		RETURNING id
+	`, 1).Scan(&cardID)
+	if err != nil {
+		t.Fatalf("Failed to create test card: %v", err)
+	}
+
+	// Create an entity without card_pk
+	_, err = s.DB.Exec(`
+		INSERT INTO entities (id, user_id, name, description, type, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
+		102, 1, "Entity Without Card", "Test description", "concept")
+	if err != nil {
+		t.Fatalf("Failed to create entity without card_pk: %v", err)
+	}
+
+	// Create an entity with card_pk set
+	_, err = s.DB.Exec(`
+		INSERT INTO entities (id, user_id, name, description, type, card_pk, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+		103, 1, "Entity With Card", "Test description", "concept", cardID)
+	if err != nil {
+		t.Fatalf("Failed to create entity with card_pk: %v", err)
+	}
+
+	// Merge entities: entity without card_pk (102) should get card_pk from entity 103
+	err = s.MergeEntities(1, 102, 103)
+	if err != nil {
+		t.Errorf("MergeEntities failed: %v", err)
+	}
+
+	// Verify entity 102 now has the card_pk from entity 103
+	var resultCardPK sql.NullInt64
+	err = s.DB.QueryRow("SELECT card_pk FROM entities WHERE id = $1", 102).Scan(&resultCardPK)
+	if err != nil {
+		t.Errorf("Failed to check entity card_pk: %v", err)
+	}
+	if !resultCardPK.Valid || int(resultCardPK.Int64) != cardID {
+		t.Errorf("Expected card_pk to be %d, got %v", cardID, resultCardPK)
+	}
+
+	// Verify entity 103 is deleted
+	var count int
+	err = s.DB.QueryRow("SELECT COUNT(*) FROM entities WHERE id = $1", 103).Scan(&count)
+	if err != nil {
+		t.Errorf("Failed to check entity deletion: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("Entity 103 was not deleted")
 	}
 }
