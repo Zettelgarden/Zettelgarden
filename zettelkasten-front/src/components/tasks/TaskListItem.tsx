@@ -20,11 +20,13 @@ import { useShortcutContext } from "../../contexts/ShortcutContext";
 interface TaskListItemProps {
   task: Task;
   onTagClick: (tag: string) => void;
+  hideMatrixTags?: boolean;
 }
 
 export function TaskListItem({
   task,
   onTagClick,
+  hideMatrixTags = false,
 }: TaskListItemProps) {
   const [editTitle, setEditTitle] = useState<boolean>(false);
   const [newTitle, setNewTitle] = useState<string>("");
@@ -99,7 +101,7 @@ export function TaskListItem({
             setTask={(task: Task) => { }}
             saveOnChange={true}
           />
-          <TaskTagDisplay task={task} tags={tags} onTagClick={onTagClick} />
+          <TaskTagDisplay task={task} tags={tags} onTagClick={onTagClick} hideMatrixTags={hideMatrixTags} />
         </div>
       </div>
       <div className="task-list-item-card">

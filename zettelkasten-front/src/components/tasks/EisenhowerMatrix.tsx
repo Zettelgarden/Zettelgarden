@@ -130,7 +130,7 @@ export function EisenhowerMatrix({ tasks, onTagClick, onAddTaskWithTags }: Eisen
                                             : "border-transparent"
                                             }`}
                                     >
-                                        <TaskList onTagClick={onTagClick} tasks={[task]} />
+                                        <TaskList onTagClick={onTagClick} tasks={[task]} hideMatrixTags={true} />
                                     </div>
                                 )}
                             </Draggable>
