@@ -175,7 +175,7 @@ export function DashboardPage() {
       <div className="flex flex-col md:flex-row border-t">
         {/* Left Section */}
 
-        <div className="flex-grow md:w-8/12 border-r p-4">
+        <div className="flex-shrink-0 md:w-8/12 border-r p-4 overflow-hidden">
           <a href="/app/search?recent=true">
             <span className="font-bold">Recent Cards</span>
           </a>
@@ -190,7 +190,7 @@ export function DashboardPage() {
         </div>
 
         {/* Right Section */}
-        <div className="flex-shrink-0 md:w-4/12 border-l p-4">
+        <div className="flex-shrink-0 md:w-4/12 border-l p-4 overflow-hidden">
           <div>
             <span className="font-bold">Unsorted Cards</span>
             {isLoadingCards ? (

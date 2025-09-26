@@ -12,11 +12,13 @@ interface CardLinkProps {
 
 export function CardLink({ card, showTitle, showTags = false }: CardLinkProps) {
   return (
-    <Link to={`/app/card/${card.id}`} className="flex items-center flex-wrap gap-2">
-      <CardTag card={card} showTitle={showTitle} />
+    <Link to={`/app/card/${card.id}`} className="flex items-center gap-2 min-w-0 overflow-hidden">
+      <div className="flex-shrink min-w-0">
+        <CardTag card={card} showTitle={showTitle} />
+      </div>
       {/* Display tags */}
       {showTags && card.tags && card.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1 flex-shrink min-w-0">
           {card.tags.map((tag, index) => (
             <span
               key={index}

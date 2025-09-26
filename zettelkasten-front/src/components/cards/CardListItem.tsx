@@ -75,7 +75,7 @@ export function CardListItem({
 
   return (
     <div key={card.id} className="card-item py-2 px-2.5 flex w-full text-sm items-center hover:bg-gray-50 transition-colors duration-150 rounded-lg">
-      <div className="pr-4 flex-grow">
+      <div className="pr-4 flex-1 min-w-0 overflow-hidden">
         <span
           onMouseEnter={handleMouseEnter}
           onMouseLeave={() => setShowHover(false)}
@@ -89,10 +89,10 @@ export function CardListItem({
         </span>
       </div>
 
-      <div className="flex text-xs">{formatDate(card.created_at.toISOString())}</div>
+      <div className="flex text-xs flex-shrink-0 mr-2 w-20">{formatDate(card.created_at.toISOString())}</div>
 
       {/* Hamburger Menu */}
-      <Menu as="div" className="relative">
+      <Menu as="div" className="relative flex-shrink-0 w-6">
         <Menu.Button className="rounded hover:bg-gray-100 transition-colors">
           <svg
             className="w-4 h-4 text-gray-500"
