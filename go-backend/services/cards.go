@@ -555,7 +555,7 @@ func UpdateCard(db *sql.DB, userID int, cardPK int, params models.EditCardParams
 	UpdateBacklinks(db, newCard.ID, backlinks)
 
 	AddTagsFromCard(db, userID, cardPK)
-	UpsertCardToTypesense(newCard)
+	UpsertCardToTypesense(db, newCard)
 
 	return GetFullCard(db, userID, cardPK)
 }
@@ -609,7 +609,7 @@ func CreateCard(db *sql.DB, userID int, params models.EditCardParams) (models.Ca
 	}
 
 	AddTagsFromCard(db, userID, id)
-	UpsertCardToTypesense(newCard)
+	UpsertCardToTypesense(db, newCard)
 	// Create audit event for creation
 	CreateAuditEvent(db, userID, id, "card", "create", nil, newCard)
 

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"go-backend/bootstrap"
 	"go-backend/models"
 	"log"
@@ -10,16 +11,23 @@ import (
 )
 
 // upsertCardToTypesense adds or updates a card document in Typesense
-func UpsertCardToTypesense(card models.Card) {
+func UpsertCardToTypesense(db *sql.DB, card models.Card) {
 	if os.Getenv("ZETTEL_IS_TESTING") == "true" {
 		return
 	}
 
 	// Fetch tags for this card
+	cardTags, err := QueryTagsForCard(db, card.UserID, card.ID)
+	if err != nil {
+		log.Printf("failed to fetch tags for card ID %d: %v", card.ID, err)
+		cardTags = []models.Tag{}
+	}
+
+	// Convert tags to string array for Typesense
 	var tags []string
-	// For now, we'll use an empty array. In a production system, we'd need database access here
-	// or modify the function signature to accept tags as a parameter
-	tags = []string{}
+	for _, tag := range cardTags {
+		tags = append(tags, tag.Name)
+	}
 
 	collectionName := os.Getenv("TYPESENSE_COLLECTION")
 	doc := map[string]interface{}{
@@ -43,8 +51,9 @@ func UpsertCardToTypesense(card models.Card) {
 	}
 
 	client := bootstrap.GetTypesenseClient()
-	_, err := client.Collection(collectionName).
+	result, err := client.Collection(collectionName).
 		Documents().Upsert(context.Background(), doc)
+	log.Printf("upserted %v", result)
 	if err != nil {
 		log.Printf("failed to upsert card ID %d: %v", card.ID, err)
 	}
