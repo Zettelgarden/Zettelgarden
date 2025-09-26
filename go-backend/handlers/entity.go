@@ -179,7 +179,13 @@ func (s *Handler) MergeEntities(userID int, entity1ID int, entity2ID int) error 
 		newDescription = entity1.Description
 	}
 
-	_, err = tx.Exec(`UPDATE entities SET description = $1 WHERE id = $2`, newDescription, entity1.ID)
+	// Preserve card_pk from either entity (prefer entity1, fallback to entity2)
+	cardPK := entity1.CardPK
+	if cardPK == nil {
+		cardPK = entity2.CardPK
+	}
+
+	_, err = tx.Exec(`UPDATE entities SET description = $1, card_pk = $2 WHERE id = $3`, newDescription, cardPK, entity1.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update entity: %w", err)
 	}
@@ -200,14 +206,35 @@ func (s *Handler) MergeEntities(userID int, entity1ID int, entity2ID int) error 
 
 	// Update Typesense index: upsert surviving, delete removed
 	go func() {
+		// Fetch the updated entity1 data after merge
+		var updatedEntity models.Entity
+		err := s.DB.QueryRow(`
+			SELECT id, user_id, name, description, type, created_at, updated_at, card_pk
+			FROM entities
+			WHERE id = $1 AND user_id = $2
+		`, entity1.ID, userID).Scan(
+			&updatedEntity.ID,
+			&updatedEntity.UserID,
+			&updatedEntity.Name,
+			&updatedEntity.Description,
+			&updatedEntity.Type,
+			&updatedEntity.CreatedAt,
+			&updatedEntity.UpdatedAt,
+			&updatedEntity.CardPK,
+		)
+		if err != nil {
+			log.Printf("Error fetching updated entity after merge: %v", err)
+			return
+		}
+
 		var partialCard *models.PartialCard
-		if entity1.CardPK != nil {
-			card, err := s.QueryPartialCardByID(userID, *entity1.CardPK)
+		if updatedEntity.CardPK != nil {
+			card, err := s.QueryPartialCardByID(userID, *updatedEntity.CardPK)
 			if err == nil {
 				partialCard = &card
 			}
 		}
-		s.upsertEntityToTypesense(entity1, partialCard)
+		s.upsertEntityToTypesense(updatedEntity, partialCard)
 		s.deleteEntityTypesense(entity2.ID)
 	}()
 

@@ -289,41 +289,87 @@ type FactWithCard struct {
 	Card      models.PartialCard `json:"card"`
 }
 
-// GetAllFacts returns all facts for the current user
+// GetAllFacts returns all facts for the current user with pagination and filtering
 func (s *Handler) GetAllFacts(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
-	rows, err := s.DB.Query(`
-		SELECT id, user_id, card_pk, fact, created_at, updated_at
-		FROM facts
-		WHERE user_id = $1
-		ORDER BY created_at DESC
-	`, userID)
+	// Parse pagination parameters
+	page := 1
+	perPage := 20
+
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	if perPageStr := r.URL.Query().Get("per_page"); perPageStr != "" {
+		if pp, err := strconv.Atoi(perPageStr); err == nil && pp > 0 && pp <= 100 {
+			perPage = pp
+		}
+	}
+
+	// Parse search/filter parameter
+	searchTerm := r.URL.Query().Get("search")
+
+	offset := (page - 1) * perPage
+
+	// Build query with optional search filter
+	var query string
+	var countQuery string
+	var queryArgs []interface{}
+	var countArgs []interface{}
+
+	if searchTerm != "" {
+		// Filter by fact content or card title
+		query = `
+			SELECT f.id, f.fact, f.created_at, f.updated_at,
+			       c.id, c.card_id, c.user_id, c.title, c.parent_id,
+			       c.created_at, c.updated_at
+			FROM facts f
+			JOIN cards c ON f.card_pk = c.id
+			WHERE f.user_id = $1 AND (f.fact ILIKE $2 OR c.title ILIKE $2)
+			ORDER BY f.created_at DESC
+			LIMIT $3 OFFSET $4
+		`
+		countQuery = `
+			SELECT COUNT(*)
+			FROM facts f
+			JOIN cards c ON f.card_pk = c.id
+			WHERE f.user_id = $1 AND (f.fact ILIKE $2 OR c.title ILIKE $2)
+		`
+		searchPattern := "%" + searchTerm + "%"
+		queryArgs = []interface{}{userID, searchPattern, perPage, offset}
+		countArgs = []interface{}{userID, searchPattern}
+	} else {
+		// No search filter, get all facts
+		query = `
+			SELECT f.id, f.fact, f.created_at, f.updated_at,
+			       c.id, c.card_id, c.user_id, c.title, c.parent_id,
+			       c.created_at, c.updated_at
+			FROM facts f
+			JOIN cards c ON f.card_pk = c.id
+			WHERE f.user_id = $1
+			ORDER BY f.created_at DESC
+			LIMIT $2 OFFSET $3
+		`
+		countQuery = `SELECT COUNT(*) FROM facts WHERE user_id = $1`
+		queryArgs = []interface{}{userID, perPage, offset}
+		countArgs = []interface{}{userID}
+	}
+
+	rows, err := s.DB.Query(query, queryArgs...)
 	if err != nil {
+		log.Printf("Error querying facts: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
-	rows2, err := s.DB.Query(`
-		SELECT f.id, f.fact, f.created_at, f.updated_at,
-		       c.id, c.card_id, c.user_id, c.title, c.parent_id,
-		       c.created_at, c.updated_at
-		FROM facts f
-		JOIN cards c ON f.card_pk = c.id
-		WHERE f.user_id = $1
-		ORDER BY f.created_at DESC
-	`, userID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer rows2.Close()
-
 	var facts []FactWithCard
-	for rows2.Next() {
+	for rows.Next() {
 		var f FactWithCard
-		if err := rows2.Scan(
+		if err := rows.Scan(
 			&f.ID,
 			&f.Fact,
 			&f.CreatedAt,
@@ -336,14 +382,34 @@ func (s *Handler) GetAllFacts(w http.ResponseWriter, r *http.Request) {
 			&f.Card.CreatedAt,
 			&f.Card.UpdatedAt,
 		); err != nil {
+			log.Printf("Error scanning fact: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		facts = append(facts, f)
 	}
 
+	// Get total count for pagination
+	var total int
+	err = s.DB.QueryRow(countQuery, countArgs...).Scan(&total)
+	if err != nil {
+		log.Printf("Error counting facts: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Prepare response
+	response := map[string]interface{}{
+		"facts":       facts,
+		"page":        page,
+		"per_page":    perPage,
+		"total":       total,
+		"total_pages": (total + perPage - 1) / perPage,
+		"search":      searchTerm,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(facts); err != nil {
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

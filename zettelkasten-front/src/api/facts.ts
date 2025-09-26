@@ -4,9 +4,28 @@ import { PartialCard } from "../models/Card";
 
 const base_url = import.meta.env.VITE_URL;
 
-export async function getAllFacts(): Promise<Fact[]> {
+export interface FactsResponse {
+  facts: FactWithCard[];
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+  search?: string;
+}
+
+export async function getAllFacts(page: number = 1, perPage: number = 20, search: string = ""): Promise<FactsResponse> {
   let token = localStorage.getItem("token");
-  const res = await fetch(`${base_url}/facts`, {
+
+  const params = new URLSearchParams({
+    page: page.toString(),
+    per_page: perPage.toString(),
+  });
+
+  if (search.trim()) {
+    params.append("search", search.trim());
+  }
+
+  const res = await fetch(`${base_url}/facts?${params.toString()}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

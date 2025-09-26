@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FactWithCard } from "../models/Fact";
 import { Link } from "react-router-dom";
 import { CardIcon } from "../assets/icons/CardIcon";
-import { getAllFacts, mergeFacts, deleteFact } from "../api/facts";
+import { getAllFacts, mergeFacts, deleteFact, FactsResponse } from "../api/facts";
 import { Dialog } from "@headlessui/react";
 import { HeaderSection } from "../components/Header";
 import { useShortcutContext } from "../contexts/ShortcutContext";
@@ -12,14 +12,16 @@ import { useAuth } from "../contexts/AuthContext";
 export function FactPage() {
     const { hasSubscription } = useAuth();
     const [facts, setFacts] = useState<FactWithCard[]>([]);
-    const [filteredFacts, setFilteredFacts] = useState<FactWithCard[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [filterText, setFilterText] = useState("");
+    const [searchTerm, setSearchTerm] = useState(""); // Actual search term sent to API
     const [sortBy, setSortBy] = useState<"created_at" | "fact">("created_at");
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(20);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
     const [selectedFacts, setSelectedFacts] = useState<number[]>([]);
     const [selectionMode, setSelectionMode] = useState(false);
 
@@ -37,16 +39,30 @@ export function FactPage() {
         setShowDeleteConfirm(true);
     };
 
+    const fetchFacts = async (page: number = currentPage, search: string = searchTerm) => {
+        setLoading(true);
+        try {
+            const data = await getAllFacts(page, itemsPerPage, search);
+            setFacts(data.facts);
+            setCurrentPage(data.page);
+            setTotalPages(data.total_pages);
+            setTotalItems(data.total);
+            setError(null);
+        } catch (err) {
+            setError("Failed to load facts");
+            console.error("Error loading facts:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleConfirmDelete = async () => {
         setIsDeleting(true);
         try {
             for (let id of selectedFacts) {
                 await deleteFact(id);
             }
-            const data = await getAllFacts();
-            const enrichedData = data.map((f: any) => ({ ...f, card: f.card ?? null })) as FactWithCard[];
-            setFacts(enrichedData);
-            setFilteredFacts(enrichedData);
+            await fetchFacts(currentPage, searchTerm);
             setSelectedFacts([]);
         } catch (err) {
             setError("Failed to delete facts");
@@ -74,14 +90,7 @@ export function FactPage() {
                 await mergeFacts(baseFact, selectedFacts[i]);
             }
             setSelectedFacts([]);
-            // reload all facts
-            const data = await getAllFacts();
-            const enrichedData = data.map((f: any) => ({
-                ...f,
-                card: f.card ?? null,
-            })) as FactWithCard[];
-            setFacts(enrichedData);
-            setFilteredFacts(enrichedData);
+            await fetchFacts(currentPage, searchTerm);
         } catch (err) {
             setError("Failed to merge facts");
             console.error("Error merging facts:", err);
@@ -90,53 +99,35 @@ export function FactPage() {
         }
     };
 
+    const handleSearch = () => {
+        setSearchTerm(filterText);
+        setCurrentPage(1);
+    };
+
+    const handleKeyPress = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            handleSearch();
+        }
+    };
+
     useEffect(() => {
         setDocumentTitle("Facts");
-        getAllFacts()
-            .then((data) => {
-                // Cast plain Fact[] to FactWithCard[] (backend may not always attach a card)
-                const enrichedData = data.map((f: any) => ({
-                    ...f,
-                    card: f.card ?? null,
-                })) as FactWithCard[];
-                setFacts(enrichedData);
-                setFilteredFacts(enrichedData);
-                setLoading(false);
-            })
-            .catch((err) => {
-                setError("Failed to load facts");
-                setLoading(false);
-                console.error(err);
-            });
+        fetchFacts(1, "");
     }, []);
 
     useEffect(() => {
-        const search = filterText.toLowerCase();
-        setFilteredFacts(
-            facts.filter(
-                (f) =>
-                    f.fact.toLowerCase().includes(search)
-            )
-        );
+        fetchFacts(currentPage, searchTerm);
+    }, [currentPage]);
+
+    useEffect(() => {
+        // Fetch when searchTerm changes (triggered by Enter press)
         setCurrentPage(1);
-    }, [filterText, facts]);
+        fetchFacts(1, searchTerm);
+    }, [searchTerm]);
 
-    const sortedFacts = [...filteredFacts].sort((a, b) => {
-        if (sortBy === "fact") {
-            return sortDirection === "asc"
-                ? a.fact.localeCompare(b.fact)
-                : b.fact.localeCompare(a.fact);
-        } else {
-            const aDate = new Date(a.created_at).getTime();
-            const bDate = new Date(b.created_at).getTime();
-            return sortDirection === "asc" ? aDate - bDate : bDate - aDate;
-        }
-    });
-
-    const indexOfLast = currentPage * itemsPerPage;
-    const indexOfFirst = indexOfLast - itemsPerPage;
-    const currentFacts = sortedFacts.slice(indexOfFirst, indexOfLast);
-    const totalPages = Math.ceil(filteredFacts.length / itemsPerPage);
+    // For now, removing client-side sorting and filtering
+    // These will be implemented as server-side features later
+    const currentFacts = facts;
 
     if (loading) return <div className="p-4">Loading facts...</div>;
     if (error) return <div className="p-4 text-red-600">{error}</div>;
@@ -212,12 +203,20 @@ export function FactPage() {
                 )}
                 <input
                     type="text"
-                    placeholder="Filter facts..."
+                    placeholder="Search facts... (Press Enter to search)"
                     value={filterText}
                     onChange={(e) => setFilterText(e.target.value)}
+                    onKeyPress={handleKeyPress}
                     className="px-3 py-2 border rounded w-64"
                 />
-                <select
+                <button
+                    onClick={handleSearch}
+                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm font-medium"
+                >
+                    Search
+                </button>
+                {/* Sorting temporarily disabled - will implement server-side sorting later */}
+                {/* <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
                     className="px-3 py-2 border rounded"
@@ -232,7 +231,7 @@ export function FactPage() {
                     className="px-3 py-2 border rounded"
                 >
                     {sortDirection === "asc" ? "↑" : "↓"}
-                </button>
+                </button> */}
             </div>
 
             <table className="min-w-full border divide-y divide-gray-200">
@@ -243,12 +242,12 @@ export function FactPage() {
                                 <input
                                     type="checkbox"
                                     checked={
-                                        selectedFacts.length === currentFacts.length &&
-                                        currentFacts.length > 0
+                                        selectedFacts.length === facts.length &&
+                                        facts.length > 0
                                     }
                                     onChange={(e) => {
                                         if (e.target.checked) {
-                                            setSelectedFacts(currentFacts.map((f) => f.id));
+                                            setSelectedFacts(facts.map((f) => f.id));
                                         } else {
                                             setSelectedFacts([]);
                                         }
@@ -268,7 +267,7 @@ export function FactPage() {
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                    {currentFacts.map((f) => {
+                    {facts.map((f) => {
                         const isSelected = selectedFacts.includes(f.id);
                         return (
                             <tr
@@ -315,11 +314,11 @@ export function FactPage() {
                 </tbody>
             </table>
 
-            {filteredFacts.length === 0 && (
+            {facts.length === 0 && !loading && (
                 <div className="text-center text-gray-500 mt-8">No facts found</div>
             )}
 
-            {filteredFacts.length > 0 && (
+            {totalItems > 0 && (
                 <div className="flex justify-center gap-4 mt-4">
                     <button
                         onClick={() => setCurrentPage(currentPage - 1)}
@@ -329,7 +328,7 @@ export function FactPage() {
                         Previous
                     </button>
                     <span className="flex items-center">
-                        Page {currentPage} of {totalPages}
+                        Page {currentPage} of {totalPages} ({totalItems} total facts)
                     </span>
                     <button
                         onClick={() => setCurrentPage(currentPage + 1)}

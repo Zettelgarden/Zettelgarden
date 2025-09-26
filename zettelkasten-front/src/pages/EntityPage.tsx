@@ -32,6 +32,7 @@ export function EntityPage() {
   const initial = getInitialState();
 
   const [filterText, setFilterText] = useState(initial.filterText || "");
+  const [searchTerm, setSearchTerm] = useState(initial.filterText || ""); // Actual search term sent to API
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"name" | "cards" | "created_at">(initial.sortBy || "name");
@@ -53,7 +54,7 @@ export function EntityPage() {
     setSelectedEntity,
   } = useShortcutContext();
 
-  const loadEntities = (page: number = currentPage, search: string = filterText) => {
+  const loadEntities = (page: number = currentPage, search: string = searchTerm) => {
     setLoading(true);
     const params: EntityQueryParams = {
       page,
@@ -80,6 +81,17 @@ export function EntityPage() {
       });
   };
 
+  const handleSearch = () => {
+    setSearchTerm(filterText);
+    setCurrentPage(1);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
   useEffect(() => {
     setDocumentTitle("Entities");
     loadEntities();
@@ -97,9 +109,9 @@ export function EntityPage() {
   useEffect(() => {
     // Skip persisting until after the initial load to prevent overwriting saved state with defaults
     if (loading) return;
-    const stateToSave = { filterText, sortBy, sortDirection, currentPage };
+    const stateToSave = { filterText: searchTerm, sortBy, sortDirection, currentPage };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
-  }, [filterText, sortBy, sortDirection, currentPage, loading]);
+  }, [searchTerm, sortBy, sortDirection, currentPage, loading]);
 
   // Persist scroll position
   useEffect(() => {
@@ -126,17 +138,13 @@ export function EntityPage() {
     }
   }, [sortBy, sortDirection]);
 
-  // Debounced search effect
+  // Search effect - triggered when searchTerm changes (Enter press)
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (!loading) { // Don't search on initial load
-        loadEntities(1, filterText); // Reset to first page when searching
-        setCurrentPage(1);
-      }
-    }, 300); // 300ms debounce
-
-    return () => clearTimeout(timeoutId);
-  }, [filterText]);
+    if (!loading) { // Don't search on initial load
+      loadEntities(1, searchTerm); // Reset to first page when searching
+      setCurrentPage(1);
+    }
+  }, [searchTerm]);
 
   const handleEntityClick = (entity: Entity, event: React.MouseEvent) => {
     if (selectionMode || event.ctrlKey || event.metaKey) {
@@ -219,6 +227,7 @@ export function EntityPage() {
 
   const handleClearFilters = () => {
     setFilterText("");
+    setSearchTerm("");
     setSortBy("name");
     setSortDirection("asc");
     setCurrentPage(1);
@@ -305,6 +314,8 @@ export function EntityPage() {
           setSortDirection(newDirection);
           // Page change and reload will happen in useEffect
         }}
+        onSearch={handleSearch}
+        onKeyPress={handleKeyPress}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -366,7 +377,7 @@ export function EntityPage() {
 
       {entities.length === 0 && !loading && (
         <div className="text-center text-gray-500 mt-8">
-          {filterText ? "No matching entities" : "No entities found"}
+          {searchTerm ? "No matching entities" : "No entities found"}
         </div>
       )}
 
