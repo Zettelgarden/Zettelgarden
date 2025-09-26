@@ -836,6 +836,89 @@ Respond with ONLY the suggested title, no explanation or additional text.`, body
 	return title, nil
 }
 
+// GetUnsortedCardsRoute returns paginated unsorted cards (cards with empty card_id)
+func (s *Handler) GetUnsortedCardsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Parse pagination parameters
+	page := 1
+	perPage := 10
+
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	if perPageStr := r.URL.Query().Get("per_page"); perPageStr != "" {
+		if pp, err := strconv.Atoi(perPageStr); err == nil && pp > 0 && pp <= 100 {
+			perPage = pp
+		}
+	}
+
+	offset := (page - 1) * perPage
+
+	// Query for unsorted cards (card_id = '')
+	query := `
+	SELECT id, card_id, user_id, title, body, link, parent_id, created_at, updated_at
+	FROM cards
+	WHERE user_id = $1 AND is_deleted = FALSE AND card_id = ''
+	ORDER BY created_at DESC
+	LIMIT $2 OFFSET $3
+	`
+
+	rows, err := s.DB.Query(query, userID, perPage, offset)
+	if err != nil {
+		log.Printf("Error querying unsorted cards: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var unsortedCards []models.Card
+	for rows.Next() {
+		var card models.Card
+		err := rows.Scan(
+			&card.ID,
+			&card.CardID,
+			&card.UserID,
+			&card.Title,
+			&card.Body,
+			&card.Link,
+			&card.ParentID,
+			&card.CreatedAt,
+			&card.UpdatedAt,
+		)
+		if err != nil {
+			log.Printf("Error scanning unsorted card: %v", err)
+			continue
+		}
+		unsortedCards = append(unsortedCards, card)
+	}
+
+	// Get total count for pagination
+	var total int
+	countQuery := `SELECT COUNT(*) FROM cards WHERE user_id = $1 AND is_deleted = FALSE AND card_id = ''`
+	err = s.DB.QueryRow(countQuery, userID).Scan(&total)
+	if err != nil {
+		log.Printf("Error counting unsorted cards: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Prepare response
+	response := map[string]interface{}{
+		"cards":       unsortedCards,
+		"page":        page,
+		"per_page":    perPage,
+		"total":       total,
+		"total_pages": (total + perPage - 1) / perPage,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 type ParseURLRequest struct {
 	URL string `json:"url"`
 }

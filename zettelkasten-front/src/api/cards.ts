@@ -572,3 +572,49 @@ export function suggestCardTitle(body: string): Promise<string> {
       }
     });
 }
+
+interface UnsortedCardsResponse {
+  cards: PartialCard[];
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+}
+
+/**
+ * Fetches unsorted cards (cards with empty card_id) from the backend
+ * @param page Page number (default: 1)
+ * @param perPage Number of cards per page (default: 10)
+ * @returns A promise that resolves to the unsorted cards response
+ */
+export function getUnsortedCards(page = 1, perPage = 10): Promise<UnsortedCardsResponse> {
+  const url = `${base_url}/cards/unsorted?page=${page}&per_page=${perPage}`;
+  let token = localStorage.getItem("token");
+
+  return fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+    .then(checkStatus)
+    .then((response) => {
+      if (response) {
+        return response.json().then((data: UnsortedCardsResponse) => {
+          // Convert date strings to Date objects
+          const cards = data.cards.map((card) => ({
+            ...card,
+            created_at: new Date(card.created_at),
+            updated_at: new Date(card.updated_at),
+          }));
+
+          return {
+            ...data,
+            cards,
+          };
+        });
+      } else {
+        return Promise.reject(new Error("Response is undefined"));
+      }
+    });
+}

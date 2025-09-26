@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { CardList } from "../components/cards/CardList";
 import { setDocumentTitle } from "../utils/title";
 import { useAuth } from "../contexts/AuthContext";
-import { semanticSearchCardsPaginated } from "../api/cards";
+import { semanticSearchCardsPaginated, getUnsortedCards } from "../api/cards";
 import { PartialCard } from "../models/Card";
 import { ChatInput } from "../components/chat/ChatInput";
 
@@ -50,38 +50,9 @@ export function DashboardPage() {
         }));
         setRecentCards(recentCards);
 
-        // Fetch unsorted cards (cards with empty card_id)
-        // We'll need to fetch a larger set and filter, or create a specific API endpoint
-        // For now, let's fetch more cards and filter client-side, but still paginated
-        const unsortedResponse = await semanticSearchCardsPaginated(
-          "", // empty search term
-          false, // fullText
-          false, // showEntities
-          false, // showFacts
-          "sortCreatedNewOld", // sortBy recent
-          "classic", // searchType
-          false, // rerank
-          1, // page
-          50 // perPage - get more to filter for unsorted
-        );
-
-        const allCards: PartialCard[] = unsortedResponse.results.map((result) => ({
-          id: Number(result.metadata?.id) || 0,
-          card_id: result.metadata?.card_id || "",
-          title: result.title,
-          body: result.preview || "",
-          tags: result.tags || [],
-          is_deleted: false,
-          created_at: new Date(result.created_at),
-          updated_at: new Date(result.updated_at),
-          parent_id: result.metadata?.parent_id || 0,
-          user_id: 0,
-          link: "",
-          parent: null,
-        }));
-
-        const unsorted = allCards.filter((card) => card.card_id === "").slice(0, 10);
-        setUnsortedCards(unsorted);
+        // Fetch unsorted cards using the dedicated API endpoint
+        const unsortedResponse = await getUnsortedCards(1, 10);
+        setUnsortedCards(unsortedResponse.cards);
 
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
