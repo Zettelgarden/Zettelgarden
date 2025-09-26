@@ -11,6 +11,7 @@ import { FactWithCard } from "../../models/Fact";
 import { getEntityFacts, getSimilarEntities, mergeEntities, updateEntity, UpdateEntityRequest, addEntityToCard } from "../../api/entities";
 import { useShortcutContext } from "../../contexts/ShortcutContext";
 import { CardIdDiscoveryDialog } from "../cards/CardIdDiscoveryDialog";
+import { CreateCardDialog } from "../cards/CreateCardDialog";
 
 interface EntityDialogProps {
     onClose: () => void;
@@ -33,13 +34,8 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
     const [mergeError, setMergeError] = useState<string | null>(null);
     const [mergeDirection, setMergeDirection] = useState<'into-current' | 'from-current'>('into-current');
     const [showConvertDialog, setShowConvertDialog] = useState(false);
-    const [isConverting, setIsConverting] = useState(false);
-    const [convertError, setConvertError] = useState<string | null>(null);
     const [cardTitle, setCardTitle] = useState("");
     const [cardBody, setCardBody] = useState("");
-    const [cardId, setCardId] = useState("");
-    const [showCardIdDiscovery, setShowCardIdDiscovery] = useState(false);
-    const [suggestingTitle, setSuggestingTitle] = useState(false);
 
     const navigate = useNavigate();
 
@@ -116,88 +112,48 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
             : selectedEntity.name;
         setCardTitle(truncatedTitle);
         setCardBody(selectedEntity.description || selectedEntity.name);
-        setCardId("");
         setShowConvertDialog(true);
-        setConvertError(null);
     };
 
-    const handleConvertToCard = async () => {
+    const handleCardCreated = async (newCardId: number) => {
         if (!selectedEntity) return;
-        setIsConverting(true);
-        setConvertError(null);
 
         try {
-            // Create a new card with the provided details
-            const newCard = await saveNewCard({
-                ...defaultCard,
-                card_id: cardId,
-                title: cardTitle,
-                body: cardBody,
-                process_entities_and_facts: true, // Enable entity processing
-            });
-
-            if ("error" in newCard) {
-                throw new Error("Failed to create card");
-            }
-
             // Update the entity to link it to the new card
             const updateRequest: UpdateEntityRequest = {
                 name: selectedEntity.name,
                 description: selectedEntity.description,
                 type: selectedEntity.type,
-                card_pk: newCard.id,
+                card_pk: newCardId,
             };
 
             await updateEntity(selectedEntity.id, updateRequest);
 
             // Link the entity to the card
-            await addEntityToCard(selectedEntity.id, newCard.id);
+            await addEntityToCard(selectedEntity.id, newCardId);
 
             // Update the selectedEntity to reflect the new card link
             setSelectedEntity({
                 ...selectedEntity,
-                card_pk: newCard.id,
+                card_pk: newCardId,
                 card: {
-                    id: newCard.id,
-                    card_id: newCard.card_id,
-                    title: newCard.title,
-                    user_id: newCard.user_id,
-                    parent_id: newCard.parent_id,
-                    created_at: newCard.created_at,
-                    updated_at: newCard.updated_at,
-                    tags: newCard.tags,
+                    id: newCardId,
+                    card_id: "", // Will be filled by the actual card data
+                    title: cardTitle,
+                    user_id: 0,
+                    parent_id: 0,
+                    created_at: new Date(),
+                    updated_at: new Date(),
+                    tags: [],
                 },
             });
 
-            setShowConvertDialog(false);
-            navigate(`/app/card/${newCard.id}`);
+            navigate(`/app/card/${newCardId}`);
         } catch (err) {
             console.error(err);
-            setConvertError("Failed to convert entity to card");
-        } finally {
-            setIsConverting(false);
         }
     };
 
-    const handleSuggestTitle = async () => {
-        if (!cardBody.trim()) {
-            setConvertError("Please add some content to the card body before suggesting a title.");
-            return;
-        }
-
-        setSuggestingTitle(true);
-        setConvertError(null);
-
-        try {
-            const suggestedTitle = await suggestCardTitle(cardBody);
-            setCardTitle(suggestedTitle);
-        } catch (error: any) {
-            console.error("Error suggesting title:", error);
-            setConvertError(error.message || "Failed to suggest title. Please try again.");
-        } finally {
-            setSuggestingTitle(false);
-        }
-    };
 
     useEffect(() => {
         if (showEntityDialog && selectedEntity) {
@@ -408,8 +364,7 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
                             {selectedEntity && !selectedEntity.card_pk && (
                                 <Button
                                     onClick={handleTurnIntoCard}
-                                    disabled={isConverting}
-                                    className="bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="bg-green-500 text-white hover:bg-green-600"
                                 >
                                     Create Card
                                 </Button>
@@ -470,102 +425,15 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
                     </Dialog.Panel>
                 </Dialog>
             )}
-            {showConvertDialog && (
-                <Dialog
-                    open={showConvertDialog}
-                    onClose={() => setShowConvertDialog(false)}
-                    className="fixed inset-0 z-50 flex items-center justify-center"
-                >
-                    <div className="fixed inset-0 bg-black bg-opacity-30" aria-hidden="true" />
-                    <Dialog.Panel className="bg-white p-6 rounded-lg max-w-2xl mx-auto relative w-full">
-                        <Dialog.Title className="text-lg font-semibold mb-4">
-                            Convert Entity to Card
-                        </Dialog.Title>
-                        <div className="space-y-4 mb-6">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Card ID
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        value={cardId}
-                                        onChange={(e) => setCardId(e.target.value)}
-                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-24"
-                                        placeholder="Enter card ID..."
-                                    />
-                                    <button
-                                        onClick={() => setShowCardIdDiscovery(true)}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-blue-600 hover:text-blue-800"
-                                        type="button"
-                                    >
-                                        Discover ID
-                                    </button>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Card Title
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        value={cardTitle}
-                                        onChange={(e) => setCardTitle(e.target.value)}
-                                        className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-24"
-                                        placeholder="Enter card title..."
-                                    />
-                                    <button
-                                        onClick={handleSuggestTitle}
-                                        disabled={suggestingTitle || !cardBody.trim()}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                        type="button"
-                                    >
-                                        {suggestingTitle ? "Suggesting..." : "Suggest"}
-                                    </button>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Card Content
-                                </label>
-                                <textarea
-                                    value={cardBody}
-                                    onChange={(e) => setCardBody(e.target.value)}
-                                    className="w-full h-32 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Enter card content..."
-                                />
-                            </div>
-                        </div>
-                        {convertError && <p className="text-red-600 mb-4">{convertError}</p>}
-                        <div className="flex justify-end gap-4">
-                            <button
-                                onClick={() => setShowConvertDialog(false)}
-                                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                                disabled={isConverting}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleConvertToCard}
-                                disabled={isConverting || !cardTitle.trim() || !cardBody.trim()}
-                                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-                            >
-                                {isConverting ? "Converting..." : "Create Card"}
-                            </button>
-                        </div>
-                    </Dialog.Panel>
-                </Dialog>
-            )}
-            {showCardIdDiscovery && (
-                <CardIdDiscoveryDialog
-                    onClose={() => setShowCardIdDiscovery(false)}
-                    onSelectId={(selectedCardId) => {
-                        setCardId(selectedCardId);
-                        setShowCardIdDiscovery(false);
-                    }}
-                />
-            )}
+            <CreateCardDialog
+                isOpen={showConvertDialog}
+                onClose={() => setShowConvertDialog(false)}
+                onCardCreated={handleCardCreated}
+                title="Convert Entity to Card"
+                initialTitle={cardTitle}
+                initialBody={cardBody}
+                processEntitiesAndFacts={true}
+            />
         </>
     );
 }

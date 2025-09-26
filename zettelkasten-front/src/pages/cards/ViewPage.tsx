@@ -364,6 +364,26 @@ export function ViewPage({ cardId }: ViewPageProps) {
                         </button>
                       )}
                     </Menu.Item>
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          onClick={async () => {
+                            if (viewingCard) {
+                              const updatedCard = {
+                                ...viewingCard,
+                                process_entities_and_facts: true
+                              };
+                              await saveExistingCard(updatedCard);
+                              fetchCard(id!);
+                            }
+                          }}
+                          className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                            } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                        >
+                          Resummarize Card
+                        </button>
+                      )}
+                    </Menu.Item>
                     {viewingCard.card_id === "" && (
                       <Menu.Item>
                         {({ active }) => (

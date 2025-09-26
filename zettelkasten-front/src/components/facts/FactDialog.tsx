@@ -15,6 +15,7 @@ import { PartialCard } from "../../models/Card";
 import { useShortcutContext } from "../../contexts/ShortcutContext";
 import { useNavigate } from "react-router-dom";
 import { CardIdDiscoveryDialog } from "../cards/CardIdDiscoveryDialog";
+import { CreateCardDialog } from "../cards/CreateCardDialog";
 
 interface FactDialogProps {
     onClose: () => void;
@@ -108,13 +109,8 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
     const [editedFact, setEditedFact] = useState("");
 
     const [showConvertDialog, setShowConvertDialog] = useState(false);
-    const [isConverting, setIsConverting] = useState(false);
-    const [convertError, setConvertError] = useState<string | null>(null);
     const [cardTitle, setCardTitle] = useState("");
     const [cardBody, setCardBody] = useState("");
-    const [cardId, setCardId] = useState("");
-    const [showCardIdDiscovery, setShowCardIdDiscovery] = useState(false);
-    const [suggestingTitle, setSuggestingTitle] = useState(false);
 
     const navigate = useNavigate();
 
@@ -131,62 +127,22 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
             : selectedFact.fact;
         setCardTitle(truncatedTitle);
         setCardBody(selectedFact.fact);
-        setCardId("");
         setShowConvertDialog(true);
-        setConvertError(null);
     }
 
-    async function handleSuggestTitle() {
-        if (!cardBody.trim()) {
-            setConvertError("Please add some content to the card body before suggesting a title.");
-            return;
-        }
 
-        setSuggestingTitle(true);
-        setConvertError(null);
-
-        try {
-            const suggestedTitle = await suggestCardTitle(cardBody);
-            setCardTitle(suggestedTitle);
-        } catch (error: any) {
-            console.error("Error suggesting title:", error);
-            setConvertError(error.message || "Failed to suggest title. Please try again.");
-        } finally {
-            setSuggestingTitle(false);
-        }
-    }
-
-    async function handleConvertToCard() {
+    async function handleCardCreated(newCardId: number) {
         if (!selectedFact) return;
-        setIsConverting(true);
-        setConvertError(null);
 
         try {
-
-            const newCard = await saveNewCard({
-                ...defaultCard,
-                card_id: cardId,
-                title: cardTitle,
-                body: cardBody,
-                process_entities_and_facts: false,
-            });
-
-            if ("error" in newCard) {
-                throw new Error("Failed to create card");
-            }
-
-            await linkFactToCard(selectedFact.id, newCard.id);
+            await linkFactToCard(selectedFact.id, newCardId);
 
             const updatedCards = await getFactCards(selectedFact.id);
             setCards(updatedCards);
 
-            setShowConvertDialog(false);
-            navigate(`/app/card/${newCard.id}`);
+            navigate(`/app/card/${newCardId}`);
         } catch (err) {
             console.error(err);
-            setConvertError("Failed to convert fact to card");
-        } finally {
-            setIsConverting(false);
         }
     }
 
@@ -516,102 +472,15 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                     </Dialog.Panel>
                 </Dialog>
             )}
-            {showConvertDialog && (
-                <Dialog
-                    open={showConvertDialog}
-                    onClose={() => setShowConvertDialog(false)}
-                    className="fixed inset-0 z-50 flex items-center justify-center"
-                >
-                    <div className="fixed inset-0 bg-black bg-opacity-30" aria-hidden="true" />
-                    <Dialog.Panel className="bg-white p-6 rounded-lg max-w-2xl mx-auto relative w-full">
-                        <Dialog.Title className="text-lg font-semibold mb-4">
-                            Convert Fact to Card
-                        </Dialog.Title>
-                        <div className="space-y-4 mb-6">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Card ID
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        value={cardId}
-                                        onChange={(e) => setCardId(e.target.value)}
-                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-24"
-                                        placeholder="Enter card ID..."
-                                    />
-                                    <button
-                                        onClick={() => setShowCardIdDiscovery(true)}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-blue-600 hover:text-blue-800"
-                                        type="button"
-                                    >
-                                        Discover ID
-                                    </button>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Card Title
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        value={cardTitle}
-                                        onChange={(e) => setCardTitle(e.target.value)}
-                                        className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-24"
-                                        placeholder="Enter card title..."
-                                    />
-                                    <button
-                                        onClick={handleSuggestTitle}
-                                        disabled={suggestingTitle || !cardBody.trim()}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                        type="button"
-                                    >
-                                        {suggestingTitle ? "Suggesting..." : "Suggest"}
-                                    </button>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Card Content
-                                </label>
-                                <textarea
-                                    value={cardBody}
-                                    onChange={(e) => setCardBody(e.target.value)}
-                                    className="w-full h-32 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Enter card content..."
-                                />
-                            </div>
-                        </div>
-                        {convertError && <p className="text-red-600 mb-4">{convertError}</p>}
-                        <div className="flex justify-end gap-4">
-                            <button
-                                onClick={() => setShowConvertDialog(false)}
-                                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                                disabled={isConverting}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleConvertToCard}
-                                disabled={isConverting || !cardTitle.trim() || !cardBody.trim()}
-                                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-                            >
-                                {isConverting ? "Converting..." : "Create Card"}
-                            </button>
-                        </div>
-                    </Dialog.Panel>
-                </Dialog>
-            )}
-            {showCardIdDiscovery && (
-                <CardIdDiscoveryDialog
-                    onClose={() => setShowCardIdDiscovery(false)}
-                    onSelectId={(selectedCardId) => {
-                        setCardId(selectedCardId);
-                        setShowCardIdDiscovery(false);
-                    }}
-                />
-            )}
+            <CreateCardDialog
+                isOpen={showConvertDialog}
+                onClose={() => setShowConvertDialog(false)}
+                onCardCreated={handleCardCreated}
+                title="Convert Fact to Card"
+                initialTitle={cardTitle}
+                initialBody={cardBody}
+                processEntitiesAndFacts={false}
+            />
         </Dialog>
     );
 }
