@@ -1,5 +1,6 @@
 import React, { useState, useEffect, ChangeEvent, KeyboardEvent } from "react";
 import { Menu } from '@headlessui/react';
+import { useNavigate, useLocation } from "react-router-dom";
 import { semanticSearchCards, semanticSearchCardsPaginated } from "../../api/cards";
 import { fetchUserTags } from "../../api/tags";
 import { SearchResult } from "../../models/Card";
@@ -34,6 +35,8 @@ export function SearchPage({
   searchConfig,
   setSearchConfig,
 }: SearchPageProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
   const { tags } = useTagContext();
@@ -46,6 +49,7 @@ export function SearchPage({
   const [totalPages, setTotalPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [perPage, setPerPage] = useState<number>(20);
+  const [isInitializing, setIsInitializing] = useState<boolean>(true);
   const {
     showEntityDialog,
     setShowEntityDialog,
@@ -55,6 +59,41 @@ export function SearchPage({
 
   const params = new URLSearchParams(location.search);
   const starredId = params.get("starred");
+
+  // Function to update URL with current search state
+  const updateURL = (term: string, config: SearchConfig, page: number = 1) => {
+    const params = new URLSearchParams();
+
+    if (term.trim()) {
+      params.set('term', term);
+    }
+
+    // Only add non-default search config parameters to keep URL clean
+    if (config.searchType !== 'classic') {
+      params.set('searchType', config.searchType);
+    }
+    if (config.showEntities) {
+      params.set('showEntities', 'true');
+    }
+    if (config.showFacts) {
+      params.set('showFacts', 'true');
+    }
+    if (!config.showCards) {
+      params.set('showCards', 'false');
+    }
+    if (config.fullText) {
+      params.set('fullText', 'true');
+    }
+    if (config.onlyParentCards) {
+      params.set('onlyParentCards', 'true');
+    }
+    if (page > 1) {
+      params.set('page', page.toString());
+    }
+
+    const newURL = params.toString() ? `${location.pathname}?${params.toString()}` : location.pathname;
+    navigate(newURL, { replace: true });
+  };
 
   function handleSearchUpdate(e: ChangeEvent<HTMLInputElement>) {
     setSearchTerm(e.target.value);
@@ -99,9 +138,15 @@ export function SearchPage({
         setIsLoading(false);
       }
     }
+
+    // Update URL to persist search state (but not during initialization)
+    if (!isInitializing) {
+      updateURL(searchTerm, config, page);
+    }
   }
 
   useEffect(() => {
+    setIsInitializing(true);
     const initializeSearch = async () => {
       setDocumentTitle("Search")
       const params = new URLSearchParams(location.search);
@@ -135,24 +180,41 @@ export function SearchPage({
       }
 
       // Regular search initialization if not a starred search
+      // Read search configuration from URL parameters
+      const page = parseInt(params.get("page") || "1", 10);
+      const urlConfig = {
+        ...searchConfig,
+        searchType: params.get("searchType") || "classic",
+        showEntities: params.get("showEntities") === "true",
+        showFacts: params.get("showFacts") === "true",
+        showCards: params.get("showCards") !== "false", // default true
+        fullText: params.get("fullText") === "true",
+        onlyParentCards: params.get("onlyParentCards") === "true",
+        useClassicSearch: params.get("searchType") !== "typesense"
+      };
+
       if (recent !== null) {
-        let config = { ...searchConfig, useClassicSearch: true }
+        const config = { ...urlConfig, useClassicSearch: true };
         setSearchConfig(config);
         setSearchTerm("");
-        await handleSearch("", config);
+        setCurrentPage(page);
+        await handleSearch("", config, page);
       } else if (term) {
-        let config = { ...searchConfig, useClassicSearch: true }
-        setSearchConfig(config);
+        setSearchConfig(urlConfig);
         setSearchTerm(term);
-        await handleSearch(term, config);
+        setCurrentPage(page);
+        await handleSearch(term, urlConfig, page);
       } else {
-        let config = { ...searchConfig, sortBy: "sortByRanking" }
+        const config = { ...urlConfig, sortBy: "sortByRanking" };
         setSearchConfig(config);
-        await handleSearch("", config);
+        setCurrentPage(page);
+        await handleSearch("", config, page);
       }
     };
 
-    initializeSearch();
+    initializeSearch().finally(() => {
+      setIsInitializing(false);
+    });
   }, [location.search]); // Re-run when the URL search parameters change
 
   function handleSortChange(e: ChangeEvent<HTMLSelectElement>) {
