@@ -1,57 +1,45 @@
-import React, { useState, useEffect, useRef } from "react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import React, { useState, useEffect } from "react";
 import {
   ChatConversation,
-  ChatMessage,
-  createConversation,
   getConversations,
-  getConversation,
-  sendMessage as apiSendMessage,
   deleteConversation as apiDeleteConversation,
   starConversation as apiStarConversation,
-  getConversationStatus,
   regenerateMessage as apiRegenerateMessage,
 } from "../api/chat";
 import { setDocumentTitle } from "../utils/title";
 import { Button } from "../components/Button";
 import { useChatContext } from "../contexts/ChatContext";
-import { parseMessageContent } from "../utils/chatUtils";
-import { CardsSection } from "../components/chat/CardsSection";
-import { TasksSection } from "../components/chat/TasksSection";
-import { ChatInput } from "../components/chat/ChatInput";
+import { ChatInterface } from "../components/chat/ChatInterface";
 import { InstructionsMenu } from "../components/chat/InstructionsMenu";
 import { TaskDialog } from "../components/tasks/TaskDialog";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useChat } from "../hooks/useChat";
 
 interface ChatPageProps { }
 
 export function ChatPage({ }: ChatPageProps) {
+  // ChatPage-specific state
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
-  const [currentConversation, setCurrentConversation] = useState<ChatConversation | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [messageInput, setMessageInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedModel, setSelectedModel] = useState(() => {
-    return localStorage.getItem('chatSelectedModel') || "google/gemini-2.5-flash";
-  });
-  const [collapsedToolResults, setCollapsedToolResults] = useState<Set<string>>(new Set());
   const [showAllRecent, setShowAllRecent] = useState(false);
-  const [referencedCards, setReferencedCards] = useState<string[]>([]);
-  const [isPolling, setIsPolling] = useState(false);
   const [showInstructionsMenu, setShowInstructionsMenu] = useState(false);
-  const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const modelDropdownRef = useRef<HTMLDivElement>(null);
+
   const { conversationId, setConversationId } = useChatContext();
   const { hasSubscription } = useAuth();
+
+  // Use the shared chat hook
+  const chatHook = useChat({
+    onConversationChange: (conversation) => {
+      // This callback is called whenever the current conversation changes
+      // We can use it to sync the conversation ID context
+      if (conversation) {
+        setConversationId(conversation.id);
+      }
+    }
+  });
 
   useEffect(() => {
     setDocumentTitle("Chat");
@@ -78,141 +66,26 @@ export function ChatPage({ }: ChatPageProps) {
 
   const createNewConversationWithMessage = async (message: string, referencedCards?: string[]) => {
     try {
-      setIsLoading(true);
-      const newConv = await createConversation({
-        title: "",
-        model: selectedModel
-      });
+      const newConv = await chatHook.createNewConversation("", chatHook.selectedModel);
 
       setConversations(prev => [newConv, ...prev]);
-      setCurrentConversation(newConv);
-      setMessages([]);
-      setConversationId(newConv.id);
-      setError(null);
 
       // Send the message directly without setting the input
-      await sendMessageToConversation(newConv.id, message, referencedCards);
+      await chatHook.sendMessageToConversation(newConv.id, message, referencedCards);
     } catch (error) {
       console.error("Failed to create conversation with message:", error);
-      setError("Failed to create conversation");
-    } finally {
-      setIsLoading(false);
     }
   };
-
-  const sendMessageToConversation = async (conversationId: string, message: string, referencedCards?: string[]) => {
-    setIsSending(true);
-
-    try {
-      // Send to API with referenced cards - this now returns immediately with user message and pending assistant message
-      await apiSendMessage(conversationId, message, referencedCards?.length ? referencedCards : undefined, selectedModel);
-
-      // Reload conversation to get the new messages with correct status
-      await refreshMessages(conversationId);
-
-      // Start polling for status updates
-      startPolling(conversationId);
-
-      // Update conversations list to reflect new message count
-      await loadConversations();
-
-    } catch (error) {
-      console.error("Failed to send message:", error);
-      setError("Failed to send message");
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  const startPolling = (conversationId: string) => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-    }
-
-    setIsPolling(true);
-
-    pollingIntervalRef.current = setInterval(async () => {
-      try {
-        const status = await getConversationStatus(conversationId);
-
-        // If no pending or processing messages, stop polling and reload just the messages
-        if (!status.has_pending && !status.has_processing) {
-          stopPolling();
-          await refreshMessages(conversationId);
-        }
-      } catch (error) {
-        console.error("Failed to check conversation status:", error);
-        // Continue polling even if status check fails
-      }
-    }, 2000); // Poll every 2 seconds
-  };
-
-  const stopPolling = () => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-    setIsPolling(false);
-  };
-
-  const refreshMessages = async (conversationId: string) => {
-    try {
-      const data = await getConversation(conversationId);
-      setMessages(data.messages || []);
-    } catch (error) {
-      console.error("Failed to refresh messages:", error);
-    }
-  };
-
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      stopPolling();
-    };
-  }, []);
-
-  // Handle clicking outside the model dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (modelDropdownRef.current && !modelDropdownRef.current.contains(event.target as Node)) {
-        setShowModelDropdown(false);
-      }
-    };
-
-    if (showModelDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }
-  }, [showModelDropdown]);
-
-  useEffect(() => {
-    scrollToBottom();
-    // Reset collapsed state when messages change and add new tool results as collapsed by default
-    const newCollapsedSet = new Set<string>();
-    messages.forEach(msg => {
-      if (msg.role === "tool") {
-        newCollapsedSet.add(msg.id);
-      }
-    });
-    setCollapsedToolResults(newCollapsedSet);
-  }, [messages]);
 
   // Load specific conversation if set in context
   useEffect(() => {
-    if (conversationId && conversationId !== currentConversation?.id) {
+    if (conversationId && conversationId !== chatHook.currentConversation?.id) {
       loadConversation(conversationId);
     }
   }, [conversationId]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
   const loadConversations = async () => {
     try {
-      setIsLoading(true);
       const convs = await getConversations();
 
       console.log("convos", convs)
@@ -224,96 +97,32 @@ export function ChatPage({ }: ChatPageProps) {
       }
 
       // If no current conversation and we have conversations, load the most recent one
-      if (!currentConversation && convs.length > 0) {
+      if (!chatHook.currentConversation && convs.length > 0) {
         await loadConversation(convs[0].id);
       }
     } catch (error) {
       console.error("Failed to load conversations:", error);
-      setError("Failed to load conversations");
-    } finally {
-      setIsLoading(false);
+      chatHook.setError("Failed to load conversations");
     }
   };
 
   const loadConversation = async (conversationId: string) => {
     try {
-      setIsLoading(true);
-
-      // Stop any existing polling when switching conversations
-      stopPolling();
-
-      const data = await getConversation(conversationId);
-      setCurrentConversation(data.conversation);
-      setMessages(data.messages || []);
-      setConversationId(conversationId);
-      setError(null);
-
-      // Check if there are pending/processing messages and start polling if needed
-      const hasPendingOrProcessing = data.messages.some(msg =>
-        msg.status === 'pending' || msg.status === 'processing'
-      );
-      if (hasPendingOrProcessing) {
-        startPolling(conversationId);
-      }
+      await chatHook.loadConversation(conversationId);
     } catch (error) {
       console.error("Failed to load conversation:", error);
-      setError("Failed to load conversation");
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const createNewConversation = async () => {
     try {
-      setIsLoading(true);
-      const newConv = await createConversation({
-        title: "",
-        model: selectedModel
-      });
-
+      const newConv = await chatHook.createNewConversation("", chatHook.selectedModel);
       setConversations(prev => [newConv, ...prev]);
-      setCurrentConversation(newConv);
-      setMessages([]);
-      setConversationId(newConv.id);
-      setError(null);
     } catch (error) {
       console.error("Failed to create conversation:", error);
-      setError("Failed to create conversation");
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const sendMessage = async (passedReferencedCards?: string[]) => {
-    if (!messageInput.trim() || !currentConversation || isSending) return;
-
-    const userMessage = messageInput.trim();
-    const cardIds = passedReferencedCards || referencedCards;
-
-    setMessageInput("");
-    setReferencedCards([]); // Clear referenced cards
-    setIsSending(true);
-
-    try {
-      // Send to API with referenced cards - this now returns immediately with user message and pending assistant message
-      await apiSendMessage(currentConversation.id, userMessage, cardIds.length > 0 ? cardIds : undefined, selectedModel);
-
-      // Reload conversation to get the new messages with correct status
-      await refreshMessages(currentConversation.id);
-
-      // Start polling for status updates
-      startPolling(currentConversation.id);
-
-      // Update conversations list to reflect new message count
-      await loadConversations();
-
-    } catch (error) {
-      console.error("Failed to send message:", error);
-      setError("Failed to send message");
-    } finally {
-      setIsSending(false);
-    }
-  };
 
   const deleteConversation = async (conversationId: string) => {
     if (!confirm("Are you sure you want to delete this conversation?")) return;
@@ -322,19 +131,19 @@ export function ChatPage({ }: ChatPageProps) {
       await apiDeleteConversation(conversationId);
       setConversations(prev => prev.filter(c => c.id !== conversationId));
 
-      if (currentConversation?.id === conversationId) {
+      if (chatHook.currentConversation?.id === conversationId) {
         const remaining = conversations.filter(c => c.id !== conversationId);
         if (remaining.length > 0) {
           await loadConversation(remaining[0].id);
         } else {
-          setCurrentConversation(null);
-          setMessages([]);
+          chatHook.setCurrentConversation(null);
+          chatHook.setMessages([]);
           setConversationId("");
         }
       }
     } catch (error) {
       console.error("Failed to delete conversation:", error);
-      setError("Failed to delete conversation");
+      chatHook.setError("Failed to delete conversation");
     }
   };
 
@@ -344,18 +153,15 @@ export function ChatPage({ }: ChatPageProps) {
       setConversations(prev =>
         prev.map(c => c.id === conversationId ? updatedConv : c)
       );
-      if (currentConversation?.id === conversationId) {
-        setCurrentConversation(updatedConv);
+      if (chatHook.currentConversation?.id === conversationId) {
+        chatHook.setCurrentConversation(updatedConv);
       }
     } catch (error) {
       console.error("Failed to star conversation:", error);
-      setError("Failed to star conversation");
+      chatHook.setError("Failed to star conversation");
     }
   };
 
-  const handleCardReference = (cardIds: string[]) => {
-    setReferencedCards(cardIds);
-  };
 
   const handleCardClick = (cardPk: string) => {
     // Navigate to the card page using the card_id
@@ -377,225 +183,22 @@ export function ChatPage({ }: ChatPageProps) {
   };
 
   const handleRegenerateMessage = async (messageId: string) => {
-    if (!currentConversation) return;
+    if (!chatHook.currentConversation) return;
 
     try {
-      await apiRegenerateMessage(currentConversation.id, messageId);
+      await apiRegenerateMessage(chatHook.currentConversation.id, messageId);
 
       // Refresh messages to get the updated message with pending status
-      await refreshMessages(currentConversation.id);
+      await chatHook.refreshMessages(chatHook.currentConversation.id);
 
       // Start polling for updates
-      startPolling(currentConversation.id);
+      chatHook.startPolling(chatHook.currentConversation.id);
     } catch (error) {
       console.error("Failed to regenerate message:", error);
-      setError("Failed to regenerate message");
+      chatHook.setError("Failed to regenerate message");
     }
   };
 
-  const toggleToolResult = (messageId: string) => {
-    setCollapsedToolResults(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(messageId)) {
-        newSet.delete(messageId);
-      } else {
-        newSet.add(messageId);
-      }
-      return newSet;
-    });
-  };
-
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case "user":
-        return "👤";
-      case "assistant":
-        return "🤖";
-      case "tool":
-        return "🔧";
-      default:
-        return "💬";
-    }
-  };
-
-  const filterReferencedCardsSection = (content: string) => {
-    // Remove content between <referenced cards> and </referenced cards> tags
-    return content.replace(/<referenced cards>[\s\S]*?<\/referenced cards>/g, '').trim();
-  };
-
-  const getStatusIndicator = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return (
-          <div className="flex items-center gap-2 text-amber-600 text-xs">
-            <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
-            <span>Pending...</span>
-          </div>
-        );
-      case 'processing':
-        return (
-          <div className="flex items-center gap-2 text-blue-600 text-xs">
-            <div className="flex space-x-1">
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"></div>
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-            </div>
-            <span>Processing...</span>
-          </div>
-        );
-      case 'failed':
-        return (
-          <div className="flex items-center gap-2 text-red-600 text-xs">
-            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-            <span>Failed</span>
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
-
-  const formatMessageContent = (message: ChatMessage) => {
-    if (message.role === "tool" && message.content) {
-      const isCollapsed = collapsedToolResults.has(message.id);
-
-      try {
-        const toolResult = JSON.parse(message.content);
-        return (
-          <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-lg shadow-sm">
-            <button
-              onClick={() => toggleToolResult(message.id)}
-              className="w-full px-4 py-1 text-left hover:bg-amber-100/50 transition-colors rounded-lg"
-            >
-              <div className="flex items-center justify-between text-amber-700">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🔧</span>
-                  <span className="font-medium text-sm">Tool Output</span>
-                </div>
-                <svg
-                  className={`w-4 h-4 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </button>
-            {!isCollapsed && (
-              <div className="px-4 pb-4">
-                <pre className="text-xs text-amber-800 overflow-x-auto whitespace-pre-wrap break-words font-mono bg-amber-50/50 p-2 rounded border">
-                  {JSON.stringify(toolResult, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
-        );
-      } catch {
-        return (
-          <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-lg shadow-sm">
-            <button
-              onClick={() => toggleToolResult(message.id)}
-              className="w-full p-4 text-left hover:bg-amber-100/50 transition-colors rounded-lg"
-            >
-              <div className="flex items-center justify-between text-amber-700">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🔧</span>
-                  <span className="font-medium text-sm">Tool Output</span>
-                </div>
-                <svg
-                  className={`w-4 h-4 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </button>
-            {!isCollapsed && (
-              <div className="px-4 pb-4">
-                <pre className="text-xs text-amber-800 whitespace-pre-wrap break-words font-mono bg-amber-50/50 p-2 rounded border">
-                  {message.content}
-                </pre>
-              </div>
-            )}
-          </div>
-        );
-      }
-    }
-
-    // For assistant messages, parse and render card references as clickable links with markdown
-    if (message.role === "assistant") {
-      // Show status indicator for pending, processing, or failed messages
-      if (message.status !== 'completed') {
-        return (
-          <div className="flex items-center justify-center py-4">
-            {getStatusIndicator(message.status)}
-          </div>
-        );
-      }
-
-      if (message.content) {
-        console.log(message.content)
-        const { text, cards, tasks } = parseMessageContent(message.content);
-
-        return (
-          <div>
-            <div className="prose prose-sm max-w-none">
-              <Markdown
-                remarkPlugins={[remarkGfm]}
-              >
-                {text}
-              </Markdown>
-            </div>
-            <CardsSection cards={cards} onCardClick={handleCardClick} />
-            <TasksSection tasks={tasks} onTaskClick={handleTaskClick} />
-          </div>
-        );
-      }
-    }
-
-    // For user messages, filter out referenced cards section
-    if (message.role === "user" && message.content) {
-      const filteredContent = filterReferencedCardsSection(message.content);
-      return (
-        <div className="whitespace-pre-wrap break-words leading-relaxed">
-          {filteredContent}
-        </div>
-      );
-    }
-
-    return (
-      <div className="whitespace-pre-wrap break-words leading-relaxed">
-        {message.content}
-      </div>
-    );
-  };
-
-  const getMessageStyle = (role: string) => {
-    const baseStyle = "shadow-sm border break-words transform transition-all duration-200 hover:shadow-md";
-    switch (role) {
-      case "user":
-        return `bg-gradient-to-br from-blue-500 to-blue-600 text-white ml-auto max-w-[80%] text-right rounded-2xl rounded-br-md ${baseStyle}`;
-      case "assistant":
-        return `bg-gradient-to-br from-white to-gray-50 text-gray-900 mr-auto max-w-[80%] rounded-2xl rounded-bl-md border-gray-200 ${baseStyle}`;
-      case "tool":
-        return `mr-auto max-w-[90%] ${baseStyle}`;
-      default:
-        return `bg-gradient-to-br from-gray-50 to-gray-100 text-gray-600 mr-auto max-w-[80%] rounded-2xl border-gray-200 ${baseStyle}`;
-    }
-  };
-
-  const availableModels = [
-    { value: "google/gemini-2.5-flash", label: "google/gemini-2.5-flash" },
-    { value: "google/gemini-2.5-flash-lite", label: "google/gemini-2.5-flash-lite" },
-    { value: "google/gemini-2.5-pro", label: "google/gemini-2.5-pro" },
-    { value: "gpt-4o-mini", label: "GPT-4o Mini" },
-    { value: "openai/gpt-5", label: "GPT-5" },
-    { value: "anthropic/claude-sonnet-4", label: "anthropic/claude-sonnet-4" },
-
-  ];
 
   // Separate starred and recent conversations
   const starredConversations = conversations.filter(conv => conv.starred);
@@ -616,7 +219,7 @@ export function ChatPage({ }: ChatPageProps) {
           <div className="flex items-center justify-between mb-6">
             <Button
               onClick={createNewConversation}
-              disabled={isLoading}
+              disabled={chatHook.isLoading}
               className="flex-1 mr-3 bborder border-gray-300 rounded-lg px-4 py-2.5 text-sm font-medium duration-200 flex items-center justify-center gap-2"
             >
 
@@ -658,7 +261,7 @@ export function ChatPage({ }: ChatPageProps) {
                     <div
                       key={conv.id}
                       onClick={() => loadConversation(conv.id)}
-                      className={`group relative p-2 mx-1 mb-1 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white ${currentConversation?.id === conv.id ? 'bg-white shadow-sm' : ''
+                      className={`group relative p-2 mx-1 mb-1 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white ${chatHook.currentConversation?.id === conv.id ? 'bg-white shadow-sm' : ''
                         }`}
                     >
                       <div className="flex items-center justify-between">
@@ -713,7 +316,7 @@ export function ChatPage({ }: ChatPageProps) {
                     <div
                       key={conv.id}
                       onClick={() => loadConversation(conv.id)}
-                      className={`group relative p-2 mx-1 mb-1 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white ${currentConversation?.id === conv.id ? 'bg-white shadow-sm' : ''
+                      className={`group relative p-2 mx-1 mb-1 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white ${chatHook.currentConversation?.id === conv.id ? 'bg-white shadow-sm' : ''
                         }`}
                     >
                       <div className="flex items-center justify-between">
@@ -783,7 +386,7 @@ export function ChatPage({ }: ChatPageProps) {
 
       {/* Chat Area */}
       <div className="flex-1 flex flex-col">
-        {currentConversation ? (
+        {chatHook.currentConversation ? (
           <>
             {/* Chat Header */}
             <div className="bg-white border-b border-gray-200 p-2 shadow-sm">
@@ -800,11 +403,11 @@ export function ChatPage({ }: ChatPageProps) {
                 )}
                 <div className="flex-1">
                   <h2 className="text-lg font-semibold text-gray-900">
-                    {currentConversation.title || "Untitled Chat"}
+                    {chatHook.currentConversation.title || "Untitled Chat"}
                   </h2>
                   <p className="text-xs text-gray-500 flex items-center gap-2">
                     <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                    Model: {currentConversation.model}
+                    Model: {chatHook.currentConversation.model}
                   </p>
                 </div>
                 <button
@@ -819,150 +422,16 @@ export function ChatPage({ }: ChatPageProps) {
               </div>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-white">
-              {error && (
-                <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl shadow-sm flex items-center gap-3">
-                  <span className="text-xl">\u26a0\ufe0f</span>
-                  <div>
-                    <div className="font-medium">Error</div>
-                    <div className="text-sm">{error}</div>
-                  </div>
-                </div>
-              )}
-
-              {messages.map((message) => (
-                <div key={message.id} className="flex items-start gap-3 group">
-
-                  <div className={`flex flex-col ${message.role === "user" ? "items-end w-full" : "flex-1"}`}>
-
-                    <div className={`${getMessageStyle(message.role)} ${message.role === "tool" ? "" : "py-2 px-4 text-sm"}`}>
-                      {message.role !== "tool" && (
-                        <div className={`text-xs mb-2 flex items-center gap-2 ${message.role === "user" ? "text-blue-100 justify-end" : "text-gray-500"}`}>
-                          <span className="font-medium capitalize">{message.role}</span>
-                          <span>•</span>
-                          <span>{new Date(message.created_at).toLocaleTimeString()}</span>
-                        </div>
-                      )}
-                      {formatMessageContent(message)}
-                    </div>
-
-                    {/* Regenerate button for assistant messages */}
-                    {message.role === "assistant" && message.status === "completed" && (
-                      <div className="mt-2 flex justify-start">
-                        <button
-                          onClick={() => handleRegenerateMessage(message.id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-gray-500 hover:text-gray-700 text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100"
-                          title="Regenerate this message"
-                        >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                          Regenerate
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Message Input */}
-            <div className="bg-white border-t border-gray-200 p-6">
-              <div className="relative max-w-4xl mx-auto">
-                {/* Unified Input Container */}
-                <div className="relative border border-gray-300 rounded-2xl bg-white shadow-sm hover:shadow-md transition-all duration-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
-                  {/* Input Area with Controls */}
-                  <div className="flex items-end gap-3 p-4">
-                    {/* Main Input */}
-                    <div className="flex-1 relative">
-                      <ChatInput
-                        value={messageInput}
-                        onChange={setMessageInput}
-                        onSubmit={sendMessage}
-                        onCardReference={handleCardReference}
-                        placeholder="Ask about your cards... Type @ to mention a card"
-                        disabled={isSending}
-                        isLoading={isSending}
-                        submitButtonText=""
-                        multiline={true}
-                        className="border-0 rounded-none p-0"
-                      />
-                    </div>
-
-                    {/* Right Side Controls */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {/* Model Dropdown - positioned absolutely */}
-                      {showModelDropdown && (
-                        <div ref={modelDropdownRef} className="absolute bottom-16 left-4 z-10">
-                          <div className="bg-white border border-gray-200 rounded-lg shadow-lg min-w-[200px] max-h-60 overflow-y-auto">
-                            {availableModels.map((model) => (
-                              <button
-                                key={model.value}
-                                onClick={() => {
-                                  setSelectedModel(model.value);
-                                  localStorage.setItem('chatSelectedModel', model.value);
-                                  setShowModelDropdown(false);
-                                }}
-                                className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-50 transition-colors ${
-                                  selectedModel === model.value
-                                    ? 'bg-blue-50 text-blue-700 font-medium'
-                                    : 'text-gray-700'
-                                }`}
-                              >
-                                {model.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Send Button */}
-                      <button
-                        onClick={() => sendMessage()}
-                        disabled={!messageInput.trim() || isSending}
-                        className="p-2.5 bg-black hover:bg-gray-800 text-white rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black flex items-center justify-center min-w-[44px]"
-                      >
-                        {isSending ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                          </svg>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Model indicator at bottom */}
-                  <div className="px-4 pb-3">
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <button
-                        onClick={() => setShowModelDropdown(!showModelDropdown)}
-                        className="flex items-center gap-2 hover:text-gray-700 transition-colors cursor-pointer rounded-md px-2 py-1 hover:bg-gray-50"
-                      >
-                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                        <span>Using {availableModels.find(m => m.value === selectedModel)?.label}</span>
-                        <svg
-                          className={`w-3 h-3 transition-transform duration-200 ${showModelDropdown ? 'rotate-180' : ''}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                      <div className="text-gray-400">
-                        Press Enter to send • Shift+Enter for new line
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* Chat Interface */}
+            <ChatInterface
+              chatHook={chatHook}
+              onCardClick={handleCardClick}
+              onTaskClick={handleTaskClick}
+              onRegenerateMessage={handleRegenerateMessage}
+              placeholder="Ask about your cards... Type @ to mention a card"
+              compact={false}
+              showModelDropdown={true}
+            />
           </>
         ) : (
           <div className="flex-1 flex flex-col bg-white">
@@ -998,7 +467,7 @@ export function ChatPage({ }: ChatPageProps) {
                 )}
                 <Button
                   onClick={createNewConversation}
-                  disabled={isLoading || !hasSubscription}
+                  disabled={chatHook.isLoading || !hasSubscription}
                   className="bg-black hover:bg-gray-800 text-white rounded-lg px-6 py-3 transition-colors duration-200 disabled:opacity-50"
                 >
                   <span className="flex items-center gap-2">
