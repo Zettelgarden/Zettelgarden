@@ -1090,24 +1090,25 @@ func (s *Handler) getLatestUserMessage(conversationID string) string {
 	return *content
 }
 
-// GenerateChatResponse generates an LLM response with tool calling support
-func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConversation, messages []models.ChatMessage, model string, assistantMessageID string) (*models.ChatMessage, error) {
-	// Import the tools package (we'll need this in the imports)
-	// Convert messages to OpenAI format
-	var openaiMessages []openai.ChatCompletionMessage
-
-	log.Printf("Starting prompting")
+// buildSystemPrompt constructs the complete system prompt including memory, instructions, and context
+func (s *Handler) buildSystemPrompt(userID int) (string, error) {
 	systemPrompt, err := prompts.GetResearchAssistantPrompt()
-
-	memory, err := GetUserMemory(s.DB, userID)
 	if err != nil {
+		log.Printf("Error loading system prompt: %v, using fallback", err)
+		// Fallback to a basic prompt if file loading fails
+		systemPrompt = "You are the Research Assistant for a Zettelkasten knowledge base. Help users explore and synthesize information across their cards."
+	}
+
+	// Add user memory if available
+	memory, memErr := GetUserMemory(s.DB, userID)
+	if memErr == nil && memory != "" {
 		systemPrompt += "\n\n## Your Memory Of The User\n\n"
 		systemPrompt += memory
 	}
 
 	// Add user's chat instructions if they exist
-	instructions, err := s.GetChatInstructions(userID)
-	if err == nil && instructions.Instructions != "" {
+	instructions, instrErr := s.GetChatInstructions(userID)
+	if instrErr == nil && instructions.Instructions != "" {
 		systemPrompt += "\n\n## User Instructions\n\n"
 		systemPrompt += instructions.Instructions
 	}
@@ -1119,10 +1120,16 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 		currentTime.Format("Monday, January 2, 2006"),
 		currentTime.UTC().Format("2006-01-02 15:04:05 UTC"))
 
+	return systemPrompt, nil
+}
+
+// GenerateChatResponse generates an LLM response with tool calling support
+func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConversation, messages []models.ChatMessage, model string, assistantMessageID string) (*models.ChatMessage, error) {
+	var openaiMessages []openai.ChatCompletionMessage
+
+	systemPrompt, err := s.buildSystemPrompt(userID)
 	if err != nil {
-		log.Printf("Error loading system prompt: %v, using fallback", err)
-		// Fallback to a basic prompt if file loading fails
-		systemPrompt = "You are the Research Assistant for a Zettelkasten knowledge base. Help users explore and synthesize information across their cards."
+		return nil, err
 	}
 
 	// Collect all referenced card IDs from user messages
@@ -1318,31 +1325,10 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 
 		// Convert to OpenAI format for next request
 		// Load system prompt again for consistency
-		currentSystemPrompt, promptErr := prompts.GetResearchAssistantPrompt()
+		currentSystemPrompt, promptErr := s.buildSystemPrompt(userID)
 		if promptErr != nil {
 			log.Printf("Error reloading system prompt: %v, using previous", promptErr)
 			currentSystemPrompt = systemPrompt // Use the previously loaded prompt
-		} else {
-			// Add user memory
-			memory, memErr := GetUserMemory(s.DB, userID)
-			if memErr == nil {
-				currentSystemPrompt += "\n\n## Your Memory Of The User\n\n"
-				currentSystemPrompt += memory
-			}
-
-			// Add user's chat instructions if they exist
-			instructions, instrErr := s.GetChatInstructions(userID)
-			if instrErr == nil && instructions.Instructions != "" {
-				currentSystemPrompt += "\n\n## User Instructions\n\n"
-				currentSystemPrompt += instructions.Instructions
-			}
-
-			// Add current date and time
-			currentTime := time.Now()
-			currentSystemPrompt += "\n\n## Current Date and Time\n\n"
-			currentSystemPrompt += fmt.Sprintf("Today's date is %s (UTC: %s)",
-				currentTime.Format("Monday, January 2, 2006"),
-				currentTime.UTC().Format("2006-01-02 15:04:05 UTC"))
 		}
 
 		openaiMessages = []openai.ChatCompletionMessage{

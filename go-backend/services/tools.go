@@ -620,6 +620,7 @@ func executeSubagentTask(prompt, subagentType string, ctx *ToolContext) (string,
 	subagentRegistry.registerGetTaskByID()
 	subagentRegistry.registerGetEntityByName()
 	subagentRegistry.registerSearchEntities()
+	subagentRegistry.registerGetCardsByEntity()
 
 	tools := subagentRegistry.GetToolDefinitions()
 
@@ -1255,6 +1256,53 @@ func handleSearchEntities(args map[string]interface{}, ctx *ToolContext) (map[st
 		"entities": entities,
 		"query":    query,
 		"total":    len(entities),
+	}, nil
+}
+
+func (tr *ToolRegistry) registerGetCardsByEntity() {
+	tr.tools["get_cards_by_entity"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "get_cards_by_entity",
+				Description: "Retrieve all cards that are linked to a specific entity. This is the primary search method for finding content related to entities - use this before other search methods.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"entity_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The ID of the entity to get linked cards for",
+						},
+					},
+					"required": []string{"entity_id"},
+				},
+			},
+		},
+		Handler: handleGetCardsByEntity,
+	}
+}
+
+func handleGetCardsByEntity(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	entityIDFloat, ok := args["entity_id"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("entity_id parameter is required")
+	}
+	entityID := int(entityIDFloat)
+
+	cards, err := GetCardsByEntity(ctx.DB, ctx.UserID, entityID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cards by entity: %v", err)
+	}
+
+	var results []map[string]interface{}
+	for _, card := range cards {
+		results = append(results, StructToMap(card))
+	}
+
+	return map[string]interface{}{
+		"cards":     results,
+		"entity_id": entityID,
+		"total":     len(cards),
 	}, nil
 }
 

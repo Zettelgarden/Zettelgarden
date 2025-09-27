@@ -626,3 +626,28 @@ func CreateCard(db *sql.DB, userID int, params models.EditCardParams) (models.Ca
 
 	return GetFullCard(db, userID, id)
 }
+
+// GetCardsByEntity retrieves all cards linked to a specific entity
+func GetCardsByEntity(db *sql.DB, userID int, entityID int) ([]models.PartialCard, error) {
+	rows, err := db.Query(`
+		SELECT c.id, c.card_id, c.user_id, c.title, c.parent_id, c.created_at, c.updated_at
+		FROM cards c
+		JOIN entity_card_junction ecj ON c.id = ecj.card_pk
+		WHERE ecj.entity_id = $1 AND ecj.user_id = $2 AND c.is_deleted = FALSE
+		ORDER BY c.updated_at DESC
+	`, entityID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var cards []models.PartialCard
+	for rows.Next() {
+		var c models.PartialCard
+		if err := rows.Scan(&c.ID, &c.CardID, &c.UserID, &c.Title, &c.ParentID, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			return nil, err
+		}
+		cards = append(cards, c)
+	}
+	return cards, nil
+}
