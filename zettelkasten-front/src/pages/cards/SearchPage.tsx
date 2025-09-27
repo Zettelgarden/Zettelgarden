@@ -465,6 +465,7 @@ export function SearchPage({
                   showPreview={searchConfig.showPreview}
                   onEntityClick={handleEntityClick}
                   onTagClick={handleTagClick}
+                  onResultsUpdate={setSearchResults}
                 />
                 <div className="flex justify-center items-center gap-4 mt-4 p-4">
                   <Button
