@@ -25,6 +25,7 @@ interface SearchRequestParams {
   full_text?: boolean;
   show_entities?: boolean;
   show_facts?: boolean;
+  show_cards?: boolean;
   search_type?: string; // classic or typesense
   rerank?: boolean;
   page?: number;
@@ -44,6 +45,7 @@ export function semanticSearchCardsPaginated(
   fullText = false,
   showEntities = false,
   showFacts = true,
+  showCards = true,
   sortBy = "sortByRanking",
   searchType = "classic",
   rerank = true,
@@ -59,6 +61,7 @@ export function semanticSearchCardsPaginated(
     full_text: fullText,
     show_entities: showEntities,
     show_facts: showFacts,
+    show_cards: showCards,
     sort: sortBy,
     rerank: rerank,
     page: page,
@@ -106,6 +109,7 @@ export function semanticSearchCards(
   fullText = false,
   showEntities = false,
   showFacts = true,
+  showCards = true,
   sortBy = "sortByRanking",
   searchType = "classic",
   rerank = true,
@@ -116,6 +120,7 @@ export function semanticSearchCards(
     fullText,
     showEntities,
     showFacts,
+    showCards,
     sortBy,
     searchType,
     rerank,

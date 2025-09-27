@@ -161,7 +161,7 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
             setError(null);
             setAssociatedCards([]); // Clear previous cards
 
-            semanticSearchCards(`@[${escapeEntityNameForSearch(selectedEntity.name)}]`, false, false, false)
+            semanticSearchCards(`@[${escapeEntityNameForSearch(selectedEntity.name)}]`, false, false, false, true)
                 .then((results: SearchResult[]) => {
                     if (results === null) {
                         setAssociatedCards([]);

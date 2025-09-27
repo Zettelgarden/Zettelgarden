@@ -643,6 +643,7 @@ type SearchRequestParams struct {
 	FullText     bool   `json:"full_text"`
 	ShowEntities bool   `json:"show_entities"`
 	ShowFacts    bool   `json:"show_facts"`
+	ShowCards    bool   `json:"show_cards"`
 	SortBy       string `json:"sort"`
 	Rerank       bool   `json:"rerank"`
 	Page         int    `json:"page"`
@@ -704,6 +705,9 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 	}
 	if !searchParams.ShowEntities {
 		typeFilters = append(typeFilters, "type:!=entity")
+	}
+	if !searchParams.ShowCards {
+		typeFilters = append(typeFilters, "type:!=card")
 	}
 	if len(typeFilters) > 0 {
 		filter += " && " + strings.Join(typeFilters, " && ")

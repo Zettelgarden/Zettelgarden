@@ -76,6 +76,7 @@ export function SearchPage({
         config.useFullText,
         config.showEntities,
         config.showFacts,
+        config.showCards,
         config.sortBy,
         config.searchType,
         config.rerank,
@@ -193,10 +194,7 @@ export function SearchPage({
 
   function getFilteredResults(): SearchResult[] {
     return searchResults
-      .filter(result => !searchConfig.onlyParentCards || !result.id.includes("/"))
-      .filter(result => searchConfig.showEntities || result.type !== "entity")
-      .filter(result => searchConfig.showFacts || result.type !== "fact")
-      .filter(result => searchConfig.showCards || result.type !== "card");
+      .filter(result => !searchConfig.onlyParentCards || !result.id.includes("/"));
   }
 
   const handleOnlyParentCardsChange = (event) => {

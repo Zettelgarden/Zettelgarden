@@ -27,6 +27,7 @@ export function DashboardPage() {
           false, // fullText
           false, // showEntities
           false, // showFacts
+          true, // showCards
           "sortCreatedNewOld", // sortBy recent
           "classic", // searchType
           false, // rerank
