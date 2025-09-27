@@ -67,7 +67,12 @@ function SearchResultItem({ result, showPreview, onEntityClick, onTagClick, onFa
 
       // Soft update the search result to show the new tag immediately
       if (onResultUpdate) {
-        const newTag = { id: Date.now(), name: tagName, count: 1 }; // Create temporary tag object
+        const newTag = {
+          id: Date.now(),
+          name: tagName,
+          color: "",
+          user_id: 0
+        }; // Create temporary tag object with all required properties
         const updatedResult: SearchResult = {
           ...result,
           tags: result.tags ? [...result.tags, newTag] : [newTag]
