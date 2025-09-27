@@ -7,6 +7,7 @@ import { semanticSearchCards, saveNewCard, getNextRootId, suggestCardTitle, esca
 import { CardList } from "../cards/CardList";
 import { CardTag } from "../cards/CardTag";
 import { Button } from "../Button";
+import { CardIcon } from "../../assets/icons/CardIcon";
 import { FactWithCard } from "../../models/Fact";
 import { getEntityFacts, getSimilarEntities, mergeEntities, updateEntity, UpdateEntityRequest, addEntityToCard } from "../../api/entities";
 import { useShortcutContext } from "../../contexts/ShortcutContext";
@@ -232,8 +233,23 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
 
                 <div className="fixed inset-0 flex items-center justify-center p-4">
                     <Dialog.Panel className="w-full max-w-3xl transform overflow-y-auto max-h-[90vh] rounded-2xl bg-white p-6 shadow-xl transition-all">
-                        <Dialog.Title className="text-lg font-medium leading-6 text-gray-900 mb-2">
-                            {selectedEntity ? `Entity: ${selectedEntity.name}` : "Entity Details"}
+                        <Dialog.Title className="text-lg font-medium leading-6 text-gray-900 mb-2 flex items-center gap-2 flex-wrap">
+                            <span>{selectedEntity ? `Entity: ${selectedEntity.name}` : "Entity Details"}</span>
+                            {selectedEntity && selectedEntity.card && selectedEntity.card.id > 0 && (
+                                <>
+                                    <span className="text-gray-400">→</span>
+                                    <Link
+                                        to={`/app/card/${selectedEntity.card.id}`}
+                                        className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                                        onClick={onClose}
+                                    >
+                                        <div className="w-3 h-3 mr-1 text-gray-400">
+                                            <CardIcon />
+                                        </div>
+                                        <CardTag card={selectedEntity.card} showTitle={true} />
+                                    </Link>
+                                </>
+                            )}
                         </Dialog.Title>
 
                         {selectedEntity && (
@@ -272,18 +288,6 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
                                         </ul>
                                     )}
                                 </div>
-                                {selectedEntity.card && selectedEntity.card.id > 0 && (
-                                    <div className="mt-1">
-                                        <span className="text-xs text-gray-600">Linked Card: </span>
-                                        <Link
-                                            to={`/app/card/${selectedEntity.card.id}`}
-                                            className="text-blue-600 hover:text-blue-800 hover:underline"
-                                            onClick={onClose}
-                                        >
-                                            <CardTag card={selectedEntity.card} showTitle={true} />
-                                        </Link>
-                                    </div>
-                                )}
                             </div>
                         )}
 

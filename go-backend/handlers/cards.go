@@ -61,6 +61,19 @@ func (s *Handler) getReferences(userID int, card models.Card) ([]models.PartialC
 		return links[x].CardID > links[y].CardID
 	})
 	links = getUniqueCards(links)
+
+	// Fetch tags for each card
+	for i := range links {
+		tags, err := services.QueryTagsForCard(s.DB, userID, links[i].ID)
+		if err != nil {
+			log.Printf("Failed to fetch tags for card ID %d: %v", links[i].ID, err)
+			// Continue without tags rather than failing entirely
+			links[i].Tags = []models.Tag{}
+		} else {
+			links[i].Tags = tags
+		}
+	}
+
 	return links, nil
 }
 

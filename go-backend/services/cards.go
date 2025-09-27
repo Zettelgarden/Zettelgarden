@@ -74,7 +74,23 @@ func GetChildCards(db *sql.DB, userID int, cardID int) ([]models.PartialCard, er
 	defer rows.Close()
 
 	cards, err := models.ScanPartialCards(rows)
-	return cards, err
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch tags for each card
+	for i := range cards {
+		tags, err := QueryTagsForCard(db, userID, cards[i].ID)
+		if err != nil {
+			log.Printf("Failed to fetch tags for card ID %d: %v", cards[i].ID, err)
+			// Continue without tags rather than failing entirely
+			cards[i].Tags = []models.Tag{}
+		} else {
+			cards[i].Tags = tags
+		}
+	}
+
+	return cards, nil
 }
 
 func GetParentCard(db *sql.DB, userID int, cardPK int) ([]models.PartialCard, error) {
