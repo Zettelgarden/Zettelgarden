@@ -5,9 +5,11 @@ import { CardLink } from "./CardLink";
 import { PlusCircleIcon } from "../../assets/icons/PlusCircleIcon";
 import { formatDate } from "../../utils/dates";
 import { usePartialCardContext } from "../../contexts/CardContext";
+import { useTagContext } from "../../contexts/TagContext";
 import { useNavigate } from "react-router-dom";
 import { Menu } from "@headlessui/react";
 import { CardIdDiscoveryDialog } from "./CardIdDiscoveryDialog";
+import { CardListMenu } from "./CardListMenu";
 import { getCard, saveExistingCard } from "../../api/cards";
 
 interface CardListItemProps {
@@ -24,6 +26,7 @@ export function CardListItem({
   const [showRecategoryDialog, setShowRecategoryDialog] = useState(false);
 
   const { setLastCard } = usePartialCardContext();
+  const { tags } = useTagContext();
 
   const navigate = useNavigate();
 
@@ -44,6 +47,29 @@ export function CardListItem({
   function handleRecategoryClick() {
     setShowRecategoryDialog(true);
   }
+
+  const handleAddTag = async (tagName: string) => {
+    try {
+      // Fetch the full card data
+      const fullCard = await getCard(card.id.toString());
+
+      // Add the tag to the card body
+      const editedCard: Card = {
+        ...fullCard,
+        body: fullCard.body + "\n\n#" + tagName,
+      };
+
+      // Save the updated card
+      await saveExistingCard(editedCard);
+
+      console.log(`Tag #${tagName} added to card ${card.id}`);
+
+      // Optionally refresh to show the new tag
+      window.location.reload();
+    } catch (error) {
+      console.error("Failed to add tag to card:", error);
+    }
+  };
 
   async function handleCardIdSelection(newCardId: string) {
     try {
@@ -92,79 +118,14 @@ export function CardListItem({
       <div className="flex text-xs flex-shrink-0 mr-2 w-20">{formatDate(card.created_at.toISOString())}</div>
 
       {/* Hamburger Menu */}
-      <Menu as="div" className="relative flex-shrink-0 w-6">
-        <Menu.Button className="rounded hover:bg-gray-100 transition-colors">
-          <svg
-            className="w-4 h-4 text-gray-500"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-            />
-          </svg>
-        </Menu.Button>
-
-        <Menu.Items className="absolute right-0 z-10 mt-1 w-32 origin-top-right bg-white border border-gray-200 rounded-md shadow-lg focus:outline-none">
-          <div className="py-1">
-            <Menu.Item>
-              {({ active }) => (
-                <button
-                  onClick={handleEditClick}
-                  className={`${active ? 'bg-gray-100' : ''
-                    } flex w-full items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100`}
-                >
-                  <svg
-                    className="w-4 h-4 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                  Edit
-                </button>
-              )}
-            </Menu.Item>
-
-            {card.card_id === "" && (
-              <Menu.Item>
-                {({ active }) => (
-                  <button
-                    onClick={handleRecategoryClick}
-                    className={`${active ? 'bg-gray-100' : ''
-                      } flex w-full items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100`}
-                  >
-                    <svg
-                      className="w-4 h-4 mr-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
-                      />
-                    </svg>
-                    Recategory
-                  </button>
-                )}
-              </Menu.Item>
-            )}
-          </div>
-        </Menu.Items>
-      </Menu>
+      <CardListMenu
+        cardId={card.id}
+        onEditClick={handleEditClick}
+        onAddTag={handleAddTag}
+        onRecategoryClick={handleRecategoryClick}
+        showRecategory={card.card_id === ""}
+        tags={tags}
+      />
 
       {showHover && card && (
         <CardPreviewWindow cardPK={card.id} mousePosition={mousePosition} />
