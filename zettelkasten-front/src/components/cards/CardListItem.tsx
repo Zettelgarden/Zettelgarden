@@ -15,11 +15,13 @@ import { getCard, saveExistingCard } from "../../api/cards";
 interface CardListItemProps {
   card: PartialCard;
   showAddButton?: boolean;
+  onCardUpdate?: () => void;
 }
 
 export function CardListItem({
   card,
   showAddButton = true,
+  onCardUpdate,
 }: CardListItemProps) {
   const [showHover, setShowHover] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -64,10 +66,38 @@ export function CardListItem({
 
       console.log(`Tag #${tagName} added to card ${card.id}`);
 
-      // Optionally refresh to show the new tag
-      window.location.reload();
+      // Trigger refresh if callback provided
+      if (onCardUpdate) {
+        onCardUpdate();
+      }
     } catch (error) {
       console.error("Failed to add tag to card:", error);
+    }
+  };
+
+  const handleRemoveTag = async (tagName: string) => {
+    try {
+      // Fetch the full card data
+      const fullCard = await getCard(card.id.toString());
+
+      // Remove the tag from the card body using regex
+      const tagRegex = new RegExp(`\\n*#${tagName}\\b`, 'g');
+      const editedCard: Card = {
+        ...fullCard,
+        body: fullCard.body.replace(tagRegex, ''),
+      };
+
+      // Save the updated card
+      await saveExistingCard(editedCard);
+
+      console.log(`Tag #${tagName} removed from card ${card.id}`);
+
+      // Trigger refresh if callback provided
+      if (onCardUpdate) {
+        onCardUpdate();
+      }
+    } catch (error) {
+      console.error("Failed to remove tag from card:", error);
     }
   };
 
@@ -91,8 +121,10 @@ export function CardListItem({
       // Close the dialog
       setShowRecategoryDialog(false);
 
-      // Optionally refresh the page or emit an event to refresh the card list
-      window.location.reload();
+      // Trigger refresh if callback provided
+      if (onCardUpdate) {
+        onCardUpdate();
+      }
     } catch (error) {
       console.error("Failed to update card:", error);
       // TODO: Show error message to user
@@ -111,6 +143,8 @@ export function CardListItem({
             handleViewBacklink={(id: number) => { }}
             showTitle={true}
             showTags={true}
+            onRemoveTag={handleRemoveTag}
+            showTagRemoval={true}
           />
         </span>
       </div>

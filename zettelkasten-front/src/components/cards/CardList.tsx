@@ -6,12 +6,14 @@ interface CardListProps {
   cards: PartialCard[];
   sort?: boolean;
   showAddButton?: boolean;
+  onCardUpdate?: () => void;
 }
 
-export function CardList({ 
-  cards, 
-  sort = true, 
+export function CardList({
+  cards,
+  sort = true,
   showAddButton = true,
+  onCardUpdate,
 }: CardListProps) {
   const sortedCards = sort
     ? [...cards].sort((a, b) => a.card_id.localeCompare(b.card_id))
@@ -22,7 +24,11 @@ export function CardList({
       {sortedCards.map((card) => (
         <li key={card.id} className="flex items-center gap-2">
           <div className="flex-grow">
-            <CardListItem card={card} showAddButton={showAddButton} />
+            <CardListItem
+              card={card}
+              showAddButton={showAddButton}
+              onCardUpdate={onCardUpdate}
+            />
           </div>
         </li>
       ))}

@@ -87,6 +87,38 @@ function SearchResultItem({ result, showPreview, onEntityClick, onTagClick, onFa
     }
   };
 
+  const handleRemoveTag = async (tagName: string) => {
+    if (!isCard || !cardId) return;
+
+    try {
+      // Fetch the full card data
+      const fullCard = await getCard(cardId.toString());
+
+      // Remove the tag from the card body using regex
+      const tagRegex = new RegExp(`\\n*#${tagName}\\b`, 'g');
+      const editedCard: Card = {
+        ...fullCard,
+        body: fullCard.body.replace(tagRegex, ''),
+      };
+
+      // Save the updated card
+      await saveExistingCard(editedCard);
+
+      // Soft update the search result to remove the tag immediately
+      if (onResultUpdate) {
+        const updatedResult: SearchResult = {
+          ...result,
+          tags: result.tags ? result.tags.filter(tag => tag.name !== tagName) : []
+        };
+        onResultUpdate(updatedResult);
+      }
+
+      console.log(`Tag #${tagName} removed from card ${cardId}`);
+    } catch (error) {
+      console.error("Failed to remove tag from card:", error);
+    }
+  };
+
   return (
     <div className="flex items-center gap-2">
       {isCard && (
@@ -157,10 +189,22 @@ function SearchResultItem({ result, showPreview, onEntityClick, onTagClick, onFa
                 {result.tags && result.tags.map((tag, index) => (
                   <span
                     key={index}
-                    className="inline-flex items-center px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full cursor-pointer hover:bg-purple-100"
-                    onClick={() => onTagClick && onTagClick(tag.name)}
+                    className="inline-flex items-center px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full"
                   >
-                    {tag.name}
+                    <span
+                      className="cursor-pointer hover:bg-purple-100"
+                      onClick={() => onTagClick && onTagClick(tag.name)}
+                    >
+                      #{tag.name}
+                    </span>
+                    {isCard && (
+                      <button
+                        onClick={() => handleRemoveTag(tag.name)}
+                        className="ml-1.5 text-purple-400 hover:text-purple-600"
+                      >
+                        &times;
+                      </button>
+                    )}
                   </span>
                 ))}
               </>

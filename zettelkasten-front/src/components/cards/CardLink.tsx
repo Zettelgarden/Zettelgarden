@@ -8,9 +8,11 @@ interface CardLinkProps {
   handleViewBacklink: (id: number) => void;
   showTitle: boolean;
   showTags?: boolean;
+  onRemoveTag?: (tagName: string) => void;
+  showTagRemoval?: boolean;
 }
 
-export function CardLink({ card, showTitle, showTags = false }: CardLinkProps) {
+export function CardLink({ card, showTitle, showTags = false, onRemoveTag, showTagRemoval = false }: CardLinkProps) {
   return (
     <Link to={`/app/card/${card.id}`} className="flex items-center gap-2 min-w-0 overflow-hidden">
       <div className="flex-shrink min-w-0">
@@ -24,7 +26,19 @@ export function CardLink({ card, showTitle, showTags = false }: CardLinkProps) {
               key={index}
               className="inline-flex items-center px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full"
             >
-              {tag.name}
+              <span>#{tag.name}</span>
+              {showTagRemoval && onRemoveTag && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onRemoveTag(tag.name);
+                  }}
+                  className="ml-1.5 text-purple-400 hover:text-purple-600"
+                >
+                  &times;
+                </button>
+              )}
             </span>
           ))}
         </div>

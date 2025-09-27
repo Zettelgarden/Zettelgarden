@@ -15,56 +15,55 @@ export function DashboardPage() {
   const subscriptionEnabled =
     import.meta.env.VITE_FEATURE_SUBSCRIPTION === "true";
 
+  const fetchDashboardData = async () => {
+    setIsLoadingCards(true);
+    try {
+      // Fetch recent cards using pagination (only get 10)
+      const recentResponse = await semanticSearchCardsPaginated(
+        "", // empty search term
+        false, // fullText
+        false, // showEntities
+        false, // showFacts
+        true, // showCards
+        "sortCreatedNewOld", // sortBy recent
+        "classic", // searchType
+        false, // rerank
+        1, // page
+        10 // perPage - only get 10 cards
+      );
+
+      const recentCards: PartialCard[] = recentResponse.results.map((result) => ({
+        id: Number(result.metadata?.id) || 0,
+        card_id: result.metadata?.card_id || "",
+        title: result.title,
+        body: result.preview || "",
+        tags: result.tags || [],
+        is_deleted: false,
+        created_at: new Date(result.created_at),
+        updated_at: new Date(result.updated_at),
+        parent_id: result.metadata?.parent_id || 0,
+        user_id: 0,
+        link: "",
+        parent: null,
+      }));
+      setRecentCards(recentCards);
+
+      // Fetch unsorted cards using the dedicated API endpoint
+      const unsortedResponse = await getUnsortedCards(1, 10);
+      setUnsortedCards(unsortedResponse.cards);
+
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      // Set empty arrays on error to prevent infinite loading
+      setRecentCards([]);
+      setUnsortedCards([]);
+    } finally {
+      setIsLoadingCards(false);
+    }
+  };
+
   useEffect(() => {
     setDocumentTitle("Index");
-
-    const fetchDashboardData = async () => {
-      setIsLoadingCards(true);
-      try {
-        // Fetch recent cards using pagination (only get 10)
-        const recentResponse = await semanticSearchCardsPaginated(
-          "", // empty search term
-          false, // fullText
-          false, // showEntities
-          false, // showFacts
-          true, // showCards
-          "sortCreatedNewOld", // sortBy recent
-          "classic", // searchType
-          false, // rerank
-          1, // page
-          10 // perPage - only get 10 cards
-        );
-
-        const recentCards: PartialCard[] = recentResponse.results.map((result) => ({
-          id: Number(result.metadata?.id) || 0,
-          card_id: result.metadata?.card_id || "",
-          title: result.title,
-          body: result.preview || "",
-          tags: result.tags || [],
-          is_deleted: false,
-          created_at: new Date(result.created_at),
-          updated_at: new Date(result.updated_at),
-          parent_id: result.metadata?.parent_id || 0,
-          user_id: 0,
-          link: "",
-          parent: null,
-        }));
-        setRecentCards(recentCards);
-
-        // Fetch unsorted cards using the dedicated API endpoint
-        const unsortedResponse = await getUnsortedCards(1, 10);
-        setUnsortedCards(unsortedResponse.cards);
-
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-        // Set empty arrays on error to prevent infinite loading
-        setRecentCards([]);
-        setUnsortedCards([]);
-      } finally {
-        setIsLoadingCards(false);
-      }
-    };
-
     fetchDashboardData();
   }, []);
 
@@ -185,7 +184,7 @@ export function DashboardPage() {
               <div className="text-gray-500">Loading recent cards...</div>
             </div>
           ) : (
-            <CardList sort={false} cards={recentCards} />
+            <CardList sort={false} cards={recentCards} onCardUpdate={fetchDashboardData} />
           )}
           <hr />
         </div>
@@ -199,7 +198,7 @@ export function DashboardPage() {
                 <div className="text-gray-500">Loading unsorted cards...</div>
               </div>
             ) : (
-              <CardList cards={unsortedCards} />
+              <CardList cards={unsortedCards} onCardUpdate={fetchDashboardData} />
             )}
           </div>
           <hr />
