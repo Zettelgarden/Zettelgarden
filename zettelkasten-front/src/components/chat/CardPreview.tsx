@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from '../../models/Card';
 import { CardIcon } from '../../assets/icons/CardIcon';
+import { CardPreviewWindow } from '../cards/CardPreviewWindow';
 
 interface CardPreviewProps {
   card: Card;
@@ -8,6 +9,14 @@ interface CardPreviewProps {
 }
 
 export function CardPreview({ card, onCardClick }: CardPreviewProps) {
+  const [showHover, setShowHover] = useState(false);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    setMousePosition({ x: e.clientX, y: e.clientY });
+    setShowHover(true);
+  };
+
   return (
     <li className="py-1 px-2 hover:bg-gray-50 rounded-lg">
       <div className="flex items-center gap-2">
@@ -19,6 +28,8 @@ export function CardPreview({ card, onCardClick }: CardPreviewProps) {
             <div className="flex items-center flex-wrap gap-1">
               <button
                 onClick={() => onCardClick?.(String(card.id))}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={() => setShowHover(false)}
                 className="hover:underline flex-shrink-0"
                 title={`Open card: ${card.title}`}
               >
@@ -40,6 +51,9 @@ export function CardPreview({ card, onCardClick }: CardPreviewProps) {
           <div>{new Date(card.updated_at).toLocaleDateString()}</div>
         </div>
       </div>
+      {showHover && card && (
+        <CardPreviewWindow cardPK={card.id} mousePosition={mousePosition} />
+      )}
     </li>
   );
 }
