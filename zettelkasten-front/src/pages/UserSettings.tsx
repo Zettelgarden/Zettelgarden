@@ -228,7 +228,7 @@ export function UserSettingsPage() {
           </div>
         );
       case "tags":
-        return <div className="bg-white rounded-lg shadow p-6"><TagList /></div>;
+        return <TagList />;
       case "files":
         return <FileVault />;
     }

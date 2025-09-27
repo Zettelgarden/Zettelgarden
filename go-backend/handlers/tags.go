@@ -209,17 +209,6 @@ func (s *Handler) DeleteTagRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid id", http.StatusBadRequest)
 		return
 	}
-	var count int
-	_ = s.DB.QueryRow("SELECT count(*) FROM card_tags WHERE tag_id = $1", id).Scan(&count)
-	if count > 0 {
-		http.Error(w, "unable to delete tag, cards exist", http.StatusBadRequest)
-		return
-	}
-	_ = s.DB.QueryRow("SELECT count(*) FROM task_tags WHERE tag_id = $1", id).Scan(&count)
-	if count > 0 {
-		http.Error(w, "unable to delete tag, tasks exist", http.StatusBadRequest)
-		return
-	}
 	err = s.DeleteTag(userID, id)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("unable to delete tag: %v", err.Error()), http.StatusBadRequest)

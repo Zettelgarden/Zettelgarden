@@ -34,9 +34,7 @@ export function TagListItem({ tag }: TagListItemInterface) {
         setRefreshTags(true);
       })
       .catch((error) =>
-        alert(
-          "Unable to delete tag, make sure no cards or tasks are using it first."
-        )
+        alert("Unable to delete tag.")
       );
     setShowMenu(false);
   }
