@@ -26,6 +26,7 @@ import { findNextChildId } from "../../utils/cards";
 import { useShortcutContext } from "../../contexts/ShortcutContext";
 import { useTagContext } from "../../contexts/TagContext";
 import { usePinContext } from "../../contexts/PinContext";
+import { useChatSidebarContext } from "../../contexts/ChatSidebarContext";
 
 import { SearchTagDropdown } from "../../components/tags/SearchTagDropdown";
 import { FileUpload } from "../../components/files/FileUpload";
@@ -68,6 +69,7 @@ export function ViewPage({ cardId }: ViewPageProps) {
 
   const { tags } = useTagContext();
   const { pinnedCard, setPinnedCard } = usePinContext();
+  const { setChatSidebarCard } = useChatSidebarContext();
 
   const [summaries, setSummaries] = useState<SummarizeJobResponse[] | null>(null);
   const [latestSummary, setLatestSummary] = useState<SummarizeJobResponse | null>(null);
@@ -258,6 +260,11 @@ export function ViewPage({ cardId }: ViewPageProps) {
     }
   };
 
+  const handleOpenChatSidebar = () => {
+    if (!viewingCard) return;
+    setChatSidebarCard(viewingCard);
+  };
+
   const isPinned = pinnedCard && viewingCard && pinnedCard.id === viewingCard.id;
   // For initial fetch and when id changes
   useEffect(() => {
@@ -320,6 +327,12 @@ export function ViewPage({ cardId }: ViewPageProps) {
                 isPinned={!!isPinned}
                 onTogglePin={handleTogglePin}
               />
+              <Button
+                onClick={handleOpenChatSidebar}
+                className="bg-green-500 hover:bg-green-600 text-white"
+              >
+                💬 Chat
+              </Button>
               <Button onClick={handleEditCard}>Edit</Button>
               <Menu as="div" className="relative inline-block text-right">
                 <div>

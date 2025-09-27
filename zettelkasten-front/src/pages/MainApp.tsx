@@ -25,7 +25,9 @@ import {
 import { ShortcutProvider } from "../contexts/ShortcutContext";
 import { FileProvider } from "../contexts/FileContext";
 import { PinProvider, usePinContext } from "../contexts/PinContext";
+import { ChatSidebarProvider, useChatSidebarContext } from "../contexts/ChatSidebarContext";
 import { SplitViewLayout } from "../components/cards/SplitViewLayout";
+import { ChatSidebarLayout } from "../components/chat/ChatSidebarLayout";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { EntityPage } from "./EntityPage";
 import { CardRefreshProvider } from "../contexts/CardRefreshContext";
@@ -64,6 +66,7 @@ function MainAppContent() {
   } = useAuth();
   const { setRefreshTasks } = useTaskContext();
   const { pinnedCard, isPinMode } = usePinContext();
+  const { chatSidebarCard, isChatSidebarMode } = useChatSidebarContext();
 
   // changing pages
 
@@ -146,6 +149,58 @@ function MainAppContent() {
                 </div>
               </SplitViewLayout>
             </ErrorBoundary>
+          ) : isChatSidebarMode && chatSidebarCard ? (
+            <ErrorBoundary>
+              <ChatSidebarLayout chatSidebarCard={chatSidebarCard}>
+                <div className="">
+                  <EmailValidationBanner />
+                  <Routes>
+                    <Route path="subscription" element={<SubscribePage />} />
+                    <Route path="settings/billing/success" element={<Success />} />
+                    <Route path="settings/billing/cancel" element={<Cancel />} />
+                    {hasSubscription ? (
+                      <>
+                        <Route
+                          path="search"
+                          element={
+                            <SearchPage
+                              searchTerm={searchTerm}
+                              setSearchTerm={setSearchTerm}
+                              searchResults={searchResults}
+                              setSearchResults={setSearchResults}
+                              searchConfig={searchConfig}
+                              setSearchConfig={setSearchConfig}
+                            />
+                          }
+                        />
+                        <Route path="card/:id" element={<ViewPage />} />
+                        <Route
+                          path="card/:id/edit"
+                          element={<EditPage newCard={false} />}
+                        />
+
+                        <Route path="card/new" element={<EditPage newCard={true} />} />
+                        <Route path="settings" element={<UserSettingsPage />} />
+                        <Route path="help" element={<HelpPage />} />
+                        <Route path="files" element={<FileVault />} />
+                        <Route path="tasks" element={<TaskPage />} />
+                        <Route path="entities" element={<EntityPage />} />
+                        <Route path="summarizer" element={<Summarizer />} />
+                        <Route path="facts" element={<FactPage />} />
+                        <Route path="memory" element={<MemoryPage />} />
+                        <Route path="chat" element={<ChatPage />} />
+                        <Route path="*" element={<DashboardPage />} />
+                      </>
+                    ) : (
+                      <Route
+                        path="*"
+                        element={<Navigate to="/app/subscription" replace />}
+                      />
+                    )}
+                  </Routes>
+                </div>
+              </ChatSidebarLayout>
+            </ErrorBoundary>
           ) : (
             <div className="">
               <EmailValidationBanner />
@@ -210,9 +265,11 @@ function MainApp() {
             <ShortcutProvider>
               <FileProvider>
                 <PinProvider>
-                  <CardRefreshProvider>
-                    <MainAppContent />
-                  </CardRefreshProvider>
+                  <ChatSidebarProvider>
+                    <CardRefreshProvider>
+                      <MainAppContent />
+                    </CardRefreshProvider>
+                  </ChatSidebarProvider>
                 </PinProvider>
               </FileProvider>
             </ShortcutProvider>
