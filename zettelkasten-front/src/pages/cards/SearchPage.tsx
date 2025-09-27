@@ -81,8 +81,8 @@ export function SearchPage({
     if (!config.showCards) {
       params.set('showCards', 'false');
     }
-    if (config.fullText) {
-      params.set('fullText', 'true');
+    if (config.useFullText) {
+      params.set('useFullText', 'true');
     }
     if (config.onlyParentCards) {
       params.set('onlyParentCards', 'true');
@@ -188,7 +188,7 @@ export function SearchPage({
         showEntities: params.get("showEntities") === "true",
         showFacts: params.get("showFacts") === "true",
         showCards: params.get("showCards") !== "false", // default true
-        fullText: params.get("fullText") === "true",
+        useFullText: params.get("useFullText") === "true",
         onlyParentCards: params.get("onlyParentCards") === "true",
         useClassicSearch: params.get("searchType") !== "typesense"
       };
