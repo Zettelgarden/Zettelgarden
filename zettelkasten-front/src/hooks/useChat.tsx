@@ -102,12 +102,13 @@ export function useChat(options: UseChatOptions = {}) {
     }
   };
 
-  const createNewConversation = async (title: string = "", model?: string) => {
+  const createNewConversation = async (title: string = "", model?: string, primaryCardId?: number) => {
     try {
       setIsLoading(true);
       const newConv = await createConversation({
         title,
-        model: model || selectedModel
+        model: model || selectedModel,
+        primary_card_id: primaryCardId
       });
 
       setCurrentConversation(newConv);

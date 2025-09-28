@@ -22,7 +22,11 @@ export function ChatSidebar({ card }: ChatSidebarProps) {
 
   const createNewConversationForCard = async () => {
     try {
-      const conversation = await chatHook.createNewConversation(`Chat about ${card.card_id} - ${card.title}`);
+      const conversation = await chatHook.createNewConversation(
+        `Chat about ${card.card_id} - ${card.title}`,
+        undefined, // use default model
+        card.id    // primary card ID
+      );
 
       // Send initial message with card context
       const initialMessage = `I want to chat about this card: [${card.card_id}] - ${card.title}`;

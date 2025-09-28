@@ -11,15 +11,16 @@ import (
 
 // ChatConversation represents a chat conversation with enhanced metadata
 type ChatConversation struct {
-	ID           string    `json:"id"`
-	UserID       int       `json:"user_id"`
-	Title        *string   `json:"title"`
-	Model        string    `json:"model"`
-	SystemPrompt *string   `json:"system_prompt"`
-	Starred      bool      `json:"starred"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-	MessageCount int       `json:"message_count,omitempty"` // Computed field
+	ID            string    `json:"id"`
+	UserID        int       `json:"user_id"`
+	Title         *string   `json:"title"`
+	Model         string    `json:"model"`
+	SystemPrompt  *string   `json:"system_prompt"`
+	PrimaryCardID *int      `json:"primary_card_id"`
+	Starred       bool      `json:"starred"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	MessageCount  int       `json:"message_count,omitempty"` // Computed field
 }
 
 // ChatMessage represents a single message in a conversation with tool calling support

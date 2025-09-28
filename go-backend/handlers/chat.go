@@ -20,9 +20,10 @@ import (
 
 // CreateConversationRequest represents the request to create a new conversation
 type CreateConversationRequest struct {
-	Title        *string `json:"title"`
-	Model        string  `json:"model"`
-	SystemPrompt *string `json:"system_prompt"`
+	Title         *string `json:"title"`
+	Model         string  `json:"model"`
+	SystemPrompt  *string `json:"system_prompt"`
+	PrimaryCardID *int    `json:"primary_card_id"`
 }
 
 // SendMessageRequest represents the request to send a message
@@ -77,7 +78,7 @@ func (s *Handler) CreateConversationRoute(w http.ResponseWriter, r *http.Request
 	}
 
 	// Create conversation
-	conversation, err := s.CreateConversation(userID, req.Title, req.Model, req.SystemPrompt)
+	conversation, err := s.CreateConversation(userID, req.Title, req.Model, req.SystemPrompt, req.PrimaryCardID)
 	if err != nil {
 		log.Printf("Error creating conversation: %v", err)
 		http.Error(w, "Failed to create conversation", http.StatusInternalServerError)
@@ -584,22 +585,23 @@ func (s *Handler) UpdateInstructionsRoute(w http.ResponseWriter, r *http.Request
 // Database methods for chat functionality
 
 // CreateConversation creates a new chat conversation
-func (s *Handler) CreateConversation(userID int, title *string, model string, systemPrompt *string) (*models.ChatConversation, error) {
+func (s *Handler) CreateConversation(userID int, title *string, model string, systemPrompt *string, primaryCardID *int) (*models.ChatConversation, error) {
 	id := uuid.New().String()
 
 	query := `
-		INSERT INTO chat_conversations (id, user_id, title, model, system_prompt, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-		RETURNING id, user_id, title, model, system_prompt, starred, created_at, updated_at
+		INSERT INTO chat_conversations (id, user_id, title, model, system_prompt, primary_card_id, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+		RETURNING id, user_id, title, model, system_prompt, primary_card_id, starred, created_at, updated_at
 	`
 
 	var conversation models.ChatConversation
-	err := s.DB.QueryRow(query, id, userID, title, model, systemPrompt).Scan(
+	err := s.DB.QueryRow(query, id, userID, title, model, systemPrompt, primaryCardID).Scan(
 		&conversation.ID,
 		&conversation.UserID,
 		&conversation.Title,
 		&conversation.Model,
 		&conversation.SystemPrompt,
+		&conversation.PrimaryCardID,
 		&conversation.Starred,
 		&conversation.CreatedAt,
 		&conversation.UpdatedAt,
@@ -611,12 +613,12 @@ func (s *Handler) CreateConversation(userID int, title *string, model string, sy
 // GetUserConversations gets all conversations for a user
 func (s *Handler) GetUserConversations(userID int) ([]ConversationResponse, error) {
 	query := `
-		SELECT c.id, c.user_id, c.title, c.model, c.system_prompt, c.starred,
+		SELECT c.id, c.user_id, c.title, c.model, c.system_prompt, c.primary_card_id, c.starred,
 		       c.created_at, c.updated_at, COUNT(m.id) as message_count
 		FROM chat_conversations c
 		LEFT JOIN chat_messages m ON c.id = m.conversation_id
 		WHERE c.user_id = $1
-		GROUP BY c.id, c.user_id, c.title, c.model, c.system_prompt, c.starred, c.created_at, c.updated_at
+		GROUP BY c.id, c.user_id, c.title, c.model, c.system_prompt, c.primary_card_id, c.starred, c.created_at, c.updated_at
 		ORDER BY c.updated_at DESC
 	`
 
@@ -635,6 +637,7 @@ func (s *Handler) GetUserConversations(userID int) ([]ConversationResponse, erro
 			&conv.Title,
 			&conv.Model,
 			&conv.SystemPrompt,
+			&conv.PrimaryCardID,
 			&conv.Starred,
 			&conv.CreatedAt,
 			&conv.UpdatedAt,
@@ -652,7 +655,7 @@ func (s *Handler) GetUserConversations(userID int) ([]ConversationResponse, erro
 // GetConversation gets a specific conversation
 func (s *Handler) GetConversation(userID int, conversationID string) (*models.ChatConversation, error) {
 	query := `
-		SELECT id, user_id, title, model, system_prompt, starred, created_at, updated_at
+		SELECT id, user_id, title, model, system_prompt, primary_card_id, starred, created_at, updated_at
 		FROM chat_conversations
 		WHERE id = $1 AND user_id = $2
 	`
@@ -664,6 +667,7 @@ func (s *Handler) GetConversation(userID int, conversationID string) (*models.Ch
 		&conversation.Title,
 		&conversation.Model,
 		&conversation.SystemPrompt,
+		&conversation.PrimaryCardID,
 		&conversation.Starred,
 		&conversation.CreatedAt,
 		&conversation.UpdatedAt,
@@ -1091,12 +1095,25 @@ func (s *Handler) getLatestUserMessage(conversationID string) string {
 }
 
 // buildSystemPrompt constructs the complete system prompt including memory, instructions, and context
-func (s *Handler) buildSystemPrompt(userID int) (string, error) {
+func (s *Handler) buildSystemPrompt(userID int, conversation *models.ChatConversation) (string, error) {
 	systemPrompt, err := prompts.GetResearchAssistantPrompt()
 	if err != nil {
 		log.Printf("Error loading system prompt: %v, using fallback", err)
 		// Fallback to a basic prompt if file loading fails
 		systemPrompt = "You are the Research Assistant for a Zettelkasten knowledge base. Help users explore and synthesize information across their cards."
+	}
+
+	// Add primary card context if this conversation is about a specific card
+	if conversation != nil && conversation.PrimaryCardID != nil {
+		card, cardErr := s.QueryFullCard(userID, *conversation.PrimaryCardID)
+		if cardErr == nil {
+			systemPrompt += "\n\n## Primary Focus Card\n\n"
+			systemPrompt += fmt.Sprintf("This conversation is primarily about the following card:\n\n")
+			systemPrompt += fmt.Sprintf("**Card ID**: %s\n", card.CardID)
+			systemPrompt += fmt.Sprintf("**Title**: %s\n", card.Title)
+			systemPrompt += fmt.Sprintf("**Content**:\n%s\n\n", card.Body)
+			systemPrompt += "When responding, keep this card as the main focus of the conversation unless the user explicitly asks about something else. Reference this card's content and help the user explore and develop ideas related to it."
+		}
 	}
 
 	// Add user memory if available
@@ -1127,7 +1144,7 @@ func (s *Handler) buildSystemPrompt(userID int) (string, error) {
 func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConversation, messages []models.ChatMessage, model string, assistantMessageID string) (*models.ChatMessage, error) {
 	var openaiMessages []openai.ChatCompletionMessage
 
-	systemPrompt, err := s.buildSystemPrompt(userID)
+	systemPrompt, err := s.buildSystemPrompt(userID, conversation)
 	if err != nil {
 		return nil, err
 	}
@@ -1325,7 +1342,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 
 		// Convert to OpenAI format for next request
 		// Load system prompt again for consistency
-		currentSystemPrompt, promptErr := s.buildSystemPrompt(userID)
+		currentSystemPrompt, promptErr := s.buildSystemPrompt(userID, conversation)
 		if promptErr != nil {
 			log.Printf("Error reloading system prompt: %v, using previous", promptErr)
 			currentSystemPrompt = systemPrompt // Use the previously loaded prompt

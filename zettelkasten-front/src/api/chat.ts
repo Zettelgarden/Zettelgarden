@@ -9,6 +9,7 @@ export interface ChatConversation {
   title?: string;
   model: string;
   system_prompt?: string;
+  primary_card_id?: number;
   starred: boolean;
   created_at: string;
   updated_at: string;
@@ -46,6 +47,7 @@ export interface CreateConversationRequest {
   title?: string;
   model?: string;
   system_prompt?: string;
+  primary_card_id?: number;
 }
 
 export interface SendMessageRequest {
