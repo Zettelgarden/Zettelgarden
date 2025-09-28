@@ -108,9 +108,28 @@ export function downloadFile(fileId: string) {
     .catch((error) => console.error("Download error:", error));
 }
 
-export function getAllFiles(): Promise<File[]> {
+export interface FilesResponse {
+  files: File[];
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+  search?: string;
+}
+
+export function getAllFiles(page: number = 1, perPage: number = 20, search: string = ""): Promise<FilesResponse> {
   let token = localStorage.getItem("token");
-  const url = `${base_url}/files`;
+
+  const params = new URLSearchParams({
+    page: page.toString(),
+    per_page: perPage.toString(),
+  });
+
+  if (search.trim()) {
+    params.append("search", search.trim());
+  }
+
+  const url = `${base_url}/files?${params.toString()}`;
 
   return fetch(url, {
     method: "GET",
@@ -121,7 +140,7 @@ export function getAllFiles(): Promise<File[]> {
     .then(checkStatus)
     .then((response) => {
       if (response && response.status !== 204) {
-        return response.json() as Promise<File[]>;
+        return response.json() as Promise<FilesResponse>;
       } else {
         return Promise.reject(new Error("Response is undefined"));
       }

@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import React, { useState, KeyboardEvent } from "react";
 import { FileIcon } from "../../assets/icons/FileIcon";
 import { FileRender } from "./FileRender";
+import { Menu } from "@headlessui/react";
 
 import { BacklinkInput } from "../cards/BacklinkInput";
 
@@ -25,20 +26,14 @@ export function FileListItem({
   filterString,
   setFilterString,
 }: FileListItemProps) {
-  const [showMenu, setShowMenu] = useState<boolean>(false);
   const [newName, setNewName] = useState<string>("");
   const [showEditName, setShowEditName] = useState<boolean>(false);
   const [renderImage, setRenderImage] = useState<boolean>(false);
-
   const [showCardLink, setShowCardLink] = useState<boolean>(false);
 
-  function toggleMenu() {
-    setShowMenu(!showMenu);
-  }
   function toggleEditName() {
     setNewName(file.name);
     setShowEditName(!showEditName);
-    setShowMenu(false);
   }
   function handleTitleEdit() {
     editFile(file["id"].toString(), { name: newName, card_pk: file.card_pk });
@@ -68,14 +63,12 @@ export function FileListItem({
           console.error("Error deleting file:", error);
         });
     }
-    setShowMenu(false);
   };
 
   async function handleBacklink(card: PartialCard) {
     editFile(file["id"].toString(), { name: file.name, card_pk: card.id }).then(
       (file) => {
         setShowCardLink(false);
-        setShowMenu(false);
         setRefreshFiles(true);
       },
     );
@@ -83,7 +76,6 @@ export function FileListItem({
 
   function toggleCardLink() {
     setShowCardLink(!showCardLink);
-    setShowMenu(false);
   }
 
   function onFileTypeClick(file: File) {
@@ -94,11 +86,9 @@ export function FileListItem({
     editFile(file["id"].toString(), { name: file.name, card_pk: -1 }).then(
       (file) => {
         setShowCardLink(false);
-        setShowMenu(false);
         setRefreshFiles(true);
       },
     );
-    setShowMenu(false);
   }
 
   async function handleDisplayCardClick() {
@@ -107,18 +97,19 @@ export function FileListItem({
     }
     displayFileOnCard(file)
     setRefreshFiles(true);
-    setShowMenu(false);
   }
 
   return (
-    <li key={file.id}>
-      <div className="flex">
-        <div className="flex-grow">
-          <div className="flex items-center">
-            <FileIcon />
+    <div className="px-3 py-2">
+      <div className="flex items-center justify-between">
+        <div className="flex-grow min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="flex-shrink-0 text-gray-400 w-4 h-4">
+              <FileIcon />
+            </div>
             {showEditName ? (
               <input
-                className="task-list-item-title-input"
+                className="flex-grow px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyPress={(event: KeyboardEvent<HTMLInputElement>) => {
@@ -126,81 +117,143 @@ export function FileListItem({
                     handleTitleEdit();
                   }
                 }}
+                autoFocus
               />
             ) : (
-              <div>
+              <div className="flex-grow min-w-0">
                 <a
                   href="#"
                   onClick={(e) => handleFileDownload(file, e)}
-                  className="ml-2"
+                  className="text-gray-900 hover:text-blue-600 font-medium truncate block text-sm"
                 >
-                  <span className="font-bold">{file.name}</span>
+                  {file.name}
                 </a>
                 {renderImage && (
-                  <div onClick={closeRenderImage}>
+                  <div
+                    onClick={closeRenderImage}
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 cursor-pointer"
+                  >
                     <FileRender file={file} />
                   </div>
                 )}
               </div>
             )}
           </div>
-          <div>
-            <span className="text-xs">
-              Created At: {String(file.created_at)}
+
+          <div className="flex items-center gap-3 text-xs text-gray-500">
+            <span>
+              {new Date(file.created_at).toLocaleDateString()}
+            </span>
+            <span
+              className="cursor-pointer hover:text-blue-600 px-1.5 py-0.5 rounded bg-gray-100 hover:bg-blue-50 text-xs"
+              onClick={() => onFileTypeClick(file)}
+              title="Click to filter by this file type"
+            >
+              {file.filetype}
+            </span>
+            <span>
+              {(file.size / 1024).toFixed(1)} KB
             </span>
           </div>
         </div>
 
-        <div className="file-item-right">
-          <div
-            className="text-sm pr-4 cursor-pointer"
-            onClick={() => onFileTypeClick(file)}
-          >{file.filetype}</div>
-          <div>
-            {file.card_pk > 0 && (
-              <Link
-                to={`/app/card/${file.card.id}`}
-                style={{ textDecoration: "none", color: "inherit" }}
-              >
-                <span className="card-id">[{file.card.card_id}]</span>
-              </Link>
-            )}
+        <div className="flex items-center gap-2 ml-3">
+          {file.card_pk > 0 && (
+            <Link
+              to={`/app/card/${file.card.id}`}
+              className="text-blue-600 hover:text-blue-700 text-xs font-medium bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded"
+            >
+              [{file.card.card_id}]
+            </Link>
+          )}
 
-            {!file.card ||
-              (file.card.id == 0 && (
-                <div>
-                  {showCardLink && (
-                    <BacklinkInput addBacklink={handleBacklink} />
-                  )}
-                </div>
-              ))}
-          </div>
-          <div className="dropdown">
-            <button onClick={toggleMenu} className="menu-button">
-              ⋮
-            </button>
-            {showMenu && (
-              <div className="popup-menu">
-                <button onClick={() => handleFileDelete(file.id)}>
-                  Delete
-                </button>
-                <button onClick={() => toggleEditName()}>Rename</button>
+          {(!file.card || file.card.id == 0) && showCardLink && (
+            <div className="min-w-0">
+              <BacklinkInput addBacklink={handleBacklink} />
+            </div>
+          )}
 
-                {file.card_pk <= 1 ? (
-                  <button onClick={() => toggleCardLink()}>Link Card</button>
-                ) : (
-                  <button onClick={() => handleCardUnlink()}>
-                    Unlink Card
+          {/* Menu Dropdown */}
+          <Menu as="div" className="relative">
+            <Menu.Button className="p-1 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-100">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+              </svg>
+            </Menu.Button>
+            <Menu.Items className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1">
+              <Menu.Item>
+                {({ active }) => (
+                  <button
+                    onClick={() => toggleEditName()}
+                    className={`block w-full px-3 py-1.5 text-left text-sm ${
+                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                    }`}
+                  >
+                    Rename
                   </button>
                 )}
-                {displayFileOnCard && file.filetype.includes("image") && (
-                  <button onClick={() => handleDisplayCardClick()}>Display File on Card</button>
+              </Menu.Item>
+
+              {file.card_pk <= 1 ? (
+                <Menu.Item>
+                  {({ active }) => (
+                    <button
+                      onClick={() => toggleCardLink()}
+                      className={`block w-full px-3 py-1.5 text-left text-sm ${
+                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                      }`}
+                    >
+                      Link to Card
+                    </button>
+                  )}
+                </Menu.Item>
+              ) : (
+                <Menu.Item>
+                  {({ active }) => (
+                    <button
+                      onClick={() => handleCardUnlink()}
+                      className={`block w-full px-3 py-1.5 text-left text-sm ${
+                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                      }`}
+                    >
+                      Unlink from Card
+                    </button>
+                  )}
+                </Menu.Item>
+              )}
+
+              {displayFileOnCard && file.filetype.includes("image") && (
+                <Menu.Item>
+                  {({ active }) => (
+                    <button
+                      onClick={() => handleDisplayCardClick()}
+                      className={`block w-full px-3 py-1.5 text-left text-sm ${
+                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                      }`}
+                    >
+                      Display on Card
+                    </button>
+                  )}
+                </Menu.Item>
+              )}
+
+              <div className="border-t border-gray-100"></div>
+              <Menu.Item>
+                {({ active }) => (
+                  <button
+                    onClick={() => handleFileDelete(file.id)}
+                    className={`block w-full px-3 py-1.5 text-left text-sm ${
+                      active ? 'bg-red-50 text-red-700' : 'text-red-600'
+                    }`}
+                  >
+                    Delete
+                  </button>
                 )}
-              </div>
-            )}
-          </div>
+              </Menu.Item>
+            </Menu.Items>
+          </Menu>
         </div>
       </div>
-    </li>
+    </div>
   );
 }

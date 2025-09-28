@@ -20,22 +20,83 @@ import (
 
 func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
-	rows, err := s.DB.Query(`
-	SELECT
-    f.id, f.user_id, f.name, f.type, f.path, f.filename, f.size,
-    f.created_by, f.updated_by, f.card_pk, f.is_deleted,
-    f.created_at, f.updated_at
-FROM
-    files as f
-	WHERE f.is_deleted = FALSE AND f.user_id = $1`, userID)
 
+	// Parse pagination parameters
+	page := 1
+	perPage := 20
+
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	if perPageStr := r.URL.Query().Get("per_page"); perPageStr != "" {
+		if pp, err := strconv.Atoi(perPageStr); err == nil && pp > 0 && pp <= 100 {
+			perPage = pp
+		}
+	}
+
+	// Parse search/filter parameter
+	searchTerm := r.URL.Query().Get("search")
+
+	offset := (page - 1) * perPage
+
+	// Build query with optional search filter
+	var query string
+	var countQuery string
+	var queryArgs []interface{}
+	var countArgs []interface{}
+
+	if searchTerm != "" {
+		// Filter by filename or filetype
+		query = `
+			SELECT
+			f.id, f.user_id, f.name, f.type, f.path, f.filename, f.size,
+			f.created_by, f.updated_by, f.card_pk, f.is_deleted,
+			f.created_at, f.updated_at
+			FROM files as f
+			WHERE f.is_deleted = FALSE AND f.user_id = $1 AND (f.name ILIKE $2 OR f.type ILIKE $2)
+			ORDER BY f.created_at DESC
+			LIMIT $3 OFFSET $4
+		`
+		countQuery = `
+			SELECT COUNT(*)
+			FROM files f
+			WHERE f.is_deleted = FALSE AND f.user_id = $1 AND (f.name ILIKE $2 OR f.type ILIKE $2)
+		`
+		searchPattern := "%" + searchTerm + "%"
+		queryArgs = []interface{}{userID, searchPattern, perPage, offset}
+		countArgs = []interface{}{userID, searchPattern}
+	} else {
+		// No search filter, get all files
+		query = `
+			SELECT
+			f.id, f.user_id, f.name, f.type, f.path, f.filename, f.size,
+			f.created_by, f.updated_by, f.card_pk, f.is_deleted,
+			f.created_at, f.updated_at
+			FROM files as f
+			WHERE f.is_deleted = FALSE AND f.user_id = $1
+			ORDER BY f.created_at DESC
+			LIMIT $2 OFFSET $3
+		`
+		countQuery = `SELECT COUNT(*) FROM files WHERE is_deleted = FALSE AND user_id = $1`
+		queryArgs = []interface{}{userID, perPage, offset}
+		countArgs = []interface{}{userID}
+	}
+
+	rows, err := s.DB.Query(query, queryArgs...)
+	if err != nil {
+		log.Printf("Error querying files: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	defer rows.Close()
 
 	var files []models.File
 
 	for rows.Next() {
 		var file models.File
-		var partialCard models.PartialCard
 		if err := rows.Scan(
 			&file.ID,
 			&file.UserID,
@@ -51,7 +112,7 @@ FROM
 			&file.CreatedAt,
 			&file.UpdatedAt,
 		); err != nil {
-			log.Printf("sql err %v", err)
+			log.Printf("Error scanning file: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -60,7 +121,6 @@ FROM
 		if err != nil {
 			log.Printf("card %v", partialCard)
 			file.Card = models.PartialCard{}
-
 		} else {
 			file.Card = partialCard
 		}
@@ -72,16 +132,29 @@ FROM
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	jsonResponse, err := json.Marshal(files)
+	// Get total count for pagination
+	var total int
+	err = s.DB.QueryRow(countQuery, countArgs...).Scan(&total)
 	if err != nil {
+		log.Printf("Error counting files: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Write the JSON response
-	w.WriteHeader(http.StatusOK)
-	w.Write(jsonResponse)
+	// Prepare response
+	response := map[string]interface{}{
+		"files":       files,
+		"page":        page,
+		"per_page":    perPage,
+		"total":       total,
+		"total_pages": (total + perPage - 1) / perPage,
+		"search":      searchTerm,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (s *Handler) queryFile(userID int, id int) (models.File, error) {
