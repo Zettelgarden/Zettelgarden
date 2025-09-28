@@ -475,12 +475,86 @@ func DeleteCard(db *sql.DB, userID int, id int) error {
 		return fmt.Errorf("card has children, cannot be deleted")
 	}
 
-	_, err = db.Exec(`
-	UPDATE cards SET is_deleted = TRUE, updated_at = NOW()
-	WHERE
-	id = $1 AND user_id = $2
-	`, id, userID)
+	// Start transaction to ensure all cleanup happens atomically
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 
+	// First, get all facts that originated from this card
+	var factIDs []int
+	factRows, err := tx.Query(`
+		SELECT id FROM facts WHERE card_pk = $1 AND user_id = $2
+	`, id, userID)
+	if err != nil {
+		log.Printf("Error querying facts for card: %v", err)
+		return err
+	}
+	defer factRows.Close()
+
+	for factRows.Next() {
+		var factID int
+		if err := factRows.Scan(&factID); err != nil {
+			log.Printf("Error scanning fact ID: %v", err)
+			continue
+		}
+		factIDs = append(factIDs, factID)
+	}
+
+	// Delete all fact_card_junction entries for facts that originated from this card
+	// This includes relationships to other cards, not just this card
+	for _, factID := range factIDs {
+		_, err = tx.Exec(`
+			DELETE FROM fact_card_junction WHERE fact_id = $1
+		`, factID)
+		if err != nil {
+			log.Printf("Error deleting fact-card junction for fact %d: %v", factID, err)
+			return err
+		}
+	}
+
+	// Delete the facts that originated from this card
+	_, err = tx.Exec(`
+		DELETE FROM facts WHERE card_pk = $1 AND user_id = $2
+	`, id, userID)
+	if err != nil {
+		log.Printf("Error deleting facts originated from card: %v", err)
+		return err
+	}
+
+	// Clean up entity-card relationships (entity_card_junction doesn't have CASCADE)
+	_, err = tx.Exec(`
+		DELETE FROM entity_card_junction
+		WHERE card_pk = $1 AND user_id = $2
+	`, id, userID)
+	if err != nil {
+		log.Printf("Error deleting entity-card relationships: %v", err)
+		return err
+	}
+
+	// Clean up any remaining fact-card relationships for this specific card
+	// (facts from other cards that reference this card)
+	_, err = tx.Exec(`
+		DELETE FROM fact_card_junction
+		WHERE card_pk = $1 AND user_id = $2
+	`, id, userID)
+	if err != nil {
+		log.Printf("Error deleting remaining fact-card relationships: %v", err)
+		return err
+	}
+
+	// Delete the card (soft delete)
+	_, err = tx.Exec(`
+		UPDATE cards SET is_deleted = TRUE, updated_at = NOW()
+		WHERE id = $1 AND user_id = $2
+	`, id, userID)
+	if err != nil {
+		return err
+	}
+
+	// Commit transaction
+	err = tx.Commit()
 	if err != nil {
 		return err
 	}
