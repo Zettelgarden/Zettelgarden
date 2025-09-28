@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, PartialCard, Entity } from "../../models/Card";
 import { File } from "../../models/File";
 import { removeEntityFromCard } from "../../api/entities";
+import { AddEntityDialog } from "../entities/AddEntityDialog";
 import {
   saveExistingCard,
   getCardAuditEvents,
@@ -155,6 +156,7 @@ export function ViewCardTabbedDisplay({
   const [facts, setFacts] = useState<Fact[]>([]);
   const [factFilterString, setFactFilterString] = useState<string>("");
   const [entityFilterString, setEntityFilterString] = useState<string>("");
+  const [showAddEntityDialog, setShowAddEntityDialog] = useState<boolean>(false);
 
   const tabs = [
     { label: "Entities" },
@@ -196,9 +198,18 @@ export function ViewCardTabbedDisplay({
     }
   }
 
+  function handleEntityAdded(entity: Entity) {
+    // Update the viewingCard by adding the entity
+    setViewCard({
+      ...viewingCard,
+      entities: [...(viewingCard.entities || []), entity]
+    });
+  }
+
   useEffect(() => {
     fetchFactsForCard();
   }, [viewingCard.id]);
+
 
   async function fetchFactsForCard() {
     try {
@@ -305,14 +316,23 @@ export function ViewCardTabbedDisplay({
       )}
       {activeTab === "Entities" && (
         <div className="p-4">
-          <div className="mb-4">
+          <div className="mb-4 flex gap-2">
             <input
               type="text"
               placeholder="Filter entities..."
               value={entityFilterString}
               onChange={(e) => setEntityFilterString(e.target.value)}
-              className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <button
+              onClick={() => setShowAddEntityDialog(true)}
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+              </svg>
+              Add Entity
+            </button>
           </div>
           {viewingCard.entities && viewingCard.entities.length > 0 ? (
             <div className="max-h-[500px] overflow-y-auto space-y-1">
@@ -458,6 +478,15 @@ export function ViewCardTabbedDisplay({
           )}
         </div>
       )}
+
+      <AddEntityDialog
+        isOpen={showAddEntityDialog}
+        cardId={viewingCard.id}
+        linkedEntityIds={viewingCard.entities?.map(e => e.id) || []}
+        onClose={() => setShowAddEntityDialog(false)}
+        onEntityAdded={handleEntityAdded}
+        onError={setError}
+      />
     </div>
   );
 }
