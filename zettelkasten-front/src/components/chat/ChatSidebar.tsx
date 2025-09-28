@@ -3,6 +3,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { Card } from "../../models/Card";
 import { useChatSidebarContext } from "../../contexts/ChatSidebarContext";
 import { useChat } from "../../hooks/useChat";
+import { useCardRefresh } from "../../contexts/CardRefreshContext";
 import { ChatInterface } from "./ChatInterface";
 
 interface ChatSidebarProps {
@@ -12,6 +13,7 @@ interface ChatSidebarProps {
 export function ChatSidebar({ card }: ChatSidebarProps) {
   const { hasSubscription } = useAuth();
   const { setChatSidebarCard } = useChatSidebarContext();
+  const { refreshCard } = useCardRefresh();
 
   const chatHook = useChat();
 
@@ -19,6 +21,39 @@ export function ChatSidebar({ card }: ChatSidebarProps) {
   useEffect(() => {
     createNewConversationForCard();
   }, [card.id]);
+
+  // Monitor chat messages for card operations and trigger refreshes
+  useEffect(() => {
+    const { messages } = chatHook;
+
+    // Look for recent tool messages that indicate card operations
+    const recentMessages = messages.slice(-10); // Check last 10 messages
+
+    recentMessages.forEach(message => {
+      if (message.role === 'tool' && message.content) {
+        try {
+          const toolResult = JSON.parse(message.content);
+
+          // Check if this is a card operation
+          if (toolResult.operation === 'card_updated' || toolResult.operation === 'card_created') {
+            const operationCardPK = toolResult.card_pk;
+
+            // If the operation was on the current card, trigger a refresh
+            if (operationCardPK === card.id) {
+              console.log(`Card ${card.id} was ${toolResult.operation} via chat, triggering refresh`);
+              refreshCard(card.id.toString());
+            } else if (toolResult.operation === 'card_created') {
+              // For new cards, always refresh the current card as it might affect relationships
+              console.log(`New card ${operationCardPK} was created via chat, refreshing current card ${card.id} for potential relationships`);
+              refreshCard(card.id.toString());
+            }
+          }
+        } catch (e) {
+          // Ignore parsing errors for non-JSON tool results
+        }
+      }
+    });
+  }, [chatHook.messages, card.id, refreshCard]);
 
   const createNewConversationForCard = async () => {
     try {

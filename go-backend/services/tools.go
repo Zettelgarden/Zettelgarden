@@ -453,7 +453,13 @@ func handleCreateCard(args map[string]interface{}, ctx *ToolContext) (map[string
 		return nil, fmt.Errorf("failed to create card: %v", err)
 	}
 
-	return StructToMap(newCard), nil
+	result := StructToMap(newCard)
+	// Add metadata about the operation for frontend refresh detection
+	result["operation"] = "card_created"
+	result["card_pk"] = newCard.ID
+	result["card_id"] = newCard.CardID
+
+	return result, nil
 }
 
 func handleGetCardAnalysis(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -524,7 +530,13 @@ func handleUpdateCard(args map[string]interface{}, ctx *ToolContext) (map[string
 		return nil, fmt.Errorf("failed to update card: %v", err)
 	}
 
-	return StructToMap(updatedCard), nil
+	result := StructToMap(updatedCard)
+	// Add metadata about the operation for frontend refresh detection
+	result["operation"] = "card_updated"
+	result["card_pk"] = cardPK
+	result["card_id"] = updatedCard.CardID
+
+	return result, nil
 }
 
 func handleBrowseCardHierarchy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
