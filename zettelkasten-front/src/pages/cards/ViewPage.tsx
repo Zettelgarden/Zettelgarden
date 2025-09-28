@@ -269,6 +269,9 @@ export function ViewPage({ cardId }: ViewPageProps) {
   // For initial fetch and when id changes
   useEffect(() => {
     setError("");
+    // Reset view states when card changes
+    setShowingSummary(false);
+    setShowingAnalysis(false);
     fetchCard(id!);
     if (id) {
       loadSummaries(parseInt(id));
