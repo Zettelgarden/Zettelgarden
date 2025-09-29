@@ -246,9 +246,9 @@ export function ChatInterface({
   const textSize = compact ? "text-sm" : "text-sm";
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Messages */}
-      <div className={`flex-1 overflow-y-auto ${messagesPadding} ${messageSpacing} bg-white`}>
+      <div className={`flex-1 overflow-y-auto ${messagesPadding} ${messageSpacing} bg-white min-h-0`}>
         {error && (
           <div className={`bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl shadow-sm flex items-center gap-3 ${compact ? 'px-4 py-3' : ''}`}>
             <span className="text-xl">⚠️</span>
