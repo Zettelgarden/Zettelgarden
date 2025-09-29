@@ -40,7 +40,7 @@ export function SearchTagDropdown({
         </svg>
       </Menu.Button>
 
-      <Menu.Items className="origin-top-left md:origin-top-right absolute right-0 md:right-0 left-0 md:left-auto mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+      <Menu.Items className="absolute right-0 mt-2 w-40 sm:w-48 origin-top-right rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50 transform -translate-x-2 sm:translate-x-0">
         <div className="p-2">
           <input
             type="text"
