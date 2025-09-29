@@ -51,7 +51,7 @@ export function CardPreview({ card, onCardClick }: CardPreviewProps) {
           <div>{new Date(card.updated_at).toLocaleDateString()}</div>
         </div>
       </div>
-      {showHover && card && (
+      {showHover && card && card.id !== undefined && card.id !== null && (
         <CardPreviewWindow cardPK={card.id} mousePosition={mousePosition} />
       )}
     </li>

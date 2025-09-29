@@ -225,6 +225,7 @@ export function sendMessageStream(
               const { done, value } = await reader.read();
 
               if (done) {
+                console.log('Stream complete');
                 resolve();
                 break;
               }
@@ -253,7 +254,12 @@ export function sendMessageStream(
                       data: parsedData
                     });
                   } catch (e) {
-                    console.error('Failed to parse SSE data:', e);
+                    console.error('Failed to parse SSE data:', currentData, e);
+                    // Send error event to UI
+                    onEvent({
+                      type: 'error',
+                      data: { error: 'Failed to parse server response' }
+                    });
                   }
                   currentEvent = null;
                   currentData = '';
@@ -261,6 +267,12 @@ export function sendMessageStream(
               }
             }
           } catch (error) {
+            console.error('Stream read error:', error);
+            // Send error event to UI before rejecting
+            onEvent({
+              type: 'error',
+              data: { error: error instanceof Error ? error.message : 'Stream connection error' }
+            });
             reject(error);
           }
         };

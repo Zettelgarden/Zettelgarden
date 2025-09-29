@@ -32,7 +32,11 @@ export function CardPreviewWindow({
 
   useEffect(() => {
     setIsVisible(false);
-    fetchCard(cardPK.toString());
+    if (cardPK !== undefined && cardPK !== null) {
+      fetchCard(cardPK.toString());
+    } else {
+      setError("Invalid card ID");
+    }
   }, [cardPK]);
 
   const windowHeight = window.innerHeight;

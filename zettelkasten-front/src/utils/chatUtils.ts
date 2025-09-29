@@ -58,7 +58,14 @@ export function parseMessageContent(content: string): ParsedMessageContent {
     try {
       const jsonData = JSON.parse(cardsMatch[1]);
       if (jsonData.cards && Array.isArray(jsonData.cards)) {
-        cards = jsonData.cards;
+        // Filter out cards with invalid or missing IDs
+        cards = jsonData.cards.filter((card: any) => {
+          const hasValidId = card.id !== undefined && card.id !== null;
+          if (!hasValidId) {
+            console.warn('Filtered out card with invalid ID:', card);
+          }
+          return hasValidId;
+        });
       }
     } catch (error) {
       console.error('Failed to parse cards JSON:', error);
@@ -71,7 +78,14 @@ export function parseMessageContent(content: string): ParsedMessageContent {
     try {
       const jsonData = JSON.parse(tasksMatch[1]);
       if (jsonData.tasks && Array.isArray(jsonData.tasks)) {
-        tasks = jsonData.tasks;
+        // Filter out tasks with invalid or missing IDs
+        tasks = jsonData.tasks.filter((task: any) => {
+          const hasValidId = task.id !== undefined && task.id !== null;
+          if (!hasValidId) {
+            console.warn('Filtered out task with invalid ID:', task);
+          }
+          return hasValidId;
+        });
       }
     } catch (error) {
       console.error('Failed to parse tasks JSON:', error);

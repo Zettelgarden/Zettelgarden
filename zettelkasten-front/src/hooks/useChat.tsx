@@ -35,6 +35,7 @@ export function useChat(options: UseChatOptions = {}) {
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const streamingContentRef = useRef<string>("");
+  const activeStreamConversationRef = useRef<string | null>(null);
   const { setConversationId } = useChatContext();
   const enableStreaming = options.enableStreaming ?? true; // Default to enabled
 
@@ -111,6 +112,12 @@ export function useChat(options: UseChatOptions = {}) {
   const createNewConversation = async (title: string = "", model?: string, primaryCardId?: number) => {
     try {
       setIsLoading(true);
+
+      // Clear active stream reference when creating new conversation
+      activeStreamConversationRef.current = null;
+      setStreamingMessageId(null);
+      streamingContentRef.current = "";
+
       const newConv = await createConversation({
         title,
         model: model || selectedModel,
@@ -139,6 +146,11 @@ export function useChat(options: UseChatOptions = {}) {
       // Stop any existing polling when switching conversations
       stopPolling();
 
+      // Clear active stream reference to ignore events from old conversation
+      activeStreamConversationRef.current = null;
+      setStreamingMessageId(null);
+      streamingContentRef.current = "";
+
       const data = await getConversation(conversationId);
       setCurrentConversation(data.conversation);
       setMessages(data.messages || []);
@@ -164,25 +176,77 @@ export function useChat(options: UseChatOptions = {}) {
     setIsSending(true);
     setError(null);
 
+    // Mark this conversation as having an active stream
+    activeStreamConversationRef.current = conversationId;
+
+    // Optimistically add user message immediately
+    const optimisticUserMessage: ChatMessage = {
+      id: `temp-user-${Date.now()}`,
+      conversation_id: conversationId,
+      role: 'user',
+      content: message,
+      sequence_number: 0,
+      status: 'completed',
+      created_at: new Date().toISOString()
+    };
+
+    const optimisticAssistantMessage: ChatMessage = {
+      id: `temp-assistant-${Date.now()}`,
+      conversation_id: conversationId,
+      role: 'assistant',
+      content: '',
+      sequence_number: 0,
+      status: 'processing',
+      created_at: new Date().toISOString()
+    };
+
+    // Add optimistic messages immediately
+    setMessages(prev => [...prev, optimisticUserMessage, optimisticAssistantMessage]);
+    setStreamingMessageId(optimisticAssistantMessage.id);
+
     try {
       if (enableStreaming) {
         // Use streaming
         streamingContentRef.current = "";
-        let userMessage: ChatMessage | null = null;
-        let assistantMessage: ChatMessage | null = null;
+
+        // Use refs to store message IDs to avoid closure issues
+        const messageIdsRef = {
+          userMessageId: null as string | null,
+          assistantMessageId: optimisticAssistantMessage.id as string | null
+        };
+
+        let receivedMessages = false;
+        let streamError = false;
 
         await sendMessageStream(
           conversationId,
           message,
           (event: StreamEvent) => {
+            // Ignore events if we've switched to a different conversation
+            if (activeStreamConversationRef.current !== conversationId) {
+              console.log('Ignoring stream event for old conversation:', conversationId);
+              return;
+            }
+
             switch (event.type) {
               case 'messages':
-                // Initial messages received
-                userMessage = event.data.user_message;
-                assistantMessage = event.data.assistant_message;
+                // Initial messages received - replace optimistic with real
+                receivedMessages = true;
+                const userMessage = event.data.user_message;
+                const assistantMessage = event.data.assistant_message;
 
                 if (userMessage && assistantMessage) {
-                  setMessages(prev => [...prev, userMessage!, assistantMessage!]);
+                  messageIdsRef.userMessageId = userMessage.id;
+                  messageIdsRef.assistantMessageId = assistantMessage.id;
+
+                  // Replace optimistic messages with real ones
+                  setMessages(prev =>
+                    prev.map(msg => {
+                      if (msg.id === optimisticUserMessage.id) return userMessage;
+                      if (msg.id === optimisticAssistantMessage.id) return assistantMessage;
+                      return msg;
+                    })
+                  );
                   setStreamingMessageId(assistantMessage.id);
                 }
                 break;
@@ -202,9 +266,9 @@ export function useChat(options: UseChatOptions = {}) {
                 streamingContentRef.current += event.data.delta;
 
                 // Update the assistant message in the messages array
-                if (assistantMessage) {
+                if (messageIdsRef.assistantMessageId) {
                   setMessages(prev => prev.map(msg =>
-                    msg.id === assistantMessage!.id
+                    msg.id === messageIdsRef.assistantMessageId
                       ? { ...msg, content: streamingContentRef.current, status: 'processing' as const }
                       : msg
                   ));
@@ -232,6 +296,7 @@ export function useChat(options: UseChatOptions = {}) {
                 break;
 
               case 'error':
+                streamError = true;
                 setError(event.data.error);
                 break;
 
@@ -239,9 +304,9 @@ export function useChat(options: UseChatOptions = {}) {
                 // Streaming complete - mark assistant message as completed
                 setStreamingMessageId(null);
                 streamingContentRef.current = "";
-                if (assistantMessage) {
+                if (messageIdsRef.assistantMessageId) {
                   setMessages(prev => prev.map(msg =>
-                    msg.id === assistantMessage!.id
+                    msg.id === messageIdsRef.assistantMessageId
                       ? { ...msg, status: 'completed' as const }
                       : msg
                   ));
@@ -252,8 +317,23 @@ export function useChat(options: UseChatOptions = {}) {
           referencedCards?.length ? referencedCards : undefined,
           selectedModel
         );
+
+        // After streaming completes, refresh messages from server to ensure consistency
+        // This is important as a fallback if streaming had issues
+        if (!receivedMessages || streamError) {
+          console.log('Stream did not receive messages or had error, refreshing from server');
+          // Remove optimistic messages before refreshing
+          setMessages(prev => prev.filter(msg =>
+            msg.id !== optimisticUserMessage.id && msg.id !== optimisticAssistantMessage.id
+          ));
+        }
+        await refreshMessages(conversationId);
       } else {
         // Use polling (legacy)
+        // Remove optimistic messages before making API call
+        setMessages(prev => prev.filter(msg =>
+          msg.id !== optimisticUserMessage.id && msg.id !== optimisticAssistantMessage.id
+        ));
         await apiSendMessage(conversationId, message, referencedCards?.length ? referencedCards : undefined, selectedModel);
         await refreshMessages(conversationId);
         startPolling(conversationId);
@@ -261,6 +341,17 @@ export function useChat(options: UseChatOptions = {}) {
     } catch (error) {
       console.error("Failed to send message:", error);
       setError("Failed to send message");
+
+      // On error, remove optimistic messages and refresh from server
+      setMessages(prev => prev.filter(msg =>
+        msg.id !== optimisticUserMessage.id && msg.id !== optimisticAssistantMessage.id
+      ));
+
+      try {
+        await refreshMessages(conversationId);
+      } catch (refreshError) {
+        console.error("Failed to refresh messages after error:", refreshError);
+      }
     } finally {
       setIsSending(false);
     }
