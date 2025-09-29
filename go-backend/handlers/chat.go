@@ -93,7 +93,19 @@ func (s *Handler) CreateConversationRoute(w http.ResponseWriter, r *http.Request
 func (s *Handler) GetConversationsRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
-	conversations, err := s.GetUserConversations(userID)
+	// Check for optional primary_card_id filter
+	primaryCardIDStr := r.URL.Query().Get("primary_card_id")
+	var primaryCardID *int
+	if primaryCardIDStr != "" {
+		cardID, err := strconv.Atoi(primaryCardIDStr)
+		if err != nil {
+			http.Error(w, "Invalid primary_card_id parameter", http.StatusBadRequest)
+			return
+		}
+		primaryCardID = &cardID
+	}
+
+	conversations, err := s.GetUserConversations(userID, primaryCardID)
 	if err != nil {
 		log.Printf("Error getting conversations: %v", err)
 		http.Error(w, "Failed to get conversations", http.StatusInternalServerError)
@@ -610,19 +622,30 @@ func (s *Handler) CreateConversation(userID int, title *string, model string, sy
 	return &conversation, err
 }
 
-// GetUserConversations gets all conversations for a user
-func (s *Handler) GetUserConversations(userID int) ([]ConversationResponse, error) {
+// GetUserConversations gets all conversations for a user, optionally filtered by primary_card_id
+func (s *Handler) GetUserConversations(userID int, primaryCardID *int) ([]ConversationResponse, error) {
 	query := `
 		SELECT c.id, c.user_id, c.title, c.model, c.system_prompt, c.primary_card_id, c.starred,
 		       c.created_at, c.updated_at, COUNT(m.id) as message_count
 		FROM chat_conversations c
 		LEFT JOIN chat_messages m ON c.id = m.conversation_id
 		WHERE c.user_id = $1
+	`
+
+	args := []interface{}{userID}
+
+	// Add optional primary_card_id filter
+	if primaryCardID != nil {
+		query += " AND c.primary_card_id = $2"
+		args = append(args, *primaryCardID)
+	}
+
+	query += `
 		GROUP BY c.id, c.user_id, c.title, c.model, c.system_prompt, c.primary_card_id, c.starred, c.created_at, c.updated_at
 		ORDER BY c.updated_at DESC
 	`
 
-	rows, err := s.DB.Query(query, userID)
+	rows, err := s.DB.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}

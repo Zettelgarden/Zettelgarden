@@ -361,17 +361,6 @@ export function ViewPage({ cardId }: ViewPageProps) {
                     <Menu.Item>
                       {({ active }) => (
                         <button
-                          onClick={handleTogglePin}
-                          className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                            } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
-                        >
-                          {isPinned ? 'Unpin Card' : 'Pin Card'}
-                        </button>
-                      )}
-                    </Menu.Item>
-                    <Menu.Item>
-                      {({ active }) => (
-                        <button
                           onClick={handleToggleStar}
                           className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                             } group flex rounded-md items-center w-full px-2 py-2 text-sm`}

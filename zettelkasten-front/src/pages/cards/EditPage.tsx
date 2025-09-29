@@ -449,7 +449,17 @@ export function EditPage({ newCard }: EditPageProps) {
                   <Button onClick={handleSaveCard} variant="primary">Save</Button>
                   <Button onClick={handleCancelButtonClick} variant="outline">Cancel</Button>
                   {!newCard && (
-                    <ButtonCardDelete card={editingCard} setMessage={setMessage} />
+                    <ButtonCardDelete
+                      card={editingCard}
+                      setMessage={setMessage}
+                      onSuccess={() => {
+                        if (lastCard && lastCard.id !== editingCard.id) {
+                          navigate(`/app/card/${lastCard.id}`);
+                        } else {
+                          navigate('/');
+                        }
+                      }}
+                    />
                   )}
                 </div>
 

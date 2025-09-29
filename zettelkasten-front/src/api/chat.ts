@@ -106,8 +106,11 @@ export function createConversation(params: CreateConversationRequest): Promise<C
     });
 }
 
-export function getConversations(): Promise<ChatConversation[]> {
-  const url = `${base_url}/chat/conversations`;
+export function getConversations(primaryCardId?: number): Promise<ChatConversation[]> {
+  let url = `${base_url}/chat/conversations`;
+  if (primaryCardId !== undefined) {
+    url += `?primary_card_id=${primaryCardId}`;
+  }
   const token = localStorage.getItem("token");
 
   return fetch(url, {

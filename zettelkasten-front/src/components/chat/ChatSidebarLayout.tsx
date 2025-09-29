@@ -35,13 +35,12 @@ export const ChatSidebarLayout: React.FC<ChatSidebarLayoutProps> = ({
       {/* Chat Sidebar Pane - Right side on desktop, collapsible bottom on mobile */}
       <div className={`
         w-full lg:w-1/2
-        overflow-y-auto
         ${isExpanded ? 'h-2/3 md:h-1/2' : 'h-auto lg:h-full'}
         transition-all duration-300 ease-in-out
       `}>
-        <div className="h-full bg-green-50">
+        <div className="h-full bg-green-50 flex flex-col">
           {/* Mobile collapse/expand button */}
-          <div className="lg:hidden bg-green-100 p-2 border-b border-green-200">
+          <div className="lg:hidden bg-green-100 p-2 border-b border-green-200 flex-shrink-0">
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="flex items-center justify-between w-full text-green-700"
@@ -67,7 +66,7 @@ export const ChatSidebarLayout: React.FC<ChatSidebarLayoutProps> = ({
 
           {/* ChatSidebar content - conditionally shown on mobile */}
           {(isExpanded || isDesktop) && (
-            <div className="h-full">
+            <div className="flex-1 min-h-0">
               <ChatSidebar card={chatSidebarCard} />
             </div>
           )}
