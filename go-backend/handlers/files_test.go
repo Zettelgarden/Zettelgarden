@@ -52,10 +52,15 @@ func TestGetAllFiles(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 
-	var files []models.File
-	tests.ParseJsonResponse(t, rr.Body.Bytes(), &files)
-	if len(files) != 20 {
-		t.Fatalf("wrong length of results, got %v want %v", len(files), 20)
+	var response struct {
+		Files   []models.File `json:"files"`
+		Page    int           `json:"page"`
+		PerPage int           `json:"per_page"`
+		Total   int           `json:"total"`
+	}
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &response)
+	if len(response.Files) != 20 {
+		t.Fatalf("wrong length of results, got %v want %v", len(response.Files), 20)
 	}
 }
 func TestGetAllFilesNoToken(t *testing.T) {
