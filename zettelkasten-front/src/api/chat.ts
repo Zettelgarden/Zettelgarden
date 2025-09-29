@@ -173,6 +173,104 @@ export function sendMessage(conversationId: string, content: string, referencedC
     });
 }
 
+// Streaming event types
+export interface StreamEvent {
+  type: 'messages' | 'title' | 'content' | 'tool_call' | 'tool_result' | 'error' | 'done';
+  data: any;
+}
+
+// Callback for streaming events
+export type StreamEventCallback = (event: StreamEvent) => void;
+
+export function sendMessageStream(
+  conversationId: string,
+  content: string,
+  onEvent: StreamEventCallback,
+  referencedCards?: string[],
+  model?: string
+): Promise<void> {
+  const url = `${base_url}/chat/conversations/${conversationId}/messages/stream`;
+  const token = localStorage.getItem("token");
+
+  const payload: SendMessageRequest = { content };
+  if (referencedCards && referencedCards.length > 0) {
+    payload.referenced_cards = referencedCards;
+  }
+  if (model) {
+    payload.model = model;
+  }
+
+  return new Promise((resolve, reject) => {
+    fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    })
+      .then(checkStatus)
+      .then((response) => {
+        if (!response || !response.body) {
+          throw new Error("Response or body is undefined");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        const readStream = async () => {
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+
+              if (done) {
+                resolve();
+                break;
+              }
+
+              // Decode the chunk and add to buffer
+              buffer += decoder.decode(value, { stream: true });
+
+              // Process complete SSE messages
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+              let currentEvent: string | null = null;
+              let currentData: string = '';
+
+              for (const line of lines) {
+                if (line.startsWith('event: ')) {
+                  currentEvent = line.slice(7).trim();
+                } else if (line.startsWith('data: ')) {
+                  currentData = line.slice(6).trim();
+                } else if (line === '' && currentEvent && currentData) {
+                  // Complete event received
+                  try {
+                    const parsedData = JSON.parse(currentData);
+                    onEvent({
+                      type: currentEvent as StreamEvent['type'],
+                      data: parsedData
+                    });
+                  } catch (e) {
+                    console.error('Failed to parse SSE data:', e);
+                  }
+                  currentEvent = null;
+                  currentData = '';
+                }
+              }
+            }
+          } catch (error) {
+            reject(error);
+          }
+        };
+
+        readStream();
+      })
+      .catch(reject);
+  });
+}
+
 export function deleteConversation(conversationId: string): Promise<void> {
   const url = `${base_url}/chat/conversations/${conversationId}`;
   const token = localStorage.getItem("token");

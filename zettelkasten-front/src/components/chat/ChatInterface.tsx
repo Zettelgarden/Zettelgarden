@@ -79,7 +79,7 @@ export function ChatInterface({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const getStatusIndicator = (status: string) => {
+  const getStatusIndicator = (status: string, hasContent: boolean = false) => {
     switch (status) {
       case 'pending':
         return (
@@ -89,6 +89,10 @@ export function ChatInterface({
           </div>
         );
       case 'processing':
+        // Don't show indicator if there's already content being streamed
+        if (hasContent) {
+          return null;
+        }
         return (
           <div className="flex items-center gap-2 text-blue-600 text-xs">
             <div className="flex space-x-1">
@@ -183,16 +187,22 @@ export function ChatInterface({
 
     // For assistant messages
     if (message.role === "assistant") {
+      const hasContent = message.content && message.content.trim().length > 0;
+
       if (message.status !== 'completed') {
-        return (
-          <div className="flex items-center justify-center py-4">
-            {getStatusIndicator(message.status)}
-          </div>
-        );
+        // Show status indicator if no content yet, otherwise show content with streaming cursor
+        if (!hasContent) {
+          return (
+            <div className="flex items-center justify-center py-4">
+              {getStatusIndicator(message.status, false)}
+            </div>
+          );
+        }
+        // Fall through to render content with streaming indicator
       }
 
-      if (message.content) {
-        const { text, cards, tasks } = parseMessageContent(message.content);
+      if (hasContent) {
+        const { text, cards, tasks } = parseMessageContent(message.content!);
 
         return (
           <div>
@@ -200,6 +210,9 @@ export function ChatInterface({
               <Markdown remarkPlugins={[remarkGfm]}>
                 {text}
               </Markdown>
+              {message.status === 'processing' && (
+                <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-1"></span>
+              )}
             </div>
             <CardsSection cards={cards} onCardClick={onCardClick} />
             <TasksSection tasks={tasks} onTaskClick={onTaskClick} />

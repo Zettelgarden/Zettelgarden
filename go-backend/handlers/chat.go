@@ -7,6 +7,7 @@ import (
 	"go-backend/models"
 	"go-backend/prompts"
 	"go-backend/services"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -191,6 +192,95 @@ func (s *Handler) GetReferencedCards(userID int, cardIDs []string) string {
 	}
 	return referencedCardsContext
 
+}
+
+// StreamMessageRoute sends a message and streams the response using Server-Sent Events
+func (s *Handler) StreamMessageRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	conversationID := mux.Vars(r)["id"]
+
+	// Check if user has subscription for chat functionality
+	if !s.UserHasSubscription(userID) {
+		http.Error(w, "Chat functionality requires a Pro subscription", http.StatusForbidden)
+		return
+	}
+
+	var req SendMessageRequest
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&req); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	if req.Content == "" {
+		http.Error(w, "Message content is required", http.StatusBadRequest)
+		return
+	}
+
+	// Verify conversation exists and belongs to user
+	conversation, err := s.GetConversation(userID, conversationID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Conversation not found", http.StatusNotFound)
+		} else {
+			log.Printf("Error getting conversation: %v", err)
+			http.Error(w, "Failed to get conversation", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Update conversation model if one is provided in the request
+	if req.Model != nil && *req.Model != "" && *req.Model != conversation.Model {
+		err := s.UpdateConversationModel(conversationID, *req.Model)
+		if err != nil {
+			log.Printf("Error updating conversation model: %v", err)
+		}
+	}
+
+	// Check usage quotas
+	if err := s.CheckChatUsageQuota(userID, "messages_per_day"); err != nil {
+		http.Error(w, "Daily message limit exceeded", http.StatusTooManyRequests)
+		return
+	}
+
+	referencedCardContext := s.GetReferencedCards(userID, req.ReferencedCards)
+	content := req.Content + referencedCardContext
+
+	// Save user message
+	userMessage, err := s.SaveChatMessage(conversationID, "user", &content, nil, nil, req.ReferencedCards, "completed")
+	if err != nil {
+		log.Printf("Error saving user message: %v", err)
+		http.Error(w, "Failed to save message", http.StatusInternalServerError)
+		return
+	}
+
+	// Create a pending assistant message
+	assistantMessage, err := s.SaveChatMessage(conversationID, "assistant", nil, nil, nil, nil, "processing")
+	if err != nil {
+		log.Printf("Error saving assistant message: %v", err)
+		http.Error(w, "Failed to save assistant message", http.StatusInternalServerError)
+		return
+	}
+
+	// Update usage quota
+	s.IncrementChatUsageQuota(userID, "messages_per_day")
+
+	// Set SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Send initial messages
+	initialData, _ := json.Marshal(map[string]interface{}{
+		"user_message":      userMessage,
+		"assistant_message": assistantMessage,
+	})
+	fmt.Fprintf(w, "event: messages\ndata: %s\n\n", initialData)
+	w.(http.Flusher).Flush()
+
+	// Stream the response
+	s.streamAssistantResponse(w, userID, conversation, assistantMessage.ID, req.Model)
 }
 
 // SendMessageRoute sends a message and returns immediately, processing async
@@ -1712,4 +1802,339 @@ func (s *Handler) UpsertChatInstructions(userID int, instructionsText string) (*
 	)
 
 	return &instructions, err
+}
+
+// streamAssistantResponse handles streaming the assistant response
+func (s *Handler) streamAssistantResponse(w http.ResponseWriter, userID int, conversation *models.ChatConversation, assistantMessageID string, modelOverride *string) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		log.Printf("Streaming unsupported")
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	// Helper to send SSE events
+	sendEvent := func(eventType string, data interface{}) error {
+		jsonData, err := json.Marshal(data)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(w, "event: %s\ndata: %s\n\n", eventType, jsonData)
+		flusher.Flush()
+		return nil
+	}
+
+	// Generate title if this is the first message
+	if conversation.Title == nil || *conversation.Title == "" {
+		messages, err := s.GetConversationMessages(conversation.ID)
+		if err == nil && len(messages) > 0 {
+			var userContent string
+			for _, msg := range messages {
+				if msg.Role == "user" && msg.Content != nil {
+					userContent = *msg.Content
+					break
+				}
+			}
+			if userContent != "" {
+				generatedTitle := s.generateConversationTitle(userID, userContent)
+				err := s.UpdateConversationTitle(conversation.ID, generatedTitle)
+				if err != nil {
+					log.Printf("Error updating conversation title: %v", err)
+				} else {
+					sendEvent("title", map[string]string{"title": generatedTitle})
+				}
+			}
+		}
+	}
+
+	// Get conversation history
+	messages, err := s.GetConversationMessagesUpTo(conversation.ID, assistantMessageID)
+	if err != nil {
+		log.Printf("Error getting conversation history: %v", err)
+		s.UpdateMessageStatus(assistantMessageID, "failed")
+		sendEvent("error", map[string]string{"error": "Failed to get conversation history"})
+		return
+	}
+
+	// Determine which model to use
+	modelToUse := conversation.Model
+	if modelOverride != nil && *modelOverride != "" {
+		modelToUse = *modelOverride
+	}
+
+	// Generate response with streaming
+	err = s.streamChatResponse(w, userID, conversation, messages, modelToUse, assistantMessageID, sendEvent)
+	if err != nil {
+		log.Printf("Error generating chat response: %v", err)
+		s.UpdateMessageStatus(assistantMessageID, "failed")
+		sendEvent("error", map[string]string{"error": err.Error()})
+		return
+	}
+
+	sendEvent("done", map[string]string{"message_id": assistantMessageID})
+}
+
+// streamChatResponse generates a chat response with streaming and tool support
+func (s *Handler) streamChatResponse(w http.ResponseWriter, userID int, conversation *models.ChatConversation, messages []models.ChatMessage, model string, assistantMessageID string, sendEvent func(string, interface{}) error) error {
+	var openaiMessages []openai.ChatCompletionMessage
+
+	systemPrompt, err := s.buildSystemPrompt(userID, conversation)
+	if err != nil {
+		return err
+	}
+
+	openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
+		Role:    openai.ChatMessageRoleSystem,
+		Content: systemPrompt,
+	})
+
+	// Add conversation messages
+	for _, msg := range messages {
+		var content string
+		if msg.Content != nil {
+			content = *msg.Content
+		}
+
+		openaiMsg := openai.ChatCompletionMessage{
+			Role:    msg.Role,
+			Content: content,
+		}
+
+		// Handle tool calls
+		if len(msg.ToolCalls) > 0 {
+			var toolCalls []openai.ToolCall
+			for _, tc := range msg.ToolCalls {
+				argsJSON, _ := json.Marshal(tc.Function.Arguments)
+				toolCalls = append(toolCalls, openai.ToolCall{
+					ID:   tc.ID,
+					Type: openai.ToolTypeFunction,
+					Function: openai.FunctionCall{
+						Name:      tc.Function.Name,
+						Arguments: string(argsJSON),
+					},
+				})
+			}
+			openaiMsg.ToolCalls = toolCalls
+		}
+
+		// Handle tool call responses
+		if msg.ToolCallID != nil {
+			openaiMsg.ToolCallID = *msg.ToolCallID
+		}
+
+		openaiMessages = append(openaiMessages, openaiMsg)
+	}
+
+	// Create LLM client
+	client := services.NewDefaultClient(s.DB, userID)
+	client.Model = model
+	client.RequestType = "chat"
+
+	// Get tools registry
+	toolRegistry := services.NewToolRegistry()
+	tools := toolRegistry.GetToolDefinitions()
+
+	var fullContent strings.Builder
+
+	// Loop until no more tool calls are needed
+	for {
+		stream, err := services.StreamLLMToolRequest(client, openaiMessages, tools)
+		if err != nil {
+			if services.IsContextLengthError(err) {
+				errorMessage := "I apologize, but this conversation has become too long for me to process. The context exceeds the model's token limit."
+				s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, &models.ChatMessage{
+					ID:      assistantMessageID,
+					Content: &errorMessage,
+				})
+				return sendEvent("error", map[string]string{"error": errorMessage})
+			}
+			return err
+		}
+		defer stream.Close()
+
+		var currentContent string
+		var currentToolCalls []openai.ToolCall
+
+		// Process stream
+		for {
+			response, err := stream.Recv()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				log.Printf("Stream error: %v", err)
+				return err
+			}
+
+			if len(response.Choices) == 0 {
+				continue
+			}
+
+			delta := response.Choices[0].Delta
+
+			// Handle content delta
+			if delta.Content != "" {
+				currentContent += delta.Content
+				fullContent.WriteString(delta.Content)
+				sendEvent("content", map[string]string{"delta": delta.Content})
+			}
+
+			// Handle tool calls
+			if len(delta.ToolCalls) > 0 {
+				for _, tc := range delta.ToolCalls {
+					// Accumulate tool call data
+					if tc.Index != nil {
+						idx := *tc.Index
+						// Ensure we have enough space
+						for len(currentToolCalls) <= idx {
+							currentToolCalls = append(currentToolCalls, openai.ToolCall{})
+						}
+						if tc.ID != "" {
+							currentToolCalls[idx].ID = tc.ID
+							currentToolCalls[idx].Type = tc.Type
+						}
+						if tc.Function.Name != "" {
+							currentToolCalls[idx].Function.Name = tc.Function.Name
+						}
+						if tc.Function.Arguments != "" {
+							currentToolCalls[idx].Function.Arguments += tc.Function.Arguments
+						}
+					}
+				}
+			}
+		}
+
+		// If no tool calls, we're done
+		if len(currentToolCalls) == 0 {
+			if strings.TrimSpace(currentContent) == "" {
+				currentContent = "I apologize, but I wasn't able to generate a proper response."
+			}
+
+			finalMessage := &models.ChatMessage{
+				ID:      assistantMessageID,
+				Content: &currentContent,
+			}
+			err := s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, finalMessage)
+			return err
+		}
+
+		// Convert and save tool calls
+		var toolCalls []models.ChatToolCall
+		for _, tc := range currentToolCalls {
+			var args map[string]interface{}
+			json.Unmarshal([]byte(tc.Function.Arguments), &args)
+
+			toolCalls = append(toolCalls, models.ChatToolCall{
+				ID:   tc.ID,
+				Type: string(tc.Type),
+				Function: models.ChatToolCallFunction{
+					Name:      tc.Function.Name,
+					Arguments: args,
+				},
+			})
+
+			// Send tool call event
+			sendEvent("tool_call", map[string]interface{}{
+				"id":        tc.ID,
+				"name":      tc.Function.Name,
+				"arguments": args,
+			})
+		}
+
+		// Update message with tool calls
+		err = s.updateAssistantMessageWithToolCalls(assistantMessageID, &currentContent, toolCalls)
+		if err != nil {
+			return err
+		}
+
+		// Execute tool calls
+		assistantMsg := &models.ChatMessage{ID: assistantMessageID}
+		for _, tc := range currentToolCalls {
+			var args map[string]interface{}
+			json.Unmarshal([]byte(tc.Function.Arguments), &args)
+
+			ctx := &services.ToolContext{
+				UserID:          userID,
+				DB:              s.DB,
+				TypesenseClient: s.Server.TypesenseClient,
+				ConversationID:  &conversation.ID,
+				MessageID:       &assistantMsg.ID,
+				Model:           model,
+			}
+
+			result, err := toolRegistry.ExecuteTool(tc.Function.Name, args, ctx)
+			if err != nil {
+				log.Printf("Error executing tool %s: %v", tc.Function.Name, err)
+				result = map[string]interface{}{"error": err.Error()}
+			}
+
+			// Send tool result event
+			sendEvent("tool_result", map[string]interface{}{
+				"tool_call_id": tc.ID,
+				"name":         tc.Function.Name,
+				"result":       result,
+			})
+
+			// Save tool response
+			resultJSON, _ := json.Marshal(result)
+			resultStr := string(resultJSON)
+			_, err = s.SaveChatMessage(conversation.ID, "tool", &resultStr, nil, &tc.ID, nil, "completed")
+			if err != nil {
+				log.Printf("Error saving tool response: %v", err)
+			}
+		}
+
+		// Get updated messages for next iteration
+		updatedMessages, err := s.GetConversationMessages(conversation.ID)
+		if err != nil {
+			return err
+		}
+
+		// Rebuild openaiMessages
+		currentSystemPrompt, promptErr := s.buildSystemPrompt(userID, conversation)
+		if promptErr != nil {
+			currentSystemPrompt = systemPrompt
+		}
+
+		openaiMessages = []openai.ChatCompletionMessage{
+			{
+				Role:    openai.ChatMessageRoleSystem,
+				Content: currentSystemPrompt,
+			},
+		}
+
+		for _, msg := range updatedMessages {
+			var content string
+			if msg.Content != nil {
+				content = *msg.Content
+			}
+
+			openaiMsg := openai.ChatCompletionMessage{
+				Role:    msg.Role,
+				Content: content,
+			}
+
+			if len(msg.ToolCalls) > 0 {
+				var toolCalls []openai.ToolCall
+				for _, tc := range msg.ToolCalls {
+					argsJSON, _ := json.Marshal(tc.Function.Arguments)
+					toolCalls = append(toolCalls, openai.ToolCall{
+						ID:   tc.ID,
+						Type: openai.ToolTypeFunction,
+						Function: openai.FunctionCall{
+							Name:      tc.Function.Name,
+							Arguments: string(argsJSON),
+						},
+					})
+				}
+				openaiMsg.ToolCalls = toolCalls
+			}
+
+			if msg.ToolCallID != nil {
+				openaiMsg.ToolCallID = *msg.ToolCallID
+			}
+
+			openaiMessages = append(openaiMessages, openaiMsg)
+		}
+	}
 }

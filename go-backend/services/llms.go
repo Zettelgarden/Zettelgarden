@@ -86,6 +86,33 @@ func ExecuteLLMToolRequest(c *models.LLMClient, messages []openai.ChatCompletion
 	return resp, err
 }
 
+// StreamEvent represents a streaming event sent to the client
+type StreamEvent struct {
+	Type string      `json:"type"` // "content", "tool_call", "tool_result", "done", "error"
+	Data interface{} `json:"data"`
+}
+
+// StreamLLMToolRequest executes an LLM request with tool support and streams the response
+func StreamLLMToolRequest(c *models.LLMClient, messages []openai.ChatCompletionMessage, tools []openai.Tool) (*openai.ChatCompletionStream, error) {
+	log.Printf("streaming request")
+	stream, err := c.Client.CreateChatCompletionStream(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model:    c.Model,
+			Messages: messages,
+			Tools:    tools,
+			Stream:   true,
+		},
+	)
+
+	if err != nil {
+		log.Printf("error creating stream: %v", err)
+		return nil, err
+	}
+
+	return stream, nil
+}
+
 // IsContextLengthError checks if the error is related to context length limits
 func IsContextLengthError(err error) bool {
 	if err == nil {

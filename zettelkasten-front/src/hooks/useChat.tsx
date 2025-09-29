@@ -5,13 +5,16 @@ import {
   createConversation,
   getConversation,
   sendMessage as apiSendMessage,
+  sendMessageStream,
   getConversationStatus,
+  StreamEvent,
 } from "../api/chat";
 import { useChatContext } from "../contexts/ChatContext";
 
 export interface UseChatOptions {
   onConversationChange?: (conversation: ChatConversation | null) => void;
   initialModel?: string;
+  enableStreaming?: boolean;
 }
 
 export function useChat(options: UseChatOptions = {}) {
@@ -28,9 +31,12 @@ export function useChat(options: UseChatOptions = {}) {
   const [referencedCards, setReferencedCards] = useState<string[]>([]);
   const [isPolling, setIsPolling] = useState(false);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const streamingContentRef = useRef<string>("");
   const { setConversationId } = useChatContext();
+  const enableStreaming = options.enableStreaming ?? true; // Default to enabled
 
   // Update model in localStorage when it changes
   useEffect(() => {
@@ -156,11 +162,102 @@ export function useChat(options: UseChatOptions = {}) {
 
   const sendMessageToConversation = async (conversationId: string, message: string, referencedCards?: string[]) => {
     setIsSending(true);
+    setError(null);
 
     try {
-      await apiSendMessage(conversationId, message, referencedCards?.length ? referencedCards : undefined, selectedModel);
-      await refreshMessages(conversationId);
-      startPolling(conversationId);
+      if (enableStreaming) {
+        // Use streaming
+        streamingContentRef.current = "";
+        let userMessage: ChatMessage | null = null;
+        let assistantMessage: ChatMessage | null = null;
+
+        await sendMessageStream(
+          conversationId,
+          message,
+          (event: StreamEvent) => {
+            switch (event.type) {
+              case 'messages':
+                // Initial messages received
+                userMessage = event.data.user_message;
+                assistantMessage = event.data.assistant_message;
+
+                if (userMessage && assistantMessage) {
+                  setMessages(prev => [...prev, userMessage!, assistantMessage!]);
+                  setStreamingMessageId(assistantMessage.id);
+                }
+                break;
+
+              case 'title':
+                // Update conversation title
+                if (currentConversation) {
+                  setCurrentConversation({
+                    ...currentConversation,
+                    title: event.data.title
+                  });
+                }
+                break;
+
+              case 'content':
+                // Append content delta
+                streamingContentRef.current += event.data.delta;
+
+                // Update the assistant message in the messages array
+                if (assistantMessage) {
+                  setMessages(prev => prev.map(msg =>
+                    msg.id === assistantMessage!.id
+                      ? { ...msg, content: streamingContentRef.current, status: 'processing' as const }
+                      : msg
+                  ));
+                }
+                break;
+
+              case 'tool_call':
+                // Tool call initiated - could show a loading indicator
+                console.log('Tool call:', event.data.name, event.data.arguments);
+                break;
+
+              case 'tool_result':
+                // Tool result received - add as a tool message
+                const toolMessage: ChatMessage = {
+                  id: `tool-${event.data.tool_call_id}`,
+                  conversation_id: conversationId,
+                  role: 'tool',
+                  content: JSON.stringify(event.data.result),
+                  tool_call_id: event.data.tool_call_id,
+                  sequence_number: 0,
+                  status: 'completed',
+                  created_at: new Date().toISOString()
+                };
+                setMessages(prev => [...prev, toolMessage]);
+                break;
+
+              case 'error':
+                setError(event.data.error);
+                break;
+
+              case 'done':
+                // Streaming complete - mark assistant message as completed
+                setStreamingMessageId(null);
+                streamingContentRef.current = "";
+                if (assistantMessage) {
+                  setMessages(prev => prev.map(msg =>
+                    msg.id === assistantMessage!.id
+                      ? { ...msg, status: 'completed' as const }
+                      : msg
+                  ));
+                }
+                break;
+            }
+          },
+          referencedCards?.length ? referencedCards : undefined,
+          selectedModel
+        );
+      } else {
+        // Use polling (legacy)
+        await apiSendMessage(conversationId, message, referencedCards?.length ? referencedCards : undefined, selectedModel);
+        await refreshMessages(conversationId);
+        startPolling(conversationId);
+      }
     } catch (error) {
       console.error("Failed to send message:", error);
       setError("Failed to send message");
