@@ -550,7 +550,32 @@ export function EditPage({ newCard }: EditPageProps) {
               </div>
               <div className="md:w-1/3 bg-white rounded-lg p-4 shadow-sm">
                 <div className="space-y-2">
-                  <HeaderSubSection text="Card ID" />
+                  <div className="flex items-center gap-2">
+                    <HeaderSubSection text="Card ID" />
+                    <Menu as="div" className="relative inline-block">
+                      <Menu.Button className="text-gray-400 hover:text-gray-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </Menu.Button>
+                      <Menu.Items className="absolute left-0 z-10 mt-1 w-80 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none p-4">
+                        <div className="text-sm text-gray-700 space-y-2">
+                          <p className="font-medium">Card IDs are unique identifiers that support hierarchical organization.</p>
+                          <div>
+                            <p className="font-medium mt-2">Examples:</p>
+                            <ul className="list-disc ml-4 mt-1 space-y-1">
+                              <li><code className="text-xs bg-gray-100 px-1 rounded">1</code> - root card</li>
+                              <li><code className="text-xs bg-gray-100 px-1 rounded">1.1</code> - child of 1</li>
+                              <li><code className="text-xs bg-gray-100 px-1 rounded">1.1.2</code> - child of 1.1</li>
+                            </ul>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2">
+                            We recommend using numbers for IDs. The + button assigns the next available number. Use search and tags to find cards.
+                          </p>
+                        </div>
+                      </Menu.Items>
+                    </Menu>
+                  </div>
                   <div className="flex items-center gap-3">
                     <div className="flex-1 relative">
                       <input
