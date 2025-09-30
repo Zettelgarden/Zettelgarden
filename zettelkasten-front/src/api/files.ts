@@ -125,7 +125,10 @@ export function downloadThumbnail(fileId: string): Promise<string | undefined> {
     .then((blob) => {
       return window.URL.createObjectURL(blob);
     })
-    .catch((error) => console.error("Thumbnail download error:", error));
+    .catch((error) => {
+      console.error("Thumbnail download error:", error);
+      return undefined;
+    });
 }
 
 export interface FilesResponse {

@@ -25,9 +25,9 @@ targets:
       base:
         INFOPLIST_FILE: Supporting/App/Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: com.zettelgarden.app
+        CODE_SIGN_ENTITLEMENTS: Supporting/App/ZettelgardenApp.entitlements
     dependencies:
       - target: ZettelgardenShared
-    entitlements: Supporting/App/ZettelgardenApp.entitlements
   ZettelgardenShareExtension:
     type: app-extension
     platform: iOS
@@ -38,9 +38,9 @@ targets:
         INFOPLIST_FILE: Supporting/ShareExtension/ShareExtensionInfo.plist
         PRODUCT_BUNDLE_IDENTIFIER: com.zettelgarden.app.share
         SKIP_INSTALL: YES
+        CODE_SIGN_ENTITLEMENTS: Supporting/ShareExtension/ZettelgardenShareExtension.entitlements
     dependencies:
       - target: ZettelgardenShared
-    entitlements: Supporting/ShareExtension/ZettelgardenShareExtension.entitlements
     hostApplication: ZettelgardenApp
 schemes:
   Zettelgarden:

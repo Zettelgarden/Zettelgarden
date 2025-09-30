@@ -5,8 +5,8 @@ import { Tag } from '../models/Tags';
 
 describe('TagContext', () => {
   const mockTags: Tag[] = [
-    { id: 1, name: 'Work', user_id: 1 },
-    { id: 2, name: 'Personal', user_id: 1 },
+    { id: 1, name: 'Work', color: '#3b82f6', user_id: 1 },
+    { id: 2, name: 'Personal', color: '#10b981', user_id: 1 },
   ];
 
   it('provides tags from test data when in testing mode', () => {

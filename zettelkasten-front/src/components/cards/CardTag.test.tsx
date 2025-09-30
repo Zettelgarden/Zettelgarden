@@ -5,8 +5,14 @@ import { PartialCard } from '../../models/Card';
 
 describe('CardTag', () => {
   const mockCard: PartialCard = {
+    id: 1,
     card_id: '1/A.1',
+    user_id: 1,
     title: 'Test Card Title',
+    parent_id: 0,
+    created_at: new Date(),
+    updated_at: new Date(),
+    tags: [],
   };
 
   it('renders card ID', () => {
@@ -28,8 +34,14 @@ describe('CardTag', () => {
 
   it('renders with different card IDs', () => {
     const card: PartialCard = {
+      id: 2,
       card_id: '10/B.5/C',
+      user_id: 1,
       title: 'Another Card',
+      parent_id: 0,
+      created_at: new Date(),
+      updated_at: new Date(),
+      tags: [],
     };
     render(<CardTag card={card} showTitle={false} />);
     expect(screen.getByText('[10/B.5/C]')).toBeInTheDocument();
