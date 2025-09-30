@@ -377,7 +377,44 @@ export function EditPage({ newCard }: EditPageProps) {
                   </div>
                 )}
 
-                <div className="space-y-2">
+                {newCard && templates.length > 0 && (
+                  <div className="">
+                    {loadingTemplates ? (
+                      <div className="text-xs text-gray-500">Loading templates...</div>
+                    ) : templateError ? (
+                      <div className="text-xs text-red-600">{templateError}</div>
+                    ) : (
+                      <Menu as="div" className="relative inline-block">
+                        <Menu.Button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-blue-500">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
+                          </svg>
+                          Use Template
+                        </Menu.Button>
+                        <Menu.Items className="absolute z-10 mt-1 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none max-h-60 overflow-auto">
+                          <div className="py-1">
+                            {templates.map((template) => (
+                              <Menu.Item key={template.id}>
+                                {({ active }) => (
+                                  <button
+                                    className={`${
+                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                    } w-full text-left px-3 py-1.5 text-sm`}
+                                    onClick={() => handleSelectTemplate(template)}
+                                  >
+                                    {template.title}
+                                  </button>
+                                )}
+                              </Menu.Item>
+                            ))}
+                          </div>
+                        </Menu.Items>
+                      </Menu>
+                    )}
+                  </div>
+                )}
+
+                <div className="">
                   <label htmlFor="title" className="block text-sm font-medium text-gray-700">
                     Title:
                   </label>
@@ -512,46 +549,6 @@ export function EditPage({ newCard }: EditPageProps) {
                 )}
               </div>
               <div className="md:w-1/3 bg-white rounded-lg p-4 shadow-sm">
-
-                {newCard && (
-                  <div className="mb-6">
-                    {loadingTemplates ? (
-                      <div className="text-sm text-gray-500">Loading templates...</div>
-                    ) : templateError ? (
-                      <div className="text-sm text-red-600">{templateError}</div>
-                    ) : templates.length === 0 ? null : (
-                      <Menu as="div" className="relative">
-                        <Menu.Button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full justify-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
-                          </svg>
-                          Use Template
-                        </Menu.Button>
-                        <Menu.Items className="absolute z-10 mt-2 w-full rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none max-h-60 overflow-auto">
-                          <div className="py-1">
-                            {templates.map((template) => (
-                              <Menu.Item key={template.id}>
-                                {({ active }) => (
-                                  <button
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } w-full text-left px-4 py-2 text-sm`}
-                                    onClick={() => handleSelectTemplate(template)}
-                                  >
-                                    {template.title}
-                                  </button>
-                                )}
-                              </Menu.Item>
-                            ))}
-                          </div>
-                        </Menu.Items>
-                      </Menu>
-                    )}
-
-                    <hr className="my-4" />
-                  </div>
-                )}
-
                 <div className="space-y-2">
                   <HeaderSubSection text="Card ID" />
                   <div className="flex items-center gap-3">
