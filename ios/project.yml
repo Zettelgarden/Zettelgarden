@@ -1,0 +1,54 @@
+name: Zettelgarden
+options:
+  bundleIdPrefix: com.zettelgarden
+  deploymentTarget:
+    iOS: '16.0'
+configs:
+  Debug: debug
+  Release: release
+targets:
+  ZettelgardenShared:
+    type: staticFramework
+    platform: iOS
+    sources:
+      - path: Sources/Shared
+    settings:
+      base:
+        PRODUCT_NAME: ZettelgardenShared
+        PRODUCT_BUNDLE_IDENTIFIER: com.zettelgarden.shared
+  ZettelgardenApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/App
+    settings:
+      base:
+        INFOPLIST_FILE: Supporting/App/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.zettelgarden.app
+    dependencies:
+      - target: ZettelgardenShared
+    entitlements: Supporting/App/ZettelgardenApp.entitlements
+  ZettelgardenShareExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Sources/ShareExtension
+    settings:
+      base:
+        INFOPLIST_FILE: Supporting/ShareExtension/ShareExtensionInfo.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.zettelgarden.app.share
+        SKIP_INSTALL: YES
+    dependencies:
+      - target: ZettelgardenShared
+    entitlements: Supporting/ShareExtension/ZettelgardenShareExtension.entitlements
+    hostApplication: ZettelgardenApp
+schemes:
+  Zettelgarden:
+    shared: true
+    build:
+      targets:
+        ZettelgardenApp: all
+    run:
+      config: Debug
+    archive:
+      config: Release
