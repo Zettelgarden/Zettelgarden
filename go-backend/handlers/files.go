@@ -6,6 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"go-backend/models"
+	"image"
+	"image/jpeg"
+	_ "image/gif"
+	_ "image/png"
 	"io"
 	"io/ioutil"
 	"log"
@@ -13,10 +17,96 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/nfnt/resize"
 )
+
+// isImageType checks if the content type is a supported image format
+func isImageType(contentType string) bool {
+	supportedTypes := []string{
+		"image/jpeg",
+		"image/jpg",
+		"image/png",
+		"image/gif",
+		"image/webp",
+	}
+	contentType = strings.ToLower(contentType)
+	for _, t := range supportedTypes {
+		if contentType == t {
+			return true
+		}
+	}
+	return false
+}
+
+// generateThumbnail creates a 300x300 thumbnail from an image file
+func (s *Handler) generateThumbnail(sourcePath, thumbnailPath string) error {
+	// Open the source file
+	file, err := os.Open(sourcePath)
+	if err != nil {
+		return fmt.Errorf("failed to open source file: %w", err)
+	}
+	defer file.Close()
+
+	// Decode the image
+	img, _, err := image.Decode(file)
+	if err != nil {
+		return fmt.Errorf("failed to decode image: %w", err)
+	}
+
+	// Resize to 300x300, maintaining aspect ratio
+	thumbnail := resize.Thumbnail(300, 300, img, resize.Lanczos3)
+
+	// Create the thumbnail file
+	thumbFile, err := os.Create(thumbnailPath)
+	if err != nil {
+		return fmt.Errorf("failed to create thumbnail file: %w", err)
+	}
+	defer thumbFile.Close()
+
+	// Encode as JPEG with quality 85
+	err = jpeg.Encode(thumbFile, thumbnail, &jpeg.Options{Quality: 85})
+	if err != nil {
+		return fmt.Errorf("failed to encode thumbnail: %w", err)
+	}
+
+	return nil
+}
+
+// generateAndUploadThumbnail generates a thumbnail and uploads it to S3
+func (s *Handler) generateAndUploadThumbnail(userID int, fileID int, sourcePath, s3Key, contentType string) {
+	// Only generate thumbnails for images
+	if !isImageType(contentType) {
+		return
+	}
+
+	// Create thumbnail file path
+	thumbnailTempPath := sourcePath + ".thumb.jpg"
+	defer os.Remove(thumbnailTempPath)
+
+	// Generate the thumbnail
+	err := s.generateThumbnail(sourcePath, thumbnailTempPath)
+	if err != nil {
+		log.Printf("Failed to generate thumbnail for file %d: %v", fileID, err)
+		return
+	}
+
+	// Upload thumbnail to S3 with _thumb suffix
+	thumbnailS3Key := s3Key + "_thumb.jpg"
+	s.uploadObject(s.Server.S3, thumbnailS3Key, thumbnailTempPath)
+
+	// Update database with thumbnail path
+	_, err = s.DB.Exec("UPDATE files SET thumbnail_path = $1 WHERE id = $2", thumbnailS3Key, fileID)
+	if err != nil {
+		log.Printf("Failed to update thumbnail path for file %d: %v", fileID, err)
+		return
+	}
+
+	log.Printf("Successfully generated thumbnail for file %d", fileID)
+}
 
 func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
@@ -54,7 +144,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 			SELECT
 			f.id, f.user_id, f.name, f.type, f.path, f.filename, f.size,
 			f.created_by, f.updated_by, f.card_pk, f.is_deleted,
-			f.created_at, f.updated_at
+			f.created_at, f.updated_at, f.thumbnail_path
 			FROM files as f
 			WHERE f.is_deleted = FALSE AND f.user_id = $1 AND (f.name ILIKE $2 OR f.type ILIKE $2)
 			ORDER BY f.created_at DESC
@@ -74,7 +164,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 			SELECT
 			f.id, f.user_id, f.name, f.type, f.path, f.filename, f.size,
 			f.created_by, f.updated_by, f.card_pk, f.is_deleted,
-			f.created_at, f.updated_at
+			f.created_at, f.updated_at, f.thumbnail_path
 			FROM files as f
 			WHERE f.is_deleted = FALSE AND f.user_id = $1
 			ORDER BY f.created_at DESC
@@ -111,6 +201,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 			&file.IsDeleted,
 			&file.CreatedAt,
 			&file.UpdatedAt,
+			&file.ThumbnailPath,
 		); err != nil {
 			log.Printf("Error scanning file: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -160,8 +251,8 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 func (s *Handler) queryFile(userID int, id int) (models.File, error) {
 
 	row := s.DB.QueryRow(`
-	SELECT files.id, files.user_id, files.name, files.type, files.path, files.filename, files.size, files.created_by, files.updated_by, files.card_pk, files.is_deleted, 
-	files.created_at, files.updated_at
+	SELECT files.id, files.user_id, files.name, files.type, files.path, files.filename, files.size, files.created_by, files.updated_by, files.card_pk, files.is_deleted,
+	files.created_at, files.updated_at, files.thumbnail_path
 FROM files
 	WHERE files.is_deleted = FALSE and files.id = $1 AND files.user_id = $2`, id, userID)
 
@@ -181,6 +272,7 @@ FROM files
 		&file.IsDeleted,
 		&file.CreatedAt,
 		&file.UpdatedAt,
+		&file.ThumbnailPath,
 	); err != nil {
 		log.Printf("err id %v %v", id, err)
 		return models.File{}, errors.New("unable to access file")
@@ -199,10 +291,10 @@ func (s *Handler) getFilesFromCardPK(userID int, cardPK int) ([]models.File, err
 
 	files := []models.File{}
 	rows, err := s.DB.Query(`
-	SELECT 
-	files.id, files.user_id, files.name, files.type, files.path, files.filename, 
+	SELECT
+	files.id, files.user_id, files.name, files.type, files.path, files.filename,
 	files.size, files.created_by, files.updated_by, files.card_pk,
-	files.is_deleted, files.created_at, files.updated_at
+	files.is_deleted, files.created_at, files.updated_at, files.thumbnail_path
 	FROM files
 	WHERE files.is_deleted = FALSE and files.card_pk = $1 AND files.user_id = $2`, cardPK, userID)
 
@@ -228,6 +320,7 @@ func (s *Handler) getFilesFromCardPK(userID int, cardPK int) ([]models.File, err
 			&file.IsDeleted,
 			&file.CreatedAt,
 			&file.UpdatedAt,
+			&file.ThumbnailPath,
 		); err != nil {
 			return files, err
 		}
@@ -390,10 +483,11 @@ func (s *Handler) UploadFileRoute(w http.ResponseWriter, r *http.Request) {
 	query := `INSERT INTO files (name, user_id, type, path, filename,
 		size, card_pk, created_by, updated_by, updated_at) VALUES
 		($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING id;`
+	contentType := handler.Header.Get("Content-Type")
 	err = s.DB.QueryRow(query,
 		handler.Filename,
 		userID,
-		handler.Header.Get("Content-Type"),
+		contentType,
 		s3Key,
 		s3Key,
 		fileSize,
@@ -404,6 +498,10 @@ func (s *Handler) UploadFileRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unable to execute query", http.StatusInternalServerError)
 		return
 	}
+
+	// Generate thumbnail asynchronously for images
+	go s.generateAndUploadThumbnail(userID, lastInsertId, tempFile.Name(), s3Key, contentType)
+
 	newFile, err := s.queryFile(userID, lastInsertId)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -432,9 +530,19 @@ func (s *Handler) DownloadFileRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	s3Output, err := s.downloadObject(s.Server.S3, file.Filename, "")
+
+	// Check if thumbnail is requested
+	downloadThumbnail := r.URL.Query().Get("thumbnail") == "true"
+	filePathToDownload := file.Filename
+
+	if downloadThumbnail && file.ThumbnailPath != nil && *file.ThumbnailPath != "" {
+		filePathToDownload = *file.ThumbnailPath
+	}
+
+	s3Output, err := s.downloadObject(s.Server.S3, filePathToDownload, "")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/octet-stream")

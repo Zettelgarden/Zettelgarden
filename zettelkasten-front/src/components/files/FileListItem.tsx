@@ -1,8 +1,8 @@
 import { File } from "../../models/File";
 import { PartialCard } from "../../models/Card";
-import { renderFile, deleteFile, editFile } from "../../api/files";
+import { renderFile, deleteFile, editFile, downloadThumbnail } from "../../api/files";
 import { Link } from "react-router-dom";
-import React, { useState, KeyboardEvent } from "react";
+import React, { useState, KeyboardEvent, useEffect } from "react";
 import { FileIcon } from "../../assets/icons/FileIcon";
 import { FileRender } from "./FileRender";
 import { Menu } from "@headlessui/react";
@@ -30,6 +30,7 @@ export function FileListItem({
   const [showEditName, setShowEditName] = useState<boolean>(false);
   const [renderImage, setRenderImage] = useState<boolean>(false);
   const [showCardLink, setShowCardLink] = useState<boolean>(false);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
 
   function toggleEditName() {
     setNewName(file.name);
@@ -99,14 +100,47 @@ export function FileListItem({
     setRefreshFiles(true);
   }
 
+  useEffect(() => {
+    // Load thumbnail if available
+    if (file.thumbnail_path && file.filetype.startsWith("image/")) {
+      downloadThumbnail(file.id.toString())
+        .then((blobUrl) => {
+          if (blobUrl) {
+            setThumbnailUrl(blobUrl);
+          }
+        })
+        .catch((error) => {
+          console.error("Error loading thumbnail:", error);
+        });
+    }
+  }, [file.id, file.thumbnail_path]);
+
+  const isImage = file.filetype.startsWith("image/");
+
   return (
     <div className="px-3 py-2">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
+        {/* Thumbnail or Icon */}
+        {isImage && thumbnailUrl ? (
+          <div className="flex-shrink-0 w-16 h-16">
+            <img
+              src={thumbnailUrl}
+              alt={file.name}
+              className="w-full h-full object-cover rounded border border-gray-200"
+              onError={(e) => {
+                // Fallback to icon if thumbnail fails to load
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          </div>
+        ) : (
+          <div className="flex-shrink-0 text-gray-400 w-4 h-4">
+            <FileIcon />
+          </div>
+        )}
+
         <div className="flex-grow min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <div className="flex-shrink-0 text-gray-400 w-4 h-4">
-              <FileIcon />
-            </div>
             {showEditName ? (
               <input
                 className="flex-grow px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

@@ -14,6 +14,7 @@ export interface File {
   is_deleted: boolean;
   created_at: string;
   updated_at: string;
+  thumbnail_path: string | null;
   card: PartialCard;
 }
 

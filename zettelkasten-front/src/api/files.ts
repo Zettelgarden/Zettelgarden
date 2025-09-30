@@ -108,6 +108,26 @@ export function downloadFile(fileId: string) {
     .catch((error) => console.error("Download error:", error));
 }
 
+export function downloadThumbnail(fileId: string): Promise<string | undefined> {
+  let token = localStorage.getItem("token");
+  const url = `${base_url}/files/download/${fileId}?thumbnail=true`;
+
+  return fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+    .then((response) => {
+      if (response.ok) return response.blob();
+      throw new Error("Network response was not ok.");
+    })
+    .then((blob) => {
+      return window.URL.createObjectURL(blob);
+    })
+    .catch((error) => console.error("Thumbnail download error:", error));
+}
+
 export interface FilesResponse {
   files: File[];
   page: number;
