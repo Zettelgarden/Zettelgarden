@@ -59,25 +59,14 @@ func (s *Handler) GenerateChatMemory(userID uint, userMessage, assistantMessage 
 	}()
 }
 
+// GetUserMemory is a wrapper for services.GetUserMemory for backward compatibility
 func GetUserMemory(db *sql.DB, userID int) (string, error) {
-	var memory string
-	err := db.QueryRow("SELECT memory FROM user_memories WHERE user_id = $1", userID).Scan(&memory)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return "", nil
-		}
-		return "", err
-	}
-	return memory, nil
+	return services.GetUserMemory(db, userID)
 }
 
+// UpdateUserMemory is a wrapper for services.UpdateUserMemory for backward compatibility
 func UpdateUserMemory(db *sql.DB, userID uint, memory string) error {
-	_, err := db.Exec(`
-		INSERT INTO user_memories (user_id, memory, created_at, updated_at)
-		VALUES ($1, $2, NOW(), NOW())
-		ON CONFLICT (user_id) DO UPDATE SET memory = $2, updated_at = NOW()
-	`, userID, memory)
-	return err
+	return services.UpdateUserMemory(db, userID, memory)
 }
 
 func (s *Handler) GetUserMemoryRoute(w http.ResponseWriter, r *http.Request) {

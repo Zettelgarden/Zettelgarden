@@ -209,21 +209,15 @@ func (s *Handler) buildSystemPrompt(userID int, conversation *models.ChatConvers
 	if conversation != nil && conversation.PrimaryCardID != nil {
 		card, cardErr := s.QueryFullCard(userID, *conversation.PrimaryCardID)
 		if cardErr == nil {
-			systemPrompt += "\n\n## Primary Focus Card\n\n"
-			systemPrompt += fmt.Sprintf("This conversation is primarily about the following card:\n\n")
-			systemPrompt += fmt.Sprintf("**Card ID**: %s\n", card.CardID)
-			systemPrompt += fmt.Sprintf("**Title**: %s\n", card.Title)
-			systemPrompt += fmt.Sprintf("**Content**:\n%s\n\n", card.Body)
-			systemPrompt += "When responding, keep this card as the main focus of the conversation unless the user explicitly asks about something else. Reference this card's content and help the user explore and develop ideas related to it."
+			systemPrompt += "## Primary Focus Card\n\n"
+			systemPrompt += fmt.Sprintf("This conversation is primarily about card '%s' (ID: %s).\n", card.Title, card.CardID)
+			systemPrompt += "Use the get_card_by_id tool to retrieve the full content when needed.\n"
+			systemPrompt += "Reference this card's content to help the user explore and develop related ideas.\n"
 		}
 	}
 
-	// Add user memory if available
-	memory, memErr := GetUserMemory(s.DB, userID)
-	if memErr == nil && memory != "" {
-		systemPrompt += "\n\n## Your Memory Of The User\n\n"
-		systemPrompt += memory
-	}
+	// Note: User memory is now available via the get_user_memory tool
+	// This allows just-in-time retrieval instead of pre-loading into context
 
 	// Add user's chat instructions if they exist
 	instructions, instrErr := s.GetChatInstructions(userID)

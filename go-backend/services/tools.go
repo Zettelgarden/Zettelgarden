@@ -55,6 +55,7 @@ func NewToolRegistry() *ToolRegistry {
 	registry.registerGetTaskByID()
 	registry.registerGetEntityByName()
 	registry.registerSearchEntities()
+	registry.registerGetUserMemory()
 
 	return registry
 }
@@ -1332,4 +1333,38 @@ func logToolExecution(db *sql.DB, userID int, toolName string, args map[string]i
 
 	_, err := db.Exec(query, userID, conversationID, messageID, toolName, argsJSON, resultJSON, executionTimeMs)
 	return err
+}
+
+func (tr *ToolRegistry) registerGetUserMemory() {
+	tr.tools["get_user_memory"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "get_user_memory",
+				Description: "Retrieves your memory and observations about the user. This contains important context about the user's preferences, interests, work style, and past interactions. Use this to personalize responses and maintain continuity across conversations.",
+				Parameters: map[string]interface{}{
+					"type":       "object",
+					"properties": map[string]interface{}{},
+					"required":   []string{},
+				},
+			},
+		},
+		Handler: func(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+			memory, err := GetUserMemory(ctx.DB, ctx.UserID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to retrieve user memory: %w", err)
+			}
+
+			if memory == "" {
+				return map[string]interface{}{
+					"memory": "",
+					"note":   "No memory has been recorded yet for this user.",
+				}, nil
+			}
+
+			return map[string]interface{}{
+				"memory": memory,
+			}, nil
+		},
+	}
 }
