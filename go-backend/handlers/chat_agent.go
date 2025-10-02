@@ -236,6 +236,22 @@ func (s *Handler) buildSystemPrompt(userID int, conversation *models.ChatConvers
 	return systemPrompt, nil
 }
 
+// shouldClearToolResult determines if a tool result should be cleared to save context
+func shouldClearToolResult(msg models.ChatMessage, messageIndex int, totalMessages int) bool {
+	// Only clear tool messages
+	if msg.Role != "tool" {
+		return false
+	}
+
+	// Don't clear if it's in the last 10 messages (keep recent context)
+	messagesFromEnd := totalMessages - messageIndex
+	if messagesFromEnd <= 10 {
+		return false
+	}
+
+	return true
+}
+
 // convertToOpenAIMessages converts our chat messages to OpenAI format
 func convertToOpenAIMessages(messages []models.ChatMessage, systemPrompt string) []openai.ChatCompletionMessage {
 	openaiMessages := []openai.ChatCompletionMessage{
@@ -245,7 +261,18 @@ func convertToOpenAIMessages(messages []models.ChatMessage, systemPrompt string)
 		},
 	}
 
-	for _, msg := range messages {
+	for i, msg := range messages {
+		// Clear old tool results to reduce context pollution
+		if shouldClearToolResult(msg, i, len(messages)) {
+			// Replace with minimal placeholder
+			openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
+				Role:       "tool",
+				ToolCallID: *msg.ToolCallID,
+				Content:    "[Result cleared to save context]",
+			})
+			continue
+		}
+
 		var content string
 		if msg.Content != nil {
 			content = *msg.Content
