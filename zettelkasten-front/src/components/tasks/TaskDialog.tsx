@@ -190,6 +190,26 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
     }
   };
 
+  const handleRemoveTag = async (tagName: string) => {
+    if (!editedTask) return;
+
+    // Remove # prefix if present
+    const cleanTagName = tagName.replace(/^#/, '');
+    const tagRegex = new RegExp(`\\n*#${cleanTagName}\\b`, 'g');
+
+    const updatedTask = {
+      ...editedTask,
+      title: editedTask.title.replace(tagRegex, '').trim(),
+      tags: editedTask.tags.filter(tag => tag.name.replace(/^#/, '') !== cleanTagName)
+    };
+
+    const response = await saveExistingTask(updatedTask);
+    if (!("error" in response)) {
+      setEditedTask(updatedTask);
+      setRefreshTasks(true);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
@@ -262,7 +282,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
                 setTask={setEditedTask}
                 saveOnChange={true}
               />
-              <TaskTagDisplay task={editedTask} tags={editedTask.tags} onTagClick={onTagClick} />
+              <TaskTagDisplay task={editedTask} tags={editedTask.tags} onTagClick={onTagClick} onRemoveTag={handleRemoveTag} />
             </div>
 
             {showCardLink && (

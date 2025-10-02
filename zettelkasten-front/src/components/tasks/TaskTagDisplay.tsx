@@ -6,13 +6,20 @@ interface TaskTagDisplayProps {
   task: Task;
   tags: Tag[];
   onTagClick: (tag: string) => void;
+  onRemoveTag?: (tag: string) => void;
   hideMatrixTags?: boolean;
 }
 
-export function TaskTagDisplay({ task, tags, onTagClick, hideMatrixTags = false }: TaskTagDisplayProps) {
+export function TaskTagDisplay({ task, tags, onTagClick, onRemoveTag, hideMatrixTags = false }: TaskTagDisplayProps) {
   const displayTags = hideMatrixTags
     ? tags.filter(tag => !['important', 'urgent'].includes(tag.name.replace(/^#/, '').toLowerCase()))
     : tags;
+
+  // Check if tag exists in task title
+  const tagExistsInTitle = (tagName: string) => {
+    const cleanTag = tagName.replace(/^#/, '');
+    return task.title.includes(`#${cleanTag}`);
+  };
 
   return (
     <span className="mr-1">
@@ -20,10 +27,25 @@ export function TaskTagDisplay({ task, tags, onTagClick, hideMatrixTags = false 
         displayTags.map((tag) => (
           <span
             key={tag.name}
-            className="inline-block text-purple-500 text-xs px-2 cursor-pointer"
-            onClick={() => onTagClick(tag.name)}
+            className="inline-flex items-center px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full mr-1"
           >
-            {tag.name}
+            <span
+              className="cursor-pointer hover:bg-purple-100"
+              onClick={() => onTagClick(tag.name)}
+            >
+              {tag.name}
+            </span>
+            {onRemoveTag && tagExistsInTitle(tag.name) && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveTag(tag.name);
+                }}
+                className="ml-1.5 text-purple-400 hover:text-purple-600"
+              >
+                &times;
+              </button>
+            )}
           </span>
         ))}
     </span>

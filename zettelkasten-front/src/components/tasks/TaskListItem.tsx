@@ -67,6 +67,23 @@ export function TaskListItem({
     }
   }
 
+  async function handleRemoveTag(tagName: string) {
+    // Remove # prefix if present
+    const cleanTagName = tagName.replace(/^#/, '');
+    const tagRegex = new RegExp(`\\n*#${cleanTagName}\\b`, 'g');
+
+    const updatedTask = {
+      ...task,
+      title: task.title.replace(tagRegex, '').trim(),
+      tags: task.tags.filter(tag => tag.name.replace(/^#/, '') !== cleanTagName)
+    };
+
+    const response = await saveExistingTask(updatedTask);
+    if (!("error" in response)) {
+      setRefreshTasks(true);
+    }
+  }
+
   useEffect(() => {
     setTags(task.tags);
   }, [task]);
@@ -101,7 +118,7 @@ export function TaskListItem({
             setTask={(task: Task) => { }}
             saveOnChange={true}
           />
-          <TaskTagDisplay task={task} tags={tags} onTagClick={onTagClick} hideMatrixTags={hideMatrixTags} />
+          <TaskTagDisplay task={task} tags={tags} onTagClick={onTagClick} onRemoveTag={handleRemoveTag} hideMatrixTags={hideMatrixTags} />
         </div>
       </div>
       <div className="task-list-item-card">
