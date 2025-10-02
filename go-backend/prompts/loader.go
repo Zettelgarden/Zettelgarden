@@ -50,3 +50,8 @@ func GetChatMemoryAssistantPrompt() (string, error) {
 func GetCardMemoryAssistantPrompt() (string, error) {
 	return LoadPrompt("card_memory_assistant.md")
 }
+
+// GetConversationCompactionPrompt loads the conversation compaction system prompt
+func GetConversationCompactionPrompt() (string, error) {
+	return LoadPrompt("conversation_compaction.md")
+}
