@@ -123,10 +123,12 @@ Example:
 - Include relevant examples when possible"
                   className="w-full h-64 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
                   style={{ fontFamily: 'monospace' }}
+                  maxLength={10000}
                 />
                 <div className="mt-2 flex justify-between items-center">
-                  <span className="text-xs text-gray-500">
+                  <span className={`text-xs ${instructions.length > 8000 ? 'text-red-600 font-medium' : instructions.length > 6000 ? 'text-amber-600' : 'text-gray-500'}`}>
                     {instructions.length}/10000 characters
+                    {instructions.length > 8000 && ' - Approaching limit!'}
                   </span>
                   {hasChanges && (
                     <span className="text-xs text-amber-600 flex items-center gap-1">
@@ -136,6 +138,25 @@ Example:
                   )}
                 </div>
               </div>
+
+              {instructions.length > 7000 && (
+                <div className={`${instructions.length > 9000 ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'} border rounded-lg p-4`}>
+                  <div className="flex items-start gap-3">
+                    <svg className={`w-5 h-5 ${instructions.length > 9000 ? 'text-red-500' : 'text-amber-500'} mt-0.5 flex-shrink-0`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div className={`text-sm ${instructions.length > 9000 ? 'text-red-800' : 'text-amber-800'}`}>
+                      <p className="font-medium mb-1">
+                        {instructions.length > 9000 ? 'Character limit almost reached!' : 'Approaching character limit'}
+                      </p>
+                      <p className={instructions.length > 9000 ? 'text-red-700' : 'text-amber-700'}>
+                        Your instructions consume approximately {Math.round(instructions.length / 4)} tokens in the system prompt.
+                        Consider keeping instructions concise for optimal performance.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-start gap-3">
