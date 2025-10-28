@@ -116,4 +116,4 @@ The application requires extensive environment configuration for:
 - Backend follows RESTful API conventions with consistent error handling
 - All routes are logged via `handlers.LogRoute` middleware
 - File uploads go through S3-compatible storage
-- The application supports both development and production logging configurations
+- The application supports both development and production logging configurationsWe track work in Beads instead of Markdown. Run `bd quickstart` to see how.
