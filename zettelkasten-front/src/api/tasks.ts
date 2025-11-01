@@ -21,6 +21,9 @@ export function fetchTasks(showCompleted: boolean): Promise<Task[]> {
     }
 
     const tasksResponse: TasksResponse = await checkedResponse.json();
+    if (!tasksResponse.tasks) {
+      return allTasks
+    }
     const formattedTasks = tasksResponse.tasks.map((task) => ({
       ...task,
       scheduled_date: task.scheduled_date

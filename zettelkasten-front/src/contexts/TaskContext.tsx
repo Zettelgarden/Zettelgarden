@@ -45,9 +45,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({
     setExistingTags(sortedTags);
   };
   const getTasks = async () => {
-    console.log("run getTasks");
     await fetchTasks(showCompleted).then((data) => {
-      console.log("asdas");
       setTasks(data);
       extractTags(data);
       setRefreshTasks(false);
