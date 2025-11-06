@@ -30,6 +30,7 @@ export function CardLinkWithPreview({
     <span
       onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setShowHover(false)}
+      className="inline-block"
     >
       {linkedCard && (
         <CardLink
