@@ -659,7 +659,6 @@ type PaginatedSearchResponse struct {
 }
 
 func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) (PaginatedSearchResponse, error) {
-	log.Printf("typesense")
 
 	// Set default pagination values if not provided
 	page := searchParams.Page
@@ -719,10 +718,10 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 	// Add tag filters
 	var tagFilters []string
 	for _, tag := range parsedParams.Tags {
-		tagFilters = append(tagFilters, "tags:=" + tag)
+		tagFilters = append(tagFilters, "tags:="+tag)
 	}
 	for _, tag := range parsedParams.NegateTags {
-		tagFilters = append(tagFilters, "tags:!=" + tag)
+		tagFilters = append(tagFilters, "tags:!="+tag)
 	}
 	if len(tagFilters) > 0 {
 		filter += " && " + strings.Join(tagFilters, " && ")
@@ -731,16 +730,16 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 	// Remove tag and entity syntax from search term for Typesense query
 	cleanSearchTerm := searchParams.SearchTerm
 	for _, tag := range parsedParams.Tags {
-		cleanSearchTerm = strings.ReplaceAll(cleanSearchTerm, "#" + tag, "")
+		cleanSearchTerm = strings.ReplaceAll(cleanSearchTerm, "#"+tag, "")
 	}
 	for _, tag := range parsedParams.NegateTags {
-		cleanSearchTerm = strings.ReplaceAll(cleanSearchTerm, "!#" + tag, "")
+		cleanSearchTerm = strings.ReplaceAll(cleanSearchTerm, "!#"+tag, "")
 	}
 	for _, entity := range parsedParams.Entities {
-		cleanSearchTerm = strings.ReplaceAll(cleanSearchTerm, "@[" + entity + "]", "")
+		cleanSearchTerm = strings.ReplaceAll(cleanSearchTerm, "@["+entity+"]", "")
 	}
 	for _, entity := range parsedParams.NegateEntities {
-		cleanSearchTerm = strings.ReplaceAll(cleanSearchTerm, "!@[" + entity + "]", "")
+		cleanSearchTerm = strings.ReplaceAll(cleanSearchTerm, "!@["+entity+"]", "")
 	}
 	cleanSearchTerm = strings.TrimSpace(cleanSearchTerm)
 
@@ -759,7 +758,6 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 		Page:          &page,
 		ExcludeFields: pointer.String("embedding"),
 	}
-	log.Printf("%v", typesenseParams)
 	collectionName := os.Getenv("TYPESENSE_COLLECTION")
 	typesenseResults, err := s.Server.TypesenseClient.Collection(collectionName).Documents().Search(context.Background(), typesenseParams)
 
