@@ -193,8 +193,11 @@ func (s *Handler) StripeWebhookRoute(w http.ResponseWriter, r *http.Request) {
 		var sub stripe.Subscription
 		if err := json.Unmarshal(event.Data.Raw, &sub); err == nil {
 			_, dberr := s.DB.Exec(
-				`UPDATE users SET stripe_subscription_status=$1 WHERE stripe_customer_id=$2`,
-				sub.Status, sub.Customer.ID,
+				`UPDATE users
+				 SET stripe_subscription_status=$1,
+				     stripe_cancel_at_period_end=$2
+				 WHERE stripe_customer_id=$3`,
+				sub.Status, sub.CancelAtPeriodEnd, sub.Customer.ID,
 			)
 			if dberr != nil {
 				log.Printf("DB update error: %v", dberr)
@@ -217,7 +220,12 @@ func (s *Handler) StripeWebhookRoute(w http.ResponseWriter, r *http.Request) {
 		var sub stripe.Subscription
 		if err := json.Unmarshal(event.Data.Raw, &sub); err == nil {
 			_, dberr := s.DB.Exec(
-				`UPDATE users SET stripe_subscription_status='canceled' WHERE stripe_customer_id=$1`,
+				`UPDATE users
+				 SET stripe_subscription_status=$1,
+				     stripe_subscription_id=NULL,
+				     stripe_cancel_at_period_end=false
+				 WHERE stripe_customer_id=$2`,
+				sub.Status,
 				sub.Customer.ID,
 			)
 			if dberr != nil {
