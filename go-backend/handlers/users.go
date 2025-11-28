@@ -294,6 +294,9 @@ func (s *Handler) QueryUsers() ([]models.User, error) {
 	(SELECT COUNT(*) FROM cards c WHERE c.user_id = u.id) as cards,
 	(SELECT COUNT(*) FROM tasks t WHERE t.user_id = u.id) as tasks,
 	(SELECT COUNT(*) FROM files f WHERE f.created_by = u.id) as files,
+	(SELECT COUNT(*) FROM chat_messages cm
+		INNER JOIN chat_conversations cc ON cm.conversation_id = cc.id
+		WHERE cc.user_id = u.id) as chat_messages,
 	COALESCE((SELECT SUM(l.cost_usd) FROM llm_query_log l WHERE l.user_id = u.id), 0) as cost,
 	COALESCE((SELECT SUM(r.amount_cents) FROM revenue r WHERE r.user_id = u.id), 0) / 100.0 as revenue
 	FROM users u
@@ -324,6 +327,7 @@ func (s *Handler) QueryUsers() ([]models.User, error) {
 			&user.CardCount,
 			&user.TaskCount,
 			&user.FileCount,
+			&user.ChatMessageCount,
 			&user.LLMCost,
 			&user.Revenue,
 		); err != nil {

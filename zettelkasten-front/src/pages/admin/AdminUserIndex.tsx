@@ -104,6 +104,10 @@ export function AdminUserIndex() {
         header: "Files",
         cell: (info) => info.getValue(),
       }),
+      columnHelper.accessor("chat_message_count", {
+        header: "Chats",
+        cell: (info) => info.getValue(),
+      }),
       columnHelper.accessor("revenue", {
         header: "Revenue",
         cell: (info) => `$${Number(info.getValue() || 0).toFixed(2)}`,

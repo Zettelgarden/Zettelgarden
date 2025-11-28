@@ -21,6 +21,7 @@ export interface User {
   card_count: number;
   task_count: number;
   file_count: number;
+  chat_message_count: number;
   llm_cost: number;
   revenue: number;
   has_seen_getting_started: boolean;
@@ -48,6 +49,7 @@ export const defaultUser: User = {
   card_count: 0,
   task_count: 0,
   file_count: 0,
+  chat_message_count: 0,
   llm_cost: 0,
   revenue: 0,
   has_seen_getting_started: false,
