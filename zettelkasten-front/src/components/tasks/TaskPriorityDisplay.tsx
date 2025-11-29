@@ -14,7 +14,7 @@ export function TaskPriorityDisplay({
     setTask,
     saveOnChange,
 }: TaskPriorityDisplayProps) {
-    const { setRefreshTasks } = useTaskContext();
+    const { setRefreshTasks, updateTask: updateTaskInContext } = useTaskContext();
     const [showPriorityMenu, setShowPriorityMenu] = useState<boolean>(false);
 
     // Get display text and color based on priority
@@ -38,17 +38,22 @@ export function TaskPriorityDisplay({
     const priorityDisplay = getPriorityDisplay();
 
     async function updateTask(editedTask: Task) {
-        // Log the task to verify priority is included
-        console.log("Updating task with priority:", editedTask.priority);
-
         if (saveOnChange) {
-            // Make a copy to ensure all properties are included
-            const taskToSave = { ...editedTask };
-            console.log("Saving task with priority:", taskToSave.priority);
+            // Optimistic update: update UI immediately
+            updateTaskInContext(editedTask);
 
-            let response = await saveExistingTask(taskToSave);
-            if (!("error" in response)) {
-                setRefreshTasks(true);
+            // Send update to server in background
+            try {
+                const response = await saveExistingTask(editedTask);
+                if ("error" in response) {
+                    // Rollback on error
+                    updateTaskInContext(task);
+                    console.error("Failed to update task priority:", response.error);
+                }
+            } catch (error) {
+                // Rollback on network error
+                updateTaskInContext(task);
+                console.error("Failed to update task priority:", error);
             }
         } else {
             setTask(editedTask);

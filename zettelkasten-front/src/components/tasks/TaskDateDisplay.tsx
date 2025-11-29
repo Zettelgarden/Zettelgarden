@@ -26,7 +26,7 @@ export function TaskDateDisplay({
   setTask,
   saveOnChange,
 }: TaskDateDisplayProps) {
-  const { setRefreshTasks } = useTaskContext();
+  const { setRefreshTasks, updateTask: updateTaskInContext } = useTaskContext();
   const [displayText, setDisplayText] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(
     task.scheduled_date ? task.scheduled_date.toISOString().substr(0, 10) : "",
@@ -35,9 +35,21 @@ export function TaskDateDisplay({
 
   async function updateTask(editedTask: Task) {
     if (saveOnChange) {
-      let response = await saveExistingTask(editedTask);
-      if (!("error" in response)) {
-        setRefreshTasks(true);
+      // Optimistic update: update UI immediately
+      updateTaskInContext(editedTask);
+
+      // Send update to server in background
+      try {
+        const response = await saveExistingTask(editedTask);
+        if ("error" in response) {
+          // Rollback on error
+          updateTaskInContext(task);
+          console.error("Failed to update task date:", response.error);
+        }
+      } catch (error) {
+        // Rollback on network error
+        updateTaskInContext(task);
+        console.error("Failed to update task date:", error);
       }
     } else {
       setTask(editedTask);

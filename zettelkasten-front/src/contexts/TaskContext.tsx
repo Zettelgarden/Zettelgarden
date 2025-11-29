@@ -13,6 +13,7 @@ interface TaskContextType {
   existingTags: string[];
   showCompleted: boolean;
   setShowCompleted: (refresh: boolean) => void;
+  updateTask: (updatedTask: Task) => void;
 }
 interface TaskProviderProps {
   children: React.ReactNode;
@@ -51,6 +52,16 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({
       setRefreshTasks(false);
     });
   };
+
+  const updateTask = (updatedTask: Task) => {
+    setTasks((prevTasks) => {
+      const newTasks = prevTasks.map((task) =>
+        task.id === updatedTask.id ? updatedTask : task
+      );
+      extractTags(newTasks);
+      return newTasks;
+    });
+  };
   useEffect(() => {
     if (testing) {
       setTasks(testTasks);
@@ -77,6 +88,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({
         existingTags,
         showCompleted,
         setShowCompleted,
+        updateTask,
       }}
     >
       {children}

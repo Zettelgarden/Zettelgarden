@@ -32,7 +32,7 @@ export function TaskListItem({
   const [newTitle, setNewTitle] = useState<string>("");
   const [showCardLink, setShowCardLink] = useState<boolean>(false);
   const [tags, setTags] = useState<Tag[]>([]);
-  const { setRefreshTasks } = useTaskContext();
+  const { setRefreshTasks, updateTask } = useTaskContext();
   const { setShowTaskDialog, setSelectedTaskId } = useShortcutContext();
 
   async function handleTitleClick() {
@@ -41,11 +41,26 @@ export function TaskListItem({
   }
 
   async function handleBacklink(card: PartialCard) {
-    let editedTask = { ...task, card_pk: card.id };
-    let response = await saveExistingTask(editedTask);
-    if (!("error" in response)) {
-      setRefreshTasks(true);
-      setShowCardLink(false);
+    const editedTask = { ...task, card_pk: card.id, card: card };
+
+    // Optimistic update: update UI immediately
+    updateTask(editedTask);
+    setShowCardLink(false);
+
+    // Send update to server in background
+    try {
+      const response = await saveExistingTask(editedTask);
+      if ("error" in response) {
+        // Rollback on error
+        updateTask(task);
+        setShowCardLink(true);
+        console.error("Failed to link card to task:", response.error);
+      }
+    } catch (error) {
+      // Rollback on network error
+      updateTask(task);
+      setShowCardLink(true);
+      console.error("Failed to link card to task:", error);
     }
   }
 
@@ -60,10 +75,23 @@ export function TaskListItem({
   }
 
   async function handleToggleComplete() {
-    let editedTask = { ...task, is_complete: task.is_complete ? false : true };
-    let response = await saveExistingTask(editedTask);
-    if (!("error" in response)) {
-      setRefreshTasks(true);
+    const editedTask = { ...task, is_complete: !task.is_complete };
+
+    // Optimistic update: update UI immediately
+    updateTask(editedTask);
+
+    // Send update to server in background
+    try {
+      const response = await saveExistingTask(editedTask);
+      if ("error" in response) {
+        // Rollback on error
+        updateTask(task);
+        console.error("Failed to toggle task completion:", response.error);
+      }
+    } catch (error) {
+      // Rollback on network error
+      updateTask(task);
+      console.error("Failed to toggle task completion:", error);
     }
   }
 
@@ -78,9 +106,21 @@ export function TaskListItem({
       tags: task.tags.filter(tag => tag.name.replace(/^#/, '') !== cleanTagName)
     };
 
-    const response = await saveExistingTask(updatedTask);
-    if (!("error" in response)) {
-      setRefreshTasks(true);
+    // Optimistic update: update UI immediately
+    updateTask(updatedTask);
+
+    // Send update to server in background
+    try {
+      const response = await saveExistingTask(updatedTask);
+      if ("error" in response) {
+        // Rollback on error
+        updateTask(task);
+        console.error("Failed to remove tag:", response.error);
+      }
+    } catch (error) {
+      // Rollback on network error
+      updateTask(task);
+      console.error("Failed to remove tag:", error);
     }
   }
 
