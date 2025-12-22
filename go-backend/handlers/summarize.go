@@ -144,7 +144,6 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 	_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
 	client := services.NewDefaultClient(h.DB, userID)
 	client.RequestType = "analysis"
-	// client.Model.ModelIdentifier = "openai/gpt-5-chat"
 	processedText := prepareTextForAnalysis(req.Title, req.Text)
 	analyses, facts, usage, err := services.ExtractThesesAndArguments(client, processedText)
 	id, err := h.runSummarizationJob(userID, analyses, facts, usage, nil, jobID)
@@ -192,7 +191,6 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 	go func() {
 		client := services.NewDefaultClient(h.DB, userID)
 		client.RequestType = "analysis"
-		// client.Model.ModelIdentifier = "openai/gpt-5-chat"
 		processedText := prepareTextForAnalysis(card.Title, card.Body)
 		analyses, facts, usage, err := services.ExtractThesesAndArguments(client, processedText)
 		if err != nil {

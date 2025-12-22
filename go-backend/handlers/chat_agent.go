@@ -255,12 +255,16 @@ func estimateTokenCount(messages []openai.ChatCompletionMessage) int {
 // getModelContextLimit returns the context window size for a given model
 func getModelContextLimit(model string) int {
 	limits := map[string]int{
-		"google/gemini-2.5-flash":      1000000,
-		"google/gemini-2.5-pro":        2000000,
-		"google/gemini-2.5-flash-lite": 1000000,
-		"openai/gpt-5-chat":            128000,
-		"openai/gpt-4o-mini":           128000,
-		"anthropic/claude-sonnet-4":    200000,
+		"google/gemini-2.5-flash":       1000000,
+		"google/gemini-2.5-pro":         2000000,
+		"google/gemini-2.5-flash-lite":  1000000,
+		"google/gemini-3-flash-preview": 1000000,
+		"google/gemini-3-pro-preview":   1000000,
+		"openai/gpt-5-chat":             128000,
+		"openai/gpt-5.1-chat":           128000,
+		"openai/gpt-5.2-chat":           128000,
+		"openai/gpt-4o-mini":            128000,
+		"anthropic/claude-sonnet-4":     200000,
 	}
 
 	if limit, ok := limits[model]; ok {

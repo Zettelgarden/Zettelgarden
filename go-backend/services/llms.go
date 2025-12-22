@@ -122,12 +122,12 @@ func IsContextLengthError(err error) bool {
 	errorStr := strings.ToLower(err.Error())
 	// Check for common context length error patterns
 	return strings.Contains(errorStr, "context_length_exceeded") ||
-		   strings.Contains(errorStr, "maximum context length") ||
-		   strings.Contains(errorStr, "context length") ||
-		   strings.Contains(errorStr, "token limit") ||
-		   strings.Contains(errorStr, "too many tokens") ||
-		   strings.Contains(errorStr, "exceeds") ||
-		   strings.Contains(errorStr, "413")
+		strings.Contains(errorStr, "maximum context length") ||
+		strings.Contains(errorStr, "context length") ||
+		strings.Contains(errorStr, "token limit") ||
+		strings.Contains(errorStr, "too many tokens") ||
+		strings.Contains(errorStr, "exceeds") ||
+		strings.Contains(errorStr, "413")
 }
 func logLLMRequest(c *models.LLMClient, resp openai.ChatCompletionResponse, requestType string) {
 	// fire and forget
@@ -137,12 +137,16 @@ func logLLMRequest(c *models.LLMClient, resp openai.ChatCompletionResponse, requ
 			PromptPer1K     float64
 			CompletionPer1K float64
 		}{
-			"google/gemini-2.5-flash":      {PromptPer1K: 0.0003, CompletionPer1K: 0.0025},
-			"google/gemini-2.5-pro":        {PromptPer1K: 0.00125, CompletionPer1K: 0.010},
-			"google/gemini-2.5-flash-lite": {PromptPer1K: 0.0001, CompletionPer1K: 0.0004},
-			"openai/gpt-5-chat":            {PromptPer1K: 0.00125, CompletionPer1K: 0.010},
-			"openai/gpt-4o-mini":           {PromptPer1K: 0.00015, CompletionPer1K: 0.0006},
-			"anthropic/claude-sonnet-4":    {PromptPer1K: 0.003, CompletionPer1K: 0.015},
+			"google/gemini-2.5-flash":       {PromptPer1K: 0.0003, CompletionPer1K: 0.0025},
+			"google/gemini-2.5-pro":         {PromptPer1K: 0.00125, CompletionPer1K: 0.010},
+			"google/gemini-2.5-flash-lite":  {PromptPer1K: 0.0001, CompletionPer1K: 0.0004},
+			"openai/gpt-5-chat":             {PromptPer1K: 0.00125, CompletionPer1K: 0.010},
+			"openai/gpt-5.1-chat":           {PromptPer1K: 0.00125, CompletionPer1K: 0.010},
+			"openai/gpt-5.2-chat":           {PromptPer1K: 0.00175, CompletionPer1K: 0.014},
+			"openai/gpt-4o-mini":            {PromptPer1K: 0.00015, CompletionPer1K: 0.0006},
+			"anthropic/claude-sonnet-4":     {PromptPer1K: 0.003, CompletionPer1K: 0.015},
+			"google/gemini-3-pro-preview":   {PromptPer1K: 0.002, CompletionPer1K: 0.012},
+			"google/gemini-3-flash-preview": {PromptPer1K: 0.0005, CompletionPer1K: 0.003},
 		}
 
 		var cost *float64

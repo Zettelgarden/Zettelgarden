@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"go-backend/models"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -175,7 +176,10 @@ func cleanContent(content string) string {
 // AnalyzeAndSummarizeText: the advanced pipeline
 func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []models.SectionAnalysis, facts []string, usage models.Usage) (string, []models.SectionAnalysis, models.Usage, error) {
 	start := time.Now()
-	c.Model = "openai/gpt-5-chat"
+	c.Model = os.Getenv("ZETTEL_LLM_SUMMARIZE_MODEL")
+	if c.Model == "" {
+		c.Model = "google/gemini-3-pro-preview"
+	}
 
 	totalPromptTokens := usage.PromptTokens
 	totalCompletionTokens := usage.CompletionTokens
