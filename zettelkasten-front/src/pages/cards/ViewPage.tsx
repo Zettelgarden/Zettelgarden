@@ -203,7 +203,7 @@ export function ViewPage({ cardId }: ViewPageProps) {
         setLinkedEntities(linked);
 
         setViewCard(refreshed);
-        setDocumentTitle(refreshed.card_id + " - View");
+        setDocumentTitle(refreshed.card_id + " - " + refreshed.title);
         setLastCard(convertCardToPartialCard(refreshed));
 
         if (refreshed.parent && "id" in refreshed.parent) {
