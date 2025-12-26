@@ -223,6 +223,18 @@ export const CardBodyTextArea = forwardRef<CardBodyTextAreaHandle, CardBodyTextA
         }
         break;
 
+      case 'strikethrough':
+        if (selectedText) {
+          formattedText = `~~${selectedText}~~`;
+          newBody =
+            editingCard.body.substring(0, start) +
+            formattedText +
+            editingCard.body.substring(end);
+          newCursorStart = start + 2;
+          newCursorEnd = end + 2;
+        }
+        break;
+
       case 'h1':
         if (currentLine.trim() === selectedText.trim()) {
           // If the selected text is the entire line, prepend with heading

@@ -44,6 +44,14 @@ export function MarkdownToolbar({
           I
         </Button>
         <Button
+          onClick={() => onFormatText('strikethrough')}
+          variant="secondary"
+          size="small"
+          className="line-through"
+        >
+          S
+        </Button>
+        <Button
           onClick={() => onFormatText('h1')}
           variant="secondary"
           size="small"
