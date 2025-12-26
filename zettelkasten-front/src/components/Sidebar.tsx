@@ -144,9 +144,6 @@ export function Sidebar() {
     // these should only work if there isn't an input selected
     const focusedElement = document.activeElement;
     if (!focusedElement || !focusedElement.tagName.match(/^INPUT|TEXTAREA$/i)) {
-      if (event.key === "c") {
-        navigate("/app/card/new", { state: { cardType: "standard" } });
-      }
       if (event.key === "t") {
         event.preventDefault();
         setShowQuickSearchWindow(false);
