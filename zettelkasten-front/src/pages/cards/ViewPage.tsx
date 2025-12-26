@@ -319,7 +319,7 @@ export function ViewPage({ cardId }: ViewPageProps) {
                 <span className="text-blue-600">
                   [{viewingCard.card_id}]
                 </span>
-                <span className="text-gray-600 md:truncate">{"- "}
+                <span className="text-gray-600 md:truncate">{" - "}
                   {viewingCard.title}
                 </span>
               </div>
