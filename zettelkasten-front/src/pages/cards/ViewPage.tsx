@@ -78,6 +78,8 @@ export function ViewPage({ cardId }: ViewPageProps) {
   const [showingAnalysis, setShowingAnalysis] = useState(false);
   const [showIdDiscovery, setShowIdDiscovery] = useState(false);
 
+  const [prevSibling, setPrevSibling] = useState<PartialCard | null>(null);
+  const [nextSibling, setNextSibling] = useState<PartialCard | null>(null);
 
   const [linkedEntities, setLinkedEntities] = useState<Entity[]>([]);
 
@@ -209,6 +211,10 @@ export function ViewPage({ cardId }: ViewPageProps) {
         if (refreshed.parent && "id" in refreshed.parent) {
           let parentCardId = refreshed.parent.id;
           const parentCard = await getCard(parentCardId.toString());
+          let parentChildren = await getCardChildren(parentCardId.toString());
+
+          parentCard.children = parentChildren;
+          console.log("set parent", parentCard, "children", parentChildren)
           setParentCard(parentCard);
         } else {
           setParentCard(null);
@@ -298,6 +304,27 @@ export function ViewPage({ cardId }: ViewPageProps) {
       }
     }
   }, [summaries]);
+
+  // Calculate previous and next siblings
+  useEffect(() => {
+    if (parentCard && viewingCard) {
+      const siblings = parentCard.children.sort((a, b) =>
+        compareCardIds(a.card_id, b.card_id)
+      );
+      const currentIndex = siblings.findIndex(s => s.id === viewingCard.id);
+
+      if (currentIndex !== -1) {
+        setPrevSibling(currentIndex > 0 ? siblings[currentIndex - 1] : null);
+        setNextSibling(currentIndex < siblings.length - 1 ? siblings[currentIndex + 1] : null);
+      } else {
+        setPrevSibling(null);
+        setNextSibling(null);
+      }
+    } else {
+      setPrevSibling(null);
+      setNextSibling(null);
+    }
+  }, [parentCard, viewingCard]);
 
   const renderViewPageContent = () => (
     <div className="overflow-x-hidden">
@@ -540,6 +567,23 @@ export function ViewPage({ cardId }: ViewPageProps) {
                     <div className="mt-2">
                       <CardItem card={parentCard} />
                     </div>
+
+                    {prevSibling && (
+                      <Button
+                        onClick={() => navigate(`/app/card/${prevSibling.id}`)}
+                        variant="secondary"
+                      >
+                        ← Prev
+                      </Button>
+                    )}
+                    {nextSibling && (
+                      <Button
+                        onClick={() => navigate(`/app/card/${nextSibling.id}`)}
+                        variant="secondary"
+                      >
+                        Next →
+                      </Button>
+                    )}
                     <hr className="my-4" />
                   </div>
                 )}
