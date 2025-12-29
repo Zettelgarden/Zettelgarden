@@ -26,7 +26,7 @@ type SortField = "updated_at" | "title" | "priority" | "id";
 type SortDirection = "asc" | "desc";
 
 export function TaskPage({ }: TaskListProps) {
-  const { tasks, showCompleted, setShowCompleted } = useTaskContext(); // setRefreshTasks is not used
+  const { tasks, showCompleted, setShowCompleted, setRefreshTasks } = useTaskContext();
   // Load any saved settings from localStorage
   const savedSettings = useMemo(() => {
     try {
@@ -79,8 +79,8 @@ export function TaskPage({ }: TaskListProps) {
         return true;
       } else if (
         showCompleted &&
-        task.scheduled_date && // Ensure scheduled_date is not null
-        compareDates(task.scheduled_date, getToday())
+        task.completed_at && // Check if task has a completion date
+        compareDates(task.completed_at, getToday())
       ) {
         return true;
       } else {
@@ -97,8 +97,8 @@ export function TaskPage({ }: TaskListProps) {
         return true;
       } else if (
         showCompleted &&
-        task.scheduled_date && // Ensure scheduled_date is not null
-        compareDates(task.scheduled_date, getTomorrow())
+        task.completed_at && // Check if task has a completion date
+        compareDates(task.completed_at, getTomorrow())
       ) {
         return true;
       } else {

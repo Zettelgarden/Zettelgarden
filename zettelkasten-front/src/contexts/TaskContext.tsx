@@ -68,9 +68,9 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({
       extractTags(testTasks);
       return;
     }
-    if (refreshTasks) {
-      getTasks();
-    }
+    // Load tasks immediately when showCompleted changes or on mount
+    getTasks();
+
     const intervalId = setInterval(() => {
       getTasks();
     }, 60000);
