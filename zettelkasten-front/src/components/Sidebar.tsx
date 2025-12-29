@@ -35,6 +35,7 @@ import { BookOpenIcon } from "../assets/icons/BookOpenIcon";
 import { SettingsIcon } from "../assets/icons/SettingsIcon";
 import { FactsIcon } from "../assets/icons/FactsIcon";
 import { MemoryIcon } from "../assets/icons/MemoryIcon";
+import { ChartIcon } from "../assets/icons/ChartIcon";
 
 import { EntityDialog } from "./entities/EntityDialog";
 import { EditEntityDialog } from "./entities/EditEntityDialog";
@@ -375,6 +376,10 @@ export function Sidebar() {
               <SidebarLink to="/app/memory">
                 <MemoryIcon />
                 <span className="px-2 flex-grow">Memory</span>
+              </SidebarLink>
+              <SidebarLink to="/app/stats">
+                <ChartIcon />
+                <span className="px-2 flex-grow">Stats</span>
               </SidebarLink>
             </ul>
           </div>
