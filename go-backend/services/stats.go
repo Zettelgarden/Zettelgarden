@@ -104,7 +104,8 @@ func GetTasksCompletedOnDate(db *sql.DB, userID int, date time.Time) ([]models.T
 	FROM tasks
 	WHERE user_id = $1
 		AND is_deleted = FALSE
-		AND DATE(completed_at) = $2
+		AND completed_at >= $2::date
+		AND completed_at < ($2::date + INTERVAL '1 day')
 	ORDER BY completed_at DESC
 	`
 
@@ -161,7 +162,8 @@ func GetCardsCreatedOnDate(db *sql.DB, userID int, date time.Time) ([]models.Par
 	FROM cards
 	WHERE user_id = $1
 		AND is_deleted = FALSE
-		AND DATE(created_at) = $2
+		AND created_at >= $2::date
+		AND created_at < ($2::date + INTERVAL '1 day')
 	ORDER BY created_at DESC
 	`
 
