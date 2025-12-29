@@ -637,7 +637,7 @@ export function ViewPage({ cardId }: ViewPageProps) {
                 )}
 
                 {/* Linked Entities Section */}
-                {linkedEntities.length > 0 && (
+                {linkedEntities && linkedEntities.length > 0 && (
                   <div>
                     <HeaderSubSection text="Linked Entities" />
                     <div className="mt-2 space-y-2">
