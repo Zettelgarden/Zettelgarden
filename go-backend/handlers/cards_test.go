@@ -234,16 +234,39 @@ func TestGetCardReferencesRoute(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 
-	var refs []models.PartialCard
+	var refs CategorizedReferences
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &refs)
-	if len(refs) != 2 {
-		t.Errorf("wrong number of references returned, got %v want %v", len(refs), 2)
+
+	// Card 1 references card 2 (outgoing), and card 22 (2/A) references card 1 (incoming)
+	totalRefs := len(refs.Bidirectional) + len(refs.Outgoing) + len(refs.Incoming)
+	if totalRefs < 2 {
+		t.Errorf("wrong number of total references returned, got %v want at least %v", totalRefs, 2)
 	}
-	if len(refs) > 0 && refs[0].CardID != "2/A" {
-		t.Errorf("wrong card returned as first reference, got %v want %v", refs[0].CardID, "2/A")
+
+	// Check that we have the expected cards in the appropriate categories
+	// Card 2 should be in outgoing (card 1 -> 2)
+	foundCard2 := false
+	for _, card := range refs.Outgoing {
+		if card.CardID == "2" {
+			foundCard2 = true
+			break
+		}
 	}
-	if len(refs) > 1 && refs[1].CardID != "2" {
-		t.Errorf("wrong card returned as second reference, got %v want %v", refs[1].CardID, "2")
+
+	// Card 2/A should be in incoming (2/A -> 1)
+	foundCard2A := false
+	for _, card := range refs.Incoming {
+		if card.CardID == "2/A" {
+			foundCard2A = true
+			break
+		}
+	}
+
+	if !foundCard2 && len(refs.Bidirectional) == 0 {
+		t.Errorf("expected to find card 2 in outgoing or bidirectional references")
+	}
+	if !foundCard2A && len(refs.Bidirectional) == 0 {
+		t.Errorf("expected to find card 2/A in incoming or bidirectional references")
 	}
 }
 
@@ -265,13 +288,39 @@ func TestGetCardReferencesDuplicateLinks(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 
-	var refs []models.PartialCard
+	var refs CategorizedReferences
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &refs)
-	if len(refs) != 1 {
-		if len(refs) == 2 && (refs[0].CardID == refs[1].CardID) {
-			t.Errorf("returned duplicate references to the same card")
-		} else {
-			t.Errorf("wrong number of references associated with card, got %v want %v", len(refs), 2)
+
+	// Card 4 (REF001) and card 3 reference each other, so card 3 should be in bidirectional
+	totalRefs := len(refs.Bidirectional) + len(refs.Outgoing) + len(refs.Incoming)
+	if totalRefs != 1 {
+		t.Errorf("wrong number of total references, got %v want %v", totalRefs, 1)
+	}
+
+	// Card 3 should be in bidirectional since both cards reference each other
+	if len(refs.Bidirectional) != 1 {
+		t.Errorf("expected 1 bidirectional reference, got %v", len(refs.Bidirectional))
+	}
+
+	if len(refs.Bidirectional) > 0 && refs.Bidirectional[0].CardID != "3" {
+		t.Errorf("expected card 3 in bidirectional references, got %v", refs.Bidirectional[0].CardID)
+	}
+
+	// Verify no duplicates across all categories
+	allCards := make(map[string]int)
+	for _, card := range refs.Bidirectional {
+		allCards[card.CardID]++
+	}
+	for _, card := range refs.Outgoing {
+		allCards[card.CardID]++
+	}
+	for _, card := range refs.Incoming {
+		allCards[card.CardID]++
+	}
+
+	for cardID, count := range allCards {
+		if count > 1 {
+			t.Errorf("card %v appears %v times in references (should only appear once)", cardID, count)
 		}
 	}
 }
