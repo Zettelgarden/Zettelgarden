@@ -119,7 +119,8 @@ export function EditPage({ newCard }: EditPageProps) {
         getCardEntities(id)
       ]);
 
-      refreshed.references = refs;
+      // Combine categorized references into a single array for backward compatibility
+      refreshed.references = [...refs.bidirectional, ...refs.outgoing, ...refs.incoming];
       refreshed.children = kids;
       refreshed.files = files;
       refreshed.tags = tags;
