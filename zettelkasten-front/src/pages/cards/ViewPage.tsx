@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { setDocumentTitle } from "../../utils/title";
 import { CardItem } from "../../components/cards/CardItem";
 import { BacklinkInput } from "../../components/cards/BacklinkInput";
-import { getCard, saveExistingCard, starCard, unstarCard, getCardReferences, getCardChildren, getCardFiles, getCardTags, getCardTasks, getCardEntities, getLinkedEntitiesByCardPK } from "../../api/cards";
+import { getCard, saveExistingCard, starCard, unstarCard, getCardReferences, getCardChildren, getCardFiles, getCardTags, getCardTasks, getCardEntities, getLinkedEntitiesByCardPK, CategorizedReferences } from "../../api/cards";
 import { Menu } from "@headlessui/react";
 import { useParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
@@ -82,6 +82,11 @@ export function ViewPage({ cardId }: ViewPageProps) {
   const [nextSibling, setNextSibling] = useState<PartialCard | null>(null);
 
   const [linkedEntities, setLinkedEntities] = useState<Entity[]>([]);
+  const [categorizedReferences, setCategorizedReferences] = useState<CategorizedReferences>({
+    bidirectional: [],
+    outgoing: [],
+    incoming: [],
+  });
 
   const navigate = useNavigate();
 
@@ -181,9 +186,11 @@ export function ViewPage({ cardId }: ViewPageProps) {
       if (isErrorResponse(refreshed)) {
         setError(refreshed["error"]);
       } else {
-        // Also fetch references via new endpoint
+        // Also fetch categorized references via new endpoint
         const refs = await getCardReferences(id);
-        refreshed.references = refs;
+        setCategorizedReferences(refs);
+        // Combine all references for backward compatibility with Card.references
+        refreshed.references = [...refs.bidirectional, ...refs.outgoing, ...refs.incoming];
         // Also fetch children via new endpoint
         const kids = await getCardChildren(id);
         refreshed.children = kids;
@@ -511,15 +518,56 @@ export function ViewPage({ cardId }: ViewPageProps) {
                 </div>
                 <div>
                   <HeaderSubSection text="References" />
-                  {viewingCard.references.length > 0 ? (
-                    <CardList
-                      cards={viewingCard.references.sort((a, b) =>
-                        compareCardIds(a.card_id, b.card_id),
-                      )}
-                    />
-                  ) : (
+
+                  {/* Bidirectional Links */}
+                  {categorizedReferences.bidirectional.length > 0 && (
+                    <div className="mb-3">
+                      <h3 className="text-xs font-medium text-gray-600 mb-1.5">
+                        Two-way Links ({categorizedReferences.bidirectional.length})
+                      </h3>
+                      <CardList
+                        cards={categorizedReferences.bidirectional.sort((a, b) =>
+                          compareCardIds(a.card_id, b.card_id),
+                        )}
+                      />
+                    </div>
+                  )}
+
+                  {/* Incoming Links */}
+                  {categorizedReferences.incoming.length > 0 && (
+                    <div className="mb-3">
+                      <h3 className="text-xs font-medium text-gray-600 mb-1.5">
+                        Incoming Links ({categorizedReferences.incoming.length})
+                      </h3>
+                      <CardList
+                        cards={categorizedReferences.incoming.sort((a, b) =>
+                          compareCardIds(a.card_id, b.card_id),
+                        )}
+                      />
+                    </div>
+                  )}
+
+                  {/* Outgoing Links */}
+                  {categorizedReferences.outgoing.length > 0 && (
+                    <div className="mb-3">
+                      <h3 className="text-xs font-medium text-gray-600 mb-1.5">
+                        Outgoing Links ({categorizedReferences.outgoing.length})
+                      </h3>
+                      <CardList
+                        cards={categorizedReferences.outgoing.sort((a, b) =>
+                          compareCardIds(a.card_id, b.card_id),
+                        )}
+                      />
+                    </div>
+                  )}
+
+                  {/* Show message if no references at all */}
+                  {categorizedReferences.bidirectional.length === 0 &&
+                   categorizedReferences.incoming.length === 0 &&
+                   categorizedReferences.outgoing.length === 0 && (
                     <div className="text-gray-500 text-sm mt-2">No references yet.</div>
                   )}
+
                   <div className="mt-4">
                     <BacklinkInput addBacklink={handleAddBacklink} />
                   </div>

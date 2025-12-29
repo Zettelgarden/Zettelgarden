@@ -226,7 +226,14 @@ func (s *Handler) GetCardChildrenRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(children)
 }
 
-// GetCardReferencesRoute returns the references (directlinks + backlinks) for a given card
+// CategorizedReferences represents references categorized by their relationship type
+type CategorizedReferences struct {
+	Bidirectional []models.PartialCard `json:"bidirectional"` // Two-way links (mutual references)
+	Outgoing      []models.PartialCard `json:"outgoing"`      // One-way links (this card references them)
+	Incoming      []models.PartialCard `json:"incoming"`      // One-way links (they reference this card)
+}
+
+// GetCardReferencesRoute returns the references (directlinks + backlinks) for a given card, categorized by relationship type
 func (s *Handler) GetCardReferencesRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 	id, err := strconv.Atoi(mux.Vars(r)["id"])
@@ -241,14 +248,68 @@ func (s *Handler) GetCardReferencesRoute(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	references, err := s.getReferences(userID, card)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	directLinks := s.getDirectlinks(userID, card)
+	backlinks, _ := services.GetBacklinks(s.DB, userID, card.CardID)
+
+	// Fetch tags for all cards first
+	allCards := append(directLinks, backlinks...)
+	for i := range allCards {
+		tags, err := services.QueryTagsForCard(s.DB, userID, allCards[i].ID)
+		if err != nil {
+			log.Printf("Failed to fetch tags for card ID %d: %v", allCards[i].ID, err)
+			allCards[i].Tags = []models.Tag{}
+		} else {
+			allCards[i].Tags = tags
+		}
 	}
 
+	// Create maps for quick lookup
+	directMap := make(map[int]models.PartialCard)
+	backMap := make(map[int]models.PartialCard)
+
+	for _, card := range directLinks {
+		directMap[card.ID] = card
+	}
+	for _, card := range backlinks {
+		backMap[card.ID] = card
+	}
+
+	// Categorize references
+	categorized := CategorizedReferences{
+		Bidirectional: []models.PartialCard{},
+		Outgoing:      []models.PartialCard{},
+		Incoming:      []models.PartialCard{},
+	}
+
+	// Find bidirectional links
+	for id, card := range directMap {
+		if _, exists := backMap[id]; exists {
+			categorized.Bidirectional = append(categorized.Bidirectional, card)
+		} else {
+			categorized.Outgoing = append(categorized.Outgoing, card)
+		}
+	}
+
+	// Find incoming-only links
+	for id, card := range backMap {
+		if _, exists := directMap[id]; !exists {
+			categorized.Incoming = append(categorized.Incoming, card)
+		}
+	}
+
+	// Sort each category by card_id
+	sort.Slice(categorized.Bidirectional, func(i, j int) bool {
+		return categorized.Bidirectional[i].CardID > categorized.Bidirectional[j].CardID
+	})
+	sort.Slice(categorized.Outgoing, func(i, j int) bool {
+		return categorized.Outgoing[i].CardID > categorized.Outgoing[j].CardID
+	})
+	sort.Slice(categorized.Incoming, func(i, j int) bool {
+		return categorized.Incoming[i].CardID > categorized.Incoming[j].CardID
+	})
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(references)
+	json.NewEncoder(w).Encode(categorized)
 }
 
 // GetCardRoute returns a specific card by ID with related details

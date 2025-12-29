@@ -420,7 +420,13 @@ export function getCardTasks(cardId: string | number): Promise<any[]> {
     });
 }
 
-export function getCardReferences(cardId: string): Promise<PartialCard[]> {
+export interface CategorizedReferences {
+  bidirectional: PartialCard[]; // Two-way links (mutual references)
+  outgoing: PartialCard[];      // One-way links (this card references them)
+  incoming: PartialCard[];      // One-way links (they reference this card)
+}
+
+export function getCardReferences(cardId: string): Promise<CategorizedReferences> {
   const url = `${base_url}/cards/${encodeURIComponent(cardId)}/references`;
   let token = localStorage.getItem("token");
 
@@ -428,15 +434,32 @@ export function getCardReferences(cardId: string): Promise<PartialCard[]> {
     .then(checkStatus)
     .then((response) => {
       if (response) {
-        return response.json().then((refs: PartialCard[]) => {
+        return response.json().then((refs: CategorizedReferences) => {
           if (refs === null) {
-            return [];
+            return {
+              bidirectional: [],
+              outgoing: [],
+              incoming: [],
+            };
           }
-          return refs.map((ref) => ({
-            ...ref,
-            created_at: new Date(ref.created_at),
-            updated_at: new Date(ref.updated_at),
-          }));
+          // Process date fields for each category
+          return {
+            bidirectional: refs.bidirectional.map((ref) => ({
+              ...ref,
+              created_at: new Date(ref.created_at),
+              updated_at: new Date(ref.updated_at),
+            })),
+            outgoing: refs.outgoing.map((ref) => ({
+              ...ref,
+              created_at: new Date(ref.created_at),
+              updated_at: new Date(ref.updated_at),
+            })),
+            incoming: refs.incoming.map((ref) => ({
+              ...ref,
+              created_at: new Date(ref.created_at),
+              updated_at: new Date(ref.updated_at),
+            })),
+          };
         });
       } else {
         return Promise.reject(new Error("Response is undefined"));
