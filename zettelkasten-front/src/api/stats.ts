@@ -1,6 +1,7 @@
 import { checkStatus } from "./common";
 import { DailyStatsResponse } from "../models/Stats";
 import { Task } from "../models/Task";
+import { PartialCard } from "../models/Card";
 
 const base_url = import.meta.env.VITE_URL;
 
@@ -66,6 +67,30 @@ export function fetchTasksForDate(date: Date): Promise<Task[]> {
             completed_at: task.completed_at
               ? new Date(task.completed_at)
               : null,
+          }))
+        );
+      } else {
+        return Promise.reject(new Error("Response is undefined"));
+      }
+    });
+}
+
+export function fetchCardsForDate(date: Date): Promise<PartialCard[]> {
+  const token = localStorage.getItem("token");
+  const dateStr = date.toISOString().split("T")[0];
+  const url = `${base_url}/stats/day-cards?date=${dateStr}`;
+
+  return fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+    .then(checkStatus)
+    .then((response) => {
+      if (response) {
+        return response.json().then((cards: any[]) =>
+          cards.map((card) => ({
+            ...card,
+            created_at: new Date(card.created_at),
+            updated_at: new Date(card.updated_at),
           }))
         );
       } else {

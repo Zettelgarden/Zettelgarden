@@ -218,6 +218,7 @@ func main() {
 
 	addProtectedRoute(r, "/api/stats/daily", h.GetDailyStatsRoute, "GET")
 	addProtectedRoute(r, "/api/stats/day-tasks", h.GetDayTasksRoute, "GET")
+	addProtectedRoute(r, "/api/stats/day-cards", h.GetDayCardsRoute, "GET")
 
 	addProtectedRoute(r, "/api/tags", h.GetTagsRoute, "GET")
 	addProtectedRoute(r, "/api/tags", h.CreateTagRoute, "POST")

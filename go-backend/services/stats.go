@@ -153,3 +153,48 @@ func GetTasksCompletedOnDate(db *sql.DB, userID int, date time.Time) ([]models.T
 
 	return tasks, nil
 }
+
+// GetCardsCreatedOnDate retrieves all cards created on a specific date
+func GetCardsCreatedOnDate(db *sql.DB, userID int, date time.Time) ([]models.PartialCard, error) {
+	query := `
+	SELECT id, card_id, title, created_at, updated_at, parent_id, user_id
+	FROM cards
+	WHERE user_id = $1
+		AND is_deleted = FALSE
+		AND DATE(created_at) = $2
+	ORDER BY created_at DESC
+	`
+
+	rows, err := db.Query(query, userID, date)
+	if err != nil {
+		log.Printf("Error querying cards for date: %v", err)
+		return []models.PartialCard{}, fmt.Errorf("unable to fetch cards for date")
+	}
+	defer rows.Close()
+
+	var cards []models.PartialCard
+	for rows.Next() {
+		var card models.PartialCard
+		if err := rows.Scan(
+			&card.ID,
+			&card.CardID,
+			&card.Title,
+			&card.CreatedAt,
+			&card.UpdatedAt,
+			&card.ParentID,
+			&card.UserID,
+		); err != nil {
+			log.Printf("Error scanning card row: %v", err)
+			continue
+		}
+
+		cards = append(cards, card)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Printf("Error iterating card rows: %v", err)
+		return []models.PartialCard{}, fmt.Errorf("error reading cards data")
+	}
+
+	return cards, nil
+}

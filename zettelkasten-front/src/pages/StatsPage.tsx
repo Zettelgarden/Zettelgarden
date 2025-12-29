@@ -1,17 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { setDocumentTitle } from "../utils/title";
-import { fetchDailyStats, fetchTasksForDate } from "../api/stats";
+import { fetchDailyStats, fetchTasksForDate, fetchCardsForDate } from "../api/stats";
 import { DailyStatsResponse } from "../models/Stats";
 import { Task } from "../models/Task";
+import { PartialCard } from "../models/Card";
 import { ActivityHeatMap } from "../components/stats/ActivityHeatMap";
 import { DayTaskList } from "../components/stats/DayTaskList";
+import { DayCardList } from "../components/stats/DayCardList";
 
 export function StatsPage() {
   const [stats, setStats] = useState<DailyStatsResponse | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [dayTasks, setDayTasks] = useState<Task[]>([]);
+  const [dayCards, setDayCards] = useState<PartialCard[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isLoadingTasks, setIsLoadingTasks] = useState<boolean>(false);
+  const [isLoadingDay, setIsLoadingDay] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,22 +44,28 @@ export function StatsPage() {
 
   const handleDateClick = async (date: Date) => {
     setSelectedDate(date);
-    setIsLoadingTasks(true);
+    setIsLoadingDay(true);
 
     try {
-      const tasks = await fetchTasksForDate(date);
+      const [tasks, cards] = await Promise.all([
+        fetchTasksForDate(date),
+        fetchCardsForDate(date),
+      ]);
       setDayTasks(tasks);
+      setDayCards(cards);
     } catch (error) {
-      console.error("Error fetching tasks for date:", error);
+      console.error("Error fetching data for date:", error);
       setDayTasks([]);
+      setDayCards([]);
     } finally {
-      setIsLoadingTasks(false);
+      setIsLoadingDay(false);
     }
   };
 
-  const handleCloseTaskList = () => {
+  const handleCloseDayView = () => {
     setSelectedDate(null);
     setDayTasks([]);
+    setDayCards([]);
   };
 
   if (isLoading) {
@@ -124,7 +133,7 @@ export function StatsPage() {
           Activity Over Time
         </h2>
         <p className="text-sm text-gray-600 mb-4">
-          Click on any day to view tasks completed on that date.
+          Click on any day to view cards created and tasks completed on that date.
         </p>
 
         {stats && stats.stats.length > 0 ? (
@@ -141,19 +150,26 @@ export function StatsPage() {
         )}
       </div>
 
-      {/* Selected Day Tasks */}
+      {/* Selected Day Details */}
       {selectedDate && (
         <div>
-          {isLoadingTasks ? (
+          {isLoadingDay ? (
             <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-center text-gray-500">Loading tasks...</div>
+              <div className="text-center text-gray-500">Loading...</div>
             </div>
           ) : (
-            <DayTaskList
-              tasks={dayTasks}
-              date={selectedDate}
-              onClose={handleCloseTaskList}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <DayCardList
+                cards={dayCards}
+                date={selectedDate}
+                onClose={handleCloseDayView}
+              />
+              <DayTaskList
+                tasks={dayTasks}
+                date={selectedDate}
+                onClose={handleCloseDayView}
+              />
+            </div>
           )}
         </div>
       )}

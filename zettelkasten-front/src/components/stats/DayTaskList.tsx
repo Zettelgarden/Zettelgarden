@@ -30,7 +30,7 @@ export function DayTaskList({ tasks, date, onClose }: DayTaskListProps) {
     <div className="bg-white rounded-lg shadow p-4 mt-4">
       <div className="flex justify-between items-center mb-3">
         <h2 className="text-lg font-semibold text-gray-800">
-          {formatDate(date)} ({tasks.length} task{tasks.length !== 1 ? 's' : ''})
+          {formatDate(date)} ({tasks.length} task{tasks.length !== 1 ? 's' : ''} closed)
         </h2>
         <button
           onClick={onClose}

@@ -117,3 +117,42 @@ func (s *Handler) GetDayTasksRoute(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(tasks)
 }
+
+// GetDayCardsRoute returns all cards created on a specific date
+// Query param: date (required, format: YYYY-MM-DD)
+func (s *Handler) GetDayCardsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Parse date parameter
+	dateStr := r.URL.Query().Get("date")
+	if dateStr == "" {
+		http.Error(w, "date parameter is required (format: YYYY-MM-DD)", http.StatusBadRequest)
+		return
+	}
+
+	date, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		log.Printf("Invalid date format: %v", err)
+		http.Error(w, "Invalid date format, expected YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch cards from database
+	cards, err := services.GetCardsCreatedOnDate(s.DB, userID, date)
+	if err != nil {
+		log.Printf("Error getting cards for date: %v", err)
+		http.Error(w, "Failed to fetch cards", http.StatusInternalServerError)
+		return
+	}
+
+	// Load tags for each card (following pattern from handlers/pins.go)
+	for i := range cards {
+		tags, err := services.QueryTagsForCard(s.DB, userID, cards[i].ID)
+		if err == nil {
+			cards[i].Tags = tags
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(cards)
+}
