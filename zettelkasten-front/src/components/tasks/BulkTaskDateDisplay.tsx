@@ -68,6 +68,9 @@ export function BulkTaskDateDisplay({
     return (
         <div className="dropdown relative">
             <div className="absolute right-0 mt-1 w-48 bg-white border border-slate-300 rounded shadow-lg p-3 z-20">
+                <h3 className="text-sm font-semibold mb-3 text-gray-700">
+                    Edit Date ({tasks.length} tasks)
+                </h3>
                 <div className="flex flex-col space-y-2">
                     {" "}
                     {/* This creates vertical spacing between children */}

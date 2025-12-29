@@ -8,9 +8,19 @@ interface TaskListProps {
   tasks: Task[];
   onTagClick: (tag: string) => void;
   hideMatrixTags?: boolean;
+  selectMode?: boolean;
+  selectedTaskIds?: Set<number>;
+  onTaskSelect?: (taskId: number) => void;
 }
 
-export function TaskList({ tasks, onTagClick, hideMatrixTags = false }: TaskListProps) {
+export function TaskList({
+  tasks,
+  onTagClick,
+  hideMatrixTags = false,
+  selectMode = false,
+  selectedTaskIds = new Set(),
+  onTaskSelect,
+}: TaskListProps) {
   const { setRefreshTasks } = useTaskContext();
   return (
     <ul>
@@ -20,6 +30,9 @@ export function TaskList({ tasks, onTagClick, hideMatrixTags = false }: TaskList
             task={task}
             onTagClick={onTagClick}
             hideMatrixTags={hideMatrixTags}
+            selectMode={selectMode}
+            isSelected={selectedTaskIds.has(task.id)}
+            onSelect={() => onTaskSelect?.(task.id)}
           />
         </li>
       ))}

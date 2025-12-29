@@ -46,6 +46,8 @@ export function TaskPage({ }: TaskListProps) {
   const [viewMode, setViewMode] = useState<"list" | "matrix">(savedSettings.viewMode || "list");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(savedSettings.itemsPerPage || 50);
+  const [selectMode, setSelectMode] = useState<boolean>(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(new Set());
 
   // Persist settings whenever they change
   useEffect(() => {
@@ -68,6 +70,14 @@ export function TaskPage({ }: TaskListProps) {
   useEffect(() => {
     setCurrentPage(1);
   }, [dateView, filterString, sortField, sortDirection, showCompleted, viewMode]);
+
+  // Clear selection when switching to matrix view
+  useEffect(() => {
+    if (viewMode === "matrix") {
+      setSelectMode(false);
+      setSelectedTaskIds(new Set());
+    }
+  }, [viewMode]);
 
   // changeDateView is used in useMemo, so it needs to be stable or part of dependencies.
   // Let's define it using useCallback or ensure it's stable if it doesn't depend on component state/props that change.
@@ -206,6 +216,35 @@ export function TaskPage({ }: TaskListProps) {
     setFilterString("#" + tag);
   }
 
+  function toggleSelectMode() {
+    setSelectMode(!selectMode);
+    if (selectMode) {
+      // Exiting select mode, clear selections
+      setSelectedTaskIds(new Set());
+    }
+  }
+
+  function toggleTaskSelection(taskId: number) {
+    setSelectedTaskIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+      } else {
+        newSet.add(taskId);
+      }
+      return newSet;
+    });
+  }
+
+  function selectAllTasks() {
+    const allIds = new Set(paginatedTasks.map((t) => t.id));
+    setSelectedTaskIds(allIds);
+  }
+
+  function clearSelection() {
+    setSelectedTaskIds(new Set());
+  }
+
   const handleKeyPress = (event: KeyboardEvent) => {
     // if this is true, the user is using a system shortcut, don't do anything with it
     if (event.metaKey) {
@@ -278,6 +317,11 @@ export function TaskPage({ }: TaskListProps) {
                   ? " tomorrow"
                   : ""} tasks
             </span>
+            {selectMode && (
+              <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs whitespace-nowrap">
+                {selectedTaskIds.size} selected
+              </span>
+            )}
             {/* Display dropdown */}
             <div className="relative">
               <Button
@@ -352,6 +396,11 @@ export function TaskPage({ }: TaskListProps) {
                 tags={tags}
                 handleTagClick={handleTagClick}
                 tasks={tasksToDisplay}
+                selectMode={selectMode}
+                selectedTaskIds={selectedTaskIds}
+                onSelectAll={selectAllTasks}
+                onClearSelection={clearSelection}
+                onToggleSelectMode={toggleSelectMode}
               />
             </div>
           </div>
@@ -371,7 +420,13 @@ export function TaskPage({ }: TaskListProps) {
           <>
             <ul>
               {paginatedTasks.length > 0 ? (
-                <TaskList onTagClick={handleTagClick} tasks={paginatedTasks} />
+                <TaskList
+                  onTagClick={handleTagClick}
+                  tasks={paginatedTasks}
+                  selectMode={selectMode}
+                  selectedTaskIds={selectedTaskIds}
+                  onTaskSelect={toggleTaskSelection}
+                />
               ) : (
                 <div className="flex justify-center items-center">
                   No tasks, you're done for the day!

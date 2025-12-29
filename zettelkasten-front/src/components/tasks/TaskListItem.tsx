@@ -21,12 +21,18 @@ interface TaskListItemProps {
   task: Task;
   onTagClick: (tag: string) => void;
   hideMatrixTags?: boolean;
+  selectMode?: boolean;
+  isSelected?: boolean;
+  onSelect?: () => void;
 }
 
 export function TaskListItem({
   task,
   onTagClick,
   hideMatrixTags = false,
+  selectMode = false,
+  isSelected = false,
+  onSelect,
 }: TaskListItemProps) {
   const [editTitle, setEditTitle] = useState<boolean>(false);
   const [newTitle, setNewTitle] = useState<string>("");
@@ -131,9 +137,19 @@ export function TaskListItem({
   return (
     <div className="task-list-item">
       <div className="task-list-item-checkbox">
-        <span onClick={handleToggleComplete}>
-          {task.is_complete ? <TaskClosedIcon /> : <TaskOpenIcon />}
-        </span>
+        {selectMode ? (
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={onSelect}
+            className="w-5 h-5 cursor-pointer"
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span onClick={handleToggleComplete}>
+            {task.is_complete ? <TaskClosedIcon /> : <TaskOpenIcon />}
+          </span>
+        )}
       </div>
       <div className="task-list-item-middle-container">
         <div className="task-list-item-title">
