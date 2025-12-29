@@ -44,6 +44,8 @@ export function TaskPage({ }: TaskListProps) {
   const [sortDirection, setSortDirection] = useState<SortDirection>(savedSettings.sortDirection || "asc");
   const [showFilterHelp, setShowFilterHelp] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<"list" | "matrix">(savedSettings.viewMode || "list");
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(savedSettings.itemsPerPage || 50);
 
   // Persist settings whenever they change
   useEffect(() => {
@@ -52,14 +54,20 @@ export function TaskPage({ }: TaskListProps) {
       viewMode,
       filterString,
       sortField,
-      sortDirection
+      sortDirection,
+      itemsPerPage
     };
     localStorage.setItem("taskPageSettings", JSON.stringify(settings));
-  }, [dateView, viewMode, filterString, sortField, sortDirection]);
+  }, [dateView, viewMode, filterString, sortField, sortDirection, itemsPerPage]);
 
   const { tags } = useTagContext();
 
   const [showDisplayMenu, setShowDisplayMenu] = useState<boolean>(false);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateView, filterString, sortField, sortDirection, showCompleted, viewMode]);
 
   // changeDateView is used in useMemo, so it needs to be stable or part of dependencies.
   // Let's define it using useCallback or ensure it's stable if it doesn't depend on component state/props that change.
@@ -155,6 +163,21 @@ export function TaskPage({ }: TaskListProps) {
   const totalTasksForDateView = useMemo(() => {
     return tasks.filter(changeDateView).length;
   }, [tasks, dateView, showCompleted]);
+
+  // Paginate tasks for list view only
+  const paginatedTasks = useMemo(() => {
+    if (viewMode === "matrix") {
+      return tasksToDisplay; // Don't paginate matrix view
+    }
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return tasksToDisplay.slice(startIndex, endIndex);
+  }, [tasksToDisplay, currentPage, itemsPerPage, viewMode]);
+
+  const totalPages = useMemo(() => {
+    if (viewMode === "matrix") return 1;
+    return Math.ceil(tasksToDisplay.length / itemsPerPage);
+  }, [tasksToDisplay.length, itemsPerPage, viewMode]);
 
 
   function handleFilterChange(
@@ -345,15 +368,68 @@ export function TaskPage({ }: TaskListProps) {
       </div>
       <div className="p-4">
         {viewMode === "list" ? (
-          <ul>
-            {tasksToDisplay.length > 0 ? (
-              <TaskList onTagClick={handleTagClick} tasks={tasksToDisplay} />
-            ) : (
-              <div className="flex justify-center items-center">
-                No tasks, you're done for the day!
+          <>
+            <ul>
+              {paginatedTasks.length > 0 ? (
+                <TaskList onTagClick={handleTagClick} tasks={paginatedTasks} />
+              ) : (
+                <div className="flex justify-center items-center">
+                  No tasks, you're done for the day!
+                </div>
+              )}
+            </ul>
+            {/* Pagination controls - only show if there are tasks and multiple pages */}
+            {tasksToDisplay.length > 0 && totalPages > 1 && (
+              <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t pt-4">
+                <div className="text-sm text-slate-600">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, tasksToDisplay.length)} of {tasksToDisplay.length} tasks
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    First
+                  </Button>
+                  <Button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-slate-600">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </Button>
+                  <Button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Last
+                  </Button>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                    className="ml-2 px-2 py-1 text-sm border border-slate-300 rounded"
+                  >
+                    <option value={25}>25 per page</option>
+                    <option value={50}>50 per page</option>
+                    <option value={100}>100 per page</option>
+                    <option value={200}>200 per page</option>
+                  </select>
+                </div>
               </div>
             )}
-          </ul>
+          </>
         ) : (
           <EisenhowerMatrix
             onTagClick={handleTagClick}
