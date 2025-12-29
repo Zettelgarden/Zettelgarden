@@ -8,12 +8,13 @@ interface ActivityHeatMapProps {
 }
 
 // Get activity level (0-4) based on total count
+// A busy day is considered 50 activities
 function getActivityLevel(count: number): number {
   if (count === 0) return 0;
-  if (count <= 2) return 1;
-  if (count <= 5) return 2;
-  if (count <= 10) return 3;
-  return 4;
+  if (count <= 12) return 1;  // 0-25% of busy day
+  if (count <= 25) return 2;  // 25-50% of busy day
+  if (count <= 40) return 3;  // 50-80% of busy day
+  return 4;                   // 80%+ of busy day
 }
 
 // Get background color class based on activity level
@@ -119,10 +120,10 @@ export function ActivityHeatMap({
             {weeks.map((week, weekIndex) => (
               <div key={weekIndex} className="flex flex-col gap-1">
                 {week.map((stat, dayIndex) => {
+                  // Tasks count as half of cards (opening + closing = 1 activity)
                   const totalActivity =
                     stat.cards_created +
-                    stat.tasks_created +
-                    stat.tasks_completed;
+                    (stat.tasks_created + stat.tasks_completed) * 0.5;
                   const level = getActivityLevel(totalActivity);
                   const isPlaceholder = stat.date.getTime() === 0;
                   const isSelected =
@@ -155,7 +156,7 @@ export function ActivityHeatMap({
                             <div>Tasks created: {stat.tasks_created}</div>
                             <div>Tasks completed: {stat.tasks_completed}</div>
                             <div className="font-semibold mt-1">
-                              Total: {totalActivity}
+                              Total: {totalActivity.toFixed(1)}
                             </div>
                           </div>
                         </div>
