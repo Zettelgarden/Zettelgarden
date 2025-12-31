@@ -180,12 +180,24 @@ function renderCardText(
   let processedBody = preprocessEntities(preprocessCardLinks(card.body), entities);
   //let processedBody = preprocessCardLinks(cardBody)
 
-  // Custom component for handling our dataview code blocks
-  const CustomCodeBlock = ({ node, inline, className, children, ...props }: any) => {
-    // Otherwise render as regular code block
+  // Custom component for inline code only
+  const CustomCode = ({ node, inline, className, children, ...props }: any) => {
     return (
-      <pre className={className}>
-        <code {...props}>{children}</code>
+      <code
+        className="bg-gray-100 px-1 rounded font-mono text-sm not-prose"
+        style={{ display: 'inline', whiteSpace: 'nowrap' }}
+        {...props}
+      >
+        {children}
+      </code>
+    );
+  };
+
+  // Custom component for code blocks (pre)
+  const CustomPre = ({ children, ...props }: any) => {
+    return (
+      <pre className="bg-gray-50 p-3 rounded overflow-x-auto text-gray-800" {...props}>
+        {children}
       </pre>
     );
   };
@@ -195,8 +207,9 @@ function renderCardText(
       children={processedBody}
       remarkPlugins={[remarkGfm, remarkEntity]}
       components={{
-        // Add our custom component for code blocks
-        code: CustomCodeBlock,
+        // Add our custom components for code
+        code: CustomCode,
+        pre: CustomPre,
         a({ children, href, ...props }) {
           // For internal links, href will be "#" and children will be the card ID
           if (href === "#") {
