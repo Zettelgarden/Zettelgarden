@@ -1,4 +1,5 @@
 import { Task } from "../models/Task";
+import { compareDates, getToday, getTomorrow, isTodayOrPast } from "./dates";
 
 export function removeTagsFromTitle(title: string): string {
   const tagPattern = /#[\w-]+/g;
@@ -45,4 +46,56 @@ export function filterTasks(input: Task[], filterString: string): Task[] {
       return isNegation ? !hasText : hasText;
     });
   });
+}
+
+export function filterTasksByDateView(
+  task: Task,
+  dateView: string,
+  showCompleted: boolean
+): boolean {
+  // Handle "all" view
+  if (dateView === "all") {
+    // Only show completed tasks if the "Closed" tab is active
+    if (!showCompleted && task.is_complete) {
+      return false;
+    }
+    return true;
+  }
+
+  // Handle "today" view
+  if (dateView === "today") {
+    if (!task.is_complete && isTodayOrPast(task.scheduled_date)) {
+      return true;
+    } else if (
+      showCompleted &&
+      task.completed_at && // Check if task has a completion date
+      compareDates(task.completed_at, getToday())
+    ) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  // Handle "tomorrow" view
+  if (dateView === "tomorrow") {
+    if (
+      !task.is_complete &&
+      task.scheduled_date && // Ensure scheduled_date is not null
+      compareDates(task.scheduled_date, getTomorrow())
+    ) {
+      return true;
+    } else if (
+      showCompleted &&
+      task.completed_at && // Check if task has a completion date
+      compareDates(task.completed_at, getTomorrow())
+    ) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  // Fallback for other dateView values
+  return !task.is_complete;
 }
