@@ -17,7 +17,8 @@ func GetTask(db *sql.DB, userID int, id int) (models.Task, error) {
 
 	err := db.QueryRow(`
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
-	created_at, updated_at, completed_at, title, priority, status, is_complete
+	created_at, updated_at, completed_at, title, priority, status, is_complete,
+	reminder_time, reminder_sent
 	FROM
 	tasks
 	WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE
@@ -34,6 +35,8 @@ func GetTask(db *sql.DB, userID int, id int) (models.Task, error) {
 		&task.Priority,
 		&task.Status,
 		&task.IsComplete,
+		&task.ReminderTime,
+		&task.ReminderSent,
 	)
 	if err != nil {
 		log.Printf("err %v", err)
@@ -57,7 +60,8 @@ func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeComplet
 	// Build base query
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
-	created_at, updated_at, completed_at, title, priority, status, is_complete
+	created_at, updated_at, completed_at, title, priority, status, is_complete,
+	reminder_time, reminder_sent
 	FROM tasks
 	WHERE user_id = $` + fmt.Sprintf("%d", argIndex) + ` AND is_deleted = FALSE`
 	args = append(args, userID)
@@ -105,6 +109,8 @@ func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeComplet
 			&task.Priority,
 			&task.Status,
 			&task.IsComplete,
+			&task.ReminderTime,
+			&task.ReminderSent,
 		); err != nil{
 			log.Printf("err %v", err)
 			return []models.Task{}, 0, fmt.Errorf("unable to access task")
@@ -157,7 +163,8 @@ func GetTasksByCard(db *sql.DB, userID int, cardPK int) ([]models.Task, error) {
 	var tasks []models.Task
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
-	created_at, updated_at, completed_at, title, priority, status, is_complete
+	created_at, updated_at, completed_at, title, priority, status, is_complete,
+	reminder_time, reminder_sent
 	FROM
 	tasks
 	WHERE user_id = $1 AND is_deleted = FALSE AND card_pk = $2
@@ -184,6 +191,8 @@ func GetTasksByCard(db *sql.DB, userID int, cardPK int) ([]models.Task, error) {
 			&task.Priority,
 			&task.Status,
 			&task.IsComplete,
+			&task.ReminderTime,
+			&task.ReminderSent,
 		); err != nil {
 			log.Printf("err %v", err)
 			return []models.Task{}, fmt.Errorf("unable to access task")
@@ -196,6 +205,52 @@ func GetTasksByCard(db *sql.DB, userID int, cardPK int) ([]models.Task, error) {
 		}
 		// Note: Tag loading will need to be handled by the handler that calls this
 		// since QueryTagsForTask is in the handlers package
+		tasks = append(tasks, task)
+	}
+	return tasks, nil
+}
+
+// GetTasksNeedingReminders retrieves all tasks that need reminder emails sent
+func GetTasksNeedingReminders(db *sql.DB) ([]models.Task, error) {
+	var tasks []models.Task
+	query := `
+	SELECT id, card_pk, user_id, scheduled_date, due_date,
+	created_at, updated_at, completed_at, title, priority, status, is_complete,
+	reminder_time, reminder_sent
+	FROM tasks
+	WHERE reminder_time <= NOW()
+		AND reminder_sent = FALSE
+		AND is_complete = FALSE
+		AND is_deleted = FALSE
+	`
+	rows, err := db.Query(query)
+	if err != nil {
+		log.Printf("Error querying tasks needing reminders: %v", err)
+		return []models.Task{}, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var task models.Task
+		if err := rows.Scan(
+			&task.ID,
+			&task.CardPK,
+			&task.UserID,
+			&task.ScheduledDate,
+			&task.DueDate,
+			&task.CreatedAt,
+			&task.UpdatedAt,
+			&task.CompletedAt,
+			&task.Title,
+			&task.Priority,
+			&task.Status,
+			&task.IsComplete,
+			&task.ReminderTime,
+			&task.ReminderSent,
+		); err != nil {
+			log.Printf("Error scanning task needing reminder: %v", err)
+			continue
+		}
 		tasks = append(tasks, task)
 	}
 	return tasks, nil
@@ -234,6 +289,21 @@ func UpdateTask(db *sql.DB, userID int, id int, task models.Task) error {
 		task.Status = "todo"
 	}
 
+	// Determine if we should reset reminder_sent
+	reminderSent := oldTask.ReminderSent
+	if task.ReminderTime != nil && oldTask.ReminderTime != nil {
+		// If reminder_time changed, reset reminder_sent to FALSE
+		if !task.ReminderTime.Equal(*oldTask.ReminderTime) {
+			reminderSent = false
+		}
+	} else if task.ReminderTime != nil && oldTask.ReminderTime == nil {
+		// New reminder time set, ensure reminder_sent is FALSE
+		reminderSent = false
+	} else if task.ReminderTime == nil && oldTask.ReminderTime != nil {
+		// Reminder time removed, reset reminder_sent
+		reminderSent = false
+	}
+
 	_, err = db.Exec(`
 		UPDATE tasks SET
 			card_pk = $1,
@@ -243,9 +313,11 @@ func UpdateTask(db *sql.DB, userID int, id int, task models.Task) error {
 			title = $4,
 			priority = $5,
 			status = $6,
-			is_complete = $7
-		WHERE id = $8 AND user_id = $9 AND is_deleted = FALSE
-	`, task.CardPK, task.ScheduledDate, completedAt, task.Title, task.Priority, task.Status, task.IsComplete, id, userID)
+			is_complete = $7,
+			reminder_time = $8,
+			reminder_sent = $9
+		WHERE id = $10 AND user_id = $11 AND is_deleted = FALSE
+	`, task.CardPK, task.ScheduledDate, completedAt, task.Title, task.Priority, task.Status, task.IsComplete, task.ReminderTime, reminderSent, id, userID)
 
 	if err != nil {
 		log.Printf("error: %v", err)
@@ -289,10 +361,10 @@ func CreateTask(db *sql.DB, task models.Task) (int, error) {
 	}
 
 	err := db.QueryRow(`
-	INSERT INTO tasks (card_pk, user_id, scheduled_date, due_date, created_at, updated_at, completed_at, title, priority, status, is_complete, is_deleted)
-	VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, $7, $8, $9, FALSE)
+	INSERT INTO tasks (card_pk, user_id, scheduled_date, due_date, created_at, updated_at, completed_at, title, priority, status, is_complete, is_deleted, reminder_time, reminder_sent)
+	VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, $7, $8, $9, FALSE, $10, FALSE)
 	RETURNING id
-	`, task.CardPK, task.UserID, task.ScheduledDate, task.DueDate, task.CompletedAt, task.Title, task.Priority, task.Status, task.IsComplete).Scan(&taskID)
+	`, task.CardPK, task.UserID, task.ScheduledDate, task.DueDate, task.CompletedAt, task.Title, task.Priority, task.Status, task.IsComplete, task.ReminderTime).Scan(&taskID)
 
 	if err != nil {
 		log.Printf("err %v", err)

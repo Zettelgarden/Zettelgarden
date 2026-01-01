@@ -57,6 +57,8 @@ type Task struct {
 	Status        string      `json:"status"`
 	IsComplete    bool        `json:"is_complete"`
 	IsDeleted     bool        `json:"is_deleted"`
+	ReminderTime  *time.Time  `json:"reminder_time"`
+	ReminderSent  bool        `json:"reminder_sent"`
 	Card          PartialCard `json:"card"`
 	Tags          []Tag       `json:"tags"`
 }
