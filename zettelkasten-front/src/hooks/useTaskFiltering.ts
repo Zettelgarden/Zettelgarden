@@ -12,7 +12,7 @@ interface UseTaskFilteringParams {
   filterString: string;
   sortField: SortField;
   sortDirection: SortDirection;
-  viewMode: "list" | "matrix";
+  viewMode: "list" | "matrix" | "kanban";
   currentPage: number;
   itemsPerPage: number;
 }
@@ -45,8 +45,8 @@ export function useTaskFiltering({
     // Then, filter by search string
     let searched = filterTasks(filtered, filterString);
 
-    // Matrix view doesn't need sorting, just return filtered tasks
-    if (viewMode === "matrix") {
+    // Matrix and Kanban views don't need sorting, just return filtered tasks
+    if (viewMode === "matrix" || viewMode === "kanban") {
       return searched;
     }
 
@@ -91,8 +91,8 @@ export function useTaskFiltering({
 
   // Paginate tasks (only for list view)
   const paginatedTasks = useMemo(() => {
-    if (viewMode === "matrix") {
-      return tasksToDisplay; // Don't paginate matrix view
+    if (viewMode === "matrix" || viewMode === "kanban") {
+      return tasksToDisplay; // Don't paginate matrix or kanban views
     }
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
@@ -101,7 +101,7 @@ export function useTaskFiltering({
 
   // Calculate total pages
   const totalPages = useMemo(() => {
-    if (viewMode === "matrix") return 1;
+    if (viewMode === "matrix" || viewMode === "kanban") return 1;
     return Math.ceil(tasksToDisplay.length / itemsPerPage);
   }, [tasksToDisplay.length, itemsPerPage, viewMode]);
 

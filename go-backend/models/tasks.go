@@ -54,6 +54,7 @@ type Task struct {
 	CompletedAt   *time.Time  `json:"completed_at"`
 	Title         string      `json:"title"`
 	Priority      *string     `json:"priority"`
+	Status        string      `json:"status"`
 	IsComplete    bool        `json:"is_complete"`
 	IsDeleted     bool        `json:"is_deleted"`
 	Card          PartialCard `json:"card"`

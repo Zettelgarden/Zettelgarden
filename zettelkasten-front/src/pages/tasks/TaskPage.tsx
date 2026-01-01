@@ -8,6 +8,7 @@ import { setDocumentTitle } from "../../utils/title";
 import { Button } from "../../components/Button";
 import { useShortcutContext } from "../../contexts/ShortcutContext";
 import { EisenhowerMatrix } from "../../components/tasks/EisenhowerMatrix";
+import { KanbanBoard } from "../../components/tasks/KanbanBoard";
 import { useTaskPageSettings } from "../../hooks/useTaskPageSettings";
 import { useTaskFiltering } from "../../hooks/useTaskFiltering";
 
@@ -165,10 +166,11 @@ export function TaskPage({ }: TaskListProps) {
                     <select
                       className="w-full p-1 border border-slate-300 rounded-md text-sm"
                       value={settings.viewMode}
-                      onChange={(e) => settings.setViewMode(e.target.value as "list" | "matrix")}
+                      onChange={(e) => settings.setViewMode(e.target.value as "list" | "matrix" | "kanban")}
                     >
                       <option value="list">List View</option>
                       <option value="matrix">Eisenhower Matrix</option>
+                      <option value="kanban">Kanban Board</option>
                     </select>
                   </div>
                   <div className="mb-2">
@@ -301,6 +303,11 @@ export function TaskPage({ }: TaskListProps) {
               </div>
             )}
           </>
+        ) : settings.viewMode === "kanban" ? (
+          <KanbanBoard
+            onTagClick={handleTagClick}
+            tasks={tasksToDisplay}
+          />
         ) : (
           <EisenhowerMatrix
             onTagClick={handleTagClick}

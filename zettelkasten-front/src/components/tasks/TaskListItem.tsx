@@ -4,6 +4,7 @@ import { getTomorrow } from "../../utils/dates";
 
 import { TaskDateDisplay } from "./TaskDateDisplay";
 import { TaskPriorityDisplay } from "./TaskPriorityDisplay";
+import { TaskStatusDisplay } from "./TaskStatusDisplay";
 import { Task } from "../../models/Task";
 import { Tag } from "../../models/Tags";
 import { Link } from "react-router-dom";
@@ -170,6 +171,11 @@ export function TaskListItem({
             saveOnChange={true}
           />
           <TaskPriorityDisplay
+            task={task}
+            setTask={(task: Task) => { }}
+            saveOnChange={true}
+          />
+          <TaskStatusDisplay
             task={task}
             setTask={(task: Task) => { }}
             saveOnChange={true}

@@ -23,6 +23,8 @@ export interface TaskAuditEvent {
   created_at: string | Date;
 }
 
+export type TaskStatus = 'todo' | 'in_progress' | 'blocked' | 'done';
+
 export interface Task {
   id: number;
   card_pk: number;
@@ -34,6 +36,7 @@ export interface Task {
   completed_at: Date | null;
   title: string;
   priority: string | null;
+  status: TaskStatus;
   is_complete: boolean;
   is_deleted: boolean;
   card: PartialCard | null;
@@ -58,6 +61,7 @@ export const emptyTask: Task = {
   completed_at: null,
   title: "",
   priority: null,
+  status: 'todo',
   is_complete: false,
   is_deleted: false,
   card: null,

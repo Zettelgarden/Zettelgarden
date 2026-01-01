@@ -17,7 +17,7 @@ func GetTask(db *sql.DB, userID int, id int) (models.Task, error) {
 
 	err := db.QueryRow(`
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
-	created_at, updated_at, completed_at, title, priority, is_complete
+	created_at, updated_at, completed_at, title, priority, status, is_complete
 	FROM
 	tasks
 	WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE
@@ -32,6 +32,7 @@ func GetTask(db *sql.DB, userID int, id int) (models.Task, error) {
 		&task.CompletedAt,
 		&task.Title,
 		&task.Priority,
+		&task.Status,
 		&task.IsComplete,
 	)
 	if err != nil {
@@ -56,7 +57,7 @@ func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeComplet
 	// Build base query
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
-	created_at, updated_at, completed_at, title, priority, is_complete
+	created_at, updated_at, completed_at, title, priority, status, is_complete
 	FROM tasks
 	WHERE user_id = $` + fmt.Sprintf("%d", argIndex) + ` AND is_deleted = FALSE`
 	args = append(args, userID)
@@ -102,8 +103,9 @@ func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeComplet
 			&task.CompletedAt,
 			&task.Title,
 			&task.Priority,
+			&task.Status,
 			&task.IsComplete,
-		); err != nil {
+		); err != nil{
 			log.Printf("err %v", err)
 			return []models.Task{}, 0, fmt.Errorf("unable to access task")
 		}
@@ -155,7 +157,7 @@ func GetTasksByCard(db *sql.DB, userID int, cardPK int) ([]models.Task, error) {
 	var tasks []models.Task
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
-	created_at, updated_at, completed_at, title, priority, is_complete
+	created_at, updated_at, completed_at, title, priority, status, is_complete
 	FROM
 	tasks
 	WHERE user_id = $1 AND is_deleted = FALSE AND card_pk = $2
@@ -180,6 +182,7 @@ func GetTasksByCard(db *sql.DB, userID int, cardPK int) ([]models.Task, error) {
 			&task.CompletedAt,
 			&task.Title,
 			&task.Priority,
+			&task.Status,
 			&task.IsComplete,
 		); err != nil {
 			log.Printf("err %v", err)
@@ -205,6 +208,13 @@ func UpdateTask(db *sql.DB, userID int, id int, task models.Task) error {
 		return fmt.Errorf("unable to query task: %v", err)
 	}
 
+	// Sync status with is_complete
+	if task.Status == "done" {
+		task.IsComplete = true
+	} else if task.IsComplete {
+		task.Status = "done"
+	}
+
 	var completedAt *time.Time
 	if task.IsComplete && !oldTask.IsComplete {
 		now := time.Now()
@@ -219,6 +229,11 @@ func UpdateTask(db *sql.DB, userID int, id int, task models.Task) error {
 		completedAt = nil
 	}
 
+	// Default status if empty
+	if task.Status == "" {
+		task.Status = "todo"
+	}
+
 	_, err = db.Exec(`
 		UPDATE tasks SET
 			card_pk = $1,
@@ -227,9 +242,10 @@ func UpdateTask(db *sql.DB, userID int, id int, task models.Task) error {
 			completed_at = $3,
 			title = $4,
 			priority = $5,
-			is_complete = $6
-		WHERE id = $7 AND user_id = $8 AND is_deleted = FALSE
-	`, task.CardPK, task.ScheduledDate, completedAt, task.Title, task.Priority, task.IsComplete, id, userID)
+			status = $6,
+			is_complete = $7
+		WHERE id = $8 AND user_id = $9 AND is_deleted = FALSE
+	`, task.CardPK, task.ScheduledDate, completedAt, task.Title, task.Priority, task.Status, task.IsComplete, id, userID)
 
 	if err != nil {
 		log.Printf("error: %v", err)
@@ -260,11 +276,23 @@ func CreateTask(db *sql.DB, task models.Task) (int, error) {
 		log.Printf("Priority is nil")
 	}
 
+	// Default status if empty
+	if task.Status == "" {
+		task.Status = "todo"
+	}
+
+	// Sync status with is_complete
+	if task.Status == "done" {
+		task.IsComplete = true
+	} else if task.IsComplete {
+		task.Status = "done"
+	}
+
 	err := db.QueryRow(`
-	INSERT INTO tasks (card_pk, user_id, scheduled_date, due_date, created_at, updated_at, completed_at, title, priority, is_complete, is_deleted)
-	VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, $7, $8, FALSE)
+	INSERT INTO tasks (card_pk, user_id, scheduled_date, due_date, created_at, updated_at, completed_at, title, priority, status, is_complete, is_deleted)
+	VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, $7, $8, $9, FALSE)
 	RETURNING id
-	`, task.CardPK, task.UserID, task.ScheduledDate, task.DueDate, task.CompletedAt, task.Title, task.Priority, task.IsComplete).Scan(&taskID)
+	`, task.CardPK, task.UserID, task.ScheduledDate, task.DueDate, task.CompletedAt, task.Title, task.Priority, task.Status, task.IsComplete).Scan(&taskID)
 
 	if err != nil {
 		log.Printf("err %v", err)
@@ -392,6 +420,7 @@ func checkRecurringTasks(db *sql.DB, task models.Task) error {
 		CompletedAt:   nil,
 		Title:         task.Title,
 		Priority:      task.Priority,
+		Status:        "todo",
 		IsComplete:    false,
 	}
 	_, err := CreateTask(db, newTask)

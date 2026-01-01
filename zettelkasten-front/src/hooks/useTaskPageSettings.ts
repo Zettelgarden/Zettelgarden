@@ -10,7 +10,7 @@ interface TaskPageSettings {
   filterString: string;
   sortField: SortField;
   sortDirection: SortDirection;
-  viewMode: "list" | "matrix";
+  viewMode: "list" | "matrix" | "kanban";
   currentPage: number;
   itemsPerPage: number;
   showFilterHelp: boolean;
@@ -24,7 +24,7 @@ interface TaskPageSettingsReturn extends TaskPageSettings {
   setFilterString: Dispatch<SetStateAction<string>>;
   setSortField: Dispatch<SetStateAction<SortField>>;
   setSortDirection: Dispatch<SetStateAction<SortDirection>>;
-  setViewMode: Dispatch<SetStateAction<"list" | "matrix">>;
+  setViewMode: Dispatch<SetStateAction<"list" | "matrix" | "kanban">>;
   setCurrentPage: Dispatch<SetStateAction<number>>;
   setItemsPerPage: Dispatch<SetStateAction<number>>;
   setShowFilterHelp: Dispatch<SetStateAction<boolean>>;
