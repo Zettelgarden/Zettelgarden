@@ -51,7 +51,7 @@ export function TaskPage({ }: TaskListProps) {
   }
 
   function handleSortFieldChange(e: ChangeEvent<HTMLSelectElement>) {
-    settings.setSortField(e.target.value as "updated_at" | "title" | "priority" | "id");
+    settings.setSortField(e.target.value as "updated_at" | "title" | "priority" | "status" | "id");
   }
 
   function toggleShowTaskWindow() {
@@ -196,6 +196,7 @@ export function TaskPage({ }: TaskListProps) {
                         <option value="updated_at">Updated</option>
                         <option value="title">Name</option>
                         <option value="priority">Priority</option>
+                        <option value="status">Status</option>
                         <option value="id">ID</option>
                       </select>
                       <Button onClick={settings.toggleSortDirection} className="p-1 text-xs border border-slate-300 rounded-md">

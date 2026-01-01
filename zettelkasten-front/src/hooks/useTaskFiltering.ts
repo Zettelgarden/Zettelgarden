@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Task } from "../models/Task";
 import { filterTasks, filterTasksByDateView } from "../utils/tasks";
 
-type SortField = "updated_at" | "title" | "priority" | "id";
+type SortField = "updated_at" | "title" | "priority" | "status" | "id";
 type SortDirection = "asc" | "desc";
 
 interface UseTaskFilteringParams {
@@ -69,6 +69,10 @@ export function useTaskFiltering({
           else if (prioA === null) comparison = 1; // nulls last
           else if (prioB === null) comparison = -1; // nulls last
           else comparison = prioA.localeCompare(prioB);
+          break;
+        case "status":
+          const statusOrder = { 'todo': 0, 'in_progress': 1, 'blocked': 2, 'done': 3 };
+          comparison = statusOrder[a.status] - statusOrder[b.status];
           break;
         case "id":
           comparison = a.id - b.id;

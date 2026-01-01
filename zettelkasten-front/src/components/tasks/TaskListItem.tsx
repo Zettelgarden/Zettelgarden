@@ -165,17 +165,17 @@ export function TaskListItem({
           />
         </div>
         <div className="task-list-item-details inline-block">
+          <TaskStatusDisplay
+            task={task}
+            setTask={(task: Task) => { }}
+            saveOnChange={true}
+          />
           <TaskDateDisplay
             task={task}
             setTask={(task: Task) => { }}
             saveOnChange={true}
           />
           <TaskPriorityDisplay
-            task={task}
-            setTask={(task: Task) => { }}
-            saveOnChange={true}
-          />
-          <TaskStatusDisplay
             task={task}
             setTask={(task: Task) => { }}
             saveOnChange={true}

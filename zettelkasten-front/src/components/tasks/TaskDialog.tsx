@@ -3,6 +3,7 @@ import { Dialog } from "@headlessui/react";
 import { Task, TaskAuditEvent } from "../../models/Task";
 import { TaskDateDisplay } from "./TaskDateDisplay";
 import { TaskPriorityDisplay } from "./TaskPriorityDisplay";
+import { TaskStatusDisplay } from "./TaskStatusDisplay";
 import { BacklinkInput } from "../cards/BacklinkInput";
 import { PartialCard } from "../../models/Card";
 import { Link } from "react-router-dom";
@@ -272,6 +273,11 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
             </div>
 
             <div className="flex items-center gap-4">
+              <TaskStatusDisplay
+                task={editedTask}
+                setTask={setEditedTask}
+                saveOnChange={true}
+              />
               <TaskDateDisplay
                 task={editedTask}
                 setTask={setEditedTask}
