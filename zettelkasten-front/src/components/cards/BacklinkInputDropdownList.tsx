@@ -10,6 +10,7 @@ interface BacklinkInputDropdownListProps {
   placeholder?: string;
   className?: string;
   autoFocus?: boolean;
+  excludeCardId?: number; // ID of card to exclude from results
 }
 
 export function BacklinkInputDropdownList({
@@ -18,6 +19,7 @@ export function BacklinkInputDropdownList({
   placeholder = "Search...",
   className = "",
   autoFocus = false,
+  excludeCardId,
 }: BacklinkInputDropdownListProps) {
   const [inputValue, setInputValue] = useState<string>("");
 
@@ -68,8 +70,13 @@ export function BacklinkInputDropdownList({
             tags: r.tags ?? [],
           }));
 
+          // Filter out the current card if excludeCardId is provided
+          const filtered = excludeCardId
+            ? mapped.filter((card) => card.id !== excludeCardId)
+            : mapped;
+
           // Reorder results so exact card_id match comes first
-          const ordered = mapped.sort((a, b) => {
+          const ordered = filtered.sort((a, b) => {
             if (a.card_id === value) return -1;
             if (b.card_id === value) return 1;
             return 0;

@@ -569,7 +569,7 @@ export function ViewPage({ cardId }: ViewPageProps) {
                   )}
 
                   <div className="mt-4">
-                    <BacklinkInput addBacklink={handleAddBacklink} />
+                    <BacklinkInput addBacklink={handleAddBacklink} excludeCardId={viewingCard.id} />
                   </div>
                   <hr className="my-4" />
                 </div>

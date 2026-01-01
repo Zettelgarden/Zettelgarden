@@ -4,9 +4,10 @@ import { PartialCard } from "../../models/Card";
 
 interface BacklinkInputProps {
   addBacklink: (selectedCard: PartialCard) => void;
+  excludeCardId?: number;
 }
 
-export function BacklinkInput({ addBacklink }: BacklinkInputProps) {
+export function BacklinkInput({ addBacklink, excludeCardId }: BacklinkInputProps) {
 
   function handleSearch(searchTerm: string) {
   }
@@ -21,6 +22,7 @@ export function BacklinkInput({ addBacklink }: BacklinkInputProps) {
       onSearch={handleSearch}
       placeholder="Add Backlink"
       className="max-w-md"
+      excludeCardId={excludeCardId}
     />
   );
 }

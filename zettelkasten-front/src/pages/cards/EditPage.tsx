@@ -506,6 +506,7 @@ export function EditPage({ newCard }: EditPageProps) {
                     onClose={() => setShowBacklinkDialog(false)}
                     onSelect={addBacklink}
                     setMessage={setMessage}
+                    excludeCardId={editingCard.id}
                   />
                 )}
 
@@ -631,6 +632,7 @@ export function EditPage({ newCard }: EditPageProps) {
                     onSearch={() => { }}
                     placeholder="Add Backlink"
                     className="max-w-md"
+                    excludeCardId={editingCard.id}
                   />
                 </div>
                 <hr className="my-4" />

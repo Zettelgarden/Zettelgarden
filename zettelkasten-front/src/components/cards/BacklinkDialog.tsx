@@ -6,9 +6,10 @@ interface BacklinkDialogProps {
   onClose: () => void;
   onSelect: (card: PartialCard) => void;
   setMessage: (message: string) => void;
+  excludeCardId?: number;
 }
 
-export function BacklinkDialog({ onClose, onSelect, setMessage }: BacklinkDialogProps) {
+export function BacklinkDialog({ onClose, onSelect, setMessage, excludeCardId }: BacklinkDialogProps) {
   const [searchResults, setSearchResults] = useState<PartialCard[]>([]);
 
   function handleSearch(searchTerm: string) {
@@ -28,6 +29,7 @@ export function BacklinkDialog({ onClose, onSelect, setMessage }: BacklinkDialog
           onSelect={handleSelect}
           onSearch={handleSearch}
           placeholder="Search for a card to link..."
+          excludeCardId={excludeCardId}
         />
         <div className="mt-4 flex justify-end">
           <button
