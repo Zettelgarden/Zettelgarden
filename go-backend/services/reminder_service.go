@@ -29,7 +29,7 @@ func SendTaskReminders(db *sql.DB, mailClient *mail.MailClient) error {
 
 	frontendURL := os.Getenv("ZETTEL_URL")
 	if frontendURL == "" {
-		frontendURL = "https://zettelgarden.com/app"
+		frontendURL = "https://zettelgarden.com"
 	}
 
 	for _, task := range tasks {
@@ -120,7 +120,7 @@ func buildReminderEmailBody(task models.Task, frontendURL string) string {
 
 	body += `        </div>
 
-        <a href="` + frontendURL + `/tasks" class="button">View Tasks</a>
+        <a href="` + frontendURL + `/app/tasks" class="button">View Tasks</a>
 
         <div class="footer">
             <p>You're receiving this because you set a reminder for this task in Zettelgarden.</p>
