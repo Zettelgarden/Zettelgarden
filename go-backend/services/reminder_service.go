@@ -29,7 +29,7 @@ func SendTaskReminders(db *sql.DB, mailClient *mail.MailClient) error {
 
 	frontendURL := os.Getenv("ZETTEL_URL")
 	if frontendURL == "" {
-		frontendURL = "https://zettelgarden.com"
+		frontendURL = "https://zettelgarden.com/app"
 	}
 
 	for _, task := range tasks {
