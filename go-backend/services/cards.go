@@ -611,6 +611,25 @@ func UpdateCard(db *sql.DB, userID int, cardPK int, params models.EditCardParams
 		return models.Card{}, err
 	}
 
+	// Strip all whitespace from card_id before proceeding
+	params.CardID = strings.ReplaceAll(params.CardID, " ", "")
+	params.CardID = regexp.MustCompile(`\s+`).ReplaceAllString(params.CardID, "")
+
+	// Check if card_id is unique (excluding the current card)
+	if params.CardID != "" && params.CardID != oldCard.CardID {
+		var count int
+		err := db.QueryRow(`SELECT count(*) FROM cards
+			WHERE user_id = $1 AND card_id = $2 AND id != $3 AND is_deleted = FALSE`,
+			userID, params.CardID, cardPK).Scan(&count)
+		if err != nil {
+			log.Printf("err checking card_id uniqueness: %v", err)
+			return models.Card{}, err
+		}
+		if count > 0 {
+			return models.Card{}, fmt.Errorf("card_id already exists")
+		}
+	}
+
 	var parent_id int
 	parent, _ := GetPartialCardByCardID(db, userID, DiscoverParentId(params.CardID))
 

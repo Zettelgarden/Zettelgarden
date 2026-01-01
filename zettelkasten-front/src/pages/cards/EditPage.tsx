@@ -162,7 +162,15 @@ export function EditPage({ newCard }: EditPageProps) {
       }
     } catch (error: any) {
       console.error('Error saving card:', error);
-      setError(error.message || "Failed to save card. Please try again.");
+
+      // Check for specific error messages from the backend
+      let errorMessage = error.message || "Failed to save card. Please try again.";
+
+      if (errorMessage.includes("card_id already exists")) {
+        errorMessage = `The Card ID "${editingCard.card_id}" is already in use by another card. Please choose a different ID.`;
+      }
+
+      setError(errorMessage);
     }
   }
 
