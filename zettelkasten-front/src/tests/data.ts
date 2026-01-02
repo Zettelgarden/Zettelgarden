@@ -43,6 +43,8 @@ export const sampleTaskData: Task[] = [
     card: null, // Or provide a mock PartialCard if needed
     tags: [],
     priority: null,
+    reminder_time: null,
+    reminder_sent: false,
   },
   {
     id: 2,
@@ -60,6 +62,8 @@ export const sampleTaskData: Task[] = [
     card: null,
     tags: [],
     priority: null,
+    reminder_time: null,
+    reminder_sent: false,
   },
   {
     id: 3,
@@ -77,6 +81,8 @@ export const sampleTaskData: Task[] = [
     card: null,
     tags: [],
     priority: null,
+    reminder_time: null,
+    reminder_sent: false,
   },
   {
     id: 4,
@@ -93,6 +99,8 @@ export const sampleTaskData: Task[] = [
     is_deleted: false,
     card: null,
     priority: null,
+    reminder_time: null,
+    reminder_sent: false,
     tags: [
       {
         id: 2,
@@ -123,6 +131,8 @@ export const sampleTaskData: Task[] = [
     is_deleted: false,
     card: null,
     priority: null,
+    reminder_time: null,
+    reminder_sent: false,
     tags: [
       {
         id: 2,

@@ -231,7 +231,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className={`w-full max-w-2xl transform overflow-hidden rounded-2xl p-6 shadow-xl transition-all ${
+        <Dialog.Panel className={`w-full max-w-2xl transform overflow-visible rounded-2xl p-6 shadow-xl transition-all ${
           editedTask.is_complete ? 'bg-green-50 border-2 border-green-300' : 'bg-white'
         }`}>
           <div className="flex justify-between items-start mb-4">

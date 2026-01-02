@@ -156,12 +156,6 @@ export function TaskReminderDisplay({
               No Reminder
             </button>
             <button
-              onClick={() => setReminderIn(1)}
-              className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded"
-            >
-              In 1 minute
-            </button>
-            <button
               onClick={() => setReminderIn(15)}
               className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded"
             >
