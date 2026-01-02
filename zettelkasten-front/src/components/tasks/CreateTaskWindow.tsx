@@ -6,6 +6,9 @@ import { Card, PartialCard } from "../..//models/Card";
 import { BacklinkInput } from "../cards/BacklinkInput";
 import { TaskDateDisplay } from "./TaskDateDisplay";
 import { TaskPriorityDisplay } from "./TaskPriorityDisplay";
+import { TaskReminderDisplay } from "./TaskReminderDisplay";
+import { TaskStatusDisplay } from "./TaskStatusDisplay";
+import { TaskTagDisplay } from "./TaskTagDisplay";
 import { Button } from "../Button";
 import { AddTagMenu } from "../../components/tags/AddTagMenu";
 
@@ -94,6 +97,20 @@ export function CreateTaskWindow({
     setNewTask(editedTask);
     setShowTagMenu(false);
     setShowMenu(false);
+  }
+
+  function handleRemoveTag(tagName: string) {
+    // Remove # prefix if present
+    const cleanTagName = tagName.replace(/^#/, '');
+    const tagRegex = new RegExp(`\\n*#${cleanTagName}\\b`, 'g');
+
+    const updatedTask = {
+      ...newTask,
+      title: newTask.title.replace(tagRegex, '').trim(),
+      tags: newTask.tags.filter(tag => tag.name.replace(/^#/, '') !== cleanTagName)
+    };
+
+    setNewTask(updatedTask);
   }
   const handleKeyPress = (event: KeyboardEvent) => {
     // if this is true, the user is using a system shortcut, don't do anything with it
@@ -208,12 +225,17 @@ w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-bl
             <div className="create-task-window-bottom-left">
               {!currentCard && <BacklinkInput addBacklink={handleBacklink} />}
             </div>
-            <div className="create-task-window-bottom-middle">
+            <div className="create-task-window-bottom-middle flex items-center gap-4">
               {selectedCard && (
                 <span style={{ fontWeight: "bold", color: "blue" }}>
                   [{selectedCard?.card_id}]
                 </span>
               )}
+              <TaskStatusDisplay
+                task={newTask}
+                setTask={setNewTask}
+                saveOnChange={false}
+              />
               <TaskDateDisplay
                 task={newTask}
                 setTask={setNewTask}
@@ -223,6 +245,17 @@ w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-bl
                 task={newTask}
                 setTask={setNewTask}
                 saveOnChange={false}
+              />
+              <TaskReminderDisplay
+                task={newTask}
+                setTask={setNewTask}
+                saveOnChange={false}
+              />
+              <TaskTagDisplay
+                task={newTask}
+                tags={newTask.tags}
+                onTagClick={() => {}}
+                onRemoveTag={handleRemoveTag}
               />
             </div>
             <div className="create-task-window-bottom-right">
