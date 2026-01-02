@@ -60,7 +60,9 @@ export function useTaskFiltering({
             new Date(b.updated_at).getTime();
           break;
         case "title":
-          comparison = a.title.toLowerCase().localeCompare(b.title.toLowerCase());
+          const titleA = a.title || "";
+          const titleB = b.title || "";
+          comparison = titleA.toLowerCase().localeCompare(titleB.toLowerCase());
           break;
         case "priority":
           const prioA = a.priority;

@@ -23,6 +23,15 @@ export function filterTasks(input: Task[], filterString: string): Task[] {
       const termWithoutNegation = isNegation ? term.substring(1) : term;
       const lowerTerm = termWithoutNegation.toLowerCase();
 
+      // Has filtering (e.g., has:reminder)
+      if (lowerTerm.startsWith('has:')) {
+        const hasValue = lowerTerm.substring('has:'.length);
+        if (hasValue === 'reminder') {
+          const hasReminder = task.reminder_time !== null;
+          return isNegation ? !hasReminder : hasReminder;
+        }
+      }
+
       // Priority filtering
       if (lowerTerm.startsWith('priority:')) {
         const priorityValue = lowerTerm.substring('priority:'.length);

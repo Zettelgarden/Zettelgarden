@@ -118,6 +118,7 @@ export function TaskPage({ }: TaskListProps) {
                     <li><strong>Text:</strong> e.g., <code>meeting</code></li>
                     <li><strong>Tag:</strong> <code>#tagName</code></li>
                     <li><strong>Priority:</strong> <code>priority:A</code></li>
+                    <li><strong>Reminder:</strong> <code>has:reminder</code></li>
                     <li><strong>Negate:</strong> prepend <code>!</code></li>
                   </ul>
                 </div>
