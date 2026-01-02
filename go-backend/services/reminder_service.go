@@ -120,7 +120,7 @@ func buildReminderEmailBody(task models.Task, frontendURL string) string {
 
 	body += `        </div>
 
-        <a href="` + frontendURL + `/app/tasks" class="button">View Tasks</a>
+        <a href="` + frontendURL + `/app/tasks?taskId=` + fmt.Sprintf("%d", task.ID) + `" class="button">View Task</a>
 
         <div class="footer">
             <p>You're receiving this because you set a reminder for this task in Zettelgarden.</p>

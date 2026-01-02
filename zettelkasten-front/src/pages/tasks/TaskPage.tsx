@@ -1,7 +1,8 @@
-import React, { useEffect, ChangeEvent } from "react";
+import React, { useEffect, ChangeEvent, useState } from "react";
 import { TaskList } from "../../components/tasks/TaskList";
 import { TaskPageOptionsMenu } from "../../components/tasks/TaskPageOptionsMenu";
 import { CreateTaskWindow } from "../../components/tasks/CreateTaskWindow";
+import { TaskDialog } from "../../components/tasks/TaskDialog";
 import { useTaskContext } from "../../contexts/TaskContext";
 import { useTagContext } from "../../contexts/TagContext";
 import { setDocumentTitle } from "../../utils/title";
@@ -11,6 +12,7 @@ import { EisenhowerMatrix } from "../../components/tasks/EisenhowerMatrix";
 import { KanbanBoard } from "../../components/tasks/KanbanBoard";
 import { useTaskPageSettings } from "../../hooks/useTaskPageSettings";
 import { useTaskFiltering } from "../../hooks/useTaskFiltering";
+import { useNavigate } from "react-router-dom";
 
 interface TaskListProps { }
 
@@ -18,6 +20,11 @@ export function TaskPage({ }: TaskListProps) {
   const { tasks, showCompleted, setShowCompleted } = useTaskContext();
   const { tags } = useTagContext();
   const { showCreateTaskWindow, setShowCreateTaskWindow } = useShortcutContext();
+  const navigate = useNavigate();
+
+  // State for task dialog
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
 
   // Use custom hooks for settings and filtering
   const settings = useTaskPageSettings();
@@ -62,6 +69,16 @@ export function TaskPage({ }: TaskListProps) {
     settings.setFilterString("#" + tag);
   }
 
+  function handleCloseTaskDialog() {
+    setIsTaskDialogOpen(false);
+    setSelectedTaskId(null);
+    // Remove taskId parameter from URL
+    const params = new URLSearchParams(location.search);
+    params.delete("taskId");
+    const newSearch = params.toString();
+    navigate(`/app/tasks${newSearch ? `?${newSearch}` : ""}`, { replace: true });
+  }
+
   const handleKeyPress = (event: KeyboardEvent) => {
     // if this is true, the user is using a system shortcut, don't do anything with it
     if (event.metaKey) {
@@ -81,6 +98,16 @@ export function TaskPage({ }: TaskListProps) {
     const term = params.get("term");
     if (term) {
       settings.setFilterString(term);
+    }
+
+    // Check for taskId parameter to open specific task dialog
+    const taskIdParam = params.get("taskId");
+    if (taskIdParam) {
+      const taskId = parseInt(taskIdParam, 10);
+      if (!isNaN(taskId)) {
+        setSelectedTaskId(taskId);
+        setIsTaskDialogOpen(true);
+      }
     }
 
     document.addEventListener("keydown", handleKeyPress);
@@ -235,6 +262,13 @@ export function TaskPage({ }: TaskListProps) {
           />
         )}
       </div>
+      {/* Task Dialog */}
+      <TaskDialog
+        taskId={selectedTaskId}
+        isOpen={isTaskDialogOpen}
+        onClose={handleCloseTaskDialog}
+        onTagClick={handleTagClick}
+      />
       <div className="p-4">
         {settings.viewMode === "list" ? (
           <>
