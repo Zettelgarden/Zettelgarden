@@ -35,6 +35,9 @@ export function fetchTasks(showCompleted: boolean): Promise<Task[]> {
       completed_at: task.completed_at
         ? new Date(task.completed_at)
         : null,
+      reminder_time: task.reminder_time
+        ? new Date(task.reminder_time)
+        : null,
     }));
 
     const combinedTasks = [...allTasks, ...formattedTasks];

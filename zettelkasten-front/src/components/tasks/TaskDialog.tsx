@@ -4,6 +4,7 @@ import { Task, TaskAuditEvent } from "../../models/Task";
 import { TaskDateDisplay } from "./TaskDateDisplay";
 import { TaskPriorityDisplay } from "./TaskPriorityDisplay";
 import { TaskStatusDisplay } from "./TaskStatusDisplay";
+import { TaskReminderDisplay } from "./TaskReminderDisplay";
 import { BacklinkInput } from "../cards/BacklinkInput";
 import { PartialCard } from "../../models/Card";
 import { Link } from "react-router-dom";
@@ -73,6 +74,19 @@ function formatAuditEvent(event: TaskAuditEvent): string {
       changes.push(`Changed priority from ${fromPriority} to ${toPriority}`);
     }
 
+    // Reminder changes
+    if (changeDetails.ReminderTime) {
+      if (!changeDetails.ReminderTime.from && changeDetails.ReminderTime.to) {
+        const newReminder = format(new Date(changeDetails.ReminderTime.to), 'MMM d, yyyy h:mm a');
+        changes.push(`Set reminder for ${newReminder}`);
+      } else if (changeDetails.ReminderTime.from && !changeDetails.ReminderTime.to) {
+        changes.push(`Removed reminder`);
+      } else if (changeDetails.ReminderTime.from && changeDetails.ReminderTime.to) {
+        const newReminder = format(new Date(changeDetails.ReminderTime.to), 'MMM d, yyyy h:mm a');
+        changes.push(`Changed reminder to ${newReminder}`);
+      }
+    }
+
     // If no specific changes were detected
     if (changes.length === 0) {
       return "Task updated";
@@ -105,6 +119,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
             created_at: new Date(task.created_at),
             updated_at: new Date(task.updated_at),
             completed_at: task.completed_at ? new Date(task.completed_at) : null,
+            reminder_time: task.reminder_time ? new Date(task.reminder_time) : null,
             tags: task.tags || []
           };
           setEditedTask(processedTask);
@@ -284,6 +299,11 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
                 saveOnChange={true}
               />
               <TaskPriorityDisplay
+                task={editedTask}
+                setTask={setEditedTask}
+                saveOnChange={true}
+              />
+              <TaskReminderDisplay
                 task={editedTask}
                 setTask={setEditedTask}
                 saveOnChange={true}

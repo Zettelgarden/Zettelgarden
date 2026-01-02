@@ -80,7 +80,7 @@ export function TaskStatusDisplay({
   }, [showStatusMenu]);
 
   return (
-    <div className="relative inline-block">
+    <div className="relative inline-block pr-2">
       <span
         onClick={(e) => {
           e.stopPropagation();

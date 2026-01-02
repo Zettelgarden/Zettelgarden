@@ -180,6 +180,21 @@ export function TaskListItem({
             setTask={(task: Task) => { }}
             saveOnChange={true}
           />
+          {task.reminder_time && (
+            <span
+              className="text-xs mr-1"
+              style={{
+                color: task.reminder_sent ? '#9ca3af' : '#3b82f6',
+                cursor: 'default'
+              }}
+              title={task.reminder_sent
+                ? `Reminder sent: ${new Date(task.reminder_time).toLocaleString()}`
+                : `Reminder set for: ${new Date(task.reminder_time).toLocaleString()}`
+              }
+            >
+              🔔
+            </span>
+          )}
           <TaskTagDisplay task={task} tags={tags} onTagClick={onTagClick} onRemoveTag={handleRemoveTag} hideMatrixTags={hideMatrixTags} />
         </div>
       </div>

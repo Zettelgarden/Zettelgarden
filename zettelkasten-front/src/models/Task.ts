@@ -39,6 +39,8 @@ export interface Task {
   status: TaskStatus;
   is_complete: boolean;
   is_deleted: boolean;
+  reminder_time: Date | null;
+  reminder_sent: boolean;
   card: PartialCard | null;
   tags: Tag[];
 }
@@ -64,6 +66,8 @@ export const emptyTask: Task = {
   status: 'todo',
   is_complete: false,
   is_deleted: false,
+  reminder_time: null,
+  reminder_sent: false,
   card: null,
   tags: [],
 };
