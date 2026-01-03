@@ -150,16 +150,14 @@ export function CreateTaskWindow({
         className="create-task-popup-content"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="create-task-window">
-          <div className="create-task-window-top">
-            <span className="block mb-2 font-bold text-gray-700">
+        <div className="flex flex-col h-full">
+          <div className="mb-4">
+            <span className="block mb-3 font-bold text-gray-700 text-lg">
               {"New Task"}
             </span>
-            <div className="flex mb-2">
+            <div className="flex gap-2 mb-4">
               <input
-                className="
-w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300 focus:border-blue-500
-"
+                className="flex-1 px-3 py-2.5 text-base border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300 focus:border-blue-500"
                 placeholder="Enter new task"
                 value={newTask.title}
                 onChange={(e) =>
@@ -172,8 +170,8 @@ w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-bl
                 }}
                 autoFocus
               />
-              <div className="dropdown">
-                <button onClick={toggleMenu} className="menu-button">
+              <div className="dropdown flex-shrink-0">
+                <button onClick={toggleMenu} className="menu-button h-full px-3">
                   ⋮
                 </button>
                 {showMenu && (
@@ -221,45 +219,56 @@ w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-bl
               </div>
             </div>
           </div>
-          <div className="create-task-window-bottom">
-            <div className="create-task-window-bottom-left">
-              {!currentCard && <BacklinkInput addBacklink={handleBacklink} />}
-            </div>
-            <div className="create-task-window-bottom-middle flex items-center gap-4">
+          <div className="flex flex-col gap-4">
+            {!currentCard && (
+              <div className="w-full">
+                <BacklinkInput addBacklink={handleBacklink} />
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3">
               {selectedCard && (
-                <span style={{ fontWeight: "bold", color: "blue" }}>
+                <span className="font-bold text-blue-600">
                   [{selectedCard?.card_id}]
                 </span>
               )}
-              <TaskStatusDisplay
-                task={newTask}
-                setTask={setNewTask}
-                saveOnChange={false}
-              />
-              <TaskDateDisplay
-                task={newTask}
-                setTask={setNewTask}
-                saveOnChange={false}
-              />
-              <TaskPriorityDisplay
-                task={newTask}
-                setTask={setNewTask}
-                saveOnChange={false}
-              />
-              <TaskReminderDisplay
-                task={newTask}
-                setTask={setNewTask}
-                saveOnChange={false}
-              />
-              <TaskTagDisplay
-                task={newTask}
-                tags={newTask.tags}
-                onTagClick={() => {}}
-                onRemoveTag={handleRemoveTag}
-              />
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-wrap">
+                <TaskStatusDisplay
+                  task={newTask}
+                  setTask={setNewTask}
+                  saveOnChange={false}
+                />
+                <TaskDateDisplay
+                  task={newTask}
+                  setTask={setNewTask}
+                  saveOnChange={false}
+                />
+                <TaskPriorityDisplay
+                  task={newTask}
+                  setTask={setNewTask}
+                  saveOnChange={false}
+                />
+                <TaskReminderDisplay
+                  task={newTask}
+                  setTask={setNewTask}
+                  saveOnChange={false}
+                />
+                <TaskTagDisplay
+                  task={newTask}
+                  tags={newTask.tags}
+                  onTagClick={() => {}}
+                  onRemoveTag={handleRemoveTag}
+                />
+              </div>
             </div>
-            <div className="create-task-window-bottom-right">
-              <Button onClick={handleSaveTask} children="Save" />
+
+            <div className="flex justify-end mt-2">
+              <Button
+                onClick={handleSaveTask}
+                className="w-full sm:w-auto px-6 py-2.5 text-base"
+              >
+                Save
+              </Button>
             </div>
           </div>
         </div>
