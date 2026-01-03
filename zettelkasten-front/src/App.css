@@ -596,7 +596,7 @@ button[type="submit"] {
   max-width: 672px;
   width: 95%;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow-y: visible;
 }
 
 @media (min-width: 640px) {
