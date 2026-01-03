@@ -563,6 +563,11 @@ func BuildPartialEntitySqlSearchTermString(searchString string) string {
 func (s *Handler) ClassicCardSearch(userID int, params SearchRequestParams) ([]models.Card, int, error) {
 	searchString := BuildPartialCardSqlSearchTermString(params.SearchTerm, params.FullText)
 
+	// Add empty card_id filter if requested
+	if params.OnlyEmptyCardId {
+		searchString += " AND (c.card_id = '' OR c.card_id IS NULL)"
+	}
+
 	// Set pagination defaults
 	page := params.Page
 	if page < 1 {
@@ -623,7 +628,6 @@ GROUP BY
 ORDER BY c.created_at DESC
 LIMIT $2 OFFSET $3
 	`
-
 	rows, err := s.DB.Query(query, userID, perPage, offset)
 	if err != nil {
 		return nil, 0, err
@@ -639,15 +643,16 @@ LIMIT $2 OFFSET $3
 }
 
 type SearchRequestParams struct {
-	SearchTerm   string `json:"search_term"`
-	FullText     bool   `json:"full_text"`
-	ShowEntities bool   `json:"show_entities"`
-	ShowFacts    bool   `json:"show_facts"`
-	ShowCards    bool   `json:"show_cards"`
-	SortBy       string `json:"sort"`
-	Rerank       bool   `json:"rerank"`
-	Page         int    `json:"page"`
-	PerPage      int    `json:"per_page"`
+	SearchTerm      string `json:"search_term"`
+	FullText        bool   `json:"full_text"`
+	ShowEntities    bool   `json:"show_entities"`
+	ShowFacts       bool   `json:"show_facts"`
+	ShowCards       bool   `json:"show_cards"`
+	OnlyEmptyCardId bool   `json:"only_empty_card_id"`
+	SortBy          string `json:"sort"`
+	Rerank          bool   `json:"rerank"`
+	Page            int    `json:"page"`
+	PerPage         int    `json:"per_page"`
 }
 
 type PaginatedSearchResponse struct {
@@ -910,8 +915,9 @@ func (s *Handler) SearchRoute(w http.ResponseWriter, r *http.Request) {
 	var response PaginatedSearchResponse
 	parsedParams := ParseSearchText(reqParams.SearchTerm)
 
-	// If the search contains entities or tags, use ClassicCardSearch, otherwise use Typesense
-	if parsedParams.HasAdvancedFilters() {
+	// If the search contains entities, tags, or onlyEmptyCardId filter, use ClassicCardSearch, otherwise use Typesense
+	// Note: Typesense cannot filter for empty card_id since it's not an optional field
+	if parsedParams.HasAdvancedFilters() || reqParams.OnlyEmptyCardId {
 		cards, total, err := s.ClassicCardSearch(userID, reqParams)
 		if err != nil {
 			log.Printf("ClassicCardSearch error: %v", err)

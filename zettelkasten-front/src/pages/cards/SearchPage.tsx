@@ -87,6 +87,9 @@ export function SearchPage({
     if (config.onlyParentCards) {
       params.set('onlyParentCards', 'true');
     }
+    if (config.onlyEmptyCardId) {
+      params.set('onlyEmptyCardId', 'true');
+    }
     if (page > 1) {
       params.set('page', page.toString());
     }
@@ -121,6 +124,7 @@ export function SearchPage({
         config.rerank,
         page,
         perPage,
+        config.onlyEmptyCardId,
       );
       if (requestId === latestRequestId.current) {
         setSearchResults(response.results || []);
@@ -190,6 +194,7 @@ export function SearchPage({
         showCards: params.get("showCards") !== "false", // default true
         useFullText: params.get("useFullText") === "true",
         onlyParentCards: params.get("onlyParentCards") === "true",
+        onlyEmptyCardId: params.get("onlyEmptyCardId") === "true",
         useClassicSearch: params.get("searchType") !== "typesense"
       };
 
@@ -263,6 +268,13 @@ export function SearchPage({
     setSearchConfig({ ...searchConfig, onlyParentCards: event.target.checked, currentPage: 1 });
     setCurrentPage(1);
     handleSearch(searchTerm, { ...searchConfig, onlyParentCards: event.target.checked }, 1);
+  };
+
+  const handleOnlyEmptyCardIdChange = (event) => {
+    let config = { ...searchConfig, onlyEmptyCardId: event.target.checked };
+    setSearchConfig(config);
+    setCurrentPage(1);
+    handleSearch(searchTerm, config, 1);
   };
 
   const handleShowPreviewChange = (event) => {
@@ -457,6 +469,17 @@ export function SearchPage({
                         <label className="flex items-center text-sm cursor-pointer">
                           <input
                             type="checkbox"
+                            checked={searchConfig.onlyEmptyCardId}
+                            onChange={handleOnlyEmptyCardIdChange}
+                            className="mr-2"
+                          />
+                          Only Unsorted Cards
+                        </label>
+                      </div>
+                      <div className="hover:bg-gray-50 rounded px-2 py-1">
+                        <label className="flex items-center text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
                             checked={searchConfig.showPreview}
                             onChange={handleShowPreviewChange}
                             className="mr-2"
@@ -495,17 +518,6 @@ export function SearchPage({
                             className="mr-2"
                           />
                           Show Cards
-                        </label>
-                      </div>
-                      <div className="hover:bg-gray-50 rounded px-2 py-1">
-                        <label className="flex items-center text-sm cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={searchConfig.searchType === "typesense"}
-                            onChange={handleSearchTypeChange}
-                            className="mr-2"
-                          />
-                          New Search (Experimental)
                         </label>
                       </div>
                     </div>

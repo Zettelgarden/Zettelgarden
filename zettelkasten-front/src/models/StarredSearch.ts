@@ -10,6 +10,7 @@ export interface SearchConfig {
     useClassicSearch: boolean;
     useFullText: boolean;
     onlyParentCards: boolean;
+    onlyEmptyCardId: boolean;
     showEntities: boolean;
     showFacts: boolean;
     showCards: boolean;

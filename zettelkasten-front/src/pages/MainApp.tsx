@@ -50,6 +50,7 @@ function MainAppContent() {
     useClassicSearch: false,
     useFullText: false,
     onlyParentCards: false,
+    onlyEmptyCardId: false,
     showEntities: true,
     showPreview: true,
     showFacts: true,
