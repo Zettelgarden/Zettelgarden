@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Task } from "../models/Task";
 import { filterTasks, filterTasksByDateView } from "../utils/tasks";
 
-type SortField = "updated_at" | "title" | "priority" | "status" | "id";
+type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date";
 type SortDirection = "asc" | "desc";
 
 interface UseTaskFilteringParams {
@@ -53,6 +53,7 @@ export function useTaskFiltering({
     // Sort tasks for list view
     searched.sort((a, b) => {
       let comparison = 0;
+      console.log(sortField)
       switch (sortField) {
         case "updated_at":
           comparison =
@@ -75,6 +76,19 @@ export function useTaskFiltering({
         case "status":
           const statusOrder = { 'todo': 0, 'in_progress': 1, 'blocked': 2, 'done': 3 };
           comparison = statusOrder[a.status] - statusOrder[b.status];
+          break;
+        case "scheduled_date":
+          const dueDateA = a.scheduled_date;
+          const dueDateB = b.scheduled_date;
+          if (dueDateA === null && dueDateB === null) {
+            comparison = 0;
+          } else if (dueDateA === null) {
+            return 1; // Always put nulls last, regardless of sort direction
+          } else if (dueDateB === null) {
+            return -1; // Always put nulls last, regardless of sort direction
+          } else {
+            comparison = new Date(dueDateA).getTime() - new Date(dueDateB).getTime();
+          }
           break;
         case "id":
           comparison = a.id - b.id;

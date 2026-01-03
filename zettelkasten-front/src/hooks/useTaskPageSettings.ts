@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, Dispatch, SetStateAction } f
 
 const STORAGE_KEY = "taskPageSettings";
 
-type SortField = "updated_at" | "title" | "priority" | "status" | "id";
+type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date";
 type SortDirection = "asc" | "desc";
 
 interface TaskPageSettings {
