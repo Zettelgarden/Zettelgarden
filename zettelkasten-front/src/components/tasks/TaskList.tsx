@@ -25,7 +25,7 @@ export function TaskList({
   return (
     <ul>
       {tasks.map((task, index) => (
-        <li key={task.id} className="p-0">
+        <li key={task.id} className="pb-0 mb border-b border-slate-200 last:border-0">
           <TaskListItem
             task={task}
             onTagClick={onTagClick}
