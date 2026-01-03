@@ -75,19 +75,44 @@ export function TaskDateDisplay({
 
   const getDisplayColor = () => {
     if (!task.is_complete && isPast(task.scheduled_date)) {
-      return "red";
+      return "#EF4444"; // red
     }
     switch (displayText) {
       case "Today":
-        return "green";
+        return "#10B981"; // green
       case "Tomorrow":
-        return "green";
+        return "#3B82F6"; // blue
       case "Yesterday":
-        return "red";
+        return "#EF4444"; // red
       default:
-        return "black";
+        return "#6B7280"; // gray
     }
   };
+
+  const getDisplayIcon = () => {
+    if (!task.is_complete && isPast(task.scheduled_date)) {
+      return "⚠️";
+    }
+    switch (displayText) {
+      case "Today":
+        return "📅";
+      case "Tomorrow":
+        return "📆";
+      case "No Date":
+        return "○";
+      default:
+        return "📅";
+    }
+  };
+
+  // Close menu when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = () => setDisplayDatePicker(false);
+    if (displayDatePicker) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [displayDatePicker]);
 
   async function setNoDate() {
     let editedTask = { ...task, scheduled_date: null };
@@ -147,50 +172,73 @@ export function TaskDateDisplay({
     updateDisplayText();
   }, [task]);
 
+  const color = getDisplayColor();
+  const icon = getDisplayIcon();
+
   return (
-    <div>
-      <div
-        onClick={handleTextClick}
-        className="task-date mr-1"
-        style={{ color: getDisplayColor() }}
+    <div className="relative inline-block">
+      <span
+        onClick={(e) => {
+          e.stopPropagation();
+          handleTextClick();
+        }}
+        className="cursor-pointer inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition-colors hover:opacity-80"
+        style={{
+          backgroundColor: color + "20",
+          color: color,
+          border: `1px solid ${color}40`,
+        }}
       >
-        {displayText}
+        <span>{icon}</span>
+        <span>{displayText}</span>
         {isRecurringTask(task) && (
-          <>
-            <span> - </span>
-            <span className="task-recurring">Recurring</span>
-          </>
+          <span className="ml-1 text-[10px]">🔄</span>
         )}
-      </div>
+      </span>
+
       {displayDatePicker && (
-        <div className="dropdown">
-          <div className="popup-menu-left-aligned">
-            <div className="flex flex-col space-y-2">
-              {" "}
-              {/* This creates vertical spacing between children */}
-              <button onClick={setNoDate} className="w-full">
-                No Date
+        <div
+          className="absolute z-20 mt-1 bg-white rounded-md shadow-lg py-1 min-w-[160px] border border-gray-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex flex-col">
+            <button
+              onClick={setNoDate}
+              className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+            >
+              No Date
+            </button>
+            <button
+              onClick={setToday}
+              className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+            >
+              Today
+            </button>
+            <button
+              onClick={setTomorrow}
+              className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+            >
+              Tomorrow
+            </button>
+            {isFriday() && (
+              <button
+                onClick={setNextMonday}
+                className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+              >
+                Next Monday
               </button>
-              <button onClick={setToday} className="w-full">
-                Today
-              </button>
-              <button onClick={setTomorrow} className="w-full">
-                Tomorrow
-              </button>
-              {isFriday() ? (
-                <button onClick={setNextMonday} className="w-full">
-                  Next Monday
-                </button>
-              ) : (
-                <div></div>
-              )}
-              <button onClick={setNextWeek} className="w-full">
-                Next Week
-              </button>
+            )}
+            <button
+              onClick={setNextWeek}
+              className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+            >
+              Next Week
+            </button>
+            <div className="border-t mt-1 pt-1 px-2">
               <input
                 aria-label="Date"
                 type="date"
-                className="p-2 w-full"
+                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={selectedDate}
                 onChange={handleScheduledDateChange}
               />

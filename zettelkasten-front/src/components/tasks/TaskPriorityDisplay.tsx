@@ -20,22 +20,31 @@ export function TaskPriorityDisplay({
     // Get display text and color based on priority
     const getPriorityDisplay = () => {
         if (!task.priority) {
-            return { text: "No Priority", color: "gray" };
+            return { text: "No Priority", color: "#6B7280", icon: "○" };
         }
 
         switch (task.priority) {
             case "A":
-                return { text: "Priority A", color: "red" };
+                return { text: "Priority A", color: "#EF4444", icon: "🔴" };
             case "B":
-                return { text: "Priority B", color: "orange" };
+                return { text: "Priority B", color: "#F59E0B", icon: "🟠" };
             case "C":
-                return { text: "Priority C", color: "blue" };
+                return { text: "Priority C", color: "#3B82F6", icon: "🔵" };
             default:
-                return { text: task.priority, color: "gray" };
+                return { text: task.priority, color: "#6B7280", icon: "○" };
         }
     };
 
     const priorityDisplay = getPriorityDisplay();
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = () => setShowPriorityMenu(false);
+        if (showPriorityMenu) {
+            document.addEventListener("click", handleClickOutside);
+            return () => document.removeEventListener("click", handleClickOutside);
+        }
+    }, [showPriorityMenu]);
 
     async function updateTask(editedTask: Task) {
         if (saveOnChange) {
@@ -67,40 +76,59 @@ export function TaskPriorityDisplay({
     }
 
     return (
-        <div className="relative">
+        <div className="relative inline-block">
             <span
-                onClick={() => setShowPriorityMenu(!showPriorityMenu)}
-                className="task-priority cursor-pointer"
-                style={{ color: priorityDisplay.color }}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setShowPriorityMenu(!showPriorityMenu);
+                }}
+                className="cursor-pointer inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition-colors hover:opacity-80"
+                style={{
+                    backgroundColor: priorityDisplay.color + "20",
+                    color: priorityDisplay.color,
+                    border: `1px solid ${priorityDisplay.color}40`,
+                }}
             >
-                {priorityDisplay.text}
+                <span>{priorityDisplay.icon}</span>
+                <span>{priorityDisplay.text}</span>
             </span>
 
             {showPriorityMenu && (
-                <div className="absolute z-10 mt-1 bg-white rounded-md shadow-lg py-1 w-32">
+                <div
+                    className="absolute z-20 mt-1 bg-white rounded-md shadow-lg py-1 min-w-[140px] border border-gray-200"
+                    onClick={(e) => e.stopPropagation()}
+                >
                     <div
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 text-sm"
                         onClick={() => setPriority("A")}
+                        style={{ color: "#EF4444" }}
                     >
-                        <span style={{ color: "red" }}>Priority A</span>
+                        <span>🔴</span>
+                        <span>Priority A</span>
                     </div>
                     <div
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 text-sm"
                         onClick={() => setPriority("B")}
+                        style={{ color: "#F59E0B" }}
                     >
-                        <span style={{ color: "orange" }}>Priority B</span>
+                        <span>🟠</span>
+                        <span>Priority B</span>
                     </div>
                     <div
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 text-sm"
                         onClick={() => setPriority("C")}
+                        style={{ color: "#3B82F6" }}
                     >
-                        <span style={{ color: "blue" }}>Priority C</span>
+                        <span>🔵</span>
+                        <span>Priority C</span>
                     </div>
                     <div
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 text-sm"
                         onClick={() => setPriority(null)}
+                        style={{ color: "#6B7280" }}
                     >
-                        <span style={{ color: "gray" }}>No Priority</span>
+                        <span>○</span>
+                        <span>No Priority</span>
                     </div>
                 </div>
             )}
