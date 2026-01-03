@@ -31,10 +31,86 @@ export const CardBodyTextArea = forwardRef<CardBodyTextAreaHandle, CardBodyTextA
   const [isPreviewMode, setIsPreviewMode] = useState<boolean>(false);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === 'Enter') {
-      const textarea = event.currentTarget;
-      const { value, selectionStart } = textarea;
+    const textarea = event.currentTarget;
+    const { value, selectionStart, selectionEnd } = textarea;
 
+    // Handle Tab and Shift+Tab for indentation on bullet lists
+    if (event.key === 'Tab') {
+      // Find the start and end of the affected lines
+      const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+      const lineEnd = value.indexOf('\n', selectionEnd);
+      const actualLineEnd = lineEnd === -1 ? value.length : lineEnd;
+
+      // Get all selected lines
+      const selectedLines = value.substring(lineStart, actualLineEnd);
+      const lines = selectedLines.split('\n');
+
+      // Check if any line starts with a bullet (- or *)
+      const hasBullets = lines.some(line => {
+        const trimmed = line.trim();
+        return trimmed.startsWith('-') || trimmed.startsWith('*');
+      });
+
+      // Only handle Tab if we're on bullet list lines
+      if (!hasBullets) {
+        return; // Allow default Tab behavior
+      }
+
+      event.preventDefault();
+
+      const beforeSelection = value.substring(0, lineStart);
+      const afterSelection = value.substring(actualLineEnd);
+
+      let newLines: string[];
+      let cursorOffset = 0;
+
+      if (event.shiftKey) {
+        // Shift+Tab: Unindent (remove up to 2 spaces)
+        newLines = lines.map(line => {
+          // Only unindent lines that have bullets or are already indented
+          if (line.match(/^\s*[-*]/) || line.match(/^\s+/)) {
+            // Remove up to 2 spaces from the beginning
+            if (line.startsWith('  ')) {
+              return line.substring(2);
+            } else if (line.startsWith(' ')) {
+              return line.substring(1);
+            }
+          }
+          return line;
+        });
+
+        // Calculate cursor offset (negative for unindent)
+        const originalLength = selectedLines.length;
+        const newLength = newLines.join('\n').length;
+        cursorOffset = newLength - originalLength;
+      } else {
+        // Tab: Indent (add 2 spaces)
+        newLines = lines.map(line => {
+          // Only indent lines that have content or bullets
+          if (line.trim().length > 0) {
+            return '  ' + line;
+          }
+          return line;
+        });
+
+        // Calculate cursor offset (positive for indent)
+        const addedSpaces = newLines.filter(line => line.trim().length > 0).length * 2;
+        cursorOffset = addedSpaces;
+      }
+
+      const newBody = beforeSelection + newLines.join('\n') + afterSelection;
+      setEditingCard({ ...editingCard, body: newBody });
+
+      setTimeout(() => {
+        const newStart = selectionStart + (lineStart === selectionStart ? (event.shiftKey ? Math.max(cursorOffset, -2) : 2) : 0);
+        const newEnd = selectionEnd + cursorOffset;
+        textarea.setSelectionRange(newStart, newEnd);
+      }, 0);
+
+      return;
+    }
+
+    if (event.key === 'Enter') {
       // Find the start of the current line
       const currentLineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
       const currentLine = value.substring(currentLineStart, selectionStart);
