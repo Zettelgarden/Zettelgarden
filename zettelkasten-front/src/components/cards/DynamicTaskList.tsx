@@ -76,13 +76,32 @@ export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch all tasks (including completed) whenever the component mounts or query changes
+  // Fetch tasks with backend filtering based on query
   useEffect(() => {
     const loadTasks = async () => {
       setIsLoading(true);
       try {
-        // Always fetch with showCompleted=true to get all tasks
-        const tasks = await fetchTasks(true);
+        const params = parseQuery(query);
+
+        // Determine which date parameter to use
+        let scheduledDate: Date | null = null;
+        let completedDate: Date | null = null;
+
+        if (params.specificDate) {
+          if (params.showCompleted) {
+            // When "completed" flag is present, filter by completed_at
+            completedDate = params.specificDate;
+          } else {
+            // By default, filter by scheduled_date
+            scheduledDate = params.specificDate;
+          }
+        }
+
+        const tasks = await fetchTasks({
+          showCompleted: params.showCompleted,
+          scheduledDate,
+          completedDate,
+        });
         setAllTasks(tasks);
       } catch (error) {
         console.error('Error fetching tasks:', error);
@@ -95,27 +114,17 @@ export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
     loadTasks();
   }, [query]);
 
-  // Parse query and filter tasks
+  // Parse query and apply client-side filters (text/tag search and date views)
   const filteredTasks = useMemo(() => {
     try {
       const params = parseQuery(query);
 
-      // First apply text/tag/priority filters
+      // Apply text/tag/priority filters
       let filtered = filterTasks(allTasks, params.searchTerms.join(' '));
 
-      // Apply specific date filter if present
-      if (params.specificDate) {
-        filtered = filtered.filter(task => {
-          if (params.showCompleted) {
-            // When "completed" flag is present, match against completed_at
-            return compareDates(task.completed_at, params.specificDate);
-          } else {
-            // By default, match against scheduled_date
-            return compareDates(task.scheduled_date, params.specificDate);
-          }
-        });
-      } else {
-        // Apply date view filters (today, tomorrow, all)
+      // Only apply date view filters if no specific date was provided
+      // (specific dates are already filtered by the backend)
+      if (!params.specificDate && params.dateView !== 'all') {
         filtered = filtered.filter(task =>
           filterTasksByDateView(task, params.dateView, params.showCompleted)
         );

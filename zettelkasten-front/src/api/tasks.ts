@@ -3,12 +3,28 @@ import { checkStatus } from "./common";
 
 const base_url = import.meta.env.VITE_URL;
 
-export function fetchTasks(showCompleted: boolean): Promise<Task[]> {
+export interface FetchTasksParams {
+  showCompleted?: boolean;
+  scheduledDate?: Date | null;
+  completedDate?: Date | null;
+}
+
+export function fetchTasks(params: FetchTasksParams = {}): Promise<Task[]> {
+  const { showCompleted = false, scheduledDate = null, completedDate = null } = params;
+
   const fetchAllTasks = async (offset = 0, allTasks: Task[] = []): Promise<Task[]> => {
     let token = localStorage.getItem("token");
     let url = base_url + `/tasks?limit=100&offset=${offset}`;
     if (showCompleted) {
       url += "&completed=true";
+    }
+    if (scheduledDate) {
+      const dateStr = scheduledDate.toISOString().split('T')[0];
+      url += `&scheduled_date=${dateStr}`;
+    }
+    if (completedDate) {
+      const dateStr = completedDate.toISOString().split('T')[0];
+      url += `&completed_date=${dateStr}`;
     }
 
     const response = await fetch(url, {

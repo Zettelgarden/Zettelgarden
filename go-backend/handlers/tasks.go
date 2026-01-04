@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -45,7 +46,7 @@ func (s *Handler) QueryTasks(userID int, includeCompleted bool) ([]models.Task, 
 }
 
 func (s *Handler) QueryTasksPaginated(userID int, limit, offset int, includeCompleted bool, cardID *int, priority *string) ([]models.Task, int, error) {
-	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority)
+	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority, nil, nil)
 	if err != nil {
 		return []models.Task{}, 0, err
 	}
@@ -129,7 +130,21 @@ func (s *Handler) GetTasksRoute(w http.ResponseWriter, r *http.Request) {
 		priority = &priorityStr
 	}
 
-	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority)
+	var scheduledDate *time.Time
+	if scheduledDateStr := r.URL.Query().Get("scheduled_date"); scheduledDateStr != "" {
+		if t, err := time.Parse("2006-01-02", scheduledDateStr); err == nil {
+			scheduledDate = &t
+		}
+	}
+
+	var completedDate *time.Time
+	if completedDateStr := r.URL.Query().Get("completed_date"); completedDateStr != "" {
+		if t, err := time.Parse("2006-01-02", completedDateStr); err == nil {
+			completedDate = &t
+		}
+	}
+
+	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority, scheduledDate, completedDate)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
