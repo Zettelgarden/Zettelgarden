@@ -3,12 +3,14 @@ import React, { useState, useEffect } from "react";
 import { downloadFile } from "../../api/files";
 import { Card, Entity } from "../../models/Card";
 import remarkEntity from "../../remark-entity";
+import remarkTaskQuery from "../../remark-task-query";
 import { useNavigate } from "react-router-dom";
 import remarkGfm from "remark-gfm";
 
 import { useShortcutContext } from "../../contexts/ShortcutContext";
 
 import { CardLinkWithPreview } from "./CardLinkWithPreview";
+import { DynamicTaskList } from "./DynamicTaskList";
 import { H1, H2, H3, H4, H5, H6 } from "../Header";
 import {
   Table,
@@ -30,6 +32,14 @@ interface CustomImageRendererProps {
 interface CardBodyProps {
   viewingCard: Card;
   entities?: Entity[];
+}
+
+function preprocessTaskQueries(body: string): string {
+  const regex = /\{\{tasks:\s*([^}]+)\}\}/g;
+  return body.replace(regex, (match, query) => {
+    const trimmedQuery = query.trim();
+    return `&TASKQUERY:${trimmedQuery}&`;
+  });
 }
 
 function preprocessCardLinks(body: string): string {
@@ -176,9 +186,10 @@ function renderCardText(
   onEntityClick?: (id: string, name: string) => void
 ) {
 
-  // Preprocess card links first, then entities with safe markers
-  let processedBody = preprocessEntities(preprocessCardLinks(card.body), entities);
-  //let processedBody = preprocessCardLinks(cardBody)
+  // Preprocess task queries first, then card links, then entities
+  let processedBody = preprocessTaskQueries(card.body);
+  processedBody = preprocessCardLinks(processedBody);
+  processedBody = preprocessEntities(processedBody, entities);
 
   // Custom component for inline code only
   const CustomCode = ({ node, inline, className, children, ...props }: any) => {
@@ -205,7 +216,7 @@ function renderCardText(
   return (
     <Markdown
       children={processedBody}
-      remarkPlugins={[remarkGfm, remarkEntity]}
+      remarkPlugins={[remarkGfm, remarkTaskQuery, remarkEntity]}
       components={{
         // Add our custom components for code
         code: CustomCode,
@@ -288,6 +299,18 @@ function renderCardText(
           return (
             <CustomImageRenderer src={src} alt={alt} title={title} {...props} />
           );
+        },
+        div: ({ node, children, ...props }) => {
+          const propsData = (node as any).properties || {};
+
+          // Check if this is a task query container
+          if (propsData.className === "task-query-container" || propsData["data-query"] !== undefined) {
+            const query = propsData["data-query"] || "";
+            return <DynamicTaskList query={query} />;
+          }
+
+          // Default div rendering
+          return <div {...props}>{children}</div>;
         },
       }}
     />
