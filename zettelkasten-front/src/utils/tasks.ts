@@ -130,7 +130,9 @@ export function parseTags(title: string): string[] {
 }
 
 export function filterTasks(input: Task[], filterString: string): Task[] {
-  const searchTerms = filterString.split(' ').map(term => term.trim()).filter(term => term !== '');
+  // Parse the query to extract special keywords and get only the search terms
+  const parsed = parseTaskQuery(filterString);
+  const searchTerms = parsed.searchTerms;
 
   return input.filter(task => {
     return searchTerms.every(term => {
