@@ -158,6 +158,14 @@ export function filterTasks(input: Task[], filterString: string): Task[] {
         return isNegation ? !matchesPriority : matchesPriority;
       }
 
+      // Status filtering (status:todo, status:in_progress, status:blocked, status:done)
+      if (lowerTerm.startsWith('status:')) {
+        const statusValue = lowerTerm.substring('status:'.length);
+        const taskStatusLower = task.status.toLowerCase();
+        const matchesStatus = taskStatusLower === statusValue;
+        return isNegation ? !matchesStatus : matchesStatus;
+      }
+
       // Tag filtering
       if (lowerTerm.startsWith('#')) {
         const tagName = lowerTerm.substring(1);

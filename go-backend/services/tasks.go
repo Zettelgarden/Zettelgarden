@@ -52,7 +52,7 @@ func GetTask(db *sql.DB, userID int, id int) (models.Task, error) {
 }
 
 // GetTasksPaginated retrieves tasks for a user with pagination and filtering
-func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeCompleted bool, cardID *int, priority *string, scheduledDate *time.Time, completedDate *time.Time) ([]models.Task, int, error) {
+func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeCompleted bool, cardID *int, priority *string, scheduledDate *time.Time, completedDate *time.Time, status *string) ([]models.Task, int, error) {
 	var tasks []models.Task
 	var args []interface{}
 	argIndex := 1
@@ -79,6 +79,11 @@ func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeComplet
 	if priority != nil {
 		query += ` AND priority = $` + fmt.Sprintf("%d", argIndex)
 		args = append(args, *priority)
+		argIndex++
+	}
+	if status != nil {
+		query += ` AND status = $` + fmt.Sprintf("%d", argIndex)
+		args = append(args, *status)
 		argIndex++
 	}
 	if scheduledDate != nil {
@@ -152,6 +157,11 @@ func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeComplet
 		countArgs = append(countArgs, *priority)
 		argIndex++
 	}
+	if status != nil {
+		countQuery += ` AND status = $` + fmt.Sprintf("%d", argIndex)
+		countArgs = append(countArgs, *status)
+		argIndex++
+	}
 	if scheduledDate != nil {
 		countQuery += ` AND DATE(scheduled_date) = DATE($` + fmt.Sprintf("%d", argIndex) + `)`
 		countArgs = append(countArgs, *scheduledDate)
@@ -174,7 +184,7 @@ func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeComplet
 
 // GetTasks retrieves all tasks for a user, optionally including completed tasks
 func GetTasks(db *sql.DB, userID int, includeCompleted bool) ([]models.Task, error) {
-	tasks, _, err := GetTasksPaginated(db, userID, 1000, 0, includeCompleted, nil, nil, nil, nil)
+	tasks, _, err := GetTasksPaginated(db, userID, 1000, 0, includeCompleted, nil, nil, nil, nil, nil)
 	return tasks, err
 }
 

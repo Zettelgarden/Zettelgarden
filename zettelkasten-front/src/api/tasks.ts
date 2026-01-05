@@ -7,10 +7,11 @@ export interface FetchTasksParams {
   showCompleted?: boolean;
   scheduledDate?: Date | null;
   completedDate?: Date | null;
+  status?: string | null;
 }
 
 export function fetchTasks(params: FetchTasksParams = {}): Promise<Task[]> {
-  const { showCompleted = false, scheduledDate = null, completedDate = null } = params;
+  const { showCompleted = false, scheduledDate = null, completedDate = null, status = null } = params;
 
   const fetchAllTasks = async (offset = 0, allTasks: Task[] = []): Promise<Task[]> => {
     let token = localStorage.getItem("token");
@@ -25,6 +26,9 @@ export function fetchTasks(params: FetchTasksParams = {}): Promise<Task[]> {
     if (completedDate) {
       const dateStr = completedDate.toISOString().split('T')[0];
       url += `&completed_date=${dateStr}`;
+    }
+    if (status) {
+      url += `&status=${encodeURIComponent(status)}`;
     }
 
     const response = await fetch(url, {

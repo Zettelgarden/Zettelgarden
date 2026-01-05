@@ -46,7 +46,7 @@ func (s *Handler) QueryTasks(userID int, includeCompleted bool) ([]models.Task, 
 }
 
 func (s *Handler) QueryTasksPaginated(userID int, limit, offset int, includeCompleted bool, cardID *int, priority *string) ([]models.Task, int, error) {
-	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority, nil, nil)
+	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority, nil, nil, nil)
 	if err != nil {
 		return []models.Task{}, 0, err
 	}
@@ -130,6 +130,11 @@ func (s *Handler) GetTasksRoute(w http.ResponseWriter, r *http.Request) {
 		priority = &priorityStr
 	}
 
+	var status *string
+	if statusStr := r.URL.Query().Get("status"); statusStr != "" {
+		status = &statusStr
+	}
+
 	var scheduledDate *time.Time
 	if scheduledDateStr := r.URL.Query().Get("scheduled_date"); scheduledDateStr != "" {
 		if t, err := time.Parse("2006-01-02", scheduledDateStr); err == nil {
@@ -144,7 +149,7 @@ func (s *Handler) GetTasksRoute(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority, scheduledDate, completedDate)
+	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority, scheduledDate, completedDate, status)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
