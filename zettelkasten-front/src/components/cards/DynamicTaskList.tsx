@@ -1,75 +1,12 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { fetchTasks } from '../../api/tasks';
-import { filterTasks, filterTasksByDateView } from '../../utils/tasks';
+import { filterTasks, filterTasksByDateView, parseTaskQuery } from '../../utils/tasks';
 import { compareDates } from '../../utils/dates';
 import { TaskListItem } from '../tasks/TaskListItem';
 import { Task } from '../../models/Task';
 
 interface DynamicTaskListProps {
   query: string;
-}
-
-interface FilterParams {
-  searchTerms: string[];
-  dateView: "all" | "today" | "tomorrow";
-  showCompleted: boolean;
-  specificDate: Date | null;
-}
-
-function parseQuery(query: string): FilterParams {
-  // Default values
-  const params: FilterParams = {
-    searchTerms: [],
-    dateView: "all",
-    showCompleted: false,
-    specificDate: null,
-  };
-
-  // Split query into tokens
-  const tokens = query.split(' ').map(t => t.trim()).filter(t => t !== '');
-
-  // Extract specific date if present (date:YYYY-MM-DD)
-  const dateTokenIndex = tokens.findIndex(t => t.startsWith('date:'));
-  if (dateTokenIndex !== -1) {
-    const dateToken = tokens[dateTokenIndex];
-    const dateString = dateToken.substring('date:'.length);
-    try {
-      // Parse ISO date format (YYYY-MM-DD)
-      const parsedDate = new Date(dateString);
-      if (!isNaN(parsedDate.getTime())) {
-        params.specificDate = parsedDate;
-      }
-    } catch (error) {
-      console.error('Invalid date format:', dateString);
-    }
-    // Remove from tokens
-    tokens.splice(dateTokenIndex, 1);
-  }
-
-  // Extract date view if present (only if no specific date)
-  if (!params.specificDate) {
-    const dateViewToken = tokens.find(t =>
-      t === 'today' || t === 'tomorrow' || t === 'all'
-    );
-    if (dateViewToken) {
-      params.dateView = dateViewToken as "all" | "today" | "tomorrow";
-      // Remove from tokens
-      const index = tokens.indexOf(dateViewToken);
-      tokens.splice(index, 1);
-    }
-  }
-
-  // Check for completed flag
-  const completedIndex = tokens.indexOf('completed');
-  if (completedIndex !== -1) {
-    params.showCompleted = true;
-    tokens.splice(completedIndex, 1);
-  }
-
-  // Remaining tokens are search terms
-  params.searchTerms = tokens;
-
-  return params;
 }
 
 export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
@@ -81,7 +18,7 @@ export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
     const loadTasks = async () => {
       setIsLoading(true);
       try {
-        const params = parseQuery(query);
+        const params = parseTaskQuery(query);
 
         // Determine which date parameter to use
         let scheduledDate: Date | null = null;
@@ -117,7 +54,7 @@ export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
   // Parse query and apply client-side filters (text/tag search and date views)
   const filteredTasks = useMemo(() => {
     try {
-      const params = parseQuery(query);
+      const params = parseTaskQuery(query);
 
       // Apply text/tag/priority filters
       let filtered = filterTasks(allTasks, params.searchTerms.join(' '));

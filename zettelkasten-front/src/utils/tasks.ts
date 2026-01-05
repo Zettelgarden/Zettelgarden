@@ -1,6 +1,121 @@
 import { Task } from "../models/Task";
 import { compareDates, getToday, getTomorrow, isTodayOrPast } from "./dates";
 
+export interface TaskFilterParams {
+  searchTerms: string[];
+  dateView: "all" | "today" | "tomorrow";
+  showCompleted: boolean;
+  specificDate: Date | null;
+}
+
+export function parseTaskQuery(query: string): TaskFilterParams {
+  // Default values
+  const params: TaskFilterParams = {
+    searchTerms: [],
+    dateView: "all",
+    showCompleted: false,
+    specificDate: null,
+  };
+
+  // Split query into tokens
+  const tokens = query.split(' ').map(t => t.trim()).filter(t => t !== '');
+
+  // Extract specific date if present (date:YYYY-MM-DD)
+  const dateTokenIndex = tokens.findIndex(t => t.startsWith('date:'));
+  if (dateTokenIndex !== -1) {
+    const dateToken = tokens[dateTokenIndex];
+    const dateString = dateToken.substring('date:'.length);
+    try {
+      // Parse ISO date format (YYYY-MM-DD)
+      const parsedDate = new Date(dateString);
+      if (!isNaN(parsedDate.getTime())) {
+        params.specificDate = parsedDate;
+      }
+    } catch (error) {
+      console.error('Invalid date format:', dateString);
+    }
+    // Remove from tokens
+    tokens.splice(dateTokenIndex, 1);
+  }
+
+  // Extract date view if present (only if no specific date)
+  if (!params.specificDate) {
+    const dateViewToken = tokens.find(t =>
+      t === 'today' || t === 'tomorrow' || t === 'all'
+    );
+    if (dateViewToken) {
+      params.dateView = dateViewToken as "all" | "today" | "tomorrow";
+      // Remove from tokens
+      const index = tokens.indexOf(dateViewToken);
+      tokens.splice(index, 1);
+    }
+  }
+
+  // Check for completed flag
+  const completedIndex = tokens.indexOf('completed');
+  if (completedIndex !== -1) {
+    params.showCompleted = true;
+    tokens.splice(completedIndex, 1);
+  }
+
+  // Remaining tokens are search terms
+  params.searchTerms = tokens;
+
+  return params;
+}
+
+/**
+ * Removes specific keywords from a query string
+ */
+export function removeKeywordsFromQuery(query: string, keywords: string[]): string {
+  const tokens = query.split(' ').map(t => t.trim()).filter(t => t !== '');
+  const filtered = tokens.filter(token => {
+    // Check if token matches any keyword exactly or starts with keyword:
+    return !keywords.some(keyword =>
+      token === keyword || token.startsWith(keyword + ':')
+    );
+  });
+  return filtered.join(' ');
+}
+
+/**
+ * Adds a keyword to a query string (removes it first if it exists)
+ */
+export function addKeywordToQuery(query: string, keyword: string): string {
+  // First remove the keyword if it exists
+  const cleaned = removeKeywordsFromQuery(query, [keyword.split(':')[0]]);
+  // Add the new keyword
+  return cleaned ? `${cleaned} ${keyword}`.trim() : keyword;
+}
+
+/**
+ * Updates the query string to reflect date view selection
+ */
+export function updateQueryDateView(query: string, dateView: string): string {
+  // Remove existing date view keywords and date: prefix
+  let updated = removeKeywordsFromQuery(query, ['today', 'tomorrow', 'all', 'date']);
+
+  // Add new date view if not "all"
+  if (dateView !== 'all') {
+    updated = updated ? `${updated} ${dateView}`.trim() : dateView;
+  }
+
+  return updated;
+}
+
+/**
+ * Updates the query string to reflect completed status
+ */
+export function updateQueryShowCompleted(query: string, showCompleted: boolean): string {
+  let updated = removeKeywordsFromQuery(query, ['completed']);
+
+  if (showCompleted) {
+    updated = updated ? `${updated} completed`.trim() : 'completed';
+  }
+
+  return updated;
+}
+
 export function removeTagsFromTitle(title: string): string {
   const tagPattern = /#[\w-]+/g;
   const cleanedTitle = title.replace(tagPattern, "");

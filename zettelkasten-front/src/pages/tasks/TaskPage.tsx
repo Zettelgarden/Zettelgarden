@@ -1,4 +1,4 @@
-import React, { useEffect, ChangeEvent, useState } from "react";
+import React, { useEffect, ChangeEvent, useState, useRef } from "react";
 import { TaskList } from "../../components/tasks/TaskList";
 import { TaskPageOptionsMenu } from "../../components/tasks/TaskPageOptionsMenu";
 import { CreateTaskWindow } from "../../components/tasks/CreateTaskWindow";
@@ -13,6 +13,7 @@ import { KanbanBoard } from "../../components/tasks/KanbanBoard";
 import { useTaskPageSettings } from "../../hooks/useTaskPageSettings";
 import { useTaskFiltering } from "../../hooks/useTaskFiltering";
 import { useNavigate } from "react-router-dom";
+import { parseTaskQuery, updateQueryDateView, updateQueryShowCompleted } from "../../utils/tasks";
 
 interface TaskListProps { }
 
@@ -25,6 +26,9 @@ export function TaskPage({ }: TaskListProps) {
   // State for task dialog
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+
+  // Ref to prevent infinite loops when syncing query and UI
+  const isInternalUpdate = useRef(false);
 
   // Use custom hooks for settings and filtering
   const settings = useTaskPageSettings();
@@ -45,7 +49,27 @@ export function TaskPage({ }: TaskListProps) {
     itemsPerPage: settings.itemsPerPage,
   });
 
+  // Sync UI controls with query keywords in filter string
+  useEffect(() => {
+    if (isInternalUpdate.current) {
+      isInternalUpdate.current = false;
+      return;
+    }
 
+    const parsed = parseTaskQuery(settings.filterString);
+
+    // Update dateView if it differs from parsed value
+    if (parsed.dateView !== settings.dateView) {
+      isInternalUpdate.current = true;
+      settings.setDateView(parsed.dateView);
+    }
+
+    // Update showCompleted if it differs from parsed value
+    if (parsed.showCompleted !== showCompleted) {
+      isInternalUpdate.current = true;
+      setShowCompleted(parsed.showCompleted);
+    }
+  }, [settings.filterString]);
 
   function handleFilterChange(
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -54,11 +78,23 @@ export function TaskPage({ }: TaskListProps) {
   }
 
   function handleDateChange(e: ChangeEvent<HTMLSelectElement>) {
-    settings.setDateView(e.target.value);
+    isInternalUpdate.current = true;
+    const newDateView = e.target.value;
+    settings.setDateView(newDateView);
+    // Update filter string to include the date view keyword
+    settings.setFilterString(updateQueryDateView(settings.filterString, newDateView));
   }
 
   function handleSortFieldChange(e: ChangeEvent<HTMLSelectElement>) {
     settings.setSortField(e.target.value as "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date");
+  }
+
+  function handleShowCompletedChange() {
+    isInternalUpdate.current = true;
+    const newShowCompleted = !showCompleted;
+    setShowCompleted(newShowCompleted);
+    // Update filter string to include/remove the completed keyword
+    settings.setFilterString(updateQueryShowCompleted(settings.filterString, newShowCompleted));
   }
 
   function toggleShowTaskWindow() {
@@ -206,7 +242,7 @@ export function TaskPage({ }: TaskListProps) {
                       <input
                         type="checkbox"
                         checked={showCompleted}
-                        onChange={() => setShowCompleted(!showCompleted)}
+                        onChange={handleShowCompletedChange}
                         className="rounded"
                       />
                       Show Completed Tasks
