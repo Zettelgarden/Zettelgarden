@@ -11,6 +11,7 @@ import { Link } from "react-router-dom";
 import { TaskTagDisplay } from "./TaskTagDisplay";
 import { saveExistingTask, deleteTask, fetchTaskAuditEvents, fetchTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
+import { useTagContext } from "../../contexts/TagContext";
 import { Button } from "../../components/Button";
 import { TaskListOptionsMenu } from "./TaskListOptionsMenu";
 import { format } from "date-fns";
@@ -104,7 +105,10 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
   const [showCardLink, setShowCardLink] = useState<boolean>(false);
   const [auditEvents, setAuditEvents] = useState<TaskAuditEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showTagEditor, setShowTagEditor] = useState(false);
+  const [newTagInput, setNewTagInput] = useState("");
   const { setRefreshTasks } = useTaskContext();
+  const { tags: allTags } = useTagContext();
 
   useEffect(() => {
     if (taskId && isOpen) {
@@ -211,7 +215,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
 
     // Remove # prefix if present
     const cleanTagName = tagName.replace(/^#/, '');
-    const tagRegex = new RegExp(`\\n*#${cleanTagName}\\b`, 'g');
+    const tagRegex = new RegExp(`\\s*#${cleanTagName}\\b`, 'g');
 
     const updatedTask = {
       ...editedTask,
@@ -224,6 +228,52 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
       setEditedTask(updatedTask);
       setRefreshTasks(true);
     }
+  };
+
+  const handleAddTag = async (tagName: string) => {
+    if (!editedTask) return;
+
+    const cleanTag = tagName.replace(/^#/, '').trim();
+
+    // Check if tag already exists in title
+    if (editedTask.title.includes(`#${cleanTag}`)) {
+      return;
+    }
+
+    const updatedTask = {
+      ...editedTask,
+      title: `${editedTask.title} #${cleanTag}`.trim()
+    };
+
+    const response = await saveExistingTask(updatedTask);
+    if (!("error" in response)) {
+      // Refetch the task to get updated tags array
+      const refreshedTask = await fetchTask(editedTask.id.toString());
+      const processedTask = {
+        ...refreshedTask,
+        scheduled_date: refreshedTask.scheduled_date ? new Date(refreshedTask.scheduled_date) : null,
+        dueDate: refreshedTask.dueDate ? new Date(refreshedTask.dueDate) : null,
+        created_at: new Date(refreshedTask.created_at),
+        updated_at: new Date(refreshedTask.updated_at),
+        completed_at: refreshedTask.completed_at ? new Date(refreshedTask.completed_at) : null,
+        reminder_time: refreshedTask.reminder_time ? new Date(refreshedTask.reminder_time) : null,
+        tags: refreshedTask.tags || []
+      };
+      setEditedTask(processedTask);
+      setRefreshTasks(true);
+    }
+  };
+
+  const handleAddNewTag = () => {
+    if (newTagInput.trim()) {
+      handleAddTag(newTagInput);
+      setNewTagInput("");
+    }
+  };
+
+  const getCurrentTaskTags = (): Set<string> => {
+    if (!editedTask) return new Set();
+    return new Set(editedTask.tags.map(tag => tag.name.replace(/^#/, '')));
   };
 
   return (
@@ -250,7 +300,6 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
             </div>
             <TaskListOptionsMenu
               task={editedTask}
-              tags={editedTask.tags}
               showCardLink={showCardLink}
               setShowCardLink={setShowCardLink}
             />
@@ -287,7 +336,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
               )}
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <TaskStatusDisplay
                 task={editedTask}
                 setTask={setEditedTask}
@@ -309,7 +358,82 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
                 saveOnChange={true}
               />
               <TaskTagDisplay task={editedTask} tags={editedTask.tags} onTagClick={onTagClick} onRemoveTag={handleRemoveTag} />
+              <button
+                onClick={() => setShowTagEditor(!showTagEditor)}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                {showTagEditor ? '− Hide Tags' : '+ Add Tags'}
+              </button>
             </div>
+
+            {showTagEditor && (
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
+                {/* New tag input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Add New Tag</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newTagInput}
+                      onChange={(e) => setNewTagInput(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleAddNewTag();
+                        }
+                      }}
+                      placeholder="Enter tag name"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={handleAddNewTag}
+                      disabled={!newTagInput.trim()}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+
+                {/* Available tags */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Available Tags ({allTags.length})
+                  </label>
+                  <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3 bg-white">
+                    {allTags.length === 0 ? (
+                      <p className="text-gray-500 text-sm text-center py-2">No tags available</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {allTags.map((tag) => {
+                          const cleanTagName = tag.name.replace(/^#/, '');
+                          const isSelected = getCurrentTaskTags().has(cleanTagName);
+                          return (
+                            <button
+                              key={tag.id}
+                              onClick={() => {
+                                if (isSelected) {
+                                  handleRemoveTag(cleanTagName);
+                                } else {
+                                  handleAddTag(cleanTagName);
+                                }
+                              }}
+                              className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                                isSelected
+                                  ? 'bg-purple-600 text-white'
+                                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              }`}
+                            >
+                              #{cleanTagName}
+                              {isSelected && ' ✓'}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {showCardLink && (
               <div className="border-t pt-4">
