@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getTemplates, deleteTemplate, saveAsTemplate } from "../../api/templates";
+import { getTemplates, deleteTemplate, saveAsTemplate, updateTemplate } from "../../api/templates";
 import { CardTemplate } from "../../models/Card";
 import { TemplateVariablesHelp } from "./TemplateVariablesHelp";
 
@@ -16,6 +16,10 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
   const [newTemplateBody, setNewTemplateBody] = useState("");
   const [creating, setCreating] = useState(false);
   const [viewingTemplate, setViewingTemplate] = useState<CardTemplate | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editBody, setEditBody] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchTemplates();
@@ -70,6 +74,50 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
     } finally {
       setCreating(false);
     }
+  }
+
+  async function handleUpdateTemplate() {
+    if (!viewingTemplate) return;
+
+    if (!editTitle.trim() || !editBody.trim()) {
+      setError("Title and body are required");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const updatedTemplate = await updateTemplate(viewingTemplate.id, editTitle, editBody);
+      setTemplates(templates.map(t => t.id === updatedTemplate.id ? updatedTemplate : t));
+      setViewingTemplate(updatedTemplate);
+      setIsEditing(false);
+      setError("");
+    } catch (err) {
+      setError("Failed to update template");
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function startEditing(template: CardTemplate) {
+    setEditTitle(template.title);
+    setEditBody(template.body);
+    setIsEditing(true);
+  }
+
+  function cancelEditing() {
+    setIsEditing(false);
+    setEditTitle("");
+    setEditBody("");
+    setError("");
+  }
+
+  function closeViewDialog() {
+    setViewingTemplate(null);
+    setIsEditing(false);
+    setEditTitle("");
+    setEditBody("");
+    setError("");
   }
 
   if (loading) {
@@ -199,9 +247,13 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">{viewingTemplate.title}</h3>
+              {isEditing ? (
+                <h3 className="text-lg font-semibold">Edit Template</h3>
+              ) : (
+                <h3 className="text-lg font-semibold">{viewingTemplate.title}</h3>
+              )}
               <button
-                onClick={() => setViewingTemplate(null)}
+                onClick={closeViewDialog}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -210,32 +262,99 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
-              <div className="mb-4">
-                <p className="text-sm text-gray-500 mb-2">
-                  Created: {new Date(viewingTemplate.created_at).toLocaleDateString()}
-                </p>
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+                <div className="text-red-700 text-sm">{error}</div>
               </div>
+            )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Template Body
-                </label>
-                <div className="bg-gray-50 rounded-md p-4 border border-gray-200">
-                  <pre className="whitespace-pre-wrap font-mono text-sm text-gray-800">
-                    {viewingTemplate.body}
-                  </pre>
+            <div className="flex-1 overflow-y-auto">
+              {!isEditing ? (
+                <>
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-500 mb-2">
+                      Created: {new Date(viewingTemplate.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Template Body
+                    </label>
+                    <div className="bg-gray-50 rounded-md p-4 border border-gray-200">
+                      <pre className="whitespace-pre-wrap font-mono text-sm text-gray-800">
+                        {viewingTemplate.body}
+                      </pre>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="edit-template-title" className="block text-sm font-medium text-gray-700 mb-1">
+                      Title <span className="text-gray-500 text-xs">(will become the card title)</span>
+                    </label>
+                    <input
+                      id="edit-template-title"
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label htmlFor="edit-template-body" className="block text-sm font-medium text-gray-700">
+                        Body
+                      </label>
+                      <TemplateVariablesHelp />
+                    </div>
+                    <textarea
+                      id="edit-template-body"
+                      value={editBody}
+                      onChange={(e) => setEditBody(e.target.value)}
+                      rows={10}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-              <button
-                onClick={() => setViewingTemplate(null)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Close
-              </button>
+            <div className="flex justify-between mt-6 pt-4 border-t">
+              {!isEditing ? (
+                <>
+                  <button
+                    onClick={() => startEditing(viewingTemplate)}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={closeViewDialog}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Close
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={cancelEditing}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdateTemplate}
+                    disabled={saving}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {saving ? "Saving..." : "Save Changes"}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
