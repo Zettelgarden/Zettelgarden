@@ -118,7 +118,7 @@ export function KanbanBoard({ tasks, onTagClick }: KanbanBoardProps) {
                   <div
                     ref={dropProvided.innerRef}
                     {...dropProvided.droppableProps}
-                    className={`flex-1 p-2 space-y-2 overflow-y-auto max-h-[600px] transition-colors ${
+                    className={`flex-1 p-2 space-y-2 overflow-y-auto transition-colors ${
                       snapshot.isDraggingOver
                         ? "bg-blue-50"
                         : ""
