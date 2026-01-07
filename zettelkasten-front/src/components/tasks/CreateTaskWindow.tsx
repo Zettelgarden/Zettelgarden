@@ -11,6 +11,7 @@ import { TaskStatusDisplay } from "./TaskStatusDisplay";
 import { TaskTagDisplay } from "./TaskTagDisplay";
 import { Button } from "../Button";
 import { AddTagMenu } from "../../components/tags/AddTagMenu";
+import { stripSpecialFilters } from "../../utils/tasks";
 
 interface CreateTaskWindowProps {
   currentCard: Card | PartialCard | null;
@@ -135,7 +136,9 @@ export function CreateTaskWindow({
     if (currentFilter === undefined) {
       setNewTask({ ...newTask, title: "" });
     } else {
-      detectAndSetPriority(currentFilter + " ");
+      // Strip special filters but keep tags and plain text
+      const cleanedFilter = stripSpecialFilters(currentFilter);
+      detectAndSetPriority(cleanedFilter + " ");
     }
   }, [currentFilter]);
 
