@@ -76,3 +76,40 @@ type TasksResponse struct {
 	Limit  int    `json:"limit"`
 	Offset int    `json:"offset"`
 }
+
+type TaskStatus struct {
+	ID              int       `json:"id"`
+	UserID          int       `json:"user_id"`
+	Name            string    `json:"name"`
+	DisplayName     string    `json:"display_name"`
+	Color           string    `json:"color"`
+	Icon            string    `json:"icon"`
+	Position        int       `json:"position"`
+	IsDefault       bool      `json:"is_default"`
+	IsCompleteState bool      `json:"is_complete_state"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type CreateTaskStatusParams struct {
+	Name            string `json:"name"`
+	DisplayName     string `json:"display_name"`
+	Color           string `json:"color"`
+	Icon            string `json:"icon"`
+	Position        int    `json:"position"`
+	IsDefault       bool   `json:"is_default"`
+	IsCompleteState bool   `json:"is_complete_state"`
+}
+
+type UpdateTaskStatusParams struct {
+	DisplayName     *string `json:"display_name"`
+	Color           *string `json:"color"`
+	Icon            *string `json:"icon"`
+	Position        *int    `json:"position"`
+	IsDefault       *bool   `json:"is_default"`
+	IsCompleteState *bool   `json:"is_complete_state"`
+}
+
+type ReorderTaskStatusesParams struct {
+	StatusIDs []int `json:"status_ids"` // Array of status IDs in desired order
+}

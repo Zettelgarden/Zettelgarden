@@ -17,6 +17,7 @@ import { DashboardPage } from "./DashboardPage";
 import { Card, PartialCard, SearchResult } from "../models/Card";
 import { TaskPage } from "./tasks/TaskPage";
 import { TaskProvider, useTaskContext } from "../contexts/TaskContext";
+import { StatusProvider } from "../contexts/StatusContext";
 import { TagProvider } from "../contexts/TagContext";
 import { ChatProvider, useChatContext } from "../contexts/ChatContext";
 import {
@@ -265,17 +266,19 @@ function MainApp() {
       <ChatProvider>
         <PartialCardProvider>
           <TaskProvider>
-            <ShortcutProvider>
-              <FileProvider>
-                <PinProvider>
-                  <ChatSidebarProvider>
-                    <CardRefreshProvider>
-                      <MainAppContent />
-                    </CardRefreshProvider>
-                  </ChatSidebarProvider>
-                </PinProvider>
-              </FileProvider>
-            </ShortcutProvider>
+            <StatusProvider>
+              <ShortcutProvider>
+                <FileProvider>
+                  <PinProvider>
+                    <ChatSidebarProvider>
+                      <CardRefreshProvider>
+                        <MainAppContent />
+                      </CardRefreshProvider>
+                    </ChatSidebarProvider>
+                  </PinProvider>
+                </FileProvider>
+              </ShortcutProvider>
+            </StatusProvider>
           </TaskProvider>
         </PartialCardProvider>
       </ChatProvider>

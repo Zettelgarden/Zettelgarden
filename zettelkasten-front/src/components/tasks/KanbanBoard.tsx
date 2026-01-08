@@ -1,47 +1,37 @@
-import React from "react";
+import React, { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import { Task, TaskStatus } from "../../models/Task";
+import { Task } from "../../models/Task";
 import { TaskListItem } from "./TaskListItem";
 import { saveExistingTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
+import { useStatus } from "../../contexts/StatusContext";
+import { StatusManagement } from "../settings/StatusManagement";
 
 interface KanbanBoardProps {
   tasks: Task[];
   onTagClick: (tag: string) => void;
 }
 
-interface KanbanColumn {
-  status: TaskStatus;
-  title: string;
-  color: string;
-  icon: string;
-}
-
-const columns: KanbanColumn[] = [
-  { status: "todo", title: "To Do", color: "#6B7280", icon: "⭕" },
-  { status: "in_progress", title: "In Progress", color: "#3B82F6", icon: "🔄" },
-  { status: "blocked", title: "Blocked", color: "#EF4444", icon: "🚫" },
-  { status: "done", title: "Done", color: "#10B981", icon: "✅" },
-];
-
 export function KanbanBoard({ tasks, onTagClick }: KanbanBoardProps) {
   const { setRefreshTasks } = useTaskContext();
+  const { statuses, getStatusByName } = useStatus();
+  const [showStatusManagement, setShowStatusManagement] = useState(false);
 
   // Group tasks by status
   const tasksByStatus = tasks.reduce((acc, task) => {
-    const status = task.status || "todo";
+    const status = task.status || (statuses.find(s => s.is_default)?.name || "todo");
     if (!acc[status]) {
       acc[status] = [];
     }
     acc[status].push(task);
     return acc;
-  }, {} as Record<TaskStatus, Task[]>);
+  }, {} as Record<string, Task[]>);
 
   const onDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
 
-    const sourceStatus = result.source.droppableId as TaskStatus;
-    const destStatus = result.destination.droppableId as TaskStatus;
+    const sourceStatus = result.source.droppableId;
+    const destStatus = result.destination.droppableId;
 
     // No change if dropped in the same column
     if (sourceStatus === destStatus) return;
@@ -53,11 +43,10 @@ export function KanbanBoard({ tasks, onTagClick }: KanbanBoardProps) {
     // Update task status
     const updatedTask = { ...task, status: destStatus };
 
-    // Sync is_complete with status
-    if (destStatus === "done") {
-      updatedTask.is_complete = true;
-    } else {
-      updatedTask.is_complete = false;
+    // Sync is_complete with status based on status configuration
+    const statusConfig = getStatusByName(destStatus);
+    if (statusConfig) {
+      updatedTask.is_complete = statusConfig.is_complete_state;
     }
 
     try {
@@ -72,14 +61,30 @@ export function KanbanBoard({ tasks, onTagClick }: KanbanBoardProps) {
   };
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {columns.map((column) => {
-          const columnTasks = tasksByStatus[column.status] || [];
+    <>
+      {/* Header with Manage Statuses Button */}
+      <div className="mb-4 flex justify-between items-center">
+        <h2 className="text-xl font-semibold text-gray-900">Task Board</h2>
+        <button
+          onClick={() => setShowStatusManagement(true)}
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Manage Statuses
+        </button>
+      </div>
+
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {statuses.map((column) => {
+          const columnTasks = tasksByStatus[column.name] || [];
 
           return (
             <div
-              key={column.status}
+              key={column.name}
               className="flex flex-col bg-gray-50 rounded-lg border border-gray-200"
             >
               {/* Column Header */}
@@ -97,7 +102,7 @@ export function KanbanBoard({ tasks, onTagClick }: KanbanBoardProps) {
                       className="font-semibold text-sm"
                       style={{ color: column.color }}
                     >
-                      {column.title}
+                      {column.display_name}
                     </h3>
                   </div>
                   <span
@@ -113,7 +118,7 @@ export function KanbanBoard({ tasks, onTagClick }: KanbanBoardProps) {
               </div>
 
               {/* Column Tasks - Droppable Zone */}
-              <Droppable droppableId={column.status}>
+              <Droppable droppableId={column.name}>
                 {(dropProvided, snapshot) => (
                   <div
                     ref={dropProvided.innerRef}
@@ -165,5 +170,28 @@ export function KanbanBoard({ tasks, onTagClick }: KanbanBoardProps) {
         })}
       </div>
     </DragDropContext>
+
+      {/* Status Management Modal */}
+      {showStatusManagement && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto relative">
+            {/* Close button */}
+            <button
+              onClick={() => setShowStatusManagement(false)}
+              className="sticky top-0 right-0 float-right m-4 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors z-10"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* StatusManagement component */}
+            <div className="p-6">
+              <StatusManagement />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

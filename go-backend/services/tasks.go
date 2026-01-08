@@ -294,11 +294,30 @@ func UpdateTask(db *sql.DB, userID int, id int, task models.Task) (int, error) {
 		return 0, fmt.Errorf("unable to query task: %v", err)
 	}
 
-	// Sync status with is_complete
-	if task.Status == "done" {
-		task.IsComplete = true
-	} else if task.IsComplete {
-		task.Status = "done"
+	// Default status if empty - use the user's default status
+	if task.Status == "" {
+		defaultStatus, err := GetDefaultTaskStatus(db, userID)
+		if err != nil {
+			// Fallback to "todo" if no default status found
+			task.Status = "todo"
+		} else {
+			task.Status = defaultStatus.Name
+		}
+	}
+
+	// Sync is_complete with status based on user's configured statuses
+	// Check if the status is marked as a complete state
+	statusConfig, err := GetTaskStatusByName(db, userID, task.Status)
+	if err == nil {
+		// Sync is_complete with the status's is_complete_state
+		task.IsComplete = statusConfig.IsCompleteState
+	} else {
+		// Fallback to old behavior if status not found
+		if task.Status == "done" {
+			task.IsComplete = true
+		} else if task.IsComplete {
+			task.Status = "done"
+		}
 	}
 
 	var completedAt *time.Time
@@ -314,11 +333,6 @@ func UpdateTask(db *sql.DB, userID int, id int, task models.Task) (int, error) {
 		completedAt = oldTask.CompletedAt
 	} else {
 		completedAt = nil
-	}
-
-	// Default status if empty
-	if task.Status == "" {
-		task.Status = "todo"
 	}
 
 	// Determine if we should reset reminder_sent
@@ -380,16 +394,30 @@ func CreateTask(db *sql.DB, task models.Task) (int, error) {
 		log.Printf("Priority is nil")
 	}
 
-	// Default status if empty
+	// Default status if empty - use the user's default status
 	if task.Status == "" {
-		task.Status = "todo"
+		defaultStatus, err := GetDefaultTaskStatus(db, task.UserID)
+		if err != nil {
+			// Fallback to "todo" if no default status found
+			task.Status = "todo"
+		} else {
+			task.Status = defaultStatus.Name
+		}
 	}
 
-	// Sync status with is_complete
-	if task.Status == "done" {
-		task.IsComplete = true
-	} else if task.IsComplete {
-		task.Status = "done"
+	// Sync is_complete with status based on user's configured statuses
+	// Check if the status is marked as a complete state
+	statusConfig, statusErr := GetTaskStatusByName(db, task.UserID, task.Status)
+	if statusErr == nil {
+		// Sync is_complete with the status's is_complete_state
+		task.IsComplete = statusConfig.IsCompleteState
+	} else {
+		// Fallback to old behavior if status not found
+		if task.Status == "done" {
+			task.IsComplete = true
+		} else if task.IsComplete {
+			task.Status = "done"
+		}
 	}
 
 	err := db.QueryRow(`

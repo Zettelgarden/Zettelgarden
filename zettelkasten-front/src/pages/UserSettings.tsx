@@ -10,8 +10,9 @@ import { TemplatesList } from "../components/templates/TemplatesList";
 import { setDocumentTitle } from "../utils/title";
 import { TagList } from "../components/tags/TagList";
 import { FileVault } from "./FileVault";
+import { StatusManagement } from "../components/settings/StatusManagement";
 
-type Tab = "profile" | "templates" | "tags" | "files";
+type Tab = "profile" | "templates" | "tags" | "files" | "statuses";
 
 export function UserSettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
@@ -231,6 +232,8 @@ export function UserSettingsPage() {
         return <TagList />;
       case "files":
         return <FileVault />;
+      case "statuses":
+        return <StatusManagement />;
     }
   };
 
@@ -262,6 +265,12 @@ export function UserSettingsPage() {
           onClick={() => setActiveTab("files")}
         >
           Files
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium ${activeTab === "statuses" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+          onClick={() => setActiveTab("statuses")}
+        >
+          Task Statuses
         </button>
       </div>
       <div className="mt-4">

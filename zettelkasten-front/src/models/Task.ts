@@ -23,8 +23,6 @@ export interface TaskAuditEvent {
   created_at: string | Date;
 }
 
-export type TaskStatus = 'todo' | 'in_progress' | 'blocked' | 'done';
-
 export interface Task {
   id: number;
   card_pk: number;
@@ -36,7 +34,7 @@ export interface Task {
   completed_at: Date | null;
   title: string;
   priority: string | null;
-  status: TaskStatus;
+  status: string; // Dynamic status based on user configuration
   is_complete: boolean;
   is_deleted: boolean;
   reminder_time: Date | null;

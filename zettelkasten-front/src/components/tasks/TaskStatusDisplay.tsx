@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Task, TaskStatus } from "../../models/Task";
+import { Task } from "../../models/Task";
 import { saveExistingTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
+import { useStatus } from "../../contexts/StatusContext";
 
 interface TaskStatusDisplayProps {
   task: Task;
@@ -15,25 +16,18 @@ export function TaskStatusDisplay({
   saveOnChange,
 }: TaskStatusDisplayProps) {
   const { updateTask: updateTaskInContext } = useTaskContext();
+  const { statuses, getStatusByName } = useStatus();
   const [showStatusMenu, setShowStatusMenu] = useState<boolean>(false);
 
-  // Get display text and color based on status
-  const getStatusDisplay = (status: TaskStatus) => {
-    switch (status) {
-      case "todo":
-        return { text: "To Do", color: "#6B7280", icon: "⭕" }; // Gray
-      case "in_progress":
-        return { text: "In Progress", color: "#3B82F6", icon: "🔄" }; // Blue
-      case "blocked":
-        return { text: "Blocked", color: "#EF4444", icon: "🚫" }; // Red
-      case "done":
-        return { text: "Done", color: "#10B981", icon: "✅" }; // Green
-      default:
-        return { text: "To Do", color: "#6B7280", icon: "⭕" };
-    }
-  };
-
-  const statusDisplay = getStatusDisplay(task.status);
+  // Get status config from dynamic statuses
+  const currentStatus = getStatusByName(task.status);
+  const statusDisplay = currentStatus
+    ? {
+        text: currentStatus.display_name,
+        color: currentStatus.color,
+        icon: currentStatus.icon,
+      }
+    : { text: "Unknown", color: "#6B7280", icon: "⭕" };
 
   async function updateTask(editedTask: Task) {
     if (saveOnChange) {
@@ -58,14 +52,15 @@ export function TaskStatusDisplay({
     }
   }
 
-  async function setStatus(status: TaskStatus) {
-    let editedTask = { ...task, status };
-    // Sync is_complete with status
-    if (status === "done") {
-      editedTask.is_complete = true;
-    } else {
-      editedTask.is_complete = false;
+  async function setStatus(statusName: string) {
+    const statusConfig = getStatusByName(statusName);
+    let editedTask = { ...task, status: statusName };
+
+    // Sync is_complete with status based on is_complete_state
+    if (statusConfig) {
+      editedTask.is_complete = statusConfig.is_complete_state;
     }
+
     updateTask(editedTask);
     setShowStatusMenu(false);
   }
@@ -102,20 +97,17 @@ export function TaskStatusDisplay({
           className="absolute z-20 mt-1 bg-white rounded-md shadow-lg py-1 min-w-[140px] border border-gray-200"
           onClick={(e) => e.stopPropagation()}
         >
-          {(["todo", "in_progress", "blocked", "done"] as TaskStatus[]).map((status) => {
-            const display = getStatusDisplay(status);
-            return (
-              <div
-                key={status}
-                className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 text-sm"
-                onClick={() => setStatus(status)}
-                style={{ color: display.color }}
-              >
-                <span>{display.icon}</span>
-                <span>{display.text}</span>
-              </div>
-            );
-          })}
+          {statuses.map((status) => (
+            <div
+              key={status.id}
+              className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 text-sm"
+              onClick={() => setStatus(status.name)}
+              style={{ color: status.color }}
+            >
+              <span>{status.icon}</span>
+              <span>{status.display_name}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>
