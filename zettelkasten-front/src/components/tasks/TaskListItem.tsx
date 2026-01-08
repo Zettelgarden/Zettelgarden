@@ -17,6 +17,7 @@ import { TaskTagDisplay } from "./TaskTagDisplay";
 import { removeTagsFromTitle, parseTags } from "../../utils/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
 import { useShortcutContext } from "../../contexts/ShortcutContext";
+import { useStatus } from "../../contexts/StatusContext";
 
 interface TaskListItemProps {
   task: Task;
@@ -41,6 +42,7 @@ export function TaskListItem({
   const [tags, setTags] = useState<Tag[]>([]);
   const { setRefreshTasks, updateTask } = useTaskContext();
   const { setShowTaskDialog, setSelectedTaskId } = useShortcutContext();
+  const { getDefaultStatus, getCompleteStatus } = useStatus();
 
   async function handleTitleClick() {
     setSelectedTaskId(task.id);
@@ -82,7 +84,19 @@ export function TaskListItem({
   }
 
   async function handleToggleComplete() {
-    const editedTask = { ...task, is_complete: !task.is_complete };
+    // Determine the target status based on current completion state
+    const targetStatus = task.is_complete ? getDefaultStatus() : getCompleteStatus();
+
+    if (!targetStatus) {
+      console.error("Could not find appropriate status for toggle");
+      return;
+    }
+
+    const editedTask = {
+      ...task,
+      status: targetStatus.name,
+      is_complete: targetStatus.is_complete_state,
+    };
 
     // Optimistic update: update UI immediately
     updateTask(editedTask);
