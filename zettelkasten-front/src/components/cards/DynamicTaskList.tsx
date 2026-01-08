@@ -4,6 +4,7 @@ import { filterTasks, filterTasksByDateView, parseTaskQuery } from '../../utils/
 import { compareDates } from '../../utils/dates';
 import { TaskListItem } from '../tasks/TaskListItem';
 import { Task } from '../../models/Task';
+import { CreateTaskWindow } from '../tasks/CreateTaskWindow';
 
 interface DynamicTaskListProps {
   query: string;
@@ -12,6 +13,7 @@ interface DynamicTaskListProps {
 export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showTaskWindow, setShowTaskWindow] = useState(false);
 
   // Fetch tasks with backend filtering based on query
   useEffect(() => {
@@ -98,23 +100,40 @@ export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
 
   // Render task list
   return (
-    <div className="bg-white rounded-lg shadow-sm my-4 border border-gray-200">
-      <div className="p-4">
-        <div className="text-xs text-gray-500 mb-2">
-          Tasks matching: "{query}" ({filteredTasks.length})
-        </div>
-        <div className="space-y-2">
-          {filteredTasks.map(task => (
-            <div key={task.id} className="border-b border-gray-100 last:border-0 pb-2 last:pb-0">
-              <TaskListItem
-                task={task}
-                onTagClick={(tag: string) => {}}
-                hideMatrixTags={false}
-              />
+    <>
+      <div className="bg-white rounded-lg shadow-sm my-4 border border-gray-200">
+        <div className="p-4">
+          <div className="flex justify-between items-center mb-2">
+            <div className="text-xs text-gray-500">
+              Tasks matching: "{query}" ({filteredTasks.length})
             </div>
-          ))}
+            <button
+              onClick={() => setShowTaskWindow(true)}
+              className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+            >
+              + New Task
+            </button>
+          </div>
+          <div className="space-y-2">
+            {filteredTasks.map(task => (
+              <div key={task.id} className="border-b border-gray-100 last:border-0 pb-2 last:pb-0">
+                <TaskListItem
+                  task={task}
+                  onTagClick={(tag: string) => {}}
+                  hideMatrixTags={false}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+      {showTaskWindow && (
+        <CreateTaskWindow
+          currentCard={null}
+          setShowTaskWindow={setShowTaskWindow}
+          currentFilter={query}
+        />
+      )}
+    </>
   );
 };
