@@ -51,10 +51,61 @@ function preprocessCardLinks(body: string): string {
 function preprocessEntities(body: string, entities?: Entity[]): string {
   if (!entities || entities.length === 0) return body;
 
+  // Define regions to protect from entity highlighting
+  const protectedRegions: Array<{ start: number; end: number }> = [];
+
+  // Protect task query markers &TASKQUERY:..&
+  const taskQueryRegex = /&TASKQUERY:[^&]+&/g;
+  let match;
+  while ((match = taskQueryRegex.exec(body)) !== null) {
+    protectedRegions.push({ start: match.index, end: match.index + match[0].length });
+  }
+
+  // Protect markdown links [text](url) - including card links [CardId](#)
+  const linkRegex = /\[([^\]]+)\]\(([^)]*)\)/g;
+  while ((match = linkRegex.exec(body)) !== null) {
+    protectedRegions.push({ start: match.index, end: match.index + match[0].length });
+  }
+
+  // Protect inline code `...`
+  const inlineCodeRegex = /`[^`]+`/g;
+  while ((match = inlineCodeRegex.exec(body)) !== null) {
+    protectedRegions.push({ start: match.index, end: match.index + match[0].length });
+  }
+
+  // Protect code blocks ```...```
+  const codeBlockRegex = /```[\s\S]*?```/g;
+  while ((match = codeBlockRegex.exec(body)) !== null) {
+    protectedRegions.push({ start: match.index, end: match.index + match[0].length });
+  }
+
+  // Sort and merge overlapping protected regions
+  protectedRegions.sort((a, b) => a.start - b.start);
+  const mergedRegions: Array<{ start: number; end: number }> = [];
+  protectedRegions.forEach(region => {
+    if (mergedRegions.length === 0 || region.start > mergedRegions[mergedRegions.length - 1].end) {
+      mergedRegions.push(region);
+    } else {
+      mergedRegions[mergedRegions.length - 1].end = Math.max(
+        mergedRegions[mergedRegions.length - 1].end,
+        region.end
+      );
+    }
+  });
+
+  // Helper function to check if a range is protected
+  const isProtected = (start: number, end: number): boolean => {
+    return mergedRegions.some(region =>
+      (start >= region.start && start < region.end) ||
+      (end > region.start && end <= region.end) ||
+      (start <= region.start && end >= region.end)
+    );
+  };
+
   // Sort entities by length (desc) to give priority to longer entity names
   const sortedEntities = [...entities].sort((a, b) => b.name.length - a.name.length);
 
-  // Collect all matches for all entities
+  // Collect all matches for all entities that are not in protected regions
   type Match = { start: number; end: number; id: number; text: string };
   const matches: Match[] = [];
 
@@ -63,12 +114,18 @@ function preprocessEntities(body: string, entities?: Entity[]): string {
     const regex = new RegExp(`\\b(${escapedName})\\b`, "gi");
     let match;
     while ((match = regex.exec(body)) !== null) {
-      matches.push({
-        start: match.index,
-        end: match.index + match[0].length,
-        id: entity.id,
-        text: match[0]
-      });
+      const matchStart = match.index;
+      const matchEnd = match.index + match[0].length;
+
+      // Only add if not in a protected region
+      if (!isProtected(matchStart, matchEnd)) {
+        matches.push({
+          start: matchStart,
+          end: matchEnd,
+          id: entity.id,
+          text: match[0]
+        });
+      }
     }
   });
 
