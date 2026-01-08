@@ -1154,7 +1154,7 @@ func handleUpdateTask(args map[string]interface{}, ctx *ToolContext) (map[string
 		currentTask.CardPK = int(cardPKFloat)
 	}
 
-	err = UpdateTask(ctx.DB, ctx.UserID, taskID, currentTask)
+	_, err = UpdateTask(ctx.DB, ctx.UserID, taskID, currentTask)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update task: %v", err)
 	}

@@ -287,10 +287,11 @@ func GetTasksNeedingReminders(db *sql.DB) ([]models.Task, error) {
 }
 
 // UpdateTask updates an existing task
-func UpdateTask(db *sql.DB, userID int, id int, task models.Task) error {
+// Returns the ID of a newly created recurring task, or 0 if none was created
+func UpdateTask(db *sql.DB, userID int, id int, task models.Task) (int, error) {
 	oldTask, err := GetTask(db, userID, id)
 	if err != nil {
-		return fmt.Errorf("unable to query task: %v", err)
+		return 0, fmt.Errorf("unable to query task: %v", err)
 	}
 
 	// Sync status with is_complete
@@ -301,10 +302,11 @@ func UpdateTask(db *sql.DB, userID int, id int, task models.Task) error {
 	}
 
 	var completedAt *time.Time
+	var recurringTaskID int
 	if task.IsComplete && !oldTask.IsComplete {
 		now := time.Now()
 		completedAt = &now
-		err = checkRecurringTasks(db, task)
+		recurringTaskID, err = checkRecurringTasks(db, task)
 		if err != nil {
 			log.Printf("err %v", err)
 		}
@@ -351,7 +353,7 @@ func UpdateTask(db *sql.DB, userID int, id int, task models.Task) error {
 
 	if err != nil {
 		log.Printf("error: %v", err)
-		return fmt.Errorf("unable to update task")
+		return 0, fmt.Errorf("unable to update task")
 	}
 
 	newTask, err := GetTask(db, userID, id)
@@ -364,7 +366,7 @@ func UpdateTask(db *sql.DB, userID int, id int, task models.Task) error {
 		}
 	}
 
-	return nil
+	return recurringTaskID, nil
 }
 
 // CreateTask creates a new task
@@ -505,10 +507,11 @@ func ParseRecurringTasks(title string) (models.RecurringTask, bool) {
 }
 
 // checkRecurringTasks handles creating recurring tasks when a task is completed
-func checkRecurringTasks(db *sql.DB, task models.Task) error {
+// Returns the new task ID if a recurring task was created, 0 otherwise
+func checkRecurringTasks(db *sql.DB, task models.Task) (int, error) {
 	recurringTask, found := ParseRecurringTasks(task.Title)
 	if !found {
-		return nil
+		return 0, nil
 	}
 	var scheduledDate time.Time
 	now := time.Now()
@@ -525,9 +528,9 @@ func checkRecurringTasks(db *sql.DB, task models.Task) error {
 		Status:        "todo",
 		IsComplete:    false,
 	}
-	_, err := CreateTask(db, newTask)
+	taskID, err := CreateTask(db, newTask)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return nil
+	return taskID, nil
 }

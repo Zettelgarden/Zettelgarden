@@ -193,7 +193,7 @@ func TestUpdateTask(t *testing.T) {
 		IsComplete: true,
 	}
 
-	err = UpdateTask(s.DB, userID, taskID, updatedTask)
+	_, err = UpdateTask(s.DB, userID, taskID, updatedTask)
 	if err != nil {
 		t.Fatalf("UpdateTask failed: %v", err)
 	}

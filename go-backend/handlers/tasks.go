@@ -181,13 +181,19 @@ func (s *Handler) GetTasksRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Handler) UpdateTask(userID int, id int, task models.Task) error {
-	err := services.UpdateTask(s.DB, userID, id, task)
+	recurringTaskID, err := services.UpdateTask(s.DB, userID, id, task)
 	if err != nil {
 		return err
 	}
 
 	// Add tags after updating the task
 	s.AddTagsFromTask(userID, id)
+
+	// If a recurring task was created, process its tags too
+	if recurringTaskID > 0 {
+		s.AddTagsFromTask(userID, recurringTaskID)
+	}
+
 	return nil
 }
 
