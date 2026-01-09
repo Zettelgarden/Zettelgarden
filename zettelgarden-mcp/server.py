@@ -1,0 +1,893 @@
+#!/usr/bin/env python3
+"""
+Zettelgarden MCP Server
+
+Provides Claude with access to Zettelgarden cards, tasks, and search.
+
+Configuration:
+    Set environment variables:
+    - ZETTELGARDEN_API_URL: Base URL (default: http://localhost:8080)
+    - ZETTELGARDEN_TOKEN: JWT auth token (required)
+
+Usage:
+    python server.py
+"""
+
+import os
+import json
+from datetime import datetime
+from typing import Optional
+import httpx
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
+from mcp.types import Tool, TextContent
+
+# Configuration
+API_URL = os.environ.get("ZETTELGARDEN_API_URL", "http://localhost:8080")
+TOKEN = os.environ.get("ZETTELGARDEN_TOKEN", "")
+
+server = Server("zettelgarden")
+
+
+def get_headers() -> dict:
+    """Get auth headers for API requests."""
+    return {"Authorization": f"Bearer {TOKEN}"}
+
+
+def format_card(card: dict) -> str:
+    """Format a card for display."""
+    lines = [
+        f"**{card.get('card_id', 'N/A')}**: {card.get('title', 'Untitled')}",
+        f"  ID: {card.get('id')} | Created: {card.get('created_at', 'N/A')[:10] if card.get('created_at') else 'N/A'}",
+    ]
+    if card.get("is_starred"):
+        lines[0] += " ⭐"
+    if card.get("body"):
+        body_preview = card["body"][:200] + "..." if len(card["body"]) > 200 else card["body"]
+        lines.append(f"  {body_preview}")
+    if card.get("tags"):
+        tags = ", ".join(f"#{t['name']}" for t in card["tags"])
+        lines.append(f"  Tags: {tags}")
+    return "\n".join(lines)
+
+
+def format_task(task: dict) -> str:
+    """Format a task for display."""
+    status = "✓" if task.get("is_complete") else "○"
+    priority = f"[{task.get('priority')}]" if task.get("priority") else ""
+    scheduled = f"📅 {task.get('scheduled_date')[:10]}" if task.get("scheduled_date") else ""
+    card_ref = f"(Card: {task['card']['card_id']})" if task.get("card") else ""
+
+    lines = [
+        f"{status} {priority} {task.get('title', 'Untitled')} {scheduled} {card_ref}".strip(),
+        f"   ID: {task.get('id')} | Status: {task.get('status', 'N/A')}",
+    ]
+    if task.get("tags"):
+        tags = ", ".join(f"#{t['name']}" for t in task["tags"])
+        lines.append(f"   Tags: {tags}")
+    return "\n".join(lines)
+
+
+# =============================================================================
+# TOOLS
+# =============================================================================
+
+@server.list_tools()
+async def list_tools() -> list[Tool]:
+    """List available tools."""
+    return [
+        # Card tools
+        Tool(
+            name="search_cards",
+            description="Search for cards by text query. Supports tag filters (#tag), entity filters (@[entity]), exclusions (!term), and full-text search.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query. Examples: 'python', '#project', '@[John Doe]', 'python #learning'"
+                    },
+                    "full_text": {
+                        "type": "boolean",
+                        "description": "Search card body in addition to title (default: false)",
+                        "default": False
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max results to return (default: 20)",
+                        "default": 20
+                    }
+                },
+                "required": ["query"]
+            }
+        ),
+        Tool(
+            name="get_card",
+            description="Get a specific card by its numeric ID (pk) or card_id string. Returns full card with body, children, references, tasks, and entities.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "card_id": {
+                        "type": ["integer", "string"],
+                        "description": "Card ID - either numeric pk (e.g., 123) or card_id string (e.g., '1a2')"
+                    }
+                },
+                "required": ["card_id"]
+            }
+        ),
+        Tool(
+            name="create_card",
+            description="Create a new card in Zettelgarden.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Card title"
+                    },
+                    "body": {
+                        "type": "string",
+                        "description": "Card body content (markdown supported)"
+                    },
+                    "card_id": {
+                        "type": "string",
+                        "description": "Optional card_id (e.g., '1a' for child of card 1). Leave empty for auto-generated root ID."
+                    },
+                    "link": {
+                        "type": "string",
+                        "description": "Optional URL link"
+                    }
+                },
+                "required": ["title", "body"]
+            }
+        ),
+        Tool(
+            name="update_card",
+            description="Update an existing card's title, body, or link.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "description": "Card numeric ID (pk)"
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "New title (optional)"
+                    },
+                    "body": {
+                        "type": "string",
+                        "description": "New body content (optional)"
+                    },
+                    "link": {
+                        "type": "string",
+                        "description": "New link (optional)"
+                    }
+                },
+                "required": ["id"]
+            }
+        ),
+        Tool(
+            name="list_starred_cards",
+            description="Get all starred/pinned cards.",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
+        Tool(
+            name="get_card_children",
+            description="Get all direct children of a card.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "card_id": {
+                        "type": "integer",
+                        "description": "Parent card numeric ID (pk)"
+                    }
+                },
+                "required": ["card_id"]
+            }
+        ),
+        # Task tools
+        Tool(
+            name="list_tasks",
+            description="List tasks with optional filters. Use to see today's tasks, incomplete tasks, or filter by priority/status.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "completed": {
+                        "type": "boolean",
+                        "description": "Filter by completion status. true=completed only, false=incomplete only, omit for all"
+                    },
+                    "scheduled_date": {
+                        "type": "string",
+                        "description": "Filter by scheduled date (YYYY-MM-DD format). Use 'today' for today's date."
+                    },
+                    "priority": {
+                        "type": "string",
+                        "description": "Filter by priority (e.g., 'high', 'medium', 'low')"
+                    },
+                    "status": {
+                        "type": "string",
+                        "description": "Filter by status"
+                    },
+                    "card_id": {
+                        "type": "integer",
+                        "description": "Filter by associated card ID"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max results (default: 50)",
+                        "default": 50
+                    }
+                }
+            }
+        ),
+        Tool(
+            name="get_task",
+            description="Get a specific task by ID.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "task_id": {
+                        "type": "integer",
+                        "description": "Task ID"
+                    }
+                },
+                "required": ["task_id"]
+            }
+        ),
+        Tool(
+            name="create_task",
+            description="Create a new task.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Task title"
+                    },
+                    "scheduled_date": {
+                        "type": "string",
+                        "description": "Scheduled date (YYYY-MM-DD). Use 'today' for today."
+                    },
+                    "priority": {
+                        "type": "string",
+                        "description": "Priority level (e.g., 'high', 'medium', 'low')"
+                    },
+                    "card_pk": {
+                        "type": "integer",
+                        "description": "Optional: Associate with a card by its numeric ID"
+                    }
+                },
+                "required": ["title"]
+            }
+        ),
+        Tool(
+            name="update_task",
+            description="Update a task's title, status, priority, scheduled date, or completion.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "task_id": {
+                        "type": "integer",
+                        "description": "Task ID"
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "New title"
+                    },
+                    "is_complete": {
+                        "type": "boolean",
+                        "description": "Mark as complete/incomplete"
+                    },
+                    "priority": {
+                        "type": "string",
+                        "description": "New priority"
+                    },
+                    "scheduled_date": {
+                        "type": "string",
+                        "description": "New scheduled date (YYYY-MM-DD or 'today')"
+                    },
+                    "status": {
+                        "type": "string",
+                        "description": "New status"
+                    }
+                },
+                "required": ["task_id"]
+            }
+        ),
+        Tool(
+            name="complete_task",
+            description="Mark a task as complete.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "task_id": {
+                        "type": "integer",
+                        "description": "Task ID to complete"
+                    }
+                },
+                "required": ["task_id"]
+            }
+        ),
+    ]
+
+
+@server.call_tool()
+async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+    """Handle tool calls."""
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            result = await _handle_tool(client, name, arguments)
+            return [TextContent(type="text", text=result)]
+        except httpx.HTTPStatusError as e:
+            return [TextContent(type="text", text=f"API Error {e.response.status_code}: {e.response.text}")]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error: {str(e)}")]
+
+
+async def _handle_tool(client: httpx.AsyncClient, name: str, args: dict) -> str:
+    """Route tool calls to handlers."""
+
+    # Card tools
+    if name == "search_cards":
+        return await search_cards(client, args)
+    elif name == "get_card":
+        return await get_card(client, args)
+    elif name == "create_card":
+        return await create_card(client, args)
+    elif name == "update_card":
+        return await update_card(client, args)
+    elif name == "list_starred_cards":
+        return await list_starred_cards(client)
+    elif name == "get_card_children":
+        return await get_card_children(client, args)
+
+    # Task tools
+    elif name == "list_tasks":
+        return await list_tasks(client, args)
+    elif name == "get_task":
+        return await get_task(client, args)
+    elif name == "create_task":
+        return await create_task(client, args)
+    elif name == "update_task":
+        return await update_task(client, args)
+    elif name == "complete_task":
+        return await complete_task(client, args)
+
+    else:
+        return f"Unknown tool: {name}"
+
+
+# =============================================================================
+# CARD HANDLERS
+# =============================================================================
+
+async def search_cards(client: httpx.AsyncClient, args: dict) -> str:
+    """Search for cards."""
+    query = args.get("query", "")
+    full_text = args.get("full_text", False)
+    limit = args.get("limit", 20)
+
+    resp = await client.post(
+        f"{API_URL}/api/search",
+        headers=get_headers(),
+        json={
+            "search_term": query,
+            "full_text": full_text,
+            "show_cards": True,
+            "show_entities": False,
+            "show_facts": False,
+            "per_page": limit,
+            "page": 1
+        }
+    )
+    resp.raise_for_status()
+    data = resp.json()
+
+    results = data.get("results", [])
+    total = data.get("total", 0)
+
+    if not results:
+        return f"No cards found for query: '{query}'"
+
+    lines = [f"Found {total} cards for '{query}' (showing {len(results)}):"]
+    lines.append("")
+
+    for r in results:
+        card_id = r.get("metadata", {}).get("card_id", "N/A")
+        title = r.get("title", "Untitled")
+        preview = r.get("preview", "")[:150]
+        tags = ", ".join(f"#{t['name']}" for t in r.get("tags", []))
+
+        lines.append(f"**{card_id}**: {title}")
+        lines.append(f"  pk={r.get('metadata', {}).get('id', 'N/A')} | {tags}")
+        if preview:
+            lines.append(f"  {preview}...")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+async def get_card(client: httpx.AsyncClient, args: dict) -> str:
+    """Get a specific card."""
+    card_id = args.get("card_id")
+
+    # If it's a string card_id, search for it first
+    if isinstance(card_id, str) and not card_id.isdigit():
+        # Search by card_id
+        resp = await client.post(
+            f"{API_URL}/api/search",
+            headers=get_headers(),
+            json={"search_term": card_id, "show_cards": True, "per_page": 10}
+        )
+        resp.raise_for_status()
+        results = resp.json().get("results", [])
+
+        # Find exact match
+        for r in results:
+            if r.get("metadata", {}).get("card_id") == card_id:
+                card_id = r.get("metadata", {}).get("id")
+                break
+        else:
+            return f"Card with card_id '{args.get('card_id')}' not found"
+
+    resp = await client.get(
+        f"{API_URL}/api/cards/{card_id}",
+        headers=get_headers()
+    )
+    resp.raise_for_status()
+    card = resp.json()
+
+    lines = [
+        f"# {card.get('card_id', 'N/A')}: {card.get('title', 'Untitled')}",
+        f"",
+        f"**ID:** {card.get('id')} | **Created:** {card.get('created_at', '')[:10]} | **Updated:** {card.get('updated_at', '')[:10]}",
+    ]
+
+    if card.get("is_starred"):
+        lines.append("**Starred:** Yes ⭐")
+
+    if card.get("parent"):
+        p = card["parent"]
+        lines.append(f"**Parent:** {p.get('card_id', 'N/A')} - {p.get('title', '')}")
+
+    if card.get("tags"):
+        tags = ", ".join(f"#{t['name']}" for t in card["tags"])
+        lines.append(f"**Tags:** {tags}")
+
+    if card.get("link"):
+        lines.append(f"**Link:** {card['link']}")
+
+    lines.append("")
+    lines.append("## Body")
+    lines.append(card.get("body", "*No content*"))
+
+    # Children
+    children = card.get("children", [])
+    if children:
+        lines.append("")
+        lines.append(f"## Children ({len(children)})")
+        for c in children[:10]:
+            lines.append(f"- **{c.get('card_id', 'N/A')}**: {c.get('title', '')}")
+        if len(children) > 10:
+            lines.append(f"  ... and {len(children) - 10} more")
+
+    # References
+    refs = card.get("references", [])
+    if refs:
+        lines.append("")
+        lines.append(f"## References ({len(refs)})")
+        for r in refs[:10]:
+            lines.append(f"- **{r.get('card_id', 'N/A')}**: {r.get('title', '')}")
+
+    # Tasks
+    tasks = card.get("tasks", [])
+    if tasks:
+        lines.append("")
+        lines.append(f"## Tasks ({len(tasks)})")
+        for t in tasks[:5]:
+            status = "✓" if t.get("is_complete") else "○"
+            lines.append(f"- {status} {t.get('title', '')}")
+
+    # Entities
+    entities = card.get("entities", [])
+    if entities:
+        lines.append("")
+        lines.append(f"## Entities ({len(entities)})")
+        for e in entities[:10]:
+            lines.append(f"- {e.get('name', '')} ({e.get('type', '')})")
+
+    return "\n".join(lines)
+
+
+async def create_card(client: httpx.AsyncClient, args: dict) -> str:
+    """Create a new card."""
+    card_id = args.get("card_id", "")
+
+    # If no card_id provided, get next root ID
+    if not card_id:
+        resp = await client.get(
+            f"{API_URL}/api/cards/next-root-id",
+            headers=get_headers()
+        )
+        resp.raise_for_status()
+        card_id = resp.json().get("new_id", "")
+
+    resp = await client.post(
+        f"{API_URL}/api/cards",
+        headers=get_headers(),
+        json={
+            "card_id": card_id,
+            "title": args.get("title", ""),
+            "body": args.get("body", ""),
+            "link": args.get("link", "")
+        }
+    )
+    resp.raise_for_status()
+    card = resp.json()
+
+    return f"Created card: **{card.get('card_id', 'N/A')}**: {card.get('title', '')} (pk={card.get('id')})"
+
+
+async def update_card(client: httpx.AsyncClient, args: dict) -> str:
+    """Update an existing card."""
+    card_id = args.get("id")
+
+    # First get the current card
+    resp = await client.get(
+        f"{API_URL}/api/cards/{card_id}",
+        headers=get_headers()
+    )
+    resp.raise_for_status()
+    card = resp.json()
+
+    # Update fields
+    update_data = {
+        "card_id": card.get("card_id", ""),
+        "title": args.get("title", card.get("title", "")),
+        "body": args.get("body", card.get("body", "")),
+        "link": args.get("link", card.get("link", ""))
+    }
+
+    resp = await client.put(
+        f"{API_URL}/api/cards/{card_id}",
+        headers=get_headers(),
+        json=update_data
+    )
+    resp.raise_for_status()
+
+    return f"Updated card: **{card.get('card_id', 'N/A')}**: {update_data['title']} (pk={card_id})"
+
+
+async def list_starred_cards(client: httpx.AsyncClient) -> str:
+    """Get all starred cards."""
+    resp = await client.get(
+        f"{API_URL}/api/cards/starred",
+        headers=get_headers()
+    )
+    resp.raise_for_status()
+    cards = resp.json()
+
+    if not cards:
+        return "No starred cards."
+
+    lines = [f"Starred cards ({len(cards)}):"]
+    lines.append("")
+
+    for card in cards:
+        lines.append(format_card(card))
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+async def get_card_children(client: httpx.AsyncClient, args: dict) -> str:
+    """Get children of a card."""
+    card_id = args.get("card_id")
+
+    resp = await client.get(
+        f"{API_URL}/api/cards/{card_id}/children",
+        headers=get_headers()
+    )
+    resp.raise_for_status()
+    children = resp.json()
+
+    if not children:
+        return f"Card {card_id} has no children."
+
+    lines = [f"Children of card {card_id} ({len(children)}):"]
+    lines.append("")
+
+    for c in children:
+        lines.append(f"- **{c.get('card_id', 'N/A')}**: {c.get('title', '')} (pk={c.get('id')})")
+
+    return "\n".join(lines)
+
+
+# =============================================================================
+# TASK HANDLERS
+# =============================================================================
+
+async def list_tasks(client: httpx.AsyncClient, args: dict) -> str:
+    """List tasks with filters."""
+    params = {"limit": args.get("limit", 50)}
+
+    if "completed" in args:
+        params["completed"] = "true" if args["completed"] else "false"
+
+    scheduled = args.get("scheduled_date")
+    if scheduled:
+        if scheduled.lower() == "today":
+            scheduled = datetime.now().strftime("%Y-%m-%d")
+        params["scheduled_date"] = scheduled
+
+    if args.get("priority"):
+        params["priority"] = args["priority"]
+    if args.get("status"):
+        params["status"] = args["status"]
+    if args.get("card_id"):
+        params["card_id"] = args["card_id"]
+
+    resp = await client.get(
+        f"{API_URL}/api/tasks",
+        headers=get_headers(),
+        params=params
+    )
+    resp.raise_for_status()
+    data = resp.json()
+
+    tasks = data.get("tasks", [])
+    total = data.get("total", 0)
+
+    if not tasks:
+        return "No tasks found matching criteria."
+
+    lines = [f"Tasks ({len(tasks)} of {total}):"]
+    lines.append("")
+
+    for task in tasks:
+        lines.append(format_task(task))
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+async def get_task(client: httpx.AsyncClient, args: dict) -> str:
+    """Get a specific task."""
+    task_id = args.get("task_id")
+
+    resp = await client.get(
+        f"{API_URL}/api/tasks/{task_id}",
+        headers=get_headers()
+    )
+    resp.raise_for_status()
+    task = resp.json()
+
+    status = "✓ Complete" if task.get("is_complete") else "○ Incomplete"
+
+    lines = [
+        f"# Task: {task.get('title', 'Untitled')}",
+        f"",
+        f"**ID:** {task.get('id')} | **Status:** {status}",
+        f"**Priority:** {task.get('priority', 'None')} | **Workflow Status:** {task.get('status', 'N/A')}",
+    ]
+
+    if task.get("scheduled_date"):
+        lines.append(f"**Scheduled:** {task['scheduled_date'][:10]}")
+    if task.get("dueDate"):
+        lines.append(f"**Due:** {task['dueDate'][:10]}")
+    if task.get("completed_at"):
+        lines.append(f"**Completed:** {task['completed_at'][:10]}")
+
+    if task.get("card"):
+        c = task["card"]
+        lines.append(f"**Card:** {c.get('card_id', 'N/A')} - {c.get('title', '')} (pk={c.get('id')})")
+
+    if task.get("tags"):
+        tags = ", ".join(f"#{t['name']}" for t in task["tags"])
+        lines.append(f"**Tags:** {tags}")
+
+    lines.append("")
+    lines.append(f"**Created:** {task.get('created_at', '')[:10]} | **Updated:** {task.get('updated_at', '')[:10]}")
+
+    return "\n".join(lines)
+
+
+async def create_task(client: httpx.AsyncClient, args: dict) -> str:
+    """Create a new task."""
+    scheduled = args.get("scheduled_date")
+    if scheduled and scheduled.lower() == "today":
+        scheduled = datetime.now().strftime("%Y-%m-%d")
+
+    task_data = {
+        "title": args.get("title", ""),
+        "priority": args.get("priority"),
+        "card_pk": args.get("card_pk", 0),
+        "is_complete": False
+    }
+
+    if scheduled:
+        task_data["scheduled_date"] = f"{scheduled}T00:00:00Z"
+
+    resp = await client.post(
+        f"{API_URL}/api/tasks",
+        headers=get_headers(),
+        json=task_data
+    )
+    resp.raise_for_status()
+    result = resp.json()
+
+    return f"Created task: '{args.get('title')}' (id={result.get('id')})"
+
+
+async def update_task(client: httpx.AsyncClient, args: dict) -> str:
+    """Update a task."""
+    task_id = args.get("task_id")
+
+    # Get current task
+    resp = await client.get(
+        f"{API_URL}/api/tasks/{task_id}",
+        headers=get_headers()
+    )
+    resp.raise_for_status()
+    task = resp.json()
+
+    # Update fields
+    if "title" in args:
+        task["title"] = args["title"]
+    if "is_complete" in args:
+        task["is_complete"] = args["is_complete"]
+        if args["is_complete"]:
+            task["completed_at"] = datetime.now().isoformat()
+    if "priority" in args:
+        task["priority"] = args["priority"]
+    if "status" in args:
+        task["status"] = args["status"]
+    if "scheduled_date" in args:
+        scheduled = args["scheduled_date"]
+        if scheduled.lower() == "today":
+            scheduled = datetime.now().strftime("%Y-%m-%d")
+        task["scheduled_date"] = f"{scheduled}T00:00:00Z"
+
+    resp = await client.put(
+        f"{API_URL}/api/tasks/{task_id}",
+        headers=get_headers(),
+        json=task
+    )
+    resp.raise_for_status()
+
+    return f"Updated task: '{task.get('title')}' (id={task_id})"
+
+
+async def complete_task(client: httpx.AsyncClient, args: dict) -> str:
+    """Mark a task as complete."""
+    args["is_complete"] = True
+    return await update_task(client, args)
+
+
+# =============================================================================
+# MAIN
+# =============================================================================
+
+async def run_server():
+    """Run the MCP server."""
+    if not TOKEN:
+        import sys
+        print("Error: ZETTELGARDEN_TOKEN environment variable is required", file=sys.stderr)
+        print("Get your token from the Zettelgarden web UI after logging in", file=sys.stderr)
+        sys.exit(1)
+
+    async with stdio_server() as (read_stream, write_stream):
+        await server.run(read_stream, write_stream, server.create_initialization_options())
+
+
+async def test_cli(args):
+    """CLI for testing the API connection."""
+    import sys
+
+    if not TOKEN:
+        print("Error: ZETTELGARDEN_TOKEN environment variable is required")
+        print("Export it first: export ZETTELGARDEN_TOKEN='your-token'")
+        sys.exit(1)
+
+    print(f"API URL: {API_URL}")
+    print(f"Token: {TOKEN[:20]}...{TOKEN[-10:]}" if len(TOKEN) > 30 else f"Token: {TOKEN}")
+    print()
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        command = args[0] if args else "help"
+
+        try:
+            if command == "search":
+                query = " ".join(args[1:]) if len(args) > 1 else ""
+                if not query:
+                    print("Usage: python server.py search <query>")
+                    sys.exit(1)
+                result = await search_cards(client, {"query": query, "limit": 10})
+                print(result)
+
+            elif command == "card":
+                if len(args) < 2:
+                    print("Usage: python server.py card <id>")
+                    sys.exit(1)
+                card_id = int(args[1]) if args[1].isdigit() else args[1]
+                result = await get_card(client, {"card_id": card_id})
+                print(result)
+
+            elif command == "tasks":
+                filters = {}
+                if len(args) > 1:
+                    if args[1] == "today":
+                        filters["scheduled_date"] = "today"
+                    elif args[1] == "incomplete":
+                        filters["completed"] = False
+                result = await list_tasks(client, filters)
+                print(result)
+
+            elif command == "task":
+                if len(args) < 2:
+                    print("Usage: python server.py task <id>")
+                    sys.exit(1)
+                result = await get_task(client, {"task_id": int(args[1])})
+                print(result)
+
+            elif command == "starred":
+                result = await list_starred_cards(client)
+                print(result)
+
+            elif command == "ping":
+                # Just test the connection
+                resp = await client.get(f"{API_URL}/api/auth", headers=get_headers())
+                if resp.status_code == 200:
+                    print("✓ Connected successfully!")
+                    print(f"  User: {resp.json()}")
+                else:
+                    print(f"✗ Connection failed: {resp.status_code}")
+                    print(f"  {resp.text}")
+
+            else:
+                print("Zettelgarden MCP Server - Test CLI")
+                print()
+                print("Usage: python server.py <command> [args]")
+                print()
+                print("Commands:")
+                print("  ping              Test API connection")
+                print("  search <query>    Search for cards")
+                print("  card <id>         Get a card by ID or card_id")
+                print("  starred           List starred cards")
+                print("  tasks             List all tasks")
+                print("  tasks today       List today's tasks")
+                print("  tasks incomplete  List incomplete tasks")
+                print("  task <id>         Get a specific task")
+                print()
+                print("Environment:")
+                print("  ZETTELGARDEN_TOKEN     JWT auth token (required)")
+                print("  ZETTELGARDEN_API_URL   API URL (default: http://localhost:8080)")
+                print()
+                print("To run as MCP server: python server.py --serve")
+
+        except httpx.HTTPStatusError as e:
+            print(f"API Error {e.response.status_code}: {e.response.text}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error: {e}")
+            sys.exit(1)
+
+
+if __name__ == "__main__":
+    import asyncio
+    import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] == "--serve":
+        asyncio.run(run_server())
+    elif len(sys.argv) > 1 and sys.argv[1] != "--help":
+        asyncio.run(test_cli(sys.argv[1:]))
+    elif len(sys.argv) == 1:
+        # Default: run as MCP server
+        asyncio.run(run_server())
+    else:
+        asyncio.run(test_cli([]))
