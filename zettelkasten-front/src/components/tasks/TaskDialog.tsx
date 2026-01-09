@@ -13,6 +13,7 @@ import { TaskTagDisplay } from "./TaskTagDisplay";
 import { saveExistingTask, deleteTask, fetchTaskAuditEvents, fetchTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
 import { useTagContext } from "../../contexts/TagContext";
+import { useStatus } from "../../contexts/StatusContext";
 import { Button } from "../../components/Button";
 import { TaskListOptionsMenu } from "./TaskListOptionsMenu";
 import { format } from "date-fns";
@@ -110,6 +111,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
   const [newTagInput, setNewTagInput] = useState("");
   const { setRefreshTasks } = useTaskContext();
   const { tags: allTags } = useTagContext();
+  const { getDefaultStatus, getCompleteStatus } = useStatus();
 
   useEffect(() => {
     if (taskId && isOpen) {
@@ -195,14 +197,19 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
   const handleToggleComplete = async () => {
     if (!editedTask) return;
 
-    // Make a complete copy of the task to ensure all properties are included
+    // Determine the target status based on current completion state
+    const targetStatus = editedTask.is_complete ? getDefaultStatus() : getCompleteStatus();
+
+    if (!targetStatus) {
+      console.error("Could not find appropriate status for toggle");
+      return;
+    }
+
     const updatedTask = {
       ...editedTask,
-      is_complete: !editedTask.is_complete
+      status: targetStatus.name,
+      is_complete: targetStatus.is_complete_state,
     };
-
-    // Log the task to verify priority is included
-    console.log("Toggling completion with priority:", updatedTask.priority);
 
     const response = await saveExistingTask(updatedTask);
     if (!("error" in response)) {

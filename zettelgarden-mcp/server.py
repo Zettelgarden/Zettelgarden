@@ -736,36 +736,50 @@ async def update_task(client: httpx.AsyncClient, args: dict) -> str:
     resp.raise_for_status()
     task = resp.json()
 
-    # Update fields
+    # Build a clean update payload with only the fields the backend expects
+    # Don't send back nested objects like 'card' and 'tags' which can cause parsing issues
+    update_data = {
+        "id": task.get("id"),
+        "card_pk": task.get("card_pk", 0),
+        "user_id": task.get("user_id"),
+        "title": task.get("title", ""),
+        "priority": task.get("priority"),
+        "status": task.get("status", ""),
+        "is_complete": task.get("is_complete", False),
+        "scheduled_date": task.get("scheduled_date"),
+        "due_date": task.get("due_date"),
+        "reminder_time": task.get("reminder_time"),
+    }
+
+    # Apply updates from args
     if "title" in args:
-        task["title"] = args["title"]
+        update_data["title"] = args["title"]
     if "is_complete" in args:
-        task["is_complete"] = args["is_complete"]
-        if args["is_complete"]:
-            task["completed_at"] = datetime.now().isoformat()
+        update_data["is_complete"] = args["is_complete"]
     if "priority" in args:
-        task["priority"] = args["priority"]
+        update_data["priority"] = args["priority"]
     if "status" in args:
-        task["status"] = args["status"]
+        update_data["status"] = args["status"]
     if "scheduled_date" in args:
         scheduled = args["scheduled_date"]
         if scheduled.lower() == "today":
             scheduled = datetime.now().strftime("%Y-%m-%d")
-        task["scheduled_date"] = f"{scheduled}T00:00:00Z"
+        update_data["scheduled_date"] = f"{scheduled}T00:00:00Z"
 
     resp = await client.put(
         f"{API_URL}/api/tasks/{task_id}",
         headers=get_headers(),
-        json=task
+        json=update_data
     )
     resp.raise_for_status()
 
-    return f"Updated task: '{task.get('title')}' (id={task_id})"
+    return f"Updated task: '{update_data.get('title')}' (id={task_id})"
 
 
 async def complete_task(client: httpx.AsyncClient, args: dict) -> str:
     """Mark a task as complete."""
     args["is_complete"] = True
+    args["status"] = "done"  # Set status to match is_complete state
     return await update_task(client, args)
 
 
@@ -835,8 +849,53 @@ async def test_cli(args):
                 result = await get_task(client, {"task_id": int(args[1])})
                 print(result)
 
+            elif command == "complete":
+                if len(args) < 2:
+                    print("Usage: python server.py complete <task_id>")
+                    sys.exit(1)
+                result = await complete_task(client, {"task_id": int(args[1])})
+                print(result)
+
             elif command == "starred":
                 result = await list_starred_cards(client)
+                print(result)
+
+            elif command == "create":
+                # create <title> [body]
+                if len(args) < 2:
+                    print("Usage: python server.py create <title> [body]")
+                    print("  Example: python server.py create 'My Note' 'Note content here'")
+                    sys.exit(1)
+                title = args[1]
+                body = " ".join(args[2:]) if len(args) > 2 else ""
+                result = await create_card(client, {"title": title, "body": body})
+                print(result)
+
+            elif command == "update":
+                # update <id> --title "New title" --body "New body"
+                if len(args) < 2:
+                    print("Usage: python server.py update <id> [--title 'New title'] [--body 'New body']")
+                    sys.exit(1)
+                card_id = int(args[1])
+                update_args = {"id": card_id}
+
+                # Parse --title and --body flags
+                i = 2
+                while i < len(args):
+                    if args[i] == "--title" and i + 1 < len(args):
+                        update_args["title"] = args[i + 1]
+                        i += 2
+                    elif args[i] == "--body" and i + 1 < len(args):
+                        update_args["body"] = args[i + 1]
+                        i += 2
+                    else:
+                        i += 1
+
+                if len(update_args) == 1:
+                    print("Error: Must provide --title or --body to update")
+                    sys.exit(1)
+
+                result = await update_card(client, update_args)
                 print(result)
 
             elif command == "ping":
@@ -858,11 +917,16 @@ async def test_cli(args):
                 print("  ping              Test API connection")
                 print("  search <query>    Search for cards")
                 print("  card <id>         Get a card by ID or card_id")
+                print("  create <title> [body]")
+                print("                    Create a new card")
+                print("  update <id> --title 'New title' --body 'New body'")
+                print("                    Update an existing card")
                 print("  starred           List starred cards")
                 print("  tasks             List all tasks")
                 print("  tasks today       List today's tasks")
                 print("  tasks incomplete  List incomplete tasks")
                 print("  task <id>         Get a specific task")
+                print("  complete <id>     Mark a task as complete")
                 print()
                 print("Environment:")
                 print("  ZETTELGARDEN_TOKEN     JWT auth token (required)")
