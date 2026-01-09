@@ -4,6 +4,8 @@ import remarkGfm from 'remark-gfm';
 import { PartialCard, Card } from "../../models/Card";
 import { File } from "../../models/File";
 import { uploadFile } from "../../api/files";
+import { InlineCardReferenceDialog } from "./InlineCardReferenceDialog";
+import { getCaretCoordinates } from "../../utils/cursor";
 
 interface CardBodyTextAreaProps {
   editingCard: Card;
@@ -29,10 +31,46 @@ export const CardBodyTextArea = forwardRef<CardBodyTextAreaHandle, CardBodyTextA
 }: CardBodyTextAreaProps, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isPreviewMode, setIsPreviewMode] = useState<boolean>(false);
+  const [showReferenceDialog, setShowReferenceDialog] = useState(false);
+  const [dialogPosition, setDialogPosition] = useState({ top: 0, left: 0, height: 0 });
+  const [triggerIndex, setTriggerIndex] = useState<number | null>(null);
+
+  const handleReferenceSelect = (card: PartialCard) => {
+    const textarea = textareaRef.current;
+    if (!textarea || triggerIndex === null) return;
+
+    // Use textarea.value instead of editingCard.body because editingCard.body might be stale
+    // (React state update from the '[' insertion might not have propagated yet to this callback closure)
+    const value = textarea.value;
+    const newText = "[" + card.card_id + "]";
+
+    // Insert at triggerIndex
+    const newBody = value.substring(0, triggerIndex) + newText + value.substring(triggerIndex);
+
+    setEditingCard({ ...editingCard, body: newBody });
+    setShowReferenceDialog(false);
+    setTriggerIndex(null);
+
+    // Restore focus and cursor
+    setTimeout(() => {
+      textarea.focus();
+      const newCursorPos = triggerIndex + newText.length;
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const textarea = event.currentTarget;
     const { value, selectionStart, selectionEnd } = textarea;
+
+    if (event.key === '[') {
+      const caret = getCaretCoordinates(textarea, selectionStart);
+
+      setDialogPosition(caret);
+      setTriggerIndex(selectionStart); // +1 because [ will be inserted
+      setShowReferenceDialog(true);
+      // We do NOT prevent default, allowing [ to be typed
+    }
 
     // Handle Tab and Shift+Tab for indentation on bullet lists
     if (event.key === 'Tab') {
@@ -488,7 +526,7 @@ export const CardBodyTextArea = forwardRef<CardBodyTextAreaHandle, CardBodyTextA
   }));
 
   return (
-    <div>
+    <div className="relative">
       {isPreviewMode ? (
         <div className="prose block w-full h-48 p-2 overflow-y-auto">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -507,6 +545,18 @@ export const CardBodyTextArea = forwardRef<CardBodyTextAreaHandle, CardBodyTextA
           onDragOver={handleDragOver}
           onPaste={handlePaste}
           placeholder="Body"
+        />
+      )}
+      {showReferenceDialog && (
+        <InlineCardReferenceDialog
+          position={dialogPosition}
+          onSelect={handleReferenceSelect}
+          onClose={() => {
+            setShowReferenceDialog(false);
+            setTriggerIndex(null);
+            textareaRef.current?.focus();
+          }}
+          excludeCardId={editingCard.id}
         />
       )}
     </div>
