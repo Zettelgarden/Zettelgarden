@@ -87,7 +87,7 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus }: KanbanBo
             <div
               key={column.name}
               className="flex flex-col bg-gray-50 rounded-lg border border-gray-200 flex-shrink-0"
-              style={{ minWidth: "320px", maxWidth: "320px" }}
+              style={{ minWidth: "400px", maxWidth: "400px" }}
             >
               {/* Column Header */}
               <div
