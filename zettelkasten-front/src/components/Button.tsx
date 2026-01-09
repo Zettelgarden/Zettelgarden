@@ -7,6 +7,7 @@ interface ButtonProps {
   size?: "small" | "medium" | "large";
   children: React.ReactNode;
   className?: string;
+  title?: string;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -16,6 +17,7 @@ export const Button: React.FC<ButtonProps> = ({
   size = "medium",
   children,
   className = "",
+  title,
 }) => {
   const baseClasses =
     "font-semibold rounded focus:outline-none focus:ring-2 focus:ring-offset-2";
@@ -36,7 +38,7 @@ export const Button: React.FC<ButtonProps> = ({
   const classes = `${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`;
 
   return (
-    <button onClick={onClick} disabled={disabled} className={classes}>
+    <button onClick={onClick} disabled={disabled} className={classes} title={title}>
       {children}
     </button>
   );

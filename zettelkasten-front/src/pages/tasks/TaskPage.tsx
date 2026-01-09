@@ -27,6 +27,7 @@ export function TaskPage({ }: TaskListProps) {
   // State for task dialog
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [createTaskStatus, setCreateTaskStatus] = useState<string | undefined>(undefined);
 
   // Ref to prevent infinite loops when syncing query and UI
   const isInternalUpdate = useRef(false);
@@ -99,7 +100,13 @@ export function TaskPage({ }: TaskListProps) {
   }
 
   function toggleShowTaskWindow() {
+    setCreateTaskStatus(undefined);
     setShowCreateTaskWindow(!showCreateTaskWindow);
+  }
+
+  function handleAddTaskWithStatus(status: string) {
+    setCreateTaskStatus(status);
+    setShowCreateTaskWindow(true);
   }
 
   function handleTagClick(tag: string) {
@@ -258,6 +265,17 @@ export function TaskPage({ }: TaskListProps) {
                       Show Completed Tasks
                     </label>
                   </div>
+                  <div className="mb-2">
+                    <label className="flex items-center gap-2 text-xs font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={settings.selectMode}
+                        onChange={settings.toggleSelectMode}
+                        className="rounded"
+                      />
+                      Select Mode
+                    </label>
+                  </div>
                   <div>
                     <label className="block text-xs font-semibold mb-1">Sort By</label>
                     <div className="flex items-center gap-1">
@@ -283,16 +301,11 @@ export function TaskPage({ }: TaskListProps) {
               )}
             </div>
             <Button
-              className={`h-9 px-3 text-sm rounded-md ${settings.selectMode
-                ? "bg-slate-700 text-white hover:bg-slate-800"
-                : "bg-slate-300 text-slate-700 hover:bg-slate-400"
-                }`}
-              onClick={settings.toggleSelectMode}
+              onClick={toggleShowTaskWindow}
+              className="h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 text-lg font-bold flex items-center justify-center pb-2"
+              title="Add Task"
             >
-              {settings.selectMode ? "Exit Select" : "Select"}
-            </Button>
-            <Button onClick={toggleShowTaskWindow} className="h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 text-sm">
-              Add Task
+              +
             </Button>
           </div>
         </div>
@@ -303,6 +316,7 @@ export function TaskPage({ }: TaskListProps) {
             currentCard={null}
             setShowTaskWindow={setShowCreateTaskWindow}
             currentFilter={settings.filterString}
+            initialStatus={createTaskStatus}
           />
         )}
       </div>
@@ -387,6 +401,7 @@ export function TaskPage({ }: TaskListProps) {
           <KanbanBoard
             onTagClick={handleTagClick}
             tasks={tasksToDisplay}
+            onAddTaskWithStatus={handleAddTaskWithStatus}
           />
         ) : (
           <EisenhowerMatrix

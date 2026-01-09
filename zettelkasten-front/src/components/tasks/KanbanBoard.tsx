@@ -10,9 +10,10 @@ import { StatusManagement } from "../settings/StatusManagement";
 interface KanbanBoardProps {
   tasks: Task[];
   onTagClick: (tag: string) => void;
+  onAddTaskWithStatus: (status: string) => void;
 }
 
-export function KanbanBoard({ tasks, onTagClick }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus }: KanbanBoardProps) {
   const { setRefreshTasks } = useTaskContext();
   const { statuses, getStatusByName } = useStatus();
   const [showStatusManagement, setShowStatusManagement] = useState(false);
@@ -106,15 +107,25 @@ export function KanbanBoard({ tasks, onTagClick }: KanbanBoardProps) {
                       {column.display_name}
                     </h3>
                   </div>
-                  <span
-                    className="text-xs font-medium px-2 py-0.5 rounded-full"
-                    style={{
-                      backgroundColor: column.color + "20",
-                      color: column.color,
-                    }}
-                  >
-                    {columnTasks.length}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onAddTaskWithStatus(column.name)}
+                      className="w-5 h-5 flex items-center justify-center rounded hover:bg-black/10 transition-colors"
+                      title={`Add task to ${column.display_name}`}
+                      style={{ color: column.color }}
+                    >
+                      <span className="text-lg font-bold leading-none pb-1">+</span>
+                    </button>
+                    <span
+                      className="text-xs font-medium px-2 py-0.5 rounded-full"
+                      style={{
+                        backgroundColor: column.color + "20",
+                        color: column.color,
+                      }}
+                    >
+                      {columnTasks.length}
+                    </span>
+                  </div>
                 </div>
               </div>
 

@@ -17,16 +17,19 @@ interface CreateTaskWindowProps {
   currentCard: Card | PartialCard | null;
   setShowTaskWindow: (showTaskWindow: boolean) => void;
   currentFilter?: string;
+  initialStatus?: string;
 }
 
 export function CreateTaskWindow({
   currentCard,
   setShowTaskWindow,
   currentFilter,
+  initialStatus,
 }: CreateTaskWindowProps) {
   const [newTask, setNewTask] = useState<Task>({
     ...emptyTask,
     scheduled_date: new Date(),
+    status: initialStatus || emptyTask.status || "todo",
   });
   const [selectedCard, setSelectedCard] = useState<PartialCard | null>(null);
 
@@ -71,9 +74,17 @@ export function CreateTaskWindow({
       setShowTaskWindow(false);
       setSelectedCard(null);
       setRefreshTasks(true);
-      setNewTask({ ...emptyTask, scheduled_date: new Date() });
+      setNewTask({
+        ...emptyTask,
+        scheduled_date: new Date(),
+        status: initialStatus || emptyTask.status || "todo"
+      });
       if (currentCard) {
-        setNewTask({ ...emptyTask, card_pk: currentCard.id });
+        setNewTask({
+          ...emptyTask,
+          card_pk: currentCard.id,
+          status: initialStatus || emptyTask.status || "todo"
+        });
       }
     }
   }
@@ -131,6 +142,12 @@ export function CreateTaskWindow({
       document.removeEventListener("keydown", keyDownListener);
     };
   }, []);
+
+  useEffect(() => {
+    if (initialStatus) {
+      setNewTask(prev => ({ ...prev, status: initialStatus }));
+    }
+  }, [initialStatus]);
 
   useEffect(() => {
     if (currentFilter === undefined) {
