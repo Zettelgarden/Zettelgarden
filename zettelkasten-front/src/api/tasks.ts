@@ -49,7 +49,7 @@ export function fetchTasks(params: FetchTasksParams = {}): Promise<Task[]> {
       scheduled_date: task.scheduled_date
         ? new Date(task.scheduled_date)
         : null,
-      dueDate: task.dueDate ? new Date(task.dueDate) : null,
+      due_date: task.due_date ? new Date(task.due_date) : null,
       created_at: new Date(task.created_at),
       updated_at: new Date(task.updated_at),
       completed_at: task.completed_at

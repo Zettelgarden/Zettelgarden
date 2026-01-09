@@ -170,7 +170,7 @@ export function getCard(id: string): Promise<Card> {
                   scheduled_date: task.scheduled_date
                     ? new Date(task.scheduled_date)
                     : null,
-                  dueDate: task.dueDate ? new Date(task.dueDate) : null,
+                  due_date: task.due_date ? new Date(task.due_date) : null,
                   created_at: new Date(task.created_at),
                   updated_at: new Date(task.updated_at),
                   completed_at: task.completed_at
@@ -411,7 +411,7 @@ export function getCardTasks(cardId: string | number): Promise<any[]> {
           return tasks.map((task) => ({
             ...task,
             scheduled_date: task.scheduled_date ? new Date(task.scheduled_date) : null,
-            dueDate: task.dueDate ? new Date(task.dueDate) : null,
+            due_date: task.due_date ? new Date(task.due_date) : null,
             created_at: new Date(task.created_at),
             updated_at: new Date(task.updated_at),
             completed_at: task.completed_at ? new Date(task.completed_at) : null,
@@ -566,7 +566,7 @@ export function getStarredCards(): Promise<Card[]> {
               tasks: card.tasks ? card.tasks.map((task: any) => ({
                 ...task,
                 scheduled_date: task.scheduled_date ? new Date(task.scheduled_date) : null,
-                dueDate: task.dueDate ? new Date(task.dueDate) : null,
+                due_date: task.due_date ? new Date(task.due_date) : null,
                 created_at: new Date(task.created_at),
                 updated_at: new Date(task.updated_at),
                 completed_at: task.completed_at ? new Date(task.completed_at) : null,

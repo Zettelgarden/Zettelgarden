@@ -32,7 +32,7 @@ export const sampleTaskData: Task[] = [
     card_pk: 101,
     user_id: 1001,
     scheduled_date: new Date(new Date().setDate(new Date().getDate() + 1)), // Tomorrow
-    dueDate: null, // Assuming dueDate is not provided in Swift data
+    due_date: null, // Assuming dueDate is not provided in Swift data
     created_at: new Date(),
     updated_at: new Date(),
     completed_at: null,
@@ -51,7 +51,7 @@ export const sampleTaskData: Task[] = [
     card_pk: 102,
     user_id: 1001,
     scheduled_date: new Date(), // Today
-    dueDate: null,
+    due_date: null,
     created_at: new Date(),
     updated_at: new Date(),
     completed_at: null,
@@ -70,7 +70,7 @@ export const sampleTaskData: Task[] = [
     card_pk: 103,
     user_id: 1002,
     scheduled_date: new Date(new Date().setDate(new Date().getDate() - 2)), // 2 days ago
-    dueDate: null,
+    due_date: null,
     created_at: new Date(),
     updated_at: new Date(),
     completed_at: null,
@@ -89,7 +89,7 @@ export const sampleTaskData: Task[] = [
     card_pk: 104,
     user_id: 1003,
     scheduled_date: new Date(new Date().setDate(new Date().getDate() - 7)), // 7 days ago
-    dueDate: null,
+    due_date: null,
     created_at: new Date(),
     updated_at: new Date(),
     completed_at: new Date(), // Completed
@@ -121,7 +121,7 @@ export const sampleTaskData: Task[] = [
     card_pk: 105,
     user_id: 1004,
     scheduled_date: null, // No scheduled date
-    dueDate: null,
+    due_date: null,
     created_at: new Date(),
     updated_at: new Date(),
     completed_at: null,

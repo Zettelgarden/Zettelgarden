@@ -354,16 +354,17 @@ func UpdateTask(db *sql.DB, userID int, id int, task models.Task) (int, error) {
 		UPDATE tasks SET
 			card_pk = $1,
 			scheduled_date = $2,
+			due_date = $3,
 			updated_at = NOW(),
-			completed_at = $3,
-			title = $4,
-			priority = $5,
-			status = $6,
-			is_complete = $7,
-			reminder_time = $8,
-			reminder_sent = $9
-		WHERE id = $10 AND user_id = $11 AND is_deleted = FALSE
-	`, task.CardPK, task.ScheduledDate, completedAt, task.Title, task.Priority, task.Status, task.IsComplete, task.ReminderTime, reminderSent, id, userID)
+			completed_at = $4,
+			title = $5,
+			priority = $6,
+			status = $7,
+			is_complete = $8,
+			reminder_time = $9,
+			reminder_sent = $10
+		WHERE id = $11 AND user_id = $12 AND is_deleted = FALSE
+	`, task.CardPK, task.ScheduledDate, task.DueDate, completedAt, task.Title, task.Priority, task.Status, task.IsComplete, task.ReminderTime, reminderSent, id, userID)
 
 	if err != nil {
 		log.Printf("error: %v", err)

@@ -11,7 +11,7 @@ const createTask = (overrides: Partial<Task>): Task => ({
   card_pk: 0,
   user_id: 1,
   scheduled_date: new Date("2026-01-08"),
-  dueDate: null,
+  due_date: null,
   status: 'todo' as const,
   is_complete: false,
   created_at: new Date("2026-01-08"),

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Dialog } from "@headlessui/react";
 import { Task, TaskAuditEvent } from "../../models/Task";
 import { TaskDateDisplay } from "./TaskDateDisplay";
+import { TaskDueDateDisplay } from "./TaskDueDateDisplay";
 import { TaskPriorityDisplay } from "./TaskPriorityDisplay";
 import { TaskStatusDisplay } from "./TaskStatusDisplay";
 import { TaskReminderDisplay } from "./TaskReminderDisplay";
@@ -119,7 +120,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
           const processedTask = {
             ...task,
             scheduled_date: task.scheduled_date ? new Date(task.scheduled_date) : null,
-            dueDate: task.dueDate ? new Date(task.dueDate) : null,
+            due_date: task.due_date ? new Date(task.due_date) : null,
             created_at: new Date(task.created_at),
             updated_at: new Date(task.updated_at),
             completed_at: task.completed_at ? new Date(task.completed_at) : null,
@@ -252,7 +253,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
       const processedTask = {
         ...refreshedTask,
         scheduled_date: refreshedTask.scheduled_date ? new Date(refreshedTask.scheduled_date) : null,
-        dueDate: refreshedTask.dueDate ? new Date(refreshedTask.dueDate) : null,
+        due_date: refreshedTask.due_date ? new Date(refreshedTask.due_date) : null,
         created_at: new Date(refreshedTask.created_at),
         updated_at: new Date(refreshedTask.updated_at),
         completed_at: refreshedTask.completed_at ? new Date(refreshedTask.completed_at) : null,
@@ -343,6 +344,11 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
                 saveOnChange={true}
               />
               <TaskDateDisplay
+                task={editedTask}
+                setTask={setEditedTask}
+                saveOnChange={true}
+              />
+              <TaskDueDateDisplay
                 task={editedTask}
                 setTask={setEditedTask}
                 saveOnChange={true}
