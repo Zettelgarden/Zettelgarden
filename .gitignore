@@ -49,3 +49,5 @@ browser-extension/chrome/api/
 browser-extension/chrome/content/
 browser-extension/chrome/ui/
 browser-extension/chrome/background.js
+
+.mcp.json
