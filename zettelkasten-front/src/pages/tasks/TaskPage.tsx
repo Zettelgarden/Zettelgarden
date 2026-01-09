@@ -183,7 +183,7 @@ export function TaskPage({ }: TaskListProps) {
                     <li><strong>Priority:</strong> <code>priority:A</code></li>
                     <li><strong>Status:</strong> <code>status:todo</code>, <code>status:in_progress</code>, <code>status:blocked</code>, <code>status:done</code></li>
                     <li><strong>Date:</strong> <code>date:today</code>, <code>date:tomorrow</code>, <code>date:2026-01-05</code></li>
-                    <li><strong>Completed:</strong> <code>completed</code></li>
+                    <li><strong>Show Completed:</strong> <code>show:completed</code></li>
                     <li><strong>Reminder:</strong> <code>has:reminder</code></li>
                     <li><strong>Negate:</strong> prepend <code>!</code></li>
                   </ul>

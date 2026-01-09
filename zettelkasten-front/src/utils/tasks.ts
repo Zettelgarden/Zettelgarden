@@ -48,8 +48,8 @@ export function parseTaskQuery(query: string): TaskFilterParams {
     }
   }
 
-  // Check for completed flag
-  const completedIndex = tokens.indexOf('completed');
+  // Check for show:completed flag
+  const completedIndex = tokens.findIndex(t => t === 'show:completed');
   if (completedIndex !== -1) {
     params.showCompleted = true;
     tokens.splice(completedIndex, 1);
@@ -104,10 +104,10 @@ export function updateQueryDateView(query: string, dateView: string): string {
  * Updates the query string to reflect completed status
  */
 export function updateQueryShowCompleted(query: string, showCompleted: boolean): string {
-  let updated = removeKeywordsFromQuery(query, ['completed']);
+  let updated = removeKeywordsFromQuery(query, ['show']);
 
   if (showCompleted) {
-    updated = updated ? `${updated} completed`.trim() : 'completed';
+    updated = updated ? `${updated} show:completed`.trim() : 'show:completed';
   }
 
   return updated;
@@ -131,7 +131,7 @@ export function stripSpecialFilters(query: string): string {
     if (token.startsWith('status:')) return false;
     if (token.startsWith('date:')) return false;
     if (token.startsWith('has:')) return false;
-    if (token === 'completed') return false;
+    if (token.startsWith('show:')) return false;
     if (token.startsWith('!')) return false; // Remove negations
 
     // Keep plain text
