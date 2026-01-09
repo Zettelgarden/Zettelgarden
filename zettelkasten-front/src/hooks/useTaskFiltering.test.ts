@@ -8,7 +8,7 @@ const createTask = (overrides: Partial<Task>): Task => ({
   id: 1,
   title: "Test task",
   tags: [],
-  card_pk: null,
+  card_pk: 0,
   user_id: 1,
   scheduled_date: new Date("2026-01-08"),
   dueDate: null,
