@@ -46,7 +46,7 @@ def format_card(card: dict) -> str:
         body_preview = card["body"][:200] + "..." if len(card["body"]) > 200 else card["body"]
         lines.append(f"  {body_preview}")
     if card.get("tags"):
-        tags = ", ".join(f"#{t['name']}" for t in card["tags"])
+        tags = ", ".join(f"#{t['name']}" for t in (card["tags"] or []))
         lines.append(f"  Tags: {tags}")
     return "\n".join(lines)
 
@@ -63,7 +63,7 @@ def format_task(task: dict) -> str:
         f"   ID: {task.get('id')} | Status: {task.get('status', 'N/A')}",
     ]
     if task.get("tags"):
-        tags = ", ".join(f"#{t['name']}" for t in task["tags"])
+        tags = ", ".join(f"#{t['name']}" for t in (task["tags"] or []))
         lines.append(f"   Tags: {tags}")
     return "\n".join(lines)
 
@@ -401,7 +401,7 @@ async def search_cards(client: httpx.AsyncClient, args: dict) -> str:
         card_id = r.get("metadata", {}).get("card_id", "N/A")
         title = r.get("title", "Untitled")
         preview = r.get("preview", "")[:150]
-        tags = ", ".join(f"#{t['name']}" for t in r.get("tags", []))
+        tags = ", ".join(f"#{t['name']}" for t in (r.get("tags") or []))
 
         lines.append(f"**{card_id}**: {title}")
         lines.append(f"  pk={r.get('metadata', {}).get('id', 'N/A')} | {tags}")
@@ -456,7 +456,7 @@ async def get_card(client: httpx.AsyncClient, args: dict) -> str:
         lines.append(f"**Parent:** {p.get('card_id', 'N/A')} - {p.get('title', '')}")
 
     if card.get("tags"):
-        tags = ", ".join(f"#{t['name']}" for t in card["tags"])
+        tags = ", ".join(f"#{t['name']}" for t in (card["tags"] or []))
         lines.append(f"**Tags:** {tags}")
 
     if card.get("link"):
@@ -688,7 +688,7 @@ async def get_task(client: httpx.AsyncClient, args: dict) -> str:
         lines.append(f"**Card:** {c.get('card_id', 'N/A')} - {c.get('title', '')} (pk={c.get('id')})")
 
     if task.get("tags"):
-        tags = ", ".join(f"#{t['name']}" for t in task["tags"])
+        tags = ", ".join(f"#{t['name']}" for t in (task["tags"] or []))
         lines.append(f"**Tags:** {tags}")
 
     lines.append("")
