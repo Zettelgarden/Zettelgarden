@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { Task } from "../../models/Task";
 import { saveExistingTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
@@ -88,9 +89,9 @@ export function BulkTaskTagEditor({
     }
   }
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+  return createPortal(
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]">
+      <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-semibold mb-4">
           Bulk Edit Tags ({tasks.length} tasks)
         </h2>
@@ -101,21 +102,19 @@ export function BulkTaskTagEditor({
           <div className="flex gap-2">
             <button
               onClick={() => setOperation('add')}
-              className={`flex-1 py-2 px-4 rounded ${
-                operation === 'add'
+              className={`flex-1 py-2 px-4 rounded ${operation === 'add'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-200 text-gray-700'
-              }`}
+                }`}
             >
               Add Tags
             </button>
             <button
               onClick={() => setOperation('remove')}
-              className={`flex-1 py-2 px-4 rounded ${
-                operation === 'remove'
+              className={`flex-1 py-2 px-4 rounded ${operation === 'remove'
                   ? 'bg-red-600 text-white'
                   : 'bg-gray-200 text-gray-700'
-              }`}
+                }`}
             >
               Remove Tags
             </button>
@@ -165,11 +164,10 @@ export function BulkTaskTagEditor({
                     <button
                       key={tag.id}
                       onClick={() => toggleTag(tag.name.replace(/^#/, ''))}
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        selectedTags.has(tag.name.replace(/^#/, ''))
+                      className={`px-3 py-1 rounded-full text-sm ${selectedTags.has(tag.name.replace(/^#/, ''))
                           ? 'bg-blue-600 text-white'
                           : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
+                        }`}
                     >
                       #{tag.name.replace(/^#/, '')}
                     </button>
@@ -188,13 +186,12 @@ export function BulkTaskTagEditor({
                       <button
                         key={tagName}
                         onClick={() => toggleTag(tagName)}
-                        className={`px-3 py-1 rounded-full text-sm ${
-                          selectedTags.has(tagName)
+                        className={`px-3 py-1 rounded-full text-sm ${selectedTags.has(tagName)
                             ? 'bg-red-600 text-white'
                             : isCommon
-                            ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        }`}
+                              ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          }`}
                         title={isCommon ? 'Common across all selected tasks' : 'Present in some tasks'}
                       >
                         #{tagName}
@@ -241,17 +238,17 @@ export function BulkTaskTagEditor({
           <button
             onClick={handleApply}
             disabled={selectedTags.size === 0 || isProcessing}
-            className={`px-4 py-2 rounded text-white disabled:opacity-50 ${
-              operation === 'add'
+            className={`px-4 py-2 rounded text-white disabled:opacity-50 ${operation === 'add'
                 ? 'bg-blue-600 hover:bg-blue-700'
                 : 'bg-red-600 hover:bg-red-700'
-            }`}
+              }`}
           >
             {isProcessing ? 'Processing...' : `Apply to ${tasks.length} tasks`}
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

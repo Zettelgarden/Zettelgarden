@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Task } from "../../models/Task";
 
 import {
@@ -65,43 +66,51 @@ export function BulkTaskDateDisplay({
         updateTasks(getNextMonday());
     }
 
-    return (
-        <div className="dropdown relative">
-            <div className="absolute right-0 mt-1 w-48 bg-white border border-slate-300 rounded shadow-lg p-3 z-20">
-                <h3 className="text-sm font-semibold mb-3 text-gray-700">
+    return createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]" onClick={() => setShowBulkEdit(false)}>
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+                <h3 className="text-lg font-semibold mb-4 text-gray-700">
                     Edit Date ({tasks.length} tasks)
                 </h3>
                 <div className="flex flex-col space-y-2">
-                    {" "}
-                    {/* This creates vertical spacing between children */}
-                    <button onClick={setNoDate} className="w-full">
+                    <button onClick={setNoDate} className="w-full text-left px-4 py-2 hover:bg-slate-100 rounded border border-slate-200">
                         No Date
                     </button>
-                    <button onClick={setToday} className="w-full">
+                    <button onClick={setToday} className="w-full text-left px-4 py-2 hover:bg-slate-100 rounded border border-slate-200">
                         Today
                     </button>
-                    <button onClick={setTomorrow} className="w-full">
+                    <button onClick={setTomorrow} className="w-full text-left px-4 py-2 hover:bg-slate-100 rounded border border-slate-200">
                         Tomorrow
                     </button>
                     {isFriday() ? (
-                        <button onClick={setNextMonday} className="w-full">
+                        <button onClick={setNextMonday} className="w-full text-left px-4 py-2 hover:bg-slate-100 rounded border border-slate-200">
                             Next Monday
                         </button>
-                    ) : (
-                        <div></div>
-                    )}
-                    <button onClick={setNextWeek} className="w-full">
+                    ) : null}
+                    <button onClick={setNextWeek} className="w-full text-left px-4 py-2 hover:bg-slate-100 rounded border border-slate-200">
                         Next Week
                     </button>
-                    <input
-                        aria-label="Date"
-                        type="date"
-                        className="p-2 w-full"
-                        value={selectedDate}
-                        onChange={handleScheduledDateChange}
-                    />
+
+                    <div className="pt-2 border-t mt-2">
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Custom Date</label>
+                        <input
+                            aria-label="Date"
+                            type="date"
+                            className="p-2 w-full border border-slate-300 rounded"
+                            value={selectedDate}
+                            onChange={handleScheduledDateChange}
+                        />
+                    </div>
+
+                    <button
+                        onClick={() => setShowBulkEdit(false)}
+                        className="mt-4 px-4 py-2 border border-slate-300 rounded hover:bg-slate-50 w-full"
+                    >
+                        Cancel
+                    </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, ChangeEvent, useState, useRef } from "react";
 import { TaskList } from "../../components/tasks/TaskList";
+import { TaskSelectionOverlay } from "../../components/tasks/TaskSelectionOverlay";
 import { TaskPageOptionsMenu } from "../../components/tasks/TaskPageOptionsMenu";
 import { CreateTaskWindow } from "../../components/tasks/CreateTaskWindow";
 import { TaskDialog } from "../../components/tasks/TaskDialog";
@@ -282,11 +283,7 @@ export function TaskPage({ }: TaskListProps) {
               <TaskPageOptionsMenu
                 tags={tags}
                 handleTagClick={handleTagClick}
-                tasks={tasksToDisplay}
                 selectMode={settings.selectMode}
-                selectedTaskIds={settings.selectedTaskIds}
-                onSelectAll={() => settings.selectAllTasks(paginatedTasks.map(t => t.id))}
-                onClearSelection={settings.clearSelection}
                 onToggleSelectMode={settings.toggleSelectMode}
               />
             </div>
@@ -395,6 +392,14 @@ export function TaskPage({ }: TaskListProps) {
           />
         )}
       </div>
+      <TaskSelectionOverlay
+        tasks={tasksToDisplay}
+        selectMode={settings.selectMode}
+        selectedTaskIds={settings.selectedTaskIds}
+        onSelectAll={() => settings.selectAllTasks(paginatedTasks.map(t => t.id))}
+        onClearSelection={settings.clearSelection}
+        onToggleSelectMode={settings.toggleSelectMode}
+      />
     </div >
   );
 }
