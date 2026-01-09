@@ -78,14 +78,15 @@ export function KanbanBoard({ tasks, onTagClick }: KanbanBoardProps) {
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="flex gap-4 overflow-x-auto pb-4">
           {statuses.map((column) => {
           const columnTasks = tasksByStatus[column.name] || [];
 
           return (
             <div
               key={column.name}
-              className="flex flex-col bg-gray-50 rounded-lg border border-gray-200"
+              className="flex flex-col bg-gray-50 rounded-lg border border-gray-200 flex-shrink-0"
+              style={{ minWidth: "320px", maxWidth: "320px" }}
             >
               {/* Column Header */}
               <div
