@@ -1,7 +1,7 @@
 import React, { useEffect, ChangeEvent, useState, useRef } from "react";
 import { TaskList } from "../../components/tasks/TaskList";
 import { TaskSelectionOverlay } from "../../components/tasks/TaskSelectionOverlay";
-import { TaskPageOptionsMenu } from "../../components/tasks/TaskPageOptionsMenu";
+import { SearchTagDropdown } from "../../components/tags/SearchTagDropdown";
 import { CreateTaskWindow } from "../../components/tasks/CreateTaskWindow";
 import { TaskDialog } from "../../components/tasks/TaskDialog";
 import { useTaskContext } from "../../contexts/TaskContext";
@@ -191,6 +191,12 @@ export function TaskPage({ }: TaskListProps) {
                 </div>
               )}
             </div>
+            <div className="h-9 flex items-center">
+              <SearchTagDropdown
+                tags={tags}
+                handleTagClick={handleTagClick}
+              />
+            </div>
           </div>
           {/* Right section: Count, Display menu, Actions */}
           <div className="flex items-center gap-3 flex-shrink-0">
@@ -276,17 +282,18 @@ export function TaskPage({ }: TaskListProps) {
                 </div>
               )}
             </div>
+            <Button
+              className={`h-9 px-3 text-sm rounded-md ${settings.selectMode
+                ? "bg-slate-700 text-white hover:bg-slate-800"
+                : "bg-slate-300 text-slate-700 hover:bg-slate-400"
+                }`}
+              onClick={settings.toggleSelectMode}
+            >
+              {settings.selectMode ? "Exit Select" : "Select"}
+            </Button>
             <Button onClick={toggleShowTaskWindow} className="h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 text-sm">
               Add Task
             </Button>
-            <div className="h-9 flex items-center">
-              <TaskPageOptionsMenu
-                tags={tags}
-                handleTagClick={handleTagClick}
-                selectMode={settings.selectMode}
-                onToggleSelectMode={settings.toggleSelectMode}
-              />
-            </div>
           </div>
         </div>
       </div>
