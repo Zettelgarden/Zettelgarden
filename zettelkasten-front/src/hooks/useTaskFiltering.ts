@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Task } from "../models/Task";
-import { filterTasks, filterTasksByDateView } from "../utils/tasks";
+import { filterTasks, filterTasksByDateView, removeTagsFromTitle } from "../utils/tasks";
 
 type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date";
 type SortDirection = "asc" | "desc";
@@ -45,15 +45,9 @@ export function useTaskFiltering({
     // Then, filter by search string
     let searched = filterTasks(filtered, filterString);
 
-    // Matrix and Kanban views don't need sorting, just return filtered tasks
-    if (viewMode === "matrix" || viewMode === "kanban") {
-      return searched;
-    }
-
-    // Sort tasks for list view
+    // Sort tasks for all views
     searched.sort((a, b) => {
       let comparison = 0;
-      console.log(sortField)
       switch (sortField) {
         case "updated_at":
           comparison =
@@ -61,8 +55,9 @@ export function useTaskFiltering({
             new Date(b.updated_at).getTime();
           break;
         case "title":
-          const titleA = a.title || "";
-          const titleB = b.title || "";
+          // Strip tags before comparing to match display order
+          const titleA = removeTagsFromTitle(a.title || "");
+          const titleB = removeTagsFromTitle(b.title || "");
           comparison = titleA.toLowerCase().localeCompare(titleB.toLowerCase());
           break;
         case "priority":
