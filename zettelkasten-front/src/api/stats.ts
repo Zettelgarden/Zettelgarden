@@ -5,6 +5,13 @@ import { PartialCard } from "../models/Card";
 
 const base_url = import.meta.env.VITE_URL;
 
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function fetchDailyStats(
   startDate?: Date,
   endDate?: Date
@@ -15,10 +22,10 @@ export function fetchDailyStats(
   const params = new URLSearchParams();
 
   if (startDate) {
-    params.append("start_date", startDate.toISOString().split("T")[0]);
+    params.append("start_date", formatLocalDate(startDate));
   }
   if (endDate) {
-    params.append("end_date", endDate.toISOString().split("T")[0]);
+    params.append("end_date", formatLocalDate(endDate));
   }
 
   if (params.toString()) {
@@ -46,7 +53,7 @@ export function fetchDailyStats(
 
 export function fetchTasksForDate(date: Date): Promise<Task[]> {
   const token = localStorage.getItem("token");
-  const dateStr = date.toISOString().split("T")[0];
+  const dateStr = formatLocalDate(date);
   const url = `${base_url}/stats/day-tasks?date=${dateStr}`;
 
   return fetch(url, {
@@ -77,7 +84,7 @@ export function fetchTasksForDate(date: Date): Promise<Task[]> {
 
 export function fetchCardsForDate(date: Date): Promise<PartialCard[]> {
   const token = localStorage.getItem("token");
-  const dateStr = date.toISOString().split("T")[0];
+  const dateStr = formatLocalDate(date);
   const url = `${base_url}/stats/day-cards?date=${dateStr}`;
 
   return fetch(url, {

@@ -10,7 +10,7 @@ import (
 
 // GetDailyStats retrieves aggregated activity statistics for a date range
 // Returns stats for all days in the range, with 0 counts for days with no activity
-func GetDailyStats(db *sql.DB, userID int, startDate, endDate time.Time) ([]models.DailyStats, error) {
+func GetDailyStats(db *sql.DB, userID int, startDate, endDate time.Time, timezone string) ([]models.DailyStats, error) {
 	// Use CTE to generate date series and join with activity data
 	query := `
 	WITH date_series AS (
@@ -22,29 +22,29 @@ func GetDailyStats(db *sql.DB, userID int, startDate, endDate time.Time) ([]mode
 	),
 	cards_per_day AS (
 		SELECT
-			DATE(created_at) AS day,
+			DATE(created_at AT TIME ZONE $4) AS day,
 			COUNT(*) AS cards_created
 		FROM cards
 		WHERE user_id = $1
 			AND is_deleted = FALSE
 			AND created_at >= $2
 			AND created_at < $3 + INTERVAL '1 day'
-		GROUP BY DATE(created_at)
+		GROUP BY DATE(created_at AT TIME ZONE $4)
 	),
 	tasks_created_per_day AS (
 		SELECT
-			DATE(created_at) AS day,
+			DATE(created_at AT TIME ZONE $4) AS day,
 			COUNT(*) AS tasks_created
 		FROM tasks
 		WHERE user_id = $1
 			AND is_deleted = FALSE
 			AND created_at >= $2
 			AND created_at < $3 + INTERVAL '1 day'
-		GROUP BY DATE(created_at)
+		GROUP BY DATE(created_at AT TIME ZONE $4)
 	),
 	tasks_completed_per_day AS (
 		SELECT
-			DATE(completed_at) AS day,
+			DATE(completed_at AT TIME ZONE $4) AS day,
 			COUNT(*) AS tasks_completed
 		FROM tasks
 		WHERE user_id = $1
@@ -52,7 +52,7 @@ func GetDailyStats(db *sql.DB, userID int, startDate, endDate time.Time) ([]mode
 			AND completed_at IS NOT NULL
 			AND completed_at >= $2
 			AND completed_at < $3 + INTERVAL '1 day'
-		GROUP BY DATE(completed_at)
+		GROUP BY DATE(completed_at AT TIME ZONE $4)
 	)
 	SELECT
 		ds.day,
@@ -66,7 +66,7 @@ func GetDailyStats(db *sql.DB, userID int, startDate, endDate time.Time) ([]mode
 	ORDER BY ds.day
 	`
 
-	rows, err := db.Query(query, userID, startDate, endDate)
+	rows, err := db.Query(query, userID, startDate, endDate, timezone)
 	if err != nil {
 		log.Printf("Error querying daily stats: %v", err)
 		return []models.DailyStats{}, fmt.Errorf("unable to fetch daily stats")
@@ -97,19 +97,18 @@ func GetDailyStats(db *sql.DB, userID int, startDate, endDate time.Time) ([]mode
 }
 
 // GetTasksCompletedOnDate retrieves all tasks completed on a specific date
-func GetTasksCompletedOnDate(db *sql.DB, userID int, date time.Time) ([]models.Task, error) {
+func GetTasksCompletedOnDate(db *sql.DB, userID int, date time.Time, timezone string) ([]models.Task, error) {
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
 		created_at, updated_at, completed_at, title, priority, is_complete
 	FROM tasks
 	WHERE user_id = $1
 		AND is_deleted = FALSE
-		AND completed_at >= $2::date
-		AND completed_at < ($2::date + INTERVAL '1 day')
+		AND DATE(completed_at AT TIME ZONE $3) = DATE($2)
 	ORDER BY completed_at DESC
 	`
 
-	rows, err := db.Query(query, userID, date)
+	rows, err := db.Query(query, userID, date, timezone)
 	if err != nil {
 		log.Printf("Error querying tasks for date: %v", err)
 		return []models.Task{}, fmt.Errorf("unable to fetch tasks for date")
@@ -156,18 +155,17 @@ func GetTasksCompletedOnDate(db *sql.DB, userID int, date time.Time) ([]models.T
 }
 
 // GetCardsCreatedOnDate retrieves all cards created on a specific date
-func GetCardsCreatedOnDate(db *sql.DB, userID int, date time.Time) ([]models.PartialCard, error) {
+func GetCardsCreatedOnDate(db *sql.DB, userID int, date time.Time, timezone string) ([]models.PartialCard, error) {
 	query := `
 	SELECT id, card_id, title, created_at, updated_at, parent_id, user_id
 	FROM cards
 	WHERE user_id = $1
 		AND is_deleted = FALSE
-		AND created_at >= $2::date
-		AND created_at < ($2::date + INTERVAL '1 day')
+		AND DATE(created_at AT TIME ZONE $3) = DATE($2)
 	ORDER BY created_at DESC
 	`
 
-	rows, err := db.Query(query, userID, date)
+	rows, err := db.Query(query, userID, date, timezone)
 	if err != nil {
 		log.Printf("Error querying cards for date: %v", err)
 		return []models.PartialCard{}, fmt.Errorf("unable to fetch cards for date")

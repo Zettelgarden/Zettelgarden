@@ -15,12 +15,17 @@ import (
 func (s *Handler) GetDailyStatsRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
+	// Get user's timezone for proper date filtering
+	userTimezone, err := s.GetUserTimezone(userID)
+	if err != nil {
+		userTimezone = "UTC" // Fallback to UTC on error
+	}
+
 	// Parse query parameters
 	startDateStr := r.URL.Query().Get("start_date")
 	endDateStr := r.URL.Query().Get("end_date")
 
 	var startDate, endDate time.Time
-	var err error
 
 	// Default to last 365 days if not specified
 	if startDateStr == "" || endDateStr == "" {
@@ -55,7 +60,7 @@ func (s *Handler) GetDailyStatsRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch stats from database
-	stats, err := services.GetDailyStats(s.DB, userID, startDate, endDate)
+	stats, err := services.GetDailyStats(s.DB, userID, startDate, endDate, userTimezone)
 	if err != nil {
 		log.Printf("Error getting daily stats: %v", err)
 		http.Error(w, "Failed to fetch daily stats", http.StatusInternalServerError)
@@ -84,6 +89,12 @@ func (s *Handler) GetDailyStatsRoute(w http.ResponseWriter, r *http.Request) {
 func (s *Handler) GetDayTasksRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
+	// Get user's timezone for proper date filtering
+	userTimezone, err := s.GetUserTimezone(userID)
+	if err != nil {
+		userTimezone = "UTC" // Fallback to UTC on error
+	}
+
 	// Parse date parameter
 	dateStr := r.URL.Query().Get("date")
 	if dateStr == "" {
@@ -99,7 +110,7 @@ func (s *Handler) GetDayTasksRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch tasks from database
-	tasks, err := services.GetTasksCompletedOnDate(s.DB, userID, date)
+	tasks, err := services.GetTasksCompletedOnDate(s.DB, userID, date, userTimezone)
 	if err != nil {
 		log.Printf("Error getting tasks for date: %v", err)
 		http.Error(w, "Failed to fetch tasks", http.StatusInternalServerError)
@@ -123,6 +134,12 @@ func (s *Handler) GetDayTasksRoute(w http.ResponseWriter, r *http.Request) {
 func (s *Handler) GetDayCardsRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
+	// Get user's timezone for proper date filtering
+	userTimezone, err := s.GetUserTimezone(userID)
+	if err != nil {
+		userTimezone = "UTC" // Fallback to UTC on error
+	}
+
 	// Parse date parameter
 	dateStr := r.URL.Query().Get("date")
 	if dateStr == "" {
@@ -138,7 +155,7 @@ func (s *Handler) GetDayCardsRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch cards from database
-	cards, err := services.GetCardsCreatedOnDate(s.DB, userID, date)
+	cards, err := services.GetCardsCreatedOnDate(s.DB, userID, date, userTimezone)
 	if err != nil {
 		log.Printf("Error getting cards for date: %v", err)
 		http.Error(w, "Failed to fetch cards", http.StatusInternalServerError)
