@@ -168,3 +168,31 @@ export function fetchTaskAuditEvents(taskId: number): Promise<TaskAuditEvent[]> 
       }
     });
 }
+
+export function addTaskDependency(taskId: number, blockingTaskId: number): Promise<void> {
+  const url = `${base_url}/tasks/${taskId}/dependencies`;
+  let token = localStorage.getItem("token");
+
+  return fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ blocking_task_id: blockingTaskId }),
+  })
+    .then(checkStatus)
+    .then(() => undefined);
+}
+
+export function removeTaskDependency(taskId: number, blockingTaskId: number): Promise<void> {
+  const url = `${base_url}/tasks/${taskId}/dependencies/${blockingTaskId}`;
+  let token = localStorage.getItem("token");
+
+  return fetch(url, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  })
+    .then(checkStatus)
+    .then(() => undefined);
+}

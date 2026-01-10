@@ -10,7 +10,7 @@ import { BacklinkInput } from "../cards/BacklinkInput";
 import { PartialCard } from "../../models/Card";
 import { Link } from "react-router-dom";
 import { TaskTagDisplay } from "./TaskTagDisplay";
-import { saveExistingTask, deleteTask, fetchTaskAuditEvents, fetchTask } from "../../api/tasks";
+import { saveExistingTask, deleteTask, fetchTaskAuditEvents, fetchTask, addTaskDependency, removeTaskDependency } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
 import { useTagContext } from "../../contexts/TagContext";
 import { useStatus } from "../../contexts/StatusContext";
@@ -77,6 +77,17 @@ function formatAuditEvent(event: TaskAuditEvent): string {
       changes.push(`Changed priority from ${fromPriority} to ${toPriority}`);
     }
 
+    // Description changes
+    if (changeDetails.Description) {
+      if (!changeDetails.Description.from && changeDetails.Description.to) {
+        changes.push(`Added description`);
+      } else if (changeDetails.Description.from && !changeDetails.Description.to) {
+        changes.push(`Removed description`);
+      } else {
+        changes.push(`Updated description`);
+      }
+    }
+
     // Reminder changes
     if (changeDetails.ReminderTime) {
       if (!changeDetails.ReminderTime.from && changeDetails.ReminderTime.to) {
@@ -104,12 +115,15 @@ function formatAuditEvent(event: TaskAuditEvent): string {
 export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogProps) {
   const [editedTask, setEditedTask] = useState<Task | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [showCardLink, setShowCardLink] = useState<boolean>(false);
   const [auditEvents, setAuditEvents] = useState<TaskAuditEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showTagEditor, setShowTagEditor] = useState(false);
   const [newTagInput, setNewTagInput] = useState("");
-  const { setRefreshTasks } = useTaskContext();
+  const [showDependencyEditor, setShowDependencyEditor] = useState(false);
+  const [dependencyFilter, setDependencyFilter] = useState("");
+  const { setRefreshTasks, tasks } = useTaskContext();
   const { tags: allTags } = useTagContext();
   const { getDefaultStatus, getCompleteStatus } = useStatus();
 
@@ -127,6 +141,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
             updated_at: new Date(task.updated_at),
             completed_at: task.completed_at ? new Date(task.completed_at) : null,
             reminder_time: task.reminder_time ? new Date(task.reminder_time) : null,
+            description: task.description || null,
             tags: task.tags || []
           };
           setEditedTask(processedTask);
@@ -157,6 +172,22 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (editedTask) {
       setEditedTask({ ...editedTask, title: e.target.value });
+    }
+  };
+
+  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (editedTask) {
+      setEditedTask({ ...editedTask, description: e.target.value || null });
+    }
+  };
+
+  const handleDescriptionSave = async () => {
+    if (!editedTask) return;
+
+    const response = await saveExistingTask(editedTask);
+    if (!("error" in response)) {
+      setRefreshTasks(true);
+      setIsEditingDescription(false);
     }
   };
 
@@ -265,6 +296,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
         updated_at: new Date(refreshedTask.updated_at),
         completed_at: refreshedTask.completed_at ? new Date(refreshedTask.completed_at) : null,
         reminder_time: refreshedTask.reminder_time ? new Date(refreshedTask.reminder_time) : null,
+        description: refreshedTask.description || null,
         tags: refreshedTask.tags || []
       };
       setEditedTask(processedTask);
@@ -282,6 +314,56 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
   const getCurrentTaskTags = (): Set<string> => {
     if (!editedTask) return new Set();
     return new Set(editedTask.tags.map(tag => tag.name.replace(/^#/, '')));
+  };
+
+  const handleAddDependency = async (blockingTaskId: number) => {
+    if (!editedTask) return;
+
+    try {
+      await addTaskDependency(editedTask.id, blockingTaskId);
+      // Refresh the task to get updated dependencies
+      const updatedTask = await fetchTask(editedTask.id.toString());
+      const processedTask = {
+        ...updatedTask,
+        scheduled_date: updatedTask.scheduled_date ? new Date(updatedTask.scheduled_date) : null,
+        due_date: updatedTask.due_date ? new Date(updatedTask.due_date) : null,
+        created_at: new Date(updatedTask.created_at),
+        updated_at: new Date(updatedTask.updated_at),
+        completed_at: updatedTask.completed_at ? new Date(updatedTask.completed_at) : null,
+        reminder_time: updatedTask.reminder_time ? new Date(updatedTask.reminder_time) : null,
+        description: updatedTask.description || null,
+        tags: updatedTask.tags || []
+      };
+      setEditedTask(processedTask);
+      setRefreshTasks(true);
+    } catch (error) {
+      console.error("Error adding dependency:", error);
+    }
+  };
+
+  const handleRemoveDependency = async (blockingTaskId: number) => {
+    if (!editedTask) return;
+
+    try {
+      await removeTaskDependency(editedTask.id, blockingTaskId);
+      // Refresh the task to get updated dependencies
+      const updatedTask = await fetchTask(editedTask.id.toString());
+      const processedTask = {
+        ...updatedTask,
+        scheduled_date: updatedTask.scheduled_date ? new Date(updatedTask.scheduled_date) : null,
+        due_date: updatedTask.due_date ? new Date(updatedTask.due_date) : null,
+        created_at: new Date(updatedTask.created_at),
+        updated_at: new Date(updatedTask.updated_at),
+        completed_at: updatedTask.completed_at ? new Date(updatedTask.completed_at) : null,
+        reminder_time: updatedTask.reminder_time ? new Date(updatedTask.reminder_time) : null,
+        description: updatedTask.description || null,
+        tags: updatedTask.tags || []
+      };
+      setEditedTask(processedTask);
+      setRefreshTasks(true);
+    } catch (error) {
+      console.error("Error removing dependency:", error);
+    }
   };
 
   return (
@@ -344,6 +426,46 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
               )}
             </div>
 
+            {/* Description section */}
+            <div className="mt-2">
+              {isEditingDescription ? (
+                <div className="space-y-2">
+                  <textarea
+                    value={editedTask.description || ""}
+                    onChange={handleDescriptionChange}
+                    placeholder="Add a description..."
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300 min-h-[100px] resize-y"
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleDescriptionSave}
+                      className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setIsEditingDescription(false)}
+                      className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="text-gray-600 cursor-pointer hover:bg-gray-50 p-2 rounded min-h-[40px]"
+                  onClick={() => setIsEditingDescription(true)}
+                >
+                  {editedTask.description ? (
+                    <p className="whitespace-pre-wrap">{editedTask.description}</p>
+                  ) : (
+                    <p className="text-gray-400 italic">Add a description...</p>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center gap-4 flex-wrap">
               <TaskStatusDisplay
                 task={editedTask}
@@ -378,6 +500,100 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
                 {showTagEditor ? '− Hide Tags' : '+ Add Tags'}
               </button>
             </div>
+
+            {/* Blocked By section */}
+            {editedTask.blocked_by && editedTask.blocked_by.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-medium text-gray-700">Blocked by:</span>
+                {editedTask.blocked_by.map((blockingTask) => (
+                  <div
+                    key={blockingTask.id}
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 rounded text-sm"
+                  >
+                    <span className={blockingTask.is_complete ? "line-through" : ""}>
+                      {blockingTask.title}
+                    </span>
+                    <button
+                      onClick={() => handleRemoveDependency(blockingTask.id)}
+                      className="ml-1 hover:text-orange-600"
+                      title="Remove blocker"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                setShowDependencyEditor(!showDependencyEditor);
+                if (showDependencyEditor) {
+                  setDependencyFilter("");
+                }
+              }}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              {showDependencyEditor ? '− Hide Blockers' : '+ Add Blocker'}
+            </button>
+
+            {showDependencyEditor && (
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Select tasks that block this task
+                </label>
+                <input
+                  type="text"
+                  value={dependencyFilter}
+                  onChange={(e) => setDependencyFilter(e.target.value)}
+                  placeholder="Filter tasks..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3 bg-white">
+                  {(() => {
+                    const availableTasks = tasks
+                      .filter(t => t.id !== editedTask.id && !t.is_complete)
+                      .filter(t => dependencyFilter === "" || t.title.toLowerCase().includes(dependencyFilter.toLowerCase()));
+
+                    if (availableTasks.length === 0) {
+                      return <p className="text-gray-500 text-sm text-center py-2">
+                        {dependencyFilter ? "No tasks match your search" : "No available tasks"}
+                      </p>;
+                    }
+
+                    return (
+                      <div className="space-y-2">
+                        {availableTasks.map((task) => {
+                          const isBlocking = editedTask.blocked_by?.some(bt => bt.id === task.id) || false;
+                          return (
+                            <button
+                              key={task.id}
+                              onClick={() => {
+                                if (isBlocking) {
+                                  handleRemoveDependency(task.id);
+                                } else {
+                                  handleAddDependency(task.id);
+                                }
+                              }}
+                              className={`w-full text-left px-3 py-2 rounded transition-colors ${
+                                isBlocking
+                                  ? 'bg-orange-100 text-orange-800 border border-orange-300'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span>{task.title}</span>
+                                {isBlocking && <span className="text-xs">✓ Blocking</span>}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
 
             {showTagEditor && (
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">

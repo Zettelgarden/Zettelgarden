@@ -217,6 +217,19 @@ export function TaskListItem({
               🔔
             </span>
           )}
+          {task.blocked_by && task.blocked_by.filter(bt => !bt.is_complete).length > 0 && (
+            <span
+              className="text-xs mr-1 px-1 rounded"
+              style={{
+                backgroundColor: '#fed7aa',
+                color: '#9a3412',
+                cursor: 'default'
+              }}
+              title={`Blocked by: ${task.blocked_by.filter(bt => !bt.is_complete).map(bt => bt.title).join(', ')}`}
+            >
+              🚧
+            </span>
+          )}
           <TaskTagDisplay task={task} tags={tags} onTagClick={onTagClick} onRemoveTag={handleRemoveTag} hideMatrixTags={hideMatrixTags} />
         </div>
       </div>

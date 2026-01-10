@@ -43,24 +43,34 @@ func (nt NullTime) MarshalJSON() ([]byte, error) {
 
 }
 
+type PartialTask struct {
+	ID         int    `json:"id"`
+	Title      string `json:"title"`
+	IsComplete bool   `json:"is_complete"`
+	Status     string `json:"status"`
+}
+
 type Task struct {
-	ID            int         `json:"id"`
-	CardPK        int         `json:"card_pk"`
-	UserID        int         `json:"user_id"`
-	ScheduledDate *time.Time  `json:"scheduled_date"`
-	DueDate       *time.Time  `json:"due_date"`
-	CreatedAt     time.Time   `json:"created_at"`
-	UpdatedAt     time.Time   `json:"updated_at"`
-	CompletedAt   *time.Time  `json:"completed_at"`
-	Title         string      `json:"title"`
-	Priority      *string     `json:"priority"`
-	Status        string      `json:"status"`
-	IsComplete    bool        `json:"is_complete"`
-	IsDeleted     bool        `json:"is_deleted"`
-	ReminderTime  *time.Time  `json:"reminder_time"`
-	ReminderSent  bool        `json:"reminder_sent"`
-	Card          PartialCard `json:"card"`
-	Tags          []Tag       `json:"tags"`
+	ID            int           `json:"id"`
+	CardPK        int           `json:"card_pk"`
+	UserID        int           `json:"user_id"`
+	ScheduledDate *time.Time    `json:"scheduled_date"`
+	DueDate       *time.Time    `json:"due_date"`
+	CreatedAt     time.Time     `json:"created_at"`
+	UpdatedAt     time.Time     `json:"updated_at"`
+	CompletedAt   *time.Time    `json:"completed_at"`
+	Title         string        `json:"title"`
+	Description   *string       `json:"description"`
+	Priority      *string       `json:"priority"`
+	Status        string        `json:"status"`
+	IsComplete    bool          `json:"is_complete"`
+	IsDeleted     bool          `json:"is_deleted"`
+	ReminderTime  *time.Time    `json:"reminder_time"`
+	ReminderSent  bool          `json:"reminder_sent"`
+	Card          PartialCard   `json:"card"`
+	Tags          []Tag         `json:"tags"`
+	BlockedBy     []PartialTask `json:"blocked_by"`
+	Blocks        []PartialTask `json:"blocks"`
 }
 
 type RecurringTask struct {

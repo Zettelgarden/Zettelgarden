@@ -23,6 +23,13 @@ export interface TaskAuditEvent {
   created_at: string | Date;
 }
 
+export interface PartialTask {
+  id: number;
+  title: string;
+  is_complete: boolean;
+  status: string;
+}
+
 export interface Task {
   id: number;
   card_pk: number;
@@ -33,6 +40,7 @@ export interface Task {
   updated_at: Date;
   completed_at: Date | null;
   title: string;
+  description: string | null;
   priority: string | null;
   status: string; // Dynamic status based on user configuration
   is_complete: boolean;
@@ -41,6 +49,8 @@ export interface Task {
   reminder_sent: boolean;
   card: PartialCard | null;
   tags: Tag[];
+  blocked_by: PartialTask[];
+  blocks: PartialTask[];
 }
 
 export interface TasksResponse {
@@ -60,6 +70,7 @@ export const emptyTask: Task = {
   scheduled_date: new Date(),
   completed_at: null,
   title: "",
+  description: null,
   priority: null,
   status: 'todo',
   is_complete: false,
@@ -68,4 +79,6 @@ export const emptyTask: Task = {
   reminder_sent: false,
   card: null,
   tags: [],
+  blocked_by: [],
+  blocks: [],
 };

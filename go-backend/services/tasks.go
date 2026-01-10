@@ -17,7 +17,7 @@ func GetTask(db *sql.DB, userID int, id int) (models.Task, error) {
 
 	err := db.QueryRow(`
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
-	created_at, updated_at, completed_at, title, priority, status, is_complete,
+	created_at, updated_at, completed_at, title, description, priority, status, is_complete,
 	reminder_time, reminder_sent
 	FROM
 	tasks
@@ -32,6 +32,7 @@ func GetTask(db *sql.DB, userID int, id int) (models.Task, error) {
 		&task.UpdatedAt,
 		&task.CompletedAt,
 		&task.Title,
+		&task.Description,
 		&task.Priority,
 		&task.Status,
 		&task.IsComplete,
@@ -48,6 +49,12 @@ func GetTask(db *sql.DB, userID int, id int) (models.Task, error) {
 			task.Card = card
 		}
 	}
+
+	// Load dependencies
+	if err := LoadTaskDependencies(db, &task); err != nil {
+		log.Printf("Error loading task dependencies: %v", err)
+	}
+
 	return task, nil
 }
 
@@ -60,7 +67,7 @@ func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeComplet
 	// Build base query
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
-	created_at, updated_at, completed_at, title, priority, status, is_complete,
+	created_at, updated_at, completed_at, title, description, priority, status, is_complete,
 	reminder_time, reminder_sent
 	FROM tasks
 	WHERE user_id = $` + fmt.Sprintf("%d", argIndex) + ` AND is_deleted = FALSE`
@@ -121,6 +128,7 @@ func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeComplet
 			&task.UpdatedAt,
 			&task.CompletedAt,
 			&task.Title,
+			&task.Description,
 			&task.Priority,
 			&task.Status,
 			&task.IsComplete,
@@ -136,6 +144,12 @@ func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeComplet
 				task.Card = card
 			}
 		}
+
+		// Load dependencies
+		if err := LoadTaskDependencies(db, &task); err != nil {
+			log.Printf("Error loading task dependencies: %v", err)
+		}
+
 		tasks = append(tasks, task)
 	}
 
@@ -193,7 +207,7 @@ func GetTasksByCard(db *sql.DB, userID int, cardPK int) ([]models.Task, error) {
 	var tasks []models.Task
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
-	created_at, updated_at, completed_at, title, priority, status, is_complete,
+	created_at, updated_at, completed_at, title, description, priority, status, is_complete,
 	reminder_time, reminder_sent
 	FROM
 	tasks
@@ -218,6 +232,7 @@ func GetTasksByCard(db *sql.DB, userID int, cardPK int) ([]models.Task, error) {
 			&task.UpdatedAt,
 			&task.CompletedAt,
 			&task.Title,
+			&task.Description,
 			&task.Priority,
 			&task.Status,
 			&task.IsComplete,
@@ -233,6 +248,12 @@ func GetTasksByCard(db *sql.DB, userID int, cardPK int) ([]models.Task, error) {
 				task.Card = card
 			}
 		}
+
+		// Load dependencies
+		if err := LoadTaskDependencies(db, &task); err != nil {
+			log.Printf("Error loading task dependencies: %v", err)
+		}
+
 		// Note: Tag loading will need to be handled by the handler that calls this
 		// since QueryTagsForTask is in the handlers package
 		tasks = append(tasks, task)
@@ -245,7 +266,7 @@ func GetTasksNeedingReminders(db *sql.DB) ([]models.Task, error) {
 	var tasks []models.Task
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
-	created_at, updated_at, completed_at, title, priority, status, is_complete,
+	created_at, updated_at, completed_at, title, description, priority, status, is_complete,
 	reminder_time, reminder_sent
 	FROM tasks
 	WHERE reminder_time <= NOW()
@@ -272,6 +293,7 @@ func GetTasksNeedingReminders(db *sql.DB) ([]models.Task, error) {
 			&task.UpdatedAt,
 			&task.CompletedAt,
 			&task.Title,
+			&task.Description,
 			&task.Priority,
 			&task.Status,
 			&task.IsComplete,
@@ -358,13 +380,14 @@ func UpdateTask(db *sql.DB, userID int, id int, task models.Task) (int, error) {
 			updated_at = NOW(),
 			completed_at = $4,
 			title = $5,
-			priority = $6,
-			status = $7,
-			is_complete = $8,
-			reminder_time = $9,
-			reminder_sent = $10
-		WHERE id = $11 AND user_id = $12 AND is_deleted = FALSE
-	`, task.CardPK, task.ScheduledDate, task.DueDate, completedAt, task.Title, task.Priority, task.Status, task.IsComplete, task.ReminderTime, reminderSent, id, userID)
+			description = $6,
+			priority = $7,
+			status = $8,
+			is_complete = $9,
+			reminder_time = $10,
+			reminder_sent = $11
+		WHERE id = $12 AND user_id = $13 AND is_deleted = FALSE
+	`, task.CardPK, task.ScheduledDate, task.DueDate, completedAt, task.Title, task.Description, task.Priority, task.Status, task.IsComplete, task.ReminderTime, reminderSent, id, userID)
 
 	if err != nil {
 		log.Printf("error: %v", err)
@@ -422,10 +445,10 @@ func CreateTask(db *sql.DB, task models.Task) (int, error) {
 	}
 
 	err := db.QueryRow(`
-	INSERT INTO tasks (card_pk, user_id, scheduled_date, due_date, created_at, updated_at, completed_at, title, priority, status, is_complete, is_deleted, reminder_time, reminder_sent)
-	VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, $7, $8, $9, FALSE, $10, FALSE)
+	INSERT INTO tasks (card_pk, user_id, scheduled_date, due_date, created_at, updated_at, completed_at, title, description, priority, status, is_complete, is_deleted, reminder_time, reminder_sent)
+	VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, $7, $8, $9, $10, FALSE, $11, FALSE)
 	RETURNING id
-	`, task.CardPK, task.UserID, task.ScheduledDate, task.DueDate, task.CompletedAt, task.Title, task.Priority, task.Status, task.IsComplete, task.ReminderTime).Scan(&taskID)
+	`, task.CardPK, task.UserID, task.ScheduledDate, task.DueDate, task.CompletedAt, task.Title, task.Description, task.Priority, task.Status, task.IsComplete, task.ReminderTime).Scan(&taskID)
 
 	if err != nil {
 		log.Printf("err %v", err)
@@ -553,6 +576,7 @@ func checkRecurringTasks(db *sql.DB, task models.Task) (int, error) {
 		DueDate:       &scheduledDate,
 		CompletedAt:   nil,
 		Title:         task.Title,
+		Description:   task.Description,
 		Priority:      task.Priority,
 		Status:        "todo",
 		IsComplete:    false,
@@ -562,4 +586,59 @@ func checkRecurringTasks(db *sql.DB, task models.Task) (int, error) {
 		return 0, err
 	}
 	return taskID, nil
+}
+
+// LoadTaskDependencies loads the blocked_by and blocks relationships for a task
+func LoadTaskDependencies(db *sql.DB, task *models.Task) error {
+	// Load tasks that block this task (blocked_by)
+	blockedByQuery := `
+		SELECT t.id, t.title, t.is_complete, t.status
+		FROM tasks t
+		INNER JOIN task_dependencies td ON t.id = td.blocking_task_id
+		WHERE td.task_id = $1 AND t.is_deleted = FALSE
+		ORDER BY t.created_at DESC
+	`
+	rows, err := db.Query(blockedByQuery, task.ID)
+	if err != nil {
+		log.Printf("Error loading blocked_by tasks: %v", err)
+		return err
+	}
+	defer rows.Close()
+
+	task.BlockedBy = []models.PartialTask{}
+	for rows.Next() {
+		var pt models.PartialTask
+		if err := rows.Scan(&pt.ID, &pt.Title, &pt.IsComplete, &pt.Status); err != nil {
+			log.Printf("Error scanning blocked_by task: %v", err)
+			continue
+		}
+		task.BlockedBy = append(task.BlockedBy, pt)
+	}
+
+	// Load tasks that this task blocks (blocks)
+	blocksQuery := `
+		SELECT t.id, t.title, t.is_complete, t.status
+		FROM tasks t
+		INNER JOIN task_dependencies td ON t.id = td.task_id
+		WHERE td.blocking_task_id = $1 AND t.is_deleted = FALSE
+		ORDER BY t.created_at DESC
+	`
+	rows, err = db.Query(blocksQuery, task.ID)
+	if err != nil {
+		log.Printf("Error loading blocks tasks: %v", err)
+		return err
+	}
+	defer rows.Close()
+
+	task.Blocks = []models.PartialTask{}
+	for rows.Next() {
+		var pt models.PartialTask
+		if err := rows.Scan(&pt.ID, &pt.Title, &pt.IsComplete, &pt.Status); err != nil {
+			log.Printf("Error scanning blocks task: %v", err)
+			continue
+		}
+		task.Blocks = append(task.Blocks, pt)
+	}
+
+	return nil
 }

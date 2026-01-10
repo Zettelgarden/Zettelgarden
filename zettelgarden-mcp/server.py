@@ -62,9 +62,17 @@ def format_task(task: dict) -> str:
         f"{status} {priority} {task.get('title', 'Untitled')} {scheduled} {card_ref}".strip(),
         f"   ID: {task.get('id')} | Status: {task.get('status', 'N/A')}",
     ]
+    if task.get("description"):
+        desc_preview = task["description"][:100] + "..." if len(task["description"]) > 100 else task["description"]
+        lines.append(f"   {desc_preview}")
     if task.get("tags"):
         tags = ", ".join(f"#{t['name']}" for t in (task["tags"] or []))
         lines.append(f"   Tags: {tags}")
+    if task.get("blocked_by"):
+        incomplete_blockers = [bt for bt in task["blocked_by"] if not bt.get("is_complete")]
+        if incomplete_blockers:
+            blocker_titles = ", ".join(bt.get("title", "Untitled") for bt in incomplete_blockers)
+            lines.append(f"   🚧 Blocked by: {blocker_titles}")
     return "\n".join(lines)
 
 
@@ -248,6 +256,10 @@ async def list_tools() -> list[Tool]:
                         "type": "string",
                         "description": "Task title"
                     },
+                    "description": {
+                        "type": "string",
+                        "description": "Task description (optional)"
+                    },
                     "scheduled_date": {
                         "type": "string",
                         "description": "Scheduled date (YYYY-MM-DD). Use 'today' for today."
@@ -266,7 +278,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="update_task",
-            description="Update a task's title, status, priority, scheduled date, or completion.",
+            description="Update a task's title, description, status, priority, scheduled date, or completion.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -277,6 +289,10 @@ async def list_tools() -> list[Tool]:
                     "title": {
                         "type": "string",
                         "description": "New title"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "New description"
                     },
                     "is_complete": {
                         "type": "boolean",
@@ -676,6 +692,10 @@ async def get_task(client: httpx.AsyncClient, args: dict) -> str:
         f"**Priority:** {task.get('priority', 'None')} | **Workflow Status:** {task.get('status', 'N/A')}",
     ]
 
+    if task.get("description"):
+        lines.append("")
+        lines.append(f"**Description:** {task['description']}")
+
     if task.get("scheduled_date"):
         lines.append(f"**Scheduled:** {task['scheduled_date'][:10]}")
     if task.get("dueDate"):
@@ -691,6 +711,21 @@ async def get_task(client: httpx.AsyncClient, args: dict) -> str:
         tags = ", ".join(f"#{t['name']}" for t in (task["tags"] or []))
         lines.append(f"**Tags:** {tags}")
 
+    # Dependencies
+    if task.get("blocked_by"):
+        lines.append("")
+        lines.append(f"**Blocked By ({len(task['blocked_by'])} tasks):**")
+        for bt in task["blocked_by"]:
+            status_icon = "✓" if bt.get("is_complete") else "○"
+            lines.append(f"  {status_icon} {bt.get('title', 'Untitled')} (id={bt.get('id')})")
+
+    if task.get("blocks"):
+        lines.append("")
+        lines.append(f"**Blocking ({len(task['blocks'])} tasks):**")
+        for bt in task["blocks"]:
+            status_icon = "✓" if bt.get("is_complete") else "○"
+            lines.append(f"  {status_icon} {bt.get('title', 'Untitled')} (id={bt.get('id')})")
+
     lines.append("")
     lines.append(f"**Created:** {task.get('created_at', '')[:10]} | **Updated:** {task.get('updated_at', '')[:10]}")
 
@@ -705,6 +740,7 @@ async def create_task(client: httpx.AsyncClient, args: dict) -> str:
 
     task_data = {
         "title": args.get("title", ""),
+        "description": args.get("description"),
         "priority": args.get("priority"),
         "card_pk": args.get("card_pk", 0),
         "is_complete": False
@@ -743,6 +779,7 @@ async def update_task(client: httpx.AsyncClient, args: dict) -> str:
         "card_pk": task.get("card_pk", 0),
         "user_id": task.get("user_id"),
         "title": task.get("title", ""),
+        "description": task.get("description"),
         "priority": task.get("priority"),
         "status": task.get("status", ""),
         "is_complete": task.get("is_complete", False),
@@ -754,6 +791,8 @@ async def update_task(client: httpx.AsyncClient, args: dict) -> str:
     # Apply updates from args
     if "title" in args:
         update_data["title"] = args["title"]
+    if "description" in args:
+        update_data["description"] = args["description"]
     if "is_complete" in args:
         update_data["is_complete"] = args["is_complete"]
     if "priority" in args:

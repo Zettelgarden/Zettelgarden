@@ -75,6 +75,7 @@ test("filter tasks by negated tags", () => {
       completed_at: null,
       is_deleted: false,
       priority: null,
+      description: null,
       card: null,
       reminder_time: null,
       reminder_sent: false
@@ -94,6 +95,7 @@ test("filter tasks by negated tags", () => {
       completed_at: null,
       is_deleted: false,
       priority: null,
+      description: null,
       card: null,
       reminder_time: null,
       reminder_sent: false
@@ -116,6 +118,7 @@ test("filter tasks by negated tags", () => {
       completed_at: null,
       is_deleted: false,
       priority: null,
+      description: null,
       card: null,
       reminder_time: null,
       reminder_sent: false
@@ -148,6 +151,7 @@ test("filter tasks by negated text", () => {
       completed_at: null,
       is_deleted: false,
       priority: null,
+      description: null,
       card: null,
       reminder_time: null,
       reminder_sent: false
@@ -167,6 +171,7 @@ test("filter tasks by negated text", () => {
       completed_at: null,
       is_deleted: false,
       priority: null,
+      description: null,
       card: null,
       reminder_time: null,
       reminder_sent: false
@@ -186,6 +191,7 @@ test("filter tasks by negated text", () => {
       completed_at: null,
       is_deleted: false,
       priority: null,
+      description: null,
       card: null,
       reminder_time: null,
       reminder_sent: false

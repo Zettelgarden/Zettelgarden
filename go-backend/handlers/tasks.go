@@ -374,3 +374,104 @@ func (s *Handler) GetTaskAuditEventsRoute(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(events)
 }
+
+// AddTaskDependencyRoute adds a blocking task dependency
+func (s *Handler) AddTaskDependencyRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	taskID, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil {
+		http.Error(w, "Invalid task ID", http.StatusBadRequest)
+		return
+	}
+
+	// Parse request body to get blocking_task_id
+	var requestBody struct {
+		BlockingTaskID int `json:"blocking_task_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	// Verify both tasks exist and belong to the user
+	_, err = s.QueryTask(userID, taskID)
+	if err != nil {
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	}
+
+	_, err = s.QueryTask(userID, requestBody.BlockingTaskID)
+	if err != nil {
+		http.Error(w, "Blocking task not found", http.StatusNotFound)
+		return
+	}
+
+	// Prevent self-blocking
+	if taskID == requestBody.BlockingTaskID {
+		http.Error(w, "A task cannot block itself", http.StatusBadRequest)
+		return
+	}
+
+	// Insert the dependency
+	_, err = s.DB.Exec(`
+		INSERT INTO task_dependencies (task_id, blocking_task_id)
+		VALUES ($1, $2)
+		ON CONFLICT (task_id, blocking_task_id) DO NOTHING
+	`, taskID, requestBody.BlockingTaskID)
+
+	if err != nil {
+		log.Printf("Error adding task dependency: %v", err)
+		http.Error(w, "Error adding dependency", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(models.GenericResponse{
+		Message: "Dependency added successfully",
+		Error:   false,
+	})
+}
+
+// RemoveTaskDependencyRoute removes a blocking task dependency
+func (s *Handler) RemoveTaskDependencyRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	taskID, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil {
+		http.Error(w, "Invalid task ID", http.StatusBadRequest)
+		return
+	}
+
+	blockingTaskID, err := strconv.Atoi(mux.Vars(r)["blocking_id"])
+	if err != nil {
+		http.Error(w, "Invalid blocking task ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify the task belongs to the user
+	_, err = s.QueryTask(userID, taskID)
+	if err != nil {
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	}
+
+	// Remove the dependency
+	result, err := s.DB.Exec(`
+		DELETE FROM task_dependencies
+		WHERE task_id = $1 AND blocking_task_id = $2
+	`, taskID, blockingTaskID)
+
+	if err != nil {
+		log.Printf("Error removing task dependency: %v", err)
+		http.Error(w, "Error removing dependency", http.StatusInternalServerError)
+		return
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		http.Error(w, "Dependency not found", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

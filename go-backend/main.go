@@ -215,6 +215,8 @@ func main() {
 	addProtectedRoute(r, "/api/tasks/{id}", h.UpdateTaskRoute, "PUT")
 	addProtectedRoute(r, "/api/tasks/{id}", h.DeleteTaskRoute, "DELETE")
 	addProtectedRoute(r, "/api/tasks/{id}/audit", h.GetTaskAuditEventsRoute, "GET")
+	addProtectedRoute(r, "/api/tasks/{id}/dependencies", h.AddTaskDependencyRoute, "POST")
+	addProtectedRoute(r, "/api/tasks/{id}/dependencies/{blocking_id}", h.RemoveTaskDependencyRoute, "DELETE")
 
 	addProtectedRoute(r, "/api/task-statuses", h.GetTaskStatusesRoute, "GET")
 	addProtectedRoute(r, "/api/task-statuses", h.CreateTaskStatusRoute, "POST")
