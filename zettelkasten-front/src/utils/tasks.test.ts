@@ -78,7 +78,9 @@ test("filter tasks by negated tags", () => {
       description: null,
       card: null,
       reminder_time: null,
-      reminder_sent: false
+      reminder_sent: false,
+      blocked_by: [],
+      blocks: []
     },
     {
       id: 2,
@@ -98,7 +100,9 @@ test("filter tasks by negated tags", () => {
       description: null,
       card: null,
       reminder_time: null,
-      reminder_sent: false
+      reminder_sent: false,
+      blocked_by: [],
+      blocks: []
     },
     {
       id: 3,
@@ -121,7 +125,9 @@ test("filter tasks by negated tags", () => {
       description: null,
       card: null,
       reminder_time: null,
-      reminder_sent: false
+      reminder_sent: false,
+      blocked_by: [],
+      blocks: []
     }
   ];
 
@@ -154,7 +160,9 @@ test("filter tasks by negated text", () => {
       description: null,
       card: null,
       reminder_time: null,
-      reminder_sent: false
+      reminder_sent: false,
+      blocked_by: [],
+      blocks: []
     },
     {
       id: 2,
@@ -174,7 +182,9 @@ test("filter tasks by negated text", () => {
       description: null,
       card: null,
       reminder_time: null,
-      reminder_sent: false
+      reminder_sent: false,
+      blocked_by: [],
+      blocks: []
     },
     {
       id: 3,
@@ -194,7 +204,9 @@ test("filter tasks by negated text", () => {
       description: null,
       card: null,
       reminder_time: null,
-      reminder_sent: false
+      reminder_sent: false,
+      blocked_by: [],
+      blocks: []
     }
   ];
 

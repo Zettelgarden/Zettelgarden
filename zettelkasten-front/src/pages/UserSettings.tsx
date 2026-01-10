@@ -11,6 +11,7 @@ import { setDocumentTitle } from "../utils/title";
 import { TagList } from "../components/tags/TagList";
 import { FileVault } from "./FileVault";
 import { StatusManagement } from "../components/settings/StatusManagement";
+import { TimezoneSelector } from "../components/settings/TimezoneSelector";
 
 type Tab = "profile" | "templates" | "tags" | "files" | "statuses";
 
@@ -21,6 +22,7 @@ export function UserSettingsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [userMemory, setUserMemory] = useState<string | null>(null);
   const [billingUrl, setBillingUrl] = useState<string | null>(null);
+  const [timezone, setTimezone] = useState<string>("UTC");
 
   const navigate = useNavigate();
   const { user, hasSubscription, updateUser, logoutUser } = useAuth();
@@ -43,6 +45,7 @@ export function UserSettingsPage() {
       ...user,
       username: updatedUsername,
       email: updatedEmail,
+      timezone: timezone,
     };
 
     try {
@@ -75,6 +78,7 @@ export function UserSettingsPage() {
 
   const subscriptionEnabled =
     import.meta.env.VITE_FEATURE_SUBSCRIPTION === "true";
+
   useEffect(() => {
     async function fetchBillingUrl() {
       try {
@@ -101,6 +105,12 @@ export function UserSettingsPage() {
     fetchUserMemory();
   }, [subscriptionEnabled]);
 
+  useEffect(() => {
+    if (user?.timezone) {
+      setTimezone(user.timezone);
+    }
+  }, [user]);
+
   const renderTabContent = () => {
     switch (activeTab) {
       case "profile":
@@ -108,22 +118,34 @@ export function UserSettingsPage() {
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold mb-4">Profile Settings</h2>
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label>
+                  <label className="block text-sm font-medium text-gray-700">
                     Username:
                     <input
                       type="text"
                       name="username"
                       defaultValue={user?.username}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     />
                   </label>
                 </div>
                 <div>
-                  <label>
+                  <label className="block text-sm font-medium text-gray-700">
                     Email:
-                    <input type="email" name="email" defaultValue={user?.email} />
+                    <input
+                      type="email"
+                      name="email"
+                      defaultValue={user?.email}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
                   </label>
+                </div>
+                <div>
+                  <TimezoneSelector
+                    value={timezone}
+                    onChange={setTimezone}
+                  />
                 </div>
                 <button
                   type="submit"

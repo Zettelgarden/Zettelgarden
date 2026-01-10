@@ -23,6 +23,8 @@ const createTask = (overrides: Partial<Task>): Task => ({
   card: null,
   reminder_time: null,
   reminder_sent: false,
+  blocked_by: [],
+  blocks: [],
   ...overrides
 });
 

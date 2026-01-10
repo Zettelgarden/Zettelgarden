@@ -25,6 +25,7 @@ export interface User {
   llm_cost: number;
   revenue: number;
   has_seen_getting_started: boolean;
+  timezone: string;
 }
 export const defaultUser: User = {
   id: 0,
@@ -53,6 +54,7 @@ export const defaultUser: User = {
   llm_cost: 0,
   revenue: 0,
   has_seen_getting_started: false,
+  timezone: "UTC",
 };
 
 export interface UserSubscription {
@@ -71,6 +73,7 @@ export interface EditUserParams {
   is_admin: boolean;
   dashboard_card_pk: number;
   has_seen_getting_started: boolean;
+  timezone: string;
 }
 
 export interface CreateUserParams {
