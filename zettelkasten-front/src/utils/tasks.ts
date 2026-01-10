@@ -165,12 +165,16 @@ export function filterTasks(input: Task[], filterString: string): Task[] {
       const termWithoutNegation = isNegation ? term.substring(1) : term;
       const lowerTerm = termWithoutNegation.toLowerCase();
 
-      // Has filtering (e.g., has:reminder)
+      // Has filtering (e.g., has:reminder, has:description)
       if (lowerTerm.startsWith('has:')) {
         const hasValue = lowerTerm.substring('has:'.length);
         if (hasValue === 'reminder') {
           const hasReminder = task.reminder_time !== null;
           return isNegation ? !hasReminder : hasReminder;
+        }
+        if (hasValue === 'description') {
+          const hasDescription = task.description !== null && task.description.trim() !== '';
+          return isNegation ? !hasDescription : hasDescription;
         }
       }
 
