@@ -59,7 +59,7 @@ func GetTask(db *sql.DB, userID int, id int) (models.Task, error) {
 }
 
 // GetTasksPaginated retrieves tasks for a user with pagination and filtering
-func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeCompleted bool, cardID *int, priority *string, scheduledDate *time.Time, completedDate *time.Time, status *string) ([]models.Task, int, error) {
+func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeCompleted bool, cardID *int, priority *string, scheduledDate *time.Time, completedDate *time.Time, status *string, timezone string) ([]models.Task, int, error) {
 	var tasks []models.Task
 	var args []interface{}
 	argIndex := 1
@@ -94,14 +94,14 @@ func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeComplet
 		argIndex++
 	}
 	if scheduledDate != nil {
-		query += ` AND DATE(scheduled_date) = DATE($` + fmt.Sprintf("%d", argIndex) + `)`
-		args = append(args, *scheduledDate)
-		argIndex++
+		query += ` AND DATE(scheduled_date AT TIME ZONE $` + fmt.Sprintf("%d", argIndex) + `) = DATE($` + fmt.Sprintf("%d", argIndex+1) + `)`
+		args = append(args, timezone, *scheduledDate)
+		argIndex += 2
 	}
 	if completedDate != nil {
-		query += ` AND DATE(completed_at) = DATE($` + fmt.Sprintf("%d", argIndex) + `)`
-		args = append(args, *completedDate)
-		argIndex++
+		query += ` AND DATE(completed_at AT TIME ZONE $` + fmt.Sprintf("%d", argIndex) + `) = DATE($` + fmt.Sprintf("%d", argIndex+1) + `)`
+		args = append(args, timezone, *completedDate)
+		argIndex += 2
 	}
 
 	// Add ordering and pagination
@@ -177,13 +177,13 @@ func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeComplet
 		argIndex++
 	}
 	if scheduledDate != nil {
-		countQuery += ` AND DATE(scheduled_date) = DATE($` + fmt.Sprintf("%d", argIndex) + `)`
-		countArgs = append(countArgs, *scheduledDate)
-		argIndex++
+		countQuery += ` AND DATE(scheduled_date AT TIME ZONE $` + fmt.Sprintf("%d", argIndex) + `) = DATE($` + fmt.Sprintf("%d", argIndex+1) + `)`
+		countArgs = append(countArgs, timezone, *scheduledDate)
+		argIndex += 2
 	}
 	if completedDate != nil {
-		countQuery += ` AND DATE(completed_at) = DATE($` + fmt.Sprintf("%d", argIndex) + `)`
-		countArgs = append(countArgs, *completedDate)
+		countQuery += ` AND DATE(completed_at AT TIME ZONE $` + fmt.Sprintf("%d", argIndex) + `) = DATE($` + fmt.Sprintf("%d", argIndex+1) + `)`
+		countArgs = append(countArgs, timezone, *completedDate)
 	}
 
 	var total int
@@ -197,8 +197,8 @@ func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeComplet
 }
 
 // GetTasks retrieves all tasks for a user, optionally including completed tasks
-func GetTasks(db *sql.DB, userID int, includeCompleted bool) ([]models.Task, error) {
-	tasks, _, err := GetTasksPaginated(db, userID, 1000, 0, includeCompleted, nil, nil, nil, nil, nil)
+func GetTasks(db *sql.DB, userID int, includeCompleted bool, timezone string) ([]models.Task, error) {
+	tasks, _, err := GetTasksPaginated(db, userID, 1000, 0, includeCompleted, nil, nil, nil, nil, nil, timezone)
 	return tasks, err
 }
 

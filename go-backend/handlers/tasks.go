@@ -35,7 +35,11 @@ func (s *Handler) QueryTask(userID int, id int) (models.Task, error) {
 }
 
 func (s *Handler) QueryTasks(userID int, includeCompleted bool) ([]models.Task, error) {
-	tasks, err := services.GetTasks(s.DB, userID, includeCompleted)
+	userTimezone, tzErr := s.GetUserTimezone(userID)
+	if tzErr != nil {
+		userTimezone = "UTC" // Fallback to UTC on error
+	}
+	tasks, err := services.GetTasks(s.DB, userID, includeCompleted, userTimezone)
 	if err != nil {
 		return []models.Task{}, err
 	}
@@ -49,8 +53,7 @@ func (s *Handler) QueryTasks(userID int, includeCompleted bool) ([]models.Task, 
 	}
 
 	// Convert task times to user's timezone
-	userTimezone, err := s.GetUserTimezone(userID)
-	if err == nil {
+	if tzErr == nil {
 		for i := range tasks {
 			services.ConvertTaskTimesToUserTimezone(&tasks[i], userTimezone)
 		}
@@ -59,8 +62,8 @@ func (s *Handler) QueryTasks(userID int, includeCompleted bool) ([]models.Task, 
 	return tasks, nil
 }
 
-func (s *Handler) QueryTasksPaginated(userID int, limit, offset int, includeCompleted bool, cardID *int, priority *string) ([]models.Task, int, error) {
-	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority, nil, nil, nil)
+func (s *Handler) QueryTasksPaginated(userID int, limit, offset int, includeCompleted bool, cardID *int, priority *string, timezone string) ([]models.Task, int, error) {
+	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority, nil, nil, nil, timezone)
 	if err != nil {
 		return []models.Task{}, 0, err
 	}
@@ -179,7 +182,11 @@ func (s *Handler) GetTasksRoute(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority, scheduledDate, completedDate, status)
+	userTimezone, err := s.GetUserTimezone(userID)
+	if err != nil {
+		userTimezone = "UTC" // Fallback to UTC on error
+	}
+	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority, scheduledDate, completedDate, status, userTimezone)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

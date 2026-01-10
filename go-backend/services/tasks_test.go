@@ -273,7 +273,7 @@ func TestGetTasks(t *testing.T) {
 	}
 
 	// Get all tasks (including completed)
-	allTasks, err := GetTasks(s.DB, userID, true)
+	allTasks, err := GetTasks(s.DB, userID, true, "UTC")
 	if err != nil {
 		t.Fatalf("GetTasks failed: %v", err)
 	}
@@ -283,7 +283,7 @@ func TestGetTasks(t *testing.T) {
 	}
 
 	// Get only incomplete tasks
-	incompleteTasks, err := GetTasks(s.DB, userID, false)
+	incompleteTasks, err := GetTasks(s.DB, userID, false, "UTC")
 	if err != nil {
 		t.Fatalf("GetTasks failed: %v", err)
 	}

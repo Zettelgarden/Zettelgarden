@@ -1036,7 +1036,7 @@ func handleGetTasks(args map[string]interface{}, ctx *ToolContext) (map[string]i
 		cardPK := int(cardPKFloat)
 		tasks, err = GetTasksByCard(ctx.DB, ctx.UserID, cardPK)
 	} else {
-		tasks, err = GetTasks(ctx.DB, ctx.UserID, includeCompleted)
+		tasks, err = GetTasks(ctx.DB, ctx.UserID, includeCompleted, "UTC")
 	}
 	log.Printf("tasks")
 	for _, task := range tasks {
