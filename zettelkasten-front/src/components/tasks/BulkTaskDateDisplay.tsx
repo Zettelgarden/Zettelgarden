@@ -44,9 +44,7 @@ export function BulkTaskDateDisplay({
         e: React.ChangeEvent<HTMLInputElement>,
     ) {
         const newDate = new Date(e.target.value);
-        const localTimezoneOffset = newDate.getTimezoneOffset();
-        const utcDate = new Date(newDate.getTime() + localTimezoneOffset * 60000);
-        updateTasks(utcDate);
+        updateTasks(newDate);
     }
 
     async function setNoDate() {

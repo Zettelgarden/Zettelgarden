@@ -62,11 +62,9 @@ export function TaskDueDateDisplay({
     e: React.ChangeEvent<HTMLInputElement>,
   ) {
     const newDate = new Date(e.target.value);
-    const localTimezoneOffset = newDate.getTimezoneOffset();
-    const utcDate = new Date(newDate.getTime() + localTimezoneOffset * 60000);
 
     setSelectedDate(newDate.toISOString().substr(0, 10));
-    let editedTask = { ...task, due_date: utcDate };
+    let editedTask = { ...task, due_date: newDate };
 
     updateTask(editedTask);
 

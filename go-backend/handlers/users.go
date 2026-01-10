@@ -325,13 +325,13 @@ func (s *Handler) QueryUsers() ([]models.User, error) {
 			&user.LastSeen,
 			&user.DashboardCardPK,
 			&user.HasSeenGettingStarted,
+			&user.Timezone,
 			&user.CardCount,
 			&user.TaskCount,
 			&user.FileCount,
 			&user.ChatMessageCount,
 			&user.LLMCost,
 			&user.Revenue,
-			&user.Timezone,
 		); err != nil {
 			return users, err
 		}

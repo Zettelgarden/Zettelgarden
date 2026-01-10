@@ -61,11 +61,9 @@ export function TaskDateDisplay({
   ) {
     console.log(e);
     const newDate = new Date(e.target.value);
-    const localTimezoneOffset = newDate.getTimezoneOffset();
-    const utcDate = new Date(newDate.getTime() + localTimezoneOffset * 60000);
 
     setSelectedDate(newDate.toISOString().substr(0, 10)); // Update selected date in the state
-    let editedTask = { ...task, scheduled_date: utcDate };
+    let editedTask = { ...task, scheduled_date: newDate };
 
     updateTask(editedTask);
 
