@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"go-backend/mail"
 	"go-backend/models"
@@ -33,9 +34,10 @@ func SendTaskReminders(db *sql.DB, mailClient *mail.MailClient) error {
 	}
 
 	for _, task := range tasks {
-		// Get user email
+		// Get user email and timezone
 		var userEmail string
-		err := db.QueryRow("SELECT email FROM users WHERE id = $1", task.UserID).Scan(&userEmail)
+		var userTimezone sql.NullString
+		err := db.QueryRow("SELECT email, timezone FROM users WHERE id = $1", task.UserID).Scan(&userEmail, &userTimezone)
 		if err != nil {
 			log.Printf("Failed to get email for user %d: %v", task.UserID, err)
 			failCount++
@@ -48,9 +50,15 @@ func SendTaskReminders(db *sql.DB, mailClient *mail.MailClient) error {
 			continue
 		}
 
+		// Get user's timezone, default to UTC if not set
+		timezone := "UTC"
+		if userTimezone.Valid && userTimezone.String != "" {
+			timezone = userTimezone.String
+		}
+
 		// Build email body
 		subject := fmt.Sprintf("Reminder: %s", task.Title)
-		body := buildReminderEmailBody(task, frontendURL)
+		body := buildReminderEmailBody(task, frontendURL, timezone)
 
 		// Send email
 		err = mailClient.SendHTMLEmail(subject, userEmail, body)
@@ -77,7 +85,13 @@ func SendTaskReminders(db *sql.DB, mailClient *mail.MailClient) error {
 }
 
 // buildReminderEmailBody creates the HTML email body for a task reminder
-func buildReminderEmailBody(task models.Task, frontendURL string) string {
+func buildReminderEmailBody(task models.Task, frontendURL string, timezone string) string {
+	// Load user's timezone
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		log.Printf("Failed to load timezone %s, falling back to UTC: %v", timezone, err)
+		loc = time.UTC
+	}
 	body := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
@@ -105,12 +119,14 @@ func buildReminderEmailBody(task models.Task, frontendURL string) string {
 
 	// Add due date if it exists
 	if task.DueDate != nil {
-		body += fmt.Sprintf(`            <p><span class="info-label">Due:</span> %s</p>`, task.DueDate.Format("Monday, January 2, 2006 at 3:04 PM"))
+		localTime := task.DueDate.In(loc)
+		body += fmt.Sprintf(`            <p><span class="info-label">Due:</span> %s (%s)</p>`, localTime.Format("Monday, January 2, 2006 at 3:04 PM"), timezone)
 	}
 
 	// Add scheduled date if it exists
 	if task.ScheduledDate != nil {
-		body += fmt.Sprintf(`            <p><span class="info-label">Scheduled:</span> %s</p>`, task.ScheduledDate.Format("Monday, January 2, 2006 at 3:04 PM"))
+		localTime := task.ScheduledDate.In(loc)
+		body += fmt.Sprintf(`            <p><span class="info-label">Scheduled:</span> %s (%s)</p>`, localTime.Format("Monday, January 2, 2006 at 3:04 PM"), timezone)
 	}
 
 	// Add priority if it exists

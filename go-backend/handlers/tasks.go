@@ -25,6 +25,12 @@ func (s *Handler) QueryTask(userID int, id int) (models.Task, error) {
 		task.Tags = tags
 	}
 
+	// Convert task times to user's timezone
+	userTimezone, err := s.GetUserTimezone(userID)
+	if err == nil {
+		services.ConvertTaskTimesToUserTimezone(&task, userTimezone)
+	}
+
 	return task, nil
 }
 
@@ -39,6 +45,14 @@ func (s *Handler) QueryTasks(userID int, includeCompleted bool) ([]models.Task, 
 		tags, err := s.QueryTagsForTask(userID, tasks[i].ID)
 		if err == nil {
 			tasks[i].Tags = tags
+		}
+	}
+
+	// Convert task times to user's timezone
+	userTimezone, err := s.GetUserTimezone(userID)
+	if err == nil {
+		for i := range tasks {
+			services.ConvertTaskTimesToUserTimezone(&tasks[i], userTimezone)
 		}
 	}
 
@@ -59,6 +73,14 @@ func (s *Handler) QueryTasksPaginated(userID int, limit, offset int, includeComp
 		}
 	}
 
+	// Convert task times to user's timezone
+	userTimezone, err := s.GetUserTimezone(userID)
+	if err == nil {
+		for i := range tasks {
+			services.ConvertTaskTimesToUserTimezone(&tasks[i], userTimezone)
+		}
+	}
+
 	return tasks, total, nil
 }
 func (s *Handler) QueryTasksByCard(userID int, cardPK int) ([]models.Task, error) {
@@ -72,6 +94,14 @@ func (s *Handler) QueryTasksByCard(userID int, cardPK int) ([]models.Task, error
 		tags, err := s.QueryTagsForTask(userID, tasks[i].ID)
 		if err == nil {
 			tasks[i].Tags = tags
+		}
+	}
+
+	// Convert task times to user's timezone
+	userTimezone, err := s.GetUserTimezone(userID)
+	if err == nil {
+		for i := range tasks {
+			services.ConvertTaskTimesToUserTimezone(&tasks[i], userTimezone)
 		}
 	}
 
@@ -242,6 +272,14 @@ func (s *Handler) UpdateTaskRoute(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Convert times from user's timezone to UTC for storage
+	userTimezone, err := s.GetUserTimezone(userID)
+	if err == nil {
+		task.ScheduledDate = services.ConvertFromUserTimezoneToUTC(task.ScheduledDate, userTimezone)
+		task.DueDate = services.ConvertFromUserTimezoneToUTC(task.DueDate, userTimezone)
+		task.ReminderTime = services.ConvertFromUserTimezoneToUTC(task.ReminderTime, userTimezone)
+	}
+
 	err = s.UpdateTask(userID, id, task)
 	if err != nil {
 		log.Printf("error %v", err)
@@ -313,6 +351,14 @@ func (s *Handler) CreateTaskRoute(w http.ResponseWriter, r *http.Request) {
 	log.Printf("creating task with priority: %v", task.Priority)
 	// Ensure the user ID is set correctly
 	task.UserID = userID
+
+	// Convert times from user's timezone to UTC for storage
+	userTimezone, err := s.GetUserTimezone(userID)
+	if err == nil {
+		task.ScheduledDate = services.ConvertFromUserTimezoneToUTC(task.ScheduledDate, userTimezone)
+		task.DueDate = services.ConvertFromUserTimezoneToUTC(task.DueDate, userTimezone)
+		task.ReminderTime = services.ConvertFromUserTimezoneToUTC(task.ReminderTime, userTimezone)
+	}
 
 	taskID, err := s.CreateTask(task)
 	if err != nil {
@@ -474,4 +520,20 @@ func (s *Handler) RemoveTaskDependencyRoute(w http.ResponseWriter, r *http.Reque
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// GetUserTimezone returns the timezone string for a user
+func (s *Handler) GetUserTimezone(userID int) (string, error) {
+	var timezone string
+	err := s.DB.QueryRow("SELECT timezone FROM users WHERE id = $1", userID).Scan(&timezone)
+	if err != nil {
+		log.Printf("Failed to get timezone for user %d: %v", userID, err)
+		return "UTC", err // Return UTC as fallback on error
+	}
+
+	if timezone == "" {
+		timezone = "UTC" // Default fallback
+	}
+
+	return timezone, nil
 }
