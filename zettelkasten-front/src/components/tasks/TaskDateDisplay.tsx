@@ -14,6 +14,7 @@ import {
 } from "../../utils/dates";
 import { saveExistingTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface TaskDateDisplayProps {
   task: Task;
@@ -27,6 +28,8 @@ export function TaskDateDisplay({
   saveOnChange,
 }: TaskDateDisplayProps) {
   const { setRefreshTasks, updateTask: updateTaskInContext } = useTaskContext();
+  const { user } = useAuth();
+  const userTimezone = user?.timezone || "UTC";
   const [displayText, setDisplayText] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(
     task.scheduled_date ? task.scheduled_date.toISOString().substr(0, 10) : "",
@@ -72,7 +75,7 @@ export function TaskDateDisplay({
   }
 
   const getDisplayColor = () => {
-    if (!task.is_complete && isPast(task.scheduled_date)) {
+    if (!task.is_complete && isPast(task.scheduled_date, userTimezone)) {
       return "#EF4444"; // red
     }
     switch (displayText) {
@@ -119,19 +122,19 @@ export function TaskDateDisplay({
     setSelectedDate("");
   }
   async function setToday() {
-    let editedTask = { ...task, scheduled_date: getToday() };
+    let editedTask = { ...task, scheduled_date: getToday(userTimezone) };
     updateTask(editedTask);
     setDisplayDatePicker(false);
     setSelectedDate("");
   }
   async function setTomorrow() {
-    let editedTask = { ...task, scheduled_date: getTomorrow() };
+    let editedTask = { ...task, scheduled_date: getTomorrow(userTimezone) };
     updateTask(editedTask);
     setDisplayDatePicker(false);
     setSelectedDate("");
   }
   async function setNextWeek() {
-    let editedTask = { ...task, scheduled_date: getNextWeek() };
+    let editedTask = { ...task, scheduled_date: getNextWeek(userTimezone) };
     updateTask(editedTask);
     setDisplayDatePicker(false);
     setSelectedDate("");
