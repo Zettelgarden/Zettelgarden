@@ -291,6 +291,7 @@ func (s *Handler) QueryUsers() ([]models.User, error) {
 	u.is_admin, u.email_validated, u.can_upload_files,
 	u.stripe_subscription_status, u.max_file_storage, u.last_login,
 	u.last_seen, u.dashboard_card_pk, u.has_seen_getting_started,
+	COALESCE(u.timezone, 'UTC') as timezone,
 	(SELECT COUNT(*) FROM cards c WHERE c.user_id = u.id) as cards,
 	(SELECT COUNT(*) FROM tasks t WHERE t.user_id = u.id) as tasks,
 	(SELECT COUNT(*) FROM files f WHERE f.created_by = u.id) as files,
@@ -330,6 +331,7 @@ func (s *Handler) QueryUsers() ([]models.User, error) {
 			&user.ChatMessageCount,
 			&user.LLMCost,
 			&user.Revenue,
+			&user.Timezone,
 		); err != nil {
 			return users, err
 		}
@@ -355,7 +357,7 @@ func (s *Handler) QueryUserByEmail(email string) (models.User, error) {
 	id, username, email, password, created_at, updated_at,
 	is_admin, email_validated, can_upload_files,
 	stripe_subscription_status, max_file_storage, last_login,
-	last_seen, dashboard_card_pk, has_seen_getting_started
+	last_seen, dashboard_card_pk, has_seen_getting_started, COALESCE(timezone, 'UTC')
 	FROM users WHERE email = $1
 	`, email).Scan(
 		&user.ID,
@@ -373,6 +375,7 @@ func (s *Handler) QueryUserByEmail(email string) (models.User, error) {
 		&user.LastSeen,
 		&user.DashboardCardPK,
 		&user.HasSeenGettingStarted,
+		&user.Timezone,
 	)
 	if err != nil {
 		log.Printf("err %v", err)
@@ -395,7 +398,7 @@ func (s *Handler) QueryUserByStripeID(stripeID string) (models.User, error) {
 	id, username, email, password, created_at, updated_at,
 	is_admin, email_validated, can_upload_files,
 	stripe_subscription_status, max_file_storage, last_login,
-	last_seen, dashboard_card_pk, has_seen_getting_started
+	last_seen, dashboard_card_pk, has_seen_getting_started, COALESCE(timezone, 'UTC')
 	FROM users WHERE stripe_customer_id = $1
 	`, stripeID).Scan(
 		&user.ID,
@@ -413,6 +416,7 @@ func (s *Handler) QueryUserByStripeID(stripeID string) (models.User, error) {
 		&user.LastSeen,
 		&user.DashboardCardPK,
 		&user.HasSeenGettingStarted,
+		&user.Timezone,
 	)
 	if err != nil {
 		log.Printf("err %v", err)
@@ -433,7 +437,7 @@ func (s *Handler) QueryUser(id int) (models.User, error) {
 	id, username, email, password, created_at, updated_at,
 	is_admin, email_validated, can_upload_files,
 	stripe_subscription_status, max_file_storage, last_login,
-	last_seen, dashboard_card_pk, has_seen_getting_started
+	last_seen, dashboard_card_pk, has_seen_getting_started, COALESCE(timezone, 'UTC')
 	FROM users WHERE id = $1
 	`, id).Scan(
 		&user.ID,
@@ -451,6 +455,7 @@ func (s *Handler) QueryUser(id int) (models.User, error) {
 		&user.LastSeen,
 		&user.DashboardCardPK,
 		&user.HasSeenGettingStarted,
+		&user.Timezone,
 	)
 	if err != nil {
 		log.Printf("errsd %v", err)
@@ -469,9 +474,9 @@ func (s *Handler) UpdateUser(id int, user models.User, params models.EditUserPar
 
 	query := `
 	UPDATE users SET username = $1, email = $2, is_admin = $3, updated_at = NOW(),
-        dashboard_card_pk = $4, has_seen_getting_started = $5
+        dashboard_card_pk = $4, has_seen_getting_started = $5, timezone = $6
 	WHERE
-	id = $6
+	id = $7
 	`
 	_, err := s.DB.Exec(
 		query,
@@ -480,6 +485,7 @@ func (s *Handler) UpdateUser(id int, user models.User, params models.EditUserPar
 		params.IsAdmin,
 		params.DashboardCardPK,
 		params.HasSeenGettingStarted,
+		params.Timezone,
 		id,
 	)
 	if err != nil {

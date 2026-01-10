@@ -30,6 +30,7 @@ type User struct {
 	LLMCost                     float64    `json:"llm_cost"`
 	Revenue                     float64    `json:"revenue"`
 	HasSeenGettingStarted       bool       `json:"has_seen_getting_started"`
+	Timezone                    string     `json:"timezone"`
 }
 
 type UserSubscription struct {
@@ -48,6 +49,7 @@ type EditUserParams struct {
 	IsAdmin               bool   `json:"is_admin"`
 	DashboardCardPK       int    `json:"dashboard_card_pk"`
 	HasSeenGettingStarted bool   `json:"has_seen_getting_started"`
+	Timezone              string `json:"timezone"`
 }
 
 type CreateUserParams struct {

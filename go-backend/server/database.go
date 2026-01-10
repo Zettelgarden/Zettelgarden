@@ -74,6 +74,8 @@ func ResetDatabase(S *Server) error {
 
 			DROP INDEX IF EXISTS idx_task_statuses_user;
 			DROP INDEX IF EXISTS idx_task_statuses_position;
+			DROP INDEX IF EXISTS idx_task_dependencies_task_id;
+			DROP INDEX IF EXISTS idx_task_dependencies_blocking_task_id;
 
 
 			CREATE TABLE IF NOT EXISTS migrations (

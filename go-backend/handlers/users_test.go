@@ -489,3 +489,117 @@ func TestValidateEmail(t *testing.T) {
 	}
 
 }
+
+func TestUserTimezoneDefaultsToUTC(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	// Get existing user
+	user, err := s.QueryUser(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify timezone defaults to UTC
+	if user.Timezone != "UTC" {
+		t.Errorf("user timezone should default to UTC, got %v", user.Timezone)
+	}
+}
+
+func TestUserTimezoneInAPIResponse(t *testing.T) {
+	_ = setup()
+	defer tests.Teardown()
+
+	rr := makeUserRequestSuccess(t, 1)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var user models.User
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &user)
+
+	// Verify timezone is in response
+	if user.Timezone == "" {
+		t.Error("user timezone should be included in API response")
+	}
+	if user.Timezone != "UTC" {
+		t.Errorf("user timezone should be UTC, got %v", user.Timezone)
+	}
+}
+
+func TestUpdateUserTimezone(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+	expectedTimezone := "America/New_York"
+
+	newData := map[string]interface{}{
+		"username": "testuser",
+		"email":    "test@example.com",
+		"is_admin": true,
+		"timezone": expectedTimezone,
+	}
+	jsonData, err := json.Marshal(newData)
+	if err != nil {
+		t.Fatalf("Error marshalling JSON: %v", err)
+	}
+
+	req, err := http.NewRequest("PUT", "/api/users/1", bytes.NewBuffer(jsonData))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", "1")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/users/{id}", s.JwtMiddleware(s.UpdateUserRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		log.Printf("err %v", rr.Body.String())
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// Verify timezone was updated
+	user, err := s.QueryUser(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if user.Timezone != expectedTimezone {
+		t.Errorf("user timezone not updated correctly, got %v want %v", user.Timezone, expectedTimezone)
+	}
+}
+
+func TestGetCurrentUserIncludesTimezone(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+	req, err := http.NewRequest("GET", "/api/current", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.GetCurrentUserRoute))
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var user models.User
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &user)
+
+	if user.Timezone == "" {
+		t.Error("current user endpoint should include timezone")
+	}
+	if user.Timezone != "UTC" {
+		t.Errorf("user timezone should default to UTC, got %v", user.Timezone)
+	}
+}
