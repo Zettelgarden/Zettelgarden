@@ -206,6 +206,14 @@ func (s *Handler) GetTasksRoute(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Convert task times to user's timezone
+	if userTimezone == "" {
+		userTimezone = "UTC"
+	}
+	for i := range tasks {
+		services.ConvertTaskTimesToUserTimezone(&tasks[i], userTimezone)
+	}
+
 	response := models.TasksResponse{
 		Tasks:  tasks,
 		Total:  total,
