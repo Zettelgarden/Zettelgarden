@@ -11,6 +11,7 @@ import {
 } from "../../utils/dates";
 import { saveExistingTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface BulkTaskDateDisplayProps {
     tasks: Task[];
@@ -22,6 +23,8 @@ export function BulkTaskDateDisplay({
     setShowBulkEdit,
 }: BulkTaskDateDisplayProps) {
     const { setRefreshTasks } = useTaskContext();
+    const { user } = useAuth();
+    const userTimezone = user?.timezone || "UTC";
     const [selectedDate, setSelectedDate] = useState<string>("");
 
     async function updateTasks(newDate: Date | null) {
@@ -51,17 +54,17 @@ export function BulkTaskDateDisplay({
         updateTasks(null);
     }
     async function setToday() {
-        updateTasks(getToday());
+        updateTasks(getToday(userTimezone));
     }
     async function setTomorrow() {
-        updateTasks(getTomorrow());
+        updateTasks(getTomorrow(userTimezone));
     }
     async function setNextWeek() {
-        updateTasks(getNextWeek());
+        updateTasks(getNextWeek(userTimezone));
     }
 
     async function setNextMonday() {
-        updateTasks(getNextMonday());
+        updateTasks(getNextMonday(userTimezone));
     }
 
     return createPortal(
@@ -80,7 +83,7 @@ export function BulkTaskDateDisplay({
                     <button onClick={setTomorrow} className="w-full text-left px-4 py-2 hover:bg-slate-100 rounded border border-slate-200">
                         Tomorrow
                     </button>
-                    {isFriday() ? (
+                    {isFriday(userTimezone) ? (
                         <button onClick={setNextMonday} className="w-full text-left px-4 py-2 hover:bg-slate-100 rounded border border-slate-200">
                             Next Monday
                         </button>

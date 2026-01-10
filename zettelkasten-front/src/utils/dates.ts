@@ -1,10 +1,25 @@
 import { Task } from "src/models/Task";
+import { toZonedTime, fromZonedTime } from "date-fns-tz";
 
 export function getToday(timezone: string = "UTC"): Date {
+  // Get current time
   const now = new Date();
-  // For timezone support, we'll create a new Date at midnight UTC
-  const midnight = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0));
-  return midnight;
+
+  if (timezone === "UTC") {
+    // For UTC, return midnight UTC of the current UTC date
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+  }
+
+  // For other timezones, convert to the user's timezone to get today's date components
+  const nowInUserTz = toZonedTime(now, timezone);
+
+  // Get the year, month, and date in the user's timezone
+  const year = nowInUserTz.getFullYear();
+  const month = nowInUserTz.getMonth();
+  const date = nowInUserTz.getDate();
+
+  // Return midnight today in the user's timezone (as a UTC Date object)
+  return new Date(Date.UTC(year, month, date, 0, 0, 0, 0));
 }
 
 export function getTomorrow(timezone: string = "UTC"): Date {
@@ -26,17 +41,21 @@ export function getNextWeek(timezone: string = "UTC"): Date {
 }
 
 export function isFriday(timezone: string = "UTC"): boolean {
-  const today = new Date();
-  return today.getDay() === 5; // 5 = Friday (0 = Sunday)
+  const today = getToday(timezone);
+  const dayInTimezone = toZonedTime(today, timezone);
+  return dayInTimezone.getDay() === 5; // 5 = Friday (0 = Sunday)
 }
 
 export function getNextMonday(timezone: string = "UTC"): Date {
-  const today = new Date();
-  const day = today.getDay();
-  const diff = today.getDate() + (8 - day) % 7;
-  const nextMonday = new Date(today);
-  nextMonday.setDate(diff);
-  return nextMonday;
+  const today = getToday(timezone);
+  // Convert to user's timezone to calculate properly
+  const todayInTz = toZonedTime(today, timezone);
+  const day = todayInTz.getDay();
+  const diff = todayInTz.getDate() + (8 - day) % 7;
+  const nextMondayInTz = new Date(todayInTz);
+  nextMondayInTz.setDate(diff);
+  // Convert back to UTC Date object
+  return fromZonedTime(nextMondayInTz, timezone);
 }
 export function compareDates(date1: Date | null, date2: Date | null): boolean {
   if (date1 === null || date2 === null) {
@@ -55,10 +74,12 @@ export function isTodayOrPast(date: Date | null, timezone: string = "UTC"): bool
     return false;
   }
 
-  const today = new Date(getToday(timezone));
-  today.setHours(0, 0, 0, 0);
+  const getTodayResult = getToday(timezone);
+  const today = new Date(getTodayResult);
+  // Since getToday returns a UTC Date at midnight, normalize both to UTC midnight for comparison
+  today.setUTCHours(0, 0, 0, 0);
   const inputDate = new Date(date);
-  inputDate.setHours(0, 0, 0, 0);
+  inputDate.setUTCHours(0, 0, 0, 0);
 
   return inputDate <= today;
 }
@@ -69,9 +90,10 @@ export function isPast(date: Date | null, timezone: string = "UTC"): boolean {
   }
 
   const today = new Date(getToday(timezone));
-  today.setHours(0, 0, 0, 0);
+  // Since getToday returns a UTC Date at midnight, normalize both to UTC midnight for comparison
+  today.setUTCHours(0, 0, 0, 0);
   const inputDate = new Date(date);
-  inputDate.setHours(0, 0, 0, 0);
+  inputDate.setUTCHours(0, 0, 0, 0);
 
   return inputDate < today;
 }

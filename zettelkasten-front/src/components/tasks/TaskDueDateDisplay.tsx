@@ -13,6 +13,7 @@ import {
 } from "../../utils/dates";
 import { saveExistingTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface TaskDueDateDisplayProps {
   task: Task;
@@ -26,6 +27,8 @@ export function TaskDueDateDisplay({
   saveOnChange,
 }: TaskDueDateDisplayProps) {
   const { setRefreshTasks, updateTask: updateTaskInContext } = useTaskContext();
+  const { user } = useAuth();
+  const userTimezone = user?.timezone || "UTC";
   const [displayText, setDisplayText] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(
     task.due_date ? task.due_date.toISOString().substr(0, 10) : "",
@@ -73,7 +76,7 @@ export function TaskDueDateDisplay({
   }
 
   const getDisplayColor = () => {
-    if (!task.is_complete && task.due_date && isPast(task.due_date)) {
+    if (!task.is_complete && task.due_date && isPast(task.due_date, userTimezone)) {
       return "#DC2626"; // darker red for overdue deadline
     }
     switch (displayText) {
@@ -89,7 +92,7 @@ export function TaskDueDateDisplay({
   };
 
   const getDisplayIcon = () => {
-    if (!task.is_complete && task.due_date && isPast(task.due_date)) {
+    if (!task.is_complete && task.due_date && isPast(task.due_date, userTimezone)) {
       return "!";
     }
     switch (displayText) {
@@ -120,26 +123,26 @@ export function TaskDueDateDisplay({
     setSelectedDate("");
   }
   async function setToday() {
-    let editedTask = { ...task, due_date: getToday() };
+    let editedTask = { ...task, due_date: getToday(userTimezone) };
     updateTask(editedTask);
     setDisplayDatePicker(false);
     setSelectedDate("");
   }
   async function setTomorrow() {
-    let editedTask = { ...task, due_date: getTomorrow() };
+    let editedTask = { ...task, due_date: getTomorrow(userTimezone) };
     updateTask(editedTask);
     setDisplayDatePicker(false);
     setSelectedDate("");
   }
   async function setNextWeek() {
-    let editedTask = { ...task, due_date: getNextWeek() };
+    let editedTask = { ...task, due_date: getNextWeek(userTimezone) };
     updateTask(editedTask);
     setDisplayDatePicker(false);
     setSelectedDate("");
   }
 
   async function setNextMonday() {
-    let editedTask = { ...task, due_date: getNextMonday() };
+    let editedTask = { ...task, due_date: getNextMonday(userTimezone) };
     updateTask(editedTask);
     setDisplayDatePicker(false);
     setSelectedDate("");
@@ -154,14 +157,14 @@ export function TaskDueDateDisplay({
       setDisplayText("No Deadline");
       return;
     }
-    let isToday = compareDates(task.due_date, getToday());
-    let isTomorrow = compareDates(task.due_date, getTomorrow());
-    let isYesterday = compareDates(task.due_date, getYesterday());
+    let isToday = compareDates(task.due_date, getToday(userTimezone));
+    let isTomorrow = compareDates(task.due_date, getTomorrow(userTimezone));
+    let isYesterday = compareDates(task.due_date, getYesterday(userTimezone));
     if (isToday) {
       setDisplayText("Due Today");
     } else if (isTomorrow) {
       setDisplayText("Due Tomorrow");
-    } else if (isYesterday || isPast(task.due_date)) {
+    } else if (isYesterday || isPast(task.due_date, userTimezone)) {
       setDisplayText("Overdue");
     } else if (task.due_date) {
       setDisplayText("Due " + task.due_date.toLocaleDateString());
@@ -216,7 +219,7 @@ export function TaskDueDateDisplay({
             >
               Tomorrow
             </button>
-            {isFriday() && (
+            {isFriday(userTimezone) && (
               <button
                 onClick={setNextMonday}
                 className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"

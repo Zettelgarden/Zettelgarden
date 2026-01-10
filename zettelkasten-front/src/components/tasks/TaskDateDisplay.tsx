@@ -91,7 +91,7 @@ export function TaskDateDisplay({
   };
 
   const getDisplayIcon = () => {
-    if (!task.is_complete && isPast(task.scheduled_date)) {
+    if (!task.is_complete && isPast(task.scheduled_date, userTimezone)) {
       return "⚠️";
     }
     switch (displayText) {
@@ -141,7 +141,7 @@ export function TaskDateDisplay({
   }
 
   async function setNextMonday() {
-    let editedTask = { ...task, scheduled_date: getNextMonday() };
+    let editedTask = { ...task, scheduled_date: getNextMonday(userTimezone) };
     updateTask(editedTask);
     setDisplayDatePicker(false);
     setSelectedDate("");
@@ -156,9 +156,9 @@ export function TaskDateDisplay({
       setDisplayText("No Date");
       return;
     }
-    let isToday = compareDates(task.scheduled_date, getToday());
-    let isTomorrow = compareDates(task.scheduled_date, getTomorrow());
-    let isYesterday = compareDates(task.scheduled_date, getYesterday());
+    let isToday = compareDates(task.scheduled_date, getToday(userTimezone));
+    let isTomorrow = compareDates(task.scheduled_date, getTomorrow(userTimezone));
+    let isYesterday = compareDates(task.scheduled_date, getYesterday(userTimezone));
     if (isToday) {
       setDisplayText("Today");
     } else if (isTomorrow) {

@@ -23,28 +23,28 @@ describe("Date utility functions", () => {
   });
 
   it("should return today's date", () => {
-    const today = getToday();
+    const today = getToday("UTC");
     expect(today.getUTCFullYear()).toBe(2023);
     expect(today.getUTCMonth()).toBe(0);
     expect(today.getUTCDate()).toBe(1);
   });
 
   it("should return tomorrow's date", () => {
-    const tomorrow = getTomorrow();
+    const tomorrow = getTomorrow("UTC");
     expect(tomorrow.getUTCFullYear()).toBe(2023);
     expect(tomorrow.getUTCMonth()).toBe(0);
     expect(tomorrow.getUTCDate()).toBe(2); // Expecting Jan 2, 2023, UTC
   });
 
   it("should return yesterday's date", () => {
-    const yesterday = getYesterday();
+    const yesterday = getYesterday("UTC");
     expect(yesterday.getUTCFullYear()).toBe(2022);
     expect(yesterday.getUTCMonth()).toBe(11); // December is 11
     expect(yesterday.getUTCDate()).toBe(31); // Expecting Dec 31, 2022, UTC
   });
 
   it("should return the date for exactly one week from today", () => {
-    const nextWeek = getNextWeek();
+    const nextWeek = getNextWeek("UTC");
     expect(nextWeek.getUTCFullYear()).toBe(2023);
     expect(nextWeek.getUTCMonth()).toBe(0);
     expect(nextWeek.getUTCDate()).toBe(8); // Expecting Jan 8, 2023, UTC
@@ -99,43 +99,43 @@ describe("Date validation functions", () => {
 
   describe("isTodayOrPast", () => {
     it("should return true for today's date", () => {
-      const today = new Date(2023, 0, 1);
-      expect(isTodayOrPast(today)).toBe(true);
+      const today = new Date(Date.UTC(2023, 0, 1, 5, 0, 0)); // Use same mock time
+      expect(isTodayOrPast(today, "UTC")).toBe(true);
     });
-    
+
     it("should return true for a past date", () => {
-      const pastDate = new Date(2022, 11, 31);
-      expect(isTodayOrPast(pastDate)).toBe(true);
+      const pastDate = new Date(Date.UTC(2022, 11, 31, 0, 0, 0));
+      expect(isTodayOrPast(pastDate, "UTC")).toBe(true);
     });
 
     it("should return false for a future date", () => {
-      const futureDate = new Date(2023, 0, 2);
-      expect(isTodayOrPast(futureDate)).toBe(false);
+      const futureDate = new Date(Date.UTC(2023, 0, 2, 0, 0, 0));
+      expect(isTodayOrPast(futureDate, "UTC")).toBe(false);
     });
 
     it("should return false for a null date", () => {
-      expect(isTodayOrPast(null)).toBe(false);
+      expect(isTodayOrPast(null, "UTC")).toBe(false);
     });
   });
 
   describe("isPast", () => {
     it("should return false for today's date", () => {
-      const today = new Date(2023, 0, 1);
-      expect(isPast(today)).toBe(false);
+      const today = new Date(Date.UTC(2023, 0, 1, 5, 0, 0)); // Use same mock time
+      expect(isPast(today, "UTC")).toBe(false);
     });
 
     it("should return true for a past date", () => {
-      const pastDate = new Date(2022, 11, 30);
-      expect(isPast(pastDate)).toBe(true);
+      const pastDate = new Date(Date.UTC(2022, 11, 30, 0, 0, 0));
+      expect(isPast(pastDate, "UTC")).toBe(true);
     });
 
     it("should return false for a future date", () => {
-      const futureDate = new Date(2023, 0, 2);
-      expect(isPast(futureDate)).toBe(false);
+      const futureDate = new Date(Date.UTC(2023, 0, 2, 0, 0, 0));
+      expect(isPast(futureDate, "UTC")).toBe(false);
     });
 
     it("should return false for a null date", () => {
-      expect(isPast(null)).toBe(false);
+      expect(isPast(null, "UTC")).toBe(false);
     });
   });
 });
