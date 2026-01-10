@@ -422,3 +422,80 @@ func TestGetTasksForCardSuccess(t *testing.T) {
 		t.Errorf("wrong number of tasks returned, got %v want %v", len(tasks), 1)
 	}
 }
+
+func TestTaskTimestampsAreTZAware(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	// Create a task with a specific scheduled date
+	scheduledDate := time.Date(2026, 1, 15, 14, 30, 0, 0, time.UTC)
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	taskData := map[string]interface{}{
+		"title":          "Test TZ Task",
+		"scheduled_date": scheduledDate.Format(time.RFC3339),
+		"user_id":        1,
+	}
+	jsonData, _ := json.Marshal(taskData)
+
+	req, _ := http.NewRequest("POST", "/api/tasks", bytes.NewBuffer(jsonData))
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateTaskRoute))
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var response map[string]interface{}
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &response)
+	taskID := int(response["id"].(float64))
+
+	// Retrieve the task and verify scheduled_date is preserved with TZ
+	rr = makeTaskRequestSuccess(s, t, taskID)
+	var task models.Task
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &task)
+
+	if task.ScheduledDate == nil {
+		t.Fatal("scheduled_date should not be nil")
+	}
+
+	// Verify the time is correct (allowing for minor precision differences)
+	if task.ScheduledDate.UTC().Unix() != scheduledDate.Unix() {
+		t.Errorf("scheduled_date not preserved correctly, got %v want %v",
+			task.ScheduledDate.UTC(), scheduledDate)
+	}
+}
+
+func TestTaskTimestampsJSONFormat(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	rr := makeTaskRequestSuccess(s, t, 1)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// Parse raw JSON to verify timestamp format
+	var rawJSON map[string]interface{}
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &rawJSON)
+
+	// created_at should be present and in RFC3339 format with timezone
+	if createdAt, ok := rawJSON["created_at"].(string); ok {
+		_, err := time.Parse(time.RFC3339, createdAt)
+		if err != nil {
+			t.Errorf("created_at should be in RFC3339 format with timezone, got %v, error: %v",
+				createdAt, err)
+		}
+		// Verify it includes timezone information (ends with Z or +/-offset)
+		if len(createdAt) < 20 {
+			t.Errorf("created_at appears to be missing timezone information: %v", createdAt)
+		}
+	} else {
+		t.Error("created_at should be a string in the JSON response")
+	}
+}
