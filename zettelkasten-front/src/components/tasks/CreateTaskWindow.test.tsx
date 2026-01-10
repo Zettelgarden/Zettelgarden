@@ -14,6 +14,11 @@ vi.mock('../../api/tasks', () => ({
   saveNewTask: vi.fn(),
 }));
 
+// Mock the TaskDateDisplay component to avoid the useAuth dependency
+vi.mock('./TaskDateDisplay', () => ({
+  TaskDateDisplay: vi.fn(() => React.createElement('div', { 'data-testid': 'task-date-display' }, 'Task Date')),
+}));
+
 describe('CreateTaskWindow', () => {
   const mockSetRefresh = vi.fn();
   const mockSetShowTaskWindow = vi.fn();
