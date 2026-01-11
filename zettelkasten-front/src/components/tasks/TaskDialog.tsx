@@ -132,19 +132,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
       setIsLoading(true);
       fetchTask(taskId.toString())
         .then(task => {
-          // Convert date strings to Date objects
-          const processedTask = {
-            ...task,
-            scheduled_date: task.scheduled_date ? new Date(task.scheduled_date) : null,
-            due_date: task.due_date ? new Date(task.due_date) : null,
-            created_at: new Date(task.created_at),
-            updated_at: new Date(task.updated_at),
-            completed_at: task.completed_at ? new Date(task.completed_at) : null,
-            reminder_time: task.reminder_time ? new Date(task.reminder_time) : null,
-            description: task.description || null,
-            tags: task.tags || []
-          };
-          setEditedTask(processedTask);
+          setEditedTask(task);
           return fetchTaskAuditEvents(taskId);
         })
         .then(events => setAuditEvents(events))
@@ -288,18 +276,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
     if (!("error" in response)) {
       // Refetch the task to get updated tags array
       const refreshedTask = await fetchTask(editedTask.id.toString());
-      const processedTask = {
-        ...refreshedTask,
-        scheduled_date: refreshedTask.scheduled_date ? new Date(refreshedTask.scheduled_date) : null,
-        due_date: refreshedTask.due_date ? new Date(refreshedTask.due_date) : null,
-        created_at: new Date(refreshedTask.created_at),
-        updated_at: new Date(refreshedTask.updated_at),
-        completed_at: refreshedTask.completed_at ? new Date(refreshedTask.completed_at) : null,
-        reminder_time: refreshedTask.reminder_time ? new Date(refreshedTask.reminder_time) : null,
-        description: refreshedTask.description || null,
-        tags: refreshedTask.tags || []
-      };
-      setEditedTask(processedTask);
+      setEditedTask(refreshedTask);
       setRefreshTasks(true);
     }
   };
@@ -323,18 +300,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
       await addTaskDependency(editedTask.id, blockingTaskId);
       // Refresh the task to get updated dependencies
       const updatedTask = await fetchTask(editedTask.id.toString());
-      const processedTask = {
-        ...updatedTask,
-        scheduled_date: updatedTask.scheduled_date ? new Date(updatedTask.scheduled_date) : null,
-        due_date: updatedTask.due_date ? new Date(updatedTask.due_date) : null,
-        created_at: new Date(updatedTask.created_at),
-        updated_at: new Date(updatedTask.updated_at),
-        completed_at: updatedTask.completed_at ? new Date(updatedTask.completed_at) : null,
-        reminder_time: updatedTask.reminder_time ? new Date(updatedTask.reminder_time) : null,
-        description: updatedTask.description || null,
-        tags: updatedTask.tags || []
-      };
-      setEditedTask(processedTask);
+      setEditedTask(updatedTask);
       setRefreshTasks(true);
     } catch (error) {
       console.error("Error adding dependency:", error);
@@ -348,18 +314,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
       await removeTaskDependency(editedTask.id, blockingTaskId);
       // Refresh the task to get updated dependencies
       const updatedTask = await fetchTask(editedTask.id.toString());
-      const processedTask = {
-        ...updatedTask,
-        scheduled_date: updatedTask.scheduled_date ? new Date(updatedTask.scheduled_date) : null,
-        due_date: updatedTask.due_date ? new Date(updatedTask.due_date) : null,
-        created_at: new Date(updatedTask.created_at),
-        updated_at: new Date(updatedTask.updated_at),
-        completed_at: updatedTask.completed_at ? new Date(updatedTask.completed_at) : null,
-        reminder_time: updatedTask.reminder_time ? new Date(updatedTask.reminder_time) : null,
-        description: updatedTask.description || null,
-        tags: updatedTask.tags || []
-      };
-      setEditedTask(processedTask);
+      setEditedTask(updatedTask);
       setRefreshTasks(true);
     } catch (error) {
       console.error("Error removing dependency:", error);

@@ -1,5 +1,6 @@
 import { Task, TaskAuditEvent, TasksResponse } from "src/models/Task";
 import { checkStatus } from "./common";
+import { processTaskFromAPI } from "../utils/taskDataProcessing";
 
 const base_url = import.meta.env.VITE_URL;
 
@@ -44,21 +45,7 @@ export function fetchTasks(params: FetchTasksParams = {}): Promise<Task[]> {
     if (!tasksResponse.tasks) {
       return allTasks
     }
-    const formattedTasks = tasksResponse.tasks.map((task) => ({
-      ...task,
-      scheduled_date: task.scheduled_date
-        ? new Date(task.scheduled_date)
-        : null,
-      due_date: task.due_date ? new Date(task.due_date) : null,
-      created_at: new Date(task.created_at),
-      updated_at: new Date(task.updated_at),
-      completed_at: task.completed_at
-        ? new Date(task.completed_at)
-        : null,
-      reminder_time: task.reminder_time
-        ? new Date(task.reminder_time)
-        : null,
-    }));
+    const formattedTasks = tasksResponse.tasks.map(task => processTaskFromAPI(task));
 
     const combinedTasks = [...allTasks, ...formattedTasks];
 
@@ -83,7 +70,7 @@ export function fetchTask(id: string): Promise<Task> {
     .then(checkStatus)
     .then((response) => {
       if (response) {
-        return response.json() as Promise<Task>;
+        return response.json().then(rawTask => processTaskFromAPI(rawTask));
       } else {
         return Promise.reject(new Error("Response is undefined"));
       }
