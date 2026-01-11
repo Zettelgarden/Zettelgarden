@@ -326,10 +326,10 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className={`w-full max-w-2xl transform overflow-visible rounded-2xl p-6 shadow-xl transition-all ${
+        <Dialog.Panel className={`w-full max-w-2xl transform overflow-hidden rounded-2xl py-6 shadow-xl transition-all max-h-[80vh] flex flex-col ${
           editedTask.is_complete ? 'bg-green-50 border-2 border-green-300' : 'bg-white'
         }`}>
-          <div className="flex justify-between items-start mb-4">
+          <div className="px-6 flex justify-between items-start mb-4">
             <div className="flex items-center gap-4">
               <span
                 onClick={handleToggleComplete}
@@ -350,7 +350,8 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
             />
           </div>
 
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto px-6">
+            <div className="space-y-4">
             <div className="flex items-center justify-between">
               {isEditing ? (
                 <input
@@ -626,9 +627,9 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
             )}
           </div>
 
-          <div className="mt-6 border-t pt-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Task History</h3>
-            <div className="space-y-3 max-h-[200px] overflow-y-auto">
+            <div className="mt-6 border-t pt-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Task History</h3>
+              <div className="space-y-3 max-h-[200px] overflow-y-auto">
               {auditEvents.length > 0 ? (
                 auditEvents.map((event) => (
                   <div key={event.id} className="flex items-start space-x-3 text-sm hover:bg-gray-50 p-2 rounded">
@@ -647,8 +648,9 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
               )}
             </div>
           </div>
+          </div>
 
-          <div className="mt-6 flex justify-between">
+          <div className="px-6 mt-6 flex justify-between">
             <Button
               onClick={handleDelete}
               className="bg-red-500 hover:bg-red-600 text-white"
