@@ -25,7 +25,7 @@ npm run serve      # Preview production build
 ```bash
 cd go-backend
 go run main.go     # Start development server
-go test ./...      # Run all tests
+source .env-bash && go test ./...      # Run all tests
 go build -o main   # Build binary
 ```
 
