@@ -446,8 +446,8 @@ func TestTaskTimestampsAreTZAware(t *testing.T) {
 	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateTaskRoute))
 	handler.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
 	}
 
 	var response map[string]interface{}
