@@ -240,6 +240,14 @@ export function CreateTaskWindow({
             </div>
           </div>
           <div className="flex flex-col gap-4">
+            {/* Description section */}
+            <textarea
+              placeholder="Add a description..."
+              value={newTask.description || ""}
+              onChange={(e) => setNewTask({ ...newTask, description: e.target.value || null })}
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300 min-h-[80px] resize-y"
+            />
+
             {!currentCard && (
               <div className="w-full">
                 <BacklinkInput addBacklink={handleBacklink} />
