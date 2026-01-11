@@ -124,7 +124,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
   const [showDependencyEditor, setShowDependencyEditor] = useState(false);
   const [dependencyFilter, setDependencyFilter] = useState("");
   const { setRefreshTasks, tasks } = useTaskContext();
-  const { tags: allTags } = useTagContext();
+  const { tags: allTags, setRefreshTags } = useTagContext();
   const { getDefaultStatus, getCompleteStatus } = useStatus();
 
   useEffect(() => {
@@ -188,6 +188,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
     const response = await saveExistingTask(editedTask);
     if (!("error" in response)) {
       setRefreshTasks(true);
+      setRefreshTags(true); // Refresh tag context in case new tags were added in title edit
       setIsEditing(false);
     }
   };
@@ -278,6 +279,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
       const refreshedTask = await fetchTask(editedTask.id.toString());
       setEditedTask(refreshedTask);
       setRefreshTasks(true);
+      setRefreshTags(true); // Refresh tag context to show newly created tags
     }
   };
 
