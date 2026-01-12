@@ -584,39 +584,60 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
                 {/* Available tags */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Available Tags ({allTags.length})
+                    Available Tags ({(() => {
+                      const filteredTags = allTags.filter(tag =>
+                        newTagInput.trim() === '' ||
+                        tag.name.replace(/^#/, '').toLowerCase().includes(newTagInput.trim().toLowerCase())
+                      );
+                      return filteredTags.length;
+                    })()})
                   </label>
                   <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3 bg-white">
-                    {allTags.length === 0 ? (
-                      <p className="text-gray-500 text-sm text-center py-2">No tags available</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {allTags.map((tag) => {
-                          const cleanTagName = tag.name.replace(/^#/, '');
-                          const isSelected = getCurrentTaskTags().has(cleanTagName);
-                          return (
-                            <button
-                              key={tag.id}
-                              onClick={() => {
-                                if (isSelected) {
-                                  handleRemoveTag(cleanTagName);
-                                } else {
-                                  handleAddTag(cleanTagName);
-                                }
-                              }}
-                              className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                                isSelected
-                                  ? 'bg-purple-600 text-white'
-                                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                              }`}
-                            >
-                              #{cleanTagName}
-                              {isSelected && ' ✓'}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                    {(() => {
+                      const filteredTags = allTags.filter(tag =>
+                        newTagInput.trim() === '' ||
+                        tag.name.replace(/^#/, '').toLowerCase().includes(newTagInput.trim().toLowerCase())
+                      );
+
+                      if (filteredTags.length === 0) {
+                        return newTagInput.trim() ? (
+                          <p className="text-gray-500 text-sm text-center py-2">
+                            No tags match "{newTagInput.trim()}"
+                          </p>
+                        ) : (
+                          <p className="text-gray-500 text-sm text-center py-2">No tags available</p>
+                        );
+                      }
+
+                      return (
+                        <div className="flex flex-wrap gap-2">
+                          {filteredTags.map((tag) => {
+                            const cleanTagName = tag.name.replace(/^#/, '');
+                            const isSelected = getCurrentTaskTags().has(cleanTagName);
+                            return (
+                              <button
+                                key={tag.id}
+                                onClick={() => {
+                                  if (isSelected) {
+                                    handleRemoveTag(cleanTagName);
+                                  } else {
+                                    handleAddTag(cleanTagName);
+                                  }
+                                }}
+                                className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                                  isSelected
+                                    ? 'bg-purple-600 text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                              >
+                                #{cleanTagName}
+                                {isSelected && ' ✓'}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
