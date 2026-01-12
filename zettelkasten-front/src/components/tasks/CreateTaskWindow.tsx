@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import { saveNewTask } from "../..//api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
+import { useAuth } from "../../contexts/AuthContext";
 import { Task, emptyTask } from "../../models/Task";
 import { Card, PartialCard } from "../..//models/Card";
 import { BacklinkInput } from "../cards/BacklinkInput";
@@ -12,6 +13,7 @@ import { TaskTagDisplay } from "./TaskTagDisplay";
 import { Button } from "../Button";
 import { AddTagMenu } from "../../components/tags/AddTagMenu";
 import { stripSpecialFilters } from "../../utils/tasks";
+import { getToday } from "../../utils/dates";
 
 interface CreateTaskWindowProps {
   currentCard: Card | PartialCard | null;
@@ -26,9 +28,12 @@ export function CreateTaskWindow({
   currentFilter,
   initialStatus,
 }: CreateTaskWindowProps) {
+  const { user } = useAuth();
+  const userTimezone = user?.timezone || "UTC";
+
   const [newTask, setNewTask] = useState<Task>({
     ...emptyTask,
-    scheduled_date: new Date(),
+    scheduled_date: getToday(userTimezone),
     status: initialStatus || emptyTask.status || "todo",
   });
   const [selectedCard, setSelectedCard] = useState<PartialCard | null>(null);
@@ -76,13 +81,14 @@ export function CreateTaskWindow({
       setRefreshTasks(true);
       setNewTask({
         ...emptyTask,
-        scheduled_date: new Date(),
+        scheduled_date: getToday(userTimezone),
         status: initialStatus || emptyTask.status || "todo"
       });
       if (currentCard) {
         setNewTask({
           ...emptyTask,
           card_pk: currentCard.id,
+          scheduled_date: getToday(userTimezone),
           status: initialStatus || emptyTask.status || "todo"
         });
       }

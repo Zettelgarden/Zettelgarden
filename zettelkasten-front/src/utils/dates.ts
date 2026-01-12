@@ -23,21 +23,33 @@ export function getToday(timezone: string = "UTC"): Date {
 }
 
 export function getTomorrow(timezone: string = "UTC"): Date {
-  const today = new Date(getToday(timezone));
-  today.setDate(today.getDate() + 1);
-  return today;
+  const today = getToday(timezone);
+  return new Date(Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    today.getUTCDate() + 1,
+    0, 0, 0, 0
+  ));
 }
 
 export function getYesterday(timezone: string = "UTC"): Date {
-  const today = new Date(getToday(timezone));
-  today.setDate(today.getDate() - 1);
-  return today;
+  const today = getToday(timezone);
+  return new Date(Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    today.getUTCDate() - 1,
+    0, 0, 0, 0
+  ));
 }
 
 export function getNextWeek(timezone: string = "UTC"): Date {
-  const today = new Date(getToday(timezone));
-  today.setDate(today.getDate() + 7);
-  return today;
+  const today = getToday(timezone);
+  return new Date(Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    today.getUTCDate() + 7,
+    0, 0, 0, 0
+  ));
 }
 
 export function isFriday(timezone: string = "UTC"): boolean {
@@ -78,14 +90,12 @@ export function compareDatesInTimezone(date1: Date | null, date2: Date | null, t
     return false;
   }
 
-  // Convert both dates to the specified timezone and extract date components
-  const date1InTimezone = toZonedTime(date1, timezone);
-  const date2InTimezone = toZonedTime(date2, timezone);
-
+  // Compare UTC date components directly
+  // Both dates are stored as UTC midnight representing calendar dates
   return (
-    date1InTimezone.getDate() === date2InTimezone.getDate() &&
-    date1InTimezone.getMonth() === date2InTimezone.getMonth() &&
-    date1InTimezone.getFullYear() === date2InTimezone.getFullYear()
+    date1.getUTCDate() === date2.getUTCDate() &&
+    date1.getUTCMonth() === date2.getUTCMonth() &&
+    date1.getUTCFullYear() === date2.getUTCFullYear()
   );
 }
 
