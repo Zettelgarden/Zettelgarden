@@ -5,6 +5,7 @@ import {
   getYesterday,
   getNextWeek,
   compareDates,
+  compareDatesInTimezone,
   isTodayOrPast,
   isPast,
 } from "./dates";
@@ -137,5 +138,79 @@ describe("Date validation functions", () => {
     it("should return false for a null date", () => {
       expect(isPast(null, "UTC")).toBe(false);
     });
+  });
+});
+
+describe('compareDatesInTimezone function', () => {
+  it('should return true for identical dates in the same timezone', () => {
+    const date1 = new Date('2023-01-01T00:00:00Z');
+    const date2 = new Date('2023-01-01T12:00:00Z'); // Same day, different time
+    expect(compareDatesInTimezone(date1, date2, "UTC")).toBe(true);
+  });
+
+  it('should return false for dates on different days in the same timezone', () => {
+    const date1 = new Date('2023-01-01T00:00:00Z');
+    const date2 = new Date('2023-01-02T00:00:00Z');
+    expect(compareDatesInTimezone(date1, date2, "UTC")).toBe(false);
+  });
+
+  it('should handle timezone conversion correctly - same moment in different timezones', () => {
+    // January 1, 2023 at midnight UTC in different timezones
+    const date1 = new Date('2023-01-01T00:00:00Z'); // UTC
+    const date2 = new Date('2023-01-01T08:00:00+08:00'); // Same moment in China timezone
+    expect(compareDatesInTimezone(date1, date2, "UTC")).toBe(true);
+  });
+
+  it('should return false if the first date is null', () => {
+    const date2 = new Date('2023-01-01T00:00:00Z');
+    expect(compareDatesInTimezone(null, date2, "UTC")).toBe(false);
+  });
+
+  it('should return false if the second date is null', () => {
+    const date1 = new Date('2023-01-01T00:00:00Z');
+    expect(compareDatesInTimezone(date1, null, "UTC")).toBe(false);
+  });
+
+  it('should return false if both dates are null', () => {
+    expect(compareDatesInTimezone(null, null, "UTC")).toBe(false);
+  });
+
+  it('should handle timezone conversions correctly', () => {
+    // Test dates that represent the same local day in different timezones
+    // March 14, 2023 05:00 UTC = March 14, 2023 01:00 in America/New_York (UTC-4)
+    // March 14, 2023 10:00 UTC = March 14, 2023 06:00 in America/New_York (UTC-4)
+    const date1 = new Date('2023-03-14T05:00:00Z'); // 1 AM EDT
+    const date2 = new Date('2023-03-14T10:00:00Z'); // 6 AM EDT on same day
+
+    // These should be the same day in America/New_York timezone
+    expect(compareDatesInTimezone(date1, date2, "America/New_York")).toBe(true);
+
+    // Different day should return false
+    const date3 = new Date('2023-03-15T05:00:00Z'); // 1 AM EDT on next day
+    expect(compareDatesInTimezone(date1, date3, "America/New_York")).toBe(false);
+  });
+
+  it('should work with different timezones', () => {
+    // January 1, 2023 at 11:00 UTC = January 2, 2023 at 10:00 in Tokyo
+    const utcDate = new Date('2023-01-01T11:00:00Z');
+    const tokyoDate = new Date('2023-01-02T10:00:00+09:00'); // Same moment
+
+    // These should be the same day in their respective timezones
+    expect(compareDatesInTimezone(utcDate, utcDate, "UTC")).toBe(true);
+    expect(compareDatesInTimezone(tokyoDate, tokyoDate, "Asia/Tokyo")).toBe(true);
+  });
+});
+
+describe('Timezone-aware date comparison scenarios', () => {
+  it('should handle user timezone vs UTC comparisons correctly', () => {
+    // Simulate a task scheduled for today in user's timezone
+    // getToday("America/New_York") returns midnight UTC for the current day in NY timezone
+    // If today is Jan 1, 2023 in NY (which is midnight Jan 1, 2023 UTC for UTC-5),
+    // then it's still the same calendar day
+    const todayInUserTz = getToday("America/New_York");
+    const todayInUtc = new Date(Date.UTC(todayInUserTz.getUTCFullYear(), todayInUserTz.getUTCMonth(), todayInUserTz.getUTCDate()));
+
+    // These should be comparable correctly - both represent the same calendar day
+    expect(compareDatesInTimezone(todayInUtc, todayInUserTz, "America/New_York")).toBe(true);
   });
 });

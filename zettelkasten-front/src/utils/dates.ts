@@ -69,6 +69,26 @@ export function compareDates(date1: Date | null, date2: Date | null): boolean {
   );
 }
 
+/**
+ * Compare two dates to see if they represent the same day in a specific timezone.
+ * This is timezone-aware unlike the legacy compareDates function.
+ */
+export function compareDatesInTimezone(date1: Date | null, date2: Date | null, timezone: string): boolean {
+  if (date1 === null || date2 === null) {
+    return false;
+  }
+
+  // Convert both dates to the specified timezone and extract date components
+  const date1InTimezone = toZonedTime(date1, timezone);
+  const date2InTimezone = toZonedTime(date2, timezone);
+
+  return (
+    date1InTimezone.getDate() === date2InTimezone.getDate() &&
+    date1InTimezone.getMonth() === date2InTimezone.getMonth() &&
+    date1InTimezone.getFullYear() === date2InTimezone.getFullYear()
+  );
+}
+
 export function isTodayOrPast(date: Date | null, timezone: string = "UTC"): boolean {
   if (date === null) {
     return false;

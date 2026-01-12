@@ -3,6 +3,7 @@ import { Task } from "../../models/Task";
 
 import {
   compareDates,
+  compareDatesInTimezone,
   getToday,
   getTomorrow,
   getYesterday,
@@ -12,6 +13,7 @@ import {
   getNextMonday,
   isFriday,
 } from "../../utils/dates";
+import { fromZonedTime } from "date-fns-tz";
 import { saveExistingTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -63,9 +65,19 @@ export function TaskDateDisplay({
     e: React.ChangeEvent<HTMLInputElement>,
   ) {
     console.log(e);
-    const newDate = new Date(e.target.value);
+    // Parse the date input value (YYYY-MM-DD) in the user's timezone
+    const inputValue = e.target.value; // "2024-01-15"
+    if (!inputValue) return;
 
-    setSelectedDate(newDate.toISOString().substr(0, 10)); // Update selected date in the state
+    // Create a UTC date object representing the selected date in user's timezone
+    // HTML date input returns YYYY-MM-DD, which we want to interpret as user timezone
+    const [year, month, day] = inputValue.split('-').map(Number);
+
+    // Create a date object at midnight UTC that represents the same calendar date
+    // in the user's timezone. This ensures the stored date matches user intent.
+    const newDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+
+    setSelectedDate(inputValue); // Keep the input value as-is for the date picker
     let editedTask = { ...task, scheduled_date: newDate };
 
     updateTask(editedTask);
@@ -156,9 +168,13 @@ export function TaskDateDisplay({
       setDisplayText("No Date");
       return;
     }
-    let isToday = compareDates(task.scheduled_date, getToday(userTimezone));
-    let isTomorrow = compareDates(task.scheduled_date, getTomorrow(userTimezone));
-    let isYesterday = compareDates(task.scheduled_date, getYesterday(userTimezone));
+    // Use timezone-aware comparison for proper "Today/Tomorrow/Yesterday" display
+    const compareDate = (date1: Date | null, date2: Date | null) =>
+      compareDatesInTimezone(date1, date2, userTimezone);
+
+    let isToday = compareDate(task.scheduled_date, getToday(userTimezone));
+    let isTomorrow = compareDate(task.scheduled_date, getTomorrow(userTimezone));
+    let isYesterday = compareDate(task.scheduled_date, getYesterday(userTimezone));
     if (isToday) {
       setDisplayText("Today");
     } else if (isTomorrow) {
