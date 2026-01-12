@@ -1,5 +1,5 @@
 import { Task } from "../models/Task";
-import { compareDates, getToday, getTomorrow, isTodayOrPast } from "./dates";
+import { compareDates, compareDatesInTimezone, getToday, getTomorrow, isTodayOrPast } from "./dates";
 
 export interface TaskFilterParams {
   searchTerms: string[];
@@ -214,7 +214,8 @@ export function filterTasks(input: Task[], filterString: string): Task[] {
 export function filterTasksByDateView(
   task: Task,
   dateView: string,
-  showCompleted: boolean
+  showCompleted: boolean,
+  timezone: string = "UTC"
 ): boolean {
   // Handle "all" view
   if (dateView === "all") {
@@ -227,12 +228,12 @@ export function filterTasksByDateView(
 
   // Handle "today" view
   if (dateView === "today") {
-    if (!task.is_complete && isTodayOrPast(task.scheduled_date)) {
+    if (!task.is_complete && isTodayOrPast(task.scheduled_date, timezone)) {
       return true;
     } else if (
       showCompleted &&
       task.completed_at && // Check if task has a completion date
-      compareDates(task.completed_at, getToday())
+      compareDatesInTimezone(task.completed_at, getToday(timezone), timezone)
     ) {
       return true;
     } else {
@@ -245,13 +246,13 @@ export function filterTasksByDateView(
     if (
       !task.is_complete &&
       task.scheduled_date && // Ensure scheduled_date is not null
-      compareDates(task.scheduled_date, getTomorrow())
+      compareDatesInTimezone(task.scheduled_date, getTomorrow(timezone), timezone)
     ) {
       return true;
     } else if (
       showCompleted &&
       task.completed_at && // Check if task has a completion date
-      compareDates(task.completed_at, getTomorrow())
+      compareDatesInTimezone(task.completed_at, getTomorrow(timezone), timezone)
     ) {
       return true;
     } else {

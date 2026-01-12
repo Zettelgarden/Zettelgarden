@@ -6,6 +6,7 @@ import { CreateTaskWindow } from "../../components/tasks/CreateTaskWindow";
 import { TaskDialog } from "../../components/tasks/TaskDialog";
 import { useTaskContext } from "../../contexts/TaskContext";
 import { useTagContext } from "../../contexts/TagContext";
+import { useAuth } from "../../contexts/AuthContext";
 import { setDocumentTitle } from "../../utils/title";
 import { Button } from "../../components/Button";
 import { useShortcutContext } from "../../contexts/ShortcutContext";
@@ -21,8 +22,10 @@ interface TaskListProps { }
 export function TaskPage({ }: TaskListProps) {
   const { tasks, showCompleted, setShowCompleted } = useTaskContext();
   const { tags } = useTagContext();
+  const { user } = useAuth();
   const { showCreateTaskWindow, setShowCreateTaskWindow } = useShortcutContext();
   const navigate = useNavigate();
+  const userTimezone = user?.timezone || "UTC";
 
   // State for task dialog
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
@@ -49,6 +52,7 @@ export function TaskPage({ }: TaskListProps) {
     viewMode: settings.viewMode,
     currentPage: settings.currentPage,
     itemsPerPage: settings.itemsPerPage,
+    timezone: userTimezone,
   });
 
   // Sync UI controls with query keywords in filter string

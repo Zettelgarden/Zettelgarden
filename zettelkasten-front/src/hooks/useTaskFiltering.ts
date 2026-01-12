@@ -15,6 +15,7 @@ interface UseTaskFilteringParams {
   viewMode: "list" | "matrix" | "kanban";
   currentPage: number;
   itemsPerPage: number;
+  timezone?: string;
 }
 
 interface UseTaskFilteringReturn {
@@ -34,12 +35,13 @@ export function useTaskFiltering({
   viewMode,
   currentPage,
   itemsPerPage,
+  timezone = "UTC",
 }: UseTaskFilteringParams): UseTaskFilteringReturn {
   // Filter, sort, and prepare tasks to display
   const tasksToDisplay = useMemo(() => {
     // First, filter by date view
     let filtered = tasks.filter(task =>
-      filterTasksByDateView(task, dateView, showCompleted)
+      filterTasksByDateView(task, dateView, showCompleted, timezone)
     );
 
     // Then, filter by search string
@@ -108,14 +110,14 @@ export function useTaskFiltering({
     });
 
     return searched;
-  }, [tasks, dateView, showCompleted, filterString, sortField, sortDirection, viewMode]);
+  }, [tasks, dateView, showCompleted, filterString, sortField, sortDirection, viewMode, timezone]);
 
   // Calculate total tasks for the current date view (before search filtering)
   const totalTasksForDateView = useMemo(() => {
     return tasks.filter(task =>
-      filterTasksByDateView(task, dateView, showCompleted)
+      filterTasksByDateView(task, dateView, showCompleted, timezone)
     ).length;
-  }, [tasks, dateView, showCompleted]);
+  }, [tasks, dateView, showCompleted, timezone]);
 
   // Paginate tasks (only for list view)
   const paginatedTasks = useMemo(() => {
