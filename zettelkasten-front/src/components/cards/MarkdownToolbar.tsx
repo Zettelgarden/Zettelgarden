@@ -102,6 +102,13 @@ export function MarkdownToolbar({
           Quote
         </Button>
         <Button
+          onClick={() => onFormatText('table')}
+          variant="secondary"
+          size="small"
+        >
+          Table
+        </Button>
+        <Button
           onClick={onBacklinkClick}
           variant="secondary"
           size="small"

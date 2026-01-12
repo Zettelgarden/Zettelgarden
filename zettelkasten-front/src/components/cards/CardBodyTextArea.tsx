@@ -499,11 +499,30 @@ export const CardBodyTextArea = forwardRef<CardBodyTextAreaHandle, CardBodyTextA
         }
         break;
 
+      case 'table':
+        // Insert a basic 3-column table with one data row
+        formattedText = `|  |  |  |\n|---|---|---|\n|  |  |  |`;
+        // Add newline before table if not at beginning of line
+        const beforeTable = start > 0 && editingCard.body[start - 1] !== '\n' ? '\n' : '';
+        // Add newline after table if not at end of content
+        const afterTable = end < editingCard.body.length && editingCard.body[end] !== '\n' ? '\n' : '';
+        formattedText = beforeTable + formattedText + afterTable;
+
+        newBody =
+          editingCard.body.substring(0, start) +
+          formattedText +
+          editingCard.body.substring(end);
+        // Adjust cursor position based on whether we added a newline
+        newCursorStart = start + (beforeTable ? 3 : 2); // Place cursor in first header cell
+        newCursorEnd = start + (beforeTable ? 3 : 2);
+        break;
+
       default:
         return;
     }
 
-    if (selectedText) {
+    // Update the body and cursor position if we have either selected text or if it's a structural format (like table)
+    if (selectedText || formatType === 'table') {
       setEditingCard({ ...editingCard, body: newBody });
 
       // Re-focus and set selection to maintain cursor position after the formatting
