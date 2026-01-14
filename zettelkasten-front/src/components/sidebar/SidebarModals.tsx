@@ -34,7 +34,7 @@ interface SidebarModalsProps {
   setShowAddArticleDialog: (show: boolean) => void;
   showGettingStarted: boolean;
   setShowGettingStarted: (show: boolean) => void;
-  getCurrentCard: () => PartialCard | Card | null;
+  currentCard: PartialCard | Card | null;
   setMessage: (message: string) => void;
   handleCloseGettingStarted: () => void;
 }
@@ -63,7 +63,7 @@ export function SidebarModals({
   setShowAddArticleDialog,
   showGettingStarted,
   setShowGettingStarted,
-  getCurrentCard,
+  currentCard,
   setMessage,
   handleCloseGettingStarted,
 }: SidebarModalsProps) {
@@ -71,7 +71,7 @@ export function SidebarModals({
     <>
       {showCreateTaskWindow && (
         <CreateTaskWindow
-          currentCard={getCurrentCard()}
+          currentCard={currentCard}
           setShowTaskWindow={setShowCreateTaskWindow}
         />
       )}

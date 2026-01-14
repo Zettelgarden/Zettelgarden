@@ -52,15 +52,14 @@ export function Sidebar() {
     selectedTaskId,
   } = useShortcutContext();
 
-  function getCurrentCard(): PartialCard | Card | null {
-    const location = useLocation();
+  const currentCard = useMemo(() => {
     const currentPath = location.pathname;
     const isCardPage = /^\/app\/card\/\d+$/.test(currentPath);
     if (isCardPage) {
       return lastCard;
     }
     return null;
-  }
+  }, [location.pathname, lastCard]);
 
   const todayTasks = useMemo(
     () =>
@@ -208,7 +207,7 @@ export function Sidebar() {
         setShowAddArticleDialog={setShowAddArticleDialog}
         showGettingStarted={showGettingStarted}
         setShowGettingStarted={setShowGettingStarted}
-        getCurrentCard={getCurrentCard}
+        currentCard={currentCard}
         setMessage={setMessage}
         handleCloseGettingStarted={handleCloseGettingStarted}
       />
