@@ -12,11 +12,13 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateTitle, setNewTemplateTitle] = useState("");
   const [newTemplateBody, setNewTemplateBody] = useState("");
   const [creating, setCreating] = useState(false);
   const [viewingTemplate, setViewingTemplate] = useState<CardTemplate | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editBody, setEditBody] = useState("");
   const [saving, setSaving] = useState(false);
@@ -55,16 +57,17 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
   }
 
   async function handleCreateTemplate() {
-    if (!newTemplateTitle.trim() || !newTemplateBody.trim()) {
-      setError("Title and body are required");
+    if (!newTemplateName.trim()) {
+      setError("Template name is required");
       return;
     }
 
     try {
       setCreating(true);
-      const newTemplate = await saveAsTemplate(newTemplateTitle, newTemplateBody);
+      const newTemplate = await saveAsTemplate(newTemplateName, newTemplateTitle, newTemplateBody);
       setTemplates([...templates, newTemplate]);
       setShowCreateDialog(false);
+      setNewTemplateName("");
       setNewTemplateTitle("");
       setNewTemplateBody("");
       setError("");
@@ -79,14 +82,14 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
   async function handleUpdateTemplate() {
     if (!viewingTemplate) return;
 
-    if (!editTitle.trim() || !editBody.trim()) {
-      setError("Title and body are required");
+    if (!editName.trim()) {
+      setError("Template name is required");
       return;
     }
 
     try {
       setSaving(true);
-      const updatedTemplate = await updateTemplate(viewingTemplate.id, editTitle, editBody);
+      const updatedTemplate = await updateTemplate(viewingTemplate.id, editName, editTitle, editBody);
       setTemplates(templates.map(t => t.id === updatedTemplate.id ? updatedTemplate : t));
       setViewingTemplate(updatedTemplate);
       setIsEditing(false);
@@ -100,6 +103,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
   }
 
   function startEditing(template: CardTemplate) {
+    setEditName(template.name);
     setEditTitle(template.title);
     setEditBody(template.body);
     setIsEditing(true);
@@ -107,6 +111,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
 
   function cancelEditing() {
     setIsEditing(false);
+    setEditName("");
     setEditTitle("");
     setEditBody("");
     setError("");
@@ -115,6 +120,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
   function closeViewDialog() {
     setViewingTemplate(null);
     setIsEditing(false);
+    setEditName("");
     setEditTitle("");
     setEditBody("");
     setError("");
@@ -165,7 +171,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                 className="flex-1 cursor-pointer hover:bg-gray-50 -m-3 p-3 rounded-md transition-colors"
                 onClick={() => setViewingTemplate(template)}
               >
-                <h4 className="font-medium">{template.title}</h4>
+                <h4 className="font-medium">{template.name || template.title}</h4>
                 <p className="text-sm text-gray-600">
                   Created: {new Date(template.created_at).toLocaleDateString()}
                 </p>
@@ -191,15 +197,32 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
 
             <div className="space-y-4">
               <div>
+                <label htmlFor="template-name" className="block text-sm font-medium text-gray-700 mb-1">
+                  Template Name
+                </label>
+                <input
+                  id="template-name"
+                  type="text"
+                  value={newTemplateName}
+                  onChange={(e) => setNewTemplateName(e.target.value)}
+                  placeholder="e.g., Daily Journal, Meeting Notes"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Display name shown in template lists
+                </p>
+              </div>
+
+              <div>
                 <label htmlFor="template-title" className="block text-sm font-medium text-gray-700 mb-1">
-                  Title <span className="text-gray-500 text-xs">(will become the card title)</span>
+                  Card Title <span className="text-gray-500 text-xs">(will become the card title)</span>
                 </label>
                 <input
                   id="template-title"
                   type="text"
                   value={newTemplateTitle}
                   onChange={(e) => setNewTemplateTitle(e.target.value)}
-                  placeholder="e.g., Meeting Notes, Daily Journal"
+                  placeholder="Title used when creating new cards"
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
               </div>
@@ -223,6 +246,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
               <button
                 onClick={() => {
                   setShowCreateDialog(false);
+                  setNewTemplateName("");
                   setNewTemplateTitle("");
                   setNewTemplateBody("");
                   setError("");
@@ -250,7 +274,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
               {isEditing ? (
                 <h3 className="text-lg font-semibold">Edit Template</h3>
               ) : (
-                <h3 className="text-lg font-semibold">{viewingTemplate.title}</h3>
+                <h3 className="text-lg font-semibold">{viewingTemplate.name || viewingTemplate.title}</h3>
               )}
               <button
                 onClick={closeViewDialog}
@@ -275,6 +299,11 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                     <p className="text-sm text-gray-500 mb-2">
                       Created: {new Date(viewingTemplate.created_at).toLocaleDateString()}
                     </p>
+                    {viewingTemplate.title && (
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium">Card Title:</span> {viewingTemplate.title}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -291,8 +320,24 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
               ) : (
                 <div className="space-y-4">
                   <div>
+                    <label htmlFor="edit-template-name" className="block text-sm font-medium text-gray-700 mb-1">
+                      Template Name
+                    </label>
+                    <input
+                      id="edit-template-name"
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">
+                      Display name shown in template lists
+                    </p>
+                  </div>
+
+                  <div>
                     <label htmlFor="edit-template-title" className="block text-sm font-medium text-gray-700 mb-1">
-                      Title <span className="text-gray-500 text-xs">(will become the card title)</span>
+                      Card Title <span className="text-gray-500 text-xs">(will become the card title)</span>
                     </label>
                     <input
                       id="edit-template-title"

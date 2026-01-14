@@ -33,11 +33,12 @@ export function getTemplates(): Promise<CardTemplate[]> {
 
 /**
  * Save current card content as a template
- * @param title The title for the template
+ * @param name The display name for the template
+ * @param title The title for the card when template is applied
  * @param body The body content for the template
  * @returns A promise that resolves to the created template
  */
-export function saveAsTemplate(title: string, body: string): Promise<CardTemplate> {
+export function saveAsTemplate(name: string, title: string, body: string): Promise<CardTemplate> {
     let token = localStorage.getItem("token");
     return fetch(`${base_url}/templates`, {
         method: "POST",
@@ -45,7 +46,7 @@ export function saveAsTemplate(title: string, body: string): Promise<CardTemplat
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
         },
-        body: JSON.stringify({ title, body }),
+        body: JSON.stringify({ name, title, body }),
     })
         .then(checkStatus)
         .then((response) => {
@@ -88,11 +89,12 @@ export function getTemplate(id: number): Promise<CardTemplate> {
 /**
  * Update an existing template
  * @param id The ID of the template to update
+ * @param name The new display name for the template
  * @param title The new title for the template
  * @param body The new body content for the template
  * @returns A promise that resolves to the updated template
  */
-export function updateTemplate(id: number, title: string, body: string): Promise<CardTemplate> {
+export function updateTemplate(id: number, name: string, title: string, body: string): Promise<CardTemplate> {
     let token = localStorage.getItem("token");
     return fetch(`${base_url}/templates/${id}`, {
         method: "PUT",
@@ -100,7 +102,7 @@ export function updateTemplate(id: number, title: string, body: string): Promise
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
         },
-        body: JSON.stringify({ title, body }),
+        body: JSON.stringify({ name, title, body }),
     })
         .then(checkStatus)
         .then((response) => {

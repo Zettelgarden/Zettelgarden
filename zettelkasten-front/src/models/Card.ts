@@ -146,6 +146,7 @@ export function getRatingValue(rating: string): number {
 export interface CardTemplate {
   id: number;
   user_id: number;
+  name: string;
   title: string;
   body: string;
   created_at: Date;
@@ -155,6 +156,7 @@ export interface CardTemplate {
 export const defaultCardTemplate: CardTemplate = {
   id: -1,
   user_id: -1,
+  name: "",
   title: "",
   body: "",
   created_at: new Date(0),

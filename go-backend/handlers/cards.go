@@ -711,7 +711,7 @@ func (s *Handler) DeleteTemplateRoute(w http.ResponseWriter, r *http.Request) {
 // QueryTemplates returns all templates for a user
 func (s *Handler) QueryTemplates(userID int) ([]models.CardTemplate, error) {
 	query := `
-	SELECT id, user_id, title, body, created_at, updated_at
+	SELECT id, user_id, name, title, body, created_at, updated_at
 	FROM card_templates
 	WHERE user_id = $1
 	ORDER BY updated_at DESC
@@ -729,6 +729,7 @@ func (s *Handler) QueryTemplates(userID int) ([]models.CardTemplate, error) {
 		if err := rows.Scan(
 			&template.ID,
 			&template.UserID,
+			&template.Name,
 			&template.Title,
 			&template.Body,
 			&template.CreatedAt,
@@ -747,7 +748,7 @@ func (s *Handler) QueryTemplate(userID, id int) (models.CardTemplate, error) {
 	var template models.CardTemplate
 
 	query := `
-	SELECT id, user_id, title, body, created_at, updated_at
+	SELECT id, user_id, name, title, body, created_at, updated_at
 	FROM card_templates
 	WHERE id = $1 AND user_id = $2
 	`
@@ -755,6 +756,7 @@ func (s *Handler) QueryTemplate(userID, id int) (models.CardTemplate, error) {
 	err := s.DB.QueryRow(query, id, userID).Scan(
 		&template.ID,
 		&template.UserID,
+		&template.Name,
 		&template.Title,
 		&template.Body,
 		&template.CreatedAt,
@@ -772,14 +774,15 @@ func (s *Handler) CreateTemplate(userID int, params models.CreateTemplateParams)
 	var template models.CardTemplate
 
 	query := `
-	INSERT INTO card_templates (user_id, title, body, created_at, updated_at)
-	VALUES ($1, $2, $3, NOW(), NOW())
-	RETURNING id, user_id, title, body, created_at, updated_at
+	INSERT INTO card_templates (user_id, name, title, body, created_at, updated_at)
+	VALUES ($1, $2, $3, $4, NOW(), NOW())
+	RETURNING id, user_id, name, title, body, created_at, updated_at
 	`
 
-	err := s.DB.QueryRow(query, userID, params.Title, params.Body).Scan(
+	err := s.DB.QueryRow(query, userID, params.Name, params.Title, params.Body).Scan(
 		&template.ID,
 		&template.UserID,
+		&template.Name,
 		&template.Title,
 		&template.Body,
 		&template.CreatedAt,
@@ -798,14 +801,15 @@ func (s *Handler) UpdateTemplate(userID, id int, params models.UpdateTemplatePar
 
 	query := `
 	UPDATE card_templates
-	SET title = $1, body = $2, updated_at = NOW()
-	WHERE id = $3 AND user_id = $4
-	RETURNING id, user_id, title, body, created_at, updated_at
+	SET name = $1, title = $2, body = $3, updated_at = NOW()
+	WHERE id = $4 AND user_id = $5
+	RETURNING id, user_id, name, title, body, created_at, updated_at
 	`
 
-	err := s.DB.QueryRow(query, params.Title, params.Body, id, userID).Scan(
+	err := s.DB.QueryRow(query, params.Name, params.Title, params.Body, id, userID).Scan(
 		&template.ID,
 		&template.UserID,
+		&template.Name,
 		&template.Title,
 		&template.Body,
 		&template.CreatedAt,

@@ -11,15 +11,16 @@ interface SaveAsTemplateDialogProps {
 }
 
 export function SaveAsTemplateDialog({ body, title: cardTitle = "", onClose, onSuccess }: SaveAsTemplateDialogProps) {
+    const [name, setName] = useState("");
     const [title, setTitle] = useState(cardTitle);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState("");
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        
-        if (!title.trim()) {
-            setError("Please enter a title for the template");
+
+        if (!name.trim()) {
+            setError("Please enter a name for the template");
             return;
         }
 
@@ -27,7 +28,7 @@ export function SaveAsTemplateDialog({ body, title: cardTitle = "", onClose, onS
         setError("");
 
         try {
-            await saveAsTemplate(title, body);
+            await saveAsTemplate(name, title, body);
             onSuccess("Template saved successfully");
             onClose();
         } catch (err) {
@@ -49,8 +50,26 @@ export function SaveAsTemplateDialog({ body, title: cardTitle = "", onClose, onS
                 
                 <form onSubmit={handleSubmit}>
                     <div className="mb-4">
+                        <label htmlFor="template-name" className="block text-sm font-medium text-gray-700 mb-1">
+                            Template Name
+                        </label>
+                        <input
+                            id="template-name"
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                            placeholder="e.g., Daily Journal, Meeting Notes"
+                            disabled={isSubmitting}
+                        />
+                        <p className="text-sm text-gray-500 mt-1">
+                            Display name shown in template lists
+                        </p>
+                    </div>
+
+                    <div className="mb-4">
                         <label htmlFor="template-title" className="block text-sm font-medium text-gray-700 mb-1">
-                            Template Title
+                            Card Title
                         </label>
                         <input
                             id="template-title"
@@ -58,7 +77,7 @@ export function SaveAsTemplateDialog({ body, title: cardTitle = "", onClose, onS
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                            placeholder="Enter a title for this template"
+                            placeholder="Title used when creating new cards"
                             disabled={isSubmitting}
                         />
                         <div className="mt-2">
