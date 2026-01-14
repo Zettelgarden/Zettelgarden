@@ -117,3 +117,4 @@ The application requires extensive environment configuration for:
 - All routes are logged via `handlers.LogRoute` middleware
 - File uploads go through S3-compatible storage
 - The application supports both development and production logging configurationsWe track work in Beads instead of Markdown. Run `bd quickstart` to see how.
+Use 'bd' for task tracking
