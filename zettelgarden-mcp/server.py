@@ -197,6 +197,20 @@ async def list_tools() -> list[Tool]:
                 "required": ["card_id"]
             }
         ),
+        Tool(
+            name="get_next_child_id",
+            description="Get the next available child card ID for a parent card. Takes the parent card's numeric ID and returns the next ID like '1a2.3'",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "card_pk": {
+                        "type": "integer",
+                        "description": "Parent card's numeric primary key"
+                    }
+                },
+                "required": ["card_pk"]
+            }
+        ),
         # Task tools
         Tool(
             name="list_tasks",
@@ -361,6 +375,8 @@ async def _handle_tool(client: httpx.AsyncClient, name: str, args: dict) -> str:
         return await list_starred_cards(client)
     elif name == "get_card_children":
         return await get_card_children(client, args)
+    elif name == "get_next_child_id":
+        return await get_next_child_id(client, args)
 
     # Task tools
     elif name == "list_tasks":
@@ -622,6 +638,24 @@ async def get_card_children(client: httpx.AsyncClient, args: dict) -> str:
         lines.append(f"- **{c.get('card_id', 'N/A')}**: {c.get('title', '')} (pk={c.get('id')})")
 
     return "\n".join(lines)
+
+
+async def get_next_child_id(client: httpx.AsyncClient, args: dict) -> str:
+    """Get the next available child ID for a parent card."""
+    card_pk = args.get("card_pk")
+
+    resp = await client.get(
+        f"{API_URL}/api/cards/{card_pk}/next-child-id",
+        headers=get_headers()
+    )
+    resp.raise_for_status()
+    data = resp.json()
+
+    if data.get("error", True):
+        return f"Error getting next child ID for card {card_pk}"
+    else:
+        next_id = data.get("new_id", "unknown")
+        return f"Next child ID for card {card_pk}: {next_id}"
 
 
 # =============================================================================

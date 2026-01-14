@@ -179,6 +179,7 @@ func main() {
 	addProtectedRoute(r, "/api/cards/{id}/facts", h.GetCardFacts, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/references", h.GetCardReferencesRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/children", h.GetCardChildrenRoute, "GET")
+	addProtectedRoute(r, "/api/cards/{id}/next-child-id", h.GetNextChildCardIDRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/files", h.GetCardFilesRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/tags", h.GetCardTagsRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/tasks", h.GetCardTasksRoute, "GET")

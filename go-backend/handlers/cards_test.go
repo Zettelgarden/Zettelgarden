@@ -724,3 +724,141 @@ func TestCheckCardLinkedOrRelated(t *testing.T) {
 		t.Error("Incorrectly detected relationship between unrelated cards")
 	}
 }
+
+func TestGetNextChildCardID(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	// Create a test parent card
+	parentParams := models.EditCardParams{
+		Title:  "Parent Card Test",
+		Body:   "Test Body",
+		CardID: "999", // Use high number to avoid conflicts
+		Link:   "",
+	}
+	parentCard, err := services.CreateCard(s.DB, 1, parentParams)
+	if err != nil {
+		t.Fatalf("Failed to create parent test card: %v", err)
+	}
+
+	// Test 1: Parent with no children should return ".1"
+	nextID := s.getNextChildCardID(1, parentCard.ID)
+	expected := "999.1"
+	if nextID != expected {
+		t.Errorf("Expected first child ID to be %s, got %s", expected, nextID)
+	}
+
+	// Test 2: Create a child with ID ".1" manually
+	childParams := models.EditCardParams{
+		Title:  "First Child",
+		Body:   "Test Body",
+		CardID: "999.1",
+		Link:   "",
+	}
+	childCard1, err := services.CreateCard(s.DB, 1, childParams)
+	if err != nil {
+		t.Fatalf("Failed to create first child test card: %v", err)
+	}
+
+	nextID = s.getNextChildCardID(1, parentCard.ID)
+	expected = "999.2"
+	if nextID != expected {
+		t.Errorf("Expected next child ID to be %s, got %s", expected, nextID)
+	}
+
+	// Test 3: Add another child with ID ".2"
+	childParams.CardID = "999.2"
+	childCard2, err := services.CreateCard(s.DB, 1, childParams)
+	if err != nil {
+		t.Fatalf("Failed to create second child test card: %v", err)
+	}
+
+	nextID = s.getNextChildCardID(1, childCard1.ID) // Test with nested grandchild
+	if nextID != "999.1.1" {                           // Should extend the existing child ID
+		t.Errorf("Expected nested child ID to be 999.1.1, got %s", nextID)
+	}
+
+	// Test 4: Non-sequential children - add ".5" (skip 3 and 4)
+	childParams.CardID = "999.5"
+	_, err = services.CreateCard(s.DB, 1, childParams)
+	if err != nil {
+		t.Fatalf("Failed to create third child test card: %v", err)
+	}
+
+	nextID = s.getNextChildCardID(1, parentCard.ID)
+	expected = "999.6" // Should increment from max (which is 5)
+	if nextID != expected {
+		t.Errorf("Expected next child ID to be %s (incrementing from 5), got %s", expected, nextID)
+	}
+
+	// Test 5: Different separator styles (. and / both supported)
+	childParams.CardID = "999/7" // Alternate separator
+	_, err = services.CreateCard(s.DB, 1, childParams)
+	if err != nil {
+		t.Fatalf("Failed to create fourth child test card: %v", err)
+	}
+
+	nextID = s.getNextChildCardID(1, parentCard.ID)
+	expected = "999.8" // Should handle mixed separators and find max is 7
+	if nextID != expected {
+		t.Errorf("Expected next child ID to be %s (handling mixed separators), got %s", expected, nextID)
+	}
+
+	// Clean up test cards
+	for _, cardID := range []int{childCard1.ID, childCard2.ID, parentCard.ID} {
+		_, err = s.DB.Exec("DELETE FROM cards WHERE id = $1", cardID)
+		if err != nil {
+			t.Logf("Failed to clean up test card %d: %v", cardID, err)
+		}
+	}
+}
+
+func TestGetNextChildCardIDRoute(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	// Create a test parent card
+	parentParams := models.EditCardParams{
+		Title:  "Parent Card Route Test",
+		Body:   "Test Body",
+		CardID: "888", // Use high number to avoid conflicts
+		Link:   "",
+	}
+	parentCard, err := services.CreateCard(s.DB, 1, parentParams)
+	if err != nil {
+		t.Fatalf("Failed to create parent test card: %v", err)
+	}
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	req, err := http.NewRequest("GET", "/api/cards/"+strconv.Itoa(parentCard.ID)+"/next-child-id", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", strconv.Itoa(parentCard.ID))
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}/next-child-id", s.JwtMiddleware(s.GetNextChildCardIDRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var response models.NextIDResponse
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &response)
+	if response.Error {
+		t.Errorf("Handler returned error response")
+	}
+	if response.NextID != "888.1" {
+		t.Errorf("Expected first child ID to be 888.1, got %v", response.NextID)
+	}
+
+	// Clean up test card
+	_, err = s.DB.Exec("DELETE FROM cards WHERE id = $1", parentCard.ID)
+	if err != nil {
+		t.Logf("Failed to clean up test card %d: %v", parentCard.ID, err)
+	}
+}

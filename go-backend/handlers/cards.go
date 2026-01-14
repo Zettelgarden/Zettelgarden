@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"regexp"
 
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	readability "github.com/go-shiori/go-readability"
@@ -487,6 +488,83 @@ func (s *Handler) getNextRootCardID(userID int) string {
 
 	nextNumber := highestNumber + 1
 	return strconv.Itoa(nextNumber)
+}
+
+func (s *Handler) GetNextChildCardIDRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil {
+		http.Error(w, "Invalid id", http.StatusBadRequest)
+		return
+	}
+
+	nextID := s.getNextChildCardID(userID, id)
+
+	response := models.NextIDResponse{
+		NextID: nextID,
+		Error:  false,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (s *Handler) getNextChildCardID(userID int, parentID int) string {
+	// 1. Get parent card's card_id (human readable ID)
+	var parentCardID string
+	err := s.DB.QueryRow("SELECT card_id FROM cards WHERE id = $1 AND user_id = $2", parentID, userID).Scan(&parentCardID)
+	if err != nil {
+		log.Printf("Error finding parent card ID for parentID %d: %v", parentID, err)
+		return "" // Return empty on error
+	}
+
+	// 2. Get all existing children using service
+	children, err := services.GetChildCards(s.DB, userID, parentID)
+	if err != nil {
+		log.Printf("Error getting child cards for parentID %d: %v", parentID, err)
+		return parentCardID + ".1" // Default to .1 if there's an error
+	}
+
+	// 3. Extract numeric suffixes from children's card_ids
+	childNumbers := make([]int, 0)
+	parentIDLength := len(parentCardID)
+
+	for _, child := range children {
+		childID := child.CardID
+
+		// Verify this is actually a direct child by checking it starts with parent ID
+		if !strings.HasPrefix(childID, parentCardID) || len(childID) <= parentIDLength {
+			continue
+		}
+
+		// Get the part after the parent ID
+		suffix := childID[parentIDLength:]
+
+		// Extract the first number after any separator using regex
+		re := regexp.MustCompile(`^[.\\/-]+(\d+)`)
+		match := re.FindStringSubmatch(suffix)
+		if len(match) == 2 {
+			num, err := strconv.Atoi(match[1])
+			if err == nil {
+				childNumbers = append(childNumbers, num)
+			}
+		}
+	}
+
+	// 4. Find the highest number and increment
+	if len(childNumbers) == 0 {
+		return parentCardID + ".1" // No existing children, start with 1
+	}
+
+	maxNumber := 0
+	for _, num := range childNumbers {
+		if num > maxNumber {
+			maxNumber = num
+		}
+	}
+
+	nextNumber := maxNumber + 1
+	return fmt.Sprintf("%s.%d", parentCardID, nextNumber)
 }
 
 func (s *Handler) QueryPartialCardByID(userID, id int) (models.PartialCard, error) {
