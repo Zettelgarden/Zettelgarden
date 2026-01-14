@@ -1,4 +1,5 @@
-import { Task } from "../models/Task";
+import { Task, TaskAuditEvent } from "../models/Task";
+import { format } from "date-fns";
 import { compareDates, compareDatesInTimezone, getToday, getTomorrow, isTodayOrPast } from "./dates";
 
 export interface TaskFilterParams {
@@ -262,4 +263,86 @@ export function filterTasksByDateView(
 
   // Fallback for other dateView values
   return !task.is_complete;
+}
+
+const AUDIT_ACTIONS = {
+  CREATE: "create",
+  DELETE: "delete",
+  UPDATE: "update",
+} as const;
+
+export function formatAuditEvent(event: TaskAuditEvent): string {
+  if (event.action === AUDIT_ACTIONS.CREATE) {
+    return "Task created";
+  }
+
+  if (event.action === AUDIT_ACTIONS.DELETE) {
+    return "Task deleted";
+  }
+
+  if (event.action === AUDIT_ACTIONS.UPDATE && event.details.change_type === "update") {
+    const changes: string[] = [];
+    const changeDetails = event.details.changes;
+
+    if (changeDetails.Title) {
+      changes.push(`Changed title from "${changeDetails.Title.from}" to "${changeDetails.Title.to}"`);
+    }
+
+    if (changeDetails.IsComplete) {
+      changes.push(changeDetails.IsComplete.to ? "Marked as complete" : "Marked as incomplete");
+    }
+
+    if (changeDetails.ScheduledDate) {
+      const newDate = changeDetails.ScheduledDate.to
+        ? format(new Date(changeDetails.ScheduledDate.to), "MMM d, yyyy")
+        : "none";
+      changes.push(`Changed scheduled date to ${newDate}`);
+    }
+
+    if (changeDetails.CardPK) {
+      if (changeDetails.CardPK.from === 0 && changeDetails.CardPK.to > 0) {
+        changes.push(`Linked to card [${changeDetails.CardPK.to}]`);
+      } else if (changeDetails.CardPK.from > 0 && changeDetails.CardPK.to === 0) {
+        changes.push(`Unlinked from card [${changeDetails.CardPK.from}]`);
+      } else {
+        changes.push(`Changed linked card from [${changeDetails.CardPK.from}] to [${changeDetails.CardPK.to}]`);
+      }
+    }
+
+    if (changeDetails.Priority) {
+      const fromPriority = changeDetails.Priority.from ? `Priority ${changeDetails.Priority.from}` : "No Priority";
+      const toPriority = changeDetails.Priority.to ? `Priority ${changeDetails.Priority.to}` : "No Priority";
+      changes.push(`Changed priority from ${fromPriority} to ${toPriority}`);
+    }
+
+    if (changeDetails.Description) {
+      if (!changeDetails.Description.from && changeDetails.Description.to) {
+        changes.push(`Added description`);
+      } else if (changeDetails.Description.from && !changeDetails.Description.to) {
+        changes.push(`Removed description`);
+      } else {
+        changes.push(`Updated description`);
+      }
+    }
+
+    if (changeDetails.ReminderTime) {
+      if (!changeDetails.ReminderTime.from && changeDetails.ReminderTime.to) {
+        const newReminder = format(new Date(changeDetails.ReminderTime.to), "MMM d, yyyy h:mm a");
+        changes.push(`Set reminder for ${newReminder}`);
+      } else if (changeDetails.ReminderTime.from && !changeDetails.ReminderTime.to) {
+        changes.push(`Removed reminder`);
+      } else if (changeDetails.ReminderTime.from && changeDetails.ReminderTime.to) {
+        const newReminder = format(new Date(changeDetails.ReminderTime.to), "MMM d, yyyy h:mm a");
+        changes.push(`Changed reminder to ${newReminder}`);
+      }
+    }
+
+    if (changes.length === 0) {
+      return "Task updated";
+    }
+
+    return changes.join("; ");
+  }
+
+  return "Unknown change";
 }

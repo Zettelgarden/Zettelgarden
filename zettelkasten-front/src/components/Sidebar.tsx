@@ -514,10 +514,6 @@ export function Sidebar() {
         taskId={selectedTaskId}
         isOpen={showTaskDialog}
         onClose={() => setShowTaskDialog(false)}
-        onTagClick={(tag: string) => {
-          // Handle tag click if needed - navigate to tasks filtered by tag
-          navigate(`/app/tasks?tag=${encodeURIComponent(tag)}`);
-        }}
       />
       <EditEntityDialog
         entity={entityToEdit}

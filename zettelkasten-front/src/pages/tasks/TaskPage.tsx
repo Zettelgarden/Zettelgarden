@@ -330,7 +330,6 @@ export function TaskPage({ }: TaskListProps) {
         taskId={selectedTaskId}
         isOpen={isTaskDialogOpen}
         onClose={handleCloseTaskDialog}
-        onTagClick={handleTagClick}
       />
       <div className="p-4">
         {settings.viewMode === "list" ? (

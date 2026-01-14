@@ -494,7 +494,6 @@ export function ChatPage({ }: ChatPageProps) {
         taskId={selectedTaskId}
         isOpen={showTaskDialog}
         onClose={handleTaskDialogClose}
-        onTagClick={handleTagClick}
       />
 
     </div>

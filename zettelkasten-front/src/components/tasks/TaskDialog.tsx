@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Dialog } from "@headlessui/react";
 import { Task, TaskAuditEvent } from "../../models/Task";
 import { PartialCard } from "../../models/Card";
@@ -6,10 +6,10 @@ import { Link } from "react-router-dom";
 import { saveExistingTask, deleteTask, fetchTaskAuditEvents, fetchTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
 import { useStatus } from "../../contexts/StatusContext";
-import { Button } from "../../components/Button";
+import { Button } from "../Button";
 import { TaskListOptionsMenu } from "./TaskListOptionsMenu";
 import { TaskForm } from "./TaskForm";
-import { format } from "date-fns";
+import { TaskAuditHistory } from "./TaskAuditHistory";
 import { TaskClosedIcon } from "../../assets/icons/TaskClosedIcon";
 import { TaskOpenIcon } from "../../assets/icons/TaskOpenIcon";
 
@@ -17,86 +17,17 @@ interface TaskDialogProps {
   taskId: number | null;
   isOpen: boolean;
   onClose: () => void;
-  onTagClick: (tag: string) => void;
 }
 
-function formatAuditEvent(event: TaskAuditEvent): string {
-  if (event.action === "create") {
-    return "Task created";
-  }
-
-  if (event.action === "delete") {
-    return "Task deleted";
-  }
-
-  if (event.action === "update" && event.details.change_type === "update") {
-    const changes: string[] = [];
-    const changeDetails = event.details.changes;
-
-    if (changeDetails.Title) {
-      changes.push(`Changed title from "${changeDetails.Title.from}" to "${changeDetails.Title.to}"`);
-    }
-
-    if (changeDetails.IsComplete) {
-      changes.push(changeDetails.IsComplete.to ? "Marked as complete" : "Marked as incomplete");
-    }
-
-    if (changeDetails.ScheduledDate) {
-      const newDate = changeDetails.ScheduledDate.to
-        ? format(new Date(changeDetails.ScheduledDate.to), "MMM d, yyyy")
-        : "none";
-      changes.push(`Changed scheduled date to ${newDate}`);
-    }
-
-    if (changeDetails.CardPK) {
-      if (changeDetails.CardPK.from === 0 && changeDetails.CardPK.to > 0) {
-        changes.push(`Linked to card [${changeDetails.CardPK.to}]`);
-      } else if (changeDetails.CardPK.from > 0 && changeDetails.CardPK.to === 0) {
-        changes.push(`Unlinked from card [${changeDetails.CardPK.from}]`);
-      } else {
-        changes.push(`Changed linked card from [${changeDetails.CardPK.from}] to [${changeDetails.CardPK.to}]`);
-      }
-    }
-
-    if (changeDetails.Priority) {
-      const fromPriority = changeDetails.Priority.from ? `Priority ${changeDetails.Priority.from}` : "No Priority";
-      const toPriority = changeDetails.Priority.to ? `Priority ${changeDetails.Priority.to}` : "No Priority";
-      changes.push(`Changed priority from ${fromPriority} to ${toPriority}`);
-    }
-
-    if (changeDetails.Description) {
-      if (!changeDetails.Description.from && changeDetails.Description.to) {
-        changes.push(`Added description`);
-      } else if (changeDetails.Description.from && !changeDetails.Description.to) {
-        changes.push(`Removed description`);
-      } else {
-        changes.push(`Updated description`);
-      }
-    }
-
-    if (changeDetails.ReminderTime) {
-      if (!changeDetails.ReminderTime.from && changeDetails.ReminderTime.to) {
-        const newReminder = format(new Date(changeDetails.ReminderTime.to), "MMM d, yyyy h:mm a");
-        changes.push(`Set reminder for ${newReminder}`);
-      } else if (changeDetails.ReminderTime.from && !changeDetails.ReminderTime.to) {
-        changes.push(`Removed reminder`);
-      } else if (changeDetails.ReminderTime.from && changeDetails.ReminderTime.to) {
-        const newReminder = format(new Date(changeDetails.ReminderTime.to), "MMM d, yyyy h:mm a");
-        changes.push(`Changed reminder to ${newReminder}`);
-      }
-    }
-
-    if (changes.length === 0) {
-      return "Task updated";
-    }
-
-    return changes.join("; ");
-  }
-
-  return "Unknown change";
+function LoadingSpinner() {
+  return (
+    <div className="flex items-center justify-center py-8">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+    </div>
+  );
 }
 
-export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogProps) {
+export function TaskDialog({ taskId, isOpen, onClose }: TaskDialogProps) {
   const [editedTask, setEditedTask] = useState<Task | null>(null);
   const [showCardLink, setShowCardLink] = useState<boolean>(false);
   const [auditEvents, setAuditEvents] = useState<TaskAuditEvent[]>([]);
@@ -118,31 +49,16 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
     }
   }, [taskId, isOpen]);
 
-  if (!editedTask || isLoading) {
-    return (
-      <Dialog open={isOpen} onClose={onClose} className="relative z-50">
-        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 shadow-xl transition-all">
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-            </div>
-          </Dialog.Panel>
-        </div>
-      </Dialog>
-    );
-  }
-
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (!editedTask) return;
     if (window.confirm("Are you sure you want to delete this task? This cannot be undone.")) {
       await deleteTask(editedTask.id);
       setRefreshTasks(true);
       onClose();
     }
-  };
+  }, [editedTask, setRefreshTasks, onClose]);
 
-  const handleBacklink = async (card: PartialCard) => {
+  const handleBacklink = useCallback(async (card: PartialCard) => {
     if (!editedTask) return;
 
     const updatedTask = { ...editedTask, card_pk: card.id };
@@ -152,9 +68,9 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
       setRefreshTasks(true);
       setShowCardLink(false);
     }
-  };
+  }, [editedTask, setRefreshTasks]);
 
-  const handleToggleComplete = async () => {
+  const handleToggleComplete = useCallback(async () => {
     if (!editedTask) return;
 
     const targetStatus = editedTask.is_complete ? getDefaultStatus() : getCompleteStatus();
@@ -175,7 +91,20 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
       setEditedTask(updatedTask);
       setRefreshTasks(true);
     }
-  };
+  }, [editedTask, getDefaultStatus, getCompleteStatus, setRefreshTasks]);
+
+  if (!editedTask || isLoading) {
+    return (
+      <Dialog open={isOpen} onClose={onClose} className="relative z-50">
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 shadow-xl transition-all">
+            <LoadingSpinner />
+          </Dialog.Panel>
+        </div>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
@@ -232,27 +161,7 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
                 onBacklink={handleBacklink}
               />
 
-              {/* Audit History */}
-              <div className="mt-6 border-t pt-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Task History</h3>
-                <div className="space-y-3 max-h-[200px] overflow-y-auto">
-                  {auditEvents.length > 0 ? (
-                    auditEvents.map((event) => (
-                      <div
-                        key={event.id}
-                        className="flex items-start space-x-3 text-sm hover:bg-gray-50 p-2 rounded"
-                      >
-                        <div className="text-gray-500 min-w-[120px] font-medium">
-                          {format(event.created_at, "MMM d, HH:mm")}
-                        </div>
-                        <div className="flex-grow text-gray-700">{formatAuditEvent(event)}</div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-500 text-center py-4">No history available</div>
-                  )}
-                </div>
-              </div>
+              <TaskAuditHistory events={auditEvents} />
             </div>
           </div>
 
