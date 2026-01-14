@@ -28,10 +28,6 @@ func addProtectedRoute(r *mux.Router, path string, handler http.HandlerFunc, met
 	return r.HandleFunc(path, h.APIKeyOrJWTMiddleware(handlers.LogRoute(handler))).Methods(method)
 }
 
-func addDualAuthRoute(r *mux.Router, path string, handler http.HandlerFunc, method string) *mux.Route {
-	return r.HandleFunc(path, h.APIKeyOrJWTMiddleware(handlers.LogRoute(handler))).Methods(method)
-}
-
 func addRoute(r *mux.Router, path string, handler http.HandlerFunc, method string) *mux.Route {
 	return r.HandleFunc(path, handlers.LogRoute(handler)).Methods(method)
 }
@@ -103,20 +99,20 @@ func main() {
 	addProtectedRoute(r, "/api/api-keys", h.CreateAPIKey, "POST")
 	addProtectedRoute(r, "/api/api-keys/{id}", h.RevokeAPIKey, "DELETE")
 
-	// Core API routes support both JWT and API key authentication
-	addDualAuthRoute(r, "/api/files", h.GetAllFilesRoute, "GET")
-	addDualAuthRoute(r, "/api/files/upload", h.UploadFileRoute, "POST")
-	addDualAuthRoute(r, "/api/files/{id}", h.GetFileMetadataRoute, "GET")
-	addDualAuthRoute(r, "/api/files/{id}", h.EditFileMetadataRoute, "PATCH")
-	addDualAuthRoute(r, "/api/files/{id}", h.DeleteFileRoute, "DELETE")
-	addDualAuthRoute(r, "/api/files/download/{id}", h.DownloadFileRoute, "GET")
+	// All protected routes support both JWT and API key authentication
+	addProtectedRoute(r, "/api/files", h.GetAllFilesRoute, "GET")
+	addProtectedRoute(r, "/api/files/upload", h.UploadFileRoute, "POST")
+	addProtectedRoute(r, "/api/files/{id}", h.GetFileMetadataRoute, "GET")
+	addProtectedRoute(r, "/api/files/{id}", h.EditFileMetadataRoute, "PATCH")
+	addProtectedRoute(r, "/api/files/{id}", h.DeleteFileRoute, "DELETE")
+	addProtectedRoute(r, "/api/files/download/{id}", h.DownloadFileRoute, "GET")
 
-	addDualAuthRoute(r, "/api/cards", h.CreateCardRoute, "POST")
+	addProtectedRoute(r, "/api/cards", h.CreateCardRoute, "POST")
 	addProtectedRoute(r, "/api/cards/next-root-id", h.GetNextRootCardIDRoute, "GET")
 	addProtectedRoute(r, "/api/cards/suggest-title", h.SuggestCardTitleRoute, "POST")
 	addProtectedRoute(r, "/api/cards/starred", h.GetStarredCardsRoute, "GET")
 	addProtectedRoute(r, "/api/cards/unsorted", h.GetUnsortedCardsRoute, "GET")
-	addDualAuthRoute(r, "/api/cards/{id}", h.GetCardRoute, "GET")
+	addProtectedRoute(r, "/api/cards/{id}", h.GetCardRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}", h.UpdateCardRoute, "PUT")
 	addProtectedRoute(r, "/api/cards/{id}", h.DeleteCardRoute, "DELETE")
 	addProtectedRoute(r, "/api/cards/{id}/audit", h.GetCardAuditEventsRoute, "GET")
@@ -126,7 +122,7 @@ func main() {
 	addProtectedRoute(r, "/api/cards/{id}/references", h.GetCardReferencesRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/children", h.GetCardChildrenRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/next-child-id", h.GetNextChildCardIDRoute, "GET")
-	addDualAuthRoute(r, "/api/cards/{id}/files", h.GetCardFilesRoute, "GET")
+	addProtectedRoute(r, "/api/cards/{id}/files", h.GetCardFilesRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/tags", h.GetCardTagsRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/tasks", h.GetCardTasksRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/entities", h.GetCardEntitiesRoute, "GET")
