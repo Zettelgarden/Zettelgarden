@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"go-backend/models"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -61,11 +63,14 @@ func (s *Handler) JwtMiddleware(next http.HandlerFunc) http.HandlerFunc {
 				http.Error(w, "Invalid token signature", http.StatusUnauthorized)
 				return
 			}
+
+			log.Printf("err 3: %v", err)
 			http.Error(w, "Invalid token", http.StatusUnauthorized)
 			return
 		}
 
 		if !token.Valid {
+			log.Printf("err 4: %v", err)
 			http.Error(w, "Invalid token", http.StatusUnauthorized)
 			return
 		}
@@ -306,4 +311,134 @@ func (s *Handler) RequestPasswordResetRoute(w http.ResponseWriter, r *http.Reque
 
 	s.Server.Mail.SendEmail("Please confirm your Zettelgarden email", user.Email, messageBody)
 	json.NewEncoder(w).Encode(response)
+}
+
+// Dual authentication middleware that supports both JWT tokens and API keys
+func (s *Handler) APIKeyOrJWTMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tokenStr := r.Header.Get("Authorization")
+		if tokenStr == "" {
+			http.Error(w, "Authorization header is missing", http.StatusUnauthorized)
+			return
+		}
+
+		// Remove "Bearer " prefix
+		tokenStr = strings.TrimPrefix(tokenStr, "Bearer ")
+
+		// Try JWT first (existing tokens)
+		if userID, err := s.validateJWTToken(tokenStr); err == nil {
+			// Valid JWT - proceed with existing flow
+			ctx := context.WithValue(r.Context(), "current_user", userID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+
+		// If JWT failed, try API key validation
+		if userID, apiKeyID, err := s.validateAPIKey(tokenStr); err == nil {
+			// Valid API key - proceed with user context
+			ctx := context.WithValue(r.Context(), "current_user", userID)
+			ctx = context.WithValue(ctx, "api_key_id", apiKeyID) // For usage tracking
+			go s.updateAPIKeyLastUsed(apiKeyID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+
+		// Debug: log what kind of token we're getting
+		log.Printf("DEBUG: Authentication failed for token: %s... (length %d)",
+			tokenStr[:10], len(tokenStr))
+		if len(tokenStr) == 32 {
+			// Looks like an API key, check how many keys exist in DB
+			var count int
+			s.DB.QueryRow("SELECT COUNT(*) FROM api_keys WHERE is_active = true").Scan(&count)
+			log.Printf("DEBUG: Found %d active API keys in database", count)
+		}
+
+		http.Error(w, "Invalid authentication token", http.StatusUnauthorized)
+	}
+}
+
+// validateJWTToken validates a JWT token and returns the user ID if valid
+func (s *Handler) validateJWTToken(tokenStr string) (int, error) {
+	claims := &models.Claims{}
+
+	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+		return s.Server.JwtSecretKey, nil
+	})
+
+	if err != nil {
+		return 0, err
+	}
+
+	if !token.Valid {
+		return 0, fmt.Errorf("invalid token")
+	}
+
+	return claims.Sub, nil
+}
+
+// validateAPIKey validates an API key and returns user ID and API key ID if valid
+func (s *Handler) validateAPIKey(apiKey string) (int, int, error) {
+	// We can't query by hash directly, so we need to compare all active keys
+	// In production, you might want to use a different approach for performance
+	rows, err := s.DB.Query(`
+		SELECT id, user_id, key_hash
+		FROM api_keys
+		WHERE is_active = true
+	`)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var apiKeyID, userID int
+		var keyHash string
+
+		err := rows.Scan(&apiKeyID, &userID, &keyHash)
+		if err != nil {
+			continue
+		}
+
+		// Compare the provided key against the stored hash
+		if checkPasswordHash(apiKey, keyHash) {
+			return userID, apiKeyID, nil
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return 0, 0, err
+	}
+
+	return 0, 0, fmt.Errorf("invalid api key")
+}
+
+// updateAPIKeyLastUsed updates the last_used_at timestamp for an API key
+func (s *Handler) updateAPIKeyLastUsed(apiKeyID int) {
+	_, err := s.DB.Exec("UPDATE api_keys SET last_used_at = NOW() WHERE id = $1", apiKeyID)
+	if err != nil {
+		log.Printf("Error updating api key last_used_at: %v", err)
+	}
+}
+
+// generateAPIKey creates a cryptographically secure random API key
+func generateAPIKey() (string, error) {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+	const length = 32
+
+	bytes := make([]byte, length)
+	_, err := rand.Read(bytes)
+	if err != nil {
+		return "", err
+	}
+
+	for i, b := range bytes {
+		bytes[i] = charset[b%byte(len(charset))]
+	}
+
+	return string(bytes), nil
+}
+
+// hashAPIKey hashes an API key using bcrypt for secure storage
+func hashAPIKey(apiKey string) (string, error) {
+	return hashPassword(apiKey) // Reuse existing hashPassword function
 }

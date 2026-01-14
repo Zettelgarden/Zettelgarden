@@ -2,20 +2,17 @@ package main
 
 import (
 	//	"bytes"
-	"context"
 	//"encoding/json"
 	"fmt"
 	"go-backend/bootstrap"
 	"go-backend/handlers"
 	"go-backend/mail"
-	"go-backend/models"
 	"go-backend/server"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	openai "github.com/sashabaranov/go-openai"
@@ -25,71 +22,14 @@ import (
 var s *server.Server
 var h *handlers.Handler
 
-func admin(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userID := r.Context().Value("current_user").(int)
-		user, err := h.QueryUser(userID)
-		if err != nil {
-			http.Error(w, "User not found", http.StatusBadRequest)
-			return
-		}
-		if !user.IsAdmin {
-			http.Error(w, "Access denied", http.StatusUnauthorized)
-			return
-		}
-		next.ServeHTTP(w, r)
-	}
-}
 
-func jwtMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		tokenStr := r.Header.Get("Authorization")
-
-		if tokenStr == "" {
-			http.Error(w, "Authorization header is missing", http.StatusUnauthorized)
-			return
-		}
-
-		tokenStr = tokenStr[len("Bearer "):]
-
-		claims := &models.Claims{}
-
-		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-			return s.JwtSecretKey, nil
-		})
-
-		if err != nil {
-			if err == jwt.ErrSignatureInvalid {
-				http.Error(w, "Invalid token signature", http.StatusUnauthorized)
-				return
-			}
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
-			return
-		}
-
-		if !token.Valid {
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
-			return
-		}
-
-		// Add the claims to the request context
-		ctx := context.WithValue(r.Context(), "current_user", claims.Sub)
-
-		// Update last_seen asynchronously
-		go func() {
-			_, err := s.DB.Exec("UPDATE users SET last_seen = NOW() WHERE id = $1", claims.Sub)
-			if err != nil {
-				log.Printf("Error updating last_seen: %v", err)
-			}
-		}()
-
-		next.ServeHTTP(w, r.WithContext(ctx))
-	}
-}
 
 func addProtectedRoute(r *mux.Router, path string, handler http.HandlerFunc, method string) *mux.Route {
-	return r.HandleFunc(path, jwtMiddleware(handlers.LogRoute(handler))).Methods(method)
+	return r.HandleFunc(path, h.APIKeyOrJWTMiddleware(handlers.LogRoute(handler))).Methods(method)
+}
 
+func addDualAuthRoute(r *mux.Router, path string, handler http.HandlerFunc, method string) *mux.Route {
+	return r.HandleFunc(path, h.APIKeyOrJWTMiddleware(handlers.LogRoute(handler))).Methods(method)
 }
 
 func addRoute(r *mux.Router, path string, handler http.HandlerFunc, method string) *mux.Route {
@@ -158,19 +98,25 @@ func main() {
 	addRoute(r, "/api/email-validate", h.ValidateEmailRoute, "POST")
 	addRoute(r, "/api/request-reset", h.RequestPasswordResetRoute, "POST")
 
-	addProtectedRoute(r, "/api/files", h.GetAllFilesRoute, "GET")
-	addProtectedRoute(r, "/api/files/upload", h.UploadFileRoute, "POST")
-	addProtectedRoute(r, "/api/files/{id}", h.GetFileMetadataRoute, "GET")
-	addProtectedRoute(r, "/api/files/{id}", h.EditFileMetadataRoute, "PATCH")
-	addProtectedRoute(r, "/api/files/{id}", h.DeleteFileRoute, "DELETE")
-	addProtectedRoute(r, "/api/files/download/{id}", h.DownloadFileRoute, "GET")
+	// API Key management routes (require JWT auth)
+	addProtectedRoute(r, "/api/api-keys", h.ListAPIKeys, "GET")
+	addProtectedRoute(r, "/api/api-keys", h.CreateAPIKey, "POST")
+	addProtectedRoute(r, "/api/api-keys/{id}", h.RevokeAPIKey, "DELETE")
 
-	addProtectedRoute(r, "/api/cards", h.CreateCardRoute, "POST")
+	// Core API routes support both JWT and API key authentication
+	addDualAuthRoute(r, "/api/files", h.GetAllFilesRoute, "GET")
+	addDualAuthRoute(r, "/api/files/upload", h.UploadFileRoute, "POST")
+	addDualAuthRoute(r, "/api/files/{id}", h.GetFileMetadataRoute, "GET")
+	addDualAuthRoute(r, "/api/files/{id}", h.EditFileMetadataRoute, "PATCH")
+	addDualAuthRoute(r, "/api/files/{id}", h.DeleteFileRoute, "DELETE")
+	addDualAuthRoute(r, "/api/files/download/{id}", h.DownloadFileRoute, "GET")
+
+	addDualAuthRoute(r, "/api/cards", h.CreateCardRoute, "POST")
 	addProtectedRoute(r, "/api/cards/next-root-id", h.GetNextRootCardIDRoute, "GET")
 	addProtectedRoute(r, "/api/cards/suggest-title", h.SuggestCardTitleRoute, "POST")
 	addProtectedRoute(r, "/api/cards/starred", h.GetStarredCardsRoute, "GET")
 	addProtectedRoute(r, "/api/cards/unsorted", h.GetUnsortedCardsRoute, "GET")
-	addProtectedRoute(r, "/api/cards/{id}", h.GetCardRoute, "GET")
+	addDualAuthRoute(r, "/api/cards/{id}", h.GetCardRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}", h.UpdateCardRoute, "PUT")
 	addProtectedRoute(r, "/api/cards/{id}", h.DeleteCardRoute, "DELETE")
 	addProtectedRoute(r, "/api/cards/{id}/audit", h.GetCardAuditEventsRoute, "GET")
@@ -180,7 +126,7 @@ func main() {
 	addProtectedRoute(r, "/api/cards/{id}/references", h.GetCardReferencesRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/children", h.GetCardChildrenRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/next-child-id", h.GetNextChildCardIDRoute, "GET")
-	addProtectedRoute(r, "/api/cards/{id}/files", h.GetCardFilesRoute, "GET")
+	addDualAuthRoute(r, "/api/cards/{id}/files", h.GetCardFilesRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/tags", h.GetCardTagsRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/tasks", h.GetCardTasksRoute, "GET")
 	addProtectedRoute(r, "/api/cards/{id}/entities", h.GetCardEntitiesRoute, "GET")

@@ -12,8 +12,9 @@ import { TagList } from "../components/tags/TagList";
 import { FileVault } from "./FileVault";
 import { StatusManagement } from "../components/settings/StatusManagement";
 import { TimezoneSelector } from "../components/settings/TimezoneSelector";
+import APIKeysManagement from "../components/settings/APIKeysManagement";
 
-type Tab = "profile" | "templates" | "tags" | "files" | "statuses";
+type Tab = "profile" | "templates" | "tags" | "files" | "statuses" | "apiKeys";
 
 export function UserSettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
@@ -256,6 +257,8 @@ export function UserSettingsPage() {
         return <FileVault />;
       case "statuses":
         return <StatusManagement />;
+      case "apiKeys":
+        return <APIKeysManagement />;
     }
   };
 
@@ -293,6 +296,12 @@ export function UserSettingsPage() {
           onClick={() => setActiveTab("statuses")}
         >
           Task Statuses
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium ${activeTab === "apiKeys" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+          onClick={() => setActiveTab("apiKeys")}
+        >
+          API Keys
         </button>
       </div>
       <div className="mt-4">
