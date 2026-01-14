@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"go-backend/models"
 	"go-backend/services"
-	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -77,11 +76,11 @@ func (s *Handler) QueryTasksPaginated(userID int, limit, offset int, includeComp
 	}
 
 	// Convert task times to user's timezone
-	userTimezone, err := s.GetUserTimezone(userID)
-	if err == nil {
-		for i := range tasks {
-			services.ConvertTaskTimesToUserTimezone(&tasks[i], userTimezone)
-		}
+	if timezone == "" {
+		timezone = "UTC"
+	}
+	for i := range tasks {
+		services.ConvertTaskTimesToUserTimezone(&tasks[i], timezone)
 	}
 
 	return tasks, total, nil
@@ -112,21 +111,21 @@ func (s *Handler) QueryTasksByCard(userID int, cardPK int) ([]models.Task, error
 }
 
 func (s *Handler) GetTaskRoute(w http.ResponseWriter, r *http.Request) {
-
 	userID := r.Context().Value("current_user").(int)
 	id, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil {
-		log.Printf("error %v", err)
+		log.Printf("Invalid task id param: %v", err)
 		http.Error(w, "Invalid id", http.StatusBadRequest)
 		return
 	}
 
 	task, err := s.QueryTask(userID, id)
 	if err != nil {
-		log.Printf("asdas")
+		log.Printf("Error querying task %d: %v", id, err)
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(task)
 }
@@ -188,14 +187,9 @@ func (s *Handler) GetTasksRoute(w http.ResponseWriter, r *http.Request) {
 	}
 	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority, scheduledDate, completedDate, status, userTimezone)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Printf("Error querying tasks for user %d: %v", userID, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-	}
-
-	// Batch load tags for all tasks
-	taskIDs := make([]int, len(tasks))
-	for i, task := range tasks {
-		taskIDs[i] = task.ID
 	}
 
 	// Load tags for each task (keeping existing N+1 pattern for now)
@@ -246,45 +240,21 @@ func (s *Handler) UpdateTaskRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 	id, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil {
-		log.Printf("error %v", err)
+		log.Printf("Invalid task id param: %v", err)
 		http.Error(w, "Invalid id", http.StatusBadRequest)
 		return
 	}
 
-	// First read the request body into a map to extract the priority
-	var requestData map[string]interface{}
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("error reading body: %v", err)
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
-		return
-	}
-	r.Body.Close()
-
-	// Create a new reader with the same body data for the next decode
-	if err := json.Unmarshal(bodyBytes, &requestData); err != nil {
-		log.Printf("error unmarshaling request: %v", err)
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
-		return
-	}
-
-	// Now decode into the Task struct
 	var task models.Task
-	if err := json.Unmarshal(bodyBytes, &task); err != nil {
-		log.Printf("error unmarshaling to task: %v", err)
+	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+		log.Printf("Error decoding task update request: %v", err)
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
-	// Handle priority conversion from string to *string
-	if priorityVal, ok := requestData["priority"]; ok {
-		if priorityStr, ok := priorityVal.(string); ok && priorityStr != "" {
-			task.Priority = &priorityStr
-			log.Printf("Set priority from request: %s", priorityStr)
-		} else {
-			task.Priority = nil
-			log.Printf("Priority was empty or not a string, setting to nil")
-		}
+	// Normalize empty priority to nil to avoid storing ""
+	if task.Priority != nil && *task.Priority == "" {
+		task.Priority = nil
 	}
 
 	// Convert times from user's timezone to UTC for storage
@@ -295,21 +265,19 @@ func (s *Handler) UpdateTaskRoute(w http.ResponseWriter, r *http.Request) {
 		task.ReminderTime = services.ConvertFromUserTimezoneToUTC(task.ReminderTime, userTimezone)
 	}
 
-	err = s.UpdateTask(userID, id, task)
-	if err != nil {
-		log.Printf("error %v", err)
+	if err := s.UpdateTask(userID, id, task); err != nil {
+		log.Printf("Error updating task %d: %v", id, err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
 
 	response := models.GenericResponse{
 		Message: "success",
 		Error:   false,
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -327,43 +295,18 @@ func (s *Handler) CreateTask(task models.Task) (int, error) {
 func (s *Handler) CreateTaskRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
-	// First read the request body into a map to extract the priority
-	var requestData map[string]interface{}
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("error reading body: %v", err)
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
-		return
-	}
-	r.Body.Close()
-
-	// Create a new reader with the same body data for the next decode
-	if err := json.Unmarshal(bodyBytes, &requestData); err != nil {
-		log.Printf("error unmarshaling request: %v", err)
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
-		return
-	}
-
-	// Now decode into the Task struct
 	var task models.Task
-	if err := json.Unmarshal(bodyBytes, &task); err != nil {
-		log.Printf("error unmarshaling to task: %v", err)
+	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+		log.Printf("Error decoding create task request: %v", err)
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
-	// Handle priority conversion from string to *string
-	if priorityVal, ok := requestData["priority"]; ok {
-		if priorityStr, ok := priorityVal.(string); ok && priorityStr != "" {
-			task.Priority = &priorityStr
-			log.Printf("Set priority from request: %s", priorityStr)
-		} else {
-			task.Priority = nil
-			log.Printf("Priority was empty or not a string, setting to nil")
-		}
+	// Normalize empty priority to nil to avoid storing ""
+	if task.Priority != nil && *task.Priority == "" {
+		task.Priority = nil
 	}
 
-	log.Printf("creating task with priority: %v", task.Priority)
 	// Ensure the user ID is set correctly
 	task.UserID = userID
 
@@ -377,14 +320,14 @@ func (s *Handler) CreateTaskRoute(w http.ResponseWriter, r *http.Request) {
 
 	taskID, err := s.CreateTask(task)
 	if err != nil {
-		log.Printf("error %v", err)
+		log.Printf("Error creating task: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"id": taskID})
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]int{"id": taskID})
 }
 
 func (s *Handler) DeleteTask(userID int, id int) error {
@@ -395,14 +338,14 @@ func (s *Handler) DeleteTaskRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 	id, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil {
-		log.Printf("error %v", err)
+		log.Printf("Invalid task id param: %v", err)
 		http.Error(w, "Invalid id", http.StatusBadRequest)
 		return
 	}
 
 	err = s.DeleteTask(userID, id)
 	if err != nil {
-		log.Printf("error %v", err)
+		log.Printf("Error deleting task %d: %v", id, err)
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
