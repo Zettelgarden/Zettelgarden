@@ -7,24 +7,27 @@ import { TagProvider } from "../contexts/TagContext";
 import { ShortcutProvider } from "../contexts/ShortcutContext";
 import { PinProvider } from "../contexts/PinContext";
 import { StatusProvider } from "../contexts/StatusContext";
+import { AuthProvider } from "../contexts/AuthContext";
 import { sampleTasks, sampleTags } from "../tests/data";
 
 function AllTheProviders({ children }) {
   return (
     <BrowserRouter>
-      <TagProvider testing={true} testTags={sampleTags()} >
-        <PartialCardProvider>
-          <TaskProvider testing={true} testTasks={sampleTasks()}>
-            <StatusProvider>
-              <ShortcutProvider>
-                <PinProvider>
-                  {children}
-                </PinProvider>
-              </ShortcutProvider>
-            </StatusProvider>
-          </TaskProvider>
-        </PartialCardProvider>
-      </TagProvider>
+      <AuthProvider>
+        <TagProvider testing={true} testTags={sampleTags()} >
+          <PartialCardProvider>
+            <TaskProvider testing={true} testTasks={sampleTasks()}>
+              <StatusProvider>
+                <ShortcutProvider>
+                  <PinProvider>
+                    {children}
+                  </PinProvider>
+                </ShortcutProvider>
+              </StatusProvider>
+            </TaskProvider>
+          </PartialCardProvider>
+        </TagProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

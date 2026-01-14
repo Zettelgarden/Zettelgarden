@@ -48,7 +48,7 @@ describe('CreateTaskWindow', () => {
     renderWithProviders(<CreateTaskWindow {...defaultProps} />);
 
     // Simulate user typing into the input field
-    const input = screen.getByPlaceholderText('Enter new task');
+    const input = screen.getByPlaceholderText('Enter task title');
     fireEvent.change(input, { target: { value: 'Test Task' } });
 
     // Simulate clicking the Save button

@@ -1,21 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Dialog } from "@headlessui/react";
 import { Task, TaskAuditEvent } from "../../models/Task";
-import { TaskDateDisplay } from "./TaskDateDisplay";
-import { TaskDueDateDisplay } from "./TaskDueDateDisplay";
-import { TaskPriorityDisplay } from "./TaskPriorityDisplay";
-import { TaskStatusDisplay } from "./TaskStatusDisplay";
-import { TaskReminderDisplay } from "./TaskReminderDisplay";
-import { BacklinkInput } from "../cards/BacklinkInput";
 import { PartialCard } from "../../models/Card";
 import { Link } from "react-router-dom";
-import { TaskTagDisplay } from "./TaskTagDisplay";
-import { saveExistingTask, deleteTask, fetchTaskAuditEvents, fetchTask, addTaskDependency, removeTaskDependency } from "../../api/tasks";
+import { saveExistingTask, deleteTask, fetchTaskAuditEvents, fetchTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
-import { useTagContext } from "../../contexts/TagContext";
 import { useStatus } from "../../contexts/StatusContext";
 import { Button } from "../../components/Button";
 import { TaskListOptionsMenu } from "./TaskListOptionsMenu";
+import { TaskForm } from "./TaskForm";
 import { format } from "date-fns";
 import { TaskClosedIcon } from "../../assets/icons/TaskClosedIcon";
 import { TaskOpenIcon } from "../../assets/icons/TaskOpenIcon";
@@ -28,7 +21,6 @@ interface TaskDialogProps {
 }
 
 function formatAuditEvent(event: TaskAuditEvent): string {
-
   if (event.action === "create") {
     return "Task created";
   }
@@ -41,25 +33,21 @@ function formatAuditEvent(event: TaskAuditEvent): string {
     const changes: string[] = [];
     const changeDetails = event.details.changes;
 
-    // Title changes
     if (changeDetails.Title) {
       changes.push(`Changed title from "${changeDetails.Title.from}" to "${changeDetails.Title.to}"`);
     }
 
-    // Completion status changes
     if (changeDetails.IsComplete) {
       changes.push(changeDetails.IsComplete.to ? "Marked as complete" : "Marked as incomplete");
     }
 
-    // Scheduled date changes
     if (changeDetails.ScheduledDate) {
-      const newDate = changeDetails.ScheduledDate.to ?
-        format(new Date(changeDetails.ScheduledDate.to), 'MMM d, yyyy') :
-        'none';
+      const newDate = changeDetails.ScheduledDate.to
+        ? format(new Date(changeDetails.ScheduledDate.to), "MMM d, yyyy")
+        : "none";
       changes.push(`Changed scheduled date to ${newDate}`);
     }
 
-    // Card link changes
     if (changeDetails.CardPK) {
       if (changeDetails.CardPK.from === 0 && changeDetails.CardPK.to > 0) {
         changes.push(`Linked to card [${changeDetails.CardPK.to}]`);
@@ -70,14 +58,12 @@ function formatAuditEvent(event: TaskAuditEvent): string {
       }
     }
 
-    // Priority changes
     if (changeDetails.Priority) {
       const fromPriority = changeDetails.Priority.from ? `Priority ${changeDetails.Priority.from}` : "No Priority";
       const toPriority = changeDetails.Priority.to ? `Priority ${changeDetails.Priority.to}` : "No Priority";
       changes.push(`Changed priority from ${fromPriority} to ${toPriority}`);
     }
 
-    // Description changes
     if (changeDetails.Description) {
       if (!changeDetails.Description.from && changeDetails.Description.to) {
         changes.push(`Added description`);
@@ -88,20 +74,18 @@ function formatAuditEvent(event: TaskAuditEvent): string {
       }
     }
 
-    // Reminder changes
     if (changeDetails.ReminderTime) {
       if (!changeDetails.ReminderTime.from && changeDetails.ReminderTime.to) {
-        const newReminder = format(new Date(changeDetails.ReminderTime.to), 'MMM d, yyyy h:mm a');
+        const newReminder = format(new Date(changeDetails.ReminderTime.to), "MMM d, yyyy h:mm a");
         changes.push(`Set reminder for ${newReminder}`);
       } else if (changeDetails.ReminderTime.from && !changeDetails.ReminderTime.to) {
         changes.push(`Removed reminder`);
       } else if (changeDetails.ReminderTime.from && changeDetails.ReminderTime.to) {
-        const newReminder = format(new Date(changeDetails.ReminderTime.to), 'MMM d, yyyy h:mm a');
+        const newReminder = format(new Date(changeDetails.ReminderTime.to), "MMM d, yyyy h:mm a");
         changes.push(`Changed reminder to ${newReminder}`);
       }
     }
 
-    // If no specific changes were detected
     if (changes.length === 0) {
       return "Task updated";
     }
@@ -114,34 +98,26 @@ function formatAuditEvent(event: TaskAuditEvent): string {
 
 export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogProps) {
   const [editedTask, setEditedTask] = useState<Task | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [showCardLink, setShowCardLink] = useState<boolean>(false);
   const [auditEvents, setAuditEvents] = useState<TaskAuditEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [showTagEditor, setShowTagEditor] = useState(false);
-  const [newTagInput, setNewTagInput] = useState("");
-  const [showDependencyEditor, setShowDependencyEditor] = useState(false);
-  const [dependencyFilter, setDependencyFilter] = useState("");
-  const { setRefreshTasks, tasks } = useTaskContext();
-  const { tags: allTags, setRefreshTags } = useTagContext();
+  const { setRefreshTasks } = useTaskContext();
   const { getDefaultStatus, getCompleteStatus } = useStatus();
 
   useEffect(() => {
     if (taskId && isOpen) {
       setIsLoading(true);
       fetchTask(taskId.toString())
-        .then(task => {
+        .then((task) => {
           setEditedTask(task);
           return fetchTaskAuditEvents(taskId);
         })
-        .then(events => setAuditEvents(events))
-        .catch(error => console.error("Error fetching task:", error))
+        .then((events) => setAuditEvents(events))
+        .catch((error) => console.error("Error fetching task:", error))
         .finally(() => setIsLoading(false));
     }
   }, [taskId, isOpen]);
 
-  // Return null if task is not loaded yet
   if (!editedTask || isLoading) {
     return (
       <Dialog open={isOpen} onClose={onClose} className="relative z-50">
@@ -156,42 +132,6 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
       </Dialog>
     );
   }
-
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (editedTask) {
-      setEditedTask({ ...editedTask, title: e.target.value });
-    }
-  };
-
-  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    if (editedTask) {
-      setEditedTask({ ...editedTask, description: e.target.value || null });
-    }
-  };
-
-  const handleDescriptionSave = async () => {
-    if (!editedTask) return;
-
-    const response = await saveExistingTask(editedTask);
-    if (!("error" in response)) {
-      setRefreshTasks(true);
-      setIsEditingDescription(false);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!editedTask) return;
-
-    // Log the task to verify priority is included
-    console.log("Saving edited task with priority:", editedTask.priority);
-
-    const response = await saveExistingTask(editedTask);
-    if (!("error" in response)) {
-      setRefreshTasks(true);
-      setRefreshTags(true); // Refresh tag context in case new tags were added in title edit
-      setIsEditing(false);
-    }
-  };
 
   const handleDelete = async () => {
     if (!editedTask) return;
@@ -217,7 +157,6 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
   const handleToggleComplete = async () => {
     if (!editedTask) return;
 
-    // Determine the target status based on current completion state
     const targetStatus = editedTask.is_complete ? getDefaultStatus() : getCompleteStatus();
 
     if (!targetStatus) {
@@ -238,99 +177,17 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
     }
   };
 
-  const handleRemoveTag = async (tagName: string) => {
-    if (!editedTask) return;
-
-    // Remove # prefix if present
-    const cleanTagName = tagName.replace(/^#/, '');
-    const tagRegex = new RegExp(`\\s*#${cleanTagName}\\b`, 'g');
-
-    const updatedTask = {
-      ...editedTask,
-      title: editedTask.title.replace(tagRegex, '').trim(),
-      tags: editedTask.tags.filter(tag => tag.name.replace(/^#/, '') !== cleanTagName)
-    };
-
-    const response = await saveExistingTask(updatedTask);
-    if (!("error" in response)) {
-      setEditedTask(updatedTask);
-      setRefreshTasks(true);
-    }
-  };
-
-  const handleAddTag = async (tagName: string) => {
-    if (!editedTask) return;
-
-    const cleanTag = tagName.replace(/^#/, '').trim();
-
-    // Check if tag already exists in title
-    if (editedTask.title.includes(`#${cleanTag}`)) {
-      return;
-    }
-
-    const updatedTask = {
-      ...editedTask,
-      title: `${editedTask.title} #${cleanTag}`.trim()
-    };
-
-    const response = await saveExistingTask(updatedTask);
-    if (!("error" in response)) {
-      // Refetch the task to get updated tags array
-      const refreshedTask = await fetchTask(editedTask.id.toString());
-      setEditedTask(refreshedTask);
-      setRefreshTasks(true);
-      setRefreshTags(true); // Refresh tag context to show newly created tags
-    }
-  };
-
-  const handleAddNewTag = () => {
-    if (newTagInput.trim()) {
-      handleAddTag(newTagInput);
-      setNewTagInput("");
-    }
-  };
-
-  const getCurrentTaskTags = (): Set<string> => {
-    if (!editedTask) return new Set();
-    return new Set(editedTask.tags.map(tag => tag.name.replace(/^#/, '')));
-  };
-
-  const handleAddDependency = async (blockingTaskId: number) => {
-    if (!editedTask) return;
-
-    try {
-      await addTaskDependency(editedTask.id, blockingTaskId);
-      // Refresh the task to get updated dependencies
-      const updatedTask = await fetchTask(editedTask.id.toString());
-      setEditedTask(updatedTask);
-      setRefreshTasks(true);
-    } catch (error) {
-      console.error("Error adding dependency:", error);
-    }
-  };
-
-  const handleRemoveDependency = async (blockingTaskId: number) => {
-    if (!editedTask) return;
-
-    try {
-      await removeTaskDependency(editedTask.id, blockingTaskId);
-      // Refresh the task to get updated dependencies
-      const updatedTask = await fetchTask(editedTask.id.toString());
-      setEditedTask(updatedTask);
-      setRefreshTasks(true);
-    } catch (error) {
-      console.error("Error removing dependency:", error);
-    }
-  };
-
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className={`w-full max-w-2xl transform overflow-hidden rounded-2xl py-6 shadow-xl transition-all max-h-[80vh] flex flex-col ${
-          editedTask.is_complete ? 'bg-green-50 border-2 border-green-300' : 'bg-white'
-        }`}>
+        <Dialog.Panel
+          className={`w-full max-w-2xl transform overflow-hidden rounded-2xl py-6 shadow-xl transition-all max-h-[80vh] flex flex-col ${
+            editedTask.is_complete ? "bg-green-50 border-2 border-green-300" : "bg-white"
+          }`}
+        >
+          {/* Header */}
           <div className="px-6 flex justify-between items-start mb-4">
             <div className="flex items-center gap-4">
               <span
@@ -339,11 +196,22 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
               >
                 {editedTask.is_complete ? <TaskClosedIcon /> : <TaskOpenIcon />}
               </span>
-              <Dialog.Title className={`text-lg font-medium leading-6 ${
-                editedTask.is_complete ? 'text-green-800' : 'text-gray-900'
-              }`}>
-                {editedTask.is_complete ? '✓ Task Completed' : 'Task Details'}
+              <Dialog.Title
+                className={`text-lg font-medium leading-6 ${
+                  editedTask.is_complete ? "text-green-800" : "text-gray-900"
+                }`}
+              >
+                {editedTask.is_complete ? "Task Completed" : "Task Details"}
               </Dialog.Title>
+              {editedTask.card && editedTask.card.id > 0 && (
+                <Link
+                  to={`/app/card/${editedTask.card.id}`}
+                  className="text-blue-600 hover:text-blue-800"
+                  style={{ textDecoration: "none" }}
+                >
+                  <span className="card-id">[{editedTask.card.card_id}]</span>
+                </Link>
+              )}
             </div>
             <TaskListOptionsMenu
               task={editedTask}
@@ -352,344 +220,48 @@ export function TaskDialog({ taskId, isOpen, onClose, onTagClick }: TaskDialogPr
             />
           </div>
 
+          {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto px-6">
             <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={editedTask.title}
-                  onChange={handleTitleChange}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300"
-                  autoFocus
-                />
-              ) : (
-                <div
-                  className={`text-lg cursor-pointer hover:bg-gray-50 p-2 rounded flex-grow ${
-                    editedTask.is_complete ? 'line-through text-gray-500' : ''
-                  }`}
-                  onClick={() => setIsEditing(true)}
-                >
-                  {editedTask.title}
-                </div>
-              )}
-              {editedTask.card && editedTask.card.id > 0 && (
-                <Link
-                  to={`/app/card/${editedTask.card.id}`}
-                  className="ml-2 text-blue-600 hover:text-blue-800"
-                  style={{ textDecoration: "none" }}
-                >
-                  <span className="card-id">[{editedTask.card.card_id}]</span>
-                </Link>
-              )}
-            </div>
+              <TaskForm
+                task={editedTask}
+                setTask={setEditedTask}
+                mode="edit"
+                saveOnChange={true}
+                showCardLink={showCardLink}
+                onBacklink={handleBacklink}
+              />
 
-            {/* Description section */}
-            <div className="mt-2">
-              {isEditingDescription ? (
-                <div className="space-y-2">
-                  <textarea
-                    value={editedTask.description || ""}
-                    onChange={handleDescriptionChange}
-                    placeholder="Add a description..."
-                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300 min-h-[100px] resize-y"
-                    autoFocus
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleDescriptionSave}
-                      className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => setIsEditingDescription(false)}
-                      className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className="text-gray-600 cursor-pointer hover:bg-gray-50 p-2 rounded min-h-[40px]"
-                  onClick={() => setIsEditingDescription(true)}
-                >
-                  {editedTask.description ? (
-                    <p className="whitespace-pre-wrap">{editedTask.description}</p>
+              {/* Audit History */}
+              <div className="mt-6 border-t pt-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Task History</h3>
+                <div className="space-y-3 max-h-[200px] overflow-y-auto">
+                  {auditEvents.length > 0 ? (
+                    auditEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        className="flex items-start space-x-3 text-sm hover:bg-gray-50 p-2 rounded"
+                      >
+                        <div className="text-gray-500 min-w-[120px] font-medium">
+                          {format(event.created_at, "MMM d, HH:mm")}
+                        </div>
+                        <div className="flex-grow text-gray-700">{formatAuditEvent(event)}</div>
+                      </div>
+                    ))
                   ) : (
-                    <p className="text-gray-400 italic">Add a description...</p>
+                    <div className="text-sm text-gray-500 text-center py-4">No history available</div>
                   )}
                 </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-4 flex-wrap">
-              <TaskStatusDisplay
-                task={editedTask}
-                setTask={setEditedTask}
-                saveOnChange={true}
-              />
-              <TaskDateDisplay
-                task={editedTask}
-                setTask={setEditedTask}
-                saveOnChange={true}
-              />
-              <TaskDueDateDisplay
-                task={editedTask}
-                setTask={setEditedTask}
-                saveOnChange={true}
-              />
-              <TaskPriorityDisplay
-                task={editedTask}
-                setTask={setEditedTask}
-                saveOnChange={true}
-              />
-              <TaskReminderDisplay
-                task={editedTask}
-                setTask={setEditedTask}
-                saveOnChange={true}
-              />
-              <TaskTagDisplay task={editedTask} tags={editedTask.tags} onTagClick={onTagClick} onRemoveTag={handleRemoveTag} />
-              <button
-                onClick={() => setShowTagEditor(!showTagEditor)}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-              >
-                {showTagEditor ? '− Hide Tags' : '+ Add Tags'}
-              </button>
-            </div>
-
-            {/* Blocked By section */}
-            {editedTask.blocked_by && editedTask.blocked_by.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-medium text-gray-700">Blocked by:</span>
-                {editedTask.blocked_by.map((blockingTask) => (
-                  <div
-                    key={blockingTask.id}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 rounded text-sm"
-                  >
-                    <span className={blockingTask.is_complete ? "line-through" : ""}>
-                      {blockingTask.title}
-                    </span>
-                    <button
-                      onClick={() => handleRemoveDependency(blockingTask.id)}
-                      className="ml-1 hover:text-orange-600"
-                      title="Remove blocker"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
               </div>
-            )}
-
-            <button
-              onClick={() => {
-                setShowDependencyEditor(!showDependencyEditor);
-                if (showDependencyEditor) {
-                  setDependencyFilter("");
-                }
-              }}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-            >
-              {showDependencyEditor ? '− Hide Blockers' : '+ Add Blocker'}
-            </button>
-
-            {showDependencyEditor && (
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
-                <label className="block text-sm font-medium text-gray-700">
-                  Select tasks that block this task
-                </label>
-                <input
-                  type="text"
-                  value={dependencyFilter}
-                  onChange={(e) => setDependencyFilter(e.target.value)}
-                  placeholder="Filter tasks..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3 bg-white">
-                  {(() => {
-                    const availableTasks = tasks
-                      .filter(t => t.id !== editedTask.id && !t.is_complete)
-                      .filter(t => dependencyFilter === "" || t.title.toLowerCase().includes(dependencyFilter.toLowerCase()));
-
-                    if (availableTasks.length === 0) {
-                      return <p className="text-gray-500 text-sm text-center py-2">
-                        {dependencyFilter ? "No tasks match your search" : "No available tasks"}
-                      </p>;
-                    }
-
-                    return (
-                      <div className="space-y-2">
-                        {availableTasks.map((task) => {
-                          const isBlocking = editedTask.blocked_by?.some(bt => bt.id === task.id) || false;
-                          return (
-                            <button
-                              key={task.id}
-                              onClick={() => {
-                                if (isBlocking) {
-                                  handleRemoveDependency(task.id);
-                                } else {
-                                  handleAddDependency(task.id);
-                                }
-                              }}
-                              className={`w-full text-left px-3 py-2 rounded transition-colors ${
-                                isBlocking
-                                  ? 'bg-orange-100 text-orange-800 border border-orange-300'
-                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <span>{task.title}</span>
-                                {isBlocking && <span className="text-xs">✓ Blocking</span>}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            )}
-
-            {showTagEditor && (
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
-                {/* New tag input */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Add New Tag</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newTagInput}
-                      onChange={(e) => setNewTagInput(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          handleAddNewTag();
-                        }
-                      }}
-                      placeholder="Enter tag name"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button
-                      onClick={handleAddNewTag}
-                      disabled={!newTagInput.trim()}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Add
-                    </button>
-                  </div>
-                </div>
-
-                {/* Available tags */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Available Tags ({(() => {
-                      const filteredTags = allTags.filter(tag =>
-                        newTagInput.trim() === '' ||
-                        tag.name.replace(/^#/, '').toLowerCase().includes(newTagInput.trim().toLowerCase())
-                      );
-                      return filteredTags.length;
-                    })()})
-                  </label>
-                  <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3 bg-white">
-                    {(() => {
-                      const filteredTags = allTags.filter(tag =>
-                        newTagInput.trim() === '' ||
-                        tag.name.replace(/^#/, '').toLowerCase().includes(newTagInput.trim().toLowerCase())
-                      );
-
-                      if (filteredTags.length === 0) {
-                        return newTagInput.trim() ? (
-                          <p className="text-gray-500 text-sm text-center py-2">
-                            No tags match "{newTagInput.trim()}"
-                          </p>
-                        ) : (
-                          <p className="text-gray-500 text-sm text-center py-2">No tags available</p>
-                        );
-                      }
-
-                      return (
-                        <div className="flex flex-wrap gap-2">
-                          {filteredTags.map((tag) => {
-                            const cleanTagName = tag.name.replace(/^#/, '');
-                            const isSelected = getCurrentTaskTags().has(cleanTagName);
-                            return (
-                              <button
-                                key={tag.id}
-                                onClick={() => {
-                                  if (isSelected) {
-                                    handleRemoveTag(cleanTagName);
-                                  } else {
-                                    handleAddTag(cleanTagName);
-                                  }
-                                }}
-                                className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                                  isSelected
-                                    ? 'bg-purple-600 text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                }`}
-                              >
-                                #{cleanTagName}
-                                {isSelected && ' ✓'}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {showCardLink && (
-              <div className="border-t pt-4">
-                <BacklinkInput addBacklink={handleBacklink} />
-              </div>
-            )}
-          </div>
-
-            <div className="mt-6 border-t pt-4">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Task History</h3>
-              <div className="space-y-3 max-h-[200px] overflow-y-auto">
-              {auditEvents.length > 0 ? (
-                auditEvents.map((event) => (
-                  <div key={event.id} className="flex items-start space-x-3 text-sm hover:bg-gray-50 p-2 rounded">
-                    <div className="text-gray-500 min-w-[120px] font-medium">
-                      {format(event.created_at, 'MMM d, HH:mm')}
-                    </div>
-                    <div className="flex-grow text-gray-700">
-                      {formatAuditEvent(event)}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-sm text-gray-500 text-center py-4">
-                  No history available
-                </div>
-              )}
             </div>
           </div>
-          </div>
 
+          {/* Footer */}
           <div className="px-6 mt-6 flex justify-between">
-            <Button
-              onClick={handleDelete}
-              className="bg-red-500 hover:bg-red-600 text-white"
-            >
+            <Button onClick={handleDelete} className="bg-red-500 hover:bg-red-600 text-white">
               Delete Task
             </Button>
-            <div className="flex gap-2">
-              {isEditing && (
-                <Button onClick={handleSave}>
-                  Save Changes
-                </Button>
-              )}
-              <Button onClick={onClose}>
-                Close
-              </Button>
-            </div>
+            <Button onClick={onClose}>Close</Button>
           </div>
         </Dialog.Panel>
       </div>
