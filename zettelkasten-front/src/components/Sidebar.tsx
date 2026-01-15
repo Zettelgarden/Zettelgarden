@@ -32,6 +32,8 @@ export function Sidebar() {
   const [showStarCardDialog, setShowStarCardDialog] = useState(false);
   const { hasSubscription, user, updateUser } = useAuth();
 
+  const userTimezone = user?.timezone || "UTC";
+
   const [showGettingStarted, setShowGettingStarted] = useState(false);
   const [showEditEntityDialog, setShowEditEntityDialog] = useState(false);
   const [entityToEdit, setEntityToEdit] = useState<Entity | null>(null);
@@ -64,9 +66,9 @@ export function Sidebar() {
   const todayTasks = useMemo(
     () =>
       tasks.filter(
-        (task) => !task.is_complete && isTodayOrPast(task.scheduled_date),
+        (task) => !task.is_complete && isTodayOrPast(task.scheduled_date, userTimezone),
       ),
-    [tasks],
+    [tasks, userTimezone],
   );
 
   function handleNewStandardCard() {
