@@ -71,13 +71,14 @@ func ResetDatabase(S *Server) error {
 			DROP TABLE IF EXISTS starred_cards CASCADE;
 			DROP TABLE IF EXISTS pinned_searches CASCADE;
 			DROP TABLE IF EXISTS task_statuses CASCADE;
+			DROP TABLE IF EXISTS api_keys CASCADE;
 
 			DROP INDEX IF EXISTS idx_task_statuses_user;
 			DROP INDEX IF EXISTS idx_task_statuses_position;
 			DROP INDEX IF EXISTS idx_task_dependencies_task_id;
 			DROP INDEX IF EXISTS idx_task_dependencies_blocking_task_id;
-
-
+			DROP INDEX IF EXISTS idx_api_keys_user_id;
+			DROP INDEX IF EXISTS idx_unique_active_key_name_per_user;
 			CREATE TABLE IF NOT EXISTS migrations (
 				id SERIAL PRIMARY KEY,
 				migration_name VARCHAR(255) NOT NULL,
