@@ -1,24 +1,44 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { fetchTasks } from '../../api/tasks';
 import { filterTasks, filterTasksByDateView, parseTaskQuery } from '../../utils/tasks';
-import { compareDates } from '../../utils/dates';
 import { TaskListItem } from '../tasks/TaskListItem';
 import { Task } from '../../models/Task';
 import { CreateTaskWindow } from '../tasks/CreateTaskWindow';
+
+const taskQueryCache = new Map<string, Task[]>();
 
 interface DynamicTaskListProps {
   query: string;
 }
 
 export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
-  const [allTasks, setAllTasks] = useState<Task[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [allTasks, setAllTasks] = useState<Task[]>(() => taskQueryCache.get(query) ?? []);
+  const [isLoading, setIsLoading] = useState(() => !taskQueryCache.has(query));
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const hasLoadedOnceRef = useRef(taskQueryCache.has(query));
   const [showTaskWindow, setShowTaskWindow] = useState(false);
 
   // Fetch tasks with backend filtering based on query
   useEffect(() => {
+    let cancelled = false;
+
     const loadTasks = async () => {
-      setIsLoading(true);
+      const cached = taskQueryCache.get(query);
+      if (cached) {
+        setAllTasks(cached);
+        hasLoadedOnceRef.current = true;
+        setIsLoading(false);
+      }
+
+      // Avoid blanking out the list while refreshing.
+      if (!hasLoadedOnceRef.current) {
+        setIsLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
+
+      if (cancelled) return;
+
       try {
         const params = parseTaskQuery(query);
 
@@ -41,17 +61,32 @@ export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
           scheduledDate,
           completedDate,
         });
+
+        if (cancelled) return;
+        taskQueryCache.set(query, tasks);
         setAllTasks(tasks);
       } catch (error) {
+        if (cancelled) return;
         console.error('Error fetching tasks:', error);
-        setAllTasks([]);
+        if (!hasLoadedOnceRef.current) {
+          setAllTasks([]);
+        }
       } finally {
+        if (cancelled) return;
         setIsLoading(false);
+        setIsRefreshing(false);
+        hasLoadedOnceRef.current = true;
       }
     };
 
     loadTasks();
+
+    return () => {
+      cancelled = true;
+    };
   }, [query]);
+
+  const shouldShowInitialLoading = isLoading && !hasLoadedOnceRef.current;
 
   // Parse query and apply client-side filters (text/tag search and date views)
   const filteredTasks = useMemo(() => {
@@ -76,8 +111,12 @@ export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
     }
   }, [query, allTasks]);
 
+  const shouldShowNoResults = !shouldShowInitialLoading && !isRefreshing && filteredTasks.length === 0;
+
+  // If we're refreshing, keep showing the previous tasks (don’t flash the full loading state).
+
   // Handle loading state
-  if (isLoading) {
+  if (shouldShowInitialLoading) {
     return (
       <div className="bg-gray-50 rounded-lg p-4 my-4 border border-gray-200">
         <p className="text-sm text-gray-500 italic">
@@ -88,7 +127,7 @@ export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
   }
 
   // Handle no results
-  if (filteredTasks.length === 0) {
+  if (shouldShowNoResults) {
     return (
       <div className="bg-gray-50 rounded-lg p-4 my-4 border border-gray-200">
         <p className="text-sm text-gray-500 italic">
@@ -106,6 +145,7 @@ export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
           <div className="flex justify-between items-center mb-2">
             <div className="text-xs text-gray-500">
               Tasks matching: "{query}" ({filteredTasks.length})
+              {isRefreshing && <span className="ml-2 italic">Refreshing...</span>}
             </div>
             <button
               onClick={() => setShowTaskWindow(true)}
