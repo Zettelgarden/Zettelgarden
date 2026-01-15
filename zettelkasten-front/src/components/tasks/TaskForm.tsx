@@ -2,12 +2,11 @@ import React, { useState } from "react";
 import { Task } from "../../models/Task";
 import { PartialCard } from "../../models/Card";
 import { BacklinkInput } from "../cards/BacklinkInput";
-import { TaskDateDisplay } from "./TaskDateDisplay";
-import { TaskDueDateDisplay } from "./TaskDueDateDisplay";
-import { TaskPriorityDisplay } from "./TaskPriorityDisplay";
-import { TaskReminderDisplay } from "./TaskReminderDisplay";
-import { TaskStatusDisplay } from "./TaskStatusDisplay";
-import { TaskTagDisplay } from "./TaskTagDisplay";
+import { TaskTitleSection } from "./TaskTitleSection";
+import { TaskDescriptionSection } from "./TaskDescriptionSection";
+import { TaskScheduleSection } from "./TaskScheduleSection";
+import { TaskDependenciesSection } from "./TaskDependenciesSection";
+import { TaskTagsSection } from "./TaskTagsSection";
 import { useTagContext } from "../../contexts/TagContext";
 import { useTaskContext } from "../../contexts/TaskContext";
 import { saveExistingTask, fetchTask, addTaskDependency, removeTaskDependency } from "../../api/tasks";
@@ -200,112 +199,27 @@ export function TaskForm({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Title Input */}
-      <div className="flex gap-2">
-        {mode === "create" || isEditingTitle ? (
-          <input
-            className="flex-1 px-3 py-2.5 text-base border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300 focus:border-blue-500"
-            placeholder="Enter task title"
-            value={task.title}
-            onChange={handleTitleChange}
-            onKeyPress={handleTitleKeyPress}
-            onBlur={mode === "edit" ? handleTitleSave : undefined}
-            autoFocus
-          />
-        ) : (
-          <div
-            className={`flex-1 text-lg cursor-pointer hover:bg-gray-50 p-2 rounded ${
-              task.is_complete ? "line-through text-gray-500" : ""
-            }`}
-            onClick={() => setIsEditingTitle(true)}
-          >
-            {task.title}
-          </div>
-        )}
+      <TaskTitleSection
+        task={task}
+        setTask={setTask}
+        mode={mode}
+        isEditingTitle={isEditingTitle}
+        setIsEditingTitle={setIsEditingTitle}
+        showRecurringMenu={showRecurringMenu}
+        setShowRecurringMenu={setShowRecurringMenu}
+        onTitleSubmit={onTitleSubmit}
+        saveOnChange={saveOnChange}
+        onSaveTitle={handleTitleSave}
+      />
 
-        {/* Recurring Options Menu (create mode only) */}
-        {mode === "create" && (
-          <div className="relative flex-shrink-0">
-            <button
-              onClick={() => setShowRecurringMenu(!showRecurringMenu)}
-              className="menu-button h-full px-3"
-            >
-              ...
-            </button>
-            {showRecurringMenu && (
-              <div className="absolute right-0 top-full bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-[200px]">
-                <div className="py-1">
-                  <div className="px-4 py-1 text-sm font-medium text-gray-600">
-                    Recurring Task
-                  </div>
-                  <button
-                    onClick={() => handleAddRecurring("every day")}
-                    className="w-full px-4 py-2 text-left hover:bg-gray-50"
-                  >
-                    Daily
-                  </button>
-                  <button
-                    onClick={() => handleAddRecurring("every week")}
-                    className="w-full px-4 py-2 text-left hover:bg-gray-50"
-                  >
-                    Weekly
-                  </button>
-                  <button
-                    onClick={() => handleAddRecurring("every month")}
-                    className="w-full px-4 py-2 text-left hover:bg-gray-50"
-                  >
-                    Monthly
-                  </button>
-                  <div className="px-4 py-2 text-xs text-gray-600 border-t border-gray-100 bg-gray-50">
-                    Tip: You can type "every X days/weeks/months" for custom
-                    intervals
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Description */}
-      {mode === "create" || isEditingDescription ? (
-        <div className="space-y-2">
-          <textarea
-            placeholder="Add a description..."
-            value={task.description || ""}
-            onChange={handleDescriptionChange}
-            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300 min-h-[80px] resize-y"
-            autoFocus={mode === "edit"}
-          />
-          {mode === "edit" && (
-            <div className="flex gap-2">
-              <button
-                onClick={handleDescriptionSave}
-                className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setIsEditingDescription(false)}
-                className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div
-          className="text-gray-600 cursor-pointer hover:bg-gray-50 p-2 rounded min-h-[40px]"
-          onClick={() => setIsEditingDescription(true)}
-        >
-          {task.description ? (
-            <p className="whitespace-pre-wrap">{task.description}</p>
-          ) : (
-            <p className="text-gray-400 italic">Add a description...</p>
-          )}
-        </div>
-      )}
+      <TaskDescriptionSection
+        task={task}
+        setTask={setTask}
+        mode={mode}
+        isEditingDescription={isEditingDescription}
+        setIsEditingDescription={setIsEditingDescription}
+        onSaveDescription={handleDescriptionSave}
+      />
 
       {/* Card Link */}
       {(showCardLink || (!currentCard && mode === "create")) && (
@@ -314,259 +228,37 @@ export function TaskForm({
         </div>
       )}
 
-      {/* Display Components Row */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-wrap">
-        <TaskStatusDisplay
-          task={task}
-          setTask={setTask}
-          saveOnChange={saveOnChange}
-        />
-        <TaskDateDisplay
-          task={task}
-          setTask={setTask}
-          saveOnChange={saveOnChange}
-        />
-        <TaskDueDateDisplay
-          task={task}
-          setTask={setTask}
-          saveOnChange={saveOnChange}
-        />
-        <TaskPriorityDisplay
-          task={task}
-          setTask={setTask}
-          saveOnChange={saveOnChange}
-        />
-        <TaskReminderDisplay
-          task={task}
-          setTask={setTask}
-          saveOnChange={saveOnChange}
-        />
-        <TaskTagDisplay
-          task={task}
-          tags={task.tags}
-          onTagClick={() => {}}
-          onRemoveTag={handleRemoveTag}
-        />
-        <button
-          onClick={() => setShowTagEditor(!showTagEditor)}
-          className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-        >
-          {showTagEditor ? "- Hide Tags" : "+ Add Tags"}
-        </button>
-      </div>
+      <TaskScheduleSection
+        task={task}
+        setTask={setTask}
+        saveOnChange={saveOnChange}
+        showTagEditor={showTagEditor}
+        setShowTagEditor={setShowTagEditor}
+        onRemoveTag={handleRemoveTag}
+      />
 
-      {/* Blocked By Section (edit mode only) */}
-      {mode === "edit" && task.blocked_by && task.blocked_by.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium text-gray-700">Blocked by:</span>
-          {task.blocked_by.map((blockingTask) => (
-            <div
-              key={blockingTask.id}
-              className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 rounded text-sm"
-            >
-              <span className={blockingTask.is_complete ? "line-through" : ""}>
-                {blockingTask.title}
-              </span>
-              <button
-                onClick={() => handleRemoveDependency(blockingTask.id)}
-                className="ml-1 hover:text-orange-600"
-                title="Remove blocker"
-              >
-                x
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      <TaskDependenciesSection
+        task={task}
+        mode={mode}
+        showDependencyEditor={showDependencyEditor}
+        setShowDependencyEditor={setShowDependencyEditor}
+        dependencyFilter={dependencyFilter}
+        setDependencyFilter={setDependencyFilter}
+        tasks={tasks}
+        onAddDependency={handleAddDependency}
+        onRemoveDependency={handleRemoveDependency}
+      />
 
-      {/* Add Blocker Button (edit mode only) */}
-      {mode === "edit" && task.id > 0 && (
-        <button
-          onClick={() => {
-            setShowDependencyEditor(!showDependencyEditor);
-            if (showDependencyEditor) {
-              setDependencyFilter("");
-            }
-          }}
-          className="text-sm text-blue-600 hover:text-blue-800 font-medium w-fit"
-        >
-          {showDependencyEditor ? "- Hide Blockers" : "+ Add Blocker"}
-        </button>
-      )}
-
-      {/* Dependency Editor (edit mode only) */}
-      {mode === "edit" && showDependencyEditor && (
-        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
-          <label className="block text-sm font-medium text-gray-700">
-            Select tasks that block this task
-          </label>
-          <input
-            type="text"
-            value={dependencyFilter}
-            onChange={(e) => setDependencyFilter(e.target.value)}
-            placeholder="Filter tasks..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3 bg-white">
-            {(() => {
-              const availableTasks = tasks
-                .filter((t) => t.id !== task.id && !t.is_complete)
-                .filter(
-                  (t) =>
-                    dependencyFilter === "" ||
-                    t.title.toLowerCase().includes(dependencyFilter.toLowerCase())
-                );
-
-              if (availableTasks.length === 0) {
-                return (
-                  <p className="text-gray-500 text-sm text-center py-2">
-                    {dependencyFilter
-                      ? "No tasks match your search"
-                      : "No available tasks"}
-                  </p>
-                );
-              }
-
-              return (
-                <div className="space-y-2">
-                  {availableTasks.map((t) => {
-                    const isBlocking =
-                      task.blocked_by?.some((bt) => bt.id === t.id) || false;
-                    return (
-                      <button
-                        key={t.id}
-                        onClick={() => {
-                          if (isBlocking) {
-                            handleRemoveDependency(t.id);
-                          } else {
-                            handleAddDependency(t.id);
-                          }
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded transition-colors ${
-                          isBlocking
-                            ? "bg-orange-100 text-orange-800 border border-orange-300"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span>{t.title}</span>
-                          {isBlocking && (
-                            <span className="text-xs">Blocking</span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
-
-      {/* Tag Editor */}
-      {showTagEditor && (
-        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
-          {/* New tag input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Add New Tag
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newTagInput}
-                onChange={(e) => setNewTagInput(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === "Enter") {
-                    handleAddNewTag();
-                  }
-                }}
-                placeholder="Enter tag name"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                onClick={handleAddNewTag}
-                disabled={!newTagInput.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Add
-              </button>
-            </div>
-          </div>
-
-          {/* Available tags */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Available Tags (
-              {
-                allTags.filter(
-                  (tag) =>
-                    newTagInput.trim() === "" ||
-                    tag.name
-                      .replace(/^#/, "")
-                      .toLowerCase()
-                      .includes(newTagInput.trim().toLowerCase())
-                ).length
-              }
-              )
-            </label>
-            <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3 bg-white">
-              {(() => {
-                const filteredTags = allTags.filter(
-                  (tag) =>
-                    newTagInput.trim() === "" ||
-                    tag.name
-                      .replace(/^#/, "")
-                      .toLowerCase()
-                      .includes(newTagInput.trim().toLowerCase())
-                );
-
-                if (filteredTags.length === 0) {
-                  return newTagInput.trim() ? (
-                    <p className="text-gray-500 text-sm text-center py-2">
-                      No tags match "{newTagInput.trim()}"
-                    </p>
-                  ) : (
-                    <p className="text-gray-500 text-sm text-center py-2">
-                      No tags available
-                    </p>
-                  );
-                }
-
-                return (
-                  <div className="flex flex-wrap gap-2">
-                    {filteredTags.map((tag) => {
-                      const cleanTagName = tag.name.replace(/^#/, "");
-                      const isSelected = getCurrentTaskTags().has(cleanTagName);
-                      return (
-                        <button
-                          key={tag.id}
-                          onClick={() => {
-                            if (isSelected) {
-                              handleRemoveTag(cleanTagName);
-                            } else {
-                              handleAddTag(cleanTagName);
-                            }
-                          }}
-                          className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                            isSelected
-                              ? "bg-purple-600 text-white"
-                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                          }`}
-                        >
-                          #{cleanTagName}
-                          {isSelected && " ✓"}
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
-      )}
+      <TaskTagsSection
+        task={task}
+        showTagEditor={showTagEditor}
+        newTagInput={newTagInput}
+        setNewTagInput={setNewTagInput}
+        allTags={allTags}
+        onAddTag={handleAddTag}
+        onRemoveTag={handleRemoveTag}
+        getCurrentTaskTags={getCurrentTaskTags}
+      />
     </div>
   );
 }
