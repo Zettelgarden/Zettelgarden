@@ -64,6 +64,14 @@ export function ViewPageSidePanels({
               ← Prev
             </Button>
           )}
+          {parentCard && (
+            <Button
+              onClick={() => navigate(`/app/card/${parentCard.id}`)}
+              variant="secondary"
+            >
+              ↑ Up
+            </Button>
+          )}
           {nextSibling && (
             <Button
               onClick={() => navigate(`/app/card/${nextSibling.id}`)}
