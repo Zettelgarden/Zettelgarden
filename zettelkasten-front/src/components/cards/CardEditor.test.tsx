@@ -297,7 +297,7 @@ describe('CardEditor', () => {
         card_id: 'test-123',
         title: 'Original Title',
         body: 'Original Body',
-        tags: [{ name: 'test-tag' }],
+        tags: [{ id: 1, name: 'test-tag', color: '#000000', user_id: 1 }],
         process_entities_and_facts: true,
       };
 
