@@ -26,7 +26,7 @@ export function useCardReference({
 
   const handleReferenceSelect = (card: PartialCard) => {
     const textarea = textareaRef.current;
-    if (!textarea || triggerIndex === null) return;
+    if (!textarea || triggerIndex === null || !card) return;
 
     // Use textarea.value instead of editingCard.body because editingCard.body might be stale
     // (React state update from the '[' insertion might not have propagated yet to this callback closure)
