@@ -42,6 +42,12 @@ export const CardBodyTextArea = forwardRef<CardBodyTextAreaHandle, CardBodyTextA
 
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Handle ESC key to close reference dialog
+    if (event.key === 'Escape' && showReferenceDialog) {
+      handleCloseReferenceDialog();
+      return;
+    }
+
     // Handle card reference bracket activation
     handleBracketKey(event);
 
