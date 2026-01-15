@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { setDocumentTitle } from "../../utils/title";
 import { Card, PartialCard, Entity } from "../../models/Card";
 import { isErrorResponse } from "../../models/common";
 import { TaskListItem } from "../../components/tasks/TaskListItem";
@@ -9,11 +8,18 @@ import { useParams, useNavigate } from "react-router-dom";
 
 import { CardItem } from "../../components/cards/CardItem";
 import { BacklinkInput } from "../../components/cards/BacklinkInput";
-import { getCard, saveExistingCard, starCard, unstarCard, getCardReferences, getCardChildren, getCardFiles, getCardTags, getCardTasks, getCardEntities, getLinkedEntitiesByCardPK, CategorizedReferences } from "../../api/cards";
+import { getCard, CategorizedReferences } from "../../api/cards";
 import { Menu } from "@headlessui/react";
 
 import { convertCardToPartialCard } from "../../utils/cards";
-import { findNextChildId } from "../../utils/cards";
+import {
+  calculateNextChildId,
+  addTagToCard,
+  removeTagFromCard,
+  addBacklinkToCard,
+  toggleCardStar,
+  resummarizeCard
+} from "../../utils/cardActions";
 
 import { usePartialCardContext } from "../../contexts/CardContext";
 import { useCardRefresh } from "../../contexts/CardRefreshContext";
@@ -21,9 +27,10 @@ import { useShortcutContext } from "../../contexts/ShortcutContext";
 import { useTagContext } from "../../contexts/TagContext";
 import { usePinContext } from "../../contexts/PinContext";
 import { useChatSidebarContext } from "../../contexts/ChatSidebarContext";
+import { useCardData } from "../../hooks/useCardData";
+import { useCardNavigation } from "../../hooks/useCardNavigation";
 
 import { PinButton } from "../../components/cards/PinButton";
-import { compareCardIds } from "../../utils/cards";
 import { fetchSummariesForCard, fetchAnalysisForCard, SectionAnalysis, SummarizeJobResponse } from "../../api/summarizer";
 import { FactWithCard } from "../../models/Fact";
 
@@ -77,13 +84,17 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   actions: ViewPageContainerActions;
 } {
   const [error, setError] = useState("");
-  const [viewingCard, setViewCard] = useState<Card | null>(null);
-  const [parentCard, setParentCard] = useState<Card | null>(null);
   const { refreshTasks, setRefreshTasks } = useTaskContext();
   const { refreshFiles } = useFileContext();
   const { id: urlId } = useParams<{ id: string }>();
   const id = cardId || urlId; // Use prop cardId if provided, otherwise use URL param
   const { refreshTrigger } = useCardRefresh();
+
+  // Use the card data hook for data fetching and state management
+  const cardData = useCardData(id);
+
+  // Use the card navigation hook for sibling navigation logic
+  const { prevSibling, nextSibling } = useCardNavigation(cardData.parentCard, cardData.viewingCard);
 
   const fileUploadRef = React.useRef<HTMLInputElement>(null);
 
@@ -100,26 +111,14 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   const { pinnedCard, setPinnedCard } = usePinContext();
   const { setChatSidebarCard } = useChatSidebarContext();
 
-  const [summaries, setSummaries] = useState<SummarizeJobResponse[] | null>(null);
-  const [latestSummary, setLatestSummary] = useState<SummarizeJobResponse | null>(null);
   const [showingSummary, setShowingSummary] = useState(false);
-  const [analysis, setAnalysis] = useState<SectionAnalysis[] | null>(null);
   const [showingAnalysis, setShowingAnalysis] = useState(false);
   const [showIdDiscovery, setShowIdDiscovery] = useState(false);
 
-  const [prevSibling, setPrevSibling] = useState<PartialCard | null>(null);
-  const [nextSibling, setNextSibling] = useState<PartialCard | null>(null);
-
-  const [linkedEntities, setLinkedEntities] = useState<Entity[]>([]);
-  const [categorizedReferences, setCategorizedReferences] = useState<CategorizedReferences>({
-    bidirectional: [],
-    outgoing: [],
-    incoming: [],
-  });
 
   const navigate = useNavigate();
 
-  const { setLastCard, setNextCardId } = usePartialCardContext();
+  const { setNextCardId } = usePartialCardContext();
 
   // Handler functions
   function handleOpenEntity(entity: Entity) {
@@ -128,160 +127,70 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   }
 
   async function handleTagClick(tagName: string) {
-    if (viewingCard === null) {
+    if (cardData.viewingCard === null) {
       return;
     }
 
-    let editedCard = {
-      ...viewingCard,
-      body: viewingCard.body + "\n\n#" + tagName,
-    };
-    let response = await saveExistingCard(editedCard);
-    setViewCard(editedCard);
+    await addTagToCard(cardData.viewingCard, tagName, () => {
+      if (id) {
+        cardData.fetchCard(id);
+      }
+    });
   }
 
   async function handleRemoveTag(tagName: string) {
-    if (viewingCard === null) {
+    if (cardData.viewingCard === null) {
       return;
     }
 
-    const tagRegex = new RegExp(`\\n*#${tagName}\\b`, 'g');
-    let editedCard = {
-      ...viewingCard,
-      body: viewingCard.body.replace(tagRegex, ''),
-    };
-    let response = await saveExistingCard(editedCard);
-    setViewCard(editedCard);
-    fetchCard(id!);
+    await removeTagFromCard(cardData.viewingCard, tagName, () => {
+      if (id) {
+        cardData.fetchCard(id);
+      }
+    });
   }
 
   async function handleAddBacklink(selectedCard: PartialCard) {
-    if (viewingCard === null || selectedCard === null) {
+    if (cardData.viewingCard === null || selectedCard === null) {
       return;
     }
-    let text = "";
-    if (selectedCard) {
-      text = "\n\n[" + selectedCard.card_id + "] - " + selectedCard.title;
-    } else {
-      text = "";
-    }
-    let editedCard = {
-      ...viewingCard,
-      body: viewingCard.body + text,
-    };
-    let response = await saveExistingCard(editedCard);
-    setViewCard(editedCard);
-    fetchCard(id!);
+
+    await addBacklinkToCard(cardData.viewingCard, selectedCard, () => {
+      if (id) {
+        cardData.fetchCard(id);
+      }
+    });
   }
 
   function onEditCard() {
-    if (viewingCard === null) {
+    if (cardData.viewingCard === null) {
       return;
     }
-    navigate(`/app/card/${viewingCard.id}/edit`);
+    navigate(`/app/card/${cardData.viewingCard.id}/edit`);
   }
 
   function handleCreateChildCard() {
-    if (viewingCard === null) return;
-    const nextId = findNextChildId(viewingCard.card_id, viewingCard.children);
+    if (cardData.viewingCard === null) return;
+    const nextId = calculateNextChildId(cardData.viewingCard.card_id, cardData.viewingCard.children);
     setNextCardId(nextId);
     navigate('/app/card/new');
   }
 
-  async function loadSummaries(id: number) {
-    try {
-      const jobs = await fetchSummariesForCard(id);
-      setSummaries(jobs);
-    } catch (err: any) {
-      console.error("Failed to fetch summaries", err);
-    }
-  }
-
-  async function loadAnalysis(id: number) {
-    try {
-      const analysisData = await fetchAnalysisForCard(id);
-      setAnalysis(analysisData);
-    } catch (err: any) {
-      console.error("Failed to fetch analysis", err);
-    }
-  }
-
-  async function fetchCard(id: string) {
-    try {
-      let refreshed = await getCard(id);
-
-      if (isErrorResponse(refreshed)) {
-        setError(refreshed["error"]);
-      } else {
-        // Also fetch categorized references via new endpoint
-        const refs = await getCardReferences(id);
-        setCategorizedReferences(refs);
-        // Combine all references for backward compatibility with Card.references
-        refreshed.references = [...refs.bidirectional, ...refs.outgoing, ...refs.incoming];
-        // Also fetch children via new endpoint
-        const kids = await getCardChildren(id);
-        refreshed.children = kids;
-        // Also fetch files via new endpoint
-        const files = await getCardFiles(id);
-        refreshed.files = files;
-        // Also fetch tags via new endpoint
-        const tags = await getCardTags(id);
-        refreshed.tags = tags;
-        // Also fetch tasks via new endpoint
-        const tasks = await getCardTasks(id);
-        refreshed.tasks = tasks;
-        // Also fetch entities via new endpoint
-        const entities = await getCardEntities(id);
-        refreshed.entities = entities;
-
-        // Also fetch linked entities via new endpoint
-        const linked = await getLinkedEntitiesByCardPK(id);
-        setLinkedEntities(linked);
-
-        setViewCard(refreshed);
-        setDocumentTitle(refreshed.card_id + " - " + refreshed.title);
-        setLastCard(convertCardToPartialCard(refreshed));
-
-        if (refreshed.parent && "id" in refreshed.parent) {
-          let parentCardId = refreshed.parent.id;
-          const parentCard = await getCard(parentCardId.toString());
-          let parentChildren = await getCardChildren(parentCardId.toString());
-
-          parentCard.children = parentChildren;
-          console.log("set parent", parentCard, "children", parentChildren);
-          setParentCard(parentCard);
-        } else {
-          setParentCard(null);
-        }
-      }
-    } catch (error: any) {
-      setError(error.message);
-    }
-  }
 
   const handleToggleStar = async () => {
-    if (viewingCard === null) {
+    if (cardData.viewingCard === null) {
       return;
     }
-    console.log("?", viewingCard);
-    const card = viewingCard;
+
     try {
-      console.log(viewingCard, viewingCard.is_starred);
-      if (viewingCard.is_starred) {
-        await unstarCard(viewingCard.id);
-        setViewCard({
-          ...card,
-          is_starred: false
-        });
-      } else {
-        await starCard(viewingCard.id);
-        setViewCard({
-          ...card,
-          is_starred: true
-        });
-      }
+      await toggleCardStar(cardData.viewingCard, () => {
+        if (id) {
+          cardData.fetchCard(id);
+        }
+      });
     } catch (error) {
-      console.log(error);
+      console.error("Error toggling star status:", error);
+      setError("Failed to toggle star status");
     }
   };
 
@@ -290,112 +199,69 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   }
 
   const handleTogglePin = () => {
-    if (!viewingCard) return;
+    if (!cardData.viewingCard) return;
 
-    if (pinnedCard && pinnedCard.id === viewingCard.id) {
+    if (pinnedCard && pinnedCard.id === cardData.viewingCard.id) {
       // Unpin if this card is currently pinned
       setPinnedCard(null);
     } else {
       // Pin this card
-      setPinnedCard(viewingCard);
+      setPinnedCard(cardData.viewingCard);
     }
   };
 
   const handleOpenChatSidebar = () => {
-    if (!viewingCard) return;
-    setChatSidebarCard(viewingCard);
+    if (!cardData.viewingCard) return;
+    setChatSidebarCard(cardData.viewingCard);
   };
 
-  const isPinned = pinnedCard && viewingCard && pinnedCard.id === viewingCard.id;
+  const isPinned = pinnedCard && cardData.viewingCard && pinnedCard.id === cardData.viewingCard.id;
 
   const onResummarize = async () => {
-    if (viewingCard) {
-      const updatedCard = {
-        ...viewingCard,
-        process_entities_and_facts: true
-      };
-      await saveExistingCard(updatedCard);
-      fetchCard(id!);
+    if (cardData.viewingCard) {
+      await resummarizeCard(cardData.viewingCard, () => {
+        if (id) {
+          cardData.fetchCard(id);
+        }
+      });
     }
   };
 
   const onRecategorize = () => setShowIdDiscovery(true);
   const onCloseIdDiscovery = () => setShowIdDiscovery(false);
-  const refreshCard = () => fetchCard(id!);
+  const refreshCard = () => {
+    if (id) {
+      cardData.fetchCard(id);
+    }
+  };
 
   // useEffects
   useEffect(() => {
-    setError("");
     // Reset view states when card changes
     setShowingSummary(false);
     setShowingAnalysis(false);
-    fetchCard(id!);
-    if (id) {
-      loadSummaries(parseInt(id));
-      loadAnalysis(parseInt(id));
-    }
-  }, [id, refreshTasks, refreshFiles, refreshTrigger]);
+  }, [id]);
 
-  useEffect(() => {
-    if (summaries && summaries.length > 0) {
-      // Filter to only "complete" summaries
-      const completeSummaries = summaries.filter(s => s.status === "complete");
-
-      if (completeSummaries.length > 0) {
-        // Find the one with the highest ID
-        const latest = completeSummaries.reduce((max, s) =>
-          s.id > max.id ? s : max
-        );
-
-        setLatestSummary(latest);
-      } else {
-        // Optional: fallback if none are "complete"
-        console.log("No complete summaries yet");
-        setLatestSummary(null);
-      }
-    }
-  }, [summaries]);
-
-  // Calculate previous and next siblings
-  useEffect(() => {
-    if (parentCard && viewingCard) {
-      const siblings = parentCard.children.sort((a, b) =>
-        compareCardIds(a.card_id, b.card_id)
-      );
-      const currentIndex = siblings.findIndex(s => s.id === viewingCard.id);
-
-      if (currentIndex !== -1) {
-        setPrevSibling(currentIndex > 0 ? siblings[currentIndex - 1] : null);
-        setNextSibling(currentIndex < siblings.length - 1 ? siblings[currentIndex + 1] : null);
-      } else {
-        setPrevSibling(null);
-        setNextSibling(null);
-      }
-    } else {
-      setPrevSibling(null);
-      setNextSibling(null);
-    }
-  }, [parentCard, viewingCard]);
 
   // Return data, setters, and actions
   return {
     data: {
-      viewingCard,
-      parentCard,
+      viewingCard: cardData.viewingCard,
+      parentCard: cardData.parentCard,
       prevSibling,
       nextSibling,
-      linkedEntities,
-      categorizedReferences,
-      summaries,
-      latestSummary,
-      analysis,
+      linkedEntities: cardData.linkedEntities,
+      categorizedReferences: cardData.categorizedReferences,
+      summaries: cardData.summaries,
+      latestSummary: cardData.latestSummary,
+      analysis: cardData.analysis,
       showingSummary,
       showingAnalysis,
       showIdDiscovery,
       error,
     },
     setters: {
-      setViewCard,
+      setViewCard: cardData.setViewingCard,
       setError,
       setShowingSummary,
       setShowingAnalysis,
