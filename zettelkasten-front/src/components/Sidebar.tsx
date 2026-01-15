@@ -7,6 +7,7 @@ import { usePartialCardContext } from "../contexts/CardContext";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useShortcutContext } from "../contexts/ShortcutContext";
+import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 
 import { PartialCard, Card, Entity } from "../models/Card";
 
@@ -103,27 +104,21 @@ export function Sidebar() {
     }
   }, [user]);
 
-  const handleKeyPress = (event: KeyboardEvent) => {
-    // if this is true, the user is using a system shortcut, don't do anything with it
-    if (event.metaKey) {
-      return;
-    }
+  const handleCreateTask = useCallback(() => {
+    setShowQuickSearchWindow(false);
+    setShowCreateTaskWindow(true);
+  }, []);
 
-    // these should only work if there isn't an input selected
-    const focusedElement = document.activeElement;
-    if (!focusedElement || !focusedElement.tagName.match(/^INPUT|TEXTAREA$/i)) {
-      if (event.key === "t") {
-        event.preventDefault();
-        setShowQuickSearchWindow(false);
-        setShowCreateTaskWindow(true);
-      }
-      if (event.key === "s") {
-        event.preventDefault();
-        setShowCreateTaskWindow(false);
-        setShowQuickSearchWindow(true);
-      }
-    }
-  };
+  const handleQuickSearch = useCallback(() => {
+    setShowCreateTaskWindow(false);
+    setShowQuickSearchWindow(true);
+  }, []);
+
+  // Use custom hook for keyboard shortcuts
+  useKeyboardShortcuts({
+    onCreateTask: handleCreateTask,
+    onQuickSearch: handleQuickSearch,
+  });
 
   // Auto-clear messages after 3 seconds
   useEffect(() => {
@@ -134,13 +129,6 @@ export function Sidebar() {
       return () => clearTimeout(timer);
     }
   }, [message]);
-
-  useEffect(() => {
-    document.addEventListener("keydown", handleKeyPress);
-    return () => {
-      document.removeEventListener("keydown", handleKeyPress);
-    };
-  }, []);
   return (
     <>
       <SidebarMobileMenu
