@@ -1,27 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, PartialCard, Entity } from "../../models/Card";
+import { Card, Entity } from "../../models/Card";
 import { File } from "../../models/File";
 import { removeEntityFromCard } from "../../api/entities";
-import { AddEntityDialog } from "../entities/AddEntityDialog";
 import {
   saveExistingCard,
   getCardAuditEvents,
 } from "../../api/cards";
-
-import {
-  HeaderSubSection,
-} from "../../components/Header";
-import { compareCardIds } from "../../utils/cards";
-import { isErrorResponse } from "../../models/common";
 import { getCardFacts } from "../../api/facts";
 import { Fact, FactWithCard } from "../../models/Fact";
 
-import { FileListItem } from "../../components/files/FileListItem";
-import { FileUpload } from "../../components/files/FileUpload";
-import { Button } from "../../components/Button";
-
-import { ChildrenCards } from "../../components/cards/ChildrenCards";
+// Import tab components
+import { EntitiesTab } from "../tabs/EntitiesTab";
+import { FactsTab } from "../tabs/FactsTab";
+import { HistoryTab } from "../tabs/HistoryTab";
+import { SummariesTab } from "../tabs/SummariesTab";
+import { FilesTab } from "../tabs/FilesTab";
 
 // Props interface
 import { SummarizeJobResponse } from "../../api/summarizer";
@@ -37,105 +30,6 @@ interface ViewCardTabbedDisplayProps {
   fileUploadRef: React.RefObject<HTMLInputElement>;
 }
 
-interface AuditChange {
-  field: string;
-  from: any;
-  to: any;
-}
-
-function formatFieldName(field: string): string {
-  return field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1');
-}
-
-function renderDiff(change: AuditChange) {
-  const fieldName = formatFieldName(change.field);
-
-  if (typeof change.from === 'string' && typeof change.to === 'string') {
-    return (
-      <div className="flex flex-col space-y-1">
-        <div className="text-sm font-medium text-gray-700">{fieldName}</div>
-        <div className="flex flex-col space-y-1 pl-4">
-          <div className="text-red-600 line-through bg-red-50 px-2 py-1 rounded">
-            {change.from || '(empty)'}
-          </div>
-          <div className="text-green-600 bg-green-50 px-2 py-1 rounded">
-            {change.to || '(empty)'}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col space-y-1">
-      <div className="text-sm font-medium text-gray-700">{fieldName}</div>
-      <div className="text-gray-600 pl-4">
-        Changed from <code className="bg-gray-100 px-1 rounded">{JSON.stringify(change.from)}</code>
-        {' '}to{' '}
-        <code className="bg-gray-100 px-1 rounded">{JSON.stringify(change.to)}</code>
-      </div>
-    </div>
-  );
-}
-
-function parseAuditEvent(event: any) {
-  const changes: AuditChange[] = [];
-
-  if (event.details?.changes) {
-    Object.entries(event.details.changes).forEach(([field, values]: [string, any]) => {
-      if (typeof values === 'object' && values !== null) {
-        if ('from' in values && 'to' in values) {
-          changes.push({
-            field,
-            from: values.from,
-            to: values.to
-          });
-        } else {
-          Object.entries(values).forEach(([subField, subValues]: [string, any]) => {
-            if (typeof subValues === 'object' && subValues !== null && 'from' in subValues && 'to' in subValues) {
-              changes.push({
-                field: `${field}.${subField}`,
-                from: subValues.from,
-                to: subValues.to
-              });
-            }
-          });
-        }
-      }
-    });
-  }
-
-  return changes;
-}
-
-function getEventIcon(eventType: string) {
-  switch (eventType.toLowerCase()) {
-    case 'update':
-      return (
-        <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-        </svg>
-      );
-    case 'create':
-      return (
-        <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-        </svg>
-      );
-    case 'delete':
-      return (
-        <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
-      );
-    default:
-      return (
-        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      );
-  }
-}
 
 export function ViewCardTabbedDisplay({
   viewingCard,
@@ -149,7 +43,6 @@ export function ViewCardTabbedDisplay({
   setShowFactDialog,
   fileUploadRef,
 }: ViewCardTabbedDisplayProps) {
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>("Entities");
   const [auditEvents, setAuditEvents] = useState<any[]>([]);
   const [fileFilterString, setFileFilterString] = useState<string>("");
@@ -166,7 +59,6 @@ export function ViewCardTabbedDisplay({
     { label: "Files" },
   ];
 
-  function onFileDelete(file_id: number) { }
 
   function handleTabClick(label: string) {
     setActiveTab(label);
@@ -229,16 +121,6 @@ export function ViewCardTabbedDisplay({
     }
   }, [activeTab, viewingCard.id]);
 
-  function formatDate(date: Date) {
-    return new Intl.DateTimeFormat('default', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    }).format(date);
-  }
 
   return (
     <div>
@@ -268,225 +150,45 @@ export function ViewCardTabbedDisplay({
         ))}
       </div>
 
-      {activeTab === "Children" && (
-        <div>
-          {viewingCard.children.length > 0 && (
-            <div>
-              <HeaderSubSection text="Children" />
-              <ChildrenCards
-                allChildren={viewingCard.children.sort((a, b) =>
-                  compareCardIds(a.card_id, b.card_id),
-                )}
-                card={viewingCard}
-              />
-            </div>
-          )}
-        </div>
-      )}
       {activeTab === "Files" && (
-        <div>
-          <div className="flex p-2">
-            <a
-              onClick={() => fileUploadRef.current?.click()}
-              className="text-blue-600 hover:text-blue-800 cursor-pointer"
-            >
-              Upload File
-            </a>
-            <FileUpload ref={fileUploadRef} setMessage={setError} card={viewingCard} />
-          </div>
-          {viewingCard.files.length > 0 && (
-            <div>
-              <ul>
-                {viewingCard.files.map((file, index) => (
-                  <FileListItem
-                    file={file}
-                    onDelete={onFileDelete}
-                    setRefreshFiles={(refresh: boolean) => { }}
-                    displayFileOnCard={(file: File) => {
-                      handleDisplayFileOnCardClick(file);
-                    }}
-                    filterString={fileFilterString}
-                    setFilterString={setFileFilterString}
-                  />
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+        <FilesTab
+          viewingCard={viewingCard}
+          fileUploadRef={fileUploadRef}
+          handleDisplayFileOnCardClick={handleDisplayFileOnCardClick}
+          fileFilterString={fileFilterString}
+          setFileFilterString={setFileFilterString}
+          setError={setError}
+        />
       )}
       {activeTab === "Entities" && (
-        <div className="p-4">
-          <div className="mb-4 flex gap-2">
-            <input
-              type="text"
-              placeholder="Filter entities..."
-              value={entityFilterString}
-              onChange={(e) => setEntityFilterString(e.target.value)}
-              className="flex-1 p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={() => setShowAddEntityDialog(true)}
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
-              Add Entity
-            </button>
-          </div>
-          {viewingCard.entities && viewingCard.entities.length > 0 ? (
-            <div className="max-h-[500px] overflow-y-auto space-y-1">
-              {viewingCard.entities
-                .filter((entity) =>
-                  entity.name.toLowerCase().includes(entityFilterString.toLowerCase()) ||
-                  entity.description?.toLowerCase().includes(entityFilterString.toLowerCase()) ||
-                  entity.type?.toLowerCase().includes(entityFilterString.toLowerCase())
-                )
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((entity) => (
-                  <div
-                    key={entity.id}
-                    className="mb-1 p-3 hover:bg-gray-50 border border-gray-200 rounded-lg flex justify-between items-start group transition-colors"
-                  >
-                    <div
-                      className="cursor-pointer flex-grow min-w-0"
-                      onClick={() => handleOpenEntity(entity)}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-gray-900 truncate">{entity.name}</span>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 shrink-0">
-                          {entity.type}
-                        </span>
-                      </div>
-                      {entity.description && (
-                        <div className="text-sm text-gray-600 line-clamp-2">{entity.description}</div>
-                      )}
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveEntity(entity.id);
-                      }}
-                      className="ml-3 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md opacity-0 group-hover:opacity-100 transition-all shrink-0"
-                      title="Remove entity from card"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-            </div>
-          ) : (
-            <div className="text-gray-500">No entities available</div>
-          )}
-        </div>
+        <EntitiesTab
+          viewingCard={viewingCard}
+          entityFilterString={entityFilterString}
+          setEntityFilterString={setEntityFilterString}
+          showAddEntityDialog={showAddEntityDialog}
+          setShowAddEntityDialog={setShowAddEntityDialog}
+          handleOpenEntity={handleOpenEntity}
+          handleRemoveEntity={handleRemoveEntity}
+          handleEntityAdded={handleEntityAdded}
+          setError={setError}
+        />
       )}
       {activeTab === "History" && (
-        <div className="p-4">
-          <div className="space-y-4 mt-4">
-            {auditEvents.map((event, index) => {
-              const changes = parseAuditEvent(event);
-              const eventType = event.details?.change_type || 'unknown';
-              return (
-                <div key={index} className="bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
-                  <div className="flex items-start space-x-3">
-                    <div className="flex-shrink-0 mt-1">
-                      {getEventIcon(eventType)}
-                    </div>
-                    <div className="flex-grow">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className="font-medium text-gray-900 capitalize">
-                            {eventType.toLowerCase()}
-                          </span>
-                          <span className="text-gray-600 ml-2">by User {event.user_id}</span>
-                        </div>
-                        <span className="text-sm text-gray-500">{formatDate(event.created_at)}</span>
-                      </div>
-                      {changes.length > 0 && (
-                        <div className="mt-3 space-y-3">
-                          {changes.map((change, idx) => (
-                            <div key={idx}>
-                              {renderDiff(change)}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            {auditEvents.length === 0 && (
-              <div className="text-center text-gray-500 py-8">
-                No audit events found
-              </div>
-            )}
-          </div>
-        </div>
+        <HistoryTab auditEvents={auditEvents} />
       )}
       {activeTab === "Summaries" && (
-        <div className="p-4">
-          <div className="mt-2 space-y-2">
-            {summaries && summaries.length > 0 ? (
-              summaries.map((s) => (
-                <div key={s.id} className="border-b pb-2">
-                  <div className="text-xs text-gray-500">
-                    #{s.id} - {s.status}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-gray-500">No summaries available</div>
-            )}
-          </div>
-        </div>
+        <SummariesTab summaries={summaries} />
       )}
       {activeTab === "Facts" && (
-        <div className="p-4">
-          <div className="mb-4">
-            <input
-              type="text"
-              placeholder="Filter facts..."
-              value={factFilterString}
-              onChange={(e) => setFactFilterString(e.target.value)}
-              className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          {facts && facts.length > 0 ? (
-            <div className="max-h-[600px] overflow-y-auto border rounded-md p-2 pb-4">
-              {facts
-                .filter((fact) =>
-                  fact.fact.toLowerCase().includes(factFilterString.toLowerCase())
-                )
-                .map((fact) => (
-                  <div
-                    key={fact.id}
-                    className="border-b pb-2 cursor-pointer hover:bg-gray-50"
-                    onClick={() => {
-                      setSelectedFact(fact as FactWithCard);
-                      setShowFactDialog(true);
-                    }}
-                  >
-                    <div className="text-sm text-gray-700">{fact.fact}</div>
-                  </div>
-                ))}
-            </div>
-          ) : (
-            <div className="text-gray-500">No facts available</div>
-          )}
-        </div>
+        <FactsTab
+          facts={facts}
+          factFilterString={factFilterString}
+          setFactFilterString={setFactFilterString}
+          setSelectedFact={setSelectedFact}
+          setShowFactDialog={setShowFactDialog}
+        />
       )}
 
-      <AddEntityDialog
-        isOpen={showAddEntityDialog}
-        cardId={viewingCard.id}
-        linkedEntityIds={viewingCard.entities?.map(e => e.id) || []}
-        onClose={() => setShowAddEntityDialog(false)}
-        onEntityAdded={handleEntityAdded}
-        onError={setError}
-      />
     </div>
   );
 }
