@@ -63,7 +63,7 @@ func GetChildCards(db *sql.DB, userID int, cardID int) ([]models.PartialCard, er
 	query := `
 		SELECT id, card_id, user_id, title, parent_id, created_at, updated_at
 		FROM cards
-		WHERE user_id = $1 AND parent_id = $2 and id != $3
+		WHERE user_id = $1 AND parent_id = $2 and id != $3 AND is_deleted = FALSE
 		ORDER BY card_id
 	`
 
