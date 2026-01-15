@@ -76,6 +76,44 @@ def format_task(task: dict) -> str:
     return "\n".join(lines)
 
 
+def format_template(template: dict) -> str:
+    """Format a template for display."""
+    lines = [
+        f"**{template.get('name', 'Unnamed Template')}** (ID: {template.get('id', 'N/A')})",
+        f"Created: {template.get('created_at', 'N/A')[:10] if template.get('created_at') else 'N/A'}"
+    ]
+
+    if template.get("title"):
+        lines.append(f"Title Template: {template.get('title')}")
+
+    lines.append("")
+    lines.append("Body:")
+    lines.append(template.get("body", "*No content*"))
+
+    return "\n".join(lines)
+
+
+def format_template_list(templates: list) -> str:
+    """Format a list of templates for display."""
+    if not templates:
+        return "No templates found."
+
+    lines = [f"Templates ({len(templates)}):"]
+    lines.append("")
+
+    for template in templates:
+        name = template.get('name', 'Unnamed Template')
+        id = template.get('id', 'N/A')
+        title = template.get('title', 'No title')[:50] + "..." if template.get('title') and len(template.get('title', '')) > 50 else template.get('title', 'No title')
+        created = template.get('created_at', 'N/A')[:10] if template.get('created_at') else 'N/A'
+        lines.append(f"**{name}** (ID: {id})")
+        lines.append(f"  Title: {title}")
+        lines.append(f"  Created: {created}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 # =============================================================================
 # TOOLS
 # =============================================================================
@@ -209,6 +247,29 @@ async def list_tools() -> list[Tool]:
                     }
                 },
                 "required": ["card_pk"]
+            }
+        ),
+        # Template tools
+        Tool(
+            name="list_templates",
+            description="Get all templates for the current user.",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
+        Tool(
+            name="get_template",
+            description="Get a specific template by its numeric ID.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "template_id": {
+                        "type": "integer",
+                        "description": "Template ID"
+                    }
+                },
+                "required": ["template_id"]
             }
         ),
         # Task tools
@@ -377,6 +438,12 @@ async def _handle_tool(client: httpx.AsyncClient, name: str, args: dict) -> str:
         return await get_card_children(client, args)
     elif name == "get_next_child_id":
         return await get_next_child_id(client, args)
+
+    # Template tools
+    elif name == "list_templates":
+        return await list_templates(client)
+    elif name == "get_template":
+        return await get_template(client, args)
 
     # Task tools
     elif name == "list_tasks":
@@ -656,6 +723,36 @@ async def get_next_child_id(client: httpx.AsyncClient, args: dict) -> str:
     else:
         next_id = data.get("new_id", "unknown")
         return f"Next child ID for card {card_pk}: {next_id}"
+
+
+# =============================================================================
+# TEMPLATE HANDLERS
+# =============================================================================
+
+async def list_templates(client: httpx.AsyncClient) -> str:
+    """Get all templates for the current user."""
+    resp = await client.get(
+        f"{API_URL}/api/templates",
+        headers=get_headers()
+    )
+    resp.raise_for_status()
+    templates = resp.json()
+
+    return format_template_list(templates)
+
+
+async def get_template(client: httpx.AsyncClient, args: dict) -> str:
+    """Get a specific template."""
+    template_id = args.get("template_id")
+
+    resp = await client.get(
+        f"{API_URL}/api/templates/{template_id}",
+        headers=get_headers()
+    )
+    resp.raise_for_status()
+    template = resp.json()
+
+    return format_template(template)
 
 
 # =============================================================================
