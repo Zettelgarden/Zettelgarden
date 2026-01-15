@@ -142,9 +142,9 @@ export function Sidebar() {
     fixed md:relative
     z-[50]
     w-72
-    min-w-[18rem]    // Increased minimum width
-    max-w-[18rem]    // Increased maximum width
-    flex-shrink-0    // Add this to prevent shrinking
+    min-w-[18rem]
+    max-w-[18rem]
+    flex-shrink-0
     h-screen
     bg-white
     flex flex-col
