@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { useTaskContext } from "../contexts/TaskContext";
 import { useChatContext } from "../contexts/ChatContext";
@@ -125,6 +125,16 @@ export function Sidebar() {
     }
   };
 
+  // Auto-clear messages after 3 seconds
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage("");
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
+
   useEffect(() => {
     document.addEventListener("keydown", handleKeyPress);
     return () => {
@@ -137,6 +147,16 @@ export function Sidebar() {
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
       />
+
+      {/* Message Toast */}
+      {message && (
+        <div className="fixed top-4 left-4 right-4 md:right-auto md:left-20 md:w-72 z-[60] bg-blue-500 text-white px-4 py-2 rounded-md shadow-lg text-sm">
+          <p className="flex items-center">
+            <span className="mr-2">ℹ️</span>
+            {message}
+          </p>
+        </div>
+      )}
 
       {/* Sidebar */}
       <div
