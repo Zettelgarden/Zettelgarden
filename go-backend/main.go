@@ -7,6 +7,7 @@ import (
 	"go-backend/bootstrap"
 	"go-backend/handlers"
 	"go-backend/mail"
+	"go-backend/routes"
 	"go-backend/server"
 	"log"
 	"net/http"
@@ -24,13 +25,6 @@ var h *handlers.Handler
 
 
 
-func addProtectedRoute(r *mux.Router, path string, handler http.HandlerFunc, method string) *mux.Route {
-	return r.HandleFunc(path, h.APIKeyOrJWTMiddleware(handlers.LogRoute(handler))).Methods(method)
-}
-
-func addRoute(r *mux.Router, path string, handler http.HandlerFunc, method string) *mux.Route {
-	return r.HandleFunc(path, handlers.LogRoute(handler)).Methods(method)
-}
 
 func main() {
 	// Set up logging based on environment
@@ -86,149 +80,9 @@ func main() {
 	}
 
 	r := mux.NewRouter()
-	addProtectedRoute(r, "/api/auth", h.CheckTokenRoute, "GET")
-	addRoute(r, "/api/auth/github", h.StartGitHubOAuthRoute, "GET")
-	addRoute(r, "/api/auth/github/callback", h.GitHubCallbackRoute, "GET")
-	addRoute(r, "/api/login", h.LoginRoute, "POST")
-	addRoute(r, "/api/reset-password", h.ResetPasswordRoute, "POST")
-	addRoute(r, "/api/email-validate", h.ValidateEmailRoute, "POST")
-	addRoute(r, "/api/request-reset", h.RequestPasswordResetRoute, "POST")
 
-	// API Key management routes (require JWT auth)
-	addProtectedRoute(r, "/api/api-keys", h.ListAPIKeys, "GET")
-	addProtectedRoute(r, "/api/api-keys", h.CreateAPIKey, "POST")
-	addProtectedRoute(r, "/api/api-keys/{id}", h.RevokeAPIKey, "DELETE")
-
-	// All protected routes support both JWT and API key authentication
-	addProtectedRoute(r, "/api/files", h.GetAllFilesRoute, "GET")
-	addProtectedRoute(r, "/api/files/upload", h.UploadFileRoute, "POST")
-	addProtectedRoute(r, "/api/files/{id}", h.GetFileMetadataRoute, "GET")
-	addProtectedRoute(r, "/api/files/{id}", h.EditFileMetadataRoute, "PATCH")
-	addProtectedRoute(r, "/api/files/{id}", h.DeleteFileRoute, "DELETE")
-	addProtectedRoute(r, "/api/files/download/{id}", h.DownloadFileRoute, "GET")
-
-	addProtectedRoute(r, "/api/cards", h.CreateCardRoute, "POST")
-	addProtectedRoute(r, "/api/cards/next-root-id", h.GetNextRootCardIDRoute, "GET")
-	addProtectedRoute(r, "/api/cards/suggest-title", h.SuggestCardTitleRoute, "POST")
-	addProtectedRoute(r, "/api/cards/starred", h.GetStarredCardsRoute, "GET")
-	addProtectedRoute(r, "/api/cards/unsorted", h.GetUnsortedCardsRoute, "GET")
-	addProtectedRoute(r, "/api/cards/{id}", h.GetCardRoute, "GET")
-	addProtectedRoute(r, "/api/cards/{id}", h.UpdateCardRoute, "PUT")
-	addProtectedRoute(r, "/api/cards/{id}", h.DeleteCardRoute, "DELETE")
-	addProtectedRoute(r, "/api/cards/{id}/audit", h.GetCardAuditEventsRoute, "GET")
-	addProtectedRoute(r, "/api/cards/{id}/star", h.StarCardRoute, "POST")
-	addProtectedRoute(r, "/api/cards/{id}/star", h.UnstarCardRoute, "DELETE")
-	addProtectedRoute(r, "/api/cards/{id}/facts", h.GetCardFacts, "GET")
-	addProtectedRoute(r, "/api/cards/{id}/references", h.GetCardReferencesRoute, "GET")
-	addProtectedRoute(r, "/api/cards/{id}/children", h.GetCardChildrenRoute, "GET")
-	addProtectedRoute(r, "/api/cards/{id}/next-child-id", h.GetNextChildCardIDRoute, "GET")
-	addProtectedRoute(r, "/api/cards/{id}/files", h.GetCardFilesRoute, "GET")
-	addProtectedRoute(r, "/api/cards/{id}/tags", h.GetCardTagsRoute, "GET")
-	addProtectedRoute(r, "/api/cards/{id}/tasks", h.GetCardTasksRoute, "GET")
-	addProtectedRoute(r, "/api/cards/{id}/entities", h.GetCardEntitiesRoute, "GET")
-	addProtectedRoute(r, "/api/cards/{card_pk:[0-9]+}/linked-entities", h.GetEntityByLinkedCardPKRoute, "GET")
-	addProtectedRoute(r, "/api/cards/{card_pk:[0-9]+}/analysis", h.GetCardAnalysisRoute, "GET")
-
-	addProtectedRoute(r, "/api/templates", h.GetTemplatesRoute, "GET")
-	addProtectedRoute(r, "/api/templates", h.CreateTemplateRoute, "POST")
-	addProtectedRoute(r, "/api/templates/{id}", h.GetTemplateRoute, "GET")
-	addProtectedRoute(r, "/api/templates/{id}", h.UpdateTemplateRoute, "PUT")
-	addProtectedRoute(r, "/api/templates/{id}", h.DeleteTemplateRoute, "DELETE")
-
-	addProtectedRoute(r, "/api/search", h.SearchRoute, "POST")
-
-	addProtectedRoute(r, "/api/users/{id}", h.GetUserRoute, "GET")
-	addProtectedRoute(r, "/api/users/{id}", h.UpdateUserRoute, "PUT")
-	addProtectedRoute(r, "/api/users", h.GetUsersRoute, "GET")
-	addRoute(r, "/api/users", h.CreateUserRoute, "POST")
-	addProtectedRoute(r, "/api/users/{id}/subscription", h.GetUserSubscriptionRoute, "GET")
-	addProtectedRoute(r, "/api/billing/subscribe", h.CreateSubscriptionRoute, "POST")
-	addProtectedRoute(r, "/api/billing/portal", h.BillingPortalRoute, "GET")
-	addProtectedRoute(r, "/api/billing/public-key", h.StripePublicKeyRoute, "GET")
-	addRoute(r, "/api/stripe/webhook", h.StripeWebhookRoute, "POST")
-
-	addProtectedRoute(r, "/api/user/memory", h.GetUserMemoryRoute, "GET")
-	addProtectedRoute(r, "/api/user/memory", h.UpdateUserMemoryRoute, "PUT")
-	addProtectedRoute(r, "/api/current", h.GetCurrentUserRoute, "GET")
-	addProtectedRoute(r, "/api/admin", h.GetUserAdminRoute, "GET")
-
-	addProtectedRoute(r, "/api/tasks/{id}", h.GetTaskRoute, "GET")
-	addProtectedRoute(r, "/api/tasks", h.GetTasksRoute, "GET")
-	addProtectedRoute(r, "/api/tasks", h.CreateTaskRoute, "POST")
-	addProtectedRoute(r, "/api/tasks/{id}", h.UpdateTaskRoute, "PUT")
-	addProtectedRoute(r, "/api/tasks/{id}", h.DeleteTaskRoute, "DELETE")
-	addProtectedRoute(r, "/api/tasks/{id}/audit", h.GetTaskAuditEventsRoute, "GET")
-	addProtectedRoute(r, "/api/tasks/{id}/dependencies", h.AddTaskDependencyRoute, "POST")
-	addProtectedRoute(r, "/api/tasks/{id}/dependencies/{blocking_id}", h.RemoveTaskDependencyRoute, "DELETE")
-
-	addProtectedRoute(r, "/api/task-statuses", h.GetTaskStatusesRoute, "GET")
-	addProtectedRoute(r, "/api/task-statuses", h.CreateTaskStatusRoute, "POST")
-	addProtectedRoute(r, "/api/task-statuses/{id}", h.GetTaskStatusRoute, "GET")
-	addProtectedRoute(r, "/api/task-statuses/{id}", h.UpdateTaskStatusRoute, "PUT")
-	addProtectedRoute(r, "/api/task-statuses/{id}", h.DeleteTaskStatusRoute, "DELETE")
-	addProtectedRoute(r, "/api/task-statuses/reorder", h.ReorderTaskStatusesRoute, "POST")
-
-	addProtectedRoute(r, "/api/stats/daily", h.GetDailyStatsRoute, "GET")
-	addProtectedRoute(r, "/api/stats/day-tasks", h.GetDayTasksRoute, "GET")
-	addProtectedRoute(r, "/api/stats/day-cards", h.GetDayCardsRoute, "GET")
-
-	addProtectedRoute(r, "/api/tags", h.GetTagsRoute, "GET")
-	addProtectedRoute(r, "/api/tags", h.CreateTagRoute, "POST")
-	addProtectedRoute(r, "/api/tags/id/{id}", h.DeleteTagRoute, "DELETE")
-
-	addProtectedRoute(r, "/api/url/parse", h.ParseURLRoute, "POST")
-
-	addRoute(r, "/api/mailing-list", h.AddToMailingListRoute, "POST")
-	addProtectedRoute(r, "/api/mailing-list", h.GetMailingListSubscribersRoute, "GET")
-	addProtectedRoute(r, "/api/mailing-list/messages", h.GetMailingListMessagesRoute, "GET")
-	addProtectedRoute(r, "/api/mailing-list/messages/send", h.SendMailingListMessageRoute, "POST")
-	addProtectedRoute(r, "/api/mailing-list/messages/recipients", h.GetMessageRecipientsRoute, "GET")
-	addProtectedRoute(r, "/api/mailing-list/unsubscribe", h.UnsubscribeMailingListRoute, "POST")
-
-	addProtectedRoute(r, "/api/entities", h.GetEntitiesRoute, "GET")
-	addProtectedRoute(r, "/api/entities/id/{id}", h.GetEntityByIDRoute, "GET")
-	addProtectedRoute(r, "/api/entities/name/{name}", h.GetEntityByNameRoute, "GET")
-	addProtectedRoute(r, "/api/entities/merge", h.MergeEntitiesRoute, "POST")
-	addProtectedRoute(r, "/api/entities/id/{id}", h.DeleteEntityRoute, "DELETE")
-	addProtectedRoute(r, "/api/entities/id/{id}", h.UpdateEntityRoute, "PUT")
-	addProtectedRoute(r, "/api/entities/{entityId}/cards/{cardId}", h.AddEntityToCardRoute, "POST")
-	addProtectedRoute(r, "/api/entities/{entityId}/cards/{cardId}", h.RemoveEntityFromCardRoute, "DELETE")
-	addProtectedRoute(r, "/api/entities/{id}/facts", h.GetEntityFacts, "GET")
-	addProtectedRoute(r, "/api/entities/{id}/similar", h.GetSimilarEntitiesRoute, "GET")
-	addProtectedRoute(r, "/api/facts/{id}/entities", h.GetFactEntities, "GET")
-	addProtectedRoute(r, "/api/facts", h.GetAllFacts, "GET")
-	addProtectedRoute(r, "/api/facts/{id}", h.GetFact, "GET")
-	addProtectedRoute(r, "/api/facts/{id}", h.UpdateFact, "PUT")
-	addProtectedRoute(r, "/api/facts/{factID}/cards/{cardID}", h.LinkFactToCardHandler, "POST")
-	addProtectedRoute(r, "/api/facts/merge", h.MergeFactsRoute, "POST")
-	addProtectedRoute(r, "/api/facts/{id}/cards", h.GetFactCards, "GET")
-	addProtectedRoute(r, "/api/facts/{id}/similar", h.GetSimilarFacts, "GET")
-	addProtectedRoute(r, "/api/facts/{id}", h.DeleteFactRoute, "DELETE")
-
-	// Summarize routes
-	addProtectedRoute(r, "/api/summarize", h.CreateSummarizationRoute, "POST")
-	addProtectedRoute(r, "/api/summarize/{id}", h.GetSummarizationRoute, "GET")
-	addProtectedRoute(r, "/api/summarizations", h.ListSummarizationsRoute, "GET")
-	addProtectedRoute(r, "/api/cards/{card_pk:[0-9]+}/summaries", h.GetSummariesByCardRoute, "GET")
-
-	// Pinned searches routes
-	addProtectedRoute(r, "/api/searches/star", h.StarSearchRoute, "POST")
-	addProtectedRoute(r, "/api/searches/star/{id}", h.UnstarSearchRoute, "DELETE")
-	addProtectedRoute(r, "/api/searches/starred", h.GetStarredSearchesRoute, "GET")
-	// Chat routes
-	addProtectedRoute(r, "/api/chat/conversations", h.CreateConversationRoute, "POST")
-	addProtectedRoute(r, "/api/chat/conversations", h.GetConversationsRoute, "GET")
-	addProtectedRoute(r, "/api/chat/conversations/{id}", h.GetConversationRoute, "GET")
-	addProtectedRoute(r, "/api/chat/conversations/{id}/messages", h.SendMessageRoute, "POST")
-	addProtectedRoute(r, "/api/chat/conversations/{id}/messages/stream", h.StreamMessageRoute, "POST")
-	addProtectedRoute(r, "/api/chat/conversations/{id}/messages/{messageId}/regenerate", h.RegenerateMessageRoute, "POST")
-	addProtectedRoute(r, "/api/chat/conversations/{id}/status", h.GetConversationStatusRoute, "GET")
-	addProtectedRoute(r, "/api/chat/conversations/{id}", h.DeleteConversationRoute, "DELETE")
-	addProtectedRoute(r, "/api/chat/conversations/{id}/star", h.StarConversationRoute, "POST")
-	addProtectedRoute(r, "/api/chat/conversations/{id}/title", h.UpdateConversationTitleRoute, "PUT")
-	addProtectedRoute(r, "/api/chat/usage", h.GetUsageQuotaRoute, "GET")
-	addProtectedRoute(r, "/api/chat/instructions", h.GetInstructionsRoute, "GET")
-	addProtectedRoute(r, "/api/chat/instructions", h.UpdateInstructionsRoute, "PUT")
+	// Register all API routes
+	routes.RegisterAllRoutes(r, h)
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{os.Getenv("ZETTEL_URL")},
