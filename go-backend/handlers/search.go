@@ -51,6 +51,7 @@ func (s *Handler) InitSearchCollection() {
 	FROM cards c
 	LEFT JOIN card_tags ct ON c.id = ct.card_pk
 	LEFT JOIN tags t ON ct.tag_id = t.id
+	WHERE c.is_deleted = FALSE
 	GROUP BY c.id, c.card_id, c.user_id, c.title, c.body, c.created_at, c.updated_at, c.parent_id
 		`)
 	if err != nil {
@@ -130,6 +131,7 @@ func (s *Handler) InitSearchCollection() {
 		       c.created_at, c.updated_at
 		FROM facts f
 		JOIN cards c ON f.card_pk = c.id
+		WHERE c.is_deleted = FALSE
 	`)
 	if err != nil {
 		log.Printf("error querying facts: %v", err)
