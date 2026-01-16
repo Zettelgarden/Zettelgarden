@@ -10,6 +10,8 @@ describe('EditorToolbar', () => {
     editingCard: { ...defaultCard, id: 1, card_id: '1', title: 'Test Card' },
     setEditingCard: vi.fn(),
     setShowSaveAsTemplate: vi.fn(),
+    setMessage: vi.fn(),
+    onDeleteSuccess: vi.fn(),
   };
 
   describe('Props rendering', () => {

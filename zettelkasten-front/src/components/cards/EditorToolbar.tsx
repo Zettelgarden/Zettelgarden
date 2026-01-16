@@ -1,6 +1,7 @@
 import React from "react";
 import { Menu } from "@headlessui/react";
 import { Card } from "../../models/Card";
+import { deleteCard } from "../../api/cards";
 
 interface EditorToolbarProps {
   newCard: boolean;
@@ -8,6 +9,8 @@ interface EditorToolbarProps {
   editingCard: Card;
   setEditingCard: (card: Card) => void;
   setShowSaveAsTemplate: (show: boolean) => void;
+  setMessage: (message: string) => void;
+  onDeleteSuccess: () => void;
 }
 
 export function EditorToolbar({
@@ -16,6 +19,8 @@ export function EditorToolbar({
   editingCard,
   setEditingCard,
   setShowSaveAsTemplate,
+  setMessage,
+  onDeleteSuccess,
 }: EditorToolbarProps) {
   return (
     <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white rounded-lg p-3 shadow-sm">
@@ -87,6 +92,31 @@ export function EditorToolbar({
                     </button>
                   )}
                 </Menu.Item>
+                {!newCard && (
+                  <Menu.Item>
+                    {({ active }) => (
+                      <button
+                        onClick={() => {
+                          if (window.confirm("Are you sure you want to delete this card? This cannot be reversed")) {
+                            deleteCard(editingCard.id)
+                              .then(() => {
+                                setMessage("Card deleted successfully");
+                                onDeleteSuccess();
+                              })
+                              .catch(() =>
+                                setMessage("Unable to delete card. Does it have backlinks, children or files?")
+                              );
+                          }
+                        }}
+                        className={`${
+                          active ? "bg-gray-100 text-gray-900" : "text-red-700"
+                        } group flex rounded-md items-center w-full px-2 py-2 text-sm hover:bg-red-50`}
+                      >
+                        <span className="flex-grow text-left">Delete Card</span>
+                      </button>
+                    )}
+                  </Menu.Item>
+                )}
               </div>
             </Menu.Items>
           </div>

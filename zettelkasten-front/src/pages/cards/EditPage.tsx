@@ -305,6 +305,14 @@ export function EditPage({ newCard }: EditPageProps) {
           editingCard={editingCard}
           setEditingCard={setEditingCard}
           setShowSaveAsTemplate={setShowSaveAsTemplate}
+          setMessage={setMessage}
+          onDeleteSuccess={() => {
+            if (lastCard && lastCard.id !== editingCard.id) {
+              navigate(`/app/card/${lastCard.id}`);
+            } else {
+              navigate('/');
+            }
+          }}
         />
 
         <div className="">
@@ -342,22 +350,6 @@ export function EditPage({ newCard }: EditPageProps) {
                   setShowCardIdDiscovery={setShowCardIdDiscovery}
                   addBacklink={addBacklink}
                 />
-
-                <div className="flex flex-wrap gap-3 pt-4">
-                  {!newCard && (
-                    <ButtonCardDelete
-                      card={editingCard}
-                      setMessage={setMessage}
-                      onSuccess={() => {
-                        if (lastCard && lastCard.id !== editingCard.id) {
-                          navigate(`/app/card/${lastCard.id}`);
-                        } else {
-                          navigate('/');
-                        }
-                      }}
-                    />
-                  )}
-                </div>
 
                 {!newCard && (
                   <div className="mt-8">
