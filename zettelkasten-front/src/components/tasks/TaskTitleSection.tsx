@@ -1,5 +1,11 @@
 import React from "react";
 import { Task } from "../../models/Task";
+import {
+  QuickTagPopover,
+  type QuickTagTrigger,
+  getQuickTagTrigger,
+  applyQuickTagSelection,
+} from "./QuickTagPopover";
 
 interface TaskTitleSectionProps {
   task: Task;
@@ -26,6 +32,17 @@ export function TaskTitleSection({
   saveOnChange,
   onSaveTitle,
 }: TaskTitleSectionProps) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [cursorPosition, setCursorPosition] = React.useState(0);
+  const [trigger, setTrigger] = React.useState<QuickTagTrigger | null>(null);
+
+  React.useEffect(() => {
+    // If the input isn't visible (edit mode, not editing), ensure popover is closed.
+    if (!(mode === "create" || isEditingTitle)) {
+      setTrigger(null);
+    }
+  }, [mode, isEditingTitle]);
+
   // Priority detection from text input (e.g., "priority:a" -> Priority A)
   function detectAndSetPriority(text: string) {
     const priorityRegex = /priority:\s*([abc])/i;
@@ -41,7 +58,13 @@ export function TaskTitleSection({
   }
 
   function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    detectAndSetPriority(e.target.value);
+    const nextValue = e.target.value;
+    const nextCursor = e.target.selectionStart ?? nextValue.length;
+
+    setCursorPosition(nextCursor);
+    setTrigger(getQuickTagTrigger(nextValue, nextCursor));
+
+    detectAndSetPriority(nextValue);
   }
 
   function handleTitleKeyPress(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -61,6 +84,40 @@ export function TaskTitleSection({
     }
   }
 
+  function refreshTriggerFromInput(input: HTMLInputElement) {
+    const cursor = input.selectionStart ?? 0;
+    setCursorPosition(cursor);
+    setTrigger(getQuickTagTrigger(input.value, cursor));
+  }
+
+  function handleSelectQuickTag(selectedTagName: string) {
+    if (!trigger) return;
+
+    const res = applyQuickTagSelection({
+      title: task.title,
+      trigger,
+      selectedTagName,
+    });
+
+    setCursorPosition(res.nextCursor);
+
+    if (!res.didInsert) {
+      setTrigger(null);
+      return;
+    }
+
+    setTask({ ...task, title: res.nextTitle });
+    setTrigger(null);
+
+    // Restore focus + cursor after React updates the controlled input.
+    requestAnimationFrame(() => {
+      const input = inputRef.current;
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(res.nextCursor, res.nextCursor);
+    });
+  }
+
   // Recurring task options (create mode only)
   function handleAddRecurring(interval: string) {
     setTask({ ...task, title: task.title + " " + interval });
@@ -70,15 +127,31 @@ export function TaskTitleSection({
   return (
     <div className="flex gap-2">
       {mode === "create" || isEditingTitle ? (
-        <input
-          className="flex-1 px-3 py-2.5 text-base border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300 focus:border-blue-500"
-          placeholder="Enter task title"
-          value={task.title}
-          onChange={handleTitleChange}
-          onKeyPress={handleTitleKeyPress}
-          onBlur={mode === "edit" ? handleTitleSave : undefined}
-          autoFocus
-        />
+        <>
+          <input
+            ref={inputRef}
+            className="flex-1 px-3 py-2.5 text-base border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300 focus:border-blue-500"
+            placeholder="Enter task title"
+            value={task.title}
+            onChange={handleTitleChange}
+            onKeyPress={handleTitleKeyPress}
+            onKeyUp={(e) => refreshTriggerFromInput(e.currentTarget)}
+            onClick={(e) => refreshTriggerFromInput(e.currentTarget)}
+            onFocus={(e) => refreshTriggerFromInput(e.currentTarget)}
+            onBlur={mode === "edit" ? handleTitleSave : undefined}
+            autoFocus
+          />
+
+          <QuickTagPopover
+            open={Boolean(trigger)}
+            anchorInputRef={inputRef}
+            titleValue={task.title}
+            cursorPosition={cursorPosition}
+            trigger={trigger}
+            onSelectTag={(selectedTagName) => handleSelectQuickTag(selectedTagName)}
+            onRequestClose={() => setTrigger(null)}
+          />
+        </>
       ) : (
         <div
           className={`flex-1 text-lg cursor-pointer hover:bg-gray-50 p-2 rounded ${
