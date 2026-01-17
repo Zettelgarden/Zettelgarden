@@ -47,6 +47,32 @@ function renderTitleSection(props: {
 }
 
 describe("TaskTitleSection quick-tag integration", () => {
+  it("opens the popover when '#' is typed and closes it on Escape", () => {
+    const { input } = renderTitleSection({ mode: "create", initialTitle: "" });
+
+    fireEvent.change(input, { target: { value: "do #", selectionStart: 4 } });
+
+    expect(screen.getByText("#work")).toBeInTheDocument();
+
+    fireEvent.keyDown(input, { key: "Escape" });
+
+    expect(screen.queryByText("#work")).not.toBeInTheDocument();
+    expect(screen.queryByText("#project-alpha")).not.toBeInTheDocument();
+  });
+
+  it("filters suggestions as the user types", () => {
+    const { input } = renderTitleSection({ mode: "create", initialTitle: "" });
+
+    fireEvent.change(input, { target: { value: "do #", selectionStart: 4 } });
+    expect(screen.getByText("#work")).toBeInTheDocument();
+    expect(screen.getByText("#project-alpha")).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: "do #pro", selectionStart: 6 } });
+
+    expect(screen.getByText("#project-alpha")).toBeInTheDocument();
+    expect(screen.queryByText("#work")).not.toBeInTheDocument();
+  });
+
   it("shows suggestions and inserts selected tag (create mode)", () => {
     const { input } = renderTitleSection({ mode: "create", initialTitle: "" });
 
@@ -58,6 +84,20 @@ describe("TaskTitleSection quick-tag integration", () => {
 
     expect(input.value).toBe("do #work ");
     expect(screen.queryByText("#project-alpha")).not.toBeInTheDocument();
+  });
+
+  it("prevents inserting a duplicate tag", () => {
+    const { input } = renderTitleSection({ mode: "create", initialTitle: "do #work" });
+
+    fireEvent.change(input, { target: { value: "do #work #", selectionStart: 10 } });
+
+    expect(screen.getByText("#work")).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByText("#work"));
+
+    // Selection should close the popover but keep the title unchanged.
+    expect(input.value).toBe("do #work #");
+    expect(screen.queryByText("#work")).not.toBeInTheDocument();
   });
 
   it("works while editing in edit mode", () => {
