@@ -227,6 +227,26 @@ func (s *Handler) GetCardChildrenRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(children)
 }
 
+// GetCardWithDescendantsRoute returns a card with all its descendants recursively, including depth information
+func (s *Handler) GetCardWithDescendantsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil {
+		http.Error(w, "Invalid id", http.StatusBadRequest)
+		return
+	}
+
+	// Get card with descendants with depth information
+	result, err := services.GetCardWithDescendants(s.DB, userID, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
 // CategorizedReferences represents references categorized by their relationship type
 type CategorizedReferences struct {
 	Bidirectional []models.PartialCard `json:"bidirectional"` // Two-way links (mutual references)

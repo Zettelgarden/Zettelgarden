@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"go-backend/models"
 	"go-backend/tests"
 	"reflect"
@@ -693,5 +694,566 @@ func TestCheckIsCardIDUnique(t *testing.T) {
 	// Test with empty card ID
 	if !checkIsCardIDUnique(s.DB, userID, "") {
 		t.Error("Expected true for empty card ID")
+	}
+}
+
+func TestGetCardWithDescendantsNoChildren(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create a root card with no children
+	rootParams := models.EditCardParams{
+		Title:  "Root Card",
+		Body:   "Root Body",
+		CardID: "root_no_children",
+		Link:   "",
+	}
+	rootCard, err := CreateCard(s.DB, userID, rootParams)
+	if err != nil {
+		t.Fatalf("Failed to create root card: %v", err)
+	}
+
+	// Get card with descendants
+	result, err := GetCardWithDescendants(s.DB, userID, rootCard.ID)
+	if err != nil {
+		t.Fatalf("GetCardWithDescendants failed: %v", err)
+	}
+
+	// Verify root card data
+	if result.ID != rootCard.ID {
+		t.Errorf("Expected ID %v, got %v", rootCard.ID, result.ID)
+	}
+	if result.Title != rootParams.Title {
+		t.Errorf("Expected title %v, got %v", rootParams.Title, result.Title)
+	}
+
+	// Verify depth is 0 for root
+	if result.Depth != 0 {
+		t.Errorf("Expected root depth 0, got %v", result.Depth)
+	}
+
+	// Verify no descendants
+	if len(result.Descendants) != 0 {
+		t.Errorf("Expected 0 descendants, got %v", len(result.Descendants))
+	}
+}
+
+func TestGetCardWithDescendantsSingleChild(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create parent card
+	parentParams := models.EditCardParams{
+		Title:  "Parent Card",
+		Body:   "Parent Body",
+		CardID: "parent_single_child",
+		Link:   "",
+	}
+	parentCard, err := CreateCard(s.DB, userID, parentParams)
+	if err != nil {
+		t.Fatalf("Failed to create parent card: %v", err)
+	}
+
+	// Create child card
+	childParams := models.EditCardParams{
+		Title:  "Child Card",
+		Body:   "Child Body",
+		CardID: "parent_single_child/child",
+		Link:   "",
+	}
+	childCard, err := CreateCard(s.DB, userID, childParams)
+	if err != nil {
+		t.Fatalf("Failed to create child card: %v", err)
+	}
+
+	// Get card with descendants
+	result, err := GetCardWithDescendants(s.DB, userID, parentCard.ID)
+	if err != nil {
+		t.Fatalf("GetCardWithDescendants failed: %v", err)
+	}
+
+	// Verify parent
+	if result.ID != parentCard.ID {
+		t.Errorf("Expected parent ID %v, got %v", parentCard.ID, result.ID)
+	}
+	if result.Depth != 0 {
+		t.Errorf("Expected parent depth 0, got %v", result.Depth)
+	}
+
+	// Verify single child
+	if len(result.Descendants) != 1 {
+		t.Errorf("Expected 1 descendant, got %v", len(result.Descendants))
+	}
+
+	if len(result.Descendants) > 0 {
+		child := result.Descendants[0]
+		if child.ID != childCard.ID {
+			t.Errorf("Expected child ID %v, got %v", childCard.ID, child.ID)
+		}
+		if child.Title != childParams.Title {
+			t.Errorf("Expected child title %v, got %v", childParams.Title, child.Title)
+		}
+		if child.Depth != 1 {
+			t.Errorf("Expected child depth 1, got %v", child.Depth)
+		}
+		if len(child.Descendants) != 0 {
+			t.Errorf("Expected child to have 0 descendants, got %v", len(child.Descendants))
+		}
+	}
+}
+
+func TestGetCardWithDescendantsDeepNesting(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create a deep hierarchy: root -> level1 -> level2 -> level3
+	rootParams := models.EditCardParams{
+		Title:  "Root",
+		Body:   "Root Body",
+		CardID: "deep_root",
+		Link:   "",
+	}
+	rootCard, err := CreateCard(s.DB, userID, rootParams)
+	if err != nil {
+		t.Fatalf("Failed to create root card: %v", err)
+	}
+
+	level1Params := models.EditCardParams{
+		Title:  "Level 1",
+		Body:   "Level 1 Body",
+		CardID: "deep_root/level1",
+		Link:   "",
+	}
+	level1Card, err := CreateCard(s.DB, userID, level1Params)
+	if err != nil {
+		t.Fatalf("Failed to create level 1 card: %v", err)
+	}
+
+	level2Params := models.EditCardParams{
+		Title:  "Level 2",
+		Body:   "Level 2 Body",
+		CardID: "deep_root/level1/level2",
+		Link:   "",
+	}
+	level2Card, err := CreateCard(s.DB, userID, level2Params)
+	if err != nil {
+		t.Fatalf("Failed to create level 2 card: %v", err)
+	}
+
+	level3Params := models.EditCardParams{
+		Title:  "Level 3",
+		Body:   "Level 3 Body",
+		CardID: "deep_root/level1/level2/level3",
+		Link:   "",
+	}
+	level3Card, err := CreateCard(s.DB, userID, level3Params)
+	if err != nil {
+		t.Fatalf("Failed to create level 3 card: %v", err)
+	}
+
+	// Get card with descendants
+	result, err := GetCardWithDescendants(s.DB, userID, rootCard.ID)
+	if err != nil {
+		t.Fatalf("GetCardWithDescendants failed: %v", err)
+	}
+
+	// Verify root
+	if result.ID != rootCard.ID {
+		t.Errorf("Expected root ID %v, got %v", rootCard.ID, result.ID)
+	}
+	if result.Depth != 0 {
+		t.Errorf("Expected root depth 0, got %v", result.Depth)
+	}
+
+	// Verify level 1
+	if len(result.Descendants) != 1 {
+		t.Errorf("Expected 1 level-1 descendant, got %v", len(result.Descendants))
+	}
+
+	level1 := result.Descendants[0]
+	if level1.ID != level1Card.ID {
+		t.Errorf("Expected level 1 ID %v, got %v", level1Card.ID, level1.ID)
+	}
+	if level1.Depth != 1 {
+		t.Errorf("Expected level 1 depth 1, got %v", level1.Depth)
+	}
+
+	// Verify level 2
+	if len(level1.Descendants) != 1 {
+		t.Errorf("Expected 1 level-2 descendant, got %v", len(level1.Descendants))
+	}
+
+	level2 := level1.Descendants[0]
+	if level2.ID != level2Card.ID {
+		t.Errorf("Expected level 2 ID %v, got %v", level2Card.ID, level2.ID)
+	}
+	if level2.Depth != 2 {
+		t.Errorf("Expected level 2 depth 2, got %v", level2.Depth)
+	}
+
+	// Verify level 3
+	if len(level2.Descendants) != 1 {
+		t.Errorf("Expected 1 level-3 descendant, got %v", len(level2.Descendants))
+	}
+
+	level3 := level2.Descendants[0]
+	if level3.ID != level3Card.ID {
+		t.Errorf("Expected level 3 ID %v, got %v", level3Card.ID, level3.ID)
+	}
+	if level3.Depth != 3 {
+		t.Errorf("Expected level 3 depth 3, got %v", level3.Depth)
+	}
+	if len(level3.Descendants) != 0 {
+		t.Errorf("Expected level 3 to have 0 descendants, got %v", len(level3.Descendants))
+	}
+}
+
+func TestGetCardWithDescendantsMultipleChildren(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create parent card
+	parentParams := models.EditCardParams{
+		Title:  "Parent",
+		Body:   "Parent Body",
+		CardID: "multi_parent",
+		Link:   "",
+	}
+	parentCard, err := CreateCard(s.DB, userID, parentParams)
+	if err != nil {
+		t.Fatalf("Failed to create parent card: %v", err)
+	}
+
+	// Create multiple children
+	childIDs := []int{}
+	for i := 1; i <= 3; i++ {
+		childCardID := fmt.Sprintf("multi_parent/child%d", i)
+		childParams := models.EditCardParams{
+			Title:  fmt.Sprintf("Child %d", i),
+			Body:   fmt.Sprintf("Child %d Body", i),
+			CardID: childCardID,
+			Link:   "",
+		}
+		childCard, err := CreateCard(s.DB, userID, childParams)
+		if err != nil {
+			t.Fatalf("Failed to create child %d: %v", i, err)
+		}
+		childIDs = append(childIDs, childCard.ID)
+	}
+
+	// Get card with descendants
+	result, err := GetCardWithDescendants(s.DB, userID, parentCard.ID)
+	if err != nil {
+		t.Fatalf("GetCardWithDescendants failed: %v", err)
+	}
+
+	// Verify parent
+	if result.ID != parentCard.ID {
+		t.Errorf("Expected parent ID %v, got %v", parentCard.ID, result.ID)
+	}
+
+	// Verify all children are present
+	if len(result.Descendants) != 3 {
+		t.Errorf("Expected 3 children, got %v", len(result.Descendants))
+	}
+
+	// Verify each child has correct depth and data
+	for i, child := range result.Descendants {
+		if child.Depth != 1 {
+			t.Errorf("Expected child %d depth 1, got %v", i, child.Depth)
+		}
+		if len(child.Descendants) != 0 {
+			t.Errorf("Expected child %d to have 0 descendants, got %v", i, len(child.Descendants))
+		}
+		// Verify child ID is in the expected list
+		found := false
+		for _, expectedID := range childIDs {
+			if child.ID == expectedID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Child ID %v not in expected list", child.ID)
+		}
+	}
+}
+
+func TestGetCardWithDescendantsComplexTree(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create a complex tree:
+	//       root
+	//      /    \
+	//    child1  child2
+	//    /        /  \
+	//   gc1      gc2  gc3
+	//   /
+	//  ggc1
+
+	rootParams := models.EditCardParams{
+		Title:  "Root",
+		Body:   "Root Body",
+		CardID: "complex_root",
+		Link:   "",
+	}
+	rootCard, err := CreateCard(s.DB, userID, rootParams)
+	if err != nil {
+		t.Fatalf("Failed to create root: %v", err)
+	}
+
+	// Create child1
+	child1Params := models.EditCardParams{
+		Title:  "Child 1",
+		Body:   "Child 1 Body",
+		CardID: "complex_root/child1",
+		Link:   "",
+	}
+	child1, err := CreateCard(s.DB, userID, child1Params)
+	if err != nil {
+		t.Fatalf("Failed to create child1: %v", err)
+	}
+
+	// Create child2
+	child2Params := models.EditCardParams{
+		Title:  "Child 2",
+		Body:   "Child 2 Body",
+		CardID: "complex_root/child2",
+		Link:   "",
+	}
+	child2, err := CreateCard(s.DB, userID, child2Params)
+	if err != nil {
+		t.Fatalf("Failed to create child2: %v", err)
+	}
+
+	// Create grandchild1 under child1
+	gc1Params := models.EditCardParams{
+		Title:  "GrandChild 1",
+		Body:   "GrandChild 1 Body",
+		CardID: "complex_root/child1/gc1",
+		Link:   "",
+	}
+	gc1, err := CreateCard(s.DB, userID, gc1Params)
+	if err != nil {
+		t.Fatalf("Failed to create gc1: %v", err)
+	}
+
+	// Create great-grandchild1 under gc1
+	ggc1Params := models.EditCardParams{
+		Title:  "GreatGrandChild 1",
+		Body:   "GreatGrandChild 1 Body",
+		CardID: "complex_root/child1/gc1/ggc1",
+		Link:   "",
+	}
+	ggc1, err := CreateCard(s.DB, userID, ggc1Params)
+	if err != nil {
+		t.Fatalf("Failed to create ggc1: %v", err)
+	}
+
+	// Create grandchild2 under child2
+	gc2Params := models.EditCardParams{
+		Title:  "GrandChild 2",
+		Body:   "GrandChild 2 Body",
+		CardID: "complex_root/child2/gc2",
+		Link:   "",
+	}
+	gc2, err := CreateCard(s.DB, userID, gc2Params)
+	if err != nil {
+		t.Fatalf("Failed to create gc2: %v", err)
+	}
+
+	// Create grandchild3 under child2
+	gc3Params := models.EditCardParams{
+		Title:  "GrandChild 3",
+		Body:   "GrandChild 3 Body",
+		CardID: "complex_root/child2/gc3",
+		Link:   "",
+	}
+	gc3, err := CreateCard(s.DB, userID, gc3Params)
+	if err != nil {
+		t.Fatalf("Failed to create gc3: %v", err)
+	}
+
+	// Get card with descendants
+	result, err := GetCardWithDescendants(s.DB, userID, rootCard.ID)
+	if err != nil {
+		t.Fatalf("GetCardWithDescendants failed: %v", err)
+	}
+
+	// Verify root
+	if result.Depth != 0 {
+		t.Errorf("Expected root depth 0, got %v", result.Depth)
+	}
+	if len(result.Descendants) != 2 {
+		t.Errorf("Expected 2 children at root, got %v", len(result.Descendants))
+	}
+
+	// Find child1 and child2 in descendants
+	var foundChild1, foundChild2 *models.CardWithDescendants
+	for i := range result.Descendants {
+		if result.Descendants[i].ID == child1.ID {
+			foundChild1 = &result.Descendants[i]
+		}
+		if result.Descendants[i].ID == child2.ID {
+			foundChild2 = &result.Descendants[i]
+		}
+	}
+
+	if foundChild1 == nil {
+		t.Fatal("Child 1 not found in descendants")
+	}
+	if foundChild2 == nil {
+		t.Fatal("Child 2 not found in descendants")
+	}
+
+	// Verify child1 has 1 grandchild (gc1)
+	if len(foundChild1.Descendants) != 1 {
+		t.Errorf("Expected child1 to have 1 descendant, got %v", len(foundChild1.Descendants))
+	}
+
+	// Verify child2 has 2 grandchildren (gc2, gc3)
+	if len(foundChild2.Descendants) != 2 {
+		t.Errorf("Expected child2 to have 2 descendants, got %v", len(foundChild2.Descendants))
+	}
+
+	// Verify gc2 and gc3 are present in child2's descendants
+	foundGC2, foundGC3 := false, false
+	for _, gc := range foundChild2.Descendants {
+		if gc.ID == gc2.ID {
+			foundGC2 = true
+		}
+		if gc.ID == gc3.ID {
+			foundGC3 = true
+		}
+	}
+
+	if !foundGC2 {
+		t.Error("GrandChild 2 not found in child2's descendants")
+	}
+	if !foundGC3 {
+		t.Error("GrandChild 3 not found in child2's descendants")
+	}
+
+	// Verify gc1 has ggc1 as descendant
+	if len(foundChild1.Descendants) > 0 {
+		gc1Node := foundChild1.Descendants[0]
+		if gc1Node.ID != gc1.ID {
+			t.Errorf("Expected gc1 ID %v, got %v", gc1.ID, gc1Node.ID)
+		}
+		if gc1Node.Depth != 2 {
+			t.Errorf("Expected gc1 depth 2, got %v", gc1Node.Depth)
+		}
+		if len(gc1Node.Descendants) != 1 {
+			t.Errorf("Expected gc1 to have 1 descendant, got %v", len(gc1Node.Descendants))
+		}
+
+		if len(gc1Node.Descendants) > 0 {
+			ggc1Node := gc1Node.Descendants[0]
+			if ggc1Node.ID != ggc1.ID {
+				t.Errorf("Expected ggc1 ID %v, got %v", ggc1.ID, ggc1Node.ID)
+			}
+			if ggc1Node.Depth != 3 {
+				t.Errorf("Expected ggc1 depth 3, got %v", ggc1Node.Depth)
+			}
+		}
+	}
+}
+
+func TestGetCardWithDescendantsCardNotFound(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+	nonExistentID := 99999
+
+	_, err := GetCardWithDescendants(s.DB, userID, nonExistentID)
+	if err == nil {
+		t.Error("Expected error for non-existent card, but got none")
+	}
+	if err.Error() != "card not found" {
+		t.Errorf("Expected 'card not found' error, got %v", err.Error())
+	}
+}
+
+func TestGetCardWithDescendantsDeletedCard(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create a card
+	params := models.EditCardParams{
+		Title:  "Card to Delete",
+		Body:   "Delete me",
+		CardID: "deleted_card_test",
+		Link:   "",
+	}
+	card, err := CreateCard(s.DB, userID, params)
+	if err != nil {
+		t.Fatalf("Failed to create card: %v", err)
+	}
+
+	// Delete the card
+	err = DeleteCard(s.DB, userID, card.ID)
+	if err != nil {
+		t.Fatalf("Failed to delete card: %v", err)
+	}
+
+	// Try to get with descendants
+	_, err = GetCardWithDescendants(s.DB, userID, card.ID)
+	if err == nil {
+		t.Error("Expected error for deleted card, but got none")
+	}
+	if err.Error() != "card not found" {
+		t.Errorf("Expected 'card not found' error, got %v", err.Error())
+	}
+}
+
+func TestGetCardWithDescendantsUserIsolation(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	user1ID := 1
+	user2ID := 2
+
+	// Create a card for user 1
+	params := models.EditCardParams{
+		Title:  "User 1 Card",
+		Body:   "User 1 Body",
+		CardID: "user1_card",
+		Link:   "",
+	}
+	user1Card, err := CreateCard(s.DB, user1ID, params)
+	if err != nil {
+		t.Fatalf("Failed to create card for user 1: %v", err)
+	}
+
+	// User 2 should not be able to access user 1's card
+	_, err = GetCardWithDescendants(s.DB, user2ID, user1Card.ID)
+	if err == nil {
+		t.Error("Expected error when user 2 tries to access user 1's card")
+	}
+	if err.Error() != "card not found" {
+		t.Errorf("Expected 'card not found' error, got %v", err.Error())
+	}
+
+	// User 1 should be able to access their own card
+	result, err := GetCardWithDescendants(s.DB, user1ID, user1Card.ID)
+	if err != nil {
+		t.Fatalf("User 1 should be able to access their card: %v", err)
+	}
+	if result.ID != user1Card.ID {
+		t.Errorf("Expected card ID %v, got %v", user1Card.ID, result.ID)
 	}
 }

@@ -631,10 +631,12 @@ func UpdateCard(db *sql.DB, userID int, cardPK int, params models.EditCardParams
 	}
 
 	var parent_id int
-	parent, _ := GetPartialCardByCardID(db, userID, DiscoverParentId(params.CardID))
-
-	// set parent id to id if there's no parent
-	if parent.ID == 0 || params.CardID == "" {
+	parent, err := GetPartialCardByCardID(db, userID, DiscoverParentId(params.CardID))
+	if err != nil {
+		log.Printf("Parent card lookup failed for card %q: %v. Will set as root/self-parent.", params.CardID, err)
+		parent_id = cardPK
+	} else if parent.ID == 0 || params.CardID == "" {
+		// set parent id to id if there's no parent
 		parent_id = cardPK
 	} else {
 		parent_id = parent.ID
@@ -697,15 +699,35 @@ func CreateCard(db *sql.DB, userID int, params models.EditCardParams) (models.Ca
 		return models.Card{}, fmt.Errorf("card_id already exists")
 	}
 
-	parent, err := GetPartialCardByCardID(db, userID, DiscoverParentId(params.CardID))
+	discoveredParentCardID := DiscoverParentId(params.CardID)
+	var parentID int
+	var isRootCard bool
+
+	// Check if this is a root card (no parent separator in card_id)
+	if discoveredParentCardID == params.CardID {
+		// Root card - will set parent_id to itself after insert
+		isRootCard = true
+		parentID = 0
+	} else {
+		// Child card - try to find parent
+		parent, lookupErr := GetPartialCardByCardID(db, userID, discoveredParentCardID)
+		if lookupErr != nil {
+			log.Printf("Parent card lookup failed for card %q: %v. Will set as root/self-parent.", params.CardID, lookupErr)
+			isRootCard = true
+			parentID = 0
+		} else {
+			parentID = parent.ID
+		}
+	}
+
 	query := `
-	INSERT INTO cards 
+	INSERT INTO cards
 	(title, body, link, user_id, card_id, parent_id, created_at, updated_at)
 	VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
 	RETURNING id;
 	`
 	var id int
-	err = db.QueryRow(query, params.Title, params.Body, params.Link, userID, params.CardID, parent.ID).Scan(&id)
+	err := db.QueryRow(query, params.Title, params.Body, params.Link, userID, params.CardID, parentID).Scan(&id)
 	if err != nil {
 		log.Printf("updatecard err %v", err)
 		return models.Card{}, err
@@ -722,8 +744,8 @@ func CreateCard(db *sql.DB, userID int, params models.EditCardParams) (models.Ca
 	// Create audit event for creation
 	CreateAuditEvent(db, userID, id, "card", "create", nil, newCard)
 
-	// set parent id to id if there's no parent
-	if parent.ID == 0 || params.CardID == "" {
+	// set parent id to id if it's a root card or if card_id is empty
+	if isRootCard || params.CardID == "" {
 		_, err = db.Exec("UPDATE cards SET parent_id = $1 WHERE id = $1", id)
 		if err != nil {
 			return models.Card{}, err
@@ -759,4 +781,94 @@ func GetCardsByEntity(db *sql.DB, userID int, entityID int) ([]models.PartialCar
 		cards = append(cards, c)
 	}
 	return cards, nil
+}
+
+// GetCardWithDescendants fetches a card and recursively loads all its descendants with depth information
+func GetCardWithDescendants(db *sql.DB, userID int, cardID int) (models.CardWithDescendants, error) {
+	// Fetch the root card
+	card := models.CardWithDescendants{}
+	err := db.QueryRow(`
+		SELECT id, card_id, user_id, title, body, link, parent_id, created_at, updated_at
+		FROM cards
+		WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE
+	`, cardID, userID).Scan(
+		&card.ID,
+		&card.CardID,
+		&card.UserID,
+		&card.Title,
+		&card.Body,
+		&card.Link,
+		&card.ParentID,
+		&card.CreatedAt,
+		&card.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return models.CardWithDescendants{}, fmt.Errorf("card not found")
+		}
+		return models.CardWithDescendants{}, err
+	}
+
+	card.Depth = 0
+	card.Descendants = []models.CardWithDescendants{}
+
+	// Recursively fetch descendants
+	descendants, err := getDescendantsRecursive(db, userID, cardID, 1)
+	if err != nil {
+		return models.CardWithDescendants{}, err
+	}
+	card.Descendants = descendants
+
+	return card, nil
+}
+
+// getDescendantsRecursive is a helper function that recursively fetches descendants at a given depth
+func getDescendantsRecursive(db *sql.DB, userID int, parentCardID int, depth int) ([]models.CardWithDescendants, error) {
+	// Query direct children
+	rows, err := db.Query(`
+		SELECT id, card_id, user_id, title, body, link, parent_id, created_at, updated_at
+		FROM cards
+		WHERE parent_id = $1 AND user_id = $2 AND is_deleted = FALSE AND id != $1
+		ORDER BY card_id
+	`, parentCardID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var descendants []models.CardWithDescendants
+	for rows.Next() {
+		card := models.CardWithDescendants{}
+		err := rows.Scan(
+			&card.ID,
+			&card.CardID,
+			&card.UserID,
+			&card.Title,
+			&card.Body,
+			&card.Link,
+			&card.ParentID,
+			&card.CreatedAt,
+			&card.UpdatedAt,
+		)
+		if err != nil {
+			log.Printf("Error scanning descendant card: %v", err)
+			continue
+		}
+
+		card.Depth = depth
+		card.Descendants = []models.CardWithDescendants{}
+
+		// Recursively fetch children of this card
+		children, err := getDescendantsRecursive(db, userID, card.ID, depth+1)
+		if err != nil {
+			log.Printf("Error fetching descendants for card %d: %v", card.ID, err)
+			// Continue rather than failing entirely
+		} else {
+			card.Descendants = children
+		}
+
+		descendants = append(descendants, card)
+	}
+
+	return descendants, nil
 }
