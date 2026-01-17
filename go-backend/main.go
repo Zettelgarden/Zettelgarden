@@ -64,7 +64,7 @@ func main() {
 			h.InitSearchCollection()
 		}()
 	}
-	log.Printf("email server: %v", s.Mail)
+	log.Printf("email server initialized (host=%q)", s.Mail.Host)
 	s.JwtSecretKey = []byte(os.Getenv("SECRET_KEY"))
 	config := openai.DefaultConfig(os.Getenv("ZETTEL_LLM_KEY"))
 	config.BaseURL = os.Getenv("ZETTEL_LLM_ENDPOINT")

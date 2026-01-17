@@ -2,6 +2,7 @@ package mail
 
 import (
 	"database/sql"
+	"fmt"
 	"sync"
 )
 
@@ -14,6 +15,13 @@ type MailClient struct {
 	mu                sync.Mutex
 	isProcessing      bool
 	DB                *sql.DB
+}
+
+func (m *MailClient) String() string {
+	if m == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("MailClient{Host:%q, Password:%q, Testing:%t}", m.Host, "<redacted>", m.Testing)
 }
 
 type Email struct {
