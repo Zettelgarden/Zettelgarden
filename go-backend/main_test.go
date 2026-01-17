@@ -2,8 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -184,5 +188,32 @@ func TestListenAndServeErrorHandling(t *testing.T) {
 	// Verify the error indicates a port conflict
 	if !containsPortConflictError(err.Error()) {
 		t.Errorf("Expected port conflict error, got: %v", err)
+	}
+}
+
+func TestConfigureLoggingFlushesAndClosesFile(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "backend.log")
+	// Anything other than "true" should be treated as non-dev.
+	t.Setenv("ZETTEL_DEV", "false")
+	t.Setenv("ZETTEL_BACKEND_LOG_LOCATION", logPath)
+
+	file, cleanup, err := configureLogging()
+	if err != nil {
+		t.Fatalf("configureLogging() error: %v", err)
+	}
+
+	log.Printf("flush-test-line")
+	cleanup()
+
+	if _, err := file.WriteString("should-fail"); err == nil {
+		t.Fatalf("expected write to closed log file to fail")
+	}
+
+	b, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("ReadFile(%q) error: %v", logPath, err)
+	}
+	if !strings.Contains(string(b), "flush-test-line") {
+		t.Fatalf("expected log output to contain flush-test-line; got: %q", string(b))
 	}
 }

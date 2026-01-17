@@ -1,8 +1,7 @@
 package main
 
 import (
-	//	"bytes"
-	//"encoding/json"
+	"context"
 	"fmt"
 	"go-backend/bootstrap"
 	"go-backend/handlers"
@@ -12,6 +11,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -23,21 +24,50 @@ import (
 var s *server.Server
 var h *handlers.Handler
 
-
-
-
-func main() {
-	// Set up logging based on environment
-	if os.Getenv("ZETTEL_DEV") != "true" {
-		file, err := handlers.OpenLogFile(os.Getenv("ZETTEL_BACKEND_LOG_LOCATION"))
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.SetOutput(file)
+func configureLogging() (*os.File, func(), error) {
+	if os.Getenv("ZETTEL_DEV") == "true" {
+		return nil, func() {}, nil
 	}
+
+	logPath := os.Getenv("ZETTEL_BACKEND_LOG_LOCATION")
+	if logPath == "" {
+		return nil, nil, fmt.Errorf("ZETTEL_BACKEND_LOG_LOCATION is empty")
+	}
+
+	file, err := handlers.OpenLogFile(logPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	previous := log.Writer()
+	log.SetOutput(file)
+
+	cleanup := func() {
+		// Restore output first so any shutdown logs don't try to write to a closing file.
+		log.SetOutput(previous)
+		_ = file.Sync()
+		_ = file.Close()
+	}
+
+	return file, cleanup, nil
+}
+
+func run() error {
+	_, cleanupLogging, err := configureLogging()
+	if err != nil {
+		return err
+	}
+	defer cleanupLogging()
 
 	// Initialize shared server using bootstrap package
 	s = bootstrap.InitServer()
+	if s != nil && s.DB != nil {
+		defer func() {
+			if err := s.DB.Close(); err != nil {
+				log.Printf("error closing database: %v", err)
+			}
+		}()
+	}
 
 	h = &handlers.Handler{
 		Server: s,
@@ -64,6 +94,7 @@ func main() {
 			h.InitSearchCollection()
 		}()
 	}
+
 	log.Printf("email server initialized (host=%q)", s.Mail.Host)
 	s.JwtSecretKey = []byte(os.Getenv("SECRET_KEY"))
 	config := openai.DefaultConfig(os.Getenv("ZETTEL_LLM_KEY"))
@@ -72,11 +103,9 @@ func main() {
 	if os.Getenv("ZETTEL_RUN_CHUNKING_EMBEDDING") == "true" {
 		go func() {
 			start := time.Now()
-			//			migrations.RunEmbeddings(h)
 			elapsed := time.Since(start)
 			fmt.Printf("Operation took %v\n", elapsed)
 		}()
-
 	}
 
 	r := mux.NewRouter()
@@ -99,8 +128,39 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: handler,
+	}
+
+	stopCh := make(chan os.Signal, 1)
+	signal.Notify(stopCh, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(stopCh)
+
+	go func() {
+		<-stopCh
+		log.Printf("shutdown signal received")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Printf("server shutdown error: %v", err)
+		}
+	}()
+
 	log.Printf("Starting server on port %s", port)
-	if err := http.ListenAndServe(":"+port, handler); err != nil {
-		log.Fatal("Server failed to start:", err)
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("server failed to start: %w", err)
+	}
+
+	return nil
+}
+
+func main() {
+	if err := run(); err != nil {
+		log.Printf("%v", err)
+		os.Exit(1)
 	}
 }
