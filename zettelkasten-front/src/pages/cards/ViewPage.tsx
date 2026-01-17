@@ -105,7 +105,7 @@ export function ViewPage({ cardId }: ViewPageProps) {
             {viewMode === 'tree' ? (
               <CardTreeView
                 rootCardId={viewingCard.id}
-                displayMode="compact"
+                displayMode="full"
                 height="600px"
                 onCardSelect={(selectedCard) => {
                   // Navigate to the selected card in tree view

@@ -44,7 +44,7 @@ export function CardTreeItem({ card, displayMode, isSelected, onClick }: CardTre
       case 'compact':
         return { maxLength: 60 };
       case 'full':
-        return { maxLength: 100 };
+        return { maxLength: 1000 };
       default:
         return { maxLength: 60 };
     }
@@ -55,11 +55,11 @@ export function CardTreeItem({ card, displayMode, isSelected, onClick }: CardTre
 
   return (
     <div
-      className={`flex items-start gap-2 py-1.5 px-2 hover:bg-gray-50 rounded transition-colors duration-150 ${isSelected ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''}`}
+      className={`flex flex-1 items-start gap-2 py-1.5 px-2 hover:bg-gray-50 rounded transition-colors duration-150 ${isSelected ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''}`}
       onClick={onClick}
     >
       {displayMode !== 'minimal' && (
-        <div className="flex-grow min-w-0">
+        <div className="flex-1 min-w-0">
           <div className="font-medium text-gray-900 truncate">
             <Link
               to={`/app/card/${card.id}`}
@@ -80,7 +80,7 @@ export function CardTreeItem({ card, displayMode, isSelected, onClick }: CardTre
       )}
 
       {displayMode === 'minimal' && (
-        <div className="flex-grow min-w-0">
+        <div className="flex-1 min-w-0">
           <Link
             to={`/app/card/${card.id}`}
             className="text-sm text-blue-600 font-mono hover:text-blue-800 block"
@@ -96,7 +96,7 @@ export function CardTreeItem({ card, displayMode, isSelected, onClick }: CardTre
         </div>
       )}
 
-      <div className="text-xs text-gray-400 ml-2 flex-shrink-0">
+      <div className="text-xs text-gray-400 ml-2 flex-shrink-0 whitespace-nowrap">
         #{card.card_id}
       </div>
     </div>
