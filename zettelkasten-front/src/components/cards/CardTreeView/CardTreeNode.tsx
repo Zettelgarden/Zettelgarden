@@ -27,13 +27,11 @@ const CardTreeNode = memo(function CardTreeNode({
   isExpanded,
   isLoading
 }: CardTreeNodeProps) {
-  console.log(`CardTreeNode rendering: ${card.title} (${card.card_id}), depth ${depth}, hasDescendants: ${card.descendants?.length || 0}`);
   const hasChildren = card.descendants && card.descendants.length > 0;
   const nodeIsExpanded = depth === 0 ? true : isExpanded(card.card_id); // Root is always expanded
   const nodeIsLoading = isLoading(card.card_id);
   const shouldRenderChildren = hasChildren && nodeIsExpanded;
   const isSelected = card.card_id === selectedCardId;
-  console.log(`Setting shouldRenderChildren: ${shouldRenderChildren} (hasChildren: ${hasChildren}, nodeIsExpanded: ${nodeIsExpanded})`);
 
   // Calculate depth-based styling
   const depthPadding = 6 * depth; // 6px per depth level, starting from 0
@@ -69,15 +67,9 @@ const CardTreeNode = memo(function CardTreeNode({
           }}
         >
           {depth > 0 && hasChildren ? (
-            nodeIsExpanded ? (
-              <span className="text-gray-500">
-                <TriangleDownIcon />
-              </span>
-            ) : (
-              <span className="text-gray-500">
-                <TriangleRightIcon />
-              </span>
-            )
+            <span className="text-gray-500">
+              {nodeIsExpanded ? <TriangleDownIcon /> : <TriangleRightIcon />}
+            </span>
           ) : null}
         </div>
 
@@ -92,15 +84,13 @@ const CardTreeNode = memo(function CardTreeNode({
 
       {/* Child nodes */}
       {shouldRenderChildren && (
-        <>
-          {console.log(`Rendering ${card.descendants.length} children for ${card.card_id}`)}
-          <div className="ml-2">
-            {nodeIsLoading && (
-              <div className="text-gray-500 text-sm py-1 pl-1">
-                Loading...
-              </div>
-            )}
-            {!nodeIsLoading && card.descendants.map((child) => (
+        <div className="ml-2">
+          {nodeIsLoading && (
+            <div className="text-gray-500 text-sm py-1 pl-1">
+              Loading...
+            </div>
+          )}
+          {!nodeIsLoading && card.descendants.map((child) => (
             <CardTreeNode
               key={child.card_id}
               card={child}
@@ -114,8 +104,7 @@ const CardTreeNode = memo(function CardTreeNode({
               onToggleExpansion={onToggleExpansion}
             />
           ))}
-          </div>
-        </>
+        </div>
       )}
     </div>
   );

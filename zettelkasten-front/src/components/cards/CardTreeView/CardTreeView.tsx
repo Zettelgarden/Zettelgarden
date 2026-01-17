@@ -81,8 +81,6 @@ export function CardTreeView({
     );
   }
 
-  console.log("Rendering tree:", tree);
-  console.log("Has descendants:", tree.descendants?.length > 0);
 
   return (
     <div

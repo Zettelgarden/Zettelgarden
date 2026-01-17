@@ -9,10 +9,49 @@ interface CardTreeItemProps {
   onClick: () => void;
 }
 
+// Smart truncation utility for card body content
+const truncateBody = (body: string, maxLength: number, mode: string): string => {
+  if (!body || body.length <= maxLength) {
+    return body || "";
+  }
+
+  // Try to truncate at word boundary if possible
+  let truncated = body.substring(0, maxLength);
+  const lastSpace = truncated.lastIndexOf(' ');
+
+  // If we found a space and it's close to our limit, truncate there
+  if (lastSpace > maxLength * 0.7) {
+    truncated = body.substring(0, lastSpace);
+  }
+
+  // For minimal mode, prefer complete sentences if reasonably short
+  if (mode === 'minimal') {
+    const firstSentence = body.split(/[.!?]+/)[0];
+    if (firstSentence && firstSentence.length <= maxLength + 10) {
+      return firstSentence + (body.length > firstSentence.length ? '.' : '');
+    }
+  }
+
+  return truncated + "...";
+};
+
 export function CardTreeItem({ card, displayMode, isSelected, onClick }: CardTreeItemProps) {
-  const truncatedBody = card.body && card.body.length > 100
-    ? card.body.substring(0, 100) + "..."
-    : card.body || "";
+  // Configure truncation based on display mode
+  const getTruncationConfig = (mode: string): { maxLength: number } => {
+    switch (mode) {
+      case 'minimal':
+        return { maxLength: 30 };
+      case 'compact':
+        return { maxLength: 60 };
+      case 'full':
+        return { maxLength: 100 };
+      default:
+        return { maxLength: 60 };
+    }
+  };
+
+  const { maxLength } = getTruncationConfig(displayMode);
+  const truncatedBody = truncateBody(card.body || "", maxLength, displayMode);
 
   return (
     <div
@@ -30,8 +69,10 @@ export function CardTreeItem({ card, displayMode, isSelected, onClick }: CardTre
               {card.title || "Untitled Card"}
             </Link>
           </div>
-          {displayMode === 'full' && card.body && (
-            <div className="text-sm text-gray-600 mt-0.5 line-clamp-2">
+          {card.body && (
+            <div className={`text-gray-600 mt-0.5 line-clamp-2 ${
+              displayMode === 'full' ? 'text-sm' : 'text-xs'
+            }`}>
               {truncatedBody}
             </div>
           )}
@@ -39,13 +80,20 @@ export function CardTreeItem({ card, displayMode, isSelected, onClick }: CardTre
       )}
 
       {displayMode === 'minimal' && (
-        <Link
-          to={`/app/card/${card.id}`}
-          className="text-sm text-blue-600 font-mono hover:text-blue-800"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {card.card_id}
-        </Link>
+        <div className="flex-grow min-w-0">
+          <Link
+            to={`/app/card/${card.id}`}
+            className="text-sm text-blue-600 font-mono hover:text-blue-800 block"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {card.card_id}
+          </Link>
+          {card.body && (
+            <div className="text-xs text-gray-500 mt-0.5 truncate">
+              {truncatedBody}
+            </div>
+          )}
+        </div>
       )}
 
       <div className="text-xs text-gray-400 ml-2 flex-shrink-0">
