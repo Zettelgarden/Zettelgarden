@@ -66,6 +66,7 @@ export function CardTreeItem({ card, displayMode, isSelected, onClick }: CardTre
               className="hover:text-blue-600"
               onClick={(e) => e.stopPropagation()}
             >
+              <span className="text-blue-600">[{card.card_id}]</span>{" - "}
               {card.title || "Untitled Card"}
             </Link>
           </div>
@@ -83,13 +84,14 @@ export function CardTreeItem({ card, displayMode, isSelected, onClick }: CardTre
         <div className="flex-1 min-w-0">
           <Link
             to={`/app/card/${card.id}`}
-            className="text-sm text-blue-600 font-mono hover:text-blue-800 block"
+            className="text-sm hover:text-blue-800 block"
             onClick={(e) => e.stopPropagation()}
           >
-            {card.card_id}
+            <span className="text-blue-600">[{card.card_id}]</span>{" - "}
+            {card.title || "Untitled Card"}
           </Link>
           {card.body && (
-            <div className="text-xs text-gray-500 mt-0.5 truncate">
+            <div className="text-sm text-gray-600 mt-0.5 line-clamp-2">
               {truncatedBody}
             </div>
           )}

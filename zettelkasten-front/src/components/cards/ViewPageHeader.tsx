@@ -17,6 +17,7 @@ interface ViewPageHeaderProps {
   showIdDiscovery: boolean;
   viewMode: 'normal' | 'tree';
   onToggleViewMode: () => void;
+  onNavigateParent?: () => void;
 }
 
 export function ViewPageHeader({
@@ -31,7 +32,7 @@ export function ViewPageHeader({
   onRecategorize,
   showIdDiscovery,
   viewMode,
-  onToggleViewMode
+  onToggleViewMode,
 }: ViewPageHeaderProps) {
   return (
     <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white rounded-lg p-3 shadow-sm">
@@ -50,12 +51,6 @@ export function ViewPageHeader({
         </div>
       </div>
       <div className="mt-2 md:mt-0 flex justify-end gap-2 flex-shrink">
-        <Button
-          onClick={onToggleViewMode}
-          className={`bg-gray-500 hover:bg-gray-600 text-white ${viewMode === 'tree' ? 'bg-blue-500 hover:bg-blue-600' : ''}`}
-        >
-          {viewMode === 'tree' ? '📂 Tree' : '📋 Normal'}
-        </Button>
         <PinButton
           card={viewingCard}
           isPinned={isPinned}
@@ -78,6 +73,17 @@ export function ViewPageHeader({
           </div>
           <Menu.Items className="origin-top-left md:origin-top-right absolute right-0 md:right-0 left-0 md:left-auto mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
             <div className="py-1">
+              <Menu.Item>
+                {({ active }) => (
+                  <button
+                    onClick={onToggleViewMode}
+                    className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                      } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                  >
+                    {viewMode === 'tree' ? '📋 Switch to Normal View' : '📂 Switch to Tree View'}
+                  </button>
+                )}
+              </Menu.Item>
               <Menu.Item>
                 {({ active }) => (
                   <button

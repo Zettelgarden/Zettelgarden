@@ -8,6 +8,7 @@ import { useViewPageContainer } from "./ViewPageContainer";
 import { useTagContext } from "../../contexts/TagContext";
 import { usePinContext } from "../../contexts/PinContext";
 import { useShortcutContext } from "../../contexts/ShortcutContext";
+import { defaultPartialCard } from "../../models/Card";
 import { Card, PartialCard } from "../../models/Card";
 import { saveExistingCard } from "../../api/cards";
 
@@ -99,6 +100,26 @@ export function ViewPage({ cardId }: ViewPageProps) {
             showIdDiscovery={showIdDiscovery}
             viewMode={viewMode}
             onToggleViewMode={() => setViewMode(viewMode === 'normal' ? 'tree' : 'normal')}
+            onNavigateParent={viewingCard.parent ? () => setViewCard({
+              id: viewingCard.parent!.id,
+              card_id: viewingCard.parent!.card_id,
+              user_id: viewingCard.parent!.user_id,
+              title: viewingCard.parent!.title || "",
+              body: "", // Parent data doesn't include body
+              link: "", // Parent data doesn't include link
+              is_deleted: false,
+              created_at: viewingCard.parent!.created_at,
+              updated_at: viewingCard.parent!.updated_at,
+              parent_id: viewingCard.parent!.parent_id,
+              parent: defaultPartialCard, // Use default for missing nested parent data
+              files: [], // Parent data doesn't include files
+              children: [], // We'll repopulate when full card loads
+              references: [],
+              tags: viewingCard.parent!.tags || [],
+              tasks: [], // Parent data doesn't include tasks
+              entities: [], // Parent data doesn't include entities
+              is_starred: false
+            }) : undefined}
           />
 
           <div className="">
