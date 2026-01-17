@@ -15,6 +15,8 @@ interface ViewPageHeaderProps {
   onResummarize: () => void;
   onRecategorize: () => void;
   showIdDiscovery: boolean;
+  viewMode: 'normal' | 'tree';
+  onToggleViewMode: () => void;
 }
 
 export function ViewPageHeader({
@@ -27,7 +29,9 @@ export function ViewPageHeader({
   toggleCreateTaskWindow,
   onResummarize,
   onRecategorize,
-  showIdDiscovery
+  showIdDiscovery,
+  viewMode,
+  onToggleViewMode
 }: ViewPageHeaderProps) {
   return (
     <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white rounded-lg p-3 shadow-sm">
@@ -46,6 +50,12 @@ export function ViewPageHeader({
         </div>
       </div>
       <div className="mt-2 md:mt-0 flex justify-end gap-2 flex-shrink">
+        <Button
+          onClick={onToggleViewMode}
+          className={`bg-gray-500 hover:bg-gray-600 text-white ${viewMode === 'tree' ? 'bg-blue-500 hover:bg-blue-600' : ''}`}
+        >
+          {viewMode === 'tree' ? '📂 Tree' : '📋 Normal'}
+        </Button>
         <PinButton
           card={viewingCard}
           isPinned={isPinned}

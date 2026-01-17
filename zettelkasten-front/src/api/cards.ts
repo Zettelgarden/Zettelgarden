@@ -625,7 +625,6 @@ export function getCardWithDescendants(cardId: string | number): Promise<CardWit
     .then((response) => {
       if (response) {
         return response.json().then((card: CardWithDescendants) => {
-          console.log("card tree 2", card)
           // Recursively process dates and prepare for frontend use
           return processCardWithDescendants(card);
         });

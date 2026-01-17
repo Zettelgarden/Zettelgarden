@@ -198,7 +198,6 @@ const defaultCardWithDescendants: CardWithDescendants = {
 };
 
 export const processCardWithDescendants = (card: CardWithDescendants): ProcessedCardWithDescendants => {
-  console.log("card with tree", card)
   return {
     ...card,
     created_at: new Date(card.created_at),
