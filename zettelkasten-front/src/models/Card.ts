@@ -162,3 +162,47 @@ export const defaultCardTemplate: CardTemplate = {
   created_at: new Date(0),
   updated_at: new Date(0),
 };
+
+export interface ProcessedCardWithDescendants extends CardWithDescendants {
+  // Additional frontend-only fields
+  isExpanded?: boolean;
+  isLoading?: boolean;
+}
+
+export interface CardWithDescendants {
+  id: number;
+  card_id: string;
+  user_id: number;
+  title: string;
+  body: string;
+  link: string;
+  parent_id: number;
+  created_at: Date;
+  updated_at: Date;
+  depth: number;
+  descendants: ProcessedCardWithDescendants[];
+}
+
+const defaultCardWithDescendants: CardWithDescendants = {
+  id: -1,
+  card_id: "",
+  user_id: -1,
+  title: "",
+  body: "",
+  link: "",
+  parent_id: -1,
+  created_at: new Date(0),
+  updated_at: new Date(0),
+  depth: 0,
+  descendants: [],
+};
+
+export const processCardWithDescendants = (card: CardWithDescendants): ProcessedCardWithDescendants => {
+  console.log("card with tree", card)
+  return {
+    ...card,
+    created_at: new Date(card.created_at),
+    updated_at: new Date(card.updated_at),
+    descendants: card.descendants && card.descendants.map(child => processCardWithDescendants(child)),
+  };
+};

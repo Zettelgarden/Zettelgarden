@@ -8,6 +8,8 @@ import {
   Entity,
   SearchResult,
   defaultPartialCard,
+  CardWithDescendants,
+  processCardWithDescendants,
 } from "../models/Card";
 import { checkStatus } from "./common";
 
@@ -603,6 +605,29 @@ export function suggestCardTitle(body: string): Promise<string> {
       if (response) {
         return response.json().then((data: { suggested_title: string }) => {
           return data.suggested_title;
+        });
+      } else {
+        return Promise.reject(new Error("Response is undefined"));
+      }
+    });
+}
+/**
+ * Get the hierarchical card structure with depth information for CardTreeView component
+ * @param cardId The ID of the root card
+ * @returns A promise that resolves to the card with descendants
+ */
+export function getCardWithDescendants(cardId: string | number): Promise<CardWithDescendants> {
+  const url = `${base_url}/cards/${encodeURIComponent(cardId)}/tree`;
+  let token = localStorage.getItem("token");
+
+  return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    .then(checkStatus)
+    .then((response) => {
+      if (response) {
+        return response.json().then((card: CardWithDescendants) => {
+          console.log("card tree 2", card)
+          // Recursively process dates and prepare for frontend use
+          return processCardWithDescendants(card);
         });
       } else {
         return Promise.reject(new Error("Response is undefined"));
