@@ -247,6 +247,33 @@ func (s *Handler) GetCardWithDescendantsRoute(w http.ResponseWriter, r *http.Req
 	json.NewEncoder(w).Encode(result)
 }
 
+// GetCardWithDescendantsPaginatedRoute returns a card with descendants limited to a specific depth (for performance)
+func (s *Handler) GetCardWithDescendantsPaginatedRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil {
+		http.Error(w, "Invalid id", http.StatusBadRequest)
+		return
+	}
+
+	maxDepthStr := mux.Vars(r)["depth"]
+	maxDepth, err := strconv.Atoi(maxDepthStr)
+	if err != nil {
+		http.Error(w, "Invalid depth", http.StatusBadRequest)
+		return
+	}
+
+	// Get card with descendants limited by depth
+	result, err := services.GetCardWithDescendantsLimited(s.DB, userID, id, maxDepth)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
 // CategorizedReferences represents references categorized by their relationship type
 type CategorizedReferences struct {
 	Bidirectional []models.PartialCard `json:"bidirectional"` // Two-way links (mutual references)

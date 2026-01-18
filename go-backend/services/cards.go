@@ -822,6 +822,102 @@ func GetCardWithDescendants(db *sql.DB, userID int, cardID int) (models.CardWith
 	return card, nil
 }
 
+// GetCardWithDescendantsLimited fetches a card and recursively loads its descendants up to a maximum depth (performance optimization)
+func GetCardWithDescendantsLimited(db *sql.DB, userID int, cardID int, maxDepth int) (models.CardWithDescendants, error) {
+	// Fetch the root card
+	card := models.CardWithDescendants{}
+	err := db.QueryRow(`
+		SELECT id, card_id, user_id, title, body, link, parent_id, created_at, updated_at
+		FROM cards
+		WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE
+	`, cardID, userID).Scan(
+		&card.ID,
+		&card.CardID,
+		&card.UserID,
+		&card.Title,
+		&card.Body,
+		&card.Link,
+		&card.ParentID,
+		&card.CreatedAt,
+		&card.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return models.CardWithDescendants{}, fmt.Errorf("card not found")
+		}
+		return models.CardWithDescendants{}, err
+	}
+
+	card.Depth = 0
+	if maxDepth > 0 {
+		// Recursively fetch descendants up to maxDepth
+		descendants, err := getDescendantsRecursiveLimited(db, userID, cardID, 1, maxDepth)
+		if err != nil {
+			return models.CardWithDescendants{}, err
+		}
+		card.Descendants = descendants
+	} else {
+		// No depth limit - return empty descendants
+		card.Descendants = []models.CardWithDescendants{}
+	}
+
+	return card, nil
+}
+
+// getDescendantsRecursiveLimited is a helper function that recursively fetches descendants up to maxDepth
+func getDescendantsRecursiveLimited(db *sql.DB, userID int, parentCardID int, depth int, maxDepth int) ([]models.CardWithDescendants, error) {
+	// If we've reached maxDepth, stop recursing
+	if depth > maxDepth {
+		return []models.CardWithDescendants{}, nil
+	}
+
+	// Query direct children
+	rows, err := db.Query(`
+		SELECT id, card_id, user_id, title, body, link, parent_id, created_at, updated_at
+		FROM cards
+		WHERE parent_id = $1 AND user_id = $2 AND is_deleted = FALSE AND id != $1
+		ORDER BY card_id
+	`, parentCardID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var descendants []models.CardWithDescendants
+	for rows.Next() {
+		card := models.CardWithDescendants{}
+		err := rows.Scan(
+			&card.ID,
+			&card.CardID,
+			&card.UserID,
+			&card.Title,
+			&card.Body,
+			&card.Link,
+			&card.ParentID,
+			&card.CreatedAt,
+			&card.UpdatedAt,
+		)
+		if err != nil {
+			log.Printf("Error scanning descendant card: %v", err)
+			continue
+		}
+
+		card.Depth = depth
+		// Recursively fetch children if we haven't reached maxDepth
+		children, err := getDescendantsRecursiveLimited(db, userID, card.ID, depth+1, maxDepth)
+		if err != nil {
+			log.Printf("Error fetching descendants for card %d: %v", card.ID, err)
+			// Continue rather than failing entirely
+		} else {
+			card.Descendants = children
+		}
+
+		descendants = append(descendants, card)
+	}
+
+	return descendants, nil
+}
+
 // getDescendantsRecursive is a helper function that recursively fetches descendants at a given depth
 func getDescendantsRecursive(db *sql.DB, userID int, parentCardID int, depth int) ([]models.CardWithDescendants, error) {
 	// Query direct children

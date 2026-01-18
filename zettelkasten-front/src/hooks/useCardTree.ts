@@ -9,7 +9,7 @@ export interface UseCardTreeResult {
   error: string | null;
 
   // Actions
-  fetchTree: (cardId: string | number) => Promise<void>;
+  fetchTree: (cardId: string | number, maxDepth?: number) => Promise<void>;
   setTree: (tree: ProcessedCardWithDescendants | null) => void;
   clearTree: () => void;
 }
@@ -19,12 +19,15 @@ export function useCardTree(): UseCardTreeResult {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTree = useCallback(async (cardId: string | number) => {
+  const fetchTree = useCallback(async (cardId: string | number, maxDepth?: number) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const treeData = await getCardWithDescendants(cardId);
+      // Use depth-limited API if maxDepth is provided, otherwise use full tree API
+      const treeData = maxDepth !== undefined
+        ? await import("../api/cards").then(m => m.getCardWithDescendantsLimited(cardId, maxDepth))
+        : await getCardWithDescendants(cardId);
       setTree(treeData);
     } catch (err: any) {
       console.error("Failed to fetch card tree:", err);

@@ -1,5 +1,5 @@
 import { useState, useCallback, SetStateAction } from "react";
-import { CardWithDescendants } from "../models/Card";
+import { ProcessedCardWithDescendants } from "../models/Card";
 
 export interface UseTreeExpansionResult {
   // State
@@ -8,6 +8,7 @@ export interface UseTreeExpansionResult {
 
   // Actions
   toggleExpansion: (cardId: string) => void;
+  loadChildren: (cardId: string, children: ProcessedCardWithDescendants[]) => void;
   setExpandedCards: React.Dispatch<SetStateAction<Set<string>>>;
   setLoadingCards: React.Dispatch<SetStateAction<Set<string>>>;
 
@@ -45,6 +46,13 @@ export function useTreeExpansion(): UseTreeExpansionResult {
     }
   }, [expandedCards]);
 
+  const loadChildren = useCallback((cardId: string, children: ProcessedCardWithDescendants[]) => {
+    // This function would typically be called from the CardTreeNode
+    // when lazy loading is triggered, but in our current implementation
+    // we preload everything, so it's a no-op for now
+    // Future: integrate with lazy loading by fetching children on demand
+  }, []);
+
   const reset = useCallback(() => {
     setExpandedCards(new Set());
     setLoadingCards(new Set());
@@ -54,6 +62,7 @@ export function useTreeExpansion(): UseTreeExpansionResult {
     expandedCards,
     loadingCards,
     toggleExpansion,
+    loadChildren,
     setExpandedCards,
     setLoadingCards,
     isExpanded,

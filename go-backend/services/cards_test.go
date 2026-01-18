@@ -6,6 +6,7 @@ import (
 	"go-backend/tests"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestExtractBacklinks(t *testing.T) {
@@ -1256,4 +1257,129 @@ func TestGetCardWithDescendantsUserIsolation(t *testing.T) {
 	if result.ID != user1Card.ID {
 		t.Errorf("Expected card ID %v, got %v", user1Card.ID, result.ID)
 	}
+}
+
+// TestGetCardWithDescendantsLargeTree tests performance with deep nesting (10+ levels) and wide breadth (100+ siblings)
+// This is designed to test performance bottlenecks in the tree rendering system
+func TestGetCardWithDescendantsLargeTree(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create root card
+	rootParams := models.EditCardParams{
+		Title:  "Performance Root",
+		Body:   "Root card for performance testing",
+		CardID: "perf_root",
+		Link:   "",
+	}
+	rootCard, err := CreateCard(s.DB, userID, rootParams)
+	if err != nil {
+		t.Fatalf("Failed to create root card: %v", err)
+	}
+
+	t.Logf("Created root card: %d", rootCard.ID)
+
+	// Create 10+ levels deep with increasing numbers of siblings per level
+	// Level 1: 10 siblings, Level 2: 15 siblings, Level 3: 20 siblings, etc.
+	const maxDepth = 12
+	currentDepth := 1
+
+	// Store parents at each level for breadth-first creation
+	type levelInfo struct {
+		parentCardID string
+		parentID      int
+		numSiblings   int
+	}
+	levels := []levelInfo{{parentCardID: "perf_root", parentID: rootCard.ID, numSiblings: 5}}
+
+	// Breadth-first tree creation to maintain structure
+	totalCardsCreated := 1
+
+	for currentDepth < maxDepth {
+		nextLevel := []levelInfo{}
+
+		// For each parent in current level, create numSiblings children
+		for _, level := range levels {
+			for i := 0; i < level.numSiblings; i++ {
+				childCardID := fmt.Sprintf("%s/child_%d_%d", level.parentCardID, currentDepth, i+1)
+
+				childParams := models.EditCardParams{
+					Title:  fmt.Sprintf("Level %d Child %d", currentDepth, i+1),
+					Body:   fmt.Sprintf("Child at depth %d, sibling %d", currentDepth, i+1),
+					CardID: childCardID,
+					Link:   "",
+				}
+
+				childCard, err := CreateCard(s.DB, userID, childParams)
+				if err != nil {
+					t.Fatalf("Failed to create child card at depth %d, sibling %d: %v", currentDepth, i+1, err)
+				}
+
+				totalCardsCreated++
+				t.Logf("Created card %d/%d: %s (depth: %d)", totalCardsCreated, i+1, childCardID, currentDepth)
+
+				// Plan for next level - create children for this node
+				nextLevelSiblings := 5 // Fixed number for simplicity, could scale
+				nextLevel = append(nextLevel, levelInfo{
+					parentCardID: childCardID,
+					parentID:      childCard.ID,
+					numSiblings:   nextLevelSiblings,
+				})
+			}
+		}
+
+		levels = nextLevel
+		currentDepth++
+
+		if len(levels) == 0 {
+			break // No more levels to create
+		}
+	}
+
+	t.Logf("Total cards created for tree: %d", totalCardsCreated)
+
+	// Now test retrieving the tree - this is where performance issues will show
+	startTime := time.Now()
+
+	result, err := GetCardWithDescendants(s.DB, userID, rootCard.ID)
+	if err != nil {
+		t.Fatalf("GetCardWithDescendants failed on large tree: %v", err)
+	}
+
+	endTime := time.Now()
+	duration := endTime.Sub(startTime)
+
+	t.Logf("Tree retrieval took: %v", duration)
+	t.Logf("Result has %d direct descendants", len(result.Descendants))
+
+	// Count total nodes in tree recursively
+	totalNodes := countNodesInTree(result)
+	t.Logf("Total nodes in retrieved tree: %d", totalNodes)
+
+	// Basic validation
+	if result.ID != rootCard.ID {
+		t.Errorf("Root ID mismatch: expected %v, got %v", rootCard.ID, result.ID)
+	}
+	if result.Depth != 0 {
+		t.Errorf("Root depth should be 0, got %v", result.Depth)
+	}
+
+	// Log performance metrics
+	if duration > 5*time.Second {
+		t.Errorf("PERFORMANCE ISSUE: Tree retrieval took %v (should be < 5s for performance test)", duration)
+	}
+	if totalNodes < totalCardsCreated-10 { // Allow some tolerance for test flakiness
+		t.Errorf("PERFORMANCE ISSUE: Retrieved %d nodes but created %d cards", totalNodes, totalCardsCreated)
+	}
+}
+
+// countNodesInTree recursively counts all nodes in a CardWithDescendants tree
+func countNodesInTree(card models.CardWithDescendants) int {
+	count := 1
+	for _, descendant := range card.Descendants {
+		count += countNodesInTree(descendant)
+	}
+	return count
 }

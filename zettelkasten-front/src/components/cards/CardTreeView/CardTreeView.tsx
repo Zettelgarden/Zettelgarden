@@ -7,6 +7,7 @@ import { useTreeExpansion } from "../../../hooks/useTreeExpansion";
 interface CardTreeViewProps {
   rootCardId: string | number;
   maxDepth?: number; // Limit rendering depth for performance
+  maxInitialDepth?: number; // How deep to load initially (lazy loading)
   displayMode?: 'compact' | 'full' | 'minimal';
   onCardSelect?: (card: ProcessedCardWithDescendants) => void;
   onCardUpdate?: () => void;
@@ -17,6 +18,7 @@ interface CardTreeViewProps {
 export function CardTreeView({
   rootCardId,
   maxDepth,
+  maxInitialDepth = 3, // Default: load first 3 levels initially
   displayMode = 'compact',
   onCardSelect,
   onCardUpdate,
@@ -31,11 +33,12 @@ export function CardTreeView({
   // Load tree data when rootCardId changes
   useEffect(() => {
     if (rootCardId) {
-      fetchTree(rootCardId);
+      // Use depth-limited API for initial load to improve performance
+      fetchTree(rootCardId, maxInitialDepth);
       // Reset selection when loading a new tree
       setSelectedCardId(null);
     }
-  }, [rootCardId, fetchTree]);
+  }, [rootCardId, fetchTree, maxInitialDepth]);
 
   // Handle card selection
   const handleSelectCard = useCallback((card: ProcessedCardWithDescendants) => {

@@ -634,6 +634,24 @@ export function getCardWithDescendants(cardId: string | number): Promise<CardWit
     });
 }
 
+export function getCardWithDescendantsLimited(cardId: string | number, maxDepth: number): Promise<CardWithDescendants> {
+  const url = `${base_url}/cards/${encodeURIComponent(cardId)}/tree/depth/${maxDepth}`;
+  let token = localStorage.getItem("token");
+
+  return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    .then(checkStatus)
+    .then((response) => {
+      if (response) {
+        return response.json().then((card: CardWithDescendants) => {
+          // Recursively process dates and prepare for frontend use
+          return processCardWithDescendants(card);
+        });
+      } else {
+        return Promise.reject(new Error("Response is undefined"));
+      }
+    });
+}
+
 interface UnsortedCardsResponse {
   cards: PartialCard[];
   page: number;
