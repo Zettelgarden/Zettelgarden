@@ -21,7 +21,9 @@ func LoadConfig() Config {
 	}
 
 	// Check for validation errors and panic if any found
-	panicOnValidationErrors()
+	if !config.Server.DevMode {
+		panicOnValidationErrors()
+	}
 
 	// Set global instance for service access
 	globalConfig = &config
