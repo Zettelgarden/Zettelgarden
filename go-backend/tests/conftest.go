@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"go-backend/mail"
 	"go-backend/models"
+	"go-backend/pkg/config"
 	"go-backend/server"
 	"log"
 	"math/rand"
@@ -26,9 +27,73 @@ var S *server.Server
 var setupOnce sync.Once
 var db *sql.DB
 
+// setTestEnvironmentVariables sets required environment variables for testing
+func setTestEnvironmentVariables() {
+	// Database config - these will already be set in real test environment
+	setEnvIfNotSet("DB_HOST", "localhost")
+	setEnvIfNotSet("DB_PORT", "5432")
+	setEnvIfNotSet("DB_USER", "postgres")
+	setEnvIfNotSet("DB_PASS", "password")
+	setEnvIfNotSet("DB_NAME", "zettelgarden")
+
+	// Server config - test defaults
+	setEnvIfNotSet("ZETTEL_DEV", "true")
+	setEnvIfNotSet("ZETTEL_PORT", "8080")
+	setEnvIfNotSet("ZETTEL_URL", "http://localhost:8080")
+	setEnvIfNotSet("ZETTEL_ADMIN_EMAIL", "admin@test.com")
+	setEnvIfNotSet("SECRET_KEY", "test-secret-key-for-jwt-signing-32-chars-minimum")
+	setEnvIfNotSet("ZETTEL_BACKEND_LOG_LOCATION", "")
+
+	// LLM service config - test defaults
+	setEnvIfNotSet("ZETTEL_LLM_KEY", "test-openai-api-key")
+	setEnvIfNotSet("ZETTEL_LLM_ENDPOINT", "https://api.openai.com/v1")
+	setEnvIfNotSet("ZETTEL_LLM_DEFAULT_MODEL", "gpt-3.5-turbo")
+	setEnvIfNotSet("ZETTEL_LLM_SUMMARIZE_MODEL", "gpt-3.5-turbo")
+
+	// Mail service config - test defaults
+	setEnvIfNotSet("MAIL_HOST", "smtp.gmail.com")
+	setEnvIfNotSet("MAIL_PASSWORD", "test-mail-password")
+
+	// Stripe config - test defaults
+	setEnvIfNotSet("STRIPE_SECRET_KEY", "test-stripe-secret-key")
+	setEnvIfNotSet("STRIPE_PUBLISHABLE_KEY", "test-stripe-publishable-key")
+	setEnvIfNotSet("STRIPE_WEBHOOK_SECRET", "test-stripe-webhook-secret")
+	setEnvIfNotSet("STRIPE_MONTH_PRICE", "price_monthly_test_id")
+	setEnvIfNotSet("STRIPE_YEAR_PRICE", "price_yearly_test_id")
+	setEnvIfNotSet("STRIPE_BILLING_URL", "https://billing.stripe.com/test")
+
+	// S3/B2 config - test defaults
+	setEnvIfNotSet("B2_ACCESS_KEY_ID", "test-access-key-id")
+	setEnvIfNotSet("B2_SECRET_ACCESS_KEY", "test-secret-access-key")
+	setEnvIfNotSet("B2_BUCKET_NAME", "test-bucket-name")
+
+	// GitHub OAuth config - test defaults
+	setEnvIfNotSet("GITHUB_CLIENT_ID", "test-github-client-id")
+	setEnvIfNotSet("GITHUB_CLIENT_SECRET", "test-github-client-secret")
+	setEnvIfNotSet("GITHUB_REDIRECT_URI", "http://localhost:8080/auth/github/callback")
+
+	// Search/Typesense config - test defaults
+	setEnvIfNotSet("TYPESENSE_HOST", "http://localhost:8108")
+	setEnvIfNotSet("TYPESENSE_PASSWORD", "test-typesense-password")
+	setEnvIfNotSet("TYPESENSE_COLLECTION", "zettelgarden_test")
+
+	// Optional features
+	setEnvIfNotSet("ZETTEL_RUN_CHUNKING_EMBEDDING", "false")
+}
+
+// setEnvIfNotSet sets an environment variable only if it's not already set
+func setEnvIfNotSet(key, value string) {
+	if os.Getenv(key) == "" {
+		os.Setenv(key, value)
+	}
+}
+
 func Setup() *server.Server {
 	var err error
 	setupOnce.Do(func() {
+		// Set test environment variables if not already set
+		//		setTestEnvironmentVariables()
+
 		dbConfig := models.DatabaseConfig{}
 		dbConfig.Host = os.Getenv("DB_HOST")
 		dbConfig.Port = os.Getenv("DB_PORT")
@@ -36,6 +101,7 @@ func Setup() *server.Server {
 		dbConfig.Password = os.Getenv("DB_PASS")
 		dbConfig.DatabaseName = "zettelkasten_testing"
 
+		config.LoadConfig()
 		db, err = server.ConnectToDatabase(dbConfig)
 	})
 

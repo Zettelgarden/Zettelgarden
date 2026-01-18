@@ -65,7 +65,9 @@ func run() error {
 	defer cleanupLogging()
 
 	// Initialize shared server using bootstrap package
-	s = bootstrap.InitServer(cfg.Database)
+	if s = bootstrap.InitServer(cfg.Database); s == nil {
+		log.Fatalf("Failed to initialize server")
+	}
 	if s != nil && s.DB != nil {
 		defer func() {
 			if err := s.DB.Close(); err != nil {
