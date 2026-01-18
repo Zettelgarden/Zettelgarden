@@ -28,6 +28,13 @@ export function ChatPage({ }: ChatPageProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
 
+  // Loading states for async operations
+  const [loadingConversations, setLoadingConversations] = useState(false);
+  const [loadingConversationIds, setLoadingConversationIds] = useState<Set<string>>(new Set());
+  const [deletingConversationIds, setDeletingConversationIds] = useState<Set<string>>(new Set());
+  const [starringConversationIds, setStarringConversationIds] = useState<Set<string>>(new Set());
+  const [regeneratingMessageIds, setRegeneratingMessageIds] = useState<Set<string>>(new Set());
+
   const { conversationId, setConversationId } = useChatContext();
   const { hasSubscription } = useAuth();
   const { showToast } = useToast();
@@ -90,16 +97,16 @@ export function ChatPage({ }: ChatPageProps) {
   }, [conversationId]);
 
   const loadConversations = async () => {
+    setLoadingConversations(true);
     try {
       const convs = await getConversations();
 
-      console.log("convos", convs)
       if (!convs) {
         setConversations([]);
-        return
-      } else {
-        setConversations(convs);
+        return;
       }
+
+      setConversations(convs);
 
       // If no current conversation and we have conversations, load the most recent one
       if (!chatHook.currentConversation && convs.length > 0) {
@@ -108,15 +115,29 @@ export function ChatPage({ }: ChatPageProps) {
     } catch (error) {
       console.error("Failed to load conversations:", error);
       showToast("error", "Failed to load conversations", "Please try refreshing the page.");
+    } finally {
+      setLoadingConversations(false);
     }
   };
 
   const loadConversation = async (conversationId: string) => {
+    setLoadingConversationIds(prev => {
+      const next = new Set(prev);
+      next.add(conversationId);
+      return next;
+    });
+
     try {
       await chatHook.loadConversation(conversationId);
     } catch (error) {
       console.error("Failed to load conversation:", error);
       showToast("error", "Failed to load conversation", "The selected chat could not be loaded.");
+    } finally {
+      setLoadingConversationIds(prev => {
+        const next = new Set(prev);
+        next.delete(conversationId);
+        return next;
+      });
     }
   };
 
@@ -133,14 +154,25 @@ export function ChatPage({ }: ChatPageProps) {
 
 
   const deleteConversation = async (conversationId: string) => {
+    if (deletingConversationIds.has(conversationId)) return;
     if (!confirm("Are you sure you want to delete this conversation?")) return;
+
+    setDeletingConversationIds(prev => {
+      const next = new Set(prev);
+      next.add(conversationId);
+      return next;
+    });
 
     try {
       await apiDeleteConversation(conversationId);
-      setConversations(prev => prev.filter(c => c.id !== conversationId));
+
+      let remaining: ChatConversation[] = [];
+      setConversations(prev => {
+        remaining = prev.filter(c => c.id !== conversationId);
+        return remaining;
+      });
 
       if (chatHook.currentConversation?.id === conversationId) {
-        const remaining = conversations.filter(c => c.id !== conversationId);
         if (remaining.length > 0) {
           await loadConversation(remaining[0].id);
         } else {
@@ -149,19 +181,32 @@ export function ChatPage({ }: ChatPageProps) {
           setConversationId("");
         }
       }
+
       showToast("success", "Conversation deleted");
     } catch (error) {
       console.error("Failed to delete conversation:", error);
       showToast("error", "Failed to delete conversation", "The chat could not be deleted.");
+    } finally {
+      setDeletingConversationIds(prev => {
+        const next = new Set(prev);
+        next.delete(conversationId);
+        return next;
+      });
     }
   };
 
   const starConversation = async (conversationId: string) => {
+    if (starringConversationIds.has(conversationId)) return;
+
+    setStarringConversationIds(prev => {
+      const next = new Set(prev);
+      next.add(conversationId);
+      return next;
+    });
+
     try {
       const updatedConv = await apiStarConversation(conversationId);
-      setConversations(prev =>
-        prev.map(c => c.id === conversationId ? updatedConv : c)
-      );
+      setConversations(prev => prev.map(c => (c.id === conversationId ? updatedConv : c)));
       if (chatHook.currentConversation?.id === conversationId) {
         chatHook.setCurrentConversation(updatedConv);
       }
@@ -169,9 +214,14 @@ export function ChatPage({ }: ChatPageProps) {
     } catch (error) {
       console.error("Failed to star conversation:", error);
       showToast("error", "Failed to star conversation", "Unable to toggle star status.");
+    } finally {
+      setStarringConversationIds(prev => {
+        const next = new Set(prev);
+        next.delete(conversationId);
+        return next;
+      });
     }
   };
-
 
   const handleCardClick = (cardPk: string) => {
     // Navigate to the card page using the card_id
@@ -194,6 +244,13 @@ export function ChatPage({ }: ChatPageProps) {
 
   const handleRegenerateMessage = async (messageId: string) => {
     if (!chatHook.currentConversation) return;
+    if (regeneratingMessageIds.has(messageId)) return;
+
+    setRegeneratingMessageIds(prev => {
+      const next = new Set(prev);
+      next.add(messageId);
+      return next;
+    });
 
     try {
       await apiRegenerateMessage(chatHook.currentConversation.id, messageId);
@@ -208,9 +265,14 @@ export function ChatPage({ }: ChatPageProps) {
     } catch (error) {
       console.error("Failed to regenerate message:", error);
       showToast("error", "Failed to regenerate message", "Unable to create a new response.");
+    } finally {
+      setRegeneratingMessageIds(prev => {
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
+      });
     }
   };
-
 
   // Separate starred and recent conversations
   const starredConversations = conversations.filter(conv => conv.starred);
@@ -252,7 +314,11 @@ export function ChatPage({ }: ChatPageProps) {
 
         {/* Conversations List */}
         <div className="flex-1 overflow-y-auto px-2">
-          {conversations.length === 0 ? (
+          {loadingConversations ? (
+            <div className="p-4 text-gray-500 text-center text-sm">
+              Loading conversations...
+            </div>
+          ) : conversations.length === 0 ? (
             <div className="p-4 text-gray-500 text-center text-sm">
               No conversations yet
             </div>
@@ -272,9 +338,17 @@ export function ChatPage({ }: ChatPageProps) {
                   {starredConversations.map((conv) => (
                     <div
                       key={conv.id}
-                      onClick={() => loadConversation(conv.id)}
-                      className={`group relative p-2 mx-1 mb-1 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white ${chatHook.currentConversation?.id === conv.id ? 'bg-white shadow-sm' : ''
-                        }`}
+                      onClick={() => {
+                        if (
+                          loadingConversationIds.has(conv.id) ||
+                          deletingConversationIds.has(conv.id) ||
+                          starringConversationIds.has(conv.id)
+                        ) {
+                          return;
+                        }
+                        loadConversation(conv.id);
+                      }}
+                      className={`group relative p-2 mx-1 mb-1 rounded-lg transition-all duration-200 hover:bg-white ${chatHook.currentConversation?.id === conv.id ? 'bg-white shadow-sm' : ''} ${(loadingConversationIds.has(conv.id) || deletingConversationIds.has(conv.id) || starringConversationIds.has(conv.id)) ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
@@ -282,13 +356,35 @@ export function ChatPage({ }: ChatPageProps) {
                             {conv.title || "Untitled Chat"}
                           </h3>
                         </div>
-                        <div className="flex items-center space-x-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className={`flex items-center space-x-1 ml-2 ${loadingConversationIds.has(conv.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+                          {loadingConversationIds.has(conv.id) && (
+                            <svg
+                              className="w-3 h-3 text-gray-400 animate-spin"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                                fill="none"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"
+                              />
+                            </svg>
+                          )}
                           <button
+                            disabled={loadingConversationIds.has(conv.id) || deletingConversationIds.has(conv.id) || starringConversationIds.has(conv.id)}
                             onClick={(e) => {
                               e.stopPropagation();
                               starConversation(conv.id);
                             }}
-                            className={`text-sm p-1 rounded hover:bg-gray-100 transition-colors ${conv.starred ? 'text-yellow-500' : 'text-gray-500 hover:text-yellow-500'
+                            className={`text-sm p-1 rounded hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${conv.starred ? 'text-yellow-500' : 'text-gray-500 hover:text-yellow-500'
                               }`}
                           >
                             <svg className="w-3 h-3" fill={conv.starred ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
@@ -296,11 +392,12 @@ export function ChatPage({ }: ChatPageProps) {
                             </svg>
                           </button>
                           <button
+                            disabled={loadingConversationIds.has(conv.id) || deletingConversationIds.has(conv.id) || starringConversationIds.has(conv.id)}
                             onClick={(e) => {
                               e.stopPropagation();
                               deleteConversation(conv.id);
                             }}
-                            className="text-gray-500 hover:text-red-500 text-sm p-1 rounded hover:bg-gray-100 transition-colors"
+                            className="text-gray-500 hover:text-red-500 text-sm p-1 rounded hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -327,9 +424,17 @@ export function ChatPage({ }: ChatPageProps) {
                   {displayedRecentConversations.map((conv) => (
                     <div
                       key={conv.id}
-                      onClick={() => loadConversation(conv.id)}
-                      className={`group relative p-2 mx-1 mb-1 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white ${chatHook.currentConversation?.id === conv.id ? 'bg-white shadow-sm' : ''
-                        }`}
+                      onClick={() => {
+                        if (
+                          loadingConversationIds.has(conv.id) ||
+                          deletingConversationIds.has(conv.id) ||
+                          starringConversationIds.has(conv.id)
+                        ) {
+                          return;
+                        }
+                        loadConversation(conv.id);
+                      }}
+                      className={`group relative p-2 mx-1 mb-1 rounded-lg transition-all duration-200 hover:bg-white ${chatHook.currentConversation?.id === conv.id ? 'bg-white shadow-sm' : ''} ${(loadingConversationIds.has(conv.id) || deletingConversationIds.has(conv.id) || starringConversationIds.has(conv.id)) ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
@@ -337,13 +442,35 @@ export function ChatPage({ }: ChatPageProps) {
                             {conv.title || "Untitled Chat"}
                           </h3>
                         </div>
-                        <div className="flex items-center space-x-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className={`flex items-center space-x-1 ml-2 ${loadingConversationIds.has(conv.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+                          {loadingConversationIds.has(conv.id) && (
+                            <svg
+                              className="w-3 h-3 text-gray-400 animate-spin"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                                fill="none"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"
+                              />
+                            </svg>
+                          )}
                           <button
+                            disabled={loadingConversationIds.has(conv.id) || deletingConversationIds.has(conv.id) || starringConversationIds.has(conv.id)}
                             onClick={(e) => {
                               e.stopPropagation();
                               starConversation(conv.id);
                             }}
-                            className={`text-sm p-1 rounded hover:bg-gray-100 transition-colors ${conv.starred ? 'text-yellow-500' : 'text-gray-500 hover:text-yellow-500'
+                            className={`text-sm p-1 rounded hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${conv.starred ? 'text-yellow-500' : 'text-gray-500 hover:text-yellow-500'
                               }`}
                           >
                             <svg className="w-3 h-3" fill={conv.starred ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
@@ -351,11 +478,12 @@ export function ChatPage({ }: ChatPageProps) {
                             </svg>
                           </button>
                           <button
+                            disabled={loadingConversationIds.has(conv.id) || deletingConversationIds.has(conv.id) || starringConversationIds.has(conv.id)}
                             onClick={(e) => {
                               e.stopPropagation();
                               deleteConversation(conv.id);
                             }}
-                            className="text-gray-500 hover:text-red-500 text-sm p-1 rounded hover:bg-gray-100 transition-colors"
+                            className="text-gray-500 hover:text-red-500 text-sm p-1 rounded hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

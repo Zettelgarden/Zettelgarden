@@ -27,12 +27,11 @@ export function ChatInterface({
   compact = false,
   showModelDropdown = true,
   availableModels = [
-    { value: "google/gemini-2.5-flash", label: "google/gemini-2.5-flash" },
+    { value: "google/gemini-3-flash-preview", label: "google/gemini-3-flash-preview" },
     { value: "google/gemini-2.5-flash-lite", label: "google/gemini-2.5-flash-lite" },
-    { value: "google/gemini-2.5-pro", label: "google/gemini-2.5-pro" },
-    { value: "gpt-4o-mini", label: "GPT-4o Mini" },
+    { value: "google/gemini-2.5-pro-preview", label: "google/gemini-3-pro-preview" },
     { value: "openai/gpt-5", label: "GPT-5" },
-    { value: "anthropic/claude-sonnet-4", label: "anthropic/claude-sonnet-4" },
+    { value: "anthropic/claude-sonnet-4.5", label: "anthropic/claude-sonnet-4.5" },
   ],
   onRegenerateMessage
 }: ChatInterfaceProps) {
