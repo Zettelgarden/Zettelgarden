@@ -93,6 +93,7 @@ func run() error {
 		DB:       s.DB,
 	}
 
+	// Typesense is optional - search will still work without it (slower full-text search only)
 	typesenseClient, err := bootstrap.InitTypesense(cfg.Services.Search)
 	if err == nil {
 		s.TypesenseClient = typesenseClient
@@ -100,6 +101,9 @@ func run() error {
 			log.Printf("updating typesense")
 			h.InitSearchCollection()
 		}()
+	} else {
+		log.Printf("WARNING: Typesense initialization failed - search functionality is disabled. Error: %v", err)
+		log.Printf("INFO: Searches will use slower full-text search only. Check Typesense configuration and network connectivity.")
 	}
 
 	log.Printf("email server initialized (host=%q)", s.Mail.Host)

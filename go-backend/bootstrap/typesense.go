@@ -1,3 +1,4 @@
+// Package bootstrap provides initialization functions for optional services
 package bootstrap
 
 import (
@@ -20,6 +21,9 @@ func GetTypesenseClient(searchConfig config.SearchConfig) *typesense.Client {
 	return client
 }
 
+// InitTypesense initializes Typesense search service.
+// This is an optional service - if initialization fails, search will still work
+// but will use slower SQL-based full-text search instead of vector search.
 func InitTypesense(searchConfig config.SearchConfig) (*typesense.Client, error) {
 
 	ctx := context.Background()
