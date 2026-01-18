@@ -15,6 +15,7 @@ import { TaskDialog } from "../components/tasks/TaskDialog";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useChat } from "../hooks/useChat";
+import { useToast } from "../components/toast/ToastContext";
 
 interface ChatPageProps { }
 
@@ -29,6 +30,7 @@ export function ChatPage({ }: ChatPageProps) {
 
   const { conversationId, setConversationId } = useChatContext();
   const { hasSubscription } = useAuth();
+  const { showToast } = useToast();
 
   // Use the shared chat hook
   const chatHook = useChat({
@@ -72,8 +74,11 @@ export function ChatPage({ }: ChatPageProps) {
 
       // Send the message directly without setting the input
       await chatHook.sendMessageToConversation(newConv.id, message, referencedCards);
+
+      showToast("success", "Conversation started", "Your message has been sent to the AI.");
     } catch (error) {
       console.error("Failed to create conversation with message:", error);
+      showToast("error", "Failed to start conversation", "Unable to create new chat with your message.");
     }
   };
 
@@ -102,7 +107,7 @@ export function ChatPage({ }: ChatPageProps) {
       }
     } catch (error) {
       console.error("Failed to load conversations:", error);
-      chatHook.setError("Failed to load conversations");
+      showToast("error", "Failed to load conversations", "Please try refreshing the page.");
     }
   };
 
@@ -111,6 +116,7 @@ export function ChatPage({ }: ChatPageProps) {
       await chatHook.loadConversation(conversationId);
     } catch (error) {
       console.error("Failed to load conversation:", error);
+      showToast("error", "Failed to load conversation", "The selected chat could not be loaded.");
     }
   };
 
@@ -118,8 +124,10 @@ export function ChatPage({ }: ChatPageProps) {
     try {
       const newConv = await chatHook.createNewConversation("", chatHook.selectedModel);
       setConversations(prev => [newConv, ...prev]);
+      showToast("success", "New conversation created");
     } catch (error) {
       console.error("Failed to create conversation:", error);
+      showToast("error", "Failed to create new conversation", "Please try again.");
     }
   };
 
@@ -141,9 +149,10 @@ export function ChatPage({ }: ChatPageProps) {
           setConversationId("");
         }
       }
+      showToast("success", "Conversation deleted");
     } catch (error) {
       console.error("Failed to delete conversation:", error);
-      chatHook.setError("Failed to delete conversation");
+      showToast("error", "Failed to delete conversation", "The chat could not be deleted.");
     }
   };
 
@@ -156,9 +165,10 @@ export function ChatPage({ }: ChatPageProps) {
       if (chatHook.currentConversation?.id === conversationId) {
         chatHook.setCurrentConversation(updatedConv);
       }
+      showToast("success", updatedConv.starred ? "Conversation starred" : "Conversation unstarred");
     } catch (error) {
       console.error("Failed to star conversation:", error);
-      chatHook.setError("Failed to star conversation");
+      showToast("error", "Failed to star conversation", "Unable to toggle star status.");
     }
   };
 
@@ -193,9 +203,11 @@ export function ChatPage({ }: ChatPageProps) {
 
       // Start polling for updates
       chatHook.startPolling(chatHook.currentConversation.id);
+
+      showToast("info", "Regenerating response...", "AI is creating a new reply.");
     } catch (error) {
       console.error("Failed to regenerate message:", error);
-      chatHook.setError("Failed to regenerate message");
+      showToast("error", "Failed to regenerate message", "Unable to create a new response.");
     }
   };
 

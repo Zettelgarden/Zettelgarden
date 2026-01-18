@@ -38,6 +38,7 @@ import { MemoryPage } from "./MemoryPage";
 import { HelpPage } from "../pages/HelpPage";
 import { ChatPage } from "./ChatPage";
 import { StatsPage } from "./StatsPage";
+import { ToastProvider } from "../components/toast/ToastContext";
 
 import { SearchConfig } from "../models/StarredSearch";
 
@@ -262,27 +263,29 @@ function MainAppContent() {
 
 function MainApp() {
   return (
-    <TagProvider>
-      <ChatProvider>
-        <PartialCardProvider>
-          <TaskProvider>
-            <StatusProvider>
-              <ShortcutProvider>
-                <FileProvider>
-                  <PinProvider>
-                    <ChatSidebarProvider>
-                      <CardRefreshProvider>
-                        <MainAppContent />
-                      </CardRefreshProvider>
-                    </ChatSidebarProvider>
-                  </PinProvider>
-                </FileProvider>
-              </ShortcutProvider>
-            </StatusProvider>
-          </TaskProvider>
-        </PartialCardProvider>
-      </ChatProvider>
-    </TagProvider>
+    <ToastProvider>
+      <TagProvider>
+        <ChatProvider>
+          <PartialCardProvider>
+            <TaskProvider>
+              <StatusProvider>
+                <ShortcutProvider>
+                  <FileProvider>
+                    <PinProvider>
+                      <ChatSidebarProvider>
+                        <CardRefreshProvider>
+                          <MainAppContent />
+                        </CardRefreshProvider>
+                      </ChatSidebarProvider>
+                    </PinProvider>
+                  </FileProvider>
+                </ShortcutProvider>
+              </StatusProvider>
+            </TaskProvider>
+          </PartialCardProvider>
+        </ChatProvider>
+      </TagProvider>
+    </ToastProvider>
   );
 }
 
