@@ -2,22 +2,23 @@ package bootstrap
 
 import (
 	"log"
-	"os"
 
 	"go-backend/models"
+	"go-backend/pkg/config"
 	"go-backend/server"
 )
 
-func InitServer() *server.Server {
-	dbConfig := models.DatabaseConfig{
-		Host:         os.Getenv("DB_HOST"),
-		Port:         os.Getenv("DB_PORT"),
-		User:         os.Getenv("DB_USER"),
-		Password:     os.Getenv("DB_PASS"),
-		DatabaseName: os.Getenv("DB_NAME"),
+func InitServer(dbConfig config.DatabaseConfig) *server.Server {
+	// Convert config.DatabaseConfig to models.DatabaseConfig
+	modelsDBConfig := models.DatabaseConfig{
+		Host:         dbConfig.Host,
+		Port:         dbConfig.Port,
+		User:         dbConfig.User,
+		Password:     dbConfig.Password,
+		DatabaseName: dbConfig.DatabaseName,
 	}
 
-	db, err := server.ConnectToDatabase(dbConfig)
+	db, err := server.ConnectToDatabase(modelsDBConfig)
 	if err != nil {
 		log.Fatalf("Unable to connect to the database: %v\n", err)
 	}

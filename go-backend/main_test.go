@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"go-backend/pkg/config"
 	"log"
 	"net"
 	"net/http"
@@ -197,7 +198,15 @@ func TestConfigureLoggingFlushesAndClosesFile(t *testing.T) {
 	t.Setenv("ZETTEL_DEV", "false")
 	t.Setenv("ZETTEL_BACKEND_LOG_LOCATION", logPath)
 
-	file, cleanup, err := configureLogging()
+	// Create minimal config for testing
+	cfg := config.Config{
+		Server: config.ServerConfig{
+			DevMode:     false,
+			LogLocation: logPath,
+		},
+	}
+
+	file, cleanup, err := configureLogging(cfg)
 	if err != nil {
 		t.Fatalf("configureLogging() error: %v", err)
 	}

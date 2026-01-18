@@ -3,27 +3,30 @@ package bootstrap
 import (
 	"context"
 	"fmt"
-	"os"
+	"log"
+
+	"go-backend/pkg/config"
 
 	"github.com/typesense/typesense-go/typesense"
 	"github.com/typesense/typesense-go/typesense/api"
 )
 
-func GetTypesenseClient() *typesense.Client {
+func GetTypesenseClient(searchConfig config.SearchConfig) *typesense.Client {
+	log.Printf("Initializing Typesense client with host: %s", searchConfig.Host)
 	client := typesense.NewClient(
-		typesense.WithServer(os.Getenv("TYPESENSE_HOST")),
-		typesense.WithAPIKey(os.Getenv("TYPESENSE_PASSWORD")),
+		typesense.WithServer(searchConfig.Host),
+		typesense.WithAPIKey(searchConfig.Password),
 	)
 	return client
 }
 
-func InitTypesense() (*typesense.Client, error) {
+func InitTypesense(searchConfig config.SearchConfig) (*typesense.Client, error) {
 
 	ctx := context.Background()
 
-	client := GetTypesenseClient()
+	client := GetTypesenseClient(searchConfig)
 
-	collectionName := os.Getenv("TYPESENSE_COLLECTION")
+	collectionName := searchConfig.Collection
 
 	_, err := client.Collection(collectionName).Retrieve(ctx)
 	if err == nil {

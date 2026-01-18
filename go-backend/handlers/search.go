@@ -113,6 +113,7 @@ func (s *Handler) InitSearchCollection() {
 				"tags":                  tags,
 			}
 
+			log.Printf("card %v %v", cardPK, title)
 			// Upsert (insert or overwrite if exists)
 			_, err = s.Server.TypesenseClient.Collection(collectionName).
 				Documents().
@@ -766,6 +767,7 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 		ExcludeFields: pointer.String("embedding"),
 	}
 	collectionName := os.Getenv("TYPESENSE_COLLECTION")
+	log.Printf("searching typesense %v", s.Server.TypesenseClient)
 	typesenseResults, err := s.Server.TypesenseClient.Collection(collectionName).Documents().Search(context.Background(), typesenseParams)
 
 	if err != nil {

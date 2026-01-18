@@ -5,14 +5,15 @@ import (
 	"database/sql"
 	"go-backend/bootstrap"
 	"go-backend/models"
+	"go-backend/pkg/config"
 	"log"
-	"os"
 	"strconv"
 )
 
 // upsertCardToTypesense adds or updates a card document in Typesense
 func UpsertCardToTypesense(db *sql.DB, card models.Card) {
-	if os.Getenv("ZETTEL_IS_TESTING") == "true" {
+	cfg := config.GetConfig()
+	if cfg == nil || cfg.Server.DevMode {
 		return
 	}
 
@@ -29,7 +30,7 @@ func UpsertCardToTypesense(db *sql.DB, card models.Card) {
 		tags = append(tags, tag.Name)
 	}
 
-	collectionName := os.Getenv("TYPESENSE_COLLECTION")
+	collectionName := cfg.Services.Search.Collection
 	doc := map[string]interface{}{
 		"id":                    "card-" + strconv.Itoa(card.ID),
 		"fact_pk":               -1,
@@ -50,7 +51,7 @@ func UpsertCardToTypesense(db *sql.DB, card models.Card) {
 		"tags":                  tags,
 	}
 
-	client := bootstrap.GetTypesenseClient()
+	client := bootstrap.GetTypesenseClient(cfg.Services.Search)
 	_, err = client.Collection(collectionName).
 		Documents().Upsert(context.Background(), doc)
 	if err != nil {
@@ -59,11 +60,12 @@ func UpsertCardToTypesense(db *sql.DB, card models.Card) {
 }
 
 func deleteCardTypesense(cardPK int) {
-	if os.Getenv("ZETTEL_IS_TESTING") == "true" {
+	cfg := config.GetConfig()
+	if cfg == nil || cfg.Server.DevMode {
 		return
 	}
-	collectionName := os.Getenv("TYPESENSE_COLLECTION")
-	client := bootstrap.GetTypesenseClient()
+	collectionName := cfg.Services.Search.Collection
+	client := bootstrap.GetTypesenseClient(cfg.Services.Search)
 	_, err := client.Collection(collectionName).
 		Document("card-" + strconv.Itoa(cardPK)).Delete(context.Background())
 	if err != nil {

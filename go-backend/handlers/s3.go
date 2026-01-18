@@ -2,26 +2,38 @@ package handlers
 
 import (
 	"context"
+	"os"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	appconfig "go-backend/pkg/config"
 )
 
 const (
 	b2Endpoint = "https://s3.us-east-005.backblazeb2.com"
 )
 
-var bucketName = os.Getenv("B2_BUCKET_NAME")
+// getBucketName returns the S3 bucket name from global config
+func (s *Handler) getBucketName() string {
+	appCfg := appconfig.GetConfig()
+	if appCfg == nil {
+		log.Fatal("Configuration not loaded")
+	}
+	return appCfg.Services.S3.BucketName
+}
 
 func (s *Handler) CreateS3Client() *s3.Client {
+	appCfg := appconfig.GetConfig()
+	if appCfg == nil {
+		log.Fatal("Configuration not loaded")
+	}
 
-	accessKeyID := os.Getenv("B2_ACCESS_KEY_ID")
-	secretAccessKey := os.Getenv("B2_SECRET_ACCESS_KEY")
+	accessKeyID := appCfg.Services.S3.AccessKeyID
+	secretAccessKey := appCfg.Services.S3.SecretAccessKey
 
 	if accessKeyID == "" || secretAccessKey == "" {
 		log.Fatal("B2_ACCESS_KEY_ID and B2_SECRET_ACCESS_KEY must be set")
@@ -52,10 +64,10 @@ func (s *Handler) CreateS3Client() *s3.Client {
 func (s *Handler) listObjects(client *s3.Client) {
 	// List the objects in the bucket
 	resp, err := client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
-		Bucket: aws.String(bucketName),
+		Bucket: aws.String(s.getBucketName()),
 	})
 	if err != nil {
-		log.Fatalf("unable to list items in bucket %q, %v", bucketName, err)
+		log.Fatalf("unable to list items in bucket %q, %v", s.getBucketName(), err)
 	}
 
 	for _, item := range resp.Contents {
@@ -74,12 +86,12 @@ func (s *Handler) uploadObject(client *s3.Client, key, filePath string) {
 		return
 	}
 	_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(bucketName),
+		Bucket: aws.String(s.getBucketName()),
 		Key:    aws.String(key),
 		Body:   file,
 	})
 	if err != nil {
-		log.Fatalf("unable to upload %q to %q, %v", filePath, bucketName, err)
+		log.Fatalf("unable to upload %q to %q, %v", filePath, s.getBucketName(), err)
 	}
 }
 
@@ -89,7 +101,7 @@ func (s *Handler) downloadObject(client *s3.Client, key, filePath string) (*s3.G
 		return nil, nil
 	}
 	result, err := client.GetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String(bucketName),
+		Bucket: aws.String(s.getBucketName()),
 		Key:    aws.String(key),
 	})
 	if err != nil {
@@ -116,13 +128,13 @@ func (s *Handler) deleteObject(client *s3.Client, key string) error {
 		return nil
 	}
 	_, err := client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
-		Bucket: aws.String(bucketName),
+		Bucket: aws.String(s.getBucketName()),
 		Key:    aws.String(key),
 	})
 	if err != nil {
 		log.Fatalf("unable to delete item %q, %v", key, err)
 		return err
 	}
-	//	fmt.Printf("Successfully deleted %q from %q\n", key, bucketName)
+	//	fmt.Printf("Successfully deleted %q from %q\n", key, s.getBucketName())
 	return nil
 }

@@ -6,6 +6,8 @@ import (
 	"go-backend/bootstrap"
 	"go-backend/handlers"
 	"go-backend/mail"
+	"go-backend/models"
+	"go-backend/pkg/config"
 	"go-backend/routes"
 	"go-backend/server"
 	"log"
@@ -24,12 +26,12 @@ import (
 var s *server.Server
 var h *handlers.Handler
 
-func configureLogging() (*os.File, func(), error) {
-	if os.Getenv("ZETTEL_DEV") == "true" {
+func configureLogging(cfg config.Config) (*os.File, func(), error) {
+	if cfg.Server.DevMode {
 		return nil, func() {}, nil
 	}
 
-	logPath := os.Getenv("ZETTEL_BACKEND_LOG_LOCATION")
+	logPath := cfg.Server.LogLocation
 	if logPath == "" {
 		return nil, nil, fmt.Errorf("ZETTEL_BACKEND_LOG_LOCATION is empty")
 	}
@@ -53,14 +55,17 @@ func configureLogging() (*os.File, func(), error) {
 }
 
 func run() error {
-	_, cleanupLogging, err := configureLogging()
+	// Load and validate all configuration from environment variables
+	cfg := config.LoadConfig()
+
+	_, cleanupLogging, err := configureLogging(cfg)
 	if err != nil {
 		return err
 	}
 	defer cleanupLogging()
 
 	// Initialize shared server using bootstrap package
-	s = bootstrap.InitServer()
+	s = bootstrap.InitServer(cfg.Database)
 	if s != nil && s.DB != nil {
 		defer func() {
 			if err := s.DB.Close(); err != nil {
@@ -75,18 +80,18 @@ func run() error {
 	}
 
 	// Initialize Stripe
-	stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
+	stripe.Key = cfg.Services.Stripe.SecretKey
 
 	s.S3 = h.CreateS3Client()
 
 	s.Mail = &mail.MailClient{
-		Host:     os.Getenv("MAIL_HOST"),
-		Password: os.Getenv("MAIL_PASSWORD"),
+		Host:     cfg.Services.Mail.Host,
+		Password: cfg.Services.Mail.Password,
 		Queue:    mail.NewEmailQueue(),
 		DB:       s.DB,
 	}
 
-	typesenseClient, err := bootstrap.InitTypesense()
+	typesenseClient, err := bootstrap.InitTypesense(cfg.Services.Search)
 	if err == nil {
 		s.TypesenseClient = typesenseClient
 		go func() {
@@ -96,11 +101,20 @@ func run() error {
 	}
 
 	log.Printf("email server initialized (host=%q)", s.Mail.Host)
-	s.JwtSecretKey = []byte(os.Getenv("SECRET_KEY"))
-	config := openai.DefaultConfig(os.Getenv("ZETTEL_LLM_KEY"))
-	config.BaseURL = os.Getenv("ZETTEL_LLM_ENDPOINT")
+	s.JwtSecretKey = []byte(cfg.Server.JwtSecretKey)
 
-	if os.Getenv("ZETTEL_RUN_CHUNKING_EMBEDDING") == "true" {
+	// Initialize LLM client
+	llmClient := &models.LLMClient{
+		Client:      openai.NewClient(cfg.Services.LLM.APIKey),
+		Testing:     cfg.Server.DevMode, // Use server dev mode for testing flag
+		Model:       cfg.Services.LLM.DefaultModel,
+		UserID:      0, // Will be set per request
+		DB:          s.DB,
+		RequestType: "chat", // Default request type
+	}
+	s.LLMClient = llmClient
+
+	if cfg.Services.LLM.ChunkingEnabled {
 		go func() {
 			start := time.Now()
 			elapsed := time.Since(start)
@@ -114,7 +128,7 @@ func run() error {
 	routes.RegisterAllRoutes(r, h)
 
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{os.Getenv("ZETTEL_URL")},
+		AllowedOrigins:   []string{cfg.Server.URL},
 		AllowCredentials: true,
 		AllowedHeaders:   []string{"authorization", "content-type"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
@@ -124,10 +138,7 @@ func run() error {
 
 	handler := c.Handler(r)
 
-	port := os.Getenv("ZETTEL_PORT")
-	if port == "" {
-		port = "8080"
-	}
+	port := cfg.Server.Port
 
 	srv := &http.Server{
 		Addr:    ":" + port,
