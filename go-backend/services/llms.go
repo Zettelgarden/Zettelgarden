@@ -144,7 +144,7 @@ func logLLMRequest(c *models.LLMClient, resp openai.ChatCompletionResponse, requ
 			"openai/gpt-5.1-chat":           {PromptPer1K: 0.00125, CompletionPer1K: 0.010},
 			"openai/gpt-5.2-chat":           {PromptPer1K: 0.00175, CompletionPer1K: 0.014},
 			"openai/gpt-4o-mini":            {PromptPer1K: 0.00015, CompletionPer1K: 0.0006},
-			"anthropic/claude-sonnet-4":     {PromptPer1K: 0.003, CompletionPer1K: 0.015},
+			"anthropic/claude-sonnet-4.5":   {PromptPer1K: 0.003, CompletionPer1K: 0.015},
 			"google/gemini-3-pro-preview":   {PromptPer1K: 0.002, CompletionPer1K: 0.012},
 			"google/gemini-3-flash-preview": {PromptPer1K: 0.0005, CompletionPer1K: 0.003},
 		}

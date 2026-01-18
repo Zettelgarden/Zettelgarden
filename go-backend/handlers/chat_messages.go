@@ -63,6 +63,44 @@ func (s *Handler) GetReferencedCards(userID int, cardIDs []string) string {
 	return referencedCardsContext
 }
 
+func looksLikeIncompleteUserMessage(content string) bool {
+	trimmed := strings.TrimSpace(content)
+	if trimmed == "" {
+		return false
+	}
+
+	lastChar := trimmed[len(trimmed)-1]
+	if lastChar == '.' || lastChar == '!' || lastChar == '?' {
+		return false
+	}
+
+	// Be conservative: only intercept short prompts.
+	if len(trimmed) >= 40 {
+		return false
+	}
+
+	if strings.HasSuffix(trimmed, ",") || strings.HasSuffix(trimmed, ":") || strings.HasSuffix(trimmed, "-") {
+		return true
+	}
+
+	parts := strings.Fields(trimmed)
+	if len(parts) == 0 {
+		return false
+	}
+
+	lastToken := strings.ToLower(strings.Trim(parts[len(parts)-1], " \t\n\r.,:;!?\"'`()[]{}"))
+	if lastToken == "" {
+		return false
+	}
+
+	switch lastToken {
+	case "how", "what", "why", "when", "where", "who", "which", "and", "or", "but", "so", "because", "if":
+		return true
+	default:
+		return false
+	}
+}
+
 // StreamMessageRoute sends a message and streams the response using Server-Sent Events
 func (s *Handler) StreamMessageRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
@@ -85,6 +123,8 @@ func (s *Handler) StreamMessageRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Message content is required", http.StatusBadRequest)
 		return
 	}
+
+	rawContent := req.Content
 
 	// Verify conversation exists and belongs to user
 	conversation, err := s.GetConversation(userID, conversationID)
@@ -120,6 +160,34 @@ func (s *Handler) StreamMessageRoute(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Error saving user message: %v", err)
 		http.Error(w, "Failed to save message", http.StatusInternalServerError)
+		return
+	}
+
+	if looksLikeIncompleteUserMessage(rawContent) {
+		clarification := "It looks like your message may have been cut off. What were you trying to ask?"
+		assistantMessage, err := s.SaveChatMessage(conversationID, "assistant", &clarification, nil, nil, nil, "completed")
+		if err != nil {
+			log.Printf("Error saving assistant message: %v", err)
+			http.Error(w, "Failed to save assistant message", http.StatusInternalServerError)
+			return
+		}
+
+		// Update usage quota
+		s.IncrementChatUsageQuota(userID, "messages_per_day")
+
+		// Set SSE headers
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		initialData, _ := json.Marshal(map[string]interface{}{
+			"user_message":      userMessage,
+			"assistant_message": assistantMessage,
+		})
+		fmt.Fprintf(w, "event: messages\ndata: %s\n\n", initialData)
+		fmt.Fprintf(w, "event: done\ndata: {}\n\n")
+		w.(http.Flusher).Flush()
 		return
 	}
 
@@ -175,6 +243,8 @@ func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	rawContent := req.Content
+
 	// Verify conversation exists and belongs to user
 	conversation, err := s.GetConversation(userID, conversationID)
 	if err != nil {
@@ -214,6 +284,24 @@ func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Note: We'll update chat memory after we get the assistant response
+
+	if looksLikeIncompleteUserMessage(rawContent) {
+		clarification := "It looks like your message may have been cut off. What were you trying to ask?"
+		assistantMessage, err := s.SaveChatMessage(conversationID, "assistant", &clarification, nil, nil, nil, "completed")
+		if err != nil {
+			log.Printf("Error saving assistant message: %v", err)
+			http.Error(w, "Failed to save assistant message", http.StatusInternalServerError)
+			return
+		}
+
+		// Update usage quota
+		s.IncrementChatUsageQuota(userID, "messages_per_day")
+
+		response := []models.ChatMessage{*userMessage, *assistantMessage}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+		return
+	}
 
 	// Create a pending assistant message
 	assistantMessage, err := s.SaveChatMessage(conversationID, "assistant", nil, nil, nil, nil, "pending")
