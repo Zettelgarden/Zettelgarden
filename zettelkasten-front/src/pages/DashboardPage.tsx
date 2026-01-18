@@ -31,6 +31,7 @@ export function DashboardPage() {
         1, // page
         10 // perPage - only get 10 cards
       );
+      console.log("recent", recentResponse)
 
       const recentCards: PartialCard[] = recentResponse.results.map((result) => ({
         id: Number(result.metadata?.id) || 0,
@@ -46,6 +47,7 @@ export function DashboardPage() {
         link: "",
         parent: null,
       }));
+      console.log("recent", recentCards)
       setRecentCards(recentCards);
 
       // Fetch unsorted cards using the dedicated API endpoint
