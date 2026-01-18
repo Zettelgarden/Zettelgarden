@@ -77,8 +77,7 @@ export function Sidebar() {
   }
 
   function handleNewChat() {
-    setConversationId("");
-    navigate("/app/chat");
+    navigate("/app/chat?new=true");
   }
 
   function handleNewTask() {

@@ -13,12 +13,14 @@ import { useChatContext } from "../contexts/ChatContext";
 
 export interface UseChatOptions {
   onConversationChange?: (conversation: ChatConversation | null) => void;
+  onConversationCreated?: (conversation: ChatConversation) => void;
   initialModel?: string;
   enableStreaming?: boolean;
 }
 
 export function useChat(options: UseChatOptions = {}) {
   const [currentConversation, setCurrentConversation] = useState<ChatConversation | null>(null);
+  const [isDraftConversation, setIsDraftConversation] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messageInput, setMessageInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -110,36 +112,36 @@ export function useChat(options: UseChatOptions = {}) {
   };
 
   const createNewConversation = async (title: string = "", model?: string, primaryCardId?: number) => {
-    try {
-      setIsLoading(true);
+    // Clear active stream reference when creating new conversation
+    activeStreamConversationRef.current = null;
+    setStreamingMessageId(null);
+    streamingContentRef.current = "";
 
-      // Clear active stream reference when creating new conversation
-      activeStreamConversationRef.current = null;
-      setStreamingMessageId(null);
-      streamingContentRef.current = "";
+    // Create a draft conversation locally without calling the API
+    const draftConv: ChatConversation = {
+      id: `draft-${Date.now()}`,
+      user_id: 0, // Placeholder for draft conversations
+      title: title || "",
+      model: model || selectedModel,
+      primary_card_id: primaryCardId || undefined,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      starred: false
+    };
 
-      const newConv = await createConversation({
-        title,
-        model: model || selectedModel,
-        primary_card_id: primaryCardId
-      });
+    setCurrentConversation(draftConv);
+    setIsDraftConversation(true);
+    setMessages([]);
+    setError(null);
 
-      setCurrentConversation(newConv);
-      setMessages([]);
-      setConversationId(newConv.id);
-      setError(null);
-
-      return newConv;
-    } catch (error) {
-      console.error("Failed to create conversation:", error);
-      setError("Failed to create conversation");
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
+    return draftConv;
   };
 
   const loadConversation = async (conversationId: string) => {
+    console.log("conversation", conversationId)
+    if (conversationId == "") {
+      return
+    }
     try {
       setIsLoading(true);
 
@@ -154,10 +156,12 @@ export function useChat(options: UseChatOptions = {}) {
       const data = await getConversation(conversationId);
       setCurrentConversation(data.conversation);
       setMessages(data.messages || []);
-      setConversationId(conversationId);
       setError(null);
 
       // Check if there are pending/processing messages and start polling if needed
+      if (!data.messages) {
+        return
+      }
       const hasPendingOrProcessing = data.messages.some(msg =>
         msg.status === 'pending' || msg.status === 'processing'
       );
@@ -166,7 +170,7 @@ export function useChat(options: UseChatOptions = {}) {
       }
     } catch (error) {
       console.error("Failed to load conversation:", error);
-      setError("Failed to load conversation");
+      setError("Failed to load conversationz");
     } finally {
       setIsLoading(false);
     }
@@ -366,7 +370,40 @@ export function useChat(options: UseChatOptions = {}) {
     setMessageInput("");
     setReferencedCards([]);
 
-    await sendMessageToConversation(currentConversation.id, userMessage, cardIds.length > 0 ? cardIds : undefined);
+    // If this is a draft conversation, we need to create it in the backend first
+    let conversationId = currentConversation.id;
+    if (isDraftConversation) {
+      try {
+        setIsLoading(true);
+
+        const newConv = await createConversation({
+          title: currentConversation.title,
+          model: currentConversation.model,
+          primary_card_id: currentConversation.primary_card_id
+        });
+
+        setCurrentConversation(newConv);
+        setIsDraftConversation(false);
+        setConversationId(newConv.id);
+        conversationId = newConv.id;
+
+        // Notify that a conversation was created from a draft
+        if (options.onConversationCreated) {
+          options.onConversationCreated(newConv);
+        }
+
+        // Refresh messages for the new conversation to ensure consistency
+        await refreshMessages(conversationId);
+      } catch (error) {
+        console.error("Failed to create conversation:", error);
+        setError("Failed to create conversation");
+        return;
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    await sendMessageToConversation(conversationId, userMessage, cardIds.length > 0 ? cardIds : undefined);
   };
 
   const handleCardReference = (cardIds: string[]) => {
@@ -388,6 +425,7 @@ export function useChat(options: UseChatOptions = {}) {
   return {
     // State
     currentConversation,
+    isDraftConversation,
     messages,
     messageInput,
     isLoading,

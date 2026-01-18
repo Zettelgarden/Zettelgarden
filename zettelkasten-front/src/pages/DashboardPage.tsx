@@ -104,7 +104,7 @@ export function DashboardPage() {
   };
 
   const handleNewChat = () => {
-    navigate("/app/chat");
+    navigate("/app/chat?new=true");
   };
 
   const handleNewTask = () => {

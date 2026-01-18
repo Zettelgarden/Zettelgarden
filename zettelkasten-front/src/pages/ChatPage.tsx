@@ -47,6 +47,11 @@ export function ChatPage({ }: ChatPageProps) {
       if (conversation) {
         setConversationId(conversation.id);
       }
+    },
+    onConversationCreated: (conversation) => {
+      // When a draft conversation becomes real (first message sent),
+      // add it to the conversations list and refresh
+      setConversations(prev => [conversation, ...prev]);
     }
   });
 
@@ -60,6 +65,7 @@ export function ChatPage({ }: ChatPageProps) {
     const urlParams = new URLSearchParams(window.location.search);
     const message = urlParams.get('message');
     const cardsParam = urlParams.get('cards');
+    const newParam = urlParams.get('new');
 
     if (message) {
       // Clear URL params to avoid re-triggering
@@ -70,6 +76,12 @@ export function ChatPage({ }: ChatPageProps) {
 
       // Create new conversation and send message
       await createNewConversationWithMessage(message, referencedCards);
+    } else if (newParam === 'true') {
+      // Clear URL params to avoid re-triggering
+      window.history.replaceState({}, '', '/app/chat');
+
+      // Create new empty conversation
+      await createNewConversation();
     }
   };
 
@@ -144,7 +156,9 @@ export function ChatPage({ }: ChatPageProps) {
   const createNewConversation = async () => {
     try {
       const newConv = await chatHook.createNewConversation("", chatHook.selectedModel);
-      setConversations(prev => [newConv, ...prev]);
+
+      // Draft conversations are not added to the conversations list until a message is sent
+      // The chat interface will still show the current conversation
       showToast("success", "New conversation created");
     } catch (error) {
       console.error("Failed to create conversation:", error);
@@ -275,8 +289,13 @@ export function ChatPage({ }: ChatPageProps) {
   };
 
   // Separate starred and recent conversations
-  const starredConversations = conversations.filter(conv => conv.starred);
-  const allRecentConversations = conversations.filter(conv => !conv.starred);
+  // Include draft conversation in the display list if it exists and has no messages
+  const displayConversations = chatHook.isDraftConversation && chatHook.messages.length === 0
+    ? [chatHook.currentConversation!, ...conversations]
+    : conversations;
+
+  const starredConversations = displayConversations.filter(conv => conv.starred);
+  const allRecentConversations = displayConversations.filter(conv => !conv.starred);
 
   // Limit recent conversations display
   const RECENT_LIMIT = 25;
