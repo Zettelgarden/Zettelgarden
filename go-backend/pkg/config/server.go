@@ -31,9 +31,6 @@ func loadServerConfig() ServerConfig {
 		if _, err := strconv.ParseInt(config.Port, 10, 32); err != nil {
 			validationErrors = append(validationErrors,
 				"invalid port format for ZETTEL_PORT: "+config.Port+" (must be numeric, e.g. '8080')")
-		} else if port := requireInt("ZETTEL_PORT"); port <= 0 || port > 65535 {
-			validationErrors = append(validationErrors,
-				"ZETTEL_PORT must be between 1 and 65535, got: "+config.Port)
 		}
 	}
 
