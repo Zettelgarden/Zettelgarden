@@ -7,12 +7,16 @@ import (
 	"go-backend/models"
 	"go-backend/pkg/config"
 	"log"
+	"os"
 	"strconv"
 )
 
 // upsertCardToTypesense adds or updates a card document in Typesense
 func UpsertCardToTypesense(db *sql.DB, card models.Card) {
 	cfg := config.GetConfig()
+	if os.Getenv("ZETTEL_IS_TESTING") == "true" {
+		return
+	}
 	if cfg == nil || cfg.Server.DevMode {
 		return
 	}
@@ -61,6 +65,9 @@ func UpsertCardToTypesense(db *sql.DB, card models.Card) {
 
 func deleteCardTypesense(cardPK int) {
 	cfg := config.GetConfig()
+	if os.Getenv("ZETTEL_IS_TESTING") == "true" {
+		return
+	}
 	if cfg == nil || cfg.Server.DevMode {
 		return
 	}
