@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -1023,7 +1024,7 @@ Respond with ONLY the suggested title, no explanation or additional text.`, body
 		},
 	}
 
-	response, err := services.ExecuteLLMRequest(client, messages)
+	response, err := services.ExecuteLLMRequest(context.Background(), client, messages)
 	if err != nil {
 		return "", err
 	}

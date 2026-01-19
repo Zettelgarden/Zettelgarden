@@ -113,7 +113,6 @@ func (s *Handler) InitSearchCollection() {
 				"tags":                  tags,
 			}
 
-			log.Printf("card %v %v", cardPK, title)
 			// Upsert (insert or overwrite if exists)
 			_, err = s.Server.TypesenseClient.Collection(collectionName).
 				Documents().

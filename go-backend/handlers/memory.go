@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -145,7 +146,7 @@ func GenerateUserMemory(db *sql.DB, client *models.LLMClient, userID uint, cardC
 		},
 	}
 
-	response, err := services.ExecuteLLMRequest(client, messages)
+	response, err := services.ExecuteLLMRequest(context.Background(), client, messages)
 	if err != nil {
 		return "", err
 	}
@@ -214,7 +215,7 @@ Your task is to produce a new, superior, and more compact version of the entire 
 		},
 	}
 
-	response, err := services.ExecuteLLMRequest(client, messages)
+	response, err := services.ExecuteLLMRequest(context.Background(), client, messages)
 	if err != nil {
 		log.Printf("error getting LLM response: %v", err)
 		return "", err
@@ -264,7 +265,7 @@ Assistant: %s
 		},
 	}
 
-	response, err := services.ExecuteLLMRequest(client, messages)
+	response, err := services.ExecuteLLMRequest(context.Background(), client, messages)
 	if err != nil {
 		return "", err
 	}

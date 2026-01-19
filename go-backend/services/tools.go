@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -659,7 +660,7 @@ func executeSubagentTask(prompt, subagentType string, ctx *ToolContext) (string,
 	// Execute the subagent conversation with potential tool calls
 	maxIterations := 5 // Prevent infinite loops
 	for i := 0; i < maxIterations; i++ {
-		resp, err := ExecuteLLMToolRequest(client, messages, tools)
+		resp, err := ExecuteLLMToolRequest(context.Background(), client, messages, tools)
 		if err != nil {
 			return "", fmt.Errorf("LLM request failed: %v", err)
 		}

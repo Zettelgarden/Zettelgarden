@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"go-backend/models"
@@ -54,7 +55,7 @@ func isToolResultEmpty(result map[string]interface{}) bool {
 }
 
 // generateTitleIfNeeded generates a title for a conversation if it doesn't have one
-func (s *Handler) generateTitleIfNeeded(userID int, conversation *models.ChatConversation) {
+func (s *Handler) generateTitleIfNeeded(ctx context.Context, userID int, conversation *models.ChatConversation) {
 	if conversation.Title != nil && *conversation.Title != "" {
 		return
 	}
@@ -74,7 +75,7 @@ func (s *Handler) generateTitleIfNeeded(userID int, conversation *models.ChatCon
 	}
 
 	if userContent != "" {
-		generatedTitle := s.generateConversationTitle(userID, userContent)
+		generatedTitle := s.generateConversationTitle(ctx, userID, userContent)
 		if err := s.UpdateConversationTitle(conversation.ID, generatedTitle); err != nil {
 			log.Printf("Error updating conversation title: %v", err)
 		}
@@ -97,8 +98,10 @@ func (s *Handler) processAssistantResponse(userID int, conversation *models.Chat
 		return
 	}
 
-	// Generate title if needed
-	s.generateTitleIfNeeded(userID, conversation)
+	// Generate title if needed (with timeout for async processing)
+	titleCtx, cancelTitle := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelTitle()
+	s.generateTitleIfNeeded(titleCtx, userID, conversation)
 
 	// Get conversation history for LLM
 	messages, err := s.GetConversationMessagesUpTo(conversation.ID, assistantMessageID)
@@ -111,8 +114,10 @@ func (s *Handler) processAssistantResponse(userID int, conversation *models.Chat
 	// Determine which model to use
 	modelToUse := determineModel(conversation, modelOverride)
 
-	// Generate LLM response with tools
-	finalAssistantMessage, err := s.GenerateChatResponse(userID, conversation, messages, modelToUse, assistantMessageID)
+	// Generate LLM response with tools (with timeout for async processing)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	finalAssistantMessage, err := s.GenerateChatResponse(ctx, userID, conversation, messages, modelToUse, assistantMessageID)
 	if err != nil {
 		log.Printf("Error generating chat response: %v", err)
 		s.UpdateMessageStatus(assistantMessageID, "failed")
@@ -275,7 +280,7 @@ func getModelContextLimit(model string) int {
 }
 
 // summarizeConversationHistory creates a compact summary of older messages
-func (s *Handler) summarizeConversationHistory(userID int, messages []openai.ChatCompletionMessage, model string) (openai.ChatCompletionMessage, error) {
+func (s *Handler) summarizeConversationHistory(ctx context.Context, userID int, messages []openai.ChatCompletionMessage, model string) (openai.ChatCompletionMessage, error) {
 	// Load compaction prompt
 	compactionPrompt, err := prompts.GetConversationCompactionPrompt()
 	if err != nil {
@@ -300,7 +305,7 @@ func (s *Handler) summarizeConversationHistory(userID int, messages []openai.Cha
 		{Role: openai.ChatMessageRoleUser, Content: conversationText.String()},
 	}
 
-	resp, err := services.ExecuteLLMRequest(client, summaryMessages)
+	resp, err := services.ExecuteLLMRequest(ctx, client, summaryMessages)
 	if err != nil {
 		return openai.ChatCompletionMessage{}, fmt.Errorf("failed to generate summary: %w", err)
 	}
@@ -315,7 +320,7 @@ func (s *Handler) summarizeConversationHistory(userID int, messages []openai.Cha
 }
 
 // compactConversationIfNeeded checks if compaction is needed and performs it
-func (s *Handler) compactConversationIfNeeded(userID int, messages []openai.ChatCompletionMessage, model string) ([]openai.ChatCompletionMessage, error) {
+func (s *Handler) compactConversationIfNeeded(ctx context.Context, userID int, messages []openai.ChatCompletionMessage, model string) ([]openai.ChatCompletionMessage, error) {
 	tokenCount := estimateTokenCount(messages)
 	contextLimit := getModelContextLimit(model)
 
@@ -343,7 +348,7 @@ func (s *Handler) compactConversationIfNeeded(userID int, messages []openai.Chat
 	recentMessages := messages[pivotPoint:]
 
 	// Summarize older half
-	summary, err := s.summarizeConversationHistory(userID, olderMessages, model)
+	summary, err := s.summarizeConversationHistory(ctx, userID, olderMessages, model)
 	if err != nil {
 		log.Printf("Error during compaction: %v. Continuing without compaction.", err)
 		return messages, nil
@@ -532,7 +537,7 @@ func (s *Handler) finalizeChatMessage(content string, userID int, conversation *
 }
 
 // GenerateChatResponse generates an LLM response with tool calling support
-func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConversation, messages []models.ChatMessage, model string, assistantMessageID string) (*models.ChatMessage, error) {
+func (s *Handler) GenerateChatResponse(ctx context.Context, userID int, conversation *models.ChatConversation, messages []models.ChatMessage, model string, assistantMessageID string) (*models.ChatMessage, error) {
 	systemPrompt, err := s.buildSystemPrompt(userID, conversation)
 	if err != nil {
 		return nil, err
@@ -541,7 +546,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 	openaiMessages := convertToOpenAIMessages(messages, systemPrompt)
 
 	// Check if compaction is needed and perform it proactively
-	openaiMessages, err = s.compactConversationIfNeeded(userID, openaiMessages, model)
+	openaiMessages, err = s.compactConversationIfNeeded(ctx, userID, openaiMessages, model)
 	if err != nil {
 		log.Printf("Error during compaction: %v", err)
 		// Continue anyway - compaction is an optimization, not required
@@ -558,7 +563,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 
 	// Loop until no more tool calls are needed
 	for {
-		resp, err := services.ExecuteLLMToolRequest(client, openaiMessages, tools)
+		resp, err := services.ExecuteLLMToolRequest(ctx, client, openaiMessages, tools)
 		if err != nil {
 			return s.handleLLMError(err, userID, conversation, assistantMessageID)
 		}
@@ -621,7 +626,7 @@ func (s *Handler) GenerateChatResponse(userID int, conversation *models.ChatConv
 }
 
 // generateConversationTitle generates a title for a conversation based on the user's first message
-func (s *Handler) generateConversationTitle(userID int, userMessage string) string {
+func (s *Handler) generateConversationTitle(ctx context.Context, userID int, userMessage string) string {
 	// Load title generation prompt
 	titlePrompt, err := prompts.GetTitleGeneratorPrompt()
 	if err != nil {
@@ -649,7 +654,7 @@ func (s *Handler) generateConversationTitle(userID int, userMessage string) stri
 		},
 	}
 
-	resp, err := services.ExecuteLLMRequest(client, messages)
+	resp, err := services.ExecuteLLMRequest(ctx, client, messages)
 
 	if err != nil {
 		log.Printf("Error generating conversation title: %v", err)
@@ -679,7 +684,7 @@ func (s *Handler) generateConversationTitle(userID int, userMessage string) stri
 }
 
 // generateTitleIfNeededWithEvent generates a title and sends an SSE event
-func (s *Handler) generateTitleIfNeededWithEvent(userID int, conversation *models.ChatConversation, sendEvent func(string, interface{}) error) {
+func (s *Handler) generateTitleIfNeededWithEvent(ctx context.Context, userID int, conversation *models.ChatConversation, sendEvent func(string, interface{}) error) {
 	if conversation.Title != nil && *conversation.Title != "" {
 		return
 	}
@@ -699,7 +704,7 @@ func (s *Handler) generateTitleIfNeededWithEvent(userID int, conversation *model
 	}
 
 	if userContent != "" {
-		generatedTitle := s.generateConversationTitle(userID, userContent)
+		generatedTitle := s.generateConversationTitle(ctx, userID, userContent)
 		if err := s.UpdateConversationTitle(conversation.ID, generatedTitle); err != nil {
 			log.Printf("Error updating conversation title: %v", err)
 		} else {
@@ -709,7 +714,7 @@ func (s *Handler) generateTitleIfNeededWithEvent(userID int, conversation *model
 }
 
 // streamAssistantResponse handles streaming the assistant response
-func (s *Handler) streamAssistantResponse(w http.ResponseWriter, userID int, conversation *models.ChatConversation, assistantMessageID string, modelOverride *string) {
+func (s *Handler) streamAssistantResponse(ctx context.Context, w http.ResponseWriter, userID int, conversation *models.ChatConversation, assistantMessageID string, modelOverride *string) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		log.Printf("Streaming unsupported")
@@ -729,7 +734,7 @@ func (s *Handler) streamAssistantResponse(w http.ResponseWriter, userID int, con
 	}
 
 	// Generate title if needed and send event
-	s.generateTitleIfNeededWithEvent(userID, conversation, sendEvent)
+	s.generateTitleIfNeededWithEvent(ctx, userID, conversation, sendEvent)
 
 	// Get conversation history
 	messages, err := s.GetConversationMessagesUpTo(conversation.ID, assistantMessageID)
@@ -744,7 +749,7 @@ func (s *Handler) streamAssistantResponse(w http.ResponseWriter, userID int, con
 	modelToUse := determineModel(conversation, modelOverride)
 
 	// Generate response with streaming
-	err = s.streamChatResponse(w, userID, conversation, messages, modelToUse, assistantMessageID, sendEvent)
+	err = s.streamChatResponse(ctx, w, userID, conversation, messages, modelToUse, assistantMessageID, sendEvent)
 	if err != nil {
 		log.Printf("Error generating chat response: %v", err)
 		s.UpdateMessageStatus(assistantMessageID, "failed")
@@ -871,7 +876,7 @@ func (s *Handler) executeAndBroadcastToolCalls(toolRegistry *services.ToolRegist
 }
 
 // streamChatResponse generates a chat response with streaming and tool support
-func (s *Handler) streamChatResponse(w http.ResponseWriter, userID int, conversation *models.ChatConversation, messages []models.ChatMessage, model string, assistantMessageID string, sendEvent func(string, interface{}) error) error {
+func (s *Handler) streamChatResponse(ctx context.Context, w http.ResponseWriter, userID int, conversation *models.ChatConversation, messages []models.ChatMessage, model string, assistantMessageID string, sendEvent func(string, interface{}) error) error {
 	systemPrompt, err := s.buildSystemPrompt(userID, conversation)
 	if err != nil {
 		return err
@@ -880,7 +885,7 @@ func (s *Handler) streamChatResponse(w http.ResponseWriter, userID int, conversa
 	openaiMessages := convertToOpenAIMessages(messages, systemPrompt)
 
 	// Check if compaction is needed and perform it proactively
-	openaiMessages, err = s.compactConversationIfNeeded(userID, openaiMessages, model)
+	openaiMessages, err = s.compactConversationIfNeeded(ctx, userID, openaiMessages, model)
 	if err != nil {
 		log.Printf("Error during compaction: %v", err)
 		// Continue anyway - compaction is an optimization, not required
@@ -897,7 +902,7 @@ func (s *Handler) streamChatResponse(w http.ResponseWriter, userID int, conversa
 
 	// Loop until no more tool calls are needed
 	for {
-		stream, err := services.StreamLLMToolRequest(client, openaiMessages, tools)
+		stream, err := services.StreamLLMToolRequest(ctx, client, openaiMessages, tools)
 		if err != nil {
 			if services.IsContextLengthError(err) {
 				errorMessage := "I apologize, but this conversation has become too long for me to process. The context exceeds the model's token limit."

@@ -291,7 +291,7 @@ func (s *Handler) StreamMessageRoute(w http.ResponseWriter, r *http.Request) {
 	w.(http.Flusher).Flush()
 
 	// Stream the response
-	s.streamAssistantResponse(w, userID, conversation, assistantMessage.ID, req.Model)
+	s.streamAssistantResponse(r.Context(), w, userID, conversation, assistantMessage.ID, req.Model)
 }
 
 // SendMessageRoute sends a message and returns immediately, processing async

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -109,7 +110,7 @@ Format Example:
 		}
 		log.Printf("userContent %v", userContent)
 
-		resp, err := ExecuteLLMRequest(c, messages)
+		resp, err := ExecuteLLMRequest(context.Background(), c, messages)
 		if err != nil {
 			return nil, facts, models.Usage{}, err
 		}
@@ -233,7 +234,7 @@ Respond ONLY in JSON with the following format:
 			Content: "Please consider the full set of arguments (with importance values) above when performing deduplication and ranking.",
 		},
 	}
-	dedupResp, err := ExecuteLLMRequest(c, dedupMessages)
+	dedupResp, err := ExecuteLLMRequest(context.Background(), c, dedupMessages)
 	if err != nil {
 		return "", nil, models.Usage{}, err
 	}
@@ -298,7 +299,7 @@ Input (including deduplicated theses, facts, and arguments with importance/rank)
 		},
 	}
 
-	finalResp, err := ExecuteLLMRequest(c, finalMessages)
+	finalResp, err := ExecuteLLMRequest(context.Background(), c, finalMessages)
 	if err != nil {
 		return "", nil, models.Usage{}, err
 	}

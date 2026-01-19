@@ -71,7 +71,7 @@ Return only valid JSON matching the specified structure.`
 	var jsonErr error
 	for range 3 {
 
-		resp, err := ExecuteLLMRequest(c, messages)
+		resp, err := ExecuteLLMRequest(context.Background(), c, messages)
 		if err != nil {
 			log.Printf("error getting completion: %v", err)
 			return []models.Entity{}, err
@@ -150,7 +150,7 @@ Return JSON in this format:
 
 		// Make the API call
 
-		resp, err := ExecuteLLMRequest(c, messages)
+		resp, err := ExecuteLLMRequest(context.Background(), c, messages)
 		if err != nil {
 			log.Printf("error getting completion: %v", err)
 			continue
@@ -245,7 +245,7 @@ Return only valid JSON matching the specified structure.`
 	var parsed []batchEntityResponse
 	var jsonErr error
 	for range 3 {
-		resp, err := ExecuteLLMRequest(c, messages)
+		resp, err := ExecuteLLMRequest(context.Background(), c, messages)
 		if err != nil {
 			log.Printf("error getting completion: %v", err)
 			return nil, err
@@ -316,7 +316,7 @@ New Entity Name: %s`, e1.Name, e1.Type, e1.Description, e2.Name, e2.Type, e2.Des
 		},
 	}
 
-	resp, err := ExecuteLLMRequest(c, messages)
+	resp, err := ExecuteLLMRequest(context.Background(), c, messages)
 	if err != nil {
 		return "", fmt.Errorf("error generating new entity: %w", err)
 	}

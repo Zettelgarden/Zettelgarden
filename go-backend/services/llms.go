@@ -45,10 +45,10 @@ func (t headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.RoundTripper.RoundTrip(req)
 }
 
-func ExecuteLLMRequest(c *models.LLMClient, messages []openai.ChatCompletionMessage) (openai.ChatCompletionResponse, error) {
+func ExecuteLLMRequest(ctx context.Context, c *models.LLMClient, messages []openai.ChatCompletionMessage) (openai.ChatCompletionResponse, error) {
 	log.Printf("request")
 	resp, err := c.Client.CreateChatCompletion(
-		context.Background(),
+		ctx,
 		openai.ChatCompletionRequest{
 			Model:    c.Model,
 			Messages: messages,
@@ -64,10 +64,10 @@ func ExecuteLLMRequest(c *models.LLMClient, messages []openai.ChatCompletionMess
 
 	return resp, err
 }
-func ExecuteLLMToolRequest(c *models.LLMClient, messages []openai.ChatCompletionMessage, tools []openai.Tool) (openai.ChatCompletionResponse, error) {
+func ExecuteLLMToolRequest(ctx context.Context, c *models.LLMClient, messages []openai.ChatCompletionMessage, tools []openai.Tool) (openai.ChatCompletionResponse, error) {
 	log.Printf("request")
 	resp, err := c.Client.CreateChatCompletion(
-		context.Background(),
+		ctx,
 		openai.ChatCompletionRequest{
 			Model:    c.Model,
 			Messages: messages,
@@ -93,10 +93,10 @@ type StreamEvent struct {
 }
 
 // StreamLLMToolRequest executes an LLM request with tool support and streams the response
-func StreamLLMToolRequest(c *models.LLMClient, messages []openai.ChatCompletionMessage, tools []openai.Tool) (*openai.ChatCompletionStream, error) {
+func StreamLLMToolRequest(ctx context.Context, c *models.LLMClient, messages []openai.ChatCompletionMessage, tools []openai.Tool) (*openai.ChatCompletionStream, error) {
 	log.Printf("streaming request")
 	stream, err := c.Client.CreateChatCompletionStream(
-		context.Background(),
+		ctx,
 		openai.ChatCompletionRequest{
 			Model:    c.Model,
 			Messages: messages,
@@ -187,7 +187,7 @@ func CreateChatCompletion(c *models.LLMClient, ctx context.Context, messages []m
 		})
 	}
 
-	resp, err := ExecuteLLMRequest(c, openaiMessages)
+	resp, err := ExecuteLLMRequest(ctx, c, openaiMessages)
 	if err != nil {
 		return "", err
 	}
