@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go-backend/bootstrap"
 	"go-backend/handlers"
+	"go-backend/pkg/config"
 	"log"
 	"time"
 
@@ -13,7 +14,9 @@ import (
 )
 
 func main() {
-	s := bootstrap.InitServer()
+	cfg := config.LoadConfig()
+
+	s := bootstrap.InitServer(cfg.Database)
 
 	h := &handlers.Handler{
 		Server: s,

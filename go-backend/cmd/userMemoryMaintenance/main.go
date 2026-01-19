@@ -5,6 +5,7 @@ import (
 
 	"go-backend/bootstrap"
 	"go-backend/handlers"
+	"go-backend/pkg/config"
 	"go-backend/server"
 	"go-backend/services"
 )
@@ -21,7 +22,9 @@ func processUserMemory(s *server.Server, userID uint) {
 }
 
 func main() {
-	s := bootstrap.InitServer()
+	cfg := config.LoadConfig()
+
+	s := bootstrap.InitServer(cfg.Database)
 
 	rows, err := s.DB.Query("SELECT id FROM users WHERE memory_has_changed = true")
 	if err != nil {

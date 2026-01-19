@@ -6,12 +6,15 @@ import (
 
 	"go-backend/bootstrap"
 	"go-backend/mail"
+	"go-backend/pkg/config"
 	"go-backend/services"
 )
 
 func main() {
 	// 1. Initialize DB and Mailer
-	s := bootstrap.InitServer()
+	cfg := config.LoadConfig()
+
+	s := bootstrap.InitServer(cfg.Database)
 
 	s.Mail = &mail.MailClient{
 		Host:     os.Getenv("MAIL_HOST"),
