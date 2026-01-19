@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
 import { ChatMessage } from "../../api/chat";
 import { parseMessageContent } from "../../utils/chatUtils";
 import { CardsSection } from "./CardsSection";
@@ -206,7 +207,7 @@ export function ChatInterface({
         return (
           <div>
             <div className="prose prose-sm max-w-none">
-              <Markdown remarkPlugins={[remarkGfm]}>
+              <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
                 {text}
               </Markdown>
               {message.status === 'processing' && (
