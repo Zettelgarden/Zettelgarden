@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"go-backend/models"
 	"log"
 	"net/http"
@@ -24,30 +26,29 @@ func (s *Handler) GetUsageQuotaRoute(w http.ResponseWriter, r *http.Request) {
 
 // CheckChatUsageQuota checks if user has exceeded their quota
 func (s *Handler) CheckChatUsageQuota(userID int, quotaType string) error {
+	quota, err := s.getChatUsageQuota(userID, quotaType)
+	if err != nil {
+		// If no quota exists, create default quotas
+		if err == sql.ErrNoRows {
+			err = s.initializeDefaultQuotas(userID)
+			if err != nil {
+				return err
+			}
+			quota, err = s.getChatUsageQuota(userID, quotaType)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	// Check if quota is exceeded
+	if quota.CurrentUsage >= quota.MaxLimit {
+		return fmt.Errorf("quota exceeded for %s", quotaType)
+	}
+
 	return nil
-	// quota, err := s.getChatUsageQuota(userID, quotaType)
-	// if err != nil {
-	// 	// If no quota exists, create default quotas
-	// 	if err == sql.ErrNoRows {
-	// 		err = s.initializeDefaultQuotas(userID)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		quota, err = s.getChatUsageQuota(userID, quotaType)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	} else {
-	// 		return err
-	// 	}
-	// }
-
-	// // Check if quota is exceeded
-	// if quota.CurrentUsage >= quota.MaxLimit {
-	// 	return fmt.Errorf("quota exceeded for %s", quotaType)
-	// }
-
-	// return nil
 }
 
 // IncrementChatUsageQuota increments the usage counter

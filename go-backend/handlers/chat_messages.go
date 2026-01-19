@@ -13,11 +13,62 @@ import (
 	"github.com/gorilla/mux"
 )
 
+const (
+	// MaxMessageLength is the maximum allowed length for chat message content
+	MaxMessageLength = 10000
+	// MaxReferencedCards is the maximum number of cards that can be referenced in a message
+	MaxReferencedCards = 10
+)
+
+// ValidChatModels contains the allowed model names for chat functionality
+var ValidChatModels = map[string]bool{
+	"gpt-4":          true,
+	"gpt-4-turbo":    true,
+	"gpt-4o":         true,
+	"gpt-3.5-turbo":  true,
+	"claude-3-haiku": true,
+	"claude-3-sonnet": true,
+	"claude-3-opus":  true,
+}
+
 // SendMessageRequest represents the request to send a message
 type SendMessageRequest struct {
 	Content         string   `json:"content"`
 	ReferencedCards []string `json:"referenced_cards,omitempty"`
 	Model           *string  `json:"model,omitempty"`
+}
+
+// validateMessageContent validates message content length
+func validateMessageContent(content string) error {
+	if len(content) > MaxMessageLength {
+		return fmt.Errorf("message exceeds maximum length of %d characters", MaxMessageLength)
+	}
+	return nil
+}
+
+// validateReferencedCards validates referenced cards array size and IDs
+func validateReferencedCards(referencedCards []string) error {
+	if len(referencedCards) > MaxReferencedCards {
+		return fmt.Errorf("cannot reference more than %d cards", MaxReferencedCards)
+	}
+
+	// Validate each card ID is numeric
+	for _, cardID := range referencedCards {
+		if _, err := strconv.Atoi(cardID); err != nil {
+			return fmt.Errorf("invalid card ID format: %s", cardID)
+		}
+	}
+	return nil
+}
+
+// validateChatModel validates the model name is in the allowed list
+func validateChatModel(model *string) error {
+	if model != nil && *model != "" {
+		if !ValidChatModels[*model] {
+			return fmt.Errorf("invalid model: %s", *model)
+		}
+	}
+	return nil
 }
 
 // GetReferencedCards retrieves the referenced cards and formats them for context
@@ -124,6 +175,24 @@ func (s *Handler) StreamMessageRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate message content length
+	if err := validateMessageContent(req.Content); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Validate referenced cards
+	if err := validateReferencedCards(req.ReferencedCards); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Validate model
+	if err := validateChatModel(req.Model); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	rawContent := req.Content
 
 	// Verify conversation exists and belongs to user
@@ -148,7 +217,12 @@ func (s *Handler) StreamMessageRoute(w http.ResponseWriter, r *http.Request) {
 
 	// Check usage quotas
 	if err := s.CheckChatUsageQuota(userID, "messages_per_day"); err != nil {
-		http.Error(w, "Daily message limit exceeded", http.StatusTooManyRequests)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusTooManyRequests)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": "daily_message_limit_exceeded",
+			"message": "Daily message limit exceeded",
+		})
 		return
 	}
 
@@ -243,6 +317,24 @@ func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate message content length
+	if err := validateMessageContent(req.Content); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Validate referenced cards
+	if err := validateReferencedCards(req.ReferencedCards); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Validate model
+	if err := validateChatModel(req.Model); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	rawContent := req.Content
 
 	// Verify conversation exists and belongs to user
@@ -268,7 +360,12 @@ func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 
 	// Check usage quotas
 	if err := s.CheckChatUsageQuota(userID, "messages_per_day"); err != nil {
-		http.Error(w, "Daily message limit exceeded", http.StatusTooManyRequests)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusTooManyRequests)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": "daily_message_limit_exceeded",
+			"message": "Daily message limit exceeded",
+		})
 		return
 	}
 
@@ -374,7 +471,12 @@ func (s *Handler) RegenerateMessageRoute(w http.ResponseWriter, r *http.Request)
 
 	// Check usage quotas
 	if err := s.CheckChatUsageQuota(userID, "messages_per_day"); err != nil {
-		http.Error(w, "Daily message limit exceeded", http.StatusTooManyRequests)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusTooManyRequests)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": "daily_message_limit_exceeded",
+			"message": "Daily message limit exceeded",
+		})
 		return
 	}
 
