@@ -2,27 +2,29 @@ import React, { useState } from "react";
 import { BacklinkInputDropdownList } from "./BacklinkInputDropdownList";
 import { PartialCard } from "../../models/Card";
 import { starCard } from "../../api/cards";
+import { useToast } from "../toast/ToastContext";
 
 interface StarCardDialogProps {
   onClose: () => void;
   onStarSuccess: () => void;
-  setMessage: (message: string) => void;
 }
 
-export function StarCardDialog({ onClose, onStarSuccess, setMessage }: StarCardDialogProps) {
+export function StarCardDialog({ onClose, onStarSuccess }: StarCardDialogProps) {
+  const { showToast } = useToast();
+
   function handleSearch(searchTerm: string) {
   }
 
   function handleSelect(card: PartialCard) {
     starCard(card.id)
       .then(() => {
-        setMessage(`Card "${card.title}" starred successfully`);
+        showToast("success", `Card "${card.title}" starred successfully`);
         onStarSuccess(); // Refresh the starred cards list
         onClose(); // Close the dialog
       })
       .catch(error => {
         console.error("Error starring card:", error);
-        setMessage(`Error starring card: ${error.message}`);
+        showToast("error", "Failed to star card", error.message);
       });
   }
 

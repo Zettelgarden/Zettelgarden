@@ -35,7 +35,6 @@ interface SidebarModalsProps {
   showGettingStarted: boolean;
   setShowGettingStarted: (show: boolean) => void;
   currentCard: PartialCard | Card | null;
-  setMessage: (message: string) => void;
   handleCloseGettingStarted: () => void;
 }
 
@@ -64,7 +63,6 @@ export function SidebarModals({
   showGettingStarted,
   setShowGettingStarted,
   currentCard,
-  setMessage,
   handleCloseGettingStarted,
 }: SidebarModalsProps) {
   return (
@@ -87,7 +85,6 @@ export function SidebarModals({
             // StarCardDialog refresh - placeholder for now since StarredCardsSection manages its own data
             // The component watches location.pathname changes for refreshes
           }}
-          setMessage={setMessage}
         />
       )}
 
@@ -136,7 +133,6 @@ export function SidebarModals({
       <AddArticleDialog
         show={showAddArticleDialog}
         onClose={() => setShowAddArticleDialog(false)}
-        setMessage={setMessage}
       />
       {showGettingStarted && (
         <div

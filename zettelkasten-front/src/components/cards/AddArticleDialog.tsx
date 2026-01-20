@@ -4,17 +4,18 @@ import { getNextRootId, saveNewCard } from "../../api/cards";
 import { parseURL } from "../../api/references";
 import { defaultCard } from "../../models/Card";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "../toast/ToastContext";
 
 interface AddArticleDialogProps {
     show: boolean;
     onClose: () => void;
-    setMessage: (msg: string) => void;
 }
 
-export function AddArticleDialog({ show, onClose, setMessage }: AddArticleDialogProps) {
+export function AddArticleDialog({ show, onClose }: AddArticleDialogProps) {
     const [url, setUrl] = useState("");
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+    const { showToast } = useToast();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -39,11 +40,11 @@ export function AddArticleDialog({ show, onClose, setMessage }: AddArticleDialog
                 navigate(`/app/card/${newCard.id}`);
                 onClose();
             } else {
-                setMessage("Error saving new article card");
+                showToast("error", "Failed to save article card", "Please try again");
             }
         } catch (error) {
             console.error("Failed to add article:", error);
-            setMessage("Failed to add article");
+            showToast("error", "Failed to add article", "Please check the URL and try again");
         } finally {
             setLoading(false);
             setUrl("");

@@ -298,7 +298,6 @@ export function DashboardPage() {
       <AddArticleDialog
         show={showAddArticleDialog}
         onClose={() => setShowAddArticleDialog(false)}
-        setMessage={setMessage}
       />
     </div>
   );

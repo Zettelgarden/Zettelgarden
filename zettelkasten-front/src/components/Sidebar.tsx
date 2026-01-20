@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useShortcutContext } from "../contexts/ShortcutContext";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
+import { useToast } from "./toast/ToastContext";
 
 import { PartialCard, Card, Entity } from "../models/Card";
 
@@ -24,8 +25,8 @@ import { SidebarMobileMenu } from "./sidebar/SidebarMobileMenu";
 export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [message, setMessage] = useState<string>("");
   const { lastCard } = usePartialCardContext();
+  const { showToast } = useToast();
   const { tasks } = useTaskContext();
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const { conversationId, setConversationId } = useChatContext();
@@ -119,31 +120,12 @@ export function Sidebar() {
     onQuickSearch: handleQuickSearch,
   });
 
-  // Auto-clear messages after 3 seconds
-  useEffect(() => {
-    if (message) {
-      const timer = setTimeout(() => {
-        setMessage("");
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [message]);
   return (
     <>
       <SidebarMobileMenu
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
       />
-
-      {/* Message Toast */}
-      {message && (
-        <div className="fixed top-4 left-4 right-4 md:right-auto md:left-20 md:w-72 z-[60] bg-blue-500 text-white px-4 py-2 rounded-md shadow-lg text-sm">
-          <p className="flex items-center">
-            <span className="mr-2">ℹ️</span>
-            {message}
-          </p>
-        </div>
-      )}
 
       {/* Sidebar */}
       <div
@@ -182,9 +164,8 @@ export function Sidebar() {
           <hr />
           <SecondaryNavigationLinks hasSubscription={hasSubscription} />
 
-          <StarredSearchesSection setMessage={setMessage} />
+          <StarredSearchesSection />
           <StarredCardsSection
-            setMessage={setMessage}
             onShowStarCardDialog={() => setShowStarCardDialog(true)}
           />
           <hr />
@@ -217,7 +198,6 @@ export function Sidebar() {
         showGettingStarted={showGettingStarted}
         setShowGettingStarted={setShowGettingStarted}
         currentCard={currentCard}
-        setMessage={setMessage}
         handleCloseGettingStarted={handleCloseGettingStarted}
       />
     </>

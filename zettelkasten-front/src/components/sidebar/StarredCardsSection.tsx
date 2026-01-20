@@ -3,15 +3,16 @@ import { Card } from "../../models/Card";
 import { CardItem } from "../cards/CardItem";
 import { getStarredCards, unstarCard } from "../../api/cards";
 import { useLocation } from "react-router-dom";
+import { useToast } from "../toast/ToastContext";
 
 interface StarredCardsSectionProps {
-  setMessage: (message: string) => void;
   onShowStarCardDialog: () => void;
 }
 
-export function StarredCardsSection({ setMessage, onShowStarCardDialog }: StarredCardsSectionProps) {
+export function StarredCardsSection({ onShowStarCardDialog }: StarredCardsSectionProps) {
   const [starredCards, setStarredCards] = useState<Card[]>([]);
   const location = useLocation();
+  const { showToast } = useToast();
 
   const handleUnstarCard = (cardId: number) => {
     unstarCard(cardId)
@@ -19,11 +20,11 @@ export function StarredCardsSection({ setMessage, onShowStarCardDialog }: Starre
         // Refresh the starred cards list after unstarring
         refreshStarredCards();
         // Show a success message
-        setMessage("Card unstarred successfully");
+        showToast("success", "Card unstarred successfully");
       })
       .catch(error => {
         console.error("Error unstarring card:", error);
-        setMessage("Error unstarring card");
+        showToast("error", "Failed to unstar card", "Please try again");
       });
   };
 

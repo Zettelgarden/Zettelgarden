@@ -2,13 +2,14 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { StarredSearch } from "../../models/StarredSearch";
 import { getStarredSearches, unstarSearch } from "../../api/starredSearches";
+import { useToast } from "../toast/ToastContext";
 
 interface StarredSearchesSectionProps {
-  setMessage: (message: string) => void;
 }
 
-export function StarredSearchesSection({ setMessage }: StarredSearchesSectionProps) {
+export function StarredSearchesSection({ }: StarredSearchesSectionProps) {
   const [starredSearches, setStarredSearches] = useState<StarredSearch[]>([]);
+  const { showToast } = useToast();
 
   const handleUnstarSearch = (searchId: number) => {
     unstarSearch(searchId)
@@ -16,11 +17,11 @@ export function StarredSearchesSection({ setMessage }: StarredSearchesSectionPro
         // Refresh the starred searches list after unstarring
         refreshStarredSearches();
         // Show a success message
-        setMessage("Search unstarred successfully");
+        showToast("success", "Search unstarred successfully");
       })
       .catch(error => {
         console.error("Error unstarring search:", error);
-        setMessage("Error unstarring search");
+        showToast("error", "Failed to unstar search", "Please try again");
       });
   };
 
