@@ -10,8 +10,20 @@ import (
 	"github.com/typesense/typesense-go/typesense/api"
 )
 
+// SimilarEntity represents an entity with its similarity score
+type SimilarEntity struct {
+	ID    int
+	Score float64
+}
+
+// SimilarFact represents a fact with its similarity score
+type SimilarFact struct {
+	ID    int
+	Score float64
+}
+
 // FindSimilarEntities finds entities similar to the given entity using Typesense
-func (s *Server) FindSimilarEntities(ctx context.Context, entity models.Entity, limit int) ([]int, error) {
+func (s *Server) FindSimilarEntities(ctx context.Context, entity models.Entity, limit int) ([]SimilarEntity, error) {
 	if s.TypesenseClient == nil {
 		log.Printf("Typesense client not available")
 		return nil, nil // Return empty slice, will fallback to text similarity
@@ -39,23 +51,31 @@ func (s *Server) FindSimilarEntities(ctx context.Context, entity models.Entity, 
 		return nil, nil // Return empty slice to trigger fallback
 	}
 
-	var similarIDs []int
+	var similarEntities []SimilarEntity
 	if searchResult.Hits != nil {
 		for _, hit := range *searchResult.Hits {
 			if hit.Document != nil {
 				doc := *hit.Document
 				if pk, ok := doc["entity_pk"].(float64); ok && int(pk) != entity.ID {
-					similarIDs = append(similarIDs, int(pk))
+					score := 0.0
+					// Extract text match score if available
+					if hit.TextMatch != nil {
+						score = float64(*hit.TextMatch)
+					}
+					similarEntities = append(similarEntities, SimilarEntity{
+						ID:    int(pk),
+						Score: score / 100.0, // Convert from 0-100 scale to 0-1 scale
+					})
 				}
 			}
 		}
 	}
 
-	return similarIDs, nil
+	return similarEntities, nil
 }
 
 // FindSimilarFacts finds facts similar to the given fact using Typesense
-func (s *Server) FindSimilarFacts(ctx context.Context, fact models.Fact, limit int) ([]int, error) {
+func (s *Server) FindSimilarFacts(ctx context.Context, fact models.Fact, limit int) ([]SimilarFact, error) {
 	if s.TypesenseClient == nil {
 		log.Printf("Typesense client not available")
 		return nil, nil // Return empty slice, will fallback to text similarity
@@ -83,19 +103,27 @@ func (s *Server) FindSimilarFacts(ctx context.Context, fact models.Fact, limit i
 		return nil, nil // Return empty slice to trigger fallback
 	}
 
-	var similarIDs []int
+	var similarFacts []SimilarFact
 	if searchResult.Hits != nil {
 		for _, hit := range *searchResult.Hits {
 			if hit.Document != nil {
 				doc := *hit.Document
 				if pk, ok := doc["fact_pk"].(float64); ok && int(pk) != fact.ID {
-					similarIDs = append(similarIDs, int(pk))
+					score := 0.0
+					// Extract text match score if available
+					if hit.TextMatch != nil {
+						score = float64(*hit.TextMatch)
+					}
+					similarFacts = append(similarFacts, SimilarFact{
+						ID:    int(pk),
+						Score: score / 100.0, // Convert from 0-100 scale to 0-1 scale
+					})
 				}
 			}
 		}
 	}
 
-	return similarIDs, nil
+	return similarFacts, nil
 }
 
 // MergeEntities merges entity2 into entity1

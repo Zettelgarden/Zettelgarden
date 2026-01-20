@@ -1058,11 +1058,16 @@ func (s *Handler) GetSimilarEntitiesRoute(w http.ResponseWriter, r *http.Request
 	}
 
 	// Use server similarity function
-	entityIDs, err := s.Server.FindSimilarEntities(r.Context(), entity, limit)
+	entityObjs, err := s.Server.FindSimilarEntities(r.Context(), entity, limit)
 	if err != nil {
 		log.Printf("error finding similar entities: %v", err)
 		http.Error(w, "Failed to search for similar entities", http.StatusInternalServerError)
 		return
+	}
+
+	entityIDs := make([]int, len(entityObjs))
+	for i := range len(entityObjs) {
+		entityIDs[i] = entityObjs[i].ID
 	}
 
 	if len(entityIDs) == 0 {

@@ -73,6 +73,7 @@ func loadConfigWithErrorHandling() (config.Config, error) {
 // initAppWithErrorHandling initializes the server
 func initAppWithErrorHandling(cfg config.Config) (*CLIApp, error) {
 	s := bootstrap.InitServer(cfg.Database)
+	s.TypesenseClient = bootstrap.GetTypesenseClient(cfg.Services.Search)
 	if s == nil {
 		return nil, fmt.Errorf("failed to initialize server")
 	}
@@ -268,26 +269,32 @@ func deduplicateEntitiesForUser(app *CLIApp, cfg config.Config, flags *Deduplica
 
 	fmt.Printf("  Found %d entities for user %d\n", len(entities), userID)
 
-	if flags.DryRun {
-		fmt.Printf("  DRY RUN: Would process %d entities\n", len(entities))
-		return 0, nil
+	// Find and merge duplicates (or simulate in dry run)
+	merged := 0
+	var potentialMerges []struct {
+		sourceEntity models.Entity
+		targetEntity models.Entity
+		score        float64
 	}
 
-	// Find and merge duplicates
-	merged := 0
 	for _, entity := range entities {
 		// Find similar entities
-		similarIDs, err := app.Server.FindSimilarEntities(ctx, entity, 100)
+		similarEntities, err := app.Server.FindSimilarEntities(ctx, entity, 100)
 		if err != nil {
 			log.Printf("Error finding similar entities for %d: %v", entity.ID, err)
 			continue
 		}
 
 		// For each similar entity with higher ID (newer than current), merge it into current
-		for _, similarID := range similarIDs {
-			if similarID > entity.ID { // Only merge newer entities into older ones
-				if flags.Confirm {
-					fmt.Printf("    Merge entity %d into %d? (y/N): ", similarID, entity.ID)
+		for _, similarEntity := range similarEntities {
+			// Apply similarity threshold - only merge if similar enough
+			if similarEntity.Score < flags.SimilarityThreshold {
+				continue // Skip if similarity score is below threshold
+			}
+
+			if similarEntity.ID > entity.ID { // Only merge newer entities into older ones
+				if flags.Confirm && !flags.DryRun {
+					fmt.Printf("    Merge entity %d (score: %.2f) into %d? (y/N): ", similarEntity.ID, similarEntity.Score, entity.ID)
 					var response string
 					fmt.Scanln(&response)
 					if response != "y" && response != "Y" {
@@ -295,13 +302,45 @@ func deduplicateEntitiesForUser(app *CLIApp, cfg config.Config, flags *Deduplica
 					}
 				}
 
-				if err := app.Server.MergeEntities(ctx, userID, entity.ID, similarID); err != nil {
-					log.Printf("Failed to merge entities %d -> %d: %v", similarID, entity.ID, err)
+				if flags.DryRun {
+					// Fetch full entity data for reporting
+					var sourceEntity models.Entity
+					err := app.Server.DB.QueryRow(`
+						SELECT id, user_id, name, description, type, created_at, updated_at, card_pk
+						FROM entities
+						WHERE id = $1 AND user_id = $2`,
+						similarEntity.ID, userID).Scan(
+						&sourceEntity.ID, &sourceEntity.UserID, &sourceEntity.Name,
+						&sourceEntity.Description, &sourceEntity.Type, &sourceEntity.CreatedAt,
+						&sourceEntity.UpdatedAt, &sourceEntity.CardPK)
+					if err != nil {
+						log.Printf("Error fetching entity %d for dry run: %v", similarEntity.ID, err)
+						continue
+					}
+					potentialMerges = append(potentialMerges, struct {
+						sourceEntity models.Entity
+						targetEntity models.Entity
+						score        float64
+					}{sourceEntity, entity, similarEntity.Score})
 				} else {
-					merged++
-					fmt.Printf("    Merged entity %d into %d\n", similarID, entity.ID)
+					if err := app.Server.MergeEntities(ctx, userID, entity.ID, similarEntity.ID); err != nil {
+						log.Printf("Failed to merge entities %d -> %d: %v", similarEntity.ID, entity.ID, err)
+					} else {
+						merged++
+						fmt.Printf("    Merged entity %d (score: %.2f) into %d\n", similarEntity.ID, similarEntity.Score, entity.ID)
+					}
 				}
 			}
+		}
+	}
+
+	// Report dry run results
+	if flags.DryRun {
+		fmt.Printf("  DRY RUN: Found %d potential merges:\n", len(potentialMerges))
+		for _, merge := range potentialMerges {
+			fmt.Printf("    Would merge entity %d ('%s') [score: %.2f] into %d ('%s')\n",
+				merge.sourceEntity.ID, merge.sourceEntity.Name, merge.score,
+				merge.targetEntity.ID, merge.targetEntity.Name)
 		}
 	}
 
@@ -395,26 +434,32 @@ func deduplicateFactsForUser(app *CLIApp, cfg config.Config, flags *Deduplicatio
 
 	fmt.Printf("  Found %d facts for user %d\n", len(facts), userID)
 
-	if flags.DryRun {
-		fmt.Printf("  DRY RUN: Would process %d facts\n", len(facts))
-		return 0, nil
+	// Find and merge duplicates (or simulate in dry run)
+	merged := 0
+	var potentialMerges []struct {
+		sourceFact models.Fact
+		targetFact models.Fact
+		score      float64
 	}
 
-	// Find and merge duplicates
-	merged := 0
 	for _, fact := range facts {
 		// Find similar facts
-		similarIDs, err := app.Server.FindSimilarFacts(ctx, fact, 100)
+		similarFacts, err := app.Server.FindSimilarFacts(ctx, fact, 100)
 		if err != nil {
 			log.Printf("Error finding similar facts for %d: %v", fact.ID, err)
 			continue
 		}
 
 		// For each similar fact with higher ID (newer than current), merge it into current
-		for _, similarID := range similarIDs {
-			if similarID > fact.ID { // Only merge newer facts into older ones
-				if flags.Confirm {
-					fmt.Printf("    Merge fact %d into %d? (y/N): ", similarID, fact.ID)
+		for _, similarFact := range similarFacts {
+			// Apply similarity threshold - only merge if similar enough
+			if similarFact.Score < flags.SimilarityThreshold {
+				continue // Skip if similarity score is below threshold
+			}
+
+			if similarFact.ID > fact.ID { // Only merge newer facts into older ones
+				if flags.Confirm && !flags.DryRun {
+					fmt.Printf("    Merge fact %d (score: %.2f) into %d? (y/N): ", similarFact.ID, similarFact.Score, fact.ID)
 					var response string
 					fmt.Scanln(&response)
 					if response != "y" && response != "Y" {
@@ -422,13 +467,54 @@ func deduplicateFactsForUser(app *CLIApp, cfg config.Config, flags *Deduplicatio
 					}
 				}
 
-				if err := app.Server.MergeFacts(ctx, userID, fact.ID, similarID); err != nil {
-					log.Printf("Failed to merge facts %d -> %d: %v", similarID, fact.ID, err)
+				if flags.DryRun {
+					// Fetch full fact data for reporting
+					var sourceFact models.Fact
+					err := app.Server.DB.QueryRow(`
+						SELECT id, user_id, card_pk, fact, created_at, updated_at
+						FROM facts
+						WHERE id = $1 AND user_id = $2`,
+						similarFact.ID, userID).Scan(
+						&sourceFact.ID, &sourceFact.UserID, &sourceFact.CardPK,
+						&sourceFact.Fact, &sourceFact.CreatedAt, &sourceFact.UpdatedAt)
+					if err != nil {
+						log.Printf("Error fetching fact %d for dry run: %v", similarFact.ID, err)
+						continue
+					}
+					potentialMerges = append(potentialMerges, struct {
+						sourceFact models.Fact
+						targetFact models.Fact
+						score      float64
+					}{sourceFact, fact, similarFact.Score})
 				} else {
-					merged++
-					fmt.Printf("    Merged fact %d into %d\n", similarID, fact.ID)
+					if err := app.Server.MergeFacts(ctx, userID, fact.ID, similarFact.ID); err != nil {
+						log.Printf("Failed to merge facts %d -> %d: %v", similarFact.ID, fact.ID, err)
+					} else {
+						merged++
+						fmt.Printf("    Merged fact %d (score: %.2f) into %d\n", similarFact.ID, similarFact.Score, fact.ID)
+					}
 				}
 			}
+		}
+	}
+
+	// Report dry run results
+	if flags.DryRun {
+		fmt.Printf("  DRY RUN: Found %d potential merges:\n", len(potentialMerges))
+		for _, merge := range potentialMerges {
+			// Truncate long facts for readability
+			sourceText := merge.sourceFact.Fact
+			if len(sourceText) > 80 {
+				sourceText = sourceText[:77] + "..."
+			}
+			targetText := merge.targetFact.Fact
+			if len(targetText) > 80 {
+				targetText = targetText[:77] + "..."
+			}
+
+			fmt.Printf("    Would merge fact %d ('%s') [score: %.2f] into %d ('%s')\n",
+				merge.sourceFact.ID, sourceText, merge.score,
+				merge.targetFact.ID, targetText)
 		}
 	}
 

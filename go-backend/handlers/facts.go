@@ -702,11 +702,16 @@ func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Use server similarity function
-	factIDs, err := s.Server.FindSimilarFacts(r.Context(), *fact, limit)
+	factObjs, err := s.Server.FindSimilarFacts(r.Context(), *fact, limit)
 	if err != nil {
 		log.Printf("error finding similar facts: %v", err)
 		http.Error(w, "Failed to search for similar facts", http.StatusInternalServerError)
 		return
+	}
+
+	factIDs := make([]int, len(factObjs))
+	for i := range len(factObjs) {
+		factIDs[i] = factObjs[i].ID
 	}
 
 	if len(factIDs) == 0 {
