@@ -343,9 +343,8 @@ func (s *Handler) APIKeyOrJWTMiddleware(next http.HandlerFunc) http.HandlerFunc 
 			return
 		}
 
-		// Debug: log what kind of token we're getting
-		log.Printf("DEBUG: Authentication failed for token: %s... (length %d)",
-			tokenStr[:10], len(tokenStr))
+		// Debug: log authentication failure details without exposing sensitive token data
+		log.Printf("DEBUG: Authentication failed for token (length %d)", len(tokenStr))
 		if len(tokenStr) == 32 {
 			// Looks like an API key, check how many keys exist in DB
 			var count int
