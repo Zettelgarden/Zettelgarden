@@ -1,0 +1,50 @@
+○ Zettelgarden-8nl.6 [[38;2;255;143;64m● P1[0m] [feature] - Add cancel/AbortController support for chat streaming
+○ Zettelgarden-8nl.5 [[38;2;255;143;64m● P1[0m] [[38;2;242;109;120mbug[0m] - Standardize chat message status transitions
+○ Zettelgarden-8nl [[38;2;255;143;64m● P1[0m] [[38;2;210;166;255mepic[0m] - Harden chat/agentic systems
+○ Zettelgarden-sqi [[38;2;255;143;64m● P1[0m] [task] - Phase 2: URL Parameter Handling Security - Input validation and XSS protection
+○ Zettelgarden-5ef [[38;2;255;143;64m● P1[0m] [task] - Phase 1: Error Handling Enhancement - Add error boundary components
+○ Zettelgarden-hjq [[38;2;255;143;64m● P1[0m] [task] - Phase 1: Performance Optimization - Add virtualization for conversation lists
+○ Zettelgarden-bld [[38;2;255;143;64m● P1[0m] [task] - Phase 1: Performance Optimization - Implement React.memo for conversation items
+○ Zettelgarden-rsh [[38;2;255;143;64m● P1[0m] [task] - Phase 1: Component Decomposition - Separate conversation management logic
+○ Zettelgarden-ai0 [[38;2;255;143;64m● P1[0m] [task] - Phase 1: Component Decomposition - Create ChatContainer component
+○ Zettelgarden-a7m [[38;2;255;143;64m● P1[0m] [task] - Phase 1: Component Decomposition - Extract ConversationSidebar component
+○ Zettelgarden-cuc [[38;2;255;143;64m● P1[0m] [[38;2;210;166;255mepic[0m] - ChatPage Component Overhaul Epic
+○ Zettelgarden-0o5 [[38;2;255;143;64m● P1[0m] [task] - Add TreeView view mode to CardView page
+○ Zettelgarden-4ut [[38;2;255;143;64m● P1[0m] [[38;2;210;166;255mepic[0m] - Card Tree View - Full Implementation
+○ Zettelgarden-141.5 [[38;2;255;143;64m● P1[0m] [task] - Phase 5: Testing, Performance & Launch
+○ Zettelgarden-141.4 [[38;2;255;143;64m● P1[0m] [task] - Phase 4: Week View & Responsive Polish
+○ Zettelgarden-141.3 [[38;2;255;143;64m● P1[0m] [task] - Phase 3: Drag-Drop Rescheduling
+○ Zettelgarden-141.2 [[38;2;255;143;64m● P1[0m] [task] - Phase 2: User Interactions - Day Selection & Task Management
+○ Zettelgarden-141.1 [[38;2;255;143;64m● P1[0m] [task] - Phase 1: Foundation - Calendar Component Architecture
+○ Zettelgarden-141 [[38;2;255;143;64m● P1[0m] [[38;2;210;166;255mepic[0m] - Calendar View for Tasks - Full Implementation
+○ Zettelgarden-9xw.8.2 [[38;2;255;143;64m● P1[0m] [task] [backend refactor routing testing] - Phase 2: Extract router builder
+○ Zettelgarden-9xw.2.6 [[38;2;255;143;64m● P1[0m] [feature] [backend lifecycle shutdown] - Graceful shutdown implementation
+○ Zettelgarden-9xw.15 [[38;2;255;143;64m● P1[0m] [task] @unassigned [auth backend security] - Follow-up: remove token prefix logging on auth failures
+○ Zettelgarden-9xw.10 [[38;2;255;143;64m● P1[0m] [task] @unassigned [backend goroutines refactor] - Follow-up: graceful shutdown + goroutine lifecycle management
+○ Zettelgarden-9xw.9 [[38;2;255;143;64m● P1[0m] [task] @unassigned [backend config refactor] - Follow-up: centralize config loading (Config struct + validation)
+○ Zettelgarden-9xw.5 [[38;2;255;143;64m● P1[0m] [task] @unassigned [auth backend review] - Review: middleware/auth stack (JWT + API keys)
+○ Zettelgarden-9xw.3 [[38;2;255;143;64m● P1[0m] [task] @unassigned [backend bootstrap review] - Review: dependency initialization (S3/Mail/Stripe/Typesense/LLM)
+○ Zettelgarden-9xw.2 [[38;2;255;143;64m● P1[0m] [task] @unassigned [backend logging review] - Review: logging + server lifecycle
+○ Zettelgarden-9xw.1 [[38;2;255;143;64m● P1[0m] [task] @unassigned [backend config review] - Review: configuration + env var management
+○ Zettelgarden-9xw [[38;2;255;143;64m● P1[0m] [[38;2;210;166;255mepic[0m] [backend refactor review] - Backend maintainability cleanup (entrypoint: go-backend/main.go)
+○ Zettelgarden-66d [[38;2;255;143;64m● P1[0m] [[38;2;210;166;255mepic[0m] - Mobile: Fix dropdown positioning issues across mobile interface
+○ Zettelgarden-otp [[38;2;255;143;64m● P1[0m] [[38;2;210;166;255mepic[0m] [frontend refactor] - Frontend maintainability refactor (break up large components)
+○ Zettelgarden-7kt [[38;2;230;179;80m● P2[0m] [task] - Phase 21: Write documentation and usage examples
+○ Zettelgarden-0z7 [[38;2;230;179;80m● P2[0m] [task] - Phase 20: Create comprehensive test suite with mock data
+○ Zettelgarden-8mv [[38;2;230;179;80m● P2[0m] [task] - Phase 19: Add parallel processing for different users
+○ Zettelgarden-ac9 [[38;2;230;179;80m● P2[0m] [task] - Phase 18: Implement performance optimizations (pagination, user batching)
+○ Zettelgarden-2oe [[38;2;230;179;80m● P2[0m] [task] - Phase 17: Implement error handling and transaction rollback on failures
+○ Zettelgarden-q9g [[38;2;230;179;80m● P2[0m] [task] - Phase 16: Add progress tracking and user feedback during batch operations
+○ Zettelgarden-4z5 [[38;2;230;179;80m● P2[0m] [task] - Phase 15: Implement backup export to JSON before executing merges
+○ Zettelgarden-jpw [[38;2;230;179;80m● P2[0m] [task] - Phase 14: Implement dry-run mode for testing proposed merges
+○ Zettelgarden-izh [[38;2;230;179;80m● P2[0m] [task] - Phase 13: Add Typesense index updates after entity/fact merges
+○ Zettelgarden-rxk [[38;2;230;179;80m● P2[0m] [task] - Phase 12: Add relationship update logic for junction tables after merges
+○ Zettelgarden-csj [[38;2;230;179;80m● P2[0m] [task] - Phase 11: Implement database transaction handling for atomic merges
+○ Zettelgarden-qc8 [[38;2;230;179;80m● P2[0m] [task] - Phase 10: Implement fact merge logic (combine references, keep recent version)
+○ Zettelgarden-cnh [[38;2;230;179;80m● P2[0m] [task] - Phase 9: Implement entity merge logic (keep entity with more links, append descriptions)
+○ Zettelgarden-e07 [[38;2;230;179;80m● P2[0m] [task] - Phase 8: Implement batch processing framework for large datasets
+○ Zettelgarden-zu8 [[38;2;230;179;80m● P2[0m] [task] - Phase 7: Add configurable similarity thresholds
+○ Zettelgarden-dmg [[38;2;230;179;80m● P2[0m] [task] - Phase 6: Implement fact similarity detection (fact text)
+○ Zettelgarden-j3q [[38;2;230;179;80m● P2[0m] [task] - Phase 5: Implement entity similarity detection (name + description)
+○ Zettelgarden-2tb [[38;2;230;179;80m● P2[0m] [task] - Phase 4: Implement basic CLI framework with configuration flags
+○ Zettelgarden-xas [[38;2;230;179;80m● P2[0m] [task] - Phase 3: Design CLI structure with subcommands (entities, facts, status)
