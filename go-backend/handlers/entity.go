@@ -15,7 +15,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
-	"github.com/typesense/typesense-go/typesense/api"
 )
 
 const SIMILARITY_THRESHOLD = 0.15
@@ -84,7 +83,6 @@ func (s *Handler) GetEntitiesRoute(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
-
 
 func (s *Handler) QueryEntitiesForCard(userID int, cardPK int) ([]models.Entity, error) {
 	query := `
@@ -1058,45 +1056,13 @@ func (s *Handler) GetSimilarEntitiesRoute(w http.ResponseWriter, r *http.Request
 			limit = l
 		}
 	}
-	// 2. Use Typesense for similarity search
-	collectionName := os.Getenv("TYPESENSE_COLLECTION")
-	if collectionName == "" {
-		log.Printf("TYPESENSE_COLLECTION env var not set")
-		http.Error(w, "Typesense not configured", http.StatusInternalServerError)
-		return
-	}
 
-	filter := fmt.Sprintf("user_id:=%d && type:=entity ", userID)
-	log.Printf("filter %v", filter)
-	perPage := limit
-
-	searchParams := &api.SearchCollectionParams{
-		Q:        entity.Name,
-		QueryBy:  "title,embedding",
-		FilterBy: &filter,
-		PerPage:  &perPage,
-	}
-
-	searchResult, err := s.Server.TypesenseClient.Collection(collectionName).Documents().Search(r.Context(), searchParams)
+	// Use server similarity function
+	entityIDs, err := s.Server.FindSimilarEntities(r.Context(), entity, limit)
 	if err != nil {
-		log.Printf("error searching typesense for similar entities: %v", err)
+		log.Printf("error finding similar entities: %v", err)
 		http.Error(w, "Failed to search for similar entities", http.StatusInternalServerError)
 		return
-	}
-
-	var entityIDs []int
-	if searchResult.Hits != nil {
-		for _, hit := range *searchResult.Hits {
-			if hit.Document != nil {
-				doc := *hit.Document
-				if pk, ok := doc["entity_pk"].(float64); ok {
-					if pk == float64(entityID) {
-						continue
-					}
-					entityIDs = append(entityIDs, int(pk))
-				}
-			}
-		}
 	}
 
 	if len(entityIDs) == 0 {

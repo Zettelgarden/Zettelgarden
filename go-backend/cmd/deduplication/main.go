@@ -8,24 +8,17 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"go-backend/bootstrap"
 	"go-backend/models"
 	"go-backend/pkg/config"
 	"go-backend/server"
-
-	"github.com/lib/pq"
-	"github.com/typesense/typesense-go/typesense"
-	"github.com/typesense/typesense-go/typesense/api"
 )
 
 // CLIApp holds the initialized services for deduplication operations
 type CLIApp struct {
-	Server       *server.Server
-	Typesense    *typesense.Client
-	TypesenseOK  bool // whether Typesense is available for similarity searches
+	Server *server.Server
 }
 
 func main() {
@@ -77,29 +70,16 @@ func loadConfigWithErrorHandling() (config.Config, error) {
 	return cfg, nil
 }
 
-// initAppWithErrorHandling initializes the server, database, and Typesense client
+// initAppWithErrorHandling initializes the server
 func initAppWithErrorHandling(cfg config.Config) (*CLIApp, error) {
 	s := bootstrap.InitServer(cfg.Database)
 	if s == nil {
 		return nil, fmt.Errorf("failed to initialize server")
 	}
 
-	app := &CLIApp{
+	return &CLIApp{
 		Server: s,
-	}
-
-	// Try to initialize Typesense for similarity searches
-	tsClient, err := bootstrap.InitTypesense(cfg.Services.Search)
-	if err != nil {
-		log.Printf("WARNING: Typesense unavailable (%v) - using fallback similarity detection", err)
-		app.TypesenseOK = false
-	} else {
-		app.Typesense = tsClient
-		app.TypesenseOK = true
-		log.Println("Typesense client initialized successfully")
-	}
-
-	return app, nil
+	}, nil
 }
 
 func usage() {
@@ -122,6 +102,8 @@ GLOBAL FLAGS:
     --user-id int             Process specific user (optional)
     --confirm                 Require user confirmation for each merge (default: false)
 
+NOTE: Similarity search uses Typesense if available, otherwise falls back to text matching.
+
 EXAMPLES:
     deduplication entities --dry-run --similarity-threshold 0.9
     deduplication facts --user-id 123 --batch-size 50
@@ -131,12 +113,12 @@ EXAMPLES:
 
 // Shared flag parsing for all subcommands
 type DeduplicationFlags struct {
-	DryRun             bool
-	BatchSize          int
+	DryRun              bool
+	BatchSize           int
 	SimilarityThreshold float64
-	TimeWindowDays     int
-	UserID             *int
-	Confirm            bool
+	TimeWindowDays      int
+	UserID              *int
+	Confirm             bool
 }
 
 func parseFlags(args []string) (*DeduplicationFlags, []string) {
@@ -182,7 +164,6 @@ func runEntityDeduplication(app *CLIApp, cfg config.Config, args []string) {
 	fmt.Printf("  Similarity threshold: %.2f\n", flags.SimilarityThreshold)
 	fmt.Printf("  Time window: %d days\n", flags.TimeWindowDays)
 	fmt.Printf("  Confirm merges: %t\n", flags.Confirm)
-	fmt.Printf("  Typesense available: %t\n", app.TypesenseOK)
 	if flags.UserID != nil {
 		fmt.Printf("  User ID: %d\n", *flags.UserID)
 	}
@@ -220,28 +201,26 @@ func deduplicateEntities(app *CLIApp, cfg config.Config, flags *DeduplicationFla
 		}
 	}
 
-	totalProcessed := 0
 	totalMerged := 0
 
 	for _, userID := range userIDs {
 		fmt.Printf("Processing entities for user %d...\n", userID)
 
-		processed, merged, err := deduplicateEntitiesForUser(app, cfg, flags, ctx, userID)
+		merged, err := deduplicateEntitiesForUser(app, cfg, flags, ctx, userID)
 		if err != nil {
 			log.Printf("Error processing user %d: %v", userID, err)
 			continue
 		}
 
-		totalProcessed += processed
 		totalMerged += merged
 	}
 
-	fmt.Printf("Entity deduplication complete. Processed %d entities, merged %d duplicates.\n", totalProcessed, totalMerged)
+	fmt.Printf("Entity deduplication complete. Merged %d duplicates.\n", totalMerged)
 	return nil
 }
 
 // deduplicateEntitiesForUser processes entities for a single user
-func deduplicateEntitiesForUser(app *CLIApp, cfg config.Config, flags *DeduplicationFlags, ctx context.Context, userID int) (int, int, error) {
+func deduplicateEntitiesForUser(app *CLIApp, cfg config.Config, flags *DeduplicationFlags, ctx context.Context, userID int) (int, error) {
 	// Query entities for this user, ordered by creation date (newest first)
 	timeCondition := ""
 	if flags.TimeWindowDays > 0 {
@@ -250,317 +229,83 @@ func deduplicateEntitiesForUser(app *CLIApp, cfg config.Config, flags *Deduplica
 	}
 
 	query := fmt.Sprintf(`
-		SELECT
-			e.id, e.user_id, e.name, e.description, e.type,
-			e.created_at, e.updated_at, e.card_pk,
-			(SELECT COUNT(DISTINCT ecj.card_pk) FROM entity_card_junction ecj WHERE ecj.entity_id = e.id) as card_count
-		FROM entities e
-		WHERE e.user_id = $1%s
-		ORDER BY e.created_at DESC
+		SELECT id, user_id, name, description, type, created_at, updated_at, card_pk
+		FROM entities
+		WHERE user_id = $1%s
+		ORDER BY created_at DESC
 	`, timeCondition)
 
 	rows, err := app.Server.DB.Query(query, userID)
 	if err != nil {
-		return 0, 0, fmt.Errorf("failed to query entities: %v", err)
+		return 0, fmt.Errorf("failed to query entities: %v", err)
 	}
 	defer rows.Close()
 
 	var entities []models.Entity
 	for rows.Next() {
 		var entity models.Entity
-		var cardID sql.NullInt64
+		var cardPK sql.NullInt64
 
 		err := rows.Scan(
 			&entity.ID, &entity.UserID, &entity.Name, &entity.Description, &entity.Type,
-			&entity.CreatedAt, &entity.UpdatedAt, &cardID, &entity.CardCount,
+			&entity.CreatedAt, &entity.UpdatedAt, &cardPK,
 		)
 		if err != nil {
-			return 0, 0, fmt.Errorf("failed to scan entity: %v", err)
+			return 0, fmt.Errorf("failed to scan entity: %v", err)
 		}
-		if cardID.Valid {
-			cid := int(cardID.Int64)
-			entity.CardPK = &cid
+		if cardPK.Valid {
+			cpk := int(cardPK.Int64)
+			entity.CardPK = &cpk
 		}
 
 		entities = append(entities, entity)
 	}
 
-	processed := len(entities)
-	if processed == 0 {
+	if len(entities) == 0 {
 		fmt.Printf("  No entities found for user %d\n", userID)
-		return 0, 0, nil
+		return 0, nil
 	}
 
-	// Find similar entity clusters
-	clusters, err := findEntityClusters(app, cfg, flags, ctx, entities)
-	if err != nil {
-		return processed, 0, fmt.Errorf("failed to find clusters: %v", err)
-	}
-
-	// Filter clusters to only those with similarities above threshold
-	var validClusters [][]int
-	for _, cluster := range clusters {
-		if len(cluster) > 1 { // Only clusters with duplicates
-			validClusters = append(validClusters, cluster)
-		}
-	}
-
-	if len(validClusters) == 0 {
-		fmt.Printf("  No duplicate entities found for user %d\n", userID)
-		return processed, 0, nil
-	}
-
-	fmt.Printf("  Found %d duplicate clusters for user %d\n", len(validClusters), userID)
+	fmt.Printf("  Found %d entities for user %d\n", len(entities), userID)
 
 	if flags.DryRun {
-		fmt.Printf("  DRY RUN: Would merge %d duplicate clusters\n", len(validClusters))
-		return processed, 0, nil
+		fmt.Printf("  DRY RUN: Would process %d entities\n", len(entities))
+		return 0, nil
 	}
 
-	// Process merges for each cluster
+	// Find and merge duplicates
 	merged := 0
-	for _, cluster := range validClusters {
-		if count, err := mergeEntityCluster(app, cfg, flags, ctx, userID, cluster); err != nil {
-			log.Printf("Failed to merge cluster: %v", err)
-		} else {
-			merged += count
-		}
-	}
-
-	return processed, merged, nil
-}
-
-// findEntityClusters finds clusters of similar entities
-func findEntityClusters(app *CLIApp, cfg config.Config, flags *DeduplicationFlags, ctx context.Context, entities []models.Entity) ([][]int, error) {
-	entityMap := make(map[int]models.Entity)
 	for _, entity := range entities {
-		entityMap[entity.ID] = entity
-	}
-
-	visited := make(map[int]bool)
-	var clusters [][]int
-
-	for _, entity := range entities {
-		if visited[entity.ID] {
+		// Find similar entities
+		similarIDs, err := app.Server.FindSimilarEntities(ctx, entity, 100)
+		if err != nil {
+			log.Printf("Error finding similar entities for %d: %v", entity.ID, err)
 			continue
 		}
 
-		cluster, err := findSimilarEntities(app, cfg, flags, ctx, entity, entities, entityMap)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find similarities for entity %d: %v", entity.ID, err)
-		}
-
-		if len(cluster) > 1 {
-			clusters = append(clusters, cluster)
-
-			// Mark all entities in this cluster as visited
-			for _, id := range cluster {
-				visited[id] = true
-			}
-		}
-	}
-
-	return clusters, nil
-}
-
-// findSimilarEntities finds entities similar to the given entity
-func findSimilarEntities(app *CLIApp, cfg config.Config, flags *DeduplicationFlags, ctx context.Context, entity models.Entity, allEntities []models.Entity, entityMap map[int]models.Entity) ([]int, error) {
-	cluster := []int{entity.ID}
-
-	if app.TypesenseOK {
-		// Use Typesense for similarity search
-		similarIDs, err := findSimilarEntitiesTypesense(app, cfg, flags, ctx, entity)
-		if err != nil {
-			log.Printf("Typesense similarity search failed for entity %d, falling back to SQL: %v", entity.ID, err)
-		} else {
-			for _, similarID := range similarIDs {
-				if _, exists := entityMap[similarID]; exists {
-					cluster = append(cluster, similarID)
+		// For each similar entity with higher ID (newer than current), merge it into current
+		for _, similarID := range similarIDs {
+			if similarID > entity.ID { // Only merge newer entities into older ones
+				if flags.Confirm {
+					fmt.Printf("    Merge entity %d into %d? (y/N): ", similarID, entity.ID)
+					var response string
+					fmt.Scanln(&response)
+					if response != "y" && response != "Y" {
+						continue
+					}
 				}
-			}
-			return cluster, nil
-		}
-	}
 
-	// Fallback: Use simple SQL text similarity
-	for _, other := range allEntities {
-		if other.ID == entity.ID {
-			continue
-		}
-
-		similarity := calculateTextSimilarity(entity.Name+" "+entity.Description, other.Name+" "+other.Description)
-		if similarity >= flags.SimilarityThreshold {
-			cluster = append(cluster, other.ID)
-		}
-	}
-
-	return cluster, nil
-}
-
-// findSimilarEntitiesTypesense uses Typesense to find similar entities
-func findSimilarEntitiesTypesense(app *CLIApp, cfg config.Config, flags *DeduplicationFlags, ctx context.Context, entity models.Entity) ([]int, error) {
-	collectionName := cfg.Services.Search.Collection
-	filter := fmt.Sprintf("user_id:=%d && type:=entity", entity.UserID)
-	perPage := 50 // Get more results for analysis
-
-	searchParams := &api.SearchCollectionParams{
-		Q:        entity.Name,
-		QueryBy:  "title,embedding",
-		FilterBy: &filter,
-		PerPage:  &perPage,
-	}
-
-	searchResult, err := app.Typesense.Collection(collectionName).Documents().Search(ctx, searchParams)
-	if err != nil {
-		return nil, err
-	}
-
-	var similarIDs []int
-	if searchResult.Hits != nil {
-		for _, hit := range *searchResult.Hits {
-			if hit.Document != nil {
-				doc := *hit.Document
-				if pk, ok := doc["entity_pk"].(float64); ok && int(pk) != entity.ID {
-					similarIDs = append(similarIDs, int(pk))
+				if err := app.Server.MergeEntities(ctx, userID, entity.ID, similarID); err != nil {
+					log.Printf("Failed to merge entities %d -> %d: %v", similarID, entity.ID, err)
+				} else {
+					merged++
+					fmt.Printf("    Merged entity %d into %d\n", similarID, entity.ID)
 				}
 			}
 		}
 	}
 
-	return similarIDs, nil
-}
-
-// calculateTextSimilarity is a simple similarity function as fallback
-func calculateTextSimilarity(text1, text2 string) float64 {
-	if text1 == text2 {
-		return 1.0
-	}
-
-	text1 = strings.ToLower(text1)
-	text2 = strings.ToLower(text2)
-
-	if strings.Contains(text1, text2) || strings.Contains(text2, text1) {
-		return 0.9 // High similarity if one contains the other
-	}
-
-	return 0.0 // No similarity detected with simple method
-}
-
-// mergeEntityCluster merges a cluster of similar entities
-func mergeEntityCluster(app *CLIApp, cfg config.Config, flags *DeduplicationFlags, ctx context.Context, userID int, cluster []int) (int, error) {
-	// Find entity with most card links as the keeper
-	keeperID, err := findKeeperEntity(app.Server.DB, cluster)
-	if err != nil {
-		return 0, fmt.Errorf("failed to find keeper entity: %v", err)
-	}
-
-	// Remove keeper from merge targets
-	var toMerge []int
-	for _, id := range cluster {
-		if id != keeperID {
-			toMerge = append(toMerge, id)
-		}
-	}
-
-	fmt.Printf("    Merging %d entities into entity %d\n", len(toMerge), keeperID)
-
-	if flags.Confirm {
-		fmt.Printf("    Press Enter to continue...")
-		fmt.Scanln()
-	}
-
-	// Perform merge in transaction
-	return mergeEntitiesInTransaction(app, ctx, keeperID, toMerge)
-}
-
-// findKeeperEntity finds the entity with the most card links in a cluster
-func findKeeperEntity(db *sql.DB, entityIDs []int) (int, error) {
-	query := `
-		SELECT ecj.entity_id, COUNT(DISTINCT ecj.card_pk) as card_count
-		FROM entity_card_junction ecj
-		WHERE ecj.entity_id = ANY($1)
-		GROUP BY ecj.entity_id
-		ORDER BY card_count DESC
-		LIMIT 1
-	`
-
-	row := db.QueryRow(query, pq.Array(entityIDs))
-
-	var keeperID int
-	var cardCount int
-	err := row.Scan(&keeperID, &cardCount)
-	if err != nil {
-		// If no links found, use the first entity
-		if len(entityIDs) > 0 {
-			return entityIDs[0], nil
-		}
-		return 0, err
-	}
-
-	return keeperID, nil
-}
-
-// mergeEntitiesInTransaction performs the atomic merge operation
-func mergeEntitiesInTransaction(app *CLIApp, ctx context.Context, keeperID int, toMerge []int) (int, error) {
-	tx, err := app.Server.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return 0, fmt.Errorf("failed to start transaction: %v", err)
-	}
-	defer tx.Rollback()
-
-	// Update entity_card_junction references
-	_, err = tx.Exec("UPDATE entity_card_junction SET entity_id = $1 WHERE entity_id = ANY($2)", keeperID, pq.Array(toMerge))
-	if err != nil {
-		return 0, fmt.Errorf("failed to update entity_card_junction: %v", err)
-	}
-
-	// Update entity_fact_junction references
-	_, err = tx.Exec("UPDATE entity_fact_junction SET entity_id = $1 WHERE entity_id = ANY($2)", keeperID, pq.Array(toMerge))
-	if err != nil {
-		return 0, fmt.Errorf("failed to update entity_fact_junction: %v", err)
-	}
-
-	// Update entities table - merge descriptions
-	_, err = tx.Exec(`
-		UPDATE entities
-		SET description = COALESCE(NULLIF(description, ''), '') || E'\n\nMerged from duplicates: ' || (
-			SELECT string_agg(COALESCE(NULLIF(name || COALESCE(E'\n' || description, ''), ''), 'unknown'), E'\n---\n')
-			FROM entities WHERE id = ANY($2)
-		),
-		updated_at = NOW()
-		WHERE id = $1
-	`, keeperID, pq.Array(toMerge))
-	if err != nil {
-		return 0, fmt.Errorf("failed to update entity description: %v", err)
-	}
-
-	// Delete merged entities
-	_, err = tx.Exec("DELETE FROM entities WHERE id = ANY($1)", pq.Array(toMerge))
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete merged entities: %v", err)
-	}
-
-	// Update Typesense index
-	if app.TypesenseOK {
-		if err := updateTypesenseAfterEntityMerge(app, ctx, keeperID); err != nil {
-			log.Printf("Warning: failed to update Typesense index: %v", err)
-			// Don't fail the entire operation due to Typesense issues
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return 0, fmt.Errorf("failed to commit transaction: %v", err)
-	}
-
-	return len(toMerge), nil
-}
-
-// updateTypesenseAfterEntityMerge updates the Typesense index after entity merge
-func updateTypesenseAfterEntityMerge(app *CLIApp, ctx context.Context, entityID int) error {
-	// This would require re-indexing the merged entity
-	// For now, we'll skip this complexity and just note the need
-	log.Printf("Note: Typesense index should be refreshed for entity %d after merge", entityID)
-	return nil
+	return merged, nil
 }
 
 // deduplicateFacts performs fact deduplication for the given user(s)
@@ -588,30 +333,106 @@ func deduplicateFacts(app *CLIApp, cfg config.Config, flags *DeduplicationFlags)
 		}
 	}
 
-	totalProcessed := 0
 	totalMerged := 0
 
 	for _, userID := range userIDs {
 		fmt.Printf("Processing facts for user %d...\n", userID)
 
-		processed, merged, err := deduplicateFactsForUser(app, cfg, flags, ctx, userID)
+		merged, err := deduplicateFactsForUser(app, cfg, flags, ctx, userID)
 		if err != nil {
 			log.Printf("Error processing user %d: %v", userID, err)
 			continue
 		}
 
-		totalProcessed += processed
 		totalMerged += merged
 	}
 
-	fmt.Printf("Fact deduplication complete. Processed %d facts, merged %d duplicates.\n", totalProcessed, totalMerged)
+	fmt.Printf("Fact deduplication complete. Merged %d duplicates.\n", totalMerged)
 	return nil
 }
 
 // deduplicateFactsForUser processes facts for a single user
-func deduplicateFactsForUser(app *CLIApp, cfg config.Config, flags *DeduplicationFlags, ctx context.Context, userID int) (int, int, error) {
-	log.Println("Fact deduplication not yet implemented")
-	return 0, 0, nil
+func deduplicateFactsForUser(app *CLIApp, cfg config.Config, flags *DeduplicationFlags, ctx context.Context, userID int) (int, error) {
+	// Query facts for this user, ordered by creation date (newest first)
+	timeCondition := ""
+	if flags.TimeWindowDays > 0 {
+		cutoffDate := time.Now().AddDate(0, 0, -flags.TimeWindowDays)
+		timeCondition = fmt.Sprintf(" AND created_at > '%s'", cutoffDate.Format("2006-01-02"))
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, user_id, card_pk, fact, created_at, updated_at
+		FROM facts
+		WHERE user_id = $1%s
+		ORDER BY created_at DESC
+	`, timeCondition)
+
+	rows, err := app.Server.DB.Query(query, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to query facts: %v", err)
+	}
+	defer rows.Close()
+
+	var facts []models.Fact
+	for rows.Next() {
+		var fact models.Fact
+
+		err := rows.Scan(
+			&fact.ID, &fact.UserID, &fact.CardPK, &fact.Fact,
+			&fact.CreatedAt, &fact.UpdatedAt,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to scan fact: %v", err)
+		}
+
+		facts = append(facts, fact)
+	}
+
+	if len(facts) == 0 {
+		fmt.Printf("  No facts found for user %d\n", userID)
+		return 0, nil
+	}
+
+	fmt.Printf("  Found %d facts for user %d\n", len(facts), userID)
+
+	if flags.DryRun {
+		fmt.Printf("  DRY RUN: Would process %d facts\n", len(facts))
+		return 0, nil
+	}
+
+	// Find and merge duplicates
+	merged := 0
+	for _, fact := range facts {
+		// Find similar facts
+		similarIDs, err := app.Server.FindSimilarFacts(ctx, fact, 100)
+		if err != nil {
+			log.Printf("Error finding similar facts for %d: %v", fact.ID, err)
+			continue
+		}
+
+		// For each similar fact with higher ID (newer than current), merge it into current
+		for _, similarID := range similarIDs {
+			if similarID > fact.ID { // Only merge newer facts into older ones
+				if flags.Confirm {
+					fmt.Printf("    Merge fact %d into %d? (y/N): ", similarID, fact.ID)
+					var response string
+					fmt.Scanln(&response)
+					if response != "y" && response != "Y" {
+						continue
+					}
+				}
+
+				if err := app.Server.MergeFacts(ctx, userID, fact.ID, similarID); err != nil {
+					log.Printf("Failed to merge facts %d -> %d: %v", similarID, fact.ID, err)
+				} else {
+					merged++
+					fmt.Printf("    Merged fact %d into %d\n", similarID, fact.ID)
+				}
+			}
+		}
+	}
+
+	return merged, nil
 }
 
 func runFactDeduplication(app *CLIApp, cfg config.Config, args []string) {
@@ -626,7 +447,6 @@ func runFactDeduplication(app *CLIApp, cfg config.Config, args []string) {
 	fmt.Printf("  Similarity threshold: %.2f\n", flags.SimilarityThreshold)
 	fmt.Printf("  Time window: %d days\n", flags.TimeWindowDays)
 	fmt.Printf("  Confirm merges: %t\n", flags.Confirm)
-	fmt.Printf("  Typesense available: %t\n", app.TypesenseOK)
 	if flags.UserID != nil {
 		fmt.Printf("  User ID: %d\n", *flags.UserID)
 	}
@@ -698,5 +518,4 @@ func runStatusReport(app *CLIApp, cfg config.Config, args []string) {
 	fmt.Printf("Entity-Card Links: %d\n", entityCardJunctionCount)
 	fmt.Printf("Entity-Fact Links: %d\n", entityFactJunctionCount)
 	fmt.Printf("Fact-Card Links: %d\n", factCardJunctionCount)
-	fmt.Printf("Typesense Available: %t\n", app.TypesenseOK)
 }

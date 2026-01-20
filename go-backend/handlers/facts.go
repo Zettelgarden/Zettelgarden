@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"go-backend/models"
 	"go-backend/services"
 	"log"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
-	"github.com/typesense/typesense-go/typesense/api"
 )
 
 // ExtractSaveCardFacts deletes and re-inserts facts for a given card.
@@ -703,45 +701,12 @@ func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Use Typesense for similarity search
-	collectionName := os.Getenv("TYPESENSE_COLLECTION")
-	if collectionName == "" {
-		log.Printf("TYPESENSE_COLLECTION env var not set")
-		http.Error(w, "Typesense not configured", http.StatusInternalServerError)
-		return
-	}
-
-	filter := fmt.Sprintf("user_id:=%d && type:=fact", userID)
-	log.Printf("filter %v", filter)
-	perPage := limit
-
-	searchParams := &api.SearchCollectionParams{
-		Q:        fact.Fact,
-		QueryBy:  "title,embedding",
-		FilterBy: &filter,
-		PerPage:  &perPage,
-	}
-
-	searchResult, err := s.Server.TypesenseClient.Collection(collectionName).Documents().Search(r.Context(), searchParams)
+	// Use server similarity function
+	factIDs, err := s.Server.FindSimilarFacts(r.Context(), *fact, limit)
 	if err != nil {
-		log.Printf("error searching typesense for similar facts: %v", err)
+		log.Printf("error finding similar facts: %v", err)
 		http.Error(w, "Failed to search for similar facts", http.StatusInternalServerError)
 		return
-	}
-
-	var factIDs []int
-	if searchResult.Hits != nil {
-		for _, hit := range *searchResult.Hits {
-			if hit.Document != nil {
-				doc := *hit.Document
-				if pk, ok := doc["fact_pk"].(float64); ok {
-					if pk == float64(factID) {
-						continue // Skip the original fact
-					}
-					factIDs = append(factIDs, int(pk))
-				}
-			}
-		}
 	}
 
 	if len(factIDs) == 0 {
