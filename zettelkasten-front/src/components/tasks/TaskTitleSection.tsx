@@ -67,7 +67,9 @@ export function TaskTitleSection({
     detectAndSetPriority(nextValue);
   }
 
-  function handleTitleKeyPress(e: React.KeyboardEvent<HTMLInputElement>) {
+  function handleTitleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.defaultPrevented) return;
+
     if (e.key === "Enter") {
       if (mode === "create" && onTitleSubmit) {
         onTitleSubmit();
@@ -134,7 +136,7 @@ export function TaskTitleSection({
             placeholder="Enter task title"
             value={task.title}
             onChange={handleTitleChange}
-            onKeyPress={handleTitleKeyPress}
+            onKeyDown={handleTitleKeyDown}
             onKeyUp={(e) => refreshTriggerFromInput(e.currentTarget)}
             onClick={(e) => refreshTriggerFromInput(e.currentTarget)}
             onFocus={(e) => refreshTriggerFromInput(e.currentTarget)}

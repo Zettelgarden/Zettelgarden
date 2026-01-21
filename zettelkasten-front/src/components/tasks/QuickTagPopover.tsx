@@ -192,7 +192,7 @@ export function QuickTagPopover({
   React.useEffect(() => {
     if (!open) return;
     setActiveIndex(0);
-  }, [open, query]);
+  }, [open, query, suggestions.length]);
 
   const [pos, setPos] = React.useState<{ left: number; top: number } | null>(
     null,
@@ -275,7 +275,13 @@ export function QuickTagPopover({
 
       if (e.key === "Enter") {
         e.preventDefault();
-        const selected = suggestions[activeIndex];
+
+        const clampedIndex = Math.max(
+          0,
+          Math.min(activeIndex, Math.max(0, suggestions.length - 1)),
+        );
+
+        const selected = suggestions[clampedIndex];
         if (selected) {
           onSelectTag(selected, cursorPosition);
           onRequestClose();
