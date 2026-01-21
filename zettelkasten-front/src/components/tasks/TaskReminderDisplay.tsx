@@ -3,7 +3,7 @@ import { Task } from "../../models/Task";
 import { saveExistingTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
 import { useAuth } from "../../contexts/AuthContext";
-import { format } from "date-fns-tz";
+import { format, toZonedTime } from "date-fns-tz";
 import { getToday, getTomorrow, createTimeInTimezone, getNowInTimezone } from "../../utils/dates";
 
 interface TaskReminderDisplayProps {
@@ -81,13 +81,21 @@ export function TaskReminderDisplay({
     if (!customDateTime) return;
 
     // datetime-local input gives us a string in browser's local timezone
-    // We need to interpret it as the user's configured timezone instead
-    const [datePart, timePart] = customDateTime.split('T');
-    const [year, month, day] = datePart.split('-').map(Number);
-    const [hour, minute] = timePart.split(':').map(Number);
+    // We need to convert it to the user's configured timezone
+    const browserLocalDate = new Date(customDateTime);
 
-    // Create a date representing the selected time in the user's timezone
-    const reminderTime = new Date(Date.UTC(year, month - 1, day, hour, minute, 0, 0));
+    // Convert the browser's local time to the user's timezone
+    const dateInUserTimezone = toZonedTime(browserLocalDate, userTimezone);
+
+    // Extract the date/time components in the user's timezone
+    const year = dateInUserTimezone.getFullYear();
+    const month = dateInUserTimezone.getMonth();
+    const day = dateInUserTimezone.getDate();
+    const hour = dateInUserTimezone.getHours();
+    const minute = dateInUserTimezone.getMinutes();
+
+    // Create a UTC Date representing that time in the user's timezone
+    const reminderTime = new Date(Date.UTC(year, month, day, hour, minute, 0, 0));
 
     const editedTask = { ...task, reminder_time: reminderTime, reminder_sent: false };
     updateTask(editedTask);
