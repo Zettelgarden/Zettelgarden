@@ -14,4 +14,5 @@ func RegisterTaskRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/tasks/{id}/audit", h.GetTaskAuditEventsRoute, "GET")
 	addProtectedRoute(r, h, "/api/tasks/{id}/dependencies", h.AddTaskDependencyRoute, "POST")
 	addProtectedRoute(r, h, "/api/tasks/{id}/dependencies/{blocking_id}", h.RemoveTaskDependencyRoute, "DELETE")
+	addProtectedRoute(r, h, "/api/tasks/{id}/complete-and-schedule", h.CompleteAndScheduleTaskRoute, "POST")
 }

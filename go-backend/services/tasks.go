@@ -642,3 +642,56 @@ func LoadTaskDependencies(db *sql.DB, task *models.Task) error {
 
 	return nil
 }
+
+// CompleteAndScheduleTask completes the current task and creates a new one scheduled for X days later
+// Returns the ID of the newly created task, or 0 if none was created
+func CompleteAndScheduleTask(db *sql.DB, userID int, id int, days int, completeStatusName string, defaultStatusName string) (int, error) {
+	// Get the original task
+	oldTask, err := GetTask(db, userID, id)
+	if err != nil {
+		return 0, fmt.Errorf("unable to query task: %v", err)
+	}
+
+	// Calculate the new scheduled date (X days from now)
+	now := time.Now()
+	newScheduledDate := now.AddDate(0, 0, days)
+
+	// Create the new task first
+	newTask := models.Task{
+		CardPK:        oldTask.CardPK,
+		UserID:        oldTask.UserID,
+		ScheduledDate: &newScheduledDate,
+		DueDate:       &newScheduledDate, // Also set due date to the same day
+		CompletedAt:   nil,
+		Title:         oldTask.Title,
+		Description:   oldTask.Description,
+		Priority:      oldTask.Priority,
+		Status:        defaultStatusName,
+		IsComplete:    false,
+		ReminderTime:  nil,
+	}
+
+	// If the old task had a reminder time, calculate the new reminder time
+	if oldTask.ReminderTime != nil {
+		// Calculate the duration from scheduled date to reminder time
+		duration := oldTask.ScheduledDate.Sub(*oldTask.ReminderTime)
+		newReminderTime := newScheduledDate.Add(duration)
+		newTask.ReminderTime = &newReminderTime
+	}
+
+	newTaskID, err := CreateTask(db, newTask)
+	if err != nil {
+		return 0, fmt.Errorf("unable to create new task: %v", err)
+	}
+
+	// Now update the original task to be complete
+	oldTask.IsComplete = true
+	oldTask.Status = completeStatusName
+	_, err = UpdateTask(db, userID, id, oldTask)
+	if err != nil {
+		log.Printf("Warning: completed task creation but failed to mark original task as complete: %v", err)
+		// Don't return error here since we successfully created the new task
+	}
+
+	return newTaskID, nil
+}

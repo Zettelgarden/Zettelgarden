@@ -495,3 +495,67 @@ func (s *Handler) GetUserTimezone(userID int) (string, error) {
 
 	return timezone, nil
 }
+
+// CompleteAndScheduleTaskRoute handles completing a task and creating a new one scheduled for X days later
+func (s *Handler) CompleteAndScheduleTaskRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil {
+		log.Printf("Invalid task id param: %v", err)
+		http.Error(w, "Invalid id", http.StatusBadRequest)
+		return
+	}
+
+	// Parse request body to get days parameter
+	var requestBody struct {
+		Days int `json:"days"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+		log.Printf("Error decoding complete and schedule request: %v", err)
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	// Validate days parameter
+	if requestBody.Days <= 0 {
+		http.Error(w, "Days must be greater than 0", http.StatusBadRequest)
+		return
+	}
+
+	// Get the complete and default status names
+	completeStatus, err := services.GetCompleteTaskStatus(s.DB, userID)
+	if err != nil {
+		log.Printf("Error getting complete status: %v", err)
+		http.Error(w, "Error getting complete status", http.StatusInternalServerError)
+		return
+	}
+
+	defaultStatus, err := services.GetDefaultTaskStatus(s.DB, userID)
+	if err != nil {
+		log.Printf("Error getting default status: %v", err)
+		http.Error(w, "Error getting default status", http.StatusInternalServerError)
+		return
+	}
+
+	// Call the service to complete the task and create a new one
+	newTaskID, err := services.CompleteAndScheduleTask(s.DB, userID, id, requestBody.Days, completeStatus.Name, defaultStatus.Name)
+	if err != nil {
+		log.Printf("Error completing and scheduling task %d: %v", id, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Add tags to the new task
+	if newTaskID > 0 {
+		s.AddTagsFromTask(userID, newTaskID)
+	}
+
+	response := models.GenericResponse{
+		Message: "success",
+		Error:   false,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}

@@ -183,3 +183,19 @@ export function removeTaskDependency(taskId: number, blockingTaskId: number): Pr
     .then(checkStatus)
     .then(() => undefined);
 }
+
+export function completeAndScheduleTask(taskId: number, days: number): Promise<void> {
+  const url = `${base_url}/tasks/${taskId}/complete-and-schedule`;
+  let token = localStorage.getItem("token");
+
+  return fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ days }),
+  })
+    .then(checkStatus)
+    .then(() => undefined);
+}
