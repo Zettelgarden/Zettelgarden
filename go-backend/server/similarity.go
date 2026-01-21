@@ -58,13 +58,23 @@ func (s *Server) FindSimilarEntities(ctx context.Context, entity models.Entity, 
 				doc := *hit.Document
 				if pk, ok := doc["entity_pk"].(float64); ok && int(pk) != entity.ID {
 					score := 0.0
-					// Extract text match score if available
-					if hit.TextMatch != nil {
-						score = float64(*hit.TextMatch)
+					// Extract vector distance if available (lower distance = more similar)
+					if hit.VectorDistance != nil {
+						distance := float64(*hit.VectorDistance)
+						// Convert distance to similarity score (0-1 range, where 1 = most similar)
+						// For cosine distance: 0 = identical, 2 = opposite
+						// Similarity = 1 - (distance / 2) gives us 0-1 range
+						score = 1.0 - (distance / 2.0)
+						// Clamp to 0-1 range
+						if score < 0 {
+							score = 0
+						} else if score > 1 {
+							score = 1
+						}
 					}
 					similarEntities = append(similarEntities, SimilarEntity{
 						ID:    int(pk),
-						Score: score / 100.0, // Convert from 0-100 scale to 0-1 scale
+						Score: score,
 					})
 				}
 			}
@@ -110,13 +120,25 @@ func (s *Server) FindSimilarFacts(ctx context.Context, fact models.Fact, limit i
 				doc := *hit.Document
 				if pk, ok := doc["fact_pk"].(float64); ok && int(pk) != fact.ID {
 					score := 0.0
-					// Extract text match score if available
-					if hit.TextMatch != nil {
-						score = float64(*hit.TextMatch)
+					// Extract vector distance if available (lower distance = more similar)
+					if hit.VectorDistance != nil {
+						distance := float64(*hit.VectorDistance)
+						log.Printf("DEBUG: fact ID %d, vector distance: %f", int(pk), distance)
+						// Convert distance to similarity score (0-1 range, where 1 = most similar)
+						// For cosine distance: 0 = identical, 2 = opposite
+						// Similarity = 1 - (distance / 2) gives us 0-1 range
+						score = 1.0 - (distance / 2.0)
+						// Clamp to 0-1 range
+						if score < 0 {
+							score = 0
+						} else if score > 1 {
+							score = 1
+						}
 					}
+					log.Printf("DEBUG: Similar fact ID %d, final score: %f", int(pk), score)
 					similarFacts = append(similarFacts, SimilarFact{
 						ID:    int(pk),
-						Score: score / 100.0, // Convert from 0-100 scale to 0-1 scale
+						Score: score,
 					})
 				}
 			}

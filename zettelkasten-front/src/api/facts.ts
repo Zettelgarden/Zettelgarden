@@ -1,5 +1,5 @@
 // API for fetching facts
-import { Fact, FactWithCard } from "../models/Fact";
+import { Fact, FactWithCard, FactWithCardAndScore } from "../models/Fact";
 import { PartialCard } from "../models/Card";
 
 const base_url = import.meta.env.VITE_URL;
@@ -65,7 +65,7 @@ export async function mergeFacts(fact1Id: number, fact2Id: number): Promise<void
   }
 }
 
-export async function getSimilarFacts(factId: number, limit = 10): Promise<FactWithCard[]> {
+export async function getSimilarFacts(factId: number, limit = 10): Promise<FactWithCardAndScore[]> {
   const token = localStorage.getItem("token");
   const res = await fetch(`${base_url}/facts/${factId}/similar?limit=${limit}`, {
     headers: {

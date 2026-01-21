@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Dialog, Menu } from "@headlessui/react";
 import { Link } from "react-router-dom";
-import { FactWithCard } from "../../models/Fact";
+import { FactWithCard, FactWithCardAndScore } from "../../models/Fact";
 import { CardTag } from "../cards/CardTag";
 import { Button } from "../Button";
 import { Entity } from "../../models/Card";
@@ -45,7 +45,7 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
         setShowEntityDialog(true);
     }
 
-    const [similarFacts, setSimilarFacts] = useState<FactWithCard[]>([]);
+    const [similarFacts, setSimilarFacts] = useState<FactWithCardAndScore[]>([]);
     const [loadingSimilar, setLoadingSimilar] = useState(false);
     const [similarError, setSimilarError] = useState<string | null>(null);
 
@@ -323,8 +323,20 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                                             >
                                                 • {f.fact}
                                             </span>
-                                            <div className="flex items-center ml-2">
-                                                <span className="text-xs text-blue-600 mr-2">
+                                            <div className="flex items-center ml-2 gap-2">
+                                                <span
+                                                    className={`text-xs px-2 py-0.5 rounded ${
+                                                        f.score >= 0.8
+                                                            ? 'bg-green-100 text-green-700'
+                                                            : f.score >= 0.5
+                                                            ? 'bg-yellow-100 text-yellow-700'
+                                                            : 'bg-gray-100 text-gray-600'
+                                                    }`}
+                                                    title="Similarity score"
+                                                >
+                                                    {Math.round(f.score * 100)}%
+                                                </span>
+                                                <span className="text-xs text-blue-600">
                                                     [{f.card.card_id}]
                                                 </span>
                                                 <Menu as="div" className="relative inline-block text-left">

@@ -14,3 +14,7 @@ export interface FactWithCard {
   updated_at: string;
   card: PartialCard;
 }
+
+export interface FactWithCardAndScore extends FactWithCard {
+  score: number;
+}

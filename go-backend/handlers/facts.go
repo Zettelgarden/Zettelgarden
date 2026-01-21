@@ -287,6 +287,16 @@ type FactWithCard struct {
 	Card      models.PartialCard `json:"card"`
 }
 
+// FactWithCardAndScore extends FactWithCard with similarity score
+type FactWithCardAndScore struct {
+	ID        int                `json:"id"`
+	Fact      string             `json:"fact"`
+	CreatedAt time.Time          `json:"created_at"`
+	UpdatedAt time.Time          `json:"updated_at"`
+	Card      models.PartialCard `json:"card"`
+	Score     float64            `json:"score"`
+}
+
 // GetAllFacts returns all facts for the current user with pagination and filtering
 func (s *Handler) GetAllFacts(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
@@ -710,13 +720,16 @@ func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	factIDs := make([]int, len(factObjs))
+	// Build a map from fact ID to similarity score
+	scoreMap := make(map[int]float64, len(factObjs))
 	for i := range len(factObjs) {
 		factIDs[i] = factObjs[i].ID
+		scoreMap[factObjs[i].ID] = factObjs[i].Score
 	}
 
 	if len(factIDs) == 0 {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]FactWithCard{})
+		json.NewEncoder(w).Encode([]FactWithCardAndScore{})
 		return
 	}
 
@@ -739,9 +752,9 @@ func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var facts []FactWithCard
+	var facts []FactWithCardAndScore
 	for rows.Next() {
-		var f FactWithCard
+		var f FactWithCardAndScore
 		if err := rows.Scan(
 			&f.ID,
 			&f.Fact,
@@ -759,6 +772,8 @@ func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Failed to scan similar facts", http.StatusInternalServerError)
 			return
 		}
+		// Attach the similarity score from the map
+		f.Score = scoreMap[f.ID]
 		facts = append(facts, f)
 	}
 
