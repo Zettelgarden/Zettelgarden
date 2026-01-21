@@ -2,7 +2,9 @@ import React, { useEffect, useState } from "react";
 import { Task } from "../../models/Task";
 import { saveExistingTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
-import { format } from "date-fns";
+import { useAuth } from "../../contexts/AuthContext";
+import { format } from "date-fns-tz";
+import { getToday, getTomorrow, createTimeInTimezone, getNowInTimezone } from "../../utils/dates";
 
 interface TaskReminderDisplayProps {
   task: Task;
@@ -16,6 +18,8 @@ export function TaskReminderDisplay({
   saveOnChange,
 }: TaskReminderDisplayProps) {
   const { updateTask: updateTaskInContext } = useTaskContext();
+  const { user } = useAuth();
+  const userTimezone = user?.timezone || "UTC";
   const [displayText, setDisplayText] = useState<string>("");
   const [displayPicker, setDisplayPicker] = useState<boolean>(false);
   const [customDateTime, setCustomDateTime] = useState<string>("");
@@ -53,7 +57,8 @@ export function TaskReminderDisplay({
   }
 
   function setReminderIn(minutes: number) {
-    const reminderTime = new Date();
+    const now = getNowInTimezone(userTimezone);
+    const reminderTime = new Date(now);
     reminderTime.setMinutes(reminderTime.getMinutes() + minutes);
     const editedTask = { ...task, reminder_time: reminderTime, reminder_sent: false };
     updateTask(editedTask);
@@ -61,9 +66,8 @@ export function TaskReminderDisplay({
   }
 
   function setReminderTomorrowMorning() {
-    const reminderTime = new Date();
-    reminderTime.setDate(reminderTime.getDate() + 1);
-    reminderTime.setHours(9, 0, 0, 0);
+    const tomorrow = getTomorrow(userTimezone);
+    const reminderTime = createTimeInTimezone(tomorrow, 9, 0, userTimezone);
     const editedTask = { ...task, reminder_time: reminderTime, reminder_sent: false };
     updateTask(editedTask);
     setDisplayPicker(false);
@@ -75,8 +79,17 @@ export function TaskReminderDisplay({
 
   function applyCustomDateTime() {
     if (!customDateTime) return;
-    const newDateTime = new Date(customDateTime);
-    const editedTask = { ...task, reminder_time: newDateTime, reminder_sent: false };
+
+    // datetime-local input gives us a string in browser's local timezone
+    // We need to interpret it as the user's configured timezone instead
+    const [datePart, timePart] = customDateTime.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hour, minute] = timePart.split(':').map(Number);
+
+    // Create a date representing the selected time in the user's timezone
+    const reminderTime = new Date(Date.UTC(year, month - 1, day, hour, minute, 0, 0));
+
+    const editedTask = { ...task, reminder_time: reminderTime, reminder_sent: false };
     updateTask(editedTask);
     setDisplayPicker(false);
     setCustomDateTime("");
@@ -92,7 +105,7 @@ export function TaskReminderDisplay({
       return;
     }
 
-    const now = new Date();
+    const now = getNowInTimezone(userTimezone);
     const reminderTime = new Date(task.reminder_time);
     const diffMs = reminderTime.getTime() - now.getTime();
     const diffMins = Math.floor(diffMs / 60000);
@@ -101,21 +114,21 @@ export function TaskReminderDisplay({
 
     // Show if reminder has been sent
     if (task.reminder_sent) {
-      setDisplayText(`Sent ${format(reminderTime, 'MMM d, h:mm a')}`);
+      setDisplayText(`Sent ${format(reminderTime, 'MMM d, h:mm a', { timeZone: userTimezone })}`);
       return;
     }
 
     // Show relative time for upcoming reminders
     if (diffMins < 0) {
-      setDisplayText(`Past ${format(reminderTime, 'MMM d, h:mm a')}`);
+      setDisplayText(`Past ${format(reminderTime, 'MMM d, h:mm a', { timeZone: userTimezone })}`);
     } else if (diffMins < 60) {
       setDisplayText(`In ${diffMins}m`);
     } else if (diffHours < 24) {
       setDisplayText(`In ${diffHours}h`);
     } else if (diffDays === 1) {
-      setDisplayText(`Tomorrow ${format(reminderTime, 'h:mm a')}`);
+      setDisplayText(`Tomorrow ${format(reminderTime, 'h:mm a', { timeZone: userTimezone })}`);
     } else {
-      setDisplayText(format(reminderTime, 'MMM d, h:mm a'));
+      setDisplayText(format(reminderTime, 'MMM d, h:mm a', { timeZone: userTimezone }));
     }
   }
 
@@ -130,7 +143,7 @@ export function TaskReminderDisplay({
     if (task.reminder_sent) {
       return "gray";
     }
-    if (task.reminder_time && new Date(task.reminder_time) < new Date()) {
+    if (task.reminder_time && new Date(task.reminder_time) < getNowInTimezone(userTimezone)) {
       return "red";
     }
     return "blue";

@@ -168,3 +168,32 @@ export function toMidnightInTimezone(date: Date, timezone: string): Date {
   // Return midnight in the user's timezone (as a UTC Date object)
   return new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
 }
+
+/**
+ * Create a date representing a specific time in the user's timezone.
+ * For example, to create "tomorrow at 9 AM in user timezone", pass:
+ * baseDate = getTomorrow(timezone), hour = 9, minute = 0
+ */
+export function createTimeInTimezone(baseDate: Date, hour: number, minute: number, timezone: string): Date {
+  const dateInTz = toZonedTime(baseDate, timezone);
+  const year = dateInTz.getFullYear();
+  const month = dateInTz.getMonth();
+  const day = dateInTz.getDate();
+  return new Date(Date.UTC(year, month, day, hour, minute, 0, 0));
+}
+
+/**
+ * Get "now" in the user's timezone as a UTC Date object.
+ * Useful for relative time calculations like "in 15 minutes".
+ */
+export function getNowInTimezone(timezone: string): Date {
+  const now = new Date();
+  const nowInTz = toZonedTime(now, timezone);
+  const year = nowInTz.getFullYear();
+  const month = nowInTz.getMonth();
+  const day = nowInTz.getDate();
+  const hour = nowInTz.getHours();
+  const minute = nowInTz.getMinutes();
+  const second = nowInTz.getSeconds();
+  return new Date(Date.UTC(year, month, day, hour, minute, second));
+}
