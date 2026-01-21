@@ -19,6 +19,8 @@ import { removeTagsFromTitle, parseTags } from "../../utils/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
 import { useShortcutContext } from "../../contexts/ShortcutContext";
 import { useStatus } from "../../contexts/StatusContext";
+import { useAuth } from "../../contexts/AuthContext";
+import { format } from "date-fns-tz";
 
 interface TaskListItemProps {
   task: Task;
@@ -44,6 +46,8 @@ export function TaskListItem({
   const { setRefreshTasks, updateTask } = useTaskContext();
   const { setShowTaskDialog, setSelectedTaskId } = useShortcutContext();
   const { getDefaultStatus, getCompleteStatus } = useStatus();
+  const { user } = useAuth();
+  const userTimezone = user?.timezone || "UTC";
 
   async function handleTitleClick() {
     setSelectedTaskId(task.id);
@@ -210,8 +214,8 @@ export function TaskListItem({
                 cursor: 'default'
               }}
               title={task.reminder_sent
-                ? `Reminder sent: ${new Date(task.reminder_time).toLocaleString()}`
-                : `Reminder set for: ${new Date(task.reminder_time).toLocaleString()}`
+                ? `Reminder sent: ${format(new Date(task.reminder_time), 'MMM d, yyyy h:mm a', { timeZone: userTimezone })}`
+                : `Reminder set for: ${format(new Date(task.reminder_time), 'MMM d, yyyy h:mm a', { timeZone: userTimezone })}`
               }
             >
               🔔
