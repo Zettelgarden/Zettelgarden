@@ -167,7 +167,7 @@ export function TaskDueDateDisplay({
     } else if (isYesterday || isPast(task.due_date, userTimezone)) {
       setDisplayText("Overdue");
     } else if (task.due_date) {
-      setDisplayText("Due " + task.due_date.toLocaleDateString());
+      setDisplayText("Due " + task.due_date.toLocaleDateString(undefined, { timeZone: userTimezone }));
     }
   }
   useEffect(() => {
