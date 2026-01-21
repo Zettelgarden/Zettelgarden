@@ -26,6 +26,10 @@ export interface Entity {
   card?: PartialCard;
 }
 
+export interface EntityWithScore extends Entity {
+  score: number;
+}
+
 export interface Card {
   id: number;
   card_id: string;

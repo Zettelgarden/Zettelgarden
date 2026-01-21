@@ -19,6 +19,12 @@ import (
 
 const SIMILARITY_THRESHOLD = 0.15
 
+// EntityWithScore extends Entity with similarity score
+type EntityWithScore struct {
+	models.Entity
+	Score float64 `json:"score"`
+}
+
 func validateEntityName(name string) error {
 	if len(name) == 0 {
 		return fmt.Errorf("entity name cannot be empty")
@@ -1066,30 +1072,33 @@ func (s *Handler) GetSimilarEntitiesRoute(w http.ResponseWriter, r *http.Request
 	}
 
 	entityIDs := make([]int, len(entityObjs))
+	// Build a map from entity ID to similarity score
+	scoreMap := make(map[int]float64, len(entityObjs))
 	for i := range len(entityObjs) {
 		entityIDs[i] = entityObjs[i].ID
+		scoreMap[entityObjs[i].ID] = entityObjs[i].Score
 	}
 
 	if len(entityIDs) == 0 {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]models.Entity{})
+		json.NewEncoder(w).Encode([]EntityWithScore{})
 		return
 	}
 
 	// 3. Fetch full entity data from DB
 	query := `
-        SELECT 
+        SELECT
             e.id, e.user_id, e.name, e.description, e.type, e.created_at, e.updated_at, e.card_pk,
             (SELECT COUNT(DISTINCT ecj.card_pk) FROM entity_card_junction ecj WHERE ecj.entity_id = e.id) as card_count,
             c.id as linked_card_id, c.card_id as linked_card_card_id, c.title as linked_card_title,
             c.user_id as linked_card_user_id, c.parent_id as linked_card_parent_id,
             c.created_at as linked_card_created_at, c.updated_at as linked_card_updated_at
-        FROM 
+        FROM
             entities e
             LEFT JOIN cards c ON e.card_pk = c.id AND c.is_deleted = FALSE
-        WHERE 
+        WHERE
             e.id = ANY($1)
-        ORDER BY 
+        ORDER BY
             array_position($1, e.id)
     `
 
@@ -1101,9 +1110,9 @@ func (s *Handler) GetSimilarEntitiesRoute(w http.ResponseWriter, r *http.Request
 	}
 	defer rows.Close()
 
-	var entities []models.Entity
+	var entities []EntityWithScore
 	for rows.Next() {
-		var entity models.Entity
+		var entity EntityWithScore
 		var cardID sql.NullInt64
 		var cardCardID, cardTitle sql.NullString
 		var cardUserID, cardParentID sql.NullInt64
@@ -1120,6 +1129,9 @@ func (s *Handler) GetSimilarEntitiesRoute(w http.ResponseWriter, r *http.Request
 			http.Error(w, "Failed to scan similar entities", http.StatusInternalServerError)
 			return
 		}
+
+		// Attach the similarity score from the map
+		entity.Score = scoreMap[entity.ID]
 
 		if cardID.Valid {
 			entity.Card = &models.PartialCard{

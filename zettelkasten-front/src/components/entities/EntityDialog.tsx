@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Dialog, Menu } from "@headlessui/react";
 import { Link, useNavigate } from "react-router-dom";
-import { Entity } from "../../models/Card";
+import { Entity, EntityWithScore } from "../../models/Card";
 import { PartialCard, SearchResult, defaultPartialCard, Card, defaultCard } from "../../models/Card";
 import { semanticSearchCards, saveNewCard, getNextRootId, suggestCardTitle, escapeEntityNameForSearch } from "../../api/cards";
 import { CardList } from "../cards/CardList";
@@ -26,7 +26,7 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
     const [facts, setFacts] = useState<FactWithCard[]>([]);
     const [factsError, setFactsError] = useState<string | null>(null);
     const [factsLoading, setFactsLoading] = useState(false);
-    const [similarEntities, setSimilarEntities] = useState<Entity[]>([]);
+    const [similarEntities, setSimilarEntities] = useState<EntityWithScore[]>([]);
     const [loadingSimilar, setLoadingSimilar] = useState(false);
     const [similarError, setSimilarError] = useState<string | null>(null);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -321,7 +321,19 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
                                             >
                                                 • {e.name}
                                             </span>
-                                            <div className="flex items-center ml-2">
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className={`text-xs px-2 py-0.5 rounded ${
+                                                        e.score >= 0.8
+                                                            ? 'bg-green-100 text-green-700'
+                                                            : e.score >= 0.5
+                                                            ? 'bg-yellow-100 text-yellow-700'
+                                                            : 'bg-gray-100 text-gray-600'
+                                                    }`}
+                                                    title="Similarity score"
+                                                >
+                                                    {Math.round(e.score * 100)}%
+                                                </span>
                                                 <Menu as="div" className="relative inline-block text-left">
                                                     <div>
                                                         <Menu.Button className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">

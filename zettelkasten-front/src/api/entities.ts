@@ -1,4 +1,4 @@
-import { Entity } from "../models/Card";
+import { Entity, EntityWithScore } from "../models/Card";
 
 export function getFactEntities(factId: number): Promise<Entity[]> {
   let token = localStorage.getItem("token");
@@ -247,7 +247,7 @@ export function fetchEntityByName(name: string): Promise<Entity> {
     });
 }
 
-export function getSimilarEntities(entityId: number): Promise<Entity[]> {
+export function getSimilarEntities(entityId: number): Promise<EntityWithScore[]> {
   let token = localStorage.getItem("token");
   const url = base_url + `/entities/${entityId}/similar`;
 
@@ -257,7 +257,7 @@ export function getSimilarEntities(entityId: number): Promise<Entity[]> {
     .then(checkStatus)
     .then((response) => {
       if (response) {
-        return response.json().then((entities: Entity[]) => {
+        return response.json().then((entities: EntityWithScore[]) => {
           if (entities === null) {
             return [];
           }
