@@ -18,7 +18,8 @@ import (
 // - Finally the actual handler executes
 func addProtectedRoute(r *mux.Router, h *handlers.Handler, path string, handler http.HandlerFunc, method string) *mux.Route {
 	logged := handlers.LogRoute(handler)
-	protected := h.APIKeyOrJWTMiddleware(logged)
+	tracked := h.UpdateLastSeenMiddleware(logged)
+	protected := h.APIKeyOrJWTMiddleware(tracked)
 	return r.HandleFunc(path, protected).Methods(method)
 }
 

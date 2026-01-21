@@ -51,7 +51,7 @@ func (s *Handler) LogLastLogin(user models.User) {
 	_, err := s.DB.Exec(`UPDATE users SET last_login = NOW() WHERE id = $1`, user.ID)
 	if err != nil {
 		// Log the error
-		log.Printf("Error logging card view for userID %v: %v", user.ID, err)
+		log.Printf("Error logging last login for userID %v: %v", user.ID, err)
 	}
 
 }
