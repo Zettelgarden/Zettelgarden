@@ -13,6 +13,7 @@ import { ChatSidebarProvider } from '../contexts/ChatSidebarContext';
 import { CardRefreshProvider } from '../contexts/CardRefreshContext';
 import { TagProvider } from '../contexts/TagContext';
 import { StatusProvider } from '../contexts/StatusContext';
+import { ToastProvider } from './toast/ToastContext';
 
 // Mock the child components that may make API calls
 vi.mock('./sidebar/SidebarHeader', () => ({
@@ -50,29 +51,31 @@ vi.mock('./sidebar/SidebarMobileMenu', () => ({
 function SidebarWrapper() {
   return (
     <BrowserRouter>
-      <TagProvider>
-        <ChatProvider>
-          <PartialCardProvider>
-            <TaskProvider>
-              <StatusProvider>
-                <ShortcutProvider>
-                  <FileProvider>
-                    <PinProvider>
-                      <ChatSidebarProvider>
-                        <CardRefreshProvider>
-                          <AuthProvider>
-                            <Sidebar />
-                          </AuthProvider>
-                        </CardRefreshProvider>
-                      </ChatSidebarProvider>
-                    </PinProvider>
-                  </FileProvider>
-                </ShortcutProvider>
-              </StatusProvider>
-            </TaskProvider>
-          </PartialCardProvider>
-        </ChatProvider>
-      </TagProvider>
+      <ToastProvider>
+        <TagProvider>
+          <ChatProvider>
+            <PartialCardProvider>
+              <TaskProvider>
+                <StatusProvider>
+                  <ShortcutProvider>
+                    <FileProvider>
+                      <PinProvider>
+                        <ChatSidebarProvider>
+                          <CardRefreshProvider>
+                            <AuthProvider>
+                              <Sidebar />
+                            </AuthProvider>
+                          </CardRefreshProvider>
+                        </ChatSidebarProvider>
+                      </PinProvider>
+                    </FileProvider>
+                  </ShortcutProvider>
+                </StatusProvider>
+              </TaskProvider>
+            </PartialCardProvider>
+          </ChatProvider>
+        </TagProvider>
+      </ToastProvider>
     </BrowserRouter>
   );
 }
