@@ -8,6 +8,7 @@ import {
     getNextWeek,
     getNextMonday,
     isFriday,
+    toMidnightInTimezone,
 } from "../../utils/dates";
 import { saveExistingTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
@@ -46,7 +47,11 @@ export function BulkTaskDateDisplay({
     async function handleScheduledDateChange(
         e: React.ChangeEvent<HTMLInputElement>,
     ) {
-        const newDate = new Date(e.target.value);
+        // Parse the date input as midnight in the user's timezone
+        // The date input value is in YYYY-MM-DD format
+        const [year, month, day] = e.target.value.split("-").map(Number);
+        const dateInUserTz = new Date(year, month - 1, day, 0, 0, 0);
+        const newDate = toMidnightInTimezone(dateInUserTz, userTimezone);
         updateTasks(newDate);
     }
 
