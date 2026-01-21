@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Task } from "../../models/Task";
 
 import {
-  compareDates,
+  compareDatesInTimezone,
   getToday,
   getTomorrow,
   getYesterday,
@@ -157,9 +157,9 @@ export function TaskDueDateDisplay({
       setDisplayText("No Deadline");
       return;
     }
-    let isToday = compareDates(task.due_date, getToday(userTimezone));
-    let isTomorrow = compareDates(task.due_date, getTomorrow(userTimezone));
-    let isYesterday = compareDates(task.due_date, getYesterday(userTimezone));
+    let isToday = compareDatesInTimezone(task.due_date, getToday(userTimezone), userTimezone);
+    let isTomorrow = compareDatesInTimezone(task.due_date, getTomorrow(userTimezone), userTimezone);
+    let isYesterday = compareDatesInTimezone(task.due_date, getYesterday(userTimezone), userTimezone);
     if (isToday) {
       setDisplayText("Due Today");
     } else if (isTomorrow) {
