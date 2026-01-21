@@ -6,6 +6,7 @@ import (
 )
 
 func RegisterMailingListRoutes(r *mux.Router, h *handlers.Handler) {
+	// Mailing list signup (public subscription)
 	addRoute(r, "/api/mailing-list", h.AddToMailingListRoute, "POST")
 	addProtectedRoute(r, h, "/api/mailing-list", h.GetMailingListSubscribersRoute, "GET")
 	addProtectedRoute(r, h, "/api/mailing-list/messages", h.GetMailingListMessagesRoute, "GET")

@@ -5,7 +5,27 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// RegisterAllRoutes registers all API routes for the application
+// RegisterAllRoutes registers all API routes for the application with consistent
+// authentication and security model:
+//
+// Nearly all endpoints are registered via addProtectedRoute (authenticated).
+// The following endpoints are intentionally public (via addRoute) to allow access
+// without authentication for user onboarding/workflows:
+//
+// Authentication endpoints:
+// - GET /api/auth/github - OAuth start (redirects user to GitHub)
+// - GET /api/auth/github/callback - OAuth callback (GitHub redirects back)
+// - POST /api/login - User login (creates JWT token)
+// - POST /api/reset-password - Password reset completion
+// - POST /api/email-validate - Email validation links
+// - POST /api/request-reset - Request password reset email
+//
+// User creation:
+// - POST /api/users - User signup/registration (creates new account)
+//
+// External integrations:
+// - POST /api/stripe/webhook - Stripe payment webhooks (verified via webhook signature)
+// - POST /api/mailing-list - Mailing list signup (public subscription)
 func RegisterAllRoutes(r *mux.Router, h *handlers.Handler) {
 	// Authentication routes
 	RegisterAuthRoutes(r, h)
