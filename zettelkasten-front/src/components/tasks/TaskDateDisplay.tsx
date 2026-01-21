@@ -182,7 +182,10 @@ export function TaskDateDisplay({
     } else if (isYesterday) {
       setDisplayText("Yesterday");
     } else if (task.scheduled_date) {
-      setDisplayText(task.scheduled_date.toLocaleDateString());
+      // Format date using user's configured timezone, not browser's local timezone
+      setDisplayText(
+        task.scheduled_date.toLocaleDateString(undefined, { timeZone: userTimezone })
+      );
     }
   }
   useEffect(() => {
@@ -237,7 +240,7 @@ export function TaskDateDisplay({
             >
               Tomorrow
             </button>
-            {isFriday() && (
+            {isFriday(userTimezone) && (
               <button
                 onClick={setNextMonday}
                 className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
