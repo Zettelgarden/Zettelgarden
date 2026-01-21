@@ -15,6 +15,8 @@ type MailClient struct {
 	mu                sync.Mutex
 	isProcessing      bool
 	DB                *sql.DB
+	ShutdownChan      chan struct{}
+	shutdownOnce      sync.Once
 }
 
 func (m *MailClient) String() string {

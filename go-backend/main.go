@@ -26,6 +26,18 @@ import (
 var s *server.Server
 var h *handlers.Handler
 
+// safeGoroutine runs a function in a goroutine with panic recovery
+func safeGoroutine(fn func()) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("panic in goroutine: %v", r)
+			}
+		}()
+		fn()
+	}()
+}
+
 func configureLogging(cfg config.Config) (*os.File, func(), error) {
 	if cfg.Server.DevMode {
 		return nil, func() {}, nil
@@ -87,20 +99,21 @@ func run() error {
 	s.S3 = h.CreateS3Client()
 
 	s.Mail = &mail.MailClient{
-		Host:     cfg.Services.Mail.Host,
-		Password: cfg.Services.Mail.Password,
-		Queue:    mail.NewEmailQueue(),
-		DB:       s.DB,
+		Host:         cfg.Services.Mail.Host,
+		Password:     cfg.Services.Mail.Password,
+		Queue:        mail.NewEmailQueue(),
+		DB:           s.DB,
+		ShutdownChan: make(chan struct{}),
 	}
 
 	// Typesense is optional - search will still work without it (slower full-text search only)
 	typesenseClient, err := bootstrap.InitTypesense(cfg.Services.Search)
 	if err == nil {
 		s.TypesenseClient = typesenseClient
-		go func() {
+		go safeGoroutine(func() {
 			log.Printf("updating typesense")
 			h.InitSearchCollection()
-		}()
+		})
 	} else {
 		log.Printf("WARNING: Typesense initialization failed - search functionality is disabled. Error: %v", err)
 		log.Printf("INFO: Searches will use slower full-text search only. Check Typesense configuration and network connectivity.")
@@ -127,6 +140,10 @@ func run() error {
 			fmt.Printf("Operation took %v\n", elapsed)
 		}()
 	}
+
+	// Create a context for shutdown coordination
+	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
+	defer shutdownCancel()
 
 	r := mux.NewRouter()
 
@@ -159,12 +176,23 @@ func run() error {
 		<-stopCh
 		log.Printf("shutdown signal received")
 
+		// Cancel shutdown context to signal all goroutines to stop
+		shutdownCancel()
+
+		// Shutdown mail queue (wait for in-flight emails to complete)
+		if err := s.Mail.Shutdown(shutdownCtx); err != nil {
+			log.Printf("mail queue shutdown error: %v", err)
+		}
+
+		// Shutdown HTTP server with timeout
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		if err := srv.Shutdown(ctx); err != nil {
 			log.Printf("server shutdown error: %v", err)
 		}
+
+		log.Printf("shutdown complete")
 	}()
 
 	log.Printf("Starting server on port %s", port)

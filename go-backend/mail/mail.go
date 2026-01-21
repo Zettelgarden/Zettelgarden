@@ -2,6 +2,7 @@ package mail
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -48,6 +49,12 @@ func (eq *EmailQueue) Length() int {
 }
 
 func (m *MailClient) sendMailImpl(email Email) error {
+	// In testing mode, just count the email as "sent"
+	if m.Testing {
+		m.TestingEmailsSent += 1
+		return nil
+	}
+
 	emailJSON, err := json.Marshal(email)
 	if err != nil {
 		return err
@@ -128,6 +135,18 @@ func (m *MailClient) startProcessing() {
 
 func (m *MailClient) processQueue() {
 	for {
+		// Check for shutdown signal
+		select {
+		case <-m.ShutdownChan:
+			log.Printf("mail queue shutdown requested")
+			m.mu.Lock()
+			m.isProcessing = false
+			m.mu.Unlock()
+			return
+		default:
+			// Continue processing
+		}
+
 		// Get next email from queue
 		email, ok := m.Queue.Pop()
 		if !ok {
@@ -150,7 +169,40 @@ func (m *MailClient) processQueue() {
 			}
 		}
 
-		// Optional: add a small delay between sends
-		time.Sleep(1000 * time.Millisecond)
+		// Optional: add a small delay between sends (skip in testing mode)
+		if !m.Testing {
+			time.Sleep(1000 * time.Millisecond)
+		}
+	}
+}
+
+// Shutdown gracefully shuts down the mail queue processing.
+// It waits for the current queue to be drained or context cancellation.
+func (m *MailClient) Shutdown(ctx context.Context) error {
+	log.Printf("initiating mail queue shutdown (queue size: %d)", m.Queue.Length())
+
+	// Signal shutdown
+	m.shutdownOnce.Do(func() {
+		close(m.ShutdownChan)
+	})
+
+	// Wait for queue to drain or context cancellation
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			remaining := m.Queue.Length()
+			if remaining > 0 {
+				log.Printf("mail queue shutdown timed out with %d emails remaining", remaining)
+			}
+			return ctx.Err()
+		case <-ticker.C:
+			if !m.isProcessing && m.Queue.Length() == 0 {
+				log.Printf("mail queue shutdown complete")
+				return nil
+			}
+		}
 	}
 }
