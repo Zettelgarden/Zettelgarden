@@ -64,9 +64,18 @@ export function TaskDueDateDisplay({
   async function handleDueDateChange(
     e: React.ChangeEvent<HTMLInputElement>,
   ) {
-    const newDate = new Date(e.target.value);
+    const inputValue = e.target.value;
+    if (!inputValue) return;
 
-    setSelectedDate(newDate.toISOString().substr(0, 10));
+    // Parse the date input value (YYYY-MM-DD) in the user's timezone
+    // HTML date input returns YYYY-MM-DD, which we want to interpret as user timezone
+    const [year, month, day] = inputValue.split('-').map(Number);
+
+    // Create a date object at midnight UTC that represents the same calendar date
+    // in the user's timezone. This ensures the stored date matches user intent.
+    const newDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+
+    setSelectedDate(inputValue);
     let editedTask = { ...task, due_date: newDate };
 
     updateTask(editedTask);
