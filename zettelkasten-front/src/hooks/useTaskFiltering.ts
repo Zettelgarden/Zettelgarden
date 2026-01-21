@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Task } from "../models/Task";
 import { filterTasks, filterTasksByDateView, removeTagsFromTitle } from "../utils/tasks";
+import { toMidnightInTimezone } from "../utils/dates";
 
 type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "due_date";
 type SortDirection = "asc" | "desc";
@@ -84,7 +85,7 @@ export function useTaskFiltering({
           } else if (scheduledB === null) {
             return -1; // Always put nulls last, regardless of sort direction
           } else {
-            comparison = new Date(scheduledA).getTime() - new Date(scheduledB).getTime();
+            comparison = toMidnightInTimezone(scheduledA, timezone).getTime() - toMidnightInTimezone(scheduledB, timezone).getTime();
           }
           break;
         case "due_date":
@@ -97,7 +98,7 @@ export function useTaskFiltering({
           } else if (dueDateB === null) {
             return -1; // Always put nulls last, regardless of sort direction
           } else {
-            comparison = new Date(dueDateA).getTime() - new Date(dueDateB).getTime();
+            comparison = toMidnightInTimezone(dueDateA, timezone).getTime() - toMidnightInTimezone(dueDateB, timezone).getTime();
           }
           break;
         case "id":

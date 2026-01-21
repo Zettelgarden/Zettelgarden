@@ -149,3 +149,22 @@ export function formatDate(dateString: string): string {
   const formattedDate = date.toISOString().split("T")[0];
   return formattedDate;
 }
+
+/**
+ * Convert a date to midnight in the user's timezone for comparison purposes.
+ * This ensures that sorting by date respects the user's timezone boundaries.
+ * For example, 11 PM EST and 1 AM EST (next day) should be sorted as different days,
+ * but for PST users, both might appear on the same calendar day.
+ */
+export function toMidnightInTimezone(date: Date, timezone: string): Date {
+  // Convert the date to the user's timezone
+  const dateInTz = toZonedTime(date, timezone);
+
+  // Get the date components in the user's timezone
+  const year = dateInTz.getFullYear();
+  const month = dateInTz.getMonth();
+  const day = dateInTz.getDate();
+
+  // Return midnight in the user's timezone (as a UTC Date object)
+  return new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+}
