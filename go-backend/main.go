@@ -10,6 +10,7 @@ import (
 	"go-backend/pkg/config"
 	"go-backend/routes"
 	"go-backend/server"
+	"go-backend/services"
 	"log"
 	"net/http"
 	"os"
@@ -94,8 +95,9 @@ func run() error {
 	}
 
 	h = &handlers.Handler{
-		Server: s,
-		DB:     s.DB,
+		Server:    s,
+		DB:        s.DB,
+		ToolRetry: services.NewToolCircuitBreaker(),
 	}
 
 	// Initialize Stripe

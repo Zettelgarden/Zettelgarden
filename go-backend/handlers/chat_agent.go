@@ -439,31 +439,41 @@ func convertToOpenAIMessages(messages []models.ChatMessage, systemPrompt string)
 	return openaiMessages
 }
 
-// executeToolCall executes a single tool call with retry logic
+// executeToolCall executes a single tool call with intelligent retry logic
 func (s *Handler) executeToolCall(toolRegistry *services.ToolRegistry, tc openai.ToolCall, ctx *services.ToolContext) map[string]interface{} {
 	var args map[string]interface{}
 	json.Unmarshal([]byte(tc.Function.Arguments), &args)
 
-	result, err := toolRegistry.ExecuteTool(tc.Function.Name, args, ctx)
-	if err != nil {
-		log.Printf("Error executing tool %s: %v", tc.Function.Name, err)
-		return services.WrapToolError(tc.Function.Name, args, err)
+	// Use the new retry logic with circuit breaker
+	config := services.DefaultRetryConfig()
+	execResult := services.ExecuteToolWithRetry(
+		context.Background(),
+		tc.Function.Name,
+		args,
+		toolRegistry,
+		ctx,
+		s.ToolRetry,
+		config,
+	)
+
+	// Handle circuit open case
+	if execResult.CircuitOpen {
+		log.Printf("Tool %s: circuit breaker OPEN - %s", tc.Function.Name, execResult.LastError)
+		return services.WrapToolError(tc.Function.Name, args, fmt.Errorf("tool temporarily unavailable due to repeated failures"))
 	}
 
-	// Check if result is empty and retry once
-	if isToolResultEmpty(result) {
-		log.Printf("Tool %s returned empty result, retrying once...", tc.Function.Name)
-		result, err = toolRegistry.ExecuteTool(tc.Function.Name, args, ctx)
-		if err != nil {
-			log.Printf("Error on retry executing tool %s: %v", tc.Function.Name, err)
-			return services.WrapToolError(tc.Function.Name, args, err)
-		}
-		if isToolResultEmpty(result) {
-			log.Printf("Tool %s returned empty result after retry", tc.Function.Name)
-		}
+	// Handle execution error
+	if execResult.Error != nil {
+		log.Printf("Tool %s: failed after %d attempts (%v) - %s", tc.Function.Name, execResult.Attempts, execResult.TotalTime, execResult.LastError)
+		return services.WrapToolError(tc.Function.Name, args, execResult.Error)
 	}
 
-	return result
+	// Log successful retries
+	if execResult.Attempts > 1 {
+		log.Printf("Tool %s: succeeded after %d attempts (%v)", tc.Function.Name, execResult.Attempts, execResult.TotalTime)
+	}
+
+	return execResult.Result
 }
 
 // executeAndSaveToolCalls executes all tool calls and saves their responses
