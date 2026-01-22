@@ -38,6 +38,7 @@ export function useChat(options: UseChatOptions = {}) {
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [failedMessage, setFailedMessage] = useState<{ content: string; referencedCards: string[] } | null>(null);
+  const [activeToolCalls, setActiveToolCalls] = useState<Set<string>>(new Set());
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const streamingContentRef = useRef<string>("");
@@ -296,11 +297,18 @@ export function useChat(options: UseChatOptions = {}) {
                 break;
 
               case 'tool_call':
-                // Tool call initiated - could show a loading indicator
+                // Tool call initiated - add to active tool calls
+                setActiveToolCalls(prev => new Set(prev).add(event.data.tool_call_id));
                 console.log('Tool call:', event.data.name, event.data.arguments);
                 break;
 
               case 'tool_result':
+                // Remove from active tool calls when result is received
+                setActiveToolCalls(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(event.data.tool_call_id);
+                  return newSet;
+                });
                 // Tool result received - add as a tool message
                 const metadata: ToolResultMetadata = {
                   has_error: event.data.has_error || false,
@@ -529,6 +537,8 @@ export function useChat(options: UseChatOptions = {}) {
     isPolling,
     showModelDropdown,
     failedMessage,
+    streamingMessageId,
+    activeToolCalls,
 
     // Setters
     setCurrentConversation,

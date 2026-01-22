@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
@@ -9,6 +9,38 @@ import { TasksSection } from "./TasksSection";
 import { ChatInput } from "./ChatInput";
 import { ToolResultCard } from "./ToolResultCard";
 import { useChat } from "../../hooks/useChat";
+
+// Streaming cursor component with smooth animation
+const StreamingCursor = () => (
+  <span className="inline-flex items-center ml-1">
+    <span className="flex space-x-0.5">
+      <span className="w-1 h-1 bg-blue-500 rounded-full animate-[ping_1s_ease-in-out_infinite]"></span>
+      <span className="w-1 h-1 bg-blue-500 rounded-full animate-[ping_1s_ease-in-out_0.2s_infinite]"></span>
+      <span className="w-1 h-1 bg-blue-500 rounded-full animate-[ping_1s_ease-in-out_0.4s_infinite]"></span>
+    </span>
+  </span>
+);
+
+// Skeleton loader for message content (removed - too busy)
+// const MessageSkeleton = () => (
+//   <div className="space-y-3 animate-pulse">
+//     <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+//     <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+//     <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+//   </div>
+// );
+
+// Tool call loading indicator
+const ToolCallLoading = () => (
+  <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+    <div className="flex space-x-1">
+      <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce"></div>
+      <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+      <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+    </div>
+    <span className="text-sm text-amber-700 font-medium">Running tools...</span>
+  </div>
+);
 
 interface ChatInterfaceProps {
   chatHook: ReturnType<typeof useChat>;
@@ -55,6 +87,8 @@ export function ChatInterface({
     showModelDropdown: internalShowModelDropdown,
     failedMessage,
     currentConversation,
+    streamingMessageId,
+    activeToolCalls,
     setMessageInput,
     setSelectedModel,
     setShowModelDropdown,
@@ -67,6 +101,7 @@ export function ChatInterface({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const modelDropdownRef = useRef<HTMLDivElement>(null);
+  const [showToolCallLoading, setShowToolCallLoading] = useState(false);
 
   useEffect(() => {
     scrollToBottom();
@@ -92,34 +127,46 @@ export function ChatInterface({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const getStatusIndicator = (status: string, hasContent: boolean = false) => {
+  const getStatusIndicator = (status: string, hasContent: boolean = false, isStreaming: boolean = false) => {
+    // For streaming with content, show inline cursor indicator instead
+    if (status === 'processing' && hasContent && isStreaming) {
+      return null; // Will show streaming cursor inline with content
+    }
+
     switch (status) {
       case 'pending':
         return (
-          <div className="flex items-center gap-2 text-amber-600 text-xs">
-            <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+          <div className="flex items-center gap-2 text-amber-600 text-sm font-medium">
+            <div className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+            </div>
             <span>Pending...</span>
           </div>
         );
       case 'processing':
-        // Don't show indicator if there's already content being streamed
-        if (hasContent) {
-          return null;
-        }
-        return (
-          <div className="flex items-center gap-2 text-blue-600 text-xs">
-            <div className="flex space-x-1">
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"></div>
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+        // Show skeleton for empty processing messages
+        if (!hasContent) {
+          return (
+            <div className="flex items-center gap-3 text-blue-600 text-sm font-medium">
+              <div className="flex items-center gap-2">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
+                </div>
+                <span>Thinking</span>
+              </div>
             </div>
-            <span>Processing...</span>
-          </div>
-        );
+          );
+        }
+        return null;
       case 'failed':
         return (
-          <div className="flex items-center gap-2 text-red-600 text-xs">
-            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+          <div className="flex items-center gap-2 text-red-600 text-sm font-medium">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
             <span>Failed</span>
           </div>
         );
@@ -172,17 +219,15 @@ export function ChatInterface({
     // For assistant messages
     if (message.role === "assistant") {
       const hasContent = message.content && message.content.trim().length > 0;
+      const isStreaming = message.id === streamingMessageId;
 
-      if (message.status !== 'completed') {
-        // Show status indicator if no content yet, otherwise show content with streaming cursor
-        if (!hasContent) {
-          return (
-            <div className="flex items-center justify-center py-4">
-              {getStatusIndicator(message.status, false)}
-            </div>
-          );
-        }
-        // Fall through to render content with streaming indicator
+      // Show status indicator for non-completed messages without content
+      if (!hasContent && message.status !== 'completed') {
+        return (
+          <div className="flex items-center justify-center py-4">
+            {getStatusIndicator(message.status, false, isStreaming)}
+          </div>
+        );
       }
 
       if (hasContent) {
@@ -194,9 +239,7 @@ export function ChatInterface({
               <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
                 {text}
               </Markdown>
-              {message.status === 'processing' && (
-                <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-1"></span>
-              )}
+              {isStreaming && <StreamingCursor />}
             </div>
             <CardsSection cards={cards} onCardClick={onCardClick} />
             <TasksSection tasks={tasks} onTaskClick={onTaskClick} />
@@ -289,38 +332,45 @@ export function ChatInterface({
           </div>
         )}
 
-        {messages.map((message) => (
-          <div key={message.id} className="flex items-start gap-3 group">
-            <div className={`flex flex-col ${message.role === "user" ? "items-end w-full" : "flex-1"}`}>
-              <div className={`${getMessageStyle(message.role)} ${message.role === "tool" ? "" : `py-2 px-4 ${textSize}`}`}>
-                {message.role !== "tool" && (
-                  <div className={`text-xs mb-2 flex items-center gap-2 ${message.role === "user" ? "text-blue-100 justify-end" : "text-gray-500"}`}>
-                    <span className="font-medium capitalize">{message.role}</span>
-                    <span>•</span>
-                    <span>{new Date(message.created_at).toLocaleTimeString()}</span>
+        {/* Tool call loading indicator */}
+        {activeToolCalls && activeToolCalls.size > 0 && (
+          <ToolCallLoading />
+        )}
+
+        {messages.map((message) => {
+          return (
+            <div key={message.id} className="flex items-start gap-3 group">
+              <div className={`flex flex-col ${message.role === "user" ? "items-end w-full" : "flex-1"}`}>
+                <div className={`${getMessageStyle(message.role)} ${message.role === "tool" ? "" : `py-2 px-4 ${textSize}`}`}>
+                  {message.role !== "tool" && (
+                    <div className={`text-xs mb-2 flex items-center gap-2 ${message.role === "user" ? "text-blue-100 justify-end" : "text-gray-500"}`}>
+                      <span className="font-medium capitalize">{message.role}</span>
+                      <span>•</span>
+                      <span>{new Date(message.created_at).toLocaleTimeString()}</span>
+                    </div>
+                  )}
+                  {formatMessageContent(message)}
+                </div>
+
+                {/* Regenerate button for assistant messages */}
+                {message.role === "assistant" && message.status === "completed" && onRegenerateMessage && (
+                  <div className="mt-2 flex justify-start">
+                    <button
+                      onClick={() => onRegenerateMessage(message.id)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-gray-500 hover:text-gray-700 text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100"
+                      title="Regenerate this message"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 2A8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Regenerate
+                    </button>
                   </div>
                 )}
-                {formatMessageContent(message)}
               </div>
-
-              {/* Regenerate button for assistant messages */}
-              {message.role === "assistant" && message.status === "completed" && onRegenerateMessage && (
-                <div className="mt-2 flex justify-start">
-                  <button
-                    onClick={() => onRegenerateMessage(message.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-gray-500 hover:text-gray-700 text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100"
-                    title="Regenerate this message"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Regenerate
-                  </button>
-                </div>
-              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         <div ref={messagesEndRef} />
       </div>
