@@ -34,8 +34,9 @@ const (
 	ToolGetTaskByID        = "get_task_by_id"
 	ToolGetEntityByName    = "get_entity_by_name"
 	ToolSearchEntities     = "search_entities"
-	ToolGetCardsByEntity   = "get_cards_by_entity"
-	ToolGetUserMemory      = "get_user_memory"
+	ToolGetCardsByEntity = "get_cards_by_entity"
+	ToolGetUserMemory    = "get_user_memory"
+	ToolGetTemplate      = "get_template"
 )
 
 // ToolContext contains all the context needed for tool execution
@@ -179,6 +180,7 @@ func NewToolRegistry() *ToolRegistry {
 	registry.registerSearchEntities()
 	registry.registerGetCardsByEntity()
 	registry.registerGetUserMemory()
+	registry.registerGetTemplate()
 
 	return registry
 }
@@ -1541,4 +1543,67 @@ func (tr *ToolRegistry) registerGetUserMemory() {
 			}, nil
 		},
 	}
+}
+
+func (tr *ToolRegistry) registerGetTemplate() {
+	tr.tools["get_template"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "get_template",
+				Description: "Get a specific template by its numeric ID. Returns the full template details including name, title, and body templates.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"template_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The numeric ID of the template to retrieve",
+						},
+					},
+					"required": []string{"template_id"},
+				},
+			},
+		},
+		Handler: handleGetTemplate,
+	}
+}
+
+func handleGetTemplate(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	templateID, err := getIntParam(args, "template_id")
+	if err != nil {
+		return nil, err
+	}
+
+	template, err := GetTemplate(ctx.DB, ctx.UserID, templateID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get template: %v", err)
+	}
+
+	return StructToMap(template), nil
+}
+
+// GetTemplate retrieves a template by ID for a specific user
+func GetTemplate(db *sql.DB, userID, templateID int) (models.CardTemplate, error) {
+	var template models.CardTemplate
+
+	query := `
+		SELECT id, user_id, name, title, body, created_at, updated_at
+		FROM card_templates
+		WHERE id = $1 AND user_id = $2
+	`
+
+	err := db.QueryRow(query, templateID, userID).Scan(
+		&template.ID,
+		&template.UserID,
+		&template.Name,
+		&template.Title,
+		&template.Body,
+		&template.CreatedAt,
+		&template.UpdatedAt,
+	)
+	if err != nil {
+		return models.CardTemplate{}, fmt.Errorf("template not found")
+	}
+
+	return template, nil
 }
