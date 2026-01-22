@@ -240,11 +240,19 @@ func (tr *ToolRegistry) ExecuteTool(name string, args map[string]interface{}, ct
 	result, err := tool.Handler(args, ctx)
 	executionTime := int(time.Since(start).Milliseconds())
 
-	// Log tool execution for analytics
+	// Log tool execution for analytics (with timeout to prevent goroutine leaks)
 	go func() {
+		// Create a context with timeout for logging
+		logCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
 		logErr := logToolExecution(ctx.DB, ctx.UserID, name, args, result, executionTime, err, ctx.ConversationID, ctx.MessageID)
 		if logErr != nil {
-			log.Printf("Error logging tool execution: %v", logErr)
+			if logCtx.Err() == context.DeadlineExceeded {
+				log.Printf("Timeout logging tool execution for %s", name)
+			} else {
+				log.Printf("Error logging tool execution: %v", logErr)
+			}
 		}
 	}()
 

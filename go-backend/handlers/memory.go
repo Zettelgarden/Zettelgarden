@@ -12,22 +12,31 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/sashabaranov/go-openai"
 )
 
+// GenerateMemory generates user memory based on card content (fire-and-forget with timeout)
 func (s *Handler) GenerateMemory(userID uint, cardContent string) {
-
 	if s.Server.Testing {
 		return
 	}
 
 	go func() {
+		// Create a context with timeout to prevent indefinite goroutine execution
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+
 		client := services.NewDefaultClient(s.DB, int(userID))
 		client.RequestType = "memory"
-		_, err := GenerateUserMemory(s.DB, client, userID, cardContent)
+		_, err := GenerateUserMemory(ctx, s.DB, client, userID, cardContent)
 		if err != nil {
-			log.Printf("error generating user memory: %v", err)
+			if ctx.Err() == context.DeadlineExceeded {
+				log.Printf("user memory generation timed out for user %d", userID)
+			} else {
+				log.Printf("error generating user memory: %v", err)
+			}
 			return
 		}
 		_, err = s.DB.Exec("UPDATE users SET memory_has_changed = true WHERE id = $1", userID)
@@ -38,18 +47,26 @@ func (s *Handler) GenerateMemory(userID uint, cardContent string) {
 	}()
 }
 
+// GenerateChatMemory generates user memory based on chat (fire-and-forget with timeout)
 func (s *Handler) GenerateChatMemory(userID uint, userMessage, assistantMessage string) {
-
 	if s.Server.Testing {
 		return
 	}
 
 	go func() {
+		// Create a context with timeout to prevent indefinite goroutine execution
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+
 		client := services.NewDefaultClient(s.DB, int(userID))
 		client.RequestType = "chat_memory"
-		_, err := GenerateUserChatMemory(s.DB, client, userID, userMessage, assistantMessage)
+		_, err := GenerateUserChatMemory(ctx, s.DB, client, userID, userMessage, assistantMessage)
 		if err != nil {
-			log.Printf("error generating user chat memory: %v", err)
+			if ctx.Err() == context.DeadlineExceeded {
+				log.Printf("chat memory generation timed out for user %d", userID)
+			} else {
+				log.Printf("error generating user chat memory: %v", err)
+			}
 			return
 		}
 		_, err = s.DB.Exec("UPDATE users SET memory_has_changed = true WHERE id = $1", userID)
@@ -115,7 +132,8 @@ func (s *Handler) UpdateUserMemoryRoute(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(map[string]string{"message": "Memory updated successfully"})
 }
 
-func GenerateUserMemory(db *sql.DB, client *models.LLMClient, userID uint, cardContent string) (string, error) {
+// GenerateUserMemory generates user memory based on card content
+func GenerateUserMemory(ctx context.Context, db *sql.DB, client *models.LLMClient, userID uint, cardContent string) (string, error) {
 	userMemory, err := GetUserMemory(db, int(userID))
 	if err != nil {
 		return "", err
@@ -146,7 +164,7 @@ func GenerateUserMemory(db *sql.DB, client *models.LLMClient, userID uint, cardC
 		},
 	}
 
-	response, err := services.ExecuteLLMRequest(context.Background(), client, messages)
+	response, err := services.ExecuteLLMRequest(ctx, client, messages)
 	if err != nil {
 		return "", err
 	}
@@ -233,7 +251,8 @@ Your task is to produce a new, superior, and more compact version of the entire 
 	return response.Choices[0].Message.Content, nil
 }
 
-func GenerateUserChatMemory(db *sql.DB, client *models.LLMClient, userID uint, userMessage, assistantMessage string) (string, error) {
+// GenerateUserChatMemory generates user memory based on chat conversation
+func GenerateUserChatMemory(ctx context.Context, db *sql.DB, client *models.LLMClient, userID uint, userMessage, assistantMessage string) (string, error) {
 	userMemory, err := GetUserMemory(db, int(userID))
 	if err != nil {
 		return "", err
@@ -265,7 +284,7 @@ Assistant: %s
 		},
 	}
 
-	response, err := services.ExecuteLLMRequest(context.Background(), client, messages)
+	response, err := services.ExecuteLLMRequest(ctx, client, messages)
 	if err != nil {
 		return "", err
 	}
