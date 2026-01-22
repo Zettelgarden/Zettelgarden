@@ -43,6 +43,7 @@ export function useChat(options: UseChatOptions = {}) {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const streamingContentRef = useRef<string>("");
   const activeStreamConversationRef = useRef<string | null>(null);
+  const realConversationIdRef = useRef<string | null>(null); // Track real UUID separately from state
   const { setConversationId } = useChatContext();
   const enableStreaming = options.enableStreaming ?? true; // Default to enabled
 
@@ -143,6 +144,7 @@ export function useChat(options: UseChatOptions = {}) {
 
     setCurrentConversation(draftConv);
     setIsDraftConversation(true);
+    realConversationIdRef.current = null; // Clear real UUID for drafts
     setMessages([]);
     setError(null);
 
@@ -167,6 +169,7 @@ export function useChat(options: UseChatOptions = {}) {
 
       const data = await getConversation(conversationId);
       setCurrentConversation(data.conversation);
+      realConversationIdRef.current = data.conversation.id; // Track real UUID
       setMessages(data.messages || []);
       setError(null);
 
@@ -411,7 +414,8 @@ export function useChat(options: UseChatOptions = {}) {
     setFailedMessage(null); // Clear any previous failed message
 
     // If this is a draft conversation, we need to create it in the backend first
-    let conversationId = currentConversation.id;
+    // Use the real UUID from ref if available (handles case where state hasn't updated yet)
+    let conversationId = realConversationIdRef.current || currentConversation.id;
     if (isDraftConversation) {
       try {
         setIsLoading(true);
@@ -425,6 +429,7 @@ export function useChat(options: UseChatOptions = {}) {
         setCurrentConversation(newConv);
         setIsDraftConversation(false);
         setConversationId(newConv.id);
+        realConversationIdRef.current = newConv.id; // Track real UUID immediately
         conversationId = newConv.id;
 
         // Notify that a conversation was created from a draft
@@ -455,7 +460,7 @@ export function useChat(options: UseChatOptions = {}) {
     setFailedMessage(null);
 
     // Retry sending the message
-    await sendMessageToConversation(currentConversation.id, content, cards.length > 0 ? cards : undefined);
+    await sendMessageToConversation(realConversationIdRef.current || currentConversation.id, content, cards.length > 0 ? cards : undefined);
   };
 
   const handleCardReference = (cardIds: string[]) => {
