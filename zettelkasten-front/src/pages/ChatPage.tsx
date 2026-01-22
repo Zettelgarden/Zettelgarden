@@ -28,6 +28,8 @@ export function ChatPage({ }: ChatPageProps) {
   const [showInstructionsMenu, setShowInstructionsMenu] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showStarredOnly, setShowStarredOnly] = useState(false);
 
   // Loading states for async operations
   const [loadingConversations, setLoadingConversations] = useState(false);
@@ -291,6 +293,23 @@ export function ChatPage({ }: ChatPageProps) {
     ? [chatHook.currentConversation!, ...conversations]
     : conversations;
 
+  // Filter conversations based on search query and starred filter
+  const filteredConversations = displayConversations.filter(conv => {
+    // Apply starred-only filter
+    if (showStarredOnly && !conv.starred) {
+      return false;
+    }
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const title = (conv.title || "").toLowerCase();
+      return title.includes(query);
+    }
+
+    return true;
+  });
+
   return (
     <div className="flex h-screen bg-white">
       {/* Conversations Sidebar */}
@@ -305,8 +324,12 @@ export function ChatPage({ }: ChatPageProps) {
         starringConversationIds={starringConversationIds}
         showAllRecent={showAllRecent}
         setShowAllRecent={setShowAllRecent}
-        displayConversations={displayConversations}
+        displayConversations={filteredConversations}
         isLoading={chatHook.isLoading}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        showStarredOnly={showStarredOnly}
+        setShowStarredOnly={setShowStarredOnly}
         onCreateNewConversation={createNewConversation}
         onLoadConversation={loadConversation}
         onStarConversation={starConversation}
