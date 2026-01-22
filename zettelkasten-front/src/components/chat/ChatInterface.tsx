@@ -28,11 +28,16 @@ export function ChatInterface({
   compact = false,
   showModelDropdown = true,
   availableModels = [
-    { value: "google/gemini-3-flash-preview", label: "google/gemini-3-flash-preview" },
-    { value: "google/gemini-2.5-flash-lite", label: "google/gemini-2.5-flash-lite" },
-    { value: "google/gemini-2.5-pro-preview", label: "google/gemini-3-pro-preview" },
-    { value: "openai/gpt-5", label: "GPT-5" },
-    { value: "anthropic/claude-sonnet-4.5", label: "anthropic/claude-sonnet-4.5" },
+    { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+    { value: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
+    { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+    { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash Preview" },
+    { value: "google/gemini-3-pro-preview", label: "Gemini 3 Pro Preview" },
+    { value: "openai/gpt-4o-mini", label: "GPT-4o Mini" },
+    { value: "openai/gpt-5-chat", label: "GPT-5 Chat" },
+    { value: "openai/gpt-5.1-chat", label: "GPT-5.1 Chat" },
+    { value: "openai/gpt-5.2-chat", label: "GPT-5.2 Chat" },
+    { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
   ],
   onRegenerateMessage
 }: ChatInterfaceProps) {
