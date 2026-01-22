@@ -58,6 +58,11 @@ export function ChatPage({ }: ChatPageProps) {
 
   useEffect(() => {
     setDocumentTitle("Chat");
+
+    // Clear any previous conversationId from context to avoid loading old chats
+    // This ensures the user starts with a clean slate when navigating to /app/chat
+    setConversationId("");
+
     loadConversations();
     handleUrlParams();
   }, []);
@@ -104,10 +109,11 @@ export function ChatPage({ }: ChatPageProps) {
 
   // Load specific conversation if set in context
   useEffect(() => {
-    if (conversationId && conversationId !== chatHook.currentConversation?.id) {
+    // Skip loading draft conversations (they start with "draft-") as they don't exist in the backend yet
+    if (conversationId && !conversationId.startsWith('draft-') && conversationId !== chatHook.currentConversation?.id) {
       loadConversation(conversationId);
     }
-  }, [conversationId]);
+  }, [conversationId, chatHook.currentConversation]);
 
   const loadConversations = async () => {
     setLoadingConversations(true);
@@ -120,11 +126,6 @@ export function ChatPage({ }: ChatPageProps) {
       }
 
       setConversations(convs);
-
-      // If no current conversation and we have conversations, load the most recent one
-      if (!chatHook.currentConversation && convs.length > 0) {
-        await loadConversation(convs[0].id);
-      }
     } catch (error) {
       console.error("Failed to load conversations:", error);
       showToast("error", "Failed to load conversations", "Please try refreshing the page.");
