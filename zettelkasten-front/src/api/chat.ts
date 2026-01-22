@@ -145,9 +145,10 @@ export function getConversations(primaryCardId?: number): Promise<ChatConversati
     headers: { Authorization: `Bearer ${token}` }
   })
     .then(checkStatus)
-    .then((response) => {
+    .then(async (response) => {
       if (response) {
-        return response.json() as Promise<ChatConversation[]>;
+        const data = await response.json() as ChatConversation[] | null;
+        return data || [];
       } else {
         return Promise.reject(new Error("Response is undefined"));
       }

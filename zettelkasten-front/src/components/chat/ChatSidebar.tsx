@@ -118,13 +118,18 @@ export function ChatSidebar({ card }: ChatSidebarProps) {
 
       setSelectedConversationId(conversation.id);
 
-      // Refresh the conversation list
+      // Set up the initial message using the hook's sendMessage mechanism
+      // This properly handles draft conversations by creating them on the backend first
+      const initialMessage = `I want to chat about this card: [${card.card_id}] - ${card.title}`;
+      chatHook.setMessageInput(initialMessage);
+      chatHook.handleCardReference([card.id.toString()]);
+
+      // Send the message - this will create the conversation on the backend
+      await chatHook.sendMessage();
+
+      // Refresh the conversation list after the conversation is created
       const conversations = await getConversations(card.id);
       setCardConversations(conversations);
-
-      // Send initial message with card context
-      const initialMessage = `I want to chat about this card: [${card.card_id}] - ${card.title}`;
-      await chatHook.sendMessageToConversation(conversation.id, initialMessage, [card.id.toString()]);
     } catch (error) {
       console.error("Failed to create conversation for card:", error);
     }

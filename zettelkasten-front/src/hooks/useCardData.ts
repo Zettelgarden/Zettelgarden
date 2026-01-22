@@ -60,7 +60,14 @@ export function useCardData(cardId?: string): UseCardDataResult {
       const jobs = await fetchSummariesForCard(id);
       setSummaries(jobs);
     } catch (err: any) {
-      console.error("Failed to fetch summaries", err);
+      // Silently handle case where card has no summaries - this is expected
+      const errorMessage = err?.message || String(err);
+      if (errorMessage.includes("no rows in result set") || errorMessage.includes("failed to find summarization")) {
+        // No summaries exist for this card, which is expected
+        setSummaries(null);
+      } else {
+        console.error("Failed to fetch summaries", err);
+      }
     }
   }
 
@@ -69,7 +76,14 @@ export function useCardData(cardId?: string): UseCardDataResult {
       const analysisData = await fetchAnalysisForCard(id);
       setAnalysis(analysisData);
     } catch (err: any) {
-      console.error("Failed to fetch analysis", err);
+      // Silently handle case where card has no analysis - this is expected
+      const errorMessage = err?.message || String(err);
+      if (errorMessage.includes("no rows in result set") || errorMessage.includes("failed to find summarization")) {
+        // No analysis exists for this card, which is expected
+        setAnalysis(null);
+      } else {
+        console.error("Failed to fetch analysis", err);
+      }
     }
   }
 
