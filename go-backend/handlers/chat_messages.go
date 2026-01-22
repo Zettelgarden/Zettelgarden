@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"go-backend/models"
+	"go-backend/services"
 	"log"
 	"net/http"
 	"strconv"
@@ -19,17 +20,6 @@ const (
 	// MaxReferencedCards is the maximum number of cards that can be referenced in a message
 	MaxReferencedCards = 10
 )
-
-// ValidChatModels contains the allowed model names for chat functionality
-var ValidChatModels = map[string]bool{
-	"gpt-4":          true,
-	"gpt-4-turbo":    true,
-	"gpt-4o":         true,
-	"gpt-3.5-turbo":  true,
-	"claude-3-haiku": true,
-	"claude-3-sonnet": true,
-	"claude-3-opus":  true,
-}
 
 // SendMessageRequest represents the request to send a message
 type SendMessageRequest struct {
@@ -64,7 +54,7 @@ func validateReferencedCards(referencedCards []string) error {
 // validateChatModel validates the model name is in the allowed list
 func validateChatModel(model *string) error {
 	if model != nil && *model != "" {
-		if !ValidChatModels[*model] {
+		if _, ok := services.ValidChatModels[*model]; !ok {
 			return fmt.Errorf("invalid model: %s", *model)
 		}
 	}
