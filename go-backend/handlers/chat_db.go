@@ -507,7 +507,7 @@ func (s *Handler) GetCardsByCardIDs(userID int, cardIDs []string) ([]models.Card
 
 // UpdateUserMessage updates the content of a user message
 func (s *Handler) UpdateUserMessage(messageID, content string) error {
-	query := `UPDATE chat_messages SET content = $1, updated_at = NOW() WHERE id = $2 AND role = 'user'`
+	query := `UPDATE chat_messages SET content = $1 WHERE id = $2 AND role = 'user'`
 	result, err := s.DB.Exec(query, content, messageID)
 	if err != nil {
 		return err
