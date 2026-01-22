@@ -34,6 +34,7 @@ export function useChat(options: UseChatOptions = {}) {
   const [isPolling, setIsPolling] = useState(false);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const [failedMessage, setFailedMessage] = useState<{ content: string; referencedCards: string[] } | null>(null);
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const streamingContentRef = useRef<string>("");
@@ -45,6 +46,13 @@ export function useChat(options: UseChatOptions = {}) {
   useEffect(() => {
     localStorage.setItem('chatSelectedModel', selectedModel);
   }, [selectedModel]);
+
+  // Clear failed message when user starts typing new content
+  useEffect(() => {
+    if (messageInput.trim() && failedMessage) {
+      setFailedMessage(null);
+    }
+  }, [messageInput, failedMessage]);
 
   // Reset collapsed state when messages change and add new tool results as collapsed by default
   useEffect(() => {
@@ -176,7 +184,12 @@ export function useChat(options: UseChatOptions = {}) {
     }
   };
 
-  const sendMessageToConversation = async (conversationId: string, message: string, referencedCards?: string[]) => {
+  const sendMessageToConversation = async (
+    conversationId: string,
+    message: string,
+    referencedCards?: string[],
+    messageAttempt?: { content: string; referencedCards: string[] }
+  ) => {
     setIsSending(true);
     setError(null);
 
@@ -346,6 +359,11 @@ export function useChat(options: UseChatOptions = {}) {
       console.error("Failed to send message:", error);
       setError("Failed to send message");
 
+      // Store the failed message for retry
+      if (messageAttempt) {
+        setFailedMessage(messageAttempt);
+      }
+
       // On error, remove optimistic messages and refresh from server
       setMessages(prev => prev.filter(msg =>
         msg.id !== optimisticUserMessage.id && msg.id !== optimisticAssistantMessage.id
@@ -367,8 +385,12 @@ export function useChat(options: UseChatOptions = {}) {
     const userMessage = messageInput.trim();
     const cardIds = passedReferencedCards || referencedCards;
 
+    // Store for potential retry
+    const messageAttempt = { content: userMessage, referencedCards: cardIds };
+
     setMessageInput("");
     setReferencedCards([]);
+    setFailedMessage(null); // Clear any previous failed message
 
     // If this is a draft conversation, we need to create it in the backend first
     let conversationId = currentConversation.id;
@@ -403,7 +425,19 @@ export function useChat(options: UseChatOptions = {}) {
       }
     }
 
-    await sendMessageToConversation(conversationId, userMessage, cardIds.length > 0 ? cardIds : undefined);
+    await sendMessageToConversation(conversationId, userMessage, cardIds.length > 0 ? cardIds : undefined, messageAttempt);
+  };
+
+  const retryFailedMessage = async () => {
+    if (!failedMessage || !currentConversation) return;
+
+    const { content, referencedCards: cards } = failedMessage;
+
+    // Clear the failed message state
+    setFailedMessage(null);
+
+    // Retry sending the message
+    await sendMessageToConversation(currentConversation.id, content, cards.length > 0 ? cards : undefined);
   };
 
   const handleCardReference = (cardIds: string[]) => {
@@ -436,6 +470,7 @@ export function useChat(options: UseChatOptions = {}) {
     referencedCards,
     isPolling,
     showModelDropdown,
+    failedMessage,
 
     // Setters
     setCurrentConversation,
@@ -456,5 +491,6 @@ export function useChat(options: UseChatOptions = {}) {
     refreshMessages,
     startPolling,
     stopPolling,
+    retryFailedMessage,
   };
 }

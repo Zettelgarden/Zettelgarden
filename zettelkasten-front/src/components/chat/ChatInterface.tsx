@@ -49,12 +49,14 @@ export function ChatInterface({
     selectedModel,
     collapsedToolResults,
     showModelDropdown: internalShowModelDropdown,
+    failedMessage,
     setMessageInput,
     setSelectedModel,
     setShowModelDropdown,
     sendMessage,
     handleCardReference,
     toggleToolResult,
+    retryFailedMessage,
   } = chatHook;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -267,6 +269,39 @@ export function ChatInterface({
     <div className="flex flex-col h-full min-h-0">
       {/* Messages */}
       <div className={`flex-1 overflow-y-auto ${messagesPadding} ${messageSpacing} bg-white min-h-0`}>
+        {failedMessage && (
+          <div className={`bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-2xl shadow-sm p-4 ${compact ? 'px-3 py-3' : 'px-6 py-4'}`}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 text-orange-800 mb-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span className="font-medium text-sm">Message failed to send</span>
+                </div>
+                <div className="bg-white rounded-lg p-3 text-sm text-gray-700 border border-orange-100 whitespace-pre-wrap break-words">
+                  {failedMessage.content}
+                </div>
+                {failedMessage.referencedCards && failedMessage.referencedCards.length > 0 && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    Referenced cards: {failedMessage.referencedCards.join(', ')}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => retryFailedMessage?.()}
+                disabled={isSending}
+                className="flex-shrink-0 flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className={`bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl shadow-sm flex items-center gap-3 ${compact ? 'px-4 py-3' : ''}`}>
             <span className="text-xl">⚠️</span>
