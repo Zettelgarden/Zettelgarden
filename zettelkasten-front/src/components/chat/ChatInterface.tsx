@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
@@ -9,6 +9,55 @@ import { TasksSection } from "./TasksSection";
 import { ChatInput } from "./ChatInput";
 import { ToolResultCard } from "./ToolResultCard";
 import { useChat } from "../../hooks/useChat";
+
+// Relative time component with auto-update and absolute time on hover
+const RelativeTime = ({ timestamp }: { timestamp: string }) => {
+  const [relativeTime, setRelativeTime] = useState("");
+  const [absoluteTime, setAbsoluteTime] = useState("");
+
+  const updateRelativeTime = useCallback(() => {
+    const now = new Date();
+    const then = new Date(timestamp);
+    const diffMs = now.getTime() - then.getTime();
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffSecs < 60) {
+      setRelativeTime("just now");
+    } else if (diffMins < 60) {
+      setRelativeTime(`${diffMins}m ago`);
+    } else if (diffHours < 24) {
+      setRelativeTime(`${diffHours}h ago`);
+    } else if (diffDays < 7) {
+      setRelativeTime(`${diffDays}d ago`);
+    } else {
+      // For older messages, show the date
+      setRelativeTime(then.toLocaleDateString());
+    }
+  }, [timestamp]);
+
+  useEffect(() => {
+    // Calculate absolute time once
+    const then = new Date(timestamp);
+    setAbsoluteTime(then.toLocaleString());
+
+    // Initial update
+    updateRelativeTime();
+
+    // Update every minute for messages less than an hour old
+    const interval = setInterval(updateRelativeTime, 60000);
+
+    return () => clearInterval(interval);
+  }, [timestamp, updateRelativeTime]);
+
+  return (
+    <span title={absoluteTime} className="cursor-help">
+      {relativeTime}
+    </span>
+  );
+};
 
 // Streaming cursor component with smooth animation
 const StreamingCursor = () => (
@@ -346,7 +395,7 @@ export function ChatInterface({
                     <div className={`text-xs mb-2 flex items-center gap-2 ${message.role === "user" ? "text-blue-100 justify-end" : "text-gray-500"}`}>
                       <span className="font-medium capitalize">{message.role}</span>
                       <span>•</span>
-                      <span>{new Date(message.created_at).toLocaleTimeString()}</span>
+                      <RelativeTime timestamp={message.created_at} />
                     </div>
                   )}
                   {formatMessageContent(message)}
