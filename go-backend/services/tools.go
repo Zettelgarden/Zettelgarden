@@ -15,6 +15,29 @@ import (
 	"github.com/typesense/typesense-go/typesense"
 )
 
+// Tool name constants
+const (
+	ToolSearchCards        = "search_cards"
+	ToolGetCardByID        = "get_card_by_id"
+	ToolBrowseCardHierarchy = "browse_card_hierarchy"
+	ToolCreateCard         = "create_card"
+	ToolUpdateCard         = "update_card"
+	ToolGetCardAnalysis    = "get_card_analysis"
+	ToolSearchFacts        = "search_facts"
+	ToolGetCardFacts       = "get_card_facts"
+	ToolGetEntityFacts     = "get_entity_facts"
+	ToolGetFactCards       = "get_fact_cards"
+	ToolTask               = "Task"
+	ToolGetTasks           = "get_tasks"
+	ToolCreateTask         = "create_task"
+	ToolUpdateTask         = "update_task"
+	ToolGetTaskByID        = "get_task_by_id"
+	ToolGetEntityByName    = "get_entity_by_name"
+	ToolSearchEntities     = "search_entities"
+	ToolGetCardsByEntity   = "get_cards_by_entity"
+	ToolGetUserMemory      = "get_user_memory"
+)
+
 // ToolContext contains all the context needed for tool execution
 type ToolContext struct {
 	UserID          int
@@ -36,6 +59,100 @@ type ToolRegistry struct {
 	tools map[string]Tool
 }
 
+// Parameter extraction helpers
+
+// getIntParam extracts an integer parameter from args
+func getIntParam(args map[string]interface{}, key string) (int, error) {
+	val, ok := args[key]
+	if !ok {
+		return 0, fmt.Errorf("%s parameter is required", key)
+	}
+	switch v := val.(type) {
+	case float64:
+		return int(v), nil
+	case int:
+		return v, nil
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil {
+			return 0, fmt.Errorf("invalid %s format: %v", key, err)
+		}
+		return int(i), nil
+	default:
+		return 0, fmt.Errorf("%s must be an integer", key)
+	}
+}
+
+// getOptionalIntParam extracts an optional integer parameter from args
+func getOptionalIntParam(args map[string]interface{}, key string) (int, bool, error) {
+	val, ok := args[key]
+	if !ok {
+		return 0, false, nil
+	}
+	switch v := val.(type) {
+	case float64:
+		return int(v), true, nil
+	case int:
+		return v, true, nil
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil {
+			return 0, false, fmt.Errorf("invalid %s format: %v", key, err)
+		}
+		return int(i), true, nil
+	default:
+		return 0, false, fmt.Errorf("%s must be an integer", key)
+	}
+}
+
+// getStringParam extracts a string parameter from args
+func getStringParam(args map[string]interface{}, key string) (string, error) {
+	val, ok := args[key]
+	if !ok {
+		return "", fmt.Errorf("%s parameter is required", key)
+	}
+	if str, ok := val.(string); ok {
+		return str, nil
+	}
+	return "", fmt.Errorf("%s must be a string", key)
+}
+
+// getOptionalStringParam extracts an optional string parameter from args
+func getOptionalStringParam(args map[string]interface{}, key string) (string, bool) {
+	val, ok := args[key]
+	if !ok {
+		return "", false
+	}
+	if str, ok := val.(string); ok {
+		return str, true
+	}
+	return "", false
+}
+
+// getBoolParam extracts a boolean parameter from args
+func getBoolParam(args map[string]interface{}, key string) (bool, error) {
+	val, ok := args[key]
+	if !ok {
+		return false, fmt.Errorf("%s parameter is required", key)
+	}
+	if b, ok := val.(bool); ok {
+		return b, nil
+	}
+	return false, fmt.Errorf("%s must be a boolean", key)
+}
+
+// getOptionalBoolParam extracts an optional boolean parameter from args
+func getOptionalBoolParam(args map[string]interface{}, key string) bool {
+	val, ok := args[key]
+	if !ok {
+		return false
+	}
+	if b, ok := val.(bool); ok {
+		return b
+	}
+	return false
+}
+
 // NewToolRegistry creates a new tool registry with all available tools
 func NewToolRegistry() *ToolRegistry {
 	registry := &ToolRegistry{
@@ -43,12 +160,16 @@ func NewToolRegistry() *ToolRegistry {
 	}
 
 	// Register all tools
-	//	registry.registerSearchCards()
+	registry.registerSearchCards()
 	registry.registerGetCardByID()
-	//registry.registerBrowseCardHierarchy()
-	//registry.registerFilterCardsByMetadata()
+	registry.registerBrowseCardHierarchy()
 	registry.registerCreateCard()
 	registry.registerUpdateCard()
+	registry.registerGetCardAnalysis()
+	registry.registerSearchFacts()
+	registry.registerGetCardFacts()
+	registry.registerGetEntityFacts()
+	registry.registerGetFactCards()
 	registry.registerTask()
 	registry.registerGetTasks()
 	registry.registerCreateTask()
@@ -56,6 +177,7 @@ func NewToolRegistry() *ToolRegistry {
 	registry.registerGetTaskByID()
 	registry.registerGetEntityByName()
 	registry.registerSearchEntities()
+	registry.registerGetCardsByEntity()
 	registry.registerGetUserMemory()
 
 	return registry
@@ -68,6 +190,43 @@ func (tr *ToolRegistry) GetToolDefinitions() []openai.Tool {
 		tools = append(tools, tool.Definition)
 	}
 	return tools
+}
+
+// CreateSubagentRegistry creates a new registry excluding specified tools (to prevent recursion)
+func (tr *ToolRegistry) CreateSubagentRegistry(excludeTools []string) *ToolRegistry {
+	subagentRegistry := &ToolRegistry{
+		tools: make(map[string]Tool),
+	}
+
+	// Create a set of excluded tool names for quick lookup
+	excluded := make(map[string]bool)
+	for _, name := range excludeTools {
+		excluded[name] = true
+	}
+
+	// Copy all tools except the excluded ones
+	for name, tool := range tr.tools {
+		if !excluded[name] {
+			subagentRegistry.tools[name] = tool
+		}
+	}
+
+	return subagentRegistry
+}
+
+// registerTool is a helper for registering tools with less boilerplate
+func (tr *ToolRegistry) registerTool(name, description string, params map[string]interface{}, handler func(map[string]interface{}, *ToolContext) (map[string]interface{}, error)) {
+	tr.tools[name] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        name,
+				Description: description,
+				Parameters:  params,
+			},
+		},
+		Handler: handler,
+	}
 }
 
 // ExecuteTool executes a tool by name with given arguments
@@ -350,24 +509,23 @@ func (tr *ToolRegistry) registerTask() {
 // Tool handlers
 
 func handleSearchCards(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	query, ok := args["query"].(string)
-	if !ok {
-		return nil, fmt.Errorf("query parameter is required")
+	query, err := getStringParam(args, "query")
+	if err != nil {
+		return nil, err
 	}
 
-	searchType := "semantic"
-	if st, ok := args["search_type"].(string); ok {
-		searchType = st
+	searchType, _ := getOptionalStringParam(args, "search_type")
+	if searchType == "" {
+		searchType = "semantic"
 	}
 
 	limit := 20
-	if l, ok := args["limit"].(float64); ok {
-		limit = int(l)
+	if l, ok, lerr := getOptionalIntParam(args, "limit"); ok && lerr == nil {
+		limit = l
 	}
 
 	// Execute search based on type
 	var cards []map[string]interface{}
-	var err error
 
 	if searchType == "text" {
 		cards, err = ExecuteTextSearch(ctx.DB, ctx.UserID, query, limit, ctx.TypesenseClient)
@@ -410,11 +568,10 @@ func StructToMap(obj interface{}) map[string]interface{} {
 }
 
 func handleGetCardByID(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	cardIDFloat, ok := args["card_id"].(float64)
-	if !ok {
-		return nil, fmt.Errorf("card_id parameter is required")
+	cardID, err := getIntParam(args, "card_id")
+	if err != nil {
+		return nil, err
 	}
-	cardID := int(cardIDFloat)
 
 	card, err := GetFullCard(ctx.DB, ctx.UserID, cardID)
 	if err != nil {
@@ -425,21 +582,18 @@ func handleGetCardByID(args map[string]interface{}, ctx *ToolContext) (map[strin
 }
 
 func handleCreateCard(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	title, ok := args["title"].(string)
-	if !ok {
-		return nil, fmt.Errorf("title parameter is required")
+	title, err := getStringParam(args, "title")
+	if err != nil {
+		return nil, err
 	}
 
-	body, ok := args["body"].(string)
-	if !ok {
-		return nil, fmt.Errorf("body parameter is required")
+	body, err := getStringParam(args, "body")
+	if err != nil {
+		return nil, err
 	}
 
 	// Link is optional, default to empty string
-	link := ""
-	if l, ok := args["link"].(string); ok {
-		link = l
-	}
+	link, _ := getOptionalStringParam(args, "link")
 
 	// Create card parameters with empty card_id for user categorization
 	params := models.EditCardParams{
@@ -465,11 +619,10 @@ func handleCreateCard(args map[string]interface{}, ctx *ToolContext) (map[string
 }
 
 func handleGetCardAnalysis(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	cardIDFloat, ok := args["card_pk"].(float64)
-	if !ok {
-		return nil, fmt.Errorf("card_pk parameter is required")
+	cardPK, err := getIntParam(args, "card_pk")
+	if err != nil {
+		return nil, err
 	}
-	cardPK := int(cardIDFloat)
 
 	// Get the card analysis using the services function
 	analysis, err := GetCardAnalysis(ctx.DB, ctx.UserID, cardPK)
@@ -485,15 +638,14 @@ func handleGetCardAnalysis(args map[string]interface{}, ctx *ToolContext) (map[s
 }
 
 func handleUpdateCard(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	cardIDFloat, ok := args["id"].(float64)
-	if !ok {
-		return nil, fmt.Errorf("id parameter is required")
+	cardPK, err := getIntParam(args, "id")
+	if err != nil {
+		return nil, err
 	}
-	cardPK := int(cardIDFloat)
 
-	existingCardID, ok := args["existing_card_id"].(string)
-	if !ok {
-		return nil, fmt.Errorf("existing_card_id parameter is required")
+	existingCardID, err := getStringParam(args, "existing_card_id")
+	if err != nil {
+		return nil, err
 	}
 
 	// Get the current card
@@ -516,13 +668,13 @@ func handleUpdateCard(args map[string]interface{}, ctx *ToolContext) (map[string
 	}
 
 	// Update only provided fields
-	if title, ok := args["title"].(string); ok {
+	if title, ok := getOptionalStringParam(args, "title"); ok {
 		params.Title = title
 	}
-	if body, ok := args["body"].(string); ok {
+	if body, ok := getOptionalStringParam(args, "body"); ok {
 		params.Body = body
 	}
-	if link, ok := args["link"].(string); ok {
+	if link, ok := getOptionalStringParam(args, "link"); ok {
 		params.Link = link
 	}
 
@@ -542,19 +694,17 @@ func handleUpdateCard(args map[string]interface{}, ctx *ToolContext) (map[string
 }
 
 func handleBrowseCardHierarchy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	cardIDFloat, ok := args["card_id"].(float64)
-	if !ok {
-		return nil, fmt.Errorf("card_id parameter is required")
+	cardPK, err := getIntParam(args, "card_id")
+	if err != nil {
+		return nil, err
 	}
-	cardPK := int(cardIDFloat)
 
-	direction, ok := args["direction"].(string)
-	if !ok {
-		return nil, fmt.Errorf("direction parameter is required")
+	direction, err := getStringParam(args, "direction")
+	if err != nil {
+		return nil, err
 	}
 
 	var cards []models.PartialCard
-	var err error
 
 	if direction == "children" {
 		cards, err = GetChildCards(ctx.DB, ctx.UserID, cardPK)
@@ -580,18 +730,18 @@ func handleBrowseCardHierarchy(args map[string]interface{}, ctx *ToolContext) (m
 }
 
 func handleTask(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	description, ok := args["description"].(string)
-	if !ok {
-		return nil, fmt.Errorf("description parameter is required")
+	description, err := getStringParam(args, "description")
+	if err != nil {
+		return nil, err
 	}
 
-	prompt, ok := args["prompt"].(string)
-	if !ok {
-		return nil, fmt.Errorf("prompt parameter is required")
+	prompt, err := getStringParam(args, "prompt")
+	if err != nil {
+		return nil, err
 	}
 
-	subagentType, ok := args["subagent_type"].(string)
-	if !ok {
+	subagentType, _ := getOptionalStringParam(args, "subagent_type")
+	if subagentType == "" {
 		subagentType = "general-purpose"
 	}
 
@@ -618,26 +768,24 @@ func executeSubagentTask(prompt, subagentType string, ctx *ToolContext) (string,
 	client.RequestType = "tools"
 	client.Model = ctx.Model
 
-	// Create a tool registry for the subagent (excluding the Task tool to prevent recursion)
-	subagentRegistry := &ToolRegistry{
-		tools: make(map[string]Tool),
-	}
-	subagentRegistry.registerSearchCards()
-	subagentRegistry.registerGetCardByID()
-	subagentRegistry.registerBrowseCardHierarchy()
-	subagentRegistry.registerGetCardAnalysis()
-	subagentRegistry.registerSearchFacts()
-	subagentRegistry.registerGetCardFacts()
-	subagentRegistry.registerGetEntityFacts()
-	subagentRegistry.registerGetFactCards()
-	subagentRegistry.registerGetTasks()
-	subagentRegistry.registerGetTaskByID()
-	subagentRegistry.registerGetEntityByName()
-	subagentRegistry.registerSearchEntities()
-	subagentRegistry.registerGetCardsByEntity()
+	// Create a tool registry for the subagent by excluding the Task tool to prevent recursion
+	mainRegistry := NewToolRegistry()
+	subagentRegistry := mainRegistry.CreateSubagentRegistry([]string{ToolTask})
 
 	tools := subagentRegistry.GetToolDefinitions()
 
+	// Create initial messages
+	messages, err := createSubagentMessages(prompt)
+	if err != nil {
+		return "", err
+	}
+
+	// Run the subagent conversation
+	return runSubagentConversation(client, messages, tools, subagentRegistry, ctx)
+}
+
+// createSubagentMessages creates the initial messages for the subagent
+func createSubagentMessages(prompt string) ([]openai.ChatCompletionMessage, error) {
 	// Load system prompt for the subagent
 	systemPrompt, err := prompts.GetSubagentResearcherPrompt()
 	if err != nil {
@@ -646,7 +794,7 @@ func executeSubagentTask(prompt, subagentType string, ctx *ToolContext) (string,
 		systemPrompt = "You are a specialized research assistant with access to a user's knowledge base. Use the available tools to help answer questions and gather information."
 	}
 
-	messages := []openai.ChatCompletionMessage{
+	return []openai.ChatCompletionMessage{
 		{
 			Role:    openai.ChatMessageRoleSystem,
 			Content: systemPrompt,
@@ -655,9 +803,17 @@ func executeSubagentTask(prompt, subagentType string, ctx *ToolContext) (string,
 			Role:    openai.ChatMessageRoleUser,
 			Content: prompt,
 		},
-	}
+	}, nil
+}
 
-	// Execute the subagent conversation with potential tool calls
+// runSubagentConversation runs the conversation loop for the subagent
+func runSubagentConversation(
+	client *models.LLMClient,
+	messages []openai.ChatCompletionMessage,
+	tools []openai.Tool,
+	registry *ToolRegistry,
+	ctx *ToolContext,
+) (string, error) {
 	maxIterations := 5 // Prevent infinite loops
 	for i := 0; i < maxIterations; i++ {
 		resp, err := ExecuteLLMToolRequest(context.Background(), client, messages, tools)
@@ -675,45 +831,61 @@ func executeSubagentTask(prompt, subagentType string, ctx *ToolContext) (string,
 
 		// Execute tool calls
 		for _, tc := range assistantMessage.ToolCalls {
-			var args map[string]interface{}
-			if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
-				log.Printf("Error parsing tool arguments: %v", err)
-				continue
-			}
-
-			start := time.Now()
-			log.Printf("subagent tool - %v", tc.Function.Name)
-			result, err := subagentRegistry.ExecuteTool(tc.Function.Name, args, ctx)
-			executionTime := int(time.Since(start).Milliseconds())
-
+			toolResp, err := executeSubagentToolCall(tc, registry, ctx)
 			if err != nil {
 				log.Printf("Error executing tool %s: %v", tc.Function.Name, err)
-				result = map[string]interface{}{
-					"error": err.Error(),
-				}
 			}
-
-			// Log subagent tool execution
-			go func(toolName string, toolArgs, toolResult map[string]interface{}, execTime int, execErr error) {
-				logErr := logToolExecution(ctx.DB, ctx.UserID, toolName, toolArgs, toolResult, execTime, execErr, ctx.ConversationID, ctx.MessageID)
-				if logErr != nil {
-					log.Printf("Error logging subagent tool execution: %v", logErr)
-				}
-			}(tc.Function.Name, args, result, executionTime, err)
-
-			// Convert result to JSON string for tool response
-			resultJSON, _ := json.Marshal(result)
-
-			// Add tool response message
-			messages = append(messages, openai.ChatCompletionMessage{
-				Role:       openai.ChatMessageRoleTool,
-				Content:    string(resultJSON),
-				ToolCallID: tc.ID,
-			})
+			messages = append(messages, toolResp)
 		}
 	}
 
 	return "Subagent completed after maximum iterations", nil
+}
+
+// executeSubagentToolCall executes a single tool call for the subagent
+func executeSubagentToolCall(
+	tc openai.ToolCall,
+	registry *ToolRegistry,
+	ctx *ToolContext,
+) (openai.ChatCompletionMessage, error) {
+	var args map[string]interface{}
+	if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+		log.Printf("Error parsing tool arguments: %v", err)
+		return openai.ChatCompletionMessage{
+			Role:       openai.ChatMessageRoleTool,
+			Content:    `{"error":"invalid arguments"}`,
+			ToolCallID: tc.ID,
+		}, nil
+	}
+
+	start := time.Now()
+	log.Printf("subagent tool - %v", tc.Function.Name)
+	result, execErr := registry.ExecuteTool(tc.Function.Name, args, ctx)
+	executionTime := int(time.Since(start).Milliseconds())
+
+	if execErr != nil {
+		log.Printf("Error executing tool %s: %v", tc.Function.Name, execErr)
+		result = map[string]interface{}{
+			"error": execErr.Error(),
+		}
+	}
+
+	// Log subagent tool execution
+	go func(toolName string, toolArgs, toolResult map[string]interface{}, execTime int) {
+		logErr := logToolExecution(ctx.DB, ctx.UserID, toolName, toolArgs, toolResult, execTime, execErr, ctx.ConversationID, ctx.MessageID)
+		if logErr != nil {
+			log.Printf("Error logging subagent tool execution: %v", logErr)
+		}
+	}(tc.Function.Name, args, result, executionTime)
+
+	// Convert result to JSON string for tool response
+	resultJSON, _ := json.Marshal(result)
+
+	return openai.ChatCompletionMessage{
+		Role:       openai.ChatMessageRoleTool,
+		Content:    string(resultJSON),
+		ToolCallID: tc.ID,
+	}, nil
 }
 
 func (tr *ToolRegistry) registerGetCardFacts() {
@@ -786,23 +958,22 @@ func (tr *ToolRegistry) registerGetFactCards() {
 }
 
 func handleSearchFacts(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	query, ok := args["query"].(string)
-	if !ok {
-		return nil, fmt.Errorf("query parameter is required")
+	query, err := getStringParam(args, "query")
+	if err != nil {
+		return nil, err
 	}
 
-	searchType := "semantic"
-	if st, ok := args["search_type"].(string); ok {
-		searchType = st
+	searchType, _ := getOptionalStringParam(args, "search_type")
+	if searchType == "" {
+		searchType = "semantic"
 	}
 
 	limit := 10
-	if l, ok := args["limit"].(float64); ok {
-		limit = int(l)
+	if l, ok, lerr := getOptionalIntParam(args, "limit"); ok && lerr == nil {
+		limit = l
 	}
 
 	var facts []map[string]interface{}
-	var err error
 
 	if searchType == "text" {
 		facts, err = ExecuteFactTextSearch(ctx.DB, ctx.UserID, query, limit, ctx.TypesenseClient)
@@ -823,15 +994,14 @@ func handleSearchFacts(args map[string]interface{}, ctx *ToolContext) (map[strin
 }
 
 func handleGetCardFacts(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	cardPKFloat, ok := args["card_pk"].(float64)
-	if !ok {
-		return nil, fmt.Errorf("card_pk parameter is required")
-	}
-	cardPK := int(cardPKFloat)
-
-	facts, err := GetCardFacts(ctx.DB, ctx.UserID, cardPK)
+	cardPK, err := getIntParam(args, "card_pk")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get card facts: %v", err)
+		return nil, err
+	}
+
+	facts, lerr := GetCardFacts(ctx.DB, ctx.UserID, cardPK)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to get card facts: %v", lerr)
 	}
 
 	var results []map[string]interface{}
@@ -846,15 +1016,14 @@ func handleGetCardFacts(args map[string]interface{}, ctx *ToolContext) (map[stri
 }
 
 func handleGetEntityFacts(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	entityIDFloat, ok := args["entity_id"].(float64)
-	if !ok {
-		return nil, fmt.Errorf("entity_id parameter is required")
-	}
-	entityID := int(entityIDFloat)
-
-	facts, err := GetEntityFacts(ctx.DB, ctx.UserID, entityID)
+	entityID, err := getIntParam(args, "entity_id")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get entity facts: %v", err)
+		return nil, err
+	}
+
+	facts, lerr := GetEntityFacts(ctx.DB, ctx.UserID, entityID)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to get entity facts: %v", lerr)
 	}
 
 	var results []map[string]interface{}
@@ -869,15 +1038,14 @@ func handleGetEntityFacts(args map[string]interface{}, ctx *ToolContext) (map[st
 }
 
 func handleGetFactCards(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	factIDFloat, ok := args["fact_id"].(float64)
-	if !ok {
-		return nil, fmt.Errorf("fact_id parameter is required")
-	}
-	factID := int(factIDFloat)
-
-	cards, err := GetFactCards(ctx.DB, ctx.UserID, factID)
+	factID, err := getIntParam(args, "fact_id")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get fact cards: %v", err)
+		return nil, err
+	}
+
+	cards, lerr := GetFactCards(ctx.DB, ctx.UserID, factID)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to get fact cards: %v", lerr)
 	}
 
 	var results []map[string]interface{}
@@ -1060,9 +1228,9 @@ func handleGetTasks(args map[string]interface{}, ctx *ToolContext) (map[string]i
 }
 
 func handleCreateTask(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	title, ok := args["title"].(string)
-	if !ok {
-		return nil, fmt.Errorf("title parameter is required")
+	title, err := getStringParam(args, "title")
+	if err != nil {
+		return nil, err
 	}
 
 	task := models.Task{
@@ -1071,18 +1239,18 @@ func handleCreateTask(args map[string]interface{}, ctx *ToolContext) (map[string
 		IsComplete: false,
 	}
 
-	if scheduledDateStr, ok := args["scheduled_date"].(string); ok {
-		scheduledDate, err := time.Parse(time.RFC3339, scheduledDateStr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid scheduled_date format: %v", err)
+	if scheduledDateStr, ok := getOptionalStringParam(args, "scheduled_date"); ok {
+		scheduledDate, perr := time.Parse(time.RFC3339, scheduledDateStr)
+		if perr != nil {
+			return nil, fmt.Errorf("invalid scheduled_date format: %v", perr)
 		}
 		task.ScheduledDate = &scheduledDate
 	}
 
-	if dueDateStr, ok := args["due_date"].(string); ok {
-		dueDate, err := time.Parse(time.RFC3339, dueDateStr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid due_date format: %v", err)
+	if dueDateStr, ok := getOptionalStringParam(args, "due_date"); ok {
+		dueDate, perr := time.Parse(time.RFC3339, dueDateStr)
+		if perr != nil {
+			return nil, fmt.Errorf("invalid due_date format: %v", perr)
 		}
 		task.DueDate = &dueDate
 	} else {
@@ -1090,12 +1258,12 @@ func handleCreateTask(args map[string]interface{}, ctx *ToolContext) (map[string
 		task.DueDate = &now
 	}
 
-	if priority, ok := args["priority"].(string); ok {
+	if priority, ok := getOptionalStringParam(args, "priority"); ok {
 		task.Priority = &priority
 	}
 
-	if cardPKFloat, ok := args["card_pk"].(float64); ok {
-		task.CardPK = int(cardPKFloat)
+	if cardPK, ok, _ := getOptionalIntParam(args, "card_pk"); ok {
+		task.CardPK = cardPK
 	}
 
 	taskID, err := CreateTask(ctx.DB, task)
@@ -1112,38 +1280,37 @@ func handleCreateTask(args map[string]interface{}, ctx *ToolContext) (map[string
 }
 
 func handleUpdateTask(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	taskIDFloat, ok := args["task_id"].(float64)
-	if !ok {
-		return nil, fmt.Errorf("task_id parameter is required")
-	}
-	taskID := int(taskIDFloat)
-
-	currentTask, err := GetTask(ctx.DB, ctx.UserID, taskID)
+	taskID, err := getIntParam(args, "task_id")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get task: %v", err)
+		return nil, err
 	}
 
-	if title, ok := args["title"].(string); ok {
+	currentTask, lerr := GetTask(ctx.DB, ctx.UserID, taskID)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to get task: %v", lerr)
+	}
+
+	if title, ok := getOptionalStringParam(args, "title"); ok {
 		currentTask.Title = title
 	}
 
-	if scheduledDateStr, ok := args["scheduled_date"].(string); ok {
-		scheduledDate, err := time.Parse(time.RFC3339, scheduledDateStr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid scheduled_date format: %v", err)
+	if scheduledDateStr, ok := getOptionalStringParam(args, "scheduled_date"); ok {
+		scheduledDate, perr := time.Parse(time.RFC3339, scheduledDateStr)
+		if perr != nil {
+			return nil, fmt.Errorf("invalid scheduled_date format: %v", perr)
 		}
 		currentTask.ScheduledDate = &scheduledDate
 	}
 
-	if dueDateStr, ok := args["due_date"].(string); ok {
-		dueDate, err := time.Parse(time.RFC3339, dueDateStr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid due_date format: %v", err)
+	if dueDateStr, ok := getOptionalStringParam(args, "due_date"); ok {
+		dueDate, perr := time.Parse(time.RFC3339, dueDateStr)
+		if perr != nil {
+			return nil, fmt.Errorf("invalid due_date format: %v", perr)
 		}
 		currentTask.DueDate = &dueDate
 	}
 
-	if priority, ok := args["priority"].(string); ok {
+	if priority, ok := getOptionalStringParam(args, "priority"); ok {
 		currentTask.Priority = &priority
 	}
 
@@ -1151,33 +1318,32 @@ func handleUpdateTask(args map[string]interface{}, ctx *ToolContext) (map[string
 		currentTask.IsComplete = isComplete
 	}
 
-	if cardPKFloat, ok := args["card_pk"].(float64); ok {
-		currentTask.CardPK = int(cardPKFloat)
+	if cardPK, ok, _ := getOptionalIntParam(args, "card_pk"); ok {
+		currentTask.CardPK = cardPK
 	}
 
-	_, err = UpdateTask(ctx.DB, ctx.UserID, taskID, currentTask)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update task: %v", err)
+	_, uerr := UpdateTask(ctx.DB, ctx.UserID, taskID, currentTask)
+	if uerr != nil {
+		return nil, fmt.Errorf("failed to update task: %v", uerr)
 	}
 
-	updatedTask, err := GetTask(ctx.DB, ctx.UserID, taskID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve updated task: %v", err)
+	updatedTask, uerr := GetTask(ctx.DB, ctx.UserID, taskID)
+	if uerr != nil {
+		return nil, fmt.Errorf("failed to retrieve updated task: %v", uerr)
 	}
 
 	return StructToMap(updatedTask), nil
 }
 
 func handleGetTaskByID(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	taskIDFloat, ok := args["task_id"].(float64)
-	if !ok {
-		return nil, fmt.Errorf("task_id parameter is required")
-	}
-	taskID := int(taskIDFloat)
-
-	task, err := GetTask(ctx.DB, ctx.UserID, taskID)
+	taskID, err := getIntParam(args, "task_id")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get task: %v", err)
+		return nil, err
+	}
+
+	task, lerr := GetTask(ctx.DB, ctx.UserID, taskID)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to get task: %v", lerr)
 	}
 
 	return StructToMap(task), nil
@@ -1207,14 +1373,14 @@ func (tr *ToolRegistry) registerGetEntityByName() {
 }
 
 func handleGetEntityByName(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	entityName, ok := args["entity_name"].(string)
-	if !ok {
-		return nil, fmt.Errorf("entity_name parameter is required")
+	entityName, err := getStringParam(args, "entity_name")
+	if err != nil {
+		return nil, err
 	}
 
-	entity, err := GetEntityByName(ctx.DB, ctx.UserID, entityName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get entity: %v", err)
+	entity, lerr := GetEntityByName(ctx.DB, ctx.UserID, entityName)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to get entity: %v", lerr)
 	}
 
 	return StructToMap(entity), nil
@@ -1251,19 +1417,19 @@ func (tr *ToolRegistry) registerSearchEntities() {
 }
 
 func handleSearchEntities(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	query, ok := args["query"].(string)
-	if !ok {
-		return nil, fmt.Errorf("query parameter is required")
+	query, err := getStringParam(args, "query")
+	if err != nil {
+		return nil, err
 	}
 
 	limit := 10
-	if l, ok := args["limit"].(float64); ok {
-		limit = int(l)
+	if l, ok, lerr := getOptionalIntParam(args, "limit"); ok && lerr == nil {
+		limit = l
 	}
 
-	entities, err := SearchEntities(ctx.DB, ctx.TypesenseClient, ctx.UserID, query, limit)
-	if err != nil {
-		return nil, fmt.Errorf("search failed: %v", err)
+	entities, lerr := SearchEntities(ctx.DB, ctx.TypesenseClient, ctx.UserID, query, limit)
+	if lerr != nil {
+		return nil, fmt.Errorf("search failed: %v", lerr)
 	}
 
 	return map[string]interface{}{
@@ -1297,15 +1463,14 @@ func (tr *ToolRegistry) registerGetCardsByEntity() {
 }
 
 func handleGetCardsByEntity(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	entityIDFloat, ok := args["entity_id"].(float64)
-	if !ok {
-		return nil, fmt.Errorf("entity_id parameter is required")
-	}
-	entityID := int(entityIDFloat)
-
-	cards, err := GetCardsByEntity(ctx.DB, ctx.UserID, entityID)
+	entityID, err := getIntParam(args, "entity_id")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get cards by entity: %v", err)
+		return nil, err
+	}
+
+	cards, lerr := GetCardsByEntity(ctx.DB, ctx.UserID, entityID)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to get cards by entity: %v", lerr)
 	}
 
 	var results []map[string]interface{}
