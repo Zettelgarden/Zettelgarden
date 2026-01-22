@@ -12,6 +12,7 @@ func RegisterChatRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/chat/conversations/{id}/messages", h.SendMessageRoute, "POST")
 	addProtectedRoute(r, h, "/api/chat/conversations/{id}/messages/stream", h.StreamMessageRoute, "POST")
 	addProtectedRoute(r, h, "/api/chat/conversations/{id}/messages/{messageId}/regenerate", h.RegenerateMessageRoute, "POST")
+	addProtectedRoute(r, h, "/api/chat/conversations/{id}/tools/retry", h.RetryToolCallRoute, "POST")
 	addProtectedRoute(r, h, "/api/chat/conversations/{id}/status", h.GetConversationStatusRoute, "GET")
 	addProtectedRoute(r, h, "/api/chat/conversations/{id}", h.DeleteConversationRoute, "DELETE")
 	addProtectedRoute(r, h, "/api/chat/conversations/{id}/star", h.StarConversationRoute, "POST")

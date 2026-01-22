@@ -503,3 +503,77 @@ func (s *Handler) RegenerateMessageRoute(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(updatedMessage)
 }
+
+// RetryToolCallRequest represents a request to retry a failed tool call
+type RetryToolCallRequest struct {
+	ToolName  string                 `json:"tool_name"`
+	Arguments map[string]interface{} `json:"arguments"`
+}
+
+// RetryToolCallRoute retries a failed tool call
+func (s *Handler) RetryToolCallRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	conversationID := mux.Vars(r)["id"]
+
+	// Check if user has subscription for chat functionality
+	if !s.UserHasSubscription(userID) {
+		http.Error(w, "Chat functionality requires a Pro subscription", http.StatusForbidden)
+		return
+	}
+
+	var req RetryToolCallRequest
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&req); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	if req.ToolName == "" {
+		http.Error(w, "Tool name is required", http.StatusBadRequest)
+		return
+	}
+
+	// Verify conversation exists and belongs to user
+	conversation, err := s.GetConversation(userID, conversationID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Conversation not found", http.StatusNotFound)
+		} else {
+			log.Printf("Error getting conversation: %v", err)
+			http.Error(w, "Failed to get conversation", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Create a tool context
+	toolContext := &services.ToolContext{
+		UserID:          userID,
+		DB:              s.DB,
+		TypesenseClient: s.Server.TypesenseClient,
+		ConversationID:  &conversation.ID,
+		Model:           conversation.Model,
+	}
+
+	// Get the tool registry
+	toolRegistry := services.NewToolRegistry()
+
+	// Execute the tool call with error classification
+	result := executeToolWithRetry(toolRegistry, req.ToolName, req.Arguments, toolContext)
+
+	// Return the result with enhanced error metadata
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"tool_name": req.ToolName,
+		"result":    result,
+		"has_error": models.HasError(result),
+	})
+}
+
+// executeToolWithRetry executes a tool call with error classification
+func executeToolWithRetry(toolRegistry *services.ToolRegistry, toolName string, arguments map[string]interface{}, ctx *services.ToolContext) map[string]interface{} {
+	result, err := toolRegistry.ExecuteTool(toolName, arguments, ctx)
+	if err != nil {
+		return services.WrapToolError(toolName, arguments, err)
+	}
+	return result
+}

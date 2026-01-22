@@ -447,7 +447,7 @@ func (s *Handler) executeToolCall(toolRegistry *services.ToolRegistry, tc openai
 	result, err := toolRegistry.ExecuteTool(tc.Function.Name, args, ctx)
 	if err != nil {
 		log.Printf("Error executing tool %s: %v", tc.Function.Name, err)
-		return map[string]interface{}{"error": err.Error()}
+		return services.WrapToolError(tc.Function.Name, args, err)
 	}
 
 	// Check if result is empty and retry once
@@ -456,7 +456,7 @@ func (s *Handler) executeToolCall(toolRegistry *services.ToolRegistry, tc openai
 		result, err = toolRegistry.ExecuteTool(tc.Function.Name, args, ctx)
 		if err != nil {
 			log.Printf("Error on retry executing tool %s: %v", tc.Function.Name, err)
-			return map[string]interface{}{"error": err.Error()}
+			return services.WrapToolError(tc.Function.Name, args, err)
 		}
 		if isToolResultEmpty(result) {
 			log.Printf("Tool %s returned empty result after retry", tc.Function.Name)
@@ -856,12 +856,23 @@ func (s *Handler) executeAndBroadcastToolCalls(toolRegistry *services.ToolRegist
 	for _, tc := range toolCalls {
 		result := s.executeToolCall(toolRegistry, tc, ctx)
 
-		// Send tool result event
-		sendEvent("tool_result", map[string]interface{}{
+		// Check if result contains an error
+		hasError := models.HasError(result)
+
+		// Parse arguments for the event
+		var args map[string]interface{}
+		json.Unmarshal([]byte(tc.Function.Arguments), &args)
+
+		// Send enhanced tool result event
+		eventData := map[string]interface{}{
 			"tool_call_id": tc.ID,
 			"name":         tc.Function.Name,
 			"result":       result,
-		})
+			"has_error":    hasError,
+			"arguments":    args,
+			"timestamp":    time.Now().Format(time.RFC3339),
+		}
+		sendEvent("tool_result", eventData)
 
 		// Save tool response
 		resultJSON, _ := json.Marshal(result)

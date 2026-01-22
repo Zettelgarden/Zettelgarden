@@ -7,6 +7,7 @@ import { parseMessageContent } from "../../utils/chatUtils";
 import { CardsSection } from "./CardsSection";
 import { TasksSection } from "./TasksSection";
 import { ChatInput } from "./ChatInput";
+import { ToolResultCard } from "./ToolResultCard";
 import { useChat } from "../../hooks/useChat";
 
 interface ChatInterfaceProps {
@@ -18,6 +19,7 @@ interface ChatInterfaceProps {
   showModelDropdown?: boolean;
   availableModels?: { value: string; label: string }[];
   onRegenerateMessage?: (messageId: string) => void;
+  onRetryToolCall?: (messageId: string, conversationId: string) => void;
 }
 
 export function ChatInterface({
@@ -39,7 +41,8 @@ export function ChatInterface({
     { value: "openai/gpt-5.2-chat", label: "GPT-5.2 Chat" },
     { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
   ],
-  onRegenerateMessage
+  onRegenerateMessage,
+  onRetryToolCall,
 }: ChatInterfaceProps) {
   const {
     messages,
@@ -48,8 +51,10 @@ export function ChatInterface({
     error,
     selectedModel,
     collapsedToolResults,
+    retryingToolIds,
     showModelDropdown: internalShowModelDropdown,
     failedMessage,
+    currentConversation,
     setMessageInput,
     setSelectedModel,
     setShowModelDropdown,
@@ -57,6 +62,7 @@ export function ChatInterface({
     handleCardReference,
     toggleToolResult,
     retryFailedMessage,
+    retryTool,
   } = chatHook;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -125,69 +131,40 @@ export function ChatInterface({
   const formatMessageContent = (message: ChatMessage) => {
     if (message.role === "tool" && message.content) {
       const isCollapsed = collapsedToolResults.has(message.id);
+      const isRetrying = retryingToolIds.has(message.id);
 
       try {
         const toolResult = JSON.parse(message.content);
+        const toolName = message._metadata?.tool_name || "Tool";
+        const conversationId = currentConversation?.id || message.conversation_id;
+
         return (
-          <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-lg shadow-sm">
-            <button
-              onClick={() => toggleToolResult(message.id)}
-              className="w-full px-4 py-1 text-left hover:bg-amber-100/50 transition-colors rounded-lg"
-            >
-              <div className="flex items-center justify-between text-amber-700">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🔧</span>
-                  <span className="font-medium text-sm">Tool Output</span>
-                </div>
-                <svg
-                  className={`w-4 h-4 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </button>
-            {!isCollapsed && (
-              <div className="px-4 pb-4">
-                <pre className="text-xs text-amber-800 overflow-x-auto whitespace-pre-wrap break-words font-mono bg-amber-50/50 p-2 rounded border">
-                  {JSON.stringify(toolResult, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
+          <ToolResultCard
+            messageId={message.id}
+            toolName={toolName}
+            result={toolResult}
+            metadata={message._metadata}
+            isCollapsed={isCollapsed}
+            onToggle={() => toggleToolResult(message.id)}
+            onRetry={onRetryToolCall || retryTool}
+            conversationId={conversationId}
+            isRetrying={isRetrying}
+          />
         );
       } catch {
+        // Fallback for non-JSON content
+        const toolName = message._metadata?.tool_name || "Tool";
+        const conversationId = currentConversation?.id || message.conversation_id;
+
         return (
-          <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-lg shadow-sm">
-            <button
-              onClick={() => toggleToolResult(message.id)}
-              className="w-full p-4 text-left hover:bg-amber-100/50 transition-colors rounded-lg"
-            >
-              <div className="flex items-center justify-between text-amber-700">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🔧</span>
-                  <span className="font-medium text-sm">Tool Output</span>
-                </div>
-                <svg
-                  className={`w-4 h-4 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </button>
-            {!isCollapsed && (
-              <div className="px-4 pb-4">
-                <pre className="text-xs text-amber-800 whitespace-pre-wrap break-words font-mono bg-amber-50/50 p-2 rounded border">
-                  {message.content}
-                </pre>
-              </div>
-            )}
-          </div>
+          <ToolResultCard
+            messageId={message.id}
+            toolName={toolName}
+            result={{ output: message.content }}
+            isCollapsed={isCollapsed}
+            onToggle={() => toggleToolResult(message.id)}
+            conversationId={conversationId}
+          />
         );
       }
     }

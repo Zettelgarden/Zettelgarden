@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import {
   ChatConversation,
   ChatMessage,
+  ToolResultMetadata,
   createConversation,
   getConversation,
   sendMessage as apiSendMessage,
   sendMessageStream,
   getConversationStatus,
+  retryToolCall,
   StreamEvent,
 } from "../api/chat";
 import { useChatContext } from "../contexts/ChatContext";
@@ -30,6 +32,7 @@ export function useChat(options: UseChatOptions = {}) {
     return options.initialModel || localStorage.getItem('chatSelectedModel') || "google/gemini-2.5-flash";
   });
   const [collapsedToolResults, setCollapsedToolResults] = useState<Set<string>>(new Set());
+  const [retryingToolIds, setRetryingToolIds] = useState<Set<string>>(new Set());
   const [referencedCards, setReferencedCards] = useState<string[]>([]);
   const [isPolling, setIsPolling] = useState(false);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
@@ -299,6 +302,12 @@ export function useChat(options: UseChatOptions = {}) {
 
               case 'tool_result':
                 // Tool result received - add as a tool message
+                const metadata: ToolResultMetadata = {
+                  has_error: event.data.has_error || false,
+                  arguments: event.data.arguments,
+                  timestamp: event.data.timestamp,
+                  tool_name: event.data.name,
+                };
                 const toolMessage: ChatMessage = {
                   id: `tool-${event.data.tool_call_id}`,
                   conversation_id: conversationId,
@@ -307,7 +316,8 @@ export function useChat(options: UseChatOptions = {}) {
                   tool_call_id: event.data.tool_call_id,
                   sequence_number: 0,
                   status: 'completed',
-                  created_at: new Date().toISOString()
+                  created_at: new Date().toISOString(),
+                  _metadata: metadata,
                 };
                 setMessages(prev => [...prev, toolMessage]);
                 break;
@@ -456,6 +466,53 @@ export function useChat(options: UseChatOptions = {}) {
     });
   };
 
+  const retryTool = async (messageId: string, conversationId: string) => {
+    if (!currentConversation || isSending) return;
+
+    const message = messages.find(m => m.id === messageId);
+    if (!message || !message._metadata) return;
+
+    const { tool_name, arguments: args } = message._metadata;
+    if (!tool_name) return;
+
+    // Add to retrying set
+    setRetryingToolIds(prev => new Set(prev).add(messageId));
+
+    try {
+      const response = await retryToolCall(conversationId, {
+        tool_name,
+        arguments: args || {},
+      });
+
+      // Update the message with new result
+      const updatedContent = JSON.stringify(response.result);
+      const updatedMetadata: ToolResultMetadata = {
+        ...message._metadata,
+        has_error: response.has_error,
+      };
+
+      setMessages(prev => prev.map(msg =>
+        msg.id === messageId
+          ? {
+              ...msg,
+              content: updatedContent,
+              _metadata: updatedMetadata,
+            }
+          : msg
+      ));
+    } catch (error) {
+      console.error("Failed to retry tool:", error);
+      setError("Failed to retry tool call");
+    } finally {
+      // Remove from retrying set
+      setRetryingToolIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(messageId);
+        return newSet;
+      });
+    }
+  };
+
   return {
     // State
     currentConversation,
@@ -467,6 +524,7 @@ export function useChat(options: UseChatOptions = {}) {
     error,
     selectedModel,
     collapsedToolResults,
+    retryingToolIds,
     referencedCards,
     isPolling,
     showModelDropdown,
@@ -488,6 +546,7 @@ export function useChat(options: UseChatOptions = {}) {
     sendMessageToConversation,
     handleCardReference,
     toggleToolResult,
+    retryTool,
     refreshMessages,
     startPolling,
     stopPolling,

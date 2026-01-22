@@ -27,6 +27,7 @@ export interface ChatMessage {
   referenced_cards?: string[];
   status: "pending" | "processing" | "completed" | "failed";
   created_at: string;
+  _metadata?: ToolResultMetadata;
 }
 
 export interface ChatToolCall {
@@ -41,6 +42,33 @@ export interface ChatToolCall {
 export interface ConversationWithMessages {
   conversation: ChatConversation;
   messages: ChatMessage[];
+}
+
+// Tool error types
+export type ToolErrorType =
+  | "network"
+  | "validation"
+  | "database"
+  | "not_found"
+  | "permission"
+  | "rate_limit"
+  | "timeout"
+  | "unknown";
+
+export interface ToolError {
+  type: ToolErrorType;
+  message: string;
+  retryable: boolean;
+  tool_name: string;
+  arguments?: Record<string, any>;
+  suggestion?: string;
+}
+
+export interface ToolResultMetadata {
+  has_error?: boolean;
+  arguments?: Record<string, any>;
+  timestamp?: string;
+  tool_name?: string;
 }
 
 export interface CreateConversationRequest {
@@ -177,6 +205,16 @@ export function sendMessage(conversationId: string, content: string, referencedC
 export interface StreamEvent {
   type: 'messages' | 'title' | 'content' | 'tool_call' | 'tool_result' | 'error' | 'done';
   data: any;
+}
+
+// Enhanced tool result event data
+export interface ToolResultEventData {
+  tool_call_id: string;
+  name: string;
+  result: Record<string, any>;
+  has_error?: boolean;
+  arguments?: Record<string, any>;
+  timestamp?: string;
 }
 
 // Callback for streaming events
@@ -426,6 +464,40 @@ export function regenerateMessage(conversationId: string, messageId: string): Pr
     .then((response) => {
       if (response) {
         return response.json() as Promise<ChatMessage>;
+      } else {
+        return Promise.reject(new Error("Response is undefined"));
+      }
+    });
+}
+
+// Retry a failed tool call
+export interface RetryToolCallRequest {
+  tool_name: string;
+  arguments: Record<string, any>;
+}
+
+export interface RetryToolCallResponse {
+  tool_name: string;
+  result: Record<string, any>;
+  has_error: boolean;
+}
+
+export function retryToolCall(conversationId: string, request: RetryToolCallRequest): Promise<RetryToolCallResponse> {
+  const url = `${base_url}/chat/conversations/${conversationId}/tools/retry`;
+  const token = localStorage.getItem("token");
+
+  return fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  })
+    .then(checkStatus)
+    .then((response) => {
+      if (response) {
+        return response.json() as Promise<RetryToolCallResponse>;
       } else {
         return Promise.reject(new Error("Response is undefined"));
       }
