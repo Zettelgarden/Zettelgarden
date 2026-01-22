@@ -66,6 +66,7 @@ Instructions:
 - If an item cannot be extracted, return an empty string or empty list.
 - Importance must be an integer on a scale of 1–10 (10 = crucial to the central thesis, 1 = marginal).
 - Facts should be discrete, verifiable statements (events, statistics, claims of evidence).
+- Facts should *not* be about the text itself. For example, if the text is about a meeting on January 1, 2025, we do not need a fact that states that.
 - Do not use pronouns (he, she, this, that, etc) unless it directly refers to an object in the fact. Facts will likely be viewed out of context and will not make sense otherwise.
 - When you detect a new section, give it a descriptive name based on the text.
 - Start with section 1. If a section has no theses, arguments or facts, still include the section in the output, just empty
