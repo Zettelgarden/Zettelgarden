@@ -42,12 +42,19 @@ export function ChatPage({ }: ChatPageProps) {
   const { hasSubscription } = useAuth();
   const { showToast } = useToast();
 
+  // Track the last synced conversation ID to prevent circular updates
+  const lastSyncedConversationIdRef = React.useRef<string | null>(null);
+
   // Use the shared chat hook
   const chatHook = useChat({
     onConversationChange: (conversation) => {
-      // This callback is called whenever the current conversation changes
-      // We can use it to sync the conversation ID context
-      if (conversation) {
+      // Only update the context conversationId if it actually changed
+      // This prevents a circular update loop where:
+      // 1. loadConversation updates currentConversation
+      // 2. onConversationChange fires and calls setConversationId
+      // 3. The effect depending on conversationId + currentConversation re-runs
+      if (conversation && conversation.id !== lastSyncedConversationIdRef.current) {
+        lastSyncedConversationIdRef.current = conversation.id;
         setConversationId(conversation.id);
       }
     },
@@ -109,13 +116,20 @@ export function ChatPage({ }: ChatPageProps) {
     }
   };
 
+  // Track previous conversationId to detect actual changes
+  const prevConversationIdRef = React.useRef<string | null>(null);
+
   // Load specific conversation if set in context
   useEffect(() => {
     // Skip loading draft conversations (they start with "draft-") as they don't exist in the backend yet
-    if (conversationId && !conversationId.startsWith('draft-') && conversationId !== chatHook.currentConversation?.id) {
-      loadConversation(conversationId);
+    // Only load when conversationId actually changes (not just the conversation object)
+    if (conversationId && conversationId !== prevConversationIdRef.current && !conversationId.startsWith('draft-')) {
+      if (conversationId !== chatHook.currentConversation?.id) {
+        loadConversation(conversationId);
+      }
+      prevConversationIdRef.current = conversationId;
     }
-  }, [conversationId, chatHook.currentConversation]);
+  }, [conversationId]);
 
   const loadConversations = async () => {
     setLoadingConversations(true);
