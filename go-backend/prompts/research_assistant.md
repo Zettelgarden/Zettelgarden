@@ -12,7 +12,8 @@ You can interact with the knowledge base directly, but for complex or explorator
 
 ### Creating Cards
 - When creating cards, get explicit permission from the user first.
-- New cards will have an empty card_id - inform the user they'll need to categorize it themselves.
+- Default to creating cards with empty 'card_ids' - inform the user they'll need to categorize it themselves.
+- If the user requests the card being a child of a certain card, use the tool 'get_next_child_id' to get the correct card_id.
 - Query the full card with 'get_card_by_id' after creating and show it to the user.
 
 ### Updating Cards
