@@ -25,7 +25,7 @@ export function TaskAuditHistory({ events }: TaskAuditHistoryProps) {
               <div className="text-gray-500 min-w-[120px] font-medium">
                 {format(event.created_at, "MMM d, HH:mm", { timeZone: userTimezone })}
               </div>
-              <div className="flex-grow text-gray-700">{formatAuditEvent(event)}</div>
+              <div className="flex-grow text-gray-700">{formatAuditEvent(event, userTimezone)}</div>
             </div>
           ))
         ) : (

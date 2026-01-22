@@ -1,5 +1,5 @@
 import { Task, TaskAuditEvent } from "../models/Task";
-import { format } from "date-fns";
+import { format } from "date-fns-tz";
 import { compareDates, compareDatesInTimezone, getToday, getTomorrow, isTodayOrPast } from "./dates";
 
 export interface TaskFilterParams {
@@ -271,7 +271,7 @@ const AUDIT_ACTIONS = {
   UPDATE: "update",
 } as const;
 
-export function formatAuditEvent(event: TaskAuditEvent): string {
+export function formatAuditEvent(event: TaskAuditEvent, timezone: string = "UTC"): string {
   if (event.action === AUDIT_ACTIONS.CREATE) {
     return "Task created";
   }
@@ -327,12 +327,12 @@ export function formatAuditEvent(event: TaskAuditEvent): string {
 
     if (changeDetails.ReminderTime) {
       if (!changeDetails.ReminderTime.from && changeDetails.ReminderTime.to) {
-        const newReminder = format(new Date(changeDetails.ReminderTime.to), "MMM d, yyyy h:mm a");
+        const newReminder = format(new Date(changeDetails.ReminderTime.to), "MMM d, yyyy h:mm a", { timeZone: timezone });
         changes.push(`Set reminder for ${newReminder}`);
       } else if (changeDetails.ReminderTime.from && !changeDetails.ReminderTime.to) {
         changes.push(`Removed reminder`);
       } else if (changeDetails.ReminderTime.from && changeDetails.ReminderTime.to) {
-        const newReminder = format(new Date(changeDetails.ReminderTime.to), "MMM d, yyyy h:mm a");
+        const newReminder = format(new Date(changeDetails.ReminderTime.to), "MMM d, yyyy h:mm a", { timeZone: timezone });
         changes.push(`Changed reminder to ${newReminder}`);
       }
     }
