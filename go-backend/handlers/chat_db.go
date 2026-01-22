@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"go-backend/models"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -342,11 +344,61 @@ func (s *Handler) SaveChatMessage(conversationID, role string, content *string, 
 	return &message, nil
 }
 
-// UpdateMessageStatus updates the status of a message
+// UpdateMessageStatus updates the status of a message (thread-safe for concurrent operations)
 func (s *Handler) UpdateMessageStatus(messageID, status string) error {
+	// Acquire per-message mutex to prevent race conditions on status updates
+	mu := s.getMessageMutex(messageID)
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Validate status transition
+	currentStatus, err := s.getMessageStatusLocked(messageID)
+	if err != nil {
+		return err
+	}
+
+	// Define valid status transitions
+	validTransitions := map[string][]string{
+		"pending":   {"processing", "failed"},
+		"processing": {"completed", "failed"},
+	}
+
+	// Check if transition is valid
+	if currentStatus != "" {
+		validNext, ok := validTransitions[currentStatus]
+		if !ok || !containsString(validNext, status) {
+			log.Printf("Invalid status transition for message %s: %s -> %s", messageID, currentStatus, status)
+			return fmt.Errorf("invalid status transition from %s to %s", currentStatus, status)
+		}
+	}
+
 	query := `UPDATE chat_messages SET status = $1 WHERE id = $2`
-	_, err := s.DB.Exec(query, status, messageID)
+	_, err = s.DB.Exec(query, status, messageID)
 	return err
+}
+
+// getMessageStatusLocked gets the current status of a message (must be called with message mutex held)
+func (s *Handler) getMessageStatusLocked(messageID string) (string, error) {
+	var status string
+	query := `SELECT status FROM chat_messages WHERE id = $1`
+	err := s.DB.QueryRow(query, messageID).Scan(&status)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil // Message doesn't exist yet
+		}
+		return "", err
+	}
+	return status, nil
+}
+
+// containsString checks if a string slice contains a string
+func containsString(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
 
 // GetChatMessage gets a single chat message by ID
@@ -451,4 +503,45 @@ func (s *Handler) GetCardsByCardIDs(userID int, cardIDs []string) ([]models.Card
 	}
 
 	return cards, nil
+}
+
+// UpdateUserMessage updates the content of a user message
+func (s *Handler) UpdateUserMessage(messageID, content string) error {
+	query := `UPDATE chat_messages SET content = $1, updated_at = NOW() WHERE id = $2 AND role = 'user'`
+	result, err := s.DB.Exec(query, content, messageID)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// GetMessageSequenceNumber gets the sequence number of a message
+func (s *Handler) GetMessageSequenceNumber(messageID string) (int, string, error) {
+	var seqNum int
+	var conversationID string
+	query := `SELECT sequence_number, conversation_id FROM chat_messages WHERE id = $1`
+	err := s.DB.QueryRow(query, messageID).Scan(&seqNum, &conversationID)
+	return seqNum, conversationID, err
+}
+
+// DeleteMessagesAfter deletes all messages in a conversation with sequence_number > targetSeq
+func (s *Handler) DeleteMessagesAfter(conversationID string, targetSeq int) error {
+	query := `DELETE FROM chat_messages WHERE conversation_id = $1 AND sequence_number > $2`
+	_, err := s.DB.Exec(query, conversationID, targetSeq)
+	return err
+}
+
+// GetMessageCreatedAt gets the creation time of a message for edit window validation
+func (s *Handler) GetMessageCreatedAt(messageID string) (time.Time, error) {
+	var createdAt time.Time
+	query := `SELECT created_at FROM chat_messages WHERE id = $1`
+	err := s.DB.QueryRow(query, messageID).Scan(&createdAt)
+	return createdAt, err
 }

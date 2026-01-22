@@ -128,8 +128,13 @@ func (s *Handler) processAssistantResponse(userID int, conversation *models.Chat
 	s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, finalAssistantMessage)
 }
 
-// updateAssistantMessage updates an existing assistant message with the generated content
+// updateAssistantMessage updates an existing assistant message with the generated content (thread-safe)
 func (s *Handler) updateAssistantMessage(userID int, conversationID, messageID string, generatedMessage *models.ChatMessage) error {
+	// Acquire per-message mutex to prevent race conditions on message updates
+	mu := s.getMessageMutex(messageID)
+	mu.Lock()
+	defer mu.Unlock()
+
 	// Convert tool calls to JSON if present
 	var toolCallsJSON *string
 	if generatedMessage.ToolCalls != nil && len(generatedMessage.ToolCalls) > 0 {
