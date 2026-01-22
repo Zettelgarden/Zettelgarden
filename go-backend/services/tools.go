@@ -37,6 +37,7 @@ const (
 	ToolGetCardsByEntity = "get_cards_by_entity"
 	ToolGetUserMemory    = "get_user_memory"
 	ToolGetTemplate      = "get_template"
+	ToolListTemplates    = "list_templates"
 )
 
 // ToolContext contains all the context needed for tool execution
@@ -181,6 +182,7 @@ func NewToolRegistry() *ToolRegistry {
 	registry.registerGetCardsByEntity()
 	registry.registerGetUserMemory()
 	registry.registerGetTemplate()
+	registry.registerListTemplates()
 
 	return registry
 }
@@ -1606,4 +1608,74 @@ func GetTemplate(db *sql.DB, userID, templateID int) (models.CardTemplate, error
 	}
 
 	return template, nil
+}
+
+func (tr *ToolRegistry) registerListTemplates() {
+	tr.tools["list_templates"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "list_templates",
+				Description: "Get all templates for the current user. Templates are reusable card structures with variable substitution.",
+				Parameters: map[string]interface{}{
+					"type":       "object",
+					"properties": map[string]interface{}{},
+					"required":   []string{},
+				},
+			},
+		},
+		Handler: handleListTemplates,
+	}
+}
+
+func handleListTemplates(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	templates, err := GetTemplates(ctx.DB, ctx.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get templates: %v", err)
+	}
+
+	var results []map[string]interface{}
+	for _, template := range templates {
+		results = append(results, StructToMap(template))
+	}
+
+	return map[string]interface{}{
+		"templates": results,
+		"total":     len(templates),
+	}, nil
+}
+
+// GetTemplates retrieves all templates for a specific user
+func GetTemplates(db *sql.DB, userID int) ([]models.CardTemplate, error) {
+	query := `
+		SELECT id, user_id, name, title, body, created_at, updated_at
+		FROM card_templates
+		WHERE user_id = $1
+		ORDER BY updated_at DESC
+	`
+
+	rows, err := db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var templates []models.CardTemplate
+	for rows.Next() {
+		var template models.CardTemplate
+		if err := rows.Scan(
+			&template.ID,
+			&template.UserID,
+			&template.Name,
+			&template.Title,
+			&template.Body,
+			&template.CreatedAt,
+			&template.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		templates = append(templates, template)
+	}
+
+	return templates, nil
 }
