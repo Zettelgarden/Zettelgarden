@@ -16,6 +16,12 @@ import { useTaskPageSettings } from "../../hooks/useTaskPageSettings";
 import { useTaskFiltering } from "../../hooks/useTaskFiltering";
 import { useNavigate } from "react-router-dom";
 import { parseTaskQuery, updateQueryDateView, updateQueryShowCompleted } from "../../utils/tasks";
+import {
+  QuickTagPopover,
+  type QuickTagTrigger,
+  getQuickTagTrigger,
+  applyQuickTagSelection,
+} from "../../components/tasks/QuickTagPopover";
 
 interface TaskListProps { }
 
@@ -34,6 +40,12 @@ export function TaskPage({ }: TaskListProps) {
 
   // Ref to prevent infinite loops when syncing query and UI
   const isInternalUpdate = useRef(false);
+
+  // Filter input quick tag autocomplete state
+  const filterInputRef = useRef<HTMLInputElement>(null);
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const [filterTrigger, setFilterTrigger] = useState<QuickTagTrigger | null>(null);
+  const [isFilterFocused, setIsFilterFocused] = useState(false);
 
   // Use custom hooks for settings and filtering
   const settings = useTaskPageSettings();
@@ -80,7 +92,47 @@ export function TaskPage({ }: TaskListProps) {
   function handleFilterChange(
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) {
-    settings.setFilterString(e.target.value);
+    const nextValue = e.target.value;
+    const nextCursor = (e.target as HTMLInputElement).selectionStart ?? nextValue.length;
+
+    setCursorPosition(nextCursor);
+    setFilterTrigger(getQuickTagTrigger(nextValue, nextCursor));
+
+    settings.setFilterString(nextValue);
+  }
+
+  function refreshFilterTriggerFromInput(input: HTMLInputElement) {
+    const cursor = input.selectionStart ?? 0;
+    setCursorPosition(cursor);
+    setFilterTrigger(getQuickTagTrigger(input.value, cursor));
+  }
+
+  function handleSelectQuickTag(selectedTagName: string) {
+    if (!filterTrigger) return;
+
+    const res = applyQuickTagSelection({
+      title: settings.filterString,
+      trigger: filterTrigger,
+      selectedTagName,
+    });
+
+    setCursorPosition(res.nextCursor);
+
+    if (!res.didInsert) {
+      setFilterTrigger(null);
+      return;
+    }
+
+    settings.setFilterString(res.nextTitle);
+    setFilterTrigger(null);
+
+    // Restore focus + cursor after React updates the controlled input.
+    requestAnimationFrame(() => {
+      const input = filterInputRef.current;
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(res.nextCursor, res.nextCursor);
+    });
   }
 
   function handleDateChange(e: ChangeEvent<HTMLSelectElement>) {
@@ -173,9 +225,17 @@ export function TaskPage({ }: TaskListProps) {
           <div className="flex flex-wrap items-center gap-2 flex-grow min-w-0 w-full sm:w-auto">
             <div className="relative flex-grow w-full sm:max-w-md">
               <input
+                ref={filterInputRef}
                 type="text"
                 value={settings.filterString}
                 onChange={handleFilterChange}
+                onKeyUp={(e) => refreshFilterTriggerFromInput(e.currentTarget)}
+                onClick={(e) => refreshFilterTriggerFromInput(e.currentTarget)}
+                onFocus={(e) => {
+                  setIsFilterFocused(true);
+                  refreshFilterTriggerFromInput(e.currentTarget);
+                }}
+                onBlur={() => setIsFilterFocused(false)}
                 placeholder="Filter tasks..."
                 className="h-9 w-full pl-3 pr-8 border border-slate-300 rounded-md text-sm"
               />
@@ -202,6 +262,16 @@ export function TaskPage({ }: TaskListProps) {
                 </div>
               )}
             </div>
+
+            <QuickTagPopover
+              open={Boolean(filterTrigger && isFilterFocused)}
+              anchorInputRef={filterInputRef}
+              titleValue={settings.filterString}
+              cursorPosition={cursorPosition}
+              trigger={filterTrigger}
+              onSelectTag={(selectedTagName) => handleSelectQuickTag(selectedTagName)}
+              onRequestClose={() => setFilterTrigger(null)}
+            />
             <div className="h-9 flex items-center">
               <SearchTagDropdown
                 tags={tags}
