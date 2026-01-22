@@ -729,8 +729,26 @@ func (s *Handler) streamAssistantResponse(ctx context.Context, w http.ResponseWr
 	if !ok {
 		log.Printf("Streaming unsupported")
 		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		s.UpdateMessageStatus(assistantMessageID, "failed")
 		return
 	}
+
+	// Ensure message status is cleaned up on any exit path
+	// If we complete successfully, updateStatus will be set to true
+	updateStatus := true // Default to success (will be marked "completed" by updateAssistantMessage)
+	defer func() {
+		// Check if context was cancelled (client disconnect)
+		if ctx.Err() != nil {
+			log.Printf("Client disconnected during streaming, marking message as failed: %s", assistantMessageID)
+			s.UpdateMessageStatus(assistantMessageID, "failed")
+			return
+		}
+		// If there was an error during execution, status would have been set to "failed" already
+		// Only mark as completed if we reached the end successfully
+		if updateStatus {
+			// Status is already set by updateAssistantMessage to "completed"
+		}
+	}()
 
 	// Helper to send SSE events
 	sendEvent := func(eventType string, data interface{}) error {
@@ -741,6 +759,14 @@ func (s *Handler) streamAssistantResponse(ctx context.Context, w http.ResponseWr
 		fmt.Fprintf(w, "event: %s\ndata: %s\n\n", eventType, jsonData)
 		flusher.Flush()
 		return nil
+	}
+
+	// Check for client disconnect early
+	select {
+	case <-ctx.Done():
+		log.Printf("Client disconnected before streaming started: %s", assistantMessageID)
+		return
+	default:
 	}
 
 	// Generate title if needed and send event
@@ -771,11 +797,19 @@ func (s *Handler) streamAssistantResponse(ctx context.Context, w http.ResponseWr
 }
 
 // processStreamResponse processes a stream response and accumulates content and tool calls
-func processStreamResponse(stream *openai.ChatCompletionStream, sendEvent func(string, interface{}) error) (string, []openai.ToolCall, error) {
+func processStreamResponse(ctx context.Context, stream *openai.ChatCompletionStream, sendEvent func(string, interface{}) error) (string, []openai.ToolCall, error) {
 	var currentContent string
 	var currentToolCalls []openai.ToolCall
 
 	for {
+		// Check for client disconnect before receiving next chunk
+		select {
+		case <-ctx.Done():
+			log.Printf("Client disconnected during stream processing")
+			return "", nil, ctx.Err()
+		default:
+		}
+
 		response, err := stream.Recv()
 		if err != nil {
 			if err == io.EOF {
@@ -938,7 +972,7 @@ func (s *Handler) streamChatResponse(ctx context.Context, w http.ResponseWriter,
 		defer stream.Close()
 
 		// Process the stream and collect results
-		currentContent, currentToolCalls, err := processStreamResponse(stream, sendEvent)
+		currentContent, currentToolCalls, err := processStreamResponse(ctx, stream, sendEvent)
 		if err != nil {
 			return err
 		}
