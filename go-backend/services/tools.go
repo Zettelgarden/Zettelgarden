@@ -9,6 +9,9 @@ import (
 	"go-backend/prompts"
 	"log"
 	"reflect"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	openai "github.com/sashabaranov/go-openai"
@@ -38,6 +41,7 @@ const (
 	ToolGetUserMemory    = "get_user_memory"
 	ToolGetTemplate      = "get_template"
 	ToolListTemplates    = "list_templates"
+	ToolGetNextChildID   = "get_next_child_id"
 )
 
 // ToolContext contains all the context needed for tool execution
@@ -183,6 +187,7 @@ func NewToolRegistry() *ToolRegistry {
 	registry.registerGetUserMemory()
 	registry.registerGetTemplate()
 	registry.registerListTemplates()
+	registry.registerGetNextChildID()
 
 	return registry
 }
@@ -1678,4 +1683,112 @@ func GetTemplates(db *sql.DB, userID int) ([]models.CardTemplate, error) {
 	}
 
 	return templates, nil
+}
+
+func (tr *ToolRegistry) registerGetNextChildID() {
+	tr.tools["get_next_child_id"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "get_next_child_id",
+				Description: "Get the next available child card ID for a parent card (e.g., '1a2.3'). This is useful for creating structured card hierarchies.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"card_pk": map[string]interface{}{
+							"type":        "integer",
+							"description": "The primary key ID of the parent card",
+						},
+					},
+					"required": []string{"card_pk"},
+				},
+			},
+		},
+		Handler: handleGetNextChildID,
+	}
+}
+
+func handleGetNextChildID(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	cardPK, err := getIntParam(args, "card_pk")
+	if err != nil {
+		return nil, err
+	}
+
+	nextID, err := GetNextChildCardID(ctx.DB, ctx.UserID, cardPK)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get next child ID: %v", err)
+	}
+
+	if nextID == "" {
+		return map[string]interface{}{
+			"error":   true,
+			"message": "Parent card not found or error occurred",
+			"new_id":  "",
+		}, nil
+	}
+
+	return map[string]interface{}{
+		"error":   false,
+		"message": "",
+		"new_id":  nextID,
+	}, nil
+}
+
+// GetNextChildCardID returns the next available child card ID for a parent card
+func GetNextChildCardID(db *sql.DB, userID int, parentID int) (string, error) {
+	// 1. Get parent card's card_id (human readable ID)
+	var parentCardID string
+	err := db.QueryRow("SELECT card_id FROM cards WHERE id = $1 AND user_id = $2", parentID, userID).Scan(&parentCardID)
+	if err != nil {
+		log.Printf("Error finding parent card ID for parentID %d: %v", parentID, err)
+		return "", fmt.Errorf("parent card not found")
+	}
+
+	// 2. Get all existing children using service
+	children, err := GetChildCards(db, userID, parentID)
+	if err != nil {
+		log.Printf("Error getting child cards for parentID %d: %v", parentID, err)
+		return parentCardID + ".1", nil // Default to .1 if there's an error
+	}
+
+	// 3. Extract numeric suffixes from children's card_ids
+	childNumbers := make([]int, 0)
+	parentIDLength := len(parentCardID)
+
+	for _, child := range children {
+		childID := child.CardID
+
+		// Verify this is actually a direct child by checking it starts with parent ID
+		if !strings.HasPrefix(childID, parentCardID) || len(childID) <= parentIDLength {
+			continue
+		}
+
+		// Get the part after the parent ID
+		suffix := childID[parentIDLength:]
+
+		// Extract the first number after any separator using regex
+		re := regexp.MustCompile(`^[.\\/-]+(\d+)`)
+		match := re.FindStringSubmatch(suffix)
+		if len(match) == 2 {
+			num, err := strconv.Atoi(match[1])
+			if err == nil {
+				childNumbers = append(childNumbers, num)
+			}
+		}
+	}
+
+	// 4. Find the highest number and increment
+	if len(childNumbers) == 0 {
+		return parentCardID + ".1", nil // No existing children, start with 1
+	}
+
+	maxNumber := 0
+	for _, num := range childNumbers {
+		if num > maxNumber {
+			maxNumber = num
+		}
+	}
+
+	nextNumber := maxNumber + 1
+	return fmt.Sprintf("%s.%d", parentCardID, nextNumber), nil
 }
