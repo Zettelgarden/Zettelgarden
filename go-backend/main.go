@@ -67,8 +67,11 @@ func configureLogging(cfg config.Config) (*os.File, func(), error) {
 }
 
 func run() error {
+	log.Printf("Starting Zettelgarden backend server...")
+
 	// Load and validate all configuration from environment variables
 	cfg := config.LoadConfig()
+	log.Printf("Configuration loaded successfully (dev_mode=%v)", cfg.Server.DevMode)
 
 	_, cleanupLogging, err := configureLogging(cfg)
 	if err != nil {
@@ -77,9 +80,11 @@ func run() error {
 	defer cleanupLogging()
 
 	// Initialize shared server using bootstrap package
+	log.Printf("Initializing database connection (host=%s, port=%s, db=%s)", cfg.Database.Host, cfg.Database.Port, cfg.Database.DatabaseName)
 	if s = bootstrap.InitServer(cfg.Database); s == nil {
 		log.Fatalf("Failed to initialize server")
 	}
+	log.Printf("Database connected and migrations completed successfully")
 	if s != nil && s.DB != nil {
 		defer func() {
 			if err := s.DB.Close(); err != nil {
@@ -94,10 +99,17 @@ func run() error {
 	}
 
 	// Initialize Stripe
+	log.Printf("Initializing Stripe payment processing")
 	stripe.Key = cfg.Services.Stripe.SecretKey
+	log.Printf("Stripe initialized (billing_url=%s)", cfg.Services.Stripe.BillingURL)
 
+	// Initialize S3 client for file storage
+	log.Printf("Initializing S3 client (bucket=%s)", cfg.Services.S3.BucketName)
 	s.S3 = h.CreateS3Client()
+	log.Printf("S3 client initialized successfully")
 
+	// Initialize mail client
+	log.Printf("Initializing mail client (host=%s)", cfg.Services.Mail.Host)
 	s.Mail = &mail.MailClient{
 		Host:         cfg.Services.Mail.Host,
 		Password:     cfg.Services.Mail.Password,
@@ -105,13 +117,16 @@ func run() error {
 		DB:           s.DB,
 		ShutdownChan: make(chan struct{}),
 	}
+	log.Printf("Mail client initialized successfully")
 
 	// Typesense is optional - search will still work without it (slower full-text search only)
+	log.Printf("Initializing Typesense search client (host=%s, collection=%s)", cfg.Services.Search.Host, cfg.Services.Search.Collection)
 	typesenseClient, err := bootstrap.InitTypesense(cfg.Services.Search)
 	if err == nil {
 		s.TypesenseClient = typesenseClient
+		log.Printf("Typesense search client initialized successfully")
 		go safeGoroutine(func() {
-			log.Printf("updating typesense")
+			log.Printf("Initializing search collection...")
 			h.InitSearchCollection()
 		})
 	} else {
@@ -119,10 +134,10 @@ func run() error {
 		log.Printf("INFO: Searches will use slower full-text search only. Check Typesense configuration and network connectivity.")
 	}
 
-	log.Printf("email server initialized (host=%q)", s.Mail.Host)
 	s.JwtSecretKey = []byte(cfg.Server.JwtSecretKey)
 
 	// Initialize LLM client
+	log.Printf("Initializing LLM client (endpoint=%s, model=%s)", cfg.Services.LLM.Endpoint, cfg.Services.LLM.DefaultModel)
 	llmClient := &models.LLMClient{
 		Client:      openai.NewClient(cfg.Services.LLM.APIKey),
 		Testing:     cfg.Server.DevMode, // Use server dev mode for testing flag
@@ -132,6 +147,7 @@ func run() error {
 		RequestType: "chat", // Default request type
 	}
 	s.LLMClient = llmClient
+	log.Printf("LLM client initialized successfully")
 
 	if cfg.Services.LLM.ChunkingEnabled {
 		go func() {
@@ -149,6 +165,7 @@ func run() error {
 
 	// Register all API routes
 	routes.RegisterAllRoutes(r, h)
+	log.Printf("All routes registered successfully")
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{cfg.Server.URL},
@@ -195,7 +212,7 @@ func run() error {
 		log.Printf("shutdown complete")
 	}()
 
-	log.Printf("Starting server on port %s", port)
+	log.Printf("Initialization complete - starting HTTP server on port %s (cors_origin=%s)", port, cfg.Server.URL)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("server failed to start: %w", err)
 	}
