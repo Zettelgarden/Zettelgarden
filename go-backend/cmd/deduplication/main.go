@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 	"time"
 
@@ -220,7 +221,7 @@ func deduplicateEntities(app *CLIApp, cfg config.Config, flags *DeduplicationFla
 	return nil
 }
 
-// deduplicateEntitiesForUser processes entities for a single user
+// deduplicateEntitiesForUser processes entities for a single user using cluster-based merging
 func deduplicateEntitiesForUser(app *CLIApp, cfg config.Config, flags *DeduplicationFlags, ctx context.Context, userID int) (int, error) {
 	// Query entities for this user, ordered by creation date (newest first)
 	timeCondition := ""
@@ -269,7 +270,109 @@ func deduplicateEntitiesForUser(app *CLIApp, cfg config.Config, flags *Deduplica
 
 	fmt.Printf("  Found %d entities for user %d\n", len(entities), userID)
 
-	// Find and merge duplicates (or simulate in dry run)
+	// Build similarity clusters using union-find
+	// Only create links between entities above the similarity threshold
+	type clusterInfo struct {
+		rootID       int
+		memberIDs    []int
+		repEntity    *models.Entity
+		similarities map[int]float64 // score for each member to root
+	}
+
+	clusters := make(map[int]*clusterInfo)    // root ID -> cluster info
+	entityMap := make(map[int]*models.Entity) // ID -> entity
+
+	// Build entity map for quick lookup
+	for i := range entities {
+		entityMap[entities[i].ID] = &entities[i]
+		clusters[entities[i].ID] = &clusterInfo{
+			rootID:       entities[i].ID,
+			memberIDs:    []int{entities[i].ID},
+			repEntity:    &entities[i],
+			similarities: make(map[int]float64),
+		}
+	}
+
+	// Build clusters by finding similar entities and linking them
+	// We only create links between entities that are above threshold
+	for _, entity := range entities {
+		similarEntities, err := app.Server.FindSimilarEntities(ctx, entity, 100)
+		if err != nil {
+			log.Printf("Error finding similar entities for %d: %v", entity.ID, err)
+			continue
+		}
+
+		for _, similarEntity := range similarEntities {
+			// Only link if above threshold and similarEntity exists in our map
+			if similarEntity.Score < flags.SimilarityThreshold {
+				continue
+			}
+			if _, exists := entityMap[similarEntity.ID]; !exists {
+				continue
+			}
+
+			// Find roots of both entities (with nil checks in case cluster was deleted)
+			cluster1, ok1 := clusters[entity.ID]
+			if !ok1 {
+				continue
+			}
+			root1 := entity.ID
+			for cluster1.rootID != root1 {
+				cluster1 = clusters[cluster1.rootID]
+				if cluster1 == nil {
+					break
+				}
+				root1 = cluster1.rootID
+			}
+			if cluster1 == nil {
+				continue
+			}
+
+			cluster2, ok2 := clusters[similarEntity.ID]
+			if !ok2 {
+				continue
+			}
+			root2 := similarEntity.ID
+			for cluster2.rootID != root2 {
+				cluster2 = clusters[cluster2.rootID]
+				if cluster2 == nil {
+					break
+				}
+				root2 = cluster2.rootID
+			}
+			if cluster2 == nil {
+				continue
+			}
+
+			// Link clusters if they're different and above threshold
+			if root1 != root2 {
+				// Merge smaller cluster into larger one
+				if root1 < root2 {
+					clusters[root2].rootID = root1
+					clusters[root1].memberIDs = append(clusters[root1].memberIDs, clusters[root2].memberIDs...)
+					// Copy all similarities from the absorbed cluster
+					for k, v := range clusters[root2].similarities {
+						clusters[root1].similarities[k] = v
+					}
+					// Record this specific link's score
+					clusters[root1].similarities[similarEntity.ID] = similarEntity.Score
+					delete(clusters, root2)
+				} else {
+					clusters[root1].rootID = root2
+					clusters[root2].memberIDs = append(clusters[root2].memberIDs, clusters[root1].memberIDs...)
+					// Copy all similarities from the absorbed cluster
+					for k, v := range clusters[root1].similarities {
+						clusters[root2].similarities[k] = v
+					}
+					// Record this specific link's score
+					clusters[root2].similarities[entity.ID] = similarEntity.Score
+					delete(clusters, root1)
+				}
+			}
+		}
+	}
+
+	// Now merge each cluster into its representative (lowest ID)
 	merged := 0
 	var potentialMerges []struct {
 		sourceEntity models.Entity
@@ -277,58 +380,66 @@ func deduplicateEntitiesForUser(app *CLIApp, cfg config.Config, flags *Deduplica
 		score        float64
 	}
 
-	for _, entity := range entities {
-		// Find similar entities
-		similarEntities, err := app.Server.FindSimilarEntities(ctx, entity, 100)
-		if err != nil {
-			log.Printf("Error finding similar entities for %d: %v", entity.ID, err)
+	processed := make(map[int]bool)
+
+	for _, cluster := range clusters {
+		if processed[cluster.rootID] {
 			continue
 		}
 
-		// For each similar entity with higher ID (newer than current), merge it into current
-		for _, similarEntity := range similarEntities {
-			// Apply similarity threshold - only merge if similar enough
-			if similarEntity.Score < flags.SimilarityThreshold {
-				continue // Skip if similarity score is below threshold
+		// Only process clusters with more than one member
+		if len(cluster.memberIDs) <= 1 {
+			processed[cluster.rootID] = true
+			continue
+		}
+
+		// Sort members by ID (ascending) - lowest ID is the target
+		sort.Ints(cluster.memberIDs)
+
+		// Skip if target is already processed
+		targetID := cluster.memberIDs[0]
+		if processed[targetID] {
+			continue
+		}
+		processed[targetID] = true
+
+		targetEntity := entityMap[targetID]
+
+		// Merge all other members into the target
+		for _, sourceID := range cluster.memberIDs[1:] {
+			if processed[sourceID] {
+				continue
+			}
+			processed[sourceID] = true
+
+			sourceEntity := entityMap[sourceID]
+			score := cluster.similarities[sourceID]
+			if score == 0 {
+				// If no direct score recorded, use threshold as default
+				score = flags.SimilarityThreshold
 			}
 
-			if similarEntity.ID > entity.ID { // Only merge newer entities into older ones
-				if flags.Confirm && !flags.DryRun {
-					fmt.Printf("    Merge entity %d (score: %.2f) into %d? (y/N): ", similarEntity.ID, similarEntity.Score, entity.ID)
-					var response string
-					fmt.Scanln(&response)
-					if response != "y" && response != "Y" {
-						continue
-					}
+			if flags.Confirm && !flags.DryRun {
+				fmt.Printf("    Merge entity %d (score: %.2f) into %d? (y/N): ", sourceID, score, targetID)
+				var response string
+				fmt.Scanln(&response)
+				if response != "y" && response != "Y" {
+					continue
 				}
+			}
 
-				if flags.DryRun {
-					// Fetch full entity data for reporting
-					var sourceEntity models.Entity
-					err := app.Server.DB.QueryRow(`
-						SELECT id, user_id, name, description, type, created_at, updated_at, card_pk
-						FROM entities
-						WHERE id = $1 AND user_id = $2`,
-						similarEntity.ID, userID).Scan(
-						&sourceEntity.ID, &sourceEntity.UserID, &sourceEntity.Name,
-						&sourceEntity.Description, &sourceEntity.Type, &sourceEntity.CreatedAt,
-						&sourceEntity.UpdatedAt, &sourceEntity.CardPK)
-					if err != nil {
-						log.Printf("Error fetching entity %d for dry run: %v", similarEntity.ID, err)
-						continue
-					}
-					potentialMerges = append(potentialMerges, struct {
-						sourceEntity models.Entity
-						targetEntity models.Entity
-						score        float64
-					}{sourceEntity, entity, similarEntity.Score})
+			if flags.DryRun {
+				potentialMerges = append(potentialMerges, struct {
+					sourceEntity models.Entity
+					targetEntity models.Entity
+					score        float64
+				}{*sourceEntity, *targetEntity, score})
+			} else {
+				if err := app.Server.MergeEntities(ctx, userID, targetID, sourceID); err != nil {
+					log.Printf("Failed to merge entities %d -> %d: %v", sourceID, targetID, err)
 				} else {
-					if err := app.Server.MergeEntities(ctx, userID, entity.ID, similarEntity.ID); err != nil {
-						log.Printf("Failed to merge entities %d -> %d: %v", similarEntity.ID, entity.ID, err)
-					} else {
-						merged++
-						fmt.Printf("    Merged entity %d (score: %.2f) into %d\n", similarEntity.ID, similarEntity.Score, entity.ID)
-					}
+					merged++
+					fmt.Printf("    Merged entity %d (score: %.2f) into %d\n", sourceID, score, targetID)
 				}
 			}
 		}
@@ -390,7 +501,7 @@ func deduplicateFacts(app *CLIApp, cfg config.Config, flags *DeduplicationFlags)
 	return nil
 }
 
-// deduplicateFactsForUser processes facts for a single user
+// deduplicateFactsForUser processes facts for a single user using cluster-based merging
 func deduplicateFactsForUser(app *CLIApp, cfg config.Config, flags *DeduplicationFlags, ctx context.Context, userID int) (int, error) {
 	// Query facts for this user, ordered by creation date (newest first)
 	timeCondition := ""
@@ -434,7 +545,109 @@ func deduplicateFactsForUser(app *CLIApp, cfg config.Config, flags *Deduplicatio
 
 	fmt.Printf("  Found %d facts for user %d\n", len(facts), userID)
 
-	// Find and merge duplicates (or simulate in dry run)
+	// Build similarity clusters using union-find
+	// Only create links between facts above the similarity threshold
+	type clusterInfo struct {
+		rootID       int
+		memberIDs    []int
+		repFact      *models.Fact
+		similarities map[int]float64 // score for each member to root
+	}
+
+	clusters := make(map[int]*clusterInfo) // root ID -> cluster info
+	factMap := make(map[int]*models.Fact)  // ID -> fact
+
+	// Build fact map for quick lookup
+	for i := range facts {
+		factMap[facts[i].ID] = &facts[i]
+		clusters[facts[i].ID] = &clusterInfo{
+			rootID:       facts[i].ID,
+			memberIDs:    []int{facts[i].ID},
+			repFact:      &facts[i],
+			similarities: make(map[int]float64),
+		}
+	}
+
+	// Build clusters by finding similar facts and linking them
+	// We only create links between facts that are above threshold
+	for _, fact := range facts {
+		similarFacts, err := app.Server.FindSimilarFacts(ctx, fact, 100)
+		if err != nil {
+			log.Printf("Error finding similar facts for %d: %v", fact.ID, err)
+			continue
+		}
+
+		for _, similarFact := range similarFacts {
+			// Only link if above threshold and similarFact exists in our map
+			if similarFact.Score < flags.SimilarityThreshold {
+				continue
+			}
+			if _, exists := factMap[similarFact.ID]; !exists {
+				continue
+			}
+
+			// Find roots of both facts (with nil checks in case cluster was deleted)
+			cluster1, ok1 := clusters[fact.ID]
+			if !ok1 {
+				continue
+			}
+			root1 := fact.ID
+			for cluster1.rootID != root1 {
+				cluster1 = clusters[cluster1.rootID]
+				if cluster1 == nil {
+					break
+				}
+				root1 = cluster1.rootID
+			}
+			if cluster1 == nil {
+				continue
+			}
+
+			cluster2, ok2 := clusters[similarFact.ID]
+			if !ok2 {
+				continue
+			}
+			root2 := similarFact.ID
+			for cluster2.rootID != root2 {
+				cluster2 = clusters[cluster2.rootID]
+				if cluster2 == nil {
+					break
+				}
+				root2 = cluster2.rootID
+			}
+			if cluster2 == nil {
+				continue
+			}
+
+			// Link clusters if they're different and above threshold
+			if root1 != root2 {
+				// Merge smaller cluster into larger one (by lower ID)
+				if root1 < root2 {
+					clusters[root2].rootID = root1
+					clusters[root1].memberIDs = append(clusters[root1].memberIDs, clusters[root2].memberIDs...)
+					// Copy all similarities from the absorbed cluster
+					for k, v := range clusters[root2].similarities {
+						clusters[root1].similarities[k] = v
+					}
+					// Record this specific link's score
+					clusters[root1].similarities[similarFact.ID] = similarFact.Score
+					delete(clusters, root2)
+				} else {
+					clusters[root1].rootID = root2
+					clusters[root2].memberIDs = append(clusters[root2].memberIDs, clusters[root1].memberIDs...)
+					// Copy all similarities from the absorbed cluster
+					for k, v := range clusters[root1].similarities {
+						clusters[root2].similarities[k] = v
+					}
+					// Record this specific link's score
+					clusters[root2].similarities[fact.ID] = similarFact.Score
+					delete(clusters, root1)
+				}
+			}
+		}
+	}
+
+	// Now merge each cluster into its representative (lowest ID)
 	merged := 0
 	var potentialMerges []struct {
 		sourceFact models.Fact
@@ -442,57 +655,76 @@ func deduplicateFactsForUser(app *CLIApp, cfg config.Config, flags *Deduplicatio
 		score      float64
 	}
 
-	for _, fact := range facts {
-		// Find similar facts
-		similarFacts, err := app.Server.FindSimilarFacts(ctx, fact, 100)
-		if err != nil {
-			log.Printf("Error finding similar facts for %d: %v", fact.ID, err)
+	processed := make(map[int]bool)
+
+	log.Printf("DEBUG: Total clusters after building: %d", len(clusters))
+	multiMemberClusters := 0
+	for _, cluster := range clusters {
+		if len(cluster.memberIDs) > 1 {
+			multiMemberClusters++
+			log.Printf("DEBUG: Cluster root %d has %d members: %v", cluster.rootID, len(cluster.memberIDs), cluster.memberIDs)
+		}
+	}
+	log.Printf("DEBUG: Clusters with >1 member: %d", multiMemberClusters)
+
+	for _, cluster := range clusters {
+		if processed[cluster.rootID] {
 			continue
 		}
 
-		// For each similar fact with higher ID (newer than current), merge it into current
-		for _, similarFact := range similarFacts {
-			// Apply similarity threshold - only merge if similar enough
-			if similarFact.Score < flags.SimilarityThreshold {
-				continue // Skip if similarity score is below threshold
+		// Only process clusters with more than one member
+		if len(cluster.memberIDs) <= 1 {
+			processed[cluster.rootID] = true
+			continue
+		}
+
+		// Sort members by ID (ascending) - lowest ID is the target
+		sort.Ints(cluster.memberIDs)
+
+		// Skip if target is already processed
+		targetID := cluster.memberIDs[0]
+		if processed[targetID] {
+			continue
+		}
+		processed[targetID] = true
+
+		targetFact := factMap[targetID]
+
+		// Merge all other members into the target
+		for _, sourceID := range cluster.memberIDs[1:] {
+			if processed[sourceID] {
+				continue
+			}
+			processed[sourceID] = true
+
+			sourceFact := factMap[sourceID]
+			score := cluster.similarities[sourceID]
+			if score == 0 {
+				// If no direct score recorded, use threshold as default
+				score = flags.SimilarityThreshold
 			}
 
-			if similarFact.ID > fact.ID { // Only merge newer facts into older ones
-				if flags.Confirm && !flags.DryRun {
-					fmt.Printf("    Merge fact %d (score: %.2f) into %d? (y/N): ", similarFact.ID, similarFact.Score, fact.ID)
-					var response string
-					fmt.Scanln(&response)
-					if response != "y" && response != "Y" {
-						continue
-					}
+			if flags.Confirm && !flags.DryRun {
+				fmt.Printf("    Merge fact %d (score: %.2f) into %d? (y/N): ", sourceID, score, targetID)
+				var response string
+				fmt.Scanln(&response)
+				if response != "y" && response != "Y" {
+					continue
 				}
+			}
 
-				if flags.DryRun {
-					// Fetch full fact data for reporting
-					var sourceFact models.Fact
-					err := app.Server.DB.QueryRow(`
-						SELECT id, user_id, card_pk, fact, created_at, updated_at
-						FROM facts
-						WHERE id = $1 AND user_id = $2`,
-						similarFact.ID, userID).Scan(
-						&sourceFact.ID, &sourceFact.UserID, &sourceFact.CardPK,
-						&sourceFact.Fact, &sourceFact.CreatedAt, &sourceFact.UpdatedAt)
-					if err != nil {
-						log.Printf("Error fetching fact %d for dry run: %v", similarFact.ID, err)
-						continue
-					}
-					potentialMerges = append(potentialMerges, struct {
-						sourceFact models.Fact
-						targetFact models.Fact
-						score      float64
-					}{sourceFact, fact, similarFact.Score})
+			if flags.DryRun {
+				potentialMerges = append(potentialMerges, struct {
+					sourceFact models.Fact
+					targetFact models.Fact
+					score      float64
+				}{*sourceFact, *targetFact, score})
+			} else {
+				if err := app.Server.MergeFacts(ctx, userID, targetID, sourceID); err != nil {
+					log.Printf("Failed to merge facts %d -> %d: %v", sourceID, targetID, err)
 				} else {
-					if err := app.Server.MergeFacts(ctx, userID, fact.ID, similarFact.ID); err != nil {
-						log.Printf("Failed to merge facts %d -> %d: %v", similarFact.ID, fact.ID, err)
-					} else {
-						merged++
-						fmt.Printf("    Merged fact %d (score: %.2f) into %d\n", similarFact.ID, similarFact.Score, fact.ID)
-					}
+					merged++
+					fmt.Printf("    Merged fact %d (score: %.2f) into %d\n", sourceID, score, targetID)
 				}
 			}
 		}

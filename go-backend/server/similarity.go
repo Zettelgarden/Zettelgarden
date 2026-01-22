@@ -123,7 +123,6 @@ func (s *Server) FindSimilarFacts(ctx context.Context, fact models.Fact, limit i
 					// Extract vector distance if available (lower distance = more similar)
 					if hit.VectorDistance != nil {
 						distance := float64(*hit.VectorDistance)
-						log.Printf("DEBUG: fact ID %d, vector distance: %f", int(pk), distance)
 						// Convert distance to similarity score (0-1 range, where 1 = most similar)
 						// For cosine distance: 0 = identical, 2 = opposite
 						// Similarity = 1 - (distance / 2) gives us 0-1 range
@@ -135,7 +134,6 @@ func (s *Server) FindSimilarFacts(ctx context.Context, fact models.Fact, limit i
 							score = 1
 						}
 					}
-					log.Printf("DEBUG: Similar fact ID %d, final score: %f", int(pk), score)
 					similarFacts = append(similarFacts, SimilarFact{
 						ID:    int(pk),
 						Score: score,

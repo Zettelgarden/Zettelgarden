@@ -309,8 +309,8 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                         <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
                             {loadingSimilar && <p>Loading similar facts...</p>}
                             {similarError && <p className="text-red-600">{similarError}</p>}
-                            {!loadingSimilar && similarFacts.length === 0 && <p>No similar facts.</p>}
-                            {!loadingSimilar && similarFacts.length > 0 && (
+                            {!loadingSimilar && similarFacts && similarFacts.length === 0 && <p>No similar facts.</p>}
+                            {!loadingSimilar && similarFacts && similarFacts.length > 0 && (
                                 <ul className="space-y-1 text-sm">
                                     {similarFacts.map((f) => (
                                         <li
@@ -325,13 +325,12 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                                             </span>
                                             <div className="flex items-center ml-2 gap-2">
                                                 <span
-                                                    className={`text-xs px-2 py-0.5 rounded ${
-                                                        f.score >= 0.8
+                                                    className={`text-xs px-2 py-0.5 rounded ${f.score >= 0.8
                                                             ? 'bg-green-100 text-green-700'
                                                             : f.score >= 0.5
-                                                            ? 'bg-yellow-100 text-yellow-700'
-                                                            : 'bg-gray-100 text-gray-600'
-                                                    }`}
+                                                                ? 'bg-yellow-100 text-yellow-700'
+                                                                : 'bg-gray-100 text-gray-600'
+                                                        }`}
                                                     title="Similarity score"
                                                 >
                                                     {Math.round(f.score * 100)}%
