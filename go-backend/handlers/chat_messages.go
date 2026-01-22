@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -576,4 +577,128 @@ func executeToolWithRetry(toolRegistry *services.ToolRegistry, toolName string, 
 		return services.WrapToolError(toolName, arguments, err)
 	}
 	return result
+}
+
+// EditUserMessageRequest represents the request to edit a user message
+type EditUserMessageRequest struct {
+	Content string `json:"content"`
+}
+
+// EditUserMessageRoute edits a user message and deletes all subsequent messages
+func (s *Handler) EditUserMessageRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	conversationID := mux.Vars(r)["id"]
+	messageID := mux.Vars(r)["messageId"]
+
+	// Check if user has subscription for chat functionality
+	if !s.UserHasSubscription(userID) {
+		http.Error(w, "Chat functionality requires a Pro subscription", http.StatusForbidden)
+		return
+	}
+
+	var req EditUserMessageRequest
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&req); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	if req.Content == "" {
+		http.Error(w, "Content is required", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Content) > MaxMessageLength {
+		http.Error(w, fmt.Sprintf("Message content exceeds maximum length of %d", MaxMessageLength), http.StatusBadRequest)
+		return
+	}
+
+	// Verify conversation exists and belongs to user
+	conversation, err := s.GetConversation(userID, conversationID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Conversation not found", http.StatusNotFound)
+		} else {
+			log.Printf("Error getting conversation: %v", err)
+			http.Error(w, "Failed to get conversation", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Get the message to edit
+	message, err := s.GetChatMessage(messageID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Message not found", http.StatusNotFound)
+		} else {
+			log.Printf("Error getting message: %v", err)
+			http.Error(w, "Failed to get message", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Verify message belongs to this conversation
+	if message.ConversationID != conversationID {
+		http.Error(w, "Message does not belong to this conversation", http.StatusBadRequest)
+		return
+	}
+
+	// Only allow editing user messages
+	if message.Role != "user" {
+		http.Error(w, "Can only edit user messages", http.StatusBadRequest)
+		return
+	}
+
+	// Check if message is within the 5-minute edit window
+	createdAt, err := s.GetMessageCreatedAt(messageID)
+	if err != nil {
+		log.Printf("Error getting message created_at: %v", err)
+		http.Error(w, "Failed to get message timestamp", http.StatusInternalServerError)
+		return
+	}
+
+	if time.Since(createdAt) > 5*time.Minute {
+		http.Error(w, "Message can only be edited within 5 minutes of sending", http.StatusBadRequest)
+		return
+	}
+
+	// Get the sequence number of the message to edit
+	seqNum, _, err := s.GetMessageSequenceNumber(messageID)
+	if err != nil {
+		log.Printf("Error getting message sequence number: %v", err)
+		http.Error(w, "Failed to get message sequence", http.StatusInternalServerError)
+		return
+	}
+
+	// Update the message content
+	err = s.UpdateUserMessage(messageID, req.Content)
+	if err != nil {
+		log.Printf("Error updating message: %v", err)
+		http.Error(w, "Failed to update message", http.StatusInternalServerError)
+		return
+	}
+
+	// Delete all messages after the edited one
+	err = s.DeleteMessagesAfter(conversationID, seqNum)
+	if err != nil {
+		log.Printf("Error deleting subsequent messages: %v", err)
+		http.Error(w, "Failed to delete subsequent messages", http.StatusInternalServerError)
+		return
+	}
+
+	// Get the updated conversation with messages
+	messages, err := s.GetConversationMessages(conversationID)
+	if err != nil {
+		log.Printf("Error getting updated messages: %v", err)
+		http.Error(w, "Failed to get updated messages", http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"conversation": conversation,
+		"messages":     messages,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }

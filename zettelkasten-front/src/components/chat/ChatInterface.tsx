@@ -8,7 +8,9 @@ import { CardsSection } from "./CardsSection";
 import { TasksSection } from "./TasksSection";
 import { ChatInput } from "./ChatInput";
 import { ToolResultCard } from "./ToolResultCard";
+import { EditMessageDialog } from "./EditMessageDialog";
 import { useChat } from "../../hooks/useChat";
+import { editUserMessage } from "../../api/chat";
 
 // Relative time component with auto-update and absolute time on hover
 const RelativeTime = ({ timestamp }: { timestamp: string }) => {
@@ -152,6 +154,24 @@ export function ChatInterface({
   const modelDropdownRef = useRef<HTMLDivElement>(null);
   const [showToolCallLoading, setShowToolCallLoading] = useState(false);
 
+  // Edit dialog state
+  const [editDialog, setEditDialog] = useState({
+    isOpen: false,
+    messageId: "",
+    initialContent: "",
+  });
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Check if a message is editable (within 5 minutes)
+  const isMessageEditable = useCallback((message: ChatMessage) => {
+    if (message.role !== "user") return false;
+    const createdAt = new Date(message.created_at);
+    const now = new Date();
+    const diffMs = now.getTime() - createdAt.getTime();
+    const fiveMinutes = 5 * 60 * 1000;
+    return diffMs < fiveMinutes;
+  }, []);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -174,6 +194,58 @@ export function ChatInterface({
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleOpenEditDialog = (message: ChatMessage) => {
+    setEditDialog({
+      isOpen: true,
+      messageId: message.id,
+      initialContent: message.content || "",
+    });
+  };
+
+  const handleCloseEditDialog = () => {
+    setEditDialog({
+      isOpen: false,
+      messageId: "",
+      initialContent: "",
+    });
+  };
+
+  const handleSaveEdit = async (newContent: string) => {
+    if (!currentConversation || !editDialog.messageId) return;
+
+    setIsEditing(true);
+    try {
+      const result = await editUserMessage(currentConversation.id, editDialog.messageId, { content: newContent });
+
+      // Update the messages in the chat hook
+      chatHook.setMessages(result.messages || []);
+
+      // Close the dialog
+      handleCloseEditDialog();
+
+      // Trigger regeneration by sending a message to continue the conversation
+      // The backend has deleted all messages after the edited one, so we need to regenerate
+      if (result.messages && result.messages.length > 0) {
+        // Find the last user message (the one we just edited)
+        const lastUserMessage = [...result.messages].reverse().find(m => m.role === "user");
+        if (lastUserMessage && lastUserMessage.id === editDialog.messageId) {
+          // Trigger regeneration by streaming a new response
+          // This will create a new assistant message
+          await chatHook.sendMessageToConversation(
+            currentConversation.id,
+            newContent,
+            lastUserMessage.referenced_cards
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Failed to edit message:", error);
+      // Handle error - could show a toast notification
+    } finally {
+      setIsEditing(false);
+    }
   };
 
   const getStatusIndicator = (status: string, hasContent: boolean = false, isStreaming: boolean = false) => {
@@ -416,6 +488,23 @@ export function ChatInterface({
                     </button>
                   </div>
                 )}
+
+                {/* Edit button for user messages (within 5 minutes) */}
+                {message.role === "user" && isMessageEditable(message) && (
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      onClick={() => handleOpenEditDialog(message)}
+                      disabled={isEditing}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-blue-100 hover:text-white text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Edit this message"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Edit
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -516,6 +605,15 @@ export function ChatInterface({
           </div>
         </div>
       </div>
+
+      {/* Edit Message Dialog */}
+      <EditMessageDialog
+        isOpen={editDialog.isOpen}
+        initialContent={editDialog.initialContent}
+        onSave={handleSaveEdit}
+        onCancel={handleCloseEditDialog}
+        isLoading={isEditing}
+      />
     </div>
   );
 }

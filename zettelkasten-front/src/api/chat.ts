@@ -503,3 +503,29 @@ export function retryToolCall(conversationId: string, request: RetryToolCallRequ
       }
     });
 }
+
+export interface EditUserMessageRequest {
+  content: string;
+}
+
+export function editUserMessage(conversationId: string, messageId: string, request: EditUserMessageRequest): Promise<ConversationWithMessages> {
+  const url = `${base_url}/chat/conversations/${conversationId}/messages/${messageId}/edit`;
+  const token = localStorage.getItem("token");
+
+  return fetch(url, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  })
+    .then(checkStatus)
+    .then((response) => {
+      if (response) {
+        return response.json() as Promise<ConversationWithMessages>;
+      } else {
+        return Promise.reject(new Error("Response is undefined"));
+      }
+    });
+}
