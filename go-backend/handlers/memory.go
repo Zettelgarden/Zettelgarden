@@ -24,6 +24,11 @@ func (s *Handler) GenerateMemory(userID uint, cardContent string) {
 	}
 
 	go func() {
+		// Acquire per-user memory mutex to prevent concurrent memory updates
+		mu := s.getMemoryMutex(userID)
+		mu.Lock()
+		defer mu.Unlock()
+
 		// Create a context with timeout to prevent indefinite goroutine execution
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
@@ -54,6 +59,11 @@ func (s *Handler) GenerateChatMemory(userID uint, userMessage, assistantMessage 
 	}
 
 	go func() {
+		// Acquire per-user memory mutex to prevent concurrent memory updates
+		mu := s.getMemoryMutex(userID)
+		mu.Lock()
+		defer mu.Unlock()
+
 		// Create a context with timeout to prevent indefinite goroutine execution
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
