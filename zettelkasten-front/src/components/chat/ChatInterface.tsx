@@ -174,7 +174,7 @@ export function ChatInterface({
   // Fetch card details when referenced cards change
   useEffect(() => {
     const fetchCardDetails = async () => {
-      if (referencedCards.length === 0) {
+      if (!referencedCards || referencedCards.length === 0) {
         setReferencedCardDetails([]);
         return;
       }
@@ -246,14 +246,14 @@ export function ChatInterface({
 
   // Handler for adding card via backlink dialog
   const handleAddBacklink = (card: PartialCard) => {
-    const newReferencedCards = [...referencedCards, String(card.id)];
+    const newReferencedCards = [...(referencedCards || []), String(card.id)];
     setReferencedCards(newReferencedCards);
     setShowBacklinkDialog(false);
   };
 
   // Handler for removing a referenced card
   const handleRemoveReferencedCard = (cardId: string) => {
-    const newReferencedCards = referencedCards.filter(id => id !== cardId);
+    const newReferencedCards = (referencedCards || []).filter(id => id !== cardId);
     setReferencedCards(newReferencedCards);
   };
 
