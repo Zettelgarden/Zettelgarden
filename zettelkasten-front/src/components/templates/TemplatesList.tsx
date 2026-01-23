@@ -206,7 +206,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                   value={newTemplateName}
                   onChange={(e) => setNewTemplateName(e.target.value)}
                   placeholder="e.g., Daily Journal, Meeting Notes"
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
                 <p className="text-sm text-gray-500 mt-1">
                   Display name shown in template lists
@@ -223,7 +223,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                   value={newTemplateTitle}
                   onChange={(e) => setNewTemplateTitle(e.target.value)}
                   placeholder="Title used when creating new cards"
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
               </div>
 
@@ -237,7 +237,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                   onChange={(e) => setNewTemplateBody(e.target.value)}
                   placeholder="Template content (use template variables like $date, $time, etc.)"
                   rows={10}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono"
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono"
                 />
               </div>
             </div>
@@ -328,7 +328,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                       type="text"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                     />
                     <p className="text-sm text-gray-500 mt-1">
                       Display name shown in template lists
@@ -344,7 +344,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                       type="text"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                     />
                   </div>
 
@@ -360,7 +360,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                       value={editBody}
                       onChange={(e) => setEditBody(e.target.value)}
                       rows={10}
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono"
+                      className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono"
                     />
                   </div>
                 </div>

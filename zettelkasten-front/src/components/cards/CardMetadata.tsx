@@ -75,7 +75,7 @@ export function CardMetadata({
                 setEditingCard({ ...editingCard, card_id: e.target.value })
               }
               placeholder="ID"
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-20"
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-20"
             />
             {(newCard || (!newCard && editingCard.card_id === "")) && (
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
@@ -134,7 +134,7 @@ export function CardMetadata({
               setEditingCard({ ...editingCard, link: e.target.value })
             }
             placeholder="Source"
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-10"
+            className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-10"
           />
           <button
             onClick={handleClickFillCard}

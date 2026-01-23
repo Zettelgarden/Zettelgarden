@@ -58,7 +58,7 @@ export function SaveAsTemplateDialog({ body, title: cardTitle = "", onClose, onS
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                            className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                             placeholder="e.g., Daily Journal, Meeting Notes"
                             disabled={isSubmitting}
                         />
@@ -76,7 +76,7 @@ export function SaveAsTemplateDialog({ body, title: cardTitle = "", onClose, onS
                             type="text"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                            className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                             placeholder="Title used when creating new cards"
                             disabled={isSubmitting}
                         />

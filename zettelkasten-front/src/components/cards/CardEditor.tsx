@@ -135,7 +135,7 @@ export function CardEditor({
               setEditingCard({ ...editingCard, title: e.target.value })
             }
             placeholder="Title"
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-10"
+            className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-10"
           />
           <button
             onClick={handleSuggestTitle}
