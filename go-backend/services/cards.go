@@ -52,13 +52,6 @@ func ExtractBacklinks(text string) []string {
 }
 
 func GetChildCards(db *sql.DB, userID int, cardID int) ([]models.PartialCard, error) {
-	// Get the parent card's card_id first
-	var parent_id int
-	err := db.QueryRow("SELECT parent_id FROM cards WHERE id = $1 AND user_id = $2", cardID, userID).Scan(&parent_id)
-	if err != nil {
-		return nil, err
-	}
-
 	// Find child cards based on card_id hierarchy
 	query := `
 		SELECT id, card_id, user_id, title, parent_id, created_at, updated_at
