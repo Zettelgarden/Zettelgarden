@@ -15,7 +15,7 @@ func TestSendMessageRoute_MessageValidation(t *testing.T) {
 	s := setup()
 	defer tests.Teardown()
 
-	conv, err := s.CreateConversation(1, nil, "gpt-4", nil, nil)
+	conv, err := s.CreateConversation(1, nil, "openai/gpt-4o-mini", nil, nil)
 	if err != nil {
 		t.Fatalf("CreateConversation: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestSendMessageRoute_MessageValidation(t *testing.T) {
 			payload: map[string]any{
 				"content":         "valid test message",
 				"referenced_cards": []string{"123"},
-				"model":           "gpt-4",
+				"model":           "openai/gpt-4o-mini",
 			},
 			expectedStatus: http.StatusOK,
 			expectedError:  "",
@@ -109,7 +109,7 @@ func TestStreamMessageRoute_MessageValidation(t *testing.T) {
 	s := setup()
 	defer tests.Teardown()
 
-	conv, err := s.CreateConversation(1, nil, "gpt-4", nil, nil)
+	conv, err := s.CreateConversation(1, nil, "openai/gpt-4o-mini", nil, nil)
 	if err != nil {
 		t.Fatalf("CreateConversation: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestSendMessageRoute_QuotaExceeded(t *testing.T) {
 	s := setup()
 	defer tests.Teardown()
 
-	conv, err := s.CreateConversation(1, nil, "gpt-4", nil, nil)
+	conv, err := s.CreateConversation(1, nil, "openai/gpt-4o-mini", nil, nil)
 	if err != nil {
 		t.Fatalf("CreateConversation: %v", err)
 	}
@@ -253,7 +253,7 @@ func TestStreamMessageRoute_QuotaExceeded(t *testing.T) {
 	s := setup()
 	defer tests.Teardown()
 
-	conv, err := s.CreateConversation(1, nil, "gpt-4", nil, nil)
+	conv, err := s.CreateConversation(1, nil, "openai/gpt-4o-mini", nil, nil)
 	if err != nil {
 		t.Fatalf("CreateConversation: %v", err)
 	}
@@ -313,7 +313,7 @@ func TestRegenerateMessageRoute_QuotaExceeded(t *testing.T) {
 	s := setup()
 	defer tests.Teardown()
 
-	conv, err := s.CreateConversation(1, nil, "gpt-4", nil, nil)
+	conv, err := s.CreateConversation(1, nil, "openai/gpt-4o-mini", nil, nil)
 	if err != nil {
 		t.Fatalf("CreateConversation: %v", err)
 	}
