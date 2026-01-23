@@ -34,8 +34,11 @@ const (
 	ToolGetTasks           = "get_tasks"
 	ToolCreateTask         = "create_task"
 	ToolUpdateTask         = "update_task"
-	ToolGetTaskByID        = "get_task_by_id"
-	ToolGetEntityByName    = "get_entity_by_name"
+	ToolGetTaskByID              = "get_task_by_id"
+	ToolCompleteTask             = "complete_task"
+	ToolDeleteTask               = "delete_task"
+	ToolCompleteAndScheduleTask  = "complete_and_schedule_task"
+	ToolGetEntityByName          = "get_entity_by_name"
 	ToolSearchEntities     = "search_entities"
 	ToolGetCardsByEntity = "get_cards_by_entity"
 	ToolGetUserMemory    = "get_user_memory"
@@ -181,6 +184,9 @@ func NewToolRegistry() *ToolRegistry {
 	registry.registerCreateTask()
 	registry.registerUpdateTask()
 	registry.registerGetTaskByID()
+	registry.registerCompleteTask()
+	registry.registerDeleteTask()
+	registry.registerCompleteAndScheduleTask()
 	registry.registerGetEntityByName()
 	registry.registerSearchEntities()
 	registry.registerGetCardsByEntity()
@@ -1364,6 +1370,161 @@ func handleGetTaskByID(args map[string]interface{}, ctx *ToolContext) (map[strin
 	}
 
 	return StructToMap(task), nil
+}
+
+func (tr *ToolRegistry) registerCompleteTask() {
+	tr.tools["complete_task"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "complete_task",
+				Description: "Mark a task as complete. This is a convenience wrapper for updating a task's completion status.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"task_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The ID of the task to mark as complete",
+						},
+					},
+					"required": []string{"task_id"},
+				},
+			},
+		},
+		Handler: handleCompleteTask,
+	}
+}
+
+func handleCompleteTask(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	taskID, err := getIntParam(args, "task_id")
+	if err != nil {
+		return nil, err
+	}
+
+	currentTask, lerr := GetTask(ctx.DB, ctx.UserID, taskID)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to get task: %v", lerr)
+	}
+
+	currentTask.IsComplete = true
+
+	_, uerr := UpdateTask(ctx.DB, ctx.UserID, taskID, currentTask)
+	if uerr != nil {
+		return nil, fmt.Errorf("failed to complete task: %v", uerr)
+	}
+
+	updatedTask, uerr := GetTask(ctx.DB, ctx.UserID, taskID)
+	if uerr != nil {
+		return nil, fmt.Errorf("failed to retrieve updated task: %v", uerr)
+	}
+
+	return StructToMap(updatedTask), nil
+}
+
+func (tr *ToolRegistry) registerDeleteTask() {
+	tr.tools["delete_task"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "delete_task",
+				Description: "Delete a task by its ID. This action cannot be undone.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"task_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The ID of the task to delete",
+						},
+					},
+					"required": []string{"task_id"},
+				},
+			},
+		},
+		Handler: handleDeleteTask,
+	}
+}
+
+func handleDeleteTask(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	taskID, err := getIntParam(args, "task_id")
+	if err != nil {
+		return nil, err
+	}
+
+	err = DeleteTask(ctx.DB, ctx.UserID, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete task: %v", err)
+	}
+
+	return map[string]interface{}{
+		"status":  "deleted",
+		"task_id": taskID,
+	}, nil
+}
+
+func (tr *ToolRegistry) registerCompleteAndScheduleTask() {
+	tr.tools["complete_and_schedule_task"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "complete_and_schedule_task",
+				Description: "Complete a recurring task and create a new one scheduled for a specified number of days later. Useful for managing recurring tasks.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"task_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The ID of the task to complete",
+						},
+						"days": map[string]interface{}{
+							"type":        "integer",
+							"description": "Number of days to schedule the new task in the future (must be greater than 0)",
+						},
+					},
+					"required": []string{"task_id", "days"},
+				},
+			},
+		},
+		Handler: handleCompleteAndScheduleTask,
+	}
+}
+
+func handleCompleteAndScheduleTask(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	taskID, err := getIntParam(args, "task_id")
+	if err != nil {
+		return nil, err
+	}
+
+	days, err := getIntParam(args, "days")
+	if err != nil {
+		return nil, err
+	}
+
+	if days <= 0 {
+		return nil, fmt.Errorf("days must be greater than 0")
+	}
+
+	// Get the complete and default status names
+	completeStatus, lerr := GetCompleteTaskStatus(ctx.DB, ctx.UserID)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to get complete status: %v", lerr)
+	}
+
+	defaultStatus, lerr := GetDefaultTaskStatus(ctx.DB, ctx.UserID)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to get default status: %v", lerr)
+	}
+
+	newTaskID, lerr := CompleteAndScheduleTask(ctx.DB, ctx.UserID, taskID, days, completeStatus.Name, defaultStatus.Name)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to complete and schedule task: %v", lerr)
+	}
+
+	return map[string]interface{}{
+		"status":        "completed_and_scheduled",
+		"task_id":       taskID,
+		"new_task_id":   newTaskID,
+		"scheduled_in":  fmt.Sprintf("%d days", days),
+	}, nil
 }
 
 func (tr *ToolRegistry) registerGetEntityByName() {
