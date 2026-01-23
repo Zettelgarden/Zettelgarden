@@ -9,11 +9,12 @@ interface VideoSectionProps {
 export function VideoSection({ video }: VideoSectionProps) {
   return (
     <motion.div
+      id="video"
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.6 }}
-      className="mt-24 mb-12"
+      className="py-24"
     >
       <h2 className="text-3xl font-display font-bold text-center mb-8 text-modern-slate-900">
         {video.title}

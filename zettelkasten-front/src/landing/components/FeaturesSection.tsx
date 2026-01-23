@@ -7,8 +7,6 @@ interface FeaturesSectionProps {
   features: Feature[];
   expandedFeature: string | null;
   onExpandFeature: (id: string | null) => void;
-  hoveredCard: string | null;
-  onHoverCard: (id: string | null) => void;
   sectionTitle: string;
   sectionDescription: string;
 }
@@ -17,8 +15,6 @@ export function FeaturesSection({
   features,
   expandedFeature,
   onExpandFeature,
-  hoveredCard,
-  onHoverCard,
   sectionTitle,
   sectionDescription,
 }: FeaturesSectionProps) {
@@ -62,8 +58,6 @@ export function FeaturesSection({
                   expandedFeature === feature.id ? null : feature.id
                 )
               }
-              isHovered={hoveredCard === feature.id}
-              onHover={(hovered) => onHoverCard(hovered ? feature.id : null)}
             />
           </motion.div>
         ))}

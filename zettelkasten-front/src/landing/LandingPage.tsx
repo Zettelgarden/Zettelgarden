@@ -25,14 +25,13 @@ import { PricingSection } from "./components/PricingSection";
 import { VideoSection } from "./components/VideoSection";
 import { NewsletterSection } from "./components/NewsletterSection";
 
-const zettel_env = import.meta.env.VITE_ENV;
-
 function LandingPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
-  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
@@ -46,17 +45,29 @@ function LandingPage() {
   }
 
   async function handleSubmit() {
-    console.log(email);
-    addToMailingList(email);
-    setSubmitted(true);
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      await addToMailingList(email);
+      setSubmitted(true);
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
     setDocumentTitle();
   }, []);
-
-  //  const subscriptionEnabled = import.meta.env.VITE_FEATURE_SUBSCRIPTION === "true";
-  const subscriptionEnabled = false;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-modern-slate-50 to-modern-emerald-50">
@@ -75,15 +86,11 @@ function LandingPage() {
             features={features}
             expandedFeature={expandedFeature}
             onExpandFeature={setExpandedFeature}
-            hoveredCard={hoveredCard}
-            onHoverCard={setHoveredCard}
             sectionTitle={featuresSection.title}
             sectionDescription={featuresSection.description}
           />
 
-          <div className="mt-24 mb-12">
-            <VideoSection video={videoSection} />
-          </div>
+          <VideoSection video={videoSection} />
 
           <PricingSection
             tiers={pricingTiers}
@@ -97,9 +104,14 @@ function LandingPage() {
           <NewsletterSection
             newsletter={newsletterSection}
             email={email}
-            onEmailChange={setEmail}
+            onEmailChange={(value) => {
+              setEmail(value);
+              setError(null);
+            }}
             submitted={submitted}
             onSubmit={handleSubmit}
+            loading={loading}
+            error={error}
           />
 
           <Footer />

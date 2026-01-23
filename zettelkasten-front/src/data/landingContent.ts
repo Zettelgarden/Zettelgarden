@@ -5,6 +5,7 @@ import type {
   VideoContent,
   NewsletterContent,
   PricingFeature,
+  SectionContent,
 } from "../types/landing";
 
 // Shared feature arrays for pricing tiers (eliminates duplication)
@@ -132,16 +133,18 @@ export const newsletterSection: NewsletterContent = {
     "Stay updated with Zettelgarden's development. Sign up for occasional updates about new features and releases.",
   inputPlaceholder: "Enter your email",
   buttonText: "Sign Up",
+  buttonLoadingText: "Signing up...",
   successMessage: "Thank you for signing up!",
+  invalidEmailMessage: "Please enter a valid email address",
 };
 
-export const featuresSection = {
+export const featuresSection: SectionContent = {
   title: "Features that Work for You",
   description:
     "Click on any feature to learn more about how Zettelgarden can enhance your knowledge management workflow.",
 };
 
-export const pricingSection = {
+export const pricingSection: SectionContent = {
   title: "Simple, Transparent Pricing",
   description:
     "Start free and discover how AI can augment your thinking. Upgrade to unlock advanced AI agents, content analysis, and discovery features. 30-day free trial included.",

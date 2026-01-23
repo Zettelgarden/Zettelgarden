@@ -1,3 +1,8 @@
+export interface SectionContent {
+  title: string;
+  description: string;
+}
+
 export interface Feature {
   id: string;
   title: string;
@@ -39,5 +44,7 @@ export interface NewsletterContent {
   description: string;
   inputPlaceholder: string;
   buttonText: string;
+  buttonLoadingText: string;
   successMessage: string;
+  invalidEmailMessage: string;
 }

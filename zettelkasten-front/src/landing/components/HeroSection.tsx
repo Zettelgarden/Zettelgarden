@@ -94,6 +94,7 @@ export function HeroSection({ hero, onSignUp, scrollY, landingImage }: HeroSecti
             }}
             whileTap={{ scale: 0.98 }}
             className="px-8 py-4 bg-gradient-to-r from-modern-emerald-600 to-modern-emerald-700 text-white rounded-xl font-body font-semibold text-lg hover:from-modern-emerald-700 hover:to-modern-emerald-800 transition-all duration-300 shadow-lg relative overflow-hidden group"
+            aria-label={hero.buttonText}
           >
             <span className="relative z-10">{hero.buttonText}</span>
             <motion.div

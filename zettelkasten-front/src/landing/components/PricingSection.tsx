@@ -41,6 +41,7 @@ function PricingCard({
       <button
         onClick={() => onNavigate(tier.route)}
         className={`mt-auto w-full ${buttonColorClass} text-white px-4 py-3 rounded-lg font-medium transition-colors`}
+        aria-label={`Choose ${tier.name} plan: ${tier.price}`}
       >
         {tier.buttonText}
       </button>
