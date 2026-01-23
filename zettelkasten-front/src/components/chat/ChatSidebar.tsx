@@ -16,7 +16,19 @@ export function ChatSidebar({ card }: ChatSidebarProps) {
   const { setChatSidebarCard } = useChatSidebarContext();
   const { refreshCard } = useCardRefresh();
 
-  const chatHook = useChat();
+  const chatHook = useChat({
+    onConversationChange: (conversation) => {
+      // Update selected conversation ID whenever the current conversation changes
+      if (conversation) {
+        setSelectedConversationId(conversation.id);
+      }
+    },
+    onConversationCreated: async (conversation) => {
+      // Refresh the conversation list after a draft is converted to real conversation
+      const conversations = await getConversations(card.id);
+      setCardConversations(conversations);
+    }
+  });
   const [cardConversations, setCardConversations] = useState<ChatConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
@@ -125,11 +137,8 @@ export function ChatSidebar({ card }: ChatSidebarProps) {
       chatHook.handleCardReference([card.id.toString()]);
 
       // Send the message - this will create the conversation on the backend
+      // The onConversationCreated callback will handle updating the conversation ID
       await chatHook.sendMessage();
-
-      // Refresh the conversation list after the conversation is created
-      const conversations = await getConversations(card.id);
-      setCardConversations(conversations);
     } catch (error) {
       console.error("Failed to create conversation for card:", error);
     }

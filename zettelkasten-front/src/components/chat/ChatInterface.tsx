@@ -9,8 +9,11 @@ import { TasksSection } from "./TasksSection";
 import { ChatInput } from "./ChatInput";
 import { ToolResultCard } from "./ToolResultCard";
 import { EditMessageDialog } from "./EditMessageDialog";
+import { BacklinkDialog } from "../cards/BacklinkDialog";
 import { useChat } from "../../hooks/useChat";
 import { editUserMessage } from "../../api/chat";
+import { getCard } from "../../api/cards";
+import { PartialCard } from "../../models/Card";
 
 // Relative time component with auto-update and absolute time on hover
 const RelativeTime = ({ timestamp }: { timestamp: string }) => {
@@ -148,6 +151,8 @@ export function ChatInterface({
     toggleToolResult,
     retryFailedMessage,
     retryTool,
+    referencedCards,
+    setReferencedCards,
   } = chatHook;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -161,6 +166,33 @@ export function ChatInterface({
     initialContent: "",
   });
   const [isEditing, setIsEditing] = useState(false);
+
+  // Card reference state
+  const [showBacklinkDialog, setShowBacklinkDialog] = useState(false);
+  const [referencedCardDetails, setReferencedCardDetails] = useState<PartialCard[]>([]);
+
+  // Fetch card details when referenced cards change
+  useEffect(() => {
+    const fetchCardDetails = async () => {
+      if (referencedCards.length === 0) {
+        setReferencedCardDetails([]);
+        return;
+      }
+
+      try {
+        const details = await Promise.all(
+          referencedCards.map(cardId => getCard(cardId))
+        );
+        // Filter out any error responses
+        const validCards = details.filter(card => !('error' in card));
+        setReferencedCardDetails(validCards);
+      } catch (error) {
+        console.error('Failed to fetch card details:', error);
+      }
+    };
+
+    fetchCardDetails();
+  }, [referencedCards]);
 
   // Check if a message is editable (within 5 minutes)
   const isMessageEditable = useCallback((message: ChatMessage) => {
@@ -210,6 +242,19 @@ export function ChatInterface({
       messageId: "",
       initialContent: "",
     });
+  };
+
+  // Handler for adding card via backlink dialog
+  const handleAddBacklink = (card: PartialCard) => {
+    const newReferencedCards = [...referencedCards, String(card.id)];
+    setReferencedCards(newReferencedCards);
+    setShowBacklinkDialog(false);
+  };
+
+  // Handler for removing a referenced card
+  const handleRemoveReferencedCard = (cardId: string) => {
+    const newReferencedCards = referencedCards.filter(id => id !== cardId);
+    setReferencedCards(newReferencedCards);
   };
 
   const handleSaveEdit = async (newContent: string) => {
@@ -517,6 +562,29 @@ export function ChatInterface({
       <div className={inputBorder}>
         <div className={`relative max-w-4xl mx-auto ${compact ? '' : 'max-w-4xl'}`}>
           <div className="relative border border-gray-300 rounded-2xl bg-white shadow-sm hover:shadow-md transition-all duration-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
+            {/* Referenced Cards Display */}
+            {referencedCardDetails.length > 0 && (
+              <div className={`flex flex-wrap gap-2 px-4 pt-3 ${compact ? 'px-3 pt-2' : ''}`}>
+                {referencedCardDetails.map((card) => (
+                  <div
+                    key={card.id}
+                    className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 group hover:bg-blue-100 transition-colors"
+                  >
+                    <span className="font-medium">[{card.card_id}]</span>
+                    <span className="truncate max-w-[150px]">{card.title}</span>
+                    <button
+                      onClick={() => handleRemoveReferencedCard(String(card.id))}
+                      className="ml-0.5 text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Remove card reference"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className={`flex items-end gap-3 ${inputPadding}`}>
               <div className="flex-1 relative">
                 <ChatInput
@@ -534,6 +602,18 @@ export function ChatInterface({
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Add Card Reference Button */}
+                <button
+                  onClick={() => setShowBacklinkDialog(true)}
+                  disabled={isSending}
+                  className="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-abled disabled:hover:bg-transparent"
+                  title="Add card reference"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+
                 {/* Model Dropdown */}
                 {showModelDropdown && internalShowModelDropdown && (
                   <div ref={modelDropdownRef} className="absolute bottom-16 left-4 z-10">
@@ -614,6 +694,16 @@ export function ChatInterface({
         onCancel={handleCloseEditDialog}
         isLoading={isEditing}
       />
+
+      {/* Backlink Dialog */}
+      {showBacklinkDialog && (
+        <BacklinkDialog
+          onClose={() => setShowBacklinkDialog(false)}
+          onSelect={handleAddBacklink}
+          setMessage={() => {}}
+          excludeCardId={undefined}
+        />
+      )}
     </div>
   );
 }
