@@ -170,7 +170,7 @@ export function TaskTitleSection({
         <div className="relative flex-shrink-0">
           <button
             onClick={() => setShowRecurringMenu(!showRecurringMenu)}
-            className="menu-button h-full px-3"
+            className="bg-transparent border-none cursor-pointer text-2xl h-full px-3"
           >
             ...
           </button>

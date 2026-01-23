@@ -56,7 +56,7 @@ function PasswordReset() {
   };
 
   return (
-    <div className="login-container">
+    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[20%] border border-gray-300 p-[30px]">
       {token ? (
         // Reset Password Form
         <div>

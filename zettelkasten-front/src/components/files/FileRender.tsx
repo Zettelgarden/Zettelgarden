@@ -22,10 +22,10 @@ export const FileRender = ({ file }: FileRenderProps) => {
     }
   }, [file]);
   return (
-    <div className="file-render-popup-overlay">
-      <div className="file-render-popup-content">
+    <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-[1000]">
+      <div className="bg-white p-5 rounded-lg shadow-lg w-[90%]">
       {(file.filetype === "image/png" || file.filetype === "image/jpeg" || file.filetype === "image/jpg") && (
-          <img src={imageSrc} style={{ maxWidth: "100%", height: "auto" }} />
+          <img src={imageSrc} className="max-w-full h-auto" />
         )}
       </div>
     </div>

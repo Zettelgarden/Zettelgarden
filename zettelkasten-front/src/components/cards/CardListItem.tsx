@@ -132,7 +132,7 @@ export function CardListItem({
   }
 
   return (
-    <div key={card.id} className="card-item py-2 px-2.5 flex w-full text-sm items-center hover:bg-gray-50 transition-colors duration-150 rounded-lg">
+    <div key={card.id} className="text-palette-darkest py-2 px-2.5 flex w-full text-sm items-center hover:bg-gray-50 transition-colors duration-150 rounded-lg">
       <div className="pr-4 flex-1 min-w-0 overflow-hidden">
         <span
           onMouseEnter={handleMouseEnter}

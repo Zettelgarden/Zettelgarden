@@ -117,11 +117,11 @@ export function CreateTaskWindow({
 
   return (
     <div
-      className="create-task-popup-overlay"
+      className="fixed top-0 left-0 w-full h-full bg-black/50 flex justify-center items-center z-[1000]"
       onClick={() => setShowTaskWindow(false)}
     >
       <div
-        className="create-task-popup-content"
+        className="bg-white p-4 sm:p-6 rounded-lg shadow-md max-w-[672px] w-[95%] sm:w-[90%] max-h-[90vh] overflow-y-visible"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-col h-full">

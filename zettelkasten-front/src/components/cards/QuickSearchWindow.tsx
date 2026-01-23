@@ -20,11 +20,11 @@ export function QuickSearchWindow({ setShowWindow }: QuickSearchWindowProps) {
 
   return (
     <div
-      className="create-task-popup-overlay"
+      className="fixed top-0 left-0 w-full h-full bg-black/50 flex justify-center items-center z-[1000]"
       onClick={() => setShowWindow(false)}
     >
       <div
-        className="create-task-popup-content"
+        className="bg-white p-4 rounded-lg shadow-lg max-w-[672px] w-[95%] max-h-[90vh] overflow-y-visible sm:p-6 sm:w-[90%]"
         onClick={(e) => e.stopPropagation()}
       >
         <BacklinkInputDropdownList

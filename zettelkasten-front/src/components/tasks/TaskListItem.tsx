@@ -155,8 +155,8 @@ export function TaskListItem({
   }, [task]);
 
   return (
-    <div className="task-list-item">
-      <div className="task-list-item-checkbox">
+    <div className="flex items-center bg-white">
+      <div className="mr-2.5">
         {selectMode ? (
           <input
             type="checkbox"
@@ -171,11 +171,11 @@ export function TaskListItem({
           </span>
         )}
       </div>
-      <div className="task-list-item-middle-container">
-        <div className="task-list-item-title">
+      <div className="flex-grow min-w-0">
+        <div className="whitespace-nowrap overflow-hidden text-ellipsis">
           <span
             onClick={handleTitleClick}
-            className={task.is_complete ? "task-completed" : "task-title"}
+            className={task.is_complete ? "line-through" : "cursor-pointer"}
             dangerouslySetInnerHTML={{
               __html: linkifyWithDefaultOptions(
                 removeTagsFromTitle(task.title),
@@ -183,7 +183,7 @@ export function TaskListItem({
             }}
           />
         </div>
-        <div className="task-list-item-details inline-block">
+        <div className="flex text-sm inline-block">
           <TaskStatusDisplay
             task={task}
             setTask={(task: Task) => { }}
@@ -237,7 +237,7 @@ export function TaskListItem({
           <TaskTagDisplay task={task} tags={tags} onTagClick={onTagClick} onRemoveTag={handleRemoveTag} hideMatrixTags={hideMatrixTags} />
         </div>
       </div>
-      <div className="task-list-item-card">
+      <div className="ml-2.5">
         {task.card && task.card.id > 0 && (
           <Link
             to={`/app/card/${task.card.id}`}
@@ -256,7 +256,7 @@ export function TaskListItem({
       <button onClick={() => {
         setSelectedTaskId(task.id);
         setShowTaskDialog(true);
-      }} className="menu-button">
+      }} className="bg-transparent border-0 cursor-pointer text-2xl">
         ⋮
       </button>
     </div>
