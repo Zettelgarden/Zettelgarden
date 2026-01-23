@@ -961,3 +961,143 @@ func getDescendantsRecursive(db *sql.DB, userID int, parentCardID int, depth int
 
 	return descendants, nil
 }
+
+// GetAuditEventByID fetches a single audit event by ID
+func GetAuditEventByID(db *sql.DB, userID int, eventID int) (models.AuditEvent, error) {
+	var event models.AuditEvent
+
+	err := db.QueryRow(`
+		SELECT id, user_id, entity_id, entity_type, action, details, created_at
+		FROM audit_events
+		WHERE id = $1 AND user_id = $2
+	`, eventID, userID).Scan(
+		&event.ID,
+		&event.UserID,
+		&event.EntityID,
+		&event.EntityType,
+		&event.Action,
+		&event.Details,
+		&event.CreatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return models.AuditEvent{}, fmt.Errorf("audit event not found")
+		}
+		return models.AuditEvent{}, err
+	}
+
+	return event, nil
+}
+
+// reconstructCardStateFromAudit reconstructs the card state from an audit event
+// For 'create' events: uses CustomData.initial_state
+// For 'update' events: applies changes in reverse (uses 'from' values)
+func reconstructCardStateFromAudit(event models.AuditEvent, currentCard models.Card) models.EditCardParams {
+	params := models.EditCardParams{}
+
+	// Default to current state
+	params.Title = currentCard.Title
+	params.Body = currentCard.Body
+	params.Link = currentCard.Link
+	params.CardID = currentCard.CardID
+
+	if event.Action == "create" {
+		// For create events, use the initial state if available
+		if initialState, ok := event.Details.CustomData["initial_state"]; ok {
+			// initialState is a map[string]interface{}
+			if stateMap, ok := initialState.(map[string]interface{}); ok {
+				if title, ok := stateMap["title"].(string); ok {
+					params.Title = title
+				}
+				if body, ok := stateMap["body"].(string); ok {
+					params.Body = body
+				}
+				if link, ok := stateMap["link"]; ok && link != nil {
+					if linkStr, ok := link.(string); ok {
+						params.Link = linkStr
+					}
+				}
+				if cardID, ok := stateMap["card_id"].(string); ok {
+					params.CardID = cardID
+				}
+			}
+		}
+	} else if event.Action == "update" {
+		// For update events, apply the 'from' values from changes
+		for fieldName, change := range event.Details.Changes {
+			switch fieldName {
+			case "Title":
+				if fromValue, ok := change.From.(string); ok {
+					params.Title = fromValue
+				}
+			case "Body":
+				if fromValue, ok := change.From.(string); ok {
+					params.Body = fromValue
+				}
+			case "Link":
+				if fromValue, ok := change.From.(string); ok && fromValue != "" {
+					params.Link = fromValue
+				}
+			case "CardID":
+				if fromValue, ok := change.From.(string); ok {
+					params.CardID = fromValue
+				}
+			}
+		}
+	} else if event.Action == "delete" {
+		// For delete events, use the final state (pre-deletion state)
+		if finalState, ok := event.Details.CustomData["final_state"]; ok {
+			if stateMap, ok := finalState.(map[string]interface{}); ok {
+				if title, ok := stateMap["title"].(string); ok {
+					params.Title = title
+				}
+				if body, ok := stateMap["body"].(string); ok {
+					params.Body = body
+				}
+				if link, ok := stateMap["link"]; ok && link != nil {
+					if linkStr, ok := link.(string); ok {
+						params.Link = linkStr
+					}
+				}
+				if cardID, ok := stateMap["card_id"].(string); ok {
+					params.CardID = cardID
+				}
+			}
+		}
+	}
+
+	return params
+}
+
+// RestoreCardToAuditEvent restores a card to the state it was in at the time of the audit event
+func RestoreCardToAuditEvent(db *sql.DB, userID int, cardPK int, auditEventID int) (models.Card, error) {
+	// Verify the user owns the card
+	currentCard, err := GetFullCard(db, userID, cardPK)
+	if err != nil {
+		return models.Card{}, fmt.Errorf("card not found")
+	}
+
+	// Fetch the audit event
+	auditEvent, err := GetAuditEventByID(db, userID, auditEventID)
+	if err != nil {
+		return models.Card{}, fmt.Errorf("audit event not found")
+	}
+
+	// Verify the audit event belongs to this card
+	if auditEvent.EntityID != cardPK || auditEvent.EntityType != "card" {
+		return models.Card{}, fmt.Errorf("audit event does not belong to this card")
+	}
+
+	// Reconstruct the card state from the audit event
+	params := reconstructCardStateFromAudit(auditEvent, currentCard)
+
+	// Update the card with the reconstructed state
+	// This will create a new audit event automatically
+	restoredCard, err := UpdateCard(db, userID, cardPK, params)
+	if err != nil {
+		return models.Card{}, fmt.Errorf("failed to restore card: %w", err)
+	}
+
+	return restoredCard, nil
+}

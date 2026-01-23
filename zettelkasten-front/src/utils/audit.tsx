@@ -6,8 +6,112 @@ export interface AuditChange {
   to: any;
 }
 
+export interface AuditEventWithChanges {
+  id: number;
+  user_id: number;
+  entity_id: number;
+  entity_type: string;
+  action: string;
+  details: {
+    change_type: string;
+    changes: Record<string, { from: any; to: any }>;
+    custom_data?: Record<string, any>;
+  };
+  created_at: Date;
+  updated_at: Date;
+}
+
 export function formatFieldName(field: string): string {
   return field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, " $1");
+}
+
+/**
+ * Generate a human-readable summary of changes
+ * e.g., "Updated title and body", "Updated title", "Updated 3 fields"
+ */
+export function generateChangeSummary(changes: AuditChange[], eventType: string): string {
+  if (changes.length === 0) {
+    switch (eventType.toLowerCase()) {
+      case 'create':
+        return 'Card created';
+      case 'delete':
+        return 'Card deleted';
+      default:
+        return 'No changes';
+    }
+  }
+
+  if (changes.length === 1) {
+    return `Updated ${formatFieldName(changes[0].field).toLowerCase()}`;
+  }
+
+  if (changes.length === 2) {
+    return `Updated ${formatFieldName(changes[0].field).toLowerCase()} and ${formatFieldName(changes[1].field).toLowerCase()}`;
+  }
+
+  return `Updated ${changes.length} fields`;
+}
+
+/**
+ * Group events by date category: Today, Yesterday, This Week, Older
+ */
+export function groupEventsByDate(events: any[]): Record<string, any[]> {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const thisWeek = new Date(today);
+  thisWeek.setDate(thisWeek.getDate() - 7);
+
+  const groups: Record<string, any[]> = {
+    Today: [],
+    Yesterday: [],
+    'This Week': [],
+    Older: []
+  };
+
+  for (const event of events) {
+    const eventDate = new Date(event.created_at);
+    const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+
+    if (eventDay.getTime() === today.getTime()) {
+      groups.Today.push(event);
+    } else if (eventDay.getTime() === yesterday.getTime()) {
+      groups.Yesterday.push(event);
+    } else if (eventDay >= thisWeek) {
+      groups['This Week'].push(event);
+    } else {
+      groups.Older.push(event);
+    }
+  }
+
+  return groups;
+}
+
+/**
+ * Render inline diff with word-level highlighting for string changes
+ */
+export function renderInlineDiff(from: string, to: string, maxLength: number = 200): React.ReactNode {
+  const truncate = (text: string) => {
+    if (text.length <= maxLength) return text;
+    return text.slice(0, maxLength) + '...';
+  };
+
+  const fromText = truncate(from || '(empty)');
+  const toText = truncate(to || '(empty)');
+
+  // For simplicity, just show the old/new with styling
+  // A full word-level diff would require a diffing library
+  return (
+    <div className="flex flex-col space-y-1">
+      <div className="text-red-600 bg-red-50 px-2 py-1 rounded break-words">
+        {fromText}
+      </div>
+      <div className="text-green-600 bg-green-50 px-2 py-1 rounded break-words">
+        {toText}
+      </div>
+    </div>
+  );
 }
 
 export function renderAuditDiff(change: AuditChange) {

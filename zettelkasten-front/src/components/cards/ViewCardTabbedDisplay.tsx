@@ -5,6 +5,7 @@ import { removeEntityFromCard } from "../../api/entities";
 import {
   saveExistingCard,
   getCardAuditEvents,
+  restoreCardToAuditEvent,
 } from "../../api/cards";
 import { getCardFacts } from "../../api/facts";
 import { Fact, FactWithCard } from "../../models/Fact";
@@ -15,6 +16,7 @@ import { FactsTab } from "../tabs/FactsTab";
 import { HistoryTab } from "../tabs/HistoryTab";
 import { SummariesTab } from "../tabs/SummariesTab";
 import { FilesTab } from "../tabs/FilesTab";
+import { RollbackConfirmDialog } from "../tabs/RollbackConfirmDialog";
 
 // Props interface
 import { SummarizeJobResponse } from "../../api/summarizer";
@@ -50,6 +52,9 @@ export function ViewCardTabbedDisplay({
   const [factFilterString, setFactFilterString] = useState<string>("");
   const [entityFilterString, setEntityFilterString] = useState<string>("");
   const [showAddEntityDialog, setShowAddEntityDialog] = useState<boolean>(false);
+  const [showRollbackDialog, setShowRollbackDialog] = useState<boolean>(false);
+  const [pendingRestoreEvent, setPendingRestoreEvent] = useState<any>(null);
+  const [isRestoring, setIsRestoring] = useState<boolean>(false);
 
   const tabs = [
     { label: "Entities" },
@@ -121,6 +126,41 @@ export function ViewCardTabbedDisplay({
     }
   }, [activeTab, viewingCard.id]);
 
+  // Handle restore click - show confirmation dialog
+  const handleRestoreClick = (event: any) => {
+    setPendingRestoreEvent(event);
+    setShowRollbackDialog(true);
+  };
+
+  // Confirm restore - call the API
+  const handleConfirmRestore = async () => {
+    if (!pendingRestoreEvent) return;
+
+    setIsRestoring(true);
+    try {
+      const restoredCard = await restoreCardToAuditEvent(
+        viewingCard.id.toString(),
+        pendingRestoreEvent.id
+      );
+      setViewCard(restoredCard);
+      // Refresh audit events to show the new restore event
+      const events = await getCardAuditEvents(viewingCard.id.toString());
+      setAuditEvents(events);
+      setShowRollbackDialog(false);
+      setPendingRestoreEvent(null);
+    } catch (error) {
+      setError("Failed to restore card");
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  // Cancel restore
+  const handleCancelRestore = () => {
+    setShowRollbackDialog(false);
+    setPendingRestoreEvent(null);
+  };
+
 
   return (
     <div>
@@ -174,7 +214,7 @@ export function ViewCardTabbedDisplay({
         />
       )}
       {activeTab === "History" && (
-        <HistoryTab auditEvents={auditEvents} />
+        <HistoryTab auditEvents={auditEvents} onRestore={handleRestoreClick} />
       )}
       {activeTab === "Summaries" && (
         <SummariesTab summaries={summaries} />
@@ -188,6 +228,16 @@ export function ViewCardTabbedDisplay({
           setShowFactDialog={setShowFactDialog}
         />
       )}
+
+      {/* Rollback Confirmation Dialog */}
+      <RollbackConfirmDialog
+        isOpen={showRollbackDialog}
+        onClose={handleCancelRestore}
+        onConfirm={handleConfirmRestore}
+        cardTitle={viewingCard.title || viewingCard.card_id || 'Untitled Card'}
+        auditEvent={pendingRestoreEvent}
+        isLoading={isRestoring}
+      />
 
     </div>
   );

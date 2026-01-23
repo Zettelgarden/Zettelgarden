@@ -1,0 +1,189 @@
+import React from "react";
+import { AuditChange, parseAuditEvent, formatDate } from "../../utils/audit";
+
+interface RollbackConfirmDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  cardTitle: string;
+  auditEvent: any;
+  isLoading?: boolean;
+}
+
+export function RollbackConfirmDialog({
+  isOpen,
+  onClose,
+  onConfirm,
+  cardTitle,
+  auditEvent,
+  isLoading = false,
+}: RollbackConfirmDialogProps) {
+  if (!isOpen) return null;
+
+  const changes: AuditChange[] = parseAuditEvent(auditEvent);
+  const eventType = auditEvent.details?.change_type || 'unknown';
+
+  // Generate a summary of what will be restored
+  const getRestoreSummary = () => {
+    if (eventType.toLowerCase() === 'create') {
+      return 'restore to the initial state when this card was created';
+    }
+    if (changes.length === 0) {
+      return 'restore with no changes';
+    }
+    const fieldNames = changes.map(c => {
+      switch (c.field.toLowerCase()) {
+        case 'title':
+          return 'title';
+        case 'body':
+          return 'content';
+        case 'cardid':
+          return 'card ID';
+        case 'link':
+          return 'link';
+        default:
+          return c.field.toLowerCase();
+      }
+    });
+    if (fieldNames.length === 1) {
+      return `restore the ${fieldNames[0]}`;
+    }
+    if (fieldNames.length === 2) {
+      return `restore the ${fieldNames[0]} and ${fieldNames[1]}`;
+    }
+    return `restore ${changes.length} fields`;
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex min-h-screen items-center justify-center p-4">
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+          onClick={onClose}
+        />
+
+        {/* Modal */}
+        <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+          {/* Header */}
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Confirm Restore
+            </h3>
+          </div>
+
+          {/* Content */}
+          <div className="mb-6">
+            <p className="text-sm text-gray-600 mb-4">
+              You are about to <strong>{getRestoreSummary()}</strong> for card:
+            </p>
+
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-3 mb-4">
+              <p className="font-medium text-gray-900">{cardTitle}</p>
+            </div>
+
+            <div className="text-sm text-gray-600 mb-3">
+              <p className="font-medium text-gray-700 mb-1">Target version:</p>
+              <p className="text-gray-500">
+                {eventType.toLowerCase() === 'create'
+                  ? 'Initial state'
+                  : formatDate(auditEvent.created_at)}
+              </p>
+            </div>
+
+            {/* Warning */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+              <div className="flex">
+                <svg
+                  className="w-5 h-5 text-yellow-400 mr-2 flex-shrink-0"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <div className="text-sm text-yellow-800">
+                  <p className="font-medium mb-1">Important notes:</p>
+                  <ul className="list-disc list-inside space-y-1 text-yellow-700">
+                    <li>This will create a new version (a new audit event)</li>
+                    <li>Current changes will be preserved in history</li>
+                    <li>You can undo this restore by restoring again</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Changes preview */}
+            {changes.length > 0 && eventType.toLowerCase() !== 'create' && (
+              <div className="mt-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Changes that will be made:</p>
+                <div className="bg-gray-50 border border-gray-200 rounded-md p-3 space-y-2">
+                  {changes.map((change, idx) => {
+                    const fieldName = change.field.toLowerCase();
+                    const displayField = fieldName === 'cardid' ? 'card ID' : fieldName;
+                    return (
+                      <div key={idx} className="text-sm">
+                        <span className="font-medium text-gray-700">{displayField}:</span>
+                        <span className="text-gray-600 ml-2">
+                          will revert to "{String(change.from || '(empty)')}"
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer buttons */}
+          <div className="flex justify-end space-x-3">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isLoading}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={isLoading}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            >
+              {isLoading ? (
+                <>
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  Restoring...
+                </>
+              ) : (
+                'Restore'
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

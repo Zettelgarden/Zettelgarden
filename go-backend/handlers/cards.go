@@ -1166,3 +1166,37 @@ func (h *Handler) ParseURLRoute(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
 }
+
+// RestoreCardToAuditEventRoute restores a card to the state it was in at the time of the audit event
+func (s *Handler) RestoreCardToAuditEventRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	cardID, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil {
+		http.Error(w, "Invalid card ID", http.StatusBadRequest)
+		return
+	}
+
+	auditEventID, err := strconv.Atoi(mux.Vars(r)["auditEventId"])
+	if err != nil {
+		http.Error(w, "Invalid audit event ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify the user owns this card
+	_, err = s.QueryFullCard(userID, cardID)
+	if err != nil {
+		http.Error(w, "Card not found", http.StatusNotFound)
+		return
+	}
+
+	// Restore the card
+	restoredCard, err := services.RestoreCardToAuditEvent(s.DB, userID, cardID, auditEventID)
+	if err != nil {
+		log.Printf("Error restoring card: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(restoredCard)
+}

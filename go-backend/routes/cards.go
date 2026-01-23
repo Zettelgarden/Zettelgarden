@@ -29,4 +29,5 @@ func RegisterCardRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/cards/{id}/entities", h.GetCardEntitiesRoute, "GET")
 	addProtectedRoute(r, h, "/api/cards/{card_pk:[0-9]+}/linked-entities", h.GetEntityByLinkedCardPKRoute, "GET")
 	addProtectedRoute(r, h, "/api/cards/{card_pk:[0-9]+}/analysis", h.GetCardAnalysisRoute, "GET")
+	addProtectedRoute(r, h, "/api/cards/{id}/audit/{auditEventId}/restore", h.RestoreCardToAuditEventRoute, "POST")
 }

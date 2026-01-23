@@ -697,3 +697,76 @@ export function getUnsortedCards(page = 1, perPage = 10): Promise<UnsortedCardsR
       }
     });
 }
+
+/**
+ * Restore a card to the state it was in at the time of the audit event
+ * @param cardId The ID of the card to restore
+ * @param auditEventId The ID of the audit event to restore to
+ * @returns A promise that resolves to the restored card
+ */
+export function restoreCardToAuditEvent(cardId: string, auditEventId: number): Promise<Card> {
+  const url = `${base_url}/cards/${encodeURIComponent(cardId)}/audit/${auditEventId}/restore`;
+  let token = localStorage.getItem("token");
+
+  return fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  })
+    .then(checkStatus)
+    .then((response) => {
+      if (response) {
+        return response.json().then((card: Card) => {
+          let children =
+            card.children !== null
+              ? card.children.map((child) => {
+                  return {
+                    ...child,
+                    created_at: new Date(child.created_at),
+                    updated_at: new Date(child.updated_at),
+                  };
+                })
+              : [];
+          let references =
+            card.references !== null
+              ? card.references.map((ref) => {
+                  return {
+                    ...ref,
+                    created_at: new Date(ref.created_at),
+                    updated_at: new Date(ref.updated_at),
+                  };
+                })
+              : [];
+          let tasks =
+            card.tasks !== null
+              ? card.tasks.map((task) => {
+                  return {
+                    ...task,
+                    scheduled_date: task.scheduled_date
+                      ? new Date(task.scheduled_date)
+                      : null,
+                    due_date: task.due_date ? new Date(task.due_date) : null,
+                    created_at: new Date(task.created_at),
+                    updated_at: new Date(task.updated_at),
+                    completed_at: task.completed_at
+                      ? new Date(task.completed_at)
+                      : null,
+                  };
+                })
+              : [];
+          return {
+            ...card,
+            created_at: new Date(card.created_at),
+            updated_at: new Date(card.updated_at),
+            children: children,
+            references: references,
+            tasks: tasks,
+          };
+        });
+      } else {
+        return Promise.reject(new Error("Response is undefined"));
+      }
+    });
+}
