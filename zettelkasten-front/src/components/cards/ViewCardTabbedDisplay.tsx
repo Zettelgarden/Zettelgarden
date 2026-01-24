@@ -170,16 +170,16 @@ export function ViewCardTabbedDisplay({
             key={tab.label}
             onClick={() => handleTabClick(tab.label)}
             className={`
-            cursor-pointer font-medium py-1.5 px-3 rounded-md flex items-center
+            cursor-pointer font-medium py-1 px-2 rounded-md flex items-center text-sm
             ${activeTab === tab.label
-                ? "text-blue-600 border-b-4 border-blue-600"
+                ? "text-blue-600 border-b-2 border-blue-600"
                 : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
               }
           `}
           >
             {tab.label}
             {tab.label !== "History" &&
-              <span className="ml-1 text-xs font-semibold bg-gray-200 rounded-full px-2 py-0.5 text-gray-700">
+              <span className="ml-1 text-xs font-semibold bg-gray-200 rounded-full px-1.5 py-0.5 text-gray-700">
                 {tab.label === "Files" && viewingCard.files.length}
                 {tab.label === "Entities" && viewingCard.entities && viewingCard.entities.length}
                 {tab.label === "Summaries" && summaries && summaries.length}

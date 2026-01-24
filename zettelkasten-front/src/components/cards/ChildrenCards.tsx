@@ -63,7 +63,7 @@ export function ChildrenCards({ allChildren, card }: ChildrenCardsProps) {
             {openCards[c.card_id] && (
               <div className="ml-6">
                 {loading[c.card_id] ? (
-                  <div className="text-gray-500 text-sm">Loading children...</div>
+                  <div className="text-gray-500 text-xs">Loading children...</div>
                 ) : (
                   <ChildrenCards
                     allChildren={loadedChildren[c.card_id] || []}

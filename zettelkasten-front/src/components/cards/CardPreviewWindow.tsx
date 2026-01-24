@@ -65,7 +65,7 @@ export function CardPreviewWindow({
       leaveTo="opacity-0"
     >
       <div
-        className="fixed z-50 bg-white rounded-lg shadow-2xl border border-gray-200 p-4 max-w-xl"
+        className="fixed z-50 bg-white rounded-lg shadow-2xl border border-gray-200 p-3 max-w-xl text-sm"
         style={{
           top: topPosition,
           left: leftPosition,
@@ -74,18 +74,18 @@ export function CardPreviewWindow({
         }}
       >
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-3">
-            <div className="text-red-700 text-sm">{error}</div>
+          <div className="bg-red-50 border border-red-200 rounded-md p-2 mb-2">
+            <div className="text-red-700 text-xs">{error}</div>
           </div>
         )}
         {viewingCard && (
-          <div className="space-y-3">
-            <div className="border-b border-gray-200 pb-3">
+          <div className="space-y-2">
+            <div className="border-b border-gray-200 pb-2">
               <div className="flex items-center gap-2 mb-1">
-                <span className="font-semibold text-blue-600 text-sm">
+                <span className="font-semibold text-blue-600 text-xs">
                   [{viewingCard.card_id}]
                 </span>
-                <span className="text-gray-700 font-medium text-sm truncate">
+                <span className="text-gray-700 font-medium text-xs truncate">
                   {viewingCard.title}
                 </span>
               </div>
@@ -93,7 +93,7 @@ export function CardPreviewWindow({
                 {formatDate(viewingCard.created_at.toISOString())}
               </p>
             </div>
-            <div className="overflow-y-auto max-h-64 prose prose-sm max-w-none">
+            <div className="overflow-y-auto max-h-64 prose prose-xs max-w-none">
               <CardBody viewingCard={viewingCard} entities={viewingCard.entities} />
             </div>
           </div>

@@ -24,7 +24,7 @@ export function QuickSearchWindow({ setShowWindow }: QuickSearchWindowProps) {
       onClick={() => setShowWindow(false)}
     >
       <div
-        className="bg-white p-4 rounded-lg shadow-lg max-w-[672px] w-[95%] max-h-[90vh] overflow-y-visible sm:p-6 sm:w-[90%]"
+        className="bg-white p-3 rounded-lg shadow-lg max-w-[672px] w-[95%] max-h-[90vh] overflow-y-visible sm:p-4 sm:w-[90%]"
         onClick={(e) => e.stopPropagation()}
       >
         <BacklinkInputDropdownList

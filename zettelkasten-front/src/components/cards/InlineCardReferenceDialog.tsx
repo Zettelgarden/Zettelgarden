@@ -51,7 +51,7 @@ export function InlineCardReferenceDialog({
   };
 
   return (
-    <div ref={containerRef} style={style} className="shadow-2xl rounded-lg bg-white border border-gray-200">
+    <div ref={containerRef} style={style} className="shadow-2xl rounded-md bg-white border border-gray-200 overflow-hidden">
        <BacklinkInputDropdownList
           onSelect={onSelect}
           onSearch={() => {}}

@@ -23,18 +23,18 @@ export function BacklinkDialog({ onClose, onSelect, setMessage, excludeCardId }:
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]">
-      <div className="bg-white p-4 rounded-lg shadow-lg w-full max-w-md mx-4">
-        <h3 className="text-lg font-medium mb-4">Add Backlink to Card</h3>
+      <div className="bg-white p-3 rounded-lg shadow-lg w-full max-w-md mx-4">
+        <h3 className="text-base font-medium mb-3">Add Backlink to Card</h3>
         <BacklinkInputDropdownList
           onSelect={handleSelect}
           onSearch={handleSearch}
           placeholder="Search for a card to link..."
           excludeCardId={excludeCardId}
         />
-        <div className="mt-4 flex justify-end">
+        <div className="mt-3 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+            className="px-3 py-1.5 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 text-sm"
           >
             Cancel
           </button>

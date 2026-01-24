@@ -96,13 +96,13 @@ export function CreateCardDialog({
                 className="fixed inset-0 z-50 flex items-center justify-center"
             >
                 <div className="fixed inset-0 bg-black bg-opacity-30" aria-hidden="true" />
-                <Dialog.Panel className="bg-white p-6 rounded-lg max-w-2xl mx-auto relative w-full">
-                    <Dialog.Title className="text-lg font-semibold mb-4">
+                <Dialog.Panel className="bg-white p-4 rounded-lg max-w-2xl mx-auto relative w-full">
+                    <Dialog.Title className="text-base font-semibold mb-3">
                         {title}
                     </Dialog.Title>
-                    <div className="space-y-4 mb-6">
+                    <div className="space-y-3 mb-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Card ID
                             </label>
                             <div className="relative">
@@ -110,7 +110,7 @@ export function CreateCardDialog({
                                     type="text"
                                     value={cardId}
                                     onChange={(e) => setCardId(e.target.value)}
-                                    className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-20"
+                                    className="block w-full rounded-md border border-gray-300 px-2.5 py-1.5 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-16 text-sm"
                                     placeholder="Enter card ID..."
                                 />
                                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
@@ -141,7 +141,7 @@ export function CreateCardDialog({
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Card Title
                             </label>
                             <div className="relative">
@@ -149,7 +149,7 @@ export function CreateCardDialog({
                                     type="text"
                                     value={cardTitle}
                                     onChange={(e) => setCardTitle(e.target.value)}
-                                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-24"
+                                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-20 text-sm"
                                     placeholder="Enter card title..."
                                 />
                                 <button
@@ -173,22 +173,22 @@ export function CreateCardDialog({
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Card Content
                             </label>
                             <textarea
                                 value={cardBody}
                                 onChange={(e) => setCardBody(e.target.value)}
-                                className="w-full h-32 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full h-32 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                                 placeholder="Enter card content..."
                             />
                         </div>
                     </div>
-                    {convertError && <p className="text-red-600 mb-4">{convertError}</p>}
-                    <div className="flex justify-end gap-4">
+                    {convertError && <p className="text-red-600 mb-3 text-sm">{convertError}</p>}
+                    <div className="flex justify-end gap-3">
                         <button
                             onClick={handleClose}
-                            className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                            className="px-3 py-1.5 text-gray-600 hover:text-gray-800 text-sm"
                             disabled={isConverting}
                         >
                             Cancel
@@ -196,7 +196,7 @@ export function CreateCardDialog({
                         <button
                             onClick={handleCreateCard}
                             disabled={isConverting || !cardTitle.trim() || !cardBody.trim()}
-                            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+                            className="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 text-sm"
                         >
                             {isConverting ? "Creating..." : "Create Card"}
                         </button>

@@ -19,7 +19,7 @@ export function CardItem({ card }: CardItemProps) {
   };
 
   return (
-    <div key={card.id} className="text-palette-darkest py-2 px-2.5">
+    <div key={card.id} className="text-palette-darkest py-1.5 px-2 text-sm">
       <span
         onMouseEnter={handleMouseEnter}
         onMouseLeave={() => setShowHover(false)}

@@ -8,12 +8,12 @@ interface CardTagProps {
 
 export function CardTag({ card, showTitle }: CardTagProps) {
   return (
-    <div className="flex items-center min-w-0 max-w-full">
+    <div className="flex items-center min-w-0 max-w-full text-sm">
       <span className="text-blue-600 hover:text-blue-800 flex-shrink-0">
         [{card.card_id}]
       </span>
       {showTitle && (
-        <span className="truncate ml-1">
+        <span className="truncate ml-1 text-gray-700">
           - {card.title}
         </span>
       )}
