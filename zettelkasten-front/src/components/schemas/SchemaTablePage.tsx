@@ -35,7 +35,7 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
 
       // Fetch cards with this schema_id
       const token = localStorage.getItem("token");
-      const response = await fetch(`${import.meta.env.VITE_URL}/cards?schema_id=${schemaId}`, {
+      const response = await fetch(`${import.meta.env.VITE_URL}/schemas/${schemaId}/cards`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

@@ -13,4 +13,5 @@ func RegisterSchemaRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/schemas/{id}", h.GetSchemaRoute, "GET")
 	addProtectedRoute(r, h, "/api/schemas/{id}", h.UpdateSchemaRoute, "PUT")
 	addProtectedRoute(r, h, "/api/schemas/{id}", h.DeleteSchemaRoute, "DELETE")
+	addProtectedRoute(r, h, "/api/schemas/{id}/cards", h.GetCardsBySchemaRoute, "GET")
 }

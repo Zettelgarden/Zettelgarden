@@ -442,3 +442,74 @@ func (s *Handler) DeleteSchemaRoute(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
+
+// GetCardsBySchemaRoute returns all cards that use a specific schema
+func (s *Handler) GetCardsBySchemaRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	schemaID, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil {
+		http.Error(w, "Invalid schema ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify the schema exists and belongs to the user
+	if !verifySchemaOwnership(s.DB, schemaID, userID, w) {
+		return
+	}
+
+	// Build query
+	query := `
+		SELECT id, card_id, user_id, title, body, link, parent_id, created_at, updated_at, card_schema_id, structured_data
+		FROM cards
+		WHERE user_id = $1 AND is_deleted = FALSE AND card_schema_id = $2
+		ORDER BY updated_at DESC
+	`
+
+	rows, err := s.DB.Query(query, userID, schemaID)
+	if err != nil {
+		log.Printf("Error querying cards by schema: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var cards []models.Card
+	for rows.Next() {
+		var card models.Card
+		var cardSchemaID sql.NullInt64
+		var structuredData []byte
+
+		err := rows.Scan(
+			&card.ID,
+			&card.CardID,
+			&card.UserID,
+			&card.Title,
+			&card.Body,
+			&card.Link,
+			&card.ParentID,
+			&card.CreatedAt,
+			&card.UpdatedAt,
+			&cardSchemaID,
+			&structuredData,
+		)
+		if err != nil {
+			log.Printf("Error scanning card: %v", err)
+			continue
+		}
+
+		if cardSchemaID.Valid {
+			id := int(cardSchemaID.Int64)
+			card.SchemaID = &id
+		}
+		if len(structuredData) > 0 {
+			data := json.RawMessage(structuredData)
+			card.StructuredData = &data
+		}
+
+		cards = append(cards, card)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(cards)
+}

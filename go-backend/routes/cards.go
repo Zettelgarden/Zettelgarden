@@ -6,7 +6,6 @@ import (
 )
 
 func RegisterCardRoutes(r *mux.Router, h *handlers.Handler) {
-	addProtectedRoute(r, h, "/api/cards", h.GetCardsRoute, "GET")
 	addProtectedRoute(r, h, "/api/cards", h.CreateCardRoute, "POST")
 	addProtectedRoute(r, h, "/api/cards/next-root-id", h.GetNextRootCardIDRoute, "GET")
 	addProtectedRoute(r, h, "/api/cards/suggest-title", h.SuggestCardTitleRoute, "POST")
