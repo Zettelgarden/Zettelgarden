@@ -35,7 +35,7 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
 
       // Fetch all cards and filter by schema_id
       const token = localStorage.getItem("token");
-      const response = await fetch(`${import.meta.env.VITE_URL}/cards`, {
+      const response = await fetch(`${import.meta.env.VITE_URL}/cards/unsorted`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -48,8 +48,8 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
         .filter((card: Card) => card.schema_id === schemaId)
         .map((card: Card) => ({
           ...card,
-          created_at: new Date(card.created_at),
-          updated_at: new Date(card.updated_at),
+          created_at: card.created_at instanceof Date ? card.created_at : new Date(card.created_at),
+          updated_at: card.updated_at instanceof Date ? card.updated_at : new Date(card.updated_at),
         }));
 
       setCards(filteredCards);
@@ -214,7 +214,9 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
                     </td>
                   ))}
                   <td className="px-4 py-3 text-sm text-gray-500">
-                    {new Date(card.updated_at).toLocaleDateString()}
+                    {card.updated_at instanceof Date
+                      ? card.updated_at.toLocaleDateString()
+                      : new Date(card.updated_at).toLocaleDateString()}
                   </td>
                 </tr>
               ))}
