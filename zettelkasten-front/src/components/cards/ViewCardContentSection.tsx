@@ -50,30 +50,32 @@ export function ViewCardContentSection({
   return (
     <div className="md:w-2/3 space-y-4">
       <div
-        className={`rounded-lg py-4 prose shadow-sm max-w-none px-4 ${showingSummary ? "bg-yellow-50 border border-yellow-200" : showingAnalysis ? "bg-blue-50 border border-blue-200" : "bg-white"
+        className={`rounded-lg py-4 prose prose-sm shadow-sm max-w-none px-4 ${showingSummary ? "bg-yellow-50 border border-yellow-200" : showingAnalysis ? "bg-blue-50 border border-blue-200" : "bg-white"
           }`}
       >
         {showingSummary && latestSummary?.result ? (
           <div>
-            <div className="bg-yellow-100 text-yellow-800 font-semibold px-3 py-2 rounded-md mb-4">
+            <div className="bg-yellow-100 text-yellow-800 font-semibold text-sm px-3 py-2 rounded-md mb-4">
               Summary View
             </div>
-            <ReactMarkdown>{latestSummary.result}</ReactMarkdown>
+            <div className="prose prose-sm">
+              <ReactMarkdown>{latestSummary.result}</ReactMarkdown>
+            </div>
           </div>
         ) : showingAnalysis && analysis ? (
           <div>
-            <div className="bg-blue-100 text-blue-800 font-semibold px-3 py-2 rounded-md mb-4">
+            <div className="bg-blue-100 text-blue-800 font-semibold text-sm px-3 py-2 rounded-md mb-4">
               Analysis View
             </div>
             {analysis.map((section, index) => (
               <div key={index} className="mb-4">
-                <h2 className="font-bold text-lg">{section.section}</h2>
+                <h2 className="font-bold text-base">{section.section}</h2>
                 {section.theses && section.theses.map((thesis, thesisIndex) => (
                   <div key={thesisIndex} className="ml-4 mt-2">
-                    <span className="text-base">{thesis.thesis}</span>
+                    <span className="text-sm">{thesis.thesis}</span>
                     {thesis.arguments && thesis.arguments.length > 0 && (
                       <div className="ml-4">
-                        <ul className="list-disc ml-5">
+                        <ul className="list-disc ml-5 text-sm">
                           {thesis.arguments.map((arg, argIndex) => (
                             <li key={argIndex}>{arg.argument}</li>
                           ))}

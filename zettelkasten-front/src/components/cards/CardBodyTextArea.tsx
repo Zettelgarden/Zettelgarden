@@ -71,7 +71,7 @@ export const CardBodyTextArea = forwardRef<CardBodyTextAreaHandle, CardBodyTextA
   return (
     <div className="relative">
       {isPreviewMode ? (
-        <div className="prose block w-full h-48 p-2 overflow-y-auto">
+        <div className="prose sm:text-sm block w-full h-48 p-2 overflow-y-auto">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {editingCard.body}
           </ReactMarkdown>
@@ -79,7 +79,7 @@ export const CardBodyTextArea = forwardRef<CardBodyTextAreaHandle, CardBodyTextA
       ) : (
         <textarea
           ref={textareaRef}
-          className="block w-full h-96 p-2 border border-gray-200"
+          className="block w-full h-96 p-2 border border-gray-200 sm:text-sm"
           id="body"
           value={editingCard.body}
           onChange={handleBodyChange}
