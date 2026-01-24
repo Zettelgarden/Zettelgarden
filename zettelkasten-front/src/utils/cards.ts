@@ -147,3 +147,52 @@ export function findNextChildId(parentId: string, existingChildren: PartialCard[
 
   return `${parentId}.${maxChildNumber + 1}`;
 }
+
+export type SortMethod =
+  | "cardId"
+  | "createdNewOld"
+  | "createdOldNew"
+  | "updatedNewOld"
+  | "updatedOldNew"
+  | "titleAZ"
+  | "titleZA";
+
+export const SORT_METHOD_LABELS: Record<SortMethod, string> = {
+  cardId: "Card ID",
+  createdNewOld: "Created (Newest)",
+  createdOldNew: "Created (Oldest)",
+  updatedNewOld: "Updated (Newest)",
+  updatedOldNew: "Updated (Oldest)",
+  titleAZ: "Title (A-Z)",
+  titleZA: "Title (Z-A)",
+};
+
+export function sortPartialCards(cards: PartialCard[], sortMethod: SortMethod): PartialCard[] {
+  const sortedCards = [...cards];
+  switch (sortMethod) {
+    case "cardId":
+      sortedCards.sort((a, b) => compareCardIds(a.card_id, b.card_id));
+      break;
+    case "createdNewOld":
+      sortedCards.sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
+      break;
+    case "createdOldNew":
+      sortedCards.sort((a, b) => a.created_at.getTime() - b.created_at.getTime());
+      break;
+    case "updatedNewOld":
+      sortedCards.sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
+      break;
+    case "updatedOldNew":
+      sortedCards.sort((a, b) => a.updated_at.getTime() - b.updated_at.getTime());
+      break;
+    case "titleAZ":
+      sortedCards.sort((a, b) => a.title.localeCompare(b.title));
+      break;
+    case "titleZA":
+      sortedCards.sort((a, b) => b.title.localeCompare(a.title));
+      break;
+    default:
+      sortedCards.sort((a, b) => compareCardIds(a.card_id, b.card_id));
+  }
+  return sortedCards;
+}

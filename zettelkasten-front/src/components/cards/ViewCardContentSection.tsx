@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { TaskListItem } from "../tasks/TaskListItem";
 import { Card, PartialCard } from "../../models/Card";
@@ -10,7 +10,8 @@ import { CardList } from "./CardList";
 import { BacklinkInput } from "./BacklinkInput";
 import { CardBody } from "./CardBody";
 import { ViewCardTabbedDisplay } from "./ViewCardTabbedDisplay";
-import { compareCardIds } from "../../utils/cards";
+import { SortControl, SortMethod, sortPartialCards } from "../../utils/cards";
+import { SortControl as SortControlComponent } from "./SortControl";
 
 interface ViewCardContentSectionProps {
   viewingCard: Card;
@@ -47,6 +48,14 @@ export function ViewCardContentSection({
   setShowFactDialog,
   fileUploadRef
 }: ViewCardContentSectionProps) {
+  const [childrenSortMethod, setChildrenSortMethod] = useState<SortMethod>("cardId");
+  const [referencesSortMethod, setReferencesSortMethod] = useState<SortMethod>("cardId");
+
+  const sortedChildren = sortPartialCards(viewingCard.children, childrenSortMethod);
+  const sortedBidirectional = sortPartialCards(categorizedReferences.bidirectional, referencesSortMethod);
+  const sortedIncoming = sortPartialCards(categorizedReferences.incoming, referencesSortMethod);
+  const sortedOutgoing = sortPartialCards(categorizedReferences.outgoing, referencesSortMethod);
+
   return (
     <div className="md:w-2/3 space-y-4">
       <div
@@ -97,8 +106,14 @@ export function ViewCardContentSection({
       </div>
 
       <div>
-        <div className="flex items-center justify-between">
-          <HeaderSubSection text="Children" />
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <HeaderSubSection text="Children" />
+            <SortControlComponent
+              sortMethod={childrenSortMethod}
+              onSortChange={setChildrenSortMethod}
+            />
+          </div>
           <button
             onClick={onCreateChildCard}
             className="text-blue-500 hover:text-blue-700"
@@ -108,11 +123,9 @@ export function ViewCardContentSection({
             </svg>
           </button>
         </div>
-        {viewingCard.children.length > 0 ? (
+        {sortedChildren.length > 0 ? (
           <ChildrenCards
-            allChildren={viewingCard.children.sort((a, b) =>
-              compareCardIds(a.card_id, b.card_id),
-            )}
+            allChildren={sortedChildren}
             card={viewingCard}
           />
         ) : (
@@ -122,54 +135,50 @@ export function ViewCardContentSection({
       </div>
 
       <div>
-        <HeaderSubSection text="References" />
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <HeaderSubSection text="References" />
+            <SortControlComponent
+              sortMethod={referencesSortMethod}
+              onSortChange={setReferencesSortMethod}
+            />
+          </div>
+        </div>
 
         {/* Bidirectional Links */}
-        {categorizedReferences.bidirectional.length > 0 && (
+        {sortedBidirectional.length > 0 && (
           <div className="mb-3">
             <h3 className="text-xs font-medium text-gray-600 mb-1.5">
-              Two-way Links ({categorizedReferences.bidirectional.length})
+              Two-way Links ({sortedBidirectional.length})
             </h3>
-            <CardList
-              cards={categorizedReferences.bidirectional.sort((a, b) =>
-                compareCardIds(a.card_id, b.card_id),
-              )}
-            />
+            <CardList cards={sortedBidirectional} />
           </div>
         )}
 
         {/* Incoming Links */}
-        {categorizedReferences.incoming.length > 0 && (
+        {sortedIncoming.length > 0 && (
           <div className="mb-3">
             <h3 className="text-xs font-medium text-gray-600 mb-1.5">
-              Incoming Links ({categorizedReferences.incoming.length})
+              Incoming Links ({sortedIncoming.length})
             </h3>
-            <CardList
-              cards={categorizedReferences.incoming.sort((a, b) =>
-                compareCardIds(a.card_id, b.card_id),
-              )}
-            />
+            <CardList cards={sortedIncoming} />
           </div>
         )}
 
         {/* Outgoing Links */}
-        {categorizedReferences.outgoing.length > 0 && (
+        {sortedOutgoing.length > 0 && (
           <div className="mb-3">
             <h3 className="text-xs font-medium text-gray-600 mb-1.5">
-              Outgoing Links ({categorizedReferences.outgoing.length})
+              Outgoing Links ({sortedOutgoing.length})
             </h3>
-            <CardList
-              cards={categorizedReferences.outgoing.sort((a, b) =>
-                compareCardIds(a.card_id, b.card_id),
-              )}
-            />
+            <CardList cards={sortedOutgoing} />
           </div>
         )}
 
         {/* Show message if no references at all */}
-        {categorizedReferences.bidirectional.length === 0 &&
-         categorizedReferences.incoming.length === 0 &&
-         categorizedReferences.outgoing.length === 0 && (
+        {sortedBidirectional.length === 0 &&
+         sortedIncoming.length === 0 &&
+         sortedOutgoing.length === 0 && (
           <div className="text-gray-500 text-sm mt-2">No references yet.</div>
         )}
 
