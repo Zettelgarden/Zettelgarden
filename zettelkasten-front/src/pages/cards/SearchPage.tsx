@@ -266,7 +266,7 @@ export function SearchPage({
   };
 
   return (
-    <div>
+    <div className="text-sm">
       <div>
         <div className="bg-slate-100 p-4 border-b border-slate-300">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
