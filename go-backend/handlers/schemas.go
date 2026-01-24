@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go-backend/models"
 	"log"
@@ -20,6 +22,44 @@ var validFieldTypes = map[string]bool{
 	"select":        true,
 	"multi-select":  true,
 	"link_to_card":  true,
+}
+
+// getUserID safely extracts the user ID from the request context
+// Returns an error if the user is not authenticated or the context value is invalid
+func getUserID(r *http.Request) (int, error) {
+	userID, ok := r.Context().Value("current_user").(int)
+	if !ok {
+		return 0, fmt.Errorf("user not authenticated or invalid context")
+	}
+	return userID, nil
+}
+
+// verifySchemaOwnership checks if a schema exists, belongs to the user, and is not deleted
+// Returns httpError, shouldContinue - if httpError is true, an error response was written
+func verifySchemaOwnership(db *sql.DB, schemaID, userID int, w http.ResponseWriter) bool {
+	checkQuery := `
+		SELECT id, is_deleted FROM schema_definitions
+		WHERE id = $1 AND owner_id = $2
+	`
+	var existingID int
+	var isDeleted bool
+	err := db.QueryRow(checkQuery, schemaID, userID).Scan(&existingID, &isDeleted)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(w, "Schema not found", http.StatusNotFound)
+		} else {
+			log.Printf("Error checking schema ownership: %v", err)
+			http.Error(w, "Error checking schema", http.StatusInternalServerError)
+		}
+		return false
+	}
+
+	if isDeleted {
+		http.Error(w, "Schema not found", http.StatusNotFound)
+		return false
+	}
+
+	return true
 }
 
 // validateFieldDefinition validates a single field definition
@@ -65,45 +105,42 @@ func validateSchemaFields(fields []models.FieldDefinition) error {
 	return nil
 }
 
-// validateCreateSchemaParams validates parameters for creating a schema
-func validateCreateSchemaParams(params models.CreateSchemaDefinitionParams) error {
+// validateSchemaParams validates common schema parameters (name and fields)
+func validateSchemaParams(name string, fields []models.FieldDefinition) error {
 	// Validate name
-	if params.Name == "" {
+	if name == "" {
 		return fmt.Errorf("name cannot be empty")
 	}
-	if len(params.Name) > 255 {
+	if len(name) > 255 {
 		return fmt.Errorf("name cannot exceed 255 characters")
 	}
 
 	// Validate fields
-	if err := validateSchemaFields(params.Fields); err != nil {
+	if err := validateSchemaFields(fields); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// validateCreateSchemaParams validates parameters for creating a schema
+func validateCreateSchemaParams(params models.CreateSchemaDefinitionParams) error {
+	return validateSchemaParams(params.Name, params.Fields)
 }
 
 // validateUpdateSchemaParams validates parameters for updating a schema
 func validateUpdateSchemaParams(params models.UpdateSchemaDefinitionParams) error {
-	// Validate name
-	if params.Name == "" {
-		return fmt.Errorf("name cannot be empty")
-	}
-	if len(params.Name) > 255 {
-		return fmt.Errorf("name cannot exceed 255 characters")
-	}
-
-	// Validate fields
-	if err := validateSchemaFields(params.Fields); err != nil {
-		return err
-	}
-
-	return nil
+	return validateSchemaParams(params.Name, params.Fields)
 }
 
 // CreateSchemaRoute handles POST /api/schemas - Create a new schema
 func (s *Handler) CreateSchemaRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, err := getUserID(r)
+	if err != nil {
+		log.Printf("Error getting user ID: %v", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	var params models.CreateSchemaDefinitionParams
 	decoder := json.NewDecoder(r.Body)
@@ -173,7 +210,12 @@ func (s *Handler) CreateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 
 // GetSchemasRoute handles GET /api/schemas - List all schemas for current user
 func (s *Handler) GetSchemasRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, err := getUserID(r)
+	if err != nil {
+		log.Printf("Error getting user ID: %v", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	query := `
 		SELECT id, name, owner_id, fields, created_at, updated_at, is_deleted
@@ -203,7 +245,12 @@ func (s *Handler) GetSchemasRoute(w http.ResponseWriter, r *http.Request) {
 
 // GetSchemaRoute handles GET /api/schemas/{id} - Get a specific schema
 func (s *Handler) GetSchemaRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, err := getUserID(r)
+	if err != nil {
+		log.Printf("Error getting user ID: %v", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	id, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil {
@@ -235,7 +282,12 @@ func (s *Handler) GetSchemaRoute(w http.ResponseWriter, r *http.Request) {
 
 // UpdateSchemaRoute handles PUT /api/schemas/{id} - Update a schema
 func (s *Handler) UpdateSchemaRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, err := getUserID(r)
+	if err != nil {
+		log.Printf("Error getting user ID: %v", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	id, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil {
@@ -251,6 +303,13 @@ func (s *Handler) UpdateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate that the ID in the request body matches the URL path parameter
+	if params.ID != 0 && params.ID != id {
+		log.Printf("ID mismatch: URL parameter %d vs request body %d", id, params.ID)
+		http.Error(w, "Schema ID in request body does not match URL parameter", http.StatusBadRequest)
+		return
+	}
+
 	// Validate parameters
 	if err := validateUpdateSchemaParams(params); err != nil {
 		log.Printf("Validation error: %v", err)
@@ -258,26 +317,8 @@ func (s *Handler) UpdateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// First verify the schema exists and belongs to the user
-	checkQuery := `
-		SELECT id, is_deleted FROM schema_definitions
-		WHERE id = $1 AND owner_id = $2
-	`
-	var existingID int
-	var isDeleted bool
-	err = s.DB.QueryRow(checkQuery, id, userID).Scan(&existingID, &isDeleted)
-	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
-			http.Error(w, "Schema not found", http.StatusNotFound)
-			return
-		}
-		log.Printf("Error checking schema ownership: %v", err)
-		http.Error(w, "Error checking schema", http.StatusInternalServerError)
-		return
-	}
-
-	if isDeleted {
-		http.Error(w, "Schema not found", http.StatusNotFound)
+	// Verify the schema exists, belongs to the user, and is not deleted
+	if !verifySchemaOwnership(s.DB, id, userID, w) {
 		return
 	}
 
@@ -331,7 +372,12 @@ func (s *Handler) UpdateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 
 // DeleteSchemaRoute handles DELETE /api/schemas/{id} - Soft delete a schema
 func (s *Handler) DeleteSchemaRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, err := getUserID(r)
+	if err != nil {
+		log.Printf("Error getting user ID: %v", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	id, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil {
@@ -339,26 +385,8 @@ func (s *Handler) DeleteSchemaRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify the schema exists and belongs to the user
-	checkQuery := `
-		SELECT id, is_deleted FROM schema_definitions
-		WHERE id = $1 AND owner_id = $2
-	`
-	var existingID int
-	var isDeleted bool
-	err = s.DB.QueryRow(checkQuery, id, userID).Scan(&existingID, &isDeleted)
-	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
-			http.Error(w, "Schema not found", http.StatusNotFound)
-			return
-		}
-		log.Printf("Error checking schema ownership: %v", err)
-		http.Error(w, "Error checking schema", http.StatusInternalServerError)
-		return
-	}
-
-	if isDeleted {
-		http.Error(w, "Schema not found", http.StatusNotFound)
+	// Verify the schema exists, belongs to the user, and is not deleted
+	if !verifySchemaOwnership(s.DB, id, userID, w) {
 		return
 	}
 

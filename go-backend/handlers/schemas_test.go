@@ -773,6 +773,11 @@ func TestDeleteSchemaRoute_WithCards(t *testing.T) {
 		t.Fatalf("Failed to create test card: %v", err)
 	}
 
+	// Clean up the test card - always run even if test fails
+	t.Cleanup(func() {
+		s.DB.Exec("DELETE FROM cards WHERE id = $1", cardID)
+	})
+
 	token, _ := tests.GenerateTestJWT(1)
 
 	req, _ := http.NewRequest("DELETE", "/api/schemas/"+strconv.Itoa(schema.ID), nil)
@@ -799,12 +804,12 @@ func TestDeleteSchemaRoute_WithCards(t *testing.T) {
 		t.Errorf("Expected warning for schema with cards, got none")
 	}
 
-	if response["cards_affected"].(float64) != 1 {
-		t.Errorf("Expected cards_affected=1, got %v", response["cards_affected"])
+	cardsAffected, ok := response["cards_affected"].(float64)
+	if !ok {
+		t.Errorf("Expected cards_affected to be a number, got %v", response["cards_affected"])
+	} else if cardsAffected != 1 {
+		t.Errorf("Expected cards_affected=1, got %v", cardsAffected)
 	}
-
-	// Clean up the test card
-	s.DB.Exec("DELETE FROM cards WHERE id = $1", cardID)
 }
 
 // TestDeleteSchemaRoute_SchemaNotFound tests error when schema is not found
@@ -1147,12 +1152,18 @@ func TestDeleteSchemaRoute_MultipleCardsWithSchema(t *testing.T) {
 	var response map[string]interface{}
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &response)
 
-	if response["cards_affected"].(float64) != 3 {
-		t.Errorf("Expected cards_affected=3, got %v", response["cards_affected"])
+	cardsAffected, ok := response["cards_affected"].(float64)
+	if !ok {
+		t.Errorf("Expected cards_affected to be a number, got %v", response["cards_affected"])
+	} else if cardsAffected != 3 {
+		t.Errorf("Expected cards_affected=3, got %v", cardsAffected)
 	}
 
 	// Verify warning message contains the count
-	warning := response["warning"].(string)
+	warning, ok := response["warning"].(string)
+	if !ok {
+		t.Errorf("Expected warning to be a string, got %v", response["warning"])
+	}
 	log.Printf("Warning message: %s", warning)
 	if warning == "" {
 		t.Errorf("Expected warning message for schema with cards, got empty string")

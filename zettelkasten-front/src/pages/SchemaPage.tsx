@@ -150,6 +150,15 @@ export function SchemaPage() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    navigate(`/app/schemas/${schema.id}/table`);
+                  }}
+                  className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded border border-blue-300"
+                >
+                  View as Table
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
                     handleDeleteClick(schema);
                   }}
                   className="px-3 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded border border-red-300"
