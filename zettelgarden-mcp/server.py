@@ -403,6 +403,42 @@ async def list_tools() -> list[Tool]:
                 "required": ["task_id"]
             }
         ),
+        Tool(
+            name="parse_url",
+            description="Parse a URL to extract article content (title, body, author, excerpt). Returns the parsed content for preview before creating a card.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "URL to parse and extract content from"
+                    }
+                },
+                "required": ["url"]
+            }
+        ),
+        Tool(
+            name="create_article",
+            description="Create a new article card from a URL. Automatically parses the URL, extracts content, adds the link, and tags with #to-read #reference.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "URL of the article to import"
+                    },
+                    "card_id": {
+                        "type": "string",
+                        "description": "Optional card_id (e.g., '1a'). Leave empty for auto-generated root ID."
+                    },
+                    "tags": {
+                        "type": "string",
+                        "description": "Optional custom tags (default: '#to-read #reference'). Provide as space-separated tags like '#tag1 #tag2'"
+                    }
+                },
+                "required": ["url"]
+            }
+        ),
     ]
 
 
@@ -456,6 +492,12 @@ async def _handle_tool(client: httpx.AsyncClient, name: str, args: dict) -> str:
         return await update_task(client, args)
     elif name == "complete_task":
         return await complete_task(client, args)
+
+    # Article tools
+    elif name == "parse_url":
+        return await parse_url(client, args)
+    elif name == "create_article":
+        return await create_article(client, args)
 
     else:
         return f"Unknown tool: {name}"
@@ -723,6 +765,101 @@ async def get_next_child_id(client: httpx.AsyncClient, args: dict) -> str:
     else:
         next_id = data.get("new_id", "unknown")
         return f"Next child ID for card {card_pk}: {next_id}"
+
+
+# =============================================================================
+# ARTICLE HANDLERS
+# =============================================================================
+
+async def parse_url(client: httpx.AsyncClient, args: dict) -> str:
+    """Parse a URL to extract article content."""
+    url = args.get("url", "")
+
+    resp = await client.post(
+        f"{API_URL}/api/url/parse",
+        headers=get_headers(),
+        json={"url": url}
+    )
+    resp.raise_for_status()
+    result = resp.json()
+
+    lines = [
+        f"# Parsed Article from {url}",
+        "",
+        f"**Title:** {result.get('title', 'Untitled')}",
+    ]
+
+    if result.get("author"):
+        lines.append(f"**Author:** {result.get('author')}")
+    if result.get("site_name"):
+        lines.append(f"**Site:** {result.get('site_name')}")
+    if result.get("excerpt"):
+        lines.append(f"**Excerpt:** {result.get('excerpt')[:200]}...")
+
+    lines.append("")
+    lines.append("## Content Preview")
+    content = result.get("content", "")
+    preview = content[:500] + "..." if len(content) > 500 else content
+    lines.append(preview)
+
+    return "\n".join(lines)
+
+
+async def create_article(client: httpx.AsyncClient, args: dict) -> str:
+    """Create a new article card from a URL."""
+    url = args.get("url", "")
+    card_id = args.get("card_id", "")
+    custom_tags = args.get("tags", "")
+
+    # Step 1: Parse the URL
+    parse_resp = await client.post(
+        f"{API_URL}/api/url/parse",
+        headers=get_headers(),
+        json={"url": url}
+    )
+    parse_resp.raise_for_status()
+    parsed = parse_resp.json()
+
+    # Step 2: Get next root ID if not provided
+    if not card_id:
+        id_resp = await client.get(
+            f"{API_URL}/api/cards/next-root-id",
+            headers=get_headers()
+        )
+        id_resp.raise_for_status()
+        card_id = id_resp.json().get("new_id", "")
+
+    # Step 3: Build body with tags
+    tags = custom_tags if custom_tags else "#to-read #reference"
+    content = parsed.get("content", "")
+    body = f"{content}\n\n{tags}" if content else tags
+
+    # Step 4: Create the card
+    create_resp = await client.post(
+        f"{API_URL}/api/cards",
+        headers=get_headers(),
+        json={
+            "card_id": card_id,
+            "title": parsed.get("title", "Untitled"),
+            "body": body,
+            "link": url,
+            "process_entities_and_facts": True,
+        }
+    )
+    create_resp.raise_for_status()
+    card = create_resp.json()
+
+    lines = [
+        f"Created article card: **{card.get('card_id', 'N/A')}**: {parsed.get('title', 'Untitled')}",
+        f"pk={card.get('id')} | Source: {url}",
+    ]
+
+    if parsed.get("author"):
+        lines.append(f"Author: {parsed.get('author')}")
+    if parsed.get("site_name"):
+        lines.append(f"Site: {parsed.get('site_name')}")
+
+    return "\n".join(lines)
 
 
 # =============================================================================
@@ -1078,6 +1215,36 @@ async def test_cli(args):
                     print(f"✗ Connection failed: {resp.status_code}")
                     print(f"  {resp.text}")
 
+            elif command == "parse-url":
+                if len(args) < 2:
+                    print("Usage: python server.py parse-url <url>")
+                    sys.exit(1)
+                url = args[1]
+                result = await parse_url(client, {"url": url})
+                print(result)
+
+            elif command == "article":
+                if len(args) < 2:
+                    print("Usage: python server.py article <url> [--card-id 'id'] [--tags '#tag1 #tag2']")
+                    sys.exit(1)
+                url = args[1]
+                article_args = {"url": url}
+
+                # Parse optional flags
+                i = 2
+                while i < len(args):
+                    if args[i] == "--card-id" and i + 1 < len(args):
+                        article_args["card_id"] = args[i + 1]
+                        i += 2
+                    elif args[i] == "--tags" and i + 1 < len(args):
+                        article_args["tags"] = args[i + 1]
+                        i += 2
+                    else:
+                        i += 1
+
+                result = await create_article(client, article_args)
+                print(result)
+
             else:
                 print("Zettelgarden MCP Server - Test CLI")
                 print()
@@ -1097,6 +1264,9 @@ async def test_cli(args):
                 print("  tasks incomplete  List incomplete tasks")
                 print("  task <id>         Get a specific task")
                 print("  complete <id>     Mark a task as complete")
+                print("  parse-url <url>   Parse a URL to extract article content")
+                print("  article <url>     Create an article card from a URL")
+                print("                    [--card-id 'id'] [--tags '#tag1 #tag2']")
                 print()
                 print("Environment:")
                 print("  ZETTELGARDEN_TOKEN     JWT auth token (required)")
