@@ -3,6 +3,7 @@ import { Dialog } from "@headlessui/react";
 import { saveNewCard, suggestCardTitle, getNextRootId } from "../../api/cards";
 import { defaultCard } from "../../models/Card";
 import { CardIdDiscoveryDialog } from "./CardIdDiscoveryDialog";
+import { CardSchemaSection } from "../schemas/CardSchemaSection";
 
 interface CreateCardDialogProps {
     isOpen: boolean;
@@ -32,6 +33,8 @@ export function CreateCardDialog({
     const [cardId, setCardId] = useState(initialCardId);
     const [showCardIdDiscovery, setShowCardIdDiscovery] = useState(false);
     const [suggestingTitle, setSuggestingTitle] = useState(false);
+    const [schemaId, setSchemaId] = useState<number | null>(null);
+    const [structuredData, setStructuredData] = useState<Record<string, any>>({});
 
     const handleSuggestTitle = async () => {
         if (!cardBody.trim()) {
@@ -63,6 +66,8 @@ export function CreateCardDialog({
                 card_id: cardId,
                 title: cardTitle,
                 body: cardBody,
+                schema_id: schemaId,
+                structured_data: Object.keys(structuredData).length > 0 ? structuredData : undefined,
                 process_entities_and_facts: processEntitiesAndFacts,
             });
 
@@ -84,6 +89,8 @@ export function CreateCardDialog({
         setCardTitle(initialTitle);
         setCardBody(initialBody);
         setCardId(initialCardId);
+        setSchemaId(null);
+        setStructuredData({});
         setConvertError(null);
         onClose();
     };
@@ -181,6 +188,15 @@ export function CreateCardDialog({
                                 onChange={(e) => setCardBody(e.target.value)}
                                 className="w-full h-32 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                                 placeholder="Enter card content..."
+                            />
+                        </div>
+                        <div>
+                            <CardSchemaSection
+                                schemaId={schemaId}
+                                structuredData={structuredData}
+                                onSchemaChange={setSchemaId}
+                                onDataChange={setStructuredData}
+                                disabled={isConverting}
                             />
                         </div>
                     </div>
