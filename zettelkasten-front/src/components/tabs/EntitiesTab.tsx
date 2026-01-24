@@ -57,31 +57,33 @@ export function EntitiesTab({
             .map((entity) => (
               <div
                 key={entity.id}
-                className="mb-1 p-3 hover:bg-gray-50 border border-gray-200 rounded-lg flex justify-between items-start group transition-colors"
+                className="py-1.5 px-2 hover:bg-gray-50 border border-gray-200 rounded flex justify-between items-center group transition-colors"
               >
                 <div
-                  className="cursor-pointer flex-grow min-w-0"
+                  className="cursor-pointer flex-grow min-w-0 flex items-center gap-2 text-sm"
                   onClick={() => handleOpenEntity(entity)}
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium text-gray-900 truncate">{entity.name}</span>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 shrink-0">
-                      {entity.type}
-                    </span>
-                  </div>
-                  {entity.description && (
-                    <div className="text-sm text-gray-600 line-clamp-2">{entity.description}</div>
-                  )}
+                  <span className="font-medium text-blue-600 hover:text-blue-800 shrink-0 truncate">
+                    {entity.name}
+                  </span>
+                  <span className="text-gray-300 shrink-0">-</span>
+                  <span className="text-gray-500 shrink-0 text-xs">
+                    {entity.type}
+                  </span>
+                  <span className="text-gray-300 shrink-0">-</span>
+                  <span className="text-gray-600 truncate text-xs">
+                    {entity.description || '(no description)'}
+                  </span>
                 </div>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleRemoveEntity(entity.id);
                   }}
-                  className="ml-3 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                  className="ml-2 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-all shrink-0"
                   title="Remove entity from card"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                 </button>

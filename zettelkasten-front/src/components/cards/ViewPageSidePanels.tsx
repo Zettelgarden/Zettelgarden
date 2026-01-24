@@ -8,6 +8,7 @@ import { Button } from "../Button";
 import { CardItem } from "./CardItem";
 import { SearchTagDropdown } from "../tags/SearchTagDropdown";
 import { linkifyWithDefaultOptions } from "../../utils/strings";
+import { PersonIcon } from "../../assets/icons/PersonIcon";
 
 interface ViewPageSidePanelsProps {
   parentCard: Card | null;
@@ -88,17 +89,32 @@ export function ViewPageSidePanels({
       {linkedEntities && linkedEntities.length > 0 && (
         <div>
           <HeaderSubSection text="Linked Entities" />
-          <div className="mt-2 space-y-2">
+          <ul className="mt-2 space-y-1">
             {linkedEntities.map(entity => (
-              <div
+              <li
                 key={entity.id}
-                className="text-xs text-blue-600 cursor-pointer hover:underline"
+                className="py-1 px-2 hover:bg-gray-50 rounded cursor-pointer"
                 onClick={() => onOpenEntity(entity)}
               >
-                {entity.name}
-              </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="text-gray-400 shrink-0">
+                    <PersonIcon />
+                  </div>
+                  <span className="text-blue-600 hover:text-blue-800 shrink-0">
+                    {entity.name}
+                  </span>
+                  <span className="text-gray-300">-</span>
+                  <span className="text-gray-500 shrink-0">
+                    {entity.type}
+                  </span>
+                  <span className="text-gray-300">-</span>
+                  <span className="text-gray-600 truncate">
+                    {entity.description || '(no description)'}
+                  </span>
+                </div>
+              </li>
             ))}
-          </div>
+          </ul>
           <hr className="my-4" />
         </div>
       )}
