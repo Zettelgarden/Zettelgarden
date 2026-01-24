@@ -10,7 +10,7 @@ import { CardList } from "./CardList";
 import { BacklinkInput } from "./BacklinkInput";
 import { CardBody } from "./CardBody";
 import { ViewCardTabbedDisplay } from "./ViewCardTabbedDisplay";
-import { SortControl, SortMethod, sortPartialCards } from "../../utils/cards";
+import { SortMethod, sortPartialCards } from "../../utils/cards";
 import { SortControl as SortControlComponent } from "./SortControl";
 
 interface ViewCardContentSectionProps {
