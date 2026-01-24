@@ -173,6 +173,7 @@ func truncateTestData() {
 		"llm_query_log",
 		"mailing_list",
 		"revenue",
+		"schema_definitions",
 		"starred_cards",
 		"starred_searches",
 		"stripe_plans",
