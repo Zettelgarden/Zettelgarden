@@ -2,31 +2,34 @@ package models
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"time"
 )
 
 type Card struct {
-	ID         int           `json:"id"`
-	CardID     string        `json:"card_id"`
-	UserID     int           `json:"user_id"`
-	Title      string        `json:"title"`
-	Body       string        `json:"body"`
-	Link       string        `json:"link"`
-	IsDeleted  bool          `json:"is_deleted"`
-	CreatedAt  time.Time     `json:"created_at"`
-	UpdatedAt  time.Time     `json:"updated_at"`
-	ParentID   int           `json:"parent_id"`
-	Parent     PartialCard   `json:"parent"`
-	Files      []File        `json:"files"`
-	Children   []PartialCard `json:"children"`
-	References []PartialCard `json:"references"`
-	Keywords   []Keyword     `json:"keywords"`
-	Tags       []Tag         `json:"tags"`
-	Tasks      []Task        `json:"tasks"`
-	Entities   []Entity      `json:"entities"`
-	TagCount   int
-	IsStarred  bool `json:"is_starred"`
+	ID             int           `json:"id"`
+	CardID         string        `json:"card_id"`
+	UserID         int           `json:"user_id"`
+	Title          string        `json:"title"`
+	Body           string        `json:"body"`
+	Link           string        `json:"link"`
+	IsDeleted      bool          `json:"is_deleted"`
+	CreatedAt      time.Time     `json:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at"`
+	ParentID       int           `json:"parent_id"`
+	Parent         PartialCard   `json:"parent"`
+	Files          []File        `json:"files"`
+	Children       []PartialCard `json:"children"`
+	References     []PartialCard `json:"references"`
+	Keywords       []Keyword     `json:"keywords"`
+	Tags           []Tag         `json:"tags"`
+	Tasks          []Task        `json:"tasks"`
+	Entities       []Entity      `json:"entities"`
+	TagCount       int
+	IsStarred      bool          `json:"is_starred"`
+	SchemaID       *int          `json:"schema_id,omitempty"`
+	StructuredData *json.RawMessage `json:"structured_data,omitempty"`
 }
 
 func ScanCards(rows *sql.Rows) ([]Card, error) {
@@ -118,11 +121,13 @@ func ConvertCardToPartialCard(input Card) PartialCard {
 }
 
 type EditCardParams struct {
-	CardID                  string `json:"card_id"`
-	Title                   string `json:"title"`
-	Body                    string `json:"body"`
-	Link                    string `json:"link"`
-	ProcessEntitiesAndFacts *bool  `json:"process_entities_and_facts,omitempty"`
+	CardID                  string           `json:"card_id"`
+	Title                   string           `json:"title"`
+	Body                    string           `json:"body"`
+	Link                    string           `json:"link"`
+	ProcessEntitiesAndFacts *bool            `json:"process_entities_and_facts,omitempty"`
+	SchemaID                *int             `json:"schema_id,omitempty"`
+	StructuredData          *json.RawMessage `json:"structured_data,omitempty"`
 }
 
 type NextIDParams struct {

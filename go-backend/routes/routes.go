@@ -77,4 +77,7 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler) {
 
 	// Chat routes
 	RegisterChatRoutes(r, h)
+
+	// Schema routes
+	RegisterSchemaRoutes(r, h)
 }

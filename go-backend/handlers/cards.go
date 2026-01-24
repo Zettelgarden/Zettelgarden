@@ -24,6 +24,213 @@ import (
 	"golang.org/x/net/html"
 )
 
+// validateStructuredData validates structured_data against a schema definition
+func validateStructuredData(structuredData json.RawMessage, schema *models.SchemaDefinition) error {
+	// Parse the structured data into a map
+	var data map[string]interface{}
+	if len(structuredData) > 0 {
+		if err := json.Unmarshal(structuredData, &data); err != nil {
+			return fmt.Errorf("invalid structured_data JSON: %w", err)
+		}
+	} else {
+		data = make(map[string]interface{})
+	}
+
+	// Build a map of field definitions for quick lookup
+	fieldMap := make(map[string]models.FieldDefinition)
+	for _, field := range schema.Fields {
+		fieldMap[field.Name] = field
+	}
+
+	// Check all required fields are present
+	for _, field := range schema.Fields {
+		if field.Required {
+			if _, exists := data[field.Name]; !exists {
+				return fmt.Errorf("required field '%s' is missing", field.Name)
+			}
+		}
+	}
+
+	// Validate each field in structured_data
+	for fieldName, value := range data {
+		fieldDef, exists := fieldMap[fieldName]
+		if !exists {
+			return fmt.Errorf("field '%s' is not defined in schema", fieldName)
+		}
+
+		if err := validateFieldValue(fieldName, value, fieldDef); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateFieldValue validates a single field value against its definition
+func validateFieldValue(fieldName string, value interface{}, fieldDef models.FieldDefinition) error {
+	if value == nil {
+		if fieldDef.Required {
+			return fmt.Errorf("required field '%s' cannot be null", fieldName)
+		}
+		return nil
+	}
+
+	switch fieldDef.Type {
+	case "text":
+		if _, ok := value.(string); !ok {
+			return fmt.Errorf("field '%s' must be a string", fieldName)
+		}
+
+	case "number":
+		// Accept both float64 and int from JSON
+		switch v := value.(type) {
+		case float64, int, int64, float32:
+			// Valid number types
+		case string:
+			// Try to parse string as number
+			if _, err := strconv.ParseFloat(v, 64); err != nil {
+				return fmt.Errorf("field '%s' must be a number", fieldName)
+			}
+		default:
+			return fmt.Errorf("field '%s' must be a number", fieldName)
+		}
+
+	case "date":
+		// Accept ISO 8601 date string
+		dateStr, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("field '%s' must be a date string", fieldName)
+		}
+		// Validate ISO 8601 format
+		_, err := time.Parse(time.RFC3339, dateStr)
+		if err != nil {
+			// Also try date-only format
+			_, err = time.Parse("2006-01-02", dateStr)
+			if err != nil {
+				return fmt.Errorf("field '%s' must be a valid ISO 8601 date", fieldName)
+			}
+		}
+
+	case "boolean":
+		if _, ok := value.(bool); !ok {
+			return fmt.Errorf("field '%s' must be a boolean", fieldName)
+		}
+
+	case "select":
+		strVal, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("field '%s' must be a string for select type", fieldName)
+		}
+		// Check if value is in options
+		validOption := false
+		for _, opt := range fieldDef.Options {
+			if opt == strVal {
+				validOption = true
+				break
+			}
+		}
+		if !validOption {
+			return fmt.Errorf("field '%s' value '%s' is not in valid options", fieldName, strVal)
+		}
+
+	case "multi-select":
+		// Expect array of strings
+		arrayVal, ok := value.([]interface{})
+		if !ok {
+			return fmt.Errorf("field '%s' must be an array for multi-select type", fieldName)
+		}
+		for _, item := range arrayVal {
+			strItem, ok := item.(string)
+			if !ok {
+				return fmt.Errorf("field '%s' array items must be strings", fieldName)
+			}
+			// Check if value is in options
+			validOption := false
+			for _, opt := range fieldDef.Options {
+				if opt == strItem {
+					validOption = true
+					break
+				}
+			}
+			if !validOption {
+				return fmt.Errorf("field '%s' value '%s' is not in valid options", fieldName, strItem)
+			}
+		}
+
+	case "link_to_card":
+		// Expect integer card ID
+		// Note: We don't validate the card exists here to avoid circular dependencies
+		// This will be validated at the handler level where we have DB access
+		switch value.(type) {
+		case float64, int, int64, float32:
+			// Valid number types
+		case string:
+			// Try to parse string as int
+			_, err := strconv.Atoi(value.(string))
+			if err != nil {
+				return fmt.Errorf("field '%s' must be a valid card ID (integer)", fieldName)
+			}
+		default:
+			return fmt.Errorf("field '%s' must be a valid card ID (integer)", fieldName)
+		}
+
+	default:
+		return fmt.Errorf("unknown field type '%s' for field '%s'", fieldDef.Type, fieldName)
+	}
+
+	return nil
+}
+
+// validateLinkToCardFields validates that link_to_card fields reference valid cards
+func validateLinkToCardFields(db *sql.DB, userID int, structuredData json.RawMessage, schema *models.SchemaDefinition) error {
+	// Parse the structured data
+	var data map[string]interface{}
+	if err := json.Unmarshal(structuredData, &data); err != nil {
+		return err
+	}
+
+	// Check each field
+	for _, field := range schema.Fields {
+		if field.Type == "link_to_card" {
+			value, hasValue := data[field.Name]
+			if !hasValue || value == nil {
+				continue
+			}
+
+			// Extract card ID
+			var cardID int
+			switch v := value.(type) {
+			case float64:
+				cardID = int(v)
+			case int:
+				cardID = v
+			case string:
+				parsedID, err := strconv.Atoi(v)
+				if err != nil {
+					return fmt.Errorf("field '%s': invalid card ID format", field.Name)
+				}
+				cardID = parsedID
+			default:
+				return fmt.Errorf("field '%s': invalid card ID type", field.Name)
+			}
+
+			// Validate card exists and belongs to user
+			var cardExists bool
+			err := db.QueryRow(`
+				SELECT EXISTS(SELECT 1 FROM cards WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE)
+			`, cardID, userID).Scan(&cardExists)
+			if err != nil {
+				return fmt.Errorf("field '%s': failed to validate card reference", field.Name)
+			}
+			if !cardExists {
+				return fmt.Errorf("field '%s': referenced card (ID %d) does not exist", field.Name, cardID)
+			}
+		}
+	}
+
+	return nil
+}
+
 func (s *Handler) getDirectlinks(userID int, card models.Card) []models.PartialCard {
 	backlinks := services.ExtractBacklinks(card.Body)
 	var directLinks []models.PartialCard
@@ -421,6 +628,53 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
+
+	// Validate schema data if provided
+	if params.SchemaID != nil {
+		// Fetch the schema definition
+		query := `SELECT id, name, owner_id, fields, created_at, updated_at, is_deleted FROM schema_definitions WHERE id = $1 AND owner_id = $2 AND is_deleted = FALSE`
+		schema, err := models.ScanSchemaDefinition(s.DB.QueryRow(query, *params.SchemaID, userID))
+		if err != nil {
+			log.Printf("Error fetching schema: %v", err)
+			http.Error(w, "Failed to fetch schema definition", http.StatusInternalServerError)
+			return
+		}
+		if schema == nil {
+			http.Error(w, "Schema not found", http.StatusNotFound)
+			return
+		}
+
+		// Validate structured_data against schema
+		if params.StructuredData != nil && len(*params.StructuredData) > 0 {
+			if err := validateStructuredData(*params.StructuredData, schema); err != nil {
+				log.Printf("Structured data validation error: %v", err)
+				http.Error(w, fmt.Sprintf("Invalid structured data: %v", err), http.StatusBadRequest)
+				return
+			}
+		} else {
+			// If schema_id is provided but no structured_data, check if all fields are optional
+			for _, field := range schema.Fields {
+				if field.Required {
+					http.Error(w, fmt.Sprintf("Schema requires field '%s' but no structured_data provided", field.Name), http.StatusBadRequest)
+					return
+				}
+			}
+		}
+
+		// Additional validation for link_to_card fields
+		if params.StructuredData != nil && len(*params.StructuredData) > 0 {
+			if err := validateLinkToCardFields(s.DB, userID, *params.StructuredData, schema); err != nil {
+				log.Printf("Link to card validation error: %v", err)
+				http.Error(w, fmt.Sprintf("Invalid link_to_card reference: %v", err), http.StatusBadRequest)
+				return
+			}
+		}
+	} else if params.StructuredData != nil && len(*params.StructuredData) > 0 {
+		// structured_data provided without schema_id
+		http.Error(w, "structured_data requires schema_id to be specified", http.StatusBadRequest)
+		return
+	}
+
 	card, err := services.UpdateCard(s.DB, userID, id, params)
 	if err != nil {
 		log.Printf("error updating card: %v", err)
@@ -447,6 +701,52 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("err? %v", err)
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	// Validate schema data if provided
+	if params.SchemaID != nil {
+		// Fetch the schema definition
+		query := `SELECT id, name, owner_id, fields, created_at, updated_at, is_deleted FROM schema_definitions WHERE id = $1 AND owner_id = $2 AND is_deleted = FALSE`
+		schema, err := models.ScanSchemaDefinition(s.DB.QueryRow(query, *params.SchemaID, userID))
+		if err != nil {
+			log.Printf("Error fetching schema: %v", err)
+			http.Error(w, "Failed to fetch schema definition", http.StatusInternalServerError)
+			return
+		}
+		if schema == nil {
+			http.Error(w, "Schema not found", http.StatusNotFound)
+			return
+		}
+
+		// Validate structured_data against schema
+		if params.StructuredData != nil && len(*params.StructuredData) > 0 {
+			if err := validateStructuredData(*params.StructuredData, schema); err != nil {
+				log.Printf("Structured data validation error: %v", err)
+				http.Error(w, fmt.Sprintf("Invalid structured data: %v", err), http.StatusBadRequest)
+				return
+			}
+		} else {
+			// If schema_id is provided but no structured_data, check if all fields are optional
+			for _, field := range schema.Fields {
+				if field.Required {
+					http.Error(w, fmt.Sprintf("Schema requires field '%s' but no structured_data provided", field.Name), http.StatusBadRequest)
+					return
+				}
+			}
+		}
+
+		// Additional validation for link_to_card fields
+		if params.StructuredData != nil && len(*params.StructuredData) > 0 {
+			if err := validateLinkToCardFields(s.DB, userID, *params.StructuredData, schema); err != nil {
+				log.Printf("Link to card validation error: %v", err)
+				http.Error(w, fmt.Sprintf("Invalid link_to_card reference: %v", err), http.StatusBadRequest)
+				return
+			}
+		}
+	} else if params.StructuredData != nil && len(*params.StructuredData) > 0 {
+		// structured_data provided without schema_id
+		http.Error(w, "structured_data requires schema_id to be specified", http.StatusBadRequest)
 		return
 	}
 
