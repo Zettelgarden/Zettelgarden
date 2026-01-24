@@ -13,7 +13,8 @@ export function fetchSchemas(): Promise<SchemaDefinition[]> {
     .then(checkStatus)
     .then((response) => {
       if (response) {
-        return response.json().then((schemas: SchemaDefinition[]) => {
+        return response.json().then((schemas: SchemaDefinition[] | null) => {
+          if (!schemas) return [];
           return schemas.map((schema) => ({
             ...schema,
             created_at: new Date(schema.created_at),
