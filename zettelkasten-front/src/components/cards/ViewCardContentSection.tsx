@@ -11,6 +11,7 @@ import { BacklinkInput } from "./BacklinkInput";
 import { CardBody } from "./CardBody";
 import { ViewCardTabbedDisplay } from "./ViewCardTabbedDisplay";
 import { SortMethod, sortPartialCards } from "../../utils/cards";
+import { CardStructuredDataDisplay } from "../schemas/CardStructuredDataDisplay";
 import { SortControl as SortControlComponent } from "./SortControl";
 
 interface ViewCardContentSectionProps {
@@ -104,6 +105,11 @@ export function ViewCardContentSection({
           />
         )}
       </div>
+
+      <CardStructuredDataDisplay
+        schemaId={viewingCard.schema_id}
+        structuredData={viewingCard.structured_data}
+      />
 
       <div>
         <div className="flex items-center justify-between mb-2">

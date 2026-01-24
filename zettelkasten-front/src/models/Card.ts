@@ -50,6 +50,8 @@ export interface Card {
   entities: Entity[];
   is_starred?: boolean; // Whether the current user has starred this card
   process_entities_and_facts?: boolean; // Whether to process entities and facts on save
+  schema_id?: number | null; // ID of the schema this card uses
+  structured_data?: Record<string, any> | null; // The structured data for this card's schema
 }
 
 export interface CardChunk {

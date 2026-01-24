@@ -24,6 +24,7 @@ import { isErrorResponse } from "../../models/common";
 import { EditorToolbar } from "../../components/cards/EditorToolbar";
 import { CardEditor } from "../../components/cards/CardEditor";
 import { CardMetadata } from "../../components/cards/CardMetadata";
+import { CardSchemaSection } from "../../components/schemas/CardSchemaSection";
 
 interface EditPageProps {
   newCard: boolean;
@@ -372,19 +373,33 @@ export function EditPage({ newCard }: EditPageProps) {
                   </div>
                 )}
               </div>
-              <CardMetadata
-                newCard={newCard}
-                originalCard={originalCard}
-                editingCard={editingCard}
-                setEditingCard={setEditingCard}
-                setShowCardIdDiscovery={setShowCardIdDiscovery}
-                handleClickFillCard={handleClickFillCard}
-                tags={tags}
-                handleTagClick={handleTagClick}
-                handleRemoveTag={handleRemoveTag}
-                addBacklink={addBacklink}
-                setMessage={setMessage}
-              />
+              <div className="md:w-1/3 space-y-4">
+                <CardMetadata
+                  newCard={newCard}
+                  originalCard={originalCard}
+                  editingCard={editingCard}
+                  setEditingCard={setEditingCard}
+                  setShowCardIdDiscovery={setShowCardIdDiscovery}
+                  handleClickFillCard={handleClickFillCard}
+                  tags={tags}
+                  handleTagClick={handleTagClick}
+                  handleRemoveTag={handleRemoveTag}
+                  addBacklink={addBacklink}
+                  setMessage={setMessage}
+                />
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <CardSchemaSection
+                    schemaId={editingCard.schema_id}
+                    structuredData={editingCard.structured_data}
+                    onSchemaChange={(schemaId) =>
+                      setEditingCard({ ...editingCard, schema_id: schemaId })
+                    }
+                    onDataChange={(data) =>
+                      setEditingCard({ ...editingCard, structured_data: data })
+                    }
+                  />
+                </div>
+              </div>
             </div>
           )}
         </div>
