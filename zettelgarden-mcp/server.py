@@ -811,53 +811,23 @@ async def create_article(client: httpx.AsyncClient, args: dict) -> str:
     card_id = args.get("card_id", "")
     custom_tags = args.get("tags", "")
 
-    # Step 1: Parse the URL
-    parse_resp = await client.post(
-        f"{API_URL}/api/url/parse",
-        headers=get_headers(),
-        json={"url": url}
-    )
-    parse_resp.raise_for_status()
-    parsed = parse_resp.json()
-
-    # Step 2: Get next root ID if not provided
-    if not card_id:
-        id_resp = await client.get(
-            f"{API_URL}/api/cards/next-root-id",
-            headers=get_headers()
-        )
-        id_resp.raise_for_status()
-        card_id = id_resp.json().get("new_id", "")
-
-    # Step 3: Build body with tags
-    tags = custom_tags if custom_tags else "#to-read #reference"
-    content = parsed.get("content", "")
-    body = f"{content}\n\n{tags}" if content else tags
-
-    # Step 4: Create the card
-    create_resp = await client.post(
-        f"{API_URL}/api/cards",
+    # Use the consolidated /api/articles endpoint
+    article_resp = await client.post(
+        f"{API_URL}/api/articles",
         headers=get_headers(),
         json={
+            "url": url,
             "card_id": card_id,
-            "title": parsed.get("title", "Untitled"),
-            "body": body,
-            "link": url,
-            "process_entities_and_facts": True,
+            "tags": custom_tags,
         }
     )
-    create_resp.raise_for_status()
-    card = create_resp.json()
+    article_resp.raise_for_status()
+    card = article_resp.json()
 
     lines = [
-        f"Created article card: **{card.get('card_id', 'N/A')}**: {parsed.get('title', 'Untitled')}",
+        f"Created article card: **{card.get('card_id', 'N/A')}**: {card.get('title', 'Untitled')}",
         f"pk={card.get('id')} | Source: {url}",
     ]
-
-    if parsed.get("author"):
-        lines.append(f"Author: {parsed.get('author')}")
-    if parsed.get("site_name"):
-        lines.append(f"Site: {parsed.get('site_name')}")
 
     return "\n".join(lines)
 

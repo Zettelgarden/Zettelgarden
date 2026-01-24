@@ -1,8 +1,6 @@
 import { Dialog, Transition } from "@headlessui/react";
 import React, { Fragment, useState } from "react";
-import { getNextRootId, saveNewCard } from "../../api/cards";
-import { parseURL } from "../../api/references";
-import { defaultCard } from "../../models/Card";
+import { createArticle } from "../../api/cards";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../toast/ToastContext";
 
@@ -23,18 +21,7 @@ export function AddArticleDialog({ show, onClose }: AddArticleDialogProps) {
         setLoading(true);
 
         try {
-            const parsed = await parseURL(url);
-            const nextIdResp = await getNextRootId();
-            if (nextIdResp.error) throw new Error("Unable to fetch next ID");
-
-            const newCard = await saveNewCard({
-                ...defaultCard,
-                card_id: nextIdResp.new_id,
-                title: parsed.title || "Untitled",
-                body: (parsed.content || "") + "\n\n#to-read #reference",
-                link: url,
-                process_entities_and_facts: true,
-            });
+            const newCard = await createArticle(url);
 
             if (!("error" in newCard)) {
                 navigate(`/app/card/${newCard.id}`);

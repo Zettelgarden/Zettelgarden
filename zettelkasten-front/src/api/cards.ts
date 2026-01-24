@@ -770,3 +770,38 @@ export function restoreCardToAuditEvent(cardId: string, auditEventId: number): P
       }
     });
 }
+
+/**
+ * Create an article card from a URL in a single operation
+ * @param url The URL of the article to import
+ * @param cardId Optional card ID (if not provided, one will be auto-generated)
+ * @param tags Optional custom tags (default: "#to-read #reference")
+ * @returns A promise that resolves to the created card
+ */
+export function createArticle(url: string, cardId?: string, tags?: string): Promise<Card> {
+  const apiUrl = `${base_url}/articles`;
+  let token = localStorage.getItem("token");
+
+  return fetch(apiUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ url, card_id: cardId, tags }),
+  })
+    .then(checkStatus)
+    .then((response) => {
+      if (response) {
+        return response.json().then((card: Card) => {
+          return {
+            ...card,
+            created_at: new Date(card.created_at),
+            updated_at: new Date(card.updated_at),
+          };
+        });
+      } else {
+        return Promise.reject(new Error("Response is undefined"));
+      }
+    });
+}

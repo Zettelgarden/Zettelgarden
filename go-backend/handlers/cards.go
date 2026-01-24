@@ -1200,3 +1200,85 @@ func (s *Handler) RestoreCardToAuditEventRoute(w http.ResponseWriter, r *http.Re
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(restoredCard)
 }
+
+// CreateArticleRequest is the request payload for creating an article from a URL
+type CreateArticleRequest struct {
+	URL     string `json:"url"`
+	CardID  string `json:"card_id,omitempty"`
+	Tags    string `json:"tags,omitempty"`
+}
+
+// CreateArticleRoute handles creating an article card from a URL in a single atomic operation
+func (s *Handler) CreateArticleRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	var req CreateArticleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	// Validate required fields
+	if req.URL == "" {
+		http.Error(w, "url is required", http.StatusBadRequest)
+		return
+	}
+
+	// Step 1: Parse the URL to extract article content
+	article, err := readability.FromURL(req.URL, 30*time.Second)
+	if err != nil {
+		log.Printf("Error parsing URL %s: %v", req.URL, err)
+		http.Error(w, fmt.Sprintf("Failed to parse URL: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	markdown, err := htmltomarkdown.ConvertString(article.Content)
+	if err != nil {
+		log.Printf("Error converting to markdown: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to convert content: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Step 2: Get next root card ID if not provided
+	cardID := req.CardID
+	if cardID == "" {
+		cardID = s.getNextRootCardID(userID)
+	}
+
+	// Step 3: Build body with tags
+	tags := req.Tags
+	if tags == "" {
+		tags = "#to-read #reference"
+	}
+	body := markdown + "\n\n" + tags
+
+	// Step 4: Create the card
+	params := models.EditCardParams{
+		CardID:                  cardID,
+		Title:                   article.Title,
+		Body:                    body,
+		Link:                    req.URL,
+		ProcessEntitiesAndFacts: boolPtr(true),
+	}
+
+	card, err := services.CreateCard(s.DB, userID, params)
+	if err != nil {
+		log.Printf("Error creating card: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to create card: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// Step 5: Process entities and facts if user has subscription
+	if s.UserHasSubscription(userID) {
+		s.GenerateMemory(uint(userID), card.Body)
+		s.ProcessEntitiesAndFacts(userID, card)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(card)
+}
+
+// boolPtr returns a pointer to a bool
+func boolPtr(b bool) *bool {
+	return &b
+}
