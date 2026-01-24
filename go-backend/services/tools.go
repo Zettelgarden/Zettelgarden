@@ -355,7 +355,7 @@ func (tr *ToolRegistry) registerBrowseCardHierarchy() {
 			Type: openai.ToolTypeFunction,
 			Function: &openai.FunctionDefinition{
 				Name:        "browse_card_hierarchy",
-				Description: "Browse the hierarchical structure of cards. Get parent or child cards of a specific card.",
+				Description: "Browse the hierarchical structure of cards. Get parent or child cards of a specific card, optionally traversing multiple levels deep.",
 				Parameters: map[string]interface{}{
 					"type": "object",
 					"properties": map[string]interface{}{
@@ -365,8 +365,14 @@ func (tr *ToolRegistry) registerBrowseCardHierarchy() {
 						},
 						"direction": map[string]interface{}{
 							"type":        "string",
-							"description": "Direction to browse: 'children' for child cards, 'parent' for parent card",
+							"description": "Direction to browse: 'children' for child cards, 'parent' for parent cards",
 							"enum":        []string{"children", "parent"},
+						},
+						"depth": map[string]interface{}{
+							"type":        "integer",
+							"description": "How many levels to traverse (default: 1 for immediate children/parent only). Use -1 for unlimited depth to get all descendants or ancestors.",
+							"default":     1,
+							"minimum":     -1,
 						},
 					},
 					"required": []string{"card_id", "direction"},
@@ -741,27 +747,35 @@ func handleBrowseCardHierarchy(args map[string]interface{}, ctx *ToolContext) (m
 		return nil, err
 	}
 
+	// Get optional depth parameter, default to 1 for immediate children/parent only
+	depth := 1
+	if d, ok, derr := getOptionalIntParam(args, "depth"); ok && derr == nil {
+		depth = d
+	}
+
 	var cards []models.PartialCard
 
 	if direction == "children" {
-		cards, err = GetChildCards(ctx.DB, ctx.UserID, cardPK)
+		cards, err = GetChildCardsWithDepth(ctx.DB, ctx.UserID, cardPK, depth)
 	} else if direction == "parent" {
-		cards, err = GetParentCard(ctx.DB, ctx.UserID, cardPK)
+		cards, err = GetParentCardsWithDepth(ctx.DB, ctx.UserID, cardPK, depth)
 	} else {
 		return nil, fmt.Errorf("invalid direction: %s", direction)
-	}
-	var results []map[string]interface{}
-	for _, card := range cards {
-		results = append(results, StructToMap(card))
 	}
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to browse hierarchy: %v", err)
 	}
 
+	var results []map[string]interface{}
+	for _, card := range cards {
+		results = append(results, StructToMap(card))
+	}
+
 	return map[string]interface{}{
 		"cards":     results,
 		"direction": direction,
+		"depth":     depth,
 		"total":     len(cards),
 	}, nil
 }

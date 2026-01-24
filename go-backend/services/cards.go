@@ -101,6 +101,96 @@ func GetParentCard(db *sql.DB, userID int, cardPK int) ([]models.PartialCard, er
 	return results, nil
 }
 
+// GetChildCardsWithDepth recursively retrieves child cards up to the specified depth.
+// depth of 1 returns only immediate children (same as GetChildCards).
+// depth of -1 returns all descendants (unlimited depth).
+func GetChildCardsWithDepth(db *sql.DB, userID int, cardID int, depth int) ([]models.PartialCard, error) {
+	var allCards []models.PartialCard
+
+	if depth == 0 {
+		return allCards, nil
+	}
+
+	// Get immediate children
+	children, err := GetChildCards(db, userID, cardID)
+	if err != nil {
+		return nil, err
+	}
+
+	allCards = append(allCards, children...)
+
+	// If depth is 1, we're done - only return immediate children
+	if depth == 1 {
+		return allCards, nil
+	}
+
+	// Recursively get children of each child
+	nextDepth := depth
+	if depth > 1 {
+		nextDepth = depth - 1
+	}
+	// If depth is -1, we keep it at -1 for unlimited traversal
+
+	for _, child := range children {
+		grandchildren, err := GetChildCardsWithDepth(db, userID, child.ID, nextDepth)
+		if err != nil {
+			// Log error but continue with other children
+			log.Printf("Failed to get children of card %d: %v", child.ID, err)
+			continue
+		}
+		allCards = append(allCards, grandchildren...)
+	}
+
+	return allCards, nil
+}
+
+// GetParentCardsWithDepth recursively retrieves parent cards up to the specified depth.
+// depth of 1 returns only the immediate parent (same as GetParentCard).
+// depth of -1 returns all ancestors (unlimited depth).
+func GetParentCardsWithDepth(db *sql.DB, userID int, cardPK int, depth int) ([]models.PartialCard, error) {
+	var allCards []models.PartialCard
+
+	if depth == 0 {
+		return allCards, nil
+	}
+
+	// Get the current card
+	card, err := GetPartialCard(db, userID, cardPK)
+	if err != nil {
+		return allCards, err
+	}
+
+	// Get immediate parent
+	parent, err := GetPartialCard(db, userID, card.ParentID)
+	if err != nil {
+		// No parent found, return empty slice
+		return allCards, nil
+	}
+
+	allCards = append(allCards, parent)
+
+	// If depth is 1, we're done - only return immediate parent
+	if depth == 1 {
+		return allCards, nil
+	}
+
+	// Recursively get parents of the parent
+	nextDepth := depth
+	if depth > 1 {
+		nextDepth = depth - 1
+	}
+	// If depth is -1, we keep it at -1 for unlimited traversal
+
+	grandparents, err := GetParentCardsWithDepth(db, userID, parent.ID, nextDepth)
+	if err != nil {
+		log.Printf("Failed to get parents of card %d: %v", parent.ID, err)
+		return allCards, nil
+	}
+	allCards = append(allCards, grandparents...)
+
+	return allCards, nil
+}
+
 func ExecuteTextSearch(db *sql.DB, userID int, query string, limit int, typesenseClient *typesense.Client) ([]map[string]interface{}, error) {
 	// Use Typesense for text search
 	collectionName := os.Getenv("TYPESENSE_COLLECTION")
@@ -247,10 +337,10 @@ func GetFullCard(db *sql.DB, userID int, cardPK int) (models.Card, error) {
 	var card models.Card
 
 	err := db.QueryRow(`
-	SELECT 
+	SELECT
 	id, card_id, user_id, title, body, link, parent_id,
-        created_at, updated_at
-	FROM 
+        created_at, updated_at, card_schema_id, structured_data
+	FROM
 	cards
 	WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE
 	`, cardPK, userID).Scan(
@@ -263,6 +353,8 @@ func GetFullCard(db *sql.DB, userID int, cardPK int) (models.Card, error) {
 		&card.ParentID,
 		&card.CreatedAt,
 		&card.UpdatedAt,
+		&card.SchemaID,
+		&card.StructuredData,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -636,11 +728,11 @@ func UpdateCard(db *sql.DB, userID int, cardPK int, params models.EditCardParams
 	}
 
 	query := `
-	UPDATE cards SET title = $1, body = $2, link = $3, parent_id = $4, updated_at = NOW(), card_id = $5
+	UPDATE cards SET title = $1, body = $2, link = $3, parent_id = $4, updated_at = NOW(), card_id = $5, card_schema_id = $6, structured_data = $7
 	WHERE
-	id = $6
+	id = $8
 	`
-	_, err = db.Exec(query, params.Title, params.Body, params.Link, parent_id, params.CardID, cardPK)
+	_, err = db.Exec(query, params.Title, params.Body, params.Link, parent_id, params.CardID, params.SchemaID, params.StructuredData, cardPK)
 	if err != nil {
 		log.Printf("updatecard err %v", err)
 		return models.Card{}, err
@@ -715,12 +807,12 @@ func CreateCard(db *sql.DB, userID int, params models.EditCardParams) (models.Ca
 
 	query := `
 	INSERT INTO cards
-	(title, body, link, user_id, card_id, parent_id, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+	(title, body, link, user_id, card_id, parent_id, card_schema_id, structured_data, created_at, updated_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
 	RETURNING id;
 	`
 	var id int
-	err := db.QueryRow(query, params.Title, params.Body, params.Link, userID, params.CardID, parentID).Scan(&id)
+	err := db.QueryRow(query, params.Title, params.Body, params.Link, userID, params.CardID, parentID, params.SchemaID, params.StructuredData).Scan(&id)
 	if err != nil {
 		log.Printf("updatecard err %v", err)
 		return models.Card{}, err
