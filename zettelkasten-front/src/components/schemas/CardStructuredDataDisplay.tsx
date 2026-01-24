@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { SchemaDefinition } from "../../models/Schema";
 import { fetchSchema } from "../../api/schemas";
 import { StructuredDataDisplay } from "./StructuredDataDisplay";
@@ -9,6 +10,7 @@ interface CardStructuredDataDisplayProps {
 }
 
 export function CardStructuredDataDisplay({ schemaId, structuredData }: CardStructuredDataDisplayProps) {
+  const navigate = useNavigate();
   const [schema, setSchema] = useState<SchemaDefinition | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +58,17 @@ export function CardStructuredDataDisplay({ schemaId, structuredData }: CardStru
 
   return (
     <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-gray-700 border-b pb-2">
+          Structured Data
+        </h3>
+        <button
+          onClick={() => navigate(`/app/schemas/${schemaId}/table`)}
+          className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+        >
+          View all {schema.name} cards →
+        </button>
+      </div>
       <StructuredDataDisplay fields={schema.fields} data={structuredData || {}} />
     </div>
   );
