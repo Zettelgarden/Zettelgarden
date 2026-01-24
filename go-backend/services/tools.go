@@ -39,8 +39,15 @@ const (
 	ToolDeleteTask               = "delete_task"
 	ToolCompleteAndScheduleTask  = "complete_and_schedule_task"
 	ToolGetEntityByName          = "get_entity_by_name"
-	ToolSearchEntities     = "search_entities"
-	ToolGetCardsByEntity = "get_cards_by_entity"
+	ToolSearchEntities           = "search_entities"
+	ToolGetCardsByEntity         = "get_cards_by_entity"
+	ToolGetEntityByID            = "get_entity_by_id"
+	ToolMergeEntities            = "merge_entities"
+	ToolUpdateEntity             = "update_entity"
+	ToolDeleteEntity             = "delete_entity"
+	ToolAddEntityToCard          = "add_entity_to_card"
+	ToolRemoveEntityFromCard     = "remove_entity_from_card"
+	ToolGetSimilarEntities       = "get_similar_entities"
 	ToolGetUserMemory    = "get_user_memory"
 	ToolGetTemplate      = "get_template"
 	ToolListTemplates    = "list_templates"
@@ -190,6 +197,13 @@ func NewToolRegistry() *ToolRegistry {
 	registry.registerGetEntityByName()
 	registry.registerSearchEntities()
 	registry.registerGetCardsByEntity()
+	registry.registerGetEntityByID()
+	registry.registerMergeEntities()
+	registry.registerUpdateEntity()
+	registry.registerDeleteEntity()
+	registry.registerAddEntityToCard()
+	registry.registerRemoveEntityFromCard()
+	registry.registerGetSimilarEntities()
 	registry.registerGetUserMemory()
 	registry.registerGetTemplate()
 	registry.registerListTemplates()
@@ -1952,4 +1966,396 @@ func GetNextChildCardID(db *sql.DB, userID int, parentID int) (string, error) {
 
 	nextNumber := maxNumber + 1
 	return fmt.Sprintf("%s.%d", parentCardID, nextNumber), nil
+}
+
+// Entity tool registration and handlers
+
+func (tr *ToolRegistry) registerGetEntityByID() {
+	tr.tools["get_entity_by_id"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "get_entity_by_id",
+				Description: "Retrieve a specific entity by its ID. Returns the full entity information including linked card if available.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"entity_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The ID of the entity to retrieve",
+						},
+					},
+					"required": []string{"entity_id"},
+				},
+			},
+		},
+		Handler: handleGetEntityByID,
+	}
+}
+
+func handleGetEntityByID(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	entityID, err := getIntParam(args, "entity_id")
+	if err != nil {
+		return nil, err
+	}
+
+	entity, lerr := GetEntityByID(ctx.DB, ctx.UserID, entityID)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to get entity: %v", lerr)
+	}
+
+	return StructToMap(entity), nil
+}
+
+func (tr *ToolRegistry) registerMergeEntities() {
+	tr.tools["merge_entities"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "merge_entities",
+				Description: "Merge two entities into one. The first entity will absorb all relationships and data from the second entity, which will be deleted. Use this when you find duplicate entities that should be combined.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"entity1_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The ID of the entity that will survive (all data from entity2 will be merged into this one)",
+						},
+						"entity2_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The ID of the entity that will be deleted after merging its data into entity1",
+						},
+					},
+					"required": []string{"entity1_id", "entity2_id"},
+				},
+			},
+		},
+		Handler: handleMergeEntities,
+	}
+}
+
+func handleMergeEntities(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	entity1ID, err := getIntParam(args, "entity1_id")
+	if err != nil {
+		return nil, err
+	}
+
+	entity2ID, err := getIntParam(args, "entity2_id")
+	if err != nil {
+		return nil, err
+	}
+
+	if entity1ID == entity2ID {
+		return nil, fmt.Errorf("cannot merge an entity with itself")
+	}
+
+	lerr := MergeEntities(ctx.DB, ctx.UserID, entity1ID, entity2ID)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to merge entities: %v", lerr)
+	}
+
+	return map[string]interface{}{
+		"status":       "merged",
+		"entity1_id":   entity1ID,
+		"entity2_id":   entity2ID,
+		"surviving_id": entity1ID,
+		"message":      fmt.Sprintf("Successfully merged entity %d into entity %d", entity2ID, entity1ID),
+	}, nil
+}
+
+func (tr *ToolRegistry) registerUpdateEntity() {
+	tr.tools["update_entity"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "update_entity",
+				Description: "Update an existing entity's name, description, type, or linked card. Only provided fields will be updated.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"entity_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The ID of the entity to update (required)",
+						},
+						"name": map[string]interface{}{
+							"type":        "string",
+							"description": "New name for the entity (optional)",
+						},
+						"description": map[string]interface{}{
+							"type":        "string",
+							"description": "New description for the entity (optional)",
+						},
+						"type": map[string]interface{}{
+							"type":        "string",
+							"description": "New type for the entity (optional, e.g., 'person', 'organization', 'concept')",
+						},
+						"card_pk": map[string]interface{}{
+							"type":        "integer",
+							"description": "Primary key of the card to link to this entity (optional, set to null to remove link)",
+						},
+					},
+					"required": []string{"entity_id"},
+				},
+			},
+		},
+		Handler: handleUpdateEntity,
+	}
+}
+
+func handleUpdateEntity(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	entityID, err := getIntParam(args, "entity_id")
+	if err != nil {
+		return nil, err
+	}
+
+	// Get current entity first to have default values
+	entity, lerr := GetEntityByID(ctx.DB, ctx.UserID, entityID)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to get entity: %v", lerr)
+	}
+
+	// Build update params, using current values as defaults
+	params := UpdateEntityParams{
+		Name:        entity.Name,
+		Description: entity.Description,
+		Type:        entity.Type,
+		CardPK:      entity.CardPK,
+	}
+
+	// Update only provided fields
+	if name, ok := getOptionalStringParam(args, "name"); ok {
+		params.Name = name
+	}
+	if description, ok := getOptionalStringParam(args, "description"); ok {
+		params.Description = description
+	}
+	if entityType, ok := getOptionalStringParam(args, "type"); ok {
+		params.Type = entityType
+	}
+	if cardPK, ok, _ := getOptionalIntParam(args, "card_pk"); ok {
+		params.CardPK = &cardPK
+	}
+
+	// Handle explicit null for card_pk (to remove link)
+	if cardPKVal, exists := args["card_pk"]; exists && cardPKVal == nil {
+		params.CardPK = nil
+	}
+
+	lerr = UpdateEntity(ctx.DB, ctx.UserID, entityID, params)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to update entity: %v", lerr)
+	}
+
+	// Fetch updated entity
+	updatedEntity, lerr := GetEntityByID(ctx.DB, ctx.UserID, entityID)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to get updated entity: %v", lerr)
+	}
+
+	return StructToMap(updatedEntity), nil
+}
+
+func (tr *ToolRegistry) registerDeleteEntity() {
+	tr.tools["delete_entity"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "delete_entity",
+				Description: "Delete an entity by its ID. This will also remove all card and fact relationships for this entity. This action cannot be undone.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"entity_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The ID of the entity to delete",
+						},
+					},
+					"required": []string{"entity_id"},
+				},
+			},
+		},
+		Handler: handleDeleteEntity,
+	}
+}
+
+func handleDeleteEntity(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	entityID, err := getIntParam(args, "entity_id")
+	if err != nil {
+		return nil, err
+	}
+
+	lerr := DeleteEntity(ctx.DB, ctx.UserID, entityID)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to delete entity: %v", lerr)
+	}
+
+	return map[string]interface{}{
+		"status":    "deleted",
+		"entity_id": entityID,
+		"message":   "Entity deleted successfully",
+	}, nil
+}
+
+func (tr *ToolRegistry) registerAddEntityToCard() {
+	tr.tools["add_entity_to_card"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "add_entity_to_card",
+				Description: "Link an entity to a card. This creates a relationship between the entity and the card, making the card appear in entity searches.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"entity_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The ID of the entity to link",
+						},
+						"card_pk": map[string]interface{}{
+							"type":        "integer",
+							"description": "The primary key ID of the card to link to",
+						},
+					},
+					"required": []string{"entity_id", "card_pk"},
+				},
+			},
+		},
+		Handler: handleAddEntityToCard,
+	}
+}
+
+func handleAddEntityToCard(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	entityID, err := getIntParam(args, "entity_id")
+	if err != nil {
+		return nil, err
+	}
+
+	cardPK, err := getIntParam(args, "card_pk")
+	if err != nil {
+		return nil, err
+	}
+
+	lerr := AddEntityToCard(ctx.DB, ctx.UserID, entityID, cardPK)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to add entity to card: %v", lerr)
+	}
+
+	return map[string]interface{}{
+		"status":    "linked",
+		"entity_id": entityID,
+		"card_pk":   cardPK,
+		"message":   "Entity successfully linked to card",
+	}, nil
+}
+
+func (tr *ToolRegistry) registerRemoveEntityFromCard() {
+	tr.tools["remove_entity_from_card"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "remove_entity_from_card",
+				Description: "Remove the link between an entity and a card. This will not delete the entity or the card, only their relationship.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"entity_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The ID of the entity",
+						},
+						"card_pk": map[string]interface{}{
+							"type":        "integer",
+							"description": "The primary key ID of the card",
+						},
+					},
+					"required": []string{"entity_id", "card_pk"},
+				},
+			},
+		},
+		Handler: handleRemoveEntityFromCard,
+	}
+}
+
+func handleRemoveEntityFromCard(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	entityID, err := getIntParam(args, "entity_id")
+	if err != nil {
+		return nil, err
+	}
+
+	cardPK, err := getIntParam(args, "card_pk")
+	if err != nil {
+		return nil, err
+	}
+
+	lerr := RemoveEntityFromCard(ctx.DB, ctx.UserID, entityID, cardPK)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to remove entity from card: %v", lerr)
+	}
+
+	return map[string]interface{}{
+		"status":    "unlinked",
+		"entity_id": entityID,
+		"card_pk":   cardPK,
+		"message":   "Entity successfully unlinked from card",
+	}, nil
+}
+
+func (tr *ToolRegistry) registerGetSimilarEntities() {
+	tr.tools["get_similar_entities"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "get_similar_entities",
+				Description: "Find entities that are similar to a given entity based on semantic similarity of their names and descriptions. Useful for discovering potentially duplicate entities.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"entity_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The ID of the entity to find similar entities for",
+						},
+						"limit": map[string]interface{}{
+							"type":        "integer",
+							"description": "Maximum number of similar entities to return (default: 10)",
+							"default":     10,
+						},
+					},
+					"required": []string{"entity_id"},
+				},
+			},
+		},
+		Handler: handleGetSimilarEntities,
+	}
+}
+
+func handleGetSimilarEntities(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	entityID, err := getIntParam(args, "entity_id")
+	if err != nil {
+		return nil, err
+	}
+
+	limit := 10
+	if l, ok, lerr := getOptionalIntParam(args, "limit"); ok && lerr == nil {
+		limit = l
+	}
+
+	entities, lerr := FindSimilarEntities(ctx.DB, ctx.TypesenseClient, ctx.UserID, entityID, limit)
+	if lerr != nil {
+		return nil, fmt.Errorf("failed to find similar entities: %v", lerr)
+	}
+
+	var results []map[string]interface{}
+	for _, entity := range entities {
+		result := StructToMap(entity)
+		// Add similarity score if available
+		if score, ok := entity["score"].(float64); ok {
+			result["similarity_score"] = score
+		}
+		results = append(results, result)
+	}
+
+	return map[string]interface{}{
+		"entities":      results,
+		"entity_id":     entityID,
+		"total":         len(results),
+		"limit":         limit,
+	}, nil
 }
