@@ -54,6 +54,9 @@ export function CardSchemaSection({
     const value = e.target.value;
     const newSchemaId = value ? parseInt(value) : null;
 
+    console.log("Schema change:", { value, newSchemaId, oldSchemaId: schemaId });
+
+    // Update local state immediately for UI responsiveness
     if (newSchemaId) {
       const schema = schemas.find((s) => s.id === newSchemaId);
       setSelectedSchema(schema || null);
@@ -61,12 +64,13 @@ export function CardSchemaSection({
       setSelectedSchema(null);
     }
 
-    onSchemaChange(newSchemaId);
-
     // Clear structured data when schema changes
     if (newSchemaId !== schemaId) {
       onDataChange({});
     }
+
+    // Notify parent last
+    onSchemaChange(newSchemaId);
   };
 
   return (
@@ -77,7 +81,7 @@ export function CardSchemaSection({
         </label>
         <select
           id="schema-select"
-          value={schemaId || ""}
+          value={String(schemaId ?? "")}
           onChange={handleSchemaChange}
           disabled={disabled || loading}
           className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
