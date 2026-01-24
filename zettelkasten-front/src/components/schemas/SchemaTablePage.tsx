@@ -33,9 +33,9 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
       const schemaData = await fetchSchema(schemaId);
       setSchema(schemaData);
 
-      // Fetch all cards and filter by schema_id
+      // Fetch cards with this schema_id
       const token = localStorage.getItem("token");
-      const response = await fetch(`${import.meta.env.VITE_URL}/cards/unsorted`, {
+      const response = await fetch(`${import.meta.env.VITE_URL}/cards?schema_id=${schemaId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -43,16 +43,14 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
         throw new Error("Failed to fetch cards");
       }
 
-      const allCards = await response.json();
-      const filteredCards = allCards
-        .filter((card: Card) => card.schema_id === schemaId)
-        .map((card: Card) => ({
-          ...card,
-          created_at: card.created_at instanceof Date ? card.created_at : new Date(card.created_at),
-          updated_at: card.updated_at instanceof Date ? card.updated_at : new Date(card.updated_at),
-        }));
+      const fetchedCards = await response.json();
+      const cardsWithDates = fetchedCards.map((card: Card) => ({
+        ...card,
+        created_at: card.created_at instanceof Date ? card.created_at : new Date(card.created_at),
+        updated_at: card.updated_at instanceof Date ? card.updated_at : new Date(card.updated_at),
+      }));
 
-      setCards(filteredCards);
+      setCards(cardsWithDates);
     } catch (err) {
       console.error("Error loading data:", err);
       setError("Failed to load data");
