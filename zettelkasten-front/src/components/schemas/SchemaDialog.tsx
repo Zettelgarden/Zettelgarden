@@ -108,9 +108,11 @@ export function SchemaDialog({ schema, isOpen, onClose, onSuccess }: SchemaDialo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("SchemaDialog: handleSubmit called", { name, fields, schema });
 
     const validationError = validateFields();
     if (validationError) {
+      console.log("SchemaDialog: validation error", validationError);
       setError(validationError);
       return;
     }
@@ -126,6 +128,8 @@ export function SchemaDialog({ schema, isOpen, onClose, onSuccess }: SchemaDialo
         options: f.options || [],
       }));
 
+      console.log("SchemaDialog: creating/updating schema", { name, schemaFields });
+
       if (schema) {
         const params: UpdateSchemaParams = {
           name: name.trim(),
@@ -140,9 +144,11 @@ export function SchemaDialog({ schema, isOpen, onClose, onSuccess }: SchemaDialo
         await createSchema(params);
       }
 
+      console.log("SchemaDialog: success, calling callbacks");
       onSuccess();
       onClose();
     } catch (err) {
+      console.error("SchemaDialog: error", err);
       if (err instanceof Error) {
         setError(err.message);
       } else {
@@ -322,7 +328,15 @@ export function SchemaDialog({ schema, isOpen, onClose, onSuccess }: SchemaDialo
             disabled={isSubmitting || !name.trim() || fields.length === 0}
             className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
           >
-            {isSubmitting ? "Saving..." : schema ? "Save Changes" : "Create Schema"}
+            {isSubmitting
+              ? "Saving..."
+              : schema
+              ? "Save Changes"
+              : fields.length === 0
+              ? "Add a field first"
+              : !name.trim()
+              ? "Enter a name first"
+              : "Create Schema"}
           </button>
         </div>
       </Dialog.Panel>
