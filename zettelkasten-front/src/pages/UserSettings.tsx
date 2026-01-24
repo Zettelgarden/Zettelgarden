@@ -232,15 +232,25 @@ export function UserSettingsPage() {
 
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold mb-4">Account Actions</h2>
-              <button
-                onClick={() => {
-                  logoutUser();
-                  navigate('/');
-                }}
-                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-              >
-                Logout
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    logoutUser();
+                    navigate('/');
+                  }}
+                  className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                >
+                  Logout
+                </button>
+                <div className="pt-2">
+                  <button
+                    onClick={() => navigate('/app/schemas')}
+                    className="text-blue-500 hover:underline text-sm"
+                  >
+                    Manage Schemas →
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         );
