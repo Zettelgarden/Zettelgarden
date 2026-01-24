@@ -20,7 +20,7 @@ export function CardSchemaSection({
 }: CardSchemaSectionProps) {
   const [schemas, setSchemas] = useState<SchemaDefinition[]>([]);
   const [selectedSchema, setSelectedSchema] = useState<SchemaDefinition | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Load schemas when component mounts
@@ -38,15 +38,17 @@ export function CardSchemaSection({
       });
   }, []);
 
-  // Update selected schema when schemaId prop changes
+  // Update selected schema when schemaId prop changes (only after schemas are loaded)
   useEffect(() => {
+    if (loading || schemas.length === 0) return;
+
     if (schemaId) {
       const schema = schemas.find((s) => s.id === schemaId);
       setSelectedSchema(schema || null);
     } else {
       setSelectedSchema(null);
     }
-  }, [schemaId, schemas]);
+  }, [schemaId, schemas, loading]);
 
   const handleSchemaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
