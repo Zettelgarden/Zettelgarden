@@ -93,12 +93,6 @@ func ResetDatabase(S *Server) error {
 }
 
 func RunMigrations(S *Server) {
-	if S.Testing {
-		if err := ResetDatabase(S); err != nil {
-			log.Fatal(err)
-		}
-	}
-
 	queryString := "SELECT applied_at FROM migrations WHERE migration_name = $1"
 	insertString := "INSERT INTO migrations (migration_name) VALUES ($1)"
 

@@ -89,7 +89,7 @@ func TestGetAllFilesNoToken(t *testing.T) {
 
 func TestGetFileSuccess(t *testing.T) {
 	s := setup()
-	//	defer tests.Teardown()
+	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
 

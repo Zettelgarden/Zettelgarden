@@ -103,25 +103,36 @@ func Setup() *server.Server {
 
 		config.LoadConfig()
 		db, err = server.ConnectToDatabase(dbConfig)
+		if err != nil {
+			log.Fatalf("Unable to connect to the database: %v\n", err)
+		}
+
+		S = &server.Server{}
+		S.DB = db
+		S.Testing = true
+		S.SchemaDir = "../schema"
+
+		S.Mail = &mail.MailClient{
+			Testing:           true,
+			TestingEmailsSent: 0,
+			DB:                db,
+		}
+		S.TestInspector = &server.TestInspector{}
+		S.LLMClient = &models.LLMClient{Testing: true}
+
+		// Reset database and run migrations ONLY once at the beginning of the test suite
+		// We explicitly call ResetDatabase here to ensure a clean slate
+		if err := server.ResetDatabase(S); err != nil {
+			log.Fatalf("Failed to reset database: %v\n", err)
+		}
+		server.RunMigrations(S)
 	})
 
 	if err != nil {
 		log.Fatalf("Unable to connect to the database: %v\n", err)
 	}
-	S = &server.Server{}
-	S.DB = db
-	S.Testing = true
-	S.SchemaDir = "../schema"
 
-	S.Mail = &mail.MailClient{
-		Testing:           true,
-		TestingEmailsSent: 0,
-		DB:                db,
-	}
-	S.TestInspector = &server.TestInspector{}
-	S.LLMClient = &models.LLMClient{Testing: true}
-
-	server.RunMigrations(S)
+	// Import test data for each test (data gets cleared in Teardown)
 	err = importTestData(S)
 	if err != nil {
 		log.Fatal(err)
@@ -130,7 +141,68 @@ func Setup() *server.Server {
 }
 
 func Teardown() {
-	server.ResetDatabase(S)
+	// Fast cleanup: truncate tables instead of dropping and re-migrating
+	truncateTestData()
+}
+
+// truncateTestData clears all test data but keeps the schema.
+// This is much faster than dropping tables and re-migrating.
+func truncateTestData() {
+	tables := []string{
+		"api_keys",
+		"audit_events",
+		"backlinks",
+		"card_chunks",
+		"card_tags",
+		"card_templates",
+		"card_views",
+		"cards",
+		"chat_messages",
+		"chat_tool_calls",
+		"chat_usage_quotas",
+		"chat_conversations",
+		"entity_card_junction",
+		"entity_fact_junction",
+		"entities",
+		"fact_card_junction",
+		"facts",
+		"files",
+		"keywords",
+		"llm_models",
+		"llm_providers",
+		"llm_query_log",
+		"mailing_list",
+		"revenue",
+		"starred_cards",
+		"starred_searches",
+		"stripe_plans",
+		"summarizations",
+		"summary_arguments",
+		"summary_sections",
+		"summary_theses",
+		"tags",
+		"task_statuses",
+		"task_tags",
+		"tasks",
+		"user_llm_configurations",
+		"user_memories",
+		"users",
+	}
+
+	// Build a single TRUNCATE statement for all tables to handle foreign keys correctly
+	truncateStmt := "TRUNCATE TABLE "
+	for i, table := range tables {
+		if i > 0 {
+			truncateStmt += ", "
+		}
+		truncateStmt += table
+	}
+	truncateStmt += " RESTART IDENTITY CASCADE"
+
+	_, err := S.DB.Exec(truncateStmt)
+	if err != nil {
+		log.Printf("Warning: failed to truncate tables: %v", err)
+	}
 }
 
 func ParseJsonResponse(t *testing.T, body []byte, x interface{}) {

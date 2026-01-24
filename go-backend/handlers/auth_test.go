@@ -5,11 +5,18 @@ import (
 	"encoding/json"
 	"go-backend/models"
 	"go-backend/tests"
-
+	"flag"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 )
+
+func TestMain(m *testing.M) {
+	// Disable parallel test execution since tests share a database
+	flag.Set("parallel", "1")
+	os.Exit(m.Run())
+}
 
 func setup() *Handler {
 	S := tests.Setup()
