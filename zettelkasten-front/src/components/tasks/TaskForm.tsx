@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Task } from "../../models/Task";
 import { PartialCard } from "../../models/Card";
 import { BacklinkInput } from "../cards/BacklinkInput";
@@ -43,6 +43,37 @@ export function TaskForm({
   const { tags: allTags, setRefreshTags } = useTagContext();
   const { setRefreshTasks, tasks } = useTaskContext();
 
+  // Debounce timer for auto-save to avoid excessive API calls
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingSaveRef = useRef<Task | null>(null);
+
+  // Debounced save function
+  const debouncedSave = useRef((taskToSave: Task) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    pendingSaveRef.current = taskToSave;
+    debounceTimerRef.current = setTimeout(async () => {
+      if (pendingSaveRef.current && mode === "edit" && saveOnChange) {
+        const response = await saveExistingTask(pendingSaveRef.current);
+        if (!("error" in response)) {
+          setRefreshTasks(true);
+          setRefreshTags(true);
+        }
+      }
+      pendingSaveRef.current = null;
+    }, 500); // 500ms debounce delay
+  }).current;
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
   // Priority detection from text input (e.g., "priority:a" -> Priority A)
   function detectAndSetPriority(text: string) {
     const priorityRegex = /priority:\s*([abc])/i;
@@ -73,12 +104,8 @@ export function TaskForm({
 
   async function handleTitleSave() {
     if (mode === "edit" && saveOnChange) {
-      const response = await saveExistingTask(task);
-      if (!("error" in response)) {
-        setRefreshTasks(true);
-        setRefreshTags(true);
-        setIsEditingTitle(false);
-      }
+      debouncedSave(task);
+      setIsEditingTitle(false);
     }
   }
 
@@ -88,11 +115,8 @@ export function TaskForm({
 
   async function handleDescriptionSave() {
     if (mode === "edit" && saveOnChange) {
-      const response = await saveExistingTask(task);
-      if (!("error" in response)) {
-        setRefreshTasks(true);
-        setIsEditingDescription(false);
-      }
+      debouncedSave(task);
+      setIsEditingDescription(false);
     } else {
       setIsEditingDescription(false);
     }

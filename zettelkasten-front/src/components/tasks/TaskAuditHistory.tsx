@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { format } from "date-fns-tz";
 import { TaskAuditEvent } from "../../models/Task";
 import { formatAuditEvent } from "../../utils/tasks";
@@ -6,16 +6,33 @@ import { useAuth } from "../../contexts/AuthContext";
 
 interface TaskAuditHistoryProps {
   events: TaskAuditEvent[];
+  defaultExpanded?: boolean;
 }
 
-export function TaskAuditHistory({ events }: TaskAuditHistoryProps) {
+export function TaskAuditHistory({ events, defaultExpanded = false }: TaskAuditHistoryProps) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const { user } = useAuth();
   const userTimezone = user?.timezone || "UTC";
 
   return (
     <div className="mt-6 border-t pt-4">
-      <h3 className="text-lg font-medium text-gray-900 mb-4">Task History</h3>
-      <div className="space-y-3 max-h-[200px] overflow-y-auto">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center gap-2 w-full text-left"
+      >
+        <svg
+          className={`w-4 h-4 text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <h3 className="text-lg font-medium text-gray-900">Task History</h3>
+        <span className="text-sm text-gray-500">({events.length})</span>
+      </button>
+      {isExpanded && (
+        <div className="space-y-3 max-h-[200px] overflow-y-auto mt-4">
         {events.length > 0 ? (
           events.map((event) => (
             <div
@@ -31,7 +48,8 @@ export function TaskAuditHistory({ events }: TaskAuditHistoryProps) {
         ) : (
           <div className="text-sm text-gray-500 text-center py-4">No history available</div>
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
