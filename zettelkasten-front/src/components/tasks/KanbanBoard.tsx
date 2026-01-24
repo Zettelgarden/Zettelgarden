@@ -11,9 +11,12 @@ interface KanbanBoardProps {
   tasks: Task[];
   onTagClick: (tag: string) => void;
   onAddTaskWithStatus: (status: string) => void;
+  selectMode?: boolean;
+  selectedTaskIds?: Set<number>;
+  onTaskSelect?: (taskId: number) => void;
 }
 
-export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode = false, selectedTaskIds = new Set(), onTaskSelect }: KanbanBoardProps) {
   const { setRefreshTasks } = useTaskContext();
   const { statuses, getStatusByName } = useStatus();
   const [showStatusManagement, setShowStatusManagement] = useState(false);
@@ -163,6 +166,9 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus }: KanbanBo
                                 task={task}
                                 onTagClick={onTagClick}
                                 hideMatrixTags={false}
+                                selectMode={selectMode}
+                                isSelected={selectedTaskIds.has(task.id)}
+                                onSelect={() => onTaskSelect?.(task.id)}
                               />
                             </div>
                           )}

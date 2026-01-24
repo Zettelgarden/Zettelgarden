@@ -7,6 +7,9 @@ interface EisenhowerMatrixProps {
     tasks: Task[];
     onTagClick: (tag: string) => void;
     onAddTaskWithTags?: (tags: string[]) => void;
+    selectMode?: boolean;
+    selectedTaskIds?: Set<number>;
+    onTaskSelect?: (taskId: number) => void;
 }
 
 function normalizeTag(tag: string) {
@@ -29,7 +32,7 @@ function getQuadrant(task: Task): 1 | 2 | 3 | 4 {
 import { saveExistingTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
 
-export function EisenhowerMatrix({ tasks, onTagClick, onAddTaskWithTags }: EisenhowerMatrixProps) {
+export function EisenhowerMatrix({ tasks, onTagClick, onAddTaskWithTags, selectMode = false, selectedTaskIds = new Set(), onTaskSelect }: EisenhowerMatrixProps) {
     const { setRefreshTasks } = useTaskContext();
     const q1 = tasks.filter(t => getQuadrant(t) === 1);
     const q2 = tasks.filter(t => getQuadrant(t) === 2);
@@ -130,7 +133,14 @@ export function EisenhowerMatrix({ tasks, onTagClick, onAddTaskWithTags }: Eisen
                                             : "border-transparent"
                                             }`}
                                     >
-                                        <TaskList onTagClick={onTagClick} tasks={[task]} hideMatrixTags={true} />
+                                        <TaskList
+                                          onTagClick={onTagClick}
+                                          tasks={[task]}
+                                          hideMatrixTags={true}
+                                          selectMode={selectMode}
+                                          selectedTaskIds={selectedTaskIds}
+                                          onTaskSelect={onTaskSelect}
+                                        />
                                     </div>
                                 )}
                             </Draggable>

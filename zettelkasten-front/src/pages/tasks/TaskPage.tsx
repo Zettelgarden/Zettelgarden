@@ -476,6 +476,9 @@ export function TaskPage({ }: TaskListProps) {
             onTagClick={handleTagClick}
             tasks={tasksToDisplay}
             onAddTaskWithStatus={handleAddTaskWithStatus}
+            selectMode={settings.selectMode}
+            selectedTaskIds={settings.selectedTaskIds}
+            onTaskSelect={settings.toggleTaskSelection}
           />
         ) : (
           <EisenhowerMatrix
@@ -485,6 +488,9 @@ export function TaskPage({ }: TaskListProps) {
               settings.setFilterString(tags.join(" "));
               setShowCreateTaskWindow(true);
             }}
+            selectMode={settings.selectMode}
+            selectedTaskIds={settings.selectedTaskIds}
+            onTaskSelect={settings.toggleTaskSelection}
           />
         )}
       </div>
