@@ -907,9 +907,13 @@ async def update_card(client: httpx.AsyncClient, args: dict) -> str:
         "link": args.get("link", card.get("link", ""))
     }
 
-    # Add schema_id if provided (including null to remove schema)
+    # Handle schema_id and structured_data updates
+    # If schema_id is explicitly provided in args, use that (including null to remove)
     if "schema_id" in args:
         update_data["schema_id"] = args["schema_id"]
+    # Otherwise, if updating structured_data and card already has a schema, preserve it
+    elif "structured_data" in args and card.get("schema_id") is not None:
+        update_data["schema_id"] = card.get("schema_id")
 
     # Add structured_data if provided
     if "structured_data" in args:
