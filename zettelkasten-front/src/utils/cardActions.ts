@@ -70,6 +70,32 @@ export async function toggleCardStar(
 }
 
 /**
+ * Toggles the star status of a partial card by calling the appropriate API
+ * @param card - The partial card to star/unstar
+ * @param refreshCallback - Callback function to refresh card data after API call
+ */
+export async function togglePartialCardStar(
+  card: PartialCard,
+  refreshCallback?: () => void
+): Promise<void> {
+  try {
+    if (card.is_starred) {
+      await unstarCard(card.id);
+    } else {
+      await starCard(card.id);
+    }
+
+    // Refresh the card data after the mutation if callback provided
+    if (refreshCallback) {
+      refreshCallback();
+    }
+  } catch (error) {
+    console.error("Error toggling star status:", error);
+    throw error; // Re-throw to allow caller to handle
+  }
+}
+
+/**
  * Saves a modified card to the API
  * @param card - The card to save
  * @param refreshCallback - Optional callback to refresh data after save

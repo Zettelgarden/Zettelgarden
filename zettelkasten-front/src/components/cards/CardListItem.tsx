@@ -11,6 +11,7 @@ import { Menu } from "@headlessui/react";
 import { CardIdDiscoveryDialog } from "./CardIdDiscoveryDialog";
 import { CardListMenu } from "./CardListMenu";
 import { getCard, saveExistingCard } from "../../api/cards";
+import { togglePartialCardStar } from "../../utils/cardActions";
 
 interface CardListItemProps {
   card: PartialCard;
@@ -48,6 +49,14 @@ export function CardListItem({
 
   function handleRecategoryClick() {
     setShowRecategoryDialog(true);
+  }
+
+  async function handleStarToggle() {
+    try {
+      await togglePartialCardStar(card, onCardUpdate);
+    } catch (error) {
+      console.error("Failed to toggle star:", error);
+    }
   }
 
   const handleAddTag = async (tagName: string) => {
@@ -159,6 +168,8 @@ export function CardListItem({
         onRecategoryClick={handleRecategoryClick}
         showRecategory={card.card_id === ""}
         tags={tags}
+        isStarred={card.is_starred ?? false}
+        onToggleStar={handleStarToggle}
       />
 
       {showHover && card && (

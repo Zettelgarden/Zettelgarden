@@ -11,6 +11,7 @@ export interface PartialCard {
   created_at: Date;
   updated_at: Date;
   tags: Tag[];
+  is_starred?: boolean;
 }
 
 export interface Entity {
@@ -97,6 +98,7 @@ export const defaultPartialCard: PartialCard = {
   created_at: new Date(0),
   updated_at: new Date(0),
   tags: [],
+  is_starred: false,
 };
 
 export const defaultCard: Card = {
