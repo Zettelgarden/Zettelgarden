@@ -42,8 +42,8 @@ export function SchemaTable({ schemaId, onCardClick, compact = false, columns, f
     const filterParts = filters.split(',').map(f => f.trim());
 
     for (const part of filterParts) {
-      // Match operator patterns: field=value, field~value, field>value, field<value, etc.
-      const match = part.match(/^([^=~^><]+)([=~^><]=?|>=|<=)(.+)$/);
+      // Match operator patterns: field=value, field!=value, field~value, field!~value, etc.
+      const match = part.match(/^([^=!~^><]+)(!?[=~^><]=?|!?>=|!?<=|!~=|!~=|!^=|!^)(.+)$/);
       if (!match) continue;
 
       const [, fieldName, operator, rawValue] = match;
@@ -51,9 +51,22 @@ export function SchemaTable({ schemaId, onCardClick, compact = false, columns, f
       if (!field) continue;
 
       let filterOperator: FilterValue["operator"];
+      let negate = false;
       let value: any = rawValue;
 
       switch (operator) {
+        case "!~":
+          negate = true;
+          filterOperator = "contains";
+          break;
+        case "!^":
+          negate = true;
+          filterOperator = "startsWith";
+          break;
+        case "!=":
+          negate = true;
+          filterOperator = "equals";
+          break;
         case "~":
           filterOperator = "contains";
           break;
@@ -105,8 +118,9 @@ export function SchemaTable({ schemaId, onCardClick, compact = false, columns, f
       result[fieldName] = {
         type: field.type,
         operator: filterOperator,
-        value
-      };
+        value,
+        negate
+      } as FilterValue;
     }
 
     return result;
@@ -163,82 +177,112 @@ export function SchemaTable({ schemaId, onCardClick, compact = false, columns, f
     Object.entries(parsedFilters).forEach(([fieldName, filterValue]) => {
       filteredCards = filteredCards.filter((card) => {
         const cardValue = card.structured_data?.[fieldName];
+        const negate = (filterValue as any).negate || false;
 
         if (cardValue === null || cardValue === undefined || cardValue === "") {
-          return false;
+          return negate; // If negating, empty values should pass
         }
+
+        let result = true;
 
         switch (filterValue.type) {
           case "text":
             switch (filterValue.operator) {
               case "contains":
-                return String(cardValue).toLowerCase().includes(String(filterValue.value).toLowerCase());
+                result = String(cardValue).toLowerCase().includes(String(filterValue.value).toLowerCase());
+                break;
               case "equals":
-                return String(cardValue).toLowerCase() === String(filterValue.value).toLowerCase();
+                result = String(cardValue).toLowerCase() === String(filterValue.value).toLowerCase();
+                break;
               case "startsWith":
-                return String(cardValue).toLowerCase().startsWith(String(filterValue.value).toLowerCase());
+                result = String(cardValue).toLowerCase().startsWith(String(filterValue.value).toLowerCase());
+                break;
               default:
-                return true;
+                result = true;
             }
+            break;
 
           case "number":
             const cardNum = parseFloat(cardValue);
             const filterNum = parseFloat(filterValue.value);
-            if (isNaN(cardNum) || isNaN(filterNum)) return false;
+            if (isNaN(cardNum) || isNaN(filterNum)) {
+              result = false;
+              break;
+            }
             switch (filterValue.operator) {
               case "equals":
-                return cardNum === filterNum;
+                result = cardNum === filterNum;
+                break;
               case "gt":
-                return cardNum > filterNum;
+                result = cardNum > filterNum;
+                break;
               case "gte":
-                return cardNum >= filterNum;
+                result = cardNum >= filterNum;
+                break;
               case "lt":
-                return cardNum < filterNum;
+                result = cardNum < filterNum;
+                break;
               case "lte":
-                return cardNum <= filterNum;
+                result = cardNum <= filterNum;
+                break;
               default:
-                return true;
+                result = true;
             }
+            break;
 
           case "date":
             const cardDate = new Date(cardValue);
             const filterDate = new Date(filterValue.value);
-            if (isNaN(cardDate.getTime()) || isNaN(filterDate.getTime())) return false;
+            if (isNaN(cardDate.getTime()) || isNaN(filterDate.getTime())) {
+              result = false;
+              break;
+            }
             switch (filterValue.operator) {
               case "equals":
-                return cardDate.toDateString() === filterDate.toDateString();
+                result = cardDate.toDateString() === filterDate.toDateString();
+                break;
               case "gt":
               case "after":
-                return cardDate > filterDate;
+                result = cardDate > filterDate;
+                break;
               case "lt":
               case "before":
-                return cardDate < filterDate;
+                result = cardDate < filterDate;
+                break;
               default:
-                return true;
+                result = true;
             }
+            break;
 
           case "boolean":
-            return Boolean(cardValue) === Boolean(filterValue.value);
+            result = Boolean(cardValue) === Boolean(filterValue.value);
+            break;
 
           case "select":
-            return String(cardValue) === String(filterValue.value);
+            result = String(cardValue) === String(filterValue.value);
+            break;
 
           case "multi-select":
             if (filterValue.operator === "any" && Array.isArray(filterValue.value)) {
               const cardValues = Array.isArray(cardValue) ? cardValue : [cardValue];
-              return filterValue.value.some((v: string) => cardValues.includes(v));
+              result = filterValue.value.some((v: string) => cardValues.includes(v));
+            } else {
+              // For simple equals with multi-select, check if any value matches
+              const cardValues = Array.isArray(cardValue) ? cardValue : [cardValue];
+              const filterValues = Array.isArray(filterValue.value) ? filterValue.value : [filterValue.value];
+              result = filterValues.some((v: string) => cardValues.includes(v));
             }
-            // For simple equals with multi-select, check if any value matches
-            const cardValues = Array.isArray(cardValue) ? cardValue : [cardValue];
-            const filterValues = Array.isArray(filterValue.value) ? filterValue.value : [filterValue.value];
-            return filterValues.some((v: string) => cardValues.includes(v));
+            break;
 
           case "link_to_card":
-            return parseInt(cardValue, 10) === parseInt(filterValue.value, 10);
+            result = parseInt(cardValue, 10) === parseInt(filterValue.value, 10);
+            break;
 
           default:
-            return true;
+            result = true;
         }
+
+        return negate ? !result : result;
       });
     });
 
