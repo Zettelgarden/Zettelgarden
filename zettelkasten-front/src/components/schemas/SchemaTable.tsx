@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { SchemaDefinition, FieldDefinition } from "../../models/Schema";
 import { Card } from "../../models/Card";
 import { fetchSchemaByRef } from "../../api/schemas";
@@ -8,9 +8,10 @@ interface SchemaTableProps {
   onCardClick?: (card: Card) => void;
   compact?: boolean;
   columns?: string[]; // List of column names to display
+  filters?: Record<string, string>; // Filter object like { status: "active", priority: "high" }
 }
 
-export function SchemaTable({ schemaRef, onCardClick, compact = false, columns }: SchemaTableProps) {
+export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, filters }: SchemaTableProps) {
   const [schema, setSchema] = useState<SchemaDefinition | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +30,72 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns }
     }
     return fields.filter(field => columns.includes(field.name));
   };
+
+  // Parse filter operator and value from filter string (e.g., "gte:5", "active", "lte:10")
+  const parseFilterValue = (filterValue: string): { operator: string; value: string } => {
+    // Check for operator prefix (gte, lte, gt, lt, ne)
+    const operatorMatch = filterValue.match(/^(gte|lte|gt|lt|ne):(.+)$/);
+    if (operatorMatch) {
+      return { operator: operatorMatch[1], value: operatorMatch[2] };
+    }
+    // Default is equality
+    return { operator: "eq", value: filterValue };
+  };
+
+  // Check if a card value matches a filter
+  const matchesFilter = (cardValue: any, filterValue: string): boolean => {
+    const { operator, value } = parseFilterValue(filterValue);
+
+    // Handle undefined/null values
+    if (cardValue === null || cardValue === undefined || cardValue === "") {
+      return false;
+    }
+
+    // Convert values for comparison
+    const numCardValue = typeof cardValue === "number" ? cardValue : parseFloat(cardValue);
+    const numFilterValue = parseFloat(value);
+
+    switch (operator) {
+      case "eq":
+        return String(cardValue).toLowerCase() === String(value).toLowerCase();
+      case "ne":
+        return String(cardValue).toLowerCase() !== String(value).toLowerCase();
+      case "gt":
+        return !isNaN(numCardValue) && !isNaN(numFilterValue) && numCardValue > numFilterValue;
+      case "gte":
+        return !isNaN(numCardValue) && !isNaN(numFilterValue) && numCardValue >= numFilterValue;
+      case "lt":
+        return !isNaN(numCardValue) && !isNaN(numFilterValue) && numCardValue < numFilterValue;
+      case "lte":
+        return !isNaN(numCardValue) && !isNaN(numFilterValue) && numCardValue <= numFilterValue;
+      default:
+        return String(cardValue).toLowerCase() === String(value).toLowerCase();
+    }
+  };
+
+  // Apply filters to cards
+  const filteredCards = useMemo(() => {
+    if (!filters || Object.keys(filters).length === 0) {
+      return cards;
+    }
+
+    return cards.filter(card => {
+      // Check each filter
+      for (const [fieldName, filterValue] of Object.entries(filters)) {
+        const cardValue = card.structured_data?.[fieldName];
+
+        // Special case for "title" field
+        if (fieldName === "title") {
+          if (!matchesFilter(card.title, filterValue)) {
+            return false;
+          }
+        } else if (!matchesFilter(cardValue, filterValue)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [cards, filters]);
 
   const loadData = async () => {
     setLoading(true);
@@ -75,11 +142,12 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns }
   };
 
   const getSortedCards = () => {
-    if (!sortField) return cards;
+    if (!sortField) return filteredCards;
 
-    return [...cards].sort((a, b) => {
-      const aValue = a.structured_data?.[sortField];
-      const bValue = b.structured_data?.[sortField];
+    return [...filteredCards].sort((a, b) => {
+      // Handle title field separately
+      const aValue = sortField === "title" ? a.title : a.structured_data?.[sortField];
+      const bValue = sortField === "title" ? b.title : b.structured_data?.[sortField];
 
       if (aValue === undefined) return 1;
       if (bValue === undefined) return -1;
@@ -137,6 +205,9 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns }
 
   const sortedCards = getSortedCards();
   const filteredFields = schema ? getFilteredFields(schema.fields) : [];
+  const hasFilters = filters && Object.keys(filters).length > 0;
+  const totalCards = cards.length;
+  const displayCards = sortedCards.length;
 
   return (
     <div className={compact ? "my-2" : "my-4"}>
@@ -145,13 +216,21 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns }
           <h3 className={compact ? "text-base font-semibold text-gray-900" : "text-xl font-bold text-gray-900"}>
             {schema.name}
           </h3>
-          <p className="text-xs text-gray-500">{cards.length} cards</p>
+          <p className="text-xs text-gray-500">
+            {hasFilters
+              ? `${displayCards} of ${totalCards} cards`
+              : `${totalCards} cards`}
+          </p>
         </div>
       </div>
 
-      {cards.length === 0 ? (
+      {totalCards === 0 ? (
         <div className="text-center text-gray-500 py-4 bg-gray-50 rounded-lg">
           <p className="text-sm">No cards with this schema yet.</p>
+        </div>
+      ) : displayCards === 0 ? (
+        <div className="text-center text-gray-500 py-4 bg-gray-50 rounded-lg">
+          <p className="text-sm">No cards match the current filters.</p>
         </div>
       ) : (
         <div className="overflow-x-auto border rounded-lg">

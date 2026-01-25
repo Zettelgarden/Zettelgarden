@@ -50,16 +50,20 @@ function preprocessCardLinks(body: string): string {
 }
 
 function preprocessSchemaTables(body: string): string {
-  // Match {{schema: <id>}} or {{schema_table: <id>}} syntax with optional columns parameter
-  // Supports: {{schema:1}}, {{schema:1 columns:title,status}}, {{schema_table:1 columns:field1,field2}}
-  const regex = /\{\{schema(?:_table)?:\s*(\d+)(?:\s+columns:\s*([^\}]+))?\}\}/gi;
-  return body.replace(regex, (match, schemaId, columns) => {
-    if (columns) {
-      // Encode columns as JSON in the placeholder
-      const columnsList = columns.split(',').map((c: string) => c.trim()).join(',');
-      return `&SCHEMATABLE:${schemaId}|${columnsList}&`;
+  // Match {{schema: <ref>}} syntax with optional pipe-separated options
+  // Supports:
+  // - {{schema:1}} - basic
+  // - {{schema:book-review}} - with slug
+  // - {{schema:1|title,status}} - backward compatible column shorthand
+  // - {{schema:1|columns:title,status}} - explicit columns
+  // - {{schema:1|columns:title,status|filter:status=active}} - columns + filters
+  const regex = /\{\{schema(?:_table)?:\s*([^}\s|]+)(?:\|([^\}]+))?\}\}/gi;
+  return body.replace(regex, (match, schemaRef, options) => {
+    if (options) {
+      // Keep options as-is (will be parsed by remark plugin)
+      return `&SCHEMATABLE:${schemaRef}|${options}&`;
     }
-    return `&SCHEMATABLE:${schemaId}&`;
+    return `&SCHEMATABLE:${schemaRef}&`;
   });
 }
 
@@ -388,7 +392,8 @@ function renderCardText(
           if (propsData.className === "schema-table-container" || propsData["data-schema-id"] !== undefined || propsData["data-schema-ref"] !== undefined) {
             const schemaRef = propsData["data-schema-ref"] || propsData["data-schema-id"] || "";
             const columns = propsData["data-columns"];
-            return <DynamicSchemaTable schemaRef={schemaRef} columns={columns} />;
+            const filters = propsData["data-filters"];
+            return <DynamicSchemaTable schemaRef={schemaRef} columns={columns} filters={filters} />;
           }
 
           // Default div rendering

@@ -1,6 +1,35 @@
 import { visit } from "unist-util-visit";
 import { Node } from "unist";
 
+interface ParsedOptions {
+    columns?: string;
+    filters?: string;
+}
+
+// Parse the options string (e.g., "columns:title,status|filter:status=active")
+function parseOptions(optionsStr: string): ParsedOptions {
+    const result: ParsedOptions = {};
+
+    // Split by pipe to get sections
+    const sections = optionsStr.split('|');
+
+    for (const section of sections) {
+        const trimmed = section.trim();
+
+        // Check for prefixed sections
+        if (trimmed.startsWith('columns:')) {
+            result.columns = trimmed.slice(8).trim();
+        } else if (trimmed.startsWith('filter:')) {
+            result.filters = trimmed.slice(7).trim();
+        } else {
+            // Backward compatibility: if no prefix, treat as columns
+            result.columns = trimmed;
+        }
+    }
+
+    return result;
+}
+
 export default function remarkSchemaTable() {
     return (tree: Node) => {
         visit(tree, "text", (node: any, index: number | undefined, parent: any) => {
@@ -8,14 +37,15 @@ export default function remarkSchemaTable() {
 
             // Match both old and new schema table syntax:
             // Old: &SCHEMATABLE:schemaId& or &SCHEMATABLE:schemaId|col1,col2&
-            // New: {{schema:slug}} or {{schema:slug|col1,col2}}
+            // New: {{schema:slug}} or {{schema:slug|options}}
+            // Options can be: cols:field1,field2 or filter:field1=value1,field2=value2
             const regex = /(?:&SCHEMATABLE:|{{schema:)([^&|}\s]+)(?:\|([^&}]+?))?(?:&|}})/g;
             let match;
             const newNodes: any[] = [];
             let lastIndex = 0;
 
             while ((match = regex.exec(node.value)) !== null) {
-                const [fullMatch, schemaRef, columns] = match;
+                const [fullMatch, schemaRef, optionsStr] = match;
 
                 // Push text before match
                 if (match.index > lastIndex) {
@@ -25,22 +55,30 @@ export default function remarkSchemaTable() {
                     });
                 }
 
-                // Push schema table node with optional columns data attribute
+                // Parse options
+                const options = optionsStr ? parseOptions(optionsStr) : {};
+
+                // Push schema table node with optional data attributes
                 // schemaRef can be either an ID (old format) or a slug (new format)
                 const hProperties: any = {
                     className: "schema-table-container",
                     "data-schema-ref": schemaRef
                 };
 
-                if (columns) {
-                    hProperties["data-columns"] = columns;
+                if (options.columns) {
+                    hProperties["data-columns"] = options.columns;
+                }
+
+                if (options.filters) {
+                    hProperties["data-filters"] = options.filters;
                 }
 
                 newNodes.push({
                     type: "schemaTable",
                     data: {
                         schemaRef,
-                        columns,
+                        columns: options.columns,
+                        filters: options.filters,
                         hName: "div",
                         hProperties
                     },
