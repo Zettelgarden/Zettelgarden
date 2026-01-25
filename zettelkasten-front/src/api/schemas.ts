@@ -50,6 +50,27 @@ export function fetchSchema(id: number): Promise<SchemaDefinition> {
     });
 }
 
+// Fetch schema by reference (ID or slug)
+// The ref can be a numeric ID (e.g., "123") or a slug (e.g., "book-review")
+export function fetchSchemaByRef(ref: string): Promise<SchemaDefinition> {
+  const token = localStorage.getItem("token");
+  const url = base_url + `/schemas/${ref}`;
+
+  return fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+    .then(checkStatus)
+    .then((response) => {
+      if (response) {
+        return response.json().then((schema: SchemaDefinition) => {
+          return parseSchemaDates(schema);
+        });
+      } else {
+        return Promise.reject(new Error("Response is undefined"));
+      }
+    });
+}
+
 export interface CreateSchemaParams {
   name: string;
   fields: SchemaDefinition["fields"];

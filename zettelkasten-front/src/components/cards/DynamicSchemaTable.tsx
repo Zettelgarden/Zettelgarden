@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { SchemaTable } from "../schemas/SchemaTable";
 
 interface DynamicSchemaTableProps {
-  schemaId: string;
+  schemaRef: string; // Can be an ID (numeric string) or slug
   columns?: string; // Comma-separated list of column names
 }
 
-export function DynamicSchemaTable({ schemaId, columns }: DynamicSchemaTableProps) {
+export function DynamicSchemaTable({ schemaRef, columns }: DynamicSchemaTableProps) {
   const navigate = useNavigate();
 
   const handleCardClick = (card: any) => {
@@ -20,7 +20,7 @@ export function DynamicSchemaTable({ schemaId, columns }: DynamicSchemaTableProp
   return (
     <div className="my-4 border-l-4 border-blue-500 pl-4">
       <SchemaTable
-        schemaId={Number(schemaId)}
+        schemaRef={schemaRef}
         onCardClick={handleCardClick}
         compact={true}
         columns={columnsList}

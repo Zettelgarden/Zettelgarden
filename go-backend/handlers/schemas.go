@@ -168,19 +168,29 @@ func (s *Handler) CreateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Generate slug from name
+	baseSlug := models.GenerateSlug(params.Name)
+	slug, err := models.GetUniqueSlug(s.DB, params.OwnerID, baseSlug)
+	if err != nil {
+		log.Printf("Error generating unique slug: %v", err)
+		http.Error(w, "Error generating slug", http.StatusInternalServerError)
+		return
+	}
+
 	// Create schema
 	query := `
-		INSERT INTO schema_definitions (name, owner_id, fields, created_at, updated_at, is_deleted)
-		VALUES ($1, $2, $3, NOW(), NOW(), FALSE)
-		RETURNING id, name, owner_id, fields, created_at, updated_at, is_deleted
+		INSERT INTO schema_definitions (name, slug, owner_id, fields, created_at, updated_at, is_deleted)
+		VALUES ($1, $2, $3, $4, NOW(), NOW(), FALSE)
+		RETURNING id, name, slug, owner_id, fields, created_at, updated_at, is_deleted
 	`
 
 	var schema models.SchemaDefinition
 	var fieldsJSONB []byte
 
-	err = s.DB.QueryRow(query, params.Name, params.OwnerID, fieldsJSON).Scan(
+	err = s.DB.QueryRow(query, params.Name, slug, params.OwnerID, fieldsJSON).Scan(
 		&schema.ID,
 		&schema.Name,
+		&schema.Slug,
 		&schema.OwnerID,
 		&fieldsJSONB,
 		&schema.CreatedAt,
@@ -218,7 +228,7 @@ func (s *Handler) GetSchemasRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-		SELECT id, name, owner_id, fields, created_at, updated_at, is_deleted
+		SELECT id, name, slug, owner_id, fields, created_at, updated_at, is_deleted
 		FROM schema_definitions
 		WHERE owner_id = $1 AND is_deleted = FALSE
 		ORDER BY created_at DESC
@@ -244,6 +254,7 @@ func (s *Handler) GetSchemasRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetSchemaRoute handles GET /api/schemas/{id} - Get a specific schema
+// The {id} parameter can be either a numeric ID or a string slug
 func (s *Handler) GetSchemaRoute(w http.ResponseWriter, r *http.Request) {
 	userID, err := getUserID(r)
 	if err != nil {
@@ -252,19 +263,30 @@ func (s *Handler) GetSchemaRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := strconv.Atoi(mux.Vars(r)["id"])
-	if err != nil {
-		http.Error(w, "Invalid schema ID", http.StatusBadRequest)
-		return
+	ref := mux.Vars(r)["id"]
+
+	var query string
+	var schema *models.SchemaDefinition
+
+	// Try to parse as integer ID first
+	if id, err := strconv.Atoi(ref); err == nil {
+		// Reference is a numeric ID
+		query = `
+			SELECT id, name, slug, owner_id, fields, created_at, updated_at, is_deleted
+			FROM schema_definitions
+			WHERE id = $1 AND owner_id = $2 AND is_deleted = FALSE
+		`
+		schema, err = models.ScanSchemaDefinition(s.DB.QueryRow(query, id, userID))
+	} else {
+		// Reference is a slug
+		query = `
+			SELECT id, name, slug, owner_id, fields, created_at, updated_at, is_deleted
+			FROM schema_definitions
+			WHERE slug = $1 AND owner_id = $2 AND is_deleted = FALSE
+		`
+		schema, err = models.ScanSchemaDefinition(s.DB.QueryRow(query, ref, userID))
 	}
 
-	query := `
-		SELECT id, name, owner_id, fields, created_at, updated_at, is_deleted
-		FROM schema_definitions
-		WHERE id = $1 AND owner_id = $2 AND is_deleted = FALSE
-	`
-
-	schema, err := models.ScanSchemaDefinition(s.DB.QueryRow(query, id, userID))
 	if err != nil {
 		log.Printf("Error querying schema: %v", err)
 		http.Error(w, "Error retrieving schema", http.StatusInternalServerError)
@@ -330,20 +352,44 @@ func (s *Handler) UpdateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get current schema to check if name changed
+	var currentName string
+	var currentSlug string
+	checkQuery := `SELECT name, slug FROM schema_definitions WHERE id = $1`
+	err = s.DB.QueryRow(checkQuery, id).Scan(&currentName, &currentSlug)
+	if err != nil {
+		log.Printf("Error getting current schema: %v", err)
+		http.Error(w, "Error retrieving schema", http.StatusInternalServerError)
+		return
+	}
+
+	// Generate new slug if name changed
+	newSlug := currentSlug
+	if currentName != params.Name {
+		baseSlug := models.GenerateSlug(params.Name)
+		newSlug, err = models.GetUniqueSlug(s.DB, userID, baseSlug)
+		if err != nil {
+			log.Printf("Error generating unique slug: %v", err)
+			http.Error(w, "Error generating slug", http.StatusInternalServerError)
+			return
+		}
+	}
+
 	// Update schema
 	updateQuery := `
 		UPDATE schema_definitions
-		SET name = $1, fields = $2, updated_at = NOW()
-		WHERE id = $3 AND owner_id = $4
-		RETURNING id, name, owner_id, fields, created_at, updated_at, is_deleted
+		SET name = $1, slug = $2, fields = $3, updated_at = NOW()
+		WHERE id = $4 AND owner_id = $5
+		RETURNING id, name, slug, owner_id, fields, created_at, updated_at, is_deleted
 	`
 
 	var schema models.SchemaDefinition
 	var fieldsJSONB []byte
 
-	err = s.DB.QueryRow(updateQuery, params.Name, fieldsJSON, id, userID).Scan(
+	err = s.DB.QueryRow(updateQuery, params.Name, newSlug, fieldsJSON, id, userID).Scan(
 		&schema.ID,
 		&schema.Name,
+		&schema.Slug,
 		&schema.OwnerID,
 		&fieldsJSONB,
 		&schema.CreatedAt,

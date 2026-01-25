@@ -384,10 +384,11 @@ function renderCardText(
           }
 
           // Check if this is a schema table container
-          if (propsData.className === "schema-table-container" || propsData["data-schema-id"] !== undefined) {
-            const schemaId = propsData["data-schema-id"] || "";
+          // Support both old data-schema-id (ID) and new data-schema-ref (ID or slug)
+          if (propsData.className === "schema-table-container" || propsData["data-schema-id"] !== undefined || propsData["data-schema-ref"] !== undefined) {
+            const schemaRef = propsData["data-schema-ref"] || propsData["data-schema-id"] || "";
             const columns = propsData["data-columns"];
-            return <DynamicSchemaTable schemaId={schemaId} columns={columns} />;
+            return <DynamicSchemaTable schemaRef={schemaRef} columns={columns} />;
           }
 
           // Default div rendering

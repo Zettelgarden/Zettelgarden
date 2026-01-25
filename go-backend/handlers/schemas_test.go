@@ -971,27 +971,29 @@ func TestCreateSchemaRoute_EmptyFieldName(t *testing.T) {
 }
 
 // TestGetSchemaRoute_InvalidID tests error when schema ID is invalid
+// With slug support, non-numeric strings are now treated as slugs, so we get 404 instead of 400
 func TestGetSchemaRoute_InvalidID(t *testing.T) {
 	s := setup()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
 
-	req, _ := http.NewRequest("GET", "/api/schemas/invalid", nil)
+	req, _ := http.NewRequest("GET", "/api/schemas/nonexistent-slug", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.SetPathValue("id", "invalid")
+	req.SetPathValue("id", "nonexistent-slug")
 
 	rr := httptest.NewRecorder()
 	router := mux.NewRouter()
 	router.HandleFunc("/api/schemas/{id}", s.JwtMiddleware(s.GetSchemaRoute))
 	router.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusBadRequest {
-		t.Errorf("Expected status 400, got %d", rr.Code)
+	// Non-numeric strings are treated as slugs, so a non-existent slug returns 404
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("Expected status 404, got %d", rr.Code)
 	}
 
-	if rr.Body.String() != "Invalid schema ID\n" {
-		t.Errorf("Expected error message 'Invalid schema ID', got '%s'", rr.Body.String())
+	if rr.Body.String() != "Schema not found\n" {
+		t.Errorf("Expected error message 'Schema not found', got '%s'", rr.Body.String())
 	}
 }
 

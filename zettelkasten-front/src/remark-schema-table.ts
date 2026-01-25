@@ -6,14 +6,16 @@ export default function remarkSchemaTable() {
         visit(tree, "text", (node: any, index: number | undefined, parent: any) => {
             if (!parent || typeof node.value !== "string" || index === undefined) return;
 
-            // Match &SCHEMATABLE:schemaId& or &SCHEMATABLE:schemaId|col1,col2& format
-            const regex = /&SCHEMATABLE:([^&|]+)(?:\|([^&]+))?&/g;
+            // Match both old and new schema table syntax:
+            // Old: &SCHEMATABLE:schemaId& or &SCHEMATABLE:schemaId|col1,col2&
+            // New: {{schema:slug}} or {{schema:slug|col1,col2}}
+            const regex = /(?:&SCHEMATABLE:|{{schema:)([^&|}\s]+)(?:\|([^&}]+?))?(?:&|}})/g;
             let match;
             const newNodes: any[] = [];
             let lastIndex = 0;
 
             while ((match = regex.exec(node.value)) !== null) {
-                const [fullMatch, schemaId, columns] = match;
+                const [fullMatch, schemaRef, columns] = match;
 
                 // Push text before match
                 if (match.index > lastIndex) {
@@ -24,9 +26,10 @@ export default function remarkSchemaTable() {
                 }
 
                 // Push schema table node with optional columns data attribute
+                // schemaRef can be either an ID (old format) or a slug (new format)
                 const hProperties: any = {
                     className: "schema-table-container",
-                    "data-schema-id": schemaId
+                    "data-schema-ref": schemaRef
                 };
 
                 if (columns) {
@@ -36,7 +39,7 @@ export default function remarkSchemaTable() {
                 newNodes.push({
                     type: "schemaTable",
                     data: {
-                        schemaId,
+                        schemaRef,
                         columns,
                         hName: "div",
                         hProperties

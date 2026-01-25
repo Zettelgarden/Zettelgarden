@@ -3,7 +3,10 @@ package models
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -19,6 +22,7 @@ type FieldDefinition struct {
 type SchemaDefinition struct {
 	ID        int                      `json:"id"`
 	Name      string                   `json:"name"`
+	Slug      string                   `json:"slug"`
 	OwnerID   int                      `json:"owner_id"`
 	Fields    []FieldDefinition        `json:"fields"`
 	CreatedAt time.Time                `json:"created_at"`
@@ -34,6 +38,7 @@ func ScanSchemaDefinition(row *sql.Row) (*SchemaDefinition, error) {
 	err := row.Scan(
 		&schema.ID,
 		&schema.Name,
+		&schema.Slug,
 		&schema.OwnerID,
 		&fieldsJSON,
 		&schema.CreatedAt,
@@ -72,6 +77,7 @@ func ScanSchemaDefinitions(rows *sql.Rows) ([]SchemaDefinition, error) {
 		if err := rows.Scan(
 			&schema.ID,
 			&schema.Name,
+			&schema.Slug,
 			&schema.OwnerID,
 			&fieldsJSON,
 			&schema.CreatedAt,
@@ -121,4 +127,60 @@ type UpdateSchemaDefinitionParams struct {
 	ID      int              `json:"id"`
 	Name    string           `json:"name"`
 	Fields  []FieldDefinition `json:"fields"`
+}
+
+// GenerateSlug generates a URL-safe slug from a schema name
+// Example: "Book Review" -> "book-review"
+func GenerateSlug(name string) string {
+	// Convert to lowercase
+	slug := strings.ToLower(name)
+
+	// Trim whitespace
+	slug = strings.TrimSpace(slug)
+
+	// Replace any non-alphanumeric characters (except hyphens) with hyphens
+	re := regexp.MustCompile(`[^a-z0-9]+`)
+	slug = re.ReplaceAllString(slug, "-")
+
+	// Remove leading/trailing hyphens
+	slug = strings.Trim(slug, "-")
+
+	// Ensure slug is not empty
+	if slug == "" {
+		slug = "schema"
+	}
+
+	return slug
+}
+
+// GetUniqueSlug generates a unique slug for a schema by checking for duplicates
+// and appending a number if necessary (e.g., "book-review-2")
+func GetUniqueSlug(db *sql.DB, ownerID int, baseSlug string) (string, error) {
+	// First, try the base slug
+	var count int
+	err := db.QueryRow(`
+		SELECT COUNT(*)
+		FROM schema_definitions
+		WHERE owner_id = $1 AND slug = $2 AND is_deleted = false
+	`, ownerID, baseSlug).Scan(&count)
+	if err != nil {
+		return "", err
+	}
+
+	if count == 0 {
+		return baseSlug, nil
+	}
+
+	// If base slug exists, find the next available number
+	var maxNum int
+	err = db.QueryRow(`
+		SELECT COALESCE(MAX(CAST(NULLIF(regexp_replace(slug, '^' || $2 || '-?', '') AS INT)), 0)
+		FROM schema_definitions
+		WHERE owner_id = $1 AND slug ~ $2
+	`, ownerID, baseSlug).Scan(&maxNum)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%s-%d", baseSlug, maxNum+1), nil
 }

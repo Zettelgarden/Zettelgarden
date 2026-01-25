@@ -641,7 +641,7 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 	// Validate schema data if provided
 	if params.SchemaID != nil {
 		// Fetch the schema definition
-		query := `SELECT id, name, owner_id, fields, created_at, updated_at, is_deleted FROM schema_definitions WHERE id = $1 AND owner_id = $2 AND is_deleted = FALSE`
+		query := `SELECT id, name, slug, owner_id, fields, created_at, updated_at, is_deleted FROM schema_definitions WHERE id = $1 AND owner_id = $2 AND is_deleted = FALSE`
 		schema, err := models.ScanSchemaDefinition(s.DB.QueryRow(query, *params.SchemaID, userID))
 		if err != nil {
 			log.Printf("Error fetching schema: %v", err)
@@ -718,7 +718,7 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 	// Validate schema data if provided
 	if params.SchemaID != nil {
 		// Fetch the schema definition
-		query := `SELECT id, name, owner_id, fields, created_at, updated_at, is_deleted FROM schema_definitions WHERE id = $1 AND owner_id = $2 AND is_deleted = FALSE`
+		query := `SELECT id, name, slug, owner_id, fields, created_at, updated_at, is_deleted FROM schema_definitions WHERE id = $1 AND owner_id = $2 AND is_deleted = FALSE`
 		schema, err := models.ScanSchemaDefinition(s.DB.QueryRow(query, *params.SchemaID, userID))
 		if err != nil {
 			log.Printf("Error fetching schema: %v", err)

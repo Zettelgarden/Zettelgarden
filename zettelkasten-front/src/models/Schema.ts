@@ -8,6 +8,7 @@ export interface FieldDefinition {
 export interface SchemaDefinition {
   id: number;
   name: string;
+  slug: string;
   owner_id: number;
   fields: FieldDefinition[];
   created_at: Date;

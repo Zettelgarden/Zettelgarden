@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Dialog } from "@headlessui/react";
 import { SchemaDefinition, FieldDefinition } from "../../models/Schema";
 import { createSchema, updateSchema, CreateSchemaParams, UpdateSchemaParams } from "../../api/schemas";
@@ -27,11 +27,25 @@ interface FieldEditor extends Omit<FieldDefinition, "type"> {
   id: string;
 }
 
+// Generate a URL-safe slug from a schema name
+function generateSlug(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-'); // Replace multiple hyphens with single hyphen
+  return slug || "schema";
+}
+
 export function SchemaDialog({ schema, isOpen, onClose, onSuccess }: SchemaDialogProps) {
   const [name, setName] = useState("");
   const [fields, setFields] = useState<FieldEditor[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Generate slug preview from name
+  const slugPreview = useMemo(() => generateSlug(name), [name]);
 
   useEffect(() => {
     if (isOpen) {
@@ -265,6 +279,17 @@ export function SchemaDialog({ schema, isOpen, onClose, onSuccess }: SchemaDialo
                 placeholder="e.g., Book, Movie, Recipe"
                 required
               />
+              {slugPreview && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs text-gray-500">Slug (auto-generated):</span>
+                  <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-700">
+                    {schema?.slug || slugPreview}
+                  </code>
+                  <span className="text-xs text-gray-400">
+                    Use as: <span className="font-mono bg-gray-50 px-1 rounded">{'{{schema:' + (schema?.slug || slugPreview) + '}}'}</span>
+                  </span>
+                </div>
+              )}
             </div>
 
             <div>

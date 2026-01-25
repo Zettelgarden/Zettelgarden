@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { SchemaDefinition, FieldDefinition } from "../../models/Schema";
 import { Card } from "../../models/Card";
-import { fetchSchema } from "../../api/schemas";
+import { fetchSchemaByRef } from "../../api/schemas";
 
 interface SchemaTableProps {
-  schemaId: number;
+  schemaRef: string; // Can be an ID (numeric string) or slug
   onCardClick?: (card: Card) => void;
   compact?: boolean;
   columns?: string[]; // List of column names to display
 }
 
-export function SchemaTable({ schemaId, onCardClick, compact = false, columns }: SchemaTableProps) {
+export function SchemaTable({ schemaRef, onCardClick, compact = false, columns }: SchemaTableProps) {
   const [schema, setSchema] = useState<SchemaDefinition | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +20,7 @@ export function SchemaTable({ schemaId, onCardClick, compact = false, columns }:
 
   useEffect(() => {
     loadData();
-  }, [schemaId]);
+  }, [schemaRef]);
 
   // Filter fields based on columns prop
   const getFilteredFields = (fields: FieldDefinition[]): FieldDefinition[] => {
@@ -35,13 +35,13 @@ export function SchemaTable({ schemaId, onCardClick, compact = false, columns }:
     setError(null);
 
     try {
-      // Fetch schema
-      const schemaData = await fetchSchema(schemaId);
+      // Fetch schema by ref (ID or slug)
+      const schemaData = await fetchSchemaByRef(schemaRef);
       setSchema(schemaData);
 
-      // Fetch cards with this schema_id
+      // Fetch cards with this schema_id using the actual ID from the schema
       const token = localStorage.getItem("token");
-      const response = await fetch(`${import.meta.env.VITE_URL}/schemas/${schemaId}/cards`, {
+      const response = await fetch(`${import.meta.env.VITE_URL}/schemas/${schemaData.id}/cards`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
