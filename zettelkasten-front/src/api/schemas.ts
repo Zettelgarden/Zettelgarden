@@ -1,5 +1,5 @@
 import { SchemaDefinition } from "../models/Schema";
-import { checkStatus } from "./common";
+import { checkStatus, parseSchemaDates } from "./common";
 
 const base_url = import.meta.env.VITE_URL;
 
@@ -15,11 +15,7 @@ export function fetchSchemas(): Promise<SchemaDefinition[]> {
       if (response) {
         return response.json().then((schemas: SchemaDefinition[] | null) => {
           if (!schemas) return [];
-          return schemas.map((schema) => ({
-            ...schema,
-            created_at: new Date(schema.created_at),
-            updated_at: new Date(schema.updated_at),
-          }));
+          return schemas.map((schema) => parseSchemaDates(schema));
         });
       } else {
         return Promise.reject(new Error("Response is undefined"));
@@ -37,13 +33,7 @@ export function fetchSchema(id: number): Promise<SchemaDefinition> {
     .then(checkStatus)
     .then((response) => {
       if (response) {
-        return response.json().then((schema: SchemaDefinition) => {
-          return {
-            ...schema,
-            created_at: new Date(schema.created_at),
-            updated_at: new Date(schema.updated_at),
-          };
-        });
+        return response.json().then((schema: SchemaDefinition) => parseSchemaDates(schema));
       } else {
         return Promise.reject(new Error("Response is undefined"));
       }
@@ -70,13 +60,7 @@ export function createSchema(params: CreateSchemaParams): Promise<SchemaDefiniti
     .then(checkStatus)
     .then((response) => {
       if (response) {
-        return response.json().then((schema: SchemaDefinition) => {
-          return {
-            ...schema,
-            created_at: new Date(schema.created_at),
-            updated_at: new Date(schema.updated_at),
-          };
-        });
+        return response.json().then((schema: SchemaDefinition) => parseSchemaDates(schema));
       } else {
         return Promise.reject(new Error("Response is undefined"));
       }
@@ -103,13 +87,7 @@ export function updateSchema(id: number, params: UpdateSchemaParams): Promise<Sc
     .then(checkStatus)
     .then((response) => {
       if (response) {
-        return response.json().then((schema: SchemaDefinition) => {
-          return {
-            ...schema,
-            created_at: new Date(schema.created_at),
-            updated_at: new Date(schema.updated_at),
-          };
-        });
+        return response.json().then((schema: SchemaDefinition) => parseSchemaDates(schema));
       } else {
         return Promise.reject(new Error("Response is undefined"));
       }

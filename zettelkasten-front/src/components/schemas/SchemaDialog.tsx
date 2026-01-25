@@ -108,11 +108,9 @@ export function SchemaDialog({ schema, isOpen, onClose, onSuccess }: SchemaDialo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("SchemaDialog: handleSubmit called", { name, fields, schema });
 
     const validationError = validateFields();
     if (validationError) {
-      console.log("SchemaDialog: validation error", validationError);
       setError(validationError);
       return;
     }
@@ -128,8 +126,6 @@ export function SchemaDialog({ schema, isOpen, onClose, onSuccess }: SchemaDialo
         options: f.options || [],
       }));
 
-      console.log("SchemaDialog: creating/updating schema", { name, schemaFields });
-
       if (schema) {
         const params: UpdateSchemaParams = {
           name: name.trim(),
@@ -144,7 +140,6 @@ export function SchemaDialog({ schema, isOpen, onClose, onSuccess }: SchemaDialo
         await createSchema(params);
       }
 
-      console.log("SchemaDialog: success, calling callbacks");
       onSuccess();
       onClose();
     } catch (err) {
@@ -198,7 +193,7 @@ export function SchemaDialog({ schema, isOpen, onClose, onSuccess }: SchemaDialo
             </label>
             <select
               value={field.type}
-              onChange={(e) => updateField(field.id, { type: e.target.value as FieldType, options: [] })}
+              onChange={(e) => updateField(field.id, { type: e.target.value as FieldType })}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30 transition-colors"
             >
               {FIELD_TYPES.map((type) => (
@@ -324,20 +319,12 @@ export function SchemaDialog({ schema, isOpen, onClose, onSuccess }: SchemaDialo
             Cancel
           </button>
           <button
-            type="submit"
+            type="button"
             disabled={isSubmitting || !name.trim() || fields.length === 0}
             className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
             onClick={handleSubmit}
           >
-            {isSubmitting
-              ? "Saving..."
-              : schema
-              ? "Save Changes"
-              : fields.length === 0
-              ? "Add a field first"
-              : !name.trim()
-              ? "Enter a name first"
-              : "Create Schema"}
+            {isSubmitting ? "Saving..." : schema ? "Save Changes" : "Create Schema"}
           </button>
         </div>
       </Dialog.Panel>

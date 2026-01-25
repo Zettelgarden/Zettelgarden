@@ -1,3 +1,21 @@
+export interface SchemaApiResponse {
+  id: number;
+  name: string;
+  owner_id: number;
+  fields: unknown[];
+  created_at: string;
+  updated_at: string;
+  is_deleted: boolean;
+}
+
+export function parseSchemaDates<T extends SchemaApiResponse>(schema: T): T {
+  return {
+    ...schema,
+    created_at: new Date(schema.created_at) as T["created_at"],
+    updated_at: new Date(schema.updated_at) as T["updated_at"],
+  };
+}
+
 export async function checkStatus(response: Response) {
   if (response.status === 401 || response.status === 422) {
     const token = localStorage.getItem("token");
