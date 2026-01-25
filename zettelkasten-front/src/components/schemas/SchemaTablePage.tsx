@@ -7,6 +7,7 @@ import { setDocumentTitle } from "../../utils/title";
 import { CardLink } from "../cards/CardLink";
 import { getCard } from "../../api/cards";
 import { FilterInput, ActiveFilterDisplay, FilterValue, FiltersState } from "./SchemaTableFilters";
+import { EditableCell } from "./EditableCell";
 
 interface LinkedCardDisplayProps {
   cardId: number;
@@ -297,6 +298,30 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
     navigate(`/app/card/${card.id}`);
   };
 
+  const refreshCards = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${import.meta.env.VITE_URL}/schemas/${schemaId}/cards`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch cards");
+      }
+
+      const fetchedCards = await response.json();
+      const cardsWithDates = fetchedCards.map((card: Card) => ({
+        ...card,
+        created_at: card.created_at instanceof Date ? card.created_at : new Date(card.created_at),
+        updated_at: card.updated_at instanceof Date ? card.updated_at : new Date(card.updated_at),
+      }));
+
+      setCards(cardsWithDates);
+    } catch (err) {
+      console.error("Error refreshing cards:", err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-4 flex items-center justify-center">
@@ -461,9 +486,12 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
                     <CardLink card={card} showTitle={true} handleViewBacklink={() => {}} />
                   </td>
                   {schema.fields.map((field) => (
-                    <td key={field.name} className="px-4 py-3 text-sm text-gray-900">
-                      {getFieldValue(card, field)}
-                    </td>
+                    <EditableCell
+                      key={`${card.id}-${field.name}`}
+                      card={card}
+                      field={field}
+                      onSave={refreshCards}
+                    />
                   ))}
                   <td className="px-4 py-3 text-sm text-gray-500">
                     {card.updated_at instanceof Date
