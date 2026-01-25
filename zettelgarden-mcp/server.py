@@ -114,6 +114,48 @@ def format_template_list(templates: list) -> str:
     return "\n".join(lines)
 
 
+def format_schema(schema: dict) -> str:
+    """Format a schema for display."""
+    lines = [
+        f"**{schema.get('name', 'Unnamed Schema')}** (ID: {schema.get('id', 'N/A')}, Slug: {schema.get('slug', 'N/A')})",
+        f"Created: {schema.get('created_at', 'N/A')[:10] if schema.get('created_at') else 'N/A'} | Updated: {schema.get('updated_at', 'N/A')[:10] if schema.get('updated_at') else 'N/A'}"
+    ]
+
+    lines.append("")
+    lines.append("Fields:")
+    fields = schema.get('fields', [])
+    if not fields:
+        lines.append("  No fields defined")
+    else:
+        for field in fields:
+            required = " required" if field.get('required') else ""
+            options = f" [{', '.join(field.get('options', []))}]" if field.get('options') else ""
+            lines.append(f"  - {field.get('name', 'unknown')} ({field.get('type', 'unknown')}){required}{options}")
+
+    return "\n".join(lines)
+
+
+def format_schema_list(schemas: list) -> str:
+    """Format a list of schemas for display."""
+    if not schemas:
+        return "No schemas found."
+
+    lines = [f"Schemas ({len(schemas)}):"]
+    lines.append("")
+
+    for schema in schemas:
+        name = schema.get('name', 'Unnamed Schema')
+        id = schema.get('id', 'N/A')
+        slug = schema.get('slug', 'N/A')
+        field_count = len(schema.get('fields', []))
+        created = schema.get('created_at', 'N/A')[:10] if schema.get('created_at') else 'N/A'
+        lines.append(f"**{name}** (ID: {id}, Slug: {slug})")
+        lines.append(f"  Fields: {field_count} | Created: {created}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 # =============================================================================
 # TOOLS
 # =============================================================================
@@ -270,6 +312,117 @@ async def list_tools() -> list[Tool]:
                     }
                 },
                 "required": ["template_id"]
+            }
+        ),
+        # Schema tools
+        Tool(
+            name="list_schemas",
+            description="List all schemas for the current user.",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
+        Tool(
+            name="get_schema",
+            description="Get a specific schema by its numeric ID or slug. Returns full schema with field definitions.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "schema_ref": {
+                        "type": ["integer", "string"],
+                        "description": "Schema ID (numeric) or slug (string). Example: 123 or 'book-review'"
+                    }
+                },
+                "required": ["schema_ref"]
+            }
+        ),
+        Tool(
+            name="create_schema",
+            description="Create a new schema with custom fields. Schemas define structured data types for cards.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Schema name (e.g., 'Book Review', 'Project Tracker')"
+                    },
+                    "fields": {
+                        "type": "array",
+                        "description": "Array of field definitions. Each field must have: name, type (text|number|date|boolean|select|multi-select|link_to_card), required (bool), and options (for select/multi-select types)",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string", "description": "Field name"},
+                                "type": {"type": "string", "enum": ["text", "number", "date", "boolean", "select", "multi-select", "link_to_card"], "description": "Field type"},
+                                "required": {"type": "boolean", "description": "Whether the field is required"},
+                                "options": {"type": "array", "items": {"type": "string"}, "description": "Options for select/multi-select types"}
+                            },
+                            "required": ["name", "type"]
+                        }
+                    }
+                },
+                "required": ["name", "fields"]
+            }
+        ),
+        Tool(
+            name="update_schema",
+            description="Update an existing schema's name and/or fields.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "schema_id": {
+                        "type": "integer",
+                        "description": "Schema numeric ID"
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "New schema name"
+                    },
+                    "fields": {
+                        "type": "array",
+                        "description": "Array of field definitions (same format as create_schema)",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "type": {"type": "string", "enum": ["text", "number", "date", "boolean", "select", "multi-select", "link_to_card"]},
+                                "required": {"type": "boolean"},
+                                "options": {"type": "array", "items": {"type": "string"}}
+                            },
+                            "required": ["name", "type"]
+                        }
+                    }
+                },
+                "required": ["schema_id"]
+            }
+        ),
+        Tool(
+            name="delete_schema",
+            description="Delete a schema. This is a soft delete - cards using this schema will not be deleted but will lose their structured data display.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "schema_id": {
+                        "type": "integer",
+                        "description": "Schema numeric ID to delete"
+                    }
+                },
+                "required": ["schema_id"]
+            }
+        ),
+        Tool(
+            name="get_schema_cards",
+            description="Get all cards that use a specific schema. Returns cards with their structured data.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "schema_ref": {
+                        "type": ["integer", "string"],
+                        "description": "Schema ID (numeric) or slug (string). Example: 123 or 'book-review'"
+                    }
+                },
+                "required": ["schema_ref"]
             }
         ),
         # Task tools
@@ -480,6 +633,20 @@ async def _handle_tool(client: httpx.AsyncClient, name: str, args: dict) -> str:
         return await list_templates(client)
     elif name == "get_template":
         return await get_template(client, args)
+
+    # Schema tools
+    elif name == "list_schemas":
+        return await list_schemas(client)
+    elif name == "get_schema":
+        return await get_schema(client, args)
+    elif name == "create_schema":
+        return await create_schema(client, args)
+    elif name == "update_schema":
+        return await update_schema(client, args)
+    elif name == "delete_schema":
+        return await delete_schema(client, args)
+    elif name == "get_schema_cards":
+        return await get_schema_cards(client, args)
 
     # Task tools
     elif name == "list_tasks":
@@ -860,6 +1027,143 @@ async def get_template(client: httpx.AsyncClient, args: dict) -> str:
     template = resp.json()
 
     return format_template(template)
+
+
+# =============================================================================
+# SCHEMA HANDLERS
+# =============================================================================
+
+async def list_schemas(client: httpx.AsyncClient) -> str:
+    """List all schemas for the current user."""
+    resp = await client.get(
+        f"{API_URL}/api/schemas",
+        headers=get_headers()
+    )
+    resp.raise_for_status()
+    schemas = resp.json()
+
+    return format_schema_list(schemas)
+
+
+async def get_schema(client: httpx.AsyncClient, args: dict) -> str:
+    """Get a specific schema by ID or slug."""
+    schema_ref = args.get("schema_ref")
+
+    resp = await client.get(
+        f"{API_URL}/api/schemas/{schema_ref}",
+        headers=get_headers()
+    )
+    resp.raise_for_status()
+    schema = resp.json()
+
+    return format_schema(schema)
+
+
+async def create_schema(client: httpx.AsyncClient, args: dict) -> str:
+    """Create a new schema."""
+    resp = await client.post(
+        f"{API_URL}/api/schemas",
+        headers=get_headers(),
+        json={
+            "name": args.get("name"),
+            "fields": args.get("fields", [])
+        }
+    )
+    resp.raise_for_status()
+    schema = resp.json()
+
+    lines = [
+        f"Created schema: **{schema.get('name', 'Unnamed')}** (ID: {schema.get('id')}, Slug: {schema.get('slug')})",
+        f"  Fields: {len(schema.get('fields', []))}"
+    ]
+
+    return "\n".join(lines)
+
+
+async def update_schema(client: httpx.AsyncClient, args: dict) -> str:
+    """Update an existing schema."""
+    schema_id = args.get("schema_id")
+
+    # First get the current schema
+    resp = await client.get(
+        f"{API_URL}/api/schemas/{schema_id}",
+        headers=get_headers()
+    )
+    resp.raise_for_status()
+    current = resp.json()
+
+    # Build update payload
+    update_data = {
+        "id": schema_id,
+        "name": args.get("name", current.get("name")),
+        "fields": args.get("fields", current.get("fields"))
+    }
+
+    resp = await client.put(
+        f"{API_URL}/api/schemas/{schema_id}",
+        headers=get_headers(),
+        json=update_data
+    )
+    resp.raise_for_status()
+    schema = resp.json()
+
+    return f"Updated schema: **{schema.get('name')}** (ID: {schema_id}, Slug: {schema.get('slug')})"
+
+
+async def delete_schema(client: httpx.AsyncClient, args: dict) -> str:
+    """Delete a schema (soft delete)."""
+    schema_id = args.get("schema_id")
+
+    resp = await client.delete(
+        f"{API_URL}/api/schemas/{schema_id}",
+        headers=get_headers()
+    )
+    resp.raise_for_status()
+    result = resp.json()
+
+    lines = [f"Deleted schema (ID: {schema_id})"]
+
+    if result.get("warning"):
+        lines.append("")
+        lines.append(f"⚠️ {result.get('warning')}")
+        lines.append(f"   Cards affected: {result.get('cards_affected', 0)}")
+
+    return "\n".join(lines)
+
+
+async def get_schema_cards(client: httpx.AsyncClient, args: dict) -> str:
+    """Get all cards that use a specific schema."""
+    schema_ref = args.get("schema_ref")
+
+    resp = await client.get(
+        f"{API_URL}/api/schemas/{schema_ref}/cards",
+        headers=get_headers()
+    )
+    resp.raise_for_status()
+    cards = resp.json()
+
+    if not cards:
+        return f"No cards found for schema: {schema_ref}"
+
+    lines = [f"Cards using schema '{schema_ref}' ({len(cards)}):"]
+    lines.append("")
+
+    for card in cards:
+        lines.append(f"**{card.get('card_id', 'N/A')}**: {card.get('title', 'Untitled')}")
+        lines.append(f"  pk={card.get('id')} | Updated: {card.get('updated_at', '')[:10]}")
+
+        # Show structured data if present
+        structured_data = card.get('structured_data')
+        if structured_data:
+            lines.append("  Data:")
+            for key, value in structured_data.items():
+                if isinstance(value, list):
+                    lines.append(f"    {key}: {', '.join(str(v) for v in value)}")
+                else:
+                    lines.append(f"    {key}: {value}")
+        lines.append("")
+
+    return "\n".join(lines)
 
 
 # =============================================================================
