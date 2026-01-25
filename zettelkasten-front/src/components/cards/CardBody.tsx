@@ -50,16 +50,22 @@ function preprocessCardLinks(body: string): string {
 }
 
 function preprocessSchemaTables(body: string): string {
-  // Match {{schema: <id>}} or {{schema_table: <id>}} syntax with optional columns parameter
-  // Supports: {{schema:1}}, {{schema:1 columns:title,status}}, {{schema_table:1 columns:field1,field2}}
-  const regex = /\{\{schema(?:_table)?:\s*(\d+)(?:\s+columns:\s*([^\}]+))?\}\}/gi;
-  return body.replace(regex, (match, schemaId, columns) => {
+  // Match {{schema: <id>}} or {{schema_table: <id>}} syntax with optional columns and filter parameters
+  // Supports: {{schema:1}}, {{schema:1 columns:title,status}}, {{schema:1 filter:status=In Progress}}
+  // Supports: {{schema:1 columns:title,status filter:priority>High,created<2025-01-01}}
+  const regex = /\{\{schema(?:_table)?:\s*(\d+)(?:\s+columns:\s*([^\}]+))?(?:\s+filter:\s*([^\}]+))?\}\}/gi;
+  return body.replace(regex, (match, schemaId, columns, filters) => {
+    let placeholder = `&SCHEMATABLE:${schemaId}`;
     if (columns) {
-      // Encode columns as JSON in the placeholder
       const columnsList = columns.split(',').map((c: string) => c.trim()).join(',');
-      return `&SCHEMATABLE:${schemaId}|${columnsList}&`;
+      placeholder += `|${columnsList}`;
     }
-    return `&SCHEMATABLE:${schemaId}&`;
+    if (filters) {
+      // Encode filters (preserve spaces in values by encoding special chars)
+      const encodedFilters = filters.replace(/&/g, '%26').replace(/\|/g, '%7C');
+      placeholder += columns ? `|${encodedFilters}` : `||${encodedFilters}`;
+    }
+    return placeholder + '&';
   });
 }
 
@@ -387,7 +393,8 @@ function renderCardText(
           if (propsData.className === "schema-table-container" || propsData["data-schema-id"] !== undefined) {
             const schemaId = propsData["data-schema-id"] || "";
             const columns = propsData["data-columns"];
-            return <DynamicSchemaTable schemaId={schemaId} columns={columns} />;
+            const filters = propsData["data-filters"];
+            return <DynamicSchemaTable schemaId={schemaId} columns={columns} filters={filters} />;
           }
 
           // Default div rendering

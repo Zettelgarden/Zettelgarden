@@ -5,9 +5,10 @@ import { SchemaTable } from "../schemas/SchemaTable";
 interface DynamicSchemaTableProps {
   schemaId: string;
   columns?: string; // Comma-separated list of column names
+  filters?: string; // Filter string like "status=In Progress,priority>High"
 }
 
-export function DynamicSchemaTable({ schemaId, columns }: DynamicSchemaTableProps) {
+export function DynamicSchemaTable({ schemaId, columns, filters }: DynamicSchemaTableProps) {
   const navigate = useNavigate();
 
   const handleCardClick = (card: any) => {
@@ -24,6 +25,7 @@ export function DynamicSchemaTable({ schemaId, columns }: DynamicSchemaTableProp
         onCardClick={handleCardClick}
         compact={true}
         columns={columnsList}
+        filters={filters}
       />
     </div>
   );
