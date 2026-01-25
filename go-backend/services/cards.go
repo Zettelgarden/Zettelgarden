@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"go-backend/models"
 	"log"
@@ -46,6 +47,68 @@ func ExtractBacklinks(text string) []string {
 				backlinks = append(backlinks, match[1])
 			}
 		}
+	}
+
+	return backlinks
+}
+
+// ExtractBacklinksFromStructuredData extracts card IDs (as human-readable card_id strings) from structured_data JSONB
+// It finds all link_to_card field values and converts them from internal IDs to card_id strings
+func ExtractBacklinksFromStructuredData(db *sql.DB, userID int, structuredData *json.RawMessage) []string {
+	if structuredData == nil || len(*structuredData) == 0 {
+		return []string{}
+	}
+
+	// Parse the structured data
+	var data map[string]interface{}
+	if err := json.Unmarshal(*structuredData, &data); err != nil {
+		log.Printf("Error unmarshaling structured data for backlink extraction: %v", err)
+		return []string{}
+	}
+
+	var backlinks []string
+
+	// Check each field value - if it's a number, it might be a link_to_card reference
+	for _, value := range data {
+		if value == nil {
+			continue
+		}
+
+		var internalID int
+		switch v := value.(type) {
+		case float64:
+			internalID = int(v)
+		case int:
+			internalID = v
+		case int64:
+			internalID = int(v)
+		case string:
+			// Try to parse as int
+			if parsedID, err := strconv.Atoi(v); err == nil {
+				internalID = parsedID
+			} else {
+				continue
+			}
+		default:
+			// Not a number type, skip
+			continue
+		}
+
+		// Look up the human-readable card_id for this internal ID
+		var cardID string
+		err := db.QueryRow(`
+			SELECT card_id FROM cards
+			WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE
+		`, internalID, userID).Scan(&cardID)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				log.Printf("Error looking up card_id for internal ID %d: %v", internalID, err)
+			}
+			// Card doesn't exist or was deleted, skip it
+			continue
+		}
+
+		backlinks = append(backlinks, cardID)
 	}
 
 	return backlinks
@@ -414,61 +477,6 @@ func GetPartialCard(db *sql.DB, userID, id int) (models.PartialCard, error) {
 	return card, nil
 }
 
-// GetStructuredDataBacklinks finds cards that link to the given card via structured_data link_to_card fields
-func GetStructuredDataBacklinks(db *sql.DB, userID int, cardPK int) ([]models.PartialCard, error) {
-	// First get the internal ID of the target card from its card_id
-
-	// Query cards whose structured_data contains the target card's internal ID as a value
-	// The structured_data is JSONB where link_to_card fields store card IDs as integers
-	query := `
-		SELECT DISTINCT
-			c.id,
-			c.card_id,
-			c.user_id,
-			c.title,
-			c.created_at,
-			c.updated_at
-		FROM cards c
-		WHERE c.user_id = $1
-			AND c.is_deleted = FALSE
-			AND c.structured_data IS NOT NULL
-			AND c.id != $2
-			AND EXISTS (
-				SELECT 1
-				FROM jsonb_each_text(c.structured_data) AS kv
-				WHERE kv.key = 'link' AND CAST(kv.value AS INTEGER) = $2
-			)
-		ORDER BY c.card_id
-	`
-
-	rows, err := db.Query(query, userID, cardPK)
-	if err != nil {
-		log.Printf("Error querying structured data backlinks: %v", err)
-		return []models.PartialCard{}, err
-	}
-	defer rows.Close()
-
-	var cards []models.PartialCard
-	for rows.Next() {
-		card := models.PartialCard{}
-		if err := rows.Scan(
-			&card.ID,
-			&card.CardID,
-			&card.UserID,
-			&card.Title,
-			&card.CreatedAt,
-			&card.UpdatedAt,
-		); err != nil {
-			log.Printf("Error scanning structured data backlink: %v", err)
-			continue
-		}
-		log.Printf("card %v", card)
-		cards = append(cards, card)
-	}
-
-	return cards, nil
-}
-
 func GetBacklinks(db *sql.DB, userID int, cardID string) ([]models.PartialCard, error) {
 
 	query := `
@@ -804,7 +812,9 @@ func UpdateCard(db *sql.DB, userID int, cardPK int, params models.EditCardParams
 	CreateAuditEvent(db, userID, cardPK, "card", "update", oldCard, newCard)
 
 	backlinks := ExtractBacklinks(newCard.Body)
-	UpdateBacklinks(db, newCard.ID, backlinks)
+	structuredDataBacklinks := ExtractBacklinksFromStructuredData(db, userID, newCard.StructuredData)
+	allBacklinks := append(backlinks, structuredDataBacklinks...)
+	UpdateBacklinks(db, newCard.ID, allBacklinks)
 
 	AddTagsFromCard(db, userID, cardPK)
 	UpsertCardToTypesense(db, newCard)
@@ -894,7 +904,9 @@ func CreateCard(db *sql.DB, userID int, params models.EditCardParams) (models.Ca
 	}
 
 	backlinks := ExtractBacklinks(newCard.Body)
-	UpdateBacklinks(db, newCard.ID, backlinks)
+	structuredDataBacklinks := ExtractBacklinksFromStructuredData(db, userID, newCard.StructuredData)
+	allBacklinks := append(backlinks, structuredDataBacklinks...)
+	UpdateBacklinks(db, newCard.ID, allBacklinks)
 
 	return GetFullCard(db, userID, id)
 }

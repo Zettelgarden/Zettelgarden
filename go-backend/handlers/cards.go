@@ -271,9 +271,7 @@ func getUniqueCards(input []models.PartialCard) []models.PartialCard {
 func (s *Handler) getReferences(userID int, card models.Card) ([]models.PartialCard, error) {
 	directLinks := s.getDirectlinks(userID, card)
 	backlinks, _ := services.GetBacklinks(s.DB, userID, card.CardID)
-	structuredDataLinks, _ := services.GetStructuredDataBacklinks(s.DB, userID, card.ID)
 	links := append(directLinks, backlinks...)
-	links = append(links, structuredDataLinks...)
 	if len(links) == 0 {
 		return []models.PartialCard{}, nil
 	}
@@ -517,14 +515,9 @@ func (s *Handler) GetCardReferencesRoute(w http.ResponseWriter, r *http.Request)
 
 	directLinks := s.getDirectlinks(userID, card)
 	backlinks, _ := services.GetBacklinks(s.DB, userID, card.CardID)
-	structuredDataLinks, _ := services.GetStructuredDataBacklinks(s.DB, userID, card.ID)
-
-	// Combine all backlinks (markdown + structured data) for incoming links
-	allBacklinks := append(backlinks, structuredDataLinks...)
-	uniqueBacklinks := getUniqueCards(allBacklinks)
 
 	// Fetch tags for all cards first
-	allCards := append(directLinks, uniqueBacklinks...)
+	allCards := append(directLinks, backlinks...)
 	for i := range allCards {
 		tags, err := services.QueryTagsForCard(s.DB, userID, allCards[i].ID)
 		if err != nil {
@@ -542,7 +535,7 @@ func (s *Handler) GetCardReferencesRoute(w http.ResponseWriter, r *http.Request)
 	for _, card := range directLinks {
 		directMap[card.ID] = card
 	}
-	for _, card := range uniqueBacklinks {
+	for _, card := range backlinks {
 		backMap[card.ID] = card
 	}
 
