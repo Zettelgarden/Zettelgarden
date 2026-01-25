@@ -128,7 +128,7 @@ export function StructuredDataDisplay({ fields, data }: StructuredDataDisplayPro
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-gray-700 border-b pb-2">Structured Data</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3">
         {fieldsWithValues.map((field) => (
           <div key={field.name} className="flex items-baseline justify-between py-1">
             <span className="text-sm font-medium text-gray-600 mr-4">
