@@ -48,10 +48,18 @@ export function SchemaEditPage() {
     );
   }
 
-  if (error || !schema) {
+  if (error) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-red-600">{error || "Schema not found"}</div>
+        <div className="text-red-600">{error}</div>
+      </div>
+    );
+  }
+
+  if (!schema) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-red-600">Schema not found</div>
       </div>
     );
   }
