@@ -7,9 +7,10 @@ interface SchemaTableProps {
   schemaId: number;
   onCardClick?: (card: Card) => void;
   compact?: boolean;
+  columns?: string[]; // List of column names to display
 }
 
-export function SchemaTable({ schemaId, onCardClick, compact = false }: SchemaTableProps) {
+export function SchemaTable({ schemaId, onCardClick, compact = false, columns }: SchemaTableProps) {
   const [schema, setSchema] = useState<SchemaDefinition | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +21,14 @@ export function SchemaTable({ schemaId, onCardClick, compact = false }: SchemaTa
   useEffect(() => {
     loadData();
   }, [schemaId]);
+
+  // Filter fields based on columns prop
+  const getFilteredFields = (fields: FieldDefinition[]): FieldDefinition[] => {
+    if (!columns || columns.length === 0) {
+      return fields;
+    }
+    return fields.filter(field => columns.includes(field.name));
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -127,6 +136,7 @@ export function SchemaTable({ schemaId, onCardClick, compact = false }: SchemaTa
   }
 
   const sortedCards = getSortedCards();
+  const filteredFields = schema ? getFilteredFields(schema.fields) : [];
 
   return (
     <div className={compact ? "my-2" : "my-4"}>
@@ -159,7 +169,7 @@ export function SchemaTable({ schemaId, onCardClick, compact = false }: SchemaTa
                     )}
                   </div>
                 </th>
-                {schema.fields.map((field) => (
+                {filteredFields.map((field) => (
                   <th
                     key={field.name}
                     className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
@@ -188,7 +198,7 @@ export function SchemaTable({ schemaId, onCardClick, compact = false }: SchemaTa
                   <td className="px-3 py-2 text-sm font-medium text-blue-600">
                     {card.title}
                   </td>
-                  {schema.fields.map((field) => (
+                  {filteredFields.map((field) => (
                     <td key={field.name} className="px-3 py-2 text-sm text-gray-900">
                       {getFieldValue(card, field)}
                     </td>

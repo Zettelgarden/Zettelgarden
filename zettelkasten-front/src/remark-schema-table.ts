@@ -6,13 +6,14 @@ export default function remarkSchemaTable() {
         visit(tree, "text", (node: any, index: number | undefined, parent: any) => {
             if (!parent || typeof node.value !== "string" || index === undefined) return;
 
-            const regex = /&SCHEMATABLE:([^&]*)&/g;
+            // Match &SCHEMATABLE:schemaId& or &SCHEMATABLE:schemaId|col1,col2& format
+            const regex = /&SCHEMATABLE:([^&|]+)(?:\|([^&]+))?&/g;
             let match;
             const newNodes: any[] = [];
             let lastIndex = 0;
 
             while ((match = regex.exec(node.value)) !== null) {
-                const [fullMatch, schemaId] = match;
+                const [fullMatch, schemaId, columns] = match;
 
                 // Push text before match
                 if (match.index > lastIndex) {
@@ -22,16 +23,23 @@ export default function remarkSchemaTable() {
                     });
                 }
 
-                // Push schema table node
+                // Push schema table node with optional columns data attribute
+                const hProperties: any = {
+                    className: "schema-table-container",
+                    "data-schema-id": schemaId
+                };
+
+                if (columns) {
+                    hProperties["data-columns"] = columns;
+                }
+
                 newNodes.push({
                     type: "schemaTable",
                     data: {
                         schemaId,
+                        columns,
                         hName: "div",
-                        hProperties: {
-                            className: "schema-table-container",
-                            "data-schema-id": schemaId
-                        }
+                        hProperties
                     },
                     children: [],
                 });

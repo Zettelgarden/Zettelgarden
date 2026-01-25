@@ -50,9 +50,15 @@ function preprocessCardLinks(body: string): string {
 }
 
 function preprocessSchemaTables(body: string): string {
-  // Match {{schema: <id>}} or {{schema_table: <id>}} syntax
-  const regex = /\{\{schema(?:_table)?:\s*(\d+)\}\}/gi;
-  return body.replace(regex, (match, schemaId) => {
+  // Match {{schema: <id>}} or {{schema_table: <id>}} syntax with optional columns parameter
+  // Supports: {{schema:1}}, {{schema:1 columns:title,status}}, {{schema_table:1 columns:field1,field2}}
+  const regex = /\{\{schema(?:_table)?:\s*(\d+)(?:\s+columns:\s*([^\}]+))?\}\}/gi;
+  return body.replace(regex, (match, schemaId, columns) => {
+    if (columns) {
+      // Encode columns as JSON in the placeholder
+      const columnsList = columns.split(',').map((c: string) => c.trim()).join(',');
+      return `&SCHEMATABLE:${schemaId}|${columnsList}&`;
+    }
     return `&SCHEMATABLE:${schemaId}&`;
   });
 }
@@ -380,7 +386,8 @@ function renderCardText(
           // Check if this is a schema table container
           if (propsData.className === "schema-table-container" || propsData["data-schema-id"] !== undefined) {
             const schemaId = propsData["data-schema-id"] || "";
-            return <DynamicSchemaTable schemaId={schemaId} />;
+            const columns = propsData["data-columns"];
+            return <DynamicSchemaTable schemaId={schemaId} columns={columns} />;
           }
 
           // Default div rendering
