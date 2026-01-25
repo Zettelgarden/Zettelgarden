@@ -3,6 +3,14 @@ import { checkStatus } from "./common";
 
 const base_url = import.meta.env.VITE_URL;
 
+function parseSchemaDates(schema: SchemaDefinition): SchemaDefinition {
+  return {
+    ...schema,
+    created_at: new Date(schema.created_at),
+    updated_at: new Date(schema.updated_at),
+  };
+}
+
 export function fetchSchemas(): Promise<SchemaDefinition[]> {
   const token = localStorage.getItem("token");
   const url = base_url + "/schemas";
@@ -15,11 +23,7 @@ export function fetchSchemas(): Promise<SchemaDefinition[]> {
       if (response) {
         return response.json().then((schemas: SchemaDefinition[] | null) => {
           if (!schemas) return [];
-          return schemas.map((schema) => ({
-            ...schema,
-            created_at: new Date(schema.created_at),
-            updated_at: new Date(schema.updated_at),
-          }));
+          return schemas.map(parseSchemaDates);
         });
       } else {
         return Promise.reject(new Error("Response is undefined"));
@@ -38,11 +42,7 @@ export function fetchSchema(id: number): Promise<SchemaDefinition> {
     .then((response) => {
       if (response) {
         return response.json().then((schema: SchemaDefinition) => {
-          return {
-            ...schema,
-            created_at: new Date(schema.created_at),
-            updated_at: new Date(schema.updated_at),
-          };
+          return parseSchemaDates(schema);
         });
       } else {
         return Promise.reject(new Error("Response is undefined"));
@@ -71,11 +71,7 @@ export function createSchema(params: CreateSchemaParams): Promise<SchemaDefiniti
     .then((response) => {
       if (response) {
         return response.json().then((schema: SchemaDefinition) => {
-          return {
-            ...schema,
-            created_at: new Date(schema.created_at),
-            updated_at: new Date(schema.updated_at),
-          };
+          return parseSchemaDates(schema);
         });
       } else {
         return Promise.reject(new Error("Response is undefined"));
@@ -104,11 +100,7 @@ export function updateSchema(id: number, params: UpdateSchemaParams): Promise<Sc
     .then((response) => {
       if (response) {
         return response.json().then((schema: SchemaDefinition) => {
-          return {
-            ...schema,
-            created_at: new Date(schema.created_at),
-            updated_at: new Date(schema.updated_at),
-          };
+          return parseSchemaDates(schema);
         });
       } else {
         return Promise.reject(new Error("Response is undefined"));
