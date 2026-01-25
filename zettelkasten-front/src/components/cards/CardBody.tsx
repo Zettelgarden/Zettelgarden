@@ -49,7 +49,7 @@ function preprocessCardLinks(body: string): string {
   return body.replace(/\[([A-Za-z0-9_.-/]+)\](?!\()/g, "[$1](#)");
 }
 
-function preprocessSchemaTables(body: string): string {
+export function preprocessSchemaTables(body: string): string {
   // Match {{schema: <ref>}} syntax with optional pipe-separated options
   // Supports:
   // - {{schema:1}} - basic

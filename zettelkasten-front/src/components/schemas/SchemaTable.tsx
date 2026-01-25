@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { SchemaDefinition, FieldDefinition } from "../../models/Schema";
 import { Card } from "../../models/Card";
 import { fetchSchemaByRef } from "../../api/schemas";
+import { applyFiltersToCard } from "../../utils/schemaFilters";
 
 interface SchemaTableProps {
   schemaRef: string; // Can be an ID (numeric string) or slug
@@ -31,70 +32,13 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
     return fields.filter(field => columns.includes(field.name));
   };
 
-  // Parse filter operator and value from filter string (e.g., "gte:5", "active", "lte:10")
-  const parseFilterValue = (filterValue: string): { operator: string; value: string } => {
-    // Check for operator prefix (gte, lte, gt, lt, ne)
-    const operatorMatch = filterValue.match(/^(gte|lte|gt|lt|ne):(.+)$/);
-    if (operatorMatch) {
-      return { operator: operatorMatch[1], value: operatorMatch[2] };
-    }
-    // Default is equality
-    return { operator: "eq", value: filterValue };
-  };
-
-  // Check if a card value matches a filter
-  const matchesFilter = (cardValue: any, filterValue: string): boolean => {
-    const { operator, value } = parseFilterValue(filterValue);
-
-    // Handle undefined/null values
-    if (cardValue === null || cardValue === undefined || cardValue === "") {
-      return false;
-    }
-
-    // Convert values for comparison
-    const numCardValue = typeof cardValue === "number" ? cardValue : parseFloat(cardValue);
-    const numFilterValue = parseFloat(value);
-
-    switch (operator) {
-      case "eq":
-        return String(cardValue).toLowerCase() === String(value).toLowerCase();
-      case "ne":
-        return String(cardValue).toLowerCase() !== String(value).toLowerCase();
-      case "gt":
-        return !isNaN(numCardValue) && !isNaN(numFilterValue) && numCardValue > numFilterValue;
-      case "gte":
-        return !isNaN(numCardValue) && !isNaN(numFilterValue) && numCardValue >= numFilterValue;
-      case "lt":
-        return !isNaN(numCardValue) && !isNaN(numFilterValue) && numCardValue < numFilterValue;
-      case "lte":
-        return !isNaN(numCardValue) && !isNaN(numFilterValue) && numCardValue <= numFilterValue;
-      default:
-        return String(cardValue).toLowerCase() === String(value).toLowerCase();
-    }
-  };
-
   // Apply filters to cards
   const filteredCards = useMemo(() => {
     if (!filters || Object.keys(filters).length === 0) {
       return cards;
     }
 
-    return cards.filter(card => {
-      // Check each filter
-      for (const [fieldName, filterValue] of Object.entries(filters)) {
-        const cardValue = card.structured_data?.[fieldName];
-
-        // Special case for "title" field
-        if (fieldName === "title") {
-          if (!matchesFilter(card.title, filterValue)) {
-            return false;
-          }
-        } else if (!matchesFilter(cardValue, filterValue)) {
-          return false;
-        }
-      }
-      return true;
-    });
+    return cards.filter(card => applyFiltersToCard(card, filters));
   }, [cards, filters]);
 
   const loadData = async () => {
