@@ -205,7 +205,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="create_card",
-            description="Create a new card in Zettelgarden.",
+            description="Create a new card in Zettelgarden. Optionally associate with a schema and provide structured data.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -224,6 +224,14 @@ async def list_tools() -> list[Tool]:
                     "link": {
                         "type": "string",
                         "description": "Optional URL link"
+                    },
+                    "schema_id": {
+                        "type": "integer",
+                        "description": "Optional schema ID to associate with this card"
+                    },
+                    "structured_data": {
+                        "type": "object",
+                        "description": "Optional structured data as key-value pairs matching the schema's field definitions"
                     }
                 },
                 "required": ["title", "body"]
@@ -231,7 +239,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="update_card",
-            description="Update an existing card's title, body, or link.",
+            description="Update an existing card's title, body, link, schema, or structured data. Set schema_id to null to remove schema association.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -250,6 +258,14 @@ async def list_tools() -> list[Tool]:
                     "link": {
                         "type": "string",
                         "description": "New link (optional)"
+                    },
+                    "schema_id": {
+                        "type": ["integer", "null"],
+                        "description": "New schema ID (optional). Set to null to remove schema association."
+                    },
+                    "structured_data": {
+                        "type": "object",
+                        "description": "Structured data as key-value pairs (optional). Must match schema's field definitions."
                     }
                 },
                 "required": ["id"]
@@ -759,6 +775,11 @@ async def get_card(client: httpx.AsyncClient, args: dict) -> str:
     if card.get("is_starred"):
         lines.append("**Starred:** Yes ⭐")
 
+    # Schema information
+    schema_id = card.get("schema_id")
+    if schema_id is not None:
+        lines.append(f"**Schema ID:** {schema_id}")
+
     if card.get("parent"):
         p = card["parent"]
         lines.append(f"**Parent:** {p.get('card_id', 'N/A')} - {p.get('title', '')}")
@@ -769,6 +790,17 @@ async def get_card(client: httpx.AsyncClient, args: dict) -> str:
 
     if card.get("link"):
         lines.append(f"**Link:** {card['link']}")
+
+    # Structured data
+    structured_data = card.get("structured_data")
+    if structured_data:
+        lines.append("")
+        lines.append("## Structured Data")
+        for key, value in structured_data.items():
+            if isinstance(value, list):
+                lines.append(f"  {key}: {', '.join(str(v) for v in value)}")
+            else:
+                lines.append(f"  {key}: {value}")
 
     lines.append("")
     lines.append("## Body")
@@ -825,20 +857,34 @@ async def create_card(client: httpx.AsyncClient, args: dict) -> str:
         resp.raise_for_status()
         card_id = resp.json().get("new_id", "")
 
+    # Build request payload
+    payload = {
+        "card_id": card_id,
+        "title": args.get("title", ""),
+        "body": args.get("body", ""),
+        "link": args.get("link", "")
+    }
+
+    # Add schema_id and structured_data if provided
+    if "schema_id" in args:
+        payload["schema_id"] = args["schema_id"]
+    if "structured_data" in args:
+        payload["structured_data"] = args["structured_data"]
+
     resp = await client.post(
         f"{API_URL}/api/cards",
         headers=get_headers(),
-        json={
-            "card_id": card_id,
-            "title": args.get("title", ""),
-            "body": args.get("body", ""),
-            "link": args.get("link", "")
-        }
+        json=payload
     )
     resp.raise_for_status()
     card = resp.json()
 
-    return f"Created card: **{card.get('card_id', 'N/A')}**: {card.get('title', '')} (pk={card.get('id')})"
+    result = f"Created card: **{card.get('card_id', 'N/A')}**: {card.get('title', '')} (pk={card.get('id')})"
+    if card.get("schema_id"):
+        result += f"\nSchema ID: {card.get('schema_id')}"
+    if card.get("structured_data"):
+        result += f"\nStructured data: {card.get('structured_data')}"
+    return result
 
 
 async def update_card(client: httpx.AsyncClient, args: dict) -> str:
@@ -853,7 +899,7 @@ async def update_card(client: httpx.AsyncClient, args: dict) -> str:
     resp.raise_for_status()
     card = resp.json()
 
-    # Update fields
+    # Build update payload with existing values as defaults
     update_data = {
         "card_id": card.get("card_id", ""),
         "title": args.get("title", card.get("title", "")),
@@ -861,14 +907,28 @@ async def update_card(client: httpx.AsyncClient, args: dict) -> str:
         "link": args.get("link", card.get("link", ""))
     }
 
+    # Add schema_id if provided (including null to remove schema)
+    if "schema_id" in args:
+        update_data["schema_id"] = args["schema_id"]
+
+    # Add structured_data if provided
+    if "structured_data" in args:
+        update_data["structured_data"] = args["structured_data"]
+
     resp = await client.put(
         f"{API_URL}/api/cards/{card_id}",
         headers=get_headers(),
         json=update_data
     )
     resp.raise_for_status()
+    updated_card = resp.json()
 
-    return f"Updated card: **{card.get('card_id', 'N/A')}**: {update_data['title']} (pk={card_id})"
+    result = f"Updated card: **{card.get('card_id', 'N/A')}**: {update_data['title']} (pk={card_id})"
+    if "schema_id" in args:
+        result += f"\nSchema ID: {updated_card.get('schema_id')}"
+    if "structured_data" in args:
+        result += f"\nStructured data: {updated_card.get('structured_data')}"
+    return result
 
 
 async def list_starred_cards(client: httpx.AsyncClient) -> str:
