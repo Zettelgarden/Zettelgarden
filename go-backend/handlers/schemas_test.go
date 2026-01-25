@@ -1171,3 +1171,273 @@ func TestDeleteSchemaRoute_MultipleCardsWithSchema(t *testing.T) {
 		t.Errorf("Expected warning message for schema with cards, got empty string")
 	}
 }
+
+// TestCreateSchemaRoute_DuplicateName tests error when creating a schema with a duplicate name
+func TestCreateSchemaRoute_DuplicateName(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
+
+	// Create first schema
+	schema1, rr1 := createSchema(t, s, 1, "Duplicate Test Schema", fields)
+	if rr1.Code != http.StatusCreated {
+		t.Fatalf("Failed to create first schema: %d - %s", rr1.Code, rr1.Body.String())
+	}
+	if schema1 == nil {
+		t.Fatalf("First schema creation returned nil")
+	}
+
+	// Try to create second schema with same name
+	token, _ := tests.GenerateTestJWT(1)
+	params := models.CreateSchemaDefinitionParams{
+		Name:   "Duplicate Test Schema",
+		Fields: fields,
+	}
+	jsonData, _ := json.Marshal(params)
+
+	req, _ := http.NewRequest("POST", "/api/schemas", bytes.NewBuffer(jsonData))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateSchemaRoute))
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusConflict {
+		t.Errorf("Expected status 409 (Conflict), got %d. Body: %s", rr.Code, rr.Body.String())
+	}
+
+	expectedMsg := "A schema with this name already exists\n"
+	if rr.Body.String() != expectedMsg {
+		t.Errorf("Expected error message '%s', got '%s'", expectedMsg, rr.Body.String())
+	}
+}
+
+// TestCreateSchemaRoute_DuplicateNameDifferentUsers tests that duplicate names are allowed for different users
+func TestCreateSchemaRoute_DuplicateNameDifferentUsers(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
+
+	// User 1 creates a schema
+	_, rr1 := createSchema(t, s, 1, "Shared Schema Name", fields)
+	if rr1.Code != http.StatusCreated {
+		t.Fatalf("Failed to create schema for user 1: %d - %s", rr1.Code, rr1.Body.String())
+	}
+
+	// User 2 should be able to create a schema with the same name
+	schema2, rr2 := createSchema(t, s, 2, "Shared Schema Name", fields)
+	if rr2.Code != http.StatusCreated {
+		t.Errorf("User 2 should be able to create schema with same name, got status %d. Body: %s", rr2.Code, rr2.Body.String())
+	}
+
+	if schema2 == nil {
+		t.Fatal("Second schema creation returned nil")
+	}
+
+	if schema2.Name != "Shared Schema Name" {
+		t.Errorf("Expected name 'Shared Schema Name', got '%s'", schema2.Name)
+	}
+
+	if schema2.OwnerID != 2 {
+		t.Errorf("Expected owner_id 2, got %d", schema2.OwnerID)
+	}
+}
+
+// TestCreateSchemaRoute_DuplicateNameCaseInsensitive tests that duplicate names are case-insensitive
+func TestCreateSchemaRoute_DuplicateNameCaseInsensitive(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
+
+	// Create first schema with lowercase name
+	_, rr1 := createSchema(t, s, 1, "test schema", fields)
+	if rr1.Code != http.StatusCreated {
+		t.Fatalf("Failed to create first schema: %d - %s", rr1.Code, rr1.Body.String())
+	}
+
+	// Try to create second schema with uppercase version of same name
+	token, _ := tests.GenerateTestJWT(1)
+	params := models.CreateSchemaDefinitionParams{
+		Name:   "TEST SCHEMA",
+		Fields: fields,
+	}
+	jsonData, _ := json.Marshal(params)
+
+	req, _ := http.NewRequest("POST", "/api/schemas", bytes.NewBuffer(jsonData))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateSchemaRoute))
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusConflict {
+		t.Errorf("Expected status 409 (Conflict) for case-insensitive duplicate, got %d. Body: %s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestCreateSchemaRoute_DuplicateNameWithWhitespace tests that duplicate names ignore surrounding whitespace
+func TestCreateSchemaRoute_DuplicateNameWithWhitespace(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
+
+	// Create first schema
+	_, rr1 := createSchema(t, s, 1, "My Schema", fields)
+	if rr1.Code != http.StatusCreated {
+		t.Fatalf("Failed to create first schema: %d - %s", rr1.Code, rr1.Body.String())
+	}
+
+	// Try to create second schema with same name but extra whitespace
+	token, _ := tests.GenerateTestJWT(1)
+	params := models.CreateSchemaDefinitionParams{
+		Name:   "  My Schema  ",
+		Fields: fields,
+	}
+	jsonData, _ := json.Marshal(params)
+
+	req, _ := http.NewRequest("POST", "/api/schemas", bytes.NewBuffer(jsonData))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateSchemaRoute))
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusConflict {
+		t.Errorf("Expected status 409 (Conflict) for name with whitespace, got %d. Body: %s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestUpdateSchemaRoute_DuplicateName tests error when updating a schema to a name that already exists
+func TestUpdateSchemaRoute_DuplicateName(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
+
+	// Create two schemas with different names
+	_, _ = createSchema(t, s, 1, "Existing Schema", fields)
+	schema2, _ := createSchema(t, s, 1, "Target Schema", fields)
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	// Try to update schema2 to have the same name as schema1
+	updateFields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
+	params := models.UpdateSchemaDefinitionParams{
+		Name:   "Existing Schema",
+		Fields: updateFields,
+	}
+	jsonData, _ := json.Marshal(params)
+
+	req, _ := http.NewRequest("PUT", "/api/schemas/"+strconv.Itoa(schema2.ID), bytes.NewBuffer(jsonData))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", strconv.Itoa(schema2.ID))
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/schemas/{id}", s.JwtMiddleware(s.UpdateSchemaRoute))
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusConflict {
+		t.Errorf("Expected status 409 (Conflict), got %d. Body: %s", rr.Code, rr.Body.String())
+	}
+
+	expectedMsg := "A schema with this name already exists\n"
+	if rr.Body.String() != expectedMsg {
+		t.Errorf("Expected error message '%s', got '%s'", expectedMsg, rr.Body.String())
+	}
+}
+
+// TestUpdateSchemaRoute_DuplicateNameDifferentUsers tests that updating to a duplicate name is allowed for different users
+func TestUpdateSchemaRoute_DuplicateNameDifferentUsers(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
+
+	// User 1 creates a schema
+	_, _ = createSchema(t, s, 1, "Shared Schema Name", fields)
+
+	// User 2 creates a schema
+	schema2, _ := createSchema(t, s, 2, "Different Name", fields)
+
+	// User 2 should be able to update their schema to the same name as user 1's schema
+	token, _ := tests.GenerateTestJWT(2)
+	updateFields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
+	params := models.UpdateSchemaDefinitionParams{
+		Name:   "Shared Schema Name",
+		Fields: updateFields,
+	}
+	jsonData, _ := json.Marshal(params)
+
+	req, _ := http.NewRequest("PUT", "/api/schemas/"+strconv.Itoa(schema2.ID), bytes.NewBuffer(jsonData))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", strconv.Itoa(schema2.ID))
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/schemas/{id}", s.JwtMiddleware(s.UpdateSchemaRoute))
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("User 2 should be able to update to name used by user 1, got status %d. Body: %s", rr.Code, rr.Body.String())
+	}
+
+	var updatedSchema models.SchemaDefinition
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &updatedSchema)
+
+	if updatedSchema.Name != "Shared Schema Name" {
+		t.Errorf("Expected name 'Shared Schema Name', got '%s'", updatedSchema.Name)
+	}
+}
+
+// TestUpdateSchemaRoute_SameName tests that updating a schema to its own name succeeds
+func TestUpdateSchemaRoute_SameName(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
+	schema, _ := createSchema(t, s, 1, "Test Schema", fields)
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	// Update schema with same name but different fields
+	updateFields := []models.FieldDefinition{
+		{Name: "title", Type: "text", Required: true},
+		{Name: "status", Type: "select", Required: false, Options: []string{"active", "inactive"}},
+	}
+	params := models.UpdateSchemaDefinitionParams{
+		Name:   "Test Schema",
+		Fields: updateFields,
+	}
+	jsonData, _ := json.Marshal(params)
+
+	req, _ := http.NewRequest("PUT", "/api/schemas/"+strconv.Itoa(schema.ID), bytes.NewBuffer(jsonData))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", strconv.Itoa(schema.ID))
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/schemas/{id}", s.JwtMiddleware(s.UpdateSchemaRoute))
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected status 200 when updating schema with same name, got %d. Body: %s", rr.Code, rr.Body.String())
+	}
+
+	var updatedSchema models.SchemaDefinition
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &updatedSchema)
+
+	if len(updatedSchema.Fields) != 2 {
+		t.Errorf("Expected 2 fields after update, got %d", len(updatedSchema.Fields))
+	}
+}

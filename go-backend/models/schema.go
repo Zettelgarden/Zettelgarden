@@ -171,16 +171,22 @@ func GetUniqueSlug(db *sql.DB, ownerID int, baseSlug string) (string, error) {
 		return baseSlug, nil
 	}
 
-	// If base slug exists, find the next available number
-	var maxNum int
-	err = db.QueryRow(`
-		SELECT COALESCE(MAX(CAST(NULLIF(regexp_replace(slug, '^' || $2 || '-?', '') AS INT)), 0)
-		FROM schema_definitions
-		WHERE owner_id = $1 AND slug ~ $2
-	`, ownerID, baseSlug).Scan(&maxNum)
-	if err != nil {
-		return "", err
+	// If base slug exists, try incrementing numbers until we find an available one
+	for i := 2; i <= 1000; i++ {
+		candidateSlug := fmt.Sprintf("%s-%d", baseSlug, i)
+		var count int
+		err := db.QueryRow(`
+			SELECT COUNT(*)
+			FROM schema_definitions
+			WHERE owner_id = $1 AND slug = $2 AND is_deleted = false
+		`, ownerID, candidateSlug).Scan(&count)
+		if err != nil {
+			return "", err
+		}
+		if count == 0 {
+			return candidateSlug, nil
+		}
 	}
 
-	return fmt.Sprintf("%s-%d", baseSlug, maxNum+1), nil
+	return "", fmt.Errorf("could not generate unique slug for '%s' after 1000 attempts", baseSlug)
 }

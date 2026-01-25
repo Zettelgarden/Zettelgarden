@@ -9,8 +9,10 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/lib/pq"
 )
 
 // Valid field types for schema definitions
@@ -133,6 +135,21 @@ func validateUpdateSchemaParams(params models.UpdateSchemaDefinitionParams) erro
 	return validateSchemaParams(params.Name, params.Fields)
 }
 
+// isDuplicateKeyError checks if an error is a duplicate key/unique constraint violation
+func isDuplicateKeyError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Check for PostgreSQL unique constraint violation (error code 23505)
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) {
+		return pqErr.Code == "23505"
+	}
+	// Also check error message as fallback
+	return strings.Contains(err.Error(), "duplicate key") ||
+		strings.Contains(err.Error(), "unique constraint")
+}
+
 // CreateSchemaRoute handles POST /api/schemas - Create a new schema
 func (s *Handler) CreateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 	userID, err := getUserID(r)
@@ -199,6 +216,12 @@ func (s *Handler) CreateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if err != nil {
+		// Check for unique constraint violation
+		if isDuplicateKeyError(err) {
+			log.Printf("Duplicate schema name: %v", err)
+			http.Error(w, "A schema with this name already exists", http.StatusConflict)
+			return
+		}
 		log.Printf("Error creating schema: %v", err)
 		http.Error(w, "Error creating schema", http.StatusInternalServerError)
 		return
@@ -398,6 +421,12 @@ func (s *Handler) UpdateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if err != nil {
+		// Check for unique constraint violation
+		if isDuplicateKeyError(err) {
+			log.Printf("Duplicate schema name: %v", err)
+			http.Error(w, "A schema with this name already exists", http.StatusConflict)
+			return
+		}
 		log.Printf("Error updating schema: %v", err)
 		http.Error(w, "Error updating schema", http.StatusInternalServerError)
 		return
