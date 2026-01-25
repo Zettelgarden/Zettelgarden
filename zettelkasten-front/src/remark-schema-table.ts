@@ -6,14 +6,14 @@ export default function remarkSchemaTable() {
         visit(tree, "text", (node: any, index: number | undefined, parent: any) => {
             if (!parent || typeof node.value !== "string" || index === undefined) return;
 
-            // Match &SCHEMATABLE:schemaId& or &SCHEMATABLE:schemaId|columns& or &SCHEMATABLE:schemaId|columns|filters&
-            const regex = /&SCHEMATABLE:([^&|]+)(?:\|([^&|]*))?(?:\|([^&]+))?&/g;
+            // Match &SCHEMATABLE:schemaId& or &SCHEMATABLE:schemaId|col1,col2& format
+            const regex = /&SCHEMATABLE:([^&|]+)(?:\|([^&]+))?&/g;
             let match;
             const newNodes: any[] = [];
             let lastIndex = 0;
 
             while ((match = regex.exec(node.value)) !== null) {
-                const [fullMatch, schemaId, columns, filters] = match;
+                const [fullMatch, schemaId, columns] = match;
 
                 // Push text before match
                 if (match.index > lastIndex) {
@@ -23,7 +23,7 @@ export default function remarkSchemaTable() {
                     });
                 }
 
-                // Push schema table node with optional columns and filters data attributes
+                // Push schema table node with optional columns data attribute
                 const hProperties: any = {
                     className: "schema-table-container",
                     "data-schema-id": schemaId
@@ -33,18 +33,11 @@ export default function remarkSchemaTable() {
                     hProperties["data-columns"] = columns;
                 }
 
-                if (filters) {
-                    // Decode the filters
-                    const decodedFilters = filters.replace(/%26/g, '&').replace(/%7C/g, '|');
-                    hProperties["data-filters"] = decodedFilters;
-                }
-
                 newNodes.push({
                     type: "schemaTable",
                     data: {
                         schemaId,
                         columns,
-                        filters: filters ? filters.replace(/%26/g, '&').replace(/%7C/g, '|') : undefined,
                         hName: "div",
                         hProperties
                     },

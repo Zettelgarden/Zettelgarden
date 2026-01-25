@@ -1,18 +1,16 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { SchemaDefinition, FieldDefinition } from "../../models/Schema";
 import { Card } from "../../models/Card";
 import { fetchSchema } from "../../api/schemas";
-import { FilterValue, FiltersState } from "./SchemaTableFilters";
 
 interface SchemaTableProps {
   schemaId: number;
   onCardClick?: (card: Card) => void;
   compact?: boolean;
   columns?: string[]; // List of column names to display
-  filters?: string; // Filter string like "status=In Progress,priority>High"
 }
 
-export function SchemaTable({ schemaId, onCardClick, compact = false, columns, filters }: SchemaTableProps) {
+export function SchemaTable({ schemaId, onCardClick, compact = false, columns }: SchemaTableProps) {
   const [schema, setSchema] = useState<SchemaDefinition | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,86 +29,6 @@ export function SchemaTable({ schemaId, onCardClick, compact = false, columns, f
     }
     return fields.filter(field => columns.includes(field.name));
   };
-
-  // Parse filter string into FiltersState
-  const parsedFilters = useMemo((): FiltersState => {
-    if (!filters || !schema) return {};
-
-    const result: FiltersState = {};
-    // Split by comma (but be careful with values that might contain commas)
-    // For simplicity, we'll split by comma and assume values don't contain commas
-    const filterParts = filters.split(',').map(f => f.trim());
-
-    for (const part of filterParts) {
-      // Match operator patterns: field=value, field~value, field>value, field<value, etc.
-      const match = part.match(/^([^=~^><]+)([=~^><]=?|>=|<=)(.+)$/);
-      if (!match) continue;
-
-      const [, fieldName, operator, rawValue] = match;
-      const field = schema.fields.find(f => f.name === fieldName);
-      if (!field) continue;
-
-      let filterOperator: FilterValue["operator"];
-      let value: any = rawValue;
-
-      switch (operator) {
-        case "~":
-          filterOperator = "contains";
-          break;
-        case "^":
-          filterOperator = "startsWith";
-          break;
-        case "=":
-        case "==":
-          filterOperator = "equals";
-          break;
-        case ">":
-          filterOperator = "gt";
-          value = field.type === "number" ? parseFloat(rawValue) : rawValue;
-          break;
-        case ">=":
-          filterOperator = "gte";
-          value = field.type === "number" ? parseFloat(rawValue) : rawValue;
-          break;
-        case "<":
-          filterOperator = "lt";
-          value = field.type === "number" ? parseFloat(rawValue) : rawValue;
-          break;
-        case "<=":
-          filterOperator = "lte";
-          value = field.type === "number" ? parseFloat(rawValue) : rawValue;
-          break;
-        default:
-          filterOperator = "contains";
-      }
-
-      // Handle type-specific conversions
-      if (field.type === "number") {
-        value = parseFloat(rawValue);
-      } else if (field.type === "boolean") {
-        value = rawValue.toLowerCase() === "true" || rawValue === "1";
-      } else if (field.type === "multi-select") {
-        // Multi-select values can be separated by |
-        value = rawValue.split('|').map(v => v.trim());
-      } else if (field.type === "link_to_card") {
-        value = parseInt(rawValue, 10);
-      } else if (field.type === "date") {
-        // Keep as string, Date parsing happens in filter logic
-        value = rawValue;
-      } else {
-        // For text/select, use the raw value
-        value = rawValue;
-      }
-
-      result[fieldName] = {
-        type: field.type,
-        operator: filterOperator,
-        value
-      };
-    }
-
-    return result;
-  }, [filters, schema]);
 
   const loadData = async () => {
     setLoading(true);
@@ -157,95 +75,9 @@ export function SchemaTable({ schemaId, onCardClick, compact = false, columns, f
   };
 
   const getSortedCards = () => {
-    let filteredCards = [...cards];
+    if (!sortField) return cards;
 
-    // Apply filters
-    Object.entries(parsedFilters).forEach(([fieldName, filterValue]) => {
-      filteredCards = filteredCards.filter((card) => {
-        const cardValue = card.structured_data?.[fieldName];
-
-        if (cardValue === null || cardValue === undefined || cardValue === "") {
-          return false;
-        }
-
-        switch (filterValue.type) {
-          case "text":
-            switch (filterValue.operator) {
-              case "contains":
-                return String(cardValue).toLowerCase().includes(String(filterValue.value).toLowerCase());
-              case "equals":
-                return String(cardValue).toLowerCase() === String(filterValue.value).toLowerCase();
-              case "startsWith":
-                return String(cardValue).toLowerCase().startsWith(String(filterValue.value).toLowerCase());
-              default:
-                return true;
-            }
-
-          case "number":
-            const cardNum = parseFloat(cardValue);
-            const filterNum = parseFloat(filterValue.value);
-            if (isNaN(cardNum) || isNaN(filterNum)) return false;
-            switch (filterValue.operator) {
-              case "equals":
-                return cardNum === filterNum;
-              case "gt":
-                return cardNum > filterNum;
-              case "gte":
-                return cardNum >= filterNum;
-              case "lt":
-                return cardNum < filterNum;
-              case "lte":
-                return cardNum <= filterNum;
-              default:
-                return true;
-            }
-
-          case "date":
-            const cardDate = new Date(cardValue);
-            const filterDate = new Date(filterValue.value);
-            if (isNaN(cardDate.getTime()) || isNaN(filterDate.getTime())) return false;
-            switch (filterValue.operator) {
-              case "equals":
-                return cardDate.toDateString() === filterDate.toDateString();
-              case "gt":
-              case "after":
-                return cardDate > filterDate;
-              case "lt":
-              case "before":
-                return cardDate < filterDate;
-              default:
-                return true;
-            }
-
-          case "boolean":
-            return Boolean(cardValue) === Boolean(filterValue.value);
-
-          case "select":
-            return String(cardValue) === String(filterValue.value);
-
-          case "multi-select":
-            if (filterValue.operator === "any" && Array.isArray(filterValue.value)) {
-              const cardValues = Array.isArray(cardValue) ? cardValue : [cardValue];
-              return filterValue.value.some((v: string) => cardValues.includes(v));
-            }
-            // For simple equals with multi-select, check if any value matches
-            const cardValues = Array.isArray(cardValue) ? cardValue : [cardValue];
-            const filterValues = Array.isArray(filterValue.value) ? filterValue.value : [filterValue.value];
-            return filterValues.some((v: string) => cardValues.includes(v));
-
-          case "link_to_card":
-            return parseInt(cardValue, 10) === parseInt(filterValue.value, 10);
-
-          default:
-            return true;
-        }
-      });
-    });
-
-    // Apply sorting
-    if (!sortField) return filteredCards;
-
-    return filteredCards.sort((a, b) => {
+    return [...cards].sort((a, b) => {
       const aValue = a.structured_data?.[sortField];
       const bValue = b.structured_data?.[sortField];
 
@@ -305,7 +137,6 @@ export function SchemaTable({ schemaId, onCardClick, compact = false, columns, f
 
   const sortedCards = getSortedCards();
   const filteredFields = schema ? getFilteredFields(schema.fields) : [];
-  const hasActiveFilters = Object.keys(parsedFilters).length > 0;
 
   return (
     <div className={compact ? "my-2" : "my-4"}>
@@ -314,13 +145,11 @@ export function SchemaTable({ schemaId, onCardClick, compact = false, columns, f
           <h3 className={compact ? "text-base font-semibold text-gray-900" : "text-xl font-bold text-gray-900"}>
             {schema.name}
           </h3>
-          <p className="text-xs text-gray-500">
-            {hasActiveFilters ? `${sortedCards.length} of ${cards.length} cards` : `${cards.length} cards`}
-          </p>
+          <p className="text-xs text-gray-500">{cards.length} cards</p>
         </div>
       </div>
 
-      {sortedCards.length === 0 ? (
+      {cards.length === 0 ? (
         <div className="text-center text-gray-500 py-4 bg-gray-50 rounded-lg">
           <p className="text-sm">No cards with this schema yet.</p>
         </div>
