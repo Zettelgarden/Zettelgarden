@@ -94,7 +94,9 @@ export function SchemaTable({ schemaId, onCardClick, compact = false }: SchemaTa
       case "multi-select":
         return (value as string[]).join(", ");
       case "date":
-        return new Date(value).toLocaleDateString();
+        // Parse date and display in UTC to avoid timezone shifting
+        const dateObj = new Date(value);
+        return dateObj.toLocaleDateString(undefined, { timeZone: 'UTC' });
       default:
         return String(value);
     }

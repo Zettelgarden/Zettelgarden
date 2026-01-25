@@ -99,7 +99,9 @@ export function StructuredDataDisplay({ fields, data }: StructuredDataDisplayPro
         return <span className="font-mono text-sm">{value}</span>;
 
       case "date":
-        return <span className="text-sm">{new Date(value).toLocaleDateString()}</span>;
+        // Parse date and display in UTC to avoid timezone shifting
+        const dateObj = new Date(value);
+        return <span className="text-sm">{dateObj.toLocaleDateString(undefined, { timeZone: 'UTC' })}</span>;
 
       case "link_to_card":
         return <LinkedCardDisplay cardId={value} />;
