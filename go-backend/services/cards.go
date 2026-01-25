@@ -413,15 +413,71 @@ func GetPartialCard(db *sql.DB, userID, id int) (models.PartialCard, error) {
 	}
 	return card, nil
 }
+
+// GetStructuredDataBacklinks finds cards that link to the given card via structured_data link_to_card fields
+func GetStructuredDataBacklinks(db *sql.DB, userID int, cardPK int) ([]models.PartialCard, error) {
+	// First get the internal ID of the target card from its card_id
+
+	// Query cards whose structured_data contains the target card's internal ID as a value
+	// The structured_data is JSONB where link_to_card fields store card IDs as integers
+	query := `
+		SELECT DISTINCT
+			c.id,
+			c.card_id,
+			c.user_id,
+			c.title,
+			c.created_at,
+			c.updated_at
+		FROM cards c
+		WHERE c.user_id = $1
+			AND c.is_deleted = FALSE
+			AND c.structured_data IS NOT NULL
+			AND c.id != $2
+			AND EXISTS (
+				SELECT 1
+				FROM jsonb_each_text(c.structured_data) AS kv
+				WHERE kv.key = 'link' AND CAST(kv.value AS INTEGER) = $2
+			)
+		ORDER BY c.card_id
+	`
+
+	rows, err := db.Query(query, userID, cardPK)
+	if err != nil {
+		log.Printf("Error querying structured data backlinks: %v", err)
+		return []models.PartialCard{}, err
+	}
+	defer rows.Close()
+
+	var cards []models.PartialCard
+	for rows.Next() {
+		card := models.PartialCard{}
+		if err := rows.Scan(
+			&card.ID,
+			&card.CardID,
+			&card.UserID,
+			&card.Title,
+			&card.CreatedAt,
+			&card.UpdatedAt,
+		); err != nil {
+			log.Printf("Error scanning structured data backlink: %v", err)
+			continue
+		}
+		log.Printf("card %v", card)
+		cards = append(cards, card)
+	}
+
+	return cards, nil
+}
+
 func GetBacklinks(db *sql.DB, userID int, cardID string) ([]models.PartialCard, error) {
 
 	query := `
 	SELECT
-    cards.id, 
+    cards.id,
 	cards.card_id,
-    cards.user_id, 
-    cards.title, 
-    cards.created_at, 
+    cards.user_id,
+    cards.title,
+    cards.created_at,
     cards.updated_at
 FROM backlinks
 JOIN cards ON backlinks.source_id_int = cards.id
