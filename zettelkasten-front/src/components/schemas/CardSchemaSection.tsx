@@ -94,6 +94,8 @@ export function CardSchemaSection({
 
   return (
     <div className="space-y-4">
+
+      <h3 className="text-sm font-semibold text-gray-700 border-b pb-2">Structured Data</h3>
       <div>
         <label htmlFor="schema-select" className="block text-sm font-medium text-gray-700 mb-1">
           Schema

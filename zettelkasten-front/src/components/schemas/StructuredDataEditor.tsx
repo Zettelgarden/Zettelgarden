@@ -227,8 +227,7 @@ export function StructuredDataEditor({ fields, data, onChange, disabled = false 
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold text-gray-700 border-b pb-2">Structured Data</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         {fields.map((field) => (
           <div key={field.name} className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">

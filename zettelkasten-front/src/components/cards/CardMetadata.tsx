@@ -110,47 +110,6 @@ export function CardMetadata({
 
       <hr className="my-4" />
 
-      <div className="py-2">
-        <HeaderSubSection text="References" />
-
-        <BacklinkInputDropdownList
-          onSelect={addBacklink}
-          onSearch={() => {}}
-          placeholder="Add Backlink"
-          className="max-w-md"
-          excludeCardId={editingCard.id}
-        />
-      </div>
-      <hr className="my-4" />
-      <div className="space-y-2">
-
-        <HeaderSubSection text="Link" />
-        <div className="relative">
-          <input
-            type="text"
-            id="link"
-            value={editingCard.link}
-            onChange={(e) =>
-              setEditingCard({ ...editingCard, link: e.target.value })
-            }
-            placeholder="Source"
-            className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-10"
-          />
-          <button
-            onClick={handleClickFillCard}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
-            type="button"
-            title="Fill card from URL"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <hr className="my-4" />
-
       <div className="flex items-center justify-between">
         <HeaderSubSection text="Tags" />
         <SearchTagDropdown
