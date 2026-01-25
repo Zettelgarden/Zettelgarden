@@ -158,43 +158,40 @@ export function SchemaDialog({ schema, isOpen, onClose, onSuccess }: SchemaDialo
     const needsOptions = field.type === "select" || field.type === "multi-select";
 
     return (
-      <div key={field.id} className="border border-gray-200 rounded-lg p-4 space-y-3">
-        <div className="flex items-start justify-between">
-          <span className="text-sm font-medium text-gray-700">Field {index + 1}</span>
-          <button
-            type="button"
-            onClick={() => removeField(field.id)}
-            className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded-full transition-colors"
-            disabled={fields.length === 1}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
+      <div key={field.id} className="border border-gray-200 rounded-lg p-3 space-y-2">
+        <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-start">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 mb-0.5">
               Name *
             </label>
             <input
               type="text"
               value={field.name}
               onChange={(e) => updateField(field.id, { name: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30 transition-colors"
+              className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:ring-opacity-30 transition-colors"
               placeholder="field_name"
             />
           </div>
 
+          <button
+            type="button"
+            onClick={() => removeField(field.id)}
+            className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded-full transition-colors mt-5"
+            disabled={fields.length === 1}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 mb-0.5">
               Type *
             </label>
             <select
               value={field.type}
               onChange={(e) => updateField(field.id, { type: e.target.value as FieldType })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30 transition-colors"
+              className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:ring-opacity-30 transition-colors"
             >
               {FIELD_TYPES.map((type) => (
                 <option key={type.value} value={type.value}>
@@ -205,41 +202,37 @@ export function SchemaDialog({ schema, isOpen, onClose, onSuccess }: SchemaDialo
           </div>
         </div>
 
-        {needsOptions && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Options * (comma-separated)
-            </label>
-            <input
-              type="text"
-              value={field.options?.join(", ") || ""}
-              onChange={(e) =>
-                updateField(field.id, {
-                  options: e.target.value
-                    .split(",")
-                    .map((s) => s.trim())
-                    .filter(Boolean),
-                })
-              }
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30 transition-colors"
-              placeholder="Option 1, Option 2, Option 3"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Enter options separated by commas
-            </p>
-          </div>
-        )}
+        <div className="flex items-center gap-4">
+          {needsOptions && (
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                Options *
+              </label>
+              <input
+                type="text"
+                value={field.options?.join(", ") || ""}
+                onChange={(e) =>
+                  updateField(field.id, {
+                    options: e.target.value
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean),
+                  })
+                }
+                className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:ring-opacity-30 transition-colors"
+                placeholder="Option 1, Option 2"
+              />
+            </div>
+          )}
 
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id={`required-${field.id}`}
-            checked={field.required}
-            onChange={(e) => updateField(field.id, { required: e.target.checked })}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-          <label htmlFor={`required-${field.id}`} className="ml-2 text-sm text-gray-700">
-            Required field
+          <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={field.required}
+              onChange={(e) => updateField(field.id, { required: e.target.checked })}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            Required
           </label>
         </div>
       </div>
