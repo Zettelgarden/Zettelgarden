@@ -112,7 +112,7 @@ export function SchemaPage() {
         {schemas.map((schema) => (
           <div
             key={schema.id}
-            className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer bg-white"
+            className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-white"
           >
             <div className="flex items-start justify-between">
               <div className="flex-grow">
