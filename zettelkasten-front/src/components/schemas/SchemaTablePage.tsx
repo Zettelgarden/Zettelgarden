@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { SchemaDefinition, FieldDefinition } from "../../models/Schema";
 import { fetchSchema } from "../../api/schemas";
 import { Card } from "../../models/Card";
 import { setDocumentTitle } from "../../utils/title";
 import { CardLink } from "../cards/CardLink";
 import { getCard } from "../../api/cards";
+import { FilterInput, ActiveFilterDisplay, FilterValue, FiltersState } from "./SchemaTableFilters";
 
 interface LinkedCardDisplayProps {
   cardId: number;
@@ -54,12 +55,70 @@ interface SchemaTablePageProps {
 
 export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [schema, setSchema] = useState<SchemaDefinition | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [filters, setFilters] = useState<FiltersState>({});
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Sync filters with URL query params
+  useEffect(() => {
+    const parsedFilters: FiltersState = {};
+
+    for (const [key, value] of searchParams.entries()) {
+      if (key === "sort") {
+        setSortField(value);
+        continue;
+      }
+      if (key === "order") {
+        setSortDirection(value === "desc" ? "desc" : "asc");
+        continue;
+      }
+      if (key.startsWith("filter_")) {
+        const fieldName = key.replace("filter_", "");
+        try {
+          const filterData = JSON.parse(decodeURIComponent(value));
+          parsedFilters[fieldName] = filterData;
+        } catch {
+          // Skip invalid filter values
+        }
+      }
+    }
+
+    setFilters(parsedFilters);
+  }, [searchParams]);
+
+  // Update URL when filters change
+  const updateFilters = (newFilters: FiltersState) => {
+    setFilters(newFilters);
+
+    const params = new URLSearchParams();
+
+    // Add sort params
+    if (sortField) params.set("sort", sortField);
+    if (sortDirection !== "asc") params.set("order", sortDirection);
+
+    // Add filter params
+    Object.entries(newFilters).forEach(([fieldName, filterValue]) => {
+      params.set(`filter_${fieldName}`, encodeURIComponent(JSON.stringify(filterValue)));
+    });
+
+    setSearchParams(params, { replace: true });
+  };
+
+  const clearFilter = (fieldName: string) => {
+    const newFilters = { ...filters };
+    delete newFilters[fieldName];
+    updateFilters(newFilters);
+  };
+
+  const clearAllFilters = () => {
+    updateFilters({});
+  };
 
   useEffect(() => {
     setDocumentTitle("Table View");
@@ -102,18 +161,105 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
   };
 
   const handleSort = (fieldName: string) => {
+    let newDirection: "asc" | "desc" = "asc";
     if (sortField === fieldName) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(fieldName);
-      setSortDirection("asc");
+      newDirection = sortDirection === "asc" ? "desc" : "asc";
     }
+    setSortField(fieldName);
+    setSortDirection(newDirection);
+
+    // Update URL
+    const params = new URLSearchParams(searchParams);
+    params.set("sort", fieldName);
+    params.set("order", newDirection);
+    setSearchParams(params, { replace: true });
   };
 
   const getSortedCards = () => {
-    if (!sortField) return cards;
+    let filteredCards = [...cards];
 
-    return [...cards].sort((a, b) => {
+    // Apply filters
+    Object.entries(filters).forEach(([fieldName, filterValue]) => {
+      filteredCards = filteredCards.filter((card) => {
+        const cardValue = card.structured_data?.[fieldName];
+
+        if (cardValue === null || cardValue === undefined || cardValue === "") {
+          return false;
+        }
+
+        switch (filterValue.type) {
+          case "text":
+            switch (filterValue.operator) {
+              case "contains":
+                return String(cardValue).toLowerCase().includes(String(filterValue.value).toLowerCase());
+              case "equals":
+                return String(cardValue).toLowerCase() === String(filterValue.value).toLowerCase();
+              case "startsWith":
+                return String(cardValue).toLowerCase().startsWith(String(filterValue.value).toLowerCase());
+              default:
+                return true;
+            }
+
+          case "number":
+            const cardNum = parseFloat(cardValue);
+            const filterNum = parseFloat(filterValue.value);
+            if (isNaN(cardNum) || isNaN(filterNum)) return false;
+            switch (filterValue.operator) {
+              case "equals":
+                return cardNum === filterNum;
+              case "gt":
+                return cardNum > filterNum;
+              case "gte":
+                return cardNum >= filterNum;
+              case "lt":
+                return cardNum < filterNum;
+              case "lte":
+                return cardNum <= filterNum;
+              default:
+                return true;
+            }
+
+          case "date":
+            const cardDate = new Date(cardValue);
+            const filterDate = new Date(filterValue.value);
+            if (isNaN(cardDate.getTime()) || isNaN(filterDate.getTime())) return false;
+            switch (filterValue.operator) {
+              case "equals":
+                return cardDate.toDateString() === filterDate.toDateString();
+              case "before":
+                return cardDate < filterDate;
+              case "after":
+                return cardDate > filterDate;
+              default:
+                return true;
+            }
+
+          case "boolean":
+            return Boolean(cardValue) === Boolean(filterValue.value);
+
+          case "select":
+            return String(cardValue) === String(filterValue.value);
+
+          case "multi-select":
+            if (filterValue.operator === "any" && Array.isArray(filterValue.value)) {
+              const cardValues = Array.isArray(cardValue) ? cardValue : [cardValue];
+              return filterValue.value.some((v: string) => cardValues.includes(v));
+            }
+            return false;
+
+          case "link_to_card":
+            return parseInt(cardValue, 10) === parseInt(filterValue.value, 10);
+
+          default:
+            return true;
+        }
+      });
+    });
+
+    // Apply sorting
+    if (!sortField) return filteredCards;
+
+    return filteredCards.sort((a, b) => {
       const aValue = a.structured_data?.[sortField];
       const bValue = b.structured_data?.[sortField];
 
@@ -193,7 +339,72 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
           <h1 className="text-2xl font-bold text-gray-900">{schema.name} - Table View</h1>
           <p className="text-sm text-gray-500">{cards.length} cards</p>
         </div>
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="px-3 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 flex items-center gap-1"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" />
+          </svg>
+          Filters {Object.keys(filters).length > 0 && `(${Object.keys(filters).length})`}
+        </button>
       </div>
+
+      {/* Filter Section */}
+      {showFilters && (
+        <div className="mb-4 p-4 bg-gray-50 border rounded-lg">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-700">Filter by field values</h3>
+            {Object.keys(filters).length > 0 && (
+              <button
+                onClick={clearAllFilters}
+                className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+              >
+                Clear all filters
+              </button>
+            )}
+          </div>
+
+          {/* Filter Inputs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+            {schema.fields.map((field) => (
+              <div key={field.name} className="space-y-1">
+                <label className="block text-xs font-medium text-gray-600">
+                  {field.name}
+                </label>
+                <FilterInput
+                  field={field}
+                  value={filters[field.name] || null}
+                  onChange={(newValue) => {
+                    const newFilters = { ...filters };
+                    if (newValue) {
+                      newFilters[field.name] = newValue;
+                    } else {
+                      delete newFilters[field.name];
+                    }
+                    updateFilters(newFilters);
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Active Filters Display */}
+      {Object.keys(filters).length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-gray-500">Active filters:</span>
+          {Object.entries(filters).map(([fieldName, filterValue]) => (
+            <ActiveFilterDisplay
+              key={fieldName}
+              fieldName={fieldName}
+              value={filterValue}
+              onClear={() => clearFilter(fieldName)}
+            />
+          ))}
+        </div>
+      )}
 
       {cards.length === 0 ? (
         <div className="text-center text-gray-500 py-8 bg-gray-50 rounded-lg">
