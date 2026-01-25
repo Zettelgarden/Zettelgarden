@@ -171,8 +171,8 @@ describe('CardItem', () => {
     // Navigate up to the outer container div (CardItem's div)
     const cardItemContainer = cardLink.parentElement?.parentElement;
     expect(cardItemContainer).toBeTruthy();
-    expect(cardItemContainer?.className).toContain('py-2');
-    expect(cardItemContainer?.className).toContain('px-2.5');
+    expect(cardItemContainer?.className).toContain('py-1.5');
+    expect(cardItemContainer?.className).toContain('px-2');
   });
 
   it('should handle cards with no tags', () => {
