@@ -4,6 +4,7 @@ import { SchemaDefinition, FieldDefinition } from "../../models/Schema";
 import { fetchSchema } from "../../api/schemas";
 import { Card } from "../../models/Card";
 import { setDocumentTitle } from "../../utils/title";
+import { CardLink } from "../cards/CardLink";
 
 interface SchemaTablePageProps {
   schemaId: number;
@@ -200,11 +201,10 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
               {sortedCards.map((card) => (
                 <tr
                   key={card.id}
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => handleCardClick(card)}
+                  className="hover:bg-gray-50"
                 >
-                  <td className="px-4 py-3 text-sm font-medium text-blue-600">
-                    {card.title}
+                  <td className="px-4 py-3 text-sm">
+                    <CardLink card={card} showTitle={true} handleViewBacklink={() => {}} />
                   </td>
                   {schema.fields.map((field) => (
                     <td key={field.name} className="px-4 py-3 text-sm text-gray-900">
