@@ -5,6 +5,47 @@ import { fetchSchema } from "../../api/schemas";
 import { Card } from "../../models/Card";
 import { setDocumentTitle } from "../../utils/title";
 import { CardLink } from "../cards/CardLink";
+import { getCard } from "../../api/cards";
+
+interface LinkedCardDisplayProps {
+  cardId: number;
+}
+
+function LinkedCardDisplay({ cardId }: LinkedCardDisplayProps) {
+  const [card, setCard] = useState<Card | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getCard(cardId.toString())
+      .then((result) => {
+        if (isError(result)) {
+          setCard(null);
+        } else {
+          setCard(result);
+        }
+      })
+      .catch(() => {
+        setCard(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [cardId]);
+
+  function isError(result: any): result is { error: string } {
+    return result && typeof result === "object" && "error" in result;
+  }
+
+  if (loading) {
+    return <span className="text-sm text-gray-500">Loading...</span>;
+  }
+
+  if (!card) {
+    return <span className="text-blue-600 hover:underline text-sm font-mono">{cardId}</span>;
+  }
+
+  return <CardLink card={card} showTitle={true} handleViewBacklink={() => {}} />;
+}
 
 interface SchemaTablePageProps {
   schemaId: number;
@@ -99,6 +140,8 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
         return (value as string[]).join(", ");
       case "date":
         return new Date(value).toLocaleDateString();
+      case "link_to_card":
+        return <LinkedCardDisplay cardId={value} />;
       default:
         return String(value);
     }
