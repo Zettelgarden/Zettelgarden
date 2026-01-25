@@ -1,5 +1,53 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { FieldDefinition } from "../../models/Schema";
+import { Link } from "react-router-dom";
+import { getCard } from "../../api/cards";
+import { Card } from "../../models/Card";
+import { CardTag } from "../cards/CardTag";
+
+interface LinkedCardDisplayProps {
+  cardId: number;
+}
+
+function LinkedCardDisplay({ cardId }: LinkedCardDisplayProps) {
+  const [card, setCard] = useState<Card | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getCard(cardId.toString())
+      .then((result) => {
+        if (isError(result)) {
+          setCard(null);
+        } else {
+          setCard(result);
+        }
+      })
+      .catch(() => {
+        setCard(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [cardId]);
+
+  function isError(result: any): result is { error: string } {
+    return result && typeof result === "object" && "error" in result;
+  }
+
+  if (loading) {
+    return <span className="text-sm text-gray-500">Loading...</span>;
+  }
+
+  if (!card) {
+    return <span className="text-blue-600 hover:underline text-sm font-mono">{cardId}</span>;
+  }
+
+  return (
+    <Link to={`/app/card/${card.id}`} className="inline-block">
+      <CardTag card={card} showTitle={true} />
+    </Link>
+  );
+}
 
 interface StructuredDataDisplayProps {
   fields: FieldDefinition[];
@@ -54,9 +102,7 @@ export function StructuredDataDisplay({ fields, data }: StructuredDataDisplayPro
         return <span className="text-sm">{new Date(value).toLocaleDateString()}</span>;
 
       case "link_to_card":
-        return (
-          <span className="text-blue-600 hover:underline text-sm font-mono">{value}</span>
-        );
+        return <LinkedCardDisplay cardId={value} />;
 
       default:
         return <span className="text-sm">{value}</span>;

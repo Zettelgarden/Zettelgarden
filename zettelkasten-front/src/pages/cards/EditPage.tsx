@@ -352,6 +352,19 @@ export function EditPage({ newCard }: EditPageProps) {
                   addBacklink={addBacklink}
                 />
 
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <CardSchemaSection
+                    schemaId={editingCard.schema_id}
+                    structuredData={editingCard.structured_data}
+                    onSchemaChange={(schemaId) =>
+                      setEditingCard({ ...editingCard, schema_id: schemaId, structured_data: {} })
+                    }
+                    onDataChange={(data) =>
+                      setEditingCard({ ...editingCard, structured_data: data })
+                    }
+                  />
+                </div>
+
                 {!newCard && (
                   <div className="mt-8">
                     <h4 className="text-lg font-medium text-gray-900 mb-4">Files:</h4>
@@ -387,18 +400,6 @@ export function EditPage({ newCard }: EditPageProps) {
                   addBacklink={addBacklink}
                   setMessage={setMessage}
                 />
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <CardSchemaSection
-                    schemaId={editingCard.schema_id}
-                    structuredData={editingCard.structured_data}
-                    onSchemaChange={(schemaId) =>
-                      setEditingCard({ ...editingCard, schema_id: schemaId })
-                    }
-                    onDataChange={(data) =>
-                      setEditingCard({ ...editingCard, structured_data: data })
-                    }
-                  />
-                </div>
               </div>
             </div>
           )}

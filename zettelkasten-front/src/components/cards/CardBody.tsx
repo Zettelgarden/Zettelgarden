@@ -4,6 +4,7 @@ import { downloadFile } from "../../api/files";
 import { Card, Entity } from "../../models/Card";
 import remarkEntity from "../../remark-entity";
 import remarkTaskQuery from "../../remark-task-query";
+import remarkSchemaTable from "../../remark-schema-table";
 import { useNavigate } from "react-router-dom";
 import remarkGfm from "remark-gfm";
 
@@ -11,6 +12,7 @@ import { useShortcutContext } from "../../contexts/ShortcutContext";
 
 import { CardLinkWithPreview } from "./CardLinkWithPreview";
 import { DynamicTaskList } from "./DynamicTaskList";
+import { DynamicSchemaTable } from "./DynamicSchemaTable";
 import { H1, H2, H3, H4, H5, H6 } from "../Header";
 import {
   Table,
@@ -45,6 +47,14 @@ function preprocessTaskQueries(body: string): string {
 function preprocessCardLinks(body: string): string {
   // Only match IDs without parentheses after - this preserves standard markdown links
   return body.replace(/\[([A-Za-z0-9_.-/]+)\](?!\()/g, "[$1](#)");
+}
+
+function preprocessSchemaTables(body: string): string {
+  // Match {{schema: <id>}} or {{schema_table: <id>}} syntax
+  const regex = /\{\{schema(?:_table)?:\s*(\d+)\}\}/gi;
+  return body.replace(regex, (match, schemaId) => {
+    return `&SCHEMATABLE:${schemaId}&`;
+  });
 }
 
 // Preprocess entity highlighting by injecting placeholder markers into markdown text
@@ -243,9 +253,10 @@ function renderCardText(
   onEntityClick?: (id: string, name: string) => void
 ) {
 
-  // Preprocess task queries first, then card links, then entities
+  // Preprocess task queries first, then card links, then schema tables, then entities
   let processedBody = preprocessTaskQueries(card.body);
   processedBody = preprocessCardLinks(processedBody);
+  processedBody = preprocessSchemaTables(processedBody);
   processedBody = preprocessEntities(processedBody, entities);
 
   // Custom component for inline code only
@@ -273,7 +284,7 @@ function renderCardText(
   return (
     <Markdown
       children={processedBody}
-      remarkPlugins={[remarkGfm, remarkTaskQuery, remarkEntity]}
+      remarkPlugins={[remarkGfm, remarkTaskQuery, remarkEntity, remarkSchemaTable]}
       components={{
         // Add our custom components for code
         code: CustomCode,
@@ -364,6 +375,12 @@ function renderCardText(
           if (propsData.className === "task-query-container" || propsData["data-query"] !== undefined) {
             const query = propsData["data-query"] || "";
             return <DynamicTaskList query={query} />;
+          }
+
+          // Check if this is a schema table container
+          if (propsData.className === "schema-table-container" || propsData["data-schema-id"] !== undefined) {
+            const schemaId = propsData["data-schema-id"] || "";
+            return <DynamicSchemaTable schemaId={schemaId} />;
           }
 
           // Default div rendering

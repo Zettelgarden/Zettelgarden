@@ -45,6 +45,25 @@ export function CardSchemaSection({
     if (schemaId) {
       const schema = schemas.find((s) => s.id === schemaId);
       setSelectedSchema(schema || null);
+
+      // Clean structured_data to only include fields that exist in the current schema
+      if (schema && structuredData) {
+        const validFieldNames = new Set(schema.fields.map((f) => f.name));
+        const cleanedData: Record<string, any> = {};
+
+        for (const [key, value] of Object.entries(structuredData)) {
+          if (validFieldNames.has(key)) {
+            cleanedData[key] = value;
+          }
+        }
+
+        // Only update if data was actually removed
+        const removedKeys = Object.keys(structuredData).filter((k) => !validFieldNames.has(k));
+        if (removedKeys.length > 0) {
+          console.log("Cleaning structured_data, removed fields:", removedKeys);
+          onDataChange(cleanedData);
+        }
+      }
     } else {
       setSelectedSchema(null);
     }

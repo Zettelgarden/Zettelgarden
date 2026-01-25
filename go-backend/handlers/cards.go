@@ -24,13 +24,13 @@ import (
 	"golang.org/x/net/html"
 )
 
-// validateStructuredData validates structured_data against a schema definition
-func validateStructuredData(structuredData json.RawMessage, schema *models.SchemaDefinition) error {
+// validateStructuredData validates structured_data against a schema definition and returns cleaned data
+func validateStructuredData(structuredData json.RawMessage, schema *models.SchemaDefinition) (json.RawMessage, error) {
 	// Parse the structured data into a map
 	var data map[string]interface{}
 	if len(structuredData) > 0 {
 		if err := json.Unmarshal(structuredData, &data); err != nil {
-			return fmt.Errorf("invalid structured_data JSON: %w", err)
+			return nil, fmt.Errorf("invalid structured_data JSON: %w", err)
 		}
 	} else {
 		data = make(map[string]interface{})
@@ -46,24 +46,33 @@ func validateStructuredData(structuredData json.RawMessage, schema *models.Schem
 	for _, field := range schema.Fields {
 		if field.Required {
 			if _, exists := data[field.Name]; !exists {
-				return fmt.Errorf("required field '%s' is missing", field.Name)
+				return nil, fmt.Errorf("required field '%s' is missing", field.Name)
 			}
 		}
 	}
 
-	// Validate each field in structured_data
+	// Validate each field and clean data (remove fields not in schema)
+	cleanedData := make(map[string]interface{})
 	for fieldName, value := range data {
 		fieldDef, exists := fieldMap[fieldName]
 		if !exists {
-			return fmt.Errorf("field '%s' is not defined in schema", fieldName)
+			// Skip fields not defined in schema (remove old/renamed fields)
+			continue
 		}
 
 		if err := validateFieldValue(fieldName, value, fieldDef); err != nil {
-			return err
+			return nil, err
 		}
+		cleanedData[fieldName] = value
 	}
 
-	return nil
+	// Marshal cleaned data back to JSON
+	cleanedJSON, err := json.Marshal(cleanedData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal cleaned data: %w", err)
+	}
+
+	return cleanedJSON, nil
 }
 
 // validateFieldValue validates a single field value against its definition
@@ -644,13 +653,15 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Validate structured_data against schema
+		// Validate and clean structured_data against schema
 		if params.StructuredData != nil && len(*params.StructuredData) > 0 {
-			if err := validateStructuredData(*params.StructuredData, schema); err != nil {
+			cleanedData, err := validateStructuredData(*params.StructuredData, schema)
+			if err != nil {
 				log.Printf("Structured data validation error: %v", err)
 				http.Error(w, fmt.Sprintf("Invalid structured data: %v", err), http.StatusBadRequest)
 				return
 			}
+			params.StructuredData = &cleanedData
 		} else {
 			// If schema_id is provided but no structured_data, check if all fields are optional
 			for _, field := range schema.Fields {
@@ -719,13 +730,15 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Validate structured_data against schema
+		// Validate and clean structured_data against schema
 		if params.StructuredData != nil && len(*params.StructuredData) > 0 {
-			if err := validateStructuredData(*params.StructuredData, schema); err != nil {
+			cleanedData, err := validateStructuredData(*params.StructuredData, schema)
+			if err != nil {
 				log.Printf("Structured data validation error: %v", err)
 				http.Error(w, fmt.Sprintf("Invalid structured data: %v", err), http.StatusBadRequest)
 				return
 			}
+			params.StructuredData = &cleanedData
 		} else {
 			// If schema_id is provided but no structured_data, check if all fields are optional
 			for _, field := range schema.Fields {

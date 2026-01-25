@@ -59,9 +59,6 @@ export function CardStructuredDataDisplay({ schemaId, structuredData }: CardStru
   return (
     <div className="bg-white rounded-lg p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-700 border-b pb-2">
-          Structured Data
-        </h3>
         <button
           onClick={() => navigate(`/app/schemas/${schemaId}/table`)}
           className="text-xs text-blue-600 hover:text-blue-800 hover:underline"

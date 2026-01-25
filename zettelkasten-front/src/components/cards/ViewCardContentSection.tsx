@@ -106,11 +106,6 @@ export function ViewCardContentSection({
         )}
       </div>
 
-      <CardStructuredDataDisplay
-        schemaId={viewingCard.schema_id}
-        structuredData={viewingCard.structured_data}
-      />
-
       <div>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">

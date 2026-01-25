@@ -9,6 +9,7 @@ import { CardItem } from "./CardItem";
 import { SearchTagDropdown } from "../tags/SearchTagDropdown";
 import { linkifyWithDefaultOptions } from "../../utils/strings";
 import { PersonIcon } from "../../assets/icons/PersonIcon";
+import { CardStructuredDataDisplay } from "../schemas/CardStructuredDataDisplay";
 
 interface ViewPageSidePanelsProps {
   parentCard: Card | null;
@@ -168,6 +169,13 @@ export function ViewPageSidePanels({
           <hr className="my-4" />
         </div>
       )}
+      <div>
+
+        <CardStructuredDataDisplay
+          schemaId={viewingCard.schema_id}
+          structuredData={viewingCard.structured_data}
+        />
+      </div>
 
       {/* Tags Section */}
       <div>
