@@ -112,17 +112,17 @@ func (m *MailClient) SendWelcomeEmail(email string) error {
 	return nil
 }
 
-func (m *MailClient) SendMailingListMessage(subject, body string, toRecipients, bccRecipients []string) error {
+func (m *MailClient) SendMailingListMessage(subject, body string, toRecipients, bccRecipients []string) (int, error) {
 	// Start a transaction
 	tx, err := m.DB.Begin()
 	if err != nil {
-		return fmt.Errorf("error starting transaction: %v", err)
+		return 0, fmt.Errorf("error starting transaction: %v", err)
 	}
 	defer tx.Rollback()
 
 	// Validate recipients
 	if len(toRecipients) == 0 && len(bccRecipients) == 0 {
-		return fmt.Errorf("at least one recipient is required")
+		return 0, fmt.Errorf("at least one recipient is required")
 	}
 
 	// Convert markdown to HTML
@@ -159,7 +159,7 @@ func (m *MailClient) SendMailingListMessage(subject, body string, toRecipients, 
 		RETURNING id
 	`, subject, body, len(toRecipients)+len(bccRecipients)).Scan(&messageID)
 	if err != nil {
-		return fmt.Errorf("error creating message record: %v", err)
+		return 0, fmt.Errorf("error creating message record: %v", err)
 	}
 
 	// Insert recipient records and send emails
@@ -170,12 +170,12 @@ func (m *MailClient) SendMailingListMessage(subject, body string, toRecipients, 
 			VALUES ($1, $2, 'to')
 		`, messageID, email)
 		if err != nil {
-			return fmt.Errorf("error recording TO recipient %s: %v", email, err)
+			return 0, fmt.Errorf("error recording TO recipient %s: %v", email, err)
 		}
 
 		err = m.SendHTMLEmail(subject, email, htmlBody)
 		if err != nil {
-			return fmt.Errorf("error sending to TO recipient %s: %v", email, err)
+			return 0, fmt.Errorf("error sending to TO recipient %s: %v", email, err)
 		}
 	}
 
@@ -186,24 +186,24 @@ func (m *MailClient) SendMailingListMessage(subject, body string, toRecipients, 
 			VALUES ($1, $2, 'bcc')
 		`, messageID, email)
 		if err != nil {
-			return fmt.Errorf("error recording BCC recipient %s: %v", email, err)
+			return 0, fmt.Errorf("error recording BCC recipient %s: %v", email, err)
 		}
 
 		err = m.SendHTMLEmail(subject, email, htmlBody)
 		if err != nil {
-			return fmt.Errorf("error sending to BCC recipient %s: %v", email, err)
+			return 0, fmt.Errorf("error sending to BCC recipient %s: %v", email, err)
 		}
 	}
 
 	// Commit the transaction
 	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("error committing transaction: %v", err)
+		return 0, fmt.Errorf("error committing transaction: %v", err)
 	}
 
 	log.Printf("Successfully sent message ID %d to %d recipients",
 		messageID, len(toRecipients)+len(bccRecipients))
 
-	return nil
+	return messageID, nil
 }
 
 func (m *MailClient) GetMailingListMessages(limit, offset int) ([]models.MailingListMessage, error) {

@@ -42,18 +42,8 @@ func (s *Handler) GetAllSubscribers() ([]models.MailingList, error) {
 	return s.Server.Mail.GetMailingListSubscribers()
 }
 
+// admin protected (via middleware)
 func (s *Handler) GetMailingListSubscribersRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
-	user, err := s.QueryUser(userID)
-	if err != nil {
-		http.Error(w, "User not found", http.StatusBadRequest)
-		return
-	}
-	if !user.IsAdmin {
-		http.Error(w, "Access denied", http.StatusUnauthorized)
-		return
-	}
-
 	subscribers, err := s.GetAllSubscribers()
 	if err != nil {
 		log.Printf("Error getting subscribers: %v", err)
@@ -72,19 +62,8 @@ type SendMailingListRequest struct {
 	BccRecipients []string `json:"bcc_recipients"`
 }
 
+// admin protected (via middleware)
 func (s *Handler) SendMailingListMessageRoute(w http.ResponseWriter, r *http.Request) {
-	// Admin check
-	userID := r.Context().Value("current_user").(int)
-	user, err := s.QueryUser(userID)
-	if err != nil {
-		http.Error(w, "User not found", http.StatusBadRequest)
-		return
-	}
-	if !user.IsAdmin {
-		http.Error(w, "Access denied", http.StatusUnauthorized)
-		return
-	}
-
 	// Parse request
 	var req SendMailingListRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -103,12 +82,21 @@ func (s *Handler) SendMailingListMessageRoute(w http.ResponseWriter, r *http.Req
 	}
 
 	// Send the message
-	err = s.Server.Mail.SendMailingListMessage(req.Subject, req.Body, req.ToRecipients, req.BccRecipients)
+	messageID, err := s.Server.Mail.SendMailingListMessage(req.Subject, req.Body, req.ToRecipients, req.BccRecipients)
 	if err != nil {
 		log.Printf("Error sending mailing list message: %v", err)
 		http.Error(w, "Error sending message", http.StatusInternalServerError)
 		return
 	}
+
+	// Log admin action
+	s.LogAdminActionAsync(r, "mailing_list.send_message", "mailing_list_message", messageID, map[string]interface{}{
+		"subject":          req.Subject,
+		"to_count":         len(req.ToRecipients),
+		"bcc_count":        len(req.BccRecipients),
+		"to_recipients":    req.ToRecipients,
+		"bcc_recipients":   req.BccRecipients,
+	})
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
@@ -116,19 +104,8 @@ func (s *Handler) SendMailingListMessageRoute(w http.ResponseWriter, r *http.Req
 	})
 }
 
+// admin protected (via middleware)
 func (s *Handler) GetMailingListMessagesRoute(w http.ResponseWriter, r *http.Request) {
-	// Admin check
-	userID := r.Context().Value("current_user").(int)
-	user, err := s.QueryUser(userID)
-	if err != nil {
-		http.Error(w, "User not found", http.StatusBadRequest)
-		return
-	}
-	if !user.IsAdmin {
-		http.Error(w, "Access denied", http.StatusUnauthorized)
-		return
-	}
-
 	// Parse pagination parameters
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
@@ -147,19 +124,8 @@ func (s *Handler) GetMailingListMessagesRoute(w http.ResponseWriter, r *http.Req
 	json.NewEncoder(w).Encode(messages)
 }
 
+// admin protected (via middleware)
 func (s *Handler) GetMessageRecipientsRoute(w http.ResponseWriter, r *http.Request) {
-	// Admin check
-	userID := r.Context().Value("current_user").(int)
-	user, err := s.QueryUser(userID)
-	if err != nil {
-		http.Error(w, "User not found", http.StatusBadRequest)
-		return
-	}
-	if !user.IsAdmin {
-		http.Error(w, "Access denied", http.StatusUnauthorized)
-		return
-	}
-
 	// Get message ID from URL parameters
 	messageID, err := strconv.Atoi(r.URL.Query().Get("message_id"))
 	if err != nil {
@@ -178,19 +144,8 @@ func (s *Handler) GetMessageRecipientsRoute(w http.ResponseWriter, r *http.Reque
 	json.NewEncoder(w).Encode(recipients)
 }
 
+// admin protected (via middleware)
 func (s *Handler) UnsubscribeMailingListRoute(w http.ResponseWriter, r *http.Request) {
-	// Admin check
-	userID := r.Context().Value("current_user").(int)
-	user, err := s.QueryUser(userID)
-	if err != nil {
-		http.Error(w, "User not found", http.StatusBadRequest)
-		return
-	}
-	if !user.IsAdmin {
-		http.Error(w, "Access denied", http.StatusUnauthorized)
-		return
-	}
-
 	// Parse the request body
 	var request struct {
 		Email string `json:"email"`
@@ -202,18 +157,23 @@ func (s *Handler) UnsubscribeMailingListRoute(w http.ResponseWriter, r *http.Req
 
 	// Update the subscriber's status in the database
 	query := `
-		UPDATE mailing_list 
-		SET subscribed = false, updated_at = NOW() 
+		UPDATE mailing_list
+		SET subscribed = false, updated_at = NOW()
 		WHERE email = $1 AND subscribed = true
 		RETURNING id
 	`
 	var id int
-	err = s.DB.QueryRow(query, request.Email).Scan(&id)
+	err := s.DB.QueryRow(query, request.Email).Scan(&id)
 	if err != nil {
 		log.Printf("Error unsubscribing email %s: %v", request.Email, err)
 		http.Error(w, "Failed to unsubscribe email", http.StatusInternalServerError)
 		return
 	}
+
+	// Log admin action
+	s.LogAdminActionAsync(r, "mailing_list.unsubscribe", "mailing_list", id, map[string]interface{}{
+		"email": request.Email,
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{

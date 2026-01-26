@@ -6,20 +6,28 @@ import (
 )
 
 func RegisterUserRoutes(r *mux.Router, h *handlers.Handler) {
-	addProtectedRoute(r, h, "/api/users/{id}", h.GetUserRoute, "GET")
-	addProtectedRoute(r, h, "/api/users/{id}", h.UpdateUserRoute, "PUT")
-	addProtectedRoute(r, h, "/api/users", h.GetUsersRoute, "GET")
+	// Admin-only routes
+	addAdminRoute(r, h, "/api/users/{id}", h.GetUserRoute, "GET")         // View any user
+	addAdminRoute(r, h, "/api/users", h.GetUsersRoute, "GET")              // List all users
+
+	// Admin-or-self routes (admin can access any, users can access their own)
+	addAdminOrSelfRoute(r, h, "/api/users/{id}", h.UpdateUserRoute, "PUT", "id")
+	addAdminOrSelfRoute(r, h, "/api/users/{id}/subscription", h.GetUserSubscriptionRoute, "GET", "id")
+
+	// Protected routes for current user
+	addProtectedRoute(r, h, "/api/current", h.GetCurrentUserRoute, "GET")
+	addProtectedRoute(r, h, "/api/user/memory", h.GetUserMemoryRoute, "GET")
+	addProtectedRoute(r, h, "/api/user/memory", h.UpdateUserMemoryRoute, "PUT")
+	addProtectedRoute(r, h, "/api/admin", h.GetUserAdminRoute, "GET")
+
 	// User signup/registration (public for new account creation)
 	addRoute(r, "/api/users", h.CreateUserRoute, "POST")
-	addProtectedRoute(r, h, "/api/users/{id}/subscription", h.GetUserSubscriptionRoute, "GET")
+
+	// Billing routes (protected but not admin-only)
 	addProtectedRoute(r, h, "/api/billing/subscribe", h.CreateSubscriptionRoute, "POST")
 	addProtectedRoute(r, h, "/api/billing/portal", h.BillingPortalRoute, "GET")
 	addProtectedRoute(r, h, "/api/billing/public-key", h.StripePublicKeyRoute, "GET")
+
 	// Stripe webhook (public for payment processing, verified via signature)
 	addRoute(r, "/api/stripe/webhook", h.StripeWebhookRoute, "POST")
-
-	addProtectedRoute(r, h, "/api/user/memory", h.GetUserMemoryRoute, "GET")
-	addProtectedRoute(r, h, "/api/user/memory", h.UpdateUserMemoryRoute, "PUT")
-	addProtectedRoute(r, h, "/api/current", h.GetCurrentUserRoute, "GET")
-	addProtectedRoute(r, h, "/api/admin", h.GetUserAdminRoute, "GET")
 }

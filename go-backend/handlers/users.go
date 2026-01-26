@@ -30,7 +30,7 @@ func (s *Handler) GetUserAdminRoute(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// admin protected
+// admin protected (via middleware)
 func (s *Handler) GetUserRoute(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil {
@@ -60,18 +60,19 @@ func (s *Handler) GetUsersRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Handler) UpdateUserRoute(w http.ResponseWriter, r *http.Request) {
+	// Authorization handled by AdminOrSelfMiddleware
+	// - Admins can update any user
+	// - Non-admins can only update themselves
 	userID := r.Context().Value("current_user").(int)
 	id, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil {
 		http.Error(w, "Invalid id", http.StatusBadRequest)
 		return
 	}
-	user, _ := s.QueryUser(userID)
-	if !user.IsAdmin {
-		if user.ID != id {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
+	user, err := s.QueryUser(userID)
+	if err != nil {
+		http.Error(w, "Error loading user", http.StatusBadRequest)
+		return
 	}
 
 	var params models.EditUserParams
@@ -82,11 +83,44 @@ func (s *Handler) UpdateUserRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
+
+	// Non-admins cannot change admin status
+	// Get the target user's current admin status to check if it's being changed
+	targetUser, err := s.QueryUser(id)
+	if err != nil {
+		http.Error(w, "Error loading target user", http.StatusBadRequest)
+		return
+	}
+	if !user.IsAdmin && targetUser.IsAdmin != params.IsAdmin {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Track changes for audit logging
+	oldValues := map[string]interface{}{
+		"username": targetUser.Username,
+		"email":    targetUser.Email,
+		"is_admin": targetUser.IsAdmin,
+	}
+
 	user, err = s.UpdateUser(id, user, params)
 	if err != nil {
 		log.Printf("error updating user: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	// Log admin action if the current user is an admin
+	if user.IsAdmin {
+		details := map[string]interface{}{
+			"old": oldValues,
+			"new": map[string]interface{}{
+				"username": params.Username,
+				"email":    params.Email,
+				"is_admin": params.IsAdmin,
+			},
+		}
+		s.LogAdminActionAsync(r, "user.update", "user", id, details)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -156,28 +190,19 @@ func (s *Handler) GetCurrentUserRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+// admin-or-self protected (via middleware)
 func (s *Handler) GetUserSubscriptionRoute(w http.ResponseWriter, r *http.Request) {
-
 	var userSub models.UserSubscription
 
-	userID := r.Context().Value("current_user").(int)
 	id, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil {
 		http.Error(w, "Invalid id", http.StatusBadRequest)
 		return
 	}
 
-	user, err := s.QueryUser(userID)
-	if user.ID != id {
-		if !user.IsAdmin {
-			http.Error(w, "unauthorized", http.StatusForbidden)
-			return
-		}
-	}
-
 	err = s.DB.QueryRow(`
-	SELECT 
-	id, stripe_customer_id, stripe_subscription_id, 
+	SELECT
+	id, stripe_customer_id, stripe_subscription_id,
 	stripe_subscription_status,
 	stripe_subscription_frequency, stripe_current_plan
 	FROM users WHERE id = $1
@@ -194,7 +219,7 @@ func (s *Handler) GetUserSubscriptionRoute(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trialing" {
+	if userSub.StripeSubscriptionStatus == "active" || userSub.StripeSubscriptionStatus == "trialing" {
 		userSub.IsActive = true
 	} else {
 		userSub.IsActive = false
