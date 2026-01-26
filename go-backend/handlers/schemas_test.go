@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"go-backend/models"
 	"go-backend/tests"
 	"log"
@@ -1439,5 +1440,132 @@ func TestUpdateSchemaRoute_SameName(t *testing.T) {
 
 	if len(updatedSchema.Fields) != 2 {
 		t.Errorf("Expected 2 fields after update, got %d", len(updatedSchema.Fields))
+	}
+}
+
+// TestCreateSchemaRoute_ExceedsMaxFields tests error when schema exceeds maximum fields
+func TestCreateSchemaRoute_ExceedsMaxFields(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	// Create fields array exceeding MaxFieldsPerSchema (50)
+	fields := make([]models.FieldDefinition, MaxFieldsPerSchema+1)
+	for i := 0; i < len(fields); i++ {
+		fields[i] = models.FieldDefinition{
+			Name: fmt.Sprintf("field_%d", i),
+			Type: "text",
+			Required: false,
+		}
+	}
+
+	params := models.CreateSchemaDefinitionParams{
+		Name:   "Test Schema",
+		Fields: fields,
+	}
+	jsonData, _ := json.Marshal(params)
+
+	req, _ := http.NewRequest("POST", "/api/schemas", bytes.NewBuffer(jsonData))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateSchemaRoute))
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", rr.Code)
+	}
+
+	expectedMsg := fmt.Sprintf("schema exceeds maximum of %d fields (got %d)\n", MaxFieldsPerSchema, MaxFieldsPerSchema+1)
+	if rr.Body.String() != expectedMsg {
+		t.Errorf("Expected error message '%s', got '%s'", expectedMsg, rr.Body.String())
+	}
+}
+
+// TestCreateSchemaRoute_ExceedsMaxOptions tests error when select field exceeds maximum options
+func TestCreateSchemaRoute_ExceedsMaxOptions(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	// Create options array exceeding MaxOptionsPerField (100)
+	options := make([]string, MaxOptionsPerField+1)
+	for i := 0; i < len(options); i++ {
+		options[i] = fmt.Sprintf("option_%d", i)
+	}
+
+	fields := []models.FieldDefinition{
+		{Name: "status", Type: "select", Required: false, Options: options},
+	}
+	params := models.CreateSchemaDefinitionParams{
+		Name:   "Test Schema",
+		Fields: fields,
+	}
+	jsonData, _ := json.Marshal(params)
+
+	req, _ := http.NewRequest("POST", "/api/schemas", bytes.NewBuffer(jsonData))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateSchemaRoute))
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", rr.Code)
+	}
+
+	expectedMsg := fmt.Sprintf("field 'status' exceeds maximum of %d options (got %d)\n", MaxOptionsPerField, MaxOptionsPerField+1)
+	if rr.Body.String() != expectedMsg {
+		t.Errorf("Expected error message '%s', got '%s'", expectedMsg, rr.Body.String())
+	}
+}
+
+// TestUpdateSchemaRoute_ExceedsMaxFields tests error when update exceeds maximum fields
+func TestUpdateSchemaRoute_ExceedsMaxFields(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
+	schema, _ := createSchema(t, s, 1, "Test Schema", fields)
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	// Create fields array exceeding MaxFieldsPerSchema (50)
+	updateFields := make([]models.FieldDefinition, MaxFieldsPerSchema+1)
+	for i := 0; i < len(updateFields); i++ {
+		updateFields[i] = models.FieldDefinition{
+			Name: fmt.Sprintf("field_%d", i),
+			Type: "text",
+			Required: false,
+		}
+	}
+
+	params := models.UpdateSchemaDefinitionParams{
+		Name:   "Test Schema",
+		Fields: updateFields,
+	}
+	jsonData, _ := json.Marshal(params)
+
+	req, _ := http.NewRequest("PUT", "/api/schemas/"+strconv.Itoa(schema.ID), bytes.NewBuffer(jsonData))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", strconv.Itoa(schema.ID))
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/schemas/{id}", s.JwtMiddleware(s.UpdateSchemaRoute))
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", rr.Code)
+	}
+
+	expectedMsg := fmt.Sprintf("schema exceeds maximum of %d fields (got %d)\n", MaxFieldsPerSchema, MaxFieldsPerSchema+1)
+	if rr.Body.String() != expectedMsg {
+		t.Errorf("Expected error message '%s', got '%s'", expectedMsg, rr.Body.String())
 	}
 }
