@@ -838,6 +838,11 @@ func (s *Handler) GetEntityByNameRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Handler) LinkCardToEntityIfPossible(userID int, card models.Card) error {
+	// Skip during testing to avoid external service calls
+	if s.Server.Testing {
+		return nil
+	}
+
 	var entityID int
 	var cardPK sql.NullInt64
 

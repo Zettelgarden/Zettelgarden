@@ -27,15 +27,21 @@ func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.Sect
 	var completedSections []models.SectionAnalysis      // Store completed sections
 	var currentSectionAnalyses []models.SectionAnalysis // Current working sections
 	var lastSectionName string                          // Track the last section name to detect transitions
+	var cachedSectionJSON string                       // Cache marshaled JSON to avoid re-marshaling on every chunk
+	var cacheValid bool                                // Track if the cached JSON is valid
 
 	for _, chunk := range chunks {
 		contextIntro := ""
 		if len(currentSectionAnalyses) > 0 {
-			// Only include current section for context, remove facts to save tokens
-			existingAnalysesJSON, err := json.Marshal(currentSectionAnalyses)
-			if err == nil { // Proceed only if marshaling is successful
-				contextIntro = "<existing_analyses>\n" + string(existingAnalysesJSON) + "\n</existing_analyses>\n"
+			// Use cached JSON if available and valid, otherwise marshal and cache
+			if !cacheValid {
+				existingAnalysesJSON, err := json.Marshal(currentSectionAnalyses)
+				if err == nil { // Proceed only if marshaling is successful
+					cachedSectionJSON = "<existing_analyses>\n" + string(existingAnalysesJSON) + "\n</existing_analyses>\n"
+					cacheValid = true
+				}
 			}
+			contextIntro = cachedSectionJSON
 		}
 
 		userContent := contextIntro +
@@ -124,26 +130,84 @@ Format Example:
 		if err := json.Unmarshal([]byte(content), &analysis); err != nil {
 			log.Printf("err on analysis: %v", err)
 			log.Printf("content: %v", content)
+			// Save current section data before skipping this chunk to avoid data loss
+			if len(currentSectionAnalyses) > 0 {
+				completedSections = append(completedSections, currentSectionAnalyses...)
+				log.Printf("Saving current section data before skipping chunk due to JSON error")
+				currentSectionAnalyses = nil
+				lastSectionName = ""
+				cacheValid = false // Invalidate cache
+			}
 			continue
 		}
 		log.Printf("all analysis %v", analysis)
 
 		// Check for section transitions and manage completed sections
 		if len(analysis) > 0 {
-			newSectionName := analysis[len(analysis)-1].Section
+			// Process each section in the analysis to properly merge/update currentSectionAnalyses
+			for _, section := range analysis {
+				sectionTitle := strings.TrimSpace(section.Section)
+				if sectionTitle == "" {
+					continue
+				}
 
-			// If we have a new section and we were working on a previous section
-			if lastSectionName != "" && newSectionName != lastSectionName && len(currentSectionAnalyses) > 0 {
-				// Save the previous completed section
-				completedSections = append(completedSections, currentSectionAnalyses...)
-				log.Printf("Completed section %s, saving to completed sections", lastSectionName)
+				// Check if this section already exists in currentSectionAnalyses
+				existingSectionIndex := -1
+				for i, currentSec := range currentSectionAnalyses {
+					if strings.TrimSpace(currentSec.Section) == sectionTitle {
+						existingSectionIndex = i
+						break
+					}
+				}
+
+				if existingSectionIndex >= 0 {
+					// Section exists - update it by merging theses
+					existingSection := &currentSectionAnalyses[existingSectionIndex]
+					for _, thesis := range section.Theses {
+						// Skip empty theses
+						thesisText := strings.TrimSpace(thesis.Thesis)
+						if thesisText == "" {
+							continue
+						}
+						// Check if this thesis already exists (by text) to avoid duplicates
+						thesisExists := false
+						for _, existingThesis := range existingSection.Theses {
+							if strings.TrimSpace(existingThesis.Thesis) == thesisText {
+								thesisExists = true
+								break
+							}
+						}
+						if !thesisExists {
+							existingSection.Theses = append(existingSection.Theses, thesis)
+						}
+					}
+				} else {
+					// New section - check if we need to save the previous section
+					if lastSectionName != "" && sectionTitle != lastSectionName && len(currentSectionAnalyses) > 0 {
+						// Save the previous completed section
+						completedSections = append(completedSections, currentSectionAnalyses...)
+						log.Printf("Completed section %s, saving to completed sections", lastSectionName)
+						currentSectionAnalyses = nil
+					}
+					// Add the new section
+					analysesWithoutFacts, newFacts := RemoveFactsFromAnalyses([]models.SectionAnalysis{section})
+					facts = append(facts, newFacts...)
+					if currentSectionAnalyses == nil {
+						currentSectionAnalyses = analysesWithoutFacts
+					} else {
+						currentSectionAnalyses = append(currentSectionAnalyses, analysesWithoutFacts...)
+					}
+					lastSectionName = sectionTitle
+				}
 			}
-
-			// Update current working sections and last section name
-			analysesWithoutFacts, newFacts := RemoveFactsFromAnalyses(analysis)
-			facts = append(facts, newFacts...)
-			currentSectionAnalyses = analysesWithoutFacts
-			lastSectionName = newSectionName
+			cacheValid = false // Invalidate cache when currentSectionAnalyses changes
+		} else if len(analysis) == 0 && len(currentSectionAnalyses) > 0 {
+			// LLM returned empty array - save current section to avoid data loss
+			completedSections = append(completedSections, currentSectionAnalyses...)
+			log.Printf("LLM returned empty analyses array, saving current section data")
+			currentSectionAnalyses = nil
+			lastSectionName = ""
+			cacheValid = false // Invalidate cache
 		}
 
 		totalPromptTokens += resp.Usage.PromptTokens
@@ -188,22 +252,17 @@ func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []models.SectionAn
 
 	// Aggregate all results into one string
 	theses := []string{}
-	args := []string{}
 
 	for _, sec := range allAnalyses {
 		for _, th := range sec.Theses {
 			if th.Thesis != "" {
 				theses = append(theses, th.Thesis)
 			}
-			for _, arg := range th.Arguments {
-				if arg.Importance >= 7 {
-					args = append(args, arg.Argument)
-				}
-			}
 		}
 	}
 
 	// Deduplicate and rank with another LLM call
+	// Helper function to format arguments with their importance values
 	formatArguments := func(args []models.Argument) string {
 		var out []string
 		for _, a := range args {
@@ -224,15 +283,12 @@ Respond ONLY in JSON with the following format:
   "theses": [{"thesis": "...", "rank": 1}, {"thesis": "...", "rank": 2}],
   "facts": ["...", "..."],
   "arguments": [{"argument": "...", "rank": 1}, {"argument": "...", "rank": 2}]
-}`,
+}
+Important: Consider the full set of arguments with their importance values when performing deduplication and ranking.`,
 		},
 		{
 			Role:    openai.ChatMessageRoleUser,
 			Content: dedupInput,
-		},
-		{
-			Role:    openai.ChatMessageRoleUser,
-			Content: "Please consider the full set of arguments (with importance values) above when performing deduplication and ranking.",
 		},
 	}
 	dedupResp, err := ExecuteLLMRequest(context.Background(), c, dedupMessages)
@@ -311,10 +367,6 @@ Input (including deduplicated theses, facts, and arguments with importance/rank)
 	totalCompletionTokens += finalResp.Usage.CompletionTokens
 
 	summary := finalResp.Choices[0].Message.Content
-	summary += "\n\nTokens used: " +
-		fmt.Sprintf("%d (Prompt: %d, Completion: %d)",
-			totalPromptTokens+totalCompletionTokens,
-			totalPromptTokens, totalCompletionTokens)
 
 	const promptCostPerMillion = 1.25
 	const completionCostPerMillion = 10.0
@@ -322,12 +374,10 @@ Input (including deduplicated theses, facts, and arguments with importance/rank)
 	completionCost := float64(totalCompletionTokens) / 1_000_000 * completionCostPerMillion
 	totalCost := promptCost + completionCost
 
-	summary += "\n\nEstimated Cost: " +
-		fmt.Sprintf("$%.4f (Prompt: $%.4f, Completion: $%.4f)",
-			totalCost, promptCost, completionCost)
-
+	// Log timing and cost information for observability (not included in summary to keep it as pure markdown)
 	elapsed := time.Since(start)
-	summary += "\n\nTime Taken: " + elapsed.String()
+	log.Printf("Summarization completed - Time: %v, Tokens: %d (Prompt: %d, Completion: %d), Cost: $%.4f",
+		elapsed, totalPromptTokens+totalCompletionTokens, totalPromptTokens, totalCompletionTokens, totalCost)
 
 	// update usage before returning
 	usage.PromptTokens = totalPromptTokens
@@ -462,10 +512,12 @@ func GetCardAnalysis(db *sql.DB, userID int, cardPK int) ([]models.SectionAnalys
 // RemoveFactsFromAnalyses creates a copy of the analyses structure without facts
 // to reduce context size when feeding back to the LLM
 func RemoveFactsFromAnalyses(analyses []models.SectionAnalysis) ([]models.SectionAnalysis, []string) {
-	var result []models.SectionAnalysis
-	var facts []string
+	// Pre-allocate result slice to avoid multiple reallocations
+	result := make([]models.SectionAnalysis, 0, len(analyses))
+	facts := make([]string, 0, len(analyses)*3) // Pre-allocate facts with estimated capacity
 
 	for _, section := range analyses {
+		// Pre-allocate theses slice to avoid multiple reallocations
 		newSection := models.SectionAnalysis{
 			Section: section.Section,
 			Theses:  make([]models.ThesisEntry, len(section.Theses)),
@@ -473,10 +525,11 @@ func RemoveFactsFromAnalyses(analyses []models.SectionAnalysis) ([]models.Sectio
 
 		for i, thesis := range section.Theses {
 			facts = append(facts, thesis.Facts...)
+			// Reuse the Arguments slice reference - no need to copy the underlying data
 			newSection.Theses[i] = models.ThesisEntry{
 				Thesis:    thesis.Thesis,
-				Facts:     []string{},       // Remove facts
-				Arguments: thesis.Arguments, // Keep arguments
+				Facts:     []string{}, // Remove facts to reduce token count
+				Arguments: thesis.Arguments,
 			}
 		}
 

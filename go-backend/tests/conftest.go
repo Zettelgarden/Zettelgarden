@@ -142,7 +142,10 @@ func Setup() *server.Server {
 
 func Teardown() {
 	// Fast cleanup: truncate tables instead of dropping and re-migrating
-	truncateTestData()
+	// Only truncate if the database has been initialized
+	if S != nil && S.DB != nil {
+		truncateTestData()
+	}
 }
 
 // truncateTestData clears all test data but keeps the schema.
@@ -168,6 +171,7 @@ func truncateTestData() {
 		"facts",
 		"files",
 		"keywords",
+		"llm_jobs",
 		"llm_models",
 		"llm_providers",
 		"llm_query_log",
@@ -202,7 +206,34 @@ func truncateTestData() {
 
 	_, err := S.DB.Exec(truncateStmt)
 	if err != nil {
-		log.Printf("Warning: failed to truncate tables: %v", err)
+		log.Printf("Warning: TRUNCATE failed (%v), falling back to DELETE for all tables", err)
+		// Fallback: Use DELETE for all tables if TRUNCATE fails
+		// Order matters for DELETE - delete from tables with no dependents first
+		for _, table := range tables {
+			_, deleteErr := S.DB.Exec("DELETE FROM " + table)
+			if deleteErr != nil {
+				log.Printf("Warning: failed to DELETE from %s: %v", table, deleteErr)
+			}
+		}
+		// Explicitly reset sequences after DELETE
+		for _, table := range tables {
+			// Try to reset the sequence for this table if it has one
+			_, seqErr := S.DB.Exec("SELECT setval(pg_get_serial_sequence('" + table + "', 'id'), 1, false)")
+			if seqErr != nil {
+				// Not all tables have sequences, so this is expected to fail for some
+				continue
+			}
+		}
+	} else {
+		// TRUNCATE succeeded, but sequences might not be reset properly
+		// Explicitly reset all sequences to ensure they start at 1
+		for _, table := range tables {
+			_, seqErr := S.DB.Exec("SELECT setval(pg_get_serial_sequence('" + table + "', 'id'), 1, false)")
+			if seqErr != nil {
+				// Not all tables have sequences, so this is expected to fail for some
+				continue
+			}
+		}
 	}
 }
 

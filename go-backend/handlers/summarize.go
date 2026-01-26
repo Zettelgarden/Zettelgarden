@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"go-backend/models"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -64,26 +66,10 @@ func (h *Handler) GetSummariesByCardRoute(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	rows, err := h.DB.Query(`
-		SELECT id, status, COALESCE(result, '')
-		FROM summarizations
-		WHERE user_id = $1 AND card_pk = $2
-		ORDER BY created_at DESC
-	`, userID, cardID)
+	summaries, err := h.querySummarizations(userID, &cardID)
 	if err != nil {
-		http.Error(w, "Failed to query summarizations", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-	}
-	defer rows.Close()
-
-	var summaries []SummarizeJobResponse
-	for rows.Next() {
-		var job SummarizeJobResponse
-		if err := rows.Scan(&job.ID, &job.Status, &job.Result); err != nil {
-			http.Error(w, "Error scanning row", http.StatusInternalServerError)
-			return
-		}
-		summaries = append(summaries, job)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -94,30 +80,60 @@ func (h *Handler) GetSummariesByCardRoute(w http.ResponseWriter, r *http.Request
 func (h *Handler) ListSummarizationsRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
-	rows, err := h.DB.Query(`
-		SELECT id, status, COALESCE(result, '')
-		FROM summarizations
-		WHERE user_id = $1
-		ORDER BY created_at DESC
-	`, userID)
+	summaries, err := h.querySummarizations(userID, nil)
 	if err != nil {
-		http.Error(w, "Failed to query summarizations", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-	}
-	defer rows.Close()
-
-	var jobs []SummarizeJobResponse
-	for rows.Next() {
-		var job SummarizeJobResponse
-		if err := rows.Scan(&job.ID, &job.Status, &job.Result); err != nil {
-			http.Error(w, "Error scanning row", http.StatusInternalServerError)
-			return
-		}
-		jobs = append(jobs, job)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(jobs)
+	json.NewEncoder(w).Encode(summaries)
+}
+
+// querySummarizations is a shared helper that queries summarizations for a user,
+// optionally filtered by card_pk
+func (h *Handler) querySummarizations(userID int, cardPK *int) ([]SummarizeJobResponse, error) {
+	var rows *sql.Rows
+	var err error
+
+	if cardPK != nil {
+		rows, err = h.DB.Query(`
+			SELECT id, status, result
+			FROM summarizations
+			WHERE user_id = $1 AND card_pk = $2
+			ORDER BY created_at DESC
+		`, userID, *cardPK)
+	} else {
+		rows, err = h.DB.Query(`
+			SELECT id, status, result
+			FROM summarizations
+			WHERE user_id = $1
+			ORDER BY created_at DESC
+		`, userID)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to query summarizations: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []SummarizeJobResponse
+	for rows.Next() {
+		var job SummarizeJobResponse
+		var result sql.NullString
+		if err := rows.Scan(&job.ID, &job.Status, &result); err != nil {
+			return nil, fmt.Errorf("error scanning row: %w", err)
+		}
+		// Convert sql.NullString to string
+		if result.Valid {
+			job.Result = result.String
+		} else {
+			job.Result = ""
+		}
+		summaries = append(summaries, job)
+	}
+
+	return summaries, nil
 }
 
 // CreateSummarizationRoute creates a summarization job and runs it asynchronously
@@ -187,17 +203,17 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 		return
 	}
 	_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
-	//wordCount := len(strings.Fields(card.Body))
+
 	go func() {
+		// Ensure LinkCardToEntityIfPossible is always called exactly once, regardless of success or failure
+		defer h.LinkCardToEntityIfPossible(userID, card)
+
 		client := services.NewDefaultClient(h.DB, userID)
 		client.RequestType = "analysis"
 		processedText := prepareTextForAnalysis(card.Title, card.Body)
 		analyses, facts, usage, err := services.ExtractThesesAndArguments(client, processedText)
 		if err != nil {
 			log.Printf("Fact extraction failed: %v", err)
-
-			// todo think about how this should really work, this is a hack to make sure this happens regardless
-			h.LinkCardToEntityIfPossible(userID, card)
 			return
 		}
 
@@ -211,7 +227,7 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 		// Save the detailed analysis linked to the job ID
 		if err := h.SaveAnalysis(userID, card.ID, jobID, analyses); err != nil {
 			log.Printf("Failed to save analysis: %v", err)
-			// Even if saving analysis fails, we can still try to link entities
+			// Even if saving analysis fails, we can still try to link entities via defer
 		}
 
 		log.Printf("facts %v", facts)
@@ -219,13 +235,16 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 			factObjs, _ := h.ExtractSaveCardFacts(userID, card.ID, facts)
 			_ = h.ExtractSaveFactEntities(userID, card, factObjs)
 		}
-
-		h.LinkCardToEntityIfPossible(userID, card)
 	}()
 }
 
 // SaveAnalysis persists the structured analysis from the LLM into the database.
 func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []models.SectionAnalysis) error {
+	// Validate cardPK is a positive integer
+	if cardPK <= 0 {
+		return fmt.Errorf("invalid card_pk: must be positive, got %d", cardPK)
+	}
+
 	tx, err := h.DB.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -233,6 +252,12 @@ func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []m
 	defer tx.Rollback() // Rollback on error, if commit fails
 
 	for sectionIndex, analysis := range analyses {
+		// Skip sections with empty or whitespace-only titles
+		sectionTitle := strings.TrimSpace(analysis.Section)
+		if sectionTitle == "" {
+			continue
+		}
+
 		// Insert Section - remove ON CONFLICT to allow multiple sections with same title
 		// Add section_order to distinguish between sections with identical titles
 		var sectionID int
@@ -240,13 +265,15 @@ func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []m
 			INSERT INTO summary_sections (user_id, card_pk, summarization_id, section_title, section_order)
 			VALUES ($1, $2, $3, $4, $5)
 			RETURNING id
-		`, userID, cardPK, summarizationID, analysis.Section, sectionIndex).Scan(&sectionID)
+		`, userID, cardPK, summarizationID, sectionTitle, sectionIndex).Scan(&sectionID)
 		if err != nil {
 			return fmt.Errorf("failed to insert section: %w", err)
 		}
 
 		for _, thesisEntry := range analysis.Theses {
-			if thesisEntry.Thesis == "" {
+			// Skip theses with empty or whitespace-only content
+			thesis := strings.TrimSpace(thesisEntry.Thesis)
+			if thesis == "" {
 				continue
 			}
 
@@ -256,7 +283,7 @@ func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []m
 				INSERT INTO summary_theses (user_id, card_pk, summarization_id, section_id, thesis)
 				VALUES ($1, $2, $3, $4, $5)
 				RETURNING id
-			`, userID, cardPK, summarizationID, sectionID, thesisEntry.Thesis).Scan(&thesisID)
+			`, userID, cardPK, summarizationID, sectionID, thesis).Scan(&thesisID)
 			if err != nil {
 				return fmt.Errorf("failed to insert thesis: %w", err)
 			}
@@ -335,8 +362,9 @@ func (h *Handler) GetSummarizationRoute(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var job models.Summarization
+	var result sql.NullString
 	err = h.DB.QueryRow(`
-		SELECT id, user_id, input_text, status, COALESCE(result, ''), 
+		SELECT id, user_id, input_text, status, result,
 		       prompt_tokens, completion_tokens, total_tokens, cost, model,
 		       created_at, updated_at
 		FROM summarizations
@@ -346,7 +374,7 @@ func (h *Handler) GetSummarizationRoute(w http.ResponseWriter, r *http.Request) 
 		&job.UserID,
 		&job.InputText,
 		&job.Status,
-		&job.Result,
+		&result,
 		&job.PromptTokens,
 		&job.CompletionTokens,
 		&job.TotalTokens,
@@ -359,6 +387,15 @@ func (h *Handler) GetSummarizationRoute(w http.ResponseWriter, r *http.Request) 
 		log.Printf("summarization job error %v", err)
 		http.Error(w, "Job not found", http.StatusNotFound)
 		return
+	}
+
+	// Convert sql.NullString to string, preserving the distinction between NULL and empty
+	if result.Valid {
+		job.Result = result.String
+	} else {
+		// Result is NULL - only set to empty string for non-complete statuses
+		// For complete/failed statuses with NULL result, set to empty string
+		job.Result = ""
 	}
 
 	resp := SummarizeJobResponse{
