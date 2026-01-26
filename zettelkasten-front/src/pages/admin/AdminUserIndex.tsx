@@ -14,6 +14,12 @@ import { Link } from "react-router-dom";
 import { fuzzyFilter } from "../../utils/tableFilters";
 import { StatusBadge, getSubscriptionStatusBadge } from "../../components/admin/StatusBadge";
 import { AdminTableContainer } from "../../components/admin/AdminTable";
+import { AdminErrorDisplay } from "../../components/admin/AdminErrorDisplay";
+
+interface ErrorState {
+  message: string;
+  details?: string;
+}
 
 export function AdminUserIndex() {
   const [users, setUsers] = useState<User[]>([]);
@@ -21,11 +27,22 @@ export function AdminUserIndex() {
     { id: "last_seen", desc: true }
   ]);
   const [globalFilter, setGlobalFilter] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<ErrorState | null>(null);
 
   useEffect(() => {
     const fetchUsers = async () => {
-      let tempUsers = await getUsers();
-      setUsers(tempUsers);
+      setIsLoading(true);
+      setError(null);
+      try {
+        const tempUsers = await getUsers();
+        setUsers(tempUsers);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to load users";
+        setError({ message, details: err instanceof Error ? err.stack : undefined });
+      } finally {
+        setIsLoading(false);
+      }
     };
     fetchUsers();
   }, []);
@@ -119,12 +136,24 @@ export function AdminUserIndex() {
   });
 
   return (
-    <AdminTableContainer
-      title="Users"
-      table={table}
-      searchValue={globalFilter ?? ""}
-      onSearchChange={setGlobalFilter}
-      searchPlaceholder="Search all columns..."
-    />
+    <div className="container mx-auto px-4">
+      {error && (
+        <AdminErrorDisplay
+          message={error.message}
+          details={error.details}
+          severity="error"
+          onRetry={() => window.location.reload()}
+          onDismiss={() => setError(null)}
+        />
+      )}
+      <AdminTableContainer
+        title="Users"
+        table={table}
+        searchValue={globalFilter ?? ""}
+        onSearchChange={setGlobalFilter}
+        searchPlaceholder="Search all columns..."
+        isLoading={isLoading}
+      />
+    </div>
   );
 }

@@ -1,0 +1,185 @@
+/**
+ * Admin-specific types and API interfaces.
+ *
+ * This file contains all types related to admin functionality including
+ * audit logs, statistics, and admin API responses.
+ */
+
+/**
+ * Admin audit log entry - tracks all admin actions for security auditing
+ */
+export interface AdminAuditLog {
+  id: number;
+  admin_user_id: number;
+  action: string;
+  target_type: string;
+  target_id: number | null;
+  details: Record<string, unknown>;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
+/**
+ * Parameters for querying audit logs
+ */
+export interface AuditLogQueryParams {
+  limit?: number;
+  offset?: number;
+  action?: string;
+  target_type?: string;
+}
+
+/**
+ * Admin statistics for the dashboard
+ */
+export interface AdminStats {
+  users: UserStats;
+  subscriptions: SubscriptionStats;
+  revenue: RevenueStats;
+  content: ContentStats;
+}
+
+/**
+ * User statistics
+ */
+export interface UserStats {
+  total: number;
+  active_this_week: number;
+  active_this_month: number;
+  total_admins: number;
+}
+
+/**
+ * Subscription statistics
+ */
+export interface SubscriptionStats {
+  active: number;
+  trialing: number;
+  free: number;
+  past_due: number;
+  canceled: number;
+}
+
+/**
+ * Revenue statistics (in cents)
+ */
+export interface RevenueStats {
+  total_revenue_cents: number;
+  monthly_recurring_revenue_cents: number;
+  annual_recurring_revenue_cents: number;
+  revenue_this_month_cents: number;
+}
+
+/**
+ * Content statistics
+ */
+export interface ContentStats {
+  total_cards: number;
+  total_tasks: number;
+  total_files: number;
+  total_chat_messages: number;
+}
+
+/**
+ * Mailing list recipient (for message history)
+ */
+export interface MailingListRecipient {
+  id: number;
+  message_id: number;
+  recipient_email: string;
+  recipient_type: "to" | "bcc";
+  sent_at: string;
+}
+
+/**
+ * Response wrapper for admin API errors
+ */
+export interface AdminErrorResponse {
+  error: boolean;
+  message: string;
+  details?: string;
+}
+
+/**
+ * Type guard for admin API error responses
+ */
+export function isAdminErrorResponse(
+  response: unknown
+): response is AdminErrorResponse {
+  return (
+    typeof response === "object" &&
+    response !== null &&
+    "error" in response &&
+    (response as AdminErrorResponse).error === true
+  );
+}
+
+/**
+ * Get all admin audit logs
+ */
+export async function getAdminAuditLogs(
+  params: AuditLogQueryParams = {}
+): Promise<AdminAuditLog[]> {
+  const base_url = import.meta.env.VITE_URL;
+  const token = localStorage.getItem("token");
+
+  const queryParams = new URLSearchParams();
+  if (params.limit) queryParams.append("limit", params.limit.toString());
+  if (params.offset) queryParams.append("offset", params.offset.toString());
+  if (params.action) queryParams.append("action", params.action);
+  if (params.target_type) queryParams.append("target_type", params.target_type);
+
+  const queryString = queryParams.toString();
+  const url = `${base_url}/admin/audit-logs${queryString ? `?${queryString}` : ""}`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch audit logs: ${response.statusText}`);
+  }
+
+  return response.json() as Promise<AdminAuditLog[]>;
+}
+
+/**
+ * Get admin statistics for the dashboard
+ */
+export async function getAdminStats(): Promise<AdminStats> {
+  const base_url = import.meta.env.VITE_URL;
+  const token = localStorage.getItem("token");
+  const url = `${base_url}/admin/stats`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch admin stats: ${response.statusText}`);
+  }
+
+  return response.json() as Promise<AdminStats>;
+}
+
+/**
+ * Get mailing list recipients for a specific message
+ */
+export async function getMailingListRecipients(
+  messageId: number
+): Promise<MailingListRecipient[]> {
+  const base_url = import.meta.env.VITE_URL;
+  const token = localStorage.getItem("token");
+  const url = `${base_url}/mailing-list/messages/recipients?message_id=${messageId}`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch recipients: ${response.statusText}`);
+  }
+
+  return response.json() as Promise<MailingListRecipient[]>;
+}

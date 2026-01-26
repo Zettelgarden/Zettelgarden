@@ -12,19 +12,31 @@ import {
 import { fuzzyFilter } from "../../utils/tableFilters";
 import { StatusBadge } from "../../components/admin/StatusBadge";
 import { AdminTableContainer } from "../../components/admin/AdminTable";
+import { AdminErrorDisplay } from "../../components/admin/AdminErrorDisplay";
+
+interface ErrorState {
+  message: string;
+  details?: string;
+}
 
 export function AdminMailingListPage() {
   const [subscribers, setSubscribers] = useState<MailingListSubscriber[]>([]);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<ErrorState | null>(null);
 
   const fetchSubscribers = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
       const data = await getMailingListSubscribers();
       setSubscribers(data);
-    } catch (error) {
-      console.error("Error fetching subscribers:", error);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load subscribers";
+      setError({ message, details: err instanceof Error ? err.stack : undefined });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -38,13 +50,14 @@ export function AdminMailingListPage() {
     }
 
     setIsLoading(true);
+    setError(null);
     try {
       await unsubscribeMailingList(email);
       // Refresh the subscribers list
       await fetchSubscribers();
-    } catch (error) {
-      console.error("Error unsubscribing:", error);
-      alert("Failed to unsubscribe. Please try again.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to unsubscribe. Please try again.";
+      setError({ message, details: err instanceof Error ? err.stack : undefined });
     } finally {
       setIsLoading(false);
     }
@@ -137,13 +150,24 @@ export function AdminMailingListPage() {
   });
 
   return (
-    <AdminTableContainer
-      title="Mailing List Subscribers"
-      table={table}
-      searchValue={globalFilter ?? ""}
-      onSearchChange={setGlobalFilter}
-      searchPlaceholder="Search all columns..."
-      isLoading={isLoading}
-    />
+    <div className="container mx-auto px-4">
+      {error && (
+        <AdminErrorDisplay
+          message={error.message}
+          details={error.details}
+          severity="error"
+          onRetry={fetchSubscribers}
+          onDismiss={() => setError(null)}
+        />
+      )}
+      <AdminTableContainer
+        title="Mailing List Subscribers"
+        table={table}
+        searchValue={globalFilter ?? ""}
+        onSearchChange={setGlobalFilter}
+        searchPlaceholder="Search all columns..."
+        isLoading={isLoading}
+      />
+    </div>
   );
 } 
