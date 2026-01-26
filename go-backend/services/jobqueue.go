@@ -1,0 +1,279 @@
+package services
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"go-backend/models"
+	"log"
+	"time"
+)
+
+// JobQueue defines the interface for queue operations
+type JobQueue interface {
+	// Enqueue adds a new job to the queue
+	Enqueue(ctx context.Context, params models.CreateJobParams) (*models.LLMJob, error)
+
+	// Dequeue claims and returns the next pending job for processing
+	// Uses row-level locking to allow multiple workers
+	Dequeue(ctx context.Context) (*models.LLMJob, error)
+
+	// UpdateStatus updates the status of a job
+	UpdateStatus(ctx context.Context, jobID int, status models.JobStatus) error
+
+	// UpdateStatusWithResult updates status and stores the result
+	UpdateStatusWithResult(ctx context.Context, jobID int, status models.JobStatus, result map[string]interface{}) error
+
+	// UpdateStatusWithError updates status and stores an error message
+	UpdateStatusWithError(ctx context.Context, jobID int, status models.JobStatus, errorMsg string) error
+
+	// MarkRunning marks a job as running and sets started_at
+	MarkRunning(ctx context.Context, jobID int) error
+
+	// IncrementRetry increments retry count and resets to pending
+	IncrementRetry(ctx context.Context, jobID int) error
+
+	// Get retrieves a job by ID
+	Get(ctx context.Context, jobID int) (*models.LLMJob, error)
+
+	// List retrieves jobs for a user with optional filtering
+	List(ctx context.Context, params models.JobListParams) ([]models.LLMJob, error)
+
+	// Cancel cancels a pending job
+	Cancel(ctx context.Context, jobID, userID int) error
+
+	// Stats retrieves statistics for a user
+	Stats(ctx context.Context, userID int) (*models.JobStats, error)
+}
+
+// DatabaseJobQueue implements JobQueue using PostgreSQL as the backend
+type DatabaseJobQueue struct {
+	db *sql.DB
+}
+
+// NewJobQueue creates a new JobQueue backed by the database
+func NewJobQueue(db *sql.DB) JobQueue {
+	return &DatabaseJobQueue{db: db}
+}
+
+// Enqueue adds a new job to the queue
+func (q *DatabaseJobQueue) Enqueue(ctx context.Context, params models.CreateJobParams) (*models.LLMJob, error) {
+	// Use the model function for consistency
+	job, err := models.CreateJob(q.db, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create job: %w", err)
+	}
+	log.Printf("[JobQueue] Enqueued job %d (type: %s, user: %d)", job.ID, job.JobType, job.UserID)
+	return job, nil
+}
+
+// Dequeue claims and returns the next pending job for processing
+func (q *DatabaseJobQueue) Dequeue(ctx context.Context) (*models.LLMJob, error) {
+	// Begin a transaction for atomic dequeue operation
+	tx, err := q.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback() // Safe to call if already committed
+
+	// Use FOR UPDATE SKIP LOCKED to allow multiple workers to run concurrently
+	// This locks the row for this transaction but skips rows already locked by other workers
+	query := `
+		SELECT id, user_id, job_type, status, priority, payload, result, error_message,
+			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds
+		FROM llm_jobs
+		WHERE status = 'pending'
+		ORDER BY priority ASC, created_at ASC
+		LIMIT 1
+		FOR UPDATE SKIP LOCKED
+	`
+
+	var job models.LLMJob
+	var payloadJSON, resultJSON []byte
+	var startedAt, completedAt sql.NullTime
+
+	err = tx.QueryRowContext(ctx, query).Scan(
+		&job.ID,
+		&job.UserID,
+		&job.JobType,
+		&job.Status,
+		&job.Priority,
+		&payloadJSON,
+		&resultJSON,
+		&job.ErrorMessage,
+		&job.CreatedAt,
+		&startedAt,
+		&completedAt,
+		&job.RetryCount,
+		&job.MaxRetries,
+		&job.TimeoutSecs,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// No jobs available
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to dequeue job: %w", err)
+	}
+
+	// Unmarshal payload
+	if len(payloadJSON) > 0 && string(payloadJSON) != "null" {
+		if err := json.Unmarshal(payloadJSON, &job.Payload); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal payload: %w", err)
+		}
+	} else {
+		job.Payload = make(map[string]interface{})
+	}
+
+	// Unmarshal result if present
+	if len(resultJSON) > 0 && string(resultJSON) != "null" {
+		if err := json.Unmarshal(resultJSON, &job.Result); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal result: %w", err)
+		}
+	}
+
+	// Handle nullable timestamps
+	if startedAt.Valid {
+		job.StartedAt = &startedAt.Time
+	}
+	if completedAt.Valid {
+		job.CompletedAt = &completedAt.Time
+	}
+
+	// Mark job as running within the same transaction
+	now := time.Now()
+	markQuery := `
+		UPDATE llm_jobs
+		SET status = 'running', started_at = $1
+		WHERE id = $2
+	`
+	_, err = tx.ExecContext(ctx, markQuery, now, job.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to mark job as running: %w", err)
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	job.Status = models.JobStatusRunning
+	job.StartedAt = &now
+
+	log.Printf("[JobQueue] Dequeued job %d (type: %s, user: %d, priority: %d)",
+		job.ID, job.JobType, job.UserID, job.Priority)
+
+	return &job, nil
+}
+
+// UpdateStatus updates the status of a job
+func (q *DatabaseJobQueue) UpdateStatus(ctx context.Context, jobID int, status models.JobStatus) error {
+	err := models.UpdateJobStatus(q.db, jobID, status)
+	if err != nil {
+		return fmt.Errorf("failed to update job status: %w", err)
+	}
+	log.Printf("[JobQueue] Job %d status updated to %s", jobID, status)
+	return nil
+}
+
+// UpdateStatusWithResult updates status and stores the result
+func (q *DatabaseJobQueue) UpdateStatusWithResult(ctx context.Context, jobID int, status models.JobStatus, result map[string]interface{}) error {
+	err := models.UpdateJobStatusWithResult(q.db, jobID, status, result)
+	if err != nil {
+		return fmt.Errorf("failed to update job status with result: %w", err)
+	}
+	log.Printf("[JobQueue] Job %d completed with status %s", jobID, status)
+	return nil
+}
+
+// UpdateStatusWithError updates status and stores an error message
+func (q *DatabaseJobQueue) UpdateStatusWithError(ctx context.Context, jobID int, status models.JobStatus, errorMsg string) error {
+	err := models.UpdateJobStatusWithError(q.db, jobID, status, errorMsg)
+	if err != nil {
+		return fmt.Errorf("failed to update job status with error: %w", err)
+	}
+	log.Printf("[JobQueue] Job %d failed with status %s: %s", jobID, status, errorMsg)
+	return nil
+}
+
+// MarkRunning marks a job as running and sets started_at
+func (q *DatabaseJobQueue) MarkRunning(ctx context.Context, jobID int) error {
+	err := models.MarkJobRunning(q.db, jobID)
+	if err != nil {
+		return fmt.Errorf("failed to mark job as running: %w", err)
+	}
+	return nil
+}
+
+// IncrementRetry increments retry count and resets to pending
+func (q *DatabaseJobQueue) IncrementRetry(ctx context.Context, jobID int) error {
+	err := models.IncrementJobRetry(q.db, jobID)
+	if err != nil {
+		return fmt.Errorf("failed to increment job retry: %w", err)
+	}
+	log.Printf("[JobQueue] Job %d retry count incremented", jobID)
+	return nil
+}
+
+// Get retrieves a job by ID
+func (q *DatabaseJobQueue) Get(ctx context.Context, jobID int) (*models.LLMJob, error) {
+	job, err := models.GetJob(q.db, jobID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get job: %w", err)
+	}
+	return job, nil
+}
+
+// List retrieves jobs for a user with optional filtering
+func (q *DatabaseJobQueue) List(ctx context.Context, params models.JobListParams) ([]models.LLMJob, error) {
+	jobs, err := models.ListJobs(q.db, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list jobs: %w", err)
+	}
+	return jobs, nil
+}
+
+// Cancel cancels a pending job
+func (q *DatabaseJobQueue) Cancel(ctx context.Context, jobID, userID int) error {
+	err := models.CancelJob(q.db, jobID, userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("job not found, already processed, or not owned by user")
+		}
+		return fmt.Errorf("failed to cancel job: %w", err)
+	}
+	log.Printf("[JobQueue] Job %d cancelled by user %d", jobID, userID)
+	return nil
+}
+
+// Stats retrieves statistics for a user
+func (q *DatabaseJobQueue) Stats(ctx context.Context, userID int) (*models.JobStats, error) {
+	stats, err := models.GetJobStats(q.db, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get job stats: %w", err)
+	}
+	return stats, nil
+}
+
+// Helper function to check if a job should be retried
+func ShouldRetryJob(job *models.LLMJob) bool {
+	return job.RetryCount < job.MaxRetries
+}
+
+// CalculateBackoff calculates exponential backoff delay for retries
+func CalculateBackoff(retryCount int) time.Duration {
+	// Exponential backoff: 1s, 2s, 4s, 8s, 16s, etc.
+	// Cap at 60 seconds
+	backoff := time.Duration(1<<uint(retryCount)) * time.Second
+	if backoff > 60*time.Second {
+		backoff = 60 * time.Second
+	}
+	return backoff
+}
+
+// GetJobTimeout returns the timeout duration for a job
+func GetJobTimeout(job *models.LLMJob) time.Duration {
+	return time.Duration(job.TimeoutSecs) * time.Second
+}

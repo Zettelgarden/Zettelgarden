@@ -80,4 +80,7 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler) {
 
 	// Schema routes
 	RegisterSchemaRoutes(r, h)
+
+	// Job queue routes
+	RegisterJobRoutes(r, h)
 }
