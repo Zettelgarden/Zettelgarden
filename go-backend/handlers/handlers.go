@@ -28,9 +28,9 @@ type Handler struct {
 
 	// Rate limiting and concurrency control for summarization
 	summarizationRateLimits   sync.Map // map[int][]time.Time - request timestamps per user
-	summarizationRateLimitMu   sync.Map // map[int]*sync.Mutex - per-user rate limit mutex
-	summarizationActiveJobs    sync.Map // map[int]int - active job count per user
-	summarizationActiveJobsMu  sync.Map // map[int]*sync.Mutex - per-user active jobs mutex
+	summarizationRateLimitMu  sync.Map // map[int]*sync.Mutex - per-user rate limit mutex
+	summarizationActiveJobs   sync.Map // map[int]int - active job count per user
+	summarizationActiveJobsMu sync.Map // map[int]*sync.Mutex - per-user active jobs mutex
 }
 
 // getMessageMutex gets or creates a mutex for a specific message

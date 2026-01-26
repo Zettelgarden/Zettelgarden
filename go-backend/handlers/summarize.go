@@ -140,9 +140,24 @@ func (h *Handler) querySummarizations(userID int, cardPK *int) ([]SummarizeJobRe
 func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
+	// Check rate limit
+	if !h.checkSummarizationRateLimit(userID) {
+		log.Printf("[RATE_LIMIT] User %d exceeded summarization rate limit", userID)
+		http.Error(w, "Rate limit exceeded. Please try again later.", http.StatusTooManyRequests)
+		return
+	}
+
+	// Check concurrent job limit
+	if !h.acquireSummarizationJobSlot(userID) {
+		log.Printf("[CONCURRENCY_LIMIT] User %d reached maximum concurrent summarizations", userID)
+		http.Error(w, "Too many concurrent jobs. Please wait for existing jobs to complete.", http.StatusTooManyRequests)
+		return
+	}
+
 	var req SummarizeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
+		h.releaseSummarizationJobSlot(userID)
 		return
 	}
 
@@ -155,6 +170,7 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 
 	if err != nil {
 		log.Printf("error starting summarization %v", err)
+		h.releaseSummarizationJobSlot(userID)
 		return
 	}
 	_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
@@ -166,6 +182,7 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		log.Printf("err %v", err)
 		http.Error(w, "Failed to create summarization job", http.StatusInternalServerError)
+		h.releaseSummarizationJobSlot(userID)
 		return
 	}
 
@@ -190,6 +207,13 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 	if h.Server.Testing {
 		return
 	}
+
+	// Check concurrent job limit (but skip rate limit for background jobs)
+	if !h.acquireSummarizationJobSlot(userID) {
+		log.Printf("[CONCURRENCY_LIMIT] User %d reached maximum concurrent summarizations for background job", userID)
+		return
+	}
+
 	var jobID int
 
 	err := h.DB.QueryRow(`
@@ -200,11 +224,15 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 
 	if err != nil {
 		log.Printf("error starting summarization %v", err)
+		h.releaseSummarizationJobSlot(userID)
 		return
 	}
 	_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
 
 	go func() {
+		// Release the job slot when done
+		defer h.releaseSummarizationJobSlot(userID)
+
 		// Ensure LinkCardToEntityIfPossible is always called exactly once, regardless of success or failure
 		defer h.LinkCardToEntityIfPossible(userID, card)
 
@@ -250,11 +278,11 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 func extractSectionOrder(sectionTitle string, defaultIndex int) int {
 	// Try to match common section patterns
 	patterns := []string{
-		"Section (\\d+)",           // "Section 1: Title"
-		"Section\\s*(\\d+)",        // "Section 1"
-		"^(\\d+)\\.",               // "1. Introduction"
-		"Part (\\d+)",              // "Part 1"
-		"Chapter (\\d+)",           // "Chapter 1"
+		"Section (\\d+)",    // "Section 1: Title"
+		"Section\\s*(\\d+)", // "Section 1"
+		"^(\\d+)\\.",        // "1. Introduction"
+		"Part (\\d+)",       // "Part 1"
+		"Chapter (\\d+)",    // "Chapter 1"
 	}
 
 	for _, pattern := range patterns {
@@ -368,6 +396,9 @@ func (h *Handler) GetCardAnalysisRoute(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) runSummarizationJob(userID int, analyses []models.SectionAnalysis, facts []string, usage models.Usage, cardPK *int, jobID int) (int, error) {
 	// Background job
 	go func(jobID int, analyses []models.SectionAnalysis, facts []string, usage models.Usage, uid int) {
+		// Release the job slot when done (defer ensures it runs on both success and failure)
+		defer h.releaseSummarizationJobSlot(uid)
+
 		client := services.NewDefaultClient(h.DB, uid)
 		client.RequestType = "analysis"
 		_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
@@ -381,8 +412,8 @@ func (h *Handler) runSummarizationJob(userID int, analyses []models.SectionAnaly
 
 		// modelName := client.Model.ModelIdentifier
 
-		_, _ = h.DB.Exec(`UPDATE summarizations 
-			SET status='complete', result=$2, prompt_tokens=$3, completion_tokens=$4, total_tokens=$5, cost=$6, model=$7, updated_at=$8 
+		_, _ = h.DB.Exec(`UPDATE summarizations
+			SET status='complete', result=$2, prompt_tokens=$3, completion_tokens=$4, total_tokens=$5, cost=$6, model=$7, updated_at=$8
 			WHERE id=$1`,
 			jobID, result, usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens, usage.TotalCost, "deprecated", time.Now())
 

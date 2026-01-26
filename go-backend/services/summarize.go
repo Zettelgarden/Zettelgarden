@@ -118,8 +118,8 @@ func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.Sect
 	var completedSections []models.SectionAnalysis      // Store completed sections
 	var currentSectionAnalyses []models.SectionAnalysis // Current working sections
 	var lastSectionName string                          // Track the last section name to detect transitions
-	var cachedSectionJSON string                       // Cache marshaled JSON to avoid re-marshaling on every chunk
-	var cacheValid bool                                // Track if the cached JSON is valid
+	var cachedSectionJSON string                        // Cache marshaled JSON to avoid re-marshaling on every chunk
+	var cacheValid bool                                 // Track if the cached JSON is valid
 
 	for _, chunk := range chunks {
 		// Build context intro from existing analyses
@@ -419,10 +419,10 @@ func buildUserContent(chunk, contextIntro, lastSectionName string) string {
 	}
 	return contextIntro +
 		fmt.Sprintf("The last analyzed chunk ended in Section %s.\n", sectionHint) +
-		"Now analyze the following text. "+
-		"If you believe the author has started a new section (e.g., with a title), create a new section with a descriptive name (e.g., \"Section 2: [New Section Title]\"). "+
-		"Otherwise, continue assigning output under the previous section. "+
-		"Always include \"section\" explicitly in your JSON output.\n\n<CHUNK>\n\n"+chunk
+		"Now analyze the following text. " +
+		"If you believe the author has started a new section (e.g., with a title), create a new section with a descriptive name (e.g., \"Section 2: [New Section Title]\"). " +
+		"Otherwise, continue assigning output under the previous section. " +
+		"Always include \"section\" explicitly in your JSON output.\n\n<CHUNK>\n\n" + chunk
 }
 
 // buildExtractionMessages creates the system and user messages for thesis/argument extraction
