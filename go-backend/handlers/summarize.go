@@ -232,8 +232,14 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 
 		log.Printf("facts %v", facts)
 		if len(facts) > 0 {
-			factObjs, _ := h.ExtractSaveCardFacts(userID, card.ID, facts)
-			_ = h.ExtractSaveFactEntities(userID, card, factObjs)
+			factObjs, err := h.ExtractSaveCardFacts(userID, card.ID, facts)
+			if err != nil {
+				log.Printf("Failed to save card facts: %v", err)
+			} else {
+				if err := h.ExtractSaveFactEntities(userID, card, factObjs); err != nil {
+					log.Printf("Failed to extract/save fact entities: %v", err)
+				}
+			}
 		}
 	}()
 }
