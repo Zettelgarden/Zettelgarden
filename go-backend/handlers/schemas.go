@@ -26,6 +26,12 @@ var validFieldTypes = map[string]bool{
 	"link_to_card":  true,
 }
 
+// Schema limits to prevent abuse
+const (
+	MaxFieldsPerSchema    = 50   // Maximum number of fields allowed in a schema
+	MaxOptionsPerField    = 100  // Maximum number of options for select/multi-select fields
+)
+
 // getUserID safely extracts the user ID from the request context
 // Returns an error if the user is not authenticated or the context value is invalid
 func getUserID(r *http.Request) (int, error) {
@@ -77,8 +83,14 @@ func validateFieldDefinition(field models.FieldDefinition) error {
 	}
 
 	// For select and multi-select types, options are required
-	if (field.Type == "select" || field.Type == "multi-select") && len(field.Options) == 0 {
-		return fmt.Errorf("field '%s' of type '%s' must have at least one option", field.Name, field.Type)
+	if (field.Type == "select" || field.Type == "multi-select") {
+		if len(field.Options) == 0 {
+			return fmt.Errorf("field '%s' of type '%s' must have at least one option", field.Name, field.Type)
+		}
+		// Enforce limit on number of options
+		if len(field.Options) > MaxOptionsPerField {
+			return fmt.Errorf("field '%s' exceeds maximum of %d options (got %d)", field.Name, MaxOptionsPerField, len(field.Options))
+		}
 	}
 
 	return nil
@@ -88,6 +100,11 @@ func validateFieldDefinition(field models.FieldDefinition) error {
 func validateSchemaFields(fields []models.FieldDefinition) error {
 	if len(fields) == 0 {
 		return fmt.Errorf("fields cannot be empty")
+	}
+
+	// Enforce limit on number of fields
+	if len(fields) > MaxFieldsPerSchema {
+		return fmt.Errorf("schema exceeds maximum of %d fields (got %d)", MaxFieldsPerSchema, len(fields))
 	}
 
 	// Check for duplicate field names
