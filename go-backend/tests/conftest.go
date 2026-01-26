@@ -92,7 +92,7 @@ func Setup() *server.Server {
 	var err error
 	setupOnce.Do(func() {
 		// Set test environment variables if not already set
-		//		setTestEnvironmentVariables()
+		setTestEnvironmentVariables()
 
 		dbConfig := models.DatabaseConfig{}
 		dbConfig.Host = os.Getenv("DB_HOST")

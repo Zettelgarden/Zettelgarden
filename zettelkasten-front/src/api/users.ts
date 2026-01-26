@@ -65,15 +65,34 @@ export function getUser(id: string): Promise<User> {
       }
     });
 }
-export function getUsers(): Promise<User[]> {
-  const url = base_url + `/users`;
+export interface GetUsersParams {
+  page?: number;
+  per_page?: number;
+}
+
+export interface GetUsersResponse {
+  users: User[];
+  pagination: {
+    page: number;
+    per_page: number;
+    total: number;
+    total_pages: number;
+  };
+}
+
+export function getUsers(params?: GetUsersParams): Promise<GetUsersResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.append("page", params.page.toString());
+  if (params?.per_page) searchParams.append("per_page", params.per_page.toString());
+
+  const url = base_url + `/users` + (searchParams.toString() ? `?${searchParams}` : "");
   let token = localStorage.getItem("token");
 
   return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
     .then(checkStatus)
     .then((response) => {
       if (response) {
-        return response.json() as Promise<User[]>;
+        return response.json() as Promise<GetUsersResponse>;
       } else {
         return Promise.reject(new Error("Response is undefined"));
       }

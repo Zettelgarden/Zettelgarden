@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { getUsers } from "../../api/users";
+import { getUsers, GetUsersResponse } from "../../api/users";
 import { User } from "../../models/User";
 import {
   useReactTable,
@@ -21,6 +21,8 @@ interface ErrorState {
   details?: string;
 }
 
+const PER_PAGE = 50;
+
 export function AdminUserIndex() {
   const [users, setUsers] = useState<User[]>([]);
   const [sorting, setSorting] = useState<SortingState>([
@@ -29,14 +31,19 @@ export function AdminUserIndex() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<ErrorState | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   useEffect(() => {
     const fetchUsers = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const tempUsers = await getUsers();
-        setUsers(tempUsers);
+        const response: GetUsersResponse = await getUsers({ page, per_page: PER_PAGE });
+        setUsers(response.users);
+        setTotalUsers(response.pagination.total);
+        setTotalPages(response.pagination.total_pages);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to load users";
         setError({ message, details: err instanceof Error ? err.stack : undefined });
@@ -45,7 +52,7 @@ export function AdminUserIndex() {
       }
     };
     fetchUsers();
-  }, []);
+  }, [page]);
 
   const columnHelper = createColumnHelper<User>();
 
@@ -155,6 +162,47 @@ export function AdminUserIndex() {
         isLoading={isLoading}
         hideOnMobile={["revenue", "llm_cost", "file_count", "task_count", "chat_message_count"]}
       />
+      {/* Pagination controls - only show if there are multiple pages */}
+      {totalPages > 1 && (
+        <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t pt-4">
+          <div className="text-sm text-slate-600">
+            Showing {((page - 1) * PER_PAGE) + 1}-{Math.min(page * PER_PAGE, totalUsers)} of {totalUsers} users
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(1)}
+              disabled={page === 1}
+              className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+            >
+              First
+            </button>
+            <button
+              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              disabled={page === 1}
+              className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-slate-600">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+            >
+              Next
+            </button>
+            <button
+              onClick={() => setPage(totalPages)}
+              disabled={page === totalPages}
+              className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+            >
+              Last
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

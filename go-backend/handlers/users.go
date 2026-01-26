@@ -48,14 +48,40 @@ func (s *Handler) GetUserRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Handler) GetUsersRoute(w http.ResponseWriter, r *http.Request) {
-	users, err := s.QueryUsers()
+	// Parse pagination parameters
+	page := 1
+	perPage := 50
+
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	if perPageStr := r.URL.Query().Get("per_page"); perPageStr != "" {
+		if pp, err := strconv.Atoi(perPageStr); err == nil && pp > 0 && pp <= 100 {
+			perPage = pp
+		}
+	}
+
+	users, total, err := s.QueryUsers(page, perPage)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	response := map[string]interface{}{
+		"users": users,
+		"pagination": map[string]interface{}{
+			"page":        page,
+			"per_page":    perPage,
+			"total":       total,
+			"total_pages": (total + perPage - 1) / perPage,
+		},
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(users)
+	json.NewEncoder(w).Encode(response)
 
 }
 
@@ -307,9 +333,16 @@ func (s *Handler) ValidateEmailRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func (s *Handler) QueryUsers() ([]models.User, error) {
-
+func (s *Handler) QueryUsers(page, perPage int) ([]models.User, int, error) {
 	users := []models.User{}
+	offset := (page - 1) * perPage
+
+	// Get total count for pagination
+	var total int
+	if err := s.DB.QueryRow("SELECT COUNT(*) FROM users").Scan(&total); err != nil {
+		return users, 0, err
+	}
+
 	rows, err := s.DB.Query(`
 		SELECT
 	u.id, u.username, u.email, u.created_at, u.updated_at,
@@ -317,20 +350,19 @@ func (s *Handler) QueryUsers() ([]models.User, error) {
 	u.stripe_subscription_status, u.max_file_storage, u.last_login,
 	u.last_seen, u.dashboard_card_pk, u.has_seen_getting_started,
 	COALESCE(u.timezone, 'UTC') as timezone,
-	(SELECT COUNT(*) FROM cards c WHERE c.user_id = u.id) as cards,
-	(SELECT COUNT(*) FROM tasks t WHERE t.user_id = u.id) as tasks,
-	(SELECT COUNT(*) FROM files f WHERE f.created_by = u.id) as files,
-	(SELECT COUNT(*) FROM chat_messages cm
-		INNER JOIN chat_conversations cc ON cm.conversation_id = cc.id
-		WHERE cc.user_id = u.id) as chat_messages,
-	COALESCE((SELECT SUM(l.cost_usd) FROM llm_query_log l WHERE l.user_id = u.id), 0) as cost,
-	COALESCE((SELECT SUM(r.amount_cents) FROM revenue r WHERE r.user_id = u.id), 0) / 100.0 as revenue
+	COALESCE(us.card_count, 0) as cards,
+	COALESCE(us.task_count, 0) as tasks,
+	COALESCE(us.file_count, 0) as files,
+	COALESCE(us.chat_message_count, 0) as chat_messages,
+	COALESCE(us.llm_cost_usd, 0) as cost,
+	COALESCE(us.revenue_cents, 0) / 100.0 as revenue
 	FROM users u
-	GROUP BY u.id
+	LEFT JOIN user_stats us ON us.user_id = u.id
 	ORDER BY u.id
-	`)
+	LIMIT $1 OFFSET $2
+	`, perPage, offset)
 	if err != nil {
-		return users, err
+		return users, 0, err
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -358,7 +390,7 @@ func (s *Handler) QueryUsers() ([]models.User, error) {
 			&user.LLMCost,
 			&user.Revenue,
 		); err != nil {
-			return users, err
+			return users, 0, err
 		}
 		if user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trialing" {
 			user.IsActive = true
@@ -369,9 +401,9 @@ func (s *Handler) QueryUsers() ([]models.User, error) {
 	}
 
 	if err := rows.Err(); err != nil {
-		return users, err
+		return users, 0, err
 	}
-	return users, nil
+	return users, total, nil
 }
 
 func (s *Handler) QueryUserByEmail(email string) (models.User, error) {
