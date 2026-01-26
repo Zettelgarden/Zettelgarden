@@ -47,6 +47,8 @@ export interface UserStats {
   total: number;
   active_this_week: number;
   active_this_month: number;
+  new_this_week: number;
+  new_this_month: number;
   total_admins: number;
 }
 
@@ -59,6 +61,7 @@ export interface SubscriptionStats {
   free: number;
   past_due: number;
   canceled: number;
+  total: number;
 }
 
 /**
@@ -69,6 +72,9 @@ export interface RevenueStats {
   monthly_recurring_revenue_cents: number;
   annual_recurring_revenue_cents: number;
   revenue_this_month_cents: number;
+  total_revenue: number;
+  revenue_this_month: number;
+  monthly_recurring_revenue: number;
 }
 
 /**
@@ -79,6 +85,8 @@ export interface ContentStats {
   total_tasks: number;
   total_files: number;
   total_chat_messages: number;
+  total_entities: number;
+  total_facts: number;
 }
 
 /**
