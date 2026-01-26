@@ -244,6 +244,36 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 	}()
 }
 
+// extractSectionOrder attempts to extract a section number from the section title.
+// Returns the extracted number if found, otherwise falls back to the provided default index.
+// Supports formats like "Section 1: Title", "Section 2", "1. Introduction", etc.
+func extractSectionOrder(sectionTitle string, defaultIndex int) int {
+	// Try to match common section patterns
+	patterns := []string{
+		"Section (\\d+)",           // "Section 1: Title"
+		"Section\\s*(\\d+)",        // "Section 1"
+		"^(\\d+)\\.",               // "1. Introduction"
+		"Part (\\d+)",              // "Part 1"
+		"Chapter (\\d+)",           // "Chapter 1"
+	}
+
+	for _, pattern := range patterns {
+		re := regexp.MustCompile(pattern)
+		matches := re.FindStringSubmatch(sectionTitle)
+		if len(matches) > 1 {
+			// Parse the captured number
+			var num int
+			_, err := fmt.Sscanf(matches[1], "%d", &num)
+			if err == nil && num > 0 {
+				return num
+			}
+		}
+	}
+
+	// Fall back to array index if no pattern matched
+	return defaultIndex
+}
+
 // SaveAnalysis persists the structured analysis from the LLM into the database.
 func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []models.SectionAnalysis) error {
 	// Validate cardPK is a positive integer
@@ -264,6 +294,10 @@ func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []m
 			continue
 		}
 
+		// Try to extract section number from title for proper ordering
+		// Falls back to array index if no number found
+		sectionOrder := extractSectionOrder(sectionTitle, sectionIndex)
+
 		// Insert Section - remove ON CONFLICT to allow multiple sections with same title
 		// Add section_order to distinguish between sections with identical titles
 		var sectionID int
@@ -271,7 +305,7 @@ func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []m
 			INSERT INTO summary_sections (user_id, card_pk, summarization_id, section_title, section_order)
 			VALUES ($1, $2, $3, $4, $5)
 			RETURNING id
-		`, userID, cardPK, summarizationID, sectionTitle, sectionIndex).Scan(&sectionID)
+		`, userID, cardPK, summarizationID, sectionTitle, sectionOrder).Scan(&sectionID)
 		if err != nil {
 			return fmt.Errorf("failed to insert section: %w", err)
 		}

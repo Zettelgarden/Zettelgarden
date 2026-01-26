@@ -31,13 +31,78 @@ const (
 
 	// LLMRequestTimeout is the maximum time to wait for an LLM request to complete
 	LLMRequestTimeout = 5 * time.Minute
+
+	// MaxLLMRetries is the maximum number of retry attempts for transient LLM failures
+	MaxLLMRetries = 3
+
+	// InitialRetryDelay is the initial delay before the first retry (will be doubled each time)
+	InitialRetryDelay = 500 * time.Millisecond
 )
+
+// isSummarizationRetryableError checks if an error is transient and should be retried for summarization
+func isSummarizationRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errMsg := err.Error()
+	// Check for common transient error patterns
+	retryablePatterns := []string{
+		"timeout",
+		"connection refused",
+		"connection reset",
+		"temporary failure",
+		"rate limit",
+		"too many requests",
+		"server error",
+		"503",
+		"502",
+		"500",
+		"context deadline exceeded",
+	}
+	for _, pattern := range retryablePatterns {
+		if strings.Contains(strings.ToLower(errMsg), pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// executeLLMRequestWithRetry wraps ExecuteLLMRequest with retry logic for transient failures
+func executeLLMRequestWithRetry(ctx context.Context, c *models.LLMClient, messages []openai.ChatCompletionMessage) (openai.ChatCompletionResponse, error) {
+	var lastErr error
+	var resp openai.ChatCompletionResponse
+
+	for attempt := 0; attempt <= MaxLLMRetries; attempt++ {
+		if attempt > 0 {
+			// Exponential backoff: 500ms, 1s, 2s, etc.
+			delay := InitialRetryDelay * time.Duration(1<<(attempt-1))
+			log.Printf("LLM request failed (attempt %d/%d), retrying after %v: %v", attempt, MaxLLMRetries, delay, lastErr)
+			time.Sleep(delay)
+		}
+
+		resp, lastErr = ExecuteLLMRequest(ctx, c, messages)
+		if lastErr == nil {
+			if attempt > 0 {
+				log.Printf("LLM request succeeded after %d retries", attempt)
+			}
+			return resp, nil
+		}
+
+		// If error is not retryable, fail immediately
+		if !isSummarizationRetryableError(lastErr) {
+			log.Printf("LLM request failed with non-retryable error: %v", lastErr)
+			return openai.ChatCompletionResponse{}, lastErr
+		}
+	}
+
+	return openai.ChatCompletionResponse{}, fmt.Errorf("LLM request failed after %d retries: %w", MaxLLMRetries, lastErr)
+}
 
 // ExtractThesesAndArguments processes input text into SectionAnalysis entries,
 // aggregating theses, facts, and arguments from each chunk.
 // Returns all analyses and usage statistics.
 func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.SectionAnalysis, []string, models.Usage, error) {
-	chunks := chunkText(input, MaxChunkSize)
+	chunks := ChunkText(input)
 	var facts []string
 
 	totalPromptTokens := 0
@@ -117,7 +182,7 @@ Format Example:
 		log.Printf("userContent %v", userContent)
 
 		ctx, cancel := context.WithTimeout(context.Background(), LLMRequestTimeout)
-		resp, err := ExecuteLLMRequest(ctx, c, messages)
+		resp, err := executeLLMRequestWithRetry(ctx, c, messages)
 		cancel()
 		if err != nil {
 			return nil, facts, models.Usage{}, err
@@ -154,7 +219,7 @@ The JSON should be an array of section analyses with this structure:
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), LLMRequestTimeout)
-			repairResp, err := ExecuteLLMRequest(ctx, c, repairMessages)
+			repairResp, err := executeLLMRequestWithRetry(ctx, c, repairMessages)
 			cancel()
 			if err != nil {
 				log.Printf("Failed to repair JSON: %v", err)
@@ -515,7 +580,7 @@ Important: Consider the full set of arguments with their importance values when 
 		},
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), LLMRequestTimeout)
-	dedupResp, err := ExecuteLLMRequest(ctx, c, dedupMessages)
+	dedupResp, err := executeLLMRequestWithRetry(ctx, c, dedupMessages)
 	cancel()
 	if err != nil {
 		return "", nil, models.Usage{}, err
@@ -583,7 +648,7 @@ Input (including deduplicated theses, facts, and arguments with importance/rank)
 
 	var finalResp openai.ChatCompletionResponse
 	ctx, cancel = context.WithTimeout(context.Background(), LLMRequestTimeout)
-	finalResp, err = ExecuteLLMRequest(ctx, c, finalMessages)
+	finalResp, err = executeLLMRequestWithRetry(ctx, c, finalMessages)
 	cancel()
 	if err != nil {
 		return "", nil, models.Usage{}, err
@@ -625,33 +690,6 @@ func flattenArguments(analyses []models.SectionAnalysis) []models.Argument {
 		}
 	}
 	return args
-}
-
-// chunkText splits input into segments of maxLength, breaking at sentence boundaries.
-func chunkText(input string, maxLength int) []string {
-	sentences := strings.Split(input, ".")
-	var chunks []string
-	var current string
-	for _, sentence := range sentences {
-		s := strings.TrimSpace(sentence)
-		if s == "" {
-			continue
-		}
-		if len(current)+len(s)+1 > maxLength {
-			chunks = append(chunks, strings.TrimSpace(current))
-			current = s + "."
-		} else {
-			if current == "" {
-				current = s + "."
-			} else {
-				current += " " + s + "."
-			}
-		}
-	}
-	if strings.TrimSpace(current) != "" {
-		chunks = append(chunks, strings.TrimSpace(current))
-	}
-	return chunks
 }
 
 // GetCardAnalysis reconstructs the analysis data structure from the database for a given card.
