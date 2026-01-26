@@ -15,11 +15,26 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
+const (
+	// MaxChunkSize is the maximum size of a text chunk for LLM processing
+	MaxChunkSize = 15000
+
+	// DefaultSummarizeModel is the default model used for summarization
+	DefaultSummarizeModel = "google/gemini-3-pro-preview"
+
+	// EnvSummarizeModel is the environment variable name for the summarize model
+	EnvSummarizeModel = "ZETTEL_LLM_SUMMARIZE_MODEL"
+
+	// Cost per million tokens for summarization (using OpenAI-compatible pricing as baseline)
+	PromptCostPerMillion     = 1.25
+	CompletionCostPerMillion = 10.0
+)
+
 // ExtractThesesAndArguments processes input text into SectionAnalysis entries,
 // aggregating theses, facts, and arguments from each chunk.
 // Returns all analyses and usage statistics.
 func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.SectionAnalysis, []string, models.Usage, error) {
-	chunks := chunkText(input, 15000)
+	chunks := chunkText(input, MaxChunkSize)
 	var facts []string
 
 	totalPromptTokens := 0
@@ -31,31 +46,12 @@ func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.Sect
 	var cacheValid bool                                // Track if the cached JSON is valid
 
 	for _, chunk := range chunks {
-		contextIntro := ""
-		if len(currentSectionAnalyses) > 0 {
-			// Use cached JSON if available and valid, otherwise marshal and cache
-			if !cacheValid {
-				existingAnalysesJSON, err := json.Marshal(currentSectionAnalyses)
-				if err == nil { // Proceed only if marshaling is successful
-					cachedSectionJSON = "<existing_analyses>\n" + string(existingAnalysesJSON) + "\n</existing_analyses>\n"
-					cacheValid = true
-				}
-			}
-			contextIntro = cachedSectionJSON
-		}
+		// Build context intro from existing analyses
+		var contextIntro string
+		contextIntro, cachedSectionJSON, cacheValid = buildContextIntro(currentSectionAnalyses, cachedSectionJSON, cacheValid)
 
-		userContent := contextIntro +
-			fmt.Sprintf("The last analyzed chunk ended in Section %s.\n",
-				func() string {
-					if lastSectionName != "" {
-						return lastSectionName
-					}
-					return "1: Introduction"
-				}()) +
-			"Now analyze the following text. " +
-			"If you believe the author has started a new section (e.g., with a title), create a new section with a descriptive name (e.g., \"Section 2: [New Section Title]\"). " +
-			"Otherwise, continue assigning output under the previous section. " +
-			"Always include \"section\" explicitly in your JSON output.\n\n<CHUNK>\n\n" + chunk
+		// Build user content for this chunk
+		userContent := buildUserContent(chunk, contextIntro, lastSectionName)
 
 		messages := []openai.ChatCompletionMessage{
 			{
@@ -239,12 +235,177 @@ func cleanContent(content string) string {
 	return content
 }
 
+// buildContextIntro creates a cached JSON representation of current analyses
+// Returns the context string and updated cache state
+func buildContextIntro(currentSectionAnalyses []models.SectionAnalysis, cachedSectionJSON string, cacheValid bool) (string, string, bool) {
+	if len(currentSectionAnalyses) == 0 {
+		return "", cachedSectionJSON, cacheValid
+	}
+	if !cacheValid {
+		existingAnalysesJSON, err := json.Marshal(currentSectionAnalyses)
+		if err == nil {
+			cachedSectionJSON = "<existing_analyses>\n" + string(existingAnalysesJSON) + "\n</existing_analyses>\n"
+			cacheValid = true
+		}
+	}
+	return cachedSectionJSON, cachedSectionJSON, cacheValid
+}
+
+// buildUserContent constructs the user content for LLM extraction
+func buildUserContent(chunk, contextIntro, lastSectionName string) string {
+	sectionHint := lastSectionName
+	if sectionHint == "" {
+		sectionHint = "1: Introduction"
+	}
+	return contextIntro +
+		fmt.Sprintf("The last analyzed chunk ended in Section %s.\n", sectionHint) +
+		"Now analyze the following text. "+
+		"If you believe the author has started a new section (e.g., with a title), create a new section with a descriptive name (e.g., \"Section 2: [New Section Title]\"). "+
+		"Otherwise, continue assigning output under the previous section. "+
+		"Always include \"section\" explicitly in your JSON output.\n\n<CHUNK>\n\n"+chunk
+}
+
+// buildExtractionMessages creates the system and user messages for thesis/argument extraction
+func buildExtractionMessages(userContent string) []openai.ChatCompletionMessage {
+	return []openai.ChatCompletionMessage{
+		{
+			Role: openai.ChatMessageRoleSystem,
+			Content: `You are an assistant that extracts theses, facts, and arguments from text.
+				We are trying to come up with a coherent summary of the article/podcast/book/etc. You will be looking at
+				some or all of the writing and need to extract certain things from it.
+				Inside the <existing_analyses> block, you will find the current section being analyzed.
+				Use this to understand the context and continue building on the current section.
+
+Instructions:
+- Respond ONLY in pure JSON with the following format.
+- Do not add commentary, explanations, or non‑JSON text.
+- If an item cannot be extracted, return an empty string or empty list.
+- Importance must be an integer on a scale of 1–10 (10 = crucial to the central thesis, 1 = marginal).
+- Facts should be discrete, verifiable statements (events, statistics, claims of evidence).
+- Facts should *not* be about the text itself. For example, if the text is about a meeting on January 1, 2025, we do not need a fact that states that.
+- Do not use pronouns (he, she, this, that, etc) unless it directly refers to an object in the fact. Facts will likely be viewed out of context and will not make sense otherwise.
+- When you detect a new section, give it a descriptive name based on the text.
+- Start with section 1. If a section has no theses, arguments or facts, still include the section in the output, just empty
+- Continue working on the current section unless you detect a clear section break in the text.
+- Output only the sections you are currently working on (current section + any new sections detected).
+
+Format Example:
+[
+{
+  "section": "Section [number]: [title]",
+  "theses": [
+    {
+      "thesis": "...",
+      "facts": ["...", "..."],
+      "arguments": [
+        {"argument": "...", "importance": 8},
+        {"argument": "...", "importance": 5}
+      ]
+    }
+  ]
+},
+{
+  "section": "Section [number]: [title]",
+  "theses": [
+    {
+      "thesis": "...",
+      "facts": ["...", "..."],
+      "arguments": [
+        {"argument": "...", "importance": 8},
+        {"argument": "...", "importance": 5}
+      ]
+    }
+  ]
+
+}
+
+]`,
+		},
+		{
+			Role:    openai.ChatMessageRoleUser,
+			Content: userContent,
+		},
+	}
+}
+
+// mergeSectionAnalyses merges new analysis results into current section analyses,
+// handling section transitions and returning updated facts
+func mergeSectionAnalyses(
+	analysis []models.SectionAnalysis,
+	currentSectionAnalyses []models.SectionAnalysis,
+	lastSectionName string,
+	facts []string,
+) ([]models.SectionAnalysis, string, []string) {
+	if len(analysis) == 0 {
+		if len(currentSectionAnalyses) > 0 {
+			// Save current section to avoid data loss when LLM returns empty array
+			return nil, "", append(facts, make([]string, 0)...) // Return nil to signal save occurred
+		}
+		return currentSectionAnalyses, lastSectionName, facts
+	}
+
+	for _, section := range analysis {
+		sectionTitle := strings.TrimSpace(section.Section)
+		if sectionTitle == "" {
+			continue
+		}
+
+		// Check if this section already exists in currentSectionAnalyses
+		existingSectionIndex := -1
+		for i, currentSec := range currentSectionAnalyses {
+			if strings.TrimSpace(currentSec.Section) == sectionTitle {
+				existingSectionIndex = i
+				break
+			}
+		}
+
+		if existingSectionIndex >= 0 {
+			// Section exists - merge theses
+			existingSection := &currentSectionAnalyses[existingSectionIndex]
+			for _, thesis := range section.Theses {
+				thesisText := strings.TrimSpace(thesis.Thesis)
+				if thesisText == "" {
+					continue
+				}
+				// Check for duplicates
+				thesisExists := false
+				for _, existingThesis := range existingSection.Theses {
+					if strings.TrimSpace(existingThesis.Thesis) == thesisText {
+						thesisExists = true
+						break
+					}
+				}
+				if !thesisExists {
+					existingSection.Theses = append(existingSection.Theses, thesis)
+				}
+			}
+		} else {
+			// New section - save previous if needed
+			if lastSectionName != "" && sectionTitle != lastSectionName && len(currentSectionAnalyses) > 0 {
+				// Signal caller to save completed sections
+				return currentSectionAnalyses, lastSectionName, facts
+			}
+			// Add new section
+			analysesWithoutFacts, newFacts := RemoveFactsFromAnalyses([]models.SectionAnalysis{section})
+			facts = append(facts, newFacts...)
+			if currentSectionAnalyses == nil {
+				currentSectionAnalyses = analysesWithoutFacts
+			} else {
+				currentSectionAnalyses = append(currentSectionAnalyses, analysesWithoutFacts...)
+			}
+			lastSectionName = sectionTitle
+		}
+	}
+
+	return currentSectionAnalyses, lastSectionName, facts
+}
+
 // AnalyzeAndSummarizeText: the advanced pipeline
 func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []models.SectionAnalysis, facts []string, usage models.Usage) (string, []models.SectionAnalysis, models.Usage, error) {
 	start := time.Now()
-	c.Model = os.Getenv("ZETTEL_LLM_SUMMARIZE_MODEL")
+	c.Model = os.Getenv(EnvSummarizeModel)
 	if c.Model == "" {
-		c.Model = "google/gemini-3-pro-preview"
+		c.Model = DefaultSummarizeModel
 	}
 
 	totalPromptTokens := usage.PromptTokens
@@ -368,10 +529,8 @@ Input (including deduplicated theses, facts, and arguments with importance/rank)
 
 	summary := finalResp.Choices[0].Message.Content
 
-	const promptCostPerMillion = 1.25
-	const completionCostPerMillion = 10.0
-	promptCost := float64(totalPromptTokens) / 1_000_000 * promptCostPerMillion
-	completionCost := float64(totalCompletionTokens) / 1_000_000 * completionCostPerMillion
+	promptCost := float64(totalPromptTokens) / 1_000_000 * PromptCostPerMillion
+	completionCost := float64(totalCompletionTokens) / 1_000_000 * CompletionCostPerMillion
 	totalCost := promptCost + completionCost
 
 	// Log timing and cost information for observability (not included in summary to keep it as pure markdown)
