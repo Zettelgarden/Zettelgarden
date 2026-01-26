@@ -6,7 +6,6 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getFilteredRowModel,
-  flexRender,
   createColumnHelper,
   SortingState,
   ColumnDef,
@@ -14,6 +13,7 @@ import {
 import { Link } from "react-router-dom";
 import { fuzzyFilter } from "../../utils/tableFilters";
 import { StatusBadge, getSubscriptionStatusBadge } from "../../components/admin/StatusBadge";
+import { AdminTableContainer } from "../../components/admin/AdminTable";
 
 export function AdminUserIndex() {
   const [users, setUsers] = useState<User[]>([]);
@@ -119,54 +119,12 @@ export function AdminUserIndex() {
   });
 
   return (
-    <div className="container mx-auto px-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Users</h1>
-        <input
-          type="text"
-          value={globalFilter ?? ""}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          className="px-4 py-2 border rounded-lg"
-          placeholder="Search all columns..."
-        />
-      </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white shadow-md rounded">
-          <thead className="bg-gray-800 text-white">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="py-2 px-4 text-left cursor-pointer select-none"
-                    onClick={header.column.getToggleSortingHandler()}
-                  >
-                    {flexRender(
-                      header.column.columnDef.header,
-                      header.getContext()
-                    )}
-                    {{
-                      asc: " 🔼",
-                      desc: " 🔽",
-                    }[header.column.getIsSorted() as string] ?? null}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="border-b hover:bg-gray-100">
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="py-2 px-4">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <AdminTableContainer
+      title="Users"
+      table={table}
+      searchValue={globalFilter ?? ""}
+      onSearchChange={setGlobalFilter}
+      searchPlaceholder="Search all columns..."
+    />
   );
 }
