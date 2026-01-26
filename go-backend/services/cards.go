@@ -791,12 +791,27 @@ func UpdateCard(db *sql.DB, userID int, cardPK int, params models.EditCardParams
 		parent_id = parent.ID
 	}
 
+	// Determine schema_id and structured_data values for update
+	// If both are nil (not provided in request), preserve existing values
+	// This prevents accidentally clearing schema when updating other fields
+	var schemaID *int
+	var structuredData *json.RawMessage
+	if params.SchemaID == nil && params.StructuredData == nil {
+		// Neither provided - preserve existing values
+		schemaID = oldCard.SchemaID
+		structuredData = oldCard.StructuredData
+	} else {
+		// At least one is provided - use params values (including nil to clear)
+		schemaID = params.SchemaID
+		structuredData = params.StructuredData
+	}
+
 	query := `
 	UPDATE cards SET title = $1, body = $2, link = $3, parent_id = $4, updated_at = NOW(), card_id = $5, card_schema_id = $6, structured_data = $7
 	WHERE
 	id = $8
 	`
-	_, err = db.Exec(query, params.Title, params.Body, params.Link, parent_id, params.CardID, params.SchemaID, params.StructuredData, cardPK)
+	_, err = db.Exec(query, params.Title, params.Body, params.Link, parent_id, params.CardID, schemaID, structuredData, cardPK)
 	if err != nil {
 		log.Printf("updatecard err %v", err)
 		return models.Card{}, err
