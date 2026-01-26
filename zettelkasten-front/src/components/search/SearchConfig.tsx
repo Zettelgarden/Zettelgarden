@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Menu } from '@headlessui/react';
 import { SearchConfig as SearchConfigType } from "../../models/StarredSearch";
 import { Tag } from "../../models/Tags";
+import { fetchSchemas } from "../../api/schemas";
+import { SchemaDefinition } from "../../models/Schema";
 
 interface SearchConfigProps {
   searchTerm: string;
@@ -24,6 +26,31 @@ export function SearchConfig({
   onTagClick,
   onSearchTrigger,
 }: SearchConfigProps) {
+  const [schemas, setSchemas] = useState<SchemaDefinition[]>([]);
+  const [schemasLoading, setSchemasLoading] = useState(true);
+
+  useEffect(() => {
+    const loadSchemas = async () => {
+      try {
+        const data = await fetchSchemas();
+        setSchemas(data);
+      } catch (error) {
+        console.error("Failed to load schemas:", error);
+      } finally {
+        setSchemasLoading(false);
+      }
+    };
+    loadSchemas();
+  }, []);
+
+  const handleSchemaChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = event.target.value;
+    const schemaId = value === "" ? null : parseInt(value);
+    const newConfig = { ...searchConfig, schemaId };
+    setSearchConfig(newConfig);
+    onSearchTrigger?.(newConfig, true);
+  };
+
   const handleFullTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const newConfig = { ...searchConfig, useFullText: event.target.checked };
     setSearchConfig(newConfig);
@@ -156,6 +183,28 @@ export function SearchConfig({
           <div className="w-1/2 px-4">
             <div className="text-xs text-gray-500 mb-2 font-semibold">Search Settings</div>
             <div className="space-y-2">
+              {/* Schema Filter */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Filter by Schema
+                </label>
+                {schemasLoading ? (
+                  <div className="text-sm text-gray-500">Loading schemas...</div>
+                ) : (
+                  <select
+                    value={searchConfig.schemaId ?? ""}
+                    onChange={handleSchemaChange}
+                    className="w-full text-sm border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">All Schemas</option>
+                    {schemas.map((schema) => (
+                      <option key={schema.id} value={schema.id}>
+                        {schema.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
               <div className="hover:bg-gray-50 rounded px-2 py-1">
                 <label className="flex items-center text-sm cursor-pointer">
                   <input

@@ -29,6 +29,7 @@ interface SearchRequestParams {
   show_facts?: boolean;
   show_cards?: boolean;
   only_empty_card_id?: boolean;
+  schema_id?: number;
   search_type?: string; // classic or typesense
   rerank?: boolean;
   page?: number;
@@ -55,6 +56,7 @@ export function semanticSearchCardsPaginated(
   page = 1,
   perPage = 50,
   onlyEmptyCardId = false,
+  schemaId?: number,
 ): Promise<PaginatedSearchResponse> {
   let token = localStorage.getItem("token");
   let url = base_url + "/search";
@@ -67,6 +69,7 @@ export function semanticSearchCardsPaginated(
     show_facts: showFacts,
     show_cards: showCards,
     only_empty_card_id: onlyEmptyCardId,
+    schema_id: schemaId,
     sort: sortBy,
     rerank: rerank,
     page: page,

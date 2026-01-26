@@ -90,6 +90,9 @@ export function SearchPage({
     if (config.onlyEmptyCardId) {
       params.set('onlyEmptyCardId', 'true');
     }
+    if (config.schemaId !== null && config.schemaId !== undefined) {
+      params.set('schemaId', config.schemaId.toString());
+    }
     if (page > 1) {
       params.set('page', page.toString());
     }
@@ -121,6 +124,7 @@ export function SearchPage({
         page,
         perPage,
         config.onlyEmptyCardId,
+        config.schemaId ?? undefined,
       );
       if (requestId === latestRequestId.current) {
         setSearchResults(response.results || []);
@@ -182,6 +186,7 @@ export function SearchPage({
       // Regular search initialization if not a starred search
       // Read search configuration from URL parameters
       const page = parseInt(params.get("page") || "1", 10);
+      const schemaId = params.get("schemaId");
       const urlConfig = {
         ...searchConfig,
         searchType: params.get("searchType") || "classic",
@@ -191,7 +196,8 @@ export function SearchPage({
         useFullText: params.get("useFullText") === "true",
         onlyParentCards: params.get("onlyParentCards") === "true",
         onlyEmptyCardId: params.get("onlyEmptyCardId") === "true",
-        useClassicSearch: params.get("searchType") !== "typesense"
+        useClassicSearch: params.get("searchType") !== "typesense",
+        schemaId: schemaId ? parseInt(schemaId) : undefined
       };
 
       if (recent !== null) {

@@ -19,4 +19,5 @@ export interface SearchConfig {
     currentPage: number;
     searchType: string; // "classic" or "typesense"
     rerank: boolean;
+    schemaId?: number | null;
 }

@@ -388,7 +388,7 @@ func ParseSearchText(input string) SearchParams {
 
 	return searchParams
 }
-func BuildPartialCardSqlSearchTermString(searchString string, fullText bool) string {
+func BuildPartialCardSqlSearchTermString(searchString string, fullText bool, schemaID *int) string {
 	searchParams := ParseSearchText(searchString)
 
 	var result string
@@ -495,6 +495,9 @@ func BuildPartialCardSqlSearchTermString(searchString string, fullText bool) str
 	if len(negateEntityConditions) > 0 {
 		result += " AND (" + strings.Join(negateEntityConditions, " AND ") + ")"
 	}
+	if schemaID != nil {
+		result += " AND c.card_schema_id = " + strconv.Itoa(*schemaID)
+	}
 	return result
 }
 
@@ -563,7 +566,7 @@ func BuildPartialEntitySqlSearchTermString(searchString string) string {
 }
 
 func (s *Handler) ClassicCardSearch(userID int, params SearchRequestParams) ([]models.Card, int, error) {
-	searchString := BuildPartialCardSqlSearchTermString(params.SearchTerm, params.FullText)
+	searchString := BuildPartialCardSqlSearchTermString(params.SearchTerm, params.FullText, params.SchemaID)
 
 	// Add empty card_id filter if requested
 	if params.OnlyEmptyCardId {
@@ -651,6 +654,7 @@ type SearchRequestParams struct {
 	ShowFacts       bool   `json:"show_facts"`
 	ShowCards       bool   `json:"show_cards"`
 	OnlyEmptyCardId bool   `json:"only_empty_card_id"`
+	SchemaID        *int   `json:"schema_id,omitempty"`
 	SortBy          string `json:"sort"`
 	Rerank          bool   `json:"rerank"`
 	Page            int    `json:"page"`
@@ -920,7 +924,7 @@ func (s *Handler) SearchRoute(w http.ResponseWriter, r *http.Request) {
 
 	// If the search contains entities, tags, or onlyEmptyCardId filter, use ClassicCardSearch, otherwise use Typesense
 	// Note: Typesense cannot filter for empty card_id since it's not an optional field
-	if parsedParams.HasAdvancedFilters() || reqParams.OnlyEmptyCardId {
+	if parsedParams.HasAdvancedFilters() || reqParams.OnlyEmptyCardId || reqParams.SchemaID != nil {
 		cards, total, err := s.ClassicCardSearch(userID, reqParams)
 		if err != nil {
 			log.Printf("ClassicCardSearch error: %v", err)
