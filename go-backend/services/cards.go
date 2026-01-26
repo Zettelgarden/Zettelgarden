@@ -794,16 +794,30 @@ func UpdateCard(db *sql.DB, userID int, cardPK int, params models.EditCardParams
 	// Determine schema_id and structured_data values for update
 	// If both are nil (not provided in request), preserve existing values
 	// This prevents accidentally clearing schema when updating other fields
+	// If ClearSchema flag is true, explicitly clear the schema fields
 	var schemaID *int
 	var structuredData *json.RawMessage
-	if params.SchemaID == nil && params.StructuredData == nil {
-		// Neither provided - preserve existing values
+	if params.ClearSchema {
+		// Explicit request to clear schema - set both to nil
+		schemaID = nil
+		structuredData = nil
+	} else if params.SchemaID == nil && params.StructuredData == nil {
+		// Neither provided - preserve existing values (prevent accidental clearing)
 		schemaID = oldCard.SchemaID
 		structuredData = oldCard.StructuredData
 	} else {
-		// At least one is provided - use params values (including nil to clear)
-		schemaID = params.SchemaID
-		structuredData = params.StructuredData
+		// At least one is provided - use params values for non-nil fields, preserve existing for nil fields
+		// This handles partial updates where only one schema field is being updated
+		if params.SchemaID != nil {
+			schemaID = params.SchemaID
+		} else {
+			schemaID = oldCard.SchemaID
+		}
+		if params.StructuredData != nil {
+			structuredData = params.StructuredData
+		} else {
+			structuredData = oldCard.StructuredData
+		}
 	}
 
 	query := `

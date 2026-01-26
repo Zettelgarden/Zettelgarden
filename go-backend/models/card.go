@@ -128,6 +128,7 @@ type EditCardParams struct {
 	ProcessEntitiesAndFacts *bool            `json:"process_entities_and_facts,omitempty"`
 	SchemaID                *int             `json:"schema_id,omitempty"`
 	StructuredData          *json.RawMessage `json:"structured_data,omitempty"`
+	ClearSchema             bool             `json:"clear_schema,omitempty"` // Explicit flag to remove schema association
 }
 
 type NextIDParams struct {

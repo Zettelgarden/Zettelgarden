@@ -1462,14 +1462,13 @@ func TestUpdateCardWithSchema_RemoveSchema(t *testing.T) {
 	var card models.Card
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &card)
 
-	// Update card to remove schema
+	// Update card to remove schema using the ClearSchema flag
 	updateData := models.EditCardParams{
-		Title:           card.Title,
-		Body:            card.Body,
-		CardID:          card.CardID,
-		Link:            card.Link,
-		SchemaID:        nil,
-		StructuredData:  nil,
+		Title:       card.Title,
+		Body:        card.Body,
+		CardID:      card.CardID,
+		Link:        card.Link,
+		ClearSchema: true,
 	}
 	updateJSON, _ := json.Marshal(updateData)
 	updateReq, err := http.NewRequest("PUT", "/api/cards/"+strconv.Itoa(card.ID), bytes.NewBuffer(updateJSON))
@@ -2008,5 +2007,115 @@ func TestUpdateCardWithSchema_InvalidStructuredData(t *testing.T) {
 	}
 	if !strings.Contains(updateRR.Body.String(), "required") {
 		t.Errorf("Expected error about required field, got: %v", updateRR.Body.String())
+	}
+}
+
+// TestUpdateCardWithSchema_PartialUpdatePreservesSchema tests that updating
+// other fields (like title) without providing schema_id/structured_data
+// preserves the existing schema association
+func TestUpdateCardWithSchema_PartialUpdatePreservesSchema(t *testing.T) {
+	s := setup()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	// Create schema
+	fields := []models.FieldDefinition{
+		{Name: "field1", Type: "text", Required: true},
+	}
+	schemaID := createTestSchema(s, t, 1, "Preserve Schema", fields)
+
+	// Create card with schema and structured_data
+	structuredDataJSON := `{"field1":"initial value"}`
+	var structuredData json.RawMessage
+	_ = json.Unmarshal([]byte(structuredDataJSON), &structuredData)
+
+	data := models.EditCardParams{
+		Title:           "Card with Schema - Initial",
+		Body:            "Test body",
+		CardID:          "PRESERVE001",
+		Link:            "test",
+		SchemaID:        &schemaID,
+		StructuredData:  &structuredData,
+	}
+	jsonData, _ := json.Marshal(data)
+	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute))
+	handler.ServeHTTP(rr, req)
+
+	var card models.Card
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &card)
+
+	// Verify initial state
+	if card.SchemaID == nil {
+		t.Errorf("Expected schema_id to be set initially, got nil")
+	}
+	if *card.SchemaID != schemaID {
+		t.Errorf("Expected schema_id %v initially, got %v", schemaID, *card.SchemaID)
+	}
+	if card.StructuredData == nil {
+		t.Errorf("Expected structured_data to be set initially, got nil")
+	}
+
+	// Update ONLY the title (partial update - no schema_id or structured_data in request)
+	updateData := models.EditCardParams{
+		Title:           "Card with Schema - Updated",
+		Body:            card.Body,
+		CardID:          card.CardID,
+		Link:            card.Link,
+		// SchemaID and StructuredData deliberately omitted
+	}
+	updateJSON, _ := json.Marshal(updateData)
+	updateReq, err := http.NewRequest("PUT", "/api/cards/"+strconv.Itoa(card.ID), bytes.NewBuffer(updateJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	updateReq.Header.Set("Authorization", "Bearer "+token)
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateReq.SetPathValue("id", strconv.Itoa(card.ID))
+
+	updateRR := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}", s.JwtMiddleware(s.UpdateCardRoute))
+	router.ServeHTTP(updateRR, updateReq)
+
+	if status := updateRR.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var updatedCard models.Card
+	tests.ParseJsonResponse(t, updateRR.Body.Bytes(), &updatedCard)
+
+	// Verify title was updated
+	if updatedCard.Title != "Card with Schema - Updated" {
+		t.Errorf("Expected title to be updated, got %v", updatedCard.Title)
+	}
+
+	// Verify schema_id and structured_data were PRESERVED
+	if updatedCard.SchemaID == nil {
+		t.Errorf("Expected schema_id to be preserved after partial update, got nil")
+	} else if *updatedCard.SchemaID != schemaID {
+		t.Errorf("Expected schema_id %v to be preserved after partial update, got %v", schemaID, *updatedCard.SchemaID)
+	}
+
+	if updatedCard.StructuredData == nil {
+		t.Errorf("Expected structured_data to be preserved after partial update, got nil")
+	} else {
+		// Verify the content is still correct
+		var resultData map[string]interface{}
+		err = json.Unmarshal(*updatedCard.StructuredData, &resultData)
+		if err != nil {
+			t.Fatalf("Failed to unmarshal structured_data: %v", err)
+		}
+		if resultData["field1"] != "initial value" {
+			t.Errorf("Expected structured_data content to be preserved, got %v", resultData)
+		}
 	}
 }
