@@ -13,6 +13,7 @@ import { fuzzyFilter } from "../../utils/tableFilters";
 import { StatusBadge } from "../../components/admin/StatusBadge";
 import { AdminTableContainer } from "../../components/admin/AdminTable";
 import { AdminErrorDisplay } from "../../components/admin/AdminErrorDisplay";
+import { ConfirmDialog } from "../../components/admin/ConfirmDialog";
 
 interface ErrorState {
   message: string;
@@ -25,6 +26,10 @@ export function AdminMailingListPage() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<ErrorState | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    email: string | null;
+  }>({ isOpen: false, email: null });
 
   const fetchSubscribers = async () => {
     setIsLoading(true);
@@ -44,15 +49,18 @@ export function AdminMailingListPage() {
     fetchSubscribers();
   }, []);
 
-  const handleUnsubscribe = async (email: string) => {
-    if (!window.confirm(`Are you sure you want to unsubscribe ${email}?`)) {
-      return;
-    }
+  const handleUnsubscribeClick = (email: string) => {
+    setConfirmDialog({ isOpen: true, email });
+  };
+
+  const handleUnsubscribeConfirm = async () => {
+    if (!confirmDialog.email) return;
 
     setIsLoading(true);
     setError(null);
+    setConfirmDialog({ isOpen: false, email: null });
     try {
-      await unsubscribeMailingList(email);
+      await unsubscribeMailingList(confirmDialog.email);
       // Refresh the subscribers list
       await fetchSubscribers();
     } catch (err) {
@@ -118,7 +126,7 @@ export function AdminMailingListPage() {
         header: "Actions",
         cell: (info) => (
           <button
-            onClick={() => handleUnsubscribe(info.row.original.email)}
+            onClick={() => handleUnsubscribeClick(info.row.original.email)}
             disabled={!info.row.original.subscribed || isLoading}
             className={`px-3 py-1 rounded text-sm ${
               !info.row.original.subscribed || isLoading
@@ -167,6 +175,15 @@ export function AdminMailingListPage() {
         onSearchChange={setGlobalFilter}
         searchPlaceholder="Search all columns..."
         isLoading={isLoading}
+      />
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onConfirm={handleUnsubscribeConfirm}
+        onCancel={() => setConfirmDialog({ isOpen: false, email: null })}
+        title="Unsubscribe from Mailing List"
+        message={`Are you sure you want to unsubscribe ${confirmDialog.email || ""}?`}
+        severity="danger"
+        confirmText="Yes, unsubscribe"
       />
     </div>
   );
