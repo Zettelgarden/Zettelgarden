@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -75,6 +76,12 @@ type JobStats struct {
 	Completed  int            `json:"completed"`
 	Failed     int            `json:"failed"`
 	ByType     map[JobType]int `json:"by_type"`
+}
+
+// JobProcessor defines the interface for processing jobs
+type JobProcessor interface {
+	// ProcessJob executes a job and returns the result or error
+	ProcessJob(ctx context.Context, job *LLMJob) (map[string]interface{}, error)
 }
 
 // ScanLLMJob scans a single LLMJob from a sql.Row

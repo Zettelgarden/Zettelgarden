@@ -31,6 +31,9 @@ type Handler struct {
 	summarizationRateLimitMu  sync.Map // map[int]*sync.Mutex - per-user rate limit mutex
 	summarizationActiveJobs   sync.Map // map[int]int - active job count per user
 	summarizationActiveJobsMu sync.Map // map[int]*sync.Mutex - per-user active jobs mutex
+
+	// Job queue rate limiting
+	JobRateLimiter *services.JobRateLimiter
 }
 
 // getMessageMutex gets or creates a mutex for a specific message

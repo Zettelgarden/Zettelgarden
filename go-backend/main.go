@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -26,6 +27,16 @@ import (
 
 var s *server.Server
 var h *handlers.Handler
+
+// getEnvInt gets an integer environment variable with a fallback
+func getEnvInt(key string, defaultValue int) int {
+	if val := os.Getenv(key); val != "" {
+		if intVal, err := strconv.Atoi(val); err == nil {
+			return intVal
+		}
+	}
+	return defaultValue
+}
 
 // safeGoroutine runs a function in a goroutine with panic recovery
 func safeGoroutine(fn func()) {
@@ -100,6 +111,12 @@ func run() error {
 		ToolRetry: services.NewToolCircuitBreaker(),
 	}
 
+	// Initialize job rate limiter
+	log.Printf("Initializing job rate limiter (max_per_user=%d, max_global=%d)",
+		getEnvInt("MAX_JOBS_PER_USER", 10), getEnvInt("MAX_GLOBAL_JOBS", 50))
+	h.JobRateLimiter = services.NewJobRateLimiter(s.DB)
+	log.Printf("Job rate limiter initialized successfully")
+
 	// Initialize Stripe
 	log.Printf("Initializing Stripe payment processing")
 	stripe.Key = cfg.Services.Stripe.SecretKey
@@ -110,16 +127,47 @@ func run() error {
 	s.S3 = h.CreateS3Client()
 	log.Printf("S3 client initialized successfully")
 
-	// Initialize mail client
+	// Initialize mail client with database-backed job queue
 	log.Printf("Initializing mail client (host=%s)", cfg.Services.Mail.Host)
+
+	// Create job queue for email processing
+	jobQueue := services.NewJobQueue(s.DB)
+
+	// Create rate limiter for emails (10 emails per minute, 100 per day per user)
+	rateLimiter := mail.NewEmailRateLimiter(10, 100)
+
+	// Create email processor
+	emailProcessor := mail.NewEmailProcessor(nil) // Will set MailClient after initialization
+
+	// Create worker pool for email processing
+	workerConfig := services.DefaultWorkerConfig()
+	// Use fewer workers for email since it's I/O bound and rate limited
+	workerConfig.WorkerCount = 2
+	workerPool := services.NewWorkerPool(jobQueue, emailProcessor, workerConfig)
+
+	// Initialize mail client
 	s.Mail = &mail.MailClient{
 		Host:         cfg.Services.Mail.Host,
 		Password:     cfg.Services.Mail.Password,
-		Queue:        mail.NewEmailQueue(),
+		Queue:        mail.NewEmailQueue(), // Keep for backwards compatibility during migration
 		DB:           s.DB,
 		ShutdownChan: make(chan struct{}),
+		JobQueue:     jobQueue,
+		WorkerPool:   workerPool,
+		RateLimiter:  rateLimiter,
 	}
+
+	// Set the MailClient on the processor after initialization
+	emailProcessor.MailClient = s.Mail
+
 	log.Printf("Mail client initialized successfully")
+
+	// Start the email worker pool
+	if err := workerPool.Start(); err != nil {
+		log.Printf("Failed to start email worker pool: %v", err)
+		return err
+	}
+	log.Printf("Email worker pool started with %d workers", workerConfig.WorkerCount)
 
 	// Typesense is optional - search will still work without it (slower full-text search only)
 	log.Printf("Initializing Typesense search client (host=%s, collection=%s)", cfg.Services.Search.Host, cfg.Services.Search.Collection)
@@ -198,7 +246,15 @@ func run() error {
 		// Cancel shutdown context to signal all goroutines to stop
 		shutdownCancel()
 
-		// Shutdown mail queue (wait for in-flight emails to complete)
+		// Shutdown email worker pool
+		if s.Mail.WorkerPool != nil {
+			log.Printf("Shutting down email worker pool...")
+			if err := s.Mail.WorkerPool.Stop(); err != nil {
+				log.Printf("email worker pool shutdown error: %v", err)
+			}
+		}
+
+		// Shutdown legacy mail queue (wait for in-flight emails to complete)
 		if err := s.Mail.Shutdown(shutdownCtx); err != nil {
 			log.Printf("mail queue shutdown error: %v", err)
 		}

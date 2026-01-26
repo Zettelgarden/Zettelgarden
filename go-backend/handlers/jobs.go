@@ -86,6 +86,38 @@ func (h *Handler) CreateJobRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx := r.Context()
+
+	// Check rate limits if rate limiter is initialized
+	if h.JobRateLimiter != nil {
+		// Check if user is PRO (has active or trialing subscription)
+		user, err := h.QueryUser(userID)
+		if err != nil {
+			log.Printf("Failed to query user for rate limit check: %v", err)
+			http.Error(w, "Failed to check rate limits", http.StatusInternalServerError)
+			return
+		}
+
+		isProUser := user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trialing"
+
+		result := h.JobRateLimiter.CheckRateLimit(ctx, userID, isProUser)
+		services.SetJobRateLimitHeaders(w, result)
+
+		if !result.Allowed {
+			log.Printf("[RateLimiter] Job submission rejected for user %d: %s", userID, result.Reason)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":   "rate_limit_exceeded",
+				"message": result.Reason,
+			})
+			return
+		}
+
+		// Record the job submission
+		h.JobRateLimiter.RecordJobSubmission(userID, isProUser)
+	}
+
 	// Create job parameters
 	params := models.CreateJobParams{
 		UserID:      userID,
@@ -97,11 +129,16 @@ func (h *Handler) CreateJobRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create job via queue
-	ctx := r.Context()
 	queue := services.NewJobQueue(h.DB)
 	job, err := queue.Enqueue(ctx, params)
 	if err != nil {
 		log.Printf("Failed to create job: %v", err)
+
+		// Rollback the submission count on error
+		if h.JobRateLimiter != nil {
+			h.JobRateLimiter.RecordJobCompletion(userID)
+		}
+
 		http.Error(w, "Failed to create job", http.StatusInternalServerError)
 		return
 	}

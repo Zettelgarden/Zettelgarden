@@ -152,6 +152,7 @@ func Teardown() {
 // This is much faster than dropping tables and re-migrating.
 func truncateTestData() {
 	tables := []string{
+		"admin_audit_log",
 		"api_keys",
 		"audit_events",
 		"backlinks",

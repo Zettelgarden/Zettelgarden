@@ -2,6 +2,8 @@ package admin
 
 import (
 	"go-backend/handlers"
+	"net/http"
+
 	"github.com/gorilla/mux"
 )
 
@@ -35,6 +37,7 @@ func RegisterAllAdminRoutes(r *mux.Router, h *handlers.Handler) {
 	// adminAPI.HandleFunc("/audit-logs", h.GetAdminAuditLogsRoute).Methods("GET")
 
 	// Statistics (admin-only)
-	// TODO: Add GetAdminStatsRoute handler for dashboard
-	// adminAPI.HandleFunc("/stats", h.GetAdminStatsRoute).Methods("GET")
+	adminAPI.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
+		GetAdminStatsRoute(h, w, r)
+	}).Methods("GET")
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -221,4 +222,291 @@ func (s *Handler) AdminOrSelfMiddleware(idParam string) func(http.HandlerFunc) h
 			next(w, r)
 		}
 	}
+}
+
+// EmailQueueStats represents statistics about the email queue
+type EmailQueueStats struct {
+	PendingEmails   int `json:"pending_emails"`
+	RunningEmails   int `json:"running_emails"`
+	FailedEmails    int `json:"failed_emails"`
+	CompletedEmails int `json:"completed_emails"`
+	TotalEmails     int `json:"total_emails"`
+}
+
+// FailedEmail represents a failed email job with details
+type FailedEmail struct {
+	ID           int                    `json:"id"`
+	UserID       int                    `json:"user_id"`
+	Subject      string                 `json:"subject"`
+	Recipient    string                 `json:"recipient"`
+	ErrorMessage string                 `json:"error_message"`
+	CreatedAt    string                 `json:"created_at"`
+	CompletedAt  string                 `json:"completed_at"`
+	RetryCount   int                    `json:"retry_count"`
+	Payload      map[string]interface{} `json:"payload"`
+}
+
+// GetEmailQueueStatsRoute retrieves statistics about the email queue
+// Admin only
+func (s *Handler) GetEmailQueueStatsRoute(w http.ResponseWriter, r *http.Request) {
+	stats := EmailQueueStats{}
+
+	// Get counts by status for email jobs
+	query := `
+		SELECT status, COUNT(*)
+		FROM llm_jobs
+		WHERE job_type = 'email'
+		GROUP BY status
+	`
+	rows, err := s.DB.Query(query)
+	if err != nil {
+		log.Printf("GetEmailQueueStatsRoute: error querying email stats: %v", err)
+		http.Error(w, "Failed to get email queue stats", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var status string
+		var count int
+		if err := rows.Scan(&status, &count); err != nil {
+			log.Printf("GetEmailQueueStatsRoute: error scanning row: %v", err)
+			continue
+		}
+		stats.TotalEmails += count
+		switch status {
+		case "pending":
+			stats.PendingEmails = count
+		case "running":
+			stats.RunningEmails = count
+		case "failed":
+			stats.FailedEmails = count
+		case "completed":
+			stats.CompletedEmails = count
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
+
+// GetFailedEmailsRoute retrieves failed emails with optional filtering and pagination
+// Admin only
+func (s *Handler) GetFailedEmailsRoute(w http.ResponseWriter, r *http.Request) {
+	// Parse query parameters
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	perPage, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+	userIDFilter := r.URL.Query().Get("user_id")
+
+	// Set defaults
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 50
+	}
+
+	offset := (page - 1) * perPage
+
+	// Build query
+	query := `
+		SELECT id, user_id, payload, error_message, created_at, completed_at, retry_count
+		FROM llm_jobs
+		WHERE job_type = 'email' AND status = 'failed'
+	`
+	args := []interface{}{}
+	argIdx := 1
+
+	if userIDFilter != "" {
+		userID, err := strconv.Atoi(userIDFilter)
+		if err == nil {
+			query += fmt.Sprintf(" AND user_id = $%d", argIdx)
+			args = append(args, userID)
+			argIdx++
+		}
+	}
+
+	query += " ORDER BY created_at DESC"
+
+	// Get total count
+	countQuery := "SELECT COUNT(*) FROM (" + query + ") AS subq"
+	var total int
+	err := s.DB.QueryRow(countQuery, args...).Scan(&total)
+	if err != nil {
+		log.Printf("GetFailedEmailsRoute: error getting count: %v", err)
+		http.Error(w, "Failed to get failed emails", http.StatusInternalServerError)
+		return
+	}
+
+	// Add pagination
+	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
+	args = append(args, perPage, offset)
+
+	rows, err := s.DB.Query(query, args...)
+	if err != nil {
+		log.Printf("GetFailedEmailsRoute: error querying failed emails: %v", err)
+		http.Error(w, "Failed to get failed emails", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	emails := []FailedEmail{}
+	for rows.Next() {
+		var e FailedEmail
+		var payloadJSON []byte
+		var completedAt sql.NullTime
+
+		err := rows.Scan(
+			&e.ID,
+			&e.UserID,
+			&payloadJSON,
+			&e.ErrorMessage,
+			&e.CreatedAt,
+			&completedAt,
+			&e.RetryCount,
+		)
+		if err != nil {
+			log.Printf("GetFailedEmailsRoute: error scanning row: %v", err)
+			continue
+		}
+
+		// Unmarshal payload
+		if err := json.Unmarshal(payloadJSON, &e.Payload); err != nil {
+			log.Printf("GetFailedEmailsRoute: error unmarshaling payload: %v", err)
+			e.Payload = make(map[string]interface{})
+		}
+
+		// Extract subject and recipient from payload
+		if subject, ok := e.Payload["subject"].(string); ok {
+			e.Subject = subject
+		}
+		if recipient, ok := e.Payload["recipient"].(string); ok {
+			e.Recipient = recipient
+		}
+
+		if completedAt.Valid {
+			e.CompletedAt = completedAt.Time.Format("2006-01-02T15:04:05Z07:00")
+		}
+
+		emails = append(emails, e)
+	}
+
+	// Parse response
+	response := struct {
+		Emails     []FailedEmail `json:"emails"`
+		Total      int           `json:"total"`
+		Page       int           `json:"page"`
+		PerPage    int           `json:"per_page"`
+		TotalPages int           `json:"total_pages"`
+	}{
+		Emails:     emails,
+		Total:      total,
+		Page:       page,
+		PerPage:    perPage,
+		TotalPages: (total + perPage - 1) / perPage,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// RetryFailedEmailRoute retries a failed email job
+// Admin only
+func (s *Handler) RetryFailedEmailRoute(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	jobIDStr := vars["id"]
+
+	jobID, err := strconv.Atoi(jobIDStr)
+	if err != nil {
+		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Check if job exists and is a failed email
+	var exists bool
+	err = s.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM llm_jobs WHERE id = $1 AND job_type = 'email' AND status = 'failed')", jobID).Scan(&exists)
+	if err != nil {
+		log.Printf("RetryFailedEmailRoute: error checking job: %v", err)
+		http.Error(w, "Failed to retry email", http.StatusInternalServerError)
+		return
+	}
+
+	if !exists {
+		http.Error(w, "Failed email not found", http.StatusNotFound)
+		return
+	}
+
+	// Reset job to pending and clear error
+	query := `
+		UPDATE llm_jobs
+		SET status = 'pending',
+		    error_message = '',
+		    retry_count = 0,
+		    updated_at = NOW()
+		WHERE id = $1
+	`
+	_, err = s.DB.Exec(query, jobID)
+	if err != nil {
+		log.Printf("RetryFailedEmailRoute: error retrying email: %v", err)
+		http.Error(w, "Failed to retry email", http.StatusInternalServerError)
+		return
+	}
+
+	// Log admin action
+	s.LogAdminAction(r, "email.retry", "email", jobID, map[string]interface{}{
+		"action": "retried_failed_email",
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Email queued for retry",
+	})
+}
+
+// DeleteFailedEmailRoute permanently deletes a failed email job
+// Admin only
+func (s *Handler) DeleteFailedEmailRoute(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	jobIDStr := vars["id"]
+
+	jobID, err := strconv.Atoi(jobIDStr)
+	if err != nil {
+		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Check if job exists and is a failed email, get details for logging
+	var exists bool
+	var userID int
+	var payloadJSON []byte
+	err = s.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM llm_jobs WHERE id = $1 AND job_type = 'email' AND status = 'failed'), user_id, payload", jobID).Scan(&exists, &userID, &payloadJSON)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("DeleteFailedEmailRoute: error checking job: %v", err)
+		http.Error(w, "Failed to delete email", http.StatusInternalServerError)
+		return
+	}
+
+	if !exists {
+		http.Error(w, "Failed email not found", http.StatusNotFound)
+		return
+	}
+
+	// Delete the job
+	_, err = s.DB.Exec("DELETE FROM llm_jobs WHERE id = $1", jobID)
+	if err != nil {
+		log.Printf("DeleteFailedEmailRoute: error deleting email: %v", err)
+		http.Error(w, "Failed to delete email", http.StatusInternalServerError)
+		return
+	}
+
+	// Log admin action
+	s.LogAdminAction(r, "email.delete", "email", jobID, map[string]interface{}{
+		"action":  "deleted_failed_email",
+		"user_id": userID,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Failed email deleted",
+	})
 }

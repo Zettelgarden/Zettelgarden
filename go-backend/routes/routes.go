@@ -2,6 +2,7 @@ package routes
 
 import (
 	"go-backend/handlers"
+	"go-backend/handlers/admin"
 	"github.com/gorilla/mux"
 )
 
@@ -83,4 +84,10 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler) {
 
 	// Job queue routes
 	RegisterJobRoutes(r, h)
+
+	// Admin email management routes
+	RegisterAdminEmailRoutes(r, h)
+
+	// Admin-specific routes (dashboard, audit logs, etc.)
+	admin.RegisterAllAdminRoutes(r, h)
 }
