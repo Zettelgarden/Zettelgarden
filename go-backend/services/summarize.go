@@ -28,6 +28,9 @@ const (
 	// Cost per million tokens for summarization (using OpenAI-compatible pricing as baseline)
 	PromptCostPerMillion     = 1.25
 	CompletionCostPerMillion = 10.0
+
+	// LLMRequestTimeout is the maximum time to wait for an LLM request to complete
+	LLMRequestTimeout = 5 * time.Minute
 )
 
 // ExtractThesesAndArguments processes input text into SectionAnalysis entries,
@@ -113,7 +116,9 @@ Format Example:
 		}
 		log.Printf("userContent %v", userContent)
 
-		resp, err := ExecuteLLMRequest(context.Background(), c, messages)
+		ctx, cancel := context.WithTimeout(context.Background(), LLMRequestTimeout)
+		resp, err := ExecuteLLMRequest(ctx, c, messages)
+		cancel()
 		if err != nil {
 			return nil, facts, models.Usage{}, err
 		}
@@ -126,15 +131,71 @@ Format Example:
 		if err := json.Unmarshal([]byte(content), &analysis); err != nil {
 			log.Printf("err on analysis: %v", err)
 			log.Printf("content: %v", content)
-			// Save current section data before skipping this chunk to avoid data loss
-			if len(currentSectionAnalyses) > 0 {
-				completedSections = append(completedSections, currentSectionAnalyses...)
-				log.Printf("Saving current section data before skipping chunk due to JSON error")
-				currentSectionAnalyses = nil
-				lastSectionName = ""
-				cacheValid = false // Invalidate cache
+
+			// Try to repair the JSON by asking the LLM to fix it
+			repairMessages := []openai.ChatCompletionMessage{
+				{
+					Role: openai.ChatMessageRoleSystem,
+					Content: `You are a JSON repair assistant. Fix the following invalid JSON and return ONLY valid JSON.
+The JSON should be an array of section analyses with this structure:
+[{
+  "section": "Section N: Title",
+  "theses": [{
+    "thesis": "...",
+    "facts": ["...", "..."],
+    "arguments": [{"argument": "...", "importance": N}]
+  }]
+}]`,
+				},
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: "Fix this invalid JSON:\n\n" + content,
+				},
 			}
-			continue
+
+			ctx, cancel := context.WithTimeout(context.Background(), LLMRequestTimeout)
+			repairResp, err := ExecuteLLMRequest(ctx, c, repairMessages)
+			cancel()
+			if err != nil {
+				log.Printf("Failed to repair JSON: %v", err)
+				// Save current section data before skipping this chunk to avoid data loss
+				if len(currentSectionAnalyses) > 0 {
+					completedSections = append(completedSections, currentSectionAnalyses...)
+					log.Printf("Saving current section data before skipping chunk due to JSON error")
+					currentSectionAnalyses = nil
+					lastSectionName = ""
+					cacheValid = false
+				}
+				continue
+			}
+
+			if len(repairResp.Choices) == 0 {
+				log.Printf("No repair response from LLM")
+				if len(currentSectionAnalyses) > 0 {
+					completedSections = append(completedSections, currentSectionAnalyses...)
+					log.Printf("Saving current section data before skipping chunk due to JSON error")
+					currentSectionAnalyses = nil
+					lastSectionName = ""
+					cacheValid = false
+				}
+				continue
+			}
+
+			repairContent := cleanContent(repairResp.Choices[0].Message.Content)
+			if err := json.Unmarshal([]byte(repairContent), &analysis); err != nil {
+				log.Printf("Repaired JSON still invalid: %v", err)
+				log.Printf("repaired content: %v", repairContent)
+				// Save current section data before skipping this chunk to avoid data loss
+				if len(currentSectionAnalyses) > 0 {
+					completedSections = append(completedSections, currentSectionAnalyses...)
+					log.Printf("Saving current section data before skipping chunk due to JSON error")
+					currentSectionAnalyses = nil
+					lastSectionName = ""
+					cacheValid = false
+				}
+				continue
+			}
+			log.Printf("Successfully repaired JSON for chunk")
 		}
 		log.Printf("all analysis %v", analysis)
 
@@ -408,6 +469,7 @@ func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []models.SectionAn
 		c.Model = DefaultSummarizeModel
 	}
 
+	// Start with existing usage counts and accumulate
 	totalPromptTokens := usage.PromptTokens
 	totalCompletionTokens := usage.CompletionTokens
 
@@ -452,7 +514,9 @@ Important: Consider the full set of arguments with their importance values when 
 			Content: dedupInput,
 		},
 	}
-	dedupResp, err := ExecuteLLMRequest(context.Background(), c, dedupMessages)
+	ctx, cancel := context.WithTimeout(context.Background(), LLMRequestTimeout)
+	dedupResp, err := ExecuteLLMRequest(ctx, c, dedupMessages)
+	cancel()
 	if err != nil {
 		return "", nil, models.Usage{}, err
 	}
@@ -517,7 +581,10 @@ Input (including deduplicated theses, facts, and arguments with importance/rank)
 		},
 	}
 
-	finalResp, err := ExecuteLLMRequest(context.Background(), c, finalMessages)
+	var finalResp openai.ChatCompletionResponse
+	ctx, cancel = context.WithTimeout(context.Background(), LLMRequestTimeout)
+	finalResp, err = ExecuteLLMRequest(ctx, c, finalMessages)
+	cancel()
 	if err != nil {
 		return "", nil, models.Usage{}, err
 	}
@@ -538,13 +605,15 @@ Input (including deduplicated theses, facts, and arguments with importance/rank)
 	log.Printf("Summarization completed - Time: %v, Tokens: %d (Prompt: %d, Completion: %d), Cost: $%.4f",
 		elapsed, totalPromptTokens+totalCompletionTokens, totalPromptTokens, totalCompletionTokens, totalCost)
 
-	// update usage before returning
-	usage.PromptTokens = totalPromptTokens
-	usage.CompletionTokens = totalCompletionTokens
-	usage.TotalTokens = totalPromptTokens + totalCompletionTokens
-	usage.TotalCost = totalCost
+	// Return new Usage struct with accumulated totals (don't mutate input parameter)
+	resultUsage := models.Usage{
+		PromptTokens:     totalPromptTokens,
+		CompletionTokens: totalCompletionTokens,
+		TotalTokens:      totalPromptTokens + totalCompletionTokens,
+		TotalCost:        totalCost,
+	}
 
-	return summary, allAnalyses, usage, nil
+	return summary, allAnalyses, resultUsage, nil
 }
 
 // flattenArguments combines arguments from multiple analyses
@@ -629,13 +698,13 @@ func GetCardAnalysis(db *sql.DB, userID int, cardPK int) ([]models.SectionAnalys
 		if err != nil {
 			return nil, fmt.Errorf("failed to query theses for section %d: %w", sectionID, err)
 		}
-		defer thesisRows.Close()
 
 		var theses []models.ThesisEntry
 		for thesisRows.Next() {
 			var thesisID int
 			var thesis models.ThesisEntry
 			if err := thesisRows.Scan(&thesisID, &thesis.Thesis); err != nil {
+				thesisRows.Close()
 				return nil, fmt.Errorf("failed to scan thesis: %w", err)
 			}
 
@@ -646,20 +715,31 @@ func GetCardAnalysis(db *sql.DB, userID int, cardPK int) ([]models.SectionAnalys
 				ORDER BY id
 			`, userID, thesisID)
 			if err != nil {
+				thesisRows.Close()
 				return nil, fmt.Errorf("failed to query arguments for thesis %d: %w", thesisID, err)
 			}
-			defer argRows.Close()
 
 			var arguments []models.Argument
 			for argRows.Next() {
 				var arg models.Argument
 				if err := argRows.Scan(&arg.Argument, &arg.Importance); err != nil {
+					argRows.Close()
+					thesisRows.Close()
 					return nil, fmt.Errorf("failed to scan argument: %w", err)
 				}
 				arguments = append(arguments, arg)
 			}
+			// Explicitly close argRows after use to avoid resource leaks
+			if err := argRows.Close(); err != nil {
+				thesisRows.Close()
+				return nil, fmt.Errorf("failed to close argument rows: %w", err)
+			}
 			thesis.Arguments = arguments
 			theses = append(theses, thesis)
+		}
+		// Explicitly close thesisRows after use to avoid resource leaks
+		if err := thesisRows.Close(); err != nil {
+			return nil, fmt.Errorf("failed to close thesis rows: %w", err)
 		}
 		section.Theses = theses
 		analyses = append(analyses, section)
