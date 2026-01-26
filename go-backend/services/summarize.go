@@ -102,8 +102,16 @@ func executeLLMRequestWithRetry(ctx context.Context, c *models.LLMClient, messag
 // aggregating theses, facts, and arguments from each chunk.
 // Returns all analyses and usage statistics.
 func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.SectionAnalysis, []string, models.Usage, error) {
+	start := time.Now()
 	chunks := ChunkText(input)
+
+	// Log input metrics
+	log.Printf("[METRICS] ExtractThesesAndArguments started - input_size=%d chars, chunks=%d, model=%s",
+		len(input), len(chunks), c.Model)
+
 	var facts []string
+	var jsonRepairAttempts int
+	var jsonRepairSuccesses int
 
 	totalPromptTokens := 0
 	totalCompletionTokens := 0
@@ -194,10 +202,11 @@ Format Example:
 		content := cleanContent(resp.Choices[0].Message.Content)
 		var analysis []models.SectionAnalysis
 		if err := json.Unmarshal([]byte(content), &analysis); err != nil {
-			log.Printf("err on analysis: %v", err)
+			log.Printf("[METRICS] JSON parse error - chunk_index=%d, error=%v", len(completedSections), err)
 			log.Printf("content: %v", content)
 
 			// Try to repair the JSON by asking the LLM to fix it
+			jsonRepairAttempts++
 			repairMessages := []openai.ChatCompletionMessage{
 				{
 					Role: openai.ChatMessageRoleSystem,
@@ -222,7 +231,7 @@ The JSON should be an array of section analyses with this structure:
 			repairResp, err := executeLLMRequestWithRetry(ctx, c, repairMessages)
 			cancel()
 			if err != nil {
-				log.Printf("Failed to repair JSON: %v", err)
+				log.Printf("[METRICS] JSON repair failed - chunk_index=%d", len(completedSections))
 				// Save current section data before skipping this chunk to avoid data loss
 				if len(currentSectionAnalyses) > 0 {
 					completedSections = append(completedSections, currentSectionAnalyses...)
@@ -260,7 +269,8 @@ The JSON should be an array of section analyses with this structure:
 				}
 				continue
 			}
-			log.Printf("Successfully repaired JSON for chunk")
+			log.Printf("[METRICS] JSON repair succeeded - chunk_index=%d", len(completedSections))
+			jsonRepairSuccesses++
 		}
 		log.Printf("all analysis %v", analysis)
 
@@ -342,14 +352,38 @@ The JSON should be an array of section analyses with this structure:
 	allAnalyses = append(allAnalyses, currentSectionAnalyses...)
 
 	if len(allAnalyses) == 0 {
+		log.Printf("[METRICS] ExtractThesesAndArguments failed - no valid analyses returned")
 		return nil, facts, models.Usage{}, errors.New("no valid analyses returned")
 	}
+
+	// Log completion metrics
+	elapsed := time.Since(start)
+	promptCost := float64(totalPromptTokens) / 1_000_000 * PromptCostPerMillion
+	completionCost := float64(totalCompletionTokens) / 1_000_000 * CompletionCostPerMillion
+	totalCost := promptCost + completionCost
+
+	log.Printf("[METRICS] ExtractThesesAndArguments completed - "+
+		"duration=%v, sections=%d, theses=%d, facts=%d, "+
+		"prompt_tokens=%d, completion_tokens=%d, total_tokens=%d, cost=$%.4f, "+
+		"json_repairs=%d/%d, model=%s",
+		elapsed, len(allAnalyses), countTheses(allAnalyses), len(facts),
+		totalPromptTokens, totalCompletionTokens, totalPromptTokens+totalCompletionTokens, totalCost,
+		jsonRepairSuccesses, jsonRepairAttempts, c.Model)
 
 	return allAnalyses, facts, models.Usage{
 		PromptTokens:     totalPromptTokens,
 		CompletionTokens: totalCompletionTokens,
 		TotalTokens:      totalPromptTokens + totalCompletionTokens,
 	}, nil
+}
+
+// countTheses counts the total number of theses across all analyses
+func countTheses(analyses []models.SectionAnalysis) int {
+	total := 0
+	for _, analysis := range analyses {
+		total += len(analysis.Theses)
+	}
+	return total
 }
 
 // Clean possible markdown wrappers
@@ -534,6 +568,10 @@ func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []models.SectionAn
 		c.Model = DefaultSummarizeModel
 	}
 
+	// Log input metrics
+	log.Printf("[METRICS] AnalyzeAndSummarizeText started - sections=%d, theses=%d, facts=%d, model=%s",
+		len(allAnalyses), countTheses(allAnalyses), len(facts), c.Model)
+
 	// Start with existing usage counts and accumulate
 	totalPromptTokens := usage.PromptTokens
 	totalCompletionTokens := usage.CompletionTokens
@@ -665,10 +703,13 @@ Input (including deduplicated theses, facts, and arguments with importance/rank)
 	completionCost := float64(totalCompletionTokens) / 1_000_000 * CompletionCostPerMillion
 	totalCost := promptCost + completionCost
 
-	// Log timing and cost information for observability (not included in summary to keep it as pure markdown)
+	// Log completion metrics with structured format
 	elapsed := time.Since(start)
-	log.Printf("Summarization completed - Time: %v, Tokens: %d (Prompt: %d, Completion: %d), Cost: $%.4f",
-		elapsed, totalPromptTokens+totalCompletionTokens, totalPromptTokens, totalCompletionTokens, totalCost)
+	log.Printf("[METRICS] AnalyzeAndSummarizeText completed - "+
+		"duration=%v, summary_length=%d chars, sections=%d, theses=%d, facts=%d, "+
+		"prompt_tokens=%d, completion_tokens=%d, total_tokens=%d, cost=$%.4f, model=%s",
+		elapsed, len(summary), len(allAnalyses), countTheses(allAnalyses), len(facts),
+		totalPromptTokens, totalCompletionTokens, totalPromptTokens+totalCompletionTokens, totalCost, c.Model)
 
 	// Return new Usage struct with accumulated totals (don't mutate input parameter)
 	resultUsage := models.Usage{

@@ -153,6 +153,7 @@ export function AdminUserIndex() {
         onSearchChange={setGlobalFilter}
         searchPlaceholder="Search all columns..."
         isLoading={isLoading}
+        hideOnMobile={["revenue", "llm_cost", "file_count", "task_count", "chat_message_count"]}
       />
     </div>
   );

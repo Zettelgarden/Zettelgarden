@@ -21,6 +21,8 @@ export interface AdminTableProps<TData> {
   emptyMessage?: string;
   /** Number of rows to show as skeleton when loading */
   skeletonRows?: number;
+  /** Columns to hide on mobile (by column ID) */
+  hideOnMobile?: string[];
 }
 
 /**
@@ -40,6 +42,7 @@ const SORT_INDICATORS = {
  * - Consistent padding and borders
  * - Loading skeleton states
  * - Empty state handling
+ * - Mobile-responsive card view for small screens
  *
  * @example
  * ```tsx
@@ -53,45 +56,64 @@ export function AdminTable<TData>({
   isLoading = false,
   emptyMessage = "No data available",
   skeletonRows = 5,
+  hideOnMobile = [],
 }: AdminTableProps<TData>) {
   const headerGroups = table.getHeaderGroups();
   const rows = table.getRowModel().rows;
 
+  // Filter columns for mobile view (hide those marked as hideOnMobile)
+  const mobileHeaders = headerGroups[0]?.headers.filter(
+    header => !hideOnMobile.includes(header.id)
+  ) || [];
+
   // Show loading skeleton
   if (isLoading) {
     return (
-      <div className="overflow-x-auto">
-        <table className={`min-w-full bg-white shadow-md rounded ${className}`}>
-          <thead className="bg-gray-800 text-white">
-            {headerGroups.map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="py-2 px-4 text-left"
-                  >
-                    {flexRender(
-                      header.column.columnDef.header,
-                      header.getContext()
-                    )}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {Array.from({ length: skeletonRows }).map((_, index) => (
-              <tr key={`skeleton-${index}`} className="border-b">
-                {headerGroups[0]?.headers.map((header, cellIndex) => (
-                  <td key={cellIndex} className="py-2 px-4">
-                    <div className="animate-pulse bg-gray-200 h-4 rounded" />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <>
+        {/* Desktop table skeleton */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className={`min-w-full bg-white shadow-md rounded ${className}`}>
+            <thead className="bg-gray-800 text-white">
+              {headerGroups.map((headerGroup) => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <th
+                      key={header.id}
+                      className="py-2 px-4 text-left"
+                    >
+                      {flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                    </th>
+                  ))}
+                </tr>
+              ))}
+            </thead>
+            <tbody>
+              {Array.from({ length: skeletonRows }).map((_, index) => (
+                <tr key={`skeleton-${index}`} className="border-b">
+                  {headerGroups[0]?.headers.map((header, cellIndex) => (
+                    <td key={cellIndex} className="py-2 px-4">
+                      <div className="animate-pulse bg-gray-200 h-4 rounded" />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {/* Mobile card skeleton */}
+        <div className="md:hidden space-y-4">
+          {Array.from({ length: skeletonRows }).map((_, index) => (
+            <div key={`mobile-skeleton-${index}`} className="bg-white rounded-lg shadow p-4">
+              <div className="animate-pulse bg-gray-200 h-5 w-3/4 rounded mb-3" />
+              <div className="animate-pulse bg-gray-200 h-4 w-1/2 rounded mb-2" />
+              <div className="animate-pulse bg-gray-200 h-4 w-1/3 rounded" />
+            </div>
+          ))}
+        </div>
+      </>
     );
   }
 
@@ -132,42 +154,73 @@ export function AdminTable<TData>({
     );
   }
 
-  // Show table with data
   return (
-    <div className="overflow-x-auto">
-      <table className={`min-w-full bg-white shadow-md rounded ${className}`}>
-        <thead className="bg-gray-800 text-white">
-          {headerGroups.map((headerGroup) => (
-            <tr key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <th
-                  key={header.id}
-                  className="py-2 px-4 text-left cursor-pointer select-none"
-                  onClick={header.column.getToggleSortingHandler()}
-                >
-                  {flexRender(
-                    header.column.columnDef.header,
-                    header.getContext()
-                  )}
-                  {SORT_INDICATORS[header.column.getIsSorted() as string] ?? null}
-                </th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className="border-b hover:bg-gray-100">
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className="py-2 px-4">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      {/* Desktop table view */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className={`min-w-full bg-white shadow-md rounded ${className}`}>
+          <thead className="bg-gray-800 text-white">
+            {headerGroups.map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th
+                    key={header.id}
+                    className="py-2 px-4 text-left cursor-pointer select-none"
+                    onClick={header.column.getToggleSortingHandler()}
+                  >
+                    {flexRender(
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
+                    {SORT_INDICATORS[header.column.getIsSorted() as string] ?? null}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id} className="border-b hover:bg-gray-100">
+                {row.getVisibleCells().map((cell) => (
+                  <td key={cell.id} className="py-2 px-4">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile card view */}
+      <div className="md:hidden space-y-4">
+        {rows.map((row) => (
+          <div key={row.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="divide-y divide-gray-200">
+              {mobileHeaders.map((header) => {
+                const cell = row.getVisibleCells().find(
+                  c => c.column.id === header.id
+                );
+                if (!cell) return null;
+                return (
+                  <div key={header.id} className="px-4 py-3">
+                    <div className="text-xs text-gray-500 font-medium mb-1">
+                      {flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                    </div>
+                    <div className="text-sm">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -185,12 +238,15 @@ export interface AdminTableContainerProps<TData> extends AdminTableProps<TData> 
   searchPlaceholder?: string;
   /** Additional header content (e.g., action buttons) */
   headerContent?: React.ReactNode;
+  /** Columns to hide on mobile */
+  hideOnMobile?: string[];
 }
 
 /**
  * AdminTableContainer - A complete table container with title and search.
  *
  * Combines the table with a header section containing title and search input.
+ * Mobile-responsive with collapsible search on small screens.
  *
  * @example
  * ```tsx
@@ -201,6 +257,7 @@ export interface AdminTableContainerProps<TData> extends AdminTableProps<TData> 
  *     searchValue={globalFilter ?? ""}
  *     onSearchChange={(v) => setGlobalFilter(v)}
  *     searchPlaceholder="Search all columns..."
+ *     hideOnMobile={["revenue", "llm_cost"]}
  *   />
  * );
  * ```
@@ -216,28 +273,60 @@ export function AdminTableContainer<TData>({
   emptyMessage,
   skeletonRows,
   className,
+  hideOnMobile,
 }: AdminTableContainerProps<TData>) {
+  const [showMobileSearch, setShowMobileSearch] = React.useState(false);
+
   return (
     <div className="container mx-auto px-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">{title}</h1>
+      {/* Title and search header */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
+        <h1 className="text-xl sm:text-2xl font-bold">{title}</h1>
         <div className="flex items-center gap-2">
+          {/* Desktop search */}
+          <div className="hidden sm:block">
+            <input
+              type="text"
+              value={searchValue}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="px-4 py-2 border rounded-lg w-64"
+              placeholder={searchPlaceholder}
+            />
+          </div>
+          {/* Mobile search toggle */}
+          <button
+            onClick={() => setShowMobileSearch(!showMobileSearch)}
+            className="sm:hidden p-2 bg-white border border-gray-300 rounded-lg"
+            aria-label="Search"
+          >
+            🔍
+          </button>
+          {headerContent}
+        </div>
+      </div>
+
+      {/* Mobile search input */}
+      {showMobileSearch && (
+        <div className="sm:hidden mb-4">
           <input
             type="text"
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="px-4 py-2 border rounded-lg"
+            className="w-full px-4 py-2 border rounded-lg"
             placeholder={searchPlaceholder}
+            autoFocus
+            onBlur={() => setShowMobileSearch(false)}
           />
-          {headerContent}
         </div>
-      </div>
+      )}
+
       <AdminTable
         table={table}
         isLoading={isLoading}
         emptyMessage={emptyMessage}
         skeletonRows={skeletonRows}
         className={className}
+        hideOnMobile={hideOnMobile}
       />
     </div>
   );

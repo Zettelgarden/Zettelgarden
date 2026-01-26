@@ -39,8 +39,9 @@ export function Admin() {
     <div className="flex h-screen overflow-hidden">
       {/* Mobile Menu Button */}
       <button
-        className="md:hidden fixed top-4 right-4 z-[60] p-2 bg-white rounded shadow"
+        className="md:hidden fixed top-4 right-4 z-[60] p-3 bg-white rounded-lg shadow-lg hover:bg-gray-50 active:bg-gray-100"
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        aria-label="Toggle menu"
       >
         <MenuIcon />
       </button>
@@ -48,7 +49,7 @@ export function Admin() {
       {/* Mobile Backdrop */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 md:hidden z-[45]"
+          className="fixed inset-0 bg-black/50 md:hidden z-[45] animate-in fade-in"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
@@ -74,52 +75,64 @@ export function Admin() {
         `}
       >
         <div className="h-full flex flex-col">
+          {/* Sidebar header with close button on mobile */}
+          <div className="flex items-center justify-between px-4 py-4 border-b border-gray-700 md:hidden">
+            <span className="text-white font-semibold">Admin Menu</span>
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="p-2 text-gray-400 hover:text-white"
+              aria-label="Close menu"
+            >
+              ✕
+            </button>
+          </div>
+
           <div className="flex-1 overflow-y-auto py-4">
             <nav className="px-4">
               <ul className="space-y-2">
                 <li>
-                  <Link 
-                    to="/admin" 
-                    className="block py-2 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors"
+                  <Link
+                    to="/admin"
+                    className="block py-3 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors min-h-[44px] flex items-center"
                     onClick={() => setIsSidebarOpen(false)}
                   >
-                    Users
+                    👥 Users
                   </Link>
                 </li>
                 <li>
-                  <Link 
-                    to="/admin/mailing-list" 
-                    className="block py-2 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors"
+                  <Link
+                    to="/admin/mailing-list"
+                    className="block py-3 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors min-h-[44px] flex items-center"
                     onClick={() => setIsSidebarOpen(false)}
                   >
-                    Mailing List Subscribers
+                    📧 Mailing List Subscribers
                   </Link>
                 </li>
                 <li>
-                  <Link 
-                    to="/admin/mailing-list/send" 
-                    className="block py-2 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors"
+                  <Link
+                    to="/admin/mailing-list/send"
+                    className="block py-3 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors min-h-[44px] flex items-center"
                     onClick={() => setIsSidebarOpen(false)}
                   >
-                    Send Mailing List Message
+                    ✉️ Send Message
                   </Link>
                 </li>
                 <li>
-                  <Link 
-                    to="/admin/mailing-list/history" 
-                    className="block py-2 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors"
+                  <Link
+                    to="/admin/mailing-list/history"
+                    className="block py-3 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors min-h-[44px] flex items-center"
                     onClick={() => setIsSidebarOpen(false)}
                   >
-                    Message History
+                    📜 Message History
                   </Link>
                 </li>
-                <li>
-                  <Link 
-                    to="/app" 
-                    className="block py-2 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors"
+                <li className="pt-4 border-t border-gray-700 mt-4">
+                  <Link
+                    to="/app"
+                    className="block py-3 px-4 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-white transition-colors min-h-[44px] flex items-center"
                     onClick={() => setIsSidebarOpen(false)}
                   >
-                    Back to App
+                    ← Back to App
                   </Link>
                 </li>
               </ul>
