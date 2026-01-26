@@ -8,18 +8,12 @@ import {
   getFilteredRowModel,
   flexRender,
   createColumnHelper,
-  FilterFn,
   SortingState,
   ColumnDef,
 } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
-import { rankItem } from "@tanstack/match-sorter-utils";
-
-const fuzzyFilter: FilterFn<any> = (row, columnId, value, addMeta) => {
-  const itemRank = rankItem(row.getValue(columnId), value);
-  addMeta({ itemRank });
-  return itemRank.passed;
-};
+import { fuzzyFilter } from "../../utils/tableFilters";
+import { StatusBadge, getSubscriptionStatusBadge } from "../../components/admin/StatusBadge";
 
 export function AdminUserIndex() {
   const [users, setUsers] = useState<User[]>([]);
@@ -63,30 +57,19 @@ export function AdminUserIndex() {
       columnHelper.accessor("email_validated", {
         header: "Email Validated",
         cell: (info) => (
-          <span
-            className={`px-2 py-1 rounded text-sm ${info.getValue()
-                ? "bg-green-100 text-green-800"
-                : "bg-yellow-100 text-yellow-800"
-              }`}
-          >
-            {info.getValue() ? "Verified" : "Pending"}
-          </span>
+          <StatusBadge
+            value={info.getValue()}
+            type={info.getValue() ? "success" : "warning"}
+            label={info.getValue() ? "Verified" : "Pending"}
+          />
         ),
       }),
       columnHelper.accessor("stripe_subscription_status", {
         header: "Subscription",
-        cell: (info) => (
-          <span
-            className={`px-2 py-1 rounded text-sm ${info.getValue() === "active"
-                ? "bg-green-100 text-green-800"
-                : info.getValue() === "trialing"
-                  ? "bg-blue-100 text-blue-800"
-                  : "bg-red-100 text-red-800"
-              }`}
-          >
-            {info.getValue()}
-          </span>
-        ),
+        cell: (info) => {
+          const badge = getSubscriptionStatusBadge(info.getValue() as string);
+          return <StatusBadge type={badge.type} label={badge.label} />;
+        },
       }),
       columnHelper.accessor("created_at", {
         header: "Created At",

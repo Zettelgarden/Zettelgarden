@@ -7,17 +7,11 @@ import {
   getFilteredRowModel,
   flexRender,
   createColumnHelper,
-  FilterFn,
   SortingState,
   ColumnDef,
 } from "@tanstack/react-table";
-import { rankItem } from "@tanstack/match-sorter-utils";
-
-const fuzzyFilter: FilterFn<any> = (row, columnId, value, addMeta) => {
-  const itemRank = rankItem(row.getValue(columnId), value);
-  addMeta({ itemRank });
-  return itemRank.passed;
-};
+import { fuzzyFilter } from "../../utils/tableFilters";
+import { StatusBadge } from "../../components/admin/StatusBadge";
 
 export function AdminMailingListPage() {
   const [subscribers, setSubscribers] = useState<MailingListSubscriber[]>([]);
@@ -71,43 +65,31 @@ export function AdminMailingListPage() {
       columnHelper.accessor("subscribed", {
         header: "Status",
         cell: (info) => (
-          <span
-            className={`px-2 py-1 rounded text-sm ${
-              info.getValue()
-                ? "bg-green-100 text-green-800"
-                : "bg-red-100 text-red-800"
-            }`}
-          >
-            {info.getValue() ? "Subscribed" : "Unsubscribed"}
-          </span>
+          <StatusBadge
+            value={info.getValue()}
+            type={info.getValue() ? "success" : "error"}
+            label={info.getValue() ? "Subscribed" : "Unsubscribed"}
+          />
         ),
       }),
       columnHelper.accessor("welcome_email_sent", {
         header: "Welcome Email",
         cell: (info) => (
-          <span
-            className={`px-2 py-1 rounded text-sm ${
-              info.getValue()
-                ? "bg-blue-100 text-blue-800"
-                : "bg-yellow-100 text-yellow-800"
-            }`}
-          >
-            {info.getValue() ? "Sent" : "Pending"}
-          </span>
+          <StatusBadge
+            value={info.getValue()}
+            type={info.getValue() ? "info" : "warning"}
+            label={info.getValue() ? "Sent" : "Pending"}
+          />
         ),
       }),
       columnHelper.accessor("has_account", {
         header: "Account Status",
         cell: (info) => (
-          <span
-            className={`px-2 py-1 rounded text-sm ${
-              info.getValue()
-                ? "bg-purple-100 text-purple-800"
-                : "bg-gray-100 text-gray-800"
-            }`}
-          >
-            {info.getValue() ? "Has Account" : "No Account"}
-          </span>
+          <StatusBadge
+            value={info.getValue()}
+            type={info.getValue() ? "info" : "neutral"}
+            label={info.getValue() ? "Has Account" : "No Account"}
+          />
         ),
       }),
       columnHelper.accessor("created_at", {
