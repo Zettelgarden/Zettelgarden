@@ -31,8 +31,6 @@ func (p *LLMJobProcessor) ProcessJob(ctx context.Context, job *models.LLMJob) (m
 	p.logger.Printf("[Processor] Processing job %d (type: %s, user: %d)", job.ID, job.JobType, job.UserID)
 
 	switch job.JobType {
-	case models.JobTypeEmbedding:
-		return p.processEmbeddingJob(ctx, job)
 	case models.JobTypeEntityExtraction:
 		return p.processEntityExtractionJob(ctx, job)
 	case models.JobTypeFactEntityExtraction:
@@ -48,66 +46,6 @@ func (p *LLMJobProcessor) ProcessJob(ctx context.Context, job *models.LLMJob) (m
 	default:
 		return nil, fmt.Errorf("unknown job type: %s", job.JobType)
 	}
-}
-
-// processEmbeddingJob generates embeddings for a card
-func (p *LLMJobProcessor) processEmbeddingJob(ctx context.Context, job *models.LLMJob) (map[string]interface{}, error) {
-	// Extract card_pk from payload
-	cardPK, ok := job.Payload["card_pk"].(float64)
-	if !ok {
-		return nil, fmt.Errorf("missing or invalid card_pk in payload")
-	}
-
-	// Get card content
-	var title, content string
-	err := p.db.QueryRowContext(ctx,
-		"SELECT title, content FROM cards WHERE id = $1 AND user_id = $2",
-		int(cardPK), job.UserID).Scan(&title, &content)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("card not found")
-		}
-		return nil, fmt.Errorf("failed to get card: %w", err)
-	}
-
-	// Create LLM client
-	client := NewDefaultClient(p.db, job.UserID)
-	client.RequestType = "embedding"
-
-	// Generate embedding using OpenAI
-	// Note: This uses the embedding endpoint which returns vector data
-	textForEmbedding := title + "\n\n" + content
-
-	// Create embedding request
- embeddingRequest := openai.EmbeddingRequest{
-		Input: []string{textForEmbedding},
-		Model: openai.AdaEmbeddingV2,
-	}
-
-	// Execute embedding request
-	resp, err := client.Client.CreateEmbeddings(ctx, embeddingRequest)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create embedding: %w", err)
-	}
-
-	if len(resp.Data) == 0 {
-		return nil, fmt.Errorf("no embedding returned")
-	}
-
-	// Update card with embedding
-	embedding := resp.Data[0].Embedding
-	_, err = p.db.ExecContext(ctx,
-		"UPDATE cards SET embedding = $1, updated_at = NOW() WHERE id = $2",
-		embeddingToJSONB(embedding), int(cardPK))
-	if err != nil {
-		return nil, fmt.Errorf("failed to update card with embedding: %w", err)
-	}
-
-	return map[string]interface{}{
-		"card_pk":   int(cardPK),
-		"embedding_dim": len(embedding),
-		"status":    "completed",
-	}, nil
 }
 
 // processEntityExtractionJob extracts entities from a card
@@ -607,20 +545,6 @@ func (p *LLMJobProcessor) saveEntity(ctx context.Context, userID int, entity mod
 	}
 
 	return entityID, nil
-}
-
-// Helper: embeddingToJSONB converts embedding slice to JSONB format
-func embeddingToJSONB(embedding []float32) []byte {
-	// Convert to JSON array string
-	jsonStr := "["
-	for i, v := range embedding {
-		if i > 0 {
-			jsonStr += ","
-		}
-		jsonStr += fmt.Sprintf("%f", v)
-	}
-	jsonStr += "]"
-	return []byte(jsonStr)
 }
 
 // Helper: GenerateUserMemory for card-based memory generation
