@@ -52,6 +52,15 @@ type JobQueue interface {
 
 	// GetQueueDepth returns the number of pending jobs in the queue
 	GetQueueDepth(ctx context.Context) (int, error)
+
+	// UpdateHeartbeat updates the last_heartbeat timestamp for a running job
+	UpdateHeartbeat(ctx context.Context, jobID int) error
+
+	// MarkStuckJobsFailed finds jobs that have exceeded timeout and marks them as failed
+	MarkStuckJobsFailed(ctx context.Context) (int, error)
+
+	// CleanupOrphanedJobs marks jobs stuck in "running" state as failed after server restart
+	CleanupOrphanedJobs(ctx context.Context) (int, error)
 }
 
 // DatabaseJobQueue implements JobQueue using PostgreSQL as the backend
@@ -399,6 +408,67 @@ func (q *DatabaseJobQueue) GetQueueDepth(ctx context.Context) (int, error) {
 	return count, nil
 }
 
+// UpdateHeartbeat updates the last_heartbeat timestamp for a running job
+func (q *DatabaseJobQueue) UpdateHeartbeat(ctx context.Context, jobID int) error {
+	_, err := q.db.ExecContext(ctx,
+		`UPDATE llm_jobs SET last_heartbeat = NOW() WHERE id = $1`, jobID)
+	if err != nil {
+		return fmt.Errorf("failed to update heartbeat for job %d: %w", jobID, err)
+	}
+	return nil
+}
+
+// MarkStuckJobsFailed finds jobs that have exceeded timeout and marks them as failed
+// Returns the number of jobs marked as failed
+func (q *DatabaseJobQueue) MarkStuckJobsFailed(ctx context.Context) (int, error) {
+	// Mark jobs as failed if:
+	// 1. No heartbeat for too long (stuck process) - 120 seconds
+	// 2. Exceeded timeout since start
+	result, err := q.db.ExecContext(ctx,
+		`UPDATE llm_jobs
+		 SET status = 'failed',
+			 error_message = 'Job exceeded timeout or stopped responding',
+			 completed_at = NOW()
+		 WHERE status = 'running'
+		   AND (
+			 -- No heartbeat for too long (stuck process)
+			 (last_heartbeat IS NOT NULL AND EXTRACT(EPOCH FROM (NOW() - last_heartbeat)) > 120)
+			 OR
+			 -- Exceeded timeout since start
+			 EXTRACT(EPOCH FROM (NOW() - started_at)) > timeout_seconds
+		   )`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to mark stuck jobs: %w", err)
+	}
+	count, _ := result.RowsAffected()
+	return int(count), nil
+}
+
+// CleanupOrphanedJobs marks jobs stuck in "running" state as failed after server restart
+// Returns the number of jobs cleaned up
+func (q *DatabaseJobQueue) CleanupOrphanedJobs(ctx context.Context) (int, error) {
+	// Mark jobs as failed if they've been "running" since before server start
+	// and haven't had a heartbeat recently
+	result, err := q.db.ExecContext(ctx,
+		`UPDATE llm_jobs
+		 SET status = 'failed',
+			 error_message = 'Job orphaned by server restart',
+			 completed_at = NOW()
+		 WHERE status = 'running'
+		   AND (
+			 -- No heartbeat in last 5 minutes (likely dead)
+			 last_heartbeat < NOW() - INTERVAL '5 minutes'
+			 OR
+			 -- No heartbeat at all but started more than 10 minutes ago
+			 (last_heartbeat IS NULL AND started_at < NOW() - INTERVAL '10 minutes')
+		   )`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to cleanup orphaned jobs: %w", err)
+	}
+	count, _ := result.RowsAffected()
+	return int(count), nil
+}
+
 // Helper function to check if a job should be retried
 func ShouldRetryJob(job *models.LLMJob) bool {
 	return job.RetryCount < job.MaxRetries
@@ -488,4 +558,16 @@ func (q *TypeFilteredJobQueue) Stats(ctx context.Context, userID int) (*models.J
 
 func (q *TypeFilteredJobQueue) GetQueueDepth(ctx context.Context) (int, error) {
 	return q.queue.GetQueueDepth(ctx)
+}
+
+func (q *TypeFilteredJobQueue) UpdateHeartbeat(ctx context.Context, jobID int) error {
+	return q.queue.UpdateHeartbeat(ctx, jobID)
+}
+
+func (q *TypeFilteredJobQueue) MarkStuckJobsFailed(ctx context.Context) (int, error) {
+	return q.queue.MarkStuckJobsFailed(ctx)
+}
+
+func (q *TypeFilteredJobQueue) CleanupOrphanedJobs(ctx context.Context) (int, error) {
+	return q.queue.CleanupOrphanedJobs(ctx)
 }

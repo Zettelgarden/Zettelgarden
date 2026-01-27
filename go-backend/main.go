@@ -212,6 +212,14 @@ func run() error {
 	// Set the worker pool on the handler for admin access
 	h.LLMWorkerPool = llmWorkerPool
 
+	// Clean up orphaned jobs from previous run
+	count, err := llmJobQueue.CleanupOrphanedJobs(context.Background())
+	if err != nil {
+		log.Printf("Failed to cleanup orphaned jobs: %v", err)
+	} else if count > 0 {
+		log.Printf("Cleaned up %d orphaned jobs", count)
+	}
+
 	// Start the LLM worker pool in background goroutine with panic recovery
 	safeGoroutine(func() {
 		if err := llmWorkerPool.Start(); err != nil {

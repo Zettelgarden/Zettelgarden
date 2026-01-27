@@ -43,6 +43,10 @@ type WorkerPool struct {
 	paused     atomic.Bool // Indicates if job processing is paused
 	mu         sync.RWMutex
 
+	// Monitoring goroutine fields
+	monitorStop chan struct{}
+	monitorWg   sync.WaitGroup
+
 	// Configuration
 	workerCount      int
 	pollInterval     time.Duration
@@ -149,6 +153,29 @@ func (w *Worker) processJobWithRetry(ctx context.Context, job *models.LLMJob) er
 	// Create context with timeout
 	jobCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+
+	// Start heartbeat goroutine
+	heartbeatStop := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-heartbeatStop:
+				return
+			case <-ticker.C:
+				if err := w.Queue.UpdateHeartbeat(jobCtx, job.ID); err != nil {
+					log.Printf("[Worker %s] Failed to update heartbeat for job %d: %v", w.ID, job.ID, err)
+				}
+			}
+		}
+	}()
+	defer func() {
+		close(heartbeatStop)
+		<-done // Wait for heartbeat goroutine to exit
+	}()
 
 	// Process the job
 	result, err := w.Processor.ProcessJob(jobCtx, job)
@@ -260,6 +287,11 @@ func (p *WorkerPool) Start() error {
 		p.workers[i].Start()
 	}
 
+	// Start monitoring goroutine for stuck job detection
+	p.monitorStop = make(chan struct{})
+	p.monitorWg.Add(1)
+	go p.monitorRunningJobs()
+
 	p.running.Store(true)
 	log.Printf("[WorkerPool] Started with %d workers", p.workerCount)
 	return nil
@@ -280,6 +312,12 @@ func (p *WorkerPool) Stop() error {
 
 	p.shutdown.Store(true)
 	log.Printf("[WorkerPool] Shutting down...")
+
+	// Stop monitoring goroutine first
+	if p.monitorStop != nil {
+		close(p.monitorStop)
+		p.monitorWg.Wait()
+	}
 
 	// Signal all workers to stop
 	for _, worker := range p.workers {
@@ -311,6 +349,30 @@ func (p *WorkerPool) Stop() error {
 		totalProcessed, totalSucceeded, totalFailed)
 
 	return nil
+}
+
+// monitorRunningJobs periodically checks for and marks stuck jobs as failed
+func (p *WorkerPool) monitorRunningJobs() {
+	defer p.monitorWg.Done()
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+
+	log.Printf("[WorkerPool] Started monitoring goroutine for stuck job detection")
+
+	for {
+		select {
+		case <-p.monitorStop:
+			log.Printf("[WorkerPool] Stopping monitoring goroutine")
+			return
+		case <-ticker.C:
+			count, err := p.queue.MarkStuckJobsFailed(context.Background())
+			if err != nil {
+				log.Printf("[WorkerPool] Failed to mark stuck jobs: %v", err)
+			} else if count > 0 {
+				log.Printf("[WorkerPool] Marked %d stuck jobs as failed", count)
+			}
+		}
+	}
 }
 
 // IsRunning returns true if the worker pool is running
