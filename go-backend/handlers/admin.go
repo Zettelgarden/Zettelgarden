@@ -101,7 +101,7 @@ func (s *Handler) GetAdminAuditLogs(limit int, offset int, actionFilter string, 
 		args = append(args, targetTypeFilter)
 	}
 
-	query += whereClause + " ORDER BY created_at DESC LIMIT $" + fmt.Sprint(len(args)+1) + " OFFSET $" + fmt.Sprint(len(args)+2)
+	query += whereClause + " ORDER BY created_at DESC, id DESC LIMIT $" + fmt.Sprint(len(args)+1) + " OFFSET $" + fmt.Sprint(len(args)+2)
 	args = append(args, limit, offset)
 
 	rows, err := s.DB.Query(query, args...)
