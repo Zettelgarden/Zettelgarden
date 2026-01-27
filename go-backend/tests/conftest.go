@@ -125,24 +125,33 @@ func Setup() *server.Server {
 			log.Fatalf("Failed to reset database: %v\n", err)
 		}
 		server.RunMigrations(S)
+		err = importTestData(S)
+		if err != nil {
+			log.Fatal(err)
+		}
 	})
 
 	if err != nil {
 		log.Fatalf("Unable to connect to the database: %v\n", err)
 	}
 
-	// Import test data for each test (reduced volume thanks to Zettelgarden-4ne3)
-	err = importTestData(S)
+	tx, err := S.DB.Begin()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Unable to start transaction: %v\n", err)
 	}
+
+	S.Tx = tx
+	log.Printf("S %v", S)
+	// Import test data for each test (reduced volume thanks to Zettelgarden-4ne3)
 	return S
 }
 
 func Teardown() {
 	// Use truncate for cleanup (savepoint approach has compatibility issues)
 	// With reduced data volume, this is still much faster than before
-	if S != nil && S.DB != nil {
+	if S.Tx != nil {
+		S.Tx.Rollback()
+	} else {
 		truncateTestData()
 	}
 }

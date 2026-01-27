@@ -396,7 +396,7 @@ func ExecuteSemanticSearch(db *sql.DB, userID int, query string, limit int, type
 	return cards, nil
 }
 
-func GetFullCard(db *sql.DB, userID int, cardPK int) (models.Card, error) {
+func GetFullCard(db models.DBTX, userID int, cardPK int) (models.Card, error) {
 	var card models.Card
 
 	err := db.QueryRow(`
@@ -453,7 +453,7 @@ func GetPartialCardByCardID(db *sql.DB, userID int, cardID string) (models.Parti
 	return card, nil
 }
 
-func GetPartialCard(db *sql.DB, userID, id int) (models.PartialCard, error) {
+func GetPartialCard(db models.DBTX, userID, id int) (models.PartialCard, error) {
 	var card models.PartialCard
 
 	err := db.QueryRow(`

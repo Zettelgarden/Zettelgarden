@@ -38,10 +38,10 @@ func (s *Handler) getTagByID(userID int, tagID int) (models.Tag, error) {
 func (s *Handler) GetTags(userID int) ([]models.Tag, error) {
 	tags := []models.Tag{}
 	query := `
-        SELECT 
-            t.id, 
-            t.name, 
-            t.user_id, 
+        SELECT
+            t.id,
+            t.name,
+            t.user_id,
             t.color
         FROM tags t
         WHERE t.is_deleted = false AND t.user_id = $1

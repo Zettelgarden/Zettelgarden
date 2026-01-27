@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func QueryTagsForCard(db *sql.DB, userID int, cardPK int) ([]models.Tag, error) {
+func QueryTagsForCard(db models.DBTX, userID int, cardPK int) ([]models.Tag, error) {
 	tags := []models.Tag{}
 
 	query := `
@@ -41,7 +41,7 @@ func QueryTagsForCard(db *sql.DB, userID int, cardPK int) ([]models.Tag, error) 
 	return tags, nil
 
 }
-func IdentifyParentTags(db *sql.DB, userID int, card models.PartialCard) ([]models.Tag, error) {
+func IdentifyParentTags(db models.DBTX, userID int, card models.PartialCard) ([]models.Tag, error) {
 	if card.ParentID == card.ID {
 		// card is its own parent, no further work needed
 		return QueryTagsForCard(db, userID, card.ID)
@@ -85,7 +85,7 @@ func ParseTagsFromCardBody(body string) ([]string, error) {
 
 	return tags, nil
 }
-func iterateCreateTagsForCard(db *sql.DB, userID int, cardPK int, tagNames []string) error {
+func iterateCreateTagsForCard(db models.DBTX, userID int, cardPK int, tagNames []string) error {
 
 	for _, tagName := range tagNames {
 		params := models.EditTagParams{
@@ -103,12 +103,12 @@ func iterateCreateTagsForCard(db *sql.DB, userID int, cardPK int, tagNames []str
 	}
 	return nil
 }
-func RemoveAllTagsFromCard(db *sql.DB, userID, cardPK int) error {
+func RemoveAllTagsFromCard(db models.DBTX, userID, cardPK int) error {
 	query := `DELETE FROM card_tags WHERE card_pk = $1`
 	_, err := db.Exec(query, cardPK)
 	return err
 }
-func AddTagsFromCard(db *sql.DB, userID, cardPK int) error {
+func AddTagsFromCard(db models.DBTX, userID, cardPK int) error {
 	card, err := GetFullCard(db, userID, cardPK)
 	if err != nil {
 		return err
@@ -148,7 +148,7 @@ func contains[T comparable](collection []T, target T) bool {
 	}
 	return false
 }
-func AddTagToCard(db *sql.DB, userID int, tagName string, cardPK int) error {
+func AddTagToCard(db models.DBTX, userID int, tagName string, cardPK int) error {
 	var count int
 	countQuery := `
         SELECT COUNT(*)
@@ -176,7 +176,7 @@ func AddTagToCard(db *sql.DB, userID int, tagName string, cardPK int) error {
 	return nil
 }
 
-func CreateTag(db *sql.DB, userID int, tagData models.EditTagParams) (models.Tag, error) {
+func CreateTag(db models.DBTX, userID int, tagData models.EditTagParams) (models.Tag, error) {
 
 	_, err := GetTagMaybeDeleted(db, userID, tagData.Name)
 	if err == nil {
@@ -195,7 +195,7 @@ func CreateTag(db *sql.DB, userID int, tagData models.EditTagParams) (models.Tag
 	return tag, nil
 }
 
-func EditTag(db *sql.DB, userID int, tagName string, tagData models.EditTagParams) (models.Tag, error) {
+func EditTag(db models.DBTX, userID int, tagName string, tagData models.EditTagParams) (models.Tag, error) {
 
 	query := `UPDATE tags SET name = $1, color = $2, is_deleted = FALSE WHERE user_id = $3 AND name = $4`
 	_, err := db.Exec(query, tagData.Name, tagData.Color, userID, tagName)
@@ -210,7 +210,7 @@ func EditTag(db *sql.DB, userID int, tagName string, tagData models.EditTagParam
 	}
 	return tag, nil
 }
-func GetTagMaybeDeleted(db *sql.DB, userID int, tagName string) (models.Tag, error) {
+func GetTagMaybeDeleted(db models.DBTX, userID int, tagName string) (models.Tag, error) {
 
 	var tag models.Tag
 	query := `
@@ -231,7 +231,7 @@ func GetTagMaybeDeleted(db *sql.DB, userID int, tagName string) (models.Tag, err
 	return tag, nil
 }
 
-func GetTag(db *sql.DB, userID int, tagName string) (models.Tag, error) {
+func GetTag(db models.DBTX, userID int, tagName string) (models.Tag, error) {
 	var tag models.Tag
 	query := `
             select id, name, user_id, color

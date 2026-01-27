@@ -11,6 +11,7 @@ import (
 
 type Server struct {
 	DB              *sql.DB
+	Tx              *sql.Tx // Test transaction for rollback-based test isolation
 	S3              *s3.Client
 	Testing         bool
 	JwtSecretKey    []byte

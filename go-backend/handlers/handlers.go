@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"go-backend/server"
 	"go-backend/services"
@@ -19,6 +20,16 @@ const (
 	SummarizationRateLimitWindow = time.Minute
 )
 
+// DBExecutor is an interface that both *sql.DB and *sql.Tx implement
+type DBExecutor interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	Query(query string, args ...interface{}) (*sql.Rows, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryRow(query string, args ...interface{}) *sql.Row
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+}
+
 type Handler struct {
 	DB             *sql.DB
 	Server         *server.Server
@@ -36,6 +47,14 @@ type Handler struct {
 
 	// LLM worker pool for job processing
 	LLMWorkerPool *services.WorkerPool
+}
+
+// Executor returns the transaction if available (for testing), otherwise returns the DB connection
+func (h *Handler) Executor() DBExecutor {
+	if h.Server != nil && h.Server.Tx != nil {
+		return h.Server.Tx
+	}
+	return h.DB
 }
 
 // getMessageMutex gets or creates a mutex for a specific message
