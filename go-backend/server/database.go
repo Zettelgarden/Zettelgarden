@@ -24,6 +24,12 @@ func ConnectToDatabase(dbConfig models.DatabaseConfig) (*sql.DB, error) {
 	if err := db.Ping(); err != nil {
 		log.Fatal(err)
 	}
+
+	// Configure connection pool for better performance
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
 	return db, err
 }
 
