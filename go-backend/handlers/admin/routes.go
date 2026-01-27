@@ -34,6 +34,9 @@ func RegisterAllAdminRoutes(r *mux.Router, h *handlers.Handler) {
 	adminAPI.HandleFunc("/mailing-list/unsubscribe", h.UnsubscribeMailingListRoute).Methods("POST")
 
 	// Job queue management (admin-only)
+	adminAPI.HandleFunc("/jobs", func(w http.ResponseWriter, r *http.Request) {
+		GetAllJobsRoute(h, w, r)
+	}).Methods("GET")
 	adminAPI.HandleFunc("/jobs/health", func(w http.ResponseWriter, r *http.Request) {
 		GetJobQueueHealthRoute(h, w, r)
 	}).Methods("GET")

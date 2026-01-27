@@ -281,6 +281,66 @@ export async function getWorkerPoolStats(): Promise<WorkerPoolStats> {
 }
 
 /**
+ * Job information for admin view
+ */
+export interface AdminJob {
+  id: number;
+  user_id: number;
+  username: string;
+  job_type: string;
+  status: string;
+  priority: number;
+  payload: Record<string, unknown>;
+  result?: Record<string, unknown>;
+  error_message?: string;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  retry_count: number;
+  max_retries: number;
+  timeout_seconds: number;
+}
+
+/**
+ * Response for getAllJobs admin endpoint
+ */
+export interface AdminJobsResponse {
+  jobs: AdminJob[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/**
+ * Get all jobs (admin only)
+ */
+export async function getAllJobs(params?: {
+  status?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<AdminJobsResponse> {
+  const base_url = import.meta.env.VITE_URL;
+  const token = localStorage.getItem("token");
+
+  const queryParams = new URLSearchParams();
+  if (params?.status) queryParams.set("status", params.status);
+  if (params?.limit) queryParams.set("limit", params.limit.toString());
+  if (params?.offset) queryParams.set("offset", params.offset.toString());
+
+  const url = `${base_url}/admin/jobs${queryParams.toString() ? `?${queryParams}` : ""}`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get jobs: ${response.statusText}`);
+  }
+
+  return response.json() as Promise<AdminJobsResponse>;
+}
+
+/**
  * Retry a failed job
  */
 export async function retryJob(jobId: number): Promise<JobRetryResponse> {

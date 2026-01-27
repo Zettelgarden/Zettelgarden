@@ -7,6 +7,7 @@ import (
 	"go-backend/models"
 	"go-backend/services"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -83,6 +84,132 @@ func GetJobWorkersStatsRoute(h *handlers.Handler, w http.ResponseWriter, r *http
 	response := WorkersStatsResponse{
 		Workers: []WorkerStatsResponse{}, // TODO: Get per-worker stats if needed
 		Total:   stats,
+	}
+
+	RespondWithJSON(w, http.StatusOK, response)
+}
+
+// GetAllJobsRoute lists all jobs across all users (admin only)
+// GET /api/admin/jobs?status={status}&limit={limit}&offset={offset}
+func GetAllJobsRoute(h *handlers.Handler, w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	query := r.URL.Query()
+
+	// Parse query parameters
+	status := query.Get("status")
+	limit, _ := strconv.Atoi(query.Get("limit"))
+	offset, _ := strconv.Atoi(query.Get("offset"))
+
+	// Set defaults
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	// Build query
+	baseQuery := `
+		SELECT id, user_id, job_type, status, priority, payload, result, error_message,
+		       created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds
+		FROM llm_jobs
+	`
+	countQuery := "SELECT COUNT(*) FROM llm_jobs"
+	args := []interface{}{}
+	argIdx := 1
+
+	whereClause := ""
+	whereConditions := []string{}
+
+	// Filter by status if provided
+	if status != "" {
+		whereConditions = append(whereConditions, fmt.Sprintf("status = $%d", argIdx))
+		args = append(args, status)
+		argIdx++
+	}
+
+	if len(whereConditions) > 0 {
+		whereClause = " WHERE " + fmt.Sprintf("status = $%d", 1)
+	}
+
+	// Add status filter to count query
+	finalCountQuery := countQuery
+	if status != "" {
+		finalCountQuery += " WHERE status = $1"
+	}
+
+	// Add ordering and pagination
+	baseQuery += whereClause + " ORDER BY created_at DESC LIMIT $" + fmt.Sprintf("%d", argIdx) + " OFFSET $" + fmt.Sprintf("%d", argIdx+1)
+	args = append(args, limit, offset)
+
+	// Execute main query
+	rows, err := h.DB.QueryContext(ctx, baseQuery, args...)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to query jobs")
+		return
+	}
+	defer rows.Close()
+
+	// Scan jobs
+	jobs := []models.LLMJob{}
+	for rows.Next() {
+		job, err := models.ScanLLMJobs(rows)
+		if err != nil {
+			RespondWithError(w, http.StatusInternalServerError, "Failed to scan job")
+			return
+		}
+		if len(job) > 0 {
+			jobs = append(jobs, job[0])
+		}
+	}
+
+	// Get total count
+	var total int
+	if status != "" {
+		err = h.DB.QueryRowContext(ctx, finalCountQuery, status).Scan(&total)
+	} else {
+		err = h.DB.QueryRowContext(ctx, countQuery).Scan(&total)
+	}
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to count jobs")
+		return
+	}
+
+	// Get user IDs for batch lookup
+	userIDs := make(map[int]bool)
+	for _, job := range jobs {
+		userIDs[job.UserID] = true
+	}
+
+	// Fetch usernames for all users
+	userNames := make(map[int]string)
+	for userID := range userIDs {
+		var username string
+		err := h.DB.QueryRowContext(ctx, "SELECT username FROM users WHERE id = $1", userID).Scan(&username)
+		if err == nil {
+			userNames[userID] = username
+		}
+	}
+
+	// Enrich jobs with usernames
+	type JobWithUser struct {
+		models.LLMJob
+		Username string `json:"username"`
+	}
+
+	jobsWithUsers := make([]JobWithUser, len(jobs))
+	for i, job := range jobs {
+		jobsWithUsers[i] = JobWithUser{
+			LLMJob:   job,
+			Username: userNames[job.UserID],
+		}
+	}
+
+	response := map[string]interface{}{
+		"jobs":  jobsWithUsers,
+		"total": total,
+		"limit": limit,
+		"offset": offset,
 	}
 
 	RespondWithJSON(w, http.StatusOK, response)

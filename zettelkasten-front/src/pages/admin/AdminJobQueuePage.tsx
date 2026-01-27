@@ -2,10 +2,12 @@ import React, { useState, useEffect } from "react";
 import {
   getJobQueueHealth,
   getWorkerPoolStats,
+  getAllJobs,
   pauseJobQueue,
   resumeJobQueue,
   JobQueueHealth,
   WorkerPoolStats,
+  AdminJob,
 } from "../../api/admin";
 import { AdminErrorDisplay } from "../../components/admin/AdminErrorDisplay";
 
@@ -96,9 +98,79 @@ function WorkerRow({ workerId, stats }: WorkerRowProps) {
   );
 }
 
+interface RunningJobsRowProps {
+  job: AdminJob;
+}
+
+function RunningJobsRow({ job }: RunningJobsRowProps) {
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleTimeString();
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "running":
+        return "bg-blue-100 text-blue-800";
+      case "completed":
+        return "bg-green-100 text-green-800";
+      case "failed":
+        return "bg-red-100 text-red-800";
+      case "cancelled":
+        return "bg-gray-100 text-gray-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getJobTypeIcon = (jobType: string) => {
+    switch (jobType) {
+      case "embedding":
+        return "🔤";
+      case "summarization":
+        return "📝";
+      case "entity_extraction":
+      case "fact_entity_extraction":
+        return "🏷️";
+      case "chat":
+        return "💬";
+      case "memory":
+        return "🧠";
+      case "email":
+        return "📧";
+      default:
+        return "⚙️";
+    }
+  };
+
+  return (
+    <tr className="hover:bg-gray-50">
+      <td className="px-4 py-3 text-sm font-medium text-gray-900">{job.id}</td>
+      <td className="px-4 py-3 text-sm text-gray-600">{job.username || `User ${job.user_id}`}</td>
+      <td className="px-4 py-3 text-sm">
+        <span className="flex items-center gap-1">
+          <span>{getJobTypeIcon(job.job_type)}</span>
+          <span className="capitalize">{job.job_type.replace(/_/g, " ")}</span>
+        </span>
+      </td>
+      <td className="px-4 py-3 text-sm">
+        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(job.status)}`}>
+          {job.status}
+        </span>
+      </td>
+      <td className="px-4 py-3 text-sm text-gray-600">{formatDate(job.started_at)}</td>
+      <td className="px-4 py-3 text-sm text-gray-600">{formatDate(job.completed_at)}</td>
+      <td className="px-4 py-3 text-sm text-gray-500">{job.retry_count}/{job.max_retries}</td>
+    </tr>
+  );
+}
+
 export function AdminJobQueuePage() {
   const [health, setHealth] = useState<JobQueueHealth | null>(null);
   const [workerStats, setWorkerStats] = useState<WorkerPoolStats | null>(null);
+  const [jobs, setJobs] = useState<AdminJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
@@ -112,12 +184,14 @@ export function AdminJobQueuePage() {
     }
     setError(null);
     try {
-      const [healthData, workersData] = await Promise.all([
+      const [healthData, workersData, jobsData] = await Promise.all([
         getJobQueueHealth(),
         getWorkerPoolStats(),
+        getAllJobs({ status: "running", limit: 20 }),
       ]);
       setHealth(healthData);
       setWorkerStats(workersData);
+      setJobs(jobsData.jobs);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load job queue data";
       setError({ message, details: err instanceof Error ? err.stack : undefined });
@@ -365,6 +439,56 @@ export function AdminJobQueuePage() {
               </div>
             </div>
           )}
+
+          {/* Running Jobs Table */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Running Jobs</h2>
+              <span className="text-sm text-gray-500">
+                {jobs.length} active {jobs.length === 1 ? "job" : "jobs"}
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              {jobs.length > 0 ? (
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Job ID
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        User
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Started
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Completed
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Retries
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {jobs.map((job) => (
+                      <RunningJobsRow key={job.id} job={job} />
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="px-6 py-12 text-center text-gray-500">
+                  <p className="text-sm">No active jobs</p>
+                </div>
+              )}
+            </div>
+          </div>
         </>
       )}
     </div>
