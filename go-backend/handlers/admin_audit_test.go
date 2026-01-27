@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"go-backend/tests"
 	"net/http"
 	"testing"
@@ -390,6 +391,7 @@ func TestAdminAuditLogStructure(t *testing.T) {
 	s.LogAdminAction(req, "structure.test", "test", 1, details)
 
 	var log AdminAuditLog
+	var detailsJSON []byte
 	err = s.DB.QueryRow(`
 		SELECT id, admin_user_id, action, target_type, target_id, details, ip_address, user_agent, created_at
 		FROM admin_audit_log
@@ -401,13 +403,20 @@ func TestAdminAuditLogStructure(t *testing.T) {
 		&log.Action,
 		&log.TargetType,
 		&log.TargetID,
-		&log.Details,
+		&detailsJSON,
 		&log.IPAddress,
 		&log.UserAgent,
 		&log.CreatedAt,
 	)
 	if err != nil {
 		t.Fatalf("Failed to query audit log: %v", err)
+	}
+
+	// Unmarshal details JSON
+	if len(detailsJSON) > 0 {
+		if err := json.Unmarshal(detailsJSON, &log.Details); err != nil {
+			t.Fatalf("Failed to unmarshal details: %v", err)
+		}
 	}
 
 	// Verify all fields are populated
