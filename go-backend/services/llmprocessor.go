@@ -515,7 +515,7 @@ func (p *LLMJobProcessor) parsePayloadAnalyses(analysesData interface{}, payload
 func (p *LLMJobProcessor) updateSummarizationResult(ctx context.Context, summarizationID int, result string, usage models.Usage, model string) error {
 	_, err := p.db.ExecContext(ctx,
 		`UPDATE summarizations
-		 SET status = 'complete', result = $1, prompt_tokens = $2, completion_tokens = $3,
+		 SET status = 'completed', result = $1, prompt_tokens = $2, completion_tokens = $3,
 		     total_tokens = $4, cost = $5, model = $6, updated_at = NOW()
 		 WHERE id = $7`,
 		result, usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens,
