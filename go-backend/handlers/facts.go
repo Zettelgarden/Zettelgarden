@@ -19,9 +19,13 @@ import (
 func (s *Handler) ExtractSaveCardFacts(userID int, cardPK int, facts []string) ([]models.Fact, error) {
 	var results []models.Fact
 
-	tx, _ := s.DB.Begin()
+	tx, err := s.DB.Begin()
+	if err != nil {
+		log.Printf("ExtractSaveCardFacts: failed to begin transaction: %v", err)
+		return results, err
+	}
 	// First, delete junction links for this card, but only if the fact is not linked to any other cards
-	_, err := tx.Exec(`
+	_, err = tx.Exec(`
 		DELETE FROM fact_card_junction fcj
 		WHERE fcj.card_pk = $1 AND fcj.user_id = $2
 		  AND NOT EXISTS (
@@ -423,13 +427,63 @@ func (s *Handler) GetAllFacts(w http.ResponseWriter, r *http.Request) {
 }
 
 // ExtractSaveFactEntities runs entity extraction on facts and links them in entity_fact_junction
+// Uses job queue for larger batches, synchronous processing for small batches
 func (s *Handler) ExtractSaveFactEntities(userID int, card models.Card, factObjs []models.Fact) error {
+	const syncBatchThreshold = 5 // Use sync processing for 5 or fewer facts
+
+	// Skip during testing to avoid external LLM calls
+	if s.Server.Testing {
+		return nil
+	}
+
+	// For small batches, use synchronous processing (fast path)
+	if len(factObjs) <= syncBatchThreshold {
+		return s.extractSaveFactEntitiesSync(userID, card, factObjs)
+	}
+
+	// For larger batches, enqueue a job
+	jobQueue := services.NewJobQueue(s.DB)
+
+	// Convert facts to payload format
+	factsPayload := make([]map[string]interface{}, len(factObjs))
+	for i, fact := range factObjs {
+		factsPayload[i] = map[string]interface{}{
+			"id":   fact.ID,
+			"fact": fact.Fact,
+		}
+	}
+
+	payload := map[string]interface{}{
+		"card_pk": card.ID,
+		"facts":   factsPayload,
+	}
+
+	job, err := jobQueue.Enqueue(context.Background(), models.CreateJobParams{
+		UserID:      userID,
+		JobType:     models.JobTypeFactEntityExtraction,
+		Payload:     payload,
+		MaxRetries:  2,
+		TimeoutSecs: 300,
+	})
+	if err != nil {
+		log.Printf("Failed to enqueue fact entity extraction job for user %d: %v", userID, err)
+		// Fall back to sync processing if job enqueue fails
+		return s.extractSaveFactEntitiesSync(userID, card, factObjs)
+	}
+
+	log.Printf("Enqueued fact entity extraction job %d for card %d (user %d, %d facts)", job.ID, card.ID, userID, len(factObjs))
+	return nil
+}
+
+// extractSaveFactEntitiesSync performs synchronous entity extraction for facts (for small batches)
+func (s *Handler) extractSaveFactEntitiesSync(userID int, card models.Card, factObjs []models.Fact) error {
 	client := services.NewDefaultClient(s.DB, userID)
 	client.RequestType = "analysis"
 
 	factEntities, err := services.FindEntitiesBatch(client, factObjs)
 	if err != nil {
 		log.Printf("find entities batch err %v", err)
+		return err
 	}
 	for i, entities := range factEntities {
 		fact := factObjs[i]

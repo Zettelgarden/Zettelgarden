@@ -24,12 +24,13 @@ const (
 type JobType string
 
 const (
-	JobTypeEmbedding        JobType = "embedding"
-	JobTypeSummarization    JobType = "summarization"
-	JobTypeEntityExtraction JobType = "entity_extraction"
-	JobTypeChat             JobType = "chat"
-	JobTypeMemory           JobType = "memory"
-	JobTypeEmail            JobType = "email"
+	JobTypeEmbedding            JobType = "embedding"
+	JobTypeSummarization        JobType = "summarization"
+	JobTypeEntityExtraction     JobType = "entity_extraction"
+	JobTypeFactEntityExtraction JobType = "fact_entity_extraction"
+	JobTypeChat                 JobType = "chat"
+	JobTypeMemory               JobType = "memory"
+	JobTypeEmail                JobType = "email"
 )
 
 // LLMJob represents an asynchronous LLM operation in the job queue

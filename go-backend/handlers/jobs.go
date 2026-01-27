@@ -306,12 +306,13 @@ func (h *Handler) GetJobStatsRoute(w http.ResponseWriter, r *http.Request) {
 // Helper: isValidJobType checks if the job type is valid
 func isValidJobType(jobType string) bool {
 	validTypes := map[string]bool{
-		"embedding":         true,
-		"summarization":     true,
-		"entity_extraction": true,
-		"chat":              true,
-		"memory":            true,
-		"email":             true,
+		"embedding":              true,
+		"summarization":          true,
+		"entity_extraction":      true,
+		"fact_entity_extraction": true,
+		"chat":                   true,
+		"memory":                 true,
+		"email":                  true,
 	}
 	return validTypes[jobType]
 }
@@ -326,6 +327,13 @@ func validateJobPayload(jobType string, payload map[string]interface{}) error {
 	case "entity_extraction":
 		if _, ok := payload["card_pk"]; !ok {
 			return fmt.Errorf("card_pk is required for entity extraction jobs")
+		}
+	case "fact_entity_extraction":
+		if _, ok := payload["card_pk"]; !ok {
+			return fmt.Errorf("card_pk is required for fact entity extraction jobs")
+		}
+		if _, ok := payload["facts"]; !ok {
+			return fmt.Errorf("facts is required for fact entity extraction jobs")
 		}
 	case "memory":
 		if _, ok := payload["memory_type"]; !ok {
