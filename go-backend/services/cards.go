@@ -721,10 +721,14 @@ func DeleteCard(db *sql.DB, userID int, id int) error {
 }
 
 func UpdateBacklinks(db *sql.DB, cardPK int, backlinks []string) error {
-	tx, _ := db.Begin()
-	_, err := tx.Exec("DELETE FROM backlinks WHERE source_id_int = $1", cardPK)
+	tx, err := db.Begin()
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Printf("UpdateBacklinks: failed to begin transaction: %v", err)
+		return err
+	}
+	_, err = tx.Exec("DELETE FROM backlinks WHERE source_id_int = $1", cardPK)
+	if err != nil {
+		log.Printf("UpdateBacklinks: failed to delete backlinks: %v", err)
 		tx.Rollback()
 		return err
 	}

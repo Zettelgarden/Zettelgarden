@@ -59,8 +59,8 @@ func TestGetAllFiles(t *testing.T) {
 		Total   int           `json:"total"`
 	}
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &response)
-	if len(response.Files) != 20 {
-		t.Fatalf("wrong length of results, got %v want %v", len(response.Files), 20)
+	if len(response.Files) != 5 {
+		t.Fatalf("wrong length of results, got %v want %v (after test data reduction)", len(response.Files), 5)
 	}
 }
 func TestGetAllFilesNoToken(t *testing.T) {

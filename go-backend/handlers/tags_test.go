@@ -254,7 +254,7 @@ func TestAddTagsFromCardQuery(t *testing.T) {
 
 	userID := 2
 
-	cardPK := 23
+	cardPK := 13  // Updated after test data reduction (was 23)
 	tagName := "to-read"
 
 	var count int
@@ -287,6 +287,7 @@ func TestAddTagsFromCardQuery(t *testing.T) {
 
 func TestAddTagsFromTaskQuery(t *testing.T) {
 	s := setup()
+	defer tests.Teardown()
 
 	userID := 1
 	taskPK := 3
@@ -391,7 +392,7 @@ func TestIdentifyParentTags(t *testing.T) {
 	}
 	expectedName := tag.Name
 
-	card, err := s.QueryPartialCardByID(1, 24)
+	card, err := s.QueryPartialCardByID(1, 14)  // Updated after test data reduction (was 24)
 	if err != nil {
 		t.Errorf("handler returned error finding card: %v", err.Error())
 	}

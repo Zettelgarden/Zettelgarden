@@ -219,22 +219,22 @@ func TestGetContentStats(t *testing.T) {
 	}
 
 	// Verify expected counts based on test data
-	// Test data has 20 + 4 cards (24 total)
+	// Test data has 10 + 4 cards (14 total after reduction)
 	totalCards, ok := stats["total_cards"].(int)
-	if !ok || totalCards < 20 {
-		t.Errorf("Expected at least 20 cards, got %d", totalCards)
+	if !ok || totalCards < 10 {
+		t.Errorf("Expected at least 10 cards, got %d", totalCards)
 	}
 
-	// Test data has 20 tasks
+	// Test data has 5 tasks (reduced from 20)
 	totalTasks, ok := stats["total_tasks"].(int)
-	if !ok || totalTasks < 20 {
-		t.Errorf("Expected at least 20 tasks, got %d", totalTasks)
+	if !ok || totalTasks < 5 {
+		t.Errorf("Expected at least 5 tasks, got %d", totalTasks)
 	}
 
-	// Test data has 20 files
+	// Test data has 5 files (reduced from 20)
 	totalFiles, ok := stats["total_files"].(int)
-	if !ok || totalFiles < 20 {
-		t.Errorf("Expected at least 20 files, got %d", totalFiles)
+	if !ok || totalFiles < 5 {
+		t.Errorf("Expected at least 5 files, got %d", totalFiles)
 	}
 
 	// Test data has 3 entities

@@ -239,7 +239,7 @@ func TestGetCardReferencesRoute(t *testing.T) {
 	var refs CategorizedReferences
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &refs)
 
-	// Card 1 references card 2 (outgoing), and card 22 (2/A) references card 1 (incoming)
+	// Card 1 references card 2 (outgoing), and card 12 (2/A) references card 1 (incoming) - card IDs updated after test data reduction
 	totalRefs := len(refs.Bidirectional) + len(refs.Outgoing) + len(refs.Incoming)
 	if totalRefs < 2 {
 		t.Errorf("wrong number of total references returned, got %v want at least %v", totalRefs, 2)
@@ -605,10 +605,10 @@ func TestGetNextRootCardID(t *testing.T) {
 	s := setup()
 	defer tests.Teardown()
 
-	// Test when no cards exist
+	// Test when no cards exist beyond test data
 	nextID := s.getNextRootCardID(1)
-	if nextID != "21" {
-		t.Errorf("Expected first ID to be 21 (after test data), got %v", nextID)
+	if nextID != "11" {
+		t.Errorf("Expected first ID to be 11 (after test data reduction), got %v", nextID)
 	}
 
 	// Create a card with numeric ID
@@ -624,10 +624,10 @@ func TestGetNextRootCardID(t *testing.T) {
 		t.Fatalf("Failed to create test card: %v", err)
 	}
 
-	// Test getting next ID after card exists (should still be 22 since 5 is lower)
+	// Test getting next ID after card exists (should still be 11 since 5 is lower)
 	nextID = s.getNextRootCardID(1)
-	if nextID != "21" {
-		t.Errorf("Expected next ID to still be 21 (5 is lower), got %v", nextID)
+	if nextID != "11" {
+		t.Errorf("Expected next ID to still be 11 (5 is lower), got %v", nextID)
 	}
 
 	// Test that non-numeric IDs are ignored
@@ -638,8 +638,8 @@ func TestGetNextRootCardID(t *testing.T) {
 	}
 
 	nextID = s.getNextRootCardID(1)
-	if nextID != "21" {
-		t.Errorf("Expected next ID to still be 21 (ignoring non-numeric ID), got %v", nextID)
+	if nextID != "11" {
+		t.Errorf("Expected next ID to still be 11 (ignoring non-numeric ID), got %v", nextID)
 	}
 }
 

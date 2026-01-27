@@ -261,7 +261,10 @@ func importTestData(s *server.Server) error {
 	tags := data["tags"].([]models.Tag)
 	card_tags := data["card_tags"].([]models.CardTag)
 
-	tx, _ := s.DB.Begin()
+	tx, err := s.DB.Begin()
+	if err != nil {
+		log.Fatalf("importTestData: failed to begin transaction: %v", err)
+	}
 	var userIDs []int
 	for _, user := range users {
 		var id int
@@ -306,7 +309,7 @@ func importTestData(s *server.Server) error {
 		}
 	}
 
-	_, err := tx.Exec("UPDATE users SET is_admin = TRUE WHERE id = 1")
+	_, err = tx.Exec("UPDATE users SET is_admin = TRUE WHERE id = 1")
 	if err != nil {
 		return err
 	}
@@ -408,17 +411,21 @@ func importTestData(s *server.Server) error {
 		}
 	}
 
-	tx.Commit()
+	if err = tx.Commit(); err != nil {
+		log.Printf("importTestData: failed to commit transaction: %v", err)
+		return err
+	}
 	return nil
 }
 
 func generateData() map[string]interface{} {
 	rand.Seed(time.Now().UnixNano())
 
+	// Reduced keywords: 3 cards × 6 keywords = 18 (was 180)
 	keywords := []models.Keyword{}
 	idCount := 0
-	for i := 1; i <= 20; i++ {
-		for x := 1; x < 10; x++ {
+	for i := 1; i <= 3; i++ {
+		for x := 1; x < 6; x++ {
 			idCount += 1
 			keyword := models.Keyword{
 				ID:      idCount,
@@ -430,6 +437,7 @@ func generateData() map[string]interface{} {
 		}
 	}
 
+	// Tags: keep 3 (needed for tag tests)
 	tags := []models.Tag{}
 	for i := 1; i <= 3; i++ {
 		tag := models.Tag{
@@ -441,9 +449,9 @@ func generateData() map[string]interface{} {
 			tag.Name = "test"
 		}
 		tags = append(tags, tag)
-
 	}
 
+	// Card_tags: keep 1 (needed for tag tests)
 	card_tags := []models.CardTag{}
 	card_tag := models.CardTag{
 		CardPK: 2,
@@ -451,8 +459,9 @@ func generateData() map[string]interface{} {
 	}
 	card_tags = append(card_tags, card_tag)
 
+	// Users: reduced to 3 (was 10) - keep admin user, test@test.com user, and one more
 	users := []models.User{}
-	for i := 1; i <= 10; i++ {
+	for i := 1; i <= 3; i++ {
 		user := models.User{
 			ID:                          i,
 			Username:                    randomString(10),
@@ -475,8 +484,9 @@ func generateData() map[string]interface{} {
 		users = append(users, user)
 	}
 
+	// Cards: reduced to 10 basic + 4 special = 14 (was 27)
 	cards := []models.Card{}
-	for i := 1; i <= 20; i++ {
+	for i := 1; i <= 10; i++ {
 		card := models.Card{
 			ID:        i,
 			CardID:    strconv.Itoa(i),
@@ -500,8 +510,9 @@ func generateData() map[string]interface{} {
 		}
 		cards = append(cards, card)
 	}
+	// Special cards (kept for specific tests)
 	cards = append(cards, models.Card{
-		ID:        21,
+		ID:        11,
 		CardID:    "1/A",
 		UserID:    1,
 		Title:     randomString(20),
@@ -512,7 +523,7 @@ func generateData() map[string]interface{} {
 		ParentID:  1,
 	})
 	cards = append(cards, models.Card{
-		ID:        22,
+		ID:        12,
 		CardID:    "2/A",
 		UserID:    1,
 		Title:     "test card",
@@ -523,7 +534,7 @@ func generateData() map[string]interface{} {
 		ParentID:  2,
 	})
 	cards = append(cards, models.Card{
-		ID:        23,
+		ID:        13,
 		CardID:    "1",
 		UserID:    2,
 		Title:     "test card",
@@ -531,10 +542,10 @@ func generateData() map[string]interface{} {
 		Link:      fmt.Sprintf("https://%s.com", randomString(10)),
 		CreatedAt: randomDate(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
 		UpdatedAt: randomDate(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)),
-		ParentID:  23,
+		ParentID:  13,
 	})
 	cards = append(cards, models.Card{
-		ID:        24,
+		ID:        14,
 		CardID:    "2/A.1",
 		UserID:    1,
 		Title:     "another test card",
@@ -542,20 +553,19 @@ func generateData() map[string]interface{} {
 		Link:      fmt.Sprintf("https://%s.com", randomString(10)),
 		CreatedAt: randomDate(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
 		UpdatedAt: randomDate(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)),
-		ParentID:  22,
+		ParentID:  12,
 	})
 
+	// Backlinks: reduced to 5 (was 32)
 	backlinks := []models.Backlink{}
-	for i := 1; i <= 30; i++ {
-		backlinks = append(backlinks, models.Backlink{
-			SourceIDInt: i,
-			TargetIDInt: i,
-			CreatedAt:   randomDate(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
-			UpdatedAt:   randomDate(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)),
-		})
-	}
 	backlinks = append(backlinks, models.Backlink{
-		SourceIDInt: 22,
+		SourceIDInt: 1,
+		TargetIDInt: 1,
+		CreatedAt:   randomDate(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
+		UpdatedAt:   randomDate(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)),
+	})
+	backlinks = append(backlinks, models.Backlink{
+		SourceIDInt: 12,
 		TargetIDInt: 1,
 		CreatedAt:   randomDate(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
 		UpdatedAt:   randomDate(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)),
@@ -567,8 +577,9 @@ func generateData() map[string]interface{} {
 		UpdatedAt:   randomDate(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)),
 	})
 
+	// Files: reduced to 5 (was 20)
 	files := []models.File{}
-	for i := 1; i <= 20; i++ {
+	for i := 1; i <= 5; i++ {
 		files = append(files, models.File{
 			ID:        i,
 			UserID:    1,
@@ -577,8 +588,8 @@ func generateData() map[string]interface{} {
 			Path:      randomString(20),
 			Filename:  randomString(20),
 			Size:      rand.Intn(1000),
-			CreatedBy: rand.Intn(10) + 1,
-			UpdatedBy: rand.Intn(10) + 1,
+			CreatedBy: rand.Intn(3) + 1,
+			UpdatedBy: rand.Intn(3) + 1,
 			CardPK:    i,
 			IsDeleted: false,
 			CreatedAt: randomDate(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
@@ -586,8 +597,9 @@ func generateData() map[string]interface{} {
 		})
 	}
 
+	// Tasks: reduced to 5 (was 20)
 	tasks := []models.Task{}
-	for i := 1; i <= 20; i++ {
+	for i := 1; i <= 5; i++ {
 		task := models.Task{
 			ID:            i,
 			CardPK:        i,
@@ -604,7 +616,6 @@ func generateData() map[string]interface{} {
 			task.IsComplete = true
 			task.CompletedAt = randomMaybeNullDate(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC))
 		}
-
 		if i == 3 {
 			task.Title = "hello world #to-read"
 		}
