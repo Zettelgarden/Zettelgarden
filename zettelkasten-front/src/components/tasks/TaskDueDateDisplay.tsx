@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { Task } from "../../models/Task";
-
 import {
   compareDatesInTimezone,
   getToday,
@@ -11,8 +10,8 @@ import {
   getNextMonday,
   isFriday,
 } from "../../utils/dates";
-import { saveExistingTask } from "../../api/tasks";
-import { useTaskContext } from "../../contexts/TaskContext";
+import { useTaskDropdown } from "../../hooks/useTaskDropdown";
+import { useOptimisticTaskUpdate } from "../../hooks/useOptimisticTaskUpdate";
 import { useAuth } from "../../contexts/AuthContext";
 
 interface TaskDueDateDisplayProps {
@@ -26,61 +25,31 @@ export function TaskDueDateDisplay({
   setTask,
   saveOnChange,
 }: TaskDueDateDisplayProps) {
-  const { setRefreshTasks, updateTask: updateTaskInContext } = useTaskContext();
   const { user } = useAuth();
   const userTimezone = user?.timezone || "UTC";
+  const dropdown = useTaskDropdown();
+  const { updateTask } = useOptimisticTaskUpdate({
+    task,
+    setTask,
+    saveOnChange,
+    errorMessagePrefix: "Failed to update task due date",
+  });
+
   const [displayText, setDisplayText] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(
     task.due_date ? task.due_date.toISOString().substr(0, 10) : "",
   );
-  const [displayDatePicker, setDisplayDatePicker] = useState<boolean>(false);
 
-  async function updateTask(editedTask: Task) {
-    // Always update local state for immediate UI feedback
-    setTask(editedTask);
-
-    if (saveOnChange) {
-      // Also update context for other components
-      updateTaskInContext(editedTask);
-
-      // Send update to server in background
-      try {
-        const response = await saveExistingTask(editedTask);
-        if ("error" in response) {
-          // Rollback on error
-          setTask(task);
-          updateTaskInContext(task);
-          console.error("Failed to update task due date:", response.error);
-        }
-      } catch (error) {
-        // Rollback on network error
-        setTask(task);
-        updateTaskInContext(task);
-        console.error("Failed to update task due date:", error);
-      }
-    }
-  }
-
-  async function handleDueDateChange(
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) {
+  async function handleDueDateChange(e: React.ChangeEvent<HTMLInputElement>) {
     const inputValue = e.target.value;
     if (!inputValue) return;
 
-    // Parse the date input value (YYYY-MM-DD) in the user's timezone
-    // HTML date input returns YYYY-MM-DD, which we want to interpret as user timezone
-    const [year, month, day] = inputValue.split('-').map(Number);
-
-    // Create a date object at midnight UTC that represents the same calendar date
-    // in the user's timezone. This ensures the stored date matches user intent.
+    const [year, month, day] = inputValue.split("-").map(Number);
     const newDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 
     setSelectedDate(inputValue);
-    let editedTask = { ...task, due_date: newDate };
-
-    updateTask(editedTask);
-
-    setDisplayDatePicker(false);
+    await updateTask({ ...task, due_date: newDate });
+    dropdown.close();
     setSelectedDate("");
   }
 
@@ -116,49 +85,16 @@ export function TaskDueDateDisplay({
     }
   };
 
-  // Close menu when clicking outside
-  React.useEffect(() => {
-    const handleClickOutside = () => setDisplayDatePicker(false);
-    if (displayDatePicker) {
-      document.addEventListener("click", handleClickOutside);
-      return () => document.removeEventListener("click", handleClickOutside);
-    }
-  }, [displayDatePicker]);
+  async function setDate(dateSetter: () => Date) {
+    await updateTask({ ...task, due_date: dateSetter() });
+    dropdown.close();
+    setSelectedDate("");
+  }
 
   async function setNoDate() {
-    let editedTask = { ...task, due_date: null };
-    updateTask(editedTask);
-    setDisplayDatePicker(false);
+    await updateTask({ ...task, due_date: null });
+    dropdown.close();
     setSelectedDate("");
-  }
-  async function setToday() {
-    let editedTask = { ...task, due_date: getToday(userTimezone) };
-    updateTask(editedTask);
-    setDisplayDatePicker(false);
-    setSelectedDate("");
-  }
-  async function setTomorrow() {
-    let editedTask = { ...task, due_date: getTomorrow(userTimezone) };
-    updateTask(editedTask);
-    setDisplayDatePicker(false);
-    setSelectedDate("");
-  }
-  async function setNextWeek() {
-    let editedTask = { ...task, due_date: getNextWeek(userTimezone) };
-    updateTask(editedTask);
-    setDisplayDatePicker(false);
-    setSelectedDate("");
-  }
-
-  async function setNextMonday() {
-    let editedTask = { ...task, due_date: getNextMonday(userTimezone) };
-    updateTask(editedTask);
-    setDisplayDatePicker(false);
-    setSelectedDate("");
-  }
-
-  function handleTextClick() {
-    setDisplayDatePicker(!displayDatePicker);
   }
 
   function updateDisplayText() {
@@ -166,9 +102,14 @@ export function TaskDueDateDisplay({
       setDisplayText("No Deadline");
       return;
     }
-    let isToday = compareDatesInTimezone(task.due_date, getToday(userTimezone), userTimezone);
-    let isTomorrow = compareDatesInTimezone(task.due_date, getTomorrow(userTimezone), userTimezone);
-    let isYesterday = compareDatesInTimezone(task.due_date, getYesterday(userTimezone), userTimezone);
+
+    const compareDate = (date1: Date | null, date2: Date | null) =>
+      compareDatesInTimezone(date1, date2, userTimezone);
+
+    let isToday = compareDate(task.due_date, getToday(userTimezone));
+    let isTomorrow = compareDate(task.due_date, getTomorrow(userTimezone));
+    let isYesterday = compareDate(task.due_date, getYesterday(userTimezone));
+
     if (isToday) {
       setDisplayText("Due Today");
     } else if (isTomorrow) {
@@ -179,6 +120,7 @@ export function TaskDueDateDisplay({
       setDisplayText("Due " + task.due_date.toLocaleDateString(undefined, { timeZone: userTimezone }));
     }
   }
+
   useEffect(() => {
     updateDisplayText();
   }, [task]);
@@ -189,10 +131,7 @@ export function TaskDueDateDisplay({
   return (
     <div className="relative inline-block">
       <span
-        onClick={(e) => {
-          e.stopPropagation();
-          handleTextClick();
-        }}
+        onClick={dropdown.toggle}
         className="cursor-pointer inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition-colors hover:opacity-80"
         style={{
           backgroundColor: color + "20",
@@ -204,40 +143,40 @@ export function TaskDueDateDisplay({
         <span>{displayText}</span>
       </span>
 
-      {displayDatePicker && (
+      {dropdown.isOpen && (
         <div
           className="absolute z-20 mt-1 bg-white rounded-md shadow-lg py-1 min-w-[160px] border border-gray-200"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex flex-col">
             <button
-              onClick={setNoDate}
+              onClick={() => setNoDate()}
               className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
             >
               No Deadline
             </button>
             <button
-              onClick={setToday}
+              onClick={() => setDate(() => getToday(userTimezone))}
               className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
             >
               Today
             </button>
             <button
-              onClick={setTomorrow}
+              onClick={() => setDate(() => getTomorrow(userTimezone))}
               className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
             >
               Tomorrow
             </button>
             {isFriday(userTimezone) && (
               <button
-                onClick={setNextMonday}
+                onClick={() => setDate(() => getNextMonday(userTimezone))}
                 className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
               >
                 Next Monday
               </button>
             )}
             <button
-              onClick={setNextWeek}
+              onClick={() => setDate(() => getNextWeek(userTimezone))}
               className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
             >
               Next Week

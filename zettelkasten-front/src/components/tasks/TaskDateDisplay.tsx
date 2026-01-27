@@ -1,21 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { Task } from "../../models/Task";
-
 import {
-  compareDates,
   compareDatesInTimezone,
   getToday,
   getTomorrow,
   getYesterday,
   getNextWeek,
   isPast,
-  isRecurringTask,
   getNextMonday,
   isFriday,
+  isRecurringTask,
 } from "../../utils/dates";
-import { fromZonedTime } from "date-fns-tz";
-import { saveExistingTask } from "../../api/tasks";
-import { useTaskContext } from "../../contexts/TaskContext";
+import { useTaskDropdown } from "../../hooks/useTaskDropdown";
+import { useOptimisticTaskUpdate } from "../../hooks/useOptimisticTaskUpdate";
 import { useAuth } from "../../contexts/AuthContext";
 
 interface TaskDateDisplayProps {
@@ -29,60 +26,31 @@ export function TaskDateDisplay({
   setTask,
   saveOnChange,
 }: TaskDateDisplayProps) {
-  const { setRefreshTasks, updateTask: updateTaskInContext } = useTaskContext();
   const { user } = useAuth();
   const userTimezone = user?.timezone || "UTC";
+  const dropdown = useTaskDropdown();
+  const { updateTask } = useOptimisticTaskUpdate({
+    task,
+    setTask,
+    saveOnChange,
+    errorMessagePrefix: "Failed to update task date",
+  });
+
   const [displayText, setDisplayText] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(
     task.scheduled_date ? task.scheduled_date.toISOString().substr(0, 10) : "",
   );
-  const [displayDatePicker, setDisplayDatePicker] = useState<boolean>(false);
 
-  async function updateTask(editedTask: Task) {
-    if (saveOnChange) {
-      // Optimistic update: update UI immediately
-      updateTaskInContext(editedTask);
-
-      // Send update to server in background
-      try {
-        const response = await saveExistingTask(editedTask);
-        if ("error" in response) {
-          // Rollback on error
-          updateTaskInContext(task);
-          console.error("Failed to update task date:", response.error);
-        }
-      } catch (error) {
-        // Rollback on network error
-        updateTaskInContext(task);
-        console.error("Failed to update task date:", error);
-      }
-    } else {
-      setTask(editedTask);
-    }
-  }
-
-  async function handleScheduledDateChange(
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) {
-    console.log(e);
-    // Parse the date input value (YYYY-MM-DD) in the user's timezone
-    const inputValue = e.target.value; // "2024-01-15"
+  async function handleScheduledDateChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const inputValue = e.target.value;
     if (!inputValue) return;
 
-    // Create a UTC date object representing the selected date in user's timezone
-    // HTML date input returns YYYY-MM-DD, which we want to interpret as user timezone
-    const [year, month, day] = inputValue.split('-').map(Number);
-
-    // Create a date object at midnight UTC that represents the same calendar date
-    // in the user's timezone. This ensures the stored date matches user intent.
+    const [year, month, day] = inputValue.split("-").map(Number);
     const newDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 
-    setSelectedDate(inputValue); // Keep the input value as-is for the date picker
-    let editedTask = { ...task, scheduled_date: newDate };
-
-    updateTask(editedTask);
-
-    setDisplayDatePicker(false);
+    setSelectedDate(inputValue);
+    await updateTask({ ...task, scheduled_date: newDate });
+    dropdown.close();
     setSelectedDate("");
   }
 
@@ -118,49 +86,16 @@ export function TaskDateDisplay({
     }
   };
 
-  // Close menu when clicking outside
-  React.useEffect(() => {
-    const handleClickOutside = () => setDisplayDatePicker(false);
-    if (displayDatePicker) {
-      document.addEventListener("click", handleClickOutside);
-      return () => document.removeEventListener("click", handleClickOutside);
-    }
-  }, [displayDatePicker]);
+  async function setDate(dateSetter: () => Date) {
+    await updateTask({ ...task, scheduled_date: dateSetter() });
+    dropdown.close();
+    setSelectedDate("");
+  }
 
   async function setNoDate() {
-    let editedTask = { ...task, scheduled_date: null };
-    updateTask(editedTask);
-    setDisplayDatePicker(false);
+    await updateTask({ ...task, scheduled_date: null });
+    dropdown.close();
     setSelectedDate("");
-  }
-  async function setToday() {
-    let editedTask = { ...task, scheduled_date: getToday(userTimezone) };
-    updateTask(editedTask);
-    setDisplayDatePicker(false);
-    setSelectedDate("");
-  }
-  async function setTomorrow() {
-    let editedTask = { ...task, scheduled_date: getTomorrow(userTimezone) };
-    updateTask(editedTask);
-    setDisplayDatePicker(false);
-    setSelectedDate("");
-  }
-  async function setNextWeek() {
-    let editedTask = { ...task, scheduled_date: getNextWeek(userTimezone) };
-    updateTask(editedTask);
-    setDisplayDatePicker(false);
-    setSelectedDate("");
-  }
-
-  async function setNextMonday() {
-    let editedTask = { ...task, scheduled_date: getNextMonday(userTimezone) };
-    updateTask(editedTask);
-    setDisplayDatePicker(false);
-    setSelectedDate("");
-  }
-
-  function handleTextClick() {
-    setDisplayDatePicker(!displayDatePicker);
   }
 
   function updateDisplayText() {
@@ -168,13 +103,14 @@ export function TaskDateDisplay({
       setDisplayText("No Date");
       return;
     }
-    // Use timezone-aware comparison for proper "Today/Tomorrow/Yesterday" display
+
     const compareDate = (date1: Date | null, date2: Date | null) =>
       compareDatesInTimezone(date1, date2, userTimezone);
 
     let isToday = compareDate(task.scheduled_date, getToday(userTimezone));
     let isTomorrow = compareDate(task.scheduled_date, getTomorrow(userTimezone));
     let isYesterday = compareDate(task.scheduled_date, getYesterday(userTimezone));
+
     if (isToday) {
       setDisplayText("Today");
     } else if (isTomorrow) {
@@ -182,12 +118,12 @@ export function TaskDateDisplay({
     } else if (isYesterday) {
       setDisplayText("Yesterday");
     } else if (task.scheduled_date) {
-      // Format date using user's configured timezone, not browser's local timezone
       setDisplayText(
-        task.scheduled_date.toLocaleDateString(undefined, { timeZone: userTimezone })
+        task.scheduled_date.toLocaleDateString(undefined, { timeZone: userTimezone }),
       );
     }
   }
+
   useEffect(() => {
     updateDisplayText();
   }, [task]);
@@ -198,10 +134,7 @@ export function TaskDateDisplay({
   return (
     <div className="relative inline-block">
       <span
-        onClick={(e) => {
-          e.stopPropagation();
-          handleTextClick();
-        }}
+        onClick={dropdown.toggle}
         className="cursor-pointer inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition-colors hover:opacity-80"
         style={{
           backgroundColor: color + "20",
@@ -216,40 +149,40 @@ export function TaskDateDisplay({
         )}
       </span>
 
-      {displayDatePicker && (
+      {dropdown.isOpen && (
         <div
           className="absolute z-20 mt-1 bg-white rounded-md shadow-lg py-1 min-w-[160px] border border-gray-200"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex flex-col">
             <button
-              onClick={setNoDate}
+              onClick={() => setNoDate()}
               className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
             >
               No Date
             </button>
             <button
-              onClick={setToday}
+              onClick={() => setDate(() => getToday(userTimezone))}
               className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
             >
               Today
             </button>
             <button
-              onClick={setTomorrow}
+              onClick={() => setDate(() => getTomorrow(userTimezone))}
               className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
             >
               Tomorrow
             </button>
             {isFriday(userTimezone) && (
               <button
-                onClick={setNextMonday}
+                onClick={() => setDate(() => getNextMonday(userTimezone))}
                 className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
               >
                 Next Monday
               </button>
             )}
             <button
-              onClick={setNextWeek}
+              onClick={() => setDate(() => getNextWeek(userTimezone))}
               className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
             >
               Next Week

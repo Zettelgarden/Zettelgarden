@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Task } from "../../models/Task";
-import { saveExistingTask } from "../../api/tasks";
-import { useTaskContext } from "../../contexts/TaskContext";
-import { useAuth } from "../../contexts/AuthContext";
 import { format, toZonedTime } from "date-fns-tz";
 import { getToday, getTomorrow, createTimeInTimezone, getNowInTimezone } from "../../utils/dates";
+import { useTaskDropdown } from "../../hooks/useTaskDropdown";
+import { useOptimisticTaskUpdate } from "../../hooks/useOptimisticTaskUpdate";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface TaskReminderDisplayProps {
   task: Task;
@@ -17,60 +17,37 @@ export function TaskReminderDisplay({
   setTask,
   saveOnChange,
 }: TaskReminderDisplayProps) {
-  const { updateTask: updateTaskInContext } = useTaskContext();
   const { user } = useAuth();
   const userTimezone = user?.timezone || "UTC";
+  const dropdown = useTaskDropdown();
+  const { updateTask } = useOptimisticTaskUpdate({
+    task,
+    setTask,
+    saveOnChange,
+    errorMessagePrefix: "Failed to update task reminder",
+  });
+
   const [displayText, setDisplayText] = useState<string>("");
-  const [displayPicker, setDisplayPicker] = useState<boolean>(false);
   const [customDateTime, setCustomDateTime] = useState<string>("");
 
-  async function updateTask(editedTask: Task) {
-    // Always update local state first
-    setTask(editedTask);
-
-    if (saveOnChange) {
-      // Optimistic update: update context immediately
-      updateTaskInContext(editedTask);
-
-      // Send update to server in background
-      try {
-        const response = await saveExistingTask(editedTask);
-        if ("error" in response) {
-          // Rollback on error
-          setTask(task);
-          updateTaskInContext(task);
-          console.error("Failed to update task reminder:", response.error);
-        }
-      } catch (error) {
-        // Rollback on network error
-        setTask(task);
-        updateTaskInContext(task);
-        console.error("Failed to update task reminder:", error);
-      }
-    }
-  }
-
   function setNoReminder() {
-    const editedTask = { ...task, reminder_time: null, reminder_sent: false };
-    updateTask(editedTask);
-    setDisplayPicker(false);
+    updateTask({ ...task, reminder_time: null, reminder_sent: false });
+    dropdown.close();
   }
 
   function setReminderIn(minutes: number) {
     const now = getNowInTimezone(userTimezone);
     const reminderTime = new Date(now);
     reminderTime.setMinutes(reminderTime.getMinutes() + minutes);
-    const editedTask = { ...task, reminder_time: reminderTime, reminder_sent: false };
-    updateTask(editedTask);
-    setDisplayPicker(false);
+    updateTask({ ...task, reminder_time: reminderTime, reminder_sent: false });
+    dropdown.close();
   }
 
   function setReminderTomorrowMorning() {
     const tomorrow = getTomorrow(userTimezone);
     const reminderTime = createTimeInTimezone(tomorrow, 9, 0, userTimezone);
-    const editedTask = { ...task, reminder_time: reminderTime, reminder_sent: false };
-    updateTask(editedTask);
-    setDisplayPicker(false);
+    updateTask({ ...task, reminder_time: reminderTime, reminder_sent: false });
+    dropdown.close();
   }
 
   function handleCustomDateTimeChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -80,31 +57,20 @@ export function TaskReminderDisplay({
   function applyCustomDateTime() {
     if (!customDateTime) return;
 
-    // datetime-local input gives us a string in browser's local timezone
-    // We need to convert it to the user's configured timezone
     const browserLocalDate = new Date(customDateTime);
-
-    // Convert the browser's local time to the user's timezone
     const dateInUserTimezone = toZonedTime(browserLocalDate, userTimezone);
 
-    // Extract the date/time components in the user's timezone
     const year = dateInUserTimezone.getFullYear();
     const month = dateInUserTimezone.getMonth();
     const day = dateInUserTimezone.getDate();
     const hour = dateInUserTimezone.getHours();
     const minute = dateInUserTimezone.getMinutes();
 
-    // Create a UTC Date representing that time in the user's timezone
     const reminderTime = new Date(Date.UTC(year, month, day, hour, minute, 0, 0));
 
-    const editedTask = { ...task, reminder_time: reminderTime, reminder_sent: false };
-    updateTask(editedTask);
-    setDisplayPicker(false);
+    updateTask({ ...task, reminder_time: reminderTime, reminder_sent: false });
+    dropdown.close();
     setCustomDateTime("");
-  }
-
-  function handleTextClick() {
-    setDisplayPicker(!displayPicker);
   }
 
   function updateDisplayText() {
@@ -120,13 +86,11 @@ export function TaskReminderDisplay({
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    // Show if reminder has been sent
     if (task.reminder_sent) {
       setDisplayText(`Sent ${format(reminderTime, 'MMM d, h:mm a', { timeZone: userTimezone })}`);
       return;
     }
 
-    // Show relative time for upcoming reminders
     if (diffMins < 0) {
       setDisplayText(`Past ${format(reminderTime, 'MMM d, h:mm a', { timeZone: userTimezone })}`);
     } else if (diffMins < 60) {
@@ -142,7 +106,6 @@ export function TaskReminderDisplay({
 
   useEffect(() => {
     updateDisplayText();
-    // Update display text every minute for relative times
     const interval = setInterval(updateDisplayText, 60000);
     return () => clearInterval(interval);
   }, [task.reminder_time, task.reminder_sent]);
@@ -160,14 +123,14 @@ export function TaskReminderDisplay({
   return (
     <div className="relative">
       <div
-        onClick={handleTextClick}
+        onClick={dropdown.toggle}
         className="cursor-pointer px-2 py-1 rounded hover:bg-gray-100 text-sm font-medium"
         style={{ color: getDisplayColor() }}
         title={task.reminder_sent ? "Reminder already sent" : "Click to set reminder"}
       >
         🔔 {displayText}
       </div>
-      {displayPicker && (
+      {dropdown.isOpen && (
         <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]">
           <div className="flex flex-col space-y-2">
             <button
