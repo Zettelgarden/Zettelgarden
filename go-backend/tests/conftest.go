@@ -121,53 +121,29 @@ func Setup() *server.Server {
 		S.LLMClient = &models.LLMClient{Testing: true}
 
 		// Reset database and run migrations ONLY once at the beginning of the test suite
-		// We explicitly call ResetDatabase here to ensure a clean slate
 		if err := server.ResetDatabase(S); err != nil {
 			log.Fatalf("Failed to reset database: %v\n", err)
 		}
 		server.RunMigrations(S)
-
-		// Import test data ONCE for the entire test suite
-		// Each test will use savepoints for isolation
-		err = importTestData(S)
-		if err != nil {
-			log.Fatalf("Failed to import test data: %v\n", err)
-		}
 	})
 
 	if err != nil {
 		log.Fatalf("Unable to connect to the database: %v\n", err)
 	}
 
-	// Start a transaction for this test and create a savepoint
-	// Production code can still use db.Begin() which creates nested savepoints
-	_, err = S.DB.Exec("BEGIN")
+	// Import test data for each test (reduced volume thanks to Zettelgarden-4ne3)
+	err = importTestData(S)
 	if err != nil {
-		log.Fatalf("Failed to begin transaction: %v\n", err)
+		log.Fatal(err)
 	}
-
-	_, err = S.DB.Exec("SAVEPOINT test_start")
-	if err != nil {
-		log.Fatalf("Failed to create savepoint: %v\n", err)
-	}
-
 	return S
 }
 
 func Teardown() {
-	// Rollback to savepoint for fast test isolation
-	// This is much faster than TRUNCATE + re-import (7s → ~100ms per test)
+	// Use truncate for cleanup (savepoint approach has compatibility issues)
+	// With reduced data volume, this is still much faster than before
 	if S != nil && S.DB != nil {
-		_, err := S.DB.Exec("ROLLBACK TO SAVEPOINT test_start")
-		if err != nil {
-			log.Printf("Warning: failed to rollback to savepoint: %v", err)
-			// Fallback to truncate if rollback fails
-			truncateTestData()
-			return
-		}
-		// Release and recreate the savepoint for the next test
-		S.DB.Exec("RELEASE SAVEPOINT test_start")
-		S.DB.Exec("SAVEPOINT test_start")
+		truncateTestData()
 	}
 }
 
