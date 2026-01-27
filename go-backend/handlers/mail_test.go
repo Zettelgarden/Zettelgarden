@@ -50,6 +50,12 @@ func TestGetMailingListSubscribersUnauthorized(t *testing.T) {
 	s := setup()
 	defer tests.Teardown()
 
+	// Ensure user 2 is NOT an admin
+	_, err := s.DB.Exec(`UPDATE users SET is_admin = false WHERE id = 2`)
+	if err != nil {
+		t.Fatalf("Failed to set user as non-admin: %v", err)
+	}
+
 	token, _ := tests.GenerateTestJWT(2) // Non-admin user
 	req, err := http.NewRequest("GET", "/api/mailing-list", nil)
 	if err != nil {
@@ -58,11 +64,15 @@ func TestGetMailingListSubscribersUnauthorized(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+token)
 
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(s.JwtMiddleware(s.GetMailingListSubscribersRoute))
+	// Apply the full middleware chain as in addAdminRoute: AdminMiddleware -> JwtMiddleware
+	testHandler := s.AdminMiddleware(s.GetMailingListSubscribersRoute)
+	jwtHandler := s.JwtMiddleware(testHandler)
+	handler := http.HandlerFunc(jwtHandler)
 	handler.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusUnauthorized {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusUnauthorized)
+	// AdminMiddleware returns 403 Forbidden for non-admin users, not 401 Unauthorized
+	if status := rr.Code; status != http.StatusForbidden {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusForbidden)
 	}
 }
 
@@ -111,6 +121,12 @@ func TestUnsubscribeMailingListUnauthorized(t *testing.T) {
 	s := setup()
 	defer tests.Teardown()
 
+	// Ensure user 2 is NOT an admin
+	_, err := s.DB.Exec(`UPDATE users SET is_admin = false WHERE id = 2`)
+	if err != nil {
+		t.Fatalf("Failed to set user as non-admin: %v", err)
+	}
+
 	token, _ := tests.GenerateTestJWT(2) // Non-admin user
 	body := `{"email": "test@example.com"}`
 	req, err := http.NewRequest("POST", "/api/mailing-list/unsubscribe", tests.StringToReader(body))
@@ -121,11 +137,15 @@ func TestUnsubscribeMailingListUnauthorized(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(s.JwtMiddleware(s.UnsubscribeMailingListRoute))
+	// Apply the full middleware chain as in addAdminRoute: AdminMiddleware -> JwtMiddleware
+	testHandler := s.AdminMiddleware(s.UnsubscribeMailingListRoute)
+	jwtHandler := s.JwtMiddleware(testHandler)
+	handler := http.HandlerFunc(jwtHandler)
 	handler.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusUnauthorized {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusUnauthorized)
+	// AdminMiddleware returns 403 Forbidden for non-admin users, not 401 Unauthorized
+	if status := rr.Code; status != http.StatusForbidden {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusForbidden)
 	}
 }
 
