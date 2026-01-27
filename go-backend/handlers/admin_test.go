@@ -15,7 +15,7 @@ func TestAdminMiddleware_AllowsAdminAccess(t *testing.T) {
 	defer tests.Teardown()
 
 	// Make user 1 an admin
-	_, err := s.DB.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
+	_, err := s.Server.Tx.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
 	if err != nil {
 		t.Fatalf("Failed to set user as admin: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestAdminMiddleware_BlocksNonAdminAccess(t *testing.T) {
 	defer tests.Teardown()
 
 	// Ensure user 2 is NOT an admin (default)
-	_, err := s.DB.Exec(`UPDATE users SET is_admin = false WHERE id = 2`)
+	_, err := s.Server.Tx.Exec(`UPDATE users SET is_admin = false WHERE id = 2`)
 	if err != nil {
 		t.Fatalf("Failed to set user as non-admin: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestAdminOrSelfMiddleware_AllowsAdminAnyUser(t *testing.T) {
 	defer tests.Teardown()
 
 	// Make user 1 an admin
-	_, err := s.DB.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
+	_, err := s.Server.Tx.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
 	if err != nil {
 		t.Fatalf("Failed to set user as admin: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestAdminOrSelfMiddleware_AllowsUserOwnResources(t *testing.T) {
 	defer tests.Teardown()
 
 	// Ensure user 2 is NOT an admin
-	_, err := s.DB.Exec(`UPDATE users SET is_admin = false WHERE id = 2`)
+	_, err := s.Server.Tx.Exec(`UPDATE users SET is_admin = false WHERE id = 2`)
 	if err != nil {
 		t.Fatalf("Failed to set user as non-admin: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestAdminOrSelfMiddleware_BlocksUserAccessingOtherUser(t *testing.T) {
 	defer tests.Teardown()
 
 	// Ensure user 2 is NOT an admin
-	_, err := s.DB.Exec(`UPDATE users SET is_admin = false WHERE id = 2`)
+	_, err := s.Server.Tx.Exec(`UPDATE users SET is_admin = false WHERE id = 2`)
 	if err != nil {
 		t.Fatalf("Failed to set user as non-admin: %v", err)
 	}

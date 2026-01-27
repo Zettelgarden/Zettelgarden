@@ -61,7 +61,7 @@ func TestGetCardSuccess(t *testing.T) {
 	defer tests.Teardown()
 
 	var logCount int
-	_ = s.DB.QueryRow("SELECT count(*) FROM card_views").Scan(&logCount)
+	_ = s.Server.Tx.QueryRow("SELECT count(*) FROM card_views").Scan(&logCount)
 	if logCount != 0 {
 		t.Errorf("wrong log count, got %v want %v", logCount, 0)
 	}
@@ -72,7 +72,7 @@ func TestGetCardSuccess(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 
-	_ = s.DB.QueryRow("SELECT count(*) FROM card_views").Scan(&logCount)
+	_ = s.Server.Tx.QueryRow("SELECT count(*) FROM card_views").Scan(&logCount)
 	if logCount != 1 {
 		t.Errorf("wrong log count, got %v want %v", logCount, 1)
 	}
@@ -331,7 +331,7 @@ func TestUpdateCardSuccess(t *testing.T) {
 	defer tests.Teardown()
 
 	var linkCount int
-	_ = s.DB.QueryRow("SELECT count(*) FROM card_views").Scan(&linkCount)
+	_ = s.Server.Tx.QueryRow("SELECT count(*) FROM card_views").Scan(&linkCount)
 	log.Printf("count %v", linkCount)
 	if linkCount != 0 {
 		t.Errorf("wrong log count, got %v want %v", linkCount, 0)
@@ -380,7 +380,7 @@ func TestUpdateCardSuccess(t *testing.T) {
 		t.Errorf("handler return wrong title, ot %v want %v", card.Title, expected)
 	}
 	var newLinkCount int
-	_ = s.DB.QueryRow("SELECT count(*) FROM card_views").Scan(&newLinkCount)
+	_ = s.Server.Tx.QueryRow("SELECT count(*) FROM card_views").Scan(&newLinkCount)
 	log.Printf("new count %v", newLinkCount)
 	if newLinkCount == linkCount {
 		t.Errorf("wrong log count, got %v want %v", linkCount, 1)
@@ -808,7 +808,7 @@ func TestGetNextChildCardID(t *testing.T) {
 
 	// Clean up test cards
 	for _, cardID := range []int{childCard1.ID, childCard2.ID, parentCard.ID} {
-		_, err = s.DB.Exec("DELETE FROM cards WHERE id = $1", cardID)
+		_, err = s.Server.Tx.Exec("DELETE FROM cards WHERE id = $1", cardID)
 		if err != nil {
 			t.Logf("Failed to clean up test card %d: %v", cardID, err)
 		}
@@ -859,7 +859,7 @@ func TestGetNextChildCardIDRoute(t *testing.T) {
 	}
 
 	// Clean up test card
-	_, err = s.DB.Exec("DELETE FROM cards WHERE id = $1", parentCard.ID)
+	_, err = s.Server.Tx.Exec("DELETE FROM cards WHERE id = $1", parentCard.ID)
 	if err != nil {
 		t.Logf("Failed to clean up test card %d: %v", parentCard.ID, err)
 	}

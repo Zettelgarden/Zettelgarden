@@ -212,7 +212,7 @@ func TestSendMessageRoute_QuotaExceeded(t *testing.T) {
 			current_usage = $3,
 			updated_at = NOW()
 	`
-	_, err = s.DB.Exec(query, 1, quotaType, maxLimit, maxLimit)
+	_, err = s.Server.Tx.Exec(query, 1, quotaType, maxLimit, maxLimit)
 	if err != nil {
 		t.Fatalf("Failed to set quota: %v", err)
 	}
@@ -272,7 +272,7 @@ func TestStreamMessageRoute_QuotaExceeded(t *testing.T) {
 			current_usage = $3,
 			updated_at = NOW()
 	`
-	_, err = s.DB.Exec(query, 1, quotaType, maxLimit, maxLimit)
+	_, err = s.Server.Tx.Exec(query, 1, quotaType, maxLimit, maxLimit)
 	if err != nil {
 		t.Fatalf("Failed to set quota: %v", err)
 	}
@@ -332,7 +332,7 @@ func TestRegenerateMessageRoute_QuotaExceeded(t *testing.T) {
 			current_usage = $3,
 			updated_at = NOW()
 	`
-	_, err = s.DB.Exec(query, 1, quotaType, maxLimit, maxLimit)
+	_, err = s.Server.Tx.Exec(query, 1, quotaType, maxLimit, maxLimit)
 	if err != nil {
 		t.Fatalf("Failed to set quota: %v", err)
 	}

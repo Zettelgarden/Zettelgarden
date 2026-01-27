@@ -13,7 +13,7 @@ func TestGetMailingListSubscribersSuccess(t *testing.T) {
 	defer tests.Teardown()
 
 	// Add a test subscriber first
-	_, err := s.DB.Exec(`
+	_, err := s.Server.Tx.Exec(`
 		INSERT INTO mailing_list (email, welcome_email_sent)
 		VALUES ($1, $2)
 	`, "test@example.com", true)
@@ -51,7 +51,7 @@ func TestGetMailingListSubscribersUnauthorized(t *testing.T) {
 	defer tests.Teardown()
 
 	// Ensure user 2 is NOT an admin
-	_, err := s.DB.Exec(`UPDATE users SET is_admin = false WHERE id = 2`)
+	_, err := s.Server.Tx.Exec(`UPDATE users SET is_admin = false WHERE id = 2`)
 	if err != nil {
 		t.Fatalf("Failed to set user as non-admin: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestUnsubscribeMailingListSuccess(t *testing.T) {
 	defer tests.Teardown()
 
 	// Add a test subscriber first
-	_, err := s.DB.Exec(`
+	_, err := s.Server.Tx.Exec(`
 		INSERT INTO mailing_list (email, welcome_email_sent, subscribed)
 		VALUES ($1, $2, $3)
 	`, "test@example.com", true, true)
@@ -108,7 +108,7 @@ func TestUnsubscribeMailingListSuccess(t *testing.T) {
 
 	// Verify the subscriber was actually unsubscribed
 	var subscribed bool
-	err = s.DB.QueryRow("SELECT subscribed FROM mailing_list WHERE email = $1", "test@example.com").Scan(&subscribed)
+	err = s.Server.Tx.QueryRow("SELECT subscribed FROM mailing_list WHERE email = $1", "test@example.com").Scan(&subscribed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestUnsubscribeMailingListUnauthorized(t *testing.T) {
 	defer tests.Teardown()
 
 	// Ensure user 2 is NOT an admin
-	_, err := s.DB.Exec(`UPDATE users SET is_admin = false WHERE id = 2`)
+	_, err := s.Server.Tx.Exec(`UPDATE users SET is_admin = false WHERE id = 2`)
 	if err != nil {
 		t.Fatalf("Failed to set user as non-admin: %v", err)
 	}

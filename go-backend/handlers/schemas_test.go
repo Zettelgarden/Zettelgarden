@@ -744,7 +744,7 @@ func TestDeleteSchemaRoute_UnusedSchema(t *testing.T) {
 
 	// Verify schema is soft deleted
 	var isDeleted bool
-	err := s.DB.QueryRow("SELECT is_deleted FROM schema_definitions WHERE id = $1", schema.ID).Scan(&isDeleted)
+	err := s.Server.Tx.QueryRow("SELECT is_deleted FROM schema_definitions WHERE id = $1", schema.ID).Scan(&isDeleted)
 	if err != nil {
 		t.Fatalf("Failed to query schema: %v", err)
 	}
@@ -765,7 +765,7 @@ func TestDeleteSchemaRoute_WithCards(t *testing.T) {
 
 	// Create a card that uses the schema
 	var cardID int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
 		INSERT INTO cards (card_id, user_id, title, body, link, created_at, updated_at, parent_id, card_schema_id)
 		VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), $6, $7)
 		RETURNING id
@@ -776,7 +776,7 @@ func TestDeleteSchemaRoute_WithCards(t *testing.T) {
 
 	// Clean up the test card - always run even if test fails
 	t.Cleanup(func() {
-		s.DB.Exec("DELETE FROM cards WHERE id = $1", cardID)
+		s.Server.Tx.Exec("DELETE FROM cards WHERE id = $1", cardID)
 	})
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -863,7 +863,7 @@ func TestDeleteSchemaRoute_OtherUserSchema(t *testing.T) {
 
 	// Verify schema still exists
 	var isDeleted bool
-	err := s.DB.QueryRow("SELECT is_deleted FROM schema_definitions WHERE id = $1", schema.ID).Scan(&isDeleted)
+	err := s.Server.Tx.QueryRow("SELECT is_deleted FROM schema_definitions WHERE id = $1", schema.ID).Scan(&isDeleted)
 	if err != nil {
 		t.Fatalf("Failed to query schema: %v", err)
 	}
@@ -1128,7 +1128,7 @@ func TestDeleteSchemaRoute_MultipleCardsWithSchema(t *testing.T) {
 
 	// Create multiple cards that use the schema
 	for i := 1; i <= 3; i++ {
-		_, err := s.DB.Exec(`
+		_, err := s.Server.Tx.Exec(`
 			INSERT INTO cards (card_id, user_id, title, body, link, created_at, updated_at, parent_id, card_schema_id)
 			VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), $6, $7)
 		`, "test-card-"+strconv.Itoa(i), 1, "Test Card "+strconv.Itoa(i), "Test Body", "test-link", 1, schema.ID)

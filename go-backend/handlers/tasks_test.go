@@ -367,7 +367,7 @@ func TestUpdateTaskCompleteRecurringTask(t *testing.T) {
 	defer tests.Teardown()
 
 	var taskCount int
-	_ = s.DB.QueryRow("SELECT count(*) FROM tasks").Scan(&taskCount)
+	_ = s.Server.Tx.QueryRow("SELECT count(*) FROM tasks").Scan(&taskCount)
 	if taskCount <= 0 {
 		t.Errorf("wrong task count, got %v", taskCount)
 	}
@@ -401,7 +401,7 @@ func TestUpdateTaskCompleteRecurringTask(t *testing.T) {
 	}
 
 	var newTaskCount int
-	_ = s.DB.QueryRow("SELECT count(*) FROM tasks").Scan(&newTaskCount)
+	_ = s.Server.Tx.QueryRow("SELECT count(*) FROM tasks").Scan(&newTaskCount)
 	if taskCount+1 != newTaskCount {
 		t.Errorf("wrong task count, got %v want %v", taskCount+1, newTaskCount)
 	}

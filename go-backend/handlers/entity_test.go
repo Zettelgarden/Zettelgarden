@@ -27,7 +27,7 @@ func TestMergeEntitiesSuccess(t *testing.T) {
 
 	// Verify entity2 is deleted
 	var count int
-	err = s.DB.QueryRow("SELECT COUNT(*) FROM entities WHERE id = $1", 2).Scan(&count)
+	err = s.Server.Tx.QueryRow("SELECT COUNT(*) FROM entities WHERE id = $1", 2).Scan(&count)
 	if err != nil {
 		t.Errorf("Failed to check entity2 deletion: %v", err)
 	}
@@ -36,7 +36,7 @@ func TestMergeEntitiesSuccess(t *testing.T) {
 	}
 
 	// Verify all card relationships were merged
-	err = s.DB.QueryRow("SELECT COUNT(*) FROM entity_card_junction WHERE entity_id = $1", 1).Scan(&count)
+	err = s.Server.Tx.QueryRow("SELECT COUNT(*) FROM entity_card_junction WHERE entity_id = $1", 1).Scan(&count)
 	if err != nil {
 		t.Errorf("Failed to count relationships: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestMergeEntitiesWrongUser(t *testing.T) {
 
 	// Verify both entities still exist
 	var count int
-	err = s.DB.QueryRow("SELECT COUNT(*) FROM entities WHERE id IN ($1, $2)", 1, 3).Scan(&count)
+	err = s.Server.Tx.QueryRow("SELECT COUNT(*) FROM entities WHERE id IN ($1, $2)", 1, 3).Scan(&count)
 	if err != nil {
 		t.Errorf("Failed to count entities: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestDeleteEntitySuccess(t *testing.T) {
 
 	// Verify entity is deleted
 	var count int
-	err = s.DB.QueryRow("SELECT COUNT(*) FROM entities WHERE id = $1", 1).Scan(&count)
+	err = s.Server.Tx.QueryRow("SELECT COUNT(*) FROM entities WHERE id = $1", 1).Scan(&count)
 	if err != nil {
 		t.Errorf("Failed to check entity deletion: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestDeleteEntitySuccess(t *testing.T) {
 	}
 
 	// Verify entity-card relationships are deleted
-	err = s.DB.QueryRow("SELECT COUNT(*) FROM entity_card_junction WHERE entity_id = $1", 1).Scan(&count)
+	err = s.Server.Tx.QueryRow("SELECT COUNT(*) FROM entity_card_junction WHERE entity_id = $1", 1).Scan(&count)
 	if err != nil {
 		t.Errorf("Failed to check relationship deletion: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestDeleteEntityWrongUser(t *testing.T) {
 
 	// Verify entity still exists
 	var count int
-	err = s.DB.QueryRow("SELECT COUNT(*) FROM entities WHERE id = $1", 1).Scan(&count)
+	err = s.Server.Tx.QueryRow("SELECT COUNT(*) FROM entities WHERE id = $1", 1).Scan(&count)
 	if err != nil {
 		t.Errorf("Failed to count entities: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestUpdateEntitySuccess(t *testing.T) {
 
 	// Verify entity was updated
 	var name, description, entityType string
-	err = s.DB.QueryRow("SELECT name, description, type FROM entities WHERE id = $1", 1).Scan(&name, &description, &entityType)
+	err = s.Server.Tx.QueryRow("SELECT name, description, type FROM entities WHERE id = $1", 1).Scan(&name, &description, &entityType)
 	if err != nil {
 		t.Errorf("Failed to check entity update: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestUpdateEntityDuplicateName(t *testing.T) {
 	defer tests.Teardown()
 
 	// First create another entity with a known name, using a high ID to avoid conflicts
-	_, err := s.DB.Exec(`
+	_, err := s.Server.Tx.Exec(`
 		INSERT INTO entities (id, user_id, name, description, type, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
 		9999, 1, "Existing Entity", "Test description", "concept")
@@ -231,7 +231,7 @@ func TestUpdateEntityWithCardPK(t *testing.T) {
 
 	// Create a test card
 	var cardID int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
 		INSERT INTO cards (user_id, title, body)
 		VALUES ($1, 'Test Card', 'Test Content')
 		RETURNING id
@@ -255,7 +255,7 @@ func TestUpdateEntityWithCardPK(t *testing.T) {
 
 	// Verify the update
 	var entity models.Entity
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT id, user_id, name, description, type, card_pk
 		FROM entities
 		WHERE id = $1
@@ -303,7 +303,7 @@ func TestAddEntityToCardSuccess(t *testing.T) {
 
 	// Create a test card
 	var cardID int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
 		INSERT INTO cards (user_id, title, body)
 		VALUES ($1, 'Test Card', 'Test Content')
 		RETURNING id
@@ -314,7 +314,7 @@ func TestAddEntityToCardSuccess(t *testing.T) {
 
 	// Verify no relationship exists initially
 	var count int
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM entity_card_junction 
 		WHERE entity_id = $1 AND card_pk = $2 AND user_id = $3
 	`, 1, cardID, 1).Scan(&count)
@@ -326,7 +326,7 @@ func TestAddEntityToCardSuccess(t *testing.T) {
 	}
 
 	// Add the relationship
-	_, err = s.DB.Exec(`
+	_, err = s.Server.Tx.Exec(`
 		INSERT INTO entity_card_junction (user_id, entity_id, card_pk)
 		VALUES ($1, $2, $3)
 	`, 1, 1, cardID)
@@ -335,7 +335,7 @@ func TestAddEntityToCardSuccess(t *testing.T) {
 	}
 
 	// Verify the relationship was created
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM entity_card_junction 
 		WHERE entity_id = $1 AND card_pk = $2 AND user_id = $3
 	`, 1, cardID, 1).Scan(&count)
@@ -353,7 +353,7 @@ func TestAddEntityToCardDuplicate(t *testing.T) {
 
 	// Create a test card
 	var cardID int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
 		INSERT INTO cards (user_id, title, body)
 		VALUES ($1, 'Test Card', 'Test Content')
 		RETURNING id
@@ -363,7 +363,7 @@ func TestAddEntityToCardDuplicate(t *testing.T) {
 	}
 
 	// Create initial relationship
-	_, err = s.DB.Exec(`
+	_, err = s.Server.Tx.Exec(`
 		INSERT INTO entity_card_junction (user_id, entity_id, card_pk)
 		VALUES ($1, $2, $3)
 	`, 1, 1, cardID)
@@ -372,7 +372,7 @@ func TestAddEntityToCardDuplicate(t *testing.T) {
 	}
 
 	// Try to add the same relationship again
-	_, err = s.DB.Exec(`
+	_, err = s.Server.Tx.Exec(`
 		INSERT INTO entity_card_junction (user_id, entity_id, card_pk)
 		VALUES ($1, $2, $3)
 		ON CONFLICT (entity_id, card_pk) DO NOTHING
@@ -383,7 +383,7 @@ func TestAddEntityToCardDuplicate(t *testing.T) {
 
 	// Verify only one relationship exists
 	var count int
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM entity_card_junction 
 		WHERE entity_id = $1 AND card_pk = $2 AND user_id = $3
 	`, 1, cardID, 1).Scan(&count)
@@ -401,7 +401,7 @@ func TestAddEntityToCardWrongUser(t *testing.T) {
 
 	// Create a test card for user 1
 	var cardID int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
 		INSERT INTO cards (user_id, title, body)
 		VALUES ($1, 'Test Card', 'Test Content')
 		RETURNING id
@@ -411,7 +411,7 @@ func TestAddEntityToCardWrongUser(t *testing.T) {
 	}
 
 	// Create an entity owned by user 1
-	_, err = s.DB.Exec(`
+	_, err = s.Server.Tx.Exec(`
 		INSERT INTO entities (id, user_id, name, description, type)
 		VALUES ($1, $2, 'Test Entity', 'Test Description', 'concept')
 	`, 999, 1)
@@ -440,7 +440,7 @@ func TestAddEntityToCardWrongUser(t *testing.T) {
 
 	// Verify no relationship was created
 	var count int
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM entity_card_junction 
 		WHERE entity_id = $1 AND card_pk = $2
 	`, 999, cardID).Scan(&count)
@@ -457,7 +457,7 @@ func TestAddEntityToCardNonExistent(t *testing.T) {
 	defer tests.Teardown()
 
 	// Try to create relationship with non-existent entity and card
-	_, err := s.DB.Exec(`
+	_, err := s.Server.Tx.Exec(`
 		INSERT INTO entity_card_junction (user_id, entity_id, card_pk)
 		VALUES ($1, $2, $3)
 	`, 1, 99999, 99999)
@@ -472,7 +472,7 @@ func TestRemoveEntityFromCardSuccess(t *testing.T) {
 
 	// First create a test card and entity-card relationship
 	var cardID int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
 		INSERT INTO cards (user_id, title, body)
 		VALUES ($1, 'Test Card', 'Test Content')
 		RETURNING id
@@ -482,7 +482,7 @@ func TestRemoveEntityFromCardSuccess(t *testing.T) {
 	}
 
 	// Create entity-card junction
-	_, err = s.DB.Exec(`
+	_, err = s.Server.Tx.Exec(`
 		INSERT INTO entity_card_junction (user_id, entity_id, card_pk)
 		VALUES ($1, $2, $3)
 	`, 1, 1, cardID)
@@ -492,7 +492,7 @@ func TestRemoveEntityFromCardSuccess(t *testing.T) {
 
 	// Verify the relationship exists
 	var count int
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM entity_card_junction 
 		WHERE entity_id = $1 AND card_pk = $2 AND user_id = $3
 	`, 1, cardID, 1).Scan(&count)
@@ -504,7 +504,7 @@ func TestRemoveEntityFromCardSuccess(t *testing.T) {
 	}
 
 	// Remove the relationship
-	_, err = s.DB.Exec(`
+	_, err = s.Server.Tx.Exec(`
 		DELETE FROM entity_card_junction 
 		WHERE entity_id = $1 AND card_pk = $2 AND user_id = $3
 	`, 1, cardID, 1)
@@ -513,7 +513,7 @@ func TestRemoveEntityFromCardSuccess(t *testing.T) {
 	}
 
 	// Verify the relationship was removed
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM entity_card_junction 
 		WHERE entity_id = $1 AND card_pk = $2 AND user_id = $3
 	`, 1, cardID, 1).Scan(&count)
@@ -531,7 +531,7 @@ func TestRemoveEntityFromCardWrongUser(t *testing.T) {
 
 	// First create a test card and entity-card relationship for user 1
 	var cardID int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
 		INSERT INTO cards (user_id, title, body)
 		VALUES ($1, 'Test Card', 'Test Content')
 		RETURNING id
@@ -541,7 +541,7 @@ func TestRemoveEntityFromCardWrongUser(t *testing.T) {
 	}
 
 	// Create entity-card junction for user 1
-	_, err = s.DB.Exec(`
+	_, err = s.Server.Tx.Exec(`
 		INSERT INTO entity_card_junction (user_id, entity_id, card_pk)
 		VALUES ($1, $2, $3)
 	`, 1, 1, cardID)
@@ -550,7 +550,7 @@ func TestRemoveEntityFromCardWrongUser(t *testing.T) {
 	}
 
 	// Try to remove the relationship as user 2
-	_, err = s.DB.Exec(`
+	_, err = s.Server.Tx.Exec(`
 		DELETE FROM entity_card_junction 
 		WHERE entity_id = $1 AND card_pk = $2 AND user_id = $3
 	`, 1, cardID, 2)
@@ -560,7 +560,7 @@ func TestRemoveEntityFromCardWrongUser(t *testing.T) {
 
 	// Verify the relationship still exists for user 1
 	var count int
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM entity_card_junction 
 		WHERE entity_id = $1 AND card_pk = $2 AND user_id = $3
 	`, 1, cardID, 1).Scan(&count)
@@ -577,7 +577,7 @@ func TestRemoveEntityFromCardNonExistent(t *testing.T) {
 	defer tests.Teardown()
 
 	var originalCount int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM entity_card_junction
 	`).Scan(&originalCount)
 	if err != nil {
@@ -585,7 +585,7 @@ func TestRemoveEntityFromCardNonExistent(t *testing.T) {
 	}
 
 	// Try to remove a non-existent relationship
-	_, err = s.DB.Exec(`
+	_, err = s.Server.Tx.Exec(`
 		DELETE FROM entity_card_junction 
 		WHERE entity_id = $1 AND card_pk = $2 AND user_id = $3
 	`, 99999, 99999, 1)
@@ -595,7 +595,7 @@ func TestRemoveEntityFromCardNonExistent(t *testing.T) {
 
 	// Verify no relationships were affected
 	var count int
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM entity_card_junction
 	`).Scan(&count)
 	if err != nil {
@@ -716,7 +716,7 @@ func TestMergeEntitiesPreservesCardPK(t *testing.T) {
 
 	// Create a test card first
 	var cardID int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
 		INSERT INTO cards (user_id, title, body)
 		VALUES ($1, 'Test Card', 'Test Content')
 		RETURNING id
@@ -726,7 +726,7 @@ func TestMergeEntitiesPreservesCardPK(t *testing.T) {
 	}
 
 	// Create an entity with card_pk set
-	_, err = s.DB.Exec(`
+	_, err = s.Server.Tx.Exec(`
 		INSERT INTO entities (id, user_id, name, description, type, card_pk, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
 		100, 1, "Entity With Card", "Test description", "concept", cardID)
@@ -735,7 +735,7 @@ func TestMergeEntitiesPreservesCardPK(t *testing.T) {
 	}
 
 	// Create another entity without card_pk
-	_, err = s.DB.Exec(`
+	_, err = s.Server.Tx.Exec(`
 		INSERT INTO entities (id, user_id, name, description, type, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
 		101, 1, "Entity Without Card", "Test description", "concept")
@@ -751,7 +751,7 @@ func TestMergeEntitiesPreservesCardPK(t *testing.T) {
 
 	// Verify entity 100 still has its card_pk
 	var resultCardPK sql.NullInt64
-	err = s.DB.QueryRow("SELECT card_pk FROM entities WHERE id = $1", 100).Scan(&resultCardPK)
+	err = s.Server.Tx.QueryRow("SELECT card_pk FROM entities WHERE id = $1", 100).Scan(&resultCardPK)
 	if err != nil {
 		t.Errorf("Failed to check entity card_pk: %v", err)
 	}
@@ -761,7 +761,7 @@ func TestMergeEntitiesPreservesCardPK(t *testing.T) {
 
 	// Verify entity 101 is deleted
 	var count int
-	err = s.DB.QueryRow("SELECT COUNT(*) FROM entities WHERE id = $1", 101).Scan(&count)
+	err = s.Server.Tx.QueryRow("SELECT COUNT(*) FROM entities WHERE id = $1", 101).Scan(&count)
 	if err != nil {
 		t.Errorf("Failed to check entity deletion: %v", err)
 	}
@@ -776,7 +776,7 @@ func TestMergeEntitiesPreservesCardPKFromSecondEntity(t *testing.T) {
 
 	// Create a test card first
 	var cardID int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
 		INSERT INTO cards (user_id, title, body)
 		VALUES ($1, 'Test Card', 'Test Content')
 		RETURNING id
@@ -786,7 +786,7 @@ func TestMergeEntitiesPreservesCardPKFromSecondEntity(t *testing.T) {
 	}
 
 	// Create an entity without card_pk
-	_, err = s.DB.Exec(`
+	_, err = s.Server.Tx.Exec(`
 		INSERT INTO entities (id, user_id, name, description, type, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
 		102, 1, "Entity Without Card", "Test description", "concept")
@@ -795,7 +795,7 @@ func TestMergeEntitiesPreservesCardPKFromSecondEntity(t *testing.T) {
 	}
 
 	// Create an entity with card_pk set
-	_, err = s.DB.Exec(`
+	_, err = s.Server.Tx.Exec(`
 		INSERT INTO entities (id, user_id, name, description, type, card_pk, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
 		103, 1, "Entity With Card", "Test description", "concept", cardID)
@@ -811,7 +811,7 @@ func TestMergeEntitiesPreservesCardPKFromSecondEntity(t *testing.T) {
 
 	// Verify entity 102 now has the card_pk from entity 103
 	var resultCardPK sql.NullInt64
-	err = s.DB.QueryRow("SELECT card_pk FROM entities WHERE id = $1", 102).Scan(&resultCardPK)
+	err = s.Server.Tx.QueryRow("SELECT card_pk FROM entities WHERE id = $1", 102).Scan(&resultCardPK)
 	if err != nil {
 		t.Errorf("Failed to check entity card_pk: %v", err)
 	}
@@ -821,7 +821,7 @@ func TestMergeEntitiesPreservesCardPKFromSecondEntity(t *testing.T) {
 
 	// Verify entity 103 is deleted
 	var count int
-	err = s.DB.QueryRow("SELECT COUNT(*) FROM entities WHERE id = $1", 103).Scan(&count)
+	err = s.Server.Tx.QueryRow("SELECT COUNT(*) FROM entities WHERE id = $1", 103).Scan(&count)
 	if err != nil {
 		t.Errorf("Failed to check entity deletion: %v", err)
 	}

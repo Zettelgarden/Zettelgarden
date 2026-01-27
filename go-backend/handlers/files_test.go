@@ -29,7 +29,7 @@ func uploadTestFile(s *Handler) {
 	s.uploadObject(s.Server.S3, uuidKey, testFile.Name())
 
 	query := `UPDATE files SET path = $1, filename = $2 WHERE id = 1`
-	s.DB.QueryRow(query, uuidKey, uuidKey)
+	s.Server.Tx.QueryRow(query, uuidKey, uuidKey)
 }
 
 func TestGetAllFiles(t *testing.T) {
@@ -362,7 +362,7 @@ func TestUploadFileNotAllowed(t *testing.T) {
 	writer := multipart.NewWriter(&buffer)
 
 	var count int
-	err := s.DB.QueryRow("SELECT count(*) FROM files").Scan(&count)
+	err := s.Server.Tx.QueryRow("SELECT count(*) FROM files").Scan(&count)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -412,7 +412,7 @@ func TestUploadFileNotAllowed(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusForbidden)
 	}
 	var newCount int
-	err = s.DB.QueryRow("SELECT count(*) FROM files").Scan(&newCount)
+	err = s.Server.Tx.QueryRow("SELECT count(*) FROM files").Scan(&newCount)
 	if err != nil {
 		log.Fatal(err)
 	}

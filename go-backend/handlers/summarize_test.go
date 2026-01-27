@@ -241,7 +241,7 @@ func TestSaveAnalysisSuccess(t *testing.T) {
 
 	// Create a summarization record first
 	var summarizationID int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
 		INSERT INTO summarizations (user_id, card_pk, input_text, status, created_at, updated_at)
 		VALUES ($1, $2, $3, 'complete', NOW(), NOW())
 		RETURNING id
@@ -273,7 +273,7 @@ func TestSaveAnalysisSuccess(t *testing.T) {
 
 	// Verify data was saved correctly
 	var sectionCount int
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM summary_sections
 		WHERE user_id = $1 AND card_pk = $2 AND summarization_id = $3
 	`, userID, cardPK, summarizationID).Scan(&sectionCount)
@@ -285,7 +285,7 @@ func TestSaveAnalysisSuccess(t *testing.T) {
 	}
 
 	var thesisCount int
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM summary_theses
 		WHERE user_id = $1 AND card_pk = $2 AND summarization_id = $3
 	`, userID, cardPK, summarizationID).Scan(&thesisCount)
@@ -297,7 +297,7 @@ func TestSaveAnalysisSuccess(t *testing.T) {
 	}
 
 	var argumentCount int
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM summary_arguments
 		WHERE user_id = $1 AND card_pk = $2 AND summarization_id = $3
 	`, userID, cardPK, summarizationID).Scan(&argumentCount)
@@ -318,7 +318,7 @@ func TestSaveAnalysisEmptyThesisSkipped(t *testing.T) {
 	cardPK := 1
 
 	var summarizationID int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
 		INSERT INTO summarizations (user_id, card_pk, input_text, status, created_at, updated_at)
 		VALUES ($1, $2, $3, 'complete', NOW(), NOW())
 		RETURNING id
@@ -361,7 +361,7 @@ func TestSaveAnalysisEmptyThesisSkipped(t *testing.T) {
 
 	// Only the valid thesis should be saved
 	var thesisCount int
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM summary_theses
 		WHERE user_id = $1 AND card_pk = $2 AND summarization_id = $3
 	`, userID, cardPK, summarizationID).Scan(&thesisCount)
@@ -382,7 +382,7 @@ func TestSaveAnalysisEmptySectionSkipped(t *testing.T) {
 	cardPK := 1
 
 	var summarizationID int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
 		INSERT INTO summarizations (user_id, card_pk, input_text, status, created_at, updated_at)
 		VALUES ($1, $2, $3, 'complete', NOW(), NOW())
 		RETURNING id
@@ -437,7 +437,7 @@ func TestSaveAnalysisEmptySectionSkipped(t *testing.T) {
 
 	// Only the valid section should be saved
 	var sectionCount int
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM summary_sections
 		WHERE user_id = $1 AND card_pk = $2 AND summarization_id = $3
 	`, userID, cardPK, summarizationID).Scan(&sectionCount)
@@ -458,7 +458,7 @@ func TestSaveAnalysisInvalidCardPK(t *testing.T) {
 
 	// First create a valid summarization (with card_pk = 1)
 	var summarizationID int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
 		INSERT INTO summarizations (user_id, card_pk, input_text, status, created_at, updated_at)
 		VALUES ($1, $2, $3, 'complete', NOW(), NOW())
 		RETURNING id
@@ -510,7 +510,7 @@ func TestSaveAnalysisMultipleSections(t *testing.T) {
 	cardPK := 1
 
 	var summarizationID int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
 		INSERT INTO summarizations (user_id, card_pk, input_text, status, created_at, updated_at)
 		VALUES ($1, $2, $3, 'complete', NOW(), NOW())
 		RETURNING id
@@ -561,7 +561,7 @@ func TestSaveAnalysisMultipleSections(t *testing.T) {
 
 	// Verify all sections were saved
 	var sectionCount int
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM summary_sections
 		WHERE user_id = $1 AND card_pk = $2 AND summarization_id = $3
 	`, userID, cardPK, summarizationID).Scan(&sectionCount)
@@ -574,7 +574,7 @@ func TestSaveAnalysisMultipleSections(t *testing.T) {
 
 	// Verify all theses were saved (1 in section 1, 2 in section 2)
 	var thesisCount int
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM summary_theses
 		WHERE user_id = $1 AND card_pk = $2 AND summarization_id = $3
 	`, userID, cardPK, summarizationID).Scan(&thesisCount)
@@ -595,7 +595,7 @@ func TestSaveAnalysisSectionOrder(t *testing.T) {
 	cardPK := 1
 
 	var summarizationID int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
 		INSERT INTO summarizations (user_id, card_pk, input_text, status, created_at, updated_at)
 		VALUES ($1, $2, $3, 'complete', NOW(), NOW())
 		RETURNING id
@@ -616,7 +616,7 @@ func TestSaveAnalysisSectionOrder(t *testing.T) {
 	}
 
 	// Verify section order is maintained
-	rows, err := s.DB.Query(`
+	rows, err := s.Server.Tx.Query(`
 		SELECT section_title, section_order FROM summary_sections
 		WHERE user_id = $1 AND card_pk = $2 AND summarization_id = $3
 		ORDER BY section_order

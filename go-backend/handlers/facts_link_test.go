@@ -21,7 +21,7 @@ func TestLinkFactToCardHandler(t *testing.T) {
 	log.Printf("aoeao")
 	// Insert a fact manually linked to card 1
 	var factID int
-	err := s.DB.QueryRow(`
+	err := s.Server.Tx.QueryRow(`
         INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
         VALUES ($1, $2, 'test fact', NOW(), NOW())
         RETURNING id
@@ -38,11 +38,11 @@ func TestExtractSaveCardFacts_MultiCardFactPreserved(t *testing.T) {
 
 	// Insert a fact linked to two cards
 	var factID int
-	_ = s.DB.QueryRow(`INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
+	_ = s.Server.Tx.QueryRow(`INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
                         VALUES (1, 1, 'shared fact', NOW(), NOW()) RETURNING id`).Scan(&factID)
-	_, _ = s.DB.Exec(`INSERT INTO fact_card_junction (fact_id, card_pk, user_id, is_origin, created_at, updated_at)
+	_, _ = s.Server.Tx.Exec(`INSERT INTO fact_card_junction (fact_id, card_pk, user_id, is_origin, created_at, updated_at)
                        VALUES ($1, 1, 1, TRUE, NOW(), NOW())`, factID)
-	_, _ = s.DB.Exec(`INSERT INTO fact_card_junction (fact_id, card_pk, user_id, is_origin, created_at, updated_at)
+	_, _ = s.Server.Tx.Exec(`INSERT INTO fact_card_junction (fact_id, card_pk, user_id, is_origin, created_at, updated_at)
                        VALUES ($1, 2, 1, FALSE, NOW(), NOW())`, factID)
 
 	// Call ExtractSaveCardFacts on card 1
@@ -53,14 +53,14 @@ func TestExtractSaveCardFacts_MultiCardFactPreserved(t *testing.T) {
 
 	// Assert fact still exists
 	var exists bool
-	err = s.DB.QueryRow(`SELECT true FROM facts WHERE id=$1`, factID).Scan(&exists)
+	err = s.Server.Tx.QueryRow(`SELECT true FROM facts WHERE id=$1`, factID).Scan(&exists)
 	if err != nil || !exists {
 		t.Fatalf("expected fact to remain, but it was deleted")
 	}
 
 	// Assert junctions still exist for both cards
 	for _, cardPK := range []int{1, 2} {
-		err = s.DB.QueryRow(`SELECT true FROM fact_card_junction WHERE fact_id=$1 AND card_pk=$2`, factID, cardPK).Scan(&exists)
+		err = s.Server.Tx.QueryRow(`SELECT true FROM fact_card_junction WHERE fact_id=$1 AND card_pk=$2`, factID, cardPK).Scan(&exists)
 		if err != nil || !exists {
 			t.Fatalf("expected junction for card %d to remain", cardPK)
 		}
@@ -74,9 +74,9 @@ func TestExtractSaveCardFacts_SingleCardFactDeleted(t *testing.T) {
 
 	// Insert a fact linked only to card 1
 	var factID int
-	_ = s.DB.QueryRow(`INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
+	_ = s.Server.Tx.QueryRow(`INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
                         VALUES (1, 1, 'orphan fact', NOW(), NOW()) RETURNING id`).Scan(&factID)
-	_, _ = s.DB.Exec(`INSERT INTO fact_card_junction (fact_id, card_pk, user_id, is_origin, created_at, updated_at)
+	_, _ = s.Server.Tx.Exec(`INSERT INTO fact_card_junction (fact_id, card_pk, user_id, is_origin, created_at, updated_at)
                        VALUES ($1, 1, 1, TRUE, NOW(), NOW())`, factID)
 
 	// Call ExtractSaveCardFacts on card 1
@@ -87,13 +87,13 @@ func TestExtractSaveCardFacts_SingleCardFactDeleted(t *testing.T) {
 
 	// Assert fact is deleted
 	var exists bool
-	err = s.DB.QueryRow(`SELECT true FROM facts WHERE id=$1`, factID).Scan(&exists)
+	err = s.Server.Tx.QueryRow(`SELECT true FROM facts WHERE id=$1`, factID).Scan(&exists)
 	if err == nil {
 		t.Fatalf("expected fact to be deleted, but it still exists")
 	}
 
 	// Assert junction is deleted
-	err = s.DB.QueryRow(`SELECT true FROM fact_card_junction WHERE fact_id=$1 AND card_pk=1`, factID).Scan(&exists)
+	err = s.Server.Tx.QueryRow(`SELECT true FROM fact_card_junction WHERE fact_id=$1 AND card_pk=1`, factID).Scan(&exists)
 	if err == nil {
 		t.Fatalf("expected junction to be deleted, but it still exists")
 	}
@@ -105,9 +105,9 @@ func TestMergeFactsRoute_Success(t *testing.T) {
 	defer tests.Teardown()
 
 	var fact1ID, fact2ID int
-	_ = s.DB.QueryRow(`INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
+	_ = s.Server.Tx.QueryRow(`INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
 					   VALUES (1, 1, 'fact 1', NOW(), NOW()) RETURNING id`).Scan(&fact1ID)
-	_ = s.DB.QueryRow(`INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
+	_ = s.Server.Tx.QueryRow(`INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
 					   VALUES (1, 1, 'fact 2', NOW(), NOW()) RETURNING id`).Scan(&fact2ID)
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -127,7 +127,7 @@ func TestMergeFactsRoute_Success(t *testing.T) {
 
 	// Check that fact2 is deleted
 	var exists bool
-	err := s.DB.QueryRow("SELECT true FROM facts WHERE id=$1", fact2ID).Scan(&exists)
+	err := s.Server.Tx.QueryRow("SELECT true FROM facts WHERE id=$1", fact2ID).Scan(&exists)
 	if err == nil {
 		t.Fatalf("expected fact2 to be deleted but found")
 	}
@@ -139,7 +139,7 @@ func TestMergeFactsRoute_SelfMergeError(t *testing.T) {
 	defer tests.Teardown()
 
 	var factID int
-	_ = s.DB.QueryRow(`INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
+	_ = s.Server.Tx.QueryRow(`INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
 					   VALUES (1, 1, 'fact x', NOW(), NOW()) RETURNING id`).Scan(&factID)
 
 	token, _ := tests.GenerateTestJWT(1)

@@ -15,7 +15,7 @@ func TestLogAdminAction_Success(t *testing.T) {
 	defer tests.Teardown()
 
 	// Make user 1 an admin
-	_, err := s.DB.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
+	_, err := s.Server.Tx.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
 	if err != nil {
 		t.Fatalf("Failed to set user as admin: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestLogAdminAction_Success(t *testing.T) {
 
 	// Verify the audit log was created
 	var count int
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM admin_audit_log
 		WHERE admin_user_id = 1
 		AND action = 'user.update'
@@ -60,7 +60,7 @@ func TestLogAdminAction_Success(t *testing.T) {
 
 	// Verify the details were stored correctly
 	var detailsJSON string
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT details::text FROM admin_audit_log
 		WHERE admin_user_id = 1
 		AND action = 'user.update'
@@ -77,7 +77,7 @@ func TestLogAdminAction_Success(t *testing.T) {
 
 	// Verify IP address and user agent were captured
 	var ipAddress, userAgent string
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT ip_address, user_agent FROM admin_audit_log
 		WHERE admin_user_id = 1
 		AND action = 'user.update'
@@ -102,7 +102,7 @@ func TestLogAdminAction_XForwardedFor(t *testing.T) {
 	defer tests.Teardown()
 
 	// Make user 1 an admin
-	_, err := s.DB.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
+	_, err := s.Server.Tx.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
 	if err != nil {
 		t.Fatalf("Failed to set user as admin: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestLogAdminAction_XForwardedFor(t *testing.T) {
 	s.LogAdminAction(req, "test.action", "test", 1, map[string]interface{}{})
 
 	var ipAddress string
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT ip_address FROM admin_audit_log
 		WHERE action = 'test.action'
 		LIMIT 1
@@ -140,7 +140,7 @@ func TestLogAdminActionAsync(t *testing.T) {
 	defer tests.Teardown()
 
 	// Make user 1 an admin
-	_, err := s.DB.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
+	_, err := s.Server.Tx.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
 	if err != nil {
 		t.Fatalf("Failed to set user as admin: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestLogAdminActionAsync(t *testing.T) {
 	var count int
 	for i := 0; i < 10; i++ {
 		time.Sleep(100 * time.Millisecond)
-		err = s.DB.QueryRow(`
+		err = s.Server.Tx.QueryRow(`
 			SELECT COUNT(*) FROM admin_audit_log
 			WHERE action = 'async.action'
 		`).Scan(&count)
@@ -184,19 +184,19 @@ func TestGetAdminAuditLogs_Success(t *testing.T) {
 	defer tests.Teardown()
 
 	// Make user 1 an admin
-	_, err := s.DB.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
+	_, err := s.Server.Tx.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
 	if err != nil {
 		t.Fatalf("Failed to set user as admin: %v", err)
 	}
 
 	// Clean up any existing test data first
-	_, err = s.DB.Exec(`DELETE FROM admin_audit_log WHERE action IN ('user.update', 'mailing_list.send', 'user.delete')`)
+	_, err = s.Server.Tx.Exec(`DELETE FROM admin_audit_log WHERE action IN ('user.update', 'mailing_list.send', 'user.delete')`)
 	if err != nil {
 		t.Fatalf("Failed to clean up test data: %v", err)
 	}
 
 	// Create some test audit logs
-	_, err = s.DB.Exec(`
+	_, err = s.Server.Tx.Exec(`
 		INSERT INTO admin_audit_log (admin_user_id, action, target_type, target_id, details, ip_address, user_agent)
 		VALUES (1, 'user.update', 'user', 2, '{"test": "data"}', '127.0.0.1', 'test-agent'),
 		       (1, 'mailing_list.send', 'mailing_list', 1, '{"recipients": 100}', '127.0.0.1', 'test-agent'),
@@ -228,13 +228,13 @@ func TestGetAdminAuditLogs_WithFilters(t *testing.T) {
 	defer tests.Teardown()
 
 	// Make user 1 an admin
-	_, err := s.DB.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
+	_, err := s.Server.Tx.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
 	if err != nil {
 		t.Fatalf("Failed to set user as admin: %v", err)
 	}
 
 	// Create test audit logs with different actions
-	_, err = s.DB.Exec(`
+	_, err = s.Server.Tx.Exec(`
 		INSERT INTO admin_audit_log (admin_user_id, action, target_type, target_id, details, ip_address, user_agent)
 		VALUES (1, 'user.update', 'user', 2, '{}', '127.0.0.1', 'test-agent'),
 		       (1, 'user.delete', 'user', 3, '{}', '127.0.0.1', 'test-agent'),
@@ -285,14 +285,14 @@ func TestGetAdminAuditLogs_Pagination(t *testing.T) {
 	defer tests.Teardown()
 
 	// Make user 1 an admin
-	_, err := s.DB.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
+	_, err := s.Server.Tx.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
 	if err != nil {
 		t.Fatalf("Failed to set user as admin: %v", err)
 	}
 
 	// Create 5 test audit logs
 	for i := 1; i <= 5; i++ {
-		_, err = s.DB.Exec(`
+		_, err = s.Server.Tx.Exec(`
 			INSERT INTO admin_audit_log (admin_user_id, action, target_type, target_id, details, ip_address, user_agent)
 			VALUES (1, $1, 'test', $2, '{}', '127.0.0.1', 'test-agent')
 		`, "action_"+string(rune('0'+i)), i)
@@ -348,7 +348,7 @@ func TestLogAdminAction_NoContext(t *testing.T) {
 
 	// Verify no audit log was created (should fail gracefully)
 	var count int
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT COUNT(*) FROM admin_audit_log
 		WHERE action = 'test.action'
 	`).Scan(&count)
@@ -367,7 +367,7 @@ func TestAdminAuditLogStructure(t *testing.T) {
 	defer tests.Teardown()
 
 	// Make user 1 an admin
-	_, err := s.DB.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
+	_, err := s.Server.Tx.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
 	if err != nil {
 		t.Fatalf("Failed to set user as admin: %v", err)
 	}
@@ -392,7 +392,7 @@ func TestAdminAuditLogStructure(t *testing.T) {
 
 	var log AdminAuditLog
 	var detailsJSON []byte
-	err = s.DB.QueryRow(`
+	err = s.Server.Tx.QueryRow(`
 		SELECT id, admin_user_id, action, target_type, target_id, details, ip_address, user_agent, created_at
 		FROM admin_audit_log
 		WHERE action = 'structure.test'
