@@ -5,6 +5,7 @@ import (
 	"go-backend/tests"
 	"net/http"
 	"testing"
+	"time"
 )
 
 // TestLogAdminAction_Success verifies that admin actions are logged correctly
@@ -147,6 +148,8 @@ func TestLogAdminActionAsync(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	req.Header.Set("X-Real-IP", "127.0.0.1")
+	req.Header.Set("User-Agent", "test-agent")
 
 	ctx := context.WithValue(req.Context(), "current_user", 1)
 	req = req.WithContext(ctx)
@@ -159,6 +162,7 @@ func TestLogAdminActionAsync(t *testing.T) {
 	// In production, you might use a wait group or channel
 	var count int
 	for i := 0; i < 10; i++ {
+		time.Sleep(100 * time.Millisecond)
 		err = s.DB.QueryRow(`
 			SELECT COUNT(*) FROM admin_audit_log
 			WHERE action = 'async.action'
@@ -182,6 +186,12 @@ func TestGetAdminAuditLogs_Success(t *testing.T) {
 	_, err := s.DB.Exec(`UPDATE users SET is_admin = true WHERE id = 1`)
 	if err != nil {
 		t.Fatalf("Failed to set user as admin: %v", err)
+	}
+
+	// Clean up any existing test data first
+	_, err = s.DB.Exec(`DELETE FROM admin_audit_log WHERE action IN ('user.update', 'mailing_list.send', 'user.delete')`)
+	if err != nil {
+		t.Fatalf("Failed to clean up test data: %v", err)
 	}
 
 	// Create some test audit logs
