@@ -126,25 +126,48 @@ func Setup() *server.Server {
 			log.Fatalf("Failed to reset database: %v\n", err)
 		}
 		server.RunMigrations(S)
+
+		// Import test data ONCE for the entire test suite
+		// Each test will use savepoints for isolation
+		err = importTestData(S)
+		if err != nil {
+			log.Fatalf("Failed to import test data: %v\n", err)
+		}
 	})
 
 	if err != nil {
 		log.Fatalf("Unable to connect to the database: %v\n", err)
 	}
 
-	// Import test data for each test (data gets cleared in Teardown)
-	err = importTestData(S)
+	// Start a transaction for this test and create a savepoint
+	// Production code can still use db.Begin() which creates nested savepoints
+	_, err = S.DB.Exec("BEGIN")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to begin transaction: %v\n", err)
 	}
+
+	_, err = S.DB.Exec("SAVEPOINT test_start")
+	if err != nil {
+		log.Fatalf("Failed to create savepoint: %v\n", err)
+	}
+
 	return S
 }
 
 func Teardown() {
-	// Fast cleanup: truncate tables instead of dropping and re-migrating
-	// Only truncate if the database has been initialized
+	// Rollback to savepoint for fast test isolation
+	// This is much faster than TRUNCATE + re-import (7s → ~100ms per test)
 	if S != nil && S.DB != nil {
-		truncateTestData()
+		_, err := S.DB.Exec("ROLLBACK TO SAVEPOINT test_start")
+		if err != nil {
+			log.Printf("Warning: failed to rollback to savepoint: %v", err)
+			// Fallback to truncate if rollback fails
+			truncateTestData()
+			return
+		}
+		// Release and recreate the savepoint for the next test
+		S.DB.Exec("RELEASE SAVEPOINT test_start")
+		S.DB.Exec("SAVEPOINT test_start")
 	}
 }
 
