@@ -21,12 +21,13 @@ type WorkerStats struct {
 
 // Worker represents a single background job processor
 type Worker struct {
-	ID       string
-	Queue    JobQueue
-	Processor JobProcessor
-	Stats    WorkerStats
-	stopChan chan struct{}
-	wg       sync.WaitGroup
+	ID         string
+	Queue      JobQueue
+	Processor  JobProcessor
+	Stats      WorkerStats
+	stopChan   chan struct{}
+	wg         sync.WaitGroup
+	paused     *atomic.Bool // Shared pause state with worker pool
 }
 
 // WorkerPool manages a pool of workers processing jobs from the queue
@@ -39,6 +40,7 @@ type WorkerPool struct {
 	wg         sync.WaitGroup
 	running    atomic.Bool
 	shutdown   atomic.Bool
+	paused     atomic.Bool // Indicates if job processing is paused
 	mu         sync.RWMutex
 
 	// Configuration
@@ -70,13 +72,14 @@ type JobProcessor interface {
 	ProcessJob(ctx context.Context, job *models.LLMJob) (map[string]interface{}, error)
 }
 
-// NewWorker creates a new worker with the given ID, queue, and processor
-func NewWorker(id string, queue JobQueue, processor JobProcessor) *Worker {
+// NewWorker creates a new worker with the given ID, queue, processor, and pause state
+func NewWorker(id string, queue JobQueue, processor JobProcessor, paused *atomic.Bool) *Worker {
 	return &Worker{
 		ID:        id,
 		Queue:     queue,
 		Processor: processor,
 		stopChan:  make(chan struct{}),
+		paused:    paused,
 	}
 }
 
@@ -93,6 +96,12 @@ func (w *Worker) Start() {
 			case <-w.stopChan:
 				return
 			default:
+				// Check if paused, if so wait before trying again
+				if w.paused != nil && w.paused.Load() {
+					time.Sleep(500 * time.Millisecond)
+					continue
+				}
+
 				if err := w.processNextJob(); err != nil {
 					log.Printf("[Worker %s] Error processing job: %v", w.ID, err)
 					// Don't sleep on error, try again immediately
@@ -247,7 +256,7 @@ func (p *WorkerPool) Start() error {
 	p.workers = make([]*Worker, p.workerCount)
 	for i := 0; i < p.workerCount; i++ {
 		workerID := fmt.Sprintf("worker-%d", i+1)
-		p.workers[i] = NewWorker(workerID, p.queue, p.processor)
+		p.workers[i] = NewWorker(workerID, p.queue, p.processor, &p.paused)
 		p.workers[i].Start()
 	}
 
@@ -332,6 +341,53 @@ func (p *WorkerPool) WorkerCount() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return len(p.workers)
+}
+
+// Pause pauses job processing in the worker pool
+// Workers will stop picking up new jobs but will finish processing current jobs
+func (p *WorkerPool) Pause() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if !p.running.Load() {
+		return fmt.Errorf("worker pool not running")
+	}
+
+	if p.paused.Load() {
+		return fmt.Errorf("worker pool already paused")
+	}
+
+	p.paused.Store(true)
+	log.Printf("[WorkerPool] Paused job processing")
+	return nil
+}
+
+// Resume resumes job processing in the worker pool
+func (p *WorkerPool) Resume() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if !p.running.Load() {
+		return fmt.Errorf("worker pool not running")
+	}
+
+	if !p.paused.Load() {
+		return fmt.Errorf("worker pool not paused")
+	}
+
+	p.paused.Store(false)
+	log.Printf("[WorkerPool] Resumed job processing")
+	return nil
+}
+
+// IsPaused returns true if the worker pool is paused
+func (p *WorkerPool) IsPaused() bool {
+	return p.paused.Load()
+}
+
+// GetQueueDepth returns the number of pending jobs in the queue
+func (p *WorkerPool) GetQueueDepth() (int, error) {
+	return p.queue.GetQueueDepth(context.Background())
 }
 
 // getEnvInt gets an integer environment variable with a fallback
