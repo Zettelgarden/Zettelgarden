@@ -1,5 +1,14 @@
 -- Add updated_at column to llm_jobs table for tracking modification times
-ALTER TABLE llm_jobs ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT NOW();
+-- Skip if column already exists
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'llm_jobs' AND column_name = 'updated_at'
+    ) THEN
+        ALTER TABLE llm_jobs ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT NOW();
+    END IF;
+END $$;
 
 -- Create index on updated_at for time-based queries
 CREATE INDEX IF NOT EXISTS idx_llm_jobs_updated_at ON llm_jobs(updated_at DESC);
@@ -13,6 +22,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_llm_jobs_updated_at ON llm_jobs;
 CREATE TRIGGER trigger_llm_jobs_updated_at
 	BEFORE UPDATE ON llm_jobs
 	FOR EACH ROW
