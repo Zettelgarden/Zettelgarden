@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -49,6 +51,18 @@ func (s *Handler) LogAdminAction(r *http.Request, action string, targetType stri
 	// Check for X-Real-IP header
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		ipAddress = xri
+	}
+
+	// Clean up IP address: remove port if present (e.g., "127.0.0.1:1234" -> "127.0.0.1")
+	if strings.Contains(ipAddress, ":") {
+		host, _, err := net.SplitHostPort(ipAddress)
+		if err == nil {
+			ipAddress = host
+		}
+	}
+	// If IP address is empty, use a placeholder
+	if ipAddress == "" {
+		ipAddress = "0.0.0.0"
 	}
 
 	// Convert details to JSONB
