@@ -98,6 +98,44 @@ function WorkerRow({ workerId, stats }: WorkerRowProps) {
   );
 }
 
+// Helper functions for job display
+const getJobTypeIcon = (jobType: string) => {
+  switch (jobType) {
+    case "embedding":
+      return "🔤";
+    case "summarization":
+      return "📝";
+    case "entity_extraction":
+    case "fact_entity_extraction":
+      return "🏷️";
+    case "chat":
+      return "💬";
+    case "memory":
+      return "🧠";
+    case "email":
+      return "📧";
+    default:
+      return "⚙️";
+  }
+};
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case "pending":
+      return "bg-yellow-100 text-yellow-800";
+    case "running":
+      return "bg-blue-100 text-blue-800";
+    case "completed":
+      return "bg-green-100 text-green-800";
+    case "failed":
+      return "bg-red-100 text-red-800";
+    case "cancelled":
+      return "bg-gray-100 text-gray-800";
+    default:
+      return "bg-gray-100 text-gray-800";
+  }
+};
+
 interface RunningJobsRowProps {
   job: AdminJob;
 }
@@ -106,43 +144,6 @@ function RunningJobsRow({ job }: RunningJobsRowProps) {
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "-";
     return new Date(dateStr).toLocaleTimeString();
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800";
-      case "running":
-        return "bg-blue-100 text-blue-800";
-      case "completed":
-        return "bg-green-100 text-green-800";
-      case "failed":
-        return "bg-red-100 text-red-800";
-      case "cancelled":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const getJobTypeIcon = (jobType: string) => {
-    switch (jobType) {
-      case "embedding":
-        return "🔤";
-      case "summarization":
-        return "📝";
-      case "entity_extraction":
-      case "fact_entity_extraction":
-        return "🏷️";
-      case "chat":
-        return "💬";
-      case "memory":
-        return "🧠";
-      case "email":
-        return "📧";
-      default:
-        return "⚙️";
-    }
   };
 
   return (
@@ -171,6 +172,7 @@ export function AdminJobQueuePage() {
   const [health, setHealth] = useState<JobQueueHealth | null>(null);
   const [workerStats, setWorkerStats] = useState<WorkerPoolStats | null>(null);
   const [jobs, setJobs] = useState<AdminJob[]>([]);
+  const [completedJobs, setCompletedJobs] = useState<AdminJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
@@ -184,14 +186,16 @@ export function AdminJobQueuePage() {
     }
     setError(null);
     try {
-      const [healthData, workersData, jobsData] = await Promise.all([
+      const [healthData, workersData, jobsData, completedJobsData] = await Promise.all([
         getJobQueueHealth(),
         getWorkerPoolStats(),
         getAllJobs({ status: "running", limit: 20 }),
+        getAllJobs({ status: "completed", limit: 20 }),
       ]);
       setHealth(healthData);
       setWorkerStats(workersData);
       setJobs(jobsData.jobs);
+      setCompletedJobs(completedJobsData.jobs);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load job queue data";
       setError({ message, details: err instanceof Error ? err.stack : undefined });
@@ -485,6 +489,111 @@ export function AdminJobQueuePage() {
               ) : (
                 <div className="px-6 py-12 text-center text-gray-500">
                   <p className="text-sm">No active jobs</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Completed Jobs Table */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Recently Completed Jobs</h2>
+              <span className="text-sm text-gray-500">
+                Last {completedJobs.length} completed
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              {completedJobs.length > 0 ? (
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Job ID
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        User
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Duration
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Result
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {completedJobs.map((job) => {
+                      // Calculate duration if we have both timestamps
+                      const durationMs = job.started_at && job.completed_at
+                        ? new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()
+                        : null;
+
+                      const formatDuration = (ms: number) => {
+                        if (ms < 1000) return `${ms}ms`;
+                        if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+                        return `${(ms / 60000).toFixed(1)}m`;
+                      };
+
+                      // Get result preview
+                      const getResultPreview = () => {
+                        if (job.status === "failed") {
+                          return job.error_message || "Failed";
+                        }
+                        if (job.result) {
+                          // Try to extract a meaningful preview from result
+                          if (job.result.entities_saved !== undefined) {
+                            return `Saved ${job.result.entities_saved} entities`;
+                          }
+                          if (job.result.fact_entity_extraction) {
+                            return "Entity extraction";
+                          }
+                          if (job.result.summarization_id) {
+                            return "Summary generated";
+                          }
+                          return "Success";
+                        }
+                        return "Completed";
+                      };
+
+                      return (
+                        <tr key={job.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{job.id}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{job.username || `User ${job.user_id}`}</td>
+                          <td className="px-4 py-3 text-sm">
+                            <span className="flex items-center gap-1">
+                              <span>{getJobTypeIcon(job.job_type)}</span>
+                              <span className="capitalize">{job.job_type.replace(/_/g, " ")}</span>
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              job.status === "completed" ? "bg-green-100 text-green-800" :
+                              job.status === "failed" ? "bg-red-100 text-red-800" :
+                              "bg-gray-100 text-gray-800"
+                            }`}>
+                              {job.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {durationMs !== null ? formatDuration(durationMs) : "-"}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate" title={getResultPreview()}>
+                            {getResultPreview()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="px-6 py-12 text-center text-gray-500">
+                  <p className="text-sm">No completed jobs</p>
                 </div>
               )}
             </div>
