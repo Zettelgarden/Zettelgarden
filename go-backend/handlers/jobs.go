@@ -15,11 +15,12 @@ import (
 
 // CreateJobRequest represents the request to create a new job
 type CreateJobRequest struct {
-	JobType     string                 `json:"job_type"`
-	Priority    int                    `json:"priority,omitempty"`
-	Payload     map[string]interface{} `json:"payload"`
-	MaxRetries  int                    `json:"max_retries,omitempty"`
-	TimeoutSecs int                    `json:"timeout_seconds,omitempty"`
+	JobType       string                 `json:"job_type"`
+	Priority      int                    `json:"priority,omitempty"`
+	Payload       map[string]interface{} `json:"payload"`
+	MaxRetries    int                    `json:"max_retries,omitempty"`
+	TimeoutSecs   int                    `json:"timeout_seconds,omitempty"`
+	CorrelationID string                 `json:"correlation_id,omitempty"`
 }
 
 // JobResponse represents the response for a job
@@ -38,6 +39,7 @@ type JobResponse struct {
 	RetryCount    int                    `json:"retry_count"`
 	MaxRetries    int                    `json:"max_retries"`
 	TimeoutSecs   int                    `json:"timeout_seconds"`
+	CorrelationID string                 `json:"correlation_id,omitempty"`
 }
 
 // JobsListResponse represents a paginated list of jobs
@@ -70,7 +72,7 @@ func (h *Handler) CreateJobRoute(w http.ResponseWriter, r *http.Request) {
 
 	// Validate job type
 	if !isValidJobType(req.JobType) {
-		http.Error(w, fmt.Sprintf("Invalid job_type: %s. Must be one of: embedding, summarization, entity_extraction, chat, memory, email", req.JobType), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Invalid job_type: %s. Must be one of: summarization, entity_extraction, fact_entity_extraction, chat, memory, email", req.JobType), http.StatusBadRequest)
 		return
 	}
 
@@ -120,12 +122,13 @@ func (h *Handler) CreateJobRoute(w http.ResponseWriter, r *http.Request) {
 
 	// Create job parameters
 	params := models.CreateJobParams{
-		UserID:      userID,
-		JobType:     models.JobType(req.JobType),
-		Priority:    req.Priority,
-		Payload:     req.Payload,
-		MaxRetries:  req.MaxRetries,
-		TimeoutSecs: req.TimeoutSecs,
+		UserID:        userID,
+		JobType:       models.JobType(req.JobType),
+		Priority:      req.Priority,
+		Payload:       req.Payload,
+		MaxRetries:    req.MaxRetries,
+		TimeoutSecs:   req.TimeoutSecs,
+		CorrelationID: req.CorrelationID,
 	}
 
 	// Create job via queue
@@ -306,7 +309,6 @@ func (h *Handler) GetJobStatsRoute(w http.ResponseWriter, r *http.Request) {
 // Helper: isValidJobType checks if the job type is valid
 func isValidJobType(jobType string) bool {
 	validTypes := map[string]bool{
-		"embedding":              true,
 		"summarization":          true,
 		"entity_extraction":      true,
 		"fact_entity_extraction": true,
@@ -320,10 +322,6 @@ func isValidJobType(jobType string) bool {
 // Helper: validateJobPayload validates the payload based on job type
 func validateJobPayload(jobType string, payload map[string]interface{}) error {
 	switch jobType {
-	case "embedding":
-		if _, ok := payload["card_pk"]; !ok {
-			return fmt.Errorf("card_pk is required for embedding jobs")
-		}
 	case "entity_extraction":
 		if _, ok := payload["card_pk"]; !ok {
 			return fmt.Errorf("card_pk is required for entity extraction jobs")
@@ -383,18 +381,19 @@ func validateJobPayload(jobType string, payload map[string]interface{}) error {
 // Helper: jobToResponse converts a models.LLMJob to JobResponse
 func jobToResponse(job *models.LLMJob) JobResponse {
 	response := JobResponse{
-		ID:           job.ID,
-		UserID:       job.UserID,
-		JobType:      string(job.JobType),
-		Status:       string(job.Status),
-		Priority:     job.Priority,
-		Payload:      job.Payload,
-		Result:       job.Result,
-		ErrorMessage: job.ErrorMessage,
-		CreatedAt:    job.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		RetryCount:   job.RetryCount,
-		MaxRetries:   job.MaxRetries,
-		TimeoutSecs:  job.TimeoutSecs,
+		ID:            job.ID,
+		UserID:        job.UserID,
+		JobType:       string(job.JobType),
+		Status:        string(job.Status),
+		Priority:      job.Priority,
+		Payload:       job.Payload,
+		Result:        job.Result,
+		ErrorMessage:  job.ErrorMessage,
+		CreatedAt:     job.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		RetryCount:    job.RetryCount,
+		MaxRetries:    job.MaxRetries,
+		TimeoutSecs:   job.TimeoutSecs,
+		CorrelationID: job.CorrelationID,
 	}
 
 	if job.StartedAt != nil {

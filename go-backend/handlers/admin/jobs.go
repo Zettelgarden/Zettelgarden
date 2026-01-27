@@ -111,7 +111,7 @@ func GetAllJobsRoute(h *handlers.Handler, w http.ResponseWriter, r *http.Request
 	// Build query
 	baseQuery := `
 		SELECT id, user_id, job_type, status, priority, payload, result, error_message,
-		       created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds
+		       created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds, correlation_id
 		FROM llm_jobs
 	`
 	countQuery := "SELECT COUNT(*) FROM llm_jobs"

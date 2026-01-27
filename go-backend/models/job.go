@@ -24,7 +24,6 @@ const (
 type JobType string
 
 const (
-	JobTypeEmbedding            JobType = "embedding"
 	JobTypeSummarization        JobType = "summarization"
 	JobTypeEntityExtraction     JobType = "entity_extraction"
 	JobTypeFactEntityExtraction JobType = "fact_entity_extraction"
@@ -49,16 +48,18 @@ type LLMJob struct {
 	RetryCount    int                    `json:"retry_count"`
 	MaxRetries    int                    `json:"max_retries"`
 	TimeoutSecs   int                    `json:"timeout_seconds"`
+	CorrelationID string                 `json:"correlation_id,omitempty"`
 }
 
 // CreateJobParams represents parameters for creating a new job
 type CreateJobParams struct {
-	UserID      int                    `json:"user_id"`
-	JobType     JobType                `json:"job_type"`
-	Priority    int                    `json:"priority,omitempty"`
-	Payload     map[string]interface{} `json:"payload"`
-	MaxRetries  int                    `json:"max_retries,omitempty"`
-	TimeoutSecs int                    `json:"timeout_seconds,omitempty"`
+	UserID        int                    `json:"user_id"`
+	JobType       JobType                `json:"job_type"`
+	Priority      int                    `json:"priority,omitempty"`
+	Payload       map[string]interface{} `json:"payload"`
+	MaxRetries    int                    `json:"max_retries,omitempty"`
+	TimeoutSecs   int                    `json:"timeout_seconds,omitempty"`
+	CorrelationID string                 `json:"correlation_id,omitempty"`
 }
 
 // JobListParams represents parameters for listing jobs
@@ -91,6 +92,7 @@ func ScanLLMJob(row *sql.Row) (*LLMJob, error) {
 	var payloadJSON, resultJSON []byte
 	var startedAt, completedAt sql.NullTime
 	var errorMessage sql.NullString
+	var correlationID sql.NullString
 
 	err := row.Scan(
 		&job.ID,
@@ -107,6 +109,7 @@ func ScanLLMJob(row *sql.Row) (*LLMJob, error) {
 		&job.RetryCount,
 		&job.MaxRetries,
 		&job.TimeoutSecs,
+		&correlationID,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -114,6 +117,11 @@ func ScanLLMJob(row *sql.Row) (*LLMJob, error) {
 		}
 		log.Printf("Error scanning LLM job: %v", err)
 		return nil, err
+	}
+
+	// Handle nullable correlation_id
+	if correlationID.Valid {
+		job.CorrelationID = correlationID.String
 	}
 
 	// Handle nullable error_message
@@ -161,6 +169,7 @@ func ScanLLMJobs(rows *sql.Rows) ([]LLMJob, error) {
 		var payloadJSON, resultJSON []byte
 		var startedAt, completedAt sql.NullTime
 		var errorMessage sql.NullString
+		var correlationID sql.NullString
 
 		if err := rows.Scan(
 			&job.ID,
@@ -177,9 +186,15 @@ func ScanLLMJobs(rows *sql.Rows) ([]LLMJob, error) {
 			&job.RetryCount,
 			&job.MaxRetries,
 			&job.TimeoutSecs,
+			&correlationID,
 		); err != nil {
 			log.Printf("Error scanning LLM job: %v", err)
 			return jobs, err
+		}
+
+		// Handle nullable correlation_id
+		if correlationID.Valid {
+			job.CorrelationID = correlationID.String
 		}
 
 		// Handle nullable error_message
@@ -246,10 +261,10 @@ func CreateJob(db *sql.DB, params CreateJobParams) (*LLMJob, error) {
 	}
 
 	query := `
-		INSERT INTO llm_jobs (user_id, job_type, priority, payload, max_retries, timeout_seconds)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO llm_jobs (user_id, job_type, priority, payload, max_retries, timeout_seconds, correlation_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, user_id, job_type, status, priority, payload, result, error_message,
-			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds
+			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds, correlation_id
 	`
 
 	return ScanLLMJob(db.QueryRow(query,
@@ -259,6 +274,7 @@ func CreateJob(db *sql.DB, params CreateJobParams) (*LLMJob, error) {
 		payloadJSON,
 		maxRetries,
 		timeoutSecs,
+		params.CorrelationID,
 	))
 }
 
@@ -266,7 +282,7 @@ func CreateJob(db *sql.DB, params CreateJobParams) (*LLMJob, error) {
 func GetJob(db *sql.DB, jobID int) (*LLMJob, error) {
 	query := `
 		SELECT id, user_id, job_type, status, priority, payload, result, error_message,
-			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds
+			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds, correlation_id
 		FROM llm_jobs
 		WHERE id = $1
 	`
@@ -278,7 +294,7 @@ func GetJob(db *sql.DB, jobID int) (*LLMJob, error) {
 func GetJobForUpdate(db *sql.DB, jobID int) (*LLMJob, error) {
 	query := `
 		SELECT id, user_id, job_type, status, priority, payload, result, error_message,
-			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds
+			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds, correlation_id
 		FROM llm_jobs
 		WHERE id = $1
 		FOR UPDATE
@@ -290,7 +306,7 @@ func GetJobForUpdate(db *sql.DB, jobID int) (*LLMJob, error) {
 func ListJobs(db *sql.DB, params JobListParams) ([]LLMJob, error) {
 	query := `
 		SELECT id, user_id, job_type, status, priority, payload, result, error_message,
-			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds
+			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds, correlation_id
 		FROM llm_jobs
 		WHERE user_id = $1
 	`
@@ -448,7 +464,7 @@ func GetJobStats(db *sql.DB, userID int) (*JobStats, error) {
 func DequeueJob(db *sql.DB) (*LLMJob, error) {
 	query := `
 		SELECT id, user_id, job_type, status, priority, payload, result, error_message,
-			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds
+			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds, correlation_id
 		FROM llm_jobs
 		WHERE status = 'pending'
 		ORDER BY priority ASC, created_at ASC
@@ -480,4 +496,25 @@ func CancelJob(db *sql.DB, jobID, userID int) error {
 	}
 
 	return nil
+}
+
+// CleanupOldJobs deletes jobs that have been completed/failed for longer than the retention period
+// Returns the number of jobs deleted
+func CleanupOldJobs(db *sql.DB, retentionDays int) (int, error) {
+	if retentionDays <= 0 {
+		retentionDays = 30 // Default to 30 days
+	}
+
+	query := `
+		DELETE FROM llm_jobs
+		WHERE status IN ('completed', 'failed', 'cancelled')
+		  AND completed_at < NOW() - INTERVAL '1 day' * $1
+	`
+	result, err := db.Exec(query, retentionDays)
+	if err != nil {
+		return 0, fmt.Errorf("failed to cleanup old jobs: %w", err)
+	}
+
+	count, _ := result.RowsAffected()
+	return int(count), nil
 }

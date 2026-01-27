@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"go-backend/models"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -61,6 +62,9 @@ type JobQueue interface {
 
 	// CleanupOrphanedJobs marks jobs stuck in "running" state as failed after server restart
 	CleanupOrphanedJobs(ctx context.Context) (int, error)
+
+	// CleanupOldJobs deletes old completed/failed jobs based on retention policy
+	CleanupOldJobs(ctx context.Context, retentionDays int) (int, error)
 }
 
 // DatabaseJobQueue implements JobQueue using PostgreSQL as the backend
@@ -97,7 +101,7 @@ func (q *DatabaseJobQueue) Dequeue(ctx context.Context) (*models.LLMJob, error) 
 	// This locks the row for this transaction but skips rows already locked by other workers
 	query := `
 		SELECT id, user_id, job_type, status, priority, payload, result, error_message,
-			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds
+			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds, correlation_id
 		FROM llm_jobs
 		WHERE status = 'pending'
 		ORDER BY priority ASC, created_at ASC
@@ -109,6 +113,7 @@ func (q *DatabaseJobQueue) Dequeue(ctx context.Context) (*models.LLMJob, error) 
 	var payloadJSON, resultJSON []byte
 	var startedAt, completedAt sql.NullTime
 	var errorMessage sql.NullString
+	var correlationID sql.NullString
 
 	err = tx.QueryRowContext(ctx, query).Scan(
 		&job.ID,
@@ -125,6 +130,7 @@ func (q *DatabaseJobQueue) Dequeue(ctx context.Context) (*models.LLMJob, error) 
 		&job.RetryCount,
 		&job.MaxRetries,
 		&job.TimeoutSecs,
+		&correlationID,
 	)
 
 	if err != nil {
@@ -138,6 +144,11 @@ func (q *DatabaseJobQueue) Dequeue(ctx context.Context) (*models.LLMJob, error) 
 	// Handle nullable error_message
 	if errorMessage.Valid {
 		job.ErrorMessage = errorMessage.String
+	}
+
+	// Handle nullable correlation_id
+	if correlationID.Valid {
+		job.CorrelationID = correlationID.String
 	}
 
 	// Unmarshal payload
@@ -199,36 +210,36 @@ func (q *DatabaseJobQueue) DequeueByTypes(ctx context.Context, jobTypes []models
 	}
 	defer tx.Rollback() // Safe to call if already committed
 
-	// Build job type filter
-	typeFilter := ""
-	if len(jobTypes) > 0 {
-		typeFilter = " AND job_type IN ("
-		for i, jt := range jobTypes {
-			if i > 0 {
-				typeFilter += ","
-			}
-			typeFilter += fmt.Sprintf("'%s'", jt)
-		}
-		typeFilter += ")"
-	}
-
-	// Use FOR UPDATE SKIP LOCKED to allow multiple workers to run concurrently
+	// Build base query
 	query := `
 		SELECT id, user_id, job_type, status, priority, payload, result, error_message,
-			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds
+			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds, correlation_id
 		FROM llm_jobs
-		WHERE status = 'pending'` + typeFilter + `
-		ORDER BY priority ASC, created_at ASC
-		LIMIT 1
-		FOR UPDATE SKIP LOCKED
+		WHERE status = 'pending'
 	`
+	args := []interface{}{}
+	argIdx := 1
+
+	// Build job type filter with parameterized query
+	if len(jobTypes) > 0 {
+		placeholders := make([]string, len(jobTypes))
+		for i, jt := range jobTypes {
+			placeholders[i] = fmt.Sprintf("$%d", argIdx)
+			args = append(args, jt)
+			argIdx++
+		}
+		query += " AND job_type IN (" + strings.Join(placeholders, ", ") + ")"
+	}
+
+	query += " ORDER BY priority ASC, created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED"
 
 	var job models.LLMJob
 	var payloadJSON, resultJSON []byte
 	var startedAt, completedAt sql.NullTime
 	var errorMessage sql.NullString
+	var correlationID sql.NullString
 
-	err = tx.QueryRowContext(ctx, query).Scan(
+	err = tx.QueryRowContext(ctx, query, args...).Scan(
 		&job.ID,
 		&job.UserID,
 		&job.JobType,
@@ -243,6 +254,7 @@ func (q *DatabaseJobQueue) DequeueByTypes(ctx context.Context, jobTypes []models
 		&job.RetryCount,
 		&job.MaxRetries,
 		&job.TimeoutSecs,
+		&correlationID,
 	)
 
 	if err != nil {
@@ -256,6 +268,11 @@ func (q *DatabaseJobQueue) DequeueByTypes(ctx context.Context, jobTypes []models
 	// Handle nullable error_message
 	if errorMessage.Valid {
 		job.ErrorMessage = errorMessage.String
+	}
+
+	// Handle nullable correlation_id
+	if correlationID.Valid {
+		job.CorrelationID = correlationID.String
 	}
 
 	// Unmarshal payload
@@ -469,6 +486,17 @@ func (q *DatabaseJobQueue) CleanupOrphanedJobs(ctx context.Context) (int, error)
 	return int(count), nil
 }
 
+// CleanupOldJobs deletes old completed/failed jobs based on retention policy
+// Returns the number of jobs deleted
+func (q *DatabaseJobQueue) CleanupOldJobs(ctx context.Context, retentionDays int) (int, error) {
+	count, err := models.CleanupOldJobs(q.db, retentionDays)
+	if err != nil {
+		return 0, err
+	}
+	log.Printf("[JobQueue] Cleaned up %d old jobs (retention: %d days)", count, retentionDays)
+	return count, nil
+}
+
 // Helper function to check if a job should be retried
 func ShouldRetryJob(job *models.LLMJob) bool {
 	return job.RetryCount < job.MaxRetries
@@ -570,4 +598,8 @@ func (q *TypeFilteredJobQueue) MarkStuckJobsFailed(ctx context.Context) (int, er
 
 func (q *TypeFilteredJobQueue) CleanupOrphanedJobs(ctx context.Context) (int, error) {
 	return q.queue.CleanupOrphanedJobs(ctx)
+}
+
+func (q *TypeFilteredJobQueue) CleanupOldJobs(ctx context.Context, retentionDays int) (int, error) {
+	return q.queue.CleanupOldJobs(ctx, retentionDays)
 }
