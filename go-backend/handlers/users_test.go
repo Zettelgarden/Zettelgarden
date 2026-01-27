@@ -228,8 +228,8 @@ func TestGetUsersRouteSuccess(t *testing.T) {
 	}
 	var users []models.User
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &users)
-	if len(users) != 10 {
-		t.Errorf("handler returned wrong number of users, got %v want %v", len(users), 10)
+	if len(users) != 3 {
+		t.Errorf("handler returned wrong number of users, got %v want %v", len(users), 3)
 	}
 }
 
@@ -312,8 +312,8 @@ func TestCreateUserSuccess(t *testing.T) {
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
-	if response.NewID != 11 {
-		t.Errorf("handler returned unexpected result, got %v want %v", response.NewID, 11)
+	if response.NewID != 4 {
+		t.Errorf("handler returned unexpected result, got %v want %v", response.NewID, 4)
 	}
 }
 func TestCreateUserDashboardCardsSuccess(t *testing.T) {
@@ -334,12 +334,12 @@ func TestCreateUserDashboardCardsSuccess(t *testing.T) {
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
-	if response.NewID != 11 {
-		t.Errorf("handler returned unexpected result, got %v want %v", response.NewID, 11)
+	if response.NewID != 4 {
+		t.Errorf("handler returned unexpected result, got %v want %v", response.NewID, 4)
 	}
 
 	var cardPK int
-	err := s.DB.QueryRow("SELECT dashboard_card_pk FROM users where id = $1",
+	err := s.Server.Tx.QueryRow("SELECT dashboard_card_pk FROM users where id = $1",
 		response.NewID).Scan(&cardPK)
 	if err != nil {
 		t.Errorf("handler returned error %v", err)
@@ -351,7 +351,7 @@ func TestCreateUserDashboardCardsSuccess(t *testing.T) {
 	expectedTitle := "Welcome to Zettelgarden!"
 	var title string
 	var body string
-	err = s.DB.QueryRow("SELECT title, body FROM cards where id = $1", cardPK).Scan(&title, &body)
+	err = s.Server.Tx.QueryRow("SELECT title, body FROM cards where id = $1", cardPK).Scan(&title, &body)
 	if err != nil {
 		t.Errorf("handler returned error %v", err)
 	}
@@ -456,7 +456,7 @@ func TestValidateEmail(t *testing.T) {
 
 	token, _ := s.generateTempToken(1)
 
-	_, err := s.DB.Exec(`UPDATE users SET email_validated = FALSE WHERE id = 1`)
+	_, err := s.Server.Tx.Exec(`UPDATE users SET email_validated = FALSE WHERE id = 1`)
 	if err != nil {
 		t.Fatal(err)
 	}
