@@ -19,6 +19,10 @@ type JobQueue interface {
 	// Uses row-level locking to allow multiple workers
 	Dequeue(ctx context.Context) (*models.LLMJob, error)
 
+	// DequeueByTypes claims and returns the next pending job of specific types
+	// Uses row-level locking to allow multiple workers
+	DequeueByTypes(ctx context.Context, jobTypes []models.JobType) (*models.LLMJob, error)
+
 	// UpdateStatus updates the status of a job
 	UpdateStatus(ctx context.Context, jobID int, status models.JobStatus) error
 
@@ -45,6 +49,9 @@ type JobQueue interface {
 
 	// Stats retrieves statistics for a user
 	Stats(ctx context.Context, userID int) (*models.JobStats, error)
+
+	// GetQueueDepth returns the number of pending jobs in the queue
+	GetQueueDepth(ctx context.Context) (int, error)
 }
 
 // DatabaseJobQueue implements JobQueue using PostgreSQL as the backend
@@ -92,6 +99,7 @@ func (q *DatabaseJobQueue) Dequeue(ctx context.Context) (*models.LLMJob, error) 
 	var job models.LLMJob
 	var payloadJSON, resultJSON []byte
 	var startedAt, completedAt sql.NullTime
+	var errorMessage sql.NullString
 
 	err = tx.QueryRowContext(ctx, query).Scan(
 		&job.ID,
@@ -101,7 +109,7 @@ func (q *DatabaseJobQueue) Dequeue(ctx context.Context) (*models.LLMJob, error) 
 		&job.Priority,
 		&payloadJSON,
 		&resultJSON,
-		&job.ErrorMessage,
+		&errorMessage,
 		&job.CreatedAt,
 		&startedAt,
 		&completedAt,
@@ -116,6 +124,129 @@ func (q *DatabaseJobQueue) Dequeue(ctx context.Context) (*models.LLMJob, error) 
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to dequeue job: %w", err)
+	}
+
+	// Handle nullable error_message
+	if errorMessage.Valid {
+		job.ErrorMessage = errorMessage.String
+	}
+
+	// Unmarshal payload
+	if len(payloadJSON) > 0 && string(payloadJSON) != "null" {
+		if err := json.Unmarshal(payloadJSON, &job.Payload); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal payload: %w", err)
+		}
+	} else {
+		job.Payload = make(map[string]interface{})
+	}
+
+	// Unmarshal result if present
+	if len(resultJSON) > 0 && string(resultJSON) != "null" {
+		if err := json.Unmarshal(resultJSON, &job.Result); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal result: %w", err)
+		}
+	}
+
+	// Handle nullable timestamps
+	if startedAt.Valid {
+		job.StartedAt = &startedAt.Time
+	}
+	if completedAt.Valid {
+		job.CompletedAt = &completedAt.Time
+	}
+
+	// Mark job as running within the same transaction
+	now := time.Now()
+	markQuery := `
+		UPDATE llm_jobs
+		SET status = 'running', started_at = $1
+		WHERE id = $2
+	`
+	_, err = tx.ExecContext(ctx, markQuery, now, job.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to mark job as running: %w", err)
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	job.Status = models.JobStatusRunning
+	job.StartedAt = &now
+
+	log.Printf("[JobQueue] Dequeued job %d (type: %s, user: %d, priority: %d)",
+		job.ID, job.JobType, job.UserID, job.Priority)
+
+	return &job, nil
+}
+
+// DequeueByTypes claims and returns the next pending job of specific types for processing
+func (q *DatabaseJobQueue) DequeueByTypes(ctx context.Context, jobTypes []models.JobType) (*models.LLMJob, error) {
+	// Begin a transaction for atomic dequeue operation
+	tx, err := q.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback() // Safe to call if already committed
+
+	// Build job type filter
+	typeFilter := ""
+	if len(jobTypes) > 0 {
+		typeFilter = " AND job_type IN ("
+		for i, jt := range jobTypes {
+			if i > 0 {
+				typeFilter += ","
+			}
+			typeFilter += fmt.Sprintf("'%s'", jt)
+		}
+		typeFilter += ")"
+	}
+
+	// Use FOR UPDATE SKIP LOCKED to allow multiple workers to run concurrently
+	query := `
+		SELECT id, user_id, job_type, status, priority, payload, result, error_message,
+			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds
+		FROM llm_jobs
+		WHERE status = 'pending'` + typeFilter + `
+		ORDER BY priority ASC, created_at ASC
+		LIMIT 1
+		FOR UPDATE SKIP LOCKED
+	`
+
+	var job models.LLMJob
+	var payloadJSON, resultJSON []byte
+	var startedAt, completedAt sql.NullTime
+	var errorMessage sql.NullString
+
+	err = tx.QueryRowContext(ctx, query).Scan(
+		&job.ID,
+		&job.UserID,
+		&job.JobType,
+		&job.Status,
+		&job.Priority,
+		&payloadJSON,
+		&resultJSON,
+		&errorMessage,
+		&job.CreatedAt,
+		&startedAt,
+		&completedAt,
+		&job.RetryCount,
+		&job.MaxRetries,
+		&job.TimeoutSecs,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// No jobs available
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to dequeue job: %w", err)
+	}
+
+	// Handle nullable error_message
+	if errorMessage.Valid {
+		job.ErrorMessage = errorMessage.String
 	}
 
 	// Unmarshal payload
@@ -257,6 +388,17 @@ func (q *DatabaseJobQueue) Stats(ctx context.Context, userID int) (*models.JobSt
 	return stats, nil
 }
 
+// GetQueueDepth returns the number of pending jobs in the queue
+func (q *DatabaseJobQueue) GetQueueDepth(ctx context.Context) (int, error) {
+	var count int
+	err := q.db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM llm_jobs WHERE status = 'pending'").Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get queue depth: %w", err)
+	}
+	return count, nil
+}
+
 // Helper function to check if a job should be retried
 func ShouldRetryJob(job *models.LLMJob) bool {
 	return job.RetryCount < job.MaxRetries
@@ -276,4 +418,74 @@ func CalculateBackoff(retryCount int) time.Duration {
 // GetJobTimeout returns the timeout duration for a job
 func GetJobTimeout(job *models.LLMJob) time.Duration {
 	return time.Duration(job.TimeoutSecs) * time.Second
+}
+
+// TypeFilteredJobQueue wraps a JobQueue and only dequeues jobs of specific types
+// This allows different worker pools to share the same underlying queue without
+// picking up jobs meant for other workers.
+type TypeFilteredJobQueue struct {
+	queue     JobQueue
+	jobTypes  []models.JobType
+}
+
+// NewTypeFilteredJobQueue creates a new filtered job queue that only returns jobs of the specified types
+func NewTypeFilteredJobQueue(queue JobQueue, jobTypes ...models.JobType) JobQueue {
+	return &TypeFilteredJobQueue{
+		queue:    queue,
+		jobTypes: jobTypes,
+	}
+}
+
+func (q *TypeFilteredJobQueue) Enqueue(ctx context.Context, params models.CreateJobParams) (*models.LLMJob, error) {
+	return q.queue.Enqueue(ctx, params)
+}
+
+func (q *TypeFilteredJobQueue) Dequeue(ctx context.Context) (*models.LLMJob, error) {
+	return q.queue.DequeueByTypes(ctx, q.jobTypes)
+}
+
+func (q *TypeFilteredJobQueue) DequeueByTypes(ctx context.Context, jobTypes []models.JobType) (*models.LLMJob, error) {
+	// Intersection of our types and requested types
+	// For simplicity, just use our configured types
+	return q.queue.DequeueByTypes(ctx, q.jobTypes)
+}
+
+func (q *TypeFilteredJobQueue) UpdateStatus(ctx context.Context, jobID int, status models.JobStatus) error {
+	return q.queue.UpdateStatus(ctx, jobID, status)
+}
+
+func (q *TypeFilteredJobQueue) UpdateStatusWithResult(ctx context.Context, jobID int, status models.JobStatus, result map[string]interface{}) error {
+	return q.queue.UpdateStatusWithResult(ctx, jobID, status, result)
+}
+
+func (q *TypeFilteredJobQueue) UpdateStatusWithError(ctx context.Context, jobID int, status models.JobStatus, errorMsg string) error {
+	return q.queue.UpdateStatusWithError(ctx, jobID, status, errorMsg)
+}
+
+func (q *TypeFilteredJobQueue) MarkRunning(ctx context.Context, jobID int) error {
+	return q.queue.MarkRunning(ctx, jobID)
+}
+
+func (q *TypeFilteredJobQueue) IncrementRetry(ctx context.Context, jobID int) error {
+	return q.queue.IncrementRetry(ctx, jobID)
+}
+
+func (q *TypeFilteredJobQueue) Get(ctx context.Context, jobID int) (*models.LLMJob, error) {
+	return q.queue.Get(ctx, jobID)
+}
+
+func (q *TypeFilteredJobQueue) List(ctx context.Context, params models.JobListParams) ([]models.LLMJob, error) {
+	return q.queue.List(ctx, params)
+}
+
+func (q *TypeFilteredJobQueue) Cancel(ctx context.Context, jobID, userID int) error {
+	return q.queue.Cancel(ctx, jobID, userID)
+}
+
+func (q *TypeFilteredJobQueue) Stats(ctx context.Context, userID int) (*models.JobStats, error) {
+	return q.queue.Stats(ctx, userID)
+}
+
+func (q *TypeFilteredJobQueue) GetQueueDepth(ctx context.Context) (int, error) {
+	return q.queue.GetQueueDepth(ctx)
 }

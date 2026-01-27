@@ -89,6 +89,7 @@ func ScanLLMJob(row *sql.Row) (*LLMJob, error) {
 	var job LLMJob
 	var payloadJSON, resultJSON []byte
 	var startedAt, completedAt sql.NullTime
+	var errorMessage sql.NullString
 
 	err := row.Scan(
 		&job.ID,
@@ -98,7 +99,7 @@ func ScanLLMJob(row *sql.Row) (*LLMJob, error) {
 		&job.Priority,
 		&payloadJSON,
 		&resultJSON,
-		&job.ErrorMessage,
+		&errorMessage,
 		&job.CreatedAt,
 		&startedAt,
 		&completedAt,
@@ -112,6 +113,11 @@ func ScanLLMJob(row *sql.Row) (*LLMJob, error) {
 		}
 		log.Printf("Error scanning LLM job: %v", err)
 		return nil, err
+	}
+
+	// Handle nullable error_message
+	if errorMessage.Valid {
+		job.ErrorMessage = errorMessage.String
 	}
 
 	// Unmarshal payload JSONB
@@ -153,6 +159,7 @@ func ScanLLMJobs(rows *sql.Rows) ([]LLMJob, error) {
 		var job LLMJob
 		var payloadJSON, resultJSON []byte
 		var startedAt, completedAt sql.NullTime
+		var errorMessage sql.NullString
 
 		if err := rows.Scan(
 			&job.ID,
@@ -162,7 +169,7 @@ func ScanLLMJobs(rows *sql.Rows) ([]LLMJob, error) {
 			&job.Priority,
 			&payloadJSON,
 			&resultJSON,
-			&job.ErrorMessage,
+			&errorMessage,
 			&job.CreatedAt,
 			&startedAt,
 			&completedAt,
@@ -172,6 +179,11 @@ func ScanLLMJobs(rows *sql.Rows) ([]LLMJob, error) {
 		); err != nil {
 			log.Printf("Error scanning LLM job: %v", err)
 			return jobs, err
+		}
+
+		// Handle nullable error_message
+		if errorMessage.Valid {
+			job.ErrorMessage = errorMessage.String
 		}
 
 		// Unmarshal payload JSONB

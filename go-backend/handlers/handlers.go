@@ -34,6 +34,9 @@ type Handler struct {
 
 	// Job queue rate limiting
 	JobRateLimiter *services.JobRateLimiter
+
+	// LLM worker pool for job processing
+	LLMWorkerPool *services.WorkerPool
 }
 
 // getMessageMutex gets or creates a mutex for a specific message

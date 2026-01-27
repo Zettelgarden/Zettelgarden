@@ -130,8 +130,11 @@ func run() error {
 	// Initialize mail client with database-backed job queue
 	log.Printf("Initializing mail client (host=%s)", cfg.Services.Mail.Host)
 
-	// Create job queue for email processing
-	jobQueue := services.NewJobQueue(s.DB)
+	// Create base job queue
+	baseJobQueue := services.NewJobQueue(s.DB)
+
+	// Create filtered job queue for email jobs only
+	emailJobQueue := services.NewTypeFilteredJobQueue(baseJobQueue, models.JobTypeEmail)
 
 	// Create rate limiter for emails (10 emails per minute, 100 per day per user)
 	rateLimiter := mail.NewEmailRateLimiter(10, 100)
@@ -143,7 +146,7 @@ func run() error {
 	workerConfig := services.DefaultWorkerConfig()
 	// Use fewer workers for email since it's I/O bound and rate limited
 	workerConfig.WorkerCount = 2
-	workerPool := services.NewWorkerPool(jobQueue, emailProcessor, workerConfig)
+	workerPool := services.NewWorkerPool(emailJobQueue, emailProcessor, workerConfig)
 
 	// Initialize mail client
 	s.Mail = &mail.MailClient{
@@ -152,7 +155,7 @@ func run() error {
 		Queue:        mail.NewEmailQueue(), // Keep for backwards compatibility during migration
 		DB:           s.DB,
 		ShutdownChan: make(chan struct{}),
-		JobQueue:     jobQueue,
+		JobQueue:     emailJobQueue,
 		WorkerPool:   workerPool,
 		RateLimiter:  rateLimiter,
 	}
@@ -198,6 +201,26 @@ func run() error {
 	}
 	s.LLMClient = llmClient
 	log.Printf("LLM client initialized successfully")
+
+	// Initialize LLM job queue and worker pool
+	log.Printf("Initializing LLM job queue and worker pool")
+	llmJobQueue := services.NewJobQueue(s.DB)
+	llmJobProcessor := services.NewLLMJobProcessor(s.DB)
+	llmWorkerConfig := services.DefaultWorkerConfig()
+	llmWorkerPool := services.NewWorkerPool(llmJobQueue, llmJobProcessor, llmWorkerConfig)
+
+	// Set the worker pool on the handler for admin access
+	h.LLMWorkerPool = llmWorkerPool
+
+	// Start the LLM worker pool in background goroutine with panic recovery
+	safeGoroutine(func() {
+		if err := llmWorkerPool.Start(); err != nil {
+			log.Printf("Failed to start LLM worker pool: %v", err)
+		} else {
+			log.Printf("LLM worker pool started with %d workers", llmWorkerConfig.WorkerCount)
+		}
+	})
+	log.Printf("LLM job queue and worker pool initialized successfully")
 
 	if cfg.Services.LLM.ChunkingEnabled {
 		go func() {
@@ -245,6 +268,14 @@ func run() error {
 
 		// Cancel shutdown context to signal all goroutines to stop
 		shutdownCancel()
+
+		// Shutdown LLM worker pool
+		if llmWorkerPool != nil && llmWorkerPool.IsRunning() {
+			log.Printf("Shutting down LLM worker pool...")
+			if err := llmWorkerPool.Stop(); err != nil {
+				log.Printf("LLM worker pool shutdown error: %v", err)
+			}
+		}
 
 		// Shutdown email worker pool
 		if s.Mail.WorkerPool != nil {

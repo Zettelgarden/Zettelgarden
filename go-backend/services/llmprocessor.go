@@ -229,6 +229,36 @@ func (p *LLMJobProcessor) processSummarizationJob(ctx context.Context, job *mode
 		return nil, fmt.Errorf("missing or invalid summarization_id in payload")
 	}
 
+	// Check if pre-extracted analyses/facts are in payload (new path)
+	if analysesData, hasAnalyses := job.Payload["analyses"]; hasAnalyses {
+		// New path: data already extracted, just call AnalyzeAndSummarizeText
+		analyses, facts, usage, err := p.parsePayloadAnalyses(analysesData, job.Payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse payload analyses: %w", err)
+		}
+
+		client := NewDefaultClient(p.db, job.UserID)
+		client.RequestType = "summarization"
+
+		result, _, usage, err := AnalyzeAndSummarizeText(client, analyses, facts, usage)
+		if err != nil {
+			return nil, fmt.Errorf("failed to summarize: %w", err)
+		}
+
+		// Update summarization record
+		err = p.updateSummarizationResult(ctx, int(summarizationID), result, usage)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update summarization: %w", err)
+		}
+
+		return map[string]interface{}{
+			"summarization_id": int(summarizationID),
+			"result":           result,
+			"status":           "completed",
+		}, nil
+	}
+
+	// Legacy path: fetch input_text and extract (keep for backward compatibility)
 	// Get summarization details
 	var inputText string
 	var cardPK sql.NullInt64
@@ -259,13 +289,7 @@ func (p *LLMJobProcessor) processSummarizationJob(ctx context.Context, job *mode
 	}
 
 	// Update summarization record
-	_, err = p.db.ExecContext(ctx,
-		`UPDATE summarizations
-		 SET status = 'complete', result = $1, prompt_tokens = $2, completion_tokens = $3,
-		     total_tokens = $4, cost = $5, model = $6, updated_at = NOW()
-		 WHERE id = $7`,
-		result, usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens,
-		usage.TotalCost, "deprecated", int(summarizationID))
+	err = p.updateSummarizationResult(ctx, int(summarizationID), result, usage)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update summarization: %w", err)
 	}
@@ -273,12 +297,103 @@ func (p *LLMJobProcessor) processSummarizationJob(ctx context.Context, job *mode
 	return map[string]interface{}{
 		"summarization_id": int(summarizationID),
 		"result":           result,
-		"prompt_tokens":    usage.PromptTokens,
-		"completion_tokens": usage.CompletionTokens,
-		"total_tokens":     usage.TotalTokens,
-		"cost":             usage.TotalCost,
 		"status":           "completed",
 	}, nil
+}
+
+// parsePayloadAnalyses parses analyses and facts from the job payload
+func (p *LLMJobProcessor) parsePayloadAnalyses(analysesData interface{}, payload map[string]interface{}) ([]models.SectionAnalysis, []string, models.Usage, error) {
+	// Parse analyses
+	analysesSlice, ok := analysesData.([]interface{})
+	if !ok {
+		return nil, nil, models.Usage{}, fmt.Errorf("invalid analyses format in payload")
+	}
+
+	analyses := make([]models.SectionAnalysis, len(analysesSlice))
+	for i, a := range analysesSlice {
+		sectionMap, ok := a.(map[string]interface{})
+		if !ok {
+			return nil, nil, models.Usage{}, fmt.Errorf("invalid section format at index %d", i)
+		}
+
+		section, _ := sectionMap["section"].(string)
+		analyses[i].Section = section
+
+		// Parse theses
+		thesesSlice, ok := sectionMap["theses"].([]interface{})
+		if !ok {
+			continue
+		}
+
+		analyses[i].Theses = make([]models.ThesisEntry, len(thesesSlice))
+		for j, t := range thesesSlice {
+			thesisMap, ok := t.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			thesis, _ := thesisMap["thesis"].(string)
+			analyses[i].Theses[j].Thesis = thesis
+
+			// Parse arguments
+			argsSlice, ok := thesisMap["arguments"].([]interface{})
+			if ok {
+				analyses[i].Theses[j].Arguments = make([]models.Argument, len(argsSlice))
+				for k, arg := range argsSlice {
+					argMap, ok := arg.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					argument, _ := argMap["argument"].(string)
+					importance, _ := argMap["importance"].(float64)
+					analyses[i].Theses[j].Arguments[k] = models.Argument{
+						Argument:   argument,
+						Importance: int(importance),
+					}
+				}
+			}
+		}
+	}
+
+	// Parse facts
+	var facts []string
+	if factsData, ok := payload["facts"].([]interface{}); ok {
+		facts = make([]string, len(factsData))
+		for i, f := range factsData {
+			facts[i], _ = f.(string)
+		}
+	}
+
+	// Parse usage
+	var usage models.Usage
+	if usageData, ok := payload["usage"].(map[string]interface{}); ok {
+		if pt, ok := usageData["prompt_tokens"].(float64); ok {
+			usage.PromptTokens = int(pt)
+		}
+		if ct, ok := usageData["completion_tokens"].(float64); ok {
+			usage.CompletionTokens = int(ct)
+		}
+		if tt, ok := usageData["total_tokens"].(float64); ok {
+			usage.TotalTokens = int(tt)
+		}
+		if tc, ok := usageData["total_cost"].(float64); ok {
+			usage.TotalCost = tc
+		}
+	}
+
+	return analyses, facts, usage, nil
+}
+
+// updateSummarizationResult updates the summarization record with the result
+func (p *LLMJobProcessor) updateSummarizationResult(ctx context.Context, summarizationID int, result string, usage models.Usage) error {
+	_, err := p.db.ExecContext(ctx,
+		`UPDATE summarizations
+		 SET status = 'complete', result = $1, prompt_tokens = $2, completion_tokens = $3,
+		     total_tokens = $4, cost = $5, model = $6, updated_at = NOW()
+		 WHERE id = $7`,
+		result, usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens,
+		usage.TotalCost, "deprecated", summarizationID)
+	return err
 }
 
 // processChatJob processes a chat message job

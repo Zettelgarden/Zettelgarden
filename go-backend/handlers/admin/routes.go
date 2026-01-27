@@ -13,6 +13,7 @@ import (
 // Routes are organized by feature:
 // - User management: /api/admin/users/*
 // - Mailing list: /api/admin/mailing-list/*
+// - Job queue: /api/admin/jobs/*
 // - Audit logs: /api/admin/audit-logs
 // - Statistics: /api/admin/stats
 func RegisterAllAdminRoutes(r *mux.Router, h *handlers.Handler) {
@@ -31,6 +32,23 @@ func RegisterAllAdminRoutes(r *mux.Router, h *handlers.Handler) {
 	adminAPI.HandleFunc("/mailing-list/messages/send", h.SendMailingListMessageRoute).Methods("POST")
 	adminAPI.HandleFunc("/mailing-list/messages/recipients", h.GetMessageRecipientsRoute).Methods("GET")
 	adminAPI.HandleFunc("/mailing-list/unsubscribe", h.UnsubscribeMailingListRoute).Methods("POST")
+
+	// Job queue management (admin-only)
+	adminAPI.HandleFunc("/jobs/health", func(w http.ResponseWriter, r *http.Request) {
+		GetJobQueueHealthRoute(h, w, r)
+	}).Methods("GET")
+	adminAPI.HandleFunc("/jobs/workers", func(w http.ResponseWriter, r *http.Request) {
+		GetJobWorkersStatsRoute(h, w, r)
+	}).Methods("GET")
+	adminAPI.HandleFunc("/jobs/pause", func(w http.ResponseWriter, r *http.Request) {
+		PauseJobQueueRoute(h, w, r)
+	}).Methods("POST")
+	adminAPI.HandleFunc("/jobs/resume", func(w http.ResponseWriter, r *http.Request) {
+		ResumeJobQueueRoute(h, w, r)
+	}).Methods("POST")
+	adminAPI.HandleFunc("/jobs/{id}/retry", func(w http.ResponseWriter, r *http.Request) {
+		RetryJobRoute(h, w, r)
+	}).Methods("POST")
 
 	// Audit logs (admin-only)
 	// TODO: Add GetAdminAuditLogsRoute handler

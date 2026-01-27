@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -11,7 +12,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -136,7 +136,7 @@ func (h *Handler) querySummarizations(userID int, cardPK *int) ([]SummarizeJobRe
 	return summaries, nil
 }
 
-// CreateSummarizationRoute creates a summarization job and runs it asynchronously
+// CreateSummarizationRoute creates a summarization job and enqueues it to the LLM job queue
 func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
@@ -147,17 +147,9 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Check concurrent job limit
-	if !h.acquireSummarizationJobSlot(userID) {
-		log.Printf("[CONCURRENCY_LIMIT] User %d reached maximum concurrent summarizations", userID)
-		http.Error(w, "Too many concurrent jobs. Please wait for existing jobs to complete.", http.StatusTooManyRequests)
-		return
-	}
-
 	var req SummarizeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
-		h.releaseSummarizationJobSlot(userID)
 		return
 	}
 
@@ -170,23 +162,30 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 
 	if err != nil {
 		log.Printf("error starting summarization %v", err)
-		h.releaseSummarizationJobSlot(userID)
+		http.Error(w, "Failed to create summarization", http.StatusInternalServerError)
 		return
 	}
-	_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
+
+	// Extract theses and arguments
 	client := services.NewDefaultClient(h.DB, userID)
 	client.RequestType = "analysis"
 	processedText := prepareTextForAnalysis(req.Title, req.Text)
 	analyses, facts, usage, err := services.ExtractThesesAndArguments(client, processedText)
-	id, err := h.runSummarizationJob(userID, analyses, facts, usage, nil, jobID)
 	if err != nil {
-		log.Printf("err %v", err)
-		http.Error(w, "Failed to create summarization job", http.StatusInternalServerError)
-		h.releaseSummarizationJobSlot(userID)
+		log.Printf("Failed to extract theses: %v", err)
+		http.Error(w, "Failed to analyze text", http.StatusInternalServerError)
 		return
 	}
 
-	resp := SummarizeJobResponse{ID: id, Status: "pending"}
+	// Enqueue the summarization job
+	summarizationID, err := h.runSummarizationJobViaQueue(userID, analyses, facts, usage, nil, jobID)
+	if err != nil {
+		log.Printf("err %v", err)
+		http.Error(w, "Failed to create summarization job", http.StatusInternalServerError)
+		return
+	}
+
+	resp := SummarizeJobResponse{ID: summarizationID, Status: "pending"}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
@@ -208,12 +207,6 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 		return
 	}
 
-	// Check concurrent job limit (but skip rate limit for background jobs)
-	if !h.acquireSummarizationJobSlot(userID) {
-		log.Printf("[CONCURRENCY_LIMIT] User %d reached maximum concurrent summarizations for background job", userID)
-		return
-	}
-
 	var jobID int
 
 	err := h.DB.QueryRow(`
@@ -224,15 +217,10 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 
 	if err != nil {
 		log.Printf("error starting summarization %v", err)
-		h.releaseSummarizationJobSlot(userID)
 		return
 	}
-	_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
 
 	go func() {
-		// Release the job slot when done
-		defer h.releaseSummarizationJobSlot(userID)
-
 		// Ensure LinkCardToEntityIfPossible is always called exactly once, regardless of success or failure
 		defer h.LinkCardToEntityIfPossible(userID, card)
 
@@ -245,17 +233,16 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 			return
 		}
 
-		// Run the summarization job to get a job ID
-		jobID, err := h.runSummarizationJob(userID, analyses, facts, usage, &card.ID, jobID)
-		if err != nil {
-			log.Printf("Failed to run summarization job: %v", err)
-			return
-		}
-
 		// Save the detailed analysis linked to the job ID
 		if err := h.SaveAnalysis(userID, card.ID, jobID, analyses); err != nil {
 			log.Printf("Failed to save analysis: %v", err)
-			// Even if saving analysis fails, we can still try to link entities via defer
+		}
+
+		// Enqueue the summarization job
+		_, err = h.runSummarizationJobViaQueue(userID, analyses, facts, usage, &card.ID, jobID)
+		if err != nil {
+			log.Printf("Failed to run summarization job: %v", err)
+			return
 		}
 
 		log.Printf("facts %v", facts)
@@ -392,34 +379,65 @@ func (h *Handler) GetCardAnalysisRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(analysis)
 }
 
-// runSummarizationJob inserts a summarization job and runs it asynchronously.
-func (h *Handler) runSummarizationJob(userID int, analyses []models.SectionAnalysis, facts []string, usage models.Usage, cardPK *int, jobID int) (int, error) {
-	// Background job
-	go func(jobID int, analyses []models.SectionAnalysis, facts []string, usage models.Usage, uid int) {
-		// Release the job slot when done (defer ensures it runs on both success and failure)
-		defer h.releaseSummarizationJobSlot(uid)
-
-		client := services.NewDefaultClient(h.DB, uid)
-		client.RequestType = "analysis"
-		_, _ = h.DB.Exec(`UPDATE summarizations SET status='processing', updated_at=$2 WHERE id=$1`, jobID, time.Now())
-
-		result, _, usage, err := services.AnalyzeAndSummarizeText(client, analyses, facts, usage)
-		if err != nil {
-			_, _ = h.DB.Exec(`UPDATE summarizations SET status='failed', result=$2, updated_at=$3 WHERE id=$1`,
-				jobID, err.Error(), time.Now())
-			return
+// runSummarizationJobViaQueue enqueues a summarization job to the LLM job queue.
+// This replaces the old goroutine-based approach with proper job queue integration.
+func (h *Handler) runSummarizationJobViaQueue(userID int, analyses []models.SectionAnalysis, facts []string, usage models.Usage, cardPK *int, summarizationID int) (int, error) {
+	// Convert analyses to JSON-serializable format for payload
+	analysesPayload := make([]map[string]interface{}, len(analyses))
+	for i, a := range analyses {
+		thesesPayload := make([]map[string]interface{}, len(a.Theses))
+		for j, t := range a.Theses {
+			argsPayload := make([]map[string]interface{}, len(t.Arguments))
+			for k, arg := range t.Arguments {
+				argsPayload[k] = map[string]interface{}{
+					"argument":   arg.Argument,
+					"importance": arg.Importance,
+				}
+			}
+			thesesPayload[j] = map[string]interface{}{
+				"thesis":    t.Thesis,
+				"arguments": argsPayload,
+			}
 		}
+		analysesPayload[i] = map[string]interface{}{
+			"section":  a.Section,
+			"theses":   thesesPayload,
+		}
+	}
 
-		// modelName := client.Model.ModelIdentifier
+	payload := map[string]interface{}{
+		"summarization_id": summarizationID,
+		"card_pk":          cardPK,
+		"analyses":         analysesPayload,
+		"facts":            facts,
+		"usage": map[string]interface{}{
+			"prompt_tokens":     usage.PromptTokens,
+			"completion_tokens": usage.CompletionTokens,
+			"total_tokens":      usage.TotalTokens,
+			"total_cost":        usage.TotalCost,
+		},
+	}
 
-		_, _ = h.DB.Exec(`UPDATE summarizations
-			SET status='complete', result=$2, prompt_tokens=$3, completion_tokens=$4, total_tokens=$5, cost=$6, model=$7, updated_at=$8
-			WHERE id=$1`,
-			jobID, result, usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens, usage.TotalCost, "deprecated", time.Now())
+	jobQueue := services.NewJobQueue(h.DB)
+	job, err := jobQueue.Enqueue(context.Background(), models.CreateJobParams{
+		UserID:      userID,
+		JobType:     models.JobTypeSummarization,
+		Payload:     payload,
+		MaxRetries:  3,
+		TimeoutSecs: 300,
+	})
 
-	}(jobID, analyses, facts, usage, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to enqueue summarization job: %w", err)
+	}
 
-	return jobID, nil
+	// Link summarization to LLM job
+	_, err = h.DB.Exec(`UPDATE summarizations SET llm_job_id = $1 WHERE id = $2`, job.ID, summarizationID)
+	if err != nil {
+		log.Printf("Failed to link summarization %d to job %d: %v", summarizationID, job.ID, err)
+	}
+
+	return summarizationID, nil
 }
 
 // GetSummarizationRoute fetches a summarization job by id
@@ -482,4 +500,48 @@ func (h *Handler) GetSummarizationRoute(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+// CancelSummarizationRoute cancels a pending summarization job
+func (h *Handler) CancelSummarizationRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	idStr := mux.Vars(r)["id"]
+	summarizationID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid id", http.StatusBadRequest)
+		return
+	}
+
+	// Get llm_job_id for this summarization
+	var llmJobID sql.NullInt64
+	err = h.DB.QueryRow(`
+		SELECT llm_job_id FROM summarizations WHERE id = $1 AND user_id = $2
+	`, summarizationID, userID).Scan(&llmJobID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Summarization not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Failed to fetch summarization", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Cancel via job queue if linked
+	if llmJobID.Valid {
+		jobQueue := services.NewJobQueue(h.DB)
+		err = jobQueue.Cancel(context.Background(), int(llmJobID.Int64), userID)
+		if err != nil {
+			// Job may have already started processing - still update summarization status
+			log.Printf("Failed to cancel LLM job %d: %v", llmJobID.Int64, err)
+		}
+	}
+
+	// Update summarization status
+	_, err = h.DB.Exec(`UPDATE summarizations SET status='cancelled', updated_at=NOW() WHERE id=$1`, summarizationID)
+	if err != nil {
+		http.Error(w, "Failed to update status", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
