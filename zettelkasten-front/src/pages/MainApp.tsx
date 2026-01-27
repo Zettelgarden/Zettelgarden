@@ -1,21 +1,11 @@
 import React, { useState, useEffect } from "react";
 import "../App.css";
-import { SearchPage } from "./cards/SearchPage";
-import { UserSettingsPage } from "./UserSettings";
-import { FileVault } from "./FileVault";
-import { ViewPage } from "./cards/ViewPage";
-import { EditPage } from "./cards/EditPage";
 import { Sidebar } from "../components/Sidebar";
 import { useAuth } from "../contexts/AuthContext";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Route, Routes } from "react-router-dom";
 import { EmailValidationBanner } from "../components/EmailValidationBanner";
-import Success from "./Success";
-import Cancel from "./Cancel";
-import SubscribePage from "./SubscribePage";
-import { DashboardPage } from "./DashboardPage";
 import { Card, PartialCard, SearchResult } from "../models/Card";
-import { TaskPage } from "./tasks/TaskPage";
 import { TaskProvider, useTaskContext } from "../contexts/TaskContext";
 import { StatusProvider } from "../contexts/StatusContext";
 import { TagProvider } from "../contexts/TagContext";
@@ -30,19 +20,9 @@ import { ChatSidebarProvider, useChatSidebarContext } from "../contexts/ChatSide
 import { SplitViewLayout } from "../components/cards/SplitViewLayout";
 import { ChatSidebarLayout } from "../components/chat/ChatSidebarLayout";
 import { ErrorBoundary } from "../components/ErrorBoundary";
-import { EntityPage } from "./EntityPage";
 import { CardRefreshProvider } from "../contexts/CardRefreshContext";
-import { Summarizer } from "./Summarizer";
-import { FactPage } from "./FactPage";
-import { MemoryPage } from "./MemoryPage";
-import { HelpPage } from "../pages/HelpPage";
-import { ChatPage } from "./ChatPage";
-import { StatsPage } from "./StatsPage";
-import { SchemaPage } from "./SchemaPage";
-import { SchemaCreatePage } from "./SchemaCreatePage";
-import { SchemaEditPage } from "./SchemaEditPage";
-import { SchemaTableWrapper } from "./SchemaTableWrapper";
 import { ToastProvider } from "../components/toast/ToastContext";
+import { AppRoutes } from "./AppRoutes";
 
 import { SearchConfig } from "../models/StarredSearch";
 
@@ -110,54 +90,15 @@ function MainAppContent() {
               <SplitViewLayout pinnedCard={pinnedCard}>
                 <div className="">
                   <EmailValidationBanner />
-                  <Routes>
-                    <Route path="subscription" element={<SubscribePage />} />
-                    <Route path="settings/billing/success" element={<Success />} />
-                    <Route path="settings/billing/cancel" element={<Cancel />} />
-                    {hasSubscription ? (
-                      <>
-                        <Route
-                          path="search"
-                          element={
-                            <SearchPage
-                              searchTerm={searchTerm}
-                              setSearchTerm={setSearchTerm}
-                              searchResults={searchResults}
-                              setSearchResults={setSearchResults}
-                              searchConfig={searchConfig}
-                              setSearchConfig={setSearchConfig}
-                            />
-                          }
-                        />
-                        <Route path="card/:id" element={<ViewPage />} />
-                        <Route
-                          path="card/:id/edit"
-                          element={<EditPage newCard={false} />}
-                        />
-
-                        <Route path="card/new" element={<EditPage newCard={true} />} />
-                        <Route path="settings" element={<UserSettingsPage />} />
-                        <Route path="help" element={<HelpPage />} />
-                        <Route path="files" element={<FileVault />} />
-                        <Route path="tasks" element={<TaskPage />} />
-                        <Route path="entities" element={<EntityPage />} />
-                        <Route path="summarizer" element={<Summarizer />} />
-                        <Route path="facts" element={<FactPage />} />
-                        <Route path="memory" element={<MemoryPage />} />
-                        <Route path="schemas" element={<SchemaPage />} />
-                        <Route path="schemas/new" element={<SchemaCreatePage />} />
-                        <Route path="schemas/:id/edit" element={<SchemaEditPage />} />
-                        <Route path="schemas/:id/table" element={<SchemaTableWrapper />} />
-                        <Route path="chat" element={<ChatPage />} />
-                        <Route path="*" element={<DashboardPage />} />
-                      </>
-                    ) : (
-                      <Route
-                        path="*"
-                        element={<Navigate to="/app/subscription" replace />}
-                      />
-                    )}
-                  </Routes>
+                  <AppRoutes
+                    hasSubscription={hasSubscription}
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    searchResults={searchResults}
+                    setSearchResults={setSearchResults}
+                    searchConfig={searchConfig}
+                    setSearchConfig={setSearchConfig}
+                  />
                 </div>
               </SplitViewLayout>
             </ErrorBoundary>
@@ -166,109 +107,31 @@ function MainAppContent() {
               <ChatSidebarLayout chatSidebarCard={chatSidebarCard}>
                 <div className="">
                   <EmailValidationBanner />
-                  <Routes>
-                    <Route path="subscription" element={<SubscribePage />} />
-                    <Route path="settings/billing/success" element={<Success />} />
-                    <Route path="settings/billing/cancel" element={<Cancel />} />
-                    {hasSubscription ? (
-                      <>
-                        <Route
-                          path="search"
-                          element={
-                            <SearchPage
-                              searchTerm={searchTerm}
-                              setSearchTerm={setSearchTerm}
-                              searchResults={searchResults}
-                              setSearchResults={setSearchResults}
-                              searchConfig={searchConfig}
-                              setSearchConfig={setSearchConfig}
-                            />
-                          }
-                        />
-                        <Route path="card/:id" element={<ViewPage />} />
-                        <Route
-                          path="card/:id/edit"
-                          element={<EditPage newCard={false} />}
-                        />
-
-                        <Route path="card/new" element={<EditPage newCard={true} />} />
-                        <Route path="settings" element={<UserSettingsPage />} />
-                        <Route path="help" element={<HelpPage />} />
-                        <Route path="files" element={<FileVault />} />
-                        <Route path="tasks" element={<TaskPage />} />
-                        <Route path="entities" element={<EntityPage />} />
-                        <Route path="summarizer" element={<Summarizer />} />
-                        <Route path="facts" element={<FactPage />} />
-                        <Route path="memory" element={<MemoryPage />} />
-                        <Route path="schemas" element={<SchemaPage />} />
-                        <Route path="schemas/new" element={<SchemaCreatePage />} />
-                        <Route path="schemas/:id/edit" element={<SchemaEditPage />} />
-                        <Route path="schemas/:id/table" element={<SchemaTableWrapper />} />
-                        <Route path="chat" element={<ChatPage />} />
-                        <Route path="*" element={<DashboardPage />} />
-                      </>
-                    ) : (
-                      <Route
-                        path="*"
-                        element={<Navigate to="/app/subscription" replace />}
-                      />
-                    )}
-                  </Routes>
+                  <AppRoutes
+                    hasSubscription={hasSubscription}
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    searchResults={searchResults}
+                    setSearchResults={setSearchResults}
+                    searchConfig={searchConfig}
+                    setSearchConfig={setSearchConfig}
+                  />
                 </div>
               </ChatSidebarLayout>
             </ErrorBoundary>
           ) : (
             <div className="">
               <EmailValidationBanner />
-              <Routes>
-                <Route path="subscription" element={<SubscribePage />} />
-                <Route path="settings/billing/success" element={<Success />} />
-                <Route path="settings/billing/cancel" element={<Cancel />} />
-                {hasSubscription ? (
-                  <>
-                    <Route
-                      path="search"
-                      element={
-                        <SearchPage
-                          searchTerm={searchTerm}
-                          setSearchTerm={setSearchTerm}
-                          searchResults={searchResults}
-                          setSearchResults={setSearchResults}
-                          searchConfig={searchConfig}
-                          setSearchConfig={setSearchConfig}
-                        />
-                      }
-                    />
-                    <Route path="card/:id" element={<ViewPage />} />
-                    <Route
-                      path="card/:id/edit"
-                      element={<EditPage newCard={false} />}
-                    />
-
-                    <Route path="card/new" element={<EditPage newCard={true} />} />
-                    <Route path="settings" element={<UserSettingsPage />} />
-                    <Route path="help" element={<HelpPage />} />
-                    <Route path="files" element={<FileVault />} />
-                    <Route path="tasks" element={<TaskPage />} />
-                    <Route path="entities" element={<EntityPage />} />
-                    <Route path="summarizer" element={<Summarizer />} />
-                    <Route path="facts" element={<FactPage />} />
-                    <Route path="memory" element={<MemoryPage />} />
-                    <Route path="stats" element={<StatsPage />} />
-                    <Route path="schemas" element={<SchemaPage />} />
-                    <Route path="schemas/new" element={<SchemaCreatePage />} />
-                    <Route path="schemas/:id/edit" element={<SchemaEditPage />} />
-                    <Route path="schemas/:id/table" element={<SchemaTableWrapper />} />
-                    <Route path="chat" element={<ChatPage />} />
-                    <Route path="*" element={<DashboardPage />} />
-                  </>
-                ) : (
-                  <Route
-                    path="*"
-                    element={<Navigate to="/app/subscription" replace />}
-                  />
-                )}
-              </Routes>
+              <AppRoutes
+                hasSubscription={hasSubscription}
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+                searchResults={searchResults}
+                setSearchResults={setSearchResults}
+                searchConfig={searchConfig}
+                setSearchConfig={setSearchConfig}
+                includeStats
+              />
             </div>
           )}
         </div>
