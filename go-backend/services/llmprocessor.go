@@ -35,6 +35,8 @@ func (p *LLMJobProcessor) ProcessJob(ctx context.Context, job *models.LLMJob) (m
 		return p.processEmbeddingJob(ctx, job)
 	case models.JobTypeEntityExtraction:
 		return p.processEntityExtractionJob(ctx, job)
+	case models.JobTypeFactEntityExtraction:
+		return p.processFactEntityExtractionJob(ctx, job)
 	case models.JobTypeMemory:
 		return p.processMemoryJob(ctx, job)
 	case models.JobTypeSummarization:
@@ -158,6 +160,131 @@ func (p *LLMJobProcessor) processEntityExtractionJob(ctx context.Context, job *m
 	}, nil
 }
 
+// processFactEntityExtractionJob extracts entities from facts and links them
+func (p *LLMJobProcessor) processFactEntityExtractionJob(ctx context.Context, job *models.LLMJob) (map[string]interface{}, error) {
+	// Extract card_pk from payload
+	cardPKFloat, ok := job.Payload["card_pk"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid card_pk in payload")
+	}
+	cardPK := int(cardPKFloat)
+
+	// Extract facts from payload
+	factsData, ok := job.Payload["facts"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid facts in payload")
+	}
+
+	// Parse facts from payload
+	var facts []models.Fact
+	for _, f := range factsData {
+		factMap, ok := f.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		factID, _ := factMap["id"].(float64)
+		factText, _ := factMap["fact"].(string)
+		facts = append(facts, models.Fact{
+			ID:   int(factID),
+			Fact: factText,
+		})
+	}
+
+	// Create LLM client
+	client := NewDefaultClient(p.db, job.UserID)
+	client.RequestType = "analysis"
+
+	// Extract entities using batch processing
+	factEntities, err := FindEntitiesBatch(client, facts)
+	if err != nil {
+		p.logger.Printf("[Processor] FindEntitiesBatch error: %v", err)
+		return nil, fmt.Errorf("failed to extract entities from facts: %w", err)
+	}
+
+	// Save entities and create links
+	var entitiesSaved int
+	var entityFactLinks int
+	var entityCardLinks int
+
+	for i, entities := range factEntities {
+		if i >= len(facts) {
+			break
+		}
+		fact := facts[i]
+
+		for _, entity := range entities {
+			// Validate entity before processing
+			if entity.Name == "" {
+				continue
+			}
+
+			// Check if entity exists
+			var entityID int
+			err := p.db.QueryRowContext(ctx,
+				"SELECT id FROM entities WHERE user_id = $1 AND name = $2",
+				job.UserID, entity.Name).Scan(&entityID)
+
+			if err == sql.ErrNoRows {
+				// Entity doesn't exist, insert it
+				err = p.db.QueryRowContext(ctx,
+					`INSERT INTO entities (user_id, name, description, type, card_pk, created_at, updated_at)
+					 VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+					 RETURNING id`,
+					job.UserID, entity.Name, entity.Description, entity.Type, entity.CardPK).Scan(&entityID)
+				if err != nil {
+					p.logger.Printf("[Processor] Failed to insert entity '%s': %v", entity.Name, err)
+					continue
+				}
+				entitiesSaved++
+			} else if err != nil {
+				p.logger.Printf("[Processor] Failed to query entity '%s': %v", entity.Name, err)
+				continue
+			} else {
+				// Entity exists, update it
+				_, err = p.db.ExecContext(ctx,
+					"UPDATE entities SET description=$1, type=$2, updated_at=NOW() WHERE id=$3",
+					entity.Description, entity.Type, entityID)
+				if err != nil {
+					p.logger.Printf("[Processor] Failed to update entity '%s': %v", entity.Name, err)
+					continue
+				}
+			}
+
+			// Link entity to fact
+			_, err = p.db.ExecContext(ctx,
+				`INSERT INTO entity_fact_junction (user_id, entity_id, fact_id, created_at, updated_at)
+				 VALUES ($1, $2, $3, NOW(), NOW())
+				 ON CONFLICT (entity_id, fact_id) DO UPDATE SET updated_at = NOW()`,
+				job.UserID, entityID, fact.ID)
+			if err != nil {
+				p.logger.Printf("[Processor] Failed to link entity to fact: %v", err)
+			} else {
+				entityFactLinks++
+			}
+
+			// Link entity to card
+			_, err = p.db.ExecContext(ctx,
+				`INSERT INTO entity_card_junction (user_id, entity_id, card_pk, chunk_id)
+				 VALUES ($1, $2, $3, $4)
+				 ON CONFLICT (entity_id, card_pk) DO UPDATE SET updated_at = NOW()`,
+				job.UserID, entityID, cardPK, 0)
+			if err != nil {
+				p.logger.Printf("[Processor] Failed to link entity to card: %v", err)
+			} else {
+				entityCardLinks++
+			}
+		}
+	}
+
+	return map[string]interface{}{
+		"card_pk":           cardPK,
+		"entities_saved":    entitiesSaved,
+		"entity_fact_links": entityFactLinks,
+		"entity_card_links": entityCardLinks,
+		"status":            "completed",
+	}, nil
+}
+
 // processMemoryJob generates or updates user memory
 func (p *LLMJobProcessor) processMemoryJob(ctx context.Context, job *models.LLMJob) (map[string]interface{}, error) {
 	// Extract memory_type from payload
@@ -246,7 +373,7 @@ func (p *LLMJobProcessor) processSummarizationJob(ctx context.Context, job *mode
 		}
 
 		// Update summarization record
-		err = p.updateSummarizationResult(ctx, int(summarizationID), result, usage)
+		err = p.updateSummarizationResult(ctx, int(summarizationID), result, usage, client.Model)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update summarization: %w", err)
 		}
@@ -289,7 +416,7 @@ func (p *LLMJobProcessor) processSummarizationJob(ctx context.Context, job *mode
 	}
 
 	// Update summarization record
-	err = p.updateSummarizationResult(ctx, int(summarizationID), result, usage)
+	err = p.updateSummarizationResult(ctx, int(summarizationID), result, usage, client.Model)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update summarization: %w", err)
 	}
@@ -385,14 +512,14 @@ func (p *LLMJobProcessor) parsePayloadAnalyses(analysesData interface{}, payload
 }
 
 // updateSummarizationResult updates the summarization record with the result
-func (p *LLMJobProcessor) updateSummarizationResult(ctx context.Context, summarizationID int, result string, usage models.Usage) error {
+func (p *LLMJobProcessor) updateSummarizationResult(ctx context.Context, summarizationID int, result string, usage models.Usage, model string) error {
 	_, err := p.db.ExecContext(ctx,
 		`UPDATE summarizations
 		 SET status = 'complete', result = $1, prompt_tokens = $2, completion_tokens = $3,
 		     total_tokens = $4, cost = $5, model = $6, updated_at = NOW()
 		 WHERE id = $7`,
 		result, usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens,
-		usage.TotalCost, "deprecated", summarizationID)
+		usage.TotalCost, model, summarizationID)
 	return err
 }
 
