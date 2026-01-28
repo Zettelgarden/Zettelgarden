@@ -24,222 +24,6 @@ import (
 	"golang.org/x/net/html"
 )
 
-// validateStructuredData validates structured_data against a schema definition and returns cleaned data
-func validateStructuredData(structuredData json.RawMessage, schema *models.SchemaDefinition) (json.RawMessage, error) {
-	// Parse the structured data into a map
-	var data map[string]interface{}
-	if len(structuredData) > 0 {
-		if err := json.Unmarshal(structuredData, &data); err != nil {
-			return nil, fmt.Errorf("invalid structured_data JSON: %w", err)
-		}
-	} else {
-		data = make(map[string]interface{})
-	}
-
-	// Build a map of field definitions for quick lookup
-	fieldMap := make(map[string]models.FieldDefinition)
-	for _, field := range schema.Fields {
-		fieldMap[field.Name] = field
-	}
-
-	// Check all required fields are present
-	for _, field := range schema.Fields {
-		if field.Required {
-			if _, exists := data[field.Name]; !exists {
-				return nil, fmt.Errorf("required field '%s' is missing", field.Name)
-			}
-		}
-	}
-
-	// Validate each field and clean data (remove fields not in schema)
-	cleanedData := make(map[string]interface{})
-	for fieldName, value := range data {
-		fieldDef, exists := fieldMap[fieldName]
-		if !exists {
-			// Skip fields not defined in schema (remove old/renamed fields)
-			continue
-		}
-
-		if err := validateFieldValue(fieldName, value, fieldDef); err != nil {
-			return nil, err
-		}
-		cleanedData[fieldName] = value
-	}
-
-	// Marshal cleaned data back to JSON
-	cleanedJSON, err := json.Marshal(cleanedData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal cleaned data: %w", err)
-	}
-
-	return cleanedJSON, nil
-}
-
-// validateFieldValue validates a single field value against its definition
-func validateFieldValue(fieldName string, value interface{}, fieldDef models.FieldDefinition) error {
-	if value == nil {
-		if fieldDef.Required {
-			return fmt.Errorf("required field '%s' cannot be null", fieldName)
-		}
-		return nil
-	}
-
-	switch fieldDef.Type {
-	case "text":
-		if _, ok := value.(string); !ok {
-			return fmt.Errorf("field '%s' must be a string", fieldName)
-		}
-
-	case "number":
-		// Accept both float64 and int from JSON
-		switch v := value.(type) {
-		case float64, int, int64, float32:
-			// Valid number types
-		case string:
-			// Try to parse string as number
-			if _, err := strconv.ParseFloat(v, 64); err != nil {
-				return fmt.Errorf("field '%s' must be a number", fieldName)
-			}
-		default:
-			return fmt.Errorf("field '%s' must be a number", fieldName)
-		}
-
-	case "date":
-		// Accept ISO 8601 date string
-		dateStr, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("field '%s' must be a date string", fieldName)
-		}
-		// Validate ISO 8601 format
-		_, err := time.Parse(time.RFC3339, dateStr)
-		if err != nil {
-			// Also try date-only format
-			_, err = time.Parse("2006-01-02", dateStr)
-			if err != nil {
-				return fmt.Errorf("field '%s' must be a valid ISO 8601 date", fieldName)
-			}
-		}
-
-	case "boolean":
-		if _, ok := value.(bool); !ok {
-			return fmt.Errorf("field '%s' must be a boolean", fieldName)
-		}
-
-	case "select":
-		strVal, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("field '%s' must be a string for select type", fieldName)
-		}
-		// Check if value is in options
-		validOption := false
-		for _, opt := range fieldDef.Options {
-			if opt == strVal {
-				validOption = true
-				break
-			}
-		}
-		if !validOption {
-			return fmt.Errorf("field '%s' value '%s' is not in valid options", fieldName, strVal)
-		}
-
-	case "multi-select":
-		// Expect array of strings
-		arrayVal, ok := value.([]interface{})
-		if !ok {
-			return fmt.Errorf("field '%s' must be an array for multi-select type", fieldName)
-		}
-		for _, item := range arrayVal {
-			strItem, ok := item.(string)
-			if !ok {
-				return fmt.Errorf("field '%s' array items must be strings", fieldName)
-			}
-			// Check if value is in options
-			validOption := false
-			for _, opt := range fieldDef.Options {
-				if opt == strItem {
-					validOption = true
-					break
-				}
-			}
-			if !validOption {
-				return fmt.Errorf("field '%s' value '%s' is not in valid options", fieldName, strItem)
-			}
-		}
-
-	case "link_to_card":
-		// Expect integer card ID
-		// Note: We don't validate the card exists here to avoid circular dependencies
-		// This will be validated at the handler level where we have DB access
-		switch value.(type) {
-		case float64, int, int64, float32:
-			// Valid number types
-		case string:
-			// Try to parse string as int
-			_, err := strconv.Atoi(value.(string))
-			if err != nil {
-				return fmt.Errorf("field '%s' must be a valid card ID (integer)", fieldName)
-			}
-		default:
-			return fmt.Errorf("field '%s' must be a valid card ID (integer)", fieldName)
-		}
-
-	default:
-		return fmt.Errorf("unknown field type '%s' for field '%s'", fieldDef.Type, fieldName)
-	}
-
-	return nil
-}
-
-// validateLinkToCardFields validates that link_to_card fields reference valid cards
-func validateLinkToCardFields(db models.DBTX, userID int, structuredData json.RawMessage, schema *models.SchemaDefinition) error {
-	// Parse the structured data
-	var data map[string]interface{}
-	if err := json.Unmarshal(structuredData, &data); err != nil {
-		return err
-	}
-
-	// Check each field
-	for _, field := range schema.Fields {
-		if field.Type == "link_to_card" {
-			value, hasValue := data[field.Name]
-			if !hasValue || value == nil {
-				continue
-			}
-
-			// Extract card ID
-			var cardID int
-			switch v := value.(type) {
-			case float64:
-				cardID = int(v)
-			case int:
-				cardID = v
-			case string:
-				parsedID, err := strconv.Atoi(v)
-				if err != nil {
-					return fmt.Errorf("field '%s': invalid card ID format", field.Name)
-				}
-				cardID = parsedID
-			default:
-				return fmt.Errorf("field '%s': invalid card ID type", field.Name)
-			}
-
-			// Validate card exists and belongs to user
-			var cardExists bool
-			err := db.QueryRow(`
-				SELECT EXISTS(SELECT 1 FROM cards WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE)
-			`, cardID, userID).Scan(&cardExists)
-			if err != nil {
-				return fmt.Errorf("field '%s': failed to validate card reference", field.Name)
-			}
-			if !cardExists {
-				return fmt.Errorf("field '%s': referenced card (ID %d) does not exist", field.Name, cardID)
-			}
-		}
-	}
-
-	return nil
-}
-
 func (s *Handler) getDirectlinks(userID int, card models.Card) []models.PartialCard {
 	backlinks := services.ExtractBacklinks(card.Body)
 	var directLinks []models.PartialCard
@@ -642,7 +426,7 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 	if params.SchemaID != nil {
 		// Fetch the schema definition
 		query := `SELECT id, name, slug, owner_id, fields, created_at, updated_at, is_deleted FROM schema_definitions WHERE id = $1 AND owner_id = $2 AND is_deleted = FALSE`
-		schema, err := models.ScanSchemaDefinition(s.Executor().QueryRow(query, *params.SchemaID, userID))
+		schema, err := models.ScanSchemaDefinition(s.GetDB().QueryRow(query, *params.SchemaID, userID))
 		if err != nil {
 			log.Printf("Error fetching schema: %v", err)
 			http.Error(w, "Failed to fetch schema definition", http.StatusInternalServerError)
@@ -655,7 +439,7 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 
 		// Validate and clean structured_data against schema
 		if params.StructuredData != nil && len(*params.StructuredData) > 0 {
-			cleanedData, err := validateStructuredData(*params.StructuredData, schema)
+			cleanedData, err := services.ValidateStructuredData(*params.StructuredData, schema)
 			if err != nil {
 				log.Printf("Structured data validation error: %v", err)
 				http.Error(w, fmt.Sprintf("Invalid structured data: %v", err), http.StatusBadRequest)
@@ -674,7 +458,7 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 
 		// Additional validation for link_to_card fields
 		if params.StructuredData != nil && len(*params.StructuredData) > 0 {
-			if err := validateLinkToCardFields(s.TX(), userID, *params.StructuredData, schema); err != nil {
+			if err := services.ValidateLinkToCardFields(s.GetDB(), userID, *params.StructuredData, schema); err != nil {
 				log.Printf("Link to card validation error: %v", err)
 				http.Error(w, fmt.Sprintf("Invalid link_to_card reference: %v", err), http.StatusBadRequest)
 				return
@@ -686,7 +470,7 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	card, err := services.UpdateCard(s.TX(), userID, id, params)
+	card, err := services.UpdateCard(s.GetDB(), userID, id, params)
 	if err != nil {
 		log.Printf("error updating card: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -719,7 +503,7 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 	if params.SchemaID != nil {
 		// Fetch the schema definition
 		query := `SELECT id, name, slug, owner_id, fields, created_at, updated_at, is_deleted FROM schema_definitions WHERE id = $1 AND owner_id = $2 AND is_deleted = FALSE`
-		schema, err := models.ScanSchemaDefinition(s.Executor().QueryRow(query, *params.SchemaID, userID))
+		schema, err := models.ScanSchemaDefinition(s.GetDB().QueryRow(query, *params.SchemaID, userID))
 		if err != nil {
 			log.Printf("Error fetching schema: %v", err)
 			http.Error(w, "Failed to fetch schema definition", http.StatusInternalServerError)
@@ -732,7 +516,7 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 
 		// Validate and clean structured_data against schema
 		if params.StructuredData != nil && len(*params.StructuredData) > 0 {
-			cleanedData, err := validateStructuredData(*params.StructuredData, schema)
+			cleanedData, err := services.ValidateStructuredData(*params.StructuredData, schema)
 			if err != nil {
 				log.Printf("Structured data validation error: %v", err)
 				http.Error(w, fmt.Sprintf("Invalid structured data: %v", err), http.StatusBadRequest)
@@ -751,7 +535,7 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 
 		// Additional validation for link_to_card fields
 		if params.StructuredData != nil && len(*params.StructuredData) > 0 {
-			if err := validateLinkToCardFields(s.TX(), userID, *params.StructuredData, schema); err != nil {
+			if err := services.ValidateLinkToCardFields(s.GetDB(), userID, *params.StructuredData, schema); err != nil {
 				log.Printf("Link to card validation error: %v", err)
 				http.Error(w, fmt.Sprintf("Invalid link_to_card reference: %v", err), http.StatusBadRequest)
 				return
@@ -764,7 +548,7 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Use transaction during testing, regular DB otherwise
-	card, err := services.CreateCard(s.TX(), userID, params)
+	card, err := services.CreateCard(s.GetDB(), userID, params)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -831,7 +615,7 @@ func (s *Handler) getNextRootCardID(userID int) string {
         LIMIT 1
     `
 
-	err := s.Executor().QueryRow(query, userID).Scan(&result)
+	err := s.GetDB().QueryRow(query, userID).Scan(&result)
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("Error finding next root card ID: %v", err)
 		return "1" // Default to 1 if there's an error
@@ -874,7 +658,7 @@ func (s *Handler) GetNextChildCardIDRoute(w http.ResponseWriter, r *http.Request
 func (s *Handler) getNextChildCardID(userID int, parentID int) string {
 	// 1. Get parent card's card_id (human readable ID)
 	var parentCardID string
-	err := s.Executor().QueryRow("SELECT card_id FROM cards WHERE id = $1 AND user_id = $2", parentID, userID).Scan(&parentCardID)
+	err := s.GetDB().QueryRow("SELECT card_id FROM cards WHERE id = $1 AND user_id = $2", parentID, userID).Scan(&parentCardID)
 	if err != nil {
 		log.Printf("Error finding parent card ID for parentID %d: %v", parentID, err)
 		return "" // Return empty on error
@@ -930,17 +714,17 @@ func (s *Handler) getNextChildCardID(userID int, parentID int) string {
 }
 
 func (s *Handler) QueryPartialCardByID(userID, id int) (models.PartialCard, error) {
-	return services.GetPartialCard(s.TX(), userID, id)
+	return services.GetPartialCard(s.GetDB(), userID, id)
 }
 
 func (s *Handler) QueryPartialCard(userID int, cardID string) (models.PartialCard, error) {
-	return services.GetPartialCardByCardID(s.TX(), userID, cardID)
+	return services.GetPartialCardByCardID(s.GetDB(), userID, cardID)
 
 }
 
 func (s *Handler) QueryFullCard(userID int, id int) (models.Card, error) {
 	s.logCardView(id, userID)
-	return services.GetFullCard(s.TX(), userID, id)
+	return services.GetFullCard(s.GetDB(), userID, id)
 }
 
 func (s *Handler) GetCardAuditEventsRoute(w http.ResponseWriter, r *http.Request) {
@@ -1079,7 +863,7 @@ func (s *Handler) QueryTemplates(userID int) ([]models.CardTemplate, error) {
 	ORDER BY updated_at DESC
 	`
 
-	rows, err := s.Executor().Query(query, userID)
+	rows, err := s.GetDB().Query(query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -1115,7 +899,7 @@ func (s *Handler) QueryTemplate(userID, id int) (models.CardTemplate, error) {
 	WHERE id = $1 AND user_id = $2
 	`
 
-	err := s.Executor().QueryRow(query, id, userID).Scan(
+	err := s.GetDB().QueryRow(query, id, userID).Scan(
 		&template.ID,
 		&template.UserID,
 		&template.Name,
@@ -1141,7 +925,7 @@ func (s *Handler) CreateTemplate(userID int, params models.CreateTemplateParams)
 	RETURNING id, user_id, name, title, body, created_at, updated_at
 	`
 
-	err := s.Executor().QueryRow(query, userID, params.Name, params.Title, params.Body).Scan(
+	err := s.GetDB().QueryRow(query, userID, params.Name, params.Title, params.Body).Scan(
 		&template.ID,
 		&template.UserID,
 		&template.Name,
@@ -1168,7 +952,7 @@ func (s *Handler) UpdateTemplate(userID, id int, params models.UpdateTemplatePar
 	RETURNING id, user_id, name, title, body, created_at, updated_at
 	`
 
-	err := s.Executor().QueryRow(query, params.Name, params.Title, params.Body, id, userID).Scan(
+	err := s.GetDB().QueryRow(query, params.Name, params.Title, params.Body, id, userID).Scan(
 		&template.ID,
 		&template.UserID,
 		&template.Name,
@@ -1191,7 +975,7 @@ func (s *Handler) DeleteTemplate(userID, id int) error {
 	WHERE id = $1 AND user_id = $2
 	`
 
-	result, err := s.Executor().Exec(query, id, userID)
+	result, err := s.GetDB().Exec(query, id, userID)
 	if err != nil {
 		return err
 	}
@@ -1386,7 +1170,7 @@ func (s *Handler) GetUnsortedCardsRoute(w http.ResponseWriter, r *http.Request) 
 	LIMIT $2 OFFSET $3
 	`
 
-	rows, err := s.Executor().Query(query, userID, perPage, offset)
+	rows, err := s.GetDB().Query(query, userID, perPage, offset)
 	if err != nil {
 		log.Printf("Error querying unsorted cards: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -1418,7 +1202,7 @@ func (s *Handler) GetUnsortedCardsRoute(w http.ResponseWriter, r *http.Request) 
 	// Get total count for pagination
 	var total int
 	countQuery := `SELECT COUNT(*) FROM cards WHERE user_id = $1 AND is_deleted = FALSE AND card_id = ''`
-	err = s.Executor().QueryRow(countQuery, userID).Scan(&total)
+	err = s.GetDB().QueryRow(countQuery, userID).Scan(&total)
 	if err != nil {
 		log.Printf("Error counting unsorted cards: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
