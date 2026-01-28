@@ -1,66 +1,36 @@
 import { ResetPasswordResponse } from "../models/Auth";
 import { GenericResponse } from "../models/common";
 import { LoginResponse } from "../models/Auth";
-import { checkStatus } from "./common";
+import { apiClient, getData } from "./client";
+
 const base_url = import.meta.env.VITE_URL;
 
-export function login(email: string, password: string): Promise<LoginResponse> {
-  return fetch(base_url + "/login", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ email, password }),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<LoginResponse>;
-      } else {
-        return Promise.reject(new Error("something has gone wrong"));
-      }
-    });
+/**
+ * Login with email and password
+ */
+export async function login(email: string, password: string): Promise<LoginResponse> {
+  return getData(
+    apiClient.post<LoginResponse>("/login", { email, password }, { skipAuth: true })
+  );
 }
 
-export function requestPasswordReset(email: string): Promise<GenericResponse> {
-  const url = `${base_url}/request-reset`;
-
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ email }),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<GenericResponse>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+/**
+ * Request password reset email
+ */
+export async function requestPasswordReset(email: string): Promise<GenericResponse> {
+  return getData(
+    apiClient.post<GenericResponse>("/request-reset", { email }, { skipAuth: true })
+  );
 }
 
-export function resetPassword(
+/**
+ * Reset password with token
+ */
+export async function resetPassword(
   token: string,
   new_password: string,
 ): Promise<ResetPasswordResponse> {
-  const url = `${base_url}/reset-password`;
-
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ token, new_password }),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<ResetPasswordResponse>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(
+    apiClient.post<ResetPasswordResponse>("/reset-password", { token, new_password }, { skipAuth: true })
+  );
 }

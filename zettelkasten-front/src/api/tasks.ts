@@ -1,5 +1,5 @@
 import { Task, TaskAuditEvent, TasksResponse } from "src/models/Task";
-import { checkStatus } from "./common";
+import { apiClient, getData } from "./client";
 import { processTaskFromAPI } from "../utils/taskDataProcessing";
 
 const base_url = import.meta.env.VITE_URL;
@@ -11,42 +11,39 @@ export interface FetchTasksParams {
   status?: string | null;
 }
 
-export function fetchTasks(params: FetchTasksParams = {}): Promise<Task[]> {
+/**
+ * Fetch tasks with optional filters
+ * Handles pagination automatically to fetch all tasks
+ */
+export async function fetchTasks(params: FetchTasksParams = {}): Promise<Task[]> {
   const { showCompleted = false, scheduledDate = null, completedDate = null, status = null } = params;
 
   const fetchAllTasks = async (offset = 0, allTasks: Task[] = []): Promise<Task[]> => {
-    let token = localStorage.getItem("token");
-    let url = base_url + `/tasks?limit=100&offset=${offset}`;
-    if (showCompleted) {
-      url += "&completed=true";
-    }
+    const requestParams: Record<string, string | number | boolean | undefined> = {
+      limit: 100,
+      offset,
+      completed: showCompleted,
+    };
+
     if (scheduledDate) {
-      const dateStr = scheduledDate.toISOString().split('T')[0];
-      url += `&scheduled_date=${dateStr}`;
+      requestParams.scheduled_date = scheduledDate.toISOString().split('T')[0];
     }
     if (completedDate) {
-      const dateStr = completedDate.toISOString().split('T')[0];
-      url += `&completed_date=${dateStr}`;
+      requestParams.completed_date = completedDate.toISOString().split('T')[0];
     }
     if (status) {
-      url += `&status=${encodeURIComponent(status)}`;
+      requestParams.status = status;
     }
 
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+    const { data: tasksResponse } = await apiClient.get<TasksResponse>("/tasks", {
+      params: requestParams,
     });
 
-    const checkedResponse = await checkStatus(response);
-    if (!checkedResponse) {
-      throw new Error("Response is undefined");
-    }
-
-    const tasksResponse: TasksResponse = await checkedResponse.json();
     if (!tasksResponse.tasks) {
-      return allTasks
+      return allTasks;
     }
-    const formattedTasks = tasksResponse.tasks.map(task => processTaskFromAPI(task));
 
+    const formattedTasks = tasksResponse.tasks.map(task => processTaskFromAPI(task));
     const combinedTasks = [...allTasks, ...formattedTasks];
 
     // If we got fewer tasks than the limit, we've reached the end
@@ -61,141 +58,85 @@ export function fetchTasks(params: FetchTasksParams = {}): Promise<Task[]> {
   return fetchAllTasks();
 }
 
-export function fetchTask(id: string): Promise<Task> {
-  let encoded = encodeURIComponent(id);
-  const url = base_url + `/tasks/${encoded}`;
-  let token = localStorage.getItem("token");
-
-  return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then(rawTask => processTaskFromAPI(rawTask));
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
-}
-export function saveNewTask(task: Task): Promise<Task> {
-  const url = base_url + `/tasks`;
-  const method = "POST";
-  return saveTask(url, method, task);
+/**
+ * Fetch a single task by ID
+ */
+export async function fetchTask(id: string): Promise<Task> {
+  const encoded = encodeURIComponent(id);
+  const { data: rawTask } = await apiClient.get<Task>(`/tasks/${encoded}`);
+  return processTaskFromAPI(rawTask);
 }
 
-export function saveExistingTask(task: Task): Promise<Task> {
-  const url = base_url + `/tasks/${encodeURIComponent(task.id)}`;
-  const method = "PUT";
-  return saveTask(url, method, task);
-}
-export function saveTask(
-  url: string,
-  method: string,
-  task: Task,
-): Promise<Task> {
-  let token = localStorage.getItem("token");
-  return fetch(url, {
-    method: method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(task),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<Task>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+/**
+ * Save a new task
+ */
+export async function saveNewTask(task: Task): Promise<Task> {
+  return saveTask("/tasks", "POST", task);
 }
 
-export function deleteTask(id: number): Promise<Task | null> {
-  let encodedId = encodeURIComponent(id);
-  const url = `${base_url}/tasks/${encodedId}`;
-
-  let token = localStorage.getItem("token");
-
-  return fetch(url, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        if (response.status === 204) {
-          return null;
-        }
-        return response.json() as Promise<Task>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+/**
+ * Save an existing task
+ */
+export async function saveExistingTask(task: Task): Promise<Task> {
+  return saveTask(`/tasks/${encodeURIComponent(task.id)}`, "PUT", task);
 }
 
-export function fetchTaskAuditEvents(taskId: number): Promise<TaskAuditEvent[]> {
-  const url = `${base_url}/tasks/${taskId}/audit`;
-  let token = localStorage.getItem("token");
-
-  return fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((events: TaskAuditEvent[]) => {
-          return events.map((event) => ({
-            ...event,
-            created_at: new Date(event.created_at)
-          }));
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+/**
+ * Save task (internal function)
+ */
+async function saveTask(url: string, method: string, task: Task): Promise<Task> {
+  if (method === "POST") {
+    const { data } = await apiClient.post<Task>(url, task);
+    return data;
+  } else {
+    const { data } = await apiClient.put<Task>(url, task);
+    return data;
+  }
 }
 
-export function addTaskDependency(taskId: number, blockingTaskId: number): Promise<void> {
-  const url = `${base_url}/tasks/${taskId}/dependencies`;
-  let token = localStorage.getItem("token");
+/**
+ * Delete a task
+ */
+export async function deleteTask(id: number): Promise<Task | null> {
+  const encodedId = encodeURIComponent(id);
+  const { response, data } = await apiClient.delete<Task>(`/tasks/${encodedId}`);
 
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ blocking_task_id: blockingTaskId }),
-  })
-    .then(checkStatus)
-    .then(() => undefined);
+  if (response.status === 204) {
+    return null;
+  }
+  return data;
 }
 
-export function removeTaskDependency(taskId: number, blockingTaskId: number): Promise<void> {
-  const url = `${base_url}/tasks/${taskId}/dependencies/${blockingTaskId}`;
-  let token = localStorage.getItem("token");
-
-  return fetch(url, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then(() => undefined);
+/**
+ * Fetch audit events for a task
+ */
+export async function fetchTaskAuditEvents(taskId: number): Promise<TaskAuditEvent[]> {
+  const { data: events } = await apiClient.get<TaskAuditEvent[]>(`/tasks/${taskId}/audit`);
+  return events.map((event) => ({
+    ...event,
+    created_at: new Date(event.created_at)
+  }));
 }
 
-export function completeAndScheduleTask(taskId: number, days: number): Promise<void> {
-  const url = `${base_url}/tasks/${taskId}/complete-and-schedule`;
-  let token = localStorage.getItem("token");
+/**
+ * Add a task dependency
+ */
+export async function addTaskDependency(taskId: number, blockingTaskId: number): Promise<void> {
+  await apiClient.post(`/tasks/${taskId}/dependencies`, {
+    blocking_task_id: blockingTaskId,
+  });
+}
 
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ days }),
-  })
-    .then(checkStatus)
-    .then(() => undefined);
+/**
+ * Remove a task dependency
+ */
+export async function removeTaskDependency(taskId: number, blockingTaskId: number): Promise<void> {
+  await apiClient.delete(`/tasks/${taskId}/dependencies/${blockingTaskId}`);
+}
+
+/**
+ * Complete a task and schedule the next occurrence
+ */
+export async function completeAndScheduleTask(taskId: number, days: number): Promise<void> {
+  await apiClient.post(`/tasks/${taskId}/complete-and-schedule`, { days });
 }

@@ -1,17 +1,13 @@
-import { stringToArray } from "linkifyjs";
 import {
   Card,
-  CardChunk,
   PartialCard,
   NextIdResponse,
-  getRatingValue,
   Entity,
   SearchResult,
-  defaultPartialCard,
   CardWithDescendants,
   processCardWithDescendants,
 } from "../models/Card";
-import { checkStatus } from "./common";
+import { apiClient, getData } from "./client";
 
 // Utility function to escape entity names for search queries
 export function escapeEntityNameForSearch(entityName: string): string {
@@ -44,7 +40,21 @@ interface PaginatedSearchResponse {
   total_pages: number;
 }
 
-export function semanticSearchCardsPaginated(
+/**
+ * Process search results to convert date strings to Date objects
+ */
+function processSearchResults(results: SearchResult[]): SearchResult[] {
+  return results.map((result) => ({
+    ...result,
+    created_at: new Date(result.created_at),
+    updated_at: new Date(result.updated_at),
+  }));
+}
+
+/**
+ * Semantic search with pagination
+ */
+export async function semanticSearchCardsPaginated(
   searchTerm = "",
   fullText = false,
   showEntities = false,
@@ -58,9 +68,6 @@ export function semanticSearchCardsPaginated(
   onlyEmptyCardId = false,
   schemaId?: number,
 ): Promise<PaginatedSearchResponse> {
-  let token = localStorage.getItem("token");
-  let url = base_url + "/search";
-
   const params: SearchRequestParams = {
     search_term: searchTerm,
     search_type: searchType,
@@ -76,43 +83,31 @@ export function semanticSearchCardsPaginated(
     per_page: perPage,
   };
 
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(params),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((paginatedResponse: PaginatedSearchResponse) => {
-          if (paginatedResponse === null || !paginatedResponse.results) {
-            return {
-              results: [],
-              page: page,
-              per_page: perPage,
-              total: 0,
-              total_pages: 0,
-            };
-          }
-          return {
-            ...paginatedResponse,
-            results: paginatedResponse.results.map((result) => ({
-              ...result,
-              created_at: new Date(result.created_at),
-              updated_at: new Date(result.updated_at),
-            }))
-          };
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  const { data: paginatedResponse } = await apiClient.post<PaginatedSearchResponse>(
+    "/search",
+    params
+  );
+
+  if (!paginatedResponse || !paginatedResponse.results) {
+    return {
+      results: [],
+      page: page,
+      per_page: perPage,
+      total: 0,
+      total_pages: 0,
+    };
+  }
+
+  return {
+    ...paginatedResponse,
+    results: processSearchResults(paginatedResponse.results),
+  };
 }
 
-export function semanticSearchCards(
+/**
+ * Semantic search (backward compatible wrapper)
+ */
+export async function semanticSearchCards(
   searchTerm = "",
   fullText = false,
   showEntities = false,
@@ -122,8 +117,7 @@ export function semanticSearchCards(
   searchType = "classic",
   rerank = true,
 ): Promise<SearchResult[]> {
-  // For backward compatibility, use the paginated version and return just the results
-  return semanticSearchCardsPaginated(
+  const response = await semanticSearchCardsPaginated(
     searchTerm,
     fullText,
     showEntities,
@@ -134,298 +128,208 @@ export function semanticSearchCards(
     rerank,
     1,
     1000 // Large page size to get most results
-  ).then(response => response.results);
+  );
+  return response.results;
 }
 
-export function getCard(id: string): Promise<Card> {
-  let encoded = encodeURIComponent(id);
-  const url = base_url + `/cards/${encoded}`;
-
-  let token = localStorage.getItem("token");
-  return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((card: Card) => {
-          let children =
-            card.children !== null
-              ? card.children.map((child) => {
-                return {
-                  ...child,
-                  created_at: new Date(child.created_at),
-                  updated_at: new Date(child.updated_at),
-                };
-              })
-              : [];
-          let references =
-            card.references !== null
-              ? card.references.map((ref) => {
-                return {
-                  ...ref,
-                  created_at: new Date(ref.created_at),
-                  updated_at: new Date(ref.updated_at),
-                };
-              })
-              : [];
-          let tasks =
-            card.tasks !== null
-              ? card.tasks.map((task) => {
-                return {
-                  ...task,
-                  scheduled_date: task.scheduled_date
-                    ? new Date(task.scheduled_date)
-                    : null,
-                  due_date: task.due_date ? new Date(task.due_date) : null,
-                  created_at: new Date(task.created_at),
-                  updated_at: new Date(task.updated_at),
-                  completed_at: task.completed_at
-                    ? new Date(task.completed_at)
-                    : null,
-                };
-              })
-              : [];
-          return {
-            ...card,
-            created_at: new Date(card.created_at),
-            updated_at: new Date(card.updated_at),
-            children: children,
-            references: references,
-            tasks: tasks,
-          };
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+/**
+ * Process card data from API
+ */
+function processCardFromAPI(card: Card): Card {
+  return {
+    ...card,
+    created_at: new Date(card.created_at),
+    updated_at: new Date(card.updated_at),
+    children: card.children?.map((child) => ({
+      ...child,
+      created_at: new Date(child.created_at),
+      updated_at: new Date(child.updated_at),
+    })) || [],
+    references: card.references?.map((ref) => ({
+      ...ref,
+      created_at: new Date(ref.created_at),
+      updated_at: new Date(ref.updated_at),
+    })) || [],
+    tasks: card.tasks?.map((task) => ({
+      ...task,
+      scheduled_date: task.scheduled_date ? new Date(task.scheduled_date) : null,
+      due_date: task.due_date ? new Date(task.due_date) : null,
+      created_at: new Date(task.created_at),
+      updated_at: new Date(task.updated_at),
+      completed_at: task.completed_at ? new Date(task.completed_at) : null,
+    })) || [],
+  };
 }
 
-export function saveNewCard(card: Card): Promise<Card> {
-  const url = base_url + `/cards`;
-  const method = "POST";
+/**
+ * Get a single card by ID
+ */
+export async function getCard(id: string): Promise<Card> {
+  const encoded = encodeURIComponent(id);
+  const { data: card } = await apiClient.get<Card>(`/cards/${encoded}`);
+  return processCardFromAPI(card);
+}
+
+/**
+ * Save a new card
+ */
+export async function saveNewCard(card: Card): Promise<Card> {
   card.card_id = card.card_id.trim();
-  return saveCard(url, method, card);
+  const { data } = await apiClient.post<Card>("/cards", card);
+  return processCardFromAPI(data);
 }
 
-export function saveExistingCard(card: Card): Promise<Card> {
-  const url = base_url + `/cards/${encodeURIComponent(card.id)}`;
-  const method = "PUT";
-  return saveCard(url, method, card);
-}
-export function saveCard(
-  url: string,
-  method: string,
-  card: Card,
-): Promise<Card> {
-  let token = localStorage.getItem("token");
-  return fetch(url, {
-    method: method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(card),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<Card>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+/**
+ * Save an existing card
+ */
+export async function saveExistingCard(card: Card): Promise<Card> {
+  const { data } = await apiClient.put<Card>(`/cards/${encodeURIComponent(card.id)}`, card);
+  return processCardFromAPI(data);
 }
 
-export function deleteCard(id: number): Promise<Card | null> {
-  let encodedId = encodeURIComponent(id);
-  const url = `${base_url}/cards/${encodedId}`;
+/**
+ * Delete a card
+ */
+export async function deleteCard(id: number): Promise<Card | null> {
+  const encodedId = encodeURIComponent(id);
+  const { response, data } = await apiClient.delete<Card>(`/cards/${encodedId}`);
 
-  let token = localStorage.getItem("token");
-
-  // Send a DELETE request to the URL
-  return fetch(url, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        if (response.status === 204) {
-          return null;
-        }
-        return response.json() as Promise<Card>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
-}
-export function getCardAuditEvents(cardId: string): Promise<any[]> {
-  let token = localStorage.getItem("token");
-  const url = `${base_url}/cards/${encodeURIComponent(cardId)}/audit`;
-
-  return fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((events: any[]) => {
-          if (events === null) {
-            return [];
-          }
-          return events.map(event => ({
-            ...event,
-            created_at: new Date(event.created_at),
-            updated_at: new Date(event.updated_at),
-          }));
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  if (response.status === 204) {
+    return null;
+  }
+  return data;
 }
 
-export function getCardFiles(cardId: string): Promise<any[]> {
-  const url = `${base_url}/cards/${encodeURIComponent(cardId)}/files`;
-  let token = localStorage.getItem("token");
+/**
+ * Get audit events for a card
+ */
+export async function getCardAuditEvents(cardId: string): Promise<any[]> {
+  const { data: events } = await apiClient.get<any[]>(
+    `/cards/${encodeURIComponent(cardId)}/audit`
+  );
 
-  return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((files: any[]) => {
-          if (files === null) {
-            return [];
-          }
-          return files.map((file) => ({
-            ...file,
-            created_at: new Date(file.created_at),
-            updated_at: new Date(file.updated_at),
-          }));
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  if (!events) {
+    return [];
+  }
+
+  return events.map(event => ({
+    ...event,
+    created_at: new Date(event.created_at),
+    updated_at: new Date(event.updated_at),
+  }));
 }
 
-export function getCardChildren(cardId: string): Promise<PartialCard[]> {
-  const url = `${base_url}/cards/${encodeURIComponent(cardId)}/children`;
-  let token = localStorage.getItem("token");
+/**
+ * Get files attached to a card
+ */
+export async function getCardFiles(cardId: string): Promise<any[]> {
+  const { data: files } = await apiClient.get<any[]>(
+    `/cards/${encodeURIComponent(cardId)}/files`
+  );
 
-  return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((children: PartialCard[]) => {
-          if (children === null) {
-            return [];
-          }
-          return children.map((child) => ({
-            ...child,
-            created_at: new Date(child.created_at),
-            updated_at: new Date(child.updated_at),
-          }));
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  if (!files) {
+    return [];
+  }
+
+  return files.map((file) => ({
+    ...file,
+    created_at: new Date(file.created_at),
+    updated_at: new Date(file.updated_at),
+  }));
 }
 
-export function getCardTags(cardId: string): Promise<any[]> {
-  const url = `${base_url}/cards/${encodeURIComponent(cardId)}/tags`;
-  let token = localStorage.getItem("token");
+/**
+ * Get children of a card
+ */
+export async function getCardChildren(cardId: string): Promise<PartialCard[]> {
+  const { data: children } = await apiClient.get<PartialCard[]>(
+    `/cards/${encodeURIComponent(cardId)}/children`
+  );
 
-  return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((tags: any[]) => {
-          if (tags === null) {
-            return [];
-          }
-          return tags;
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  if (!children) {
+    return [];
+  }
+
+  return children.map((child) => ({
+    ...child,
+    created_at: new Date(child.created_at),
+    updated_at: new Date(child.updated_at),
+  }));
 }
 
-export function getLinkedEntitiesByCardPK(cardId: string | number): Promise<Entity[]> {
-  const url = `${base_url}/cards/${encodeURIComponent(cardId)}/linked-entities`;
-  let token = localStorage.getItem("token");
+/**
+ * Get tags for a card
+ */
+export async function getCardTags(cardId: string): Promise<any[]> {
+  const { data: tags } = await apiClient.get<any[]>(
+    `/cards/${encodeURIComponent(cardId)}/tags`
+  );
 
-  return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    .then(checkStatus)
-    .then(async (response) => {
-      if (!response) {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-
-      // Handle no content responses gracefully
-      if (response.status === 204) {
-        return [];
-      }
-
-      try {
-        const entities: Entity[] | null = await response.json();
-        if (!entities) {
-          return [];
-        }
-        return entities;
-      } catch (err) {
-        // In case of empty body or invalid JSON
-        return [];
-      }
-    });
+  if (!tags) {
+    return [];
+  }
+  return tags;
 }
 
-export function getCardEntities(cardId: string | number): Promise<any[]> {
-  const url = `${base_url}/cards/${encodeURIComponent(cardId)}/entities`;
-  let token = localStorage.getItem("token");
+/**
+ * Get entities linked to a card
+ */
+export async function getLinkedEntitiesByCardPK(cardId: string | number): Promise<Entity[]> {
+  const response = await apiClient.fetchResponse(
+    `/cards/${encodeURIComponent(cardId)}/linked-entities`
+  );
 
-  return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((entities: any[]) => {
-          if (entities === null) {
-            return [];
-          }
-          return entities;
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  // Handle no content responses gracefully
+  if (response.status === 204) {
+    return [];
+  }
+
+  try {
+    const entities: Entity[] | null = await response.json();
+    if (!entities) {
+      return [];
+    }
+    return entities;
+  } catch (err) {
+    // In case of empty body or invalid JSON
+    return [];
+  }
 }
 
-export function getCardTasks(cardId: string | number): Promise<any[]> {
-  const url = `${base_url}/cards/${encodeURIComponent(cardId)}/tasks`;
-  let token = localStorage.getItem("token");
+/**
+ * Get entities for a card
+ */
+export async function getCardEntities(cardId: string | number): Promise<any[]> {
+  const { data: entities } = await apiClient.get<any[]>(
+    `/cards/${encodeURIComponent(cardId)}/entities`
+  );
 
-  return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((tasks: any[]) => {
-          if (tasks === null) {
-            return [];
-          }
-          return tasks.map((task) => ({
-            ...task,
-            scheduled_date: task.scheduled_date ? new Date(task.scheduled_date) : null,
-            due_date: task.due_date ? new Date(task.due_date) : null,
-            created_at: new Date(task.created_at),
-            updated_at: new Date(task.updated_at),
-            completed_at: task.completed_at ? new Date(task.completed_at) : null,
-          }));
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  if (!entities) {
+    return [];
+  }
+  return entities;
+}
+
+/**
+ * Get tasks for a card
+ */
+export async function getCardTasks(cardId: string | number): Promise<any[]> {
+  const { data: tasks } = await apiClient.get<any[]>(
+    `/cards/${encodeURIComponent(cardId)}/tasks`
+  );
+
+  if (!tasks) {
+    return [];
+  }
+
+  return tasks.map((task) => ({
+    ...task,
+    scheduled_date: task.scheduled_date ? new Date(task.scheduled_date) : null,
+    due_date: task.due_date ? new Date(task.due_date) : null,
+    created_at: new Date(task.created_at),
+    updated_at: new Date(task.updated_at),
+    completed_at: task.completed_at ? new Date(task.completed_at) : null,
+  }));
 }
 
 export interface CategorizedReferences {
@@ -434,225 +338,133 @@ export interface CategorizedReferences {
   incoming: PartialCard[];      // One-way links (they reference this card)
 }
 
-export function getCardReferences(cardId: string): Promise<CategorizedReferences> {
-  const url = `${base_url}/cards/${encodeURIComponent(cardId)}/references`;
-  let token = localStorage.getItem("token");
-
-  return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((refs: CategorizedReferences) => {
-          if (refs === null) {
-            return {
-              bidirectional: [],
-              outgoing: [],
-              incoming: [],
-            };
-          }
-          // Process date fields for each category
-          return {
-            bidirectional: refs.bidirectional.map((ref) => ({
-              ...ref,
-              created_at: new Date(ref.created_at),
-              updated_at: new Date(ref.updated_at),
-            })),
-            outgoing: refs.outgoing.map((ref) => ({
-              ...ref,
-              created_at: new Date(ref.created_at),
-              updated_at: new Date(ref.updated_at),
-            })),
-            incoming: refs.incoming.map((ref) => ({
-              ...ref,
-              created_at: new Date(ref.created_at),
-              updated_at: new Date(ref.updated_at),
-            })),
-          };
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+function processPartialCards(cards: PartialCard[]): PartialCard[] {
+  return cards.map((ref) => ({
+    ...ref,
+    created_at: new Date(ref.created_at),
+    updated_at: new Date(ref.updated_at),
+  }));
 }
 
+/**
+ * Get references for a card
+ */
+export async function getCardReferences(cardId: string): Promise<CategorizedReferences> {
+  const { data: refs } = await apiClient.get<CategorizedReferences>(
+    `/cards/${encodeURIComponent(cardId)}/references`
+  );
+
+  if (!refs) {
+    return {
+      bidirectional: [],
+      outgoing: [],
+      incoming: [],
+    };
+  }
+
+  return {
+    bidirectional: processPartialCards(refs.bidirectional),
+    outgoing: processPartialCards(refs.outgoing),
+    incoming: processPartialCards(refs.incoming),
+  };
+}
+
+/**
+ * Get the next root card ID
+ */
 export async function getNextRootId(): Promise<NextIdResponse> {
-  const url = `${base_url}/cards/next-root-id`;
-  let token = localStorage.getItem("token");
-
-  return await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<NextIdResponse>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.get<NextIdResponse>("/cards/next-root-id"));
 }
 
 /**
- * Star a card to make it easily accessible
- * @param cardId The ID of the card to star
- * @returns A promise that resolves when the card is starred
+ * Star a card
  */
-export function starCard(cardId: number): Promise<void> {
-  const url = `${base_url}/cards/${cardId}/star`;
-  let token = localStorage.getItem("token");
-
-  return fetch(url, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then(() => {
-      return;
-    });
+export async function starCard(cardId: number): Promise<void> {
+  await apiClient.post(`/cards/${cardId}/star`, undefined);
 }
 
 /**
- * Unstar a previously starred card
- * @param cardId The ID of the card to unstar
- * @returns A promise that resolves when the card is unstarred
+ * Unstar a card
  */
-export function unstarCard(cardId: number): Promise<void> {
-  const url = `${base_url}/cards/${cardId}/star`;
-  let token = localStorage.getItem("token");
-
-  return fetch(url, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then(() => {
-      return;
-    });
+export async function unstarCard(cardId: number): Promise<void> {
+  await apiClient.delete(`/cards/${cardId}/star`);
 }
 
 /**
- * Get all cards that have been starred by the current user
- * @returns A promise that resolves to an array of starred cards with their full data
+ * Get all starred cards
  */
-export function getStarredCards(): Promise<Card[]> {
-  const url = `${base_url}/cards/starred`;
-  let token = localStorage.getItem("token");
+export async function getStarredCards(): Promise<Card[]> {
+  const { data: starredCards } = await apiClient.get<any[]>("/cards/starred");
 
-  return fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((starredCards: any[]) => {
-          if (starredCards === null) {
-            return [];
-          }
+  if (!starredCards) {
+    return [];
+  }
 
-          // Transform the response into Card objects
-          return starredCards.map((starredCard) => {
-            const card = starredCard.card;
+  // Transform the response into Card objects
+  return starredCards.map((starredCard) => {
+    const card = starredCard.card;
 
-            // Process dates and nested objects
-            return {
-              ...card,
-              created_at: new Date(card.created_at),
-              updated_at: new Date(card.updated_at),
-              children: card.children ? card.children.map((child: any) => ({
-                ...child,
-                created_at: new Date(child.created_at),
-                updated_at: new Date(child.updated_at),
-              })) : [],
-              references: card.references ? card.references.map((ref: any) => ({
-                ...ref,
-                created_at: new Date(ref.created_at),
-                updated_at: new Date(ref.updated_at),
-              })) : [],
-              tasks: card.tasks ? card.tasks.map((task: any) => ({
-                ...task,
-                scheduled_date: task.scheduled_date ? new Date(task.scheduled_date) : null,
-                due_date: task.due_date ? new Date(task.due_date) : null,
-                created_at: new Date(task.created_at),
-                updated_at: new Date(task.updated_at),
-                completed_at: task.completed_at ? new Date(task.completed_at) : null,
-              })) : [],
-              is_pinned: true, // Mark as starred since it's coming from the starred cards endpoint
-            };
-          });
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+    return {
+      ...card,
+      created_at: new Date(card.created_at),
+      updated_at: new Date(card.updated_at),
+      children: card.children?.map((child: any) => ({
+        ...child,
+        created_at: new Date(child.created_at),
+        updated_at: new Date(child.updated_at),
+      })) || [],
+      references: card.references?.map((ref: any) => ({
+        ...ref,
+        created_at: new Date(ref.created_at),
+        updated_at: new Date(ref.updated_at),
+      })) || [],
+      tasks: card.tasks?.map((task: any) => ({
+        ...task,
+        scheduled_date: task.scheduled_date ? new Date(task.scheduled_date) : null,
+        due_date: task.due_date ? new Date(task.due_date) : null,
+        created_at: new Date(task.created_at),
+        updated_at: new Date(task.updated_at),
+        completed_at: task.completed_at ? new Date(task.completed_at) : null,
+      })) || [],
+      is_pinned: true, // Mark as starred since it's coming from the starred cards endpoint
+    };
+  });
 }
 
 /**
  * Suggest a title for a card based on its body content using AI
- * @param body The body content of the card
- * @returns A promise that resolves to the suggested title
  */
-export function suggestCardTitle(body: string): Promise<string> {
-  const url = `${base_url}/cards/suggest-title`;
-  let token = localStorage.getItem("token");
-
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ body }),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((data: { suggested_title: string }) => {
-          return data.suggested_title;
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+export async function suggestCardTitle(body: string): Promise<string> {
+  const { data } = await apiClient.post<{ suggested_title: string }>(
+    "/cards/suggest-title",
+    { body }
+  );
+  return data.suggested_title;
 }
+
 /**
  * Get the hierarchical card structure with depth information for CardTreeView component
- * @param cardId The ID of the root card
- * @returns A promise that resolves to the card with descendants
  */
-export function getCardWithDescendants(cardId: string | number): Promise<CardWithDescendants> {
-  const url = `${base_url}/cards/${encodeURIComponent(cardId)}/tree`;
-  let token = localStorage.getItem("token");
-
-  return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((card: CardWithDescendants) => {
-          // Recursively process dates and prepare for frontend use
-          return processCardWithDescendants(card);
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+export async function getCardWithDescendants(cardId: string | number): Promise<CardWithDescendants> {
+  const { data: card } = await apiClient.get<CardWithDescendants>(
+    `/cards/${encodeURIComponent(cardId)}/tree`
+  );
+  // Recursively process dates and prepare for frontend use
+  return processCardWithDescendants(card);
 }
 
-export function getCardWithDescendantsLimited(cardId: string | number, maxDepth: number): Promise<CardWithDescendants> {
-  const url = `${base_url}/cards/${encodeURIComponent(cardId)}/tree/depth/${maxDepth}`;
-  let token = localStorage.getItem("token");
-
-  return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((card: CardWithDescendants) => {
-          // Recursively process dates and prepare for frontend use
-          return processCardWithDescendants(card);
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+/**
+ * Get card tree with limited depth
+ */
+export async function getCardWithDescendantsLimited(
+  cardId: string | number,
+  maxDepth: number
+): Promise<CardWithDescendants> {
+  const { data: card } = await apiClient.get<CardWithDescendants>(
+    `/cards/${encodeURIComponent(cardId)}/tree/depth/${maxDepth}`
+  );
+  // Recursively process dates and prepare for frontend use
+  return processCardWithDescendants(card);
 }
 
 interface UnsortedCardsResponse {
@@ -664,147 +476,56 @@ interface UnsortedCardsResponse {
 }
 
 /**
- * Fetches unsorted cards (cards with empty card_id) from the backend
- * @param page Page number (default: 1)
- * @param perPage Number of cards per page (default: 10)
- * @returns A promise that resolves to the unsorted cards response
+ * Fetch unsorted cards (cards with empty card_id)
  */
-export function getUnsortedCards(page = 1, perPage = 10): Promise<UnsortedCardsResponse> {
-  const url = `${base_url}/cards/unsorted?page=${page}&per_page=${perPage}`;
-  let token = localStorage.getItem("token");
+export async function getUnsortedCards(page = 1, perPage = 10): Promise<UnsortedCardsResponse> {
+  const { data } = await apiClient.get<UnsortedCardsResponse>(
+    `/cards/unsorted?page=${page}&per_page=${perPage}`
+  );
 
-  return fetch(url, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((data: UnsortedCardsResponse) => {
-          // Convert date strings to Date objects
-          const cards = data.cards.map((card) => ({
-            ...card,
-            created_at: new Date(card.created_at),
-            updated_at: new Date(card.updated_at),
-          }));
+  const cards = data.cards.map((card) => ({
+    ...card,
+    created_at: new Date(card.created_at),
+    updated_at: new Date(card.updated_at),
+  }));
 
-          return {
-            ...data,
-            cards,
-          };
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return {
+    ...data,
+    cards,
+  };
 }
 
 /**
  * Restore a card to the state it was in at the time of the audit event
- * @param cardId The ID of the card to restore
- * @param auditEventId The ID of the audit event to restore to
- * @returns A promise that resolves to the restored card
  */
-export function restoreCardToAuditEvent(cardId: string, auditEventId: number): Promise<Card> {
-  const url = `${base_url}/cards/${encodeURIComponent(cardId)}/audit/${auditEventId}/restore`;
-  let token = localStorage.getItem("token");
-
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((card: Card) => {
-          let children =
-            card.children !== null
-              ? card.children.map((child) => {
-                  return {
-                    ...child,
-                    created_at: new Date(child.created_at),
-                    updated_at: new Date(child.updated_at),
-                  };
-                })
-              : [];
-          let references =
-            card.references !== null
-              ? card.references.map((ref) => {
-                  return {
-                    ...ref,
-                    created_at: new Date(ref.created_at),
-                    updated_at: new Date(ref.updated_at),
-                  };
-                })
-              : [];
-          let tasks =
-            card.tasks !== null
-              ? card.tasks.map((task) => {
-                  return {
-                    ...task,
-                    scheduled_date: task.scheduled_date
-                      ? new Date(task.scheduled_date)
-                      : null,
-                    due_date: task.due_date ? new Date(task.due_date) : null,
-                    created_at: new Date(task.created_at),
-                    updated_at: new Date(task.updated_at),
-                    completed_at: task.completed_at
-                      ? new Date(task.completed_at)
-                      : null,
-                  };
-                })
-              : [];
-          return {
-            ...card,
-            created_at: new Date(card.created_at),
-            updated_at: new Date(card.updated_at),
-            children: children,
-            references: references,
-            tasks: tasks,
-          };
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+export async function restoreCardToAuditEvent(
+  cardId: string,
+  auditEventId: number
+): Promise<Card> {
+  const { data: card } = await apiClient.post<Card>(
+    `/cards/${encodeURIComponent(cardId)}/audit/${auditEventId}/restore`,
+    undefined
+  );
+  return processCardFromAPI(card);
 }
 
 /**
- * Create an article card from a URL in a single operation
- * @param url The URL of the article to import
- * @param cardId Optional card ID (if not provided, one will be auto-generated)
- * @param tags Optional custom tags (default: "#to-read #reference")
- * @returns A promise that resolves to the created card
+ * Create an article card from a URL
  */
-export function createArticle(url: string, cardId?: string, tags?: string): Promise<Card> {
-  const apiUrl = `${base_url}/articles`;
-  let token = localStorage.getItem("token");
+export async function createArticle(
+  url: string,
+  cardId?: string,
+  tags?: string
+): Promise<Card> {
+  const { data: card } = await apiClient.post<Card>("/articles", {
+    url,
+    card_id: cardId,
+    tags,
+  });
 
-  return fetch(apiUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ url, card_id: cardId, tags }),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((card: Card) => {
-          return {
-            ...card,
-            created_at: new Date(card.created_at),
-            updated_at: new Date(card.updated_at),
-          };
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return {
+    ...card,
+    created_at: new Date(card.created_at),
+    updated_at: new Date(card.updated_at),
+  };
 }

@@ -1,0 +1,268 @@
+/**
+ * Example: Migrated Sidebar component using React Query
+ *
+ * This demonstrates how to migrate the Sidebar component from using TaskContext
+ * to using React Query hooks for fetching today's tasks.
+ */
+
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useChatContext } from '../contexts/ChatContext';
+import { isTodayOrPast } from '../utils/dates';
+import { usePartialCardContext } from '../contexts/CardContext';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useShortcutContext } from '../contexts/ShortcutContext';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useToast } from './toast/ToastContext';
+import { useTasks } from '../hooks/queries/useTasks';
+
+import { PartialCard, Card, Entity } from '../models/Card';
+
+import { SidebarHeader } from './sidebar/SidebarHeader';
+import { NavigationLinks } from './sidebar/NavigationLinks';
+import { SecondaryNavigationLinks } from './sidebar/SecondaryNavigationLinks';
+import { StarredSearchesSection } from './sidebar/StarredSearchesSection';
+import { StarredCardsSection } from './sidebar/StarredCardsSection';
+import { SidebarFooter } from './sidebar/SidebarFooter';
+import { SidebarModals } from './sidebar/SidebarModals';
+import { SidebarMobileMenu } from './sidebar/SidebarMobileMenu';
+
+/**
+ * CHANGES FROM ORIGINAL:
+ *
+ * 1. Import useTasks from React Query hooks instead of useTaskContext
+ * 2. Use the query's data and error states directly
+ * 3. Remove dependency on TaskContext refreshTasks pattern
+ */
+
+export function SidebarWithRQ() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { lastCard } = usePartialCardContext();
+  const { showToast } = useToast();
+
+  // BEFORE: const { tasks } = useTaskContext();
+  // AFTER: Use React Query hook with automatic caching
+  const { data: tasks = [], isLoading: tasksLoading } = useTasks({
+    showCompleted: false,
+  });
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+  const { conversationId, setConversationId } = useChatContext();
+  const [showAddArticleDialog, setShowAddArticleDialog] = useState(false);
+  const [showStarCardDialog, setShowStarCardDialog] = useState(false);
+  const { hasSubscription, user, updateUser, isLoading: authLoading } = useAuth();
+
+  const userTimezone = user?.timezone || 'UTC';
+
+  const [showGettingStarted, setShowGettingStarted] = useState(false);
+  const [showEditEntityDialog, setShowEditEntityDialog] = useState(false);
+  const [entityToEdit, setEntityToEdit] = useState<Entity | null>(null);
+  const {
+    showCreateTaskWindow,
+    setShowCreateTaskWindow,
+    showQuickSearchWindow,
+    setShowQuickSearchWindow,
+    showEntityDialog,
+    setShowEntityDialog,
+    selectedEntity,
+    setSelectedEntity,
+    showFactDialog,
+    setShowFactDialog,
+    selectedFact,
+    showTaskDialog,
+    setShowTaskDialog,
+    selectedTaskId,
+  } = useShortcutContext();
+
+  const currentCard = useMemo(() => {
+    const currentPath = location.pathname;
+    const isCardPage = /^\/app\/card\/\d+$/.test(currentPath);
+    if (isCardPage) {
+      return lastCard;
+    }
+    return null;
+  }, [location.pathname, lastCard]);
+
+  /**
+   * NEW: Filter today's tasks from the query data
+   * React Query automatically keeps tasks fresh in the background
+   */
+  const todayTasks = useMemo(
+    () =>
+      tasks.filter(
+        (task) => !task.is_complete && isTodayOrPast(task.scheduled_date, userTimezone)
+      ),
+    [tasks, userTimezone]
+  );
+
+  function handleNewStandardCard() {
+    navigate('/app/card/new', { state: { cardType: 'standard' } });
+  }
+
+  function handleNewChat() {
+    navigate('/app/chat?new=true');
+  }
+
+  function handleNewTask() {
+    setShowCreateTaskWindow(true);
+  }
+
+  function handleAddArticle() {
+    setShowAddArticleDialog(true);
+  }
+
+  async function handleCloseGettingStarted() {
+    setShowGettingStarted(false);
+    if (user) {
+      user.has_seen_getting_started = true;
+      updateUser(user);
+    }
+  }
+
+  useEffect(() => {
+    if (user && !user.has_seen_getting_started) {
+      setShowGettingStarted(true);
+    }
+  }, [user]);
+
+  const handleCreateTask = useCallback(() => {
+    setShowQuickSearchWindow(false);
+    setShowCreateTaskWindow(true);
+  }, []);
+
+  const handleQuickSearch = useCallback(() => {
+    setShowCreateTaskWindow(false);
+    setShowQuickSearchWindow(true);
+  }, []);
+
+  // Use custom hook for keyboard shortcuts
+  useKeyboardShortcuts({
+    onCreateTask: handleCreateTask,
+    onQuickSearch: handleQuickSearch,
+  });
+
+  /**
+   * NEW: Show loading state while tasks are being fetched
+   * React Query provides loading states automatically
+   */
+  if (authLoading || tasksLoading) {
+    return (
+      <div className="fixed md:relative w-72 min-w-[18rem] h-screen bg-white border-r flex items-center justify-center">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <SidebarMobileMenu
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
+      />
+
+      {/* Sidebar */}
+      <div
+        className={`
+          fixed md:relative
+          z-[50]
+          w-72
+          min-w-[18rem]
+          max-w-[18rem]
+          flex-shrink-0
+          h-screen
+          bg-white
+          flex flex-col
+          border-r
+          transform
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:translate-x-0
+          transition-transform
+          duration-300
+          ease-in-out
+        `}
+      >
+        <SidebarHeader
+          onNewStandardCard={handleNewStandardCard}
+          onNewArticle={handleAddArticle}
+          onNewTask={handleNewTask}
+          onNewChat={handleNewChat}
+        />
+
+        {/* Scrollable Middle Section */}
+        <div className="flex-1 overflow-y-auto">
+          <NavigationLinks
+            todayTasksCount={todayTasks.length}
+            hasSubscription={hasSubscription}
+          />
+          <hr />
+          <SecondaryNavigationLinks hasSubscription={hasSubscription} />
+
+          <StarredSearchesSection />
+          <StarredCardsSection
+            onShowStarCardDialog={() => setShowStarCardDialog(true)}
+          />
+          <hr />
+        </div>
+        <SidebarFooter />
+      </div>
+
+      <SidebarModals
+        showCreateTaskWindow={showCreateTaskWindow}
+        setShowCreateTaskWindow={setShowCreateTaskWindow}
+        showQuickSearchWindow={showQuickSearchWindow}
+        setShowQuickSearchWindow={setShowQuickSearchWindow}
+        showStarCardDialog={showStarCardDialog}
+        setShowStarCardDialog={setShowStarCardDialog}
+        showEntityDialog={showEntityDialog}
+        setShowEntityDialog={setShowEntityDialog}
+        selectedEntity={selectedEntity}
+        setSelectedEntity={setSelectedEntity}
+        showFactDialog={showFactDialog}
+        setShowFactDialog={setShowFactDialog}
+        showTaskDialog={showTaskDialog}
+        setShowTaskDialog={setShowTaskDialog}
+        selectedTaskId={selectedTaskId}
+        showEditEntityDialog={showEditEntityDialog}
+        setShowEditEntityDialog={setShowEditEntityDialog}
+        entityToEdit={entityToEdit}
+        setEntityToEdit={setEntityToEdit}
+        showAddArticleDialog={showAddArticleDialog}
+        setShowAddArticleDialog={setShowAddArticleDialog}
+        showGettingStarted={showGettingStarted}
+        setShowGettingStarted={setShowGettingStarted}
+        currentCard={currentCard}
+        handleCloseGettingStarted={handleCloseGettingStarted}
+      />
+    </>
+  );
+}
+
+/**
+ * MIGRATION SUMMARY:
+ *
+ * Before (TaskContext):
+ * ```tsx
+ * const { tasks } = useTaskContext();
+ * // Manual refresh needed: setRefreshTasks(true)
+ * // No loading state available
+ * // No error handling
+ * ```
+ *
+ * After (React Query):
+ * ```tsx
+ * const { data: tasks = [], isLoading } = useTasks({ showCompleted: false });
+ * // Automatic background refetching
+ * // Built-in loading and error states
+ * // Automatic caching
+ * ```
+ *
+ * BENEFITS:
+ * 1. Tasks are automatically refetched in the background
+ * 2. Loading state is built-in
+ * 3. No need for manual refresh triggers
+ * 4. Better TypeScript support
+ * 5. Easier to test (no context provider needed)
+ * 6. Automatic deduplication of requests
+ */
