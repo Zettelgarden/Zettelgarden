@@ -301,7 +301,8 @@ func (s *Handler) summarizeConversationHistory(ctx context.Context, userID int, 
 	}
 
 	// Use a fast, cheap model for summarization
-	client := services.NewDefaultClient(s.DB, userID)
+	isTesting := s.Server != nil && s.Server.Testing
+	client := services.NewDefaultClient(s.DB, userID, isTesting)
 	client.Model = "google/gemini-2.5-flash-lite"
 	client.RequestType = "chat"
 
@@ -568,7 +569,8 @@ func (s *Handler) GenerateChatResponse(ctx context.Context, userID int, conversa
 	}
 
 	// Create LLM client
-	client := services.NewDefaultClient(s.DB, userID)
+	isTesting := s.Server != nil && s.Server.Testing
+	client := services.NewDefaultClient(s.DB, userID, isTesting)
 	client.Model = model
 	client.RequestType = "chat"
 
@@ -654,7 +656,8 @@ func (s *Handler) generateConversationTitle(ctx context.Context, userID int, use
 	}
 
 	// Create LLM client for title generation
-	client := services.NewDefaultClient(s.DB, userID)
+	isTesting := s.Server != nil && s.Server.Testing
+	client := services.NewDefaultClient(s.DB, userID, isTesting)
 	client.RequestType = "chat"
 	client.Model = "google/gemini-2.5-flash-lite" // Use faster, cheaper model for title generation
 
@@ -952,7 +955,8 @@ func (s *Handler) streamChatResponse(ctx context.Context, w http.ResponseWriter,
 	}
 
 	// Create LLM client
-	client := services.NewDefaultClient(s.DB, userID)
+	isTesting := s.Server != nil && s.Server.Testing
+	client := services.NewDefaultClient(s.DB, userID, isTesting)
 	client.Model = model
 	client.RequestType = "chat"
 

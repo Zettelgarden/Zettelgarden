@@ -815,7 +815,7 @@ func handleTask(args map[string]interface{}, ctx *ToolContext) (map[string]inter
 // executeSubagentTask runs a subagent with access to knowledge base tools
 func executeSubagentTask(prompt, subagentType string, ctx *ToolContext) (string, error) {
 	// Create LLM client for the subagent
-	client := NewDefaultClient(ctx.DB, ctx.UserID)
+	client := NewDefaultClient(ctx.DB, ctx.UserID, false)
 	client.RequestType = "tools"
 	client.Model = ctx.Model
 

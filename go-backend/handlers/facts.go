@@ -479,7 +479,8 @@ func (s *Handler) ExtractSaveFactEntities(userID int, card models.Card, factObjs
 
 // extractSaveFactEntitiesSync performs synchronous entity extraction for facts (for small batches)
 func (s *Handler) extractSaveFactEntitiesSync(userID int, card models.Card, factObjs []models.Fact) error {
-	client := services.NewDefaultClient(s.DB, userID)
+	isTesting := s.Server != nil && s.Server.Testing
+	client := services.NewDefaultClient(s.DB, userID, isTesting)
 	client.RequestType = "analysis"
 
 	factEntities, err := services.FindEntitiesBatch(client, factObjs)

@@ -3,13 +3,16 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"go-backend/llms"
 	"go-backend/models"
 	"log"
 	"os"
 
 	_ "github.com/lib/pq"
 )
+
+// TODO: This script uses llms.ComputeCardKeywords which no longer exists.
+// The llms package was merged into services. This script needs to be updated
+// to use the correct services package or removed if obsolete.
 
 func ConnectToDatabase(dbConfig models.DatabaseConfig) (*sql.DB, error) {
 	psqlInfo := fmt.Sprintf("host=%v port=%v user=%v "+
@@ -97,7 +100,7 @@ func main() {
 		log.Printf("cards %v", len(cards))
 		for _, card := range cards {
 			log.Printf("%v %v - %v", card.ID, card.CardID, card.Title)
-			llms.ComputeCardKeywords(db, userID, card)
+			// TODO: ComputeCardKeywords no longer exists - this script is obsolete
 		}
 	}
 

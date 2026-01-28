@@ -69,7 +69,7 @@ func (p *LLMJobProcessor) processEntityExtractionJob(ctx context.Context, job *m
 	}
 
 	// Create LLM client
-	client := NewDefaultClient(p.db, job.UserID)
+	client := NewDefaultClient(p.db, job.UserID, false)
 	client.RequestType = "entity_extraction"
 
 	// Extract entities using the service function
@@ -129,7 +129,7 @@ func (p *LLMJobProcessor) processFactEntityExtractionJob(ctx context.Context, jo
 	}
 
 	// Create LLM client
-	client := NewDefaultClient(p.db, job.UserID)
+	client := NewDefaultClient(p.db, job.UserID, false)
 	client.RequestType = "analysis"
 
 	// Extract entities using batch processing
@@ -231,7 +231,7 @@ func (p *LLMJobProcessor) processMemoryJob(ctx context.Context, job *models.LLMJ
 		return nil, fmt.Errorf("missing memory_type in payload")
 	}
 
-	client := NewDefaultClient(p.db, job.UserID)
+	client := NewDefaultClient(p.db, job.UserID, false)
 
 	switch memoryType {
 	case "card":
@@ -302,7 +302,7 @@ func (p *LLMJobProcessor) processSummarizationJob(ctx context.Context, job *mode
 			return nil, fmt.Errorf("failed to parse payload analyses: %w", err)
 		}
 
-		client := NewDefaultClient(p.db, job.UserID)
+		client := NewDefaultClient(p.db, job.UserID, false)
 		client.RequestType = "summarization"
 
 		result, _, usage, err := AnalyzeAndSummarizeText(client, analyses, facts, usage)
@@ -338,7 +338,7 @@ func (p *LLMJobProcessor) processSummarizationJob(ctx context.Context, job *mode
 	}
 
 	// Create LLM client
-	client := NewDefaultClient(p.db, job.UserID)
+	client := NewDefaultClient(p.db, job.UserID, false)
 	client.RequestType = "summarization"
 
 	// Extract theses and arguments

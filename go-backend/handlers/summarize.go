@@ -167,7 +167,8 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Extract theses and arguments
-	client := services.NewDefaultClient(h.DB, userID)
+	isTesting := h.Server != nil && h.Server.Testing
+	client := services.NewDefaultClient(h.DB, userID, isTesting)
 	client.RequestType = "analysis"
 	processedText := prepareTextForAnalysis(req.Title, req.Text)
 	analyses, facts, usage, err := services.ExtractThesesAndArguments(client, processedText)
@@ -224,7 +225,8 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 		// Ensure LinkCardToEntityIfPossible is always called exactly once, regardless of success or failure
 		defer h.LinkCardToEntityIfPossible(userID, card)
 
-		client := services.NewDefaultClient(h.DB, userID)
+		isTesting := h.Server != nil && h.Server.Testing
+		client := services.NewDefaultClient(h.DB, userID, isTesting)
 		client.RequestType = "analysis"
 		processedText := prepareTextForAnalysis(card.Title, card.Body)
 		analyses, facts, usage, err := services.ExtractThesesAndArguments(client, processedText)

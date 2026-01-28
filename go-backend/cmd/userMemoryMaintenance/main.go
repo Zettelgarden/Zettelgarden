@@ -11,7 +11,7 @@ import (
 )
 
 func processUserMemory(s *server.Server, userID uint) {
-	client := services.NewDefaultClient(s.DB, int(userID))
+	client := services.NewDefaultClient(s.DB, int(userID), false)
 	client.RequestType = "memory"
 	handlers.CompressUserMemory(s.DB, client, userID)
 

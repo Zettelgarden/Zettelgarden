@@ -206,7 +206,8 @@ func (s *Handler) MergeEntities(userID int, entity1ID int, entity2ID int) error 
 		return fmt.Errorf("failed to delete entity2 fact relationships: %w", err)
 	}
 
-	client := services.NewDefaultClient(s.DB, userID)
+	isTesting := s.Server != nil && s.Server.Testing
+	client := services.NewDefaultClient(s.DB, userID, isTesting)
 	client.RequestType = "other"
 
 	newDescription, err := services.GenerateNewEntityDescription(client, entity1, entity2, entity1.Name)

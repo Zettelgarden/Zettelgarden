@@ -1308,7 +1308,8 @@ func (s *Handler) SuggestCardTitleRoute(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Handler) suggestCardTitle(userID int, body string, userMemory string) (string, error) {
-	client := services.NewDefaultClient(s.DB, userID)
+	isTesting := s.Server != nil && s.Server.Testing
+	client := services.NewDefaultClient(s.DB, userID, isTesting)
 	client.RequestType = "title_suggestion"
 
 	memoryContext := ""

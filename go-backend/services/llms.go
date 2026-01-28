@@ -33,22 +33,22 @@ var ValidChatModels = map[string]ModelPricing{
 	"google/gemini-3-flash-preview": {PromptPer1K: 0.0005, CompletionPer1K: 0.003},
 }
 
-func NewDefaultClient(db *sql.DB, userID int) *models.LLMClient {
+func NewDefaultClient(db *sql.DB, userID int, testing bool) *models.LLMClient {
 	config := openai.DefaultConfig(os.Getenv("ZETTEL_LLM_KEY"))
 	config.BaseURL = os.Getenv("ZETTEL_LLM_ENDPOINT")
-	client := NewClient(db, config, userID)
+	client := NewClient(db, config, userID, testing)
 	client.Model = os.Getenv("ZETTEL_LLM_DEFAULT_MODEL")
 	return client
 }
 
-func NewClient(db *sql.DB, config openai.ClientConfig, userID int) *models.LLMClient {
+func NewClient(db *sql.DB, config openai.ClientConfig, userID int, testing bool) *models.LLMClient {
 	config.HTTPClient = &http.Client{
 		Transport: headerTransport{http.DefaultTransport},
 	}
 
 	return &models.LLMClient{
 		Client:      openai.NewClientWithConfig(config),
-		Testing:     false,
+		Testing:     testing,
 		UserID:      userID,
 		DB:          db,
 		RequestType: "other", // default to chat, can be overridden
@@ -66,7 +66,31 @@ func (t headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.RoundTripper.RoundTrip(req)
 }
 
+// mockLLMResponse creates a mock response for testing mode
+func mockLLMResponse(c *models.LLMClient) openai.ChatCompletionResponse {
+	return openai.ChatCompletionResponse{
+		Choices: []openai.ChatCompletionChoice{
+			{
+				Message: openai.ChatCompletionMessage{
+					Role:    openai.ChatMessageRoleAssistant,
+					Content: "Test response",
+				},
+				Index: 0,
+			},
+		},
+		Usage: openai.Usage{
+			PromptTokens:     10,
+			CompletionTokens: 5,
+			TotalTokens:      15,
+		},
+	}
+}
+
 func ExecuteLLMRequest(ctx context.Context, c *models.LLMClient, messages []openai.ChatCompletionMessage) (openai.ChatCompletionResponse, error) {
+	if c.Testing {
+		return mockLLMResponse(c), nil
+	}
+
 	log.Printf("request")
 	resp, err := c.Client.CreateChatCompletion(
 		ctx,
@@ -86,6 +110,10 @@ func ExecuteLLMRequest(ctx context.Context, c *models.LLMClient, messages []open
 	return resp, err
 }
 func ExecuteLLMToolRequest(ctx context.Context, c *models.LLMClient, messages []openai.ChatCompletionMessage, tools []openai.Tool) (openai.ChatCompletionResponse, error) {
+	if c.Testing {
+		return mockLLMResponse(c), nil
+	}
+
 	log.Printf("request")
 	resp, err := c.Client.CreateChatCompletion(
 		ctx,
@@ -115,6 +143,15 @@ type StreamEvent struct {
 
 // StreamLLMToolRequest executes an LLM request with tool support and streams the response
 func StreamLLMToolRequest(ctx context.Context, c *models.LLMClient, messages []openai.ChatCompletionMessage, tools []openai.Tool) (*openai.ChatCompletionStream, error) {
+	if c.Testing {
+		// For testing mode, streaming is not well-supported due to complex stream types.
+		// Return a simple error that test code can handle.
+		return nil, &openai.APIError{
+			Type:   "test_error",
+			Message: "streaming not supported in test mode",
+		}
+	}
+
 	log.Printf("streaming request")
 	stream, err := c.Client.CreateChatCompletionStream(
 		ctx,
