@@ -1,6 +1,6 @@
 import React from "react";
 import { Menu } from "@headlessui/react";
-import { Card, PartialCard, CardTemplate } from "../../models/Card";
+import { PartialCard } from "../../models/Card";
 import { File } from "../../models/File";
 import { CardBodyTextArea, CardBodyTextAreaHandle } from "./CardBodyTextArea";
 import { MarkdownToolbar } from "./MarkdownToolbar";
@@ -8,21 +8,12 @@ import { BacklinkDialog } from "./BacklinkDialog";
 import { SaveAsTemplateDialog } from "./SaveAsTemplateDialog";
 import { CardIdDiscoveryDialog } from "./CardIdDiscoveryDialog";
 import { Button } from "../Button";
+import { useCardEditorContext } from "../../contexts/editor";
+import { useEditorUIContext } from "../../contexts/editor";
+import { useEditorMessagesContext } from "../../contexts/editor";
 
 interface CardEditorProps {
-  editingCard: Card;
-  setEditingCard: (card: Card | ((prevCard: Card) => Card)) => void;
   newCard: boolean;
-  message: string;
-  setMessage: (message: string) => void;
-  error: string;
-  setError: (error: string) => void;
-  templates: CardTemplate[];
-  loadingTemplates: boolean;
-  templateError: string;
-  handleSelectTemplate: (template: CardTemplate) => void;
-  showTemplateDropdown: boolean;
-  setShowTemplateDropdown: (show: boolean) => void;
   previewModeActive: boolean;
   setPreviewModeActive: (active: boolean) => void;
   cardBodyRef: React.RefObject<CardBodyTextAreaHandle>;
@@ -32,29 +23,11 @@ interface CardEditorProps {
   handleSuggestTitle: () => void;
   filesToUpdate: File[];
   setFilesToUpdate: (files: File[]) => void;
-  showSaveAsTemplate: boolean;
-  showBacklinkDialog: boolean;
-  showCardIdDiscovery: boolean;
-  setShowBacklinkDialog: (show: boolean) => void;
-  setShowSaveAsTemplate: (show: boolean) => void;
-  setShowCardIdDiscovery: (show: boolean) => void;
   addBacklink: (selectedCard: PartialCard) => void;
 }
 
 export function CardEditor({
-  editingCard,
-  setEditingCard,
   newCard,
-  message,
-  setMessage,
-  error,
-  setError,
-  templates,
-  loadingTemplates,
-  templateError,
-  handleSelectTemplate,
-  showTemplateDropdown,
-  setShowTemplateDropdown,
   previewModeActive,
   setPreviewModeActive,
   cardBodyRef,
@@ -64,14 +37,25 @@ export function CardEditor({
   handleSuggestTitle,
   filesToUpdate,
   setFilesToUpdate,
-  showSaveAsTemplate,
-  showBacklinkDialog,
-  showCardIdDiscovery,
-  setShowBacklinkDialog,
-  setShowSaveAsTemplate,
-  setShowCardIdDiscovery,
   addBacklink,
 }: CardEditorProps) {
+  const { editingCard, setEditingCard } = useCardEditorContext();
+  const {
+    showSaveAsTemplate,
+    setShowSaveAsTemplate,
+    showBacklinkDialog,
+    setShowBacklinkDialog,
+    showCardIdDiscovery,
+    setShowCardIdDiscovery,
+    templates,
+    loadingTemplates,
+    templateError,
+    showTemplateDropdown,
+    setShowTemplateDropdown,
+    handleSelectTemplate,
+  } = useEditorUIContext();
+  const { message, setMessage, error, setError } = useEditorMessagesContext();
+
   return (
     <>
       {(message || error) && (

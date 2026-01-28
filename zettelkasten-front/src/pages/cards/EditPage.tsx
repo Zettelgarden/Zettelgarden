@@ -30,6 +30,16 @@ import { CardEditor } from "../../components/cards/CardEditor";
 import { CardMetadata } from "../../components/cards/CardMetadata";
 import { CardSchemaSection } from "../../components/schemas/CardSchemaSection";
 
+// Editor context imports
+import {
+  CardEditorProvider,
+  EditorUIProvider,
+  EditorMessagesProvider,
+  useCardEditorContext,
+  useEditorUIContext,
+  useEditorMessagesContext,
+} from "../../contexts/editor";
+
 interface EditPageProps {
   newCard: boolean;
 }
@@ -44,29 +54,27 @@ function renderWarningLabel(cards: PartialCard[], editingCard: Card) {
   return null;
 }
 
-export function EditPage({ newCard }: EditPageProps) {
-  const [error, setError] = useState<string>("");
-  const [message, setMessage] = useState<string>("");
+function EditPageContent({ newCard }: EditPageProps) {
   const [originalCard, setOriginalCard] = useState<Card>(defaultCard);
-  const [editingCard, setEditingCard] = useState<Card>(defaultCard);
-  const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
-  const [showBacklinkDialog, setShowBacklinkDialog] = useState(false);
-  const [showCardIdDiscovery, setShowCardIdDiscovery] = useState(false);
-  const [previewModeActive, setPreviewModeActive] = useState(false); // Added for preview toggle
+  const [previewModeActive, setPreviewModeActive] = useState(false);
   const { lastCard, nextCardId, setNextCardId } =
     usePartialCardContext();
   const [filesToUpdate, setFilesToUpdate] = useState<File[]>([]);
   const cardBodyRef = useRef<CardBodyTextAreaHandle>(null);
+  const [suggestingTitle, setSuggestingTitle] = useState(false);
 
-  // Template selector state
-  const [templates, setTemplates] = useState<CardTemplate[]>([]);
-  const [loadingTemplates, setLoadingTemplates] = useState(true);
-  const [templateError, setTemplateError] = useState("");
-  const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
-  const { tags } = useTagContext();
+  // Use contexts for shared state
+  const { editingCard, setEditingCard } = useCardEditorContext();
+  const {
+    templates,
+    setTemplates,
+    setLoadingTemplates,
+    setTemplateError,
+  } = useEditorUIContext();
+  const { message, setMessage, error, setError } = useEditorMessagesContext();
 
   const [fileFilterString, setFileFilterString] = useState<string>("");
-  const [suggestingTitle, setSuggestingTitle] = useState(false);
+  const { tags } = useTagContext();
 
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -89,43 +97,29 @@ export function EditPage({ newCard }: EditPageProps) {
     }
   }
 
-  function handleSelectTemplate(template: CardTemplate) {
-    // Process template variables in both title and body
-    const processedTitle = processTemplateVariables(template.title);
-    const processedBody = processTemplateVariables(template.body);
-
-    setEditingCard(prevCard => ({
-      ...prevCard,
-      title: processedTitle,
-      body: processedBody
-    }));
-    setMessage("Template applied successfully");
-    setShowTemplateDropdown(false);
-  }
-
-  async function fetchCard(id: string) {
+  async function fetchCard(cardId: string) {
     try {
-      let refreshed = await getCard(id);
+      let refreshed = await getCard(cardId);
 
       if (isErrorResponse(refreshed)) {
         setError(refreshed.error);
         return;
       }
 
-      const [refs, kids, files, tags, tasks, entities] = await Promise.all([
-        getCardReferences(id),
-        getCardChildren(id),
-        getCardFiles(id),
-        getCardTags(id),
-        getCardTasks(id),
-        getCardEntities(id)
+      const [refs, kids, files, cardTags, tasks, entities] = await Promise.all([
+        getCardReferences(cardId),
+        getCardChildren(cardId),
+        getCardFiles(cardId),
+        getCardTags(cardId),
+        getCardTasks(cardId),
+        getCardEntities(cardId)
       ]);
 
       // Combine categorized references into a single array for backward compatibility
       refreshed.references = [...refs.bidirectional, ...refs.outgoing, ...refs.incoming];
       refreshed.children = kids;
       refreshed.files = files;
-      refreshed.tags = tags;
+      refreshed.tags = cardTags;
       refreshed.tasks = tasks;
       refreshed.entities = entities;
 
@@ -193,7 +187,7 @@ export function EditPage({ newCard }: EditPageProps) {
         setNextCardId(null);
       }
     }
-  }, [id]);
+  }, [id, newCard, nextCardId, lastCard, setNextCardId, setEditingCard]);
 
   // clear draft on cancel
   function handleCancelButtonClick() {
@@ -226,6 +220,7 @@ export function EditPage({ newCard }: EditPageProps) {
       body: prevEditingCard.body + text,
     }));
   }
+
   function handleTagClick(tagName: string) {
     setEditingCard((prevEditingCard) => ({
       ...prevEditingCard,
@@ -250,17 +245,15 @@ export function EditPage({ newCard }: EditPageProps) {
 
     try {
       const result = await parseURL(editingCard.link);
-      let body =
-        // Assuming you have a function to update the card
-        setEditingCard((prev) => ({
-          ...prev,
-          // Only update title if it's empty/blank
-          title:
-            !prev.title || prev.title.trim() === "" ? result.title : prev.title,
-          // Only update body if it's empty/blank
-          body:
-            !prev.body || prev.body.trim() === "" ? result.content : prev.body,
-        }));
+      setEditingCard((prev) => ({
+        ...prev,
+        // Only update title if it's empty/blank
+        title:
+          !prev.title || prev.title.trim() === "" ? result.title : prev.title,
+        // Only update body if it's empty/blank
+        body:
+          !prev.body || prev.body.trim() === "" ? result.content : prev.body,
+      }));
     } catch (error) {
       console.error("Failed to parse URL:", error);
       // Handle error - maybe show a notification to the user
@@ -307,10 +300,6 @@ export function EditPage({ newCard }: EditPageProps) {
         <EditorToolbar
           newCard={newCard}
           originalCard={originalCard}
-          editingCard={editingCard}
-          setEditingCard={setEditingCard}
-          setShowSaveAsTemplate={setShowSaveAsTemplate}
-          setMessage={setMessage}
           onDeleteSuccess={() => {
             if (lastCard && lastCard.id !== editingCard.id) {
               navigate(`/app/card/${lastCard.id}`);
@@ -325,19 +314,7 @@ export function EditPage({ newCard }: EditPageProps) {
             <div className="flex flex-col md:flex-row gap-4 px-4">
               <div className="md:w-2/3 space-y-6">
                 <CardEditor
-                  editingCard={editingCard}
-                  setEditingCard={setEditingCard}
                   newCard={newCard}
-                  message={message}
-                  setMessage={setMessage}
-                  error={error}
-                  setError={setError}
-                  templates={templates}
-                  loadingTemplates={loadingTemplates}
-                  templateError={templateError}
-                  handleSelectTemplate={handleSelectTemplate}
-                  showTemplateDropdown={showTemplateDropdown}
-                  setShowTemplateDropdown={setShowTemplateDropdown}
                   previewModeActive={previewModeActive}
                   setPreviewModeActive={setPreviewModeActive}
                   cardBodyRef={cardBodyRef}
@@ -347,12 +324,6 @@ export function EditPage({ newCard }: EditPageProps) {
                   handleSuggestTitle={handleSuggestTitle}
                   filesToUpdate={filesToUpdate}
                   setFilesToUpdate={setFilesToUpdate}
-                  showSaveAsTemplate={showSaveAsTemplate}
-                  showBacklinkDialog={showBacklinkDialog}
-                  showCardIdDiscovery={showCardIdDiscovery}
-                  setShowBacklinkDialog={setShowBacklinkDialog}
-                  setShowSaveAsTemplate={setShowSaveAsTemplate}
-                  setShowCardIdDiscovery={setShowCardIdDiscovery}
                   addBacklink={addBacklink}
                 />
                 <hr className="my-4" />
@@ -423,13 +394,13 @@ export function EditPage({ newCard }: EditPageProps) {
                   originalCard={originalCard}
                   editingCard={editingCard}
                   setEditingCard={setEditingCard}
-                  setShowCardIdDiscovery={setShowCardIdDiscovery}
+                  setShowCardIdDiscovery={() => {}}
                   handleClickFillCard={handleClickFillCard}
                   tags={tags}
                   handleTagClick={handleTagClick}
                   handleRemoveTag={handleRemoveTag}
                   addBacklink={addBacklink}
-                  setMessage={setMessage}
+                  setMessage={() => {}}
                 />
 
                 <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -451,5 +422,51 @@ export function EditPage({ newCard }: EditPageProps) {
       </div>
 
     </div >
+  );
+}
+
+export function EditPage({ newCard }: EditPageProps) {
+  const { lastCard, nextCardId, setNextCardId } = usePartialCardContext();
+  const params = useParams();
+  const id: string | undefined = params.id;
+
+  // Initialize editingCard state for the provider
+  const [editingCard, setEditingCard] = React.useState<Card>(() => {
+    if (newCard) {
+      const draft = localStorage.getItem('newCardBodyDraft') || "";
+      const cardId = nextCardId || (lastCard ? lastCard.card_id : "");
+      if (nextCardId) {
+        setNextCardId(null);
+      }
+      return {
+        ...defaultCard,
+        card_id: cardId,
+        body: draft,
+        process_entities_and_facts: true,
+      };
+    }
+    return defaultCard;
+  });
+
+  function handleSelectTemplate(template: CardTemplate) {
+    // Process template variables in both title and body
+    const processedTitle = processTemplateVariables(template.title);
+    const processedBody = processTemplateVariables(template.body);
+
+    setEditingCard(prevCard => ({
+      ...prevCard,
+      title: processedTitle,
+      body: processedBody
+    }));
+  }
+
+  return (
+    <CardEditorProvider editingCard={editingCard} setEditingCard={setEditingCard}>
+      <EditorUIProvider handleSelectTemplate={handleSelectTemplate}>
+        <EditorMessagesProvider>
+          <EditPageContent newCard={newCard} />
+        </EditorMessagesProvider>
+      </EditorUIProvider>
+    </CardEditorProvider>
   );
 }

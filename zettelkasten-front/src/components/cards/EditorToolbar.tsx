@@ -2,26 +2,25 @@ import React from "react";
 import { Menu } from "@headlessui/react";
 import { Card } from "../../models/Card";
 import { deleteCard } from "../../api/cards";
+import { useCardEditorContext } from "../../contexts/editor";
+import { useEditorUIContext } from "../../contexts/editor";
+import { useEditorMessagesContext } from "../../contexts/editor";
 
 interface EditorToolbarProps {
   newCard: boolean;
   originalCard: Card;
-  editingCard: Card;
-  setEditingCard: (card: Card) => void;
-  setShowSaveAsTemplate: (show: boolean) => void;
-  setMessage: (message: string) => void;
   onDeleteSuccess: () => void;
 }
 
 export function EditorToolbar({
   newCard,
   originalCard,
-  editingCard,
-  setEditingCard,
-  setShowSaveAsTemplate,
-  setMessage,
   onDeleteSuccess,
 }: EditorToolbarProps) {
+  const { editingCard, setEditingCard } = useCardEditorContext();
+  const { setShowSaveAsTemplate } = useEditorUIContext();
+  const { setMessage } = useEditorMessagesContext();
+
   return (
     <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white rounded-lg p-3 shadow-sm">
       <div className="flex-grow">

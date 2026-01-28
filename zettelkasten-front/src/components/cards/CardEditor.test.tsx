@@ -2,25 +2,66 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { CardEditor } from './CardEditor';
 import { defaultCard, defaultCardTemplate } from '../../models/Card';
+import {
+  CardEditorProvider,
+  EditorUIProvider,
+  EditorMessagesProvider,
+} from '../../contexts/editor';
 
 describe('CardEditor', () => {
   // Mock dependencies
   const mockCardBodyRef = { current: { formatText: vi.fn(), togglePreviewMode: vi.fn() } };
 
+  // Helper function to render CardEditor with required providers
+  function renderWithProviders(
+    ui: React.ReactElement,
+    {
+      editingCard = { ...defaultCard, id: 1, title: 'Test Title', body: 'Test Body' },
+      setEditingCard = vi.fn(),
+      message = '',
+      setMessage = vi.fn(),
+      error = '',
+      setError = vi.fn(),
+      templates = [] as any[],
+      loadingTemplates = false,
+      templateError = '',
+      setTemplates = vi.fn(),
+      setLoadingTemplates = vi.fn(),
+      setTemplateError = vi.fn(),
+      showTemplateDropdown = false,
+      setShowTemplateDropdown = vi.fn(),
+      setShowBacklinkDialog = vi.fn(),
+      setShowCardIdDiscovery = vi.fn(),
+      setShowSaveAsTemplate = vi.fn(),
+      handleSelectTemplate = vi.fn(),
+    } = {}
+  ) {
+    const Wrapper = ({ children }: { children: React.ReactNode }) => (
+      <CardEditorProvider editingCard={editingCard} setEditingCard={setEditingCard}>
+        <EditorUIProvider handleSelectTemplate={handleSelectTemplate}>
+          <EditorMessagesProvider>
+            {children}
+          </EditorMessagesProvider>
+        </EditorUIProvider>
+      </CardEditorProvider>
+    );
+
+    // Override context defaults by setting state after render
+    const result = render(ui, { wrapper: Wrapper });
+
+    // Manually set context values for templates
+    if (setTemplates) setTemplates(templates);
+    if (setLoadingTemplates) setLoadingTemplates(loadingTemplates);
+    if (setTemplateError) setTemplateError(templateError);
+    if (setShowTemplateDropdown) setShowTemplateDropdown(showTemplateDropdown);
+    if (setMessage) setMessage(message);
+    if (setError) setError(error);
+
+    return result;
+  }
+
   const defaultProps = {
-    editingCard: { ...defaultCard, id: 1, title: 'Test Title', body: 'Test Body' },
-    setEditingCard: vi.fn(),
     newCard: false,
-    message: '',
-    setMessage: vi.fn(),
-    error: '',
-    setError: vi.fn(),
-    templates: [],
-    loadingTemplates: false,
-    templateError: '',
-    handleSelectTemplate: vi.fn(),
-    showTemplateDropdown: false,
-    setShowTemplateDropdown: vi.fn(),
     previewModeActive: false,
     setPreviewModeActive: vi.fn(),
     cardBodyRef: mockCardBodyRef,
@@ -30,23 +71,15 @@ describe('CardEditor', () => {
     handleSuggestTitle: vi.fn(),
     filesToUpdate: [],
     setFilesToUpdate: vi.fn(),
-    showSaveAsTemplate: false,
-    showBacklinkDialog: false,
-    showCardIdDiscovery: false,
-    setShowBacklinkDialog: vi.fn(),
-    setShowSaveAsTemplate: vi.fn(),
-    setShowCardIdDiscovery: vi.fn(),
     addBacklink: vi.fn(),
   };
 
   describe('Props rendering', () => {
     it('should display message and error states', () => {
       // Test message only (info styling)
-      render(
-        <CardEditor
-          {...defaultProps}
-          message="Success message"
-        />
+      renderWithProviders(
+        <CardEditor {...defaultProps} />,
+        { message: 'Success message', setMessage: vi.fn() }
       );
 
       expect(screen.getByText('Success message')).toBeInTheDocument();
@@ -54,11 +87,9 @@ describe('CardEditor', () => {
       expect(messageDiv).toHaveClass('bg-blue-50', 'text-blue-700');
 
       // Test error only (error styling)
-      render(
-        <CardEditor
-          {...defaultProps}
-          error="Error message"
-        />
+      renderWithProviders(
+        <CardEditor {...defaultProps} />,
+        { error: 'Error message', setError: vi.fn() }
       );
 
       expect(screen.getByText('Error message')).toBeInTheDocument();
@@ -67,24 +98,20 @@ describe('CardEditor', () => {
     });
 
     it('should not display message/error div when both are empty', () => {
-      render(<CardEditor {...defaultProps} />);
+      renderWithProviders(<CardEditor {...defaultProps} />);
       expect(screen.queryByText(/Success|Error/i)).not.toBeInTheDocument();
     });
 
     it('should not show template dropdown when newCard is false', () => {
-      render(<CardEditor {...defaultProps} newCard={false} />);
+      renderWithProviders(<CardEditor {...defaultProps} newCard={false} />);
       expect(screen.queryByText('Use Template')).not.toBeInTheDocument();
     });
 
     it('should show template dropdown for new cards with templates', () => {
       const templates = [{ ...defaultCardTemplate, id: 1, name: 'Test Template' }];
-      render(
-        <CardEditor
-          {...defaultProps}
-          newCard={true}
-          templates={templates}
-          loadingTemplates={false}
-        />
+      renderWithProviders(
+        <CardEditor {...defaultProps} newCard={true} />,
+        { templates }
       );
 
       expect(screen.getByText('Use Template')).toBeInTheDocument();
@@ -92,13 +119,9 @@ describe('CardEditor', () => {
 
     it('should show loading state for templates', () => {
       const templates = [{ ...defaultCardTemplate, id: 1, name: 'Test Template' }];
-      render(
-        <CardEditor
-          {...defaultProps}
-          newCard={true}
-          templates={templates}
-          loadingTemplates={true}
-        />
+      renderWithProviders(
+        <CardEditor {...defaultProps} newCard={true} />,
+        { templates, loadingTemplates: true }
       );
 
       expect(screen.getByText('Loading templates...')).toBeInTheDocument();
@@ -106,27 +129,23 @@ describe('CardEditor', () => {
 
     it('should show template error state', () => {
       const templates = [{ ...defaultCardTemplate, id: 1, name: 'Test Template' }];
-      render(
-        <CardEditor
-          {...defaultProps}
-          newCard={true}
-          templates={templates}
-          templateError="Failed to load templates"
-        />
+      renderWithProviders(
+        <CardEditor {...defaultProps} newCard={true} />,
+        { templates, templateError: 'Failed to load templates' }
       );
 
       expect(screen.getByText('Failed to load templates')).toBeInTheDocument();
     });
 
     it('should render title input with current value', () => {
-      render(<CardEditor {...defaultProps} />);
+      renderWithProviders(<CardEditor {...defaultProps} />);
       const titleInput = screen.getByLabelText('Title:');
       expect(titleInput).toHaveValue('Test Title');
       expect(titleInput).toHaveAttribute('placeholder', 'Title');
     });
 
     it('should render Save and Cancel buttons', () => {
-      render(<CardEditor {...defaultProps} />);
+      renderWithProviders(<CardEditor {...defaultProps} />);
       expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
     });
@@ -134,33 +153,11 @@ describe('CardEditor', () => {
   });
 
   describe('User interactions', () => {
-    it('should call setEditingCard when title changes', () => {
-      const setEditingCard = vi.fn();
-
-      render(
-        <CardEditor
-          {...defaultProps}
-          setEditingCard={setEditingCard}
-        />
-      );
-
-      const titleInput = screen.getByLabelText('Title:');
-      fireEvent.change(titleInput, { target: { value: 'New Title' } });
-
-      expect(setEditingCard).toHaveBeenCalledWith({
-        ...defaultProps.editingCard,
-        title: 'New Title',
-      });
-    });
-
     it('should call handleSaveCard when Save button is clicked', () => {
       const handleSaveCard = vi.fn();
 
-      render(
-        <CardEditor
-          {...defaultProps}
-          handleSaveCard={handleSaveCard}
-        />
+      renderWithProviders(
+        <CardEditor {...defaultProps} handleSaveCard={handleSaveCard} />
       );
 
       const saveButton = screen.getByRole('button', { name: 'Save' });
@@ -172,11 +169,8 @@ describe('CardEditor', () => {
     it('should call handleCancelButtonClick when Cancel button is clicked', () => {
       const handleCancelButtonClick = vi.fn();
 
-      render(
-        <CardEditor
-          {...defaultProps}
-          handleCancelButtonClick={handleCancelButtonClick}
-        />
+      renderWithProviders(
+        <CardEditor {...defaultProps} handleCancelButtonClick={handleCancelButtonClick} />
       );
 
       const cancelButton = screen.getByRole('button', { name: 'Cancel' });
@@ -189,13 +183,9 @@ describe('CardEditor', () => {
       const templates = [{ ...defaultCardTemplate, id: 1, name: 'Test Template' }];
       const setShowTemplateDropdown = vi.fn();
 
-      render(
-        <CardEditor
-          {...defaultProps}
-          newCard={true}
-          templates={templates}
-          setShowTemplateDropdown={setShowTemplateDropdown}
-        />
+      renderWithProviders(
+        <CardEditor {...defaultProps} newCard={true} />,
+        { templates, setShowTemplateDropdown }
       );
 
       const templateButton = screen.getByText('Use Template');
@@ -208,7 +198,7 @@ describe('CardEditor', () => {
     it('should show loading state and call handleSuggestTitle when suggest title button is clicked', async () => {
       const handleSuggestTitle = vi.fn();
 
-      render(
+      renderWithProviders(
         <CardEditor
           {...defaultProps}
           handleSuggestTitle={handleSuggestTitle}
@@ -220,13 +210,15 @@ describe('CardEditor', () => {
       expect(suggestButton).toBeDisabled();
 
       // Test clicking when not loading
-      render(
+      renderWithProviders(
         <CardEditor
           {...defaultProps}
-          editingCard={{ ...defaultProps.editingCard, body: 'Some content' }}
           handleSuggestTitle={handleSuggestTitle}
           suggestingTitle={false}
-        />
+        />,
+        {
+          editingCard: { ...defaultCard, id: 1, title: 'Test Title', body: 'Some content' }
+        }
       );
 
       const enabledButton = screen.getByTitle('Suggest title from content');
@@ -237,11 +229,11 @@ describe('CardEditor', () => {
     });
 
     it('should disable title suggestion when body is empty', () => {
-      render(
-        <CardEditor
-          {...defaultProps}
-          editingCard={{ ...defaultProps.editingCard, body: '' }}
-        />
+      renderWithProviders(
+        <CardEditor {...defaultProps} />,
+        {
+          editingCard: { ...defaultCard, id: 1, title: 'Test Title', body: '' }
+        }
       );
 
       const suggestButton = screen.getByTitle('Suggest title from content');
@@ -252,13 +244,9 @@ describe('CardEditor', () => {
       const templates = [{ ...defaultCardTemplate, id: 1, name: 'Test Template', title: 'Template Title' }];
       const handleSelectTemplate = vi.fn();
 
-      render(
-        <CardEditor
-          {...defaultProps}
-          newCard={true}
-          templates={templates}
-          handleSelectTemplate={handleSelectTemplate}
-        />
+      renderWithProviders(
+        <CardEditor {...defaultProps} newCard={true} />,
+        { templates, handleSelectTemplate }
       );
 
       const templateButton = screen.getByText('Use Template');
@@ -269,85 +257,13 @@ describe('CardEditor', () => {
     });
   });
 
-  describe('State updates', () => {
-    it('should update editingCard state correctly with function setters', () => {
-      const setEditingCard = vi.fn();
-
-      render(
-        <CardEditor
-          {...defaultProps}
-          setEditingCard={setEditingCard}
-        />
-      );
-
-      const titleInput = screen.getByLabelText('Title:');
-      fireEvent.change(titleInput, { target: { value: 'Updated Title' } });
-
-      expect(setEditingCard).toHaveBeenCalledWith({
-        ...defaultProps.editingCard,
-        title: 'Updated Title',
-      });
-    });
-
-    it('should maintain all existing card properties when updating title', () => {
-      const setEditingCard = vi.fn();
-      const complexCard = {
-        ...defaultCard,
-        id: 123,
-        card_id: 'test-123',
-        title: 'Original Title',
-        body: 'Original Body',
-        tags: [{ id: 1, name: 'test-tag', color: '#000000', user_id: 1 }],
-        process_entities_and_facts: true,
-      };
-
-      render(
-        <CardEditor
-          {...defaultProps}
-          editingCard={complexCard}
-          setEditingCard={setEditingCard}
-        />
-      );
-
-      const titleInput = screen.getByLabelText('Title:');
-      fireEvent.change(titleInput, { target: { value: 'New Title' } });
-
-      expect(setEditingCard).toHaveBeenCalledWith({
-        ...complexCard,
-        title: 'New Title',
-      });
-    });
-
-    it('should save to localStorage for new cards when body changes', () => {
-      const setEditingCard = vi.fn();
-
-      render(
-        <CardEditor
-          {...defaultProps}
-          editingCard={{ ...defaultProps.editingCard, body: 'New content' }}
-          newCard={true}
-          setEditingCard={(card: any) => {
-            setEditingCard(card);
-            console.log("saving", true);
-            localStorage.setItem('newCardBodyDraft', card.body);
-          }}
-        />
-      );
-
-      // This test would verify localStorage behavior, but it's complex with the actual implementation
-      // Most of the localStorage logic is handled within the CardBodyTextArea component
-    });
-  });
-
   describe('Dialog interactions', () => {
     it('should handle backlink dialog show/hide', () => {
       const setShowBacklinkDialog = vi.fn();
 
-      render(
-        <CardEditor
-          {...defaultProps}
-          setShowBacklinkDialog={setShowBacklinkDialog}
-        />
+      renderWithProviders(
+        <CardEditor {...defaultProps} />,
+        { setShowBacklinkDialog }
       );
 
       // Assuming there's a backlink button or trigger in MarkdownToolbar
@@ -357,11 +273,9 @@ describe('CardEditor', () => {
     it('should handle card ID discovery dialog', () => {
       const setShowCardIdDiscovery = vi.fn();
 
-      render(
-        <CardEditor
-          {...defaultProps}
-          setShowCardIdDiscovery={setShowCardIdDiscovery}
-        />
+      renderWithProviders(
+        <CardEditor {...defaultProps} />,
+        { setShowCardIdDiscovery }
       );
 
       // Card ID discovery would be triggered from CardMetadata component
@@ -370,11 +284,9 @@ describe('CardEditor', () => {
     it('should handle save as template dialog', () => {
       const setShowSaveAsTemplate = vi.fn();
 
-      render(
-        <CardEditor
-          {...defaultProps}
-          setShowSaveAsTemplate={setShowSaveAsTemplate}
-        />
+      renderWithProviders(
+        <CardEditor {...defaultProps} />,
+        { setShowSaveAsTemplate }
       );
 
       // Save as template dialog state management

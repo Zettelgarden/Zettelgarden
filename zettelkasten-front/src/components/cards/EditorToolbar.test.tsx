@@ -2,27 +2,51 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { EditorToolbar } from './EditorToolbar';
 import { defaultCard } from '../../models/Card';
+import {
+  CardEditorProvider,
+  EditorUIProvider,
+  EditorMessagesProvider,
+} from '../../contexts/editor';
 
 describe('EditorToolbar', () => {
+  // Helper function to render EditorToolbar with required providers
+  function renderWithProviders(
+    ui: React.ReactElement,
+    {
+      editingCard = { ...defaultCard, id: 1, card_id: '1', title: 'Test Card' },
+      setEditingCard = vi.fn(),
+      setShowSaveAsTemplate = vi.fn(),
+      setMessage = vi.fn(),
+    } = {}
+  ) {
+    const Wrapper = ({ children }: { children: React.ReactNode }) => (
+      <CardEditorProvider editingCard={editingCard} setEditingCard={setEditingCard}>
+        <EditorUIProvider handleSelectTemplate={vi.fn()}>
+          <EditorMessagesProvider>
+            {children}
+          </EditorMessagesProvider>
+        </EditorUIProvider>
+      </CardEditorProvider>
+    );
+
+    return render(ui, { wrapper: Wrapper });
+  }
+
   const defaultProps = {
     newCard: false,
     originalCard: { ...defaultCard, id: 1, card_id: '1', title: 'Test Card' },
-    editingCard: { ...defaultCard, id: 1, card_id: '1', title: 'Test Card' },
-    setEditingCard: vi.fn(),
-    setShowSaveAsTemplate: vi.fn(),
-    setMessage: vi.fn(),
     onDeleteSuccess: vi.fn(),
   };
 
   describe('Props rendering', () => {
     it('should display "New Card" when newCard is true', () => {
-      render(<EditorToolbar {...defaultProps} newCard={true} />);
+      renderWithProviders(<EditorToolbar {...defaultProps} newCard={true} />);
       expect(screen.getByText('New Card')).toBeInTheDocument();
       expect(screen.queryByText('[1]')).not.toBeInTheDocument();
     });
 
     it('should display card ID and title when newCard is false', () => {
-      render(<EditorToolbar {...defaultProps} />);
+      renderWithProviders(<EditorToolbar {...defaultProps} />);
       expect(screen.getByText('[1]')).toBeInTheDocument();
       expect(screen.getByText((content, element) => {
         return content.includes('Test Card');
@@ -31,7 +55,7 @@ describe('EditorToolbar', () => {
     });
 
     it('should render the menu button with three dots icon', () => {
-      render(<EditorToolbar {...defaultProps} />);
+      renderWithProviders(<EditorToolbar {...defaultProps} />);
       const menuButton = screen.getByRole('button');
       expect(menuButton).toBeInTheDocument();
     });
@@ -39,7 +63,7 @@ describe('EditorToolbar', () => {
 
   describe('Menu interactions', () => {
     it('should show "Process Entities & Facts" checkbox only when not newCard', () => {
-      render(<EditorToolbar {...defaultProps} />);
+      renderWithProviders(<EditorToolbar {...defaultProps} />);
 
       // Open menu
       const menuButton = screen.getByRole('button');
@@ -50,7 +74,7 @@ describe('EditorToolbar', () => {
     });
 
     it('should not show "Process Entities & Facts" checkbox when newCard is true', () => {
-      render(<EditorToolbar {...defaultProps} newCard={true} />);
+      renderWithProviders(<EditorToolbar {...defaultProps} newCard={true} />);
 
       // Open menu
       const menuButton = screen.getByRole('button');
@@ -64,12 +88,9 @@ describe('EditorToolbar', () => {
       const setEditingCard = vi.fn();
       const editingCard = { ...defaultCard, id: 1, process_entities_and_facts: false };
 
-      render(
-        <EditorToolbar
-          {...defaultProps}
-          editingCard={editingCard}
-          setEditingCard={setEditingCard}
-        />
+      renderWithProviders(
+        <EditorToolbar {...defaultProps} />,
+        { editingCard, setEditingCard }
       );
 
       // Open menu
@@ -90,11 +111,9 @@ describe('EditorToolbar', () => {
     it('should call setShowSaveAsTemplate when "Save as Template" menu item is clicked', () => {
       const setShowSaveAsTemplate = vi.fn();
 
-      render(
-        <EditorToolbar
-          {...defaultProps}
-          setShowSaveAsTemplate={setShowSaveAsTemplate}
-        />
+      renderWithProviders(
+        <EditorToolbar {...defaultProps} />,
+        { setShowSaveAsTemplate }
       );
 
       // Open menu
@@ -109,7 +128,7 @@ describe('EditorToolbar', () => {
     });
 
     it('should update active state styling on menu items', () => {
-      render(<EditorToolbar {...defaultProps} />);
+      renderWithProviders(<EditorToolbar {...defaultProps} />);
 
       // Open menu
       const menuButton = screen.getByRole('button');
@@ -132,12 +151,9 @@ describe('EditorToolbar', () => {
         process_entities_and_facts: false
       };
 
-      render(
-        <EditorToolbar
-          {...defaultProps}
-          editingCard={editingCard}
-          setEditingCard={setEditingCard}
-        />
+      renderWithProviders(
+        <EditorToolbar {...defaultProps} />,
+        { editingCard, setEditingCard }
       );
 
       // Open menu
