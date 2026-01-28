@@ -19,7 +19,7 @@ import (
 func (s *Handler) ExtractSaveCardFacts(userID int, cardPK int, facts []string) ([]models.Fact, error) {
 	var results []models.Fact
 
-	tx, err := s.DB.Begin()
+	tx, err := s.BeginTx()
 	if err != nil {
 		log.Printf("ExtractSaveCardFacts: failed to begin transaction: %v", err)
 		return results, err
@@ -82,13 +82,15 @@ func (s *Handler) ExtractSaveCardFacts(userID int, cardPK int, facts []string) (
 		}
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		return results, err
+	if s.ShouldCommitTx() {
+		err = tx.Commit()
+		if err != nil {
+			return results, err
+		}
 	}
 
 	// Fetch the saved facts back, now with IDs, so we can run entity extraction
-	rows, err := s.DB.Query(`
+	rows, err := s.Executor().Query(`
 		SELECT f.id, f.user_id, fcj.card_pk, f.fact, f.created_at, f.updated_at,
 		c.id, c.card_id, c.title, c.parent_id
 		FROM facts f
@@ -146,7 +148,7 @@ func (s *Handler) GetEntityFacts(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("entity id %v", entityID)
 
-	rows, err := s.DB.Query(`
+	rows, err := s.Executor().Query(`
 		SELECT f.id, f.fact, f.created_at, f.updated_at,
 		       c.id, c.card_id, c.user_id, c.title, c.parent_id,
 		       c.created_at, c.updated_at
@@ -214,7 +216,7 @@ func (s *Handler) GetCardFacts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := s.DB.Query(`
+	rows, err := s.Executor().Query(`
 		SELECT f.id, f.fact, f.created_at, f.updated_at
 		FROM facts f
 		JOIN fact_card_junction fcj ON f.id = fcj.fact_id
@@ -255,7 +257,7 @@ func (s *Handler) GetFactEntities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := s.DB.Query(`
+	rows, err := s.Executor().Query(`
 		SELECT e.id, e.name, e.description, e.type, e.created_at, e.updated_at
 		FROM entities e
 		JOIN entity_fact_junction efj ON efj.entity_id = e.id
@@ -370,7 +372,7 @@ func (s *Handler) GetAllFacts(w http.ResponseWriter, r *http.Request) {
 		countArgs = []interface{}{userID}
 	}
 
-	rows, err := s.DB.Query(query, queryArgs...)
+	rows, err := s.Executor().Query(query, queryArgs...)
 	if err != nil {
 		log.Printf("Error querying facts: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -403,7 +405,7 @@ func (s *Handler) GetAllFacts(w http.ResponseWriter, r *http.Request) {
 
 	// Get total count for pagination
 	var total int
-	err = s.DB.QueryRow(countQuery, countArgs...).Scan(&total)
+	err = s.Executor().QueryRow(countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		log.Printf("Error counting facts: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -492,7 +494,7 @@ func (s *Handler) extractSaveFactEntitiesSync(userID int, card models.Card, fact
 			log.Printf("entity %v", entity.Name)
 
 			var entityID int
-			err = s.DB.QueryRow(`
+			err = s.Executor().QueryRow(`
 				SELECT id FROM entities WHERE user_id = $1 AND name = $2
 			`, userID, entity.Name).Scan(&entityID)
 
@@ -508,7 +510,7 @@ func (s *Handler) extractSaveFactEntitiesSync(userID int, card models.Card, fact
 				}
 
 				// no entity found, insert
-				err = s.DB.QueryRow(`
+				err = s.Executor().QueryRow(`
 					INSERT INTO entities (user_id, name, description, type, card_pk)
 					VALUES ($1, $2, $3, $4, $5)
 					RETURNING id
@@ -519,7 +521,7 @@ func (s *Handler) extractSaveFactEntitiesSync(userID int, card models.Card, fact
 				}
 			} else {
 				// entity exists, update
-				_, err = s.DB.Exec(`
+				_, err = s.Executor().Exec(`
 					UPDATE entities SET description=$1, type=$2, updated_at=NOW() WHERE id=$3
 				`, entity.Description, entity.Type, entityID)
 				if err != nil {
@@ -529,7 +531,7 @@ func (s *Handler) extractSaveFactEntitiesSync(userID int, card models.Card, fact
 			}
 
 			// link entity to fact
-			_, err = s.DB.Exec(`
+			_, err = s.Executor().Exec(`
 				INSERT INTO entity_fact_junction (user_id, entity_id, fact_id, created_at, updated_at)
 				VALUES ($1, $2, $3, NOW(), NOW())
 				ON CONFLICT (entity_id, fact_id) DO UPDATE SET updated_at = NOW()
@@ -540,7 +542,7 @@ func (s *Handler) extractSaveFactEntitiesSync(userID int, card models.Card, fact
 			}
 
 			// link entity to fact
-			_, err = s.DB.Exec(`
+			_, err = s.Executor().Exec(`
 				INSERT INTO entity_card_junction (user_id, entity_id, card_pk, chunk_id)
 				VALUES ($1, $2, $3, $4)
 				ON CONFLICT (entity_id, card_pk) DO UPDATE SET updated_at = NOW()
@@ -556,11 +558,14 @@ func (s *Handler) extractSaveFactEntitiesSync(userID int, card models.Card, fact
 
 // MergeFacts merges fact2 into fact1 for a given user and deletes fact2
 func (s *Handler) MergeFacts(userID int, fact1ID int, fact2ID int) error {
-	tx, err := s.DB.Begin()
+	tx, err := s.BeginTx()
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	// Only rollback if we're not in testing mode (test framework handles cleanup)
+	if s.ShouldCommitTx() {
+		defer tx.Rollback()
+	}
 
 	// Ensure both facts exist and belong to the user
 	var f1, f2 models.Fact
@@ -607,10 +612,12 @@ func (s *Handler) MergeFacts(userID int, fact1ID int, fact2ID int) error {
 		return err
 	}
 
-	if err = tx.Commit(); err != nil {
-		return err
+	if s.ShouldCommitTx() {
+		if err = tx.Commit(); err != nil {
+			return err
+		}
+		s.deleteFactTypesense(fact2ID)
 	}
-	s.deleteFactTypesense(fact2ID)
 	return nil
 }
 
@@ -686,7 +693,7 @@ func (s *Handler) GetFact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var fact FactWithCard
-	err = s.DB.QueryRow(`
+	err = s.Executor().QueryRow(`
 		SELECT f.id, f.fact, f.created_at, f.updated_at,
 		       c.id, c.card_id, c.user_id, c.title, c.parent_id,
 		       c.created_at, c.updated_at
@@ -720,7 +727,7 @@ func (s *Handler) GetFact(w http.ResponseWriter, r *http.Request) {
 // GetFactByID returns a single fact by ID
 func (s *Handler) GetFactByID(userID int, factID int) (*models.Fact, error) {
 	var fact models.Fact
-	err := s.DB.QueryRow(`
+	err := s.Executor().QueryRow(`
 		SELECT id, user_id, card_pk, fact, created_at, updated_at
 		FROM facts
 		WHERE id = $1 AND user_id = $2
@@ -798,7 +805,7 @@ func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 		ORDER BY array_position($1, f.id)
 	`
 
-	rows, err := s.DB.Query(query, pq.Array(factIDs))
+	rows, err := s.Executor().Query(query, pq.Array(factIDs))
 	if err != nil {
 		log.Printf("error querying similar facts from db: %v", err)
 		http.Error(w, "Failed to query similar facts", http.StatusInternalServerError)
@@ -850,12 +857,14 @@ func (s *Handler) DeleteFactRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx, err := s.DB.Begin()
+	tx, err := s.BeginTx()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer tx.Rollback()
+	if s.ShouldCommitTx() {
+		defer tx.Rollback()
+	}
 
 	// Verify fact belongs to user
 	var exists bool
@@ -876,12 +885,13 @@ func (s *Handler) DeleteFactRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = tx.Commit(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if s.ShouldCommitTx() {
+		if err = tx.Commit(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		s.deleteFactTypesense(factID)
 	}
-
-	s.deleteFactTypesense(factID)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
@@ -913,12 +923,14 @@ func (s *Handler) UpdateFact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx, err := s.DB.Begin()
+	tx, err := s.BeginTx()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer tx.Rollback()
+	if s.ShouldCommitTx() {
+		defer tx.Rollback()
+	}
 
 	_, err = tx.Exec(`
 		UPDATE facts
@@ -930,15 +942,17 @@ func (s *Handler) UpdateFact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = tx.Commit(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if s.ShouldCommitTx() {
+		if err = tx.Commit(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Re-fetch the fact and card info to update Typesense
 	var fact models.Fact
 	var card models.PartialCard
-	err = s.DB.QueryRow(`
+	err = s.Executor().QueryRow(`
 		SELECT f.id, f.user_id, fcj.card_pk, f.fact, f.created_at, f.updated_at,
 		c.id, c.card_id, c.title, c.parent_id
 		FROM facts f
@@ -979,7 +993,7 @@ func (s *Handler) GetFactCards(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := s.DB.Query(`
+	rows, err := s.Executor().Query(`
 		SELECT c.id, c.card_id, c.user_id, c.title, c.parent_id, c.created_at, c.updated_at
 		FROM cards c
 		JOIN fact_card_junction fcj ON c.id = fcj.card_pk

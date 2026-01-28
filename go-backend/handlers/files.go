@@ -99,7 +99,7 @@ func (s *Handler) generateAndUploadThumbnail(userID int, fileID int, sourcePath,
 	s.uploadObject(s.Server.S3, thumbnailS3Key, thumbnailTempPath)
 
 	// Update database with thumbnail path
-	_, err = s.DB.Exec("UPDATE files SET thumbnail_path = $1 WHERE id = $2", thumbnailS3Key, fileID)
+	_, err = s.Executor().Exec("UPDATE files SET thumbnail_path = $1 WHERE id = $2", thumbnailS3Key, fileID)
 	if err != nil {
 		log.Printf("Failed to update thumbnail path for file %d: %v", fileID, err)
 		return
@@ -175,7 +175,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 		countArgs = []interface{}{userID}
 	}
 
-	rows, err := s.DB.Query(query, queryArgs...)
+	rows, err := s.Executor().Query(query, queryArgs...)
 	if err != nil {
 		log.Printf("Error querying files: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -225,7 +225,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 
 	// Get total count for pagination
 	var total int
-	err = s.DB.QueryRow(countQuery, countArgs...).Scan(&total)
+	err = s.Executor().QueryRow(countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		log.Printf("Error counting files: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -250,7 +250,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 
 func (s *Handler) queryFile(userID int, id int) (models.File, error) {
 
-	row := s.DB.QueryRow(`
+	row := s.Executor().QueryRow(`
 	SELECT files.id, files.user_id, files.name, files.type, files.path, files.filename, files.size, files.created_by, files.updated_by, files.card_pk, files.is_deleted,
 	files.created_at, files.updated_at, files.thumbnail_path
 FROM files
@@ -290,7 +290,7 @@ FROM files
 func (s *Handler) getFilesFromCardPK(userID int, cardPK int) ([]models.File, error) {
 
 	files := []models.File{}
-	rows, err := s.DB.Query(`
+	rows, err := s.Executor().Query(`
 	SELECT
 	files.id, files.user_id, files.name, files.type, files.path, files.filename,
 	files.size, files.created_by, files.updated_by, files.card_pk,
@@ -379,7 +379,7 @@ func (s *Handler) EditFileMetadataRoute(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	_, err = s.DB.Exec("UPDATE files SET name = $1, card_pk = $2 WHERE id = $3", data.Name, data.CardPK, filePK)
+	_, err = s.Executor().Exec("UPDATE files SET name = $1, card_pk = $2 WHERE id = $3", data.Name, data.CardPK, filePK)
 
 	if err != nil {
 		http.Error(w, "Failed to update file metadata", http.StatusInternalServerError)
@@ -406,7 +406,7 @@ func (s *Handler) userCanUploadFile(userID int, header *multipart.FileHeader) er
 		return fmt.Errorf("user does not have permissions to upload files")
 	}
 	var alreadyUploaded int
-	err = s.DB.QueryRow(`SELECT COALESCE(sum(size), 0) FROM files WHERE created_by = $1`, userID).Scan(&alreadyUploaded)
+	err = s.Executor().QueryRow(`SELECT COALESCE(sum(size), 0) FROM files WHERE created_by = $1`, userID).Scan(&alreadyUploaded)
 	if err != nil {
 		return err
 	}
@@ -484,7 +484,7 @@ func (s *Handler) UploadFileRoute(w http.ResponseWriter, r *http.Request) {
 		size, card_pk, created_by, updated_by, updated_at) VALUES
 		($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING id;`
 	contentType := handler.Header.Get("Content-Type")
-	err = s.DB.QueryRow(query,
+	err = s.Executor().QueryRow(query,
 		handler.Filename,
 		userID,
 		contentType,
@@ -499,8 +499,12 @@ func (s *Handler) UploadFileRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate thumbnail asynchronously for images
-	go s.generateAndUploadThumbnail(userID, lastInsertId, tempFile.Name(), s3Key, contentType)
+	// Generate thumbnail asynchronously for images (skip during testing)
+	if s.Server.Testing {
+		// In testing mode, skip thumbnail generation
+	} else {
+		go s.generateAndUploadThumbnail(userID, lastInsertId, tempFile.Name(), s3Key, contentType)
+	}
 
 	newFile, err := s.queryFile(userID, lastInsertId)
 	if err != nil {
@@ -571,7 +575,7 @@ func (s *Handler) DeleteFileRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	query := `UPDATE files SET is_deleted = true WHERE id = $1`
-	_, err = s.DB.Exec(query, cardPK)
+	_, err = s.Executor().Exec(query, cardPK)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -579,7 +583,7 @@ func (s *Handler) DeleteFileRoute(w http.ResponseWriter, r *http.Request) {
 	err = s.deleteObject(s.Server.S3, file.Path)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		_, _ = s.DB.Exec(`UPDATE files SET is_deleted = false WHERE id = $1`, cardPK)
+		_, _ = s.Executor().Exec(`UPDATE files SET is_deleted = false WHERE id = $1`, cardPK)
 		return
 	}
 }

@@ -642,7 +642,7 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 	if params.SchemaID != nil {
 		// Fetch the schema definition
 		query := `SELECT id, name, slug, owner_id, fields, created_at, updated_at, is_deleted FROM schema_definitions WHERE id = $1 AND owner_id = $2 AND is_deleted = FALSE`
-		schema, err := models.ScanSchemaDefinition(s.DB.QueryRow(query, *params.SchemaID, userID))
+		schema, err := models.ScanSchemaDefinition(s.Executor().QueryRow(query, *params.SchemaID, userID))
 		if err != nil {
 			log.Printf("Error fetching schema: %v", err)
 			http.Error(w, "Failed to fetch schema definition", http.StatusInternalServerError)
@@ -719,7 +719,7 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 	if params.SchemaID != nil {
 		// Fetch the schema definition
 		query := `SELECT id, name, slug, owner_id, fields, created_at, updated_at, is_deleted FROM schema_definitions WHERE id = $1 AND owner_id = $2 AND is_deleted = FALSE`
-		schema, err := models.ScanSchemaDefinition(s.DB.QueryRow(query, *params.SchemaID, userID))
+		schema, err := models.ScanSchemaDefinition(s.Executor().QueryRow(query, *params.SchemaID, userID))
 		if err != nil {
 			log.Printf("Error fetching schema: %v", err)
 			http.Error(w, "Failed to fetch schema definition", http.StatusInternalServerError)
@@ -830,7 +830,7 @@ func (s *Handler) getNextRootCardID(userID int) string {
         LIMIT 1
     `
 
-	err := s.DB.QueryRow(query, userID).Scan(&result)
+	err := s.Executor().QueryRow(query, userID).Scan(&result)
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("Error finding next root card ID: %v", err)
 		return "1" // Default to 1 if there's an error
@@ -873,7 +873,7 @@ func (s *Handler) GetNextChildCardIDRoute(w http.ResponseWriter, r *http.Request
 func (s *Handler) getNextChildCardID(userID int, parentID int) string {
 	// 1. Get parent card's card_id (human readable ID)
 	var parentCardID string
-	err := s.DB.QueryRow("SELECT card_id FROM cards WHERE id = $1 AND user_id = $2", parentID, userID).Scan(&parentCardID)
+	err := s.Executor().QueryRow("SELECT card_id FROM cards WHERE id = $1 AND user_id = $2", parentID, userID).Scan(&parentCardID)
 	if err != nil {
 		log.Printf("Error finding parent card ID for parentID %d: %v", parentID, err)
 		return "" // Return empty on error
@@ -1078,7 +1078,7 @@ func (s *Handler) QueryTemplates(userID int) ([]models.CardTemplate, error) {
 	ORDER BY updated_at DESC
 	`
 
-	rows, err := s.DB.Query(query, userID)
+	rows, err := s.Executor().Query(query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -1114,7 +1114,7 @@ func (s *Handler) QueryTemplate(userID, id int) (models.CardTemplate, error) {
 	WHERE id = $1 AND user_id = $2
 	`
 
-	err := s.DB.QueryRow(query, id, userID).Scan(
+	err := s.Executor().QueryRow(query, id, userID).Scan(
 		&template.ID,
 		&template.UserID,
 		&template.Name,
@@ -1140,7 +1140,7 @@ func (s *Handler) CreateTemplate(userID int, params models.CreateTemplateParams)
 	RETURNING id, user_id, name, title, body, created_at, updated_at
 	`
 
-	err := s.DB.QueryRow(query, userID, params.Name, params.Title, params.Body).Scan(
+	err := s.Executor().QueryRow(query, userID, params.Name, params.Title, params.Body).Scan(
 		&template.ID,
 		&template.UserID,
 		&template.Name,
@@ -1167,7 +1167,7 @@ func (s *Handler) UpdateTemplate(userID, id int, params models.UpdateTemplatePar
 	RETURNING id, user_id, name, title, body, created_at, updated_at
 	`
 
-	err := s.DB.QueryRow(query, params.Name, params.Title, params.Body, id, userID).Scan(
+	err := s.Executor().QueryRow(query, params.Name, params.Title, params.Body, id, userID).Scan(
 		&template.ID,
 		&template.UserID,
 		&template.Name,
@@ -1190,7 +1190,7 @@ func (s *Handler) DeleteTemplate(userID, id int) error {
 	WHERE id = $1 AND user_id = $2
 	`
 
-	result, err := s.DB.Exec(query, id, userID)
+	result, err := s.Executor().Exec(query, id, userID)
 	if err != nil {
 		return err
 	}
@@ -1384,7 +1384,7 @@ func (s *Handler) GetUnsortedCardsRoute(w http.ResponseWriter, r *http.Request) 
 	LIMIT $2 OFFSET $3
 	`
 
-	rows, err := s.DB.Query(query, userID, perPage, offset)
+	rows, err := s.Executor().Query(query, userID, perPage, offset)
 	if err != nil {
 		log.Printf("Error querying unsorted cards: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -1416,7 +1416,7 @@ func (s *Handler) GetUnsortedCardsRoute(w http.ResponseWriter, r *http.Request) 
 	// Get total count for pagination
 	var total int
 	countQuery := `SELECT COUNT(*) FROM cards WHERE user_id = $1 AND is_deleted = FALSE AND card_id = ''`
-	err = s.DB.QueryRow(countQuery, userID).Scan(&total)
+	err = s.Executor().QueryRow(countQuery, userID).Scan(&total)
 	if err != nil {
 		log.Printf("Error counting unsorted cards: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

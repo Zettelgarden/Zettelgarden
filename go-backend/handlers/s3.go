@@ -27,6 +27,11 @@ func (s *Handler) getBucketName() string {
 }
 
 func (s *Handler) CreateS3Client() *s3.Client {
+	// Skip creating S3 client during testing
+	if s.Server != nil && s.Server.Testing {
+		return nil
+	}
+
 	appCfg := appconfig.GetConfig()
 	if appCfg == nil {
 		log.Fatal("Configuration not loaded")
@@ -75,16 +80,18 @@ func (s *Handler) listObjects(client *s3.Client) {
 	}
 }
 func (s *Handler) uploadObject(client *s3.Client, key, filePath string) {
+	// Skip during testing
+	if s.Server.Testing || client == nil {
+		s.Server.TestInspector.FilesUploaded += 1
+		return
+	}
+
 	file, err := os.Open(filePath)
 	if err != nil {
 		log.Fatalf("unable to open file %q, %v", filePath, err)
 	}
 	defer file.Close()
 
-	if s.Server.Testing {
-		s.Server.TestInspector.FilesUploaded += 1
-		return
-	}
 	_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String(s.getBucketName()),
 		Key:    aws.String(key),
@@ -96,8 +103,8 @@ func (s *Handler) uploadObject(client *s3.Client, key, filePath string) {
 }
 
 func (s *Handler) downloadObject(client *s3.Client, key, filePath string) (*s3.GetObjectOutput, error) {
-
-	if s.Server.Testing {
+	// Skip during testing
+	if s.Server.Testing || client == nil {
 		return nil, nil
 	}
 	result, err := client.GetObject(context.TODO(), &s3.GetObjectInput{
@@ -123,7 +130,8 @@ func (s *Handler) downloadObject(client *s3.Client, key, filePath string) (*s3.G
 	// fmt.Printf("Successfully downloaded %q to %q\n", key, filePath)
 }
 func (s *Handler) deleteObject(client *s3.Client, key string) error {
-	if s.Server.Testing {
+	// Skip during testing
+	if s.Server.Testing || client == nil {
 		s.Server.TestInspector.FilesUploaded -= 1
 		return nil
 	}

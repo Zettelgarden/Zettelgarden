@@ -78,6 +78,7 @@ func ResetDatabase(S *Server) error {
 			DROP TABLE IF EXISTS pinned_searches CASCADE;
 			DROP TABLE IF EXISTS task_statuses CASCADE;
 			DROP TABLE IF EXISTS api_keys CASCADE;
+			DROP TABLE IF EXISTS admin_audit_log;
 
 			DROP INDEX IF EXISTS idx_task_statuses_user;
 			DROP INDEX IF EXISTS idx_task_statuses_position;

@@ -204,7 +204,7 @@ func (s *Handler) CreateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 
 	// Generate slug from name
 	baseSlug := models.GenerateSlug(params.Name)
-	slug, err := models.GetUniqueSlug(s.DB, params.OwnerID, baseSlug)
+	slug, err := models.GetUniqueSlug(s.Executor(), params.OwnerID, baseSlug)
 	if err != nil {
 		log.Printf("Error generating unique slug: %v", err)
 		http.Error(w, "Error generating slug", http.StatusInternalServerError)
@@ -221,7 +221,7 @@ func (s *Handler) CreateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 	var schema models.SchemaDefinition
 	var fieldsJSONB []byte
 
-	err = s.DB.QueryRow(query, params.Name, slug, params.OwnerID, fieldsJSON).Scan(
+	err = s.Executor().QueryRow(query, params.Name, slug, params.OwnerID, fieldsJSON).Scan(
 		&schema.ID,
 		&schema.Name,
 		&schema.Slug,
@@ -316,7 +316,7 @@ func (s *Handler) GetSchemaRoute(w http.ResponseWriter, r *http.Request) {
 			FROM schema_definitions
 			WHERE id = $1 AND owner_id = $2 AND is_deleted = FALSE
 		`
-		schema, err = models.ScanSchemaDefinition(s.DB.QueryRow(query, id, userID))
+		schema, err = models.ScanSchemaDefinition(s.Executor().QueryRow(query, id, userID))
 	} else {
 		// Reference is a slug
 		query = `
@@ -324,7 +324,7 @@ func (s *Handler) GetSchemaRoute(w http.ResponseWriter, r *http.Request) {
 			FROM schema_definitions
 			WHERE slug = $1 AND owner_id = $2 AND is_deleted = FALSE
 		`
-		schema, err = models.ScanSchemaDefinition(s.DB.QueryRow(query, ref, userID))
+		schema, err = models.ScanSchemaDefinition(s.Executor().QueryRow(query, ref, userID))
 	}
 
 	if err != nil {
@@ -396,7 +396,7 @@ func (s *Handler) UpdateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 	var currentName string
 	var currentSlug string
 	checkQuery := `SELECT name, slug FROM schema_definitions WHERE id = $1`
-	err = s.DB.QueryRow(checkQuery, id).Scan(&currentName, &currentSlug)
+	err = s.Executor().QueryRow(checkQuery, id).Scan(&currentName, &currentSlug)
 	if err != nil {
 		log.Printf("Error getting current schema: %v", err)
 		http.Error(w, "Error retrieving schema", http.StatusInternalServerError)
@@ -426,7 +426,7 @@ func (s *Handler) UpdateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 	var schema models.SchemaDefinition
 	var fieldsJSONB []byte
 
-	err = s.DB.QueryRow(updateQuery, params.Name, newSlug, fieldsJSON, id, userID).Scan(
+	err = s.Executor().QueryRow(updateQuery, params.Name, newSlug, fieldsJSON, id, userID).Scan(
 		&schema.ID,
 		&schema.Name,
 		&schema.Slug,
@@ -487,7 +487,7 @@ func (s *Handler) DeleteSchemaRoute(w http.ResponseWriter, r *http.Request) {
 		SELECT COUNT(*) FROM cards WHERE card_schema_id = $1 AND is_deleted = FALSE
 	`
 	var cardsAffected int
-	err = s.DB.QueryRow(countQuery, id).Scan(&cardsAffected)
+	err = s.Executor().QueryRow(countQuery, id).Scan(&cardsAffected)
 	if err != nil {
 		log.Printf("Error counting cards using schema: %v", err)
 		http.Error(w, "Error checking schema usage", http.StatusInternalServerError)
@@ -501,7 +501,7 @@ func (s *Handler) DeleteSchemaRoute(w http.ResponseWriter, r *http.Request) {
 		WHERE id = $1 AND owner_id = $2
 	`
 
-	result, err := s.DB.Exec(deleteQuery, id, userID)
+	result, err := s.Executor().Exec(deleteQuery, id, userID)
 	if err != nil {
 		log.Printf("Error deleting schema: %v", err)
 		http.Error(w, "Error deleting schema", http.StatusInternalServerError)

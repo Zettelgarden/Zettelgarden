@@ -29,7 +29,10 @@ func uploadTestFile(s *Handler) {
 	s.uploadObject(s.Server.S3, uuidKey, testFile.Name())
 
 	query := `UPDATE files SET path = $1, filename = $2 WHERE id = 1`
-	s.Server.Tx.QueryRow(query, uuidKey, uuidKey)
+	_, err = s.Server.Tx.Exec(query, uuidKey, uuidKey)
+	if err != nil {
+		log.Fatal("unable to update file path:", err)
+	}
 }
 
 func TestGetAllFiles(t *testing.T) {
