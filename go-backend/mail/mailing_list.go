@@ -14,14 +14,14 @@ import (
 func (m *MailClient) HandleAddToMailingList(email string) error {
 	// First check if email already exists
 	checkQuery := `
-        SELECT id, welcome_email_sent 
-        FROM mailing_list 
+        SELECT id, welcome_email_sent
+        FROM mailing_list
         WHERE email = $1
     `
 
 	var existingId int
 	var sent bool
-	err := m.DB.QueryRow(checkQuery, email).Scan(&existingId, &sent)
+	err := m.db().QueryRow(checkQuery, email).Scan(&existingId, &sent)
 
 	// If email is found, return error indicating it already exists
 	if err == nil {
@@ -40,7 +40,7 @@ func (m *MailClient) HandleAddToMailingList(email string) error {
             RETURNING id`
 
 	var id int
-	err = m.DB.QueryRow(query, email).Scan(&id)
+	err = m.db().QueryRow(query, email).Scan(&id)
 	if err != nil {
 		log.Printf("Error adding email to mailing list: %v", err)
 		return fmt.Errorf("Error adding email to mailing list: %v", err)
@@ -98,12 +98,12 @@ func (m *MailClient) SendWelcomeEmail(email string) error {
 
 	// Update the database to mark welcome email as sent
 	updateQuery := `
-        UPDATE mailing_list 
-        SET welcome_email_sent = true 
+        UPDATE mailing_list
+        SET welcome_email_sent = true
         WHERE email = $1
     `
 
-	_, err = m.DB.Exec(updateQuery, email)
+	_, err = m.db().Exec(updateQuery, email)
 	if err != nil {
 		log.Printf("Error updating welcome_email_sent status: %v", err)
 		return fmt.Errorf("Error updating welcome email status: %v", err)
@@ -214,7 +214,7 @@ func (m *MailClient) GetMailingListMessages(limit, offset int) ([]models.Mailing
 		LIMIT $1 OFFSET $2
 	`
 
-	rows, err := m.DB.Query(query, limit, offset)
+	rows, err := m.db().Query(query, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("error querying messages: %v", err)
 	}
@@ -241,7 +241,7 @@ func (m *MailClient) GetMessageRecipients(messageID int) ([]models.MailingListRe
 		ORDER BY sent_at ASC
 	`
 
-	rows, err := m.DB.Query(query, messageID)
+	rows, err := m.db().Query(query, messageID)
 	if err != nil {
 		return nil, fmt.Errorf("error querying recipients: %v", err)
 	}
@@ -262,7 +262,7 @@ func (m *MailClient) GetMessageRecipients(messageID int) ([]models.MailingListRe
 
 func (m *MailClient) GetMailingListSubscribers() ([]models.MailingList, error) {
 	query := `
-		SELECT ml.id, ml.email, ml.created_at, ml.updated_at, 
+		SELECT ml.id, ml.email, ml.created_at, ml.updated_at,
 		       ml.welcome_email_sent, ml.subscribed,
 		       CASE WHEN u.id IS NOT NULL THEN true ELSE false END as has_account
 		FROM mailing_list ml
@@ -270,7 +270,7 @@ func (m *MailClient) GetMailingListSubscribers() ([]models.MailingList, error) {
 		ORDER BY ml.created_at DESC
 	`
 
-	rows, err := m.DB.Query(query)
+	rows, err := m.db().Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("error querying mailing list: %v", err)
 	}

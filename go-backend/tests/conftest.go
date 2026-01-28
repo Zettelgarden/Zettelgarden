@@ -141,6 +141,7 @@ func Setup() *server.Server {
 	}
 
 	S.Tx = tx
+	S.Mail.Tx = S.Tx
 	log.Printf("S %v", S)
 	// Import test data for each test (reduced volume thanks to Zettelgarden-4ne3)
 	return S

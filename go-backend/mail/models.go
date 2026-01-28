@@ -32,6 +32,7 @@ type MailClient struct {
 	mu                sync.Mutex
 	isProcessing      bool
 	DB                *sql.DB
+	Tx                models.DBTX
 	ShutdownChan      chan struct{}
 	shutdownOnce      sync.Once
 
@@ -39,6 +40,13 @@ type MailClient struct {
 	JobQueue    JobQueue
 	WorkerPool  WorkerPool
 	RateLimiter *EmailRateLimiter
+}
+
+func (m *MailClient) db() models.DBTX {
+	if m.Tx != nil {
+		return m.Tx
+	}
+	return m.DB
 }
 
 func (m *MailClient) String() string {
