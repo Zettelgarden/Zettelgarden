@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"context"
 	"database/sql"
+	"go-backend/models"
 	"go-backend/server"
 	"go-backend/services"
 	"sync"
@@ -19,16 +19,6 @@ const (
 	// SummarizationRateLimitWindow is the time window for rate limiting (1 minute)
 	SummarizationRateLimitWindow = time.Minute
 )
-
-// DBExecutor is an interface that both *sql.DB and *sql.Tx implement
-type DBExecutor interface {
-	Exec(query string, args ...interface{}) (sql.Result, error)
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	Query(query string, args ...interface{}) (*sql.Rows, error)
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
-	QueryRow(query string, args ...interface{}) *sql.Row
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
-}
 
 type Handler struct {
 	DB             *sql.DB
@@ -50,11 +40,26 @@ type Handler struct {
 }
 
 // Executor returns the transaction if available (for testing), otherwise returns the DB connection
-func (h *Handler) Executor() DBExecutor {
+func (h *Handler) Executor() models.DBExecutor {
 	if h.Server != nil && h.Server.Tx != nil {
 		return h.Server.Tx
 	}
 	return h.DB
+}
+
+// ShouldCommitTx returns true if the handler should commit its transaction.
+// Returns false during testing since the test framework manages transaction lifecycle.
+func (h *Handler) ShouldCommitTx() bool {
+	return !(h.Server != nil && h.Server.Testing)
+}
+
+// BeginTx returns a transaction for the handler to use.
+// During testing, this returns the test's transaction (commit should be skipped).
+func (h *Handler) BeginTx() (*sql.Tx, error) {
+	if h.Server != nil && h.Server.Testing && h.Server.Tx != nil {
+		return h.Server.Tx, nil
+	}
+	return h.DB.Begin()
 }
 
 // getMessageMutex gets or creates a mutex for a specific message

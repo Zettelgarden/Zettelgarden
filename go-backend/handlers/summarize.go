@@ -296,11 +296,14 @@ func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []m
 		return fmt.Errorf("invalid card_pk: must be positive, got %d", cardPK)
 	}
 
-	tx, err := h.DB.Begin()
+	tx, err := h.BeginTx()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback() // Rollback on error, if commit fails
+	// Only rollback if we're not in testing mode (test framework handles cleanup)
+	if h.ShouldCommitTx() {
+		defer tx.Rollback() // Rollback on error, if commit fails
+	}
 
 	for sectionIndex, analysis := range analyses {
 		// Skip sections with empty or whitespace-only titles
@@ -356,7 +359,12 @@ func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []m
 		}
 	}
 
-	return tx.Commit()
+	if h.ShouldCommitTx() {
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // GetCardAnalysisRoute retrieves the analysis for the most recent summarization of a card.

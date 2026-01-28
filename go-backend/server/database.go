@@ -85,6 +85,7 @@ func ResetDatabase(S *Server) error {
 			DROP INDEX IF EXISTS idx_task_dependencies_blocking_task_id;
 			DROP INDEX IF EXISTS idx_api_keys_user_id;
 			DROP INDEX IF EXISTS idx_unique_active_key_name_per_user;
+			DROP INDEX IF EXISTS idx_schema_definitions_owner_name;
 			CREATE TABLE IF NOT EXISTS migrations (
 				id SERIAL PRIMARY KEY,
 				migration_name VARCHAR(255) NOT NULL,

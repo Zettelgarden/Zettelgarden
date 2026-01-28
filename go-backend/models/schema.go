@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,16 @@ import (
 	"strings"
 	"time"
 )
+
+// DBExecutor is an interface that both *sql.DB and *sql.Tx implement
+type DBExecutor interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	Query(query string, args ...interface{}) (*sql.Rows, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryRow(query string, args ...interface{}) *sql.Row
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+}
 
 // FieldDefinition represents a single field definition in a schema
 type FieldDefinition struct {
@@ -155,7 +166,7 @@ func GenerateSlug(name string) string {
 
 // GetUniqueSlug generates a unique slug for a schema by checking for duplicates
 // and appending a number if necessary (e.g., "book-review-2")
-func GetUniqueSlug(db *sql.DB, ownerID int, baseSlug string) (string, error) {
+func GetUniqueSlug(db DBExecutor, ownerID int, baseSlug string) (string, error) {
 	// First, try the base slug
 	var count int
 	err := db.QueryRow(`

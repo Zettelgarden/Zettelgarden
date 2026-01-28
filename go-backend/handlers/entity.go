@@ -132,11 +132,14 @@ func (s *Handler) QueryEntitiesForCard(userID int, cardPK int) ([]models.Entity,
 
 func (s *Handler) MergeEntities(userID int, entity1ID int, entity2ID int) error {
 	// Start transaction
-	tx, err := s.DB.Begin()
+	tx, err := s.BeginTx()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback() // Will be ignored if transaction is committed
+	// Only rollback if we're not in testing mode (test framework handles cleanup)
+	if s.ShouldCommitTx() {
+		defer tx.Rollback()
+	}
 
 	// Verify both entities exist and belong to the user
 	var entity1, entity2 models.Entity
@@ -232,12 +235,16 @@ func (s *Handler) MergeEntities(userID int, entity1ID int, entity2ID int) error 
 	}
 
 	// Commit transaction
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+	if s.ShouldCommitTx() {
+		if err = tx.Commit(); err != nil {
+			return fmt.Errorf("failed to commit transaction: %w", err)
+		}
 	}
 
 	// Update Typesense index: upsert surviving, delete removed
-	go func() {
+	// Skip during testing since the transaction isn't committed
+	if s.ShouldCommitTx() {
+		go func() {
 		// Fetch the updated entity1 data after merge
 		var updatedEntity models.Entity
 		err := s.DB.QueryRow(`
@@ -268,7 +275,8 @@ func (s *Handler) MergeEntities(userID int, entity1ID int, entity2ID int) error 
 		}
 		s.upsertEntityToTypesense(updatedEntity, partialCard)
 		s.deleteEntityTypesense(entity2.ID)
-	}()
+		}()
+	}
 
 	return nil
 }
@@ -313,11 +321,14 @@ func (s *Handler) MergeEntitiesRoute(w http.ResponseWriter, r *http.Request) {
 
 func (s *Handler) DeleteEntity(userID int, entityID int) error {
 	// Start transaction
-	tx, err := s.DB.Begin()
+	tx, err := s.BeginTx()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback() // Will be ignored if transaction is committed
+	// Only rollback if we're not in testing mode (test framework handles cleanup)
+	if s.ShouldCommitTx() {
+		defer tx.Rollback()
+	}
 
 	// Verify entity exists and belongs to the user
 	var exists bool
@@ -354,12 +365,16 @@ func (s *Handler) DeleteEntity(userID int, entityID int) error {
 	}
 
 	// Commit transaction
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+	if s.ShouldCommitTx() {
+		if err = tx.Commit(); err != nil {
+			return fmt.Errorf("failed to commit transaction: %w", err)
+		}
 	}
 
 	// Delete from Typesense after successful commit
-	go s.deleteEntityTypesense(entityID)
+	if s.ShouldCommitTx() {
+		go s.deleteEntityTypesense(entityID)
+	}
 
 	return nil
 }
@@ -390,9 +405,9 @@ func (s *Handler) DeleteEntityRoute(w http.ResponseWriter, r *http.Request) {
 
 func (s *Handler) validateCardAccess(userID int, cardPK int) error {
 	var exists bool
-	err := s.DB.QueryRow(`
+	err := s.Executor().QueryRow(`
 		SELECT EXISTS(
-			SELECT 1 FROM cards 
+			SELECT 1 FROM cards
 			WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE
 		)
 	`, cardPK, userID).Scan(&exists)
@@ -410,11 +425,14 @@ func (s *Handler) validateCardAccess(userID int, cardPK int) error {
 
 func (s *Handler) UpdateEntity(userID int, entityID int, params UpdateEntityRequest) error {
 	// Start transaction
-	tx, err := s.DB.Begin()
+	tx, err := s.BeginTx()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	// Only rollback if we're not in testing mode (test framework handles cleanup)
+	if s.ShouldCommitTx() {
+		defer tx.Rollback()
+	}
 
 	// Verify entity exists and belongs to user
 	var exists bool
@@ -470,8 +488,10 @@ func (s *Handler) UpdateEntity(userID int, entityID int, params UpdateEntityRequ
 	}
 
 	// Commit transaction for the basic update
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+	if s.ShouldCommitTx() {
+		if err = tx.Commit(); err != nil {
+			return fmt.Errorf("failed to commit transaction: %w", err)
+		}
 	}
 
 	// Only attempt to update embedding if not in test mode
