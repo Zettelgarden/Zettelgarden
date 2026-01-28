@@ -27,6 +27,84 @@ var S *server.Server
 var setupOnce sync.Once
 var db *sql.DB
 
+// Testing Transaction Pattern:
+//
+// This test framework uses a transaction-per-test pattern for test isolation:
+//
+// 1. Setup() creates a new transaction for each test
+// 2. All database operations use Handler.GetDB() which returns the test transaction
+//    during testing (when Server.Testing=true and Server.Tx is set)
+// 3. Teardown() rolls back the transaction, discarding all changes
+//
+// This ensures:
+// - Each test starts with a clean database state
+// - Tests don't interfere with each other
+// - Tests run quickly (no need to drop/recreate tables)
+// - The production database is never affected by tests
+//
+// The Handler.GetDB() method is the key to this pattern:
+//   - During testing: returns Server.Tx (the test transaction)
+//   - During production: returns h.DB (the actual database connection)
+//
+// Test Setup Patterns
+//
+// There are two main test setup patterns:
+//
+// 1. Handler Tests (HTTP endpoint testing):
+//    Use handlers.NewHandler() to set up a Handler with all dependencies.
+//    This is the standard way to test HTTP routes and middleware.
+//
+//    Example:
+//      func TestGetCard(t *testing.T) {
+//          s := handlers.NewHandler()
+//          defer tests.Teardown()
+//
+//          token, _ := tests.GenerateTestJWT(1)
+//          req, _ := http.NewRequest("GET", "/api/cards/1", nil)
+//          req.Header.Set("Authorization", "Bearer "+token)
+//
+//          rr := httptest.NewRecorder()
+//          router := mux.NewRouter()
+//          router.HandleFunc("/api/cards/{id}", s.JwtMiddleware(s.GetCardRoute))
+//          router.ServeHTTP(rr, req)
+//
+//          if status := rr.Code; status != http.StatusOK {
+//              t.Errorf("expected status OK, got %v", status)
+//          }
+//      }
+//
+// 2. Service Tests (business logic testing):
+//    Use tests.Setup() directly to get the server, then access services.
+//    Use this when testing service layer functions without HTTP.
+//
+//    Example:
+//      func TestCreateCard(t *testing.T) {
+//          s := tests.Setup()
+//          defer tests.Teardown()
+//
+//          userID := 1
+//          params := models.EditCardParams{
+//              Title:  "Test Card",
+//              Body:   "Test Body",
+//              CardID: "test123",
+//          }
+//
+//          card, err := services.CreateCard(s.DB, userID, params)
+//          if err != nil {
+//              t.Fatalf("CreateCard failed: %v", err)
+//          }
+//
+//          if card.Title != params.Title {
+//              t.Errorf("expected title %v, got %v", params.Title, card.Title)
+//          }
+//      }
+//
+// Important Notes:
+// - Always call tests.Teardown() in a defer statement immediately after Setup/NewHandler
+// - Handler.GetDB() returns the test transaction during testing
+// - Tests run sequentially (parallel=1) to avoid database conflicts
+// - Test fixtures are loaded once via sync.Once in tests.Setup()
+
 // setTestEnvironmentVariables sets required environment variables for testing
 func setTestEnvironmentVariables() {
 	// Database config - these will already be set in real test environment
@@ -88,6 +166,15 @@ func setEnvIfNotSet(key, value string) {
 	}
 }
 
+// Setup initializes the test environment for a single test.
+//
+// It runs global setup (database connection, migrations, test data) exactly once
+// using sync.Once, then creates a fresh transaction for each test.
+//
+// The transaction is stored in Server.Tx, which causes Handler.GetDB() to
+// return the transaction instead of the database connection.
+//
+// Call this function at the start of each test, followed by defer Teardown().
 func Setup() *server.Server {
 	var err error
 	setupOnce.Do(func() {
@@ -135,6 +222,7 @@ func Setup() *server.Server {
 		log.Fatalf("Unable to connect to the database: %v\n", err)
 	}
 
+	// Create a fresh transaction for this test
 	tx, err := S.DB.Begin()
 	if err != nil {
 		log.Fatalf("Unable to start transaction: %v\n", err)
@@ -143,10 +231,13 @@ func Setup() *server.Server {
 	S.Tx = tx
 	S.Mail.Tx = S.Tx
 	log.Printf("S %v", S)
-	// Import test data for each test (reduced volume thanks to Zettelgarden-4ne3)
 	return S
 }
 
+// Teardown rolls back the test transaction, discarding all changes made during the test.
+//
+// This ensures that each test starts with a clean database state and that
+// tests don't interfere with each other.
 func Teardown() {
 	// Use truncate for cleanup (savepoint approach has compatibility issues)
 	// With reduced data volume, this is still much faster than before

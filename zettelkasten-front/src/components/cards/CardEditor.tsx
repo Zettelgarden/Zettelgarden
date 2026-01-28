@@ -64,7 +64,7 @@ export function CardEditor({
         </div>
       )}
 
-      {newCard && templates.length > 0 && (
+      {newCard && (loadingTemplates || templateError || templates.length > 0) && (
         <div className="">
           {loadingTemplates ? (
             <div className="text-xs text-gray-500">Loading templates...</div>

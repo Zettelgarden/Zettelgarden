@@ -39,7 +39,7 @@ func TestLooksLikeIncompleteUserMessage(t *testing.T) {
 }
 
 func TestSendMessageRoute_IncompletePromptReturnsClarification(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	conv, err := s.CreateConversation(1, nil, "google/gemini-2.5-flash", nil, nil)
@@ -93,7 +93,7 @@ func TestSendMessageRoute_IncompletePromptReturnsClarification(t *testing.T) {
 }
 
 func TestStreamMessageRoute_IncompletePromptReturnsImmediateDone(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	conv, err := s.CreateConversation(1, nil, "google/gemini-2.5-flash", nil, nil)

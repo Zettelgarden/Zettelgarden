@@ -12,7 +12,7 @@ package handlers
 // )
 
 // func TestSendMessageRoute_MessageValidation(t *testing.T) {
-// 	s := setup()
+// 	s := NewHandler()
 // 	defer tests.Teardown()
 
 // 	conv, err := s.CreateConversation(1, nil, "openai/gpt-4o-mini", nil, nil)
@@ -106,7 +106,7 @@ package handlers
 // }
 
 // func TestStreamMessageRoute_MessageValidation(t *testing.T) {
-// 	s := setup()
+// 	s := NewHandler()
 // 	defer tests.Teardown()
 
 // 	conv, err := s.CreateConversation(1, nil, "openai/gpt-4o-mini", nil, nil)
@@ -190,7 +190,7 @@ package handlers
 // }
 
 // func TestSendMessageRoute_QuotaExceeded(t *testing.T) {
-// 	s := setup()
+// 	s := NewHandler()
 // 	defer tests.Teardown()
 
 // 	conv, err := s.CreateConversation(1, nil, "openai/gpt-4o-mini", nil, nil)
@@ -250,7 +250,7 @@ package handlers
 // }
 
 // func TestStreamMessageRoute_QuotaExceeded(t *testing.T) {
-// 	s := setup()
+// 	s := NewHandler()
 // 	defer tests.Teardown()
 
 // 	conv, err := s.CreateConversation(1, nil, "openai/gpt-4o-mini", nil, nil)
@@ -310,7 +310,7 @@ package handlers
 // }
 
 // func TestRegenerateMessageRoute_QuotaExceeded(t *testing.T) {
-// 	s := setup()
+// 	s := NewHandler()
 // 	defer tests.Teardown()
 
 // 	conv, err := s.CreateConversation(1, nil, "openai/gpt-4o-mini", nil, nil)
@@ -375,7 +375,7 @@ package handlers
 // }
 
 // func TestIncrementChatUsageQuota(t *testing.T) {
-// 	s := setup()
+// 	s := NewHandler()
 // 	defer tests.Teardown()
 
 // 	userID := 2 // Use different user to avoid conflicts

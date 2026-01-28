@@ -38,26 +38,20 @@ describe('CardEditor', () => {
   ) {
     const Wrapper = ({ children }: { children: React.ReactNode }) => (
       <CardEditorProvider editingCard={editingCard} setEditingCard={setEditingCard}>
-        <EditorUIProvider handleSelectTemplate={handleSelectTemplate}>
-          <EditorMessagesProvider>
+        <EditorUIProvider
+          handleSelectTemplate={handleSelectTemplate}
+          initialTemplates={templates}
+          initialLoadingTemplates={loadingTemplates}
+          initialTemplateError={templateError}
+        >
+          <EditorMessagesProvider initialMessage={message} initialError={error}>
             {children}
           </EditorMessagesProvider>
         </EditorUIProvider>
       </CardEditorProvider>
     );
 
-    // Override context defaults by setting state after render
-    const result = render(ui, { wrapper: Wrapper });
-
-    // Manually set context values for templates
-    if (setTemplates) setTemplates(templates);
-    if (setLoadingTemplates) setLoadingTemplates(loadingTemplates);
-    if (setTemplateError) setTemplateError(templateError);
-    if (setShowTemplateDropdown) setShowTemplateDropdown(showTemplateDropdown);
-    if (setMessage) setMessage(message);
-    if (setError) setError(error);
-
-    return result;
+    return render(ui, { wrapper: Wrapper });
   }
 
   const defaultProps = {
@@ -111,17 +105,16 @@ describe('CardEditor', () => {
       const templates = [{ ...defaultCardTemplate, id: 1, name: 'Test Template' }];
       renderWithProviders(
         <CardEditor {...defaultProps} newCard={true} />,
-        { templates }
+        { templates, loadingTemplates: false }
       );
 
       expect(screen.getByText('Use Template')).toBeInTheDocument();
     });
 
     it('should show loading state for templates', () => {
-      const templates = [{ ...defaultCardTemplate, id: 1, name: 'Test Template' }];
       renderWithProviders(
         <CardEditor {...defaultProps} newCard={true} />,
-        { templates, loadingTemplates: true }
+        { templates: [], loadingTemplates: true }
       );
 
       expect(screen.getByText('Loading templates...')).toBeInTheDocument();
@@ -185,7 +178,7 @@ describe('CardEditor', () => {
 
       renderWithProviders(
         <CardEditor {...defaultProps} newCard={true} />,
-        { templates, setShowTemplateDropdown }
+        { templates, loadingTemplates: false, setShowTemplateDropdown }
       );
 
       const templateButton = screen.getByText('Use Template');
@@ -246,7 +239,7 @@ describe('CardEditor', () => {
 
       renderWithProviders(
         <CardEditor {...defaultProps} newCard={true} />,
-        { templates, handleSelectTemplate }
+        { templates, loadingTemplates: false, handleSelectTemplate }
       );
 
       const templateButton = screen.getByText('Use Template');

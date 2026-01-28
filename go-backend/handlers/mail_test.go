@@ -9,7 +9,7 @@ import (
 )
 
 func TestGetMailingListSubscribersSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Add a test subscriber first
@@ -47,7 +47,7 @@ func TestGetMailingListSubscribersSuccess(t *testing.T) {
 }
 
 func TestGetMailingListSubscribersUnauthorized(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Ensure user 2 is NOT an admin
@@ -77,7 +77,7 @@ func TestGetMailingListSubscribersUnauthorized(t *testing.T) {
 }
 
 func TestUnsubscribeMailingListSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Add a test subscriber first
@@ -118,7 +118,7 @@ func TestUnsubscribeMailingListSuccess(t *testing.T) {
 }
 
 func TestUnsubscribeMailingListUnauthorized(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Ensure user 2 is NOT an admin
@@ -150,7 +150,7 @@ func TestUnsubscribeMailingListUnauthorized(t *testing.T) {
 }
 
 func TestUnsubscribeMailingListInvalidEmail(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1) // Admin user

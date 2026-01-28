@@ -11,7 +11,7 @@ import (
 
 // TestAdminMiddleware_AllowsAdminAccess verifies that admin users can access admin routes
 func TestAdminMiddleware_AllowsAdminAccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Make user 1 an admin
@@ -47,7 +47,7 @@ func TestAdminMiddleware_AllowsAdminAccess(t *testing.T) {
 
 // TestAdminMiddleware_BlocksNonAdminAccess verifies that non-admin users cannot access admin routes
 func TestAdminMiddleware_BlocksNonAdminAccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Ensure user 2 is NOT an admin (default)
@@ -83,7 +83,7 @@ func TestAdminMiddleware_BlocksNonAdminAccess(t *testing.T) {
 
 // TestAdminMiddleware_BlocksUnauthenticatedRequests verifies that unauthenticated requests are blocked
 func TestAdminMiddleware_BlocksUnauthenticatedRequests(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	req, err := http.NewRequest("GET", "/api/admin/test", nil)
@@ -111,7 +111,7 @@ func TestAdminMiddleware_BlocksUnauthenticatedRequests(t *testing.T) {
 
 // TestAdminOrSelfMiddleware_AllowsAdminAnyUser verifies admins can access any user's resources
 func TestAdminOrSelfMiddleware_AllowsAdminAnyUser(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Make user 1 an admin
@@ -148,7 +148,7 @@ func TestAdminOrSelfMiddleware_AllowsAdminAnyUser(t *testing.T) {
 
 // TestAdminOrSelfMiddleware_AllowsUserOwnResources verifies users can access their own resources
 func TestAdminOrSelfMiddleware_AllowsUserOwnResources(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Ensure user 2 is NOT an admin
@@ -184,7 +184,7 @@ func TestAdminOrSelfMiddleware_AllowsUserOwnResources(t *testing.T) {
 
 // TestAdminOrSelfMiddleware_BlocksUserAccessingOtherUser verifies non-admins cannot access other users' resources
 func TestAdminOrSelfMiddleware_BlocksUserAccessingOtherUser(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Ensure user 2 is NOT an admin

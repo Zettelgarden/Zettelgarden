@@ -11,7 +11,7 @@ import (
 
 // TestLogAdminAction_Success verifies that admin actions are logged correctly
 func TestLogAdminAction_Success(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Make user 1 an admin
@@ -98,7 +98,7 @@ func TestLogAdminAction_Success(t *testing.T) {
 
 // TestLogAdminAction_XForwardedFor verifies X-Forwarded-For header is used for IP
 func TestLogAdminAction_XForwardedFor(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Make user 1 an admin
@@ -136,7 +136,7 @@ func TestLogAdminAction_XForwardedFor(t *testing.T) {
 
 // TestLogAdminActionAsync verifies async logging works
 func TestLogAdminActionAsync(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Make user 1 an admin
@@ -180,7 +180,7 @@ func TestLogAdminActionAsync(t *testing.T) {
 
 // TestGetAdminAuditLogs_Success verifies retrieving audit logs
 func TestGetAdminAuditLogs_Success(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Make user 1 an admin
@@ -224,7 +224,7 @@ func TestGetAdminAuditLogs_Success(t *testing.T) {
 
 // TestGetAdminAuditLogs_WithFilters verifies filtering works correctly
 func TestGetAdminAuditLogs_WithFilters(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Make user 1 an admin
@@ -281,7 +281,7 @@ func TestGetAdminAuditLogs_WithFilters(t *testing.T) {
 
 // TestGetAdminAuditLogs_Pagination verifies pagination works correctly
 func TestGetAdminAuditLogs_Pagination(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Make user 1 an admin
@@ -334,7 +334,7 @@ func TestGetAdminAuditLogs_Pagination(t *testing.T) {
 
 // TestLogAdminAction_NoContext verifies handling when current_user is not in context
 func TestLogAdminAction_NoContext(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	req, err := http.NewRequest("POST", "/api/admin/test", nil)
@@ -363,7 +363,7 @@ func TestLogAdminAction_NoContext(t *testing.T) {
 
 // TestAdminAuditLogStructure verifies the audit log structure matches expectations
 func TestAdminAuditLogStructure(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Make user 1 an admin

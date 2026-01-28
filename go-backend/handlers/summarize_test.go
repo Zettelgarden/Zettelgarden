@@ -233,7 +233,7 @@ Final thoughts here.`
 
 // TestSaveAnalysisSuccess tests successful save of analysis data
 func TestSaveAnalysisSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	userID := 1
@@ -311,7 +311,7 @@ func TestSaveAnalysisSuccess(t *testing.T) {
 
 // TestSaveAnalysisEmptyThesisSkipped tests that empty theses are skipped
 func TestSaveAnalysisEmptyThesisSkipped(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	userID := 1
@@ -375,7 +375,7 @@ func TestSaveAnalysisEmptyThesisSkipped(t *testing.T) {
 
 // TestSaveAnalysisEmptySectionSkipped tests that sections with empty titles are skipped
 func TestSaveAnalysisEmptySectionSkipped(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	userID := 1
@@ -451,7 +451,7 @@ func TestSaveAnalysisEmptySectionSkipped(t *testing.T) {
 
 // TestSaveAnalysisInvalidCardPK tests that invalid cardPK values are rejected
 func TestSaveAnalysisInvalidCardPK(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	userID := 1
@@ -503,7 +503,7 @@ func TestSaveAnalysisInvalidCardPK(t *testing.T) {
 
 // TestSaveAnalysisMultipleSections tests saving multiple sections
 func TestSaveAnalysisMultipleSections(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	userID := 1
@@ -588,7 +588,7 @@ func TestSaveAnalysisMultipleSections(t *testing.T) {
 
 // TestSaveAnalysisSectionOrder tests that sections maintain their order
 func TestSaveAnalysisSectionOrder(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	userID := 1

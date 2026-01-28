@@ -15,7 +15,7 @@ import (
 )
 
 func makeUserRequestSuccess(t *testing.T, id int) *httptest.ResponseRecorder {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -35,7 +35,7 @@ func makeUserRequestSuccess(t *testing.T, id int) *httptest.ResponseRecorder {
 }
 
 func TestUserGetAdmin(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -56,7 +56,7 @@ func TestUserGetAdmin(t *testing.T) {
 	}
 }
 func TestUserGetAdminFailure(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(2)
@@ -78,7 +78,7 @@ func TestUserGetAdminFailure(t *testing.T) {
 }
 
 func TestGetUserSuccess(t *testing.T) {
-	_ = setup()
+	_ = NewHandler()
 	defer tests.Teardown()
 
 	rr := makeUserRequestSuccess(t, 1)
@@ -94,7 +94,7 @@ func TestGetUserSuccess(t *testing.T) {
 
 }
 func TestGetUserUnauthorized(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(2)
@@ -116,7 +116,7 @@ func TestGetUserUnauthorized(t *testing.T) {
 
 }
 func TestGetUserBadInput(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -137,7 +137,7 @@ func TestGetUserBadInput(t *testing.T) {
 }
 
 func TestGetCurrentUserSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(3)
@@ -162,7 +162,7 @@ func TestGetCurrentUserSuccess(t *testing.T) {
 }
 
 func TestGetUserSubscriptionSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -188,7 +188,7 @@ func TestGetUserSubscriptionSuccess(t *testing.T) {
 	}
 }
 func TestGetUserSubscriptionUnauthorized(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(3)
@@ -209,7 +209,7 @@ func TestGetUserSubscriptionUnauthorized(t *testing.T) {
 }
 
 func TestGetUsersRouteSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -235,7 +235,7 @@ func TestGetUsersRouteSuccess(t *testing.T) {
 }
 
 // func TestUpdateUserRouteSuccess(t *testing.T) {
-// 	s := setup()
+// 	s := NewHandler()
 // 	defer tests.Teardown()
 
 // 	expected := "asdfasdf"
@@ -296,7 +296,7 @@ func createUserWithParams(s *Handler, t *testing.T, params models.CreateUserPara
 }
 
 func TestCreateUserSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	params := models.CreateUserParams{
@@ -318,7 +318,7 @@ func TestCreateUserSuccess(t *testing.T) {
 	}
 }
 func TestCreateUserDashboardCardsSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	params := models.CreateUserParams{
@@ -365,7 +365,7 @@ func TestCreateUserDashboardCardsSuccess(t *testing.T) {
 }
 
 func TestCreateUserMismatchedPass(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	params := models.CreateUserParams{
@@ -389,7 +389,7 @@ func TestCreateUserMismatchedPass(t *testing.T) {
 }
 
 func TestResendValidateEmailAlreadyValidated(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(2)
@@ -409,7 +409,7 @@ func TestResendValidateEmailAlreadyValidated(t *testing.T) {
 }
 
 func TestResendValidateEmailNotValidated(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -452,7 +452,7 @@ func TestResendValidateEmailNotValidated(t *testing.T) {
 }
 
 func TestValidateEmail(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := s.generateTempToken(1)
@@ -497,7 +497,7 @@ func TestValidateEmail(t *testing.T) {
 }
 
 func TestUserTimezoneDefaultsToUTC(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Get existing user
@@ -513,7 +513,7 @@ func TestUserTimezoneDefaultsToUTC(t *testing.T) {
 }
 
 func TestUserTimezoneInAPIResponse(t *testing.T) {
-	_ = setup()
+	_ = NewHandler()
 	defer tests.Teardown()
 
 	rr := makeUserRequestSuccess(t, 1)
@@ -535,7 +535,7 @@ func TestUserTimezoneInAPIResponse(t *testing.T) {
 }
 
 func TestUpdateUserTimezone(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -581,7 +581,7 @@ func TestUpdateUserTimezone(t *testing.T) {
 }
 
 func TestGetCurrentUserIncludesTimezone(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)

@@ -17,7 +17,7 @@ import (
 
 // get existing tag
 func TestGetTag(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	userID := 1
@@ -33,7 +33,7 @@ func TestGetTag(t *testing.T) {
 }
 
 func TestGetTagNotFound(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	userID := 1
@@ -50,7 +50,7 @@ func TestGetTagNotFound(t *testing.T) {
 }
 
 func TestGetTagsRoute(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -77,7 +77,7 @@ func TestGetTagsRoute(t *testing.T) {
 }
 
 func TestCreateTagRoute(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -117,7 +117,7 @@ func TestCreateTagRoute(t *testing.T) {
 // update tag (set new colour)
 
 func TestEditTag(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	userID := 1
@@ -153,7 +153,7 @@ func TestEditTag(t *testing.T) {
 }
 
 func TestCreateTagOverExisting(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	userID := 1
@@ -196,7 +196,7 @@ func TestCreateTagOverExisting(t *testing.T) {
 
 func TestAddTagToCard(t *testing.T) {
 
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	userID := 1
@@ -220,7 +220,7 @@ func TestAddTagToCard(t *testing.T) {
 }
 
 func TestAddTagsFromCardQuery(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	userID := 2
@@ -257,7 +257,7 @@ func TestAddTagsFromCardQuery(t *testing.T) {
 }
 
 func TestAddTagsFromTaskQuery(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	userID := 1
@@ -324,7 +324,7 @@ func TestParseTagsFromCardBody(t *testing.T) {
 }
 
 func TestDeleteTag(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	id := 2
@@ -354,7 +354,7 @@ func TestDeleteTag(t *testing.T) {
 }
 
 func TestIdentifyParentTags(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	tag, err := s.getTagByID(1, 1)
@@ -381,7 +381,7 @@ func TestIdentifyParentTags(t *testing.T) {
 }
 
 func TestCreateCardSuccessRecursiveTags(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	tag, err := s.getTagByID(1, 1)

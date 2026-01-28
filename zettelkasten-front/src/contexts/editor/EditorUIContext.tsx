@@ -35,18 +35,28 @@ export function useEditorUIContext() {
 interface EditorUIProviderProps {
   children: React.ReactNode;
   handleSelectTemplate: (template: CardTemplate) => void;
+  // Optional initial values for testing
+  initialTemplates?: CardTemplate[];
+  initialLoadingTemplates?: boolean;
+  initialTemplateError?: string;
 }
 
-export function EditorUIProvider({ children, handleSelectTemplate }: EditorUIProviderProps) {
+export function EditorUIProvider({
+  children,
+  handleSelectTemplate,
+  initialTemplates = [],
+  initialLoadingTemplates = true,
+  initialTemplateError = ""
+}: EditorUIProviderProps) {
   // Dialog states
   const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
   const [showBacklinkDialog, setShowBacklinkDialog] = useState(false);
   const [showCardIdDiscovery, setShowCardIdDiscovery] = useState(false);
 
   // Template states
-  const [templates, setTemplates] = useState<CardTemplate[]>([]);
-  const [loadingTemplates, setLoadingTemplates] = useState(true);
-  const [templateError, setTemplateError] = useState("");
+  const [templates, setTemplates] = useState<CardTemplate[]>(initialTemplates);
+  const [loadingTemplates, setLoadingTemplates] = useState(initialLoadingTemplates);
+  const [templateError, setTemplateError] = useState(initialTemplateError);
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
 
   return (

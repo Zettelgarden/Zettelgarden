@@ -16,7 +16,7 @@ import (
 )
 
 func TestMergeEntitiesSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Perform merge using pre-loaded test data
@@ -46,7 +46,7 @@ func TestMergeEntitiesSuccess(t *testing.T) {
 }
 
 func TestMergeEntitiesWrongUser(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Try to merge entities belonging to different users
@@ -67,7 +67,7 @@ func TestMergeEntitiesWrongUser(t *testing.T) {
 }
 
 func TestMergeEntitiesNonExistent(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Try to merge with non-existent entity
@@ -78,7 +78,7 @@ func TestMergeEntitiesNonExistent(t *testing.T) {
 }
 
 func TestDeleteEntitySuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Delete entity using pre-loaded test data
@@ -108,7 +108,7 @@ func TestDeleteEntitySuccess(t *testing.T) {
 }
 
 func TestDeleteEntityWrongUser(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Try to delete entity belonging to different user
@@ -129,7 +129,7 @@ func TestDeleteEntityWrongUser(t *testing.T) {
 }
 
 func TestDeleteEntityNonExistent(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Try to delete non-existent entity
@@ -140,7 +140,7 @@ func TestDeleteEntityNonExistent(t *testing.T) {
 }
 
 func TestUpdateEntitySuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Update entity using pre-loaded test data
@@ -166,7 +166,7 @@ func TestUpdateEntitySuccess(t *testing.T) {
 }
 
 func TestUpdateEntityDuplicateName(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// First create another entity with a known name, using a high ID to avoid conflicts
@@ -194,7 +194,7 @@ func TestUpdateEntityDuplicateName(t *testing.T) {
 }
 
 func TestUpdateEntityWrongUser(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Try to update entity belonging to different user
@@ -210,7 +210,7 @@ func TestUpdateEntityWrongUser(t *testing.T) {
 }
 
 func TestUpdateEntityNonExistent(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Try to update non-existent entity
@@ -226,7 +226,7 @@ func TestUpdateEntityNonExistent(t *testing.T) {
 }
 
 func TestUpdateEntityWithCardPK(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create a test card
@@ -276,7 +276,7 @@ func TestUpdateEntityWithCardPK(t *testing.T) {
 }
 
 func TestUpdateEntityWithInvalidCardPK(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Try to update with non-existent card
@@ -298,7 +298,7 @@ func TestUpdateEntityWithInvalidCardPK(t *testing.T) {
 }
 
 func TestAddEntityToCardSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create a test card
@@ -348,7 +348,7 @@ func TestAddEntityToCardSuccess(t *testing.T) {
 }
 
 func TestAddEntityToCardDuplicate(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create a test card
@@ -396,7 +396,7 @@ func TestAddEntityToCardDuplicate(t *testing.T) {
 }
 
 func TestAddEntityToCardWrongUser(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create a test card for user 1
@@ -453,7 +453,7 @@ func TestAddEntityToCardWrongUser(t *testing.T) {
 }
 
 func TestAddEntityToCardNonExistent(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Try to create relationship with non-existent entity and card
@@ -467,7 +467,7 @@ func TestAddEntityToCardNonExistent(t *testing.T) {
 }
 
 func TestRemoveEntityFromCardSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// First create a test card and entity-card relationship
@@ -526,7 +526,7 @@ func TestRemoveEntityFromCardSuccess(t *testing.T) {
 }
 
 func TestRemoveEntityFromCardWrongUser(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// First create a test card and entity-card relationship for user 1
@@ -573,7 +573,7 @@ func TestRemoveEntityFromCardWrongUser(t *testing.T) {
 }
 
 func TestRemoveEntityFromCardNonExistent(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	var originalCount int
@@ -607,7 +607,7 @@ func TestRemoveEntityFromCardNonExistent(t *testing.T) {
 }
 
 func TestGetEntityByNameRouteNotFound(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Generate test JWT for user 1
@@ -634,7 +634,7 @@ func TestGetEntityByNameRouteNotFound(t *testing.T) {
 }
 
 func TestGetEntityByNameRouteWrongUser(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Generate test JWT for user 2
@@ -661,7 +661,7 @@ func TestGetEntityByNameRouteWrongUser(t *testing.T) {
 }
 
 func TestGetEntityByNameRouteUnauthorized(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create request without authorization token
@@ -685,7 +685,7 @@ func TestGetEntityByNameRouteUnauthorized(t *testing.T) {
 }
 
 func TestGetEntityByNameRouteEmptyName(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Generate test JWT for user 1
@@ -711,7 +711,7 @@ func TestGetEntityByNameRouteEmptyName(t *testing.T) {
 }
 
 func TestMergeEntitiesPreservesCardPK(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create a test card first
@@ -771,7 +771,7 @@ func TestMergeEntitiesPreservesCardPK(t *testing.T) {
 }
 
 func TestMergeEntitiesPreservesCardPKFromSecondEntity(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create a test card first

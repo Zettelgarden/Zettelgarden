@@ -49,7 +49,7 @@ func createSchema(t *testing.T, s *Handler, userID int, name string, fields []mo
 
 // TestCreateSchemaRoute_Success tests successful schema creation with valid fields
 func TestCreateSchemaRoute_Success(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{
@@ -79,7 +79,7 @@ func TestCreateSchemaRoute_Success(t *testing.T) {
 
 // TestCreateSchemaRoute_EmptyName tests error when name is empty
 func TestCreateSchemaRoute_EmptyName(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -112,7 +112,7 @@ func TestCreateSchemaRoute_EmptyName(t *testing.T) {
 
 // TestCreateSchemaRoute_NameTooLong tests error when name exceeds 255 characters
 func TestCreateSchemaRoute_NameTooLong(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -151,7 +151,7 @@ func TestCreateSchemaRoute_NameTooLong(t *testing.T) {
 
 // TestCreateSchemaRoute_EmptyFields tests error when fields array is empty
 func TestCreateSchemaRoute_EmptyFields(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -181,7 +181,7 @@ func TestCreateSchemaRoute_EmptyFields(t *testing.T) {
 
 // TestCreateSchemaRoute_DuplicateFieldNames tests error when field names are duplicated
 func TestCreateSchemaRoute_DuplicateFieldNames(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -215,7 +215,7 @@ func TestCreateSchemaRoute_DuplicateFieldNames(t *testing.T) {
 
 // TestCreateSchemaRoute_InvalidFieldType tests error when field type is invalid
 func TestCreateSchemaRoute_InvalidFieldType(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -249,7 +249,7 @@ func TestCreateSchemaRoute_InvalidFieldType(t *testing.T) {
 
 // TestCreateSchemaRoute_SelectWithoutOptions tests error when select type has no options
 func TestCreateSchemaRoute_SelectWithoutOptions(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -282,7 +282,7 @@ func TestCreateSchemaRoute_SelectWithoutOptions(t *testing.T) {
 
 // TestCreateSchemaRoute_AllValidFieldTypes tests successful creation with all valid field types
 func TestCreateSchemaRoute_AllValidFieldTypes(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{
@@ -308,7 +308,7 @@ func TestCreateSchemaRoute_AllValidFieldTypes(t *testing.T) {
 
 // TestGetSchemasRoute_Success tests successful retrieval of user's schemas
 func TestGetSchemasRoute_Success(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create schemas for user 1
@@ -350,7 +350,7 @@ func TestGetSchemasRoute_Success(t *testing.T) {
 
 // TestGetSchemasRoute_ExcludesDeleted tests that deleted schemas are not returned
 func TestGetSchemasRoute_ExcludesDeleted(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -389,7 +389,7 @@ func TestGetSchemasRoute_ExcludesDeleted(t *testing.T) {
 
 // TestGetSchemasRoute_EmptyArray tests that empty array is returned when no schemas exist
 func TestGetSchemasRoute_EmptyArray(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -415,7 +415,7 @@ func TestGetSchemasRoute_EmptyArray(t *testing.T) {
 
 // TestGetSchemaRoute_Success tests successful retrieval of a specific schema
 func TestGetSchemaRoute_Success(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -450,7 +450,7 @@ func TestGetSchemaRoute_Success(t *testing.T) {
 
 // TestGetSchemaRoute_NotFound tests error when schema is not found
 func TestGetSchemaRoute_NotFound(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -475,7 +475,7 @@ func TestGetSchemaRoute_NotFound(t *testing.T) {
 
 // TestGetSchemaRoute_DeletedSchema tests error when trying to get a deleted schema
 func TestGetSchemaRoute_DeletedSchema(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -508,7 +508,7 @@ func TestGetSchemaRoute_DeletedSchema(t *testing.T) {
 
 // TestGetSchemaRoute_OtherUserSchema tests error when trying to get another user's schema
 func TestGetSchemaRoute_OtherUserSchema(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -532,7 +532,7 @@ func TestGetSchemaRoute_OtherUserSchema(t *testing.T) {
 
 // TestUpdateSchemaRoute_UpdateName tests successful update of schema name
 func TestUpdateSchemaRoute_UpdateName(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -571,7 +571,7 @@ func TestUpdateSchemaRoute_UpdateName(t *testing.T) {
 
 // TestUpdateSchemaRoute_UpdateFields tests successful update of schema fields
 func TestUpdateSchemaRoute_UpdateFields(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -613,7 +613,7 @@ func TestUpdateSchemaRoute_UpdateFields(t *testing.T) {
 
 // TestUpdateSchemaRoute_SchemaNotFound tests error when schema is not found
 func TestUpdateSchemaRoute_SchemaNotFound(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -646,7 +646,7 @@ func TestUpdateSchemaRoute_SchemaNotFound(t *testing.T) {
 
 // TestUpdateSchemaRoute_OtherUserSchema tests error when trying to update another user's schema
 func TestUpdateSchemaRoute_OtherUserSchema(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -678,7 +678,7 @@ func TestUpdateSchemaRoute_OtherUserSchema(t *testing.T) {
 
 // TestUpdateSchemaRoute_InvalidFieldType tests error when updating with invalid field type
 func TestUpdateSchemaRoute_InvalidFieldType(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -710,7 +710,7 @@ func TestUpdateSchemaRoute_InvalidFieldType(t *testing.T) {
 
 // TestDeleteSchemaRoute_UnusedSchema tests successful deletion of unused schema (no warning)
 func TestDeleteSchemaRoute_UnusedSchema(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -756,7 +756,7 @@ func TestDeleteSchemaRoute_UnusedSchema(t *testing.T) {
 
 // TestDeleteSchemaRoute_WithCards tests successful deletion of schema with cards (with warning)
 func TestDeleteSchemaRoute_WithCards(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create a schema
@@ -816,7 +816,7 @@ func TestDeleteSchemaRoute_WithCards(t *testing.T) {
 
 // TestDeleteSchemaRoute_SchemaNotFound tests error when schema is not found
 func TestDeleteSchemaRoute_SchemaNotFound(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -841,7 +841,7 @@ func TestDeleteSchemaRoute_SchemaNotFound(t *testing.T) {
 
 // TestDeleteSchemaRoute_OtherUserSchema tests error when trying to delete another user's schema
 func TestDeleteSchemaRoute_OtherUserSchema(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -876,7 +876,7 @@ func TestDeleteSchemaRoute_OtherUserSchema(t *testing.T) {
 
 // TestCreateSchemaRoute_MultiSelectWithoutOptions tests error when multi-select has no options
 func TestCreateSchemaRoute_MultiSelectWithoutOptions(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -909,7 +909,7 @@ func TestCreateSchemaRoute_MultiSelectWithoutOptions(t *testing.T) {
 
 // TestUpdateSchemaRoute_EmptyName tests error when updating with empty name
 func TestUpdateSchemaRoute_EmptyName(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -941,7 +941,7 @@ func TestUpdateSchemaRoute_EmptyName(t *testing.T) {
 
 // TestCreateSchemaRoute_EmptyFieldName tests error when field name is empty
 func TestCreateSchemaRoute_EmptyFieldName(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -975,7 +975,7 @@ func TestCreateSchemaRoute_EmptyFieldName(t *testing.T) {
 // TestGetSchemaRoute_InvalidID tests error when schema ID is invalid
 // With slug support, non-numeric strings are now treated as slugs, so we get 404 instead of 400
 func TestGetSchemaRoute_InvalidID(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -1001,7 +1001,7 @@ func TestGetSchemaRoute_InvalidID(t *testing.T) {
 
 // TestDeleteSchemaRoute_InvalidID tests error when schema ID is invalid
 func TestDeleteSchemaRoute_InvalidID(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -1026,7 +1026,7 @@ func TestDeleteSchemaRoute_InvalidID(t *testing.T) {
 
 // TestUpdateSchemaRoute_InvalidID tests error when schema ID is invalid
 func TestUpdateSchemaRoute_InvalidID(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -1059,7 +1059,7 @@ func TestUpdateSchemaRoute_InvalidID(t *testing.T) {
 
 // TestGetSchemasRoute_MultipleUsers tests that each user only sees their own schemas
 func TestGetSchemasRoute_MultipleUsers(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -1120,7 +1120,7 @@ func TestGetSchemasRoute_MultipleUsers(t *testing.T) {
 
 // TestDeleteSchemaRoute_MultipleCardsWithSchema tests warning with multiple affected cards
 func TestDeleteSchemaRoute_MultipleCardsWithSchema(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create a schema
@@ -1176,7 +1176,7 @@ func TestDeleteSchemaRoute_MultipleCardsWithSchema(t *testing.T) {
 
 // TestCreateSchemaRoute_DuplicateName tests error when creating a schema with a duplicate name
 func TestCreateSchemaRoute_DuplicateName(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -1218,7 +1218,7 @@ func TestCreateSchemaRoute_DuplicateName(t *testing.T) {
 
 // TestCreateSchemaRoute_DuplicateNameDifferentUsers tests that duplicate names are allowed for different users
 func TestCreateSchemaRoute_DuplicateNameDifferentUsers(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -1250,7 +1250,7 @@ func TestCreateSchemaRoute_DuplicateNameDifferentUsers(t *testing.T) {
 
 // TestCreateSchemaRoute_DuplicateNameCaseInsensitive tests that duplicate names are case-insensitive
 func TestCreateSchemaRoute_DuplicateNameCaseInsensitive(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -1284,7 +1284,7 @@ func TestCreateSchemaRoute_DuplicateNameCaseInsensitive(t *testing.T) {
 
 // TestCreateSchemaRoute_DuplicateNameWithWhitespace tests that duplicate names ignore surrounding whitespace
 func TestCreateSchemaRoute_DuplicateNameWithWhitespace(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -1318,7 +1318,7 @@ func TestCreateSchemaRoute_DuplicateNameWithWhitespace(t *testing.T) {
 
 // TestUpdateSchemaRoute_DuplicateName tests error when updating a schema to a name that already exists
 func TestUpdateSchemaRoute_DuplicateName(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -1359,7 +1359,7 @@ func TestUpdateSchemaRoute_DuplicateName(t *testing.T) {
 
 // TestUpdateSchemaRoute_DuplicateNameDifferentUsers tests that updating to a duplicate name is allowed for different users
 func TestUpdateSchemaRoute_DuplicateNameDifferentUsers(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -1403,7 +1403,7 @@ func TestUpdateSchemaRoute_DuplicateNameDifferentUsers(t *testing.T) {
 
 // TestUpdateSchemaRoute_SameName tests that updating a schema to its own name succeeds
 func TestUpdateSchemaRoute_SameName(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
@@ -1446,7 +1446,7 @@ func TestUpdateSchemaRoute_SameName(t *testing.T) {
 
 // TestCreateSchemaRoute_ExceedsMaxFields tests error when schema exceeds maximum fields
 func TestCreateSchemaRoute_ExceedsMaxFields(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -1487,7 +1487,7 @@ func TestCreateSchemaRoute_ExceedsMaxFields(t *testing.T) {
 
 // TestCreateSchemaRoute_ExceedsMaxOptions tests error when select field exceeds maximum options
 func TestCreateSchemaRoute_ExceedsMaxOptions(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -1527,7 +1527,7 @@ func TestCreateSchemaRoute_ExceedsMaxOptions(t *testing.T) {
 
 // TestUpdateSchemaRoute_ExceedsMaxFields tests error when update exceeds maximum fields
 func TestUpdateSchemaRoute_ExceedsMaxFields(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}

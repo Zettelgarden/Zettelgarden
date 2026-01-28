@@ -18,20 +18,8 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func setup() *Handler {
-	S := tests.Setup()
-	s := &Handler{
-		DB:     S.DB,
-		Server: S,
-	}
-
-	S.S3 = s.CreateS3Client()
-	return s
-
-}
-
 func TestAuthDecodeToken(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	password := "testest"
@@ -58,7 +46,7 @@ func TestAuthDecodeToken(t *testing.T) {
 
 }
 func TestAuthResetPasswordAndLoginSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	password := "testest"
@@ -102,7 +90,7 @@ func TestAuthResetPasswordAndLoginSuccess(t *testing.T) {
 }
 
 func TestAuthLoginFailure(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	loginData := models.LoginParams{
@@ -137,7 +125,7 @@ func TestAuthLoginFailure(t *testing.T) {
 }
 
 func TestAuthSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := s.generateResetToken(1)
@@ -155,7 +143,7 @@ func TestAuthSuccess(t *testing.T) {
 }
 
 func TestRequestPasswordResetSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	sent := s.Server.Mail.TestingEmailsSent
@@ -184,7 +172,7 @@ func TestRequestPasswordResetSuccess(t *testing.T) {
 }
 
 func TestRequestPasswordResetWrongEmail(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	sent := s.Server.Mail.TestingEmailsSent

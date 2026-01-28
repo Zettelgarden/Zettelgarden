@@ -15,7 +15,7 @@ import (
 )
 
 func TestLinkFactToCardHandler(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	log.Printf("aoeao")
@@ -33,7 +33,7 @@ func TestLinkFactToCardHandler(t *testing.T) {
 
 // Test ExtractSaveCardFacts preserves facts linked to multiple cards
 func TestExtractSaveCardFacts_MultiCardFactPreserved(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Insert a fact linked to two cards
@@ -69,7 +69,7 @@ func TestExtractSaveCardFacts_MultiCardFactPreserved(t *testing.T) {
 
 // Test ExtractSaveCardFacts deletes orphaned facts only linked to one card
 func TestExtractSaveCardFacts_SingleCardFactDeleted(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Insert a fact linked only to card 1
@@ -101,7 +101,7 @@ func TestExtractSaveCardFacts_SingleCardFactDeleted(t *testing.T) {
 
 // Test merging two facts successfully
 func TestMergeFactsRoute_Success(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	var fact1ID, fact2ID int
@@ -135,7 +135,7 @@ func TestMergeFactsRoute_Success(t *testing.T) {
 
 // Test merge with same fact IDs should error
 func TestMergeFactsRoute_SelfMergeError(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	var factID int

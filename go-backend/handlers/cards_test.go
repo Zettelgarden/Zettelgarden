@@ -57,7 +57,7 @@ func makeCardDeleteRequestSuccess(s *Handler, t *testing.T, id int) *httptest.Re
 }
 
 func TestGetCardSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	var logCount int
@@ -88,7 +88,7 @@ func TestGetCardSuccess(t *testing.T) {
 }
 
 func TestGetCardWrongUser(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(2)
@@ -113,7 +113,7 @@ func TestGetCardWrongUser(t *testing.T) {
 }
 
 func TestGetCardSuccessParent(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	rr := makeCardRequestSuccess(s, t, 1)
@@ -130,7 +130,7 @@ func TestGetCardSuccessParent(t *testing.T) {
 }
 
 func TestGetCardChildrenRoute(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -163,7 +163,7 @@ func TestGetCardChildrenRoute(t *testing.T) {
 }
 
 func TestGetCardFilesRoute(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Initial files
@@ -216,7 +216,7 @@ func TestGetCardFilesRoute(t *testing.T) {
 
 // TestGetCardReferencesRoute validates the new dedicated references endpoint
 func TestGetCardReferencesRoute(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -273,7 +273,7 @@ func TestGetCardReferencesRoute(t *testing.T) {
 }
 
 func TestGetCardReferencesDuplicateLinks(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -327,7 +327,7 @@ func TestGetCardReferencesDuplicateLinks(t *testing.T) {
 	}
 }
 func TestUpdateCardSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	var oldLinkCount int
@@ -383,7 +383,7 @@ func TestUpdateCardSuccess(t *testing.T) {
 }
 
 func TestUpdateCardUnauthorized(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(2)
@@ -418,7 +418,7 @@ func TestUpdateCardUnauthorized(t *testing.T) {
 }
 
 func TestCreateCardSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	var card models.Card
@@ -457,7 +457,7 @@ func TestCreateCardSuccess(t *testing.T) {
 }
 
 func TestCreateCardDuplicateCardID(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -501,7 +501,7 @@ func TestCreateCardDuplicateCardID(t *testing.T) {
 }
 
 func TestDeleteCardSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	id := 3
@@ -525,7 +525,7 @@ func TestDeleteCardSuccess(t *testing.T) {
 }
 
 func TestDeleteCardWrongUser(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(2)
@@ -548,7 +548,7 @@ func TestDeleteCardWrongUser(t *testing.T) {
 }
 
 func TestCreateCardLinkedParentId(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	rr := makeCardRequestSuccess(s, t, 4)
@@ -597,7 +597,7 @@ func TestCreateCardLinkedParentId(t *testing.T) {
 }
 
 func TestGetNextRootCardID(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Test when no cards exist beyond test data
@@ -639,7 +639,7 @@ func TestGetNextRootCardID(t *testing.T) {
 }
 
 func TestGetNextRootCardIDRoute(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -678,7 +678,7 @@ func TestGetNextRootCardIDRoute(t *testing.T) {
 }
 
 func TestCheckCardLinkedOrRelated(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	userID := 1
@@ -723,7 +723,7 @@ func TestCheckCardLinkedOrRelated(t *testing.T) {
 }
 
 func TestGetNextChildCardID(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create a test parent card
@@ -811,7 +811,7 @@ func TestGetNextChildCardID(t *testing.T) {
 }
 
 func TestGetNextChildCardIDRoute(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create a test parent card
@@ -895,7 +895,7 @@ func createTestSchema(s *Handler, t *testing.T, userID int, name string, fields 
 
 // TestCreateCardWithSchema_Success creates a card with schema and valid structured_data
 func TestCreateCardWithSchema_Success(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create test schema with all field types
@@ -972,7 +972,7 @@ func TestCreateCardWithSchema_Success(t *testing.T) {
 
 // TestCreateCardWithSchema_SchemaNotFound tests error when schema_id doesn't exist
 func TestCreateCardWithSchema_SchemaNotFound(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -1013,7 +1013,7 @@ func TestCreateCardWithSchema_SchemaNotFound(t *testing.T) {
 
 // TestCreateCardWithSchema_OtherUsersSchema tests error when using another user's schema
 func TestCreateCardWithSchema_OtherUsersSchema(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create schema for user 1
@@ -1060,7 +1060,7 @@ func TestCreateCardWithSchema_OtherUsersSchema(t *testing.T) {
 
 // TestCreateCardWithSchema_MissingRequiredField tests error when required field is missing
 func TestCreateCardWithSchema_MissingRequiredField(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create schema with required fields
@@ -1107,7 +1107,7 @@ func TestCreateCardWithSchema_MissingRequiredField(t *testing.T) {
 
 // TestCreateCardWithSchema_InvalidFieldType tests error when field type doesn't match
 func TestCreateCardWithSchema_InvalidFieldType(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create schema with number field
@@ -1152,7 +1152,7 @@ func TestCreateCardWithSchema_InvalidFieldType(t *testing.T) {
 
 // TestCreateCardWithSchema_InvalidSelectValue tests error when select value is not in options
 func TestCreateCardWithSchema_InvalidSelectValue(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create schema with select field
@@ -1197,7 +1197,7 @@ func TestCreateCardWithSchema_InvalidSelectValue(t *testing.T) {
 
 // TestCreateCardWithSchema_AllOptionalFieldsEmpty tests success with all optional fields empty
 func TestCreateCardWithSchema_AllOptionalFieldsEmpty(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create schema with optional fields
@@ -1252,7 +1252,7 @@ func TestCreateCardWithSchema_AllOptionalFieldsEmpty(t *testing.T) {
 
 // TestUpdateCardWithSchema_AddSchemaToExistingCard tests adding schema to existing card
 func TestUpdateCardWithSchema_AddSchemaToExistingCard(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -1329,7 +1329,7 @@ func TestUpdateCardWithSchema_AddSchemaToExistingCard(t *testing.T) {
 
 // TestUpdateCardWithSchema_UpdateStructuredData tests updating structured_data
 func TestUpdateCardWithSchema_UpdateStructuredData(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -1418,7 +1418,7 @@ func TestUpdateCardWithSchema_UpdateStructuredData(t *testing.T) {
 
 // TestUpdateCardWithSchema_RemoveSchema tests removing schema from card
 func TestUpdateCardWithSchema_RemoveSchema(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -1493,7 +1493,7 @@ func TestUpdateCardWithSchema_RemoveSchema(t *testing.T) {
 
 // TestGetCardWithSchema_WithSchemaAndData tests getting card that includes schema_id and structured_data
 func TestGetCardWithSchema_WithSchemaAndData(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -1576,7 +1576,7 @@ func TestGetCardWithSchema_WithSchemaAndData(t *testing.T) {
 
 // TestGetCardWithSchema_NullSchemaID tests getting card with null schema_id
 func TestGetCardWithSchema_NullSchemaID(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create card without schema (using existing test card)
@@ -1596,7 +1596,7 @@ func TestGetCardWithSchema_NullSchemaID(t *testing.T) {
 
 // TestGetCardWithSchema_NullStructuredData tests getting card with null structured_data
 func TestGetCardWithSchema_NullStructuredData(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -1641,7 +1641,7 @@ func TestGetCardWithSchema_NullStructuredData(t *testing.T) {
 
 // TestCreateCardWithSchema_WithoutStructuredDataWhenRequired tests error when schema requires structured_data
 func TestCreateCardWithSchema_WithoutStructuredDataWhenRequired(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -1683,7 +1683,7 @@ func TestCreateCardWithSchema_WithoutStructuredDataWhenRequired(t *testing.T) {
 
 // TestCreateCardWithSchema_WithLinkToCardField tests creating card with link_to_card field
 func TestCreateCardWithSchema_WithLinkToCardField(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -1769,7 +1769,7 @@ func TestCreateCardWithSchema_WithLinkToCardField(t *testing.T) {
 
 // TestCreateCardWithSchema_InvalidLinkToCardReference tests error with invalid link_to_card reference
 func TestCreateCardWithSchema_InvalidLinkToCardReference(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -1817,7 +1817,7 @@ func TestCreateCardWithSchema_InvalidLinkToCardReference(t *testing.T) {
 
 // TestCreateCardWithSchema_AllFieldTypes tests creating card with all supported field types
 func TestCreateCardWithSchema_AllFieldTypes(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -1930,7 +1930,7 @@ func TestCreateCardWithSchema_AllFieldTypes(t *testing.T) {
 
 // TestUpdateCardWithSchema_InvalidStructuredData tests updating with invalid structured_data
 func TestUpdateCardWithSchema_InvalidStructuredData(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -2009,7 +2009,7 @@ func TestUpdateCardWithSchema_InvalidStructuredData(t *testing.T) {
 // other fields (like title) without providing schema_id/structured_data
 // preserves the existing schema association
 func TestUpdateCardWithSchema_PartialUpdatePreservesSchema(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)

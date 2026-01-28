@@ -52,7 +52,7 @@ func makeTasksRequestSuccess(s *Handler, t *testing.T, params string) *httptest.
 	return rr
 }
 func TestGetTaskSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	rr := makeTaskRequestSuccess(s, t, 1)
@@ -71,7 +71,7 @@ func TestGetTaskSuccess(t *testing.T) {
 }
 
 func TestGetTaskWrongUser(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(2)
@@ -98,7 +98,7 @@ func TestGetTaskWrongUser(t *testing.T) {
 
 func TestGetTasksSuccess(t *testing.T) {
 
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	rr := makeTasksRequestSuccess(s, t, "")
@@ -114,7 +114,7 @@ func TestGetTasksSuccess(t *testing.T) {
 }
 
 func TestUpdateTaskSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -158,7 +158,7 @@ func TestUpdateTaskSuccess(t *testing.T) {
 }
 
 func TestUpdateTaskCompleteTask(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -204,7 +204,7 @@ func TestUpdateTaskCompleteTask(t *testing.T) {
 }
 
 func TestCreateTaskSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	var task models.Task
@@ -255,7 +255,7 @@ func TestCreateTaskSuccess(t *testing.T) {
 }
 
 func TestDeleteTaskSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -291,7 +291,7 @@ func TestDeleteTaskSuccess(t *testing.T) {
 }
 
 func TestParseRecurringTasks(t *testing.T) {
-	_ = setup()
+	_ = NewHandler()
 	defer tests.Teardown()
 
 	testCases := []struct {
@@ -363,7 +363,7 @@ func TestParseRecurringTasks(t *testing.T) {
 	}
 }
 func TestUpdateTaskCompleteRecurringTask(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	var taskCount int
@@ -409,7 +409,7 @@ func TestUpdateTaskCompleteRecurringTask(t *testing.T) {
 
 func TestGetTasksForCardSuccess(t *testing.T) {
 
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	rr := makeTasksRequestSuccess(s, t, "")
@@ -424,7 +424,7 @@ func TestGetTasksForCardSuccess(t *testing.T) {
 }
 
 func TestTaskTimestampsAreTZAware(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create a task with a specific scheduled date
@@ -471,7 +471,7 @@ func TestTaskTimestampsAreTZAware(t *testing.T) {
 }
 
 func TestTaskTimestampsJSONFormat(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	rr := makeTaskRequestSuccess(s, t, 1)

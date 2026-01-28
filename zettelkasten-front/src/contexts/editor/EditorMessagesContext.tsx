@@ -19,11 +19,18 @@ export function useEditorMessagesContext() {
 
 interface EditorMessagesProviderProps {
   children: React.ReactNode;
+  // Optional initial values for testing
+  initialMessage?: string;
+  initialError?: string;
 }
 
-export function EditorMessagesProvider({ children }: EditorMessagesProviderProps) {
-  const [message, setMessage] = useState<string>("");
-  const [error, setError] = useState<string>("");
+export function EditorMessagesProvider({
+  children,
+  initialMessage = "",
+  initialError = ""
+}: EditorMessagesProviderProps) {
+  const [message, setMessage] = useState<string>(initialMessage);
+  const [error, setError] = useState<string>(initialError);
 
   return (
     <EditorMessagesContext.Provider value={{ message, setMessage, error, setError }}>

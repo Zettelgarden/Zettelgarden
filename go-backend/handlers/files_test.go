@@ -36,7 +36,7 @@ func uploadTestFile(s *Handler) {
 }
 
 func TestGetAllFiles(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -67,7 +67,7 @@ func TestGetAllFiles(t *testing.T) {
 	}
 }
 func TestGetAllFilesNoToken(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token := ""
@@ -91,7 +91,7 @@ func TestGetAllFilesNoToken(t *testing.T) {
 }
 
 func TestGetFileSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -122,7 +122,7 @@ func TestGetFileSuccess(t *testing.T) {
 
 func TestGetFileWrongUser(t *testing.T) {
 
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(2)
@@ -149,7 +149,7 @@ func TestGetFileWrongUser(t *testing.T) {
 }
 
 func TestEditFileSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	new_name := "new_name.txt"
@@ -191,7 +191,7 @@ func TestEditFileSuccess(t *testing.T) {
 }
 
 func TestEditFileSuccessChangeCard(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	new_name := "new_name.txt"
@@ -232,7 +232,7 @@ func TestEditFileSuccessChangeCard(t *testing.T) {
 	}
 }
 func TestEditFileWrongUser(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 	new_name := "new_name.txt"
 	token, _ := tests.GenerateTestJWT(2)
@@ -298,7 +298,7 @@ func createTestFile(t *testing.T, buffer bytes.Buffer, writer *multipart.Writer)
 }
 
 func TestUploadFileSuccess(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	// Create a buffer to write our multipart form data
@@ -337,7 +337,7 @@ func TestUploadFileSuccess(t *testing.T) {
 }
 
 func TestUploadFileNoFile(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	token, _ := tests.GenerateTestJWT(1)
@@ -358,7 +358,7 @@ func TestUploadFileNoFile(t *testing.T) {
 }
 
 func TestUploadFileNotAllowed(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 
 	var buffer bytes.Buffer
@@ -426,7 +426,7 @@ func TestUploadFileNotAllowed(t *testing.T) {
 }
 
 func TestDownloadFile(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 	uploadTestFile(s)
 
@@ -450,7 +450,7 @@ func TestDownloadFile(t *testing.T) {
 }
 
 func TestDeleteFile(t *testing.T) {
-	s := setup()
+	s := NewHandler()
 	defer tests.Teardown()
 	uploadTestFile(s)
 
