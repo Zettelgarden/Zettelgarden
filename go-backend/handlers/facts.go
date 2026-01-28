@@ -90,7 +90,7 @@ func (s *Handler) ExtractSaveCardFacts(userID int, cardPK int, facts []string) (
 	}
 
 	// Fetch the saved facts back, now with IDs, so we can run entity extraction
-	rows, err := s.Executor().Query(`
+	rows, err := s.GetDB().Query(`
 		SELECT f.id, f.user_id, fcj.card_pk, f.fact, f.created_at, f.updated_at,
 		c.id, c.card_id, c.title, c.parent_id
 		FROM facts f
@@ -148,7 +148,7 @@ func (s *Handler) GetEntityFacts(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("entity id %v", entityID)
 
-	rows, err := s.Executor().Query(`
+	rows, err := s.GetDB().Query(`
 		SELECT f.id, f.fact, f.created_at, f.updated_at,
 		       c.id, c.card_id, c.user_id, c.title, c.parent_id,
 		       c.created_at, c.updated_at
@@ -216,7 +216,7 @@ func (s *Handler) GetCardFacts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := s.Executor().Query(`
+	rows, err := s.GetDB().Query(`
 		SELECT f.id, f.fact, f.created_at, f.updated_at
 		FROM facts f
 		JOIN fact_card_junction fcj ON f.id = fcj.fact_id
@@ -257,7 +257,7 @@ func (s *Handler) GetFactEntities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := s.Executor().Query(`
+	rows, err := s.GetDB().Query(`
 		SELECT e.id, e.name, e.description, e.type, e.created_at, e.updated_at
 		FROM entities e
 		JOIN entity_fact_junction efj ON efj.entity_id = e.id
@@ -372,7 +372,7 @@ func (s *Handler) GetAllFacts(w http.ResponseWriter, r *http.Request) {
 		countArgs = []interface{}{userID}
 	}
 
-	rows, err := s.Executor().Query(query, queryArgs...)
+	rows, err := s.GetDB().Query(query, queryArgs...)
 	if err != nil {
 		log.Printf("Error querying facts: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -405,7 +405,7 @@ func (s *Handler) GetAllFacts(w http.ResponseWriter, r *http.Request) {
 
 	// Get total count for pagination
 	var total int
-	err = s.Executor().QueryRow(countQuery, countArgs...).Scan(&total)
+	err = s.GetDB().QueryRow(countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		log.Printf("Error counting facts: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -495,7 +495,7 @@ func (s *Handler) extractSaveFactEntitiesSync(userID int, card models.Card, fact
 			log.Printf("entity %v", entity.Name)
 
 			var entityID int
-			err = s.Executor().QueryRow(`
+			err = s.GetDB().QueryRow(`
 				SELECT id FROM entities WHERE user_id = $1 AND name = $2
 			`, userID, entity.Name).Scan(&entityID)
 
@@ -511,7 +511,7 @@ func (s *Handler) extractSaveFactEntitiesSync(userID int, card models.Card, fact
 				}
 
 				// no entity found, insert
-				err = s.Executor().QueryRow(`
+				err = s.GetDB().QueryRow(`
 					INSERT INTO entities (user_id, name, description, type, card_pk)
 					VALUES ($1, $2, $3, $4, $5)
 					RETURNING id
@@ -522,7 +522,7 @@ func (s *Handler) extractSaveFactEntitiesSync(userID int, card models.Card, fact
 				}
 			} else {
 				// entity exists, update
-				_, err = s.Executor().Exec(`
+				_, err = s.GetDB().Exec(`
 					UPDATE entities SET description=$1, type=$2, updated_at=NOW() WHERE id=$3
 				`, entity.Description, entity.Type, entityID)
 				if err != nil {
@@ -532,7 +532,7 @@ func (s *Handler) extractSaveFactEntitiesSync(userID int, card models.Card, fact
 			}
 
 			// link entity to fact
-			_, err = s.Executor().Exec(`
+			_, err = s.GetDB().Exec(`
 				INSERT INTO entity_fact_junction (user_id, entity_id, fact_id, created_at, updated_at)
 				VALUES ($1, $2, $3, NOW(), NOW())
 				ON CONFLICT (entity_id, fact_id) DO UPDATE SET updated_at = NOW()
@@ -543,7 +543,7 @@ func (s *Handler) extractSaveFactEntitiesSync(userID int, card models.Card, fact
 			}
 
 			// link entity to fact
-			_, err = s.Executor().Exec(`
+			_, err = s.GetDB().Exec(`
 				INSERT INTO entity_card_junction (user_id, entity_id, card_pk, chunk_id)
 				VALUES ($1, $2, $3, $4)
 				ON CONFLICT (entity_id, card_pk) DO UPDATE SET updated_at = NOW()
@@ -694,7 +694,7 @@ func (s *Handler) GetFact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var fact FactWithCard
-	err = s.Executor().QueryRow(`
+	err = s.GetDB().QueryRow(`
 		SELECT f.id, f.fact, f.created_at, f.updated_at,
 		       c.id, c.card_id, c.user_id, c.title, c.parent_id,
 		       c.created_at, c.updated_at
@@ -728,7 +728,7 @@ func (s *Handler) GetFact(w http.ResponseWriter, r *http.Request) {
 // GetFactByID returns a single fact by ID
 func (s *Handler) GetFactByID(userID int, factID int) (*models.Fact, error) {
 	var fact models.Fact
-	err := s.Executor().QueryRow(`
+	err := s.GetDB().QueryRow(`
 		SELECT id, user_id, card_pk, fact, created_at, updated_at
 		FROM facts
 		WHERE id = $1 AND user_id = $2
@@ -806,7 +806,7 @@ func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 		ORDER BY array_position($1, f.id)
 	`
 
-	rows, err := s.Executor().Query(query, pq.Array(factIDs))
+	rows, err := s.GetDB().Query(query, pq.Array(factIDs))
 	if err != nil {
 		log.Printf("error querying similar facts from db: %v", err)
 		http.Error(w, "Failed to query similar facts", http.StatusInternalServerError)
@@ -953,7 +953,7 @@ func (s *Handler) UpdateFact(w http.ResponseWriter, r *http.Request) {
 	// Re-fetch the fact and card info to update Typesense
 	var fact models.Fact
 	var card models.PartialCard
-	err = s.Executor().QueryRow(`
+	err = s.GetDB().QueryRow(`
 		SELECT f.id, f.user_id, fcj.card_pk, f.fact, f.created_at, f.updated_at,
 		c.id, c.card_id, c.title, c.parent_id
 		FROM facts f
@@ -994,7 +994,7 @@ func (s *Handler) GetFactCards(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := s.Executor().Query(`
+	rows, err := s.GetDB().Query(`
 		SELECT c.id, c.card_id, c.user_id, c.title, c.parent_id, c.created_at, c.updated_at
 		FROM cards c
 		JOIN fact_card_junction fcj ON c.id = fcj.card_pk

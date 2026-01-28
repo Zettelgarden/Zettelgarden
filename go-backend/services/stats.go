@@ -9,7 +9,7 @@ import (
 
 // GetDailyStats retrieves aggregated activity statistics for a date range
 // Returns stats for all days in the range, with 0 counts for days with no activity
-func GetDailyStats(db models.DBTX, userID int, startDate, endDate time.Time, timezone string) ([]models.DailyStats, error) {
+func GetDailyStats(db models.Database, userID int, startDate, endDate time.Time, timezone string) ([]models.DailyStats, error) {
 	// Use CTE to generate date series and join with activity data
 	query := `
 	WITH date_series AS (
@@ -96,7 +96,7 @@ func GetDailyStats(db models.DBTX, userID int, startDate, endDate time.Time, tim
 }
 
 // GetTasksCompletedOnDate retrieves all tasks completed on a specific date
-func GetTasksCompletedOnDate(db models.DBTX, userID int, date time.Time, timezone string) ([]models.Task, error) {
+func GetTasksCompletedOnDate(db models.Database, userID int, date time.Time, timezone string) ([]models.Task, error) {
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
 		created_at, updated_at, completed_at, title, priority, is_complete
@@ -154,7 +154,7 @@ func GetTasksCompletedOnDate(db models.DBTX, userID int, date time.Time, timezon
 }
 
 // GetCardsCreatedOnDate retrieves all cards created on a specific date
-func GetCardsCreatedOnDate(db models.DBTX, userID int, date time.Time, timezone string) ([]models.PartialCard, error) {
+func GetCardsCreatedOnDate(db models.Database, userID int, date time.Time, timezone string) ([]models.PartialCard, error) {
 	query := `
 	SELECT id, card_id, title, created_at, updated_at, parent_id, user_id
 	FROM cards

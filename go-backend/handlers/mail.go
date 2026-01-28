@@ -163,7 +163,7 @@ func (s *Handler) UnsubscribeMailingListRoute(w http.ResponseWriter, r *http.Req
 		RETURNING id
 	`
 	var id int
-	err := s.Executor().QueryRow(query, request.Email).Scan(&id)
+	err := s.GetDB().QueryRow(query, request.Email).Scan(&id)
 	if err != nil {
 		log.Printf("Error unsubscribing email %s: %v", request.Email, err)
 		http.Error(w, "Failed to unsubscribe email", http.StatusInternalServerError)

@@ -32,7 +32,7 @@ type MailClient struct {
 	mu                sync.Mutex
 	isProcessing      bool
 	DB                *sql.DB
-	Tx                models.DBTX
+	Tx                models.Database
 	ShutdownChan      chan struct{}
 	shutdownOnce      sync.Once
 
@@ -42,7 +42,7 @@ type MailClient struct {
 	RateLimiter *EmailRateLimiter
 }
 
-func (m *MailClient) db() models.DBTX {
+func (m *MailClient) db() models.Database {
 	if m.Tx != nil {
 		return m.Tx
 	}

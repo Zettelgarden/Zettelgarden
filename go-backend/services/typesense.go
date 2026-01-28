@@ -11,7 +11,7 @@ import (
 )
 
 // upsertCardToTypesense adds or updates a card document in Typesense
-func UpsertCardToTypesense(db models.DBTX, card models.Card) {
+func UpsertCardToTypesense(db models.Database, card models.Card) {
 	cfg := config.GetConfig()
 	if os.Getenv("ZETTEL_IS_TESTING") == "true" {
 		return

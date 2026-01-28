@@ -11,7 +11,7 @@ import (
 )
 
 // GetTask retrieves a single task by ID for a specific user
-func GetTask(db models.DBTX, userID int, id int) (models.Task, error) {
+func GetTask(db models.Database, userID int, id int) (models.Task, error) {
 	var task models.Task
 
 	err := db.QueryRow(`
@@ -58,7 +58,7 @@ func GetTask(db models.DBTX, userID int, id int) (models.Task, error) {
 }
 
 // GetTasksPaginated retrieves tasks for a user with pagination and filtering
-func GetTasksPaginated(db models.DBTX, userID int, limit, offset int, includeCompleted bool, cardID *int, priority *string, scheduledDate *time.Time, completedDate *time.Time, status *string, timezone string) ([]models.Task, int, error) {
+func GetTasksPaginated(db models.Database, userID int, limit, offset int, includeCompleted bool, cardID *int, priority *string, scheduledDate *time.Time, completedDate *time.Time, status *string, timezone string) ([]models.Task, int, error) {
 	var tasks []models.Task
 	var args []interface{}
 	argIndex := 1
@@ -201,13 +201,13 @@ func GetTasksPaginated(db models.DBTX, userID int, limit, offset int, includeCom
 }
 
 // GetTasks retrieves all tasks for a user, optionally including completed tasks
-func GetTasks(db models.DBTX, userID int, includeCompleted bool, timezone string) ([]models.Task, error) {
+func GetTasks(db models.Database, userID int, includeCompleted bool, timezone string) ([]models.Task, error) {
 	tasks, _, err := GetTasksPaginated(db, userID, 1000, 0, includeCompleted, nil, nil, nil, nil, nil, timezone)
 	return tasks, err
 }
 
 // GetTasksByCard retrieves all tasks associated with a specific card
-func GetTasksByCard(db models.DBTX, userID int, cardPK int) ([]models.Task, error) {
+func GetTasksByCard(db models.Database, userID int, cardPK int) ([]models.Task, error) {
 	var tasks []models.Task
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
@@ -272,7 +272,7 @@ func GetTasksByCard(db models.DBTX, userID int, cardPK int) ([]models.Task, erro
 }
 
 // GetTasksNeedingReminders retrieves all tasks that need reminder emails sent
-func GetTasksNeedingReminders(db models.DBTX) ([]models.Task, error) {
+func GetTasksNeedingReminders(db models.Database) ([]models.Task, error) {
 	var tasks []models.Task
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
@@ -320,7 +320,7 @@ func GetTasksNeedingReminders(db models.DBTX) ([]models.Task, error) {
 
 // UpdateTask updates an existing task
 // Returns the ID of a newly created recurring task, or 0 if none was created
-func UpdateTask(db models.DBTX, userID int, id int, task models.Task) (int, error) {
+func UpdateTask(db models.Database, userID int, id int, task models.Task) (int, error) {
 	oldTask, err := GetTask(db, userID, id)
 	if err != nil {
 		return 0, fmt.Errorf("unable to query task: %v", err)
@@ -418,7 +418,7 @@ func UpdateTask(db models.DBTX, userID int, id int, task models.Task) (int, erro
 }
 
 // CreateTask creates a new task
-func CreateTask(db models.DBTX, task models.Task) (int, error) {
+func CreateTask(db models.Database, task models.Task) (int, error) {
 	var taskID int
 
 	// Log the priority value for debugging
@@ -479,7 +479,7 @@ func CreateTask(db models.DBTX, task models.Task) (int, error) {
 }
 
 // DeleteTask soft deletes a task
-func DeleteTask(db models.DBTX, userID int, id int) error {
+func DeleteTask(db models.Database, userID int, id int) error {
 	oldTask, err := GetTask(db, userID, id)
 	if err != nil {
 		return fmt.Errorf("unable to query task: %v", err)
@@ -570,7 +570,7 @@ func ParseRecurringTasks(title string) (models.RecurringTask, bool) {
 
 // checkRecurringTasks handles creating recurring tasks when a task is completed
 // Returns the new task ID if a recurring task was created, 0 otherwise
-func checkRecurringTasks(db models.DBTX, task models.Task) (int, error) {
+func checkRecurringTasks(db models.Database, task models.Task) (int, error) {
 	recurringTask, found := ParseRecurringTasks(task.Title)
 	if !found {
 		return 0, nil
@@ -599,7 +599,7 @@ func checkRecurringTasks(db models.DBTX, task models.Task) (int, error) {
 }
 
 // LoadTaskDependencies loads the blocked_by and blocks relationships for a task
-func LoadTaskDependencies(db models.DBTX, task *models.Task) error {
+func LoadTaskDependencies(db models.Database, task *models.Task) error {
 	// Load tasks that block this task (blocked_by)
 	blockedByQuery := `
 		SELECT t.id, t.title, t.is_complete, t.status
@@ -658,7 +658,7 @@ func LoadTaskDependencies(db models.DBTX, task *models.Task) error {
 
 // CompleteAndScheduleTask completes the current task and creates a new one scheduled for X days later
 // Returns the ID of the newly created task, or 0 if none was created
-func CompleteAndScheduleTask(db models.DBTX, userID int, id int, days int, completeStatusName string, defaultStatusName string) (int, error) {
+func CompleteAndScheduleTask(db models.Database, userID int, id int, days int, completeStatusName string, defaultStatusName string) (int, error) {
 	// Get the original task
 	oldTask, err := GetTask(db, userID, id)
 	if err != nil {

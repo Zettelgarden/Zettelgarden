@@ -6,7 +6,7 @@ import (
 	"reflect"
 )
 
-func CreateAuditEvent(db models.DBTX, userID int, entityID int, entityType string, action string, oldState interface{}, newState interface{}) error {
+func CreateAuditEvent(db models.Database, userID int, entityID int, entityType string, action string, oldState interface{}, newState interface{}) error {
 	changes := make(map[string]models.FieldChange)
 
 	// If we have both states, compute the differences
@@ -78,7 +78,7 @@ func CreateAuditEvent(db models.DBTX, userID int, entityID int, entityType strin
 	return nil
 }
 
-func GetAuditEvents(db models.DBTX, entityType string, entityID int) ([]models.AuditEvent, error) {
+func GetAuditEvents(db models.Database, entityType string, entityID int) ([]models.AuditEvent, error) {
 	rows, err := db.Query(`
 		SELECT id, user_id, entity_id, entity_type, action, details, created_at
 		FROM audit_events

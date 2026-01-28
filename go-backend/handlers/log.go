@@ -35,7 +35,7 @@ func LogRoute(next http.HandlerFunc) http.HandlerFunc {
 
 func (s *Handler) logCardView(cardPK int, userID int) {
 	// Use transaction during testing, regular DB otherwise
-	_, err := s.TX().Exec(`
+	_, err := s.GetDB().Exec(`
    INSERT INTO
    card_views
    (card_pk, user_id, created_at)

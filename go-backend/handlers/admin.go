@@ -77,7 +77,7 @@ func (s *Handler) LogAdminAction(r *http.Request, action string, targetType stri
 		INSERT INTO admin_audit_log (admin_user_id, action, target_type, target_id, details, ip_address, user_agent)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
-	_, err = s.Executor().Exec(query, userID, action, targetType, targetID, detailsJSON, ipAddress, r.UserAgent())
+	_, err = s.GetDB().Exec(query, userID, action, targetType, targetID, detailsJSON, ipAddress, r.UserAgent())
 	if err != nil {
 		log.Printf("LogAdminAction: error inserting audit log: %v", err)
 	}
@@ -118,7 +118,7 @@ func (s *Handler) GetAdminAuditLogs(limit int, offset int, actionFilter string, 
 	query += whereClause + " ORDER BY created_at DESC, id DESC LIMIT $" + fmt.Sprint(len(args)+1) + " OFFSET $" + fmt.Sprint(len(args)+2)
 	args = append(args, limit, offset)
 
-	rows, err := s.Executor().Query(query, args...)
+	rows, err := s.GetDB().Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +272,7 @@ func (s *Handler) GetEmailQueueStatsRoute(w http.ResponseWriter, r *http.Request
 		WHERE job_type = 'email'
 		GROUP BY status
 	`
-	rows, err := s.Executor().Query(query)
+	rows, err := s.GetDB().Query(query)
 	if err != nil {
 		log.Printf("GetEmailQueueStatsRoute: error querying email stats: %v", err)
 		http.Error(w, "Failed to get email queue stats", http.StatusInternalServerError)
@@ -345,7 +345,7 @@ func (s *Handler) GetFailedEmailsRoute(w http.ResponseWriter, r *http.Request) {
 	// Get total count
 	countQuery := "SELECT COUNT(*) FROM (" + query + ") AS subq"
 	var total int
-	err := s.Executor().QueryRow(countQuery, args...).Scan(&total)
+	err := s.GetDB().QueryRow(countQuery, args...).Scan(&total)
 	if err != nil {
 		log.Printf("GetFailedEmailsRoute: error getting count: %v", err)
 		http.Error(w, "Failed to get failed emails", http.StatusInternalServerError)
@@ -356,7 +356,7 @@ func (s *Handler) GetFailedEmailsRoute(w http.ResponseWriter, r *http.Request) {
 	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
 	args = append(args, perPage, offset)
 
-	rows, err := s.Executor().Query(query, args...)
+	rows, err := s.GetDB().Query(query, args...)
 	if err != nil {
 		log.Printf("GetFailedEmailsRoute: error querying failed emails: %v", err)
 		http.Error(w, "Failed to get failed emails", http.StatusInternalServerError)
@@ -438,7 +438,7 @@ func (s *Handler) RetryFailedEmailRoute(w http.ResponseWriter, r *http.Request) 
 
 	// Check if job exists and is a failed email
 	var exists bool
-	err = s.Executor().QueryRow("SELECT EXISTS(SELECT 1 FROM llm_jobs WHERE id = $1 AND job_type = 'email' AND status = 'failed')", jobID).Scan(&exists)
+	err = s.GetDB().QueryRow("SELECT EXISTS(SELECT 1 FROM llm_jobs WHERE id = $1 AND job_type = 'email' AND status = 'failed')", jobID).Scan(&exists)
 	if err != nil {
 		log.Printf("RetryFailedEmailRoute: error checking job: %v", err)
 		http.Error(w, "Failed to retry email", http.StatusInternalServerError)
@@ -459,7 +459,7 @@ func (s *Handler) RetryFailedEmailRoute(w http.ResponseWriter, r *http.Request) 
 		    updated_at = NOW()
 		WHERE id = $1
 	`
-	_, err = s.Executor().Exec(query, jobID)
+	_, err = s.GetDB().Exec(query, jobID)
 	if err != nil {
 		log.Printf("RetryFailedEmailRoute: error retrying email: %v", err)
 		http.Error(w, "Failed to retry email", http.StatusInternalServerError)
@@ -493,7 +493,7 @@ func (s *Handler) DeleteFailedEmailRoute(w http.ResponseWriter, r *http.Request)
 	var exists bool
 	var userID int
 	var payloadJSON []byte
-	err = s.Executor().QueryRow("SELECT EXISTS(SELECT 1 FROM llm_jobs WHERE id = $1 AND job_type = 'email' AND status = 'failed'), user_id, payload", jobID).Scan(&exists, &userID, &payloadJSON)
+	err = s.GetDB().QueryRow("SELECT EXISTS(SELECT 1 FROM llm_jobs WHERE id = $1 AND job_type = 'email' AND status = 'failed'), user_id, payload", jobID).Scan(&exists, &userID, &payloadJSON)
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("DeleteFailedEmailRoute: error checking job: %v", err)
 		http.Error(w, "Failed to delete email", http.StatusInternalServerError)
@@ -506,7 +506,7 @@ func (s *Handler) DeleteFailedEmailRoute(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Delete the job
-	_, err = s.Executor().Exec("DELETE FROM llm_jobs WHERE id = $1", jobID)
+	_, err = s.GetDB().Exec("DELETE FROM llm_jobs WHERE id = $1", jobID)
 	if err != nil {
 		log.Printf("DeleteFailedEmailRoute: error deleting email: %v", err)
 		http.Error(w, "Failed to delete email", http.StatusInternalServerError)

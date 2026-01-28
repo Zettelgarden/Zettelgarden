@@ -39,9 +39,15 @@ type Handler struct {
 	LLMWorkerPool *services.WorkerPool
 }
 
-// Executor returns the transaction if available (for testing), otherwise returns the DB connection
-func (h *Handler) Executor() models.DBExecutor {
-	if h.Server != nil && h.Server.Tx != nil {
+// GetDB returns the appropriate database connection for database operations.
+// During testing (when Testing=true and Tx is set), it returns the test transaction.
+// Otherwise, it returns the standard database connection.
+//
+// This allows the same code to work in both test and production environments:
+// - Tests use transactions that are rolled back after each test for isolation
+// - Production uses the actual database connection
+func (h *Handler) GetDB() models.Database {
+	if h.Server != nil && h.Server.Testing && h.Server.Tx != nil {
 		return h.Server.Tx
 	}
 	return h.DB
@@ -51,15 +57,6 @@ func (h *Handler) Executor() models.DBExecutor {
 // Returns false during testing since the test framework manages transaction lifecycle.
 func (h *Handler) ShouldCommitTx() bool {
 	return !(h.Server != nil && h.Server.Testing)
-}
-
-// TX returns the appropriate database connection (transaction during testing, DB otherwise)
-// for services that expect models.DBTX interface.
-func (h *Handler) TX() models.DBTX {
-	if h.Server != nil && h.Server.Testing && h.Server.Tx != nil {
-		return h.Server.Tx
-	}
-	return h.DB
 }
 
 // BeginTx returns a transaction for the handler to use.

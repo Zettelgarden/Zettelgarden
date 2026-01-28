@@ -148,7 +148,7 @@ func (s *Handler) GetStarredCardsRoute(w http.ResponseWriter, r *http.Request) {
 // IsCardStarred checks if a card is starred by the current user
 func (s *Handler) IsCardStarred(userID, cardID int) (bool, error) {
 	var count int
-	err := s.TX().QueryRow(
+	err := s.GetDB().QueryRow(
 		"SELECT COUNT(*) FROM starred_cards WHERE card_pk = $1 AND user_id = $2",
 		cardID, userID,
 	).Scan(&count)

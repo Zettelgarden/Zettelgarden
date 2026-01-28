@@ -406,7 +406,7 @@ func (s *Handler) DeleteEntityRoute(w http.ResponseWriter, r *http.Request) {
 
 func (s *Handler) validateCardAccess(userID int, cardPK int) error {
 	var exists bool
-	err := s.Executor().QueryRow(`
+	err := s.GetDB().QueryRow(`
 		SELECT EXISTS(
 			SELECT 1 FROM cards
 			WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE

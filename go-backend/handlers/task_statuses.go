@@ -15,7 +15,7 @@ import (
 func (s *Handler) GetTaskStatusesRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
-	statuses, err := services.GetTaskStatuses(s.TX(), userID)
+	statuses, err := services.GetTaskStatuses(s.GetDB(), userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -34,7 +34,7 @@ func (s *Handler) GetTaskStatusRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, err := services.GetTaskStatus(s.TX(), userID, statusID)
+	status, err := services.GetTaskStatus(s.GetDB(), userID, statusID)
 	if err != nil {
 		http.Error(w, "Task status not found", http.StatusNotFound)
 		return
@@ -60,7 +60,7 @@ func (s *Handler) CreateTaskStatusRoute(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	statusID, err := services.CreateTaskStatus(s.TX(), userID, params)
+	statusID, err := services.CreateTaskStatus(s.GetDB(), userID, params)
 	if err != nil {
 		log.Printf("Error creating task status: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -87,7 +87,7 @@ func (s *Handler) UpdateTaskStatusRoute(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	err = services.UpdateTaskStatus(s.TX(), userID, statusID, params)
+	err = services.UpdateTaskStatus(s.GetDB(), userID, statusID, params)
 	if err != nil {
 		log.Printf("Error updating task status: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -111,7 +111,7 @@ func (s *Handler) DeleteTaskStatusRoute(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	err = services.DeleteTaskStatus(s.TX(), userID, statusID)
+	err = services.DeleteTaskStatus(s.GetDB(), userID, statusID)
 	if err != nil {
 		log.Printf("Error deleting task status: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)

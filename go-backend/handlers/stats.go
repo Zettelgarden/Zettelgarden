@@ -60,7 +60,7 @@ func (s *Handler) GetDailyStatsRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch stats from database
-	stats, err := services.GetDailyStats(s.TX(), userID, startDate, endDate, userTimezone)
+	stats, err := services.GetDailyStats(s.GetDB(), userID, startDate, endDate, userTimezone)
 	if err != nil {
 		log.Printf("Error getting daily stats: %v", err)
 		http.Error(w, "Failed to fetch daily stats", http.StatusInternalServerError)
@@ -110,7 +110,7 @@ func (s *Handler) GetDayTasksRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch tasks from database
-	tasks, err := services.GetTasksCompletedOnDate(s.TX(), userID, date, userTimezone)
+	tasks, err := services.GetTasksCompletedOnDate(s.GetDB(), userID, date, userTimezone)
 	if err != nil {
 		log.Printf("Error getting tasks for date: %v", err)
 		http.Error(w, "Failed to fetch tasks", http.StatusInternalServerError)
@@ -155,7 +155,7 @@ func (s *Handler) GetDayCardsRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch cards from database
-	cards, err := services.GetCardsCreatedOnDate(s.TX(), userID, date, userTimezone)
+	cards, err := services.GetCardsCreatedOnDate(s.GetDB(), userID, date, userTimezone)
 	if err != nil {
 		log.Printf("Error getting cards for date: %v", err)
 		http.Error(w, "Failed to fetch cards", http.StatusInternalServerError)
