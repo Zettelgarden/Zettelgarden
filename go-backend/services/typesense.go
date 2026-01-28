@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"database/sql"
 	"go-backend/bootstrap"
 	"go-backend/models"
 	"go-backend/pkg/config"
@@ -12,7 +11,7 @@ import (
 )
 
 // upsertCardToTypesense adds or updates a card document in Typesense
-func UpsertCardToTypesense(db *sql.DB, card models.Card) {
+func UpsertCardToTypesense(db models.DBTX, card models.Card) {
 	cfg := config.GetConfig()
 	if os.Getenv("ZETTEL_IS_TESTING") == "true" {
 		return

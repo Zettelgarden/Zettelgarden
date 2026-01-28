@@ -54,7 +54,7 @@ func ExtractBacklinks(text string) []string {
 
 // ExtractBacklinksFromStructuredData extracts card IDs (as human-readable card_id strings) from structured_data JSONB
 // It finds all link_to_card field values and converts them from internal IDs to card_id strings
-func ExtractBacklinksFromStructuredData(db *sql.DB, userID int, structuredData *json.RawMessage) []string {
+func ExtractBacklinksFromStructuredData(db models.DBTX, userID int, structuredData *json.RawMessage) []string {
 	if structuredData == nil || len(*structuredData) == 0 {
 		return []string{}
 	}
@@ -114,7 +114,7 @@ func ExtractBacklinksFromStructuredData(db *sql.DB, userID int, structuredData *
 	return backlinks
 }
 
-func GetChildCards(db *sql.DB, userID int, cardID int) ([]models.PartialCard, error) {
+func GetChildCards(db models.DBTX, userID int, cardID int) ([]models.PartialCard, error) {
 	// Find child cards based on card_id hierarchy
 	query := `
 		SELECT id, card_id, user_id, title, parent_id, created_at, updated_at
@@ -149,7 +149,7 @@ func GetChildCards(db *sql.DB, userID int, cardID int) ([]models.PartialCard, er
 	return cards, nil
 }
 
-func GetParentCard(db *sql.DB, userID int, cardPK int) ([]models.PartialCard, error) {
+func GetParentCard(db models.DBTX, userID int, cardPK int) ([]models.PartialCard, error) {
 	var results []models.PartialCard
 
 	card, err := GetPartialCard(db, userID, cardPK)
@@ -167,7 +167,7 @@ func GetParentCard(db *sql.DB, userID int, cardPK int) ([]models.PartialCard, er
 // GetChildCardsWithDepth recursively retrieves child cards up to the specified depth.
 // depth of 1 returns only immediate children (same as GetChildCards).
 // depth of -1 returns all descendants (unlimited depth).
-func GetChildCardsWithDepth(db *sql.DB, userID int, cardID int, depth int) ([]models.PartialCard, error) {
+func GetChildCardsWithDepth(db models.DBTX, userID int, cardID int, depth int) ([]models.PartialCard, error) {
 	var allCards []models.PartialCard
 
 	if depth == 0 {
@@ -210,7 +210,7 @@ func GetChildCardsWithDepth(db *sql.DB, userID int, cardID int, depth int) ([]mo
 // GetParentCardsWithDepth recursively retrieves parent cards up to the specified depth.
 // depth of 1 returns only the immediate parent (same as GetParentCard).
 // depth of -1 returns all ancestors (unlimited depth).
-func GetParentCardsWithDepth(db *sql.DB, userID int, cardPK int, depth int) ([]models.PartialCard, error) {
+func GetParentCardsWithDepth(db models.DBTX, userID int, cardPK int, depth int) ([]models.PartialCard, error) {
 	var allCards []models.PartialCard
 
 	if depth == 0 {
@@ -254,7 +254,7 @@ func GetParentCardsWithDepth(db *sql.DB, userID int, cardPK int, depth int) ([]m
 	return allCards, nil
 }
 
-func ExecuteTextSearch(db *sql.DB, userID int, query string, limit int, typesenseClient *typesense.Client) ([]map[string]interface{}, error) {
+func ExecuteTextSearch(db models.DBTX, userID int, query string, limit int, typesenseClient *typesense.Client) ([]map[string]interface{}, error) {
 	// Use Typesense for text search
 	collectionName := os.Getenv("TYPESENSE_COLLECTION")
 	if collectionName == "" {
@@ -302,7 +302,7 @@ func ExecuteTextSearch(db *sql.DB, userID int, query string, limit int, typesens
 }
 
 // executeTextSearchFallback provides SQL-based fallback when Typesense is unavailable
-func executeTextSearchFallback(db *sql.DB, userID int, query string, limit int) ([]map[string]interface{}, error) {
+func executeTextSearchFallback(db models.DBTX, userID int, query string, limit int) ([]map[string]interface{}, error) {
 	searchQuery := `
 		SELECT id, title, body, created_at, updated_at, card_id
 		FROM cards
@@ -349,7 +349,7 @@ func executeTextSearchFallback(db *sql.DB, userID int, query string, limit int) 
 	return cards, nil
 }
 
-func ExecuteSemanticSearch(db *sql.DB, userID int, query string, limit int, typesenseClient *typesense.Client) ([]map[string]interface{}, error) {
+func ExecuteSemanticSearch(db models.DBTX, userID int, query string, limit int, typesenseClient *typesense.Client) ([]map[string]interface{}, error) {
 	// Use Typesense with embedding search for semantic search
 	collectionName := os.Getenv("TYPESENSE_COLLECTION")
 	if collectionName == "" {
@@ -429,7 +429,7 @@ func GetFullCard(db models.DBTX, userID int, cardPK int) (models.Card, error) {
 
 	return card, nil
 }
-func GetPartialCardByCardID(db *sql.DB, userID int, cardID string) (models.PartialCard, error) {
+func GetPartialCardByCardID(db models.DBTX, userID int, cardID string) (models.PartialCard, error) {
 	var card models.PartialCard
 
 	err := db.QueryRow(`
@@ -477,7 +477,7 @@ func GetPartialCard(db models.DBTX, userID, id int) (models.PartialCard, error) 
 	return card, nil
 }
 
-func GetBacklinks(db *sql.DB, userID int, cardID string) ([]models.PartialCard, error) {
+func GetBacklinks(db models.DBTX, userID int, cardID string) ([]models.PartialCard, error) {
 
 	query := `
 	SELECT
@@ -608,7 +608,7 @@ func getParentIdAlternating(cardID string) string {
 	return parentID
 }
 
-func DeleteCard(db *sql.DB, userID int, id int) error {
+func DeleteCard(db models.DBTX, userID int, id int) error {
 	// Get the card before deletion for audit
 	card, err := GetFullCard(db, userID, id)
 	if err != nil {
@@ -624,16 +624,9 @@ func DeleteCard(db *sql.DB, userID int, id int) error {
 		return fmt.Errorf("card has children, cannot be deleted")
 	}
 
-	// Start transaction to ensure all cleanup happens atomically
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
 	// First, get all facts that originated from this card
 	var factIDs []int
-	factRows, err := tx.Query(`
+	factRows, err := db.Query(`
 		SELECT id FROM facts WHERE card_pk = $1 AND user_id = $2
 	`, id, userID)
 	if err != nil {
@@ -654,7 +647,7 @@ func DeleteCard(db *sql.DB, userID int, id int) error {
 	// Delete all fact_card_junction entries for facts that originated from this card
 	// This includes relationships to other cards, not just this card
 	for _, factID := range factIDs {
-		_, err = tx.Exec(`
+		_, err = db.Exec(`
 			DELETE FROM fact_card_junction WHERE fact_id = $1
 		`, factID)
 		if err != nil {
@@ -664,7 +657,7 @@ func DeleteCard(db *sql.DB, userID int, id int) error {
 	}
 
 	// Delete the facts that originated from this card
-	_, err = tx.Exec(`
+	_, err = db.Exec(`
 		DELETE FROM facts WHERE card_pk = $1 AND user_id = $2
 	`, id, userID)
 	if err != nil {
@@ -673,7 +666,7 @@ func DeleteCard(db *sql.DB, userID int, id int) error {
 	}
 
 	// Clean up entity-card relationships (entity_card_junction doesn't have CASCADE)
-	_, err = tx.Exec(`
+	_, err = db.Exec(`
 		DELETE FROM entity_card_junction
 		WHERE card_pk = $1 AND user_id = $2
 	`, id, userID)
@@ -684,7 +677,7 @@ func DeleteCard(db *sql.DB, userID int, id int) error {
 
 	// Clean up any remaining fact-card relationships for this specific card
 	// (facts from other cards that reference this card)
-	_, err = tx.Exec(`
+	_, err = db.Exec(`
 		DELETE FROM fact_card_junction
 		WHERE card_pk = $1 AND user_id = $2
 	`, id, userID)
@@ -694,16 +687,10 @@ func DeleteCard(db *sql.DB, userID int, id int) error {
 	}
 
 	// Delete the card (soft delete)
-	_, err = tx.Exec(`
+	_, err = db.Exec(`
 		UPDATE cards SET is_deleted = TRUE, updated_at = NOW()
 		WHERE id = $1 AND user_id = $2
 	`, id, userID)
-	if err != nil {
-		return err
-	}
-
-	// Commit transaction
-	err = tx.Commit()
 	if err != nil {
 		return err
 	}
@@ -720,20 +707,14 @@ func DeleteCard(db *sql.DB, userID int, id int) error {
 	return nil
 }
 
-func UpdateBacklinks(db *sql.DB, cardPK int, backlinks []string) error {
-	tx, err := db.Begin()
-	if err != nil {
-		log.Printf("UpdateBacklinks: failed to begin transaction: %v", err)
-		return err
-	}
-	_, err = tx.Exec("DELETE FROM backlinks WHERE source_id_int = $1", cardPK)
+func UpdateBacklinks(db models.DBTX, cardPK int, backlinks []string) error {
+	_, err := db.Exec("DELETE FROM backlinks WHERE source_id_int = $1", cardPK)
 	if err != nil {
 		log.Printf("UpdateBacklinks: failed to delete backlinks: %v", err)
-		tx.Rollback()
 		return err
 	}
 	for _, targetID := range backlinks {
-		_, err = tx.Exec(`
+		_, err = db.Exec(`
 	WITH target_id AS (
     SELECT id 
     FROM cards 
@@ -746,18 +727,14 @@ FROM target_id;
 			cardPK, targetID,
 		)
 		if err != nil {
-			tx.Rollback()
 			return err
 		}
-	}
-	if err := tx.Commit(); err != nil {
-		return err
 	}
 
 	return nil
 
 }
-func UpdateCard(db *sql.DB, userID int, cardPK int, params models.EditCardParams) (models.Card, error) {
+func UpdateCard(db models.DBTX, userID int, cardPK int, params models.EditCardParams) (models.Card, error) {
 	// Get the old state first
 	oldCard, err := GetFullCard(db, userID, cardPK)
 	if err != nil {
@@ -855,7 +832,7 @@ func UpdateCard(db *sql.DB, userID int, cardPK int, params models.EditCardParams
 	return GetFullCard(db, userID, cardPK)
 }
 
-func checkIsCardIDUnique(db *sql.DB, userID int, cardID string) bool {
+func checkIsCardIDUnique(db models.DBTX, userID int, cardID string) bool {
 	if cardID == "" {
 		return true
 	}
@@ -873,7 +850,7 @@ func checkIsCardIDUnique(db *sql.DB, userID int, cardID string) bool {
 	}
 }
 
-func CreateCard(db *sql.DB, userID int, params models.EditCardParams) (models.Card, error) {
+func CreateCard(db models.DBTX, userID int, params models.EditCardParams) (models.Card, error) {
 	// Strip all whitespace from card_id before proceeding
 	params.CardID = strings.ReplaceAll(params.CardID, " ", "")
 	params.CardID = regexp.MustCompile(`\s+`).ReplaceAllString(params.CardID, "")
@@ -945,7 +922,7 @@ func CreateCard(db *sql.DB, userID int, params models.EditCardParams) (models.Ca
 }
 
 // GetCardsByEntity retrieves all cards linked to a specific entity
-func GetCardsByEntity(db *sql.DB, userID int, entityID int) ([]models.PartialCard, error) {
+func GetCardsByEntity(db models.DBTX, userID int, entityID int) ([]models.PartialCard, error) {
 	rows, err := db.Query(`
 		SELECT c.id, c.card_id, c.user_id, c.title, c.parent_id, c.created_at, c.updated_at
 		FROM cards c
@@ -970,7 +947,7 @@ func GetCardsByEntity(db *sql.DB, userID int, entityID int) ([]models.PartialCar
 }
 
 // GetCardWithDescendants fetches a card and recursively loads all its descendants with depth information
-func GetCardWithDescendants(db *sql.DB, userID int, cardID int) (models.CardWithDescendants, error) {
+func GetCardWithDescendants(db models.DBTX, userID int, cardID int) (models.CardWithDescendants, error) {
 	// Fetch the root card
 	card := models.CardWithDescendants{}
 	err := db.QueryRow(`
@@ -1009,7 +986,7 @@ func GetCardWithDescendants(db *sql.DB, userID int, cardID int) (models.CardWith
 }
 
 // GetCardWithDescendantsLimited fetches a card and recursively loads its descendants up to a maximum depth (performance optimization)
-func GetCardWithDescendantsLimited(db *sql.DB, userID int, cardID int, maxDepth int) (models.CardWithDescendants, error) {
+func GetCardWithDescendantsLimited(db models.DBTX, userID int, cardID int, maxDepth int) (models.CardWithDescendants, error) {
 	// Fetch the root card
 	card := models.CardWithDescendants{}
 	err := db.QueryRow(`
@@ -1051,7 +1028,7 @@ func GetCardWithDescendantsLimited(db *sql.DB, userID int, cardID int, maxDepth 
 }
 
 // getDescendantsRecursiveLimited is a helper function that recursively fetches descendants up to maxDepth
-func getDescendantsRecursiveLimited(db *sql.DB, userID int, parentCardID int, depth int, maxDepth int) ([]models.CardWithDescendants, error) {
+func getDescendantsRecursiveLimited(db models.DBTX, userID int, parentCardID int, depth int, maxDepth int) ([]models.CardWithDescendants, error) {
 	// If we've reached maxDepth, stop recursing
 	if depth > maxDepth {
 		return []models.CardWithDescendants{}, nil
@@ -1105,7 +1082,7 @@ func getDescendantsRecursiveLimited(db *sql.DB, userID int, parentCardID int, de
 }
 
 // getDescendantsRecursive is a helper function that recursively fetches descendants at a given depth
-func getDescendantsRecursive(db *sql.DB, userID int, parentCardID int, depth int) ([]models.CardWithDescendants, error) {
+func getDescendantsRecursive(db models.DBTX, userID int, parentCardID int, depth int) ([]models.CardWithDescendants, error) {
 	// Query direct children
 	rows, err := db.Query(`
 		SELECT id, card_id, user_id, title, body, link, parent_id, created_at, updated_at
@@ -1156,7 +1133,7 @@ func getDescendantsRecursive(db *sql.DB, userID int, parentCardID int, depth int
 }
 
 // GetAuditEventByID fetches a single audit event by ID
-func GetAuditEventByID(db *sql.DB, userID int, eventID int) (models.AuditEvent, error) {
+func GetAuditEventByID(db models.DBTX, userID int, eventID int) (models.AuditEvent, error) {
 	var event models.AuditEvent
 
 	err := db.QueryRow(`
@@ -1264,7 +1241,7 @@ func reconstructCardStateFromAudit(event models.AuditEvent, currentCard models.C
 }
 
 // RestoreCardToAuditEvent restores a card to the state it was in at the time of the audit event
-func RestoreCardToAuditEvent(db *sql.DB, userID int, cardPK int, auditEventID int) (models.Card, error) {
+func RestoreCardToAuditEvent(db models.DBTX, userID int, cardPK int, auditEventID int) (models.Card, error) {
 	// Verify the user owns the card
 	currentCard, err := GetFullCard(db, userID, cardPK)
 	if err != nil {

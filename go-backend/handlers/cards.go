@@ -191,7 +191,7 @@ func validateFieldValue(fieldName string, value interface{}, fieldDef models.Fie
 }
 
 // validateLinkToCardFields validates that link_to_card fields reference valid cards
-func validateLinkToCardFields(db *sql.DB, userID int, structuredData json.RawMessage, schema *models.SchemaDefinition) error {
+func validateLinkToCardFields(db models.DBTX, userID int, structuredData json.RawMessage, schema *models.SchemaDefinition) error {
 	// Parse the structured data
 	var data map[string]interface{}
 	if err := json.Unmarshal(structuredData, &data); err != nil {
@@ -674,7 +674,7 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 
 		// Additional validation for link_to_card fields
 		if params.StructuredData != nil && len(*params.StructuredData) > 0 {
-			if err := validateLinkToCardFields(s.DB, userID, *params.StructuredData, schema); err != nil {
+			if err := validateLinkToCardFields(s.TX(), userID, *params.StructuredData, schema); err != nil {
 				log.Printf("Link to card validation error: %v", err)
 				http.Error(w, fmt.Sprintf("Invalid link_to_card reference: %v", err), http.StatusBadRequest)
 				return
@@ -686,7 +686,7 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	card, err := services.UpdateCard(s.DB, userID, id, params)
+	card, err := services.UpdateCard(s.TX(), userID, id, params)
 	if err != nil {
 		log.Printf("error updating card: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -751,7 +751,7 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 
 		// Additional validation for link_to_card fields
 		if params.StructuredData != nil && len(*params.StructuredData) > 0 {
-			if err := validateLinkToCardFields(s.DB, userID, *params.StructuredData, schema); err != nil {
+			if err := validateLinkToCardFields(s.TX(), userID, *params.StructuredData, schema); err != nil {
 				log.Printf("Link to card validation error: %v", err)
 				http.Error(w, fmt.Sprintf("Invalid link_to_card reference: %v", err), http.StatusBadRequest)
 				return
@@ -763,7 +763,8 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	card, err := services.CreateCard(s.DB, userID, params)
+	// Use transaction during testing, regular DB otherwise
+	card, err := services.CreateCard(s.TX(), userID, params)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -929,17 +930,17 @@ func (s *Handler) getNextChildCardID(userID int, parentID int) string {
 }
 
 func (s *Handler) QueryPartialCardByID(userID, id int) (models.PartialCard, error) {
-	return services.GetPartialCard(s.DB, userID, id)
+	return services.GetPartialCard(s.TX(), userID, id)
 }
 
 func (s *Handler) QueryPartialCard(userID int, cardID string) (models.PartialCard, error) {
-	return services.GetPartialCardByCardID(s.DB, userID, cardID)
+	return services.GetPartialCardByCardID(s.TX(), userID, cardID)
 
 }
 
 func (s *Handler) QueryFullCard(userID int, id int) (models.Card, error) {
 	s.logCardView(id, userID)
-	return services.GetFullCard(s.DB, userID, id)
+	return services.GetFullCard(s.TX(), userID, id)
 }
 
 func (s *Handler) GetCardAuditEventsRoute(w http.ResponseWriter, r *http.Request) {

@@ -53,6 +53,15 @@ func (h *Handler) ShouldCommitTx() bool {
 	return !(h.Server != nil && h.Server.Testing)
 }
 
+// TX returns the appropriate database connection (transaction during testing, DB otherwise)
+// for services that expect models.DBTX interface.
+func (h *Handler) TX() models.DBTX {
+	if h.Server != nil && h.Server.Testing && h.Server.Tx != nil {
+		return h.Server.Tx
+	}
+	return h.DB
+}
+
 // BeginTx returns a transaction for the handler to use.
 // During testing, this returns the test's transaction (commit should be skipped).
 func (h *Handler) BeginTx() (*sql.Tx, error) {

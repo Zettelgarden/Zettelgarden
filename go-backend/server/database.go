@@ -78,7 +78,10 @@ func ResetDatabase(S *Server) error {
 			DROP TABLE IF EXISTS pinned_searches CASCADE;
 			DROP TABLE IF EXISTS task_statuses CASCADE;
 			DROP TABLE IF EXISTS api_keys CASCADE;
-			DROP TABLE IF EXISTS admin_audit_log;
+			DROP TABLE IF EXISTS admin_audit_log CASCADE;
+			DROP TABLE IF EXISTS llm_jobs CASCADE;
+			DROP TABLE IF EXISTS user_stats CASCADE;
+			DROP TABLE IF EXISTS schema_definitions CASCADE;
 
 			DROP INDEX IF EXISTS idx_task_statuses_user;
 			DROP INDEX IF EXISTS idx_task_statuses_position;
@@ -87,6 +90,30 @@ func ResetDatabase(S *Server) error {
 			DROP INDEX IF EXISTS idx_api_keys_user_id;
 			DROP INDEX IF EXISTS idx_unique_active_key_name_per_user;
 			DROP INDEX IF EXISTS idx_schema_definitions_owner_name;
+			DROP INDEX IF EXISTS idx_users_last_memory_job_id;
+			DROP INDEX IF EXISTS idx_llm_jobs_updated_at;
+			DROP INDEX IF EXISTS idx_summarizations_llm_job_id;
+			DROP INDEX IF EXISTS idx_user_stats_card_count;
+			DROP INDEX IF EXISTS idx_user_stats_revenue;
+			DROP INDEX IF EXISTS idx_summarizations_user_card_created;
+			DROP INDEX IF EXISTS idx_summarizations_user_created;
+			DROP INDEX IF EXISTS idx_admin_audit_log_admin_user_id;
+			DROP INDEX IF EXISTS idx_admin_audit_log_action;
+			DROP INDEX IF EXISTS idx_admin_audit_log_target;
+			DROP INDEX IF EXISTS idx_admin_audit_log_created_at;
+			DROP INDEX IF EXISTS idx_llm_jobs_user_status;
+			DROP INDEX IF EXISTS idx_llm_jobs_created_at;
+			DROP INDEX IF EXISTS idx_llm_jobs_priority;
+			DROP INDEX IF EXISTS idx_llm_jobs_status;
+			DROP INDEX IF EXISTS idx_schema_definitions_owner_name;
+			DROP INDEX IF EXISTS idx_schema_definitions_owner_slug;
+			DROP INDEX IF EXISTS idx_schema_definitions_owner_id;
+			DROP INDEX IF EXISTS idx_cards_card_schema_id;
+			DROP INDEX IF EXISTS idx_tasks_status;
+			DROP INDEX IF EXISTS idx_cards_user_created;
+			DROP INDEX IF EXISTS idx_tasks_user_created;
+			DROP INDEX IF EXISTS idx_tasks_user_completed;
+
 			CREATE TABLE IF NOT EXISTS migrations (
 				id SERIAL PRIMARY KEY,
 				migration_name VARCHAR(255) NOT NULL,

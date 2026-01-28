@@ -17,19 +17,19 @@ import (
 
 // Valid field types for schema definitions
 var validFieldTypes = map[string]bool{
-	"text":          true,
-	"number":        true,
-	"date":          true,
-	"boolean":       true,
-	"select":        true,
-	"multi-select":  true,
-	"link_to_card":  true,
+	"text":         true,
+	"number":       true,
+	"date":         true,
+	"boolean":      true,
+	"select":       true,
+	"multi-select": true,
+	"link_to_card": true,
 }
 
 // Schema limits to prevent abuse
 const (
-	MaxFieldsPerSchema    = 50   // Maximum number of fields allowed in a schema
-	MaxOptionsPerField    = 100  // Maximum number of options for select/multi-select fields
+	MaxFieldsPerSchema = 50  // Maximum number of fields allowed in a schema
+	MaxOptionsPerField = 100 // Maximum number of options for select/multi-select fields
 )
 
 // getUserID safely extracts the user ID from the request context
@@ -44,7 +44,7 @@ func getUserID(r *http.Request) (int, error) {
 
 // verifySchemaOwnership checks if a schema exists, belongs to the user, and is not deleted
 // Returns httpError, shouldContinue - if httpError is true, an error response was written
-func verifySchemaOwnership(db *sql.DB, schemaID, userID int, w http.ResponseWriter) bool {
+func verifySchemaOwnership(db models.DBExecutor, schemaID, userID int, w http.ResponseWriter) bool {
 	checkQuery := `
 		SELECT id, is_deleted FROM schema_definitions
 		WHERE id = $1 AND owner_id = $2
@@ -83,7 +83,7 @@ func validateFieldDefinition(field models.FieldDefinition) error {
 	}
 
 	// For select and multi-select types, options are required
-	if (field.Type == "select" || field.Type == "multi-select") {
+	if field.Type == "select" || field.Type == "multi-select" {
 		if len(field.Options) == 0 {
 			return fmt.Errorf("field '%s' of type '%s' must have at least one option", field.Name, field.Type)
 		}
@@ -274,7 +274,7 @@ func (s *Handler) GetSchemasRoute(w http.ResponseWriter, r *http.Request) {
 		ORDER BY created_at DESC
 	`
 
-	rows, err := s.DB.Query(query, userID)
+	rows, err := s.Executor().Query(query, userID)
 	if err != nil {
 		log.Printf("Error querying schemas: %v", err)
 		http.Error(w, "Error retrieving schemas", http.StatusInternalServerError)
@@ -380,7 +380,7 @@ func (s *Handler) UpdateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify the schema exists, belongs to the user, and is not deleted
-	if !verifySchemaOwnership(s.DB, id, userID, w) {
+	if !verifySchemaOwnership(s.Executor(), id, userID, w) {
 		return
 	}
 
@@ -407,7 +407,7 @@ func (s *Handler) UpdateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 	newSlug := currentSlug
 	if currentName != params.Name {
 		baseSlug := models.GenerateSlug(params.Name)
-		newSlug, err = models.GetUniqueSlug(s.DB, userID, baseSlug)
+		newSlug, err = models.GetUniqueSlug(s.Executor(), userID, baseSlug)
 		if err != nil {
 			log.Printf("Error generating unique slug: %v", err)
 			http.Error(w, "Error generating slug", http.StatusInternalServerError)
@@ -478,7 +478,7 @@ func (s *Handler) DeleteSchemaRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify the schema exists, belongs to the user, and is not deleted
-	if !verifySchemaOwnership(s.DB, id, userID, w) {
+	if !verifySchemaOwnership(s.Executor(), id, userID, w) {
 		return
 	}
 
@@ -493,6 +493,7 @@ func (s *Handler) DeleteSchemaRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error checking schema usage", http.StatusInternalServerError)
 		return
 	}
+	log.Printf("cards affected %v", cardsAffected)
 
 	// Soft delete by setting is_deleted = true
 	deleteQuery := `
@@ -546,7 +547,7 @@ func (s *Handler) GetCardsBySchemaRoute(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Verify the schema exists and belongs to the user
-	if !verifySchemaOwnership(s.DB, schemaID, userID, w) {
+	if !verifySchemaOwnership(s.Executor(), schemaID, userID, w) {
 		return
 	}
 

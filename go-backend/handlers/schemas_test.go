@@ -773,6 +773,7 @@ func TestDeleteSchemaRoute_WithCards(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create test card: %v", err)
 	}
+	log.Printf("card added %v", cardID)
 
 	// Clean up the test card - always run even if test fails
 	t.Cleanup(func() {
@@ -1454,8 +1455,8 @@ func TestCreateSchemaRoute_ExceedsMaxFields(t *testing.T) {
 	fields := make([]models.FieldDefinition, MaxFieldsPerSchema+1)
 	for i := 0; i < len(fields); i++ {
 		fields[i] = models.FieldDefinition{
-			Name: fmt.Sprintf("field_%d", i),
-			Type: "text",
+			Name:     fmt.Sprintf("field_%d", i),
+			Type:     "text",
 			Required: false,
 		}
 	}
@@ -1538,8 +1539,8 @@ func TestUpdateSchemaRoute_ExceedsMaxFields(t *testing.T) {
 	updateFields := make([]models.FieldDefinition, MaxFieldsPerSchema+1)
 	for i := 0; i < len(updateFields); i++ {
 		updateFields[i] = models.FieldDefinition{
-			Name: fmt.Sprintf("field_%d", i),
-			Type: "text",
+			Name:     fmt.Sprintf("field_%d", i),
+			Type:     "text",
 			Required: false,
 		}
 	}
