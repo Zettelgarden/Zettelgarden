@@ -668,8 +668,8 @@ func TestGetNextRootCardIDRoute(t *testing.T) {
 	if response.Error {
 		t.Errorf("Handler returned error response")
 	}
-	if response.NextID != "21" {
-		t.Errorf("Expected first ID to be 21 (after test data), got %v", response.NextID)
+	if response.NextID != "11" {
+		t.Errorf("Expected first ID to be 11 (after test data reduction), got %v", response.NextID)
 	}
 
 	// Test unauthorized access
