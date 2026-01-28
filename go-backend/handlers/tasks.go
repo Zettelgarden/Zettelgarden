@@ -13,7 +13,7 @@ import (
 )
 
 func (s *Handler) QueryTask(userID int, id int) (models.Task, error) {
-	task, err := services.GetTask(s.DB, userID, id)
+	task, err := services.GetTask(s.TX(), userID, id)
 	if err != nil {
 		return models.Task{}, err
 	}
@@ -38,7 +38,7 @@ func (s *Handler) QueryTasks(userID int, includeCompleted bool) ([]models.Task, 
 	if tzErr != nil {
 		userTimezone = "UTC" // Fallback to UTC on error
 	}
-	tasks, err := services.GetTasks(s.DB, userID, includeCompleted, userTimezone)
+	tasks, err := services.GetTasks(s.TX(), userID, includeCompleted, userTimezone)
 	if err != nil {
 		return []models.Task{}, err
 	}
@@ -62,7 +62,7 @@ func (s *Handler) QueryTasks(userID int, includeCompleted bool) ([]models.Task, 
 }
 
 func (s *Handler) QueryTasksPaginated(userID int, limit, offset int, includeCompleted bool, cardID *int, priority *string, timezone string) ([]models.Task, int, error) {
-	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority, nil, nil, nil, timezone)
+	tasks, total, err := services.GetTasksPaginated(s.TX(), userID, limit, offset, includeCompleted, cardID, priority, nil, nil, nil, timezone)
 	if err != nil {
 		return []models.Task{}, 0, err
 	}
@@ -86,7 +86,7 @@ func (s *Handler) QueryTasksPaginated(userID int, limit, offset int, includeComp
 	return tasks, total, nil
 }
 func (s *Handler) QueryTasksByCard(userID int, cardPK int) ([]models.Task, error) {
-	tasks, err := services.GetTasksByCard(s.DB, userID, cardPK)
+	tasks, err := services.GetTasksByCard(s.TX(), userID, cardPK)
 	if err != nil {
 		return []models.Task{}, err
 	}
@@ -185,7 +185,7 @@ func (s *Handler) GetTasksRoute(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		userTimezone = "UTC" // Fallback to UTC on error
 	}
-	tasks, total, err := services.GetTasksPaginated(s.DB, userID, limit, offset, includeCompleted, cardID, priority, scheduledDate, completedDate, status, userTimezone)
+	tasks, total, err := services.GetTasksPaginated(s.TX(), userID, limit, offset, includeCompleted, cardID, priority, scheduledDate, completedDate, status, userTimezone)
 	if err != nil {
 		log.Printf("Error querying tasks for user %d: %v", userID, err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -220,7 +220,7 @@ func (s *Handler) GetTasksRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Handler) UpdateTask(userID int, id int, task models.Task) error {
-	recurringTaskID, err := services.UpdateTask(s.DB, userID, id, task)
+	recurringTaskID, err := services.UpdateTask(s.TX(), userID, id, task)
 	if err != nil {
 		return err
 	}
@@ -282,7 +282,7 @@ func (s *Handler) UpdateTaskRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Handler) CreateTask(task models.Task) (int, error) {
-	taskID, err := services.CreateTask(s.DB, task)
+	taskID, err := services.CreateTask(s.TX(), task)
 	if err != nil {
 		return 0, err
 	}
@@ -331,7 +331,7 @@ func (s *Handler) CreateTaskRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Handler) DeleteTask(userID int, id int) error {
-	return services.DeleteTask(s.DB, userID, id)
+	return services.DeleteTask(s.TX(), userID, id)
 }
 
 func (s *Handler) DeleteTaskRoute(w http.ResponseWriter, r *http.Request) {
@@ -417,7 +417,7 @@ func (s *Handler) AddTaskDependencyRoute(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Insert the dependency
-	_, err = s.DB.Exec(`
+	_, err = s.TX().Exec(`
 		INSERT INTO task_dependencies (task_id, blocking_task_id)
 		VALUES ($1, $2)
 		ON CONFLICT (task_id, blocking_task_id) DO NOTHING
@@ -460,7 +460,7 @@ func (s *Handler) RemoveTaskDependencyRoute(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Remove the dependency
-	result, err := s.DB.Exec(`
+	result, err := s.TX().Exec(`
 		DELETE FROM task_dependencies
 		WHERE task_id = $1 AND blocking_task_id = $2
 	`, taskID, blockingTaskID)
@@ -483,7 +483,7 @@ func (s *Handler) RemoveTaskDependencyRoute(w http.ResponseWriter, r *http.Reque
 // GetUserTimezone returns the timezone string for a user
 func (s *Handler) GetUserTimezone(userID int) (string, error) {
 	var timezone string
-	err := s.DB.QueryRow("SELECT timezone FROM users WHERE id = $1", userID).Scan(&timezone)
+	err := s.TX().QueryRow("SELECT timezone FROM users WHERE id = $1", userID).Scan(&timezone)
 	if err != nil {
 		log.Printf("Failed to get timezone for user %d: %v", userID, err)
 		return "UTC", err // Return UTC as fallback on error

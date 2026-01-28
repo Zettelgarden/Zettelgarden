@@ -8,7 +8,7 @@ import (
 )
 
 // GetTaskStatuses retrieves all task statuses for a user, ordered by position
-func GetTaskStatuses(db *sql.DB, userID int) ([]models.TaskStatus, error) {
+func GetTaskStatuses(db models.DBTX, userID int) ([]models.TaskStatus, error) {
 	var statuses []models.TaskStatus
 	query := `
 		SELECT id, user_id, name, display_name, color, icon, position,
@@ -50,7 +50,7 @@ func GetTaskStatuses(db *sql.DB, userID int) ([]models.TaskStatus, error) {
 }
 
 // GetTaskStatus retrieves a single task status by ID
-func GetTaskStatus(db *sql.DB, userID int, statusID int) (models.TaskStatus, error) {
+func GetTaskStatus(db models.DBTX, userID int, statusID int) (models.TaskStatus, error) {
 	var status models.TaskStatus
 	query := `
 		SELECT id, user_id, name, display_name, color, icon, position,
@@ -79,7 +79,7 @@ func GetTaskStatus(db *sql.DB, userID int, statusID int) (models.TaskStatus, err
 }
 
 // GetTaskStatusByName retrieves a task status by name
-func GetTaskStatusByName(db *sql.DB, userID int, name string) (models.TaskStatus, error) {
+func GetTaskStatusByName(db models.DBTX, userID int, name string) (models.TaskStatus, error) {
 	var status models.TaskStatus
 	query := `
 		SELECT id, user_id, name, display_name, color, icon, position,
@@ -108,7 +108,7 @@ func GetTaskStatusByName(db *sql.DB, userID int, name string) (models.TaskStatus
 }
 
 // CreateTaskStatus creates a new task status
-func CreateTaskStatus(db *sql.DB, userID int, params models.CreateTaskStatusParams) (int, error) {
+func CreateTaskStatus(db models.DBTX, userID int, params models.CreateTaskStatusParams) (int, error) {
 	// If this is being set as default, unset other defaults
 	if params.IsDefault {
 		_, err := db.Exec(`UPDATE task_statuses SET is_default = FALSE WHERE user_id = $1`, userID)
@@ -154,7 +154,7 @@ func CreateTaskStatus(db *sql.DB, userID int, params models.CreateTaskStatusPara
 }
 
 // UpdateTaskStatus updates an existing task status
-func UpdateTaskStatus(db *sql.DB, userID int, statusID int, params models.UpdateTaskStatusParams) error {
+func UpdateTaskStatus(db models.DBTX, userID int, statusID int, params models.UpdateTaskStatusParams) error {
 	// Get current status
 	currentStatus, err := GetTaskStatus(db, userID, statusID)
 	if err != nil {
@@ -245,7 +245,7 @@ func UpdateTaskStatus(db *sql.DB, userID int, statusID int, params models.Update
 }
 
 // DeleteTaskStatus deletes a task status
-func DeleteTaskStatus(db *sql.DB, userID int, statusID int) error {
+func DeleteTaskStatus(db models.DBTX, userID int, statusID int) error {
 	// Get the status to be deleted
 	status, err := GetTaskStatus(db, userID, statusID)
 	if err != nil {
@@ -300,7 +300,7 @@ func DeleteTaskStatus(db *sql.DB, userID int, statusID int) error {
 }
 
 // GetDefaultTaskStatus retrieves the default task status for a user
-func GetDefaultTaskStatus(db *sql.DB, userID int) (models.TaskStatus, error) {
+func GetDefaultTaskStatus(db models.DBTX, userID int) (models.TaskStatus, error) {
 	var status models.TaskStatus
 	query := `
 		SELECT id, user_id, name, display_name, color, icon, position,
@@ -330,7 +330,7 @@ func GetDefaultTaskStatus(db *sql.DB, userID int) (models.TaskStatus, error) {
 }
 
 // GetCompleteTaskStatus retrieves the complete task status for a user
-func GetCompleteTaskStatus(db *sql.DB, userID int) (models.TaskStatus, error) {
+func GetCompleteTaskStatus(db models.DBTX, userID int) (models.TaskStatus, error) {
 	var status models.TaskStatus
 	query := `
 		SELECT id, user_id, name, display_name, color, icon, position,
@@ -360,6 +360,7 @@ func GetCompleteTaskStatus(db *sql.DB, userID int) (models.TaskStatus, error) {
 }
 
 // ReorderTaskStatuses updates the position of multiple statuses
+// Note: This function begins its own transaction, so it needs *sql.DB, not models.DBTX
 func ReorderTaskStatuses(db *sql.DB, userID int, statusIDs []int) error {
 	// Use a transaction to ensure atomicity
 	tx, err := db.Begin()
@@ -396,7 +397,7 @@ func ReorderTaskStatuses(db *sql.DB, userID int, statusIDs []int) error {
 }
 
 // ValidateTaskStatus checks if a status name is valid for a user
-func ValidateTaskStatus(db *sql.DB, userID int, statusName string) (bool, error) {
+func ValidateTaskStatus(db models.DBTX, userID int, statusName string) (bool, error) {
 	var count int
 	err := db.QueryRow(`SELECT COUNT(*) FROM task_statuses WHERE user_id = $1 AND name = $2`, userID, statusName).Scan(&count)
 	if err != nil {

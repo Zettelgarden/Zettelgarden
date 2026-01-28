@@ -108,8 +108,8 @@ func TestGetTasksSuccess(t *testing.T) {
 	}
 	var response models.TasksResponse
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &response)
-	if len(response.Tasks) != 19 {
-		t.Errorf("wrong number of tasks returned, got %v want %v", len(response.Tasks), 19)
+	if len(response.Tasks) != 4 {
+		t.Errorf("wrong number of tasks returned, got %v want %v", len(response.Tasks), 4)
 	}
 }
 

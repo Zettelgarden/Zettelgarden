@@ -226,7 +226,7 @@ func (s *Handler) GetUserSubscriptionRoute(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	err = s.DB.QueryRow(`
+	err = s.TX().QueryRow(`
 	SELECT
 	id, stripe_customer_id, stripe_subscription_id,
 	stripe_subscription_status,
@@ -318,7 +318,7 @@ func (s *Handler) ValidateEmailRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = s.DB.Exec(`UPDATE users SET email_validated = TRUE WHERE id = $1`, user.ID)
+	_, err = s.TX().Exec(`UPDATE users SET email_validated = TRUE WHERE id = $1`, user.ID)
 	if err != nil {
 		log.Printf("error email validation db %v", err)
 		response.Error = true
@@ -339,11 +339,11 @@ func (s *Handler) QueryUsers(page, perPage int) ([]models.User, int, error) {
 
 	// Get total count for pagination
 	var total int
-	if err := s.DB.QueryRow("SELECT COUNT(*) FROM users").Scan(&total); err != nil {
+	if err := s.TX().QueryRow("SELECT COUNT(*) FROM users").Scan(&total); err != nil {
 		return users, 0, err
 	}
 
-	rows, err := s.DB.Query(`
+	rows, err := s.TX().Query(`
 		SELECT
 	u.id, u.username, u.email, u.created_at, u.updated_at,
 	u.is_admin, u.email_validated, u.can_upload_files,
@@ -409,7 +409,7 @@ func (s *Handler) QueryUsers(page, perPage int) ([]models.User, int, error) {
 func (s *Handler) QueryUserByEmail(email string) (models.User, error) {
 
 	var user models.User
-	err := s.DB.QueryRow(`
+	err := s.TX().QueryRow(`
 	SELECT
 	id, username, email, password, created_at, updated_at,
 	is_admin, email_validated, can_upload_files,
@@ -450,7 +450,7 @@ func (s *Handler) QueryUserByEmail(email string) (models.User, error) {
 func (s *Handler) QueryUserByStripeID(stripeID string) (models.User, error) {
 
 	var user models.User
-	err := s.DB.QueryRow(`
+	err := s.TX().QueryRow(`
 	SELECT
 	id, username, email, password, created_at, updated_at,
 	is_admin, email_validated, can_upload_files,
@@ -489,7 +489,7 @@ func (s *Handler) QueryUserByStripeID(stripeID string) (models.User, error) {
 
 func (s *Handler) QueryUser(id int) (models.User, error) {
 	var user models.User
-	err := s.DB.QueryRow(`
+	err := s.TX().QueryRow(`
 	SELECT
 	id, username, email, password, created_at, updated_at,
 	is_admin, email_validated, can_upload_files,
@@ -535,7 +535,7 @@ func (s *Handler) UpdateUser(id int, user models.User, params models.EditUserPar
 	WHERE
 	id = $7
 	`
-	_, err := s.DB.Exec(
+	_, err := s.TX().Exec(
 		query,
 		params.Username,
 		params.Email,
@@ -551,7 +551,7 @@ func (s *Handler) UpdateUser(id int, user models.User, params models.EditUserPar
 	}
 	user, err = s.QueryUser(id)
 	if user.Email != oldEmail {
-		_, err := s.DB.Exec(`UPDATE users SET email_validated = FALSE WHERE id = $1`, id)
+		_, err := s.TX().Exec(`UPDATE users SET email_validated = FALSE WHERE id = $1`, id)
 		if err != nil {
 			return models.User{}, err
 		}
@@ -586,14 +586,14 @@ func (s *Handler) createDefaultCards(userID int) error {
 		Body:   s.getDefaultDashboardBody(),
 		Link:   "",
 	}
-	card, err := services.CreateCard(s.DB, userID, params)
+	card, err := services.CreateCard(s.TX(), userID, params)
 	if err != nil {
 		log.Printf("error creating default cards: %v", err)
 		return err
 	}
 	s.ProcessEntitiesAndFacts(userID, card)
 	query := `UPDATE users SET dashboard_card_pk = $1 WHERE id = $2`
-	_, err = s.DB.Exec(query, card.ID, userID)
+	_, err = s.TX().Exec(query, card.ID, userID)
 	if err != nil {
 		log.Printf("error creating default cards: %v", err)
 		return err
@@ -610,7 +610,7 @@ func (s *Handler) createDefaultTags(userID int) error {
 			Name:  tagName,
 			Color: "black", // default color
 		}
-		_, err := services.CreateTag(s.DB, userID, params)
+		_, err := services.CreateTag(s.TX(), userID, params)
 		if err != nil {
 			log.Printf("error creating default tag %s: %v", tagName, err)
 			return err
@@ -649,7 +649,7 @@ func (s *Handler) CreateUser(params models.CreateUserParams) (int, error) {
 	VALUES ($1, $2, $3, NOW(), NOW(), '', '', 'free', '', '', 0) RETURNING id
 	`
 
-	err = s.DB.QueryRow(query, params.Username, params.Email, hashedPassword).Scan(&newID)
+	err = s.TX().QueryRow(query, params.Username, params.Email, hashedPassword).Scan(&newID)
 
 	err = s.createDefaultCards(newID)
 	if err != nil {
@@ -710,7 +710,7 @@ func (s *Handler) UpdateLastSeen(userID int) error {
 		SET last_seen = NOW() 
 		WHERE id = $1
 	`
-	_, err := s.DB.Exec(query, userID)
+	_, err := s.TX().Exec(query, userID)
 	return err
 }
 

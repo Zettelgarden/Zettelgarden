@@ -1,7 +1,6 @@
 package services
 
 import (
-	"database/sql"
 	"fmt"
 	"go-backend/models"
 	"log"
@@ -12,7 +11,7 @@ import (
 )
 
 // GetTask retrieves a single task by ID for a specific user
-func GetTask(db *sql.DB, userID int, id int) (models.Task, error) {
+func GetTask(db models.DBTX, userID int, id int) (models.Task, error) {
 	var task models.Task
 
 	err := db.QueryRow(`
@@ -59,7 +58,7 @@ func GetTask(db *sql.DB, userID int, id int) (models.Task, error) {
 }
 
 // GetTasksPaginated retrieves tasks for a user with pagination and filtering
-func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeCompleted bool, cardID *int, priority *string, scheduledDate *time.Time, completedDate *time.Time, status *string, timezone string) ([]models.Task, int, error) {
+func GetTasksPaginated(db models.DBTX, userID int, limit, offset int, includeCompleted bool, cardID *int, priority *string, scheduledDate *time.Time, completedDate *time.Time, status *string, timezone string) ([]models.Task, int, error) {
 	var tasks []models.Task
 	var args []interface{}
 	argIndex := 1
@@ -116,6 +115,8 @@ func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeComplet
 	}
 	defer rows.Close()
 
+	// First pass: scan all tasks into the slice
+	// We can't do nested queries while iterating over rows with PostgreSQL transactions
 	for rows.Next() {
 		var task models.Task
 		if err := rows.Scan(
@@ -138,19 +139,22 @@ func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeComplet
 			log.Printf("err %v", err)
 			return []models.Task{}, 0, fmt.Errorf("unable to access task")
 		}
-		if task.CardPK > 0 {
-			card, err := GetPartialCard(db, userID, task.CardPK)
+		tasks = append(tasks, task)
+	}
+
+	// Second pass: load dependencies for each task after rows are closed
+	for i := range tasks {
+		if tasks[i].CardPK > 0 {
+			card, err := GetPartialCard(db, userID, tasks[i].CardPK)
 			if err == nil {
-				task.Card = card
+				tasks[i].Card = card
 			}
 		}
 
 		// Load dependencies
-		if err := LoadTaskDependencies(db, &task); err != nil {
+		if err := LoadTaskDependencies(db, &tasks[i]); err != nil {
 			log.Printf("Error loading task dependencies: %v", err)
 		}
-
-		tasks = append(tasks, task)
 	}
 
 	// Get total count with same filters
@@ -197,13 +201,13 @@ func GetTasksPaginated(db *sql.DB, userID int, limit, offset int, includeComplet
 }
 
 // GetTasks retrieves all tasks for a user, optionally including completed tasks
-func GetTasks(db *sql.DB, userID int, includeCompleted bool, timezone string) ([]models.Task, error) {
+func GetTasks(db models.DBTX, userID int, includeCompleted bool, timezone string) ([]models.Task, error) {
 	tasks, _, err := GetTasksPaginated(db, userID, 1000, 0, includeCompleted, nil, nil, nil, nil, nil, timezone)
 	return tasks, err
 }
 
 // GetTasksByCard retrieves all tasks associated with a specific card
-func GetTasksByCard(db *sql.DB, userID int, cardPK int) ([]models.Task, error) {
+func GetTasksByCard(db models.DBTX, userID int, cardPK int) ([]models.Task, error) {
 	var tasks []models.Task
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
@@ -220,6 +224,8 @@ func GetTasksByCard(db *sql.DB, userID int, cardPK int) ([]models.Task, error) {
 	}
 	defer rows.Close()
 
+	// First pass: scan all tasks into the slice
+	// We can't do nested queries while iterating over rows with PostgreSQL transactions
 	for rows.Next() {
 		var task models.Task
 		if err := rows.Scan(
@@ -242,27 +248,31 @@ func GetTasksByCard(db *sql.DB, userID int, cardPK int) ([]models.Task, error) {
 			log.Printf("err %v", err)
 			return []models.Task{}, fmt.Errorf("unable to access task")
 		}
-		if task.CardPK > 0 {
-			card, err := GetPartialCard(db, userID, task.CardPK)
+		tasks = append(tasks, task)
+	}
+
+	// Second pass: load dependencies for each task after rows are closed
+	for i := range tasks {
+		if tasks[i].CardPK > 0 {
+			card, err := GetPartialCard(db, userID, tasks[i].CardPK)
 			if err == nil {
-				task.Card = card
+				tasks[i].Card = card
 			}
 		}
 
 		// Load dependencies
-		if err := LoadTaskDependencies(db, &task); err != nil {
+		if err := LoadTaskDependencies(db, &tasks[i]); err != nil {
 			log.Printf("Error loading task dependencies: %v", err)
 		}
-
-		// Note: Tag loading will need to be handled by the handler that calls this
-		// since QueryTagsForTask is in the handlers package
-		tasks = append(tasks, task)
 	}
+
+	// Note: Tag loading will need to be handled by the handler that calls this
+	// since QueryTagsForTask is in the handlers package
 	return tasks, nil
 }
 
 // GetTasksNeedingReminders retrieves all tasks that need reminder emails sent
-func GetTasksNeedingReminders(db *sql.DB) ([]models.Task, error) {
+func GetTasksNeedingReminders(db models.DBTX) ([]models.Task, error) {
 	var tasks []models.Task
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
@@ -310,7 +320,7 @@ func GetTasksNeedingReminders(db *sql.DB) ([]models.Task, error) {
 
 // UpdateTask updates an existing task
 // Returns the ID of a newly created recurring task, or 0 if none was created
-func UpdateTask(db *sql.DB, userID int, id int, task models.Task) (int, error) {
+func UpdateTask(db models.DBTX, userID int, id int, task models.Task) (int, error) {
 	oldTask, err := GetTask(db, userID, id)
 	if err != nil {
 		return 0, fmt.Errorf("unable to query task: %v", err)
@@ -408,7 +418,7 @@ func UpdateTask(db *sql.DB, userID int, id int, task models.Task) (int, error) {
 }
 
 // CreateTask creates a new task
-func CreateTask(db *sql.DB, task models.Task) (int, error) {
+func CreateTask(db models.DBTX, task models.Task) (int, error) {
 	var taskID int
 
 	// Log the priority value for debugging
@@ -469,7 +479,7 @@ func CreateTask(db *sql.DB, task models.Task) (int, error) {
 }
 
 // DeleteTask soft deletes a task
-func DeleteTask(db *sql.DB, userID int, id int) error {
+func DeleteTask(db models.DBTX, userID int, id int) error {
 	oldTask, err := GetTask(db, userID, id)
 	if err != nil {
 		return fmt.Errorf("unable to query task: %v", err)
@@ -560,7 +570,7 @@ func ParseRecurringTasks(title string) (models.RecurringTask, bool) {
 
 // checkRecurringTasks handles creating recurring tasks when a task is completed
 // Returns the new task ID if a recurring task was created, 0 otherwise
-func checkRecurringTasks(db *sql.DB, task models.Task) (int, error) {
+func checkRecurringTasks(db models.DBTX, task models.Task) (int, error) {
 	recurringTask, found := ParseRecurringTasks(task.Title)
 	if !found {
 		return 0, nil
@@ -589,7 +599,7 @@ func checkRecurringTasks(db *sql.DB, task models.Task) (int, error) {
 }
 
 // LoadTaskDependencies loads the blocked_by and blocks relationships for a task
-func LoadTaskDependencies(db *sql.DB, task *models.Task) error {
+func LoadTaskDependencies(db models.DBTX, task *models.Task) error {
 	// Load tasks that block this task (blocked_by)
 	blockedByQuery := `
 		SELECT t.id, t.title, t.is_complete, t.status
@@ -598,22 +608,25 @@ func LoadTaskDependencies(db *sql.DB, task *models.Task) error {
 		WHERE td.task_id = $1 AND t.is_deleted = FALSE
 		ORDER BY t.created_at DESC
 	`
-	rows, err := db.Query(blockedByQuery, task.ID)
+	blockedByRows, err := db.Query(blockedByQuery, task.ID)
 	if err != nil {
 		log.Printf("Error loading blocked_by tasks: %v", err)
 		return err
 	}
-	defer rows.Close()
+	defer blockedByRows.Close()
 
 	task.BlockedBy = []models.PartialTask{}
-	for rows.Next() {
+	for blockedByRows.Next() {
 		var pt models.PartialTask
-		if err := rows.Scan(&pt.ID, &pt.Title, &pt.IsComplete, &pt.Status); err != nil {
+		if err := blockedByRows.Scan(&pt.ID, &pt.Title, &pt.IsComplete, &pt.Status); err != nil {
 			log.Printf("Error scanning blocked_by task: %v", err)
 			continue
 		}
 		task.BlockedBy = append(task.BlockedBy, pt)
 	}
+
+	// Close blockedByRows before opening another query on the same transaction
+	blockedByRows.Close()
 
 	// Load tasks that this task blocks (blocks)
 	blocksQuery := `
@@ -623,17 +636,17 @@ func LoadTaskDependencies(db *sql.DB, task *models.Task) error {
 		WHERE td.blocking_task_id = $1 AND t.is_deleted = FALSE
 		ORDER BY t.created_at DESC
 	`
-	rows, err = db.Query(blocksQuery, task.ID)
+	blocksRows, err := db.Query(blocksQuery, task.ID)
 	if err != nil {
 		log.Printf("Error loading blocks tasks: %v", err)
 		return err
 	}
-	defer rows.Close()
+	defer blocksRows.Close()
 
 	task.Blocks = []models.PartialTask{}
-	for rows.Next() {
+	for blocksRows.Next() {
 		var pt models.PartialTask
-		if err := rows.Scan(&pt.ID, &pt.Title, &pt.IsComplete, &pt.Status); err != nil {
+		if err := blocksRows.Scan(&pt.ID, &pt.Title, &pt.IsComplete, &pt.Status); err != nil {
 			log.Printf("Error scanning blocks task: %v", err)
 			continue
 		}
@@ -645,7 +658,7 @@ func LoadTaskDependencies(db *sql.DB, task *models.Task) error {
 
 // CompleteAndScheduleTask completes the current task and creates a new one scheduled for X days later
 // Returns the ID of the newly created task, or 0 if none was created
-func CompleteAndScheduleTask(db *sql.DB, userID int, id int, days int, completeStatusName string, defaultStatusName string) (int, error) {
+func CompleteAndScheduleTask(db models.DBTX, userID int, id int, days int, completeStatusName string, defaultStatusName string) (int, error) {
 	// Get the original task
 	oldTask, err := GetTask(db, userID, id)
 	if err != nil {
