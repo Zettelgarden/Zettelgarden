@@ -486,6 +486,10 @@ func generateData() map[string]interface{} {
 			StripeSubscriptionID:        "",
 			EmailValidated:              true,
 		}
+		if i == 1 {
+			// User 1 has unvalidated email for TestValidateEmail
+			user.EmailValidated = false
+		}
 		if i == 2 {
 			user.CanUploadFiles = false
 			user.Email = "test@test.com"

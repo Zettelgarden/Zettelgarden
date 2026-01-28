@@ -391,7 +391,7 @@ func TestResendValidateEmailAlreadyValidated(t *testing.T) {
 	s := setup()
 	defer tests.Teardown()
 
-	token, _ := tests.GenerateTestJWT(1)
+	token, _ := tests.GenerateTestJWT(2)
 	req, err := http.NewRequest("GET", "/api/email-validate", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -456,12 +456,13 @@ func TestValidateEmail(t *testing.T) {
 
 	token, _ := s.generateTempToken(1)
 
-	_, err := s.Server.Tx.Exec(`UPDATE users SET email_validated = FALSE WHERE id = 1`)
+	// Verify initial state - user 1's email should not be validated (from test data)
+	var emailValidated bool
+	err := s.Server.Tx.QueryRow(`SELECT email_validated FROM users WHERE id = 1`).Scan(&emailValidated)
 	if err != nil {
 		t.Fatal(err)
 	}
-	user, err := s.QueryUser(1)
-	if user.EmailValidated {
+	if emailValidated {
 		t.Fatal("something has gone wrong: email is validated when it shouldn't be")
 	}
 
@@ -483,8 +484,12 @@ func TestValidateEmail(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 
-	user, err = s.QueryUser(1)
-	if !user.EmailValidated {
+	// Verify email is now validated - use s.DB since handler committed its changes
+	err = s.DB.QueryRow(`SELECT email_validated FROM users WHERE id = 1`).Scan(&emailValidated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !emailValidated {
 		t.Fatal("something has gone wrong: email is not validated when it should be")
 	}
 
