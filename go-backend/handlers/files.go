@@ -183,8 +183,9 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
+	// First, buffer all files to avoid PostgreSQL protocol error
+	// (can't execute queries while iterating through a result set on same connection)
 	var files []models.File
-
 	for rows.Next() {
 		var file models.File
 		if err := rows.Scan(
@@ -207,20 +208,23 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		partialCard, err := s.QueryPartialCardByID(userID, file.CardPK)
-		if err != nil {
-			log.Printf("card %v", partialCard)
-			file.Card = models.PartialCard{}
-		} else {
-			file.Card = partialCard
-		}
 		files = append(files, file)
 	}
 
 	if err := rows.Err(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// Now fetch cards for each file after closing the result set
+	for i := range files {
+		partialCard, err := s.QueryPartialCardByID(userID, files[i].CardPK)
+		if err != nil {
+			log.Printf("card %v", partialCard)
+			files[i].Card = models.PartialCard{}
+		} else {
+			files[i].Card = partialCard
+		}
 	}
 
 	// Get total count for pagination

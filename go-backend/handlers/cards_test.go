@@ -330,12 +330,8 @@ func TestUpdateCardSuccess(t *testing.T) {
 	s := setup()
 	defer tests.Teardown()
 
-	var linkCount int
-	_ = s.Server.Tx.QueryRow("SELECT count(*) FROM card_views").Scan(&linkCount)
-	log.Printf("count %v", linkCount)
-	if linkCount != 0 {
-		t.Errorf("wrong log count, got %v want %v", linkCount, 0)
-	}
+	var oldLinkCount int
+	_ = s.Server.Tx.QueryRow("SELECT count(*) FROM card_views").Scan(&oldLinkCount)
 
 	rr := makeCardRequestSuccess(s, t, 1)
 	var card models.Card
@@ -381,9 +377,8 @@ func TestUpdateCardSuccess(t *testing.T) {
 	}
 	var newLinkCount int
 	_ = s.Server.Tx.QueryRow("SELECT count(*) FROM card_views").Scan(&newLinkCount)
-	log.Printf("new count %v", newLinkCount)
-	if newLinkCount == linkCount {
-		t.Errorf("wrong log count, got %v want %v", linkCount, 1)
+	if newLinkCount != oldLinkCount+3 {
+		t.Errorf("wrong link count, got %v want %v", newLinkCount, oldLinkCount+3)
 	}
 }
 
@@ -776,7 +771,7 @@ func TestGetNextChildCardID(t *testing.T) {
 	}
 
 	nextID = s.getNextChildCardID(1, childCard1.ID) // Test with nested grandchild
-	if nextID != "999.1.1" {                           // Should extend the existing child ID
+	if nextID != "999.1.1" {                        // Should extend the existing child ID
 		t.Errorf("Expected nested child ID to be 999.1.1, got %s", nextID)
 	}
 
@@ -925,12 +920,12 @@ func TestCreateCardWithSchema_Success(t *testing.T) {
 	}
 
 	data := models.EditCardParams{
-		Title:           "Card with Schema",
-		Body:            "Test body",
-		CardID:          "SCHEMA001",
-		Link:            "test",
-		SchemaID:        &schemaID,
-		StructuredData:  &structuredData,
+		Title:          "Card with Schema",
+		Body:           "Test body",
+		CardID:         "SCHEMA001",
+		Link:           "test",
+		SchemaID:       &schemaID,
+		StructuredData: &structuredData,
 	}
 	jsonData, _ := json.Marshal(data)
 	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
@@ -988,12 +983,12 @@ func TestCreateCardWithSchema_SchemaNotFound(t *testing.T) {
 	_ = json.Unmarshal([]byte(structuredDataJSON), &structuredData)
 
 	data := models.EditCardParams{
-		Title:           "Card with Invalid Schema",
-		Body:            "Test body",
-		CardID:          "SCHEMA002",
-		Link:            "test",
-		SchemaID:        &nonExistentSchemaID,
-		StructuredData:  &structuredData,
+		Title:          "Card with Invalid Schema",
+		Body:           "Test body",
+		CardID:         "SCHEMA002",
+		Link:           "test",
+		SchemaID:       &nonExistentSchemaID,
+		StructuredData: &structuredData,
 	}
 	jsonData, _ := json.Marshal(data)
 	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
@@ -1035,12 +1030,12 @@ func TestCreateCardWithSchema_OtherUsersSchema(t *testing.T) {
 	_ = json.Unmarshal([]byte(structuredDataJSON), &structuredData)
 
 	data := models.EditCardParams{
-		Title:           "User 2 Card",
-		Body:            "Test body",
-		CardID:          "SCHEMA003",
-		Link:            "test",
-		SchemaID:        &schemaID,
-		StructuredData:  &structuredData,
+		Title:          "User 2 Card",
+		Body:           "Test body",
+		CardID:         "SCHEMA003",
+		Link:           "test",
+		SchemaID:       &schemaID,
+		StructuredData: &structuredData,
 	}
 	jsonData, _ := json.Marshal(data)
 	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
@@ -1083,12 +1078,12 @@ func TestCreateCardWithSchema_MissingRequiredField(t *testing.T) {
 	_ = json.Unmarshal([]byte(structuredDataJSON), &structuredData)
 
 	data := models.EditCardParams{
-		Title:           "Missing Required Field",
-		Body:            "Test body",
-		CardID:          "SCHEMA004",
-		Link:            "test",
-		SchemaID:        &schemaID,
-		StructuredData:  &structuredData,
+		Title:          "Missing Required Field",
+		Body:           "Test body",
+		CardID:         "SCHEMA004",
+		Link:           "test",
+		SchemaID:       &schemaID,
+		StructuredData: &structuredData,
 	}
 	jsonData, _ := json.Marshal(data)
 	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
@@ -1129,12 +1124,12 @@ func TestCreateCardWithSchema_InvalidFieldType(t *testing.T) {
 	_ = json.Unmarshal([]byte(structuredDataJSON), &structuredData)
 
 	data := models.EditCardParams{
-		Title:           "Invalid Type",
-		Body:            "Test body",
-		CardID:          "SCHEMA005",
-		Link:            "test",
-		SchemaID:        &schemaID,
-		StructuredData:  &structuredData,
+		Title:          "Invalid Type",
+		Body:           "Test body",
+		CardID:         "SCHEMA005",
+		Link:           "test",
+		SchemaID:       &schemaID,
+		StructuredData: &structuredData,
 	}
 	jsonData, _ := json.Marshal(data)
 	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
@@ -1174,12 +1169,12 @@ func TestCreateCardWithSchema_InvalidSelectValue(t *testing.T) {
 	_ = json.Unmarshal([]byte(structuredDataJSON), &structuredData)
 
 	data := models.EditCardParams{
-		Title:           "Invalid Select",
-		Body:            "Test body",
-		CardID:          "SCHEMA006",
-		Link:            "test",
-		SchemaID:        &schemaID,
-		StructuredData:  &structuredData,
+		Title:          "Invalid Select",
+		Body:           "Test body",
+		CardID:         "SCHEMA006",
+		Link:           "test",
+		SchemaID:       &schemaID,
+		StructuredData: &structuredData,
 	}
 	jsonData, _ := json.Marshal(data)
 	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
@@ -1221,12 +1216,12 @@ func TestCreateCardWithSchema_AllOptionalFieldsEmpty(t *testing.T) {
 	_ = json.Unmarshal([]byte(structuredDataJSON), &structuredData)
 
 	data := models.EditCardParams{
-		Title:           "Optional Fields Card",
-		Body:            "Test body",
-		CardID:          "SCHEMA007",
-		Link:            "test",
-		SchemaID:        &schemaID,
-		StructuredData:  &structuredData,
+		Title:          "Optional Fields Card",
+		Body:           "Test body",
+		CardID:         "SCHEMA007",
+		Link:           "test",
+		SchemaID:       &schemaID,
+		StructuredData: &structuredData,
 	}
 	jsonData, _ := json.Marshal(data)
 	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
@@ -1296,12 +1291,12 @@ func TestUpdateCardWithSchema_AddSchemaToExistingCard(t *testing.T) {
 	_ = json.Unmarshal([]byte(structuredDataJSON), &structuredData)
 
 	updateData := models.EditCardParams{
-		Title:           card.Title,
-		Body:            card.Body,
-		CardID:          card.CardID,
-		Link:            card.Link,
-		SchemaID:        &schemaID,
-		StructuredData:  &structuredData,
+		Title:          card.Title,
+		Body:           card.Body,
+		CardID:         card.CardID,
+		Link:           card.Link,
+		SchemaID:       &schemaID,
+		StructuredData: &structuredData,
 	}
 	updateJSON, _ := json.Marshal(updateData)
 	updateReq, err := http.NewRequest("PUT", "/api/cards/"+strconv.Itoa(card.ID), bytes.NewBuffer(updateJSON))
@@ -1352,12 +1347,12 @@ func TestUpdateCardWithSchema_UpdateStructuredData(t *testing.T) {
 	_ = json.Unmarshal([]byte(structuredDataJSON), &structuredData)
 
 	data := models.EditCardParams{
-		Title:           "Card for Update",
-		Body:            "Test body",
-		CardID:          "UPDATE001",
-		Link:            "test",
-		SchemaID:        &schemaID,
-		StructuredData:  &structuredData,
+		Title:          "Card for Update",
+		Body:           "Test body",
+		CardID:         "UPDATE001",
+		Link:           "test",
+		SchemaID:       &schemaID,
+		StructuredData: &structuredData,
 	}
 	jsonData, _ := json.Marshal(data)
 	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
@@ -1380,12 +1375,12 @@ func TestUpdateCardWithSchema_UpdateStructuredData(t *testing.T) {
 	_ = json.Unmarshal([]byte(newStructuredDataJSON), &newStructuredData)
 
 	updateData := models.EditCardParams{
-		Title:           card.Title,
-		Body:            card.Body,
-		CardID:          card.CardID,
-		Link:            card.Link,
-		SchemaID:        card.SchemaID,
-		StructuredData:  &newStructuredData,
+		Title:          card.Title,
+		Body:           card.Body,
+		CardID:         card.CardID,
+		Link:           card.Link,
+		SchemaID:       card.SchemaID,
+		StructuredData: &newStructuredData,
 	}
 	updateJSON, _ := json.Marshal(updateData)
 	updateReq, err := http.NewRequest("PUT", "/api/cards/"+strconv.Itoa(card.ID), bytes.NewBuffer(updateJSON))
@@ -1440,12 +1435,12 @@ func TestUpdateCardWithSchema_RemoveSchema(t *testing.T) {
 	_ = json.Unmarshal([]byte(structuredDataJSON), &structuredData)
 
 	data := models.EditCardParams{
-		Title:           "Card to Remove Schema",
-		Body:            "Test body",
-		CardID:          "REMOVE001",
-		Link:            "test",
-		SchemaID:        &schemaID,
-		StructuredData:  &structuredData,
+		Title:          "Card to Remove Schema",
+		Body:           "Test body",
+		CardID:         "REMOVE001",
+		Link:           "test",
+		SchemaID:       &schemaID,
+		StructuredData: &structuredData,
 	}
 	jsonData, _ := json.Marshal(data)
 	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
@@ -1516,12 +1511,12 @@ func TestGetCardWithSchema_WithSchemaAndData(t *testing.T) {
 	_ = json.Unmarshal([]byte(structuredDataJSON), &structuredData)
 
 	data := models.EditCardParams{
-		Title:           "Card with Schema",
-		Body:            "Test body",
-		CardID:          "GETSCHEMA001",
-		Link:            "test",
-		SchemaID:        &schemaID,
-		StructuredData:  &structuredData,
+		Title:          "Card with Schema",
+		Body:           "Test body",
+		CardID:         "GETSCHEMA001",
+		Link:           "test",
+		SchemaID:       &schemaID,
+		StructuredData: &structuredData,
 	}
 	jsonData, _ := json.Marshal(data)
 	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
@@ -1614,10 +1609,10 @@ func TestGetCardWithSchema_NullStructuredData(t *testing.T) {
 
 	// Create card with schema but no structured_data
 	data := models.EditCardParams{
-		Title:   "Card with Schema No Data",
-		Body:    "Test body",
-		CardID:  "NULLDATA001",
-		Link:    "test",
+		Title:    "Card with Schema No Data",
+		Body:     "Test body",
+		CardID:   "NULLDATA001",
+		Link:     "test",
 		SchemaID: &schemaID,
 	}
 	jsonData, _ := json.Marshal(data)
@@ -1659,10 +1654,10 @@ func TestCreateCardWithSchema_WithoutStructuredDataWhenRequired(t *testing.T) {
 
 	// Try to create card with schema but without structured_data
 	data := models.EditCardParams{
-		Title:   "Card without structured_data",
-		Body:    "Test body",
-		CardID:  "NODATA001",
-		Link:    "test",
+		Title:    "Card without structured_data",
+		Body:     "Test body",
+		CardID:   "NODATA001",
+		Link:     "test",
 		SchemaID: &schemaID,
 	}
 	jsonData, _ := json.Marshal(data)
@@ -1728,12 +1723,12 @@ func TestCreateCardWithSchema_WithLinkToCardField(t *testing.T) {
 	_ = json.Unmarshal([]byte(structuredDataJSON), &structuredData)
 
 	data := models.EditCardParams{
-		Title:           "Card with Link",
-		Body:            "Test body",
-		CardID:          "LINKCARD001",
-		Link:            "test",
-		SchemaID:        &schemaID,
-		StructuredData:  &structuredData,
+		Title:          "Card with Link",
+		Body:           "Test body",
+		CardID:         "LINKCARD001",
+		Link:           "test",
+		SchemaID:       &schemaID,
+		StructuredData: &structuredData,
 	}
 	jsonData, _ = json.Marshal(data)
 	req, err = http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
@@ -1792,12 +1787,12 @@ func TestCreateCardWithSchema_InvalidLinkToCardReference(t *testing.T) {
 	_ = json.Unmarshal([]byte(structuredDataJSON), &structuredData)
 
 	data := models.EditCardParams{
-		Title:           "Card with Invalid Link",
-		Body:            "Test body",
-		CardID:          "INVALIDLINK001",
-		Link:            "test",
-		SchemaID:        &schemaID,
-		StructuredData:  &structuredData,
+		Title:          "Card with Invalid Link",
+		Body:           "Test body",
+		CardID:         "INVALIDLINK001",
+		Link:           "test",
+		SchemaID:       &schemaID,
+		StructuredData: &structuredData,
 	}
 	jsonData, _ := json.Marshal(data)
 	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
@@ -1875,12 +1870,12 @@ func TestCreateCardWithSchema_AllFieldTypes(t *testing.T) {
 	_ = json.Unmarshal([]byte(structuredDataJSON), &structuredData)
 
 	data := models.EditCardParams{
-		Title:           "All Types Card",
-		Body:            "Test body",
-		CardID:          "ALLTYPES001",
-		Link:            "test",
-		SchemaID:        &schemaID,
-		StructuredData:  &structuredData,
+		Title:          "All Types Card",
+		Body:           "Test body",
+		CardID:         "ALLTYPES001",
+		Link:           "test",
+		SchemaID:       &schemaID,
+		StructuredData: &structuredData,
 	}
 	jsonData, _ = json.Marshal(data)
 	req, err = http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
@@ -1952,12 +1947,12 @@ func TestUpdateCardWithSchema_InvalidStructuredData(t *testing.T) {
 	_ = json.Unmarshal([]byte(structuredDataJSON), &structuredData)
 
 	data := models.EditCardParams{
-		Title:           "Card for Update",
-		Body:            "Test body",
-		CardID:          "UPDATEVALID001",
-		Link:            "test",
-		SchemaID:        &schemaID,
-		StructuredData:  &structuredData,
+		Title:          "Card for Update",
+		Body:           "Test body",
+		CardID:         "UPDATEVALID001",
+		Link:           "test",
+		SchemaID:       &schemaID,
+		StructuredData: &structuredData,
 	}
 	jsonData, _ := json.Marshal(data)
 	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
@@ -1980,12 +1975,12 @@ func TestUpdateCardWithSchema_InvalidStructuredData(t *testing.T) {
 	_ = json.Unmarshal([]byte(invalidStructuredDataJSON), &invalidStructuredData)
 
 	updateData := models.EditCardParams{
-		Title:           card.Title,
-		Body:            card.Body,
-		CardID:          card.CardID,
-		Link:            card.Link,
-		SchemaID:        card.SchemaID,
-		StructuredData:  &invalidStructuredData,
+		Title:          card.Title,
+		Body:           card.Body,
+		CardID:         card.CardID,
+		Link:           card.Link,
+		SchemaID:       card.SchemaID,
+		StructuredData: &invalidStructuredData,
 	}
 	updateJSON, _ := json.Marshal(updateData)
 	updateReq, err := http.NewRequest("PUT", "/api/cards/"+strconv.Itoa(card.ID), bytes.NewBuffer(updateJSON))
@@ -2031,12 +2026,12 @@ func TestUpdateCardWithSchema_PartialUpdatePreservesSchema(t *testing.T) {
 	_ = json.Unmarshal([]byte(structuredDataJSON), &structuredData)
 
 	data := models.EditCardParams{
-		Title:           "Card with Schema - Initial",
-		Body:            "Test body",
-		CardID:          "PRESERVE001",
-		Link:            "test",
-		SchemaID:        &schemaID,
-		StructuredData:  &structuredData,
+		Title:          "Card with Schema - Initial",
+		Body:           "Test body",
+		CardID:         "PRESERVE001",
+		Link:           "test",
+		SchemaID:       &schemaID,
+		StructuredData: &structuredData,
 	}
 	jsonData, _ := json.Marshal(data)
 	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
@@ -2066,10 +2061,10 @@ func TestUpdateCardWithSchema_PartialUpdatePreservesSchema(t *testing.T) {
 
 	// Update ONLY the title (partial update - no schema_id or structured_data in request)
 	updateData := models.EditCardParams{
-		Title:           "Card with Schema - Updated",
-		Body:            card.Body,
-		CardID:          card.CardID,
-		Link:            card.Link,
+		Title:  "Card with Schema - Updated",
+		Body:   card.Body,
+		CardID: card.CardID,
+		Link:   card.Link,
 		// SchemaID and StructuredData deliberately omitted
 	}
 	updateJSON, _ := json.Marshal(updateData)
