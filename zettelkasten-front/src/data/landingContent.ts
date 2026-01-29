@@ -188,7 +188,7 @@ export const faqs: FAQ[] = [
   {
     id: "offline",
     question: "Does it work offline?",
-    answer: "Yes! Once loaded, Zettelgarden works fully offline in your browser. Your notes are stored locally and sync when you're back online. AI features do require an internet connection.",
+    answer: "Zettelgarden requires an internet connection to access your notes and use AI features. Your data is stored securely in the cloud, with the option to self-host for complete control.",
   },
   {
     id: "getting-started",
