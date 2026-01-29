@@ -56,19 +56,3 @@ func TestConvertTaskTimesToUserTimezone(t *testing.T) {
 		t.Errorf("CompletedAt not converted correctly")
 	}
 }
-
-func TestConvertFromUserTimezoneToUTC(t *testing.T) {
-	// Create a time in US/Eastern timezone
-	easternLoc, _ := time.LoadLocation("America/New_York")
-	localTime := time.Date(2024, 1, 1, 12, 0, 0, 0, easternLoc) // Noon Eastern time
-
-	// Convert it back to UTC (should be 5 PM UTC in January)
-	converted := ConvertFromUserTimezoneToUTC(&localTime, "America/New_York")
-
-	// Expected: Eastern noon is 5 PM UTC
-	expected := time.Date(2024, 1, 1, 17, 0, 0, 0, time.UTC)
-
-	if converted == nil || !converted.Equal(expected) {
-		t.Errorf("Time conversion failed: expected %v, got %v", expected, converted)
-	}
-}

@@ -257,13 +257,8 @@ func (s *Handler) UpdateTaskRoute(w http.ResponseWriter, r *http.Request) {
 		task.Priority = nil
 	}
 
-	// Convert times from user's timezone to UTC for storage
-	userTimezone, err := s.GetUserTimezone(userID)
-	if err == nil {
-		task.ScheduledDate = services.ConvertFromUserTimezoneToUTC(task.ScheduledDate, userTimezone)
-		task.DueDate = services.ConvertFromUserTimezoneToUTC(task.DueDate, userTimezone)
-		task.ReminderTime = services.ConvertFromUserTimezoneToUTC(task.ReminderTime, userTimezone)
-	}
+	// Note: Frontend sends times as ISO 8601 UTC strings (toISOString()),
+	// so JSON parsing already correctly sets them as UTC. No conversion needed.
 
 	if err := s.UpdateTask(userID, id, task); err != nil {
 		log.Printf("Error updating task %d: %v", id, err)
@@ -310,13 +305,8 @@ func (s *Handler) CreateTaskRoute(w http.ResponseWriter, r *http.Request) {
 	// Ensure the user ID is set correctly
 	task.UserID = userID
 
-	// Convert times from user's timezone to UTC for storage
-	userTimezone, err := s.GetUserTimezone(userID)
-	if err == nil {
-		task.ScheduledDate = services.ConvertFromUserTimezoneToUTC(task.ScheduledDate, userTimezone)
-		task.DueDate = services.ConvertFromUserTimezoneToUTC(task.DueDate, userTimezone)
-		task.ReminderTime = services.ConvertFromUserTimezoneToUTC(task.ReminderTime, userTimezone)
-	}
+	// Note: Frontend sends times as ISO 8601 UTC strings (toISOString()),
+	// so JSON parsing already correctly sets them as UTC. No conversion needed.
 
 	taskID, err := s.CreateTask(task)
 	if err != nil {

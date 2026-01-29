@@ -27,30 +27,6 @@ func ConvertToUserTimezone(t *time.Time, timezone string) *time.Time {
 	return &converted
 }
 
-// ConvertFromUserTimezone converts a time.Time from the user's timezone to UTC
-// This is used when storing times that arrive from frontend as local times
-func ConvertFromUserTimezoneToUTC(t *time.Time, timezone string) *time.Time {
-	if t == nil {
-		return nil
-	}
-
-	if timezone == "" {
-		timezone = "UTC"
-	}
-
-	loc, err := time.LoadLocation(timezone)
-	if err != nil {
-		log.Printf("Failed to load timezone %s, falling back to UTC: %v", timezone, err)
-		loc = time.UTC
-	}
-
-	// If the time already has timezone info, convert it to the user's timezone first
-	// then convert to UTC. If it's a "local" time, assume it represents user's local time
-	localTime := t.In(loc)
-	utcTime := localTime.UTC()
-	return &utcTime
-}
-
 // ConvertTaskTimesToUserTimezone converts all time fields in a task to the user's timezone
 func ConvertTaskTimesToUserTimezone(task *models.Task, timezone string) {
 	if timezone == "" {
