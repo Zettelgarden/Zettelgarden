@@ -31,8 +31,6 @@ export function FeatureCard({
       whileHover={{ y: -4, scale: 1.02 }}
       onClick={onToggle}
       onKeyDown={handleKeyDown}
-      onHoverStart={() => {}}
-      onHoverEnd={() => {}}
       role="button"
       tabIndex={0}
       aria-expanded={isExpanded}

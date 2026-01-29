@@ -16,6 +16,8 @@ import {
   newsletterSection,
   featuresSection,
   pricingSection,
+  personas,
+  personasSection,
 } from "../data/landingContent";
 
 // Component imports
@@ -24,6 +26,7 @@ import { FeaturesSection } from "./components/FeaturesSection";
 import { PricingSection } from "./components/PricingSection";
 import { VideoSection } from "./components/VideoSection";
 import { NewsletterSection } from "./components/NewsletterSection";
+import { PersonasSection } from "./components/PersonasSection";
 
 function LandingPage() {
   const navigate = useNavigate();
@@ -35,8 +38,17 @@ function LandingPage() {
   const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener("scroll", handleScroll);
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setScrollY(window.scrollY);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -82,15 +94,24 @@ function LandingPage() {
             landingImage={landingImage}
           />
 
+          <PersonasSection
+            personas={personas}
+            sectionTitle={personasSection.title}
+            sectionDescription={personasSection.description}
+          />
+
           <FeaturesSection
             features={features}
             expandedFeature={expandedFeature}
             onExpandFeature={setExpandedFeature}
             sectionTitle={featuresSection.title}
             sectionDescription={featuresSection.description}
+            ctaText={featuresSection.ctaText}
+            ctaSubtext={featuresSection.ctaSubtext}
+            onCtaClick={handleSignUp}
           />
 
-          <VideoSection video={videoSection} />
+          <VideoSection video={videoSection} onCtaClick={handleSignUp} />
 
           <PricingSection
             tiers={pricingTiers}

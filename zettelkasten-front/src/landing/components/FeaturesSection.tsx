@@ -9,6 +9,9 @@ interface FeaturesSectionProps {
   onExpandFeature: (id: string | null) => void;
   sectionTitle: string;
   sectionDescription: string;
+  ctaText?: string;
+  ctaSubtext?: string;
+  onCtaClick?: () => void;
 }
 
 export function FeaturesSection({
@@ -17,6 +20,9 @@ export function FeaturesSection({
   onExpandFeature,
   sectionTitle,
   sectionDescription,
+  ctaText,
+  ctaSubtext,
+  onCtaClick,
 }: FeaturesSectionProps) {
   return (
     <div id="features" className="py-24 space-y-8">
@@ -62,6 +68,33 @@ export function FeaturesSection({
           </motion.div>
         ))}
       </motion.div>
+
+      {ctaText && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mt-16 text-center"
+        >
+          <h3 className="text-2xl font-display font-semibold text-modern-slate-900 mb-2">
+            {ctaText}
+          </h3>
+          {ctaSubtext && (
+            <p className="text-modern-slate-600 mb-6">{ctaSubtext}</p>
+          )}
+          {onCtaClick && (
+            <motion.button
+              onClick={onCtaClick}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.98 }}
+              className="px-8 py-3 bg-modern-emerald-600 text-white rounded-lg font-body font-semibold hover:bg-modern-emerald-700 transition-colors duration-200 shadow-lg"
+            >
+              Get Started Free
+            </motion.button>
+          )}
+        </motion.div>
+      )}
     </div>
   );
 }

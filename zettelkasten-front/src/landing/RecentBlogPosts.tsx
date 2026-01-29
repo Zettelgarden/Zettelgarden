@@ -24,7 +24,7 @@ export function RecentBlogPosts() {
       viewport={{ once: true }}
       transition={{ duration: 0.6 }}
       className="py-24">
-      <h2 className="text-3xl font-bold text-gray-900 mb-8">Latest from Our Blog</h2>
+      <h2 className="text-3xl font-bold text-modern-slate-900 mb-8">Latest from Our Blog</h2>
       <div className="grid md:grid-cols-2 gap-8">
         {posts.map((post) => (
           <Link 
@@ -35,10 +35,10 @@ export function RecentBlogPosts() {
               className="bg-white p-6 rounded-xl shadow-md hover:shadow-xl transition-shadow duration-200"
               whileHover={{ y: -4 }}
               transition={{ duration: 0.2 }}>
-              <h3 className="text-xl font-semibold text-gray-900 group-hover:text-green-600 transition-colors duration-200">
+              <h3 className="text-xl font-semibold text-modern-slate-900 group-hover:text-modern-emerald-600 transition-colors duration-200">
                 {post.title}
               </h3>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-sm text-modern-slate-500 mt-2">
                 {new Date(post.date).toLocaleDateString('en-US', {
                   year: 'numeric',
                   month: 'long',
@@ -46,7 +46,7 @@ export function RecentBlogPosts() {
                 })} • {post.author}
               </p>
               {post.excerpt && (
-                <p className="text-gray-600 mt-4 line-clamp-3">
+                <p className="text-modern-slate-600 mt-4 line-clamp-3">
                   {post.excerpt}
                 </p>
               )}
@@ -55,7 +55,7 @@ export function RecentBlogPosts() {
                   {post.tags.map(tag => (
                     <span 
                       key={tag}
-                      className="px-2 py-1 bg-green-50 text-green-600 rounded-full text-sm">
+                      className="px-2 py-1 bg-modern-emerald-50 text-modern-emerald-600 rounded-full text-sm">
                       {tag}
                     </span>
                   ))}
@@ -68,7 +68,7 @@ export function RecentBlogPosts() {
       <div className="text-center mt-8">
         <Link 
           to="/blog"
-          className="inline-flex items-center text-green-600 hover:text-green-700 font-medium">
+          className="inline-flex items-center text-modern-emerald-600 hover:text-modern-emerald-700 font-medium">
           Read more posts
           <svg 
             className="ml-2 w-4 h-4" 

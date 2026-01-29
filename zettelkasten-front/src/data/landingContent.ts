@@ -6,6 +6,7 @@ import type {
   NewsletterContent,
   PricingFeature,
   SectionContent,
+  Persona,
 } from "../types/landing";
 
 // Shared feature arrays for pricing tiers (eliminates duplication)
@@ -28,9 +29,15 @@ const proFeatures: PricingFeature[] = [
 export const heroSection: HeroContent = {
   title: "Build",
   titleHighlighted: "Understanding",
+  titleSuffix: ", Not Just Notes",
   description:
     "The knowledge management system that thinks with you. Zettelgarden combines proven zettelkasten methodology with AI intelligence to help you discover connections, build insights, and turn information overload into understanding.",
   buttonText: "Get Started with Zettelgarden",
+  outcomes: [
+    "Never lose a brilliant idea again",
+    "Find connections you'd miss manually",
+    "Turn information overload into understanding",
+  ],
 };
 
 export const features: Feature[] = [
@@ -125,6 +132,8 @@ export const pricingTiers: PricingTier[] = [
 export const videoSection: VideoContent = {
   youtubeId: "0kSAhX2R7eM",
   title: "See Zettelgarden in Action",
+  ctaText: "See It in Action Yourself",
+  ctaSubtext: "Get started in 30 seconds with Zettelgarden Free.",
 };
 
 export const newsletterSection: NewsletterContent = {
@@ -142,10 +151,49 @@ export const featuresSection: SectionContent = {
   title: "Features that Work for You",
   description:
     "Click on any feature to learn more about how Zettelgarden can enhance your knowledge management workflow.",
+  ctaText: "Ready to Start Connecting Ideas?",
+  ctaSubtext: "Get started with Zettelgarden Free - no credit card required.",
 };
 
 export const pricingSection: SectionContent = {
   title: "Simple, Transparent Pricing",
   description:
     "Start free and discover how AI can augment your thinking. Upgrade to unlock advanced AI agents, content analysis, and discovery features. 30-day free trial included.",
+};
+
+export const personas: Persona[] = [
+  {
+    id: "researchers",
+    title: "Academic Researchers",
+    description:
+      "Manage hundreds of papers and find connections across disciplines. Never lose track of a source or insight again.",
+    icon: "🎓",
+  },
+  {
+    id: "writers",
+    title: "Writers & Authors",
+    description:
+      "Never lose a research thread or brilliant idea. Connect thoughts across projects and watch your work evolve.",
+    icon: "✍️",
+  },
+  {
+    id: "students",
+    title: "Students & Learners",
+    description:
+      "Turn lecture notes into long-term understanding. Build a knowledge base that grows with you throughout your education.",
+    icon: "📚",
+  },
+  {
+    id: "professionals",
+    title: "Knowledge Workers",
+    description:
+      "Break information silos and see the big picture. Connect insights from meetings, documents, and research in one place.",
+    icon: "💼",
+  },
+];
+
+export const personasSection: SectionContent = {
+  title: "Who is Zettelgarden For?",
+  description:
+    "Zettelgarden is designed for anyone who wants to think better and remember more. Here's how it helps different people achieve their goals.",
 };

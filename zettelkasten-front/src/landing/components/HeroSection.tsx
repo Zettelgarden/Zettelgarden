@@ -67,7 +67,7 @@ export function HeroSection({ hero, onSignUp, scrollY, landingImage }: HeroSecti
               transition={{ duration: 0.8, delay: 1 }}
             />
           </span>
-          , Not Just Notes
+          {hero.titleSuffix || ", Not Just Notes"}
         </motion.h1>
 
         <motion.p
@@ -78,6 +78,28 @@ export function HeroSection({ hero, onSignUp, scrollY, landingImage }: HeroSecti
         >
           {hero.description}
         </motion.p>
+
+        {hero.outcomes && (
+          <motion.ul
+            className="mt-6 space-y-2"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.5 }}
+          >
+            {hero.outcomes.map((outcome, index) => (
+              <motion.li
+                key={index}
+                className="flex items-start gap-2 text-base font-body text-modern-slate-700"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.6 + index * 0.1 }}
+              >
+                <span className="text-modern-emerald-600 mt-0.5 flex-shrink-0">✓</span>
+                <span>{outcome}</span>
+              </motion.li>
+            ))}
+          </motion.ul>
+        )}
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}

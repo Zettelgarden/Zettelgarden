@@ -1,6 +1,8 @@
 export interface SectionContent {
   title: string;
   description: string;
+  ctaText?: string;
+  ctaSubtext?: string;
 }
 
 export interface Feature {
@@ -8,6 +10,13 @@ export interface Feature {
   title: string;
   summary: string;
   details: string;
+  icon: string;
+}
+
+export interface Persona {
+  id: string;
+  title: string;
+  description: string;
   icon: string;
 }
 
@@ -30,13 +39,17 @@ export interface PricingTier {
 export interface HeroContent {
   title: string;
   titleHighlighted: string;
+  titleSuffix?: string;
   description: string;
   buttonText: string;
+  outcomes?: string[];
 }
 
 export interface VideoContent {
   youtubeId: string;
   title: string;
+  ctaText?: string;
+  ctaSubtext?: string;
 }
 
 export interface NewsletterContent {

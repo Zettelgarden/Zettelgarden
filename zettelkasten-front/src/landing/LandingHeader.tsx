@@ -53,7 +53,7 @@ export function LandingHeader() {
         <Link
           to="/app"
           className="hidden sm:block px-4 sm:px-6 py-2 bg-modern-emerald-600 text-white rounded-lg font-body font-medium hover:bg-modern-emerald-700 transition-colors duration-200 shadow-sm hover:shadow-md flex-shrink-0">
-          {isAuthenticated ? "Go To App" : "Login"}
+          {isAuthenticated ? "Go To App" : "Get Started Free"}
         </Link>
 
         {/* Mobile Menu Button */}
@@ -104,7 +104,7 @@ export function LandingHeader() {
                 to="/app"
                 onClick={() => setMobileMenuOpen(false)}
                 className="mx-4 px-6 py-2 bg-modern-emerald-600 text-white rounded-lg font-body font-medium hover:bg-modern-emerald-700 transition-colors duration-200 shadow-sm text-center">
-                {isAuthenticated ? "Go To App" : "Login"}
+                {isAuthenticated ? "Go To App" : "Get Started Free"}
               </Link>
             </div>
           </motion.div>
