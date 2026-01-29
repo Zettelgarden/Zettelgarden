@@ -15,8 +15,6 @@ export function escapeEntityNameForSearch(entityName: string): string {
   return entityName.replace(/[\[\]\\]/g, '\\$&');
 }
 
-const base_url = import.meta.env.VITE_URL;
-
 interface SearchRequestParams {
   search_term: string;
   sort?: string;
@@ -32,7 +30,7 @@ interface SearchRequestParams {
   per_page?: number;
 }
 
-interface PaginatedSearchResponse {
+export interface PaginatedSearchResponse {
   results: SearchResult[];
   page: number;
   per_page: number;

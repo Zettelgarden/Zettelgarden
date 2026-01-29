@@ -32,8 +32,8 @@ import {
   restoreCardToAuditEvent,
   createArticle,
 } from '../../api/cards';
-import { Card, PartialCard, Entity, CategorizedReferences, SearchResult, CardWithDescendants } from '../../models/Card';
-import { PaginatedSearchResponse } from '../../api/cards';
+import { Card, PartialCard, Entity, SearchResult, CardWithDescendants } from '../../models/Card';
+import { CategorizedReferences, PaginatedSearchResponse } from '../../api/cards';
 
 /**
  * Hook to fetch a single card by ID
@@ -309,7 +309,6 @@ export function useUpdateCard() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: (card: Card) => mutationKeys.cards.update(card.id),
     mutationFn: saveExistingCard,
 
     onMutate: async (updatedCard: Card) => {
@@ -332,7 +331,9 @@ export function useUpdateCard() {
     },
 
     onSettled: (newCard) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.cards.detail(String(newCard.id)) });
+      if (newCard) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.cards.detail(String(newCard.id)) });
+      }
       queryClient.invalidateQueries({ queryKey: queryKeys.cards.lists() });
     },
   });
@@ -347,7 +348,6 @@ export function useDeleteCard() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: (id: number) => mutationKeys.cards.delete(id),
     mutationFn: deleteCard,
 
     onSuccess: () => {
@@ -368,7 +368,6 @@ export function useStarCard() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: (id: number) => mutationKeys.cards.star(id),
     mutationFn: (cardId: number) => starCard(cardId),
 
     onMutate: async (cardId: number) => {
@@ -412,7 +411,6 @@ export function useUnstarCard() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: (id: number) => mutationKeys.cards.unstar(id),
     mutationFn: (cardId: number) => unstarCard(cardId),
 
     onMutate: async (cardId: number) => {

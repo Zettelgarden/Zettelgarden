@@ -2,8 +2,6 @@ import { Task, TaskAuditEvent, TasksResponse } from "src/models/Task";
 import { apiClient, getData } from "./client";
 import { processTaskFromAPI } from "../utils/taskDataProcessing";
 
-const base_url = import.meta.env.VITE_URL;
-
 export interface FetchTasksParams {
   showCompleted?: boolean;
   scheduledDate?: Date | null;

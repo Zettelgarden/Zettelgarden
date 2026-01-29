@@ -9,6 +9,8 @@
     "@radix-ui/react-slot": "^1.0.2",
     "@stripe/stripe-js": "^7.9.0",
     "@tanstack/match-sorter-utils": "^8.19.4",
+    "@tanstack/react-query": "^5.90.20",
+    "@tanstack/react-query-devtools": "^5.91.2",
     "@tanstack/react-table": "^8.20.6",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
@@ -42,7 +44,8 @@
     "vite": "^5.3.4",
     "vite-plugin-svgr": "^4.2.0",
     "vite-tsconfig-paths": "^4.3.2",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "zustand": "^5.0.10"
   },
   "scripts": {
     "start": "vite",

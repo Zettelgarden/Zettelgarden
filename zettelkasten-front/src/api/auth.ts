@@ -3,8 +3,6 @@ import { GenericResponse } from "../models/common";
 import { LoginResponse } from "../models/Auth";
 import { apiClient, getData } from "./client";
 
-const base_url = import.meta.env.VITE_URL;
-
 /**
  * Login with email and password
  */

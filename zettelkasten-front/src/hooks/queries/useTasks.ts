@@ -182,7 +182,6 @@ export function useUpdateTask() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: (task: Task) => mutationKeys.tasks.update(task.id),
     mutationFn: saveExistingTask,
 
     // Optimistic update
@@ -219,7 +218,9 @@ export function useUpdateTask() {
 
     // Always refetch after error or success
     onSettled: (newTask) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.detail(newTask.id) });
+      if (newTask) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.tasks.detail(newTask.id) });
+      }
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
     },
   });
@@ -234,7 +235,6 @@ export function useDeleteTask() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: (id: number) => mutationKeys.tasks.delete(id),
     mutationFn: deleteTask,
 
     onMutate: async (deletedTaskId: number) => {

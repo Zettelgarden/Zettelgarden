@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Task } from "../../models/Task";
-import { format, toZonedTime } from "date-fns-tz";
-import { getToday, getTomorrow, createTimeInTimezone, getNowInTimezone } from "../../utils/dates";
+import { format, toZonedTime, fromZonedTime } from "date-fns-tz";
+import { getToday, getTomorrow, getNowInTimezone } from "../../utils/dates";
 import { useTaskDropdown } from "../../hooks/useTaskDropdown";
 import { useOptimisticTaskUpdate } from "../../hooks/useOptimisticTaskUpdate";
 import { useAuth } from "../../contexts/AuthContext";
@@ -36,16 +36,20 @@ export function TaskReminderDisplay({
   }
 
   function setReminderIn(minutes: number) {
-    const now = getNowInTimezone(userTimezone);
-    const reminderTime = new Date(now);
-    reminderTime.setMinutes(reminderTime.getMinutes() + minutes);
+    // Use actual UTC time for reminders - JSON serialization will handle the rest
+    const reminderTime = new Date(Date.now() + minutes * 60 * 1000);
     updateTask({ ...task, reminder_time: reminderTime, reminder_sent: false });
     dropdown.close();
   }
 
   function setReminderTomorrowMorning() {
-    const tomorrow = getTomorrow(userTimezone);
-    const reminderTime = createTimeInTimezone(tomorrow, 9, 0, userTimezone);
+    // Get tomorrow at 9am in user's timezone as actual UTC time
+    const now = new Date();
+    const tomorrowInTz = toZonedTime(now, userTimezone);
+    tomorrowInTz.setDate(tomorrowInTz.getDate() + 1);
+    tomorrowInTz.setHours(9, 0, 0, 0);
+    // Convert to actual UTC time
+    const reminderTime = fromZonedTime(tomorrowInTz, userTimezone);
     updateTask({ ...task, reminder_time: reminderTime, reminder_sent: false });
     dropdown.close();
   }
@@ -57,16 +61,10 @@ export function TaskReminderDisplay({
   function applyCustomDateTime() {
     if (!customDateTime) return;
 
+    // The datetime-local input gives us a local date/time (no timezone info)
+    // We interpret this as being in the user's timezone and convert to UTC
     const browserLocalDate = new Date(customDateTime);
-    const dateInUserTimezone = toZonedTime(browserLocalDate, userTimezone);
-
-    const year = dateInUserTimezone.getFullYear();
-    const month = dateInUserTimezone.getMonth();
-    const day = dateInUserTimezone.getDate();
-    const hour = dateInUserTimezone.getHours();
-    const minute = dateInUserTimezone.getMinutes();
-
-    const reminderTime = new Date(Date.UTC(year, month, day, hour, minute, 0, 0));
+    const reminderTime = fromZonedTime(browserLocalDate, userTimezone);
 
     updateTask({ ...task, reminder_time: reminderTime, reminder_sent: false });
     dropdown.close();

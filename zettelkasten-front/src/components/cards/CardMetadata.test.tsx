@@ -202,7 +202,7 @@ describe('CardMetadata', () => {
 
     it('should handle API errors when getting next root ID', async () => {
       const { getNextRootId } = await import('../../api/cards');
-      getNextRootId.mockRejectedValueOnce(new Error('API Error'));
+      (getNextRootId as any).mockRejectedValueOnce(new Error('API Error'));
 
       render(<CardMetadata {...defaultProps} newCard={true} />);
 

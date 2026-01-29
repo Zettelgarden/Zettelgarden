@@ -41,11 +41,6 @@ function createTestQueryClient() {
         retry: false,
       },
     },
-    logger: {
-      log: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    },
   });
 }
 
@@ -368,7 +363,7 @@ describe('useCreateTask', () => {
     // Verify that task list queries were invalidated
     const invalidatedQueries = queryClient.getQueryCache().getAll();
     const hasInvalidatedTasksList = invalidatedQueries.some(
-      (query) => query.state.invalidated && query.queryKey[0] === 'tasks'
+      (query) => query.state.isInvalidated && query.queryKey[0] === 'tasks'
     );
     expect(hasInvalidatedTasksList).toBe(true);
   });

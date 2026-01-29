@@ -9,8 +9,6 @@ import { GenericResponse } from "../models/common";
 import { apiClient, getData } from "./client";
 import { APIError } from "./errors";
 
-const base_url = import.meta.env.VITE_URL;
-
 export interface MailingListSubscriber {
   id: number;
   email: string;

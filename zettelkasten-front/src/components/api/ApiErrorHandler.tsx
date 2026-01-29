@@ -49,11 +49,8 @@ export function useApiErrorHandler() {
 
       // Handle auth errors (401, 422)
       if (isAuthError(error)) {
-        // Clear the invalid token
-        const token = localStorage.getItem('token');
-        if (token) {
-          localStorage.removeItem('token');
-        }
+        // Clear the invalid token (safe to call even if key doesn't exist)
+        localStorage.removeItem('token');
 
         // Logout from auth context
         logoutUser();
@@ -166,22 +163,23 @@ function getErrorTitle(status?: number): string {
  * This wraps a component and provides error handling for async operations.
  * Use this when you want to automatically handle API errors in a component.
  */
-export function withApiErrorHandler<P extends object>(
-  Component: React.ComponentType<P & { onError?: (error: unknown) => void }>
-): React.ComponentType<P> {
-  return function WrappedComponent(props: P) {
+export function withApiErrorHandler<P extends { onError?: (error: unknown) => void }>(
+  Component: React.ComponentType<P>
+): React.ComponentType<Omit<P, 'onError'>> {
+  return function WrappedComponent(props: Omit<P, 'onError'>) {
     const { handleApiError } = useApiErrorHandler();
 
     const onError = useCallback(
       (error: unknown) => {
         handleApiError(error);
-        if (props.onError) {
-          props.onError(error);
+        const p = props as P;
+        if (p.onError) {
+          p.onError(error);
         }
       },
       [handleApiError, props]
     );
 
-    return <Component {...props} onError={onError} />;
+    return <Component {...(props as P)} onError={onError} />;
   };
 }
