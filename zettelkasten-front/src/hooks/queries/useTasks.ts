@@ -34,7 +34,7 @@ function extractTagsFromTasks(tasks: Task[]): string[] {
   tasks.forEach((task) => {
     const tagsInTitle = task.title.match(/(^|\s)#\w+(\s|$)/g);
     if (tagsInTitle) {
-      tagsInTitle.forEach((tag) => tagSet.add(tag));
+      tagsInTitle.forEach((tag) => tagSet.add(tag.trim()));
     }
   });
 
