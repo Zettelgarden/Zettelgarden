@@ -53,8 +53,17 @@ export function useCardReference({
 
     if (event.key === '[') {
       const caret = getCaretCoordinates(event.currentTarget, selectionStart);
+      const textareaRect = event.currentTarget.getBoundingClientRect();
 
-      setDialogPosition(caret);
+      // Convert container-relative coordinates to viewport-relative coordinates
+      // The dialog uses position: fixed, which expects viewport coordinates
+      const viewportCaret = {
+        top: caret.top + textareaRect.top + window.scrollY,
+        left: caret.left + textareaRect.left + window.scrollX,
+        height: caret.height
+      };
+
+      setDialogPosition(viewportCaret);
       setTriggerIndex(selectionStart); // +1 because [ will be inserted
       setShowReferenceDialog(true);
       // We do NOT prevent default, allowing [ to be typed

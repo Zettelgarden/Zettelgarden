@@ -7,9 +7,10 @@ interface HeroSectionProps {
   onSignUp: () => void;
   scrollY: number;
   landingImage: string;
+  prefersReducedMotion?: boolean;
 }
 
-export function HeroSection({ hero, onSignUp, scrollY, landingImage }: HeroSectionProps) {
+export function HeroSection({ hero, onSignUp, scrollY, landingImage, prefersReducedMotion = false }: HeroSectionProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -18,37 +19,41 @@ export function HeroSection({ hero, onSignUp, scrollY, landingImage }: HeroSecti
       className="relative flex flex-col lg:flex-row gap-12 items-center mt-8"
     >
       {/* Floating decorative elements with parallax */}
-      <motion.div
-        className="absolute -top-4 -left-4 w-20 h-20 bg-gradient-to-br from-modern-emerald-200 to-modern-emerald-300 rounded-full opacity-60 blur-sm"
-        animate={{
-          y: [0, -10, 0],
-          scale: [1, 1.1, 1],
-        }}
-        style={{
-          transform: `translateY(${scrollY * 0.2}px)`,
-        }}
-        transition={{
-          duration: 4,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
-      />
-      <motion.div
-        className="absolute top-1/3 -right-8 w-16 h-16 bg-gradient-to-br from-modern-indigo-200 to-modern-indigo-300 rounded-full opacity-40 blur-sm"
-        animate={{
-          y: [0, 15, 0],
-          x: [0, -5, 0],
-        }}
-        style={{
-          transform: `translateY(${scrollY * -0.15}px)`,
-        }}
-        transition={{
-          duration: 6,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 2,
-        }}
-      />
+      {!prefersReducedMotion && (
+        <>
+          <motion.div
+            className="absolute -top-4 -left-4 w-20 h-20 bg-gradient-to-br from-modern-emerald-200 to-modern-emerald-300 rounded-full opacity-60 blur-sm"
+            animate={{
+              y: [0, -10, 0],
+              scale: [1, 1.1, 1],
+            }}
+            style={{
+              transform: `translateY(${scrollY * 0.2}px)`,
+            }}
+            transition={{
+              duration: 4,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          />
+          <motion.div
+            className="absolute top-1/3 -right-8 w-16 h-16 bg-gradient-to-br from-modern-indigo-200 to-modern-indigo-300 rounded-full opacity-40 blur-sm"
+            animate={{
+              y: [0, 15, 0],
+              x: [0, -5, 0],
+            }}
+            style={{
+              transform: `translateY(${scrollY * -0.15}px)`,
+            }}
+            transition={{
+              duration: 6,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 2,
+            }}
+          />
+        </>
+      )}
 
       <div className="lg:w-6/12 space-y-6 relative z-10">
         <motion.h1
@@ -155,6 +160,10 @@ export function HeroSection({ hero, onSignUp, scrollY, landingImage }: HeroSecti
         <img
           src={landingImage}
           alt="Zettelgarden interface preview"
+          loading="lazy"
+          decoding="async"
+          width="1200"
+          height="800"
           className="relative w-full rounded-xl shadow-2xl border border-modern-slate-200"
         />
       </motion.div>

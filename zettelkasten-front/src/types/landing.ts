@@ -34,6 +34,14 @@ export interface BuiltByContent {
   githubUrl?: string;
 }
 
+export interface Testimonial {
+  id: string;
+  quote: string;
+  author: string;
+  role?: string;
+  avatar?: string;
+}
+
 export interface PricingFeature {
   text: string;
   highlight?: boolean;

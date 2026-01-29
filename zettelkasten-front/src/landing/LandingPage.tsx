@@ -21,6 +21,8 @@ import {
   faqs,
   faqSection,
   builtByContent,
+  testimonials,
+  testimonialsSection,
 } from "../data/landingContent";
 
 // Component imports
@@ -32,6 +34,7 @@ import { NewsletterSection } from "./components/NewsletterSection";
 import { PersonasSection } from "./components/PersonasSection";
 import { FAQSection } from "./components/FAQSection";
 import { BuiltBySection } from "./components/BuiltBySection";
+import { TestimonialsSection } from "./components/TestimonialsSection";
 
 function LandingPage() {
   const navigate = useNavigate();
@@ -41,6 +44,17 @@ function LandingPage() {
   const [error, setError] = useState<string | null>(null);
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
   const [scrollY, setScrollY] = useState(0);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    // Check for reduced motion preference
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setPrefersReducedMotion(mediaQuery.matches);
+
+    const handleChange = () => setPrefersReducedMotion(mediaQuery.matches);
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
 
   useEffect(() => {
     let ticking = false;
@@ -97,6 +111,7 @@ function LandingPage() {
             onSignUp={handleSignUp}
             scrollY={scrollY}
             landingImage={landingImage}
+            prefersReducedMotion={prefersReducedMotion}
           />
 
           <PersonasSection
@@ -117,6 +132,12 @@ function LandingPage() {
           />
 
           <VideoSection video={videoSection} onCtaClick={handleSignUp} />
+
+          <TestimonialsSection
+            testimonials={testimonials}
+            sectionTitle={testimonialsSection.title}
+            sectionDescription={testimonialsSection.description}
+          />
 
           <PricingSection
             tiers={pricingTiers}

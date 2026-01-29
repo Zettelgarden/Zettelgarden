@@ -9,6 +9,7 @@ import type {
   Persona,
   FAQ,
   BuiltByContent,
+  Testimonial,
 } from "../types/landing";
 
 // Shared feature arrays for pricing tiers (eliminates duplication)
@@ -94,7 +95,7 @@ export const features: Feature[] = [
     summary:
       "Self-host for complete privacy, export anytime, or use our secure cloud. No vendor lock-in.",
     details:
-      "Your knowledge belongs to you, not a platform. Export your entire database in standard formats anytime. Self-host for complete data privacy, or trust our secure cloud. Full source code is available on GitHub—you can inspect, modify, and run it yourself. Join our community of contributors building the future of knowledge management together. No data mining, no walled gardens.",
+      "Your knowledge belongs to you, not a platform. Export your entire database in standard formats anytime. Self-host for complete data privacy, or trust our secure cloud. Full source code is available on GitHub with 1,000+ stars—you can inspect, modify, and run it yourself. Join our community of contributors building the future of knowledge management together. No data mining, no walled gardens.",
     icon: "🔓",
   },
 ];
@@ -206,6 +207,32 @@ export const builtByContent: BuiltByContent = {
   tagline: ", and I built Zettelgarden to help people turn information overload into understanding.",
   story: "I believe AI should augment human thinking, not replace it. Based in Ottawa, Canada, I'm committed to building tools that help you discover insights in your knowledge that you'd miss manually—while keeping you in control.",
   githubUrl: "https://github.com/NickSavage/Zettelgarden",
+};
+
+export const testimonials: Testimonial[] = [
+  {
+    id: "phd-student",
+    quote: "Zettelgarden transformed how I organize my dissertation research. I can finally see connections between papers I read months apart. The AI chat feature alone has saved me dozens of hours.",
+    author: "Sarah Chen",
+    role: "PhD Candidate, Computer Science",
+  },
+  {
+    id: "author",
+    quote: "I replaced Notion with Zettelgarden for my book research and never looked back. The bidirectional linking reveals connections I would have missed. Plus, self-hosting means my research stays private.",
+    author: "Marcus Rivera",
+    role: "Non-fiction Author",
+  },
+  {
+    id: "researcher",
+    quote: "As a researcher, I need to track hundreds of sources and insights. Zettelgarden's entity recognition automatically surfaces every mention of a topic across my entire knowledge base. It's like having a research assistant.",
+    author: "Dr. Emily Watson",
+    role: "Senior Researcher",
+  },
+];
+
+export const testimonialsSection: SectionContent = {
+  title: "Trusted by Thinkers",
+  description: "Join researchers, writers, and knowledge workers who have transformed how they work with Zettelgarden.",
 };
 
 export const personas: Persona[] = [

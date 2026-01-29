@@ -17,7 +17,11 @@ export function FeatureCard({
   const cardRef = React.useRef<HTMLDivElement>(null);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" || e.key === " ") {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      onToggle();
+    }
+    if (e.key === " ") {
       e.preventDefault();
       onToggle();
     }

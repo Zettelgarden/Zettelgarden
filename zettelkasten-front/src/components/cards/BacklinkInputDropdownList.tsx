@@ -116,7 +116,7 @@ export function BacklinkInputDropdownList({
             />
           </div>
           {(searchResults.length > 0 || inputValue.length > 0) && (
-            <Combobox.Options className="w-full mt-1 overflow-hidden bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-y-auto text-sm">
+            <Combobox.Options className="w-full mt-1 overflow-hidden bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-y-auto text-sm" style={{ zIndex: 9999 }}>
               {isLoading ? (
                 <div className="p-2 text-gray-500">Loading...</div>
               ) : searchResults.length > 0 ? (
