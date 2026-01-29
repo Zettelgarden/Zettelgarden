@@ -93,6 +93,13 @@ type PartialCard struct {
 	Tags      []Tag     `json:"tags"`
 }
 
+// CategorizedReferences represents references categorized by their relationship type
+type CategorizedReferences struct {
+	Bidirectional []PartialCard `json:"bidirectional"` // Two-way links (mutual references)
+	Outgoing      []PartialCard `json:"outgoing"`      // One-way links (this card references them)
+	Incoming      []PartialCard `json:"incoming"`      // One-way links (they reference this card)
+}
+
 type CardWithDescendants struct {
 	ID           int                    `json:"id"`
 	CardID       string                 `json:"card_id"`

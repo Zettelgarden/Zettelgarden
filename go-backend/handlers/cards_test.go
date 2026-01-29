@@ -236,7 +236,7 @@ func TestGetCardReferencesRoute(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 
-	var refs CategorizedReferences
+	var refs models.CategorizedReferences
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &refs)
 
 	// Card 1 references card 2 (outgoing), and card 12 (2/A) references card 1 (incoming) - card IDs updated after test data reduction
@@ -290,7 +290,7 @@ func TestGetCardReferencesDuplicateLinks(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 
-	var refs CategorizedReferences
+	var refs models.CategorizedReferences
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &refs)
 
 	// Card 4 (REF001) and card 3 reference each other, so card 3 should be in bidirectional
