@@ -62,6 +62,7 @@ function EditPageContent({ newCard }: EditPageProps) {
   const [filesToUpdate, setFilesToUpdate] = useState<File[]>([]);
   const cardBodyRef = useRef<CardBodyTextAreaHandle>(null);
   const [suggestingTitle, setSuggestingTitle] = useState(false);
+  const hasInitializedRef = useRef(false);
 
   // Use contexts for shared state
   const { editingCard, setEditingCard } = useCardEditorContext();
@@ -174,15 +175,18 @@ function EditPageContent({ newCard }: EditPageProps) {
   useEffect(() => {
     if (!newCard) {
       fetchCard(id!);
-    } else {
+    } else if (!hasInitializedRef.current) {
       setDocumentTitle("New Card");
       const draft = localStorage.getItem('newCardBodyDraft') || "";
+      console.log(nextCardId, lastCard?.card_id)
+      const cardId = nextCardId || (lastCard ? lastCard.card_id : "");
       setEditingCard({
         ...defaultCard,
-        card_id: nextCardId || (lastCard ? lastCard.card_id : ""),
+        card_id: cardId,
         body: draft,
         process_entities_and_facts: true,
       });
+      hasInitializedRef.current = true;
       if (nextCardId) {
         setNextCardId(null);
       }
@@ -435,9 +439,6 @@ export function EditPage({ newCard }: EditPageProps) {
     if (newCard) {
       const draft = localStorage.getItem('newCardBodyDraft') || "";
       const cardId = nextCardId || (lastCard ? lastCard.card_id : "");
-      if (nextCardId) {
-        setNextCardId(null);
-      }
       return {
         ...defaultCard,
         card_id: cardId,

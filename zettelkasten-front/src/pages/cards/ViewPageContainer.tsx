@@ -172,6 +172,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   function handleCreateChildCard() {
     if (cardData.viewingCard === null) return;
     const nextId = calculateNextChildId(cardData.viewingCard.card_id, cardData.viewingCard.children);
+    console.log("next id", nextId)
     setNextCardId(nextId);
     navigate('/app/card/new');
   }
