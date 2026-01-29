@@ -18,6 +18,9 @@ import {
   pricingSection,
   personas,
   personasSection,
+  faqs,
+  faqSection,
+  builtByContent,
 } from "../data/landingContent";
 
 // Component imports
@@ -27,6 +30,8 @@ import { PricingSection } from "./components/PricingSection";
 import { VideoSection } from "./components/VideoSection";
 import { NewsletterSection } from "./components/NewsletterSection";
 import { PersonasSection } from "./components/PersonasSection";
+import { FAQSection } from "./components/FAQSection";
+import { BuiltBySection } from "./components/BuiltBySection";
 
 function LandingPage() {
   const navigate = useNavigate();
@@ -122,6 +127,12 @@ function LandingPage() {
 
           <RecentBlogPosts />
 
+          <FAQSection
+            faqs={faqs}
+            sectionTitle={faqSection.title}
+            sectionDescription={faqSection.description}
+          />
+
           <NewsletterSection
             newsletter={newsletterSection}
             email={email}
@@ -134,6 +145,10 @@ function LandingPage() {
             loading={loading}
             error={error}
           />
+
+          <div className="mt-12">
+            <BuiltBySection content={builtByContent} />
+          </div>
 
           <Footer />
         </div>

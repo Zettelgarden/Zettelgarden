@@ -7,6 +7,8 @@ import type {
   PricingFeature,
   SectionContent,
   Persona,
+  FAQ,
+  BuiltByContent,
 } from "../types/landing";
 
 // Shared feature arrays for pricing tiers (eliminates duplication)
@@ -43,56 +45,56 @@ export const heroSection: HeroContent = {
 export const features: Feature[] = [
   {
     id: "human-centric",
-    title: "Human-Centric AI",
+    title: "AI That Augments Your Thinking",
     summary:
-      "AI augments your thinking rather than replacing it. See relationships between ideas you never noticed before.",
+      "Discover connections and patterns you'd miss manually—without losing control to AI.",
     details:
-      "Built on time-tested zettelkasten principles, Zettelgarden helps you develop genuine insights rather than just collecting automated summaries. Every connection you make strengthens your personal knowledge graph, with AI helping you discover patterns you'd miss manually.",
+      "Unlike tools that replace your thinking with automated summaries, Zettelgarden helps you develop genuine insights. AI acts as a research assistant that surfaces relevant connections and patterns in your knowledge, while you remain the decision-maker. Every connection you make strengthens your personal understanding.",
     icon: "🧠",
   },
   {
     id: "zettelkasten-method",
-    title: "Proven Zettelkasten Method",
+    title: "A System for Breakthrough Insights",
     summary:
-      "Based on the system used by history's most productive thinkers like Darwin and Luhmann.",
+      "The same method used by history's most productive thinkers—now enhanced with AI.",
     details:
-      "Atomic notes with bidirectional linking create a knowledge network that grows smarter over time. This isn't just note-taking—it's a thinking methodology that has powered breakthrough insights for centuries, now enhanced with modern technology.",
+      "Darwin, Luhmann, and countless others used the zettelkasten method to produce breakthrough work. Instead of filing notes in folders, you link ideas together like your brain does—creating a web of knowledge that grows smarter over time. This isn't just note-taking; it's a thinking methodology that compounds.",
     icon: "🌱",
   },
   {
     id: "connected-knowledge",
-    title: "Connected Knowledge Graph",
+    title: "See Ideas Connect Automatically",
     summary:
-      "Every idea links to every other idea. Turn information silos into a living knowledge network.",
+      "Link any note to any other and watch connections emerge across your entire knowledge base.",
     details:
-      "Bidirectional linking reveals unexpected connections across time and topics. Your knowledge compounds instead of collecting dust, with visual representations showing how your understanding connects and evolves.",
+      "When you connect Card A to Card B, the link works both ways—automatically. Over time, you'll see unexpected connections: that research note from three years ago relates to today's project. Your knowledge compounds instead of collecting dust, with visual representations showing how ideas interrelate.",
     icon: "🔗",
   },
   {
     id: "ai-chat",
-    title: "AI Agents for Discovery",
+    title: "Ask Your Knowledge Base Anything",
     summary:
-      "Intelligent AI agents that can search, analyze, and synthesize information from your personal knowledge collection.",
+      "Search, analyze, and synthesize information across all your notes with an AI research assistant.",
     details:
-      "Our AI agents don't just chat—they actively work with your knowledge base using sophisticated tools. They can search through your cards, create new notes, analyze patterns, and provide insights by combining information from multiple sources. These agents understand context and can perform complex reasoning tasks across your entire knowledge graph.",
+      "Our AI doesn't just chat—it actively works with your knowledge. Ask 'What did I learn about topic X?' and it searches through every card, finds connections, creates new notes if needed, and provides insights by combining information from multiple sources. It's like having a research assistant who has read everything you've written.",
     icon: "🤖",
   },
   {
     id: "summaries",
-    title: "Structured Analysis",
+    title: "Turn Articles into Actionable Insights",
     summary:
-      "Transform dense articles, podcasts, or research into clear, actionable insights.",
+      "Paste any article, paper, or transcript—get a structured summary with theses, arguments, and facts.",
     details:
-      "Concise executive summaries for decision‑makers and detailed reference summaries with theses, ranked arguments, and verifiable facts for researchers. Each summary preserves the original context while making information actionable.",
+      "Save hours of reading time. Drop in a dense research paper, podcast transcript, or long article and get a clear summary with the main thesis, ranked arguments, and verifiable facts extracted for you. Each summary preserves the original context while making information immediately usable for your work.",
     icon: "📋",
   },
   {
     id: "open-source",
-    title: "Your Knowledge, Your Control",
+    title: "You Own Your Knowledge—Always",
     summary:
-      "Self-host for complete privacy or use our secure cloud. No vendor lock-in, no data mining.",
+      "Self-host for complete privacy, export anytime, or use our secure cloud. No vendor lock-in.",
     details:
-      "Your knowledge belongs to you—export your data anytime, self-host for complete control, or trust our secure cloud infrastructure. Full source code is available on GitHub with comprehensive documentation.",
+      "Your knowledge belongs to you, not a platform. Export your entire database in standard formats anytime. Self-host for complete data privacy, or trust our secure cloud. Full source code is available on GitHub—you can inspect, modify, and run it yourself. Join our community of contributors building the future of knowledge management together. No data mining, no walled gardens.",
     icon: "🔓",
   },
 ];
@@ -159,6 +161,51 @@ export const pricingSection: SectionContent = {
   title: "Simple, Transparent Pricing",
   description:
     "Start free and discover how AI can augment your thinking. Upgrade to unlock advanced AI agents, content analysis, and discovery features. 30-day free trial included.",
+};
+
+export const faqs: FAQ[] = [
+  {
+    id: "import",
+    question: "Can I import my existing notes from other apps?",
+    answer: "Yes! You can import notes from Notion, Obsidian, Roam Research, and plain text files. We're continually adding more import options—let us know if you need a specific format.",
+  },
+  {
+    id: "different-from-others",
+    question: "How is this different from Obsidian, Notion, or Roam?",
+    answer: "Zettelgarden is built around AI-assisted knowledge discovery from the start. Unlike other tools where AI is an add-on, our AI agents can search, analyze, and synthesize across your entire knowledge base automatically. Plus, we're fully open-source and self-hostable.",
+  },
+  {
+    id: "free-vs-pro",
+    question: "What's the difference between Free and PRO?",
+    answer: "Free gives you the core zettelkasten experience: atomic notes, bidirectional linking, task management, and basic search. PRO unlocks AI features: chat with your knowledge base, semantic search that finds related ideas even without exact keywords, entity recognition, and automated content analysis.",
+  },
+  {
+    id: "privacy",
+    question: "Is my data private? Can I self-host?",
+    answer: "Absolutely. Your data is encrypted and never sold. You can export everything in standard formats anytime. For complete privacy, self-host Zettelgarden on your own server—the full source code is available on GitHub.",
+  },
+  {
+    id: "offline",
+    question: "Does it work offline?",
+    answer: "Yes! Once loaded, Zettelgarden works fully offline in your browser. Your notes are stored locally and sync when you're back online. AI features do require an internet connection.",
+  },
+  {
+    id: "getting-started",
+    question: "How do I get started?",
+    answer: "Just click 'Get Started Free' and create your account. No credit card required. You can create your first note immediately, and we'll show you how to link ideas as you go. Most users are comfortable within 10 minutes.",
+  },
+];
+
+export const faqSection: SectionContent = {
+  title: "Frequently Asked Questions",
+  description: "Got questions? We've got answers. If you don't see what you're looking for, feel free to reach out.",
+};
+
+export const builtByContent: BuiltByContent = {
+  founderName: "Nick Savage",
+  tagline: ", and I built Zettelgarden to help people turn information overload into understanding.",
+  story: "I believe AI should augment human thinking, not replace it. Based in Ottawa, Canada, I'm committed to building tools that help you discover insights in your knowledge that you'd miss manually—while keeping you in control.",
+  githubUrl: "https://github.com/NickSavage/Zettelgarden",
 };
 
 export const personas: Persona[] = [

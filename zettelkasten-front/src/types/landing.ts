@@ -20,6 +20,20 @@ export interface Persona {
   icon: string;
 }
 
+export interface FAQ {
+  id: string;
+  question: string;
+  answer: string;
+}
+
+export interface BuiltByContent {
+  founderName: string;
+  tagline: string;
+  story?: string;
+  founderPhoto?: string;
+  githubUrl?: string;
+}
+
 export interface PricingFeature {
   text: string;
   highlight?: boolean;

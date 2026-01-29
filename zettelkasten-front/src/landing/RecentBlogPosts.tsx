@@ -6,14 +6,55 @@ import { getAllPosts } from '../blog/utils';
 
 export function RecentBlogPosts() {
   const [posts, setPosts] = useState<BlogPostMeta[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPosts = async () => {
-      const allPosts = await getAllPosts();
-      setPosts(allPosts.slice(0, 2)); // Get only the two most recent posts
+      try {
+        setLoading(true);
+        setError(null);
+        const allPosts = await getAllPosts();
+        setPosts(allPosts.slice(0, 2)); // Get only the two most recent posts
+      } catch (err) {
+        setError("Failed to load blog posts");
+        console.error("Error fetching blog posts:", err);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchPosts();
   }, []);
+
+  if (loading) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
+        className="py-24"
+      >
+        <h2 className="text-3xl font-bold text-modern-slate-900 mb-8">Latest from Our Blog</h2>
+        <div className="grid md:grid-cols-2 gap-8">
+          {[1, 2].map((i) => (
+            <div
+              key={i}
+              className="bg-white p-6 rounded-xl shadow-md animate-pulse"
+            >
+              <div className="h-6 bg-modern-slate-200 rounded mb-4 w-3/4"></div>
+              <div className="h-4 bg-modern-slate-200 rounded mb-2 w-1/2"></div>
+              <div className="h-4 bg-modern-slate-200 rounded w-1/3"></div>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    );
+  }
+
+  if (error) {
+    return null; // Silently hide section on error
+  }
 
   if (posts.length === 0) return null;
 
