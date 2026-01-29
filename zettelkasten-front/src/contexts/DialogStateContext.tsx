@@ -3,11 +3,17 @@ import { Entity } from "../models/Card";
 import { Fact, FactWithCard } from "../models/Fact";
 import { Task } from "../models/Task";
 
+/**
+ * DialogStateContext - Manages UI state for keyboard shortcut-triggered dialogs.
+ * Renamed from ShortcutProvider for clarity - it specifically handles dialog state,
+ * not keyboard shortcut registration.
+ */
+
 interface ChildrenProviderProps {
   children: ReactNode;
 }
 
-interface ShortcutProviderType {
+interface DialogStateContextType {
   showCreateTaskWindow: boolean;
   setShowCreateTaskWindow: (show: boolean) => void;
   showQuickSearchWindow: boolean;
@@ -26,7 +32,7 @@ interface ShortcutProviderType {
   setSelectedTaskId: (taskId: number | null) => void;
 }
 
-const ShortcutContext = createContext<ShortcutProviderType>({
+const DialogStateContext = createContext<DialogStateContextType>({
   showCreateTaskWindow: false,
   setShowCreateTaskWindow: () => { },
   showQuickSearchWindow: false,
@@ -45,7 +51,7 @@ const ShortcutContext = createContext<ShortcutProviderType>({
   setSelectedTaskId: (taskId: number | null) => { },
 });
 
-export const ShortcutProvider = ({ children }: ChildrenProviderProps) => {
+export const DialogStateProvider = ({ children }: ChildrenProviderProps) => {
   const [showCreateTaskWindow, setShowCreateTaskWindow] = useState(false);
   const [showQuickSearchWindow, setShowQuickSearchWindow] = useState(false);
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
@@ -55,9 +61,8 @@ export const ShortcutProvider = ({ children }: ChildrenProviderProps) => {
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
 
-
   return (
-    <ShortcutContext.Provider
+    <DialogStateContext.Provider
       value={{
         showCreateTaskWindow,
         setShowCreateTaskWindow,
@@ -78,14 +83,17 @@ export const ShortcutProvider = ({ children }: ChildrenProviderProps) => {
       }}
     >
       {children}
-    </ShortcutContext.Provider>
+    </DialogStateContext.Provider>
   );
 };
 
-export const useShortcutContext = () => {
-  const context = useContext(ShortcutContext);
+export const useDialogState = () => {
+  const context = useContext(DialogStateContext);
   if (context === undefined) {
-    throw new Error("useShortcutContext must be used within a ShorcutProvider");
+    throw new Error("useDialogState must be used within a DialogStateProvider");
   }
   return context;
 };
+
+// Backwards compatibility export - can be removed after migrating all consumers
+export const useShortcutContext = useDialogState;

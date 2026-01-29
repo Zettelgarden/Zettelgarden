@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { useTaskContext } from "../contexts/TaskContext";
-import { useChatContext } from "../contexts/ChatContext";
+import { useUIState } from "../contexts/UIStateContext";
+import { useDialogState } from "../contexts/DialogStateContext";
 import { isTodayOrPast } from "../utils/dates";
-import { usePartialCardContext } from "../contexts/CardContext";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { useShortcutContext } from "../contexts/ShortcutContext";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useToast } from "./toast/ToastContext";
 
@@ -25,11 +24,10 @@ import { SidebarMobileMenu } from "./sidebar/SidebarMobileMenu";
 export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { lastCard } = usePartialCardContext();
+  const { lastCard, conversationId, setConversationId } = useUIState();
   const { showToast } = useToast();
   const { tasks } = useTaskContext();
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
-  const { conversationId, setConversationId } = useChatContext();
   const [showAddArticleDialog, setShowAddArticleDialog] = useState(false);
   const [showStarCardDialog, setShowStarCardDialog] = useState(false);
   const { hasSubscription, user, updateUser } = useAuth();
@@ -51,10 +49,12 @@ export function Sidebar() {
     showFactDialog,
     setShowFactDialog,
     selectedFact,
+    setSelectedFact,
     showTaskDialog,
     setShowTaskDialog,
     selectedTaskId,
-  } = useShortcutContext();
+    setSelectedTaskId,
+  } = useDialogState();
 
   const currentCard = useMemo(() => {
     const currentPath = location.pathname;

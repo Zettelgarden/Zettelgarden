@@ -3,7 +3,7 @@ import { Card } from "../../models/Card";
 import { ViewPage } from "../../pages/cards/ViewPage";
 import { useIsDesktop } from "../../hooks/useWindowSize";
 import { PinErrorBoundary } from "../ErrorBoundary";
-import { usePinContext } from "../../contexts/PinContext";
+import { useUIState } from "../../contexts/UIStateContext";
 
 interface SplitViewLayoutProps {
   pinnedCard: Card;
@@ -16,7 +16,7 @@ export const SplitViewLayout: React.FC<SplitViewLayoutProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const isDesktop = useIsDesktop(1024);
-  const { setPinnedCard } = usePinContext();
+  const { setPinnedCard } = useUIState();
 
   const handlePinError = () => {
     // Clear the pinned card on error to gracefully degrade to single-pane view

@@ -11,7 +11,7 @@ import {
   retryToolCall,
   StreamEvent,
 } from "../api/chat";
-import { useChatContext } from "../contexts/ChatContext";
+import { useUIState } from "../contexts/UIStateContext";
 
 export interface UseChatOptions {
   onConversationChange?: (conversation: ChatConversation | null) => void;
@@ -44,7 +44,7 @@ export function useChat(options: UseChatOptions = {}) {
   const streamingContentRef = useRef<string>("");
   const activeStreamConversationRef = useRef<string | null>(null);
   const realConversationIdRef = useRef<string | null>(null); // Track real UUID separately from state
-  const { setConversationId } = useChatContext();
+  const { setConversationId } = useUIState();
   const enableStreaming = options.enableStreaming ?? true; // Default to enabled
 
   // Update model in localStorage when it changes

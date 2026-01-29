@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Card } from "../../models/Card";
 import { ChatSidebar } from "./ChatSidebar";
 import { useIsDesktop } from "../../hooks/useWindowSize";
-import { useChatSidebarContext } from "../../contexts/ChatSidebarContext";
+import { useUIState } from "../../contexts/UIStateContext";
 
 interface ChatSidebarLayoutProps {
   chatSidebarCard: Card;
@@ -15,7 +15,7 @@ export const ChatSidebarLayout: React.FC<ChatSidebarLayoutProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const isDesktop = useIsDesktop(1024);
-  const { setChatSidebarCard } = useChatSidebarContext();
+  const { setChatSidebarCard } = useUIState();
 
   return (
     <div className="flex flex-col lg:flex-row h-full">

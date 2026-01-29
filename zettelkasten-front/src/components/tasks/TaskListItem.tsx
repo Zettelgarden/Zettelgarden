@@ -17,7 +17,7 @@ import { TaskOpenIcon } from "../../assets/icons/TaskOpenIcon";
 import { TaskTagDisplay } from "./TaskTagDisplay";
 import { removeTagsFromTitle, parseTags } from "../../utils/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
-import { useShortcutContext } from "../../contexts/ShortcutContext";
+import { useDialogState } from "../../contexts/DialogStateContext";
 import { useStatus } from "../../contexts/StatusContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { format } from "date-fns-tz";
@@ -44,7 +44,7 @@ export function TaskListItem({
   const [showCardLink, setShowCardLink] = useState<boolean>(false);
   const [tags, setTags] = useState<Tag[]>([]);
   const { setRefreshTasks, updateTask } = useTaskContext();
-  const { setShowTaskDialog, setSelectedTaskId } = useShortcutContext();
+  const { setShowTaskDialog, setSelectedTaskId } = useDialogState();
   const { getDefaultStatus, getCompleteStatus } = useStatus();
   const { user } = useAuth();
   const userTimezone = user?.timezone || "UTC";

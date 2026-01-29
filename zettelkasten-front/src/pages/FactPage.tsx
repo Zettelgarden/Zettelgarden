@@ -5,7 +5,7 @@ import { CardIcon } from "../assets/icons/CardIcon";
 import { getAllFacts, mergeFacts, deleteFact, FactsResponse } from "../api/facts";
 import { Dialog } from "@headlessui/react";
 import { HeaderSection } from "../components/Header";
-import { useShortcutContext } from "../contexts/ShortcutContext";
+import { useDialogState } from "../contexts/DialogStateContext";
 import { setDocumentTitle } from "../utils/title";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -25,7 +25,7 @@ export function FactPage() {
     const [selectedFacts, setSelectedFacts] = useState<number[]>([]);
     const [selectionMode, setSelectionMode] = useState(false);
 
-    const { setSelectedFact, setShowFactDialog, setSelectedEntity, setShowEntityDialog } = useShortcutContext();
+    const { setSelectedFact, setShowFactDialog, setSelectedEntity, setShowEntityDialog } = useDialogState();
 
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const [isMerging, setIsMerging] = useState(false);

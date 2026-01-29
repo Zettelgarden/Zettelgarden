@@ -4,7 +4,7 @@ import { CardPreviewWindow } from "./CardPreviewWindow";
 import { CardLink } from "./CardLink";
 import { PlusCircleIcon } from "../../assets/icons/PlusCircleIcon";
 import { formatDate } from "../../utils/dates";
-import { usePartialCardContext } from "../../contexts/CardContext";
+import { useUIState } from "../../contexts/UIStateContext";
 import { useTagContext } from "../../contexts/TagContext";
 import { useNavigate } from "react-router-dom";
 import { Menu } from "@headlessui/react";
@@ -28,7 +28,7 @@ export function CardListItem({
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [showRecategoryDialog, setShowRecategoryDialog] = useState(false);
 
-  const { setLastCard } = usePartialCardContext();
+  const { setLastCard } = useUIState();
   const { tags } = useTagContext();
 
   const navigate = useNavigate();

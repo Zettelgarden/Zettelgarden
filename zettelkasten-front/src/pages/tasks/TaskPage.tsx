@@ -9,7 +9,7 @@ import { useTagContext } from "../../contexts/TagContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { setDocumentTitle } from "../../utils/title";
 import { Button } from "../../components/Button";
-import { useShortcutContext } from "../../contexts/ShortcutContext";
+import { useDialogState } from "../../contexts/DialogStateContext";
 import { EisenhowerMatrix } from "../../components/tasks/EisenhowerMatrix";
 import { KanbanBoard } from "../../components/tasks/KanbanBoard";
 import { useTaskPageSettings } from "../../hooks/useTaskPageSettings";
@@ -29,7 +29,7 @@ export function TaskPage({ }: TaskListProps) {
   const { tasks, showCompleted, setShowCompleted } = useTaskContext();
   const { tags } = useTagContext();
   const { user } = useAuth();
-  const { showCreateTaskWindow, setShowCreateTaskWindow } = useShortcutContext();
+  const { showCreateTaskWindow, setShowCreateTaskWindow } = useDialogState();
   const navigate = useNavigate();
   const userTimezone = user?.timezone || "UTC";
 

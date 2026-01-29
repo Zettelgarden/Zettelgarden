@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { Card } from "../../models/Card";
-import { useChatSidebarContext } from "../../contexts/ChatSidebarContext";
+import { useUIState } from "../../contexts/UIStateContext";
 import { useChat } from "../../hooks/useChat";
-import { useCardRefresh } from "../../contexts/CardRefreshContext";
 import { ChatInterface } from "./ChatInterface";
 import { getConversations, ChatConversation } from "../../api/chat";
 
@@ -13,8 +12,7 @@ interface ChatSidebarProps {
 
 export function ChatSidebar({ card }: ChatSidebarProps) {
   const { hasSubscription } = useAuth();
-  const { setChatSidebarCard } = useChatSidebarContext();
-  const { refreshCard } = useCardRefresh();
+  const { setChatSidebarCard, refreshCard } = useUIState();
 
   const chatHook = useChat({
     onConversationChange: (conversation) => {

@@ -9,22 +9,15 @@ import { Card, PartialCard, SearchResult } from "../models/Card";
 import { TaskProvider, useTaskContext } from "../contexts/TaskContext";
 import { StatusProvider } from "../contexts/StatusContext";
 import { TagProvider } from "../contexts/TagContext";
-import { ChatProvider, useChatContext } from "../contexts/ChatContext";
-import {
-  PartialCardProvider,
-} from "../contexts/CardContext";
-import { ShortcutProvider } from "../contexts/ShortcutContext";
-import { FileProvider } from "../contexts/FileContext";
-import { PinProvider, usePinContext } from "../contexts/PinContext";
-import { ChatSidebarProvider, useChatSidebarContext } from "../contexts/ChatSidebarContext";
+import { UIStateProvider } from "../contexts/UIStateContext";
+import { DialogStateProvider } from "../contexts/DialogStateContext";
 import { SplitViewLayout } from "../components/cards/SplitViewLayout";
 import { ChatSidebarLayout } from "../components/chat/ChatSidebarLayout";
 import { ErrorBoundary } from "../components/ErrorBoundary";
-import { CardRefreshProvider } from "../contexts/CardRefreshContext";
 import { ToastProvider } from "../components/toast/ToastContext";
 import { AppRoutes } from "./AppRoutes";
-
 import { SearchConfig } from "../models/StarredSearch";
+import { useUIState } from "../contexts/UIStateContext";
 
 function MainAppContent() {
   const navigate = useNavigate();
@@ -53,8 +46,7 @@ function MainAppContent() {
     updateUser,
   } = useAuth();
   const { setRefreshTasks } = useTaskContext();
-  const { pinnedCard, isPinMode } = usePinContext();
-  const { chatSidebarCard, isChatSidebarMode } = useChatSidebarContext();
+  const { pinnedCard, isPinMode, chatSidebarCard, isChatSidebarMode } = useUIState();
 
   // changing pages
 
@@ -144,25 +136,15 @@ function MainApp() {
   return (
     <ToastProvider>
       <TagProvider>
-        <ChatProvider>
-          <PartialCardProvider>
-            <TaskProvider>
-              <StatusProvider>
-                <ShortcutProvider>
-                  <FileProvider>
-                    <PinProvider>
-                      <ChatSidebarProvider>
-                        <CardRefreshProvider>
-                          <MainAppContent />
-                        </CardRefreshProvider>
-                      </ChatSidebarProvider>
-                    </PinProvider>
-                  </FileProvider>
-                </ShortcutProvider>
-              </StatusProvider>
-            </TaskProvider>
-          </PartialCardProvider>
-        </ChatProvider>
+        <TaskProvider>
+          <StatusProvider>
+            <UIStateProvider>
+              <DialogStateProvider>
+                <MainAppContent />
+              </DialogStateProvider>
+            </UIStateProvider>
+          </StatusProvider>
+        </TaskProvider>
       </TagProvider>
     </ToastProvider>
   );

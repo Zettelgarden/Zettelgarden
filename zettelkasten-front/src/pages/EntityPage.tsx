@@ -11,7 +11,7 @@ import { Link } from "react-router-dom";
 import { setDocumentTitle } from "../utils/title";
 
 import { useAuth } from "../contexts/AuthContext";
-import { useShortcutContext } from "../contexts/ShortcutContext";
+import { useDialogState } from "../contexts/DialogStateContext";
 
 export function EntityPage() {
   const { hasSubscription } = useAuth();
@@ -52,7 +52,7 @@ export function EntityPage() {
   const {
     setShowEntityDialog,
     setSelectedEntity,
-  } = useShortcutContext();
+  } = useDialogState();
 
   const loadEntities = (page: number = currentPage, search: string = searchTerm) => {
     setLoading(true);

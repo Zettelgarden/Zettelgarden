@@ -5,7 +5,7 @@ import { FileRenameModal } from "../components/files/FileRenameModal";
 import { FileListItem } from "../components/files/FileListItem";
 import { FileUpload } from "../components/files/FileUpload";
 import { Button } from "../components/Button";
-import { useFileContext } from "../contexts/FileContext";
+import { useUIState } from "../contexts/UIStateContext";
 
 import { File } from "../models/File";
 import { defaultCard } from "../models/Card";
@@ -25,7 +25,7 @@ export function FileVault() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [showFilterHelp, setShowFilterHelp] = useState<boolean>(false);
-  const { refreshFiles, setRefreshFiles } = useFileContext();
+  const { refreshFiles, setRefreshFiles } = useUIState();
 
   function onDelete(file_id: number) {
     setFiles(files.filter((file) => file.id !== file_id));

@@ -3,7 +3,7 @@ import { setDocumentTitle } from "../utils/title";
 import { Card, PartialCard, Entity } from "../models/Card";
 import { isErrorResponse } from "../models/common";
 import { convertCardToPartialCard } from "../utils/cards";
-import { usePartialCardContext } from "../contexts/CardContext";
+import { useUIState } from "../contexts/UIStateContext";
 import { fetchSummariesForCard, fetchAnalysisForCard, SectionAnalysis, SummarizeJobResponse } from "../api/summarizer";
 import { getCard, getCardReferences, getCardChildren, getCardFiles, getCardTags, getCardTasks, getCardEntities, getLinkedEntitiesByCardPK, CategorizedReferences } from "../api/cards";
 
@@ -38,7 +38,7 @@ export function useCardData(cardId?: string): UseCardDataResult {
   const [summaries, setSummaries] = useState<SummarizeJobResponse[] | null>(null);
   const [analysis, setAnalysis] = useState<SectionAnalysis[] | null>(null);
 
-  const { setLastCard } = usePartialCardContext();
+  const { setLastCard } = useUIState();
 
   // Derive latestSummary from summaries
   const latestSummary = summaries ? (() => {

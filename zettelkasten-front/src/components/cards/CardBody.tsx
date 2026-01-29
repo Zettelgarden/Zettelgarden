@@ -8,7 +8,7 @@ import remarkSchemaTable from "../../remark-schema-table";
 import { useNavigate } from "react-router-dom";
 import remarkGfm from "remark-gfm";
 
-import { useShortcutContext } from "../../contexts/ShortcutContext";
+import { useDialogState } from "../../contexts/DialogStateContext";
 
 import { CardLinkWithPreview } from "./CardLinkWithPreview";
 import { DynamicTaskList } from "./DynamicTaskList";
@@ -224,7 +224,7 @@ function renderCardTextWithDialog(
     setShowEntityDialog,
     selectedEntity,
     setSelectedEntity,
-  } = useShortcutContext();
+  } = useDialogState();
 
   async function handleEntityClickById(id: string, name: string) {
     try {

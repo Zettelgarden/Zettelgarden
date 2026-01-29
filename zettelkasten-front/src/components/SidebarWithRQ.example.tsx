@@ -7,12 +7,11 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useChatContext } from '../contexts/ChatContext';
+import { useUIState } from '../contexts/UIStateContext';
+import { useDialogState } from '../contexts/DialogStateContext';
 import { isTodayOrPast } from '../utils/dates';
-import { usePartialCardContext } from '../contexts/CardContext';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useShortcutContext } from '../contexts/ShortcutContext';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useToast } from './toast/ToastContext';
 import { useTasks } from '../hooks/queries/useTasks';
@@ -39,7 +38,7 @@ import { SidebarMobileMenu } from './sidebar/SidebarMobileMenu';
 export function SidebarWithRQ() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { lastCard } = usePartialCardContext();
+  const { lastCard, conversationId, setConversationId } = useUIState();
   const { showToast } = useToast();
 
   // BEFORE: const { tasks } = useTaskContext();

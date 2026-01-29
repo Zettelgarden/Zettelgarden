@@ -10,7 +10,7 @@ import { BacklinkDialog } from "../../components/cards/BacklinkDialog";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, PartialCard, defaultCard, CardTemplate } from "../../models/Card";
 import { File } from "../../models/File";
-import { usePartialCardContext } from "../../contexts/CardContext";
+import { useUIState } from "../../contexts/UIStateContext";
 import { Button } from "../../components/Button";
 import { ButtonCardDelete } from "../../components/cards/ButtonCardDelete";
 import { CardBodyTextArea, CardBodyTextAreaHandle } from "../../components/cards/CardBodyTextArea";
@@ -57,8 +57,7 @@ function renderWarningLabel(cards: PartialCard[], editingCard: Card) {
 function EditPageContent({ newCard }: EditPageProps) {
   const [originalCard, setOriginalCard] = useState<Card>(defaultCard);
   const [previewModeActive, setPreviewModeActive] = useState(false);
-  const { lastCard, nextCardId, setNextCardId } =
-    usePartialCardContext();
+  const { lastCard, nextCardId, setNextCardId } = useUIState();
   const [filesToUpdate, setFilesToUpdate] = useState<File[]>([]);
   const cardBodyRef = useRef<CardBodyTextAreaHandle>(null);
   const [suggestingTitle, setSuggestingTitle] = useState(false);
@@ -430,7 +429,7 @@ function EditPageContent({ newCard }: EditPageProps) {
 }
 
 export function EditPage({ newCard }: EditPageProps) {
-  const { lastCard, nextCardId, setNextCardId } = usePartialCardContext();
+  const { lastCard, nextCardId, setNextCardId } = useUIState();
   const params = useParams();
   const id: string | undefined = params.id;
 

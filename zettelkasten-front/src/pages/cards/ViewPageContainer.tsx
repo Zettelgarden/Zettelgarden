@@ -3,7 +3,8 @@ import { Card, PartialCard, Entity } from "../../models/Card";
 import { isErrorResponse } from "../../models/common";
 import { TaskListItem } from "../../components/tasks/TaskListItem";
 import { useTaskContext } from "../../contexts/TaskContext";
-import { useFileContext } from "../../contexts/FileContext";
+import { useUIState } from "../../contexts/UIStateContext";
+import { useDialogState } from "../../contexts/DialogStateContext";
 import { useParams, useNavigate } from "react-router-dom";
 
 import { CardItem } from "../../components/cards/CardItem";
@@ -21,12 +22,7 @@ import {
   resummarizeCard
 } from "../../utils/cardActions";
 
-import { usePartialCardContext } from "../../contexts/CardContext";
-import { useCardRefresh } from "../../contexts/CardRefreshContext";
-import { useShortcutContext } from "../../contexts/ShortcutContext";
 import { useTagContext } from "../../contexts/TagContext";
-import { usePinContext } from "../../contexts/PinContext";
-import { useChatSidebarContext } from "../../contexts/ChatSidebarContext";
 import { useCardData } from "../../hooks/useCardData";
 import { useCardNavigation } from "../../hooks/useCardNavigation";
 
@@ -85,10 +81,9 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
 } {
   const [error, setError] = useState("");
   const { refreshTasks, setRefreshTasks } = useTaskContext();
-  const { refreshFiles } = useFileContext();
+  const { refreshFiles, refreshTrigger } = useUIState();
   const { id: urlId } = useParams<{ id: string }>();
   const id = cardId || urlId; // Use prop cardId if provided, otherwise use URL param
-  const { refreshTrigger } = useCardRefresh();
 
   // Use the card data hook for data fetching and state management
   const cardData = useCardData(id);
@@ -105,11 +100,10 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
     setSelectedEntity,
     setSelectedFact,
     setShowFactDialog,
-  } = useShortcutContext();
+  } = useDialogState();
 
   const { tags } = useTagContext();
-  const { pinnedCard, setPinnedCard } = usePinContext();
-  const { setChatSidebarCard } = useChatSidebarContext();
+  const { pinnedCard, setPinnedCard, setChatSidebarCard } = useUIState();
 
   const [showingSummary, setShowingSummary] = useState(false);
   const [showingAnalysis, setShowingAnalysis] = useState(false);
@@ -118,7 +112,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
 
   const navigate = useNavigate();
 
-  const { setNextCardId } = usePartialCardContext();
+  const { setNextCardId } = useUIState();
 
   // Handler functions
   function handleOpenEntity(entity: Entity) {

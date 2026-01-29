@@ -7,7 +7,7 @@ import { semanticSearchCardsPaginated, getUnsortedCards } from "../api/cards";
 import { PartialCard } from "../models/Card";
 import { ChatInput } from "../components/chat/ChatInput";
 import { AddArticleDialog } from "../components/cards/AddArticleDialog";
-import { useShortcutContext } from "../contexts/ShortcutContext";
+import { useDialogState } from "../contexts/DialogStateContext";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -17,7 +17,7 @@ export function DashboardPage() {
   const [isLoadingCards, setIsLoadingCards] = useState<boolean>(true);
   const { hasSubscription, isLoading } = useAuth();
   const [showAddArticleDialog, setShowAddArticleDialog] = useState(false);
-  const { setShowCreateTaskWindow } = useShortcutContext();
+  const { setShowCreateTaskWindow } = useDialogState();
 
   const setMessage = (message: string) => {
     console.log("Message:", message);

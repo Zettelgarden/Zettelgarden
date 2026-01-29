@@ -2,15 +2,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
-import { ShortcutProvider } from '../contexts/ShortcutContext';
+import { UIStateProvider } from '../contexts/UIStateContext';
+import { DialogStateProvider } from '../contexts/DialogStateContext';
 import { TaskProvider } from '../contexts/TaskContext';
-import { ChatProvider } from '../contexts/ChatContext';
-import { PartialCardProvider } from '../contexts/CardContext';
 import { AuthProvider } from '../contexts/AuthContext';
-import { FileProvider } from '../contexts/FileContext';
-import { PinProvider } from '../contexts/PinContext';
-import { ChatSidebarProvider } from '../contexts/ChatSidebarContext';
-import { CardRefreshProvider } from '../contexts/CardRefreshContext';
 import { TagProvider } from '../contexts/TagContext';
 import { StatusProvider } from '../contexts/StatusContext';
 import { ToastProvider } from './toast/ToastContext';
@@ -53,27 +48,17 @@ function SidebarWrapper() {
     <BrowserRouter>
       <ToastProvider>
         <TagProvider>
-          <ChatProvider>
-            <PartialCardProvider>
-              <TaskProvider>
-                <StatusProvider>
-                  <ShortcutProvider>
-                    <FileProvider>
-                      <PinProvider>
-                        <ChatSidebarProvider>
-                          <CardRefreshProvider>
-                            <AuthProvider>
-                              <Sidebar />
-                            </AuthProvider>
-                          </CardRefreshProvider>
-                        </ChatSidebarProvider>
-                      </PinProvider>
-                    </FileProvider>
-                  </ShortcutProvider>
-                </StatusProvider>
-              </TaskProvider>
-            </PartialCardProvider>
-          </ChatProvider>
+          <TaskProvider>
+            <StatusProvider>
+              <UIStateProvider>
+                <DialogStateProvider>
+                  <AuthProvider>
+                    <Sidebar />
+                  </AuthProvider>
+                </DialogStateProvider>
+              </UIStateProvider>
+            </StatusProvider>
+          </TaskProvider>
         </TagProvider>
       </ToastProvider>
     </BrowserRouter>

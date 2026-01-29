@@ -13,7 +13,7 @@ import { SearchTagDropdown } from "../tags/SearchTagDropdown";
 import { useTagContext } from "../../contexts/TagContext";
 import { CardListMenu } from "./CardListMenu";
 
-import { useShortcutContext } from "../../contexts/ShortcutContext";
+import { useDialogState } from "../../contexts/DialogStateContext";
 
 interface SearchResultItemProps {
   result: SearchResult;
@@ -263,7 +263,7 @@ export function SearchResultList({
     setShowFactDialog,
     selectedFact,
     setSelectedFact,
-  } = useShortcutContext();
+  } = useDialogState();
 
   const handleFactClick = async (factId: number) => {
     const fact = await getFact(factId);

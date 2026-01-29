@@ -1,11 +1,10 @@
 import React, { ReactElement } from "react";
 import { render } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
-import { PartialCardProvider } from "../contexts/CardContext";
+import { UIStateProvider } from "../contexts/UIStateContext";
+import { DialogStateProvider } from "../contexts/DialogStateContext";
 import { TaskProvider } from "../contexts/TaskContext";
 import { TagProvider } from "../contexts/TagContext";
-import { ShortcutProvider } from "../contexts/ShortcutContext";
-import { PinProvider } from "../contexts/PinContext";
 import { StatusProvider } from "../contexts/StatusContext";
 import { AuthProvider } from "../contexts/AuthContext";
 import { sampleTasks, sampleTags } from "../tests/data";
@@ -15,17 +14,15 @@ function AllTheProviders({ children }) {
     <BrowserRouter>
       <AuthProvider>
         <TagProvider testing={true} testTags={sampleTags()} >
-          <PartialCardProvider>
-            <TaskProvider testing={true} testTasks={sampleTasks()}>
-              <StatusProvider>
-                <ShortcutProvider>
-                  <PinProvider>
-                    {children}
-                  </PinProvider>
-                </ShortcutProvider>
-              </StatusProvider>
-            </TaskProvider>
-          </PartialCardProvider>
+          <TaskProvider testing={true} testTasks={sampleTasks()}>
+            <StatusProvider>
+              <UIStateProvider>
+                <DialogStateProvider>
+                  {children}
+                </DialogStateProvider>
+              </UIStateProvider>
+            </StatusProvider>
+          </TaskProvider>
         </TagProvider>
       </AuthProvider>
     </BrowserRouter>

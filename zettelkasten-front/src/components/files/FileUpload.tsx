@@ -2,7 +2,7 @@ import React, { useRef, forwardRef, ForwardedRef } from "react";
 import { Card } from "../../models/Card";
 import { uploadFile } from "../../api/files";
 import { Button } from "../../components/Button";
-import { useFileContext } from "../../contexts/FileContext";
+import { useUIState } from "../../contexts/UIStateContext";
 
 interface FileUploadProps {
   setMessage: (message: string) => void;
@@ -17,7 +17,7 @@ export const FileUpload = forwardRef(({
 }: FileUploadProps, ref: ForwardedRef<HTMLInputElement>) => {
   const localFileInputRef = useRef<HTMLInputElement | null>(null);
   const inputRef = (ref || localFileInputRef) as React.RefObject<HTMLInputElement>;
-  const { setRefreshFiles } = useFileContext();
+  const { setRefreshFiles } = useUIState();
 
   const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>,

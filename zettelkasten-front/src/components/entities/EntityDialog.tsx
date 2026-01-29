@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Entity } from "../../models/Card";
 import { FactWithCard } from "../../models/Fact";
 import { mergeEntities, updateEntity, UpdateEntityRequest, addEntityToCard } from "../../api/entities";
-import { useShortcutContext } from "../../contexts/ShortcutContext";
+import { useDialogState } from "../../contexts/DialogStateContext";
 import { CreateCardDialog } from "../cards/CreateCardDialog";
 import { useEntityData } from "../../hooks/useEntityData";
 import { EntityHeader } from "./EntityHeader";
@@ -39,7 +39,7 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
         setShowFactDialog,
         selectedFact,
         setSelectedFact,
-    } = useShortcutContext();
+    } = useDialogState();
 
     const entityData = useEntityData(showEntityDialog, selectedEntity);
 

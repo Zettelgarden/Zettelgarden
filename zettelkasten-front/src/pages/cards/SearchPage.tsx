@@ -16,7 +16,7 @@ import { Entity } from "../../models/Card";
 import { fetchEntityByName } from "../../api/entities";
 import { setDocumentTitle } from "../../utils/title";
 
-import { useShortcutContext } from "../../contexts/ShortcutContext";
+import { useDialogState } from "../../contexts/DialogStateContext";
 
 interface SearchPageProps {
   searchTerm: string;
@@ -55,7 +55,7 @@ export function SearchPage({
     setShowEntityDialog,
     selectedEntity,
     setSelectedEntity,
-  } = useShortcutContext();
+  } = useDialogState();
 
   const params = new URLSearchParams(location.search);
   const starredId = params.get("starred");

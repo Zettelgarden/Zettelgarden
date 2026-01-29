@@ -6,8 +6,8 @@ import { CardIdDiscoveryDialog } from "../../components/cards/CardIdDiscoveryDia
 import { CardTreeView } from "../../components/cards/CardTreeView/CardTreeView";
 import { useViewPageContainer } from "./ViewPageContainer";
 import { useTagContext } from "../../contexts/TagContext";
-import { usePinContext } from "../../contexts/PinContext";
-import { useShortcutContext } from "../../contexts/ShortcutContext";
+import { useUIState } from "../../contexts/UIStateContext";
+import { useDialogState } from "../../contexts/DialogStateContext";
 import { defaultPartialCard } from "../../models/Card";
 import { Card, PartialCard } from "../../models/Card";
 import { saveExistingCard } from "../../api/cards";
@@ -18,7 +18,7 @@ interface ViewPageProps {
 
 export function ViewPage({ cardId }: ViewPageProps) {
   const { tags } = useTagContext();
-  const { pinnedCard } = usePinContext();
+  const { pinnedCard } = useUIState();
 
   const fileUploadRef = useRef<HTMLInputElement>(null);
   const [viewMode, setViewMode] = useState<'normal' | 'tree'>('normal');
@@ -69,11 +69,11 @@ export function ViewPage({ cardId }: ViewPageProps) {
     refreshCard,
   } = actions;
 
-  // We need to get these from shortcut context
+  // We need to get these from dialog state context
   const {
     setSelectedFact,
     setShowFactDialog,
-  } = useShortcutContext();
+  } = useDialogState();
 
 
   const isPinned = pinnedCard && viewingCard && pinnedCard.id === viewingCard.id;

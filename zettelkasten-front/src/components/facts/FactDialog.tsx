@@ -12,7 +12,7 @@ import { defaultCard } from "../../models/Card";
 import { CardIcon } from "../../assets/icons/CardIcon";
 import { BacklinkInputDropdownList } from "../cards/BacklinkInputDropdownList";
 import { PartialCard } from "../../models/Card";
-import { useShortcutContext } from "../../contexts/ShortcutContext";
+import { useDialogState } from "../../contexts/DialogStateContext";
 import { useNavigate } from "react-router-dom";
 import { CardIdDiscoveryDialog } from "../cards/CardIdDiscoveryDialog";
 import { CreateCardDialog } from "../cards/CreateCardDialog";
@@ -37,7 +37,7 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
         setShowFactDialog,
         selectedFact,
         setSelectedFact,
-    } = useShortcutContext();
+    } = useDialogState();
 
     function handleEntityClick(entity: Entity) {
         setShowFactDialog(false);

@@ -4,7 +4,7 @@ import { CardPreviewWindow } from "./CardPreviewWindow";
 import { CardLink } from "./CardLink";
 import { PlusCircleIcon } from "../../assets/icons/PlusCircleIcon";
 import { formatDate } from "../../utils/dates";
-import { usePartialCardContext } from "../../contexts/CardContext";
+import { useUIState } from "../../contexts/UIStateContext";
 import { useNavigate } from "react-router-dom";
 
 interface CardChunkListItemProps {
@@ -19,7 +19,7 @@ export function CardChunkListItem({
   const [showHover, setShowHover] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
-  const { setLastCard } = usePartialCardContext();
+  const { setLastCard } = useUIState();
 
   const navigate = useNavigate();
 

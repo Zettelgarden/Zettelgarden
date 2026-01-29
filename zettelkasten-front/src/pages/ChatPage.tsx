@@ -8,7 +8,7 @@ import {
 } from "../api/chat";
 import { setDocumentTitle } from "../utils/title";
 import { Button } from "../components/Button";
-import { useChatContext } from "../contexts/ChatContext";
+import { useUIState } from "../contexts/UIStateContext";
 import { ChatInterface } from "../components/chat/ChatInterface";
 import { InstructionsMenu } from "../components/chat/InstructionsMenu";
 import { TaskDialog } from "../components/tasks/TaskDialog";
@@ -38,7 +38,7 @@ export function ChatPage({ }: ChatPageProps) {
   const [starringConversationIds, setStarringConversationIds] = useState<Set<string>>(new Set());
   const [regeneratingMessageIds, setRegeneratingMessageIds] = useState<Set<string>>(new Set());
 
-  const { conversationId, setConversationId } = useChatContext();
+  const { conversationId, setConversationId } = useUIState();
   const { hasSubscription } = useAuth();
   const { showToast } = useToast();
 
