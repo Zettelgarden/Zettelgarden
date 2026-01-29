@@ -73,6 +73,7 @@ export function useCardReference({
   const handleCloseReferenceDialog = () => {
     setShowReferenceDialog(false);
     setTriggerIndex(null);
+    // Don't modify the textarea value - let the [ character stay
     textareaRef.current?.focus();
   };
 

@@ -161,7 +161,7 @@ export function InlineCardReferenceDialog({
     <div
       ref={containerRef}
       style={dialogStyle}
-      className={`shadow-2xl rounded-lg bg-white border border-gray-200 overflow-hidden
+      className={`shadow-2xl rounded-lg bg-white border border-gray-200
         transition-opacity duration-150 ease-out
         ${isPositioned ? 'opacity-100' : 'opacity-0'}`}
     >
