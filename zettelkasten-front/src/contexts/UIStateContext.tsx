@@ -37,7 +37,6 @@ interface UIStateContextType {
   setNextCardId: (id: string | null) => void;
 
   // Card refresh state
-  refreshCard: (cardId: string) => void;
   setRefreshTrigger: (cardId: string) => void;
   refreshTrigger: string | null;
 
@@ -87,10 +86,6 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
     setRefreshTriggerState(cardId);
   };
 
-  const refreshCard = (cardId: string) => {
-    setRefreshTriggerState(cardId);
-  };
-
   return (
     <UIStateContext.Provider
       value={{
@@ -119,7 +114,6 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
         setNextCardId,
 
         // Card refresh
-        refreshCard,
         setRefreshTrigger,
         refreshTrigger,
 

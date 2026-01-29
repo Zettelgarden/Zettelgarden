@@ -12,7 +12,7 @@ interface ChatSidebarProps {
 
 export function ChatSidebar({ card }: ChatSidebarProps) {
   const { hasSubscription } = useAuth();
-  const { setChatSidebarCard, refreshCard } = useUIState();
+  const { setChatSidebarCard, setRefreshTrigger } = useUIState();
 
   const chatHook = useChat({
     onConversationChange: (conversation) => {
@@ -96,11 +96,11 @@ export function ChatSidebar({ card }: ChatSidebarProps) {
             // If the operation was on the current card, trigger a refresh
             if (operationCardPK === card.id) {
               console.log(`Card ${card.id} was ${toolResult.operation} via chat, triggering refresh`);
-              refreshCard(card.id.toString());
+              setRefreshTrigger(card.id.toString());
             } else if (toolResult.operation === 'card_created') {
               // For new cards, always refresh the current card as it might affect relationships
               console.log(`New card ${operationCardPK} was created via chat, refreshing current card ${card.id} for potential relationships`);
-              refreshCard(card.id.toString());
+              setRefreshTrigger(card.id.toString());
             }
           }
         } catch (e) {
@@ -108,7 +108,7 @@ export function ChatSidebar({ card }: ChatSidebarProps) {
         }
       }
     });
-  }, [chatHook.messages, card.id, refreshCard]);
+  }, [chatHook.messages, card.id, setRefreshTrigger]);
 
   const loadExistingConversation = async (conversationId: string) => {
     try {
