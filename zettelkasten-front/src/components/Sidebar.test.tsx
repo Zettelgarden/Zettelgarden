@@ -48,7 +48,7 @@ function SidebarWrapper() {
     <BrowserRouter>
       <ToastProvider>
         <TagProvider>
-          <TaskProvider>
+          <TaskProvider testing={true} testTasks={[]}>
             <StatusProvider>
               <UIStateProvider>
                 <DialogStateProvider>

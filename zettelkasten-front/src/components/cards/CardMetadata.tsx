@@ -81,8 +81,13 @@ export function CardMetadata({
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
                 <button
                   onClick={async () => {
-                    const response = await getNextRootId();
-                    setEditingCard({ ...editingCard, card_id: response.new_id });
+                    try {
+                      const response = await getNextRootId();
+                      setEditingCard({ ...editingCard, card_id: response.new_id });
+                    } catch (error) {
+                      console.error('Failed to get next root ID:', error);
+                      // Silently fail - user can manually enter ID
+                    }
                   }}
                   className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
                   type="button"
