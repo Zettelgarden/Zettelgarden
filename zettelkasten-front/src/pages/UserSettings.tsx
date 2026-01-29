@@ -13,8 +13,11 @@ import { FileVault } from "./FileVault";
 import { StatusManagement } from "../components/settings/StatusManagement";
 import { TimezoneSelector } from "../components/settings/TimezoneSelector";
 import APIKeysManagement from "../components/settings/APIKeysManagement";
+import { MemoryPage } from "./MemoryPage";
+import { SchemaPage } from "./SchemaPage";
+import { StatsPage } from "./StatsPage";
 
-type Tab = "profile" | "templates" | "tags" | "files" | "statuses" | "apiKeys";
+type Tab = "profile" | "templates" | "tags" | "files" | "statuses" | "apiKeys" | "memory" | "schemas" | "stats";
 
 export function UserSettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
@@ -242,14 +245,6 @@ export function UserSettingsPage() {
                 >
                   Logout
                 </button>
-                <div className="pt-2">
-                  <button
-                    onClick={() => navigate('/app/schemas')}
-                    className="text-blue-500 hover:underline text-sm"
-                  >
-                    Manage Schemas →
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -269,6 +264,12 @@ export function UserSettingsPage() {
         return <StatusManagement />;
       case "apiKeys":
         return <APIKeysManagement />;
+      case "memory":
+        return <MemoryPage />;
+      case "schemas":
+        return <SchemaPage />;
+      case "stats":
+        return <StatsPage />;
     }
   };
 
@@ -312,6 +313,24 @@ export function UserSettingsPage() {
           onClick={() => setActiveTab("apiKeys")}
         >
           API Keys
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium ${activeTab === "memory" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+          onClick={() => setActiveTab("memory")}
+        >
+          Memory
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium ${activeTab === "schemas" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+          onClick={() => setActiveTab("schemas")}
+        >
+          Schemas
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium ${activeTab === "stats" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+          onClick={() => setActiveTab("stats")}
+        >
+          Stats
         </button>
       </div>
       <div className="mt-4">
