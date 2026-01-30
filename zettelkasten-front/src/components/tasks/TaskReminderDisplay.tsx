@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Task } from "../../models/Task";
 import { format, toZonedTime, fromZonedTime } from "date-fns-tz";
 import { getToday, getTomorrow, getNowInTimezone } from "../../utils/dates";
@@ -26,6 +27,9 @@ export function TaskReminderDisplay({
     saveOnChange,
     errorMessagePrefix: "Failed to update task reminder",
   });
+
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null);
 
   const [displayText, setDisplayText] = useState<string>("");
   const [customDateTime, setCustomDateTime] = useState<string>("");
@@ -108,6 +112,40 @@ export function TaskReminderDisplay({
     return () => clearInterval(interval);
   }, [task.reminder_time, task.reminder_sent]);
 
+  // Close dropdown when clicking outside (portal mode)
+  useEffect(() => {
+    if (!dropdown.isOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
+        dropdown.close();
+      }
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [dropdown.isOpen, dropdown]);
+
+  // Calculate position when opening dropdown
+  const handleToggle = (e: React.MouseEvent) => {
+    if (!dropdown.isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownPosition({ top: rect.bottom + 4, left: rect.left });
+    } else {
+      setDropdownPosition(null);
+    }
+    dropdown.toggle(e);
+  };
+
+  // Keyboard navigation for dropdown menu
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!dropdown.isOpen) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      dropdown.close();
+    }
+  };
+
   const getDisplayColor = () => {
     if (task.reminder_sent) {
       return "gray";
@@ -121,15 +159,24 @@ export function TaskReminderDisplay({
   return (
     <div className="relative">
       <div
-        onClick={dropdown.toggle}
+        ref={triggerRef}
+        onClick={handleToggle}
         className="cursor-pointer px-2 py-1 rounded hover:bg-gray-100 text-sm font-medium"
         style={{ color: getDisplayColor() }}
         title={task.reminder_sent ? "Reminder already sent" : "Click to set reminder"}
       >
         🔔 {displayText}
       </div>
-      {dropdown.isOpen && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]">
+      {dropdown.isOpen && dropdownPosition && createPortal(
+        <div
+          className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]"
+          style={{
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={handleKeyDown}
+        >
           <div className="flex flex-col space-y-2">
             <button
               onClick={setNoReminder}
@@ -179,7 +226,8 @@ export function TaskReminderDisplay({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

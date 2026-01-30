@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { Task } from "../../models/Task";
 import { useTaskDropdown } from "../../hooks/useTaskDropdown";
 import { useOptimisticTaskUpdate } from "../../hooks/useOptimisticTaskUpdate";
@@ -24,6 +24,7 @@ export function TaskStatusDisplay({
     errorMessagePrefix: "Failed to update task status",
   });
   const { statuses, getStatusByName } = useStatus();
+  const triggerRef = useRef<HTMLSpanElement>(null);
 
   // Get status config from dynamic statuses
   const statusDisplay = React.useMemo(() => {
@@ -57,6 +58,8 @@ export function TaskStatusDisplay({
         onToggle={dropdown.toggle}
         onClose={dropdown.close}
         display={statusDisplay}
+        triggerRef={triggerRef}
+        usePortal={true}
       >
         {statuses.map((status) => (
           <div

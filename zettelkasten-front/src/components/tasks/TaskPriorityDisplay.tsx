@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { Task } from "../../models/Task";
 import { useTaskDropdown } from "../../hooks/useTaskDropdown";
 import { useOptimisticTaskUpdate } from "../../hooks/useOptimisticTaskUpdate";
@@ -29,6 +29,7 @@ export function TaskPriorityDisplay({
     saveOnChange,
     errorMessagePrefix: "Failed to update task priority",
   });
+  const triggerRef = useRef<HTMLSpanElement>(null);
 
   // Get display text and color based on priority
   const priorityDisplay = React.useMemo(() => {
@@ -54,6 +55,8 @@ export function TaskPriorityDisplay({
       onToggle={dropdown.toggle}
       onClose={dropdown.close}
       display={priorityDisplay}
+      triggerRef={triggerRef}
+      usePortal={true}
     >
       {PRIORITIES.map((priority) => (
         <div

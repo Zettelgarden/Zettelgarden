@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Task } from "../../models/Task";
 import {
   compareDatesInTimezone,
@@ -35,6 +36,9 @@ export function TaskDateDisplay({
     saveOnChange,
     errorMessagePrefix: "Failed to update task date",
   });
+
+  const triggerRef = useRef<HTMLSpanElement>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null);
 
   const [displayText, setDisplayText] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(
@@ -128,13 +132,48 @@ export function TaskDateDisplay({
     updateDisplayText();
   }, [task]);
 
+  // Close dropdown when clicking outside (portal mode)
+  useEffect(() => {
+    if (!dropdown.isOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
+        dropdown.close();
+      }
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [dropdown.isOpen, dropdown]);
+
+  // Calculate position when opening dropdown
+  const handleToggle = (e: React.MouseEvent) => {
+    if (!dropdown.isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownPosition({ top: rect.bottom + 4, left: rect.left });
+    } else {
+      setDropdownPosition(null);
+    }
+    dropdown.toggle(e);
+  };
+
+  // Keyboard navigation for dropdown menu
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!dropdown.isOpen) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      dropdown.close();
+    }
+  };
+
   const color = getDisplayColor();
   const icon = getDisplayIcon();
 
   return (
     <div className="relative inline-block">
       <span
-        onClick={dropdown.toggle}
+        ref={triggerRef}
+        onClick={handleToggle}
         className="cursor-pointer inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition-colors hover:opacity-80"
         style={{
           backgroundColor: color + "20",
@@ -149,10 +188,15 @@ export function TaskDateDisplay({
         )}
       </span>
 
-      {dropdown.isOpen && (
+      {dropdown.isOpen && dropdownPosition && createPortal(
         <div
-          className="absolute z-20 mt-1 bg-white rounded-md shadow-lg py-1 min-w-[160px] border border-gray-200"
+          className="fixed z-50 bg-white rounded-md shadow-lg py-1 min-w-[160px] border border-gray-200"
+          style={{
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+          }}
           onClick={(e) => e.stopPropagation()}
+          onKeyDown={handleKeyDown}
         >
           <div className="flex flex-col">
             <button
@@ -197,7 +241,8 @@ export function TaskDateDisplay({
               />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
