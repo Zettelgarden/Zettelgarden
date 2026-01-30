@@ -249,6 +249,12 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 	}
 
 	go func() {
+		// Panic recovery to prevent goroutine crashes
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[PANIC] Recovered in ProcessEntitiesAndFacts goroutine: %v", r)
+			}
+		}()
 		// Ensure LinkCardToEntityIfPossible is always called exactly once, regardless of success or failure
 		defer h.LinkCardToEntityIfPossible(userID, card)
 
