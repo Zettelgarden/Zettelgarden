@@ -16,20 +16,25 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// Pre-compiled regex patterns for removeReferences
+var (
+	referencePattern        = regexp.MustCompile(`\[[^\]]+\] - [^\n]*\n?`)
+	doubleNewlinePattern    = regexp.MustCompile(`\n\n+`)
+	trailingWhitespacePattern = regexp.MustCompile(`\s+$`)
+)
+
 // removeReferences removes card reference lines from text before summarization
 // References are lines that start with [tag] - title and end with newline
 func removeReferences(text string) string {
 	// Pattern matches: [anything] - anything followed by newline
 	// Also handles the case where reference is at the end without trailing newline
-	referencePattern := regexp.MustCompile(`\[[^\]]+\] - [^\n]*\n?`)
 	result := referencePattern.ReplaceAllString(text, "")
 
 	// Clean up any resulting double newlines to avoid empty lines
-	doubleNewlinePattern := regexp.MustCompile(`\n\n+`)
 	result = doubleNewlinePattern.ReplaceAllString(result, "\n\n")
 
 	// Trim trailing whitespace
-	result = regexp.MustCompile(`\s+$`).ReplaceAllString(result, "")
+	result = trailingWhitespacePattern.ReplaceAllString(result, "")
 
 	return result
 }
