@@ -237,6 +237,13 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
     setShowingAnalysis(false);
   }, [id]);
 
+  useEffect(() => {
+    // Listen for refreshTrigger changes and fetch card when triggered
+    if (refreshTrigger && id === refreshTrigger) {
+      cardData.fetchCard(id);
+    }
+  }, [refreshTrigger, id, cardData]);
+
 
   // Return data, setters, and actions
   return {
