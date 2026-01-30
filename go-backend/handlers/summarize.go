@@ -184,7 +184,7 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 			INSERT INTO summarizations (user_id, input_text, status, created_at, updated_at)
 			VALUES ($1, $2, 'pending', NOW(), NOW())
 			RETURNING id, status
-		`, userID, "").Scan(&jobID, &status)
+		`, userID, req.Text).Scan(&jobID, &status)
 
 	if err != nil {
 		log.Printf("error starting summarization %v", err)
