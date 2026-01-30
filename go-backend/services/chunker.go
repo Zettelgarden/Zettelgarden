@@ -2,17 +2,16 @@ package services
 
 import (
 	"os"
+	"strconv"
 	"strings"
-	"unicode"
+
+	"github.com/neurosnap/sentences"
 )
 
 // ChunkerConfig holds configuration for text chunking behavior
 type ChunkerConfig struct {
 	// MaxChunkSize is the maximum size (in characters) for each chunk
 	MaxChunkSize int
-
-	// SentenceDelimiters are the characters that mark sentence boundaries
-	SentenceDelimiters []string
 
 	// MinChunkSize is the minimum size for a chunk (prevents tiny chunks)
 	MinChunkSize int
@@ -28,9 +27,8 @@ func DefaultChunkerConfig() ChunkerConfig {
 	}
 
 	return ChunkerConfig{
-		MaxChunkSize:      maxSize,
-		SentenceDelimiters: []string{". ", "! ", "? ", ".\n", "!\n", "?\n"},
-		MinChunkSize:      maxSize / 4, // Minimum 25% of max size
+		MaxChunkSize: maxSize,
+		MinChunkSize: maxSize / 4, // Minimum 25% of max size
 	}
 }
 
@@ -96,40 +94,20 @@ func (c *Chunker) Chunk(input string) []string {
 	return chunks
 }
 
-// splitIntoSentences splits text into sentences using configured delimiters
+// splitIntoSentences splits text into sentences using proper sentence boundary detection.
+// This handles abbreviations (Dr., Mr., etc.), decimals (3.14), ellipsis (...), and other edge cases.
 func (c *Chunker) splitIntoSentences(input string) []string {
-	text := input
-	var result []string
+	// Create the sentence tokenizer with default English training data
+	storage := sentences.NewStorage()
+	tokenizer := sentences.NewSentenceTokenizer(storage)
 
-	for {
-		// Find the earliest delimiter
-		earliestPos := -1
-		usedDelimiter := ""
+	// Tokenize the input into sentences
+	sentenceTokens := tokenizer.Tokenize(input)
 
-		for _, delimiter := range c.config.SentenceDelimiters {
-			if pos := strings.Index(text, delimiter); pos != -1 {
-				if earliestPos == -1 || pos < earliestPos {
-					earliestPos = pos
-					usedDelimiter = delimiter
-				}
-			}
-		}
-
-		if earliestPos == -1 {
-			// No more delimiters found
-			if text != "" {
-				result = append(result, text)
-			}
-			break
-		}
-
-		// Extract the sentence up to and including the delimiter
-		sentenceEnd := earliestPos + len(usedDelimiter)
-		sentence := text[:sentenceEnd]
-		result = append(result, sentence)
-
-		// Move to next sentence
-		text = text[sentenceEnd:]
+	// Extract the text from each sentence
+	result := make([]string, len(sentenceTokens))
+	for i, s := range sentenceTokens {
+		result[i] = s.Text
 	}
 
 	return result
@@ -143,12 +121,9 @@ func ChunkText(input string) []string {
 
 // parseInt safely parses an integer from a string, returning 0 on error
 func parseInt(s string) int {
-	var result int
-	for _, r := range s {
-		if !unicode.IsDigit(r) {
-			return 0
-		}
-		result = result*10 + int(r-'0')
+	result, err := strconv.Atoi(s)
+	if err != nil {
+		return 0
 	}
 	return result
 }
