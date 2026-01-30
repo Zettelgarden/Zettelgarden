@@ -18,10 +18,21 @@ import (
 
 // Pre-compiled regex patterns for removeReferences
 var (
-	referencePattern        = regexp.MustCompile(`\[[^\]]+\] - [^\n]*\n?`)
-	doubleNewlinePattern    = regexp.MustCompile(`\n\n+`)
+	referencePattern         = regexp.MustCompile(`\[[^\]]+\] - [^\n]*\n?`)
+	doubleNewlinePattern     = regexp.MustCompile(`\n\n+`)
 	trailingWhitespacePattern = regexp.MustCompile(`\s+$`)
 )
+
+// getUserIDFromContext safely extracts userID from request context
+// Returns Unauthorized error if the user is not authenticated
+func getUserIDFromContext(w http.ResponseWriter, r *http.Request) (int, bool) {
+	userID, ok := r.Context().Value("current_user").(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return 0, false
+	}
+	return userID, true
+}
 
 // removeReferences removes card reference lines from text before summarization
 // References are lines that start with [tag] - title and end with newline
@@ -63,7 +74,10 @@ type SummarizeRequest struct {
 
 // GetSummariesByCardRoute returns all summarizations for a given card_pk
 func (h *Handler) GetSummariesByCardRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, ok := getUserIDFromContext(w, r)
+	if !ok {
+		return
+	}
 	cardIDStr := mux.Vars(r)["card_pk"]
 	cardID, err := strconv.Atoi(cardIDStr)
 	if err != nil {
@@ -83,7 +97,10 @@ func (h *Handler) GetSummariesByCardRoute(w http.ResponseWriter, r *http.Request
 
 // ListSummarizationsRoute returns all summarization jobs (lightweight view) for the current user
 func (h *Handler) ListSummarizationsRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, ok := getUserIDFromContext(w, r)
+	if !ok {
+		return
+	}
 
 	summaries, err := h.querySummarizations(userID, nil)
 	if err != nil {
@@ -143,7 +160,10 @@ func (h *Handler) querySummarizations(userID int, cardPK *int) ([]SummarizeJobRe
 
 // CreateSummarizationRoute creates a summarization job and enqueues it to the LLM job queue
 func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, ok := getUserIDFromContext(w, r)
+	if !ok {
+		return
+	}
 
 	// Check rate limit
 	if !h.checkSummarizationRateLimit(userID) {
@@ -376,7 +396,10 @@ func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []m
 
 // GetCardAnalysisRoute retrieves the analysis for the most recent summarization of a card.
 func (h *Handler) GetCardAnalysisRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, ok := getUserIDFromContext(w, r)
+	if !ok {
+		return
+	}
 	cardPKStr := mux.Vars(r)["card_pk"]
 	cardPK, err := strconv.Atoi(cardPKStr)
 	if err != nil {
@@ -457,7 +480,10 @@ func (h *Handler) runSummarizationJobViaQueue(userID int, analyses []models.Sect
 
 // GetSummarizationRoute fetches a summarization job by id
 func (h *Handler) GetSummarizationRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, ok := getUserIDFromContext(w, r)
+	if !ok {
+		return
+	}
 	idStr := mux.Vars(r)["id"]
 	jobID, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -519,7 +545,10 @@ func (h *Handler) GetSummarizationRoute(w http.ResponseWriter, r *http.Request) 
 
 // CancelSummarizationRoute cancels a pending summarization job
 func (h *Handler) CancelSummarizationRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, ok := getUserIDFromContext(w, r)
+	if !ok {
+		return
+	}
 	idStr := mux.Vars(r)["id"]
 	summarizationID, err := strconv.Atoi(idStr)
 	if err != nil {
