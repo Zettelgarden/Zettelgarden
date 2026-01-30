@@ -179,11 +179,12 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 	}
 
 	var jobID int
+	var status string
 	err := h.DB.QueryRow(`
 			INSERT INTO summarizations (user_id, input_text, status, created_at, updated_at)
 			VALUES ($1, $2, 'pending', NOW(), NOW())
-			RETURNING id
-		`, userID, "").Scan(&jobID)
+			RETURNING id, status
+		`, userID, "").Scan(&jobID, &status)
 
 	if err != nil {
 		log.Printf("error starting summarization %v", err)
@@ -211,7 +212,8 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	resp := SummarizeJobResponse{ID: summarizationID, Status: "pending"}
+	// Return actual status from database (not hardcoded "pending")
+	resp := SummarizeJobResponse{ID: summarizationID, Status: status}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
