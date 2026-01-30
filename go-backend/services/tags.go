@@ -25,6 +25,7 @@ func QueryTagsForCard(db models.Database, userID int, cardPK int) ([]models.Tag,
 		log.Printf("err %v", err)
 		return tags, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var tag models.Tag
 		if err := rows.Scan(
@@ -47,6 +48,9 @@ func IdentifyParentTags(db models.Database, userID int, card models.PartialCard)
 		return QueryTagsForCard(db, userID, card.ID)
 	}
 	parent, err := GetPartialCard(db, userID, card.ParentID)
+	if err != nil {
+		return []models.Tag{}, err
+	}
 
 	parent_tags, err := IdentifyParentTags(db, userID, parent)
 	if err != nil {
@@ -250,4 +254,132 @@ func GetTag(db models.Database, userID int, tagName string) (models.Tag, error) 
 	}
 	return tag, nil
 
+}
+
+// GetTagByID retrieves a tag by ID (used in tests)
+func GetTagByID(db models.Database, userID int, tagID int) (models.Tag, error) {
+	var tag models.Tag
+	query := `
+            select id, name, user_id, color
+            from tags
+            where user_id = $1 and id = $2
+        `
+	err := db.QueryRow(query, userID, tagID).Scan(
+		&tag.ID,
+		&tag.Name,
+		&tag.UserID,
+		&tag.Color,
+	)
+	if err != nil {
+		log.Printf("err %v", err)
+		return models.Tag{}, err
+	}
+	return tag, nil
+}
+
+// QueryTags retrieves all tags for a user
+func QueryTags(db models.Database, userID int) ([]models.Tag, error) {
+	tags := []models.Tag{}
+	query := `
+        SELECT
+            t.id,
+            t.name,
+            t.user_id,
+            t.color
+        FROM tags t
+        WHERE t.is_deleted = false AND t.user_id = $1
+        GROUP BY t.id, t.name, t.user_id, t.color
+    `
+	var rows *sql.Rows
+	var err error
+
+	rows, err = db.Query(query, userID)
+	if err != nil {
+		log.Printf("err %v", err)
+		return tags, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var tag models.Tag
+		if err := rows.Scan(
+			&tag.ID,
+			&tag.Name,
+			&tag.UserID,
+			&tag.Color,
+		); err != nil {
+			log.Printf("err %v", err)
+			return tags, err
+		}
+		tags = append(tags, tag)
+	}
+	return tags, nil
+}
+
+// QueryTagsForTask retrieves all tags for a task
+func QueryTagsForTask(db models.Database, userID int, taskPK int) ([]models.Tag, error) {
+	tags := []models.Tag{}
+
+	query := `
+        SELECT t.id, t.name, t.user_id, t.color
+        FROM tags t
+        JOIN task_tags tt ON t.id = tt.tag_id
+        WHERE tt.task_pk = $1 AND t.user_id = $2;
+        `
+	var rows *sql.Rows
+	var err error
+
+	rows, err = db.Query(query, taskPK, userID)
+	if err != nil {
+		log.Printf("err %v", err)
+		return tags, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var tag models.Tag
+		if err := rows.Scan(
+			&tag.ID,
+			&tag.Name,
+			&tag.UserID,
+			&tag.Color,
+		); err != nil {
+			log.Printf("err %v", err)
+			return tags, err
+		}
+		tags = append(tags, tag)
+	}
+	return tags, nil
+}
+
+// AddTagToTask adds a tag to a task
+func AddTagToTask(db models.Database, userID int, tagName string, taskPK int) error {
+	query := `
+        INSERT INTO task_tags (task_pk, tag_id)
+        SELECT $1, t.id
+        FROM tags t
+        WHERE t.name = $2 AND t.user_id = $3
+	`
+	_, err := db.Exec(query, taskPK, tagName, userID)
+	if err != nil {
+		log.Printf("add tag err %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// RemoveAllTagsFromTask removes all tags from a task
+func RemoveAllTagsFromTask(db models.Database, userID, taskPK int) error {
+	query := `DELETE FROM task_tags WHERE task_pk = $1`
+	_, err := db.Exec(query, taskPK)
+	return err
+}
+
+// DeleteTag soft-deletes a tag
+func DeleteTag(db models.Database, userID, id int) error {
+	_, err := db.Exec(`
+UPDATE tags SET is_deleted = TRUE, updated_at = NOW() WHERE id =  $1 AND user_id = $2
+`, id, userID)
+	return err
 }

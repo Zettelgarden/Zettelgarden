@@ -357,7 +357,7 @@ func TestIdentifyParentTags(t *testing.T) {
 	s := NewHandler()
 	defer tests.Teardown()
 
-	tag, err := s.getTagByID(1, 1)
+	tag, err := services.GetTagByID(s.Server.Tx, 1, 1)
 	if err != nil {
 		t.Errorf("handler returned error finding card: %v", err.Error())
 	}
@@ -384,7 +384,7 @@ func TestCreateCardSuccessRecursiveTags(t *testing.T) {
 	s := NewHandler()
 	defer tests.Teardown()
 
-	tag, err := s.getTagByID(1, 1)
+	tag, err := services.GetTagByID(s.Server.Tx, 1, 1)
 	if err != nil {
 		t.Errorf("handler returned error finding card: %v", err.Error())
 	}

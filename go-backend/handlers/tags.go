@@ -1,74 +1,18 @@
 package handlers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"go-backend/models"
 	"go-backend/services"
-	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/gorilla/mux"
 )
 
-// written for testing, not used elsewhere
-func (s *Handler) getTagByID(userID int, tagID int) (models.Tag, error) {
-	var tag models.Tag
-	query := `
-            select id, name, user_id, color
-            from tags
-            where user_id = $1 and id = $2
-        `
-	err := s.DB.QueryRow(query, userID, tagID).Scan(
-		&tag.ID,
-		&tag.Name,
-		&tag.UserID,
-		&tag.Color,
-	)
-	if err != nil {
-		log.Printf("err %v", err)
-		return models.Tag{}, err
-	}
-	return tag, nil
-
-}
-
 func (s *Handler) GetTags(userID int) ([]models.Tag, error) {
-	tags := []models.Tag{}
-	query := `
-        SELECT
-            t.id,
-            t.name,
-            t.user_id,
-            t.color
-        FROM tags t
-        WHERE t.is_deleted = false AND t.user_id = $1
-        GROUP BY t.id, t.name, t.user_id, t.color
-    `
-	var rows *sql.Rows
-	var err error
-
-	rows, err = s.DB.Query(query, userID)
-	if err != nil {
-		log.Printf("err %v", err)
-		return tags, err
-	}
-	for rows.Next() {
-		var tag models.Tag
-		if err := rows.Scan(
-			&tag.ID,
-			&tag.Name,
-			&tag.UserID,
-			&tag.Color,
-		); err != nil {
-			log.Printf("err %v", err)
-			return tags, err
-		}
-		tags = append(tags, tag)
-	}
-	return tags, nil
+	return services.QueryTags(s.GetDB(), userID)
 }
 
 func (s *Handler) GetTagsRoute(w http.ResponseWriter, r *http.Request) {
@@ -100,7 +44,7 @@ func (s *Handler) CreateTagRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tag, err := services.CreateTag(s.DB, userID, tagData)
+	tag, err := services.CreateTag(s.GetDB(), userID, tagData)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error creating tag: %v", err), http.StatusInternalServerError)
 		return
@@ -111,26 +55,11 @@ func (s *Handler) CreateTagRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Handler) AddTagToTask(userID int, tagName string, taskPK int) error {
-
-	query := `
-        INSERT INTO task_tags (task_pk, tag_id)
-        SELECT $1, t.id
-        FROM tags t
-        WHERE t.name = $2 AND t.user_id = $3
-	`
-	_, err := s.DB.Exec(query, taskPK, tagName, userID)
-	if err != nil {
-		log.Printf("add tag err %v", err)
-		return err
-	}
-
-	return nil
+	return services.AddTagToTask(s.GetDB(), userID, tagName, taskPK)
 }
 
 func (s *Handler) RemoveAllTagsFromTask(userID, taskPK int) error {
-	query := `DELETE FROM task_tags WHERE task_pk = $1`
-	_, err := s.DB.Exec(query, taskPK)
-	return err
+	return services.RemoveAllTagsFromTask(s.GetDB(), userID, taskPK)
 }
 
 func (s *Handler) AddTagsFromTask(userID, taskPK int) error {
@@ -149,7 +78,7 @@ func (s *Handler) AddTagsFromTask(userID, taskPK int) error {
 			Name:  tagName,
 			Color: "black",
 		}
-		_, err := services.CreateTag(s.DB, userID, params)
+		_, err := services.CreateTag(s.GetDB(), userID, params)
 		if err != nil {
 			return err
 		}
@@ -162,44 +91,11 @@ func (s *Handler) AddTagsFromTask(userID, taskPK int) error {
 }
 
 func (s *Handler) QueryTagsForTask(userID int, taskPK int) ([]models.Tag, error) {
-	tags := []models.Tag{}
-
-	query := `
-        SELECT t.id, t.name, t.user_id, t.color
-        FROM tags t
-        JOIN task_tags tt ON t.id = tt.tag_id
-        WHERE tt.task_pk = $1 AND t.user_id = $2;
-        `
-	var rows *sql.Rows
-	var err error
-
-	rows, err = s.DB.Query(query, taskPK, userID)
-	if err != nil {
-		log.Printf("err %v", err)
-		return tags, err
-	}
-	for rows.Next() {
-		var tag models.Tag
-		if err := rows.Scan(
-			&tag.ID,
-			&tag.Name,
-			&tag.UserID,
-			&tag.Color,
-		); err != nil {
-			log.Printf("err %v", err)
-			return tags, err
-		}
-		tags = append(tags, tag)
-	}
-	return tags, nil
+	return services.QueryTagsForTask(s.GetDB(), userID, taskPK)
 }
 
 func (s *Handler) DeleteTag(userID, id int) error {
-
-	_, err := s.DB.Exec(`
-UPDATE tags SET is_deleted = TRUE, updated_at = NOW() WHERE id =  $1 AND user_id = $2
-`, id, userID)
-	return err
+	return services.DeleteTag(s.GetDB(), userID, id)
 }
 
 func (s *Handler) DeleteTagRoute(w http.ResponseWriter, r *http.Request) {
