@@ -321,6 +321,13 @@ func GetTasksNeedingReminders(db models.Database) ([]models.Task, error) {
 // UpdateTask updates an existing task
 // Returns the ID of a newly created recurring task, or 0 if none was created
 func UpdateTask(db models.Database, userID int, id int, task models.Task) (int, error) {
+	return UpdateTaskWithRecurring(db, userID, id, task, true)
+}
+
+// UpdateTaskWithRecurring updates an existing task with control over recurring task creation
+// checkRecurring: if false, skip creating recurring tasks (used when task was already rescheduled)
+// Returns the ID of a newly created recurring task, or 0 if none was created
+func UpdateTaskWithRecurring(db models.Database, userID int, id int, task models.Task, checkRecurring bool) (int, error) {
 	oldTask, err := GetTask(db, userID, id)
 	if err != nil {
 		return 0, fmt.Errorf("unable to query task: %v", err)
@@ -357,9 +364,11 @@ func UpdateTask(db models.Database, userID int, id int, task models.Task) (int, 
 	if task.IsComplete && !oldTask.IsComplete {
 		now := time.Now()
 		completedAt = &now
-		recurringTaskID, err = checkRecurringTasks(db, task)
-		if err != nil {
-			log.Printf("err %v", err)
+		if checkRecurring {
+			recurringTaskID, err = checkRecurringTasks(db, task)
+			if err != nil {
+				log.Printf("err %v", err)
+			}
 		}
 	} else if oldTask.IsComplete {
 		completedAt = oldTask.CompletedAt
@@ -698,9 +707,11 @@ func CompleteAndScheduleTask(db models.Database, userID int, id int, days int, c
 	}
 
 	// Now update the original task to be complete
+	// Pass checkRecurring=false to prevent creating duplicate recurring tasks
+	// since we already created a new task above
 	oldTask.IsComplete = true
 	oldTask.Status = completeStatusName
-	_, err = UpdateTask(db, userID, id, oldTask)
+	_, err = UpdateTaskWithRecurring(db, userID, id, oldTask, false)
 	if err != nil {
 		log.Printf("Warning: completed task creation but failed to mark original task as complete: %v", err)
 		// Don't return error here since we successfully created the new task
