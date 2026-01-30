@@ -3,6 +3,49 @@ import { SchemaDefinition, FieldDefinition } from "../../models/Schema";
 import { Card } from "../../models/Card";
 import { fetchSchemaByRef } from "../../api/schemas";
 import { applyFiltersToCard } from "../../utils/schemaFilters";
+import { CardLink } from "../cards/CardLink";
+import { getCard } from "../../api/cards";
+
+// LinkedCardDisplay component for link_to_card fields
+interface LinkedCardDisplayProps {
+  cardId: number;
+}
+
+function LinkedCardDisplay({ cardId }: LinkedCardDisplayProps) {
+  const [linkedCard, setLinkedCard] = useState<Card | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getCard(cardId.toString())
+      .then((result) => {
+        if (isError(result)) {
+          setLinkedCard(null);
+        } else {
+          setLinkedCard(result);
+        }
+      })
+      .catch(() => {
+        setLinkedCard(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [cardId]);
+
+  function isError(result: any): result is { error: string } {
+    return result && typeof result === "object" && "error" in result;
+  }
+
+  if (loading) {
+    return <span className="text-sm text-gray-400">Loading...</span>;
+  }
+
+  if (!linkedCard) {
+    return <span className="text-blue-600 text-sm font-mono">{cardId}</span>;
+  }
+
+  return <CardLink card={linkedCard} showTitle={true} handleViewBacklink={() => {}} />;
+}
 
 interface SchemaTableProps {
   schemaRef: string; // Can be an ID (numeric string) or slug
@@ -118,6 +161,8 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
         // Parse date and display in UTC to avoid timezone shifting
         const dateObj = new Date(value);
         return dateObj.toLocaleDateString(undefined, { timeZone: 'UTC' });
+      case "link_to_card":
+        return <LinkedCardDisplay cardId={value} />;
       default:
         return String(value);
     }
