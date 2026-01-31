@@ -161,6 +161,8 @@ export function AdminUserIndex() {
         searchPlaceholder="Search all columns..."
         isLoading={isLoading}
         hideOnMobile={["revenue", "llm_cost", "file_count", "task_count", "chat_message_count"]}
+        sorting={sorting}
+        onSortingChange={setSorting}
       />
       {/* Pagination controls - only show if there are multiple pages */}
       {totalPages > 1 && (

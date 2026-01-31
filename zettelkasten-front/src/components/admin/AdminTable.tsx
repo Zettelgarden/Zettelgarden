@@ -240,6 +240,10 @@ export interface AdminTableContainerProps<TData> extends AdminTableProps<TData> 
   headerContent?: React.ReactNode;
   /** Columns to hide on mobile */
   hideOnMobile?: string[];
+  /** Current sorting state (for mobile sort controls) */
+  sorting?: SortingState;
+  /** Sorting state change handler */
+  onSortingChange?: (sorting: SortingState) => void;
 }
 
 /**
@@ -274,8 +278,11 @@ export function AdminTableContainer<TData>({
   skeletonRows,
   className,
   hideOnMobile,
+  sorting,
+  onSortingChange,
 }: AdminTableContainerProps<TData>) {
   const [showMobileSearch, setShowMobileSearch] = React.useState(false);
+  const [showMobileSort, setShowMobileSort] = React.useState(false);
 
   return (
     <div className="container mx-auto px-4">
@@ -301,6 +308,16 @@ export function AdminTableContainer<TData>({
           >
             🔍
           </button>
+          {/* Mobile sort toggle - only show if sorting is controlled */}
+          {onSortingChange && sorting !== undefined && (
+            <button
+              onClick={() => setShowMobileSort(!showMobileSort)}
+              className="sm:hidden p-2 bg-white border border-gray-300 rounded-lg"
+              aria-label="Sort"
+            >
+              ⇅
+            </button>
+          )}
           {headerContent}
         </div>
       </div>
@@ -317,6 +334,60 @@ export function AdminTableContainer<TData>({
             autoFocus
             onBlur={() => setShowMobileSearch(false)}
           />
+        </div>
+      )}
+
+      {/* Mobile sort dropdown */}
+      {showMobileSort && onSortingChange && sorting !== undefined && (
+        <div className="sm:hidden mb-4 p-4 bg-white rounded-lg border">
+          <div className="mb-3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Sort by
+            </label>
+            <select
+              className="w-full px-3 py-2 border rounded-lg"
+              value={sorting[0]?.id ?? ""}
+              onChange={(e) => {
+                const columnId = e.target.value;
+                if (columnId) {
+                  onSortingChange([{ id: columnId, desc: false }]);
+                }
+              }}
+            >
+              <option value="">Select column...</option>
+              {table.getAllColumns().map((column) => (
+                <option key={column.id} value={column.id}>
+                  {typeof column.columnDef.header === "string"
+                    ? column.columnDef.header
+                    : column.id}
+                </option>
+              ))}
+            </select>
+          </div>
+          {sorting[0] && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => onSortingChange([{ id: sorting[0].id, desc: false }])}
+                className={`flex-1 px-3 py-2 border rounded-lg text-sm ${
+                  !sorting[0].desc
+                    ? "bg-blue-500 text-white"
+                    : "bg-white hover:bg-gray-50"
+                }`}
+              >
+                Ascending ↑
+              </button>
+              <button
+                onClick={() => onSortingChange([{ id: sorting[0].id, desc: true }])}
+                className={`flex-1 px-3 py-2 border rounded-lg text-sm ${
+                  sorting[0].desc
+                    ? "bg-blue-500 text-white"
+                    : "bg-white hover:bg-gray-50"
+                }`}
+              >
+                Descending ↓
+              </button>
+            </div>
+          )}
         </div>
       )}
 
