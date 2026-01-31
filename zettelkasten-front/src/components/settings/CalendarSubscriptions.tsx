@@ -3,6 +3,8 @@ import { FaPlus, FaSync, FaTrash } from "react-icons/fa";
 import {
   ExternalCalendar,
   CreateExternalCalendarRequest,
+} from "../../models/ExternalEvent";
+import {
   getExternalCalendars,
   createExternalCalendar,
   updateExternalCalendar,
@@ -194,7 +196,7 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
 
         {/* Calendar List */}
         <div className="space-y-3">
-          {calendars.map(cal => (
+          {calendars && calendars.map(cal => (
             <div key={cal.id} className="flex items-center justify-between p-3 border border-slate-200 rounded">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div
@@ -242,7 +244,7 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
             </div>
           ))}
 
-          {calendars.length === 0 && !showAddForm && (
+          {calendars && calendars.length === 0 && !showAddForm && (
             <div className="text-center py-8 text-slate-500">
               <p className="mb-2">No calendar subscriptions yet.</p>
               <p className="text-sm">Subscribe to your Google Calendar, Outlook, or other iCal feeds to see events alongside your tasks.</p>

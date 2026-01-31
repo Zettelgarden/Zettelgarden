@@ -79,6 +79,7 @@ export function taskToCalendarEvents(task: Task, timezone: string = "UTC"): Cale
       isComplete: task.is_complete,
       task,
       eventType: "scheduled",
+      source: "task",
     });
   }
 
@@ -98,6 +99,7 @@ export function taskToCalendarEvents(task: Task, timezone: string = "UTC"): Cale
         isComplete: task.is_complete,
         task,
         eventType: "due",
+        source: "task",
       });
     }
   } else if (task.due_date && !task.scheduled_date) {
@@ -112,6 +114,7 @@ export function taskToCalendarEvents(task: Task, timezone: string = "UTC"): Cale
       isComplete: task.is_complete,
       task,
       eventType: "due",
+      source: "task",
     });
   }
 
@@ -128,6 +131,7 @@ export function taskToCalendarEvents(task: Task, timezone: string = "UTC"): Cale
       isComplete: true,
       task,
       eventType: "completed",
+      source: "task",
     });
   }
 

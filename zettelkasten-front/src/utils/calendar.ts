@@ -186,6 +186,10 @@ export function groupEventsByTask(events: CalendarEvent[]): Map<number, Calendar
   const taskMap = new Map<number, CalendarEvent>();
 
   events.forEach(event => {
+    // Skip external events (they don't have taskId)
+    if (event.source === "external" || !event.taskId) {
+      return;
+    }
     // Prefer scheduled events over due events over completed events
     const existing = taskMap.get(event.taskId);
     if (!existing || event.eventType === "scheduled" ||
@@ -203,9 +207,9 @@ export function groupEventsByTask(events: CalendarEvent[]): Map<number, Calendar
  */
 export function mergeCalendarEvents(
   taskEvents: CalendarEvent[],
-  externalEvents: ExternalEvent[]
+  externalEvents: ExternalEvent[] | null
 ): CalendarEvent[] {
-  const converted: CalendarEvent[] = externalEvents.map(ee => ({
+  const converted: CalendarEvent[] = (externalEvents || []).map(ee => ({
     id: ee.id,
     externalEventId: ee.id,
     source: "external" as const,

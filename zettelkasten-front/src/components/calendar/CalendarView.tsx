@@ -12,7 +12,6 @@ import {
   getEventIcon,
   isEventDraggable,
 } from "../../models/CalendarEvent";
-import { ExternalEvent } from "../../models/ExternalEvent";
 import {
   generateMonthGrid,
   generateWeekGrid,
@@ -490,7 +489,7 @@ function CalendarDayCell({
                         className={`
                           px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm rounded border truncate transition-shadow
                           ${baseColor}
-                          ${isExternal ? `border-l-4`} : ""}
+                          ${isExternal ? "border-l-4" : ""}
                           ${isExternal ? "" : (dragSnapshot.isDragging ? "shadow-lg opacity-50" : "hover:opacity-80")}
                           focus-within:ring-2 focus-within:ring-blue-500 focus:outline-none
                           ${isExternal ? "cursor-pointer hover:opacity-80" : ""}
@@ -704,7 +703,7 @@ function DayPopover({ date, events, onClose, onTaskClick, onCreateTask }: DayPop
               {uniqueEvents.map((event) => (
                 <div
                   key={event.id}
-                  onClick={() => onTaskClick(event.taskId)}
+                  onClick={() => event.taskId && onTaskClick(event.taskId)}
                   className={`
                     p-3 rounded border cursor-pointer hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500
                     ${getEventColor(event)}
