@@ -123,7 +123,7 @@ export function ViewPage({ cardId }: ViewPageProps) {
 
           <div className="flex flex-col md:flex-row gap-4">
             {/* Main Content Area - varies by view mode */}
-            <div className="flex md:w-2/3 space-y-4 overflow-auto">
+            <div className="flex-1 md:w-2/3 space-y-4 overflow-y-auto">
               {viewMode === 'tree' && (
                 <CardTreeView
                   rootCardId={viewingCard.id}
