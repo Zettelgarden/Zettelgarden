@@ -113,7 +113,12 @@ func (h *Handler) ListSummarizationsRoute(w http.ResponseWriter, r *http.Request
 }
 
 // querySummarizations is a shared helper that queries summarizations for a user,
-// optionally filtered by card_pk
+// optionally filtered by card_pk.
+//
+// When cardPK is provided, only summarizations explicitly linked to that card
+// are returned (card_pk IS NOT NULL). Manual/standalone summarizations (created
+// without a card, i.e., card_pk IS NULL) are excluded from card-specific queries.
+// These manual summaries only appear in the list view (ListSummarizationsRoute).
 func (h *Handler) querySummarizations(userID int, cardPK *int) ([]SummarizeJobResponse, error) {
 	var rows *sql.Rows
 	var err error
