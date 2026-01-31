@@ -8,6 +8,8 @@ import logging
 import os
 from typing import Required
 
+from utils import ValidationError, validate_required
+
 # Configure logging
 LOG_LEVEL = os.environ.get("ZETTELGARDEN_LOG_LEVEL", "WARNING").upper()
 logging.basicConfig(
@@ -32,6 +34,20 @@ def validate_config() -> tuple[bool, str]:
     Returns:
         Tuple of (is_valid, error_message)
     """
+    # Validate TOKEN
     if not TOKEN:
         return False, "ZETTELGARDEN_TOKEN environment variable is required"
+    try:
+        validate_required(TOKEN, "ZETTELGARDEN_TOKEN")
+    except ValidationError as e:
+        return False, str(e)
+
+    # Validate API_URL
+    if not API_URL:
+        return False, "ZETTELGARDEN_API_URL cannot be empty"
+    try:
+        validate_required(API_URL, "ZETTELGARDEN_API_URL")
+    except ValidationError as e:
+        return False, str(e)
+
     return True, ""

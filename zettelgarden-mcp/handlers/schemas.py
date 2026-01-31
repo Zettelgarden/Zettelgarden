@@ -5,8 +5,12 @@ Provides functions for listing, getting, creating, updating, and deleting schema
 """
 
 import httpx
+import logging
 
 from config import API_URL, get_headers
+from utils import validate_required, validate_schema_fields, ValidationError, format_api_error
+
+logger = logging.getLogger(__name__)
 
 
 def format_schema(schema: dict) -> str:
@@ -79,6 +83,14 @@ async def get_schema(client: httpx.AsyncClient, args: dict) -> str:
 
 async def create_schema(client: httpx.AsyncClient, args: dict) -> str:
     """Create a new schema."""
+    # Validate inputs
+    try:
+        validate_required(args.get("name"), "Schema name")
+        validate_schema_fields(args.get("fields", []))
+    except ValidationError as e:
+        logger.warning(f"Schema validation failed: {e}")
+        return f"Validation Error: {e}"
+
     resp = await client.post(
         f"{API_URL}/api/schemas",
         headers=get_headers(),
@@ -109,6 +121,14 @@ async def update_schema(client: httpx.AsyncClient, args: dict) -> str:
     )
     resp.raise_for_status()
     current = resp.json()
+
+    # Validate fields if provided
+    if "fields" in args:
+        try:
+            validate_schema_fields(args["fields"])
+        except ValidationError as e:
+            logger.warning(f"Schema validation failed: {e}")
+            return f"Validation Error: {e}"
 
     # Build update payload
     update_data = {

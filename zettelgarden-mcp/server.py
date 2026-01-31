@@ -27,6 +27,7 @@ from mcp.types import TextContent
 
 # Import local modules
 from config import TOKEN, validate_config
+from utils import format_api_error, format_error
 import cli, tools
 
 logger = logging.getLogger(__name__)
@@ -51,11 +52,13 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             logger.debug(f"Tool {name} returned successfully")
             return [TextContent(type="text", text=result)]
         except httpx.HTTPStatusError as e:
-            logger.error(f"API error for {name}: {e.response.status_code} - {e.response.text}")
-            return [TextContent(type="text", text=f"API Error {e.response.status_code}: {e.response.text}")]
+            error_msg = format_api_error(e.response)
+            logger.error(f"API error for {name}: {error_msg}")
+            return [TextContent(type="text", text=error_msg)]
         except Exception as e:
+            error_msg = format_error(e)
             logger.exception(f"Error handling tool {name}: {e}")
-            return [TextContent(type="text", text=f"Error: {str(e)}")]
+            return [TextContent(type="text", text=error_msg)]
 
 
 async def run_server():

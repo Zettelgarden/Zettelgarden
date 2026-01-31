@@ -10,6 +10,7 @@ from typing import Optional
 import httpx
 
 from config import API_URL, get_headers
+from utils import parse_date_param, format_datetime_for_api
 
 
 def format_task(task: dict) -> str:
@@ -44,10 +45,8 @@ async def list_tasks(client: httpx.AsyncClient, args: dict) -> str:
     if "completed" in args:
         params["completed"] = "true" if args["completed"] else "false"
 
-    scheduled = args.get("scheduled_date")
+    scheduled = parse_date_param(args.get("scheduled_date"))
     if scheduled:
-        if scheduled.lower() == "today":
-            scheduled = datetime.now().strftime("%Y-%m-%d")
         params["scheduled_date"] = scheduled
 
     if args.get("priority"):
@@ -143,9 +142,7 @@ async def get_task(client: httpx.AsyncClient, args: dict) -> str:
 
 async def create_task(client: httpx.AsyncClient, args: dict) -> str:
     """Create a new task."""
-    scheduled = args.get("scheduled_date")
-    if scheduled and scheduled.lower() == "today":
-        scheduled = datetime.now().strftime("%Y-%m-%d")
+    scheduled = parse_date_param(args.get("scheduled_date"))
 
     task_data = {
         "title": args.get("title", ""),
@@ -156,7 +153,9 @@ async def create_task(client: httpx.AsyncClient, args: dict) -> str:
     }
 
     if scheduled:
-        task_data["scheduled_date"] = f"{scheduled}T00:00:00Z"
+        # Format as full datetime for API
+        scheduled_dt = datetime.fromisoformat(f"{scheduled}T00:00:00")
+        task_data["scheduled_date"] = format_datetime_for_api(scheduled_dt)
 
     resp = await client.post(
         f"{API_URL}/api/tasks",
@@ -209,10 +208,10 @@ async def update_task(client: httpx.AsyncClient, args: dict) -> str:
     if "status" in args:
         update_data["status"] = args["status"]
     if "scheduled_date" in args:
-        scheduled = args["scheduled_date"]
-        if scheduled.lower() == "today":
-            scheduled = datetime.now().strftime("%Y-%m-%d")
-        update_data["scheduled_date"] = f"{scheduled}T00:00:00Z"
+        scheduled = parse_date_param(args["scheduled_date"])
+        if scheduled:
+            scheduled_dt = datetime.fromisoformat(f"{scheduled}T00:00:00")
+            update_data["scheduled_date"] = format_datetime_for_api(scheduled_dt)
 
     resp = await client.put(
         f"{API_URL}/api/tasks/{task_id}",
