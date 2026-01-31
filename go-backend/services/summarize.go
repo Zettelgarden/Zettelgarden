@@ -98,6 +98,9 @@ func executeLLMRequestWithRetry(ctx context.Context, c *models.LLMClient, messag
 	return openai.ChatCompletionResponse{}, fmt.Errorf("LLM request failed after %d retries: %w", MaxLLMRetries, lastErr)
 }
 
+// MaxChunkFailureRate is the maximum percentage of chunks that can fail before returning an error
+const MaxChunkFailureRate = 0.5 // 50%
+
 // ExtractThesesAndArguments processes input text into SectionAnalysis entries,
 // aggregating theses, facts, and arguments from each chunk.
 // Returns all analyses and usage statistics.
@@ -112,6 +115,7 @@ func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.Sect
 	var facts []string
 	var jsonRepairAttempts int
 	var jsonRepairSuccesses int
+	var failedChunks int // Track chunks that failed to process
 
 	totalPromptTokens := 0
 	totalCompletionTokens := 0
@@ -195,6 +199,16 @@ Format Example:
 			return nil, facts, models.Usage{}, err
 		}
 		if len(resp.Choices) == 0 {
+			log.Printf("[ERROR] LLM returned no choices for chunk %d/%d", len(completedSections)+1, len(chunks))
+			failedChunks++
+			// Save current section data before skipping this chunk to avoid data loss
+			if len(currentSectionAnalyses) > 0 {
+				completedSections = append(completedSections, currentSectionAnalyses...)
+				log.Printf("Saving current section data before skipping chunk with no LLM choices")
+				currentSectionAnalyses = nil
+				lastSectionName = ""
+				cacheValid = false
+			}
 			continue
 		}
 
@@ -230,7 +244,8 @@ The JSON should be an array of section analyses with this structure:
 			repairResp, err := executeLLMRequestWithRetry(ctx, c, repairMessages)
 			cancel()
 			if err != nil {
-				log.Printf("[METRICS] JSON repair failed - chunk_index=%d", len(completedSections))
+				log.Printf("[ERROR] JSON repair request failed - chunk_index=%d, error=%v", len(completedSections), err)
+				failedChunks++
 				// Save current section data before skipping this chunk to avoid data loss
 				if len(currentSectionAnalyses) > 0 {
 					completedSections = append(completedSections, currentSectionAnalyses...)
@@ -243,7 +258,8 @@ The JSON should be an array of section analyses with this structure:
 			}
 
 			if len(repairResp.Choices) == 0 {
-				log.Printf("No repair response from LLM")
+				log.Printf("[ERROR] LLM returned no choices for JSON repair - chunk_index=%d", len(completedSections))
+				failedChunks++
 				if len(currentSectionAnalyses) > 0 {
 					completedSections = append(completedSections, currentSectionAnalyses...)
 					log.Printf("Saving current section data before skipping chunk due to JSON error")
@@ -256,8 +272,9 @@ The JSON should be an array of section analyses with this structure:
 
 			repairContent := cleanContent(repairResp.Choices[0].Message.Content)
 			if err := json.Unmarshal([]byte(repairContent), &analysis); err != nil {
-				log.Printf("Repaired JSON still invalid: %v", err)
+				log.Printf("[ERROR] Repaired JSON still invalid - chunk_index=%d, error=%v", len(completedSections), err)
 				log.Printf("repaired content: %v", repairContent)
+				failedChunks++
 				// Save current section data before skipping this chunk to avoid data loss
 				if len(currentSectionAnalyses) > 0 {
 					completedSections = append(completedSections, currentSectionAnalyses...)
@@ -345,6 +362,22 @@ The JSON should be an array of section analyses with this structure:
 		totalCompletionTokens += resp.Usage.CompletionTokens
 	}
 
+	// Check if too many chunks failed
+	totalChunks := len(chunks)
+	if totalChunks > 0 {
+		failureRate := float64(failedChunks) / float64(totalChunks)
+		if failureRate > MaxChunkFailureRate {
+			log.Printf("[ERROR] Too many chunks failed - failed=%d/%d (%.1f%%), threshold=%.1f%%",
+				failedChunks, totalChunks, failureRate*100, MaxChunkFailureRate*100)
+			return nil, facts, models.Usage{}, fmt.Errorf("too many chunks failed: %d/%d (%.1f%%), threshold is %.1f%%",
+				failedChunks, totalChunks, failureRate*100, MaxChunkFailureRate*100)
+		}
+		if failedChunks > 0 {
+			log.Printf("[WARNING] Some chunks failed but within threshold - failed=%d/%d (%.1f%%), threshold=%.1f%%",
+				failedChunks, totalChunks, failureRate*100, MaxChunkFailureRate*100)
+		}
+	}
+
 	// Combine completed sections with current working sections for final output
 	var allAnalyses []models.SectionAnalysis
 	allAnalyses = append(allAnalyses, completedSections...)
@@ -364,10 +397,10 @@ The JSON should be an array of section analyses with this structure:
 	log.Printf("[METRICS] ExtractThesesAndArguments completed - "+
 		"duration=%v, sections=%d, theses=%d, facts=%d, "+
 		"prompt_tokens=%d, completion_tokens=%d, total_tokens=%d, cost=$%.4f, "+
-		"json_repairs=%d/%d, model=%s",
+		"json_repairs=%d/%d, failed_chunks=%d/%d, model=%s",
 		elapsed, len(allAnalyses), countTheses(allAnalyses), len(facts),
 		totalPromptTokens, totalCompletionTokens, totalPromptTokens+totalCompletionTokens, totalCost,
-		jsonRepairSuccesses, jsonRepairAttempts, c.Model)
+		jsonRepairSuccesses, jsonRepairAttempts, failedChunks, totalChunks, c.Model)
 
 	return allAnalyses, facts, models.Usage{
 		PromptTokens:     totalPromptTokens,
