@@ -14,6 +14,7 @@ interface CreateTaskWindowProps {
   setShowTaskWindow: (showTaskWindow: boolean) => void;
   currentFilter?: string;
   initialStatus?: string;
+  initialDate?: Date;
 }
 
 export function CreateTaskWindow({
@@ -21,13 +22,14 @@ export function CreateTaskWindow({
   setShowTaskWindow,
   currentFilter,
   initialStatus,
+  initialDate,
 }: CreateTaskWindowProps) {
   const { user } = useAuth();
   const userTimezone = user?.timezone || "UTC";
 
   const [newTask, setNewTask] = useState<Task>({
     ...emptyTask,
-    scheduled_date: getToday(userTimezone),
+    scheduled_date: initialDate || getToday(userTimezone),
     status: initialStatus || emptyTask.status || "todo",
   });
   const [selectedCard, setSelectedCard] = useState<PartialCard | null>(null);

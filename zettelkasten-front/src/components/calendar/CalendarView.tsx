@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import React, { useState, useCallback, useEffect, useRef } from "react";
+import { FaChevronLeft, FaChevronRight, FaPlus } from "react-icons/fa";
 import { Task } from "../../models/Task";
 import {
   CalendarDay,
@@ -29,6 +29,7 @@ interface CalendarViewProps {
   onViewModeChange: (viewMode: CalendarViewType) => void;
   onDayClick: (date: Date, events: CalendarEvent[]) => void;
   onEventClick: (event: CalendarEvent) => void;
+  onCreateTask?: (date: Date) => void;
   timezone?: string;
 }
 
@@ -40,9 +41,17 @@ export function CalendarView({
   onViewModeChange,
   onDayClick,
   onEventClick,
+  onCreateTask,
   timezone = "UTC",
 }: CalendarViewProps) {
   const [hoveredDay, setHoveredDay] = useState<Date | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    date: Date;
+  } | null>(null);
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(-1);
+  const calendarRef = useRef<HTMLDivElement>(null);
 
   // Convert tasks to calendar events
   const events = tasksToCalendarEvents(tasks, timezone);
@@ -65,6 +74,111 @@ export function CalendarView({
     e.stopPropagation();
     onEventClick(event);
   };
+
+  // Context menu handlers
+  const handleContextMenu = (e: React.MouseEvent, day: CalendarDay) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      date: day.date,
+    });
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  const handleContextMenuCreateTask = () => {
+    if (contextMenu && onCreateTask) {
+      onCreateTask(contextMenu.date);
+      closeContextMenu();
+    }
+  };
+
+  const handleContextMenuViewTasks = () => {
+    if (contextMenu) {
+      const dayEvents = events.filter(
+        e => format(e.date, "yyyy-MM-dd") === format(contextMenu.date, "yyyy-MM-dd")
+      );
+      onDayClick(contextMenu.date, dayEvents);
+      closeContextMenu();
+    }
+  };
+
+  // Close context menu on click outside
+  useEffect(() => {
+    const handleClickOutside = () => closeContextMenu();
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
+  // Keyboard navigation
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Only handle keyboard when calendar is focused or no input is focused
+    const target = e.target as HTMLElement;
+    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+      return;
+    }
+
+    const grid = viewMode === "month" ? generateMonthGrid(currentDate) : generateWeekGrid(currentDate);
+
+    switch (e.key) {
+      case "ArrowLeft":
+        e.preventDefault();
+        setSelectedDayIndex(prev => {
+          const newIndex = prev > 0 ? prev - 1 : grid.length - 1;
+          setHoveredDay(grid[newIndex].date);
+          return newIndex;
+        });
+        break;
+      case "ArrowRight":
+        e.preventDefault();
+        setSelectedDayIndex(prev => {
+          const newIndex = prev < grid.length - 1 ? prev + 1 : 0;
+          setHoveredDay(grid[newIndex].date);
+          return newIndex;
+        });
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setSelectedDayIndex(prev => {
+          const newIndex = prev >= 7 ? prev - 7 : prev;
+          setHoveredDay(grid[newIndex].date);
+          return newIndex;
+        });
+        break;
+      case "ArrowDown":
+        e.preventDefault();
+        setSelectedDayIndex(prev => {
+          const newIndex = prev < grid.length - 7 ? prev + 7 : prev;
+          setHoveredDay(grid[newIndex].date);
+          return newIndex;
+        });
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (selectedDayIndex >= 0 && hoveredDay) {
+          const dayEvents = events.filter(
+            e => format(e.date, "yyyy-MM-dd") === format(hoveredDay, "yyyy-MM-dd")
+          );
+          onDayClick(hoveredDay, dayEvents);
+        }
+        break;
+      case "Escape":
+        e.preventDefault();
+        closeContextMenu();
+        setSelectedDayIndex(-1);
+        setHoveredDay(null);
+        break;
+      }
+  }, [currentDate, events, hoveredDay, onDayClick, selectedDayIndex, viewMode]);
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   return (
     <div className="bg-white border border-slate-300 rounded-lg overflow-hidden">
@@ -144,12 +258,39 @@ export function CalendarView({
             key={index}
             day={day}
             isHovered={hoveredDay ? day.date.getTime() === hoveredDay.getTime() : false}
+            isSelected={selectedDayIndex === index}
             onHover={setHoveredDay}
             onDayClick={handleDayClick}
             onEventClick={handleEventClick}
+            onContextMenu={handleContextMenu}
           />
         ))}
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed bg-white border border-slate-300 rounded-lg shadow-lg py-1 z-50 min-w-[200px]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {onCreateTask && (
+            <button
+              onClick={handleContextMenuCreateTask}
+              className="w-full px-4 py-2 text-left hover:bg-slate-100 flex items-center gap-2"
+            >
+              <FaPlus size={14} />
+              Create Task
+            </button>
+          )}
+          <button
+            onClick={handleContextMenuViewTasks}
+            className="w-full px-4 py-2 text-left hover:bg-slate-100"
+          >
+            View Tasks
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -157,12 +298,22 @@ export function CalendarView({
 interface CalendarDayCellProps {
   day: CalendarDay;
   isHovered: boolean;
+  isSelected: boolean;
   onHover: (date: Date | null) => void;
   onDayClick: (day: CalendarDay) => void;
   onEventClick: (e: React.MouseEvent, event: CalendarEvent) => void;
+  onContextMenu: (e: React.MouseEvent, day: CalendarDay) => void;
 }
 
-function CalendarDayCell({ day, isHovered, onHover, onDayClick, onEventClick }: CalendarDayCellProps) {
+function CalendarDayCell({
+  day,
+  isHovered,
+  isSelected,
+  onHover,
+  onDayClick,
+  onEventClick,
+  onContextMenu,
+}: CalendarDayCellProps) {
   const visibleEvents = getVisibleEvents(day);
   const hiddenCount = getHiddenEventCount(day);
 
@@ -172,6 +323,7 @@ function CalendarDayCell({ day, isHovered, onHover, onDayClick, onEventClick }: 
     ${!day.isCurrentMonth ? "bg-slate-100 text-slate-400" : ""}
     ${isHovered ? "bg-slate-100" : "bg-white"}
     ${day.isToday && isHovered ? "bg-blue-100" : ""}
+    ${isSelected ? "ring-2 ring-blue-500 ring-inset" : ""}
   `;
 
   const dateNumberClasses = `
@@ -185,6 +337,7 @@ function CalendarDayCell({ day, isHovered, onHover, onDayClick, onEventClick }: 
       onMouseEnter={() => onHover(day.date)}
       onMouseLeave={() => onHover(null)}
       onClick={() => onDayClick(day)}
+      onContextMenu={(e) => onContextMenu(e, day)}
     >
       <div className={dateNumberClasses}>
         {format(day.date, "d")}
@@ -241,6 +394,7 @@ interface CalendarViewWrapperProps {
   onNavigate: (direction: "prev" | "next" | "today") => void;
   onViewModeChange: (viewMode: "month" | "week") => void;
   onTaskClick: (taskId: number) => void;
+  onCreateTask?: (date: Date) => void;
   timezone?: string;
 }
 
@@ -251,6 +405,7 @@ export function CalendarViewWrapper({
   onNavigate,
   onViewModeChange,
   onTaskClick,
+  onCreateTask,
   timezone,
 }: CalendarViewWrapperProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -269,6 +424,13 @@ export function CalendarViewWrapper({
     onTaskClick(event.taskId);
   };
 
+  const handleCreateTask = (date: Date) => {
+    if (onCreateTask) {
+      setSelectedDate(date);
+      onCreateTask(date);
+    }
+  };
+
   return (
     <div>
       <CalendarView
@@ -279,6 +441,7 @@ export function CalendarViewWrapper({
         onViewModeChange={onViewModeChange}
         onDayClick={handleDayClick}
         onEventClick={handleEventClick}
+        onCreateTask={onCreateTask}
         timezone={timezone}
       />
 
@@ -291,6 +454,7 @@ export function CalendarViewWrapper({
           )}
           onClose={() => setShowDayPopover(false)}
           onTaskClick={onTaskClick}
+          onCreateTask={() => handleCreateTask(selectedDate)}
         />
       )}
     </div>
@@ -302,9 +466,10 @@ interface DayPopoverProps {
   events: CalendarEvent[];
   onClose: () => void;
   onTaskClick: (taskId: number) => void;
+  onCreateTask?: () => void;
 }
 
-function DayPopover({ date, events, onClose, onTaskClick }: DayPopoverProps) {
+function DayPopover({ date, events, onClose, onTaskClick, onCreateTask }: DayPopoverProps) {
   // Group events by task to avoid duplicates
   const uniqueEvents = Array.from(groupEventsByTask(events).values());
 
@@ -325,7 +490,20 @@ function DayPopover({ date, events, onClose, onTaskClick }: DayPopoverProps) {
         </div>
         <div className="p-4">
           {uniqueEvents.length === 0 ? (
-            <p className="text-slate-500 text-center py-4">No tasks scheduled</p>
+            <div className="text-center py-4">
+              <p className="text-slate-500 mb-3">No tasks scheduled</p>
+              {onCreateTask && (
+                <button
+                  onClick={() => {
+                    onCreateTask();
+                    onClose();
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Create Task
+                </button>
+              )}
+            </div>
           ) : (
             <div className="space-y-2">
               {uniqueEvents.map((event) => (
@@ -346,6 +524,18 @@ function DayPopover({ date, events, onClose, onTaskClick }: DayPopoverProps) {
                   </div>
                 </div>
               ))}
+              {onCreateTask && (
+                <button
+                  onClick={() => {
+                    onCreateTask();
+                    onClose();
+                  }}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-2"
+                >
+                  <FaPlus size={14} />
+                  Create Task
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -38,6 +38,7 @@ export function TaskPage({ }: TaskListProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [createTaskStatus, setCreateTaskStatus] = useState<string | undefined>(undefined);
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | null>(null);
 
   // Ref to prevent infinite loops when syncing query and UI
   const isInternalUpdate = useRef(false);
@@ -158,6 +159,7 @@ export function TaskPage({ }: TaskListProps) {
 
   function toggleShowTaskWindow() {
     setCreateTaskStatus(undefined);
+    setCalendarSelectedDate(null); // Reset calendar date when opening from toolbar
     setShowCreateTaskWindow(!showCreateTaskWindow);
   }
 
@@ -394,6 +396,7 @@ export function TaskPage({ }: TaskListProps) {
             setShowTaskWindow={setShowCreateTaskWindow}
             currentFilter={settings.filterString}
             initialStatus={createTaskStatus}
+            initialDate={calendarSelectedDate || undefined}
           />
         )}
       </div>
@@ -414,6 +417,11 @@ export function TaskPage({ }: TaskListProps) {
             onTaskClick={(taskId) => {
               setSelectedTaskId(taskId);
               setIsTaskDialogOpen(true);
+            }}
+            onCreateTask={(date) => {
+              setCalendarSelectedDate(date);
+              setCreateTaskStatus(undefined);
+              setShowCreateTaskWindow(true);
             }}
             timezone={userTimezone}
           />
