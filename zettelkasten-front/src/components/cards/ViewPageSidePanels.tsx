@@ -2,7 +2,6 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, PartialCard } from "../../models/Card";
 import { Entity } from "../../models/Card";
-import { SectionAnalysis, SummarizeJobResponse } from "../../api/summarizer";
 import { HeaderSubSection } from "../Header";
 import { Button } from "../Button";
 import { CardItem } from "./CardItem";
@@ -17,12 +16,6 @@ interface ViewPageSidePanelsProps {
   nextSibling: PartialCard | null;
   linkedEntities: Entity[];
   onOpenEntity: (entity: Entity) => void;
-  showingSummary: boolean;
-  showingAnalysis: boolean;
-  latestSummary: SummarizeJobResponse | null;
-  analysis: SectionAnalysis[] | null;
-  setShowingSummary: (showing: boolean) => void;
-  setShowingAnalysis: (showing: boolean) => void;
   viewingCard: Card;
   tags: any[];
   onTagClick: (tagName: string) => void;
@@ -35,12 +28,6 @@ export function ViewPageSidePanels({
   nextSibling,
   linkedEntities,
   onOpenEntity,
-  showingSummary,
-  showingAnalysis,
-  latestSummary,
-  analysis,
-  setShowingSummary,
-  setShowingAnalysis,
   viewingCard,
   tags,
   onTagClick,
@@ -120,55 +107,6 @@ export function ViewPageSidePanels({
         </div>
       )}
 
-      {/* Card Views Section */}
-      {(latestSummary || (analysis && analysis.length > 0)) && (
-        <div>
-          <HeaderSubSection text="Card Views" />
-          <div className="">
-            <button
-              onClick={() => {
-                setShowingSummary(false);
-                setShowingAnalysis(false);
-              }}
-              className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${!showingSummary && !showingAnalysis
-                ? 'bg-blue-100 text-blue-800 font-medium'
-                : 'text-gray-600 hover:bg-gray-100'
-                }`}
-            >
-              📄 Show Card
-            </button>
-            {latestSummary && (
-              <button
-                onClick={() => {
-                  setShowingSummary(!showingSummary);
-                  if (showingAnalysis) setShowingAnalysis(false);
-                }}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${showingSummary
-                  ? 'bg-yellow-100 text-yellow-800 font-medium'
-                  : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-              >
-                📝 Show Summary
-              </button>
-            )}
-            {analysis && analysis.length > 0 && (
-              <button
-                onClick={() => {
-                  setShowingAnalysis(!showingAnalysis);
-                  if (showingSummary) setShowingSummary(false);
-                }}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${showingAnalysis
-                  ? 'bg-blue-100 text-blue-800 font-medium'
-                  : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-              >
-                🔍 Show Analysis
-              </button>
-            )}
-          </div>
-          <hr className="my-4" />
-        </div>
-      )}
       <div>
 
         <CardStructuredDataDisplay

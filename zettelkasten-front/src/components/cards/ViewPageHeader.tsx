@@ -4,6 +4,8 @@ import { Card } from "../../models/Card";
 import { Button } from "../Button";
 import { PinButton } from "./PinButton";
 
+type ViewMode = 'normal' | 'tree' | 'summary' | 'analysis';
+
 interface ViewPageHeaderProps {
   viewingCard: Card;
   isPinned: boolean;
@@ -15,8 +17,8 @@ interface ViewPageHeaderProps {
   onResummarize: () => void;
   onRecategorize: () => void;
   showIdDiscovery: boolean;
-  viewMode: 'normal' | 'tree';
-  onToggleViewMode: () => void;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
   onNavigateParent?: () => void;
 }
 
@@ -32,7 +34,7 @@ export function ViewPageHeader({
   onRecategorize,
   showIdDiscovery,
   viewMode,
-  onToggleViewMode,
+  onViewModeChange,
 }: ViewPageHeaderProps) {
   return (
     <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white rounded-lg p-3 shadow-sm">
@@ -73,17 +75,58 @@ export function ViewPageHeader({
           </div>
           <Menu.Items className="origin-top-left md:origin-top-right absolute right-0 md:right-0 left-0 md:left-auto mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
             <div className="py-1">
+              {/* View Mode Selector Section */}
+              <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase">View Mode</div>
               <Menu.Item>
                 {({ active }) => (
                   <button
-                    onClick={onToggleViewMode}
+                    onClick={() => onViewModeChange('normal')}
                     className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                      } ${viewMode === 'normal' ? 'bg-blue-50 font-medium' : ''
                       } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
                   >
-                    {viewMode === 'tree' ? '📋 Switch to Normal View' : '📂 Switch to Tree View'}
+                    📄 Normal View
                   </button>
                 )}
               </Menu.Item>
+              <Menu.Item>
+                {({ active }) => (
+                  <button
+                    onClick={() => onViewModeChange('tree')}
+                    className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                      } ${viewMode === 'tree' ? 'bg-blue-50 font-medium' : ''
+                      } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                  >
+                    📂 Tree View
+                  </button>
+                )}
+              </Menu.Item>
+              <Menu.Item>
+                {({ active }) => (
+                  <button
+                    onClick={() => onViewModeChange('summary')}
+                    className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                      } ${viewMode === 'summary' ? 'bg-blue-50 font-medium' : ''
+                      } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                  >
+                    📝 Summary View
+                  </button>
+                )}
+              </Menu.Item>
+              <Menu.Item>
+                {({ active }) => (
+                  <button
+                    onClick={() => onViewModeChange('analysis')}
+                    className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                      } ${viewMode === 'analysis' ? 'bg-blue-50 font-medium' : ''
+                      } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                  >
+                    🔍 Analysis View
+                  </button>
+                )}
+              </Menu.Item>
+              <div className="border-t border-gray-100 my-1"></div>
+              <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase">Actions</div>
               <Menu.Item>
                 {({ active }) => (
                   <button

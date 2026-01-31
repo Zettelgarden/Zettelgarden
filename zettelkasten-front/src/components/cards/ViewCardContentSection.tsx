@@ -58,7 +58,7 @@ export function ViewCardContentSection({
   const sortedOutgoing = sortPartialCards(categorizedReferences.outgoing, referencesSortMethod);
 
   return (
-    <div className="md:w-2/3 space-y-4">
+    <div className="space-y-4">
       <div
         className={`rounded-lg py-3 prose prose-sm shadow-sm max-w-none px-3 ${showingSummary ? "bg-yellow-50 border border-yellow-200" : showingAnalysis ? "bg-blue-50 border border-blue-200" : "bg-white"
           }`}

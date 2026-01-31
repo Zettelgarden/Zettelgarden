@@ -4,6 +4,8 @@ import { ViewCardContentSection } from "../../components/cards/ViewCardContentSe
 import { ViewPageSidePanels } from "../../components/cards/ViewPageSidePanels";
 import { CardIdDiscoveryDialog } from "../../components/cards/CardIdDiscoveryDialog";
 import { CardTreeView } from "../../components/cards/CardTreeView/CardTreeView";
+import { ViewSummaryView } from "../../components/cards/ViewSummaryView";
+import { ViewAnalysisView } from "../../components/cards/ViewAnalysisView";
 import { useViewPageContainer } from "./ViewPageContainer";
 import { useTagContext } from "../../contexts/TagContext";
 import { useUIState } from "../../contexts/UIStateContext";
@@ -21,7 +23,8 @@ export function ViewPage({ cardId }: ViewPageProps) {
   const { pinnedCard } = useUIState();
 
   const fileUploadRef = useRef<HTMLInputElement>(null);
-  const [viewMode, setViewMode] = useState<'normal' | 'tree'>('normal');
+  type ViewMode = 'normal' | 'tree' | 'summary' | 'analysis';
+  const [viewMode, setViewMode] = useState<ViewMode>('normal');
 
   const {
     data,
@@ -39,8 +42,6 @@ export function ViewPage({ cardId }: ViewPageProps) {
     summaries,
     latestSummary,
     analysis,
-    showingSummary,
-    showingAnalysis,
     showIdDiscovery,
     error,
   } = data;
@@ -48,8 +49,6 @@ export function ViewPage({ cardId }: ViewPageProps) {
   const {
     setViewCard,
     setError,
-    setShowingSummary,
-    setShowingAnalysis,
   } = setters;
 
   const {
@@ -99,7 +98,7 @@ export function ViewPage({ cardId }: ViewPageProps) {
             onRecategorize={onRecategorize}
             showIdDiscovery={showIdDiscovery}
             viewMode={viewMode}
-            onToggleViewMode={() => setViewMode(viewMode === 'normal' ? 'tree' : 'normal')}
+            onViewModeChange={(mode) => setViewMode(mode)}
             onNavigateParent={viewingCard.parent ? () => setViewCard({
               id: viewingCard.parent!.id,
               card_id: viewingCard.parent!.card_id,
@@ -122,54 +121,65 @@ export function ViewPage({ cardId }: ViewPageProps) {
             }) : undefined}
           />
 
-          <div className="">
-            {viewMode === 'tree' ? (
-              <CardTreeView
-                rootCardId={viewingCard.id}
-                displayMode="full"
-                height="600px"
-                onCardSelect={(selectedCard) => {
-                  // Navigate to the selected card in tree view
-                  // Convert ProcessedCardWithDescendants to Card format
-                  setViewCard({
-                    id: selectedCard.id,
-                    card_id: selectedCard.card_id,
-                    user_id: selectedCard.user_id,
-                    title: selectedCard.title || "",
-                    body: selectedCard.body || "",
-                    link: selectedCard.link || "",
-                    is_deleted: false,
-                    created_at: selectedCard.created_at,
-                    updated_at: selectedCard.updated_at,
-                    parent_id: selectedCard.parent_id,
-                    parent: viewingCard.parent, // Reuse existing parent data
-                    files: [], // Tree data doesn't include files
-                    children: selectedCard.descendants?.map(d => ({
-                      id: d.id,
-                      card_id: d.card_id,
-                      user_id: d.user_id,
-                      title: d.title || "",
-                      parent_id: d.parent_id,
-                      created_at: d.created_at,
-                      updated_at: d.updated_at,
-                      tags: [] // Tree data doesn't include tags
-                    })) || [],
-                    references: [],
-                    tags: [],
-                    tasks: [], // Tree data doesn't include tasks
-                    entities: [], // Tree data doesn't include entities
-                    is_starred: false
-                  });
-                  // Note: We could trigger a fetch of the full card data here if needed
-                  refreshCard();
-                }}
-              />
-            ) : (
-              <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Main Content Area - varies by view mode */}
+            <div className="flex md:w-2/3 space-y-4">
+              {viewMode === 'tree' && (
+                <CardTreeView
+                  rootCardId={viewingCard.id}
+                  displayMode="full"
+                  height="600px"
+                  onCardSelect={(selectedCard) => {
+                    // Navigate to the selected card in tree view
+                    // Convert ProcessedCardWithDescendants to Card format
+                    setViewCard({
+                      id: selectedCard.id,
+                      card_id: selectedCard.card_id,
+                      user_id: selectedCard.user_id,
+                      title: selectedCard.title || "",
+                      body: selectedCard.body || "",
+                      link: selectedCard.link || "",
+                      is_deleted: false,
+                      created_at: selectedCard.created_at,
+                      updated_at: selectedCard.updated_at,
+                      parent_id: selectedCard.parent_id,
+                      parent: viewingCard.parent, // Reuse existing parent data
+                      files: [], // Tree data doesn't include files
+                      children: selectedCard.descendants?.map(d => ({
+                        id: d.id,
+                        card_id: d.card_id,
+                        user_id: d.user_id,
+                        title: d.title || "",
+                        parent_id: d.parent_id,
+                        created_at: d.created_at,
+                        updated_at: d.updated_at,
+                        tags: [] // Tree data doesn't include tags
+                      })) || [],
+                      references: [],
+                      tags: [],
+                      tasks: [], // Tree data doesn't include tasks
+                      entities: [], // Tree data doesn't include entities
+                      is_starred: false
+                    });
+                    // Note: We could trigger a fetch of the full card data here if needed
+                    refreshCard();
+                  }}
+                />
+              )}
+
+              {viewMode === 'summary' && (
+                <ViewSummaryView summary={latestSummary} />
+              )}
+
+              {viewMode === 'analysis' && (
+                <ViewAnalysisView analysis={analysis} />
+              )}
+
+              {viewMode === 'normal' && (
                 <ViewCardContentSection
                   viewingCard={viewingCard}
-                  showingSummary={showingSummary}
-                  showingAnalysis={showingAnalysis}
+                  showingSummary={false}
+                  showingAnalysis={false}
                   latestSummary={latestSummary}
                   analysis={analysis}
                   onCreateChildCard={onCreateChildCard}
@@ -183,26 +193,21 @@ export function ViewPage({ cardId }: ViewPageProps) {
                   setShowFactDialog={setShowFactDialog}
                   fileUploadRef={fileUploadRef}
                 />
+              )}
+            </div>
 
-                <ViewPageSidePanels
-                  parentCard={parentCard}
-                  prevSibling={prevSibling}
-                  nextSibling={nextSibling}
-                  linkedEntities={linkedEntities}
-                  onOpenEntity={handleOpenEntity}
-                  showingSummary={showingSummary}
-                  showingAnalysis={showingAnalysis}
-                  latestSummary={latestSummary}
-                  analysis={analysis}
-                  setShowingSummary={setShowingSummary}
-                  setShowingAnalysis={setShowingAnalysis}
-                  viewingCard={viewingCard}
-                  tags={tags}
-                  onTagClick={onTagClick}
-                  onRemoveTag={onRemoveTag}
-                />
-              </div>
-            )}
+            {/* Side Panels - always visible */}
+            <ViewPageSidePanels
+              parentCard={parentCard}
+              prevSibling={prevSibling}
+              nextSibling={nextSibling}
+              linkedEntities={linkedEntities}
+              onOpenEntity={handleOpenEntity}
+              viewingCard={viewingCard}
+              tags={tags}
+              onTagClick={onTagClick}
+              onRemoveTag={onRemoveTag}
+            />
           </div>
         </div>
       )}
