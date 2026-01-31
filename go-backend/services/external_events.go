@@ -5,13 +5,45 @@ import (
 	"fmt"
 	"go-backend/models"
 	"log"
+	"regexp"
 	"strings"
 	"time"
+)
+
+const (
+	// MinSyncIntervalHours is the minimum allowed sync interval (1 hour)
+	MinSyncIntervalHours = 1
+	// MaxSyncIntervalHours is the maximum allowed sync interval (7 days)
+	MaxSyncIntervalHours = 168
+	// SyncCooldownMinutes is the minimum time between sync operations
+	SyncCooldownMinutes = 5
+	// MaxICalFeedSizeBytes is the maximum allowed size for an iCal feed response
+	MaxICalFeedSizeBytes = 10 * 1024 * 1024 // 10MB
 )
 
 // ExternalEventService handles external calendar event operations
 type ExternalEventService struct {
 	db models.Database
+}
+
+// isValidHexColor checks if a color string is a valid hex color code
+func isValidHexColor(color string) bool {
+	if color == "" {
+		return false
+	}
+	matched, _ := regexp.MatchString("^#[0-9a-fA-F]{6}$", color)
+	return matched
+}
+
+// validateSyncIntervalHours checks if the sync interval is within valid bounds
+func validateSyncIntervalHours(hours *int) error {
+	if hours == nil {
+		return nil // nil is valid, means no change
+	}
+	if *hours < MinSyncIntervalHours || *hours > MaxSyncIntervalHours {
+		return fmt.Errorf("sync_interval_hours must be between %d and %d", MinSyncIntervalHours, MaxSyncIntervalHours)
+	}
+	return nil
 }
 
 // NewExternalEventService creates a new ExternalEventService instance
@@ -21,28 +53,48 @@ func NewExternalEventService(db models.Database) *ExternalEventService {
 
 // SyncExternalCalendar fetches and imports events from an external calendar
 func (s *ExternalEventService) SyncExternalCalendar(calendarID int, userID int) error {
-	// Get calendar details
+	log.Printf("[Sync] Starting sync for calendar %d (user %d)", calendarID, userID)
+
+	// Get calendar details with last_synced_at for cooldown check
 	var url string
 	var color string
+	var lastSyncedAt sql.NullTime
 	err := s.db.QueryRow(`
-		SELECT url, color
+		SELECT url, color, last_synced_at
 		FROM external_calendars
 		WHERE id = $1 AND user_id = $2
-	`, calendarID, userID).Scan(&url, &color)
+	`, calendarID, userID).Scan(&url, &color, &lastSyncedAt)
 
 	if err == sql.ErrNoRows {
+		log.Printf("[Sync] Calendar %d not found for user %d", calendarID, userID)
 		return fmt.Errorf("calendar not found")
 	}
 	if err != nil {
+		log.Printf("[Sync] Failed to get calendar %d: %v", calendarID, err)
 		return fmt.Errorf("failed to get calendar: %w", err)
 	}
 
+	// Check sync cooldown
+	if lastSyncedAt.Valid {
+		timeSinceLastSync := time.Since(lastSyncedAt.Time)
+		cooldownDuration := time.Duration(SyncCooldownMinutes) * time.Minute
+		if timeSinceLastSync < cooldownDuration {
+			remaining := cooldownDuration - timeSinceLastSync
+			log.Printf("[Sync] Calendar %d is in cooldown, %.0f minutes remaining", calendarID, remaining.Minutes())
+			return fmt.Errorf("sync cooldown active, please wait %.0f minutes", remaining.Minutes())
+		}
+	}
+
+	log.Printf("[Sync] Fetching events from iCal feed for calendar %d", calendarID)
 	// Fetch events from iCal feed
 	icalEvents, err := FetchICalURL(url)
 	if err != nil {
+		log.Printf("[Sync] Failed to fetch iCal feed for calendar %d: %v", calendarID, err)
 		s.UpdateLastSyncError(calendarID, err.Error())
 		return fmt.Errorf("failed to fetch events: %w", err)
 	}
+
+	log.Printf("[Sync] Fetched %d events from iCal feed for calendar %d", len(icalEvents), calendarID)
 
 	// Import events
 	successCount := 0
@@ -50,14 +102,14 @@ func (s *ExternalEventService) SyncExternalCalendar(calendarID int, userID int) 
 	for _, event := range icalEvents {
 		err := s.importEvent(calendarID, userID, event, color)
 		if err != nil {
-			log.Printf("Failed to import event %s: %v", event.UID, err)
+			log.Printf("[Sync] Failed to import event %s: %v", event.UID, err)
 			errorCount++
 		} else {
 			successCount++
 		}
 	}
 
-	log.Printf("Synced calendar %d: %d events imported, %d errors", calendarID, successCount, errorCount)
+	log.Printf("[Sync] Synced calendar %d: %d events imported, %d errors", calendarID, successCount, errorCount)
 
 	// Update last synced timestamp and clear error
 	s.UpdateLastSynced(calendarID)
@@ -111,9 +163,31 @@ func (s *ExternalEventService) importEvent(calendarID, userID int, event ICalEve
 	return err
 }
 
-// GetEventsInRange returns events for a user within a date range
-func (s *ExternalEventService) GetEventsInRange(userID int, start, end time.Time) ([]models.ExternalEvent, error) {
-	rows, err := s.db.Query(`
+// GetEventsInRange returns events for a user within a date range with pagination
+func (s *ExternalEventService) GetEventsInRange(userID int, start, end time.Time, limit, offset int) ([]models.ExternalEvent, int, error) {
+	// First, get the total count
+	var total int
+	err := s.db.QueryRow(`
+		SELECT COUNT(*)
+		FROM external_events
+		WHERE user_id = $1
+		  AND start_time >= $2
+		  AND end_time <= $3
+	`, userID, start, end).Scan(&total)
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Set default pagination values
+	if limit <= 0 {
+		limit = 100 // Default limit
+	}
+	if limit > 1000 {
+		limit = 1000 // Max limit to prevent excessive results
+	}
+
+	query := `
 		SELECT id, user_id, external_calendar_id, title, description,
 		       start_time, end_time, all_day, location,
 		       external_uid, external_url, recurrence_rule, color,
@@ -123,10 +197,12 @@ func (s *ExternalEventService) GetEventsInRange(userID int, start, end time.Time
 		  AND start_time >= $2
 		  AND end_time <= $3
 		ORDER BY start_time
-	`, userID, start, end)
+		LIMIT $4 OFFSET $5
+	`
 
+	rows, err := s.db.Query(query, userID, start, end, limit, offset)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -145,7 +221,7 @@ func (s *ExternalEventService) GetEventsInRange(userID int, start, end time.Time
 			&event.CreatedAt, &event.UpdatedAt, &lastSyncedAt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		// Convert null fields
@@ -178,7 +254,7 @@ func (s *ExternalEventService) GetEventsInRange(userID int, start, end time.Time
 		events = append(events, event)
 	}
 
-	return events, nil
+	return events, total, nil
 }
 
 // GetCalendars returns all external calendars for a user
@@ -231,10 +307,12 @@ func (s *ExternalEventService) CreateCalendar(userID int, req models.CreateExter
 		return nil, fmt.Errorf("invalid iCal URL: %w", err)
 	}
 
-	// Set default color if not provided
+	// Validate and set color
 	color := req.Color
 	if color == "" {
 		color = "#6366f1" // Default indigo
+	} else if !isValidHexColor(color) {
+		return nil, fmt.Errorf("invalid color format: must be a hex color code (e.g., #6366f1)")
 	}
 
 	var id int
@@ -288,6 +366,23 @@ func (s *ExternalEventService) GetCalendar(calendarID, userID int) (*models.Exte
 
 // UpdateCalendar updates an existing calendar
 func (s *ExternalEventService) UpdateCalendar(calendarID, userID int, req models.UpdateExternalCalendarRequest) error {
+	// Validate sync_interval_hours if provided
+	if err := validateSyncIntervalHours(req.SyncIntervalHours); err != nil {
+		return err
+	}
+
+	// Validate color if provided
+	if req.Color != nil && *req.Color != "" && !isValidHexColor(*req.Color) {
+		return fmt.Errorf("invalid color format: must be a hex color code (e.g., #6366f1)")
+	}
+
+	// Validate URL if provided (re-validate to prevent SSRF bypass)
+	if req.URL != nil {
+		if err := ValidateICalURL(*req.URL); err != nil {
+			return fmt.Errorf("invalid iCal URL: %w", err)
+		}
+	}
+
 	// Build dynamic update query
 	updates := []string{}
 	args := []interface{}{}

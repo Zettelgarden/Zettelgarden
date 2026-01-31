@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -159,12 +161,12 @@ func parseICalDateTime(value string, params []string) time.Time {
 
 // FetchICalURL fetches an iCal feed from a URL
 // Returns the parsed events from the feed
-func FetchICalURL(url string) ([]ICalEvent, error) {
+func FetchICalURL(feedURL string) ([]ICalEvent, error) {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
 
-	resp, err := client.Get(url)
+	resp, err := client.Get(feedURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch iCal feed: %w", err)
 	}
@@ -174,6 +176,11 @@ func FetchICalURL(url string) ([]ICalEvent, error) {
 		return nil, fmt.Errorf("iCal feed returned status %d", resp.StatusCode)
 	}
 
+	// Check content-length header to prevent memory exhaustion
+	if resp.ContentLength > MaxICalFeedSizeBytes {
+		return nil, fmt.Errorf("iCal feed too large (%d bytes, max %d bytes)", resp.ContentLength, MaxICalFeedSizeBytes)
+	}
+
 	// Check content type
 	contentType := resp.Header.Get("Content-Type")
 	if !strings.Contains(contentType, "text/calendar") && !strings.Contains(contentType, "text/plain") {
@@ -181,7 +188,10 @@ func FetchICalURL(url string) ([]ICalEvent, error) {
 		// Some servers return incorrect content types
 	}
 
-	events, err := ParseICalendar(resp.Body)
+	// Limit the reader to prevent memory exhaustion for feeds without content-length header
+	limitedReader := io.LimitReader(resp.Body, MaxICalFeedSizeBytes)
+
+	events, err := ParseICalendar(limitedReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse iCal feed: %w", err)
 	}
@@ -189,19 +199,82 @@ func FetchICalURL(url string) ([]ICalEvent, error) {
 	return events, nil
 }
 
+// ValidatePublicURL validates that a URL is safe to fetch (SSRF protection)
+// Blocks private/internal IP addresses and localhost
+// Exported for use by other services (e.g., CalDAV)
+func ValidatePublicURL(rawURL string) error {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+
+	// Block non-http/https schemes (should already be checked, but be safe)
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return fmt.Errorf("unsupported URL scheme")
+	}
+
+	host := parsedURL.Hostname()
+	if host == "" {
+		return fmt.Errorf("invalid URL host")
+	}
+
+	// Check if host is an IP address
+	ip := net.ParseIP(host)
+	if ip != nil {
+		// Block private IPs (RFC1918)
+		if ip.IsPrivate() {
+			return fmt.Errorf("private IP addresses are not allowed")
+		}
+		// Block loopback addresses
+		if ip.IsLoopback() {
+			return fmt.Errorf("loopback addresses are not allowed")
+		}
+		// Block link-local addresses
+		if ip.IsLinkLocalUnicast() {
+			return fmt.Errorf("link-local addresses are not allowed")
+		}
+		// Block reserved addresses
+		if ip.IsInterfaceLocalMulticast() || ip.IsLinkLocalMulticast() {
+			return fmt.Errorf("reserved addresses are not allowed")
+		}
+	} else {
+		// For domain names, check for common internal/internal-like domains
+		lowerHost := strings.ToLower(host)
+		internalDomains := []string{
+			"localhost",
+			"local",
+			"localhost.localdomain",
+			".local", // mDNS/Bonjour
+			"0.0.0.0",
+		}
+		for _, internal := range internalDomains {
+			if lowerHost == internal || strings.HasSuffix(lowerHost, "."+internal) {
+				return fmt.Errorf("internal domain names are not allowed")
+			}
+		}
+	}
+
+	return nil
+}
+
 // ValidateICalURL checks if a URL is a valid iCal feed
 // Attempts to fetch and parse the feed to verify it works
-func ValidateICalURL(url string) error {
-	if url == "" {
+func ValidateICalURL(rawURL string) error {
+	if rawURL == "" {
 		return fmt.Errorf("URL is empty")
 	}
 
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
 		return fmt.Errorf("URL must start with http:// or https://")
 	}
 
+	// Validate URL to prevent SSRF attacks
+	if err := ValidatePublicURL(rawURL); err != nil {
+		return err
+	}
+
 	// Try to fetch and parse
-	events, err := FetchICalURL(url)
+	events, err := FetchICalURL(rawURL)
 	if err != nil {
 		return err
 	}

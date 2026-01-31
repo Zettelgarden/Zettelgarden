@@ -330,6 +330,11 @@ func (s *CalDAVService) ValidateCalDAVURL(caldavURL string) error {
 		return fmt.Errorf("CalDAV URL must start with http:// or https://")
 	}
 
+	// Apply SSRF protection to prevent access to internal resources
+	if err := ValidatePublicURL(caldavURL); err != nil {
+		return fmt.Errorf("CalDAV URL security check failed: %w", err)
+	}
+
 	// Try to make a simple GET request to verify accessibility
 	resp, err := s.MakeCalDAVRequest("GET", caldavURL, nil, "", "")
 	if err != nil {

@@ -8,20 +8,44 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gorilla/mux"
 )
 
+const (
+	// MaxCalendarNameLength is the maximum allowed length for calendar names
+	MaxCalendarNameLength = 255
+)
+
+// ErrorResponse represents a standardized error response
+type ErrorResponse struct {
+	Error string `json:"error"`
+	Code  string `json:"code,omitempty"`
+}
+
+// respondWithError sends a standardized error response
+func respondWithError(w http.ResponseWriter, status int, code, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(ErrorResponse{Error: message, Code: code})
+}
+
 // ListExternalCalendarsRoute handles GET /api/user/external-calendars
 func (s *Handler) ListExternalCalendarsRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, err := getUserID(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "UNAUTHORIZED", err.Error())
+		return
+	}
 
 	svc := services.NewExternalEventService(s.GetDB())
 	calendars, err := svc.GetCalendars(userID)
 	if err != nil {
 		log.Printf("Error fetching external calendars: %v", err)
-		http.Error(w, "Failed to fetch calendars", http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch calendars")
 		return
 	}
 
@@ -31,21 +55,35 @@ func (s *Handler) ListExternalCalendarsRoute(w http.ResponseWriter, r *http.Requ
 
 // CreateExternalCalendarRoute handles POST /api/user/external-calendars
 func (s *Handler) CreateExternalCalendarRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, err := getUserID(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "UNAUTHORIZED", err.Error())
+		return
+	}
 
 	var req models.CreateExternalCalendarRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "INVALID_BODY", "Invalid request body")
 		return
 	}
 
 	// Validate required fields
 	if req.Name == "" {
-		http.Error(w, "Name is required", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "MISSING_NAME", "Name is required")
+		return
+	}
+	// Validate name length (in runes for proper UTF-8 handling)
+	if utf8.RuneCountInString(req.Name) > MaxCalendarNameLength {
+		respondWithError(w, http.StatusBadRequest, "NAME_TOO_LONG", fmt.Sprintf("Name must be at most %d characters", MaxCalendarNameLength))
+		return
+	}
+	// Check for whitespace-only name
+	if strings.TrimSpace(req.Name) == "" {
+		respondWithError(w, http.StatusBadRequest, "INVALID_NAME", "Name cannot be empty or whitespace only")
 		return
 	}
 	if req.URL == "" {
-		http.Error(w, "URL is required", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "MISSING_URL", "URL is required")
 		return
 	}
 
@@ -53,7 +91,14 @@ func (s *Handler) CreateExternalCalendarRoute(w http.ResponseWriter, r *http.Req
 	calendar, err := svc.CreateCalendar(userID, req)
 	if err != nil {
 		log.Printf("Error creating external calendar: %v", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		// Determine error code based on error message
+		code := "CREATE_FAILED"
+		if strings.Contains(err.Error(), "invalid iCal URL") {
+			code = "INVALID_URL"
+		} else if strings.Contains(err.Error(), "invalid color format") {
+			code = "INVALID_COLOR"
+		}
+		respondWithError(w, http.StatusBadRequest, code, err.Error())
 		return
 	}
 
@@ -64,24 +109,53 @@ func (s *Handler) CreateExternalCalendarRoute(w http.ResponseWriter, r *http.Req
 
 // UpdateExternalCalendarRoute handles PUT /api/user/external-calendars/{id}
 func (s *Handler) UpdateExternalCalendarRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, err := getUserID(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "UNAUTHORIZED", err.Error())
+		return
+	}
+
 	vars := mux.Vars(r)
 	calendarID, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		http.Error(w, "Invalid calendar ID", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "INVALID_ID", "Invalid calendar ID")
 		return
 	}
 
 	var req models.UpdateExternalCalendarRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "INVALID_BODY", "Invalid request body")
 		return
+	}
+
+	// Validate name length if provided
+	if req.Name != nil {
+		name := strings.TrimSpace(*req.Name)
+		if name == "" {
+			respondWithError(w, http.StatusBadRequest, "INVALID_NAME", "Name cannot be empty or whitespace only")
+			return
+		}
+		if utf8.RuneCountInString(name) > MaxCalendarNameLength {
+			respondWithError(w, http.StatusBadRequest, "NAME_TOO_LONG", fmt.Sprintf("Name must be at most %d characters", MaxCalendarNameLength))
+			return
+		}
 	}
 
 	svc := services.NewExternalEventService(s.GetDB())
 	if err := svc.UpdateCalendar(calendarID, userID, req); err != nil {
 		log.Printf("Error updating external calendar: %v", err)
-		http.Error(w, "Failed to update calendar", http.StatusInternalServerError)
+		// Determine error code based on error message
+		code := "UPDATE_FAILED"
+		if strings.Contains(err.Error(), "sync_interval_hours must be between") {
+			code = "INVALID_SYNC_INTERVAL"
+		} else if strings.Contains(err.Error(), "invalid color format") {
+			code = "INVALID_COLOR"
+		}
+		status := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "must be between") || strings.Contains(err.Error(), "invalid color") {
+			status = http.StatusBadRequest
+		}
+		respondWithError(w, status, code, err.Error())
 		return
 	}
 
@@ -89,7 +163,7 @@ func (s *Handler) UpdateExternalCalendarRoute(w http.ResponseWriter, r *http.Req
 	calendar, err := svc.GetCalendar(calendarID, userID)
 	if err != nil {
 		log.Printf("Error fetching updated calendar: %v", err)
-		http.Error(w, "Calendar not found", http.StatusNotFound)
+		respondWithError(w, http.StatusNotFound, "NOT_FOUND", "Calendar not found")
 		return
 	}
 
@@ -99,18 +173,23 @@ func (s *Handler) UpdateExternalCalendarRoute(w http.ResponseWriter, r *http.Req
 
 // DeleteExternalCalendarRoute handles DELETE /api/user/external-calendars/{id}
 func (s *Handler) DeleteExternalCalendarRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, err := getUserID(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "UNAUTHORIZED", err.Error())
+		return
+	}
+
 	vars := mux.Vars(r)
 	calendarID, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		http.Error(w, "Invalid calendar ID", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "INVALID_ID", "Invalid calendar ID")
 		return
 	}
 
 	svc := services.NewExternalEventService(s.GetDB())
 	if err := svc.DeleteCalendar(calendarID, userID); err != nil {
 		log.Printf("Error deleting external calendar: %v", err)
-		http.Error(w, err.Error(), http.StatusNotFound)
+		respondWithError(w, http.StatusNotFound, "NOT_FOUND", err.Error())
 		return
 	}
 
@@ -119,18 +198,34 @@ func (s *Handler) DeleteExternalCalendarRoute(w http.ResponseWriter, r *http.Req
 
 // SyncExternalCalendarRoute handles POST /api/user/external-calendars/{id}/sync
 func (s *Handler) SyncExternalCalendarRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, err := getUserID(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "UNAUTHORIZED", err.Error())
+		return
+	}
+
 	vars := mux.Vars(r)
 	calendarID, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		http.Error(w, "Invalid calendar ID", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "INVALID_ID", "Invalid calendar ID")
 		return
 	}
 
 	svc := services.NewExternalEventService(s.GetDB())
 	if err := svc.SyncExternalCalendar(calendarID, userID); err != nil {
 		log.Printf("Error syncing external calendar: %v", err)
-		http.Error(w, fmt.Sprintf("Sync failed: %s", err.Error()), http.StatusInternalServerError)
+		// Determine error code based on error message
+		code := "SYNC_FAILED"
+		if strings.Contains(err.Error(), "sync cooldown active") {
+			code = "SYNC_COOLDOWN"
+		} else if strings.Contains(err.Error(), "calendar not found") {
+			code = "NOT_FOUND"
+		}
+		status := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "cooldown") || strings.Contains(err.Error(), "not found") {
+			status = http.StatusBadRequest
+		}
+		respondWithError(w, status, code, err.Error())
 		return
 	}
 
@@ -138,7 +233,7 @@ func (s *Handler) SyncExternalCalendarRoute(w http.ResponseWriter, r *http.Reque
 	calendar, err := svc.GetCalendar(calendarID, userID)
 	if err != nil {
 		log.Printf("Error fetching synced calendar: %v", err)
-		http.Error(w, "Calendar not found", http.StatusNotFound)
+		respondWithError(w, http.StatusNotFound, "NOT_FOUND", "Calendar not found")
 		return
 	}
 
@@ -148,37 +243,72 @@ func (s *Handler) SyncExternalCalendarRoute(w http.ResponseWriter, r *http.Reque
 
 // GetExternalEventsRoute handles GET /api/user/external-events
 func (s *Handler) GetExternalEventsRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
+	userID, err := getUserID(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "UNAUTHORIZED", err.Error())
+		return
+	}
 
 	// Parse date range from query params
 	startStr := r.URL.Query().Get("start")
 	endStr := r.URL.Query().Get("end")
 
 	if startStr == "" || endStr == "" {
-		http.Error(w, "start and end query parameters are required", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "MISSING_PARAMS", "start and end query parameters are required")
 		return
 	}
 
 	start, err := time.Parse(time.RFC3339, startStr)
 	if err != nil {
-		http.Error(w, "Invalid start date format (use RFC3339)", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "INVALID_DATE_FORMAT", "Invalid start date format (use RFC3339)")
 		return
 	}
 
 	end, err := time.Parse(time.RFC3339, endStr)
 	if err != nil {
-		http.Error(w, "Invalid end date format (use RFC3339)", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "INVALID_DATE_FORMAT", "Invalid end date format (use RFC3339)")
 		return
+	}
+
+	// Parse pagination params
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 0  // Default will be set by service
+	offset := 0 // Default
+
+	if limitStr != "" {
+		limit, err = strconv.Atoi(limitStr)
+		if err != nil || limit < 0 {
+			respondWithError(w, http.StatusBadRequest, "INVALID_LIMIT", "Invalid limit parameter")
+			return
+		}
+	}
+
+	if offsetStr != "" {
+		offset, err = strconv.Atoi(offsetStr)
+		if err != nil || offset < 0 {
+			respondWithError(w, http.StatusBadRequest, "INVALID_OFFSET", "Invalid offset parameter")
+			return
+		}
 	}
 
 	svc := services.NewExternalEventService(s.GetDB())
-	events, err := svc.GetEventsInRange(userID, start, end)
+	events, total, err := svc.GetEventsInRange(userID, start, end, limit, offset)
 	if err != nil {
 		log.Printf("Error fetching external events: %v", err)
-		http.Error(w, "Failed to fetch events", http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch events")
 		return
 	}
 
+	// Return response with pagination info
+	response := map[string]interface{}{
+		"events": events,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(events)
+	json.NewEncoder(w).Encode(response)
 }
