@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"go-backend/models"
 	"go-backend/tests"
 	"testing"
@@ -874,5 +875,295 @@ func TestGetReferences_UserIsolation_Integration(t *testing.T) {
 	// User1's card doesn't reference anything
 	if len(references1) != 0 {
 		t.Errorf("Expected 0 references for user1 card, got %d", len(references1))
+	}
+}
+
+// Edge case tests for reference resolution
+
+// TestGetDirectLinks_DuplicateReferences_Integration tests handling of duplicate backlink IDs in card body
+func TestGetDirectLinks_DuplicateReferences_Integration(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create target card
+	targetParams := models.EditCardParams{
+		Title:  "Target Card",
+		Body:   "Target body",
+		CardID: "dup_target",
+		Link:   "",
+	}
+	target, err := CreateCard(s.DB, userID, targetParams)
+	if err != nil {
+		t.Fatalf("Failed to create target: %v", err)
+	}
+
+	// Create source card with duplicate references to same card
+	sourceParams := models.EditCardParams{
+		Title:  "Source with Duplicates",
+		Body:   "This references [dup_target] once, and [dup_target] again, and [dup_target] one more time!",
+		CardID: "dup_source",
+		Link:   "",
+	}
+	source, err := CreateCard(s.DB, userID, sourceParams)
+	if err != nil {
+		t.Fatalf("Failed to create source: %v", err)
+	}
+
+	// Get direct links - should return only 1 link (duplicates removed)
+	directLinks, err := GetDirectLinks(s.DB, userID, source)
+	if err != nil {
+		t.Fatalf("GetDirectLinks failed: %v", err)
+	}
+
+	if len(directLinks) != 1 {
+		t.Errorf("Expected 1 direct link (duplicates removed), got %d", len(directLinks))
+	}
+
+	if len(directLinks) > 0 && directLinks[0].ID != target.ID {
+		t.Errorf("Expected target card ID %d, got %d", target.ID, directLinks[0].ID)
+	}
+}
+
+// TestGetReferences_EmptyBody_Integration tests GetReferences with empty card body
+func TestGetReferences_EmptyBody_Integration(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	params := models.EditCardParams{
+		Title:  "Empty Body Card",
+		Body:   "",
+		CardID: "empty_body_card",
+		Link:   "",
+	}
+	card, err := CreateCard(s.DB, userID, params)
+	if err != nil {
+		t.Fatalf("Failed to create card: %v", err)
+	}
+
+	references, err := GetReferences(s.DB, userID, card)
+	if err != nil {
+		t.Fatalf("GetReferences failed: %v", err)
+	}
+
+	if len(references) != 0 {
+		t.Errorf("Expected 0 references for empty body, got %d", len(references))
+	}
+}
+
+// TestGetCategorizedReferences_EmptyBody_Integration tests GetCategorizedReferences with empty card body
+func TestGetCategorizedReferences_EmptyBody_Integration(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	params := models.EditCardParams{
+		Title:  "Empty Body Card",
+		Body:   "",
+		CardID: "empty_body_cat",
+		Link:   "",
+	}
+	card, err := CreateCard(s.DB, userID, params)
+	if err != nil {
+		t.Fatalf("Failed to create card: %v", err)
+	}
+
+	categorized, err := GetCategorizedReferences(s.DB, userID, card)
+	if err != nil {
+		t.Fatalf("GetCategorizedReferences failed: %v", err)
+	}
+
+	if len(categorized.Bidirectional) != 0 {
+		t.Errorf("Expected 0 bidirectional references, got %d", len(categorized.Bidirectional))
+	}
+	if len(categorized.Outgoing) != 0 {
+		t.Errorf("Expected 0 outgoing references, got %d", len(categorized.Outgoing))
+	}
+	if len(categorized.Incoming) != 0 {
+		t.Errorf("Expected 0 incoming references, got %d", len(categorized.Incoming))
+	}
+}
+
+// TestExtractBacklinks_Duplicates tests that ExtractBacklinks handles duplicate IDs in body
+func TestExtractBacklinks_Duplicates(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{
+			name:     "no duplicates",
+			input:    "This has [link1] and [link2]",
+			expected: []string{"link1", "link2"},
+		},
+		{
+			name:     "with duplicates",
+			input:    "This has [link1] and [link1] again",
+			expected: []string{"link1", "link1"}, // ExtractBacklinks doesn't dedupe
+		},
+		{
+			name:     "empty input",
+			input:    "",
+			expected: []string{},
+		},
+		{
+			name:     "no backlinks",
+			input:    "Just plain text with no links",
+			expected: []string{},
+		},
+		{
+			name:     "multiple duplicates",
+			input:    "[a] [b] [a] [c] [b] [a]",
+			expected: []string{"a", "b", "a", "c", "b", "a"},
+		},
+		{
+			name:     "whitespace in brackets",
+			input:    "This has [  link with spaces  ] and [another]",
+			expected: []string{"  link with spaces  ", "another"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ExtractBacklinks(tt.input)
+			if len(result) != len(tt.expected) {
+				t.Errorf("ExtractBacklinks() returned %d items, expected %d", len(result), len(tt.expected))
+			}
+			// Compare results
+			for i, r := range result {
+				if i >= len(tt.expected) {
+					break
+				}
+				if r != tt.expected[i] {
+					t.Errorf("ExtractBacklinks()[%d] = %q, want %q", i, r, tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+// TestGetDirectLinks_MixedExistence_Integration tests GetDirectLinks with mix of existing and non-existing cards
+func TestGetDirectLinks_MixedExistence_Integration(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create only one target card
+	targetParams := models.EditCardParams{
+		Title:  "Existing Target",
+		Body:   "Target body",
+		CardID: "existing_target",
+		Link:   "",
+	}
+	_, err := CreateCard(s.DB, userID, targetParams)
+	if err != nil {
+		t.Fatalf("Failed to create target: %v", err)
+	}
+
+	// Create source card that references existing and non-existing cards
+	sourceParams := models.EditCardParams{
+		Title:  "Mixed Source",
+		Body:   "References [existing_target], [nonexistent1], and [nonexistent2]",
+		CardID: "mixed_source",
+		Link:   "",
+	}
+	source, err := CreateCard(s.DB, userID, sourceParams)
+	if err != nil {
+		t.Fatalf("Failed to create source: %v", err)
+	}
+
+	// Get direct links - should return only the existing card
+	directLinks, err := GetDirectLinks(s.DB, userID, source)
+	if err != nil {
+		t.Fatalf("GetDirectLinks failed: %v", err)
+	}
+
+	if len(directLinks) != 1 {
+		t.Errorf("Expected 1 direct link (only existing card), got %d", len(directLinks))
+	}
+
+	if len(directLinks) > 0 && directLinks[0].CardID != "existing_target" {
+		t.Errorf("Expected existing_target, got %s", directLinks[0].CardID)
+	}
+}
+
+// TestGetReferences_MalformedBacklinks_Integration tests handling of malformed backlink syntax
+func TestGetReferences_MalformedBacklinks_Integration(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Test various malformed backlink patterns
+	testCases := []struct {
+		name     string
+		body     string
+		expected int // expected number of backlinks extracted
+	}{
+		{
+			name:     "unclosed bracket",
+			body:     "This has [unclosed",
+			expected: 0,
+		},
+		{
+			name:     "unopened bracket",
+			body:     "This has unclosed]",
+			expected: 0,
+		},
+		{
+			name:     "empty brackets",
+			body:     "This has []",
+			expected: 1, // Empty string is extracted
+		},
+		{
+			name:     "nested brackets",
+			body:     "This has [outer [inner]]",
+			expected: 2, // Both "outer [inner" and "inner" are extracted
+		},
+		{
+			name:     "markdown link syntax",
+			body:     "This has [text](url)",
+			expected: 0, // Markdown links should be excluded
+		},
+		{
+			name:     "valid backlinks only",
+			body:     "This has [valid1] and [valid2]",
+			expected: 2,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			params := models.EditCardParams{
+				Title:  fmt.Sprintf("Test %s", tc.name),
+				Body:   tc.body,
+				CardID: fmt.Sprintf("malformed_%s", tc.name),
+				Link:   "",
+			}
+			card, err := CreateCard(s.DB, userID, params)
+			if err != nil {
+				t.Fatalf("Failed to create card: %v", err)
+			}
+
+			// Extract backlinks to verify syntax parsing
+			backlinks := ExtractBacklinks(tc.body)
+			if len(backlinks) != tc.expected {
+				t.Errorf("ExtractBacklinks returned %d items, expected %d for body: %s", len(backlinks), tc.expected, tc.body)
+			}
+
+			// GetDirectLinks should handle whatever ExtractBacklinks returns
+			directLinks, err := GetDirectLinks(s.DB, userID, card)
+			if err != nil {
+				t.Fatalf("GetDirectLinks failed: %v", err)
+			}
+			// DirectLinks filters out non-existent cards, so count may differ
+			// The important thing is it doesn't error
+			_ = directLinks
+		})
 	}
 }
