@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { FaChevronLeft, FaChevronRight, FaPlus } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaPlus, FaChevronUp, FaChevronDown } from "react-icons/fa";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Task } from "../../models/Task";
 import {
@@ -226,58 +226,84 @@ export function CalendarView({
   return (
     <div className="bg-white border border-slate-300 rounded-lg overflow-hidden">
       {/* Calendar Header */}
-      <div className="bg-slate-100 px-4 py-3 border-b border-slate-300">
-        <div className="flex items-center justify-between">
-          {/* View Mode Toggle */}
-          <div className="flex items-center gap-2">
+      <div className="bg-slate-100 px-2 sm:px-4 py-2 sm:py-3 border-b border-slate-300">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
+          {/* View Mode Toggle - Hidden on mobile, show on tablet+ */}
+          <div className="flex items-center gap-1 sm:gap-2 hidden sm:flex">
+            <span className="text-xs text-slate-600 font-medium">View:</span>
             <button
               onClick={() => onViewModeChange("month")}
-              className={`px-3 py-1 text-sm rounded-md ${
+              className={`px-2 sm:px-3 py-1.5 sm:py-1 text-xs sm:text-sm rounded-md min-h-[44px] min-w-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                 viewMode === "month"
                   ? "bg-blue-600 text-white"
                   : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
               }`}
+              aria-label="Switch to month view"
+              aria-pressed={viewMode === "month"}
             >
-              Month
+              <span className="hidden sm:inline">Month</span>
+              <span className="sm:hidden">Mo</span>
             </button>
             <button
               onClick={() => onViewModeChange("week")}
-              className={`px-3 py-1 text-sm rounded-md ${
+              className={`px-2 sm:px-3 py-1.5 sm:py-1 text-xs sm:text-sm rounded-md min-h-[44px] min-w-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                 viewMode === "week"
                   ? "bg-blue-600 text-white"
                   : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
               }`}
+              aria-label="Switch to week view"
+              aria-pressed={viewMode === "week"}
             >
-              Week
+              <span className="hidden sm:inline">Week</span>
+              <span className="sm:hidden">Wk</span>
+            </button>
+          </div>
+
+          {/* Mobile View Mode Indicator */}
+          <div className="flex sm:hidden items-center gap-1">
+            <span className="text-xs font-medium text-slate-700">
+              {viewMode === "month" ? "Month" : "Week"}
+            </span>
+            <button
+              onClick={() => onViewModeChange(viewMode === "month" ? "week" : "month")}
+              className="px-2 py-1.5 text-xs bg-slate-200 rounded min-h-[44px] min-w-[44px]"
+              aria-label={`Switch to ${viewMode === "month" ? "week" : "month"} view`}
+            >
+              Toggle
             </button>
           </div>
 
           {/* Navigation Controls */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => onNavigate("prev")}
-              className="p-1 hover:bg-slate-200 rounded"
+              className="p-2 hover:bg-slate-200 rounded min-h-[44px] min-w-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              aria-label="Previous period"
               title="Previous"
             >
-              <FaChevronLeft size={20} />
+              <FaChevronLeft size={18} aria-hidden="true" />
+              <span className="sr-only">Previous</span>
             </button>
             <button
               onClick={() => onNavigate("today")}
-              className="px-3 py-1 text-sm bg-white border border-slate-300 rounded-md hover:bg-slate-50"
+              className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm bg-white border border-slate-300 rounded-md hover:bg-slate-50 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              aria-label="Go to today"
             >
               Today
             </button>
             <button
               onClick={() => onNavigate("next")}
-              className="p-1 hover:bg-slate-200 rounded"
+              className="p-2 hover:bg-slate-200 rounded min-h-[44px] min-w-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              aria-label="Next period"
               title="Next"
             >
-              <FaChevronRight size={20} />
+              <FaChevronRight size={18} aria-hidden="true" />
+              <span className="sr-only">Next</span>
             </button>
           </div>
 
           {/* Current Date Display */}
-          <h2 className="text-lg font-semibold text-slate-800">
+          <h2 className="text-base sm:text-lg font-semibold text-slate-800">
             {viewMode === "month" ? formatMonthHeader(currentDate) : formatWeekHeader(currentDate)}
           </h2>
         </div>
@@ -285,14 +311,16 @@ export function CalendarView({
 
       {/* Calendar Grid */}
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className={`grid ${viewMode === "month" ? "grid-cols-7" : "grid-cols-7"} bg-slate-50`}>
+        <div className={`grid ${viewMode === "month" ? "grid-cols-7" : "grid-cols-7"} bg-slate-50`} role="grid" aria-label={`Calendar ${viewMode} view`}>
           {/* Week Day Headers */}
           {weekDayNames.map((dayName, index) => (
             <div
               key={index}
-              className="py-2 px-1 text-center text-xs font-semibold text-slate-600 border-b border-r border-slate-200 last:border-r-0"
+              className="py-2 px-0.5 sm:px-1 text-center text-xs font-semibold text-slate-600 border-b border-r border-slate-200 last:border-r-0"
+              aria-label={`Column for ${dayName}`}
             >
-              {dayName}
+              <span className="hidden sm:inline">{dayName}</span>
+              <span className="sm:hidden">{dayName.slice(0, 2)}</span>
             </div>
           ))}
 
@@ -318,21 +346,28 @@ export function CalendarView({
           className="fixed bg-white border border-slate-300 rounded-lg shadow-lg py-1 z-50 min-w-[200px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
+          role="menu"
+          aria-label="Calendar day context menu"
+          autoFocus
         >
           {onCreateTask && (
             <button
               onClick={handleContextMenuCreateTask}
-              className="w-full px-4 py-2 text-left hover:bg-slate-100 flex items-center gap-2"
+              className="w-full px-4 py-2 text-left hover:bg-slate-100 flex items-center gap-2 focus:outline-none focus:bg-slate-100"
+              role="menuitem"
+              tabIndex={0}
             >
-              <FaPlus size={14} />
-              Create Task
+              <FaPlus size={14} aria-hidden="true" />
+              Create Task for {format(contextMenu.date, "MMM d")}
             </button>
           )}
           <button
             onClick={handleContextMenuViewTasks}
-            className="w-full px-4 py-2 text-left hover:bg-slate-100"
+            className="w-full px-4 py-2 text-left hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
+            role="menuitem"
+            tabIndex={0}
           >
-            View Tasks
+            View Tasks for {format(contextMenu.date, "MMM d")}
           </button>
         </div>
       )}
@@ -363,21 +398,23 @@ function CalendarDayCell({
   const hiddenCount = getHiddenEventCount(day);
 
   const cellClasses = `
-    min-h-[80px] p-1 border-b border-r border-slate-200 last:border-r-0 cursor-pointer
+    min-h-[60px] sm:min-h-[80px] p-1 border-b border-r border-slate-200 last:border-r-0 cursor-pointer focus-within:ring-2 focus-within:ring-blue-300 focus:outline-none
     ${day.isToday ? "bg-blue-50" : ""}
     ${!day.isCurrentMonth ? "bg-slate-100 text-slate-400" : ""}
     ${isHovered ? "bg-slate-100" : "bg-white"}
     ${day.isToday && isHovered ? "bg-blue-100" : ""}
     ${isSelected ? "ring-2 ring-blue-500 ring-inset" : ""}
+    ${day.isToday ? "focus-visible:ring-2 focus-visible:ring-blue-500" : "focus-visible:ring-2 focus-visible:ring-slate-300"}
   `;
 
   const dateNumberClasses = `
-    text-sm font-medium mb-1
+    text-sm font-medium mb-1 flex items-center justify-center
     ${day.isToday ? "text-blue-600" : ""}
   `;
 
-  // Format date for droppableId (YYYY-MM-DD format)
+  // Format date for droppableId and ARIA labels (YYYY-MM-DD format)
   const droppableId = format(day.date, "yyyy-MM-dd");
+  const formattedDate = format(day.date, "MMMM d, yyyy");
 
   return (
     <Droppable droppableId={droppableId}>
@@ -390,14 +427,19 @@ function CalendarDayCell({
           onMouseLeave={() => onHover(null)}
           onClick={() => onDayClick(day)}
           onContextMenu={(e) => onContextMenu(e, day)}
+          role="gridcell"
+          aria-label={`${format(day.date, "MMM d")}, ${day.taskCount} task${day.taskCount !== 1 ? "s" : ""}`}
+          aria-selected={isSelected}
+          tabIndex={0}
         >
           <div className={dateNumberClasses}>
-            {format(day.date, "d")}
+            <span className="sr-only">{format(day.date, "MMMM d")}</span>
+            <span aria-hidden="true">{format(day.date, "d")}</span>
           </div>
 
           {/* Task Count Indicator */}
           {day.taskCount > 0 && (
-            <div className="space-y-0.5">
+            <div className="space-y-0.5" role="list" aria-label={`${day.taskCount} task${day.taskCount !== 1 ? "s" : ""}`}>
               {visibleEvents.map((event, index) => (
                 <Draggable
                   key={event.id}
@@ -411,12 +453,16 @@ function CalendarDayCell({
                       {...dragProvided.dragHandleProps}
                       onClick={(e) => onEventClick(e, event)}
                       className={`
-                        px-1 py-0.5 text-xs rounded border truncate transition-shadow
+                        px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm rounded border truncate transition-shadow
                         ${getEventColor(event)}
-                        ${dragSnapshot.isDragging ? "shadow-lg opacity-50" : ""}
+                        ${dragSnapshot.isDragging ? "shadow-lg opacity-50" : "hover:opacity-80"}
+                        focus-within:ring-2 focus-within:ring-blue-500 focus:outline-none
                       `}
                       style={dragProvided.draggableProps.style}
                       title={event.title}
+                      role="listitem"
+                      tabIndex={0}
+                      aria-label={`${event.title} - ${event.eventType}${event.priority ? `, priority ${event.priority}` : ""}`}
                     >
                       {event.title}
                     </div>
@@ -426,7 +472,10 @@ function CalendarDayCell({
 
               {/* Hidden Events Indicator */}
               {hiddenCount > 0 && (
-                <div className="px-1 py-0.5 text-xs text-slate-500 italic">
+                <div
+                  className="px-1 py-0.5 text-xs text-slate-500 italic"
+                  aria-label={`${hiddenCount} more tasks not shown`}
+                >
                   +{hiddenCount} more
                 </div>
               )}
@@ -435,15 +484,17 @@ function CalendarDayCell({
 
           {/* Overdue Indicator */}
           {day.overdueCount > 0 && (
-            <div className="mt-1">
-              <span className="inline-block w-2 h-2 bg-red-500 rounded-full" title={`${day.overdueCount} overdue`} />
+            <div className="mt-1" title={`${day.overdueCount} overdue task${day.overdueCount > 1 ? "s" : ""}`}>
+              <span className="inline-block w-3 h-3 bg-red-500 rounded-full border-2 border-white" aria-hidden="true"></span>
+              <span className="sr-only">{day.overdueCount} overdue</span>
             </div>
           )}
 
           {/* Completed Indicator */}
           {day.completedCount > 0 && day.overdueCount === 0 && (
-            <div className="mt-1">
-              <span className="inline-block w-2 h-2 bg-green-500 rounded-full" title={`${day.completedCount} completed`} />
+            <div className="mt-1" title={`${day.completedCount} completed task${day.completedCount > 1 ? "s" : ""}`}>
+              <span className="inline-block w-3 h-3 bg-green-500 rounded-full border-2 border-white" aria-hidden="true"></span>
+              <span className="sr-only">{day.completedCount} completed</span>
             </div>
           )}
 
@@ -545,18 +596,23 @@ function DayPopover({ date, events, onClose, onTaskClick, onCreateTask }: DayPop
   const uniqueEvents = Array.from(groupEventsByTask(events).values());
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
         className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-auto"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="day-popover-title"
       >
         <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-          <h3 className="text-lg font-semibold">{format(date, "MMMM d, yyyy")}</h3>
+          <h3 id="day-popover-title" className="text-lg font-semibold">{format(date, "MMMM d, yyyy")}</h3>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-slate-100 rounded"
+            className="p-2 hover:bg-slate-100 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Close dialog"
           >
             ✕
+            <span className="sr-only">Close</span>
           </button>
         </div>
         <div className="p-4">
@@ -569,7 +625,7 @@ function DayPopover({ date, events, onClose, onTaskClick, onCreateTask }: DayPop
                     onCreateTask();
                     onClose();
                   }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[44px]"
                 >
                   Create Task
                 </button>
@@ -582,16 +638,31 @@ function DayPopover({ date, events, onClose, onTaskClick, onCreateTask }: DayPop
                   key={event.id}
                   onClick={() => onTaskClick(event.taskId)}
                   className={`
-                    p-2 rounded border cursor-pointer hover:opacity-80
+                    p-3 rounded border cursor-pointer hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500
                     ${getEventColor(event)}
                   `}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`View task: ${event.title} (${event.eventType}${event.priority ? `, priority ${event.priority}` : ""})`}
                 >
                   <div className="font-medium">{event.title}</div>
-                  <div className="text-xs opacity-75">
-                    {event.eventType === "scheduled" && "Scheduled"}
-                    {event.eventType === "due" && "Due"}
-                    {event.eventType === "completed" && "Completed"}
-                    {event.priority && ` • Priority ${event.priority}`}
+                  <div className="text-xs mt-1 opacity-75 flex items-center gap-2">
+                    <span>
+                      {event.eventType === "scheduled" && "📅 Scheduled"}
+                      {event.eventType === "due" && "⏰ Due"}
+                      {event.eventType === "completed" && "✅ Completed"}
+                    </span>
+                    {event.priority && (
+                      <span className="inline-flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full" aria-hidden="true" style={{
+                          backgroundColor: event.priority === "A" ? "#f97316" :
+                                        event.priority === "B" ? "#fbbf24" :
+                                        event.priority === "C" ? "#60a5fa" : "#9ca3af"
+                        }}></span>
+                        <span className="sr-only">Priority {event.priority}</span>
+                        <span>Priority {event.priority}</span>
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -601,9 +672,9 @@ function DayPopover({ date, events, onClose, onTaskClick, onCreateTask }: DayPop
                     onCreateTask();
                     onClose();
                   }}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-2"
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2 min-h-[44px] mt-2"
                 >
-                  <FaPlus size={14} />
+                  <FaPlus size={14} aria-hidden="true" />
                   Create Task
                 </button>
               )}
