@@ -32,6 +32,7 @@ type User struct {
 	HasSeenGettingStarted       bool       `json:"has_seen_getting_started"`
 	Timezone                    string     `json:"timezone"`
 	CaldavURL                   *string    `json:"caldav_url"`
+	CaldavToken                 *string    `json:"caldav_token,omitempty"`
 }
 
 type UserSubscription struct {
@@ -52,6 +53,7 @@ type EditUserParams struct {
 	HasSeenGettingStarted bool    `json:"has_seen_getting_started"`
 	Timezone              string  `json:"timezone"`
 	CaldavURL             *string `json:"caldav_url"`
+	CaldavToken           *string `json:"caldav_token,omitempty"`
 }
 
 type CreateUserParams struct {

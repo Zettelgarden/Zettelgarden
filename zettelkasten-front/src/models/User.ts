@@ -27,6 +27,7 @@ export interface User {
   has_seen_getting_started: boolean;
   timezone: string;
   caldav_url: string | null;
+  caldav_token: string | null;
 }
 export const defaultUser: User = {
   id: 0,
@@ -57,6 +58,7 @@ export const defaultUser: User = {
   has_seen_getting_started: false,
   timezone: "UTC",
   caldav_url: null,
+  caldav_token: null,
 };
 
 export interface UserSubscription {

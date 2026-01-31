@@ -186,3 +186,10 @@ export async function updateUserMemory(memory: string): Promise<{ message: strin
     apiClient.put<{ message: string }>("/user/memory", { memory })
   );
 }
+
+/**
+ * Regenerate CalDAV token for calendar feed access
+ */
+export async function regenerateCalDAVToken(): Promise<{ token: string }> {
+  return getData(apiClient.post<{ token: string }>("/user/regenerate-caldav-token", {}));
+}
