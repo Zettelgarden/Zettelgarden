@@ -27,7 +27,7 @@ import {
 interface TaskListProps { }
 
 export function TaskPage({ }: TaskListProps) {
-  const { tasks, showCompleted, setShowCompleted } = useTaskContext();
+  const { tasks, showCompleted, setShowCompleted, setRefreshTasks } = useTaskContext();
   const { tags } = useTagContext();
   const { user } = useAuth();
   const { showCreateTaskWindow, setShowCreateTaskWindow } = useDialogState();
@@ -422,6 +422,9 @@ export function TaskPage({ }: TaskListProps) {
               setCalendarSelectedDate(date);
               setCreateTaskStatus(undefined);
               setShowCreateTaskWindow(true);
+            }}
+            onTaskMoved={() => {
+              setRefreshTasks(true);
             }}
             timezone={userTimezone}
           />

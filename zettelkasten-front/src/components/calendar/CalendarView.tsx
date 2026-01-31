@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { FaChevronLeft, FaChevronRight, FaPlus } from "react-icons/fa";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Task } from "../../models/Task";
 import {
   CalendarDay,
@@ -20,6 +21,8 @@ import {
   groupEventsByTask,
 } from "../../utils/calendar";
 import { format } from "date-fns";
+import { saveExistingTask } from "../../api/tasks";
+import { useTaskContext } from "../../contexts/TaskContext";
 
 interface CalendarViewProps {
   tasks: Task[];
@@ -30,6 +33,7 @@ interface CalendarViewProps {
   onDayClick: (date: Date, events: CalendarEvent[]) => void;
   onEventClick: (event: CalendarEvent) => void;
   onCreateTask?: (date: Date) => void;
+  onTaskMoved?: () => void;
   timezone?: string;
 }
 
@@ -42,6 +46,7 @@ export function CalendarView({
   onDayClick,
   onEventClick,
   onCreateTask,
+  onTaskMoved,
   timezone = "UTC",
 }: CalendarViewProps) {
   const [hoveredDay, setHoveredDay] = useState<Date | null>(null);
@@ -180,6 +185,44 @@ export function CalendarView({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  // Get setRefreshTasks from TaskContext for refreshing after drag-drop
+  const { setRefreshTasks } = useTaskContext();
+
+  // Drag and drop handler
+  const handleDragEnd = useCallback(async (result: DropResult) => {
+    if (!result.destination) return;
+
+    const sourceDateStr = result.source.droppableId;
+    const destDateStr = result.destination.droppableId;
+
+    // No change if dropped in the same day
+    if (sourceDateStr === destDateStr) return;
+
+    const taskId = parseInt(result.draggableId, 10);
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    // Calculate new scheduled date from destination
+    const newScheduledDate = new Date(destDateStr);
+
+    // Update task with new scheduled date
+    const updatedTask = {
+      ...task,
+      scheduled_date: newScheduledDate,
+    };
+
+    try {
+      // Persist changes
+      const response = await saveExistingTask(updatedTask);
+      if (!("error" in response)) {
+        setRefreshTasks(true);
+        onTaskMoved?.();
+      }
+    } catch (err) {
+      console.error("Failed to reschedule task after drag-and-drop:", err);
+    }
+  }, [tasks, onTaskMoved, setRefreshTasks]);
+
   return (
     <div className="bg-white border border-slate-300 rounded-lg overflow-hidden">
       {/* Calendar Header */}
@@ -241,31 +284,33 @@ export function CalendarView({
       </div>
 
       {/* Calendar Grid */}
-      <div className={`grid ${viewMode === "month" ? "grid-cols-7" : "grid-cols-7"} bg-slate-50`}>
-        {/* Week Day Headers */}
-        {weekDayNames.map((dayName, index) => (
-          <div
-            key={index}
-            className="py-2 px-1 text-center text-xs font-semibold text-slate-600 border-b border-r border-slate-200 last:border-r-0"
-          >
-            {dayName}
-          </div>
-        ))}
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div className={`grid ${viewMode === "month" ? "grid-cols-7" : "grid-cols-7"} bg-slate-50`}>
+          {/* Week Day Headers */}
+          {weekDayNames.map((dayName, index) => (
+            <div
+              key={index}
+              className="py-2 px-1 text-center text-xs font-semibold text-slate-600 border-b border-r border-slate-200 last:border-r-0"
+            >
+              {dayName}
+            </div>
+          ))}
 
-        {/* Calendar Days */}
-        {days.map((day, index) => (
-          <CalendarDayCell
-            key={index}
-            day={day}
-            isHovered={hoveredDay ? day.date.getTime() === hoveredDay.getTime() : false}
-            isSelected={selectedDayIndex === index}
-            onHover={setHoveredDay}
-            onDayClick={handleDayClick}
-            onEventClick={handleEventClick}
-            onContextMenu={handleContextMenu}
-          />
-        ))}
-      </div>
+          {/* Calendar Days */}
+          {days.map((day, index) => (
+            <CalendarDayCell
+              key={index}
+              day={day}
+              isHovered={hoveredDay ? day.date.getTime() === hoveredDay.getTime() : false}
+              isSelected={selectedDayIndex === index}
+              onHover={setHoveredDay}
+              onDayClick={handleDayClick}
+              onEventClick={handleEventClick}
+              onContextMenu={handleContextMenu}
+            />
+          ))}
+        </div>
+      </DragDropContext>
 
       {/* Context Menu */}
       {contextMenu && (
@@ -331,58 +376,81 @@ function CalendarDayCell({
     ${day.isToday ? "text-blue-600" : ""}
   `;
 
+  // Format date for droppableId (YYYY-MM-DD format)
+  const droppableId = format(day.date, "yyyy-MM-dd");
+
   return (
-    <div
-      className={cellClasses}
-      onMouseEnter={() => onHover(day.date)}
-      onMouseLeave={() => onHover(null)}
-      onClick={() => onDayClick(day)}
-      onContextMenu={(e) => onContextMenu(e, day)}
-    >
-      <div className={dateNumberClasses}>
-        {format(day.date, "d")}
-      </div>
+    <Droppable droppableId={droppableId}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.droppableProps}
+          className={cellClasses}
+          onMouseEnter={() => onHover(day.date)}
+          onMouseLeave={() => onHover(null)}
+          onClick={() => onDayClick(day)}
+          onContextMenu={(e) => onContextMenu(e, day)}
+        >
+          <div className={dateNumberClasses}>
+            {format(day.date, "d")}
+          </div>
 
-      {/* Task Count Indicator */}
-      {day.taskCount > 0 && (
-        <div className="space-y-0.5">
-          {visibleEvents.map((event) => (
-            <div
-              key={event.id}
-              onClick={(e) => onEventClick(e, event)}
-              className={`
-                px-1 py-0.5 text-xs rounded border truncate
-                ${getEventColor(event)}
-              `}
-              title={event.title}
-            >
-              {event.title}
-            </div>
-          ))}
+          {/* Task Count Indicator */}
+          {day.taskCount > 0 && (
+            <div className="space-y-0.5">
+              {visibleEvents.map((event, index) => (
+                <Draggable
+                  key={event.id}
+                  draggableId={event.taskId.toString()}
+                  index={index}
+                >
+                  {(dragProvided, dragSnapshot) => (
+                    <div
+                      ref={dragProvided.innerRef}
+                      {...dragProvided.draggableProps}
+                      {...dragProvided.dragHandleProps}
+                      onClick={(e) => onEventClick(e, event)}
+                      className={`
+                        px-1 py-0.5 text-xs rounded border truncate transition-shadow
+                        ${getEventColor(event)}
+                        ${dragSnapshot.isDragging ? "shadow-lg opacity-50" : ""}
+                      `}
+                      style={dragProvided.draggableProps.style}
+                      title={event.title}
+                    >
+                      {event.title}
+                    </div>
+                  )}
+                </Draggable>
+              ))}
 
-          {/* Hidden Events Indicator */}
-          {hiddenCount > 0 && (
-            <div className="px-1 py-0.5 text-xs text-slate-500 italic">
-              +{hiddenCount} more
+              {/* Hidden Events Indicator */}
+              {hiddenCount > 0 && (
+                <div className="px-1 py-0.5 text-xs text-slate-500 italic">
+                  +{hiddenCount} more
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Overdue Indicator */}
-      {day.overdueCount > 0 && (
-        <div className="mt-1">
-          <span className="inline-block w-2 h-2 bg-red-500 rounded-full" title={`${day.overdueCount} overdue`} />
-        </div>
-      )}
+          {/* Overdue Indicator */}
+          {day.overdueCount > 0 && (
+            <div className="mt-1">
+              <span className="inline-block w-2 h-2 bg-red-500 rounded-full" title={`${day.overdueCount} overdue`} />
+            </div>
+          )}
 
-      {/* Completed Indicator */}
-      {day.completedCount > 0 && day.overdueCount === 0 && (
-        <div className="mt-1">
-          <span className="inline-block w-2 h-2 bg-green-500 rounded-full" title={`${day.completedCount} completed`} />
+          {/* Completed Indicator */}
+          {day.completedCount > 0 && day.overdueCount === 0 && (
+            <div className="mt-1">
+              <span className="inline-block w-2 h-2 bg-green-500 rounded-full" title={`${day.completedCount} completed`} />
+            </div>
+          )}
+
+          {provided.placeholder}
         </div>
       )}
-    </div>
+    </Droppable>
   );
 }
 
@@ -395,6 +463,7 @@ interface CalendarViewWrapperProps {
   onViewModeChange: (viewMode: "month" | "week") => void;
   onTaskClick: (taskId: number) => void;
   onCreateTask?: (date: Date) => void;
+  onTaskMoved?: () => void;
   timezone?: string;
 }
 
@@ -406,6 +475,7 @@ export function CalendarViewWrapper({
   onViewModeChange,
   onTaskClick,
   onCreateTask,
+  onTaskMoved,
   timezone,
 }: CalendarViewWrapperProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -442,6 +512,7 @@ export function CalendarViewWrapper({
         onDayClick={handleDayClick}
         onEventClick={handleEventClick}
         onCreateTask={onCreateTask}
+        onTaskMoved={onTaskMoved}
         timezone={timezone}
       />
 
