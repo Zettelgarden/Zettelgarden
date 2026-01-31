@@ -253,10 +253,14 @@ export function TaskListItem({
             </div>
           ))}
       </div>
-      <button onClick={() => {
-        setSelectedTaskId(task.id);
-        setShowTaskDialog(true);
-      }} className="bg-transparent border-0 cursor-pointer text-2xl">
+      <button
+        onClick={() => {
+          setSelectedTaskId(task.id);
+          setShowTaskDialog(true);
+        }}
+        className="bg-transparent border-0 cursor-pointer p-2.5 md:p-1 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center hover:bg-gray-100 rounded transition-colors"
+        aria-label="Task options"
+      >
         ⋮
       </button>
     </div>

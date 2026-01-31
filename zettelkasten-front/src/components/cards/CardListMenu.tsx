@@ -25,8 +25,8 @@ export function CardListMenu({
   onToggleStar,
 }: CardListMenuProps) {
   return (
-    <Menu as="div" className="relative flex-shrink-0 w-6">
-      <Menu.Button className="rounded hover:bg-gray-100 transition-colors">
+    <Menu as="div" className="relative flex-shrink-0">
+      <Menu.Button className="p-1.5 md:p-1 rounded hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center">
         <svg
           className="w-4 h-4 text-gray-500"
           fill="none"

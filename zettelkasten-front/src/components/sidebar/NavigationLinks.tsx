@@ -21,7 +21,7 @@ export function NavigationLinks({ todayTasksCount, hasSubscription }: Navigation
         <SidebarLink to="/app/tasks">
           <TasksIcon />
           <span className="px-2 flex-grow">Tasks</span>
-          <span className="px-2 py-1 text-xs bg-blue-100 rounded-full">
+          <span className="px-3 py-1.5 md:px-2 md:py-1 text-xs bg-blue-100 rounded-full min-h-[32px] md:min-h-0 flex items-center">
             {todayTasksCount}
           </span>
         </SidebarLink>
@@ -30,7 +30,7 @@ export function NavigationLinks({ todayTasksCount, hasSubscription }: Navigation
           <ChatIcon />
           <span className="px-2 flex-grow">Chat</span>
           {!hasSubscription && (
-            <span className="ml-2 bg-purple-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">PRO</span>
+            <span className="ml-2 bg-purple-500 text-white text-xs font-semibold px-3 py-1.5 md:px-2 md:py-0.5 rounded-full min-h-[32px] md:min-h-0 flex items-center">PRO</span>
           )}
         </SidebarLink>
       </ul>
