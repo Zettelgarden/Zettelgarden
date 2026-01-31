@@ -1,19 +1,35 @@
 import { Task } from "./Task";
 
 /**
- * Represents a calendar event derived from a task
+ * Source of a calendar event - either from a task or external feed
+ */
+export type EventSource = "task" | "external";
+
+/**
+ * Represents a calendar event derived from a task or imported from external calendar
  */
 export interface CalendarEvent {
   id: number;
-  taskId: number;
+  taskId?: number;              // Present for task events
+  externalEventId?: number;     // Present for external events
+  source: EventSource;          // Distinguish the source
+
   title: string;
   date: Date;
   allDay: boolean;
-  priority: string | null;
-  status: string;
-  isComplete: boolean;
-  task: Task;
-  eventType: "scheduled" | "due" | "completed";
+
+  // Task-specific fields
+  priority?: string | null;
+  status?: string;
+  isComplete?: boolean;
+  task?: Task;
+  eventType?: "scheduled" | "due" | "completed";
+
+  // External event-specific fields
+  description?: string;
+  location?: string;
+  externalUrl?: string;
+  color?: string;               // From calendar subscription
 }
 
 /**
@@ -126,9 +142,17 @@ export function tasksToCalendarEvents(tasks: Task[], timezone: string = "UTC"): 
 }
 
 /**
- * Get calendar event color based on priority and status
+ * Get calendar event color based on priority, status, or source
  */
 export function getEventColor(event: CalendarEvent): string {
+  // External events use their custom color
+  if (event.source === "external") {
+    const color = event.color || "#6366f1"; // Default indigo
+    // Generate Tailwind-style classes with the custom color
+    return `border-l-4`;
+  }
+
+  // Task events use existing color logic
   if (event.isComplete) {
     return "bg-green-100 text-green-800 border-green-300";
   }
@@ -149,6 +173,23 @@ export function getEventColor(event: CalendarEvent): string {
     default:
       return "bg-purple-100 text-purple-800 border-purple-300";
   }
+}
+
+/**
+ * Get icon for an event (null for tasks, calendar icon for external)
+ */
+export function getEventIcon(event: CalendarEvent): string | null {
+  if (event.source === "external") {
+    return "📅";
+  }
+  return null;
+}
+
+/**
+ * Check if an event is draggable (only task events are draggable)
+ */
+export function isEventDraggable(event: CalendarEvent): boolean {
+  return event.source === "task";
 }
 
 /**

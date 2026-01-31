@@ -2,13 +2,17 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import { FaChevronLeft, FaChevronRight, FaPlus, FaChevronUp, FaChevronDown } from "react-icons/fa";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Task } from "../../models/Task";
+import { ExternalEvent } from "../../models/ExternalEvent";
 import {
   CalendarDay,
   CalendarEvent,
   CalendarViewType,
   tasksToCalendarEvents,
   getEventColor,
+  getEventIcon,
+  isEventDraggable,
 } from "../../models/CalendarEvent";
+import { ExternalEvent } from "../../models/ExternalEvent";
 import {
   generateMonthGrid,
   generateWeekGrid,
@@ -19,6 +23,7 @@ import {
   getVisibleEvents,
   getHiddenEventCount,
   groupEventsByTask,
+  mergeCalendarEvents,
 } from "../../utils/calendar";
 import { format } from "date-fns";
 import { saveExistingTask } from "../../api/tasks";
@@ -26,6 +31,7 @@ import { useTaskContext } from "../../contexts/TaskContext";
 
 interface CalendarViewProps {
   tasks: Task[];
+  externalEvents?: ExternalEvent[];
   currentDate: Date;
   viewMode: CalendarViewType;
   onNavigate: (direction: "prev" | "next" | "today") => void;
@@ -34,11 +40,13 @@ interface CalendarViewProps {
   onEventClick: (event: CalendarEvent) => void;
   onCreateTask?: (date: Date) => void;
   onTaskMoved?: () => void;
+  onExternalEventClick?: (event: CalendarEvent) => void;
   timezone?: string;
 }
 
 export function CalendarView({
   tasks,
+  externalEvents = [],
   currentDate,
   viewMode,
   onNavigate,
@@ -47,6 +55,7 @@ export function CalendarView({
   onEventClick,
   onCreateTask,
   onTaskMoved,
+  onExternalEventClick,
   timezone = "UTC",
 }: CalendarViewProps) {
   const [hoveredDay, setHoveredDay] = useState<Date | null>(null);
@@ -56,10 +65,14 @@ export function CalendarView({
     date: Date;
   } | null>(null);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(-1);
+  const [externalEventDialog, setExternalEventDialog] = useState<CalendarEvent | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
 
   // Convert tasks to calendar events
-  const events = tasksToCalendarEvents(tasks, timezone);
+  const taskEvents = tasksToCalendarEvents(tasks, timezone);
+
+  // Merge with external events
+  const events = mergeCalendarEvents(taskEvents, externalEvents);
 
   // Generate the calendar grid based on view mode
   const grid = viewMode === "month"
@@ -77,7 +90,14 @@ export function CalendarView({
 
   const handleEventClick = (e: React.MouseEvent, event: CalendarEvent) => {
     e.stopPropagation();
-    onEventClick(event);
+
+    // External events show read-only dialog
+    if (event.source === "external") {
+      setExternalEventDialog(event);
+      onExternalEventClick?.(event);
+    } else {
+      onEventClick(event);
+    }
   };
 
   // Context menu handlers
@@ -371,6 +391,14 @@ export function CalendarView({
           </button>
         </div>
       )}
+
+      {/* External Event Dialog */}
+      {externalEventDialog && (
+        <ExternalEventDialog
+          event={externalEventDialog}
+          onClose={() => setExternalEventDialog(null)}
+        />
+      )}
     </div>
   );
 }
@@ -443,30 +471,44 @@ function CalendarDayCell({
               {visibleEvents.map((event, index) => (
                 <Draggable
                   key={event.id}
-                  draggableId={event.taskId.toString()}
+                  draggableId={event.source === "task" && event.taskId ? event.taskId.toString() : `ext-${event.id}`}
                   index={index}
+                  isDragDisabled={!isEventDraggable(event)}
                 >
-                  {(dragProvided, dragSnapshot) => (
-                    <div
-                      ref={dragProvided.innerRef}
-                      {...dragProvided.draggableProps}
-                      {...dragProvided.dragHandleProps}
-                      onClick={(e) => onEventClick(e, event)}
-                      className={`
-                        px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm rounded border truncate transition-shadow
-                        ${getEventColor(event)}
-                        ${dragSnapshot.isDragging ? "shadow-lg opacity-50" : "hover:opacity-80"}
-                        focus-within:ring-2 focus-within:ring-blue-500 focus:outline-none
-                      `}
-                      style={dragProvided.draggableProps.style}
-                      title={event.title}
-                      role="listitem"
-                      tabIndex={0}
-                      aria-label={`${event.title} - ${event.eventType}${event.priority ? `, priority ${event.priority}` : ""}`}
-                    >
-                      {event.title}
-                    </div>
-                  )}
+                  {(dragProvided, dragSnapshot) => {
+                    const icon = getEventIcon(event);
+                    const baseColor = getEventColor(event);
+                    const isExternal = event.source === "external";
+                    const customColor = event.color || "#6366f1";
+
+                    return (
+                      <div
+                        ref={dragProvided.innerRef}
+                        {...(isExternal ? {} : dragProvided.draggableProps)}
+                        {...(isExternal ? {} : dragProvided.dragHandleProps)}
+                        onClick={(e) => onEventClick(e, event)}
+                        className={`
+                          px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm rounded border truncate transition-shadow
+                          ${baseColor}
+                          ${isExternal ? `border-l-4`} : ""}
+                          ${isExternal ? "" : (dragSnapshot.isDragging ? "shadow-lg opacity-50" : "hover:opacity-80")}
+                          focus-within:ring-2 focus-within:ring-blue-500 focus:outline-none
+                          ${isExternal ? "cursor-pointer hover:opacity-80" : ""}
+                        `}
+                        style={{
+                          ...dragProvided.draggableProps.style,
+                          ...(isExternal ? { borderLeftColor: customColor } : {}),
+                        }}
+                        title={event.title}
+                        role="listitem"
+                        tabIndex={0}
+                        aria-label={`${event.title}${isExternal ? " (external event)" : ""}${event.eventType ? ` - ${event.eventType}` : ""}${event.priority ? `, priority ${event.priority}` : ""}`}
+                      >
+                        {icon && <span className="mr-1" aria-hidden="true">{icon}</span>}
+                        {event.title}
+                      </div>
+                    );
+                  }}
                 </Draggable>
               ))}
 
@@ -508,6 +550,7 @@ function CalendarDayCell({
 // Export a wrapper component for easier integration
 interface CalendarViewWrapperProps {
   tasks: Task[];
+  externalEvents?: ExternalEvent[];
   currentDate: Date;
   viewMode: "month" | "week";
   onNavigate: (direction: "prev" | "next" | "today") => void;
@@ -520,6 +563,7 @@ interface CalendarViewWrapperProps {
 
 export function CalendarViewWrapper({
   tasks,
+  externalEvents,
   currentDate,
   viewMode,
   onNavigate,
@@ -531,18 +575,32 @@ export function CalendarViewWrapper({
 }: CalendarViewWrapperProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDayPopover, setShowDayPopover] = useState(false);
+  const [externalEventDialog, setExternalEventDialog] = useState<CalendarEvent | null>(null);
 
   const handleDayClick = (date: Date, events: CalendarEvent[]) => {
     setSelectedDate(date);
     if (events.length === 1) {
-      onTaskClick(events[0].taskId);
+      const event = events[0];
+      if (event.source === "task" && event.taskId) {
+        onTaskClick(event.taskId);
+      } else if (event.source === "external") {
+        setExternalEventDialog(event);
+      }
     } else if (events.length > 1) {
       setShowDayPopover(true);
     }
   };
 
   const handleEventClick = (event: CalendarEvent) => {
-    onTaskClick(event.taskId);
+    if (event.source === "task" && event.taskId) {
+      onTaskClick(event.taskId);
+    } else if (event.source === "external") {
+      setExternalEventDialog(event);
+    }
+  };
+
+  const handleExternalEventClick = (event: CalendarEvent) => {
+    setExternalEventDialog(event);
   };
 
   const handleCreateTask = (date: Date) => {
@@ -556,6 +614,7 @@ export function CalendarViewWrapper({
     <div>
       <CalendarView
         tasks={tasks}
+        externalEvents={externalEvents}
         currentDate={currentDate}
         viewMode={viewMode}
         onNavigate={onNavigate}
@@ -564,19 +623,28 @@ export function CalendarViewWrapper({
         onEventClick={handleEventClick}
         onCreateTask={onCreateTask}
         onTaskMoved={onTaskMoved}
+        onExternalEventClick={handleExternalEventClick}
         timezone={timezone}
       />
 
-      {/* Day Popover - to be implemented */}
+      {/* Day Popover */}
       {showDayPopover && selectedDate && (
         <DayPopover
           date={selectedDate}
-          events={tasksToCalendarEvents(tasks, timezone).filter(
+          events={mergeCalendarEvents(tasksToCalendarEvents(tasks, timezone), externalEvents || []).filter(
             e => format(e.date, "yyyy-MM-dd") === format(selectedDate, "yyyy-MM-dd")
           )}
           onClose={() => setShowDayPopover(false)}
           onTaskClick={onTaskClick}
           onCreateTask={() => handleCreateTask(selectedDate)}
+        />
+      )}
+
+      {/* External Event Dialog */}
+      {externalEventDialog && (
+        <ExternalEventDialog
+          event={externalEventDialog}
+          onClose={() => setExternalEventDialog(null)}
         />
       )}
     </div>
@@ -680,6 +748,85 @@ function DayPopover({ date, events, onClose, onTaskClick, onCreateTask }: DayPop
               )}
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ExternalEventDialogProps {
+  event: CalendarEvent;
+  onClose: () => void;
+}
+
+function ExternalEventDialog({ event, onClose }: ExternalEventDialogProps) {
+  const formatTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-lg shadow-xl max-w-md w-full"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="external-event-title"
+      >
+        <div className="p-4 border-b flex justify-between items-center">
+          <h3 id="external-event-title" className="text-lg font-semibold flex items-center gap-2">
+            <span className="text-xl">📅</span>
+            {event.title}
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Close dialog"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="p-4 space-y-3">
+          {event.description && (
+            <div>
+              <span className="text-sm text-gray-500">Description</span>
+              <p className="mt-1 whitespace-pre-wrap">{event.description}</p>
+            </div>
+          )}
+          {event.location && (
+            <div>
+              <span className="text-sm text-gray-500">Location</span>
+              <p className="mt-1">{event.location}</p>
+            </div>
+          )}
+          <div>
+            <span className="text-sm text-gray-500">Time</span>
+            <p className="mt-1">
+              {event.allDay
+                ? "All day"
+                : `${formatTime(event.date.toISOString())} - ${event.date.toLocaleDateString()}`
+              }
+            </p>
+          </div>
+          <div className="flex gap-2 pt-2">
+            {event.externalUrl && (
+              <a
+                href={event.externalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 flex items-center gap-2 min-h-[44px]"
+              >
+                Open in Calendar
+              </a>
+            )}
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[44px]"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>

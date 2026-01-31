@@ -1,6 +1,7 @@
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, addMonths, subMonths, addWeeks, subWeeks, startOfDay, isSameDay, isSameMonth } from "date-fns";
 import { CalendarDay, CalendarEvent } from "../models/CalendarEvent";
 import { isToday } from "../models/CalendarEvent";
+import { ExternalEvent } from "../models/ExternalEvent";
 
 /**
  * Get the start of the week day (0 = Sunday, 1 = Monday, etc.)
@@ -194,6 +195,30 @@ export function groupEventsByTask(events: CalendarEvent[]): Map<number, Calendar
   });
 
   return taskMap;
+}
+
+/**
+ * Merge task events and external events into a unified calendar event list
+ * External events are converted to CalendarEvent format with source="external"
+ */
+export function mergeCalendarEvents(
+  taskEvents: CalendarEvent[],
+  externalEvents: ExternalEvent[]
+): CalendarEvent[] {
+  const converted: CalendarEvent[] = externalEvents.map(ee => ({
+    id: ee.id,
+    externalEventId: ee.id,
+    source: "external" as const,
+    title: ee.title,
+    date: new Date(ee.start_time),
+    allDay: ee.all_day,
+    description: ee.description,
+    location: ee.location,
+    externalUrl: ee.external_url,
+    color: ee.color || "#6366f1", // Default indigo
+  }));
+
+  return [...taskEvents, ...converted];
 }
 
 /**
