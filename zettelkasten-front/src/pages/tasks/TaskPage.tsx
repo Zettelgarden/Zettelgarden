@@ -16,6 +16,9 @@ import { useTaskPageSettings } from "../../hooks/useTaskPageSettings";
 import { useTaskFiltering } from "../../hooks/useTaskFiltering";
 import { CalendarViewWrapper } from "../../components/calendar/CalendarView";
 import { useNavigate } from "react-router-dom";
+import { getExternalEvents } from "../../api/externalEvents";
+import { ExternalEvent } from "../../models/ExternalEvent";
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import { parseTaskQuery, updateQueryDateView, updateQueryShowCompleted } from "../../utils/tasks";
 import {
   QuickTagPopover,
@@ -39,6 +42,9 @@ export function TaskPage({ }: TaskListProps) {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [createTaskStatus, setCreateTaskStatus] = useState<string | undefined>(undefined);
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | null>(null);
+
+  // External calendar events state
+  const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
 
   // Ref to prevent infinite loops when syncing query and UI
   const isInternalUpdate = useRef(false);
@@ -90,6 +96,40 @@ export function TaskPage({ }: TaskListProps) {
       setShowCompleted(parsed.showCompleted);
     }
   }, [settings.filterString]);
+
+  // Load external calendar events when in calendar view
+  useEffect(() => {
+    async function loadExternalEvents() {
+      if (settings.viewMode !== "calendar") {
+        setExternalEvents([]);
+        return;
+      }
+
+      try {
+        // Calculate date range based on view mode and current date
+        const currentDate = settings.calendarCurrentDate;
+        let start: Date;
+        let end: Date;
+
+        if (settings.calendarViewMode === "month") {
+          start = startOfMonth(currentDate);
+          end = endOfMonth(currentDate);
+        } else {
+          // Week view
+          start = startOfWeek(currentDate, { weekStartsOn: 0 });
+          end = endOfWeek(currentDate, { weekStartsOn: 0 });
+        }
+
+        const events = await getExternalEvents(start, end);
+        setExternalEvents(events);
+      } catch (err) {
+        console.error("Failed to load external events:", err);
+        setExternalEvents([]);
+      }
+    }
+
+    loadExternalEvents();
+  }, [settings.viewMode, settings.calendarViewMode, settings.calendarCurrentDate]);
 
   function handleFilterChange(
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -410,6 +450,7 @@ export function TaskPage({ }: TaskListProps) {
         {settings.viewMode === "calendar" ? (
           <CalendarViewWrapper
             tasks={tasksToDisplay}
+            externalEvents={externalEvents}
             currentDate={settings.calendarCurrentDate}
             viewMode={settings.calendarViewMode}
             onNavigate={settings.navigateCalendar}
