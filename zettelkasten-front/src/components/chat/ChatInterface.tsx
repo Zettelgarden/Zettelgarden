@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
-import { ChatMessage } from "../../api/chat";
+import { ChatMessage, ChatModel, getChatModels } from "../../api/chat";
 import { parseMessageContent } from "../../utils/chatUtils";
 import { CardsSection } from "./CardsSection";
 import { TasksSection } from "./TasksSection";
@@ -115,18 +115,7 @@ export function ChatInterface({
   placeholder = "Ask about your cards... Type @ to mention a card",
   compact = false,
   showModelDropdown = true,
-  availableModels = [
-    { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-    { value: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
-    { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-    { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash Preview" },
-    { value: "google/gemini-3-pro-preview", label: "Gemini 3 Pro Preview" },
-    { value: "openai/gpt-4o-mini", label: "GPT-4o Mini" },
-    { value: "openai/gpt-5-chat", label: "GPT-5 Chat" },
-    { value: "openai/gpt-5.1-chat", label: "GPT-5.1 Chat" },
-    { value: "openai/gpt-5.2-chat", label: "GPT-5.2 Chat" },
-    { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
-  ],
+  availableModels: propAvailableModels,
   onRegenerateMessage,
   onRetryToolCall,
 }: ChatInterfaceProps) {
@@ -170,6 +159,35 @@ export function ChatInterface({
   // Card reference state
   const [showBacklinkDialog, setShowBacklinkDialog] = useState(false);
   const [referencedCardDetails, setReferencedCardDetails] = useState<PartialCard[]>([]);
+
+  // Models state - fetch from API if not provided via props
+  const [fetchedModels, setFetchedModels] = useState<{ value: string; label: string }[] | null>(null);
+
+  // Fetch chat models from API on mount (if not provided via props)
+  useEffect(() => {
+    if (propAvailableModels) {
+      return; // Use prop models if provided
+    }
+
+    const fetchModels = async () => {
+      try {
+        const models = await getChatModels();
+        const formattedModels = models.map(m => ({ value: m.value, label: m.label }));
+        setFetchedModels(formattedModels);
+      } catch (error) {
+        console.error('Failed to fetch chat models:', error);
+        // Set fallback models on error
+        setFetchedModels([
+          { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+        ]);
+      }
+    };
+
+    fetchModels();
+  }, [propAvailableModels]);
+
+  // Use fetched models if prop not provided, otherwise use prop
+  const availableModels = propAvailableModels || fetchedModels || [];
 
   // Fetch card details when referenced cards change
   useEffect(() => {

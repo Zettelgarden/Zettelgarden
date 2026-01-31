@@ -5,9 +5,60 @@ import (
 	"encoding/json"
 	"fmt"
 	"go-backend/models"
+	"go-backend/services"
 	"log"
 	"net/http"
+	"strings"
 )
+
+// ChatModel represents a chat model with its display label and pricing
+type ChatModel struct {
+	Value          string  `json:"value"`
+	Label          string  `json:"label"`
+	PromptPer1K    float64 `json:"prompt_per_1k"`
+	CompletionPer1K float64 `json:"completion_per_1k"`
+}
+
+// GetChatModelsRoute returns the list of valid chat models with their labels and pricing
+func (s *Handler) GetChatModelsRoute(w http.ResponseWriter, r *http.Request) {
+	// Generate labels from model IDs
+	models := make([]ChatModel, 0, len(services.ValidChatModels))
+	for modelID, pricing := range services.ValidChatModels {
+		label := generateModelLabel(modelID)
+		models = append(models, ChatModel{
+			Value:          modelID,
+			Label:          label,
+			PromptPer1K:    pricing.PromptPer1K,
+			CompletionPer1K: pricing.CompletionPer1K,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(models)
+}
+
+// generateModelLabel creates a human-readable label from a model ID
+func generateModelLabel(modelID string) string {
+	// Convert model IDs like "google/gemini-2.5-flash" to "Gemini 2.5 Flash"
+	parts := strings.Split(modelID, "/")
+	if len(parts) < 2 {
+		return modelID
+	}
+
+	// Get the last part (model name) and format it
+	modelName := parts[len(parts)-1]
+	label := strings.ReplaceAll(modelName, "-", " ")
+	label = strings.ReplaceAll(label, ".", " ")
+
+	// Capitalize first letter of each word
+	words := strings.Fields(label)
+	for i, word := range words {
+		if len(word) > 0 {
+			words[i] = strings.ToUpper(word[:1]) + word[1:]
+		}
+	}
+	return strings.Join(words, " ")
+}
 
 // GetUsageQuotaRoute gets user's usage quota status
 func (s *Handler) GetUsageQuotaRoute(w http.ResponseWriter, r *http.Request) {

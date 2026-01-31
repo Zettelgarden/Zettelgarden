@@ -109,6 +109,13 @@ export interface ChatInstructions {
   updated_at?: string;
 }
 
+export interface ChatModel {
+  value: string;
+  label: string;
+  prompt_per_1k: number;
+  completion_per_1k: number;
+}
+
 // API Functions
 
 export function createConversation(params: CreateConversationRequest): Promise<ChatConversation> {
@@ -309,4 +316,8 @@ export interface EditUserMessageRequest {
 
 export function editUserMessage(conversationId: string, messageId: string, request: EditUserMessageRequest): Promise<ConversationWithMessages> {
   return getData(apiClient.put<ConversationWithMessages>(`/chat/conversations/${conversationId}/messages/${messageId}/edit`, request));
+}
+
+export function getChatModels(): Promise<ChatModel[]> {
+  return getData(apiClient.get<ChatModel[]>("/chat/models"));
 }

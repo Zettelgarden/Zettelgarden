@@ -21,4 +21,5 @@ func RegisterChatRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/chat/usage", h.GetUsageQuotaRoute, "GET")
 	addProtectedRoute(r, h, "/api/chat/instructions", h.GetInstructionsRoute, "GET")
 	addProtectedRoute(r, h, "/api/chat/instructions", h.UpdateInstructionsRoute, "PUT")
+	addProtectedRoute(r, h, "/api/chat/models", h.GetChatModelsRoute, "GET")
 }
