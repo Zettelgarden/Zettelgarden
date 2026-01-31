@@ -1,7 +1,5 @@
 import { StarredSearch, SearchConfig } from "../models/StarredSearch";
-import { checkStatus } from "./common";
-
-const base_url = import.meta.env.VITE_URL;
+import { apiClient, getData } from "./client";
 
 /**
  * Save a search configuration to starred searches
@@ -11,29 +9,15 @@ const base_url = import.meta.env.VITE_URL;
  * @returns A promise that resolves when the search is starred
  */
 export function starSearch(
-    title: string,
-    searchTerm: string,
-    searchConfig: SearchConfig
+  title: string,
+  searchTerm: string,
+  searchConfig: SearchConfig
 ): Promise<void> {
-    const url = `${base_url}/searches/star`;
-    let token = localStorage.getItem("token");
-
-    return fetch(url, {
-        method: "POST",
-        headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            title,
-            search_term: searchTerm,
-            search_config: searchConfig
-        }),
-    })
-        .then(checkStatus)
-        .then(() => {
-            return;
-        });
+  return getData(apiClient.post<void>("/searches/star", {
+    title,
+    search_term: searchTerm,
+    search_config: searchConfig
+  }));
 }
 
 /**
@@ -42,17 +26,7 @@ export function starSearch(
  * @returns A promise that resolves when the search is unstarred
  */
 export function unstarSearch(id: number): Promise<void> {
-    const url = `${base_url}/searches/star/${id}`;
-    let token = localStorage.getItem("token");
-
-    return fetch(url, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-    })
-        .then(checkStatus)
-        .then(() => {
-            return;
-        });
+  return getData(apiClient.delete<void>(`/searches/star/${id}`));
 }
 
 /**
@@ -60,30 +34,14 @@ export function unstarSearch(id: number): Promise<void> {
  * @returns A promise that resolves to an array of starred searches
  */
 export function getStarredSearches(): Promise<StarredSearch[]> {
-    const url = `${base_url}/searches/starred`;
-    let token = localStorage.getItem("token");
-
-    return fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-    })
-        .then(checkStatus)
-        .then((response) => {
-            if (response) {
-                return response.json().then((starredSearches: any[]) => {
-                    if (starredSearches === null) {
-                        return [];
-                    }
-
-                    // Transform the response into StarredSearch objects
-                    return starredSearches.map((starredSearch) => {
-                        return {
-                            ...starredSearch,
-                            created_at: new Date(starredSearch.created_at),
-                        };
-                    });
-                });
-            } else {
-                return Promise.reject(new Error("Response is undefined"));
-            }
-        });
+  return getData(apiClient.get<StarredSearch[]>("/searches/starred"))
+    .then((starredSearches) => starredSearches || [])
+    .then((starredSearches) =>
+      starredSearches.map((starredSearch) => {
+        return {
+          ...starredSearch,
+          created_at: new Date(starredSearch.created_at),
+        };
+      })
+    );
 }

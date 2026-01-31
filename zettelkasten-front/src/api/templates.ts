@@ -1,34 +1,22 @@
 import { CardTemplate, defaultCardTemplate } from "../models/Card";
-import { checkStatus } from "./common";
+import { apiClient, getData } from "./client";
 
-const base_url = import.meta.env.VITE_URL;
+function parseTemplateDates(template: CardTemplate): CardTemplate {
+  return {
+    ...template,
+    created_at: new Date(template.created_at),
+    updated_at: new Date(template.updated_at),
+  };
+}
 
 /**
  * Get all templates for the current user
  * @returns A promise that resolves to an array of templates
  */
 export function getTemplates(): Promise<CardTemplate[]> {
-    let token = localStorage.getItem("token");
-    return fetch(`${base_url}/templates`, {
-        headers: { Authorization: `Bearer ${token}` },
-    })
-        .then(checkStatus)
-        .then((response) => {
-            if (response) {
-                return response.json().then((templates: CardTemplate[]) => {
-                    if (templates === null) {
-                        return [];
-                    }
-                    return templates.map((template) => ({
-                        ...template,
-                        created_at: new Date(template.created_at),
-                        updated_at: new Date(template.updated_at),
-                    }));
-                });
-            } else {
-                return Promise.reject(new Error("Response is undefined"));
-            }
-        });
+  return getData(apiClient.get<CardTemplate[]>(`/templates`))
+    .then((templates) => templates || [])
+    .then((templates) => templates.map(parseTemplateDates));
 }
 
 /**
@@ -39,27 +27,8 @@ export function getTemplates(): Promise<CardTemplate[]> {
  * @returns A promise that resolves to the created template
  */
 export function saveAsTemplate(name: string, title: string, body: string): Promise<CardTemplate> {
-    let token = localStorage.getItem("token");
-    return fetch(`${base_url}/templates`, {
-        method: "POST",
-        headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name, title, body }),
-    })
-        .then(checkStatus)
-        .then((response) => {
-            if (response) {
-                return response.json().then((template: CardTemplate) => ({
-                    ...template,
-                    created_at: new Date(template.created_at),
-                    updated_at: new Date(template.updated_at),
-                }));
-            } else {
-                return Promise.reject(new Error("Response is undefined"));
-            }
-        });
+  return getData(apiClient.post<CardTemplate>(`/templates`, { name, title, body }))
+    .then(parseTemplateDates);
 }
 
 /**
@@ -68,22 +37,8 @@ export function saveAsTemplate(name: string, title: string, body: string): Promi
  * @returns A promise that resolves to the template
  */
 export function getTemplate(id: number): Promise<CardTemplate> {
-    let token = localStorage.getItem("token");
-    return fetch(`${base_url}/templates/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-    })
-        .then(checkStatus)
-        .then((response) => {
-            if (response) {
-                return response.json().then((template: CardTemplate) => ({
-                    ...template,
-                    created_at: new Date(template.created_at),
-                    updated_at: new Date(template.updated_at),
-                }));
-            } else {
-                return Promise.reject(new Error("Response is undefined"));
-            }
-        });
+  return getData(apiClient.get<CardTemplate>(`/templates/${id}`))
+    .then(parseTemplateDates);
 }
 
 /**
@@ -95,27 +50,8 @@ export function getTemplate(id: number): Promise<CardTemplate> {
  * @returns A promise that resolves to the updated template
  */
 export function updateTemplate(id: number, name: string, title: string, body: string): Promise<CardTemplate> {
-    let token = localStorage.getItem("token");
-    return fetch(`${base_url}/templates/${id}`, {
-        method: "PUT",
-        headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name, title, body }),
-    })
-        .then(checkStatus)
-        .then((response) => {
-            if (response) {
-                return response.json().then((template: CardTemplate) => ({
-                    ...template,
-                    created_at: new Date(template.created_at),
-                    updated_at: new Date(template.updated_at),
-                }));
-            } else {
-                return Promise.reject(new Error("Response is undefined"));
-            }
-        });
+  return getData(apiClient.put<CardTemplate>(`/templates/${id}`, { name, title, body }))
+    .then(parseTemplateDates);
 }
 
 /**
@@ -124,11 +60,5 @@ export function updateTemplate(id: number, name: string, title: string, body: st
  * @returns A promise that resolves when the template is deleted
  */
 export function deleteTemplate(id: number): Promise<void> {
-    let token = localStorage.getItem("token");
-    return fetch(`${base_url}/templates/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-    })
-        .then(checkStatus)
-        .then(() => { });
+  return getData(apiClient.delete<void>(`/templates/${id}`));
 }

@@ -1,7 +1,5 @@
 import { SchemaDefinition } from "../models/Schema";
-import { checkStatus } from "./common";
-
-const base_url = import.meta.env.VITE_URL;
+import { apiClient, getData } from "./client";
 
 function parseSchemaDates(schema: SchemaDefinition): SchemaDefinition {
   return {
@@ -12,63 +10,21 @@ function parseSchemaDates(schema: SchemaDefinition): SchemaDefinition {
 }
 
 export function fetchSchemas(): Promise<SchemaDefinition[]> {
-  const token = localStorage.getItem("token");
-  const url = base_url + "/schemas";
-
-  return fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((schemas: SchemaDefinition[] | null) => {
-          if (!schemas) return [];
-          return schemas.map(parseSchemaDates);
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.get<SchemaDefinition[]>("/schemas"))
+    .then((schemas) => schemas || [])
+    .then((schemas) => schemas.map(parseSchemaDates));
 }
 
 export function fetchSchema(id: number): Promise<SchemaDefinition> {
-  const token = localStorage.getItem("token");
-  const url = base_url + `/schemas/${id}`;
-
-  return fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((schema: SchemaDefinition) => {
-          return parseSchemaDates(schema);
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.get<SchemaDefinition>(`/schemas/${id}`))
+    .then(parseSchemaDates);
 }
 
 // Fetch schema by reference (ID or slug)
 // The ref can be a numeric ID (e.g., "123") or a slug (e.g., "book-review")
 export function fetchSchemaByRef(ref: string): Promise<SchemaDefinition> {
-  const token = localStorage.getItem("token");
-  const url = base_url + `/schemas/${ref}`;
-
-  return fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((schema: SchemaDefinition) => {
-          return parseSchemaDates(schema);
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.get<SchemaDefinition>(`/schemas/${ref}`))
+    .then(parseSchemaDates);
 }
 
 export interface CreateSchemaParams {
@@ -77,27 +33,8 @@ export interface CreateSchemaParams {
 }
 
 export function createSchema(params: CreateSchemaParams): Promise<SchemaDefinition> {
-  const token = localStorage.getItem("token");
-  const url = base_url + "/schemas";
-
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(params),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((schema: SchemaDefinition) => {
-          return parseSchemaDates(schema);
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.post<SchemaDefinition>("/schemas", params))
+    .then(parseSchemaDates);
 }
 
 export interface UpdateSchemaParams {
@@ -106,27 +43,8 @@ export interface UpdateSchemaParams {
 }
 
 export function updateSchema(id: number, params: UpdateSchemaParams): Promise<SchemaDefinition> {
-  const token = localStorage.getItem("token");
-  const url = base_url + `/schemas/${id}`;
-
-  return fetch(url, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(params),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json().then((schema: SchemaDefinition) => {
-          return parseSchemaDates(schema);
-        });
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.put<SchemaDefinition>(`/schemas/${id}`, params))
+    .then(parseSchemaDates);
 }
 
 export interface DeleteSchemaResponse {
@@ -136,21 +54,5 @@ export interface DeleteSchemaResponse {
 }
 
 export function deleteSchema(id: number): Promise<DeleteSchemaResponse> {
-  const token = localStorage.getItem("token");
-  const url = base_url + `/schemas/${id}`;
-
-  return fetch(url, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json();
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.delete<DeleteSchemaResponse>(`/schemas/${id}`));
 }

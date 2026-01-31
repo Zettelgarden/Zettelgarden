@@ -42,7 +42,7 @@ export interface APIResponse<T> {
  * this correctly produces "http://localhost:8079/api/login" instead of
  * "http://localhost:8079/login" (which is what new URL(path, base) does).
  */
-function buildURL(base: string, path: string, params?: Record<string, string | number | boolean | undefined>): string {
+export function buildURL(base: string, path: string, params?: Record<string, string | number | boolean | undefined>): string {
   // If path is already a full URL, use it as-is
   if (path.startsWith('http://') || path.startsWith('https://')) {
     const url = new URL(path);

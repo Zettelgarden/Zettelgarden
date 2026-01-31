@@ -1,21 +1,19 @@
-import { checkStatus } from "./common";
 import {
   type File,
   EditFileMetadataParams,
   UploadFileResponse,
 } from "../models/File";
 import { GenericResponse } from "../models/common";
+import { apiClient, getData } from "./client";
+import { buildURL } from "./client";
 
-const base_url = import.meta.env.VITE_URL;
+const BASE_URL = import.meta.env.VITE_URL;
 
 export function uploadFile(
   file: Blob,
   card_pk: number,
   customFilename?: string
 ): Promise<UploadFileResponse> {
-  let token = localStorage.getItem("token");
-  const url = base_url + "/files/upload";
-
   const maxSize = 10 * 1024 * 1024; // 10 MB in bytes
   if (file.size > maxSize) {
     return Promise.reject(
@@ -25,7 +23,7 @@ export function uploadFile(
 
   // Create a FormData object and append the file
   let formData = new FormData();
-  
+
   if (customFilename && file instanceof File) {
     // Create a new File with custom filename but keep the original file's content and type
     const fileExtension = file.name.split('.').pop() || '';
@@ -34,36 +32,39 @@ export function uploadFile(
   } else {
     formData.append("file", file);
   }
-  
+
   formData.append("card_pk", card_pk.toString()); // Append card_pk to the form data
 
-  // Send a POST request with the FormData
+  // Get token and manually handle FormData upload (skip Content-Type for FormData)
+  const token = localStorage.getItem("token");
+  const url = buildURL(BASE_URL, "/files/upload");
+
   return fetch(url, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
-      // Don't set 'Content-Type' for FormData, as the browser sets it with the correct boundary
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      // Don't set Content-Type for FormData - browser sets it with boundary
     },
     body: formData,
   })
-    .then(checkStatus)
     .then((response) => {
-      if (response) {
-        return response.json() as Promise<UploadFileResponse>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
+      if (!response.ok) {
+        return response.text().then((text) => {
+          throw new Error(text || `Request failed with status: ${response.status}`);
+        });
       }
+      return response.json() as Promise<UploadFileResponse>;
     });
 }
 
 export function renderFile(fileId: number, filename: string) {
-  let token = localStorage.getItem("token");
-  const url = `${base_url}/files/download/${fileId}`;
+  const token = localStorage.getItem("token");
+  const url = buildURL(BASE_URL, `/files/download/${fileId}`);
 
   return fetch(url, {
     method: "GET",
     headers: {
-      Authorization: `Bearer ${token}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   })
     .then((response) => {
@@ -89,13 +90,13 @@ export function renderFile(fileId: number, filename: string) {
 }
 
 export function downloadFile(fileId: string) {
-  let token = localStorage.getItem("token");
-  const url = `${base_url}/files/download/${fileId}`;
+  const token = localStorage.getItem("token");
+  const url = buildURL(BASE_URL, `/files/download/${fileId}`);
 
   return fetch(url, {
     method: "GET",
     headers: {
-      Authorization: `Bearer ${token}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   })
     .then((response) => {
@@ -109,13 +110,13 @@ export function downloadFile(fileId: string) {
 }
 
 export function downloadThumbnail(fileId: string): Promise<string | undefined> {
-  let token = localStorage.getItem("token");
-  const url = `${base_url}/files/download/${fileId}?thumbnail=true`;
+  const token = localStorage.getItem("token");
+  const url = buildURL(BASE_URL, `/files/download/${fileId}?thumbnail=true`);
 
   return fetch(url, {
     method: "GET",
     headers: {
-      Authorization: `Bearer ${token}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   })
     .then((response) => {
@@ -141,75 +142,25 @@ export interface FilesResponse {
 }
 
 export function getAllFiles(page: number = 1, perPage: number = 20, search: string = ""): Promise<FilesResponse> {
-  let token = localStorage.getItem("token");
-
-  const params = new URLSearchParams({
-    page: page.toString(),
-    per_page: perPage.toString(),
-  });
+  const params: Record<string, string | number | undefined> = {
+    page: page,
+    per_page: perPage,
+  };
 
   if (search.trim()) {
-    params.append("search", search.trim());
+    params.search = search.trim();
   }
 
-  const url = `${base_url}/files?${params.toString()}`;
-
-  return fetch(url, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response && response.status !== 204) {
-        return response.json() as Promise<FilesResponse>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.get<FilesResponse>("/files", { params }));
 }
 
 export function deleteFile(fileId: number): Promise<GenericResponse> {
-  let token = localStorage.getItem("token");
-  const url = `${base_url}/files/${fileId}`;
-
-  return fetch(url, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<GenericResponse>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.delete<GenericResponse>(`/files/${fileId}`));
 }
+
 export function editFile(
   fileId: string,
   updateData: EditFileMetadataParams,
 ): Promise<File> {
-  let token = localStorage.getItem("token");
-  const url = `${base_url}/files/${fileId}`;
-
-  return fetch(url, {
-    method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(updateData),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<File>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.patch<File>(`/files/${fileId}`, updateData));
 }

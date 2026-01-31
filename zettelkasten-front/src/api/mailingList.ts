@@ -1,6 +1,4 @@
-import { checkStatus } from "./common";
-
-const base_url = import.meta.env.VITE_URL;
+import { apiClient, getData } from "./client";
 
 export interface SendMailingListMessageParams {
   subject: string;
@@ -34,57 +32,13 @@ export interface MailingListSubscriber {
 }
 
 export async function getMailingListSubscribers(): Promise<MailingListSubscriber[]> {
-  const url = `${base_url}/mailing-list`;
-  const token = localStorage.getItem("token");
-
-  return fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<MailingListSubscriber[]>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.get<MailingListSubscriber[]>("/mailing-list"));
 }
 
 export async function sendMailingListMessage(params: SendMailingListMessageParams): Promise<SendMailingListMessageResponse> {
-  const url = `${base_url}/mailing-list/messages/send`;
-  const token = localStorage.getItem("token");
-
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(params),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<SendMailingListMessageResponse>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.post<SendMailingListMessageResponse>("/mailing-list/messages/send", params));
 }
 
 export async function getMailingListMessages(): Promise<MailingListMessage[]> {
-  const url = `${base_url}/mailing-list/messages`;
-  const token = localStorage.getItem("token");
-
-  return fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<MailingListMessage[]>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
-} 
+  return getData(apiClient.get<MailingListMessage[]>("/mailing-list/messages"));
+}

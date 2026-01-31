@@ -1,6 +1,5 @@
-import { checkStatus } from "./common";
-
-const base_url = import.meta.env.VITE_URL;
+import { apiClient, getData } from "./client";
+import { buildURL } from "./client";
 
 // Types for chat API
 export interface ChatConversation {
@@ -113,69 +112,23 @@ export interface ChatInstructions {
 // API Functions
 
 export function createConversation(params: CreateConversationRequest): Promise<ChatConversation> {
-  const url = `${base_url}/chat/conversations`;
-  const token = localStorage.getItem("token");
-
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(params),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<ChatConversation>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.post<ChatConversation>("/chat/conversations", params));
 }
 
 export function getConversations(primaryCardId?: number): Promise<ChatConversation[]> {
-  let url = `${base_url}/chat/conversations`;
+  const params: Record<string, number | undefined> = {};
   if (primaryCardId !== undefined) {
-    url += `?primary_card_id=${primaryCardId}`;
+    params.primary_card_id = primaryCardId;
   }
-  const token = localStorage.getItem("token");
-
-  return fetch(url, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-    .then(checkStatus)
-    .then(async (response) => {
-      if (response) {
-        const data = await response.json() as ChatConversation[] | null;
-        return data || [];
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.get<ChatConversation[]>("/chat/conversations", { params }))
+    .then((data) => data || []);
 }
 
 export function getConversation(conversationId: string): Promise<ConversationWithMessages> {
-  const url = `${base_url}/chat/conversations/${conversationId}`;
-  const token = localStorage.getItem("token");
-
-  return fetch(url, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<ConversationWithMessages>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.get<ConversationWithMessages>(`/chat/conversations/${conversationId}`));
 }
 
 export function sendMessage(conversationId: string, content: string, referencedCards?: string[], model?: string): Promise<ChatMessage[]> {
-  const url = `${base_url}/chat/conversations/${conversationId}/messages`;
-  const token = localStorage.getItem("token");
-
   const payload: SendMessageRequest = { content };
   if (referencedCards && referencedCards.length > 0) {
     payload.referenced_cards = referencedCards;
@@ -184,22 +137,7 @@ export function sendMessage(conversationId: string, content: string, referencedC
     payload.model = model;
   }
 
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<ChatMessage[]>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.post<ChatMessage[]>(`/chat/conversations/${conversationId}/messages`, payload));
 }
 
 // Streaming event types
@@ -228,8 +166,8 @@ export function sendMessageStream(
   referencedCards?: string[],
   model?: string
 ): Promise<void> {
-  const url = `${base_url}/chat/conversations/${conversationId}/messages/stream`;
-  const token = localStorage.getItem("token");
+  const BASE_URL = import.meta.env.VITE_URL;
+  const url = buildURL(BASE_URL, `/chat/conversations/${conversationId}/messages/stream`);
 
   const payload: SendMessageRequest = { content };
   if (referencedCards && referencedCards.length > 0) {
@@ -240,15 +178,10 @@ export function sendMessageStream(
   }
 
   return new Promise((resolve, reject) => {
-    fetch(url, {
+    apiClient.fetchResponse(url, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify(payload),
     })
-      .then(checkStatus)
       .then((response) => {
         if (!response || !response.body) {
           throw new Error("Response or body is undefined");
@@ -323,152 +256,35 @@ export function sendMessageStream(
 }
 
 export function deleteConversation(conversationId: string): Promise<void> {
-  const url = `${base_url}/chat/conversations/${conversationId}`;
-  const token = localStorage.getItem("token");
-
-  return fetch(url, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then(() => {
-      // Delete request returns 204 No Content
-      return;
-    });
+  return getData(apiClient.delete<void>(`/chat/conversations/${conversationId}`));
 }
 
 export function starConversation(conversationId: string): Promise<ChatConversation> {
-  const url = `${base_url}/chat/conversations/${conversationId}/star`;
-  const token = localStorage.getItem("token");
-
-  return fetch(url, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<ChatConversation>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.post<ChatConversation>(`/chat/conversations/${conversationId}/star`));
 }
 
 export function updateConversationTitle(conversationId: string, title: string): Promise<ChatConversation> {
-  const url = `${base_url}/chat/conversations/${conversationId}/title`;
-  const token = localStorage.getItem("token");
-
-  return fetch(url, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ title }),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<ChatConversation>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.put<ChatConversation>(`/chat/conversations/${conversationId}/title`, { title }));
 }
 
 export function getUsageQuotas(): Promise<UsageQuota[]> {
-  const url = `${base_url}/chat/usage`;
-  const token = localStorage.getItem("token");
-
-  return fetch(url, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<UsageQuota[]>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.get<UsageQuota[]>("/chat/usage"));
 }
 
 export function getConversationStatus(conversationId: string): Promise<ConversationStatus> {
-  const url = `${base_url}/chat/conversations/${conversationId}/status`;
-  const token = localStorage.getItem("token");
-
-  return fetch(url, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<ConversationStatus>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.get<ConversationStatus>(`/chat/conversations/${conversationId}/status`));
 }
 
 export function getChatInstructions(): Promise<ChatInstructions> {
-  const url = `${base_url}/chat/instructions`;
-  const token = localStorage.getItem("token");
-
-  return fetch(url, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<ChatInstructions>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.get<ChatInstructions>("/chat/instructions"));
 }
 
 export function updateChatInstructions(instructions: string): Promise<ChatInstructions> {
-  const url = `${base_url}/chat/instructions`;
-  const token = localStorage.getItem("token");
-
-  return fetch(url, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ instructions }),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<ChatInstructions>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.put<ChatInstructions>("/chat/instructions", { instructions }));
 }
 
 export function regenerateMessage(conversationId: string, messageId: string): Promise<ChatMessage> {
-  const url = `${base_url}/chat/conversations/${conversationId}/messages/${messageId}/regenerate`;
-  const token = localStorage.getItem("token");
-
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<ChatMessage>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.post<ChatMessage>(`/chat/conversations/${conversationId}/messages/${messageId}/regenerate`));
 }
 
 // Retry a failed tool call
@@ -484,25 +300,7 @@ export interface RetryToolCallResponse {
 }
 
 export function retryToolCall(conversationId: string, request: RetryToolCallRequest): Promise<RetryToolCallResponse> {
-  const url = `${base_url}/chat/conversations/${conversationId}/tools/retry`;
-  const token = localStorage.getItem("token");
-
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(request),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<RetryToolCallResponse>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.post<RetryToolCallResponse>(`/chat/conversations/${conversationId}/tools/retry`, request));
 }
 
 export interface EditUserMessageRequest {
@@ -510,23 +308,5 @@ export interface EditUserMessageRequest {
 }
 
 export function editUserMessage(conversationId: string, messageId: string, request: EditUserMessageRequest): Promise<ConversationWithMessages> {
-  const url = `${base_url}/chat/conversations/${conversationId}/messages/${messageId}/edit`;
-  const token = localStorage.getItem("token");
-
-  return fetch(url, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(request),
-  })
-    .then(checkStatus)
-    .then((response) => {
-      if (response) {
-        return response.json() as Promise<ConversationWithMessages>;
-      } else {
-        return Promise.reject(new Error("Response is undefined"));
-      }
-    });
+  return getData(apiClient.put<ConversationWithMessages>(`/chat/conversations/${conversationId}/messages/${messageId}/edit`, request));
 }
