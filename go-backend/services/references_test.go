@@ -2,6 +2,7 @@ package services
 
 import (
 	"go-backend/models"
+	"go-backend/tests"
 	"testing"
 )
 
@@ -201,4 +202,677 @@ func isSortedByCardID(cards []models.PartialCard) bool {
 		}
 	}
 	return true
+}
+
+// Integration tests for references service
+
+// TestGetDirectLinks_Integration tests GetDirectLinks with real database
+func TestGetDirectLinks_Integration(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create target cards that will be referenced
+	target1Params := models.EditCardParams{
+		Title:  "Target Card 1",
+		Body:   "Target body 1",
+		CardID: "target1",
+		Link:   "",
+	}
+	target1, err := CreateCard(s.DB, userID, target1Params)
+	if err != nil {
+		t.Fatalf("Failed to create target1: %v", err)
+	}
+
+	target2Params := models.EditCardParams{
+		Title:  "Target Card 2",
+		Body:   "Target body 2",
+		CardID: "target2",
+		Link:   "",
+	}
+	target2, err := CreateCard(s.DB, userID, target2Params)
+	if err != nil {
+		t.Fatalf("Failed to create target2: %v", err)
+	}
+
+	// Create a source card that references the targets
+	sourceParams := models.EditCardParams{
+		Title:  "Source Card",
+		Body:   "This card references [target1] and [target2]",
+		CardID: "source",
+		Link:   "",
+	}
+	source, err := CreateCard(s.DB, userID, sourceParams)
+	if err != nil {
+		t.Fatalf("Failed to create source: %v", err)
+	}
+
+	// Get direct links from the source card
+	directLinks, err := GetDirectLinks(s.DB, userID, source)
+	if err != nil {
+		t.Fatalf("GetDirectLinks failed: %v", err)
+	}
+
+	// Verify we got 2 direct links
+	if len(directLinks) != 2 {
+		t.Errorf("Expected 2 direct links, got %d", len(directLinks))
+	}
+
+	// Verify the direct links are the target cards
+	foundTarget1, foundTarget2 := false, false
+	for _, link := range directLinks {
+		if link.CardID == "target1" {
+			foundTarget1 = true
+			if link.ID != target1.ID {
+				t.Errorf("Target1 ID mismatch: expected %d, got %d", target1.ID, link.ID)
+			}
+		}
+		if link.CardID == "target2" {
+			foundTarget2 = true
+			if link.ID != target2.ID {
+				t.Errorf("Target2 ID mismatch: expected %d, got %d", target2.ID, link.ID)
+			}
+		}
+	}
+
+	if !foundTarget1 {
+		t.Error("Target1 not found in direct links")
+	}
+	if !foundTarget2 {
+		t.Error("Target2 not found in direct links")
+	}
+}
+
+// TestGetDirectLinks_NonExistentTarget_Integration tests GetDirectLinks with non-existent referenced cards
+func TestGetDirectLinks_NonExistentTarget_Integration(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create a card that references non-existent cards
+	sourceParams := models.EditCardParams{
+		Title:  "Source Card",
+		Body:   "This references [nonexistent1] and [nonexistent2]",
+		CardID: "source_nonexist",
+		Link:   "",
+	}
+	source, err := CreateCard(s.DB, userID, sourceParams)
+	if err != nil {
+		t.Fatalf("Failed to create source: %v", err)
+	}
+
+	// Get direct links - should return empty slice, not error
+	directLinks, err := GetDirectLinks(s.DB, userID, source)
+	if err != nil {
+		t.Fatalf("GetDirectLinks failed: %v", err)
+	}
+
+	// Verify we got 0 direct links (non-existent cards are skipped)
+	if len(directLinks) != 0 {
+		t.Errorf("Expected 0 direct links for non-existent cards, got %d", len(directLinks))
+	}
+}
+
+// TestGetDirectLinks_NoReferences_Integration tests GetDirectLinks with card that has no references
+func TestGetDirectLinks_NoReferences_Integration(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create a card with no references
+	params := models.EditCardParams{
+		Title:  "Card with no refs",
+		Body:   "Just some plain text",
+		CardID: "norefs_card",
+		Link:   "",
+	}
+	card, err := CreateCard(s.DB, userID, params)
+	if err != nil {
+		t.Fatalf("Failed to create card: %v", err)
+	}
+
+	// Get direct links
+	directLinks, err := GetDirectLinks(s.DB, userID, card)
+	if err != nil {
+		t.Fatalf("GetDirectLinks failed: %v", err)
+	}
+
+	if len(directLinks) != 0 {
+		t.Errorf("Expected 0 direct links, got %d", len(directLinks))
+	}
+}
+
+// TestGetReferences_Integration tests GetReferences with real database
+func TestGetReferences_Integration(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create target cards first
+	target1Params := models.EditCardParams{
+		Title:  "Target 1",
+		Body:   "Target body 1",
+		CardID: "ref_target1",
+		Link:   "",
+	}
+	target1, err := CreateCard(s.DB, userID, target1Params)
+	if err != nil {
+		t.Fatalf("Failed to create target1: %v", err)
+	}
+
+	target2Params := models.EditCardParams{
+		Title:  "Target 2",
+		Body:   "Target body 2",
+		CardID: "ref_target2",
+		Link:   "",
+	}
+	target2, err := CreateCard(s.DB, userID, target2Params)
+	if err != nil {
+		t.Fatalf("Failed to create target2: %v", err)
+	}
+
+	// Create main card with direct links (must be created before backlink_source)
+	mainParams := models.EditCardParams{
+		Title:  "Main Card",
+		Body:   "References [ref_target1] and [ref_target2]",
+		CardID: "main_card",
+		Link:   "",
+	}
+	mainCard, err := CreateCard(s.DB, userID, mainParams)
+	if err != nil {
+		t.Fatalf("Failed to create main card: %v", err)
+	}
+
+	// Now create backlink source (must come after main_card so backlink is established)
+	backlinkSourceParams := models.EditCardParams{
+		Title:  "Backlink Source",
+		Body:   "This links to [main_card]",
+		CardID: "backlink_source",
+		Link:   "",
+	}
+	backlinkSource, err := CreateCard(s.DB, userID, backlinkSourceParams)
+	if err != nil {
+		t.Fatalf("Failed to create backlink source: %v", err)
+	}
+
+	// Get references for the main card
+	references, err := GetReferences(s.DB, userID, mainCard)
+	if err != nil {
+		t.Fatalf("GetReferences failed: %v", err)
+	}
+
+	// Should have 3 references: 2 direct links + 1 backlink
+	if len(references) != 3 {
+		t.Errorf("Expected 3 references (2 direct + 1 backlink), got %d", len(references))
+	}
+
+	// Verify the cards are present
+	foundTarget1, foundTarget2, foundBacklink := false, false, false
+	for _, ref := range references {
+		if ref.CardID == "ref_target1" {
+			foundTarget1 = true
+			if ref.ID != target1.ID {
+				t.Errorf("Target1 ID mismatch: expected %d, got %d", target1.ID, ref.ID)
+			}
+		}
+		if ref.CardID == "ref_target2" {
+			foundTarget2 = true
+			if ref.ID != target2.ID {
+				t.Errorf("Target2 ID mismatch: expected %d, got %d", target2.ID, ref.ID)
+			}
+		}
+		if ref.CardID == "backlink_source" {
+			foundBacklink = true
+			if ref.ID != backlinkSource.ID {
+				t.Errorf("Backlink source ID mismatch: expected %d, got %d", backlinkSource.ID, ref.ID)
+			}
+		}
+	}
+
+	if !foundTarget1 {
+		t.Error("Target1 not found in references")
+	}
+	if !foundTarget2 {
+		t.Error("Target2 not found in references")
+	}
+	if !foundBacklink {
+		t.Error("Backlink source not found in references")
+	}
+
+	// Verify references are sorted by CardID descending
+	if !isSortedByCardID(references) {
+		t.Error("References are not sorted by CardID descending")
+	}
+
+	// Verify no duplicates
+	seen := make(map[int]bool)
+	for _, ref := range references {
+		if seen[ref.ID] {
+			t.Errorf("Duplicate card found in references: ID %d", ref.ID)
+		}
+		seen[ref.ID] = true
+	}
+}
+
+// TestGetReferences_Empty_Integration tests GetReferences with no references
+func TestGetReferences_Empty_Integration(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	params := models.EditCardParams{
+		Title:  "Isolated Card",
+		Body:   "No references at all",
+		CardID: "isolated_refs",
+		Link:   "",
+	}
+	card, err := CreateCard(s.DB, userID, params)
+	if err != nil {
+		t.Fatalf("Failed to create card: %v", err)
+	}
+
+	references, err := GetReferences(s.DB, userID, card)
+	if err != nil {
+		t.Fatalf("GetReferences failed: %v", err)
+	}
+
+	if len(references) != 0 {
+		t.Errorf("Expected 0 references, got %d", len(references))
+	}
+}
+
+// TestGetCategorizedReferences_Integration tests GetCategorizedReferences with real database
+func TestGetCategorizedReferences_Integration(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create bidirectional card - main will link to it, and it will link back to main
+	bidirParams := models.EditCardParams{
+		Title:  "Bidirectional Card",
+		Body:   "Will link to [main]",
+		CardID: "bidir",
+		Link:   "",
+	}
+	bidir, err := CreateCard(s.DB, userID, bidirParams)
+	if err != nil {
+		t.Fatalf("Failed to create bidir: %v", err)
+	}
+
+	// Create outgoing-only card (referenced by main but doesn't link back)
+	outgoingParams := models.EditCardParams{
+		Title:  "Outgoing Only",
+		Body:   "Doesn't link back",
+		CardID: "outgoing",
+		Link:   "",
+	}
+	outgoing, err := CreateCard(s.DB, userID, outgoingParams)
+	if err != nil {
+		t.Fatalf("Failed to create outgoing: %v", err)
+	}
+
+	// Create incoming-only card placeholder (will update after main_card exists)
+	incomingParams := models.EditCardParams{
+		Title:  "Incoming Only",
+		Body:   "Will link to [main]",
+		CardID: "incoming",
+		Link:   "",
+	}
+	incoming, err := CreateCard(s.DB, userID, incomingParams)
+	if err != nil {
+		t.Fatalf("Failed to create incoming: %v", err)
+	}
+
+	// Create main card - links to bidir and outgoing
+	mainParams := models.EditCardParams{
+		Title:  "Main Card",
+		Body:   "Links to [bidir] and [outgoing]",
+		CardID: "main",
+		Link:   "",
+	}
+	mainCard, err := CreateCard(s.DB, userID, mainParams)
+	if err != nil {
+		t.Fatalf("Failed to create main card: %v", err)
+	}
+
+	// Now update bidir to link back to main (creating true bidirectional relationship)
+	bidirUpdateParams := models.EditCardParams{
+		Title:  "Bidirectional Card",
+		Body:   "Links to [main]",
+		CardID: "bidir",
+		Link:   "",
+	}
+	_, err = UpdateCard(s.DB, userID, bidir.ID, bidirUpdateParams)
+	if err != nil {
+		t.Fatalf("Failed to update bidir: %v", err)
+	}
+
+	// Update incoming to link to main (creating incoming backlink)
+	incomingUpdateParams := models.EditCardParams{
+		Title:  "Incoming Only",
+		Body:   "Links to [main]",
+		CardID: "incoming",
+		Link:   "",
+	}
+	_, err = UpdateCard(s.DB, userID, incoming.ID, incomingUpdateParams)
+	if err != nil {
+		t.Fatalf("Failed to update incoming: %v", err)
+	}
+
+	// Get categorized references for main card
+	categorized, err := GetCategorizedReferences(s.DB, userID, mainCard)
+	if err != nil {
+		t.Fatalf("GetCategorizedReferences failed: %v", err)
+	}
+
+	// Verify counts
+	// Bidirectional: bidir (main -> bidir, and bidir -> main)
+	// Outgoing: outgoing (main -> outgoing, but outgoing doesn't link back)
+	// Incoming: incoming (incoming -> main, but main doesn't link to incoming)
+	t.Logf("Bidirectional count: %d", len(categorized.Bidirectional))
+	t.Logf("Outgoing count: %d", len(categorized.Outgoing))
+	t.Logf("Incoming count: %d", len(categorized.Incoming))
+
+	if len(categorized.Bidirectional) != 1 {
+		t.Errorf("Expected 1 bidirectional reference, got %d", len(categorized.Bidirectional))
+	}
+	if len(categorized.Outgoing) != 1 {
+		t.Errorf("Expected 1 outgoing reference, got %d", len(categorized.Outgoing))
+	}
+	if len(categorized.Incoming) != 1 {
+		t.Errorf("Expected 1 incoming reference, got %d", len(categorized.Incoming))
+	}
+
+	// Verify bidirectional contains bidir card
+	if len(categorized.Bidirectional) > 0 {
+		if categorized.Bidirectional[0].ID != bidir.ID {
+			t.Errorf("Bidirectional card ID mismatch: expected %d, got %d", bidir.ID, categorized.Bidirectional[0].ID)
+		}
+		if categorized.Bidirectional[0].CardID != "bidir" {
+			t.Errorf("Bidirectional card CardID mismatch: expected 'bidir', got %s", categorized.Bidirectional[0].CardID)
+		}
+	}
+
+	// Verify outgoing contains outgoing card
+	foundOutgoing := false
+	for _, card := range categorized.Outgoing {
+		if card.CardID == "outgoing" {
+			foundOutgoing = true
+			if card.ID != outgoing.ID {
+				t.Errorf("Outgoing card ID mismatch: expected %d, got %d", outgoing.ID, card.ID)
+			}
+		}
+	}
+	if !foundOutgoing {
+		t.Error("Outgoing card not found in Outgoing category")
+	}
+
+	// Verify incoming contains incoming card
+	foundIncoming := false
+	for _, card := range categorized.Incoming {
+		if card.CardID == "incoming" {
+			foundIncoming = true
+			if card.ID != incoming.ID {
+				t.Errorf("Incoming card ID mismatch: expected %d, got %d", incoming.ID, card.ID)
+			}
+		}
+	}
+	if !foundIncoming {
+		t.Error("Incoming card not found in Incoming category")
+	}
+
+	// Verify all categories are sorted by CardID descending
+	if !isSortedByCardID(categorized.Bidirectional) {
+		t.Error("Bidirectional is not sorted by CardID descending")
+	}
+	if !isSortedByCardID(categorized.Outgoing) {
+		t.Error("Outgoing is not sorted by CardID descending")
+	}
+	if !isSortedByCardID(categorized.Incoming) {
+		t.Error("Incoming is not sorted by CardID descending")
+	}
+}
+
+// TestGetCategorizedReferences_Empty_Integration tests GetCategorizedReferences with no references
+func TestGetCategorizedReferences_Empty_Integration(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	params := models.EditCardParams{
+		Title:  "Isolated Card",
+		Body:   "No references",
+		CardID: "isolated_cat",
+		Link:   "",
+	}
+	card, err := CreateCard(s.DB, userID, params)
+	if err != nil {
+		t.Fatalf("Failed to create card: %v", err)
+	}
+
+	categorized, err := GetCategorizedReferences(s.DB, userID, card)
+	if err != nil {
+		t.Fatalf("GetCategorizedReferences failed: %v", err)
+	}
+
+	if len(categorized.Bidirectional) != 0 {
+		t.Errorf("Expected 0 bidirectional references, got %d", len(categorized.Bidirectional))
+	}
+	if len(categorized.Outgoing) != 0 {
+		t.Errorf("Expected 0 outgoing references, got %d", len(categorized.Outgoing))
+	}
+	if len(categorized.Incoming) != 0 {
+		t.Errorf("Expected 0 incoming references, got %d", len(categorized.Incoming))
+	}
+}
+
+// TestGetCategorizedReferences_OnlyOutgoing_Integration tests with only outgoing references
+func TestGetCategorizedReferences_OnlyOutgoing_Integration(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create cards that main will link to
+	target1Params := models.EditCardParams{
+		Title:  "Target 1",
+		Body:   "Target",
+		CardID: "onlyout_target1",
+		Link:   "",
+	}
+	target1, err := CreateCard(s.DB, userID, target1Params)
+	if err != nil {
+		t.Fatalf("Failed to create target1: %v", err)
+	}
+
+	target2Params := models.EditCardParams{
+		Title:  "Target 2",
+		Body:   "Target",
+		CardID: "onlyout_target2",
+		Link:   "",
+	}
+	target2, err := CreateCard(s.DB, userID, target2Params)
+	if err != nil {
+		t.Fatalf("Failed to create target2: %v", err)
+	}
+
+	// Create main card with only outgoing links
+	mainParams := models.EditCardParams{
+		Title:  "Main Card",
+		Body:   "Links to [onlyout_target1] and [onlyout_target2]",
+		CardID: "onlyout_main",
+		Link:   "",
+	}
+	mainCard, err := CreateCard(s.DB, userID, mainParams)
+	if err != nil {
+		t.Fatalf("Failed to create main card: %v", err)
+	}
+
+	categorized, err := GetCategorizedReferences(s.DB, userID, mainCard)
+	if err != nil {
+		t.Fatalf("GetCategorizedReferences failed: %v", err)
+	}
+
+	if len(categorized.Bidirectional) != 0 {
+		t.Errorf("Expected 0 bidirectional references, got %d", len(categorized.Bidirectional))
+	}
+	if len(categorized.Outgoing) != 2 {
+		t.Errorf("Expected 2 outgoing references, got %d", len(categorized.Outgoing))
+	}
+	if len(categorized.Incoming) != 0 {
+		t.Errorf("Expected 0 incoming references, got %d", len(categorized.Incoming))
+	}
+
+	// Verify the correct cards are in outgoing
+	foundTarget1, foundTarget2 := false, false
+	for _, card := range categorized.Outgoing {
+		if card.ID == target1.ID {
+			foundTarget1 = true
+		}
+		if card.ID == target2.ID {
+			foundTarget2 = true
+		}
+	}
+	if !foundTarget1 {
+		t.Error("Target1 not found in Outgoing")
+	}
+	if !foundTarget2 {
+		t.Error("Target2 not found in Outgoing")
+	}
+}
+
+// TestGetCategorizedReferences_OnlyIncoming_Integration tests with only incoming references
+func TestGetCategorizedReferences_OnlyIncoming_Integration(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	userID := 1
+
+	// Create main card (no outgoing links)
+	mainParams := models.EditCardParams{
+		Title:  "Main Card",
+		Body:   "No outgoing links",
+		CardID: "onlyin_main",
+		Link:   "",
+	}
+	mainCard, err := CreateCard(s.DB, userID, mainParams)
+	if err != nil {
+		t.Fatalf("Failed to create main card: %v", err)
+	}
+
+	// Create cards that link to main
+	linker1Params := models.EditCardParams{
+		Title:  "Linker 1",
+		Body:   "Links to [onlyin_main]",
+		CardID: "onlyin_linker1",
+		Link:   "",
+	}
+	linker1, err := CreateCard(s.DB, userID, linker1Params)
+	if err != nil {
+		t.Fatalf("Failed to create linker1: %v", err)
+	}
+
+	linker2Params := models.EditCardParams{
+		Title:  "Linker 2",
+		Body:   "Also links to [onlyin_main]",
+		CardID: "onlyin_linker2",
+		Link:   "",
+	}
+	linker2, err := CreateCard(s.DB, userID, linker2Params)
+	if err != nil {
+		t.Fatalf("Failed to create linker2: %v", err)
+	}
+
+	categorized, err := GetCategorizedReferences(s.DB, userID, mainCard)
+	if err != nil {
+		t.Fatalf("GetCategorizedReferences failed: %v", err)
+	}
+
+	if len(categorized.Bidirectional) != 0 {
+		t.Errorf("Expected 0 bidirectional references, got %d", len(categorized.Bidirectional))
+	}
+	if len(categorized.Outgoing) != 0 {
+		t.Errorf("Expected 0 outgoing references, got %d", len(categorized.Outgoing))
+	}
+	if len(categorized.Incoming) != 2 {
+		t.Errorf("Expected 2 incoming references, got %d", len(categorized.Incoming))
+	}
+
+	// Verify the correct cards are in incoming
+	foundLinker1, foundLinker2 := false, false
+	for _, card := range categorized.Incoming {
+		if card.ID == linker1.ID {
+			foundLinker1 = true
+		}
+		if card.ID == linker2.ID {
+			foundLinker2 = true
+		}
+	}
+	if !foundLinker1 {
+		t.Error("Linker1 not found in Incoming")
+	}
+	if !foundLinker2 {
+		t.Error("Linker2 not found in Incoming")
+	}
+}
+
+// TestGetReferences_UserIsolation_Integration tests that users can't see other users' referenced cards
+func TestGetReferences_UserIsolation_Integration(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	user1ID := 1
+	user2ID := 2
+
+	// User 1 creates a card
+	user1CardParams := models.EditCardParams{
+		Title:  "User 1 Card",
+		Body:   "User 1 content",
+		CardID: "user1_card_isolation",
+		Link:   "",
+	}
+	user1Card, err := CreateCard(s.DB, user1ID, user1CardParams)
+	if err != nil {
+		t.Fatalf("Failed to create user1 card: %v", err)
+	}
+
+	// User 2 creates a card that references user1's card (by card_id)
+	user2Params := models.EditCardParams{
+		Title:  "User 2 Card",
+		Body:   "References [user1_card_isolation]",
+		CardID: "user2_card_isolation",
+		Link:   "",
+	}
+	user2Card, err := CreateCard(s.DB, user2ID, user2Params)
+	if err != nil {
+		t.Fatalf("Failed to create user2 card: %v", err)
+	}
+
+	// User 2 tries to get references - should not see user1's card
+	references, err := GetReferences(s.DB, user2ID, user2Card)
+	if err != nil {
+		t.Fatalf("GetReferences failed: %v", err)
+	}
+
+	// User 2 should get 0 references since user1_card belongs to user1
+	if len(references) != 0 {
+		t.Errorf("Expected 0 references (user isolation), got %d", len(references))
+	}
+
+	// User 1 getting references for their card should also work
+	references1, err := GetReferences(s.DB, user1ID, user1Card)
+	if err != nil {
+		t.Fatalf("GetReferences failed for user1: %v", err)
+	}
+	// User1's card doesn't reference anything
+	if len(references1) != 0 {
+		t.Errorf("Expected 0 references for user1 card, got %d", len(references1))
+	}
 }
