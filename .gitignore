@@ -51,3 +51,6 @@ browser-extension/chrome/ui/
 browser-extension/chrome/background.js
 
 .mcp.json
+
+# Git worktrees for feature branches
+.worktrees/
