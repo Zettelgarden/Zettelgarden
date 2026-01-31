@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { SchemaDefinition, FieldDefinition } from "../../models/Schema";
 import { Card } from "../../models/Card";
 import { fetchSchemaByRef } from "../../api/schemas";
@@ -56,12 +57,35 @@ interface SchemaTableProps {
 }
 
 export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, filters }: SchemaTableProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [schema, setSchema] = useState<SchemaDefinition | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(() => {
+    const pageParam = searchParams.get(`schema_${schemaRef}_page`);
+    return pageParam ? parseInt(pageParam, 10) : 1;
+  });
+
+  // Responsive items per page
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    const isMobile = window.innerWidth < 768;
+    return isMobile ? 5 : 10;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 768;
+      setItemsPerPage(isMobile ? 5 : 10);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -83,6 +107,11 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
 
     return cards.filter(card => applyFiltersToCard(card, filters));
   }, [cards, filters]);
+
+  // Calculate total pages for pagination
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredCards.length / itemsPerPage);
+  }, [filteredCards.length, itemsPerPage]);
 
   const loadData = async () => {
     setLoading(true);
@@ -145,6 +174,41 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
     });
   };
 
+  const handlePageChange = useCallback((newPage: number) => {
+    const clampedPage = Math.max(1, Math.min(newPage, totalPages));
+    setCurrentPage(clampedPage);
+
+    // Update URL state
+    const newParams = new URLSearchParams(searchParams);
+    if (clampedPage === 1) {
+      newParams.delete(`schema_${schemaRef}_page`);
+    } else {
+      newParams.set(`schema_${schemaRef}_page`, clampedPage.toString());
+    }
+    setSearchParams(newParams);
+  }, [totalPages, searchParams, schemaRef, setSearchParams]);
+
+  // Reset to page 1 if filters change and current page is out of bounds
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
+
+  // Handle keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' && currentPage > 1) {
+        handlePageChange(currentPage - 1);
+      } else if (e.key === 'ArrowRight' && currentPage < totalPages) {
+        handlePageChange(currentPage + 1);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentPage, totalPages, handlePageChange]);
+
   const getFieldValue = (card: Card, field: FieldDefinition) => {
     const value = card.structured_data?.[field.name];
 
@@ -197,6 +261,12 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
   const hasFilters = filters && Object.keys(filters).length > 0;
   const totalCards = cards.length;
   const displayCards = sortedCards.length;
+
+  // Paginate cards
+  const paginatedCards = sortedCards.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <div className={compact ? "my-2" : "my-4"}>
@@ -257,7 +327,7 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {sortedCards.map((card) => (
+              {paginatedCards.map((card) => (
                 <tr
                   key={card.id}
                   className={onCardClick ? "hover:bg-gray-50 cursor-pointer" : ""}
@@ -280,6 +350,113 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-md border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              aria-label="Previous page"
+            >
+              Previous
+            </button>
+
+            {/* Page indicator - desktop shows range, mobile shows current */}
+            <span className="hidden md:inline text-sm text-gray-700 px-2">
+              Page {currentPage} of {totalPages}
+            </span>
+            <span className="md:hidden text-sm text-gray-700 px-2">
+              {currentPage} / {totalPages}
+            </span>
+
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-md border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              aria-label="Next page"
+            >
+              Next
+            </button>
+          </div>
+
+          {/* Mobile-optimized page jump buttons */}
+          <div className="hidden sm:flex items-center gap-1">
+            {totalPages <= 7 ? (
+              // Show all page numbers if 7 or fewer pages
+              Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  onClick={() => handlePageChange(pageNum)}
+                  className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-md border focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                    pageNum === currentPage
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  }`}
+                  aria-label={`Go to page ${pageNum}`}
+                  aria-current={pageNum === currentPage ? "page" : undefined}
+                >
+                  {pageNum}
+                </button>
+              ))
+            ) : (
+              // Show abbreviated page numbers for more than 7 pages
+              <>
+                {currentPage > 3 && (
+                  <>
+                    <button
+                      onClick={() => handlePageChange(1)}
+                      className="min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-md border bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      1
+                    </button>
+                    {currentPage > 4 && (
+                      <span className="px-2 text-gray-500">...</span>
+                    )}
+                  </>
+                )}
+
+                {Array.from(
+                  { length: Math.min(3, totalPages) },
+                  (_, i) => Math.max(1, currentPage - 1) + i
+                )
+                  .filter((pageNum) => pageNum >= 1 && pageNum <= totalPages)
+                  .map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      onClick={() => handlePageChange(pageNum)}
+                      className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-md border focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                        pageNum === currentPage
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      }`}
+                      aria-label={`Go to page ${pageNum}`}
+                      aria-current={pageNum === currentPage ? "page" : undefined}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+
+                {currentPage < totalPages - 2 && (
+                  <>
+                    {currentPage < totalPages - 3 && (
+                      <span className="px-2 text-gray-500">...</span>
+                    )}
+                    <button
+                      onClick={() => handlePageChange(totalPages)}
+                      className="min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-md border bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
