@@ -4,8 +4,17 @@ Configuration module for Zettelgarden MCP Server.
 Handles environment variables and API configuration.
 """
 
+import logging
 import os
 from typing import Required
+
+# Configure logging
+LOG_LEVEL = os.environ.get("ZETTELGARDEN_LOG_LEVEL", "WARNING").upper()
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 # Environment configuration
 API_URL: str = os.environ.get("ZETTELGARDEN_API_URL", "http://localhost:8080")

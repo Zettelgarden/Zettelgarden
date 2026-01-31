@@ -327,7 +327,8 @@ async def get_next_child_id(client: httpx.AsyncClient, args: dict) -> str:
     resp.raise_for_status()
     data = resp.json()
 
-    if data.get("error", True):
+    # Check if API returned an error (only True if 'error' key exists and is truthy)
+    if data.get("error"):
         return f"Error getting next child ID for card {card_pk}"
     else:
         next_id = data.get("new_id", "unknown")
