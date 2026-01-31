@@ -27,6 +27,7 @@ export function UserSettingsPage() {
   const [userMemory, setUserMemory] = useState<string | null>(null);
   const [billingUrl, setBillingUrl] = useState<string | null>(null);
   const [timezone, setTimezone] = useState<string>("UTC");
+  const [caldavUrl, setCaldavUrl] = useState<string>("");
 
   const navigate = useNavigate();
   const { user, hasSubscription, updateUser, logoutUser } = useAuth();
@@ -50,6 +51,7 @@ export function UserSettingsPage() {
       username: updatedUsername,
       email: updatedEmail,
       timezone: timezone,
+      caldav_url: caldavUrl || null,
     };
 
     try {
@@ -113,6 +115,11 @@ export function UserSettingsPage() {
     if (user?.timezone) {
       setTimezone(user.timezone);
     }
+    if (user?.caldav_url) {
+      setCaldavUrl(user.caldav_url);
+    } else {
+      setCaldavUrl("");
+    }
   }, [user]);
 
   const renderTabContent = () => {
@@ -150,6 +157,22 @@ export function UserSettingsPage() {
                     value={timezone}
                     onChange={setTimezone}
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    CalDAV URL:
+                    <input
+                      type="url"
+                      name="caldav_url"
+                      value={caldavUrl}
+                      onChange={(e) => setCaldavUrl(e.target.value)}
+                      placeholder="https://calendar.google.com/dav/user@example.com/user"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Optional: Enter your CalDAV server URL to sync tasks with external calendars (Google Calendar, Outlook, etc.)
+                    </p>
+                  </label>
                 </div>
                 <button
                   type="submit"

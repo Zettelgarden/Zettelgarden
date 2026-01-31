@@ -4,13 +4,16 @@ const STORAGE_KEY = "taskPageSettings";
 
 type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "due_date";
 type SortDirection = "asc" | "desc";
+type ViewMode = "list" | "matrix" | "kanban" | "calendar";
 
 interface TaskPageSettings {
   dateView: string;
   filterString: string;
   sortField: SortField;
   sortDirection: SortDirection;
-  viewMode: "list" | "matrix" | "kanban";
+  viewMode: ViewMode;
+  calendarViewMode: "month" | "week";
+  calendarCurrentDate: Date;
   currentPage: number;
   itemsPerPage: number;
   showFilterHelp: boolean;
@@ -24,7 +27,10 @@ interface TaskPageSettingsReturn extends TaskPageSettings {
   setFilterString: Dispatch<SetStateAction<string>>;
   setSortField: Dispatch<SetStateAction<SortField>>;
   setSortDirection: Dispatch<SetStateAction<SortDirection>>;
-  setViewMode: Dispatch<SetStateAction<"list" | "matrix" | "kanban">>;
+  setViewMode: Dispatch<SetStateAction<ViewMode>>;
+  setCalendarViewMode: Dispatch<SetStateAction<"month" | "week">>;
+  setCalendarCurrentDate: Dispatch<SetStateAction<Date>>;
+  navigateCalendar: (direction: "prev" | "next" | "today") => void;
   setCurrentPage: Dispatch<SetStateAction<number>>;
   setItemsPerPage: Dispatch<SetStateAction<number>>;
   setShowFilterHelp: Dispatch<SetStateAction<boolean>>;
@@ -54,7 +60,9 @@ export function useTaskPageSettings(): TaskPageSettingsReturn {
   const [filterString, setFilterString] = useState<string>(savedSettings.filterString || "");
   const [sortField, setSortField] = useState<SortField>(savedSettings.sortField || "priority");
   const [sortDirection, setSortDirection] = useState<SortDirection>(savedSettings.sortDirection || "asc");
-  const [viewMode, setViewMode] = useState<"list" | "matrix">(savedSettings.viewMode || "list");
+  const [viewMode, setViewMode] = useState<ViewMode>(savedSettings.viewMode || "list");
+  const [calendarViewMode, setCalendarViewMode] = useState<"month" | "week">(savedSettings.calendarViewMode || "month");
+  const [calendarCurrentDate, setCalendarCurrentDate] = useState<Date>(savedSettings.calendarCurrentDate ? new Date(savedSettings.calendarCurrentDate) : new Date());
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(savedSettings.itemsPerPage || 50);
   const [showFilterHelp, setShowFilterHelp] = useState<boolean>(false);
@@ -67,13 +75,15 @@ export function useTaskPageSettings(): TaskPageSettingsReturn {
     const settings = {
       dateView,
       viewMode,
+      calendarViewMode,
+      calendarCurrentDate: calendarCurrentDate.toISOString(),
       filterString,
       sortField,
       sortDirection,
       itemsPerPage
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  }, [dateView, viewMode, filterString, sortField, sortDirection, itemsPerPage]);
+  }, [dateView, viewMode, calendarViewMode, calendarCurrentDate, filterString, sortField, sortDirection, itemsPerPage]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -128,6 +138,32 @@ export function useTaskPageSettings(): TaskPageSettingsReturn {
     setCurrentPage(1);
   }, []);
 
+  const navigateCalendar = useCallback((direction: "prev" | "next" | "today") => {
+    if (direction === "today") {
+      setCalendarCurrentDate(new Date());
+    } else if (direction === "prev") {
+      setCalendarCurrentDate(prev => {
+        const newDate = new Date(prev);
+        if (calendarViewMode === "month") {
+          newDate.setMonth(newDate.getMonth() - 1);
+        } else {
+          newDate.setDate(newDate.getDate() - 7);
+        }
+        return newDate;
+      });
+    } else if (direction === "next") {
+      setCalendarCurrentDate(prev => {
+        const newDate = new Date(prev);
+        if (calendarViewMode === "month") {
+          newDate.setMonth(newDate.getMonth() + 1);
+        } else {
+          newDate.setDate(newDate.getDate() + 7);
+        }
+        return newDate;
+      });
+    }
+  }, [calendarViewMode]);
+
   return {
     // State
     dateView,
@@ -135,6 +171,8 @@ export function useTaskPageSettings(): TaskPageSettingsReturn {
     sortField,
     sortDirection,
     viewMode,
+    calendarViewMode,
+    calendarCurrentDate,
     currentPage,
     itemsPerPage,
     showFilterHelp,
@@ -148,6 +186,8 @@ export function useTaskPageSettings(): TaskPageSettingsReturn {
     setSortField,
     setSortDirection,
     setViewMode,
+    setCalendarViewMode,
+    setCalendarCurrentDate,
     setCurrentPage,
     setItemsPerPage,
     setShowFilterHelp,
@@ -162,5 +202,6 @@ export function useTaskPageSettings(): TaskPageSettingsReturn {
     selectAllTasks,
     clearSelection,
     resetPage,
+    navigateCalendar,
   };
 }

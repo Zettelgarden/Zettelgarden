@@ -14,6 +14,7 @@ import { EisenhowerMatrix } from "../../components/tasks/EisenhowerMatrix";
 import { KanbanBoard } from "../../components/tasks/KanbanBoard";
 import { useTaskPageSettings } from "../../hooks/useTaskPageSettings";
 import { useTaskFiltering } from "../../hooks/useTaskFiltering";
+import { CalendarViewWrapper } from "../../components/calendar/CalendarView";
 import { useNavigate } from "react-router-dom";
 import { parseTaskQuery, updateQueryDateView, updateQueryShowCompleted } from "../../utils/tasks";
 import {
@@ -321,11 +322,12 @@ export function TaskPage({ }: TaskListProps) {
                     <select
                       className="w-full p-1 border border-slate-300 rounded-md text-sm"
                       value={settings.viewMode}
-                      onChange={(e) => settings.setViewMode(e.target.value as "list" | "matrix" | "kanban")}
+                      onChange={(e) => settings.setViewMode(e.target.value as "list" | "matrix" | "kanban" | "calendar")}
                     >
                       <option value="list">List View</option>
                       <option value="matrix">Eisenhower Matrix</option>
                       <option value="kanban">Kanban Board</option>
+                      <option value="calendar">Calendar View</option>
                     </select>
                   </div>
                   <div className="mb-2">
@@ -402,7 +404,20 @@ export function TaskPage({ }: TaskListProps) {
         onClose={handleCloseTaskDialog}
       />
       <div className="p-4">
-        {settings.viewMode === "list" ? (
+        {settings.viewMode === "calendar" ? (
+          <CalendarViewWrapper
+            tasks={tasksToDisplay}
+            currentDate={settings.calendarCurrentDate}
+            viewMode={settings.calendarViewMode}
+            onNavigate={settings.navigateCalendar}
+            onViewModeChange={settings.setCalendarViewMode}
+            onTaskClick={(taskId) => {
+              setSelectedTaskId(taskId);
+              setIsTaskDialogOpen(true);
+            }}
+            timezone={userTimezone}
+          />
+        ) : settings.viewMode === "list" ? (
           <>
             <ul>
               {paginatedTasks.length > 0 ? (

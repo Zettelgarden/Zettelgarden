@@ -350,6 +350,7 @@ func (s *Handler) QueryUsers(page, perPage int) ([]models.User, int, error) {
 	u.stripe_subscription_status, u.max_file_storage, u.last_login,
 	u.last_seen, u.dashboard_card_pk, u.has_seen_getting_started,
 	COALESCE(u.timezone, 'UTC') as timezone,
+	u.caldav_url,
 	COALESCE(us.card_count, 0) as cards,
 	COALESCE(us.task_count, 0) as tasks,
 	COALESCE(us.file_count, 0) as files,
@@ -383,6 +384,7 @@ func (s *Handler) QueryUsers(page, perPage int) ([]models.User, int, error) {
 			&user.DashboardCardPK,
 			&user.HasSeenGettingStarted,
 			&user.Timezone,
+			&user.CaldavURL,
 			&user.CardCount,
 			&user.TaskCount,
 			&user.FileCount,
@@ -414,7 +416,8 @@ func (s *Handler) QueryUserByEmail(email string) (models.User, error) {
 	id, username, email, password, created_at, updated_at,
 	is_admin, email_validated, can_upload_files,
 	stripe_subscription_status, max_file_storage, last_login,
-	last_seen, dashboard_card_pk, has_seen_getting_started, COALESCE(timezone, 'UTC')
+	last_seen, dashboard_card_pk, has_seen_getting_started, COALESCE(timezone, 'UTC'),
+	caldav_url
 	FROM users WHERE email = $1
 	`, email).Scan(
 		&user.ID,
@@ -433,6 +436,7 @@ func (s *Handler) QueryUserByEmail(email string) (models.User, error) {
 		&user.DashboardCardPK,
 		&user.HasSeenGettingStarted,
 		&user.Timezone,
+		&user.CaldavURL,
 	)
 	if err != nil {
 		log.Printf("err %v", err)
@@ -455,7 +459,8 @@ func (s *Handler) QueryUserByStripeID(stripeID string) (models.User, error) {
 	id, username, email, password, created_at, updated_at,
 	is_admin, email_validated, can_upload_files,
 	stripe_subscription_status, max_file_storage, last_login,
-	last_seen, dashboard_card_pk, has_seen_getting_started, COALESCE(timezone, 'UTC')
+	last_seen, dashboard_card_pk, has_seen_getting_started, COALESCE(timezone, 'UTC'),
+	caldav_url
 	FROM users WHERE stripe_customer_id = $1
 	`, stripeID).Scan(
 		&user.ID,
@@ -474,6 +479,7 @@ func (s *Handler) QueryUserByStripeID(stripeID string) (models.User, error) {
 		&user.DashboardCardPK,
 		&user.HasSeenGettingStarted,
 		&user.Timezone,
+		&user.CaldavURL,
 	)
 	if err != nil {
 		log.Printf("err %v", err)
@@ -494,7 +500,8 @@ func (s *Handler) QueryUser(id int) (models.User, error) {
 	id, username, email, password, created_at, updated_at,
 	is_admin, email_validated, can_upload_files,
 	stripe_subscription_status, max_file_storage, last_login,
-	last_seen, dashboard_card_pk, has_seen_getting_started, COALESCE(timezone, 'UTC')
+	last_seen, dashboard_card_pk, has_seen_getting_started, COALESCE(timezone, 'UTC'),
+	caldav_url
 	FROM users WHERE id = $1
 	`, id).Scan(
 		&user.ID,
@@ -513,6 +520,7 @@ func (s *Handler) QueryUser(id int) (models.User, error) {
 		&user.DashboardCardPK,
 		&user.HasSeenGettingStarted,
 		&user.Timezone,
+		&user.CaldavURL,
 	)
 	if err != nil {
 		log.Printf("errsd %v", err)
@@ -531,9 +539,9 @@ func (s *Handler) UpdateUser(id int, user models.User, params models.EditUserPar
 
 	query := `
 	UPDATE users SET username = $1, email = $2, is_admin = $3, updated_at = NOW(),
-        dashboard_card_pk = $4, has_seen_getting_started = $5, timezone = $6
+        dashboard_card_pk = $4, has_seen_getting_started = $5, timezone = $6, caldav_url = $7
 	WHERE
-	id = $7
+	id = $8
 	`
 	_, err := s.GetDB().Exec(
 		query,
@@ -543,6 +551,7 @@ func (s *Handler) UpdateUser(id int, user models.User, params models.EditUserPar
 		params.DashboardCardPK,
 		params.HasSeenGettingStarted,
 		params.Timezone,
+		params.CaldavURL,
 		id,
 	)
 	if err != nil {

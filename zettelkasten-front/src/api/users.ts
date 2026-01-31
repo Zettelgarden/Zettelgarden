@@ -87,6 +87,7 @@ export async function updateUser(user: User): Promise<User> {
     dashboard_card_pk: user.dashboard_card_pk,
     has_seen_getting_started: user.has_seen_getting_started,
     timezone: user.timezone,
+    caldav_url: user.caldav_url,
   });
 }
 
