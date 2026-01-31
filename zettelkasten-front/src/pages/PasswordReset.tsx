@@ -1,6 +1,6 @@
 import React, { useState, useEffect, FormEvent } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { requestPasswordReset, resetPassword } from "../api/auth"; // Make sure these are implemented in api.js
+import { useNavigate, useLocation, Link } from "react-router-dom";
+import { requestPasswordReset, resetPassword } from "../api/auth";
 
 function PasswordReset() {
   const [email, setEmail] = useState("");
@@ -8,6 +8,7 @@ function PasswordReset() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [token, setToken] = useState("");
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -22,81 +23,156 @@ function PasswordReset() {
   const handleRequestReset = async (e: FormEvent) => {
     e.preventDefault();
     setMessage("");
+    setError("");
     try {
       const response = await requestPasswordReset(email);
       if (response.error) {
-        setMessage(response.message);
+        setError(response.message);
       } else {
         setMessage(
           "If your email is in our system, you will receive a password reset link.",
         );
       }
     } catch (error) {
-      setMessage("Failed to request password reset.");
+      setError("Failed to request password reset.");
     }
   };
 
   const handleResetPassword = async (e: FormEvent) => {
     e.preventDefault();
+    setError("");
     if (newPassword !== confirmPassword) {
-      setMessage("Passwords do not match.");
+      setError("Passwords do not match.");
       return;
     }
     try {
       const response = await resetPassword(token, newPassword);
       if (response.error) {
-        setMessage(response.message);
+        setError(response.message);
       } else {
         setMessage("Your password has been successfully updated.");
-        navigate("/login"); // Redirect to login page or wherever appropriate
+        setTimeout(() => navigate("/login"), 2000);
       }
     } catch (error) {
-      setMessage("Failed to reset password.");
+      setError("Failed to reset password.");
     }
   };
 
   return (
-    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[20%] border border-gray-300 p-[30px]">
-      {token ? (
-        // Reset Password Form
-        <div>
-          <h2>Reset Password</h2>
-          {message && <div>{message}</div>}
-          <form onSubmit={handleResetPassword}>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="New Password"
-              required
-            />
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm New Password"
-              required
-            />
-            <button type="submit">Reset Password</button>
-          </form>
-        </div>
-      ) : (
-        // Request Password Reset Form
-        <div>
-          <h2>Request Password Reset</h2>
-          {message && <div>{message}</div>}
-          <form onSubmit={handleRequestReset}>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              required
-            />
-            <button type="submit">Request Reset</button>
-          </form>
-        </div>
-      )}
+    <div className="flex items-center justify-center min-h-screen bg-gray-50 px-4">
+      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-sm">
+        {token ? (
+          // Reset Password Form
+          <div>
+            <h2 className="text-2xl font-bold text-center mb-6">Reset Password</h2>
+            {error && (
+              <div className="text-center text-red-500 mb-4">
+                {error}
+              </div>
+            )}
+            {message && (
+              <div className="text-center text-green-500 mb-4">
+                {message}
+              </div>
+            )}
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="new-password"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  New Password <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="new-password"
+                  name="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="confirm-password"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Confirm New Password <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="confirm-password"
+                  name="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-blue-500 text-white py-2.5 rounded-lg hover:bg-blue-600 transition duration-200"
+              >
+                Reset Password
+              </button>
+            </form>
+            <div className="text-center mt-6 text-sm">
+              <Link to="/login" className="text-blue-500 hover:underline">
+                Back to Login
+              </Link>
+            </div>
+          </div>
+        ) : (
+          // Request Password Reset Form
+          <div>
+            <h2 className="text-2xl font-bold text-center mb-6">Request Password Reset</h2>
+            {error && (
+              <div className="text-center text-red-500 mb-4">
+                {error}
+              </div>
+            )}
+            {message && (
+              <div className="text-center text-green-500 mb-4">
+                {message}
+              </div>
+            )}
+            <form onSubmit={handleRequestReset} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-blue-500 text-white py-2.5 rounded-lg hover:bg-blue-600 transition duration-200"
+              >
+                Request Reset
+              </button>
+            </form>
+            <div className="text-center mt-6 text-sm">
+              <Link to="/login" className="text-blue-500 hover:underline">
+                Back to Login
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
