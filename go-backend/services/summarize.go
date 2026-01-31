@@ -187,7 +187,6 @@ Format Example:
 				Content: userContent,
 			},
 		}
-		log.Printf("userContent %v", userContent)
 
 		ctx, cancel := context.WithTimeout(context.Background(), LLMRequestTimeout)
 		resp, err := executeLLMRequestWithRetry(ctx, c, messages)

@@ -589,7 +589,7 @@ func (h *Handler) CancelSummarizationRoute(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Update summarization status
-	_, err = h.DB.Exec(`UPDATE summarizations SET status='cancelled', updated_at=NOW() WHERE id=$1`, summarizationID)
+	_, err = h.DB.Exec(`UPDATE summarizations SET status='failed', updated_at=NOW() WHERE id=$1`, summarizationID)
 	if err != nil {
 		http.Error(w, "Failed to update status", http.StatusInternalServerError)
 		return
