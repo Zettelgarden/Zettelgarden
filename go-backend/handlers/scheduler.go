@@ -34,6 +34,18 @@ type SchedulerHealth struct {
 	Jobs    []string `json:"jobs"`
 }
 
+// ScheduledJobInfo represents a scheduled job with its configuration
+type ScheduledJobInfo struct {
+	Name     string `json:"name"`
+	Schedule string `json:"schedule"`
+	NextRun  string `json:"next_run"`
+}
+
+// ScheduledJobsResponse is the response for listing scheduled jobs
+type ScheduledJobsResponse struct {
+	Jobs []ScheduledJobInfo `json:"jobs"`
+}
+
 // ListScheduledJobs returns a handler that lists all registered scheduled jobs
 func ListScheduledJobs(scheduler SchedulerAPI) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
