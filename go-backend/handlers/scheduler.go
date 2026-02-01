@@ -3,8 +3,10 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"go-backend/services"
 
@@ -15,6 +17,7 @@ import (
 type SchedulerAPI interface {
 	ListJobs() []string
 	GetJobHistory(ctx context.Context, jobName string, limit int) ([]services.JobRun, error)
+	GetJobInfo(name string) (schedule string, nextRun time.Time, err error)
 }
 
 // JobRunResponse is the DTO for job run history
@@ -46,17 +49,37 @@ type ScheduledJobsResponse struct {
 	Jobs []ScheduledJobInfo `json:"jobs"`
 }
 
-// ListScheduledJobs returns a handler that lists all registered scheduled jobs
+// ListScheduledJobs returns a handler that lists all registered scheduled jobs with their schedules
 func ListScheduledJobs(scheduler SchedulerAPI) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		jobs := scheduler.ListJobs()
+		jobNames := scheduler.ListJobs()
+
+		jobs := make([]ScheduledJobInfo, 0, len(jobNames))
+
+		for _, name := range jobNames {
+			schedule, nextRun, err := scheduler.GetJobInfo(name)
+			if err != nil {
+				// Log but continue - skip jobs with errors
+				log.Printf("Error getting info for job '%s': %v", name, err)
+				continue
+			}
+
+			var nextRunStr string
+			if !nextRun.IsZero() {
+				nextRunStr = nextRun.Format(time.RFC3339)
+			}
+
+			jobs = append(jobs, ScheduledJobInfo{
+				Name:     name,
+				Schedule: schedule,
+				NextRun:  nextRunStr,
+			})
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		response := map[string][]string{
-			"jobs": jobs,
-		}
+		response := ScheduledJobsResponse{Jobs: jobs}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
 			http.Error(w, "Failed to encode response", http.StatusInternalServerError)

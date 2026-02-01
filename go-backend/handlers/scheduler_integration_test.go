@@ -89,21 +89,16 @@ func TestSchedulerIntegration(t *testing.T) {
 		t.Errorf("Expected status OK for list jobs, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var listResponse map[string][]string
+	var listResponse ScheduledJobsResponse
 	if err := json.NewDecoder(w.Body).Decode(&listResponse); err != nil {
 		t.Fatalf("Failed to decode list jobs response: %v", err)
 	}
 
-	registeredJobs, ok := listResponse["jobs"]
-	if !ok {
-		t.Fatal("Response missing 'jobs' field")
+	if len(listResponse.Jobs) != 1 {
+		t.Errorf("Expected 1 job in response, got %d", len(listResponse.Jobs))
 	}
-
-	if len(registeredJobs) != 1 {
-		t.Errorf("Expected 1 job in response, got %d", len(registeredJobs))
-	}
-	if registeredJobs[0] != "daily-cleanup" {
-		t.Errorf("Expected 'daily-cleanup' job, got '%s'", registeredJobs[0])
+	if listResponse.Jobs[0].Name != "daily-cleanup" {
+		t.Errorf("Expected 'daily-cleanup' job, got '%s'", listResponse.Jobs[0].Name)
 	}
 
 	// 6. Verify execution tracking works
@@ -245,6 +240,11 @@ func (j *ManualTestJob) Handler(ctx context.Context) error {
 
 func (j *ManualTestJob) MaxRetries() int {
 	return 0
+}
+
+func (j *ManualTestJob) NextRun(from time.Time) time.Time {
+	// For testing, return 1 second in the future
+	return from.Add(1 * time.Second)
 }
 
 // Verify ManualTestJob implements ScheduledJob interface

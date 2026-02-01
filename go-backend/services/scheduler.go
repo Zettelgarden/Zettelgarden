@@ -167,3 +167,16 @@ func (s *Scheduler) ListJobs() []string {
 	}
 	return names
 }
+
+// GetJobInfo returns the schedule and next run time for a job
+func (s *Scheduler) GetJobInfo(name string) (schedule string, nextRun time.Time, err error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	job, exists := s.jobs[name]
+	if !exists {
+		return "", time.Time{}, fmt.Errorf("job '%s' not found", name)
+	}
+
+	return job.Schedule(), job.NextRun(time.Now()), nil
+}

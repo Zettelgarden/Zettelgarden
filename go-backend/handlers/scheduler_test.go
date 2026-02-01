@@ -17,6 +17,10 @@ import (
 type mockSchedulerForHandler struct {
 	jobs    []string
 	history []services.JobRun
+	// jobSchedules maps job name to cron schedule
+	jobSchedules map[string]string
+	// jobNextRuns maps job name to next run time
+	jobNextRuns map[string]time.Time
 }
 
 func (m *mockSchedulerForHandler) ListJobs() []string {
@@ -27,30 +31,64 @@ func (m *mockSchedulerForHandler) GetJobHistory(ctx context.Context, jobName str
 	return m.history, nil
 }
 
+func (m *mockSchedulerForHandler) GetJobInfo(name string) (schedule string, nextRun time.Time, err error) {
+	if m.jobSchedules == nil {
+		return "", time.Time{}, nil
+	}
+	schedule = m.jobSchedules[name]
+	nextRun = m.jobNextRuns[name]
+	return schedule, nextRun, nil
+}
+
 func TestListScheduledJobsHandler(t *testing.T) {
+	// Helper time for testing
+	baseTime := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
+
 	tests := []struct {
 		name           string
 		jobs           []string
+		jobSchedules   map[string]string
+		jobNextRuns    map[string]time.Time
 		expectedStatus int
-		expectedJobs   []string
+		expectedJobs   []ScheduledJobInfo
 	}{
 		{
 			name:           "returns empty list when no jobs",
 			jobs:           []string{},
+			jobSchedules:   map[string]string{},
+			jobNextRuns:    map[string]time.Time{},
 			expectedStatus: http.StatusOK,
-			expectedJobs:   []string{},
+			expectedJobs:   []ScheduledJobInfo{},
 		},
 		{
-			name:           "returns list of registered jobs",
-			jobs:           []string{"daily-cleanup", "hourly-sync", "weekly-report"},
+			name: "returns list of registered jobs with schedules",
+			jobs: []string{"daily-cleanup", "hourly-sync", "weekly-report"},
+			jobSchedules: map[string]string{
+				"daily-cleanup":  "0 0 * * *",
+				"hourly-sync":    "0 * * * *",
+				"weekly-report":  "0 9 * * 1",
+			},
+			jobNextRuns: map[string]time.Time{
+				"daily-cleanup": baseTime.Add(14 * time.Hour),
+				"hourly-sync":   baseTime.Add(30 * time.Minute),
+				"weekly-report": baseTime.Add(24 * time.Hour),
+			},
 			expectedStatus: http.StatusOK,
-			expectedJobs:   []string{"daily-cleanup", "hourly-sync", "weekly-report"},
+			expectedJobs: []ScheduledJobInfo{
+				{Name: "daily-cleanup", Schedule: "0 0 * * *", NextRun: baseTime.Add(14 * time.Hour).Format(time.RFC3339)},
+				{Name: "hourly-sync", Schedule: "0 * * * *", NextRun: baseTime.Add(30 * time.Minute).Format(time.RFC3339)},
+				{Name: "weekly-report", Schedule: "0 9 * * 1", NextRun: baseTime.Add(24 * time.Hour).Format(time.RFC3339)},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := &mockSchedulerForHandler{jobs: tt.jobs}
+			mock := &mockSchedulerForHandler{
+				jobs:         tt.jobs,
+				jobSchedules: tt.jobSchedules,
+				jobNextRuns:  tt.jobNextRuns,
+			}
 			handler := ListScheduledJobs(mock)
 
 			req := httptest.NewRequest("GET", "/admin/scheduler/jobs", nil)
@@ -62,23 +100,24 @@ func TestListScheduledJobsHandler(t *testing.T) {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
 			}
 
-			var response map[string][]string
+			var response ScheduledJobsResponse
 			if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 				t.Fatalf("failed to decode response: %v", err)
 			}
 
-			jobs, ok := response["jobs"]
-			if !ok {
-				t.Fatal("response missing 'jobs' field")
+			if len(response.Jobs) != len(tt.expectedJobs) {
+				t.Errorf("expected %d jobs, got %d", len(tt.expectedJobs), len(response.Jobs))
 			}
 
-			if len(jobs) != len(tt.expectedJobs) {
-				t.Errorf("expected %d jobs, got %d", len(tt.expectedJobs), len(jobs))
-			}
-
-			for i, job := range jobs {
-				if job != tt.expectedJobs[i] {
-					t.Errorf("expected job %q at index %d, got %q", tt.expectedJobs[i], i, job)
+			for i, job := range response.Jobs {
+				if job.Name != tt.expectedJobs[i].Name {
+					t.Errorf("expected job name %q at index %d, got %q", tt.expectedJobs[i].Name, i, job.Name)
+				}
+				if job.Schedule != tt.expectedJobs[i].Schedule {
+					t.Errorf("expected schedule %q at index %d, got %q", tt.expectedJobs[i].Schedule, i, job.Schedule)
+				}
+				if job.NextRun != tt.expectedJobs[i].NextRun {
+					t.Errorf("expected next_run %q at index %d, got %q", tt.expectedJobs[i].NextRun, i, job.NextRun)
 				}
 			}
 		})
@@ -162,7 +201,11 @@ func TestGetJobHistoryHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := &mockSchedulerForHandler{history: tt.history}
+			mock := &mockSchedulerForHandler{
+				history:       tt.history,
+				jobSchedules:  map[string]string{},
+				jobNextRuns:   map[string]time.Time{},
+			}
 			handler := GetJobHistory(mock)
 
 			url := "/admin/scheduler/jobs/" + tt.jobName + "/history"
