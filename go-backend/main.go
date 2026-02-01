@@ -231,6 +231,18 @@ func run() error {
 	})
 	log.Printf("LLM job queue and worker pool initialized successfully")
 
+	// Initialize encryption service for sensitive data
+	log.Printf("Initializing encryption service")
+	encryptionService, err := services.NewEncryptionService()
+	if err != nil {
+		log.Printf("WARNING: Failed to initialize encryption service: %v", err)
+		log.Printf("INFO: Calendar password encryption is disabled - passwords will not be stored")
+		// Continue without encryption service - password fields will remain nil
+	} else {
+		h.EncryptionService = encryptionService
+		log.Printf("Encryption service initialized successfully")
+	}
+
 	// Initialize and start the scheduled job runner
 	log.Printf("Initializing scheduled job runner")
 	scheduler := services.NewScheduler(s.DB)
