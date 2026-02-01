@@ -297,6 +297,10 @@ func run() error {
 			}
 		}
 
+		// Shutdown scheduler
+		log.Printf("[main] shutting down scheduler...")
+		scheduler.Stop()
+
 		// Shutdown email worker pool
 		if s.Mail.WorkerPool != nil {
 			log.Printf("Shutting down email worker pool...")
