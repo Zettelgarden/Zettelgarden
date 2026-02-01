@@ -85,7 +85,7 @@ func initAppWithErrorHandling(cfg config.Config) (*CLIApp, error) {
 }
 
 func usage() {
-	fmt.Println(`Zettelgarden Deduplication CLI
+	fmt.Print(`Zettelgarden Deduplication CLI
 
 USAGE:
     deduplication <subcommand> [options]

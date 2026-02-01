@@ -78,6 +78,16 @@ docker-compose up  # Start all services locally
 - **Templates**: Card templates with variable substitution
 - **Keyboard Shortcuts**: 'c' (create card), 't' (create task), 's' (search)
 - **Subscription Features**: PRO gating for advanced features like entities and facts
+- **Admin**: Administrative interface for managing users, jobs, and system operations
+  - Job Queue monitoring and management
+  - Mailing list management and history
+  - Scheduled Jobs Admin
+    - View all registered scheduled jobs with schedules
+    - Monitor job execution status and history
+    - Per-job statistics (success rate, recent runs)
+    - Expandable history with pagination
+    - Manual refresh for current status
+  - User management and details
 
 ### Database
 - PostgreSQL with pgvector extension
@@ -116,5 +126,7 @@ The application requires extensive environment configuration for:
 - Backend follows RESTful API conventions with consistent error handling
 - All routes are logged via `handlers.LogRoute` middleware
 - File uploads go through S3-compatible storage
-- The application supports both development and production logging configurationsWe track work in Beads instead of Markdown. Run `bd quickstart` to see how.
+- The application supports both development and production logging configurations
+
+We track work in Beads instead of Markdown. Run `bd quickstart` to see how.
 Use 'bd' for task tracking
