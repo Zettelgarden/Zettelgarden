@@ -41,7 +41,7 @@ func (s *Handler) ListExternalCalendarsRoute(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	svc := services.NewExternalEventService(s.GetDB())
+	svc := services.NewExternalEventService(s.GetDB(), s.EncryptionService)
 	calendars, err := svc.GetCalendars(userID)
 	if err != nil {
 		log.Printf("Error fetching external calendars: %v", err)
@@ -87,7 +87,7 @@ func (s *Handler) CreateExternalCalendarRoute(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	svc := services.NewExternalEventService(s.GetDB())
+	svc := services.NewExternalEventService(s.GetDB(), s.EncryptionService)
 	calendar, err := svc.CreateCalendar(userID, req)
 	if err != nil {
 		log.Printf("Error creating external calendar: %v", err)
@@ -141,7 +141,7 @@ func (s *Handler) UpdateExternalCalendarRoute(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	svc := services.NewExternalEventService(s.GetDB())
+	svc := services.NewExternalEventService(s.GetDB(), s.EncryptionService)
 	if err := svc.UpdateCalendar(calendarID, userID, req); err != nil {
 		log.Printf("Error updating external calendar: %v", err)
 		// Determine error code based on error message
@@ -186,7 +186,7 @@ func (s *Handler) DeleteExternalCalendarRoute(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	svc := services.NewExternalEventService(s.GetDB())
+	svc := services.NewExternalEventService(s.GetDB(), s.EncryptionService)
 	if err := svc.DeleteCalendar(calendarID, userID); err != nil {
 		log.Printf("Error deleting external calendar: %v", err)
 		respondWithError(w, http.StatusNotFound, "NOT_FOUND", err.Error())
@@ -211,7 +211,7 @@ func (s *Handler) SyncExternalCalendarRoute(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	svc := services.NewExternalEventService(s.GetDB())
+	svc := services.NewExternalEventService(s.GetDB(), s.EncryptionService)
 	if err := svc.SyncExternalCalendar(calendarID, userID); err != nil {
 		log.Printf("Error syncing external calendar: %v", err)
 		// Determine error code based on error message
@@ -293,7 +293,7 @@ func (s *Handler) GetExternalEventsRoute(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	svc := services.NewExternalEventService(s.GetDB())
+	svc := services.NewExternalEventService(s.GetDB(), s.EncryptionService)
 	events, total, err := svc.GetEventsInRange(userID, start, end, limit, offset)
 	if err != nil {
 		log.Printf("Error fetching external events: %v", err)
@@ -340,7 +340,7 @@ func (s *Handler) LinkEventToCardRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := services.NewExternalEventService(s.GetDB())
+	svc := services.NewExternalEventService(s.GetDB(), s.EncryptionService)
 	event, err := svc.LinkEventToCard(s.GetDB(), userID, eventID, req.CardPK)
 	if err != nil {
 		log.Printf("Error linking event to card: %v", err)
@@ -368,7 +368,7 @@ func (s *Handler) UnlinkEventFromCardRoute(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	svc := services.NewExternalEventService(s.GetDB())
+	svc := services.NewExternalEventService(s.GetDB(), s.EncryptionService)
 	if err := svc.UnlinkEventFromCard(s.GetDB(), userID, eventID); err != nil {
 		log.Printf("Error unlinking event from card: %v", err)
 		respondWithError(w, http.StatusInternalServerError, "UNLINK_FAILED", err.Error())
@@ -394,7 +394,7 @@ func (s *Handler) GetEventsByCardRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := services.NewExternalEventService(s.GetDB())
+	svc := services.NewExternalEventService(s.GetDB(), s.EncryptionService)
 	events, err := svc.GetEventsByCard(s.GetDB(), userID, cardPK)
 	if err != nil {
 		log.Printf("Error fetching events for card: %v", err)

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaPlus, FaSync, FaTrash } from "react-icons/fa";
+import { FaPlus, FaSync, FaTrash, FaLock } from "react-icons/fa";
 import {
   ExternalCalendar,
   CreateExternalCalendarRequest,
@@ -28,11 +28,18 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
     loadCalendars();
   }, []);
 
+  // Auto-dismiss success messages
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
   async function loadCalendars() {
     try {
       setError(null);
       const data = await getExternalCalendars();
-      console.log("calendars", data)
       setCalendars(data);
     } catch (err) {
       setError("Failed to load calendar subscriptions");
@@ -43,9 +50,13 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
   async function handleAdd(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
+    const usernameInput = form.elements.namedItem("username") as HTMLInputElement;
+    const passwordInput = form.elements.namedItem("password") as HTMLInputElement;
     const data: CreateExternalCalendarRequest = {
       name: (form.elements.namedItem("name") as HTMLInputElement).value,
       url: (form.elements.namedItem("url") as HTMLInputElement).value,
+      username: usernameInput.value || undefined,
+      password: passwordInput.value || undefined,
       color: (form.elements.namedItem("color") as HTMLInputElement).value || "#6366f1",
     };
 
@@ -56,8 +67,6 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
       setSuccess("Calendar subscription added successfully");
       await loadCalendars();
       onCalendarChange?.();
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
       setError(err.message || "Failed to add calendar subscription");
     }
@@ -71,7 +80,6 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
       setSuccess("Calendar synced successfully");
       await loadCalendars();
       onCalendarChange?.();
-      setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
       setError(err.message || "Failed to sync calendar");
     } finally {
@@ -95,7 +103,6 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
       setSuccess("Calendar subscription removed");
       await loadCalendars();
       onCalendarChange?.();
-      setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
       setError(err.message || "Failed to remove calendar");
     } finally {
@@ -167,6 +174,27 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
                   Enter the public iCal feed URL from your calendar provider
                 </p>
               </div>
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium text-slate-700 mb-1">Username (optional)</label>
+                <input
+                  name="username"
+                  placeholder="Username for authentication"
+                  type="text"
+                  className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Only required for password-protected calendars
+                </p>
+              </div>
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">Password (optional)</label>
+                <input
+                  name="password"
+                  placeholder="Password for authentication"
+                  type="password"
+                  className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   name="color"
@@ -206,7 +234,12 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
                   aria-hidden="true"
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="font-medium text-slate-800 truncate">{cal.name}</div>
+                  <div className="font-medium text-slate-800 truncate flex items-center gap-2">
+                    {cal.name}
+                    {cal.username && (
+                      <FaLock size={12} className="text-slate-500" title="Password protected" aria-label="Password protected calendar" />
+                    )}
+                  </div>
                   <div className="text-sm text-slate-500 truncate">{cal.url}</div>
                   {cal.last_synced_at && (
                     <div className="text-xs text-slate-400">
@@ -229,7 +262,6 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
                   aria-label={syncing.has(cal.id) ? "Syncing calendar" : "Sync calendar"}
                 >
                   <FaSync size={14} className={syncing.has(cal.id) ? "animate-spin" : ""} aria-hidden="true" />
-                  <span className="sr-only">{syncing.has(cal.id) ? "Syncing..." : "Sync"}</span>
                 </button>
                 <button
                   onClick={() => handleDelete(cal.id)}
