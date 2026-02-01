@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { a1ToCoords, coordsToA1, parseCellReference, parseRange } from './spreadsheetHelpers';
+import { a1ToCoords, coordsToA1, parseCellReference, parseRange, getCellsInRange, type CellRange } from './spreadsheetHelpers';
 
 describe('spreadsheetHelpers - a1ToCoords', () => {
   it('converts A1 to {row: 0, col: 0}', () => {
@@ -63,5 +63,23 @@ describe('spreadsheetHelpers - parseRange', () => {
 
   it('handles single cell as range', () => {
     expect(parseRange('A1')).toEqual({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
+  });
+});
+
+describe('spreadsheetHelpers - getCellsInRange', () => {
+  it('returns single cell for A1:A1', () => {
+    expect(getCellsInRange('A1:A1')).toEqual(['A1']);
+  });
+
+  it('returns cells in row range A1:C1', () => {
+    expect(getCellsInRange('A1:C1')).toEqual(['A1', 'B1', 'C1']);
+  });
+
+  it('returns cells in 2D range A1:B2', () => {
+    expect(getCellsInRange('A1:B2')).toEqual(['A1', 'B1', 'A2', 'B2']);
+  });
+
+  it('handles reverse range B2:A1', () => {
+    expect(getCellsInRange('B2:A1')).toEqual(['A1', 'B1', 'A2', 'B2']);
   });
 });

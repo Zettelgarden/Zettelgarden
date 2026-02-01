@@ -22,6 +22,13 @@ export function a1ToCoords(cellRef: string): { row: number; col: number } {
   return { row, col };
 }
 
+export interface CellRange {
+  startRow: number;
+  startCol: number;
+  endRow: number;
+  endCol: number;
+}
+
 /**
  * Convert coordinates to A1 notation
  * Examples: {row: 0, col: 0} -> A1, {row: 4, col: 1} -> B5
@@ -43,17 +50,18 @@ export function coordsToA1(row: number, col: number): string {
  * Parse a cell reference (single cell or range)
  * Returns normalized range with start/end row/col
  */
-export function parseCellReference(cellRef: string): {
-  startRow: number;
-  startCol: number;
-  endRow: number;
-  endCol: number;
-} {
-  // Check if it's a range (contains colon)
+export function parseCellReference(cellRef: string): CellRange {
   if (cellRef.includes(':')) {
-    return parseRange(cellRef);
+    const [start, end] = cellRef.split(':');
+    const startPos = a1ToCoords(start);
+    const endPos = a1ToCoords(end);
+    return {
+      startRow: Math.min(startPos.row, endPos.row),
+      startCol: Math.min(startPos.col, endPos.col),
+      endRow: Math.max(startPos.row, endPos.row),
+      endCol: Math.max(startPos.col, endPos.col),
+    };
   }
-
   const { row, col } = a1ToCoords(cellRef);
   return { startRow: row, startCol: col, endRow: row, endCol: col };
 }
@@ -61,26 +69,8 @@ export function parseCellReference(cellRef: string): {
 /**
  * Parse a range reference like A1:B3 or A1:A5
  */
-export function parseRange(range: string): {
-  startRow: number;
-  startCol: number;
-  endRow: number;
-  endCol: number;
-} {
-  if (!range.includes(':')) {
-    return parseCellReference(range);
-  }
-
-  const [start, end] = range.split(':');
-  const startPos = a1ToCoords(start);
-  const endPos = a1ToCoords(end);
-
-  return {
-    startRow: Math.min(startPos.row, endPos.row),
-    startCol: Math.min(startPos.col, endPos.col),
-    endRow: Math.max(startPos.row, endPos.row),
-    endCol: Math.max(startPos.col, endPos.col),
-  };
+export function parseRange(range: string): CellRange {
+  return parseCellReference(range);
 }
 
 /**
