@@ -75,10 +75,10 @@ describe('SpreadsheetCell', () => {
     expect(mockOnChange).toHaveBeenCalledWith('A1', { value: '100', formula: '' });
   });
 
-  it('formats formula cells with leading =', () => {
+  it('displays computed value for formula cells', () => {
     const formulaCell: SpreadsheetCellModel = {
       value: '30',
-      formula: '=A1+B1'
+      formula: 'A1+B1'
     };
 
     render(

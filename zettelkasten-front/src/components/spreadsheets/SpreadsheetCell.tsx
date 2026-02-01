@@ -10,7 +10,7 @@ interface SpreadsheetCellProps {
 
 export function SpreadsheetCell({ cellRef, cell, onChange, readOnly = false }: SpreadsheetCellProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(cell.formula || cell.value);
+  const [editValue, setEditValue] = useState((cell.formula ? '=' + cell.formula : cell.value) || '');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export function SpreadsheetCell({ cellRef, cell, onChange, readOnly = false }: S
   const handleDoubleClick = () => {
     if (!readOnly) {
       setIsEditing(true);
-      setEditValue(cell.formula || cell.value);
+      setEditValue((cell.formula ? '=' + cell.formula : cell.value) || '');
     }
   };
 
@@ -44,7 +44,7 @@ export function SpreadsheetCell({ cellRef, cell, onChange, readOnly = false }: S
     if (e.key === 'Enter') {
       inputRef.current?.blur();
     } else if (e.key === 'Escape') {
-      setEditValue(cell.formula || cell.value);
+      setEditValue((cell.formula ? '=' + cell.formula : cell.value) || '');
       setIsEditing(false);
     }
   };
