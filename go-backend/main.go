@@ -11,6 +11,7 @@ import (
 	"go-backend/routes"
 	"go-backend/server"
 	"go-backend/services"
+	"go-backend/services/jobs"
 	"log"
 	"net/http"
 	"os"
@@ -233,8 +234,9 @@ func run() error {
 	// Initialize and start the scheduled job runner
 	log.Printf("Initializing scheduled job runner")
 	scheduler := services.NewScheduler(s.DB)
-	// Register scheduled jobs here (we'll add actual jobs in next tasks)
-	// Example: scheduler.Register(jobs.NewCleanupJob(db))
+
+	// Register scheduled jobs
+	scheduler.Register(jobs.NewCleanupJob(s.DB))
 
 	scheduler.Start()
 	defer scheduler.Stop()
