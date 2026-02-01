@@ -14,9 +14,10 @@ import (
 // - User management: /api/admin/users/*
 // - Mailing list: /api/admin/mailing-list/*
 // - Job queue: /api/admin/jobs/*
+// - Scheduler: /api/admin/scheduler/*
 // - Audit logs: /api/admin/audit-logs
 // - Statistics: /api/admin/stats
-func RegisterAllAdminRoutes(r *mux.Router, h *handlers.Handler) {
+func RegisterAllAdminRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.SchedulerAPI) {
 	// Admin statistics and overview
 	adminAPI := r.PathPrefix("/api/admin").Subrouter()
 
@@ -61,4 +62,10 @@ func RegisterAllAdminRoutes(r *mux.Router, h *handlers.Handler) {
 	adminAPI.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
 		GetAdminStatsRoute(h, w, r)
 	}).Methods("GET")
+
+	// Scheduler management routes (admin-only)
+	if scheduler != nil {
+		adminAPI.HandleFunc("/scheduler/jobs", handlers.ListScheduledJobs(scheduler)).Methods("GET")
+		adminAPI.HandleFunc("/scheduler/jobs/{jobName}/history", handlers.GetJobHistory(scheduler)).Methods("GET")
+	}
 }

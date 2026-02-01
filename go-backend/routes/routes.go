@@ -92,5 +92,6 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler) {
 	RegisterAdminEmailRoutes(r, h)
 
 	// Admin-specific routes (dashboard, audit logs, etc.)
-	admin.RegisterAllAdminRoutes(r, h)
+	// Scheduler is nil until Task 7 (Integrate scheduler into main.go)
+	admin.RegisterAllAdminRoutes(r, h, nil)
 }
