@@ -1,7 +1,10 @@
 /**
  * Convert cron expression to human-readable description
  */
-export function formatCronSchedule(cron: string): string {
+export function formatCronSchedule(cron: string | undefined): string {
+  if (!cron) {
+    return "Schedule unavailable";
+  }
   const parts = cron.trim().split(/\s+/);
 
   if (parts.length < 5 || parts.length > 6) {
@@ -43,7 +46,10 @@ export function formatCronSchedule(cron: string): string {
 /**
  * Format relative time for timestamps
  */
-export function formatRelativeTime(dateStr: string): string {
+export function formatRelativeTime(dateStr: string | undefined): string {
+  if (!dateStr) {
+    return "Unknown";
+  }
   const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
