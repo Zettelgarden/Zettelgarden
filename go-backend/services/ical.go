@@ -159,14 +159,24 @@ func parseICalDateTime(value string, params []string) time.Time {
 	return time.Time{}
 }
 
-// FetchICalURL fetches an iCal feed from a URL
+// FetchICalURL fetches an iCal feed from a URL with optional Basic Authentication
 // Returns the parsed events from the feed
-func FetchICalURL(feedURL string) ([]ICalEvent, error) {
+func FetchICalURL(feedURL, username, password string) ([]ICalEvent, error) {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
 
-	resp, err := client.Get(feedURL)
+	req, err := http.NewRequest("GET", feedURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add Basic Auth if credentials provided
+	if username != "" && password != "" {
+		req.SetBasicAuth(username, password)
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch iCal feed: %w", err)
 	}
@@ -257,9 +267,9 @@ func ValidatePublicURL(rawURL string) error {
 	return nil
 }
 
-// ValidateICalURL checks if a URL is a valid iCal feed
+// ValidateICalURL checks if a URL is a valid iCal feed with optional Basic Authentication
 // Attempts to fetch and parse the feed to verify it works
-func ValidateICalURL(rawURL string) error {
+func ValidateICalURL(rawURL, username, password string) error {
 	if rawURL == "" {
 		return fmt.Errorf("URL is empty")
 	}
@@ -274,7 +284,7 @@ func ValidateICalURL(rawURL string) error {
 	}
 
 	// Try to fetch and parse
-	events, err := FetchICalURL(rawURL)
+	events, err := FetchICalURL(rawURL, username, password)
 	if err != nil {
 		return err
 	}

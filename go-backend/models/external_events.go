@@ -15,13 +15,16 @@ type ExternalCalendar struct {
 	LastError         *string    `json:"last_error,omitempty"`
 	CreatedAt         time.Time  `json:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at"`
+	Username          *string    `json:"username,omitempty"` // Username for Basic Auth
 }
 
 // CreateExternalCalendarRequest is used to create a new calendar subscription
 type CreateExternalCalendarRequest struct {
-	Name  string `json:"name"`
-	URL   string `json:"url"`
-	Color string `json:"color"`
+	Name     string  `json:"name"`
+	URL      string  `json:"url"`
+	Color    string  `json:"color"`
+	Username *string `json:"username,omitempty"` // Username for Basic Auth
+	Password *string `json:"password,omitempty"` // Password for Basic Auth
 }
 
 // UpdateExternalCalendarRequest is used to update an existing calendar subscription
@@ -31,6 +34,8 @@ type UpdateExternalCalendarRequest struct {
 	Color             *string `json:"color,omitempty"`
 	SyncEnabled       *bool   `json:"sync_enabled,omitempty"`
 	SyncIntervalHours *int    `json:"sync_interval_hours,omitempty"`
+	Username          *string `json:"username,omitempty"` // Username for Basic Auth
+	Password          *string `json:"password,omitempty"` // Password for Basic Auth (empty string clears it)
 }
 
 // ExternalEvent represents an imported calendar event from an external feed

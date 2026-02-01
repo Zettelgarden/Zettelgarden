@@ -23,7 +23,8 @@ const (
 
 // ExternalEventService handles external calendar event operations
 type ExternalEventService struct {
-	db models.Database
+	db                models.Database
+	encryptionService *EncryptionService
 }
 
 // isValidHexColor checks if a color string is a valid hex color code
@@ -47,8 +48,8 @@ func validateSyncIntervalHours(hours *int) error {
 }
 
 // NewExternalEventService creates a new ExternalEventService instance
-func NewExternalEventService(db models.Database) *ExternalEventService {
-	return &ExternalEventService{db: db}
+func NewExternalEventService(db models.Database, encryptionService *EncryptionService) *ExternalEventService {
+	return &ExternalEventService{db: db, encryptionService: encryptionService}
 }
 
 // SyncExternalCalendar fetches and imports events from an external calendar
@@ -59,11 +60,13 @@ func (s *ExternalEventService) SyncExternalCalendar(calendarID int, userID int) 
 	var url string
 	var color string
 	var lastSyncedAt sql.NullTime
+	var username sql.NullString
+	var encryptedPassword sql.NullString
 	err := s.db.QueryRow(`
-		SELECT url, color, last_synced_at
+		SELECT url, color, last_synced_at, username, password
 		FROM external_calendars
 		WHERE id = $1 AND user_id = $2
-	`, calendarID, userID).Scan(&url, &color, &lastSyncedAt)
+	`, calendarID, userID).Scan(&url, &color, &lastSyncedAt, &username, &encryptedPassword)
 
 	if err == sql.ErrNoRows {
 		log.Printf("[Sync] Calendar %d not found for user %d", calendarID, userID)
@@ -86,8 +89,20 @@ func (s *ExternalEventService) SyncExternalCalendar(calendarID int, userID int) 
 	}
 
 	log.Printf("[Sync] Fetching events from iCal feed for calendar %d", calendarID)
-	// Fetch events from iCal feed
-	icalEvents, err := FetchICalURL(url)
+
+	// Decrypt password if provided
+	var password string
+	if encryptedPassword.Valid && s.encryptionService != nil {
+		decrypted, err := s.encryptionService.Decrypt(encryptedPassword.String)
+		if err != nil {
+			log.Printf("[Sync] Failed to decrypt password for calendar %d: %v", calendarID, err)
+			return fmt.Errorf("failed to decrypt password: %w", err)
+		}
+		password = decrypted
+	}
+
+	// Fetch events from iCal feed with credentials
+	icalEvents, err := FetchICalURL(url, username.String, password)
 	if err != nil {
 		log.Printf("[Sync] Failed to fetch iCal feed for calendar %d: %v", calendarID, err)
 		s.UpdateLastSyncError(calendarID, err.Error())
@@ -275,7 +290,8 @@ func (s *ExternalEventService) GetEventsInRange(userID int, start, end time.Time
 func (s *ExternalEventService) GetCalendars(userID int) ([]models.ExternalCalendar, error) {
 	rows, err := s.db.Query(`
 		SELECT id, user_id, name, url, sync_enabled, sync_interval_hours,
-		       color, last_synced_at, last_error, created_at, updated_at
+		       color, last_synced_at, last_error, created_at, updated_at,
+		       username, password
 		FROM external_calendars
 		WHERE user_id = $1
 		ORDER BY created_at
@@ -291,11 +307,14 @@ func (s *ExternalEventService) GetCalendars(userID int) ([]models.ExternalCalend
 		var cal models.ExternalCalendar
 		var lastSyncedAt sql.NullTime
 		var lastError sql.NullString
+		var username sql.NullString
+		var password sql.NullString
 
 		err := rows.Scan(
 			&cal.ID, &cal.UserID, &cal.Name, &cal.URL,
 			&cal.SyncEnabled, &cal.SyncIntervalHours, &cal.Color,
 			&lastSyncedAt, &lastError, &cal.CreatedAt, &cal.UpdatedAt,
+			&username, &password,
 		)
 		if err != nil {
 			return nil, err
@@ -307,6 +326,10 @@ func (s *ExternalEventService) GetCalendars(userID int) ([]models.ExternalCalend
 		if lastError.Valid {
 			cal.LastError = &lastError.String
 		}
+		if username.Valid {
+			cal.Username = &username.String
+		}
+		// Never return password, it stays encrypted
 
 		calendars = append(calendars, cal)
 	}
@@ -316,8 +339,17 @@ func (s *ExternalEventService) GetCalendars(userID int) ([]models.ExternalCalend
 
 // CreateCalendar creates a new external calendar subscription
 func (s *ExternalEventService) CreateCalendar(userID int, req models.CreateExternalCalendarRequest) (*models.ExternalCalendar, error) {
-	// Validate URL by attempting to fetch it
-	if err := ValidateICalURL(req.URL); err != nil {
+	// Validate URL by attempting to fetch it with credentials
+	username := ""
+	if req.Username != nil {
+		username = *req.Username
+	}
+	password := ""
+	if req.Password != nil {
+		password = *req.Password
+	}
+
+	if err := ValidateICalURL(req.URL, username, password); err != nil {
 		return nil, fmt.Errorf("invalid iCal URL: %w", err)
 	}
 
@@ -329,12 +361,34 @@ func (s *ExternalEventService) CreateCalendar(userID int, req models.CreateExter
 		return nil, fmt.Errorf("invalid color format: must be a hex color code (e.g., #6366f1)")
 	}
 
+	// Encrypt password if provided
+	var encryptedPassword *string
+	if req.Password != nil && *req.Password != "" {
+		if s.encryptionService == nil {
+			return nil, fmt.Errorf("encryption service not available")
+		}
+		encrypted, err := s.encryptionService.Encrypt(*req.Password)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt password: %w", err)
+		}
+		encryptedPassword = &encrypted
+	}
+
 	var id int
+	var usernameVal interface{} = nil
+	if req.Username != nil {
+		usernameVal = *req.Username
+	}
+	var passwordVal interface{} = nil
+	if encryptedPassword != nil {
+		passwordVal = *encryptedPassword
+	}
+
 	err := s.db.QueryRow(`
-		INSERT INTO external_calendars (user_id, name, url, color)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO external_calendars (user_id, name, url, color, username, password)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id
-	`, userID, req.Name, req.URL, color).Scan(&id)
+	`, userID, req.Name, req.URL, color, usernameVal, passwordVal).Scan(&id)
 
 	if err != nil {
 		return nil, err
@@ -349,16 +403,19 @@ func (s *ExternalEventService) GetCalendar(calendarID, userID int) (*models.Exte
 	var cal models.ExternalCalendar
 	var lastSyncedAt sql.NullTime
 	var lastError sql.NullString
+	var username sql.NullString
 
 	err := s.db.QueryRow(`
 		SELECT id, user_id, name, url, sync_enabled, sync_interval_hours,
-		       color, last_synced_at, last_error, created_at, updated_at
+		       color, last_synced_at, last_error, created_at, updated_at,
+		       username
 		FROM external_calendars
 		WHERE id = $1 AND user_id = $2
 	`, calendarID, userID).Scan(
 		&cal.ID, &cal.UserID, &cal.Name, &cal.URL,
 		&cal.SyncEnabled, &cal.SyncIntervalHours, &cal.Color,
 		&lastSyncedAt, &lastError, &cal.CreatedAt, &cal.UpdatedAt,
+		&username,
 	)
 
 	if err == sql.ErrNoRows {
@@ -373,6 +430,9 @@ func (s *ExternalEventService) GetCalendar(calendarID, userID int) (*models.Exte
 	}
 	if lastError.Valid {
 		cal.LastError = &lastError.String
+	}
+	if username.Valid {
+		cal.Username = &username.String
 	}
 
 	return &cal, nil
@@ -392,7 +452,15 @@ func (s *ExternalEventService) UpdateCalendar(calendarID, userID int, req models
 
 	// Validate URL if provided (re-validate to prevent SSRF bypass)
 	if req.URL != nil {
-		if err := ValidateICalURL(*req.URL); err != nil {
+		username := ""
+		if req.Username != nil {
+			username = *req.Username
+		}
+		password := ""
+		if req.Password != nil {
+			password = *req.Password
+		}
+		if err := ValidateICalURL(*req.URL, username, password); err != nil {
 			return fmt.Errorf("invalid iCal URL: %w", err)
 		}
 	}
@@ -426,6 +494,31 @@ func (s *ExternalEventService) UpdateCalendar(calendarID, userID int, req models
 		updates = append(updates, fmt.Sprintf("sync_interval_hours = $%d", argPos))
 		args = append(args, *req.SyncIntervalHours)
 		argPos++
+	}
+	if req.Username != nil {
+		updates = append(updates, fmt.Sprintf("username = $%d", argPos))
+		args = append(args, *req.Username)
+		argPos++
+	}
+	if req.Password != nil {
+		// Encrypt new password if provided
+		if s.encryptionService == nil {
+			return fmt.Errorf("encryption service not available")
+		}
+		if *req.Password != "" {
+			encrypted, err := s.encryptionService.Encrypt(*req.Password)
+			if err != nil {
+				return fmt.Errorf("failed to encrypt password: %w", err)
+			}
+			updates = append(updates, fmt.Sprintf("password = $%d", argPos))
+			args = append(args, encrypted)
+			argPos++
+		} else {
+			// Empty string means clear the password
+			updates = append(updates, fmt.Sprintf("password = $%d", argPos))
+			args = append(args, nil)
+			argPos++
+		}
 	}
 
 	if len(updates) == 0 {
