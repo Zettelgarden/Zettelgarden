@@ -237,6 +237,7 @@ func run() error {
 
 	// Register scheduled jobs
 	scheduler.Register(jobs.NewCleanupJob(s.DB))
+	scheduler.Register(jobs.NewUserMemoryMaintenanceJob(s.DB))
 
 	scheduler.Start()
 	defer scheduler.Stop()
