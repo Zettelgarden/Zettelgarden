@@ -32,6 +32,7 @@ export interface ExternalCalendar {
   user_id: number;
   name: string;
   url: string;
+  username?: string;
   sync_enabled: boolean;
   sync_interval_hours: number;
   color: string;
@@ -47,6 +48,8 @@ export interface ExternalCalendar {
 export interface CreateExternalCalendarRequest {
   name: string;
   url: string;
+  username?: string;
+  password?: string;
   color?: string;
 }
 
@@ -56,6 +59,8 @@ export interface CreateExternalCalendarRequest {
 export interface UpdateExternalCalendarRequest {
   name?: string;
   url?: string;
+  username?: string;
+  password?: string;
   color?: string;
   sync_enabled?: boolean;
   sync_interval_hours?: number;
