@@ -51,6 +51,7 @@ require (
 	github.com/gogs/chardet v0.0.0-20211120154057-b7413eaefb8f // indirect
 	github.com/oapi-codegen/runtime v1.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/sony/gobreaker v1.0.0 // indirect
 	go.uber.org/mock v0.5.0 // indirect
 	golang.org/x/text v0.20.0 // indirect
