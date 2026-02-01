@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
+
+	"go-backend/services"
 
 	"github.com/gorilla/mux"
 )
@@ -13,14 +16,14 @@ import (
 // mockSchedulerForHandler is a mock implementation for testing
 type mockSchedulerForHandler struct {
 	jobs    []string
-	history []JobRunResponse
+	history []services.JobRun
 }
 
 func (m *mockSchedulerForHandler) ListJobs() []string {
 	return m.jobs
 }
 
-func (m *mockSchedulerForHandler) GetJobHistory(ctx context.Context, jobName string, limit int) ([]JobRunResponse, error) {
+func (m *mockSchedulerForHandler) GetJobHistory(ctx context.Context, jobName string, limit int) ([]services.JobRun, error) {
 	return m.history, nil
 }
 
@@ -83,10 +86,13 @@ func TestListScheduledJobsHandler(t *testing.T) {
 }
 
 func TestGetJobHistoryHandler(t *testing.T) {
+	// Helper time for testing
+	baseTime := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
+
 	tests := []struct {
 		name           string
 		jobName        string
-		history        []JobRunResponse
+		history        []services.JobRun
 		queryLimit     string
 		expectedStatus int
 		expectedCount  int
@@ -94,7 +100,7 @@ func TestGetJobHistoryHandler(t *testing.T) {
 		{
 			name:    "returns empty history for job with no runs",
 			jobName: "daily-cleanup",
-			history: []JobRunResponse{},
+			history: []services.JobRun{},
 			queryLimit: "",
 			expectedStatus: http.StatusOK,
 			expectedCount:  0,
@@ -102,20 +108,20 @@ func TestGetJobHistoryHandler(t *testing.T) {
 		{
 			name:    "returns job history",
 			jobName: "daily-cleanup",
-			history: []JobRunResponse{
+			history: []services.JobRun{
 				{
 					ID:          1,
 					JobName:     "daily-cleanup",
-					StartedAt:   "2024-01-15T10:00:00Z",
-					CompletedAt: "2024-01-15T10:01:00Z",
+					StartedAt:   baseTime,
+					CompletedAt: baseTime.Add(time.Minute),
 					Status:      "completed",
 					RetryCount:  0,
 				},
 				{
 					ID:          2,
 					JobName:     "daily-cleanup",
-					StartedAt:   "2024-01-16T10:00:00Z",
-					CompletedAt: "2024-01-16T10:01:30Z",
+					StartedAt:   baseTime.Add(24 * time.Hour),
+					CompletedAt: baseTime.Add(24*time.Hour + 90*time.Second),
 					Status:      "completed",
 					RetryCount:  0,
 				},
@@ -127,11 +133,11 @@ func TestGetJobHistoryHandler(t *testing.T) {
 		{
 			name:    "returns job history with error",
 			jobName: "daily-cleanup",
-			history: []JobRunResponse{
+			history: []services.JobRun{
 				{
 					ID:           3,
 					JobName:      "daily-cleanup",
-					StartedAt:    "2024-01-17T10:00:00Z",
+					StartedAt:    baseTime.Add(2 * 24 * time.Hour),
 					Status:       "failed",
 					ErrorMessage: "connection timeout",
 					RetryCount:   2,
@@ -144,9 +150,9 @@ func TestGetJobHistoryHandler(t *testing.T) {
 		{
 			name:    "parses limit from query params",
 			jobName: "daily-cleanup",
-			history: []JobRunResponse{
-				{ID: 1, JobName: "daily-cleanup", StartedAt: "2024-01-15T10:00:00Z", Status: "completed"},
-				{ID: 2, JobName: "daily-cleanup", StartedAt: "2024-01-16T10:00:00Z", Status: "completed"},
+			history: []services.JobRun{
+				{ID: 1, JobName: "daily-cleanup", StartedAt: baseTime, Status: "completed"},
+				{ID: 2, JobName: "daily-cleanup", StartedAt: baseTime.Add(24 * time.Hour), Status: "completed"},
 			},
 			queryLimit: "10",
 			expectedStatus: http.StatusOK,

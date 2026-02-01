@@ -24,8 +24,9 @@ func (j *CleanupJob) Name() string {
 }
 
 // Schedule returns the cron expression for when this job should run
+// Note: Using 6-field cron expression (with seconds) as required by the scheduler
 func (j *CleanupJob) Schedule() string {
-	return "0 2 * * *" // Run at 2 AM daily
+	return "0 0 2 * * *" // Run at 2 AM daily (seconds, minutes, hours, day, month, weekday)
 }
 
 // MaxRetries returns the number of times to retry on failure
