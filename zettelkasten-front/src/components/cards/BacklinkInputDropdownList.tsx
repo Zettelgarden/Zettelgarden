@@ -64,7 +64,7 @@ export function BacklinkInputDropdownList({
             title: r.title,
             user_id: r.user_id ?? 0,
             parent_id: r.parent_id ?? null,
-            id: Number(r.id),
+            id: r.pk != null ? Number(r.pk) : Number(r.id),  // Use pk (internal DB ID) if available
             created_at: r.created_at ?? "",
             updated_at: r.updated_at ?? "",
             tags: r.tags ?? [],
