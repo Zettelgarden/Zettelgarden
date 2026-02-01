@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { FaChevronLeft, FaChevronRight, FaPlus, FaChevronUp, FaChevronDown } from "react-icons/fa";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { toZonedTime } from "date-fns-tz";
@@ -43,6 +43,7 @@ interface CalendarViewProps {
   onCreateTask?: (date: Date) => void;
   onTaskMoved?: () => void;
   onExternalEventClick?: (event: CalendarEvent) => void;
+  onExternalEventChange?: () => void;
   timezone?: string;
 }
 
@@ -58,6 +59,7 @@ export function CalendarView({
   onCreateTask,
   onTaskMoved,
   onExternalEventClick,
+  onExternalEventChange,
   timezone = "UTC",
 }: CalendarViewProps) {
   const [hoveredDay, setHoveredDay] = useState<Date | null>(null);
@@ -68,23 +70,29 @@ export function CalendarView({
   } | null>(null);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(-1);
   const [externalEventDialog, setExternalEventDialog] = useState<CalendarEvent | null>(null);
+  const [dragError, setDragError] = useState<string | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
 
-  // Convert tasks to calendar events
-  const taskEvents = tasksToCalendarEvents(tasks, timezone);
+  // Memoize week day names
+  const weekDayNames = useMemo(() => getWeekDayNames(), []);
 
-  // Merge with external events
-  const events = mergeCalendarEvents(taskEvents, externalEvents);
+  // Convert tasks to calendar events and merge with external events
+  const events = useMemo(() => {
+    const taskEvents = tasksToCalendarEvents(tasks, timezone);
+    return mergeCalendarEvents(taskEvents, externalEvents);
+  }, [tasks, externalEvents, timezone]);
 
   // Generate the calendar grid based on view mode
-  const grid = viewMode === "month"
-    ? generateMonthGrid(currentDate, timezone)
-    : generateWeekGrid(currentDate, timezone);
+  const grid = useMemo(() => {
+    return viewMode === "month"
+      ? generateMonthGrid(currentDate, timezone)
+      : generateWeekGrid(currentDate, timezone);
+  }, [viewMode, currentDate, timezone]);
 
   // Populate events into the grid
-  const days = populateDayEvents(grid, events, timezone);
-
-  const weekDayNames = getWeekDayNames();
+  const days = useMemo(() => {
+    return populateDayEvents(grid, events, timezone);
+  }, [grid, events, timezone]);
 
   const handleDayClick = (day: CalendarDay) => {
     onDayClick(day.date, day.events);
@@ -137,15 +145,19 @@ export function CalendarView({
     }
   };
 
-  // Close context menu on click outside
+  // Close context menu on click outside - only attach listener when menu is open
   useEffect(() => {
+    if (!contextMenu) return;
+
     const handleClickOutside = () => closeContextMenu();
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
+  }, [contextMenu]);
 
-  // Keyboard navigation
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+  // Keyboard navigation - use ref pattern to avoid frequent listener re-attachment
+  const handleKeyDownRef = useRef<(e: KeyboardEvent) => void>();
+
+  handleKeyDownRef.current = useCallback((e: KeyboardEvent) => {
     // Only handle keyboard when calendar is focused or no input is focused
     const target = e.target as HTMLElement;
     if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
@@ -191,7 +203,7 @@ export function CalendarView({
         e.preventDefault();
         if (selectedDayIndex >= 0 && hoveredDay) {
           const dayEvents = events.filter(
-            e => format(e.date, "yyyy-MM-dd") === format(hoveredDay, "yyyy-MM-dd")
+            ev => format(ev.date, "yyyy-MM-dd") === format(hoveredDay, "yyyy-MM-dd")
           );
           onDayClick(hoveredDay, dayEvents);
         }
@@ -202,13 +214,14 @@ export function CalendarView({
         setSelectedDayIndex(-1);
         setHoveredDay(null);
         break;
-      }
-  }, [currentDate, events, hoveredDay, onDayClick, selectedDayIndex, viewMode]);
+    }
+  }, [currentDate, events, hoveredDay, onDayClick, selectedDayIndex, viewMode, timezone]);
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => handleKeyDownRef.current?.(e);
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
+  }, []);
 
   // Get setRefreshTasks from TaskContext for refreshing after drag-drop
   const { setRefreshTasks } = useTaskContext();
@@ -223,7 +236,12 @@ export function CalendarView({
     // No change if dropped in the same day
     if (sourceDateStr === destDateStr) return;
 
+    // External events (prefixed with "ext-") cannot be dragged
+    if (result.draggableId.startsWith("ext-")) return;
+
     const taskId = parseInt(result.draggableId, 10);
+    if (isNaN(taskId)) return;
+
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
 
@@ -238,17 +256,21 @@ export function CalendarView({
       scheduled_date: newScheduledDate,
     };
 
+    setDragError(null);
     try {
       // Persist changes
       const response = await saveExistingTask(updatedTask);
       if (!("error" in response)) {
         setRefreshTasks(true);
         onTaskMoved?.();
+      } else {
+        setDragError("Failed to reschedule task. Please try again.");
       }
     } catch (err) {
       console.error("Failed to reschedule task after drag-and-drop:", err);
+      setDragError("Failed to reschedule task. Please try again.");
     }
-  }, [tasks, onTaskMoved, setRefreshTasks]);
+  }, [tasks, onTaskMoved, setRefreshTasks, setDragError]);
 
   return (
     <div className="bg-white border border-slate-300 rounded-lg overflow-hidden">
@@ -336,6 +358,20 @@ export function CalendarView({
         </div>
       </div>
 
+      {/* Error Message */}
+      {dragError && (
+        <div className="mx-4 mt-2 p-2 bg-red-50 border border-red-200 rounded-md flex items-center justify-between">
+          <p className="text-sm text-red-600">{dragError}</p>
+          <button
+            onClick={() => setDragError(null)}
+            className="text-red-500 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1"
+            aria-label="Dismiss error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Calendar Grid */}
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className={`grid ${viewMode === "month" ? "grid-cols-7" : "grid-cols-7"} bg-slate-50`} role="grid" aria-label={`Calendar ${viewMode} view`}>
@@ -404,6 +440,7 @@ export function CalendarView({
         <ExternalEventDialog
           event={externalEventDialog}
           onClose={() => setExternalEventDialog(null)}
+          onSuccess={onExternalEventChange}
         />
       )}
     </div>
@@ -565,6 +602,7 @@ interface CalendarViewWrapperProps {
   onTaskClick: (taskId: number) => void;
   onCreateTask?: (date: Date) => void;
   onTaskMoved?: () => void;
+  onExternalEventChange?: () => void;
   timezone?: string;
 }
 
@@ -578,6 +616,7 @@ export function CalendarViewWrapper({
   onTaskClick,
   onCreateTask,
   onTaskMoved,
+  onExternalEventChange,
   timezone = "UTC",
 }: CalendarViewWrapperProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -617,6 +656,18 @@ export function CalendarViewWrapper({
     }
   };
 
+  // Memoize filtered events for the selected date
+  const selectedDateEvents = useMemo(() => {
+    if (!selectedDate) return [];
+    return mergeCalendarEvents(tasksToCalendarEvents(tasks, timezone), externalEvents || []).filter(
+      e => {
+        const eventDateInTz = toZonedTime(e.date, timezone);
+        const selectedDateInTz = toZonedTime(selectedDate, timezone);
+        return format(eventDateInTz, "yyyy-MM-dd") === format(selectedDateInTz, "yyyy-MM-dd");
+      }
+    );
+  }, [selectedDate, tasks, externalEvents, timezone]);
+
   return (
     <div>
       <CalendarView
@@ -631,6 +682,7 @@ export function CalendarViewWrapper({
         onCreateTask={onCreateTask}
         onTaskMoved={onTaskMoved}
         onExternalEventClick={handleExternalEventClick}
+        onExternalEventChange={onExternalEventChange}
         timezone={timezone || "UTC"}
       />
 
@@ -638,13 +690,7 @@ export function CalendarViewWrapper({
       {showDayPopover && selectedDate && (
         <DayPopover
           date={selectedDate}
-          events={mergeCalendarEvents(tasksToCalendarEvents(tasks, timezone), externalEvents || []).filter(
-            e => {
-              const eventDateInTz = toZonedTime(e.date, timezone);
-              const selectedDateInTz = toZonedTime(selectedDate, timezone);
-              return format(eventDateInTz, "yyyy-MM-dd") === format(selectedDateInTz, "yyyy-MM-dd");
-            }
-          )}
+          events={selectedDateEvents}
           onClose={() => setShowDayPopover(false)}
           onTaskClick={onTaskClick}
           onCreateTask={() => handleCreateTask(selectedDate)}
@@ -656,6 +702,7 @@ export function CalendarViewWrapper({
         <ExternalEventDialog
           event={externalEventDialog}
           onClose={() => setExternalEventDialog(null)}
+          onSuccess={onExternalEventChange}
         />
       )}
     </div>
@@ -768,12 +815,14 @@ function DayPopover({ date, events, onClose, onTaskClick, onCreateTask }: DayPop
 interface ExternalEventDialogProps {
   event: CalendarEvent;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-function ExternalEventDialog({ event, onClose }: ExternalEventDialogProps) {
+function ExternalEventDialog({ event, onClose, onSuccess }: ExternalEventDialogProps) {
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [showCreateCard, setShowCreateCard] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const formatTime = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -782,32 +831,41 @@ function ExternalEventDialog({ event, onClose }: ExternalEventDialogProps) {
 
   const handleLinkToCard = async (cardPK: number) => {
     if (!event.externalEventId) return;
+    setError(null);
     setIsLoading(true);
     try {
       const { linkEventToCard } = await import("../../api/externalEvents");
       await linkEventToCard(event.externalEventId, { card_pk: cardPK });
-      window.location.reload(); // Simple reload to refresh the view
+      setIsLoading(false);
+      onSuccess?.();
+      onClose();
     } catch (error) {
       console.error("Failed to link event to card:", error);
+      setError("Failed to link event to card. Please try again.");
       setIsLoading(false);
     }
   };
 
   const handleUnlinkFromCard = async () => {
     if (!event.externalEventId) return;
+    setError(null);
     setIsLoading(true);
     try {
       const { unlinkEventFromCard } = await import("../../api/externalEvents");
       await unlinkEventFromCard(event.externalEventId);
-      window.location.reload(); // Simple reload to refresh the view
+      setIsLoading(false);
+      onSuccess?.();
+      onClose();
     } catch (error) {
       console.error("Failed to unlink event from card:", error);
+      setError("Failed to unlink event from card. Please try again.");
       setIsLoading(false);
     }
   };
 
   const handleCreateCard = async (title: string, body: string) => {
     if (!event.externalEventId) return;
+    setError(null);
     setIsLoading(true);
     try {
       const { createCard } = await import("../../api/cards");
@@ -821,6 +879,7 @@ function ExternalEventDialog({ event, onClose }: ExternalEventDialogProps) {
       window.location.href = `/app/card/${newCard.card_id}`;
     } catch (error) {
       console.error("Failed to create card from event:", error);
+      setError("Failed to create card from event. Please try again.");
       setIsLoading(false);
     }
   };
@@ -849,6 +908,11 @@ function ExternalEventDialog({ event, onClose }: ExternalEventDialogProps) {
           </button>
         </div>
         <div className="p-4 space-y-3">
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
           {event.description && (
             <div>
               <span className="text-sm text-gray-500">Description</span>
