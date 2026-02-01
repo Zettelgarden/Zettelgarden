@@ -27,8 +27,17 @@ func (m *mockSchedulerForHandler) ListJobs() []string {
 	return m.jobs
 }
 
-func (m *mockSchedulerForHandler) GetJobHistory(ctx context.Context, jobName string, limit int) ([]services.JobRun, error) {
-	return m.history, nil
+func (m *mockSchedulerForHandler) GetJobHistory(ctx context.Context, jobName string, limit int, offset int) ([]services.JobRun, error) {
+	// Return results based on offset for pagination testing
+	if offset >= len(m.history) {
+		return []services.JobRun{}, nil
+	}
+
+	end := offset + limit
+	if end > len(m.history) {
+		end = len(m.history)
+	}
+	return m.history[offset:end], nil
 }
 
 func (m *mockSchedulerForHandler) GetJobInfo(name string) (schedule string, nextRun time.Time, err error) {
@@ -147,16 +156,21 @@ func TestGetJobHistoryHandler(t *testing.T) {
 		jobName        string
 		history        []services.JobRun
 		queryLimit     string
+		queryOffset    string
 		expectedStatus int
 		expectedCount  int
+		checkHasMore   bool
+		expectedHasMore bool
 	}{
 		{
 			name:    "returns empty history for job with no runs",
 			jobName: "daily-cleanup",
 			history: []services.JobRun{},
 			queryLimit: "",
+			queryOffset: "",
 			expectedStatus: http.StatusOK,
 			expectedCount:  0,
+			checkHasMore: false,
 		},
 		{
 			name:    "returns job history",
@@ -180,8 +194,10 @@ func TestGetJobHistoryHandler(t *testing.T) {
 				},
 			},
 			queryLimit: "",
+			queryOffset: "",
 			expectedStatus: http.StatusOK,
 			expectedCount:  2,
+			checkHasMore: false,
 		},
 		{
 			name:    "returns job history with error",
@@ -197,8 +213,10 @@ func TestGetJobHistoryHandler(t *testing.T) {
 				},
 			},
 			queryLimit: "",
+			queryOffset: "",
 			expectedStatus: http.StatusOK,
 			expectedCount:  1,
+			checkHasMore: false,
 		},
 		{
 			name:    "parses limit from query params",
@@ -208,13 +226,66 @@ func TestGetJobHistoryHandler(t *testing.T) {
 				{ID: 2, JobName: "daily-cleanup", StartedAt: baseTime.Add(24 * time.Hour), Status: "completed"},
 			},
 			queryLimit: "10",
+			queryOffset: "",
 			expectedStatus: http.StatusOK,
 			expectedCount:  2,
+			checkHasMore: false,
+		},
+		{
+			name:    "handles offset correctly",
+			jobName: "daily-cleanup",
+			history: []services.JobRun{
+				{ID: 1, JobName: "daily-cleanup", StartedAt: baseTime, Status: "completed"},
+				{ID: 2, JobName: "daily-cleanup", StartedAt: baseTime.Add(24 * time.Hour), Status: "completed"},
+				{ID: 3, JobName: "daily-cleanup", StartedAt: baseTime.Add(48 * time.Hour), Status: "completed"},
+			},
+			queryLimit: "2",
+			queryOffset: "1",
+			expectedStatus: http.StatusOK,
+			expectedCount:  2,
+			checkHasMore: false,
+		},
+		{
+			name:    "sets has_more when results equal limit",
+			jobName: "daily-cleanup",
+			history: make([]services.JobRun, 50),
+			queryLimit: "50",
+			queryOffset: "",
+			expectedStatus: http.StatusOK,
+			expectedCount:  50,
+			checkHasMore: true,
+			expectedHasMore: true,
+		},
+		{
+			name:    "sets has_more false when results less than limit",
+			jobName: "daily-cleanup",
+			history: []services.JobRun{
+				{ID: 1, JobName: "daily-cleanup", StartedAt: baseTime, Status: "completed"},
+			},
+			queryLimit: "50",
+			queryOffset: "",
+			expectedStatus: http.StatusOK,
+			expectedCount:  1,
+			checkHasMore: true,
+			expectedHasMore: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Initialize history with valid JobRun objects for pagination test
+			if len(tt.history) == 50 && tt.history[0].ID == 0 {
+				for i := range tt.history {
+					tt.history[i] = services.JobRun{
+						ID:          int64(i + 1),
+						JobName:     "daily-cleanup",
+						StartedAt:   baseTime.Add(time.Duration(i) * time.Hour),
+						Status:      "completed",
+						RetryCount:  0,
+					}
+				}
+			}
+
 			mock := &mockSchedulerForHandler{
 				history:       tt.history,
 				jobSchedules:  map[string]string{},
@@ -225,6 +296,13 @@ func TestGetJobHistoryHandler(t *testing.T) {
 			url := "/admin/scheduler/jobs/" + tt.jobName + "/history"
 			if tt.queryLimit != "" {
 				url += "?limit=" + tt.queryLimit
+			}
+			if tt.queryOffset != "" {
+				if tt.queryLimit == "" {
+					url += "?offset=" + tt.queryOffset
+				} else {
+					url += "&offset=" + tt.queryOffset
+				}
 			}
 
 			req := httptest.NewRequest("GET", url, nil)
@@ -238,21 +316,57 @@ func TestGetJobHistoryHandler(t *testing.T) {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
 			}
 
-			var response []JobRunResponse
+			var response map[string]interface{}
 			if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 				t.Fatalf("failed to decode response: %v", err)
 			}
 
-			if len(response) != tt.expectedCount {
-				t.Errorf("expected %d history entries, got %d", tt.expectedCount, len(response))
+			// Check the response structure
+			runs, ok := response["runs"].([]interface{})
+			if !ok {
+				t.Fatalf("expected 'runs' to be an array")
 			}
 
-			for i, entry := range response {
-				if entry.JobName != tt.jobName {
-					t.Errorf("expected job_name %q, got %q", tt.jobName, entry.JobName)
+			if len(runs) != tt.expectedCount {
+				t.Errorf("expected %d history entries, got %d", tt.expectedCount, len(runs))
+			}
+
+			// Verify runs structure
+			for i, entry := range runs {
+				run, ok := entry.(map[string]interface{})
+				if !ok {
+					t.Fatalf("expected run to be an object")
 				}
-				if entry.ID != tt.history[i].ID {
-					t.Errorf("expected ID %d, got %d", tt.history[i].ID, entry.ID)
+				if run["job_name"] != tt.jobName {
+					t.Errorf("expected job_name %q, got %v", tt.jobName, run["job_name"])
+				}
+				// Check ID exists and is a number
+				if _, ok := run["id"]; !ok {
+					t.Errorf("expected 'id' field in run at index %d", i)
+				}
+			}
+
+			// Check pagination fields
+			if _, ok := response["total"]; !ok {
+				t.Errorf("expected 'total' field in response")
+			}
+			if _, ok := response["offset"]; !ok {
+				t.Errorf("expected 'offset' field in response")
+			}
+			if _, ok := response["limit"]; !ok {
+				t.Errorf("expected 'limit' field in response")
+			}
+			if _, ok := response["has_more"]; !ok {
+				t.Errorf("expected 'has_more' field in response")
+			}
+
+			// Check has_more value if expected
+			if tt.checkHasMore {
+				hasMore, ok := response["has_more"].(bool)
+				if !ok {
+					t.Errorf("expected 'has_more' to be a bool")
+				} else if hasMore != tt.expectedHasMore {
+					t.Errorf("expected has_more to be %v, got %v", tt.expectedHasMore, hasMore)
 				}
 			}
 		})

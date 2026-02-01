@@ -16,7 +16,7 @@ import (
 // SchedulerAPI interface for testability
 type SchedulerAPI interface {
 	ListJobs() []string
-	GetJobHistory(ctx context.Context, jobName string, limit int) ([]services.JobRun, error)
+	GetJobHistory(ctx context.Context, jobName string, limit int, offset int) ([]services.JobRun, error)
 	GetJobInfo(name string) (schedule string, nextRun time.Time, err error)
 	GetJobSummary(ctx context.Context, jobName string) (services.ServiceJobSummary, error)
 }
@@ -134,19 +134,39 @@ func GetJobHistory(scheduler SchedulerAPI) http.HandlerFunc {
 			}
 		}
 
-		runs, err := scheduler.GetJobHistory(r.Context(), jobName, limit)
+		// Parse offset from query params, default to 0
+		offset := 0
+		if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+			if parsedOffset, err := strconv.Atoi(offsetStr); err == nil && parsedOffset >= 0 {
+				offset = parsedOffset
+			}
+		}
+
+		runs, err := scheduler.GetJobHistory(r.Context(), jobName, limit, offset)
 		if err != nil {
 			http.Error(w, "Failed to get job history", http.StatusInternalServerError)
 			return
 		}
 
+		// Simple pagination: has_more is true if we got limit results
+		total := len(runs) + offset
+		hasMore := len(runs) == limit
+
 		// Convert services.JobRun to JobRunResponse
 		responses := convertJobRunsToResponses(runs)
+
+		response := map[string]interface{}{
+			"runs":     responses,
+			"total":    total,
+			"offset":   offset,
+			"limit":    limit,
+			"has_more": hasMore,
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		if err := json.NewEncoder(w).Encode(responses); err != nil {
+		if err := json.NewEncoder(w).Encode(response); err != nil {
 			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 			return
 		}

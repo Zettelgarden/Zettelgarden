@@ -162,14 +162,13 @@ func (s *Scheduler) runJob(job ScheduledJob) {
 	s.logger.Printf("Job '%s' failed after %d attempts: %v", name, attempt+1, lastErr)
 }
 
-// GetJobHistory returns execution history for a specific job.
-// Requires database tracking to be enabled.
-func (s *Scheduler) GetJobHistory(ctx context.Context, jobName string, limit int) ([]JobRun, error) {
+// GetJobHistory returns execution history for a specific job with pagination
+func (s *Scheduler) GetJobHistory(ctx context.Context, jobName string, limit int, offset int) ([]JobRun, error) {
 	if s.tracker == nil {
 		return nil, fmt.Errorf("job tracking is not enabled (database not configured)")
 	}
 
-	return s.tracker.GetRecentRuns(ctx, jobName, limit)
+	return s.tracker.GetRecentRunWithOffset(ctx, jobName, limit, offset)
 }
 
 // ListJobs returns the names of all registered jobs

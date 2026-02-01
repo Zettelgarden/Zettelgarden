@@ -76,15 +76,20 @@ func (t *ScheduledExecutionTracker) RecordFailure(ctx context.Context, runID int
 
 // GetRecentRuns returns execution history for a specific job
 func (t *ScheduledExecutionTracker) GetRecentRuns(ctx context.Context, jobName string, limit int) ([]JobRun, error) {
+	return t.GetRecentRunWithOffset(ctx, jobName, limit, 0)
+}
+
+// GetRecentRunWithOffset returns execution history for a specific job with offset support
+func (t *ScheduledExecutionTracker) GetRecentRunWithOffset(ctx context.Context, jobName string, limit int, offset int) ([]JobRun, error) {
 	query := `
 		SELECT id, job_name, started_at, completed_at, status, error_message, retry_count
 		FROM scheduled_job_runs
 		WHERE job_name = $1
 		ORDER BY started_at DESC
-		LIMIT $2
+		LIMIT $2 OFFSET $3
 	`
 
-	rows, err := t.db.QueryContext(ctx, query, jobName, limit)
+	rows, err := t.db.QueryContext(ctx, query, jobName, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query job runs: %w", err)
 	}

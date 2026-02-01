@@ -144,21 +144,31 @@ func TestSchedulerIntegration(t *testing.T) {
 		t.Errorf("Expected status OK for job history, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var historyResponse []JobRunResponse
+	var historyResponse map[string]interface{}
 	if err := json.NewDecoder(w.Body).Decode(&historyResponse); err != nil {
 		t.Fatalf("Failed to decode job history response: %v", err)
 	}
 
-	if len(historyResponse) != 1 {
-		t.Errorf("Expected 1 history entry, got %d", len(historyResponse))
+	runs, ok := historyResponse["runs"].([]interface{})
+	if !ok {
+		t.Fatalf("Expected 'runs' to be an array in response")
 	}
 
-	if historyResponse[0].JobName != "test-job" {
-		t.Errorf("Expected job_name 'test-job', got '%s'", historyResponse[0].JobName)
+	if len(runs) != 1 {
+		t.Errorf("Expected 1 history entry, got %d", len(runs))
 	}
 
-	if historyResponse[0].Status != "completed" {
-		t.Errorf("Expected status 'completed', got '%s'", historyResponse[0].Status)
+	run, ok := runs[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("Expected run to be an object")
+	}
+
+	if run["job_name"] != "test-job" {
+		t.Errorf("Expected job_name 'test-job', got '%v'", run["job_name"])
+	}
+
+	if run["status"] != "completed" {
+		t.Errorf("Expected status 'completed', got '%v'", run["status"])
 	}
 
 	// Test failure tracking
@@ -184,30 +194,39 @@ func TestSchedulerIntegration(t *testing.T) {
 		t.Errorf("Expected status OK for job history with failures, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var historyResponse2 []JobRunResponse
+	var historyResponse2 map[string]interface{}
 	if err := json.NewDecoder(w.Body).Decode(&historyResponse2); err != nil {
 		t.Fatalf("Failed to decode job history response: %v", err)
 	}
 
+	runs2, ok := historyResponse2["runs"].([]interface{})
+	if !ok {
+		t.Fatalf("Expected 'runs' to be an array in response")
+	}
+
 	// Should have 2 entries now (1 success, 1 failure)
-	if len(historyResponse2) != 2 {
-		t.Errorf("Expected 2 history entries, got %d", len(historyResponse2))
+	if len(runs2) != 2 {
+		t.Errorf("Expected 2 history entries, got %d", len(runs2))
 	}
 
 	// Verify we have both completed and failed statuses
 	hasCompleted := false
 	hasFailed := false
-	for _, entry := range historyResponse2 {
-		if entry.Status == "completed" {
+	for _, entry := range runs2 {
+		run, ok := entry.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if run["status"] == "completed" {
 			hasCompleted = true
 		}
-		if entry.Status == "failed" {
+		if run["status"] == "failed" {
 			hasFailed = true
-			if entry.ErrorMessage != "simulated failure" {
-				t.Errorf("Expected error message 'simulated failure', got '%s'", entry.ErrorMessage)
+			if run["error_message"] != "simulated failure" {
+				t.Errorf("Expected error message 'simulated failure', got '%v'", run["error_message"])
 			}
-			if entry.RetryCount != 2 {
-				t.Errorf("Expected retry_count 2, got %d", entry.RetryCount)
+			if retryCount, ok := run["retry_count"].(float64); !ok || int(retryCount) != 2 {
+				t.Errorf("Expected retry_count 2, got %v", run["retry_count"])
 			}
 		}
 	}
