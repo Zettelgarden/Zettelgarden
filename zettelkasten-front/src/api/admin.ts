@@ -455,3 +455,88 @@ export interface SchedulerHealth {
   running: boolean;
   jobs: string[];
 }
+
+/**
+ * Get all scheduled jobs
+ */
+export async function getScheduledJobs(): Promise<{ jobs: ScheduledJobInfo[] }> {
+  const base_url = import.meta.env.VITE_URL;
+  const token = localStorage.getItem("token");
+  const url = `${base_url}/admin/scheduler/jobs`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get scheduled jobs: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Get job summary statistics
+ */
+export async function getJobSummary(jobName: string): Promise<JobSummary> {
+  const base_url = import.meta.env.VITE_URL;
+  const token = localStorage.getItem("token");
+  const url = `${base_url}/admin/scheduler/jobs/${encodeURIComponent(jobName)}/summary`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get job summary: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Get job execution history with pagination
+ */
+export async function getJobHistory(
+  jobName: string,
+  limit: number = 50,
+  offset: number = 0
+): Promise<JobHistoryResponse> {
+  const base_url = import.meta.env.VITE_URL;
+  const token = localStorage.getItem("token");
+
+  const params = new URLSearchParams();
+  params.set("limit", limit.toString());
+  params.set("offset", offset.toString());
+
+  const url = `${base_url}/admin/scheduler/jobs/${encodeURIComponent(jobName)}/history?${params}`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get job history: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Get scheduler health status
+ */
+export async function getSchedulerHealth(): Promise<SchedulerHealth> {
+  const base_url = import.meta.env.VITE_URL;
+  const token = localStorage.getItem("token");
+  const url = `${base_url}/admin/scheduler/health`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get scheduler health: ${response.statusText}`);
+  }
+
+  return response.json();
+}
