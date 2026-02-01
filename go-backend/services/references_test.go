@@ -218,7 +218,7 @@ func TestGetDirectLinks_Integration(t *testing.T) {
 	target1Params := models.EditCardParams{
 		Title:  "Target Card 1",
 		Body:   "Target body 1",
-		CardID: "target1",
+		CardID: "directlink_target1",
 		Link:   "",
 	}
 	target1, err := CreateCard(s.DB, userID, target1Params)
@@ -229,7 +229,7 @@ func TestGetDirectLinks_Integration(t *testing.T) {
 	target2Params := models.EditCardParams{
 		Title:  "Target Card 2",
 		Body:   "Target body 2",
-		CardID: "target2",
+		CardID: "directlink_target2",
 		Link:   "",
 	}
 	target2, err := CreateCard(s.DB, userID, target2Params)
@@ -240,8 +240,8 @@ func TestGetDirectLinks_Integration(t *testing.T) {
 	// Create a source card that references the targets
 	sourceParams := models.EditCardParams{
 		Title:  "Source Card",
-		Body:   "This card references [target1] and [target2]",
-		CardID: "source",
+		Body:   "This card references [directlink_target1] and [directlink_target2]",
+		CardID: "directlink_source",
 		Link:   "",
 	}
 	source, err := CreateCard(s.DB, userID, sourceParams)
@@ -263,13 +263,13 @@ func TestGetDirectLinks_Integration(t *testing.T) {
 	// Verify the direct links are the target cards
 	foundTarget1, foundTarget2 := false, false
 	for _, link := range directLinks {
-		if link.CardID == "target1" {
+		if link.CardID == "directlink_target1" {
 			foundTarget1 = true
 			if link.ID != target1.ID {
 				t.Errorf("Target1 ID mismatch: expected %d, got %d", target1.ID, link.ID)
 			}
 		}
-		if link.CardID == "target2" {
+		if link.CardID == "directlink_target2" {
 			foundTarget2 = true
 			if link.ID != target2.ID {
 				t.Errorf("Target2 ID mismatch: expected %d, got %d", target2.ID, link.ID)
@@ -1118,12 +1118,12 @@ func TestGetReferences_MalformedBacklinks_Integration(t *testing.T) {
 		{
 			name:     "empty brackets",
 			body:     "This has []",
-			expected: 1, // Empty string is extracted
+			expected: 0, // Regex requires at least one character inside brackets
 		},
 		{
 			name:     "nested brackets",
 			body:     "This has [outer [inner]]",
-			expected: 2, // Both "outer [inner" and "inner" are extracted
+			expected: 1, // Only "[inner]" is matched (the regex stops at first closing bracket)
 		},
 		{
 			name:     "markdown link syntax",

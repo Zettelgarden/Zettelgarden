@@ -17,8 +17,8 @@ func TestCleanupJobImplementsInterface(t *testing.T) {
 		t.Errorf("Name() = %q, want %q", got, want)
 	}
 
-	// Verify Schedule returns expected cron expression
-	if got, want := job.Schedule(), "0 2 * * *"; got != want {
+	// Verify Schedule returns expected cron expression (6-field format with seconds)
+	if got, want := job.Schedule(), "0 0 2 * * *"; got != want {
 		t.Errorf("Schedule() = %q, want %q", got, want)
 	}
 

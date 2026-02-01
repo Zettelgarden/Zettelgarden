@@ -1087,7 +1087,7 @@ func TestValidateLinkToCardFields_CardOwnershipValidation(t *testing.T) {
 	card1, err := CreateCard(s.DB, userID1, models.EditCardParams{
 		Title:  "User 1 Card",
 		Body:   "This card belongs to user 1",
-		CardID: "user1_card",
+		CardID: "ownership_user1_card",
 		Link:   "",
 	})
 	if err != nil {

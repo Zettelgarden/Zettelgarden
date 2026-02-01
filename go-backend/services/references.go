@@ -18,7 +18,7 @@ func GetDirectLinks(db models.Database, userID int, card models.Card) ([]models.
 		}
 	}
 
-	return directLinks, nil
+	return getUniqueCards(directLinks), nil
 }
 
 // getUniqueCards removes duplicate cards from a slice based on CardID
