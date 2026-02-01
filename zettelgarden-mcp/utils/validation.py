@@ -7,10 +7,7 @@ Provides input validation for API parameters and environment variables.
 import re
 from typing import Any, Optional
 
-
-class ValidationError(Exception):
-    """Raised when input validation fails."""
-    pass
+from .errors import ValidationError
 
 
 # Card ID pattern: e.g., "1", "1a", "1a2", "1a2b3"

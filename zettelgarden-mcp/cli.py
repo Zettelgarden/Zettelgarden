@@ -11,7 +11,7 @@ import sys
 import httpx
 
 import handlers
-from config import API_URL, TOKEN, validate_config
+from config import API_URL, TOKEN, TIMEOUT
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -188,7 +188,7 @@ async def run_command(args: argparse.Namespace) -> None:
     Args:
         args: Parsed command-line arguments
     """
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         try:
             if args.command == "ping":
                 from config import get_headers

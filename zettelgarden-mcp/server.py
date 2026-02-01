@@ -9,6 +9,7 @@ Configuration:
     - ZETTELGARDEN_API_URL: Base URL (default: http://localhost:8080)
     - ZETTELGARDEN_TOKEN: JWT auth token (required)
     - ZETTELGARDEN_LOG_LEVEL: Logging level (default: WARNING)
+    - ZETTELGARDEN_TIMEOUT: API timeout in seconds (default: 30)
 
 Usage:
     python server.py          # Run as MCP server (default)
@@ -26,7 +27,7 @@ from mcp.server.stdio import stdio_server
 from mcp.types import TextContent
 
 # Import local modules
-from config import TOKEN, validate_config
+from config import TOKEN, TIMEOUT, validate_config
 from utils import format_api_error, format_error
 import cli, tools
 
@@ -46,7 +47,7 @@ async def list_tools() -> list:
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     """Handle tool calls."""
     logger.info(f"Tool called: {name} with args: {arguments}")
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         try:
             result = await tools.handle_tool(client, name, arguments)
             logger.debug(f"Tool {name} returned successfully")

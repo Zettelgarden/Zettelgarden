@@ -6,7 +6,6 @@ Handles environment variables and API configuration.
 
 import logging
 import os
-from typing import Required
 
 from utils import ValidationError, validate_required
 
@@ -21,6 +20,7 @@ logger = logging.getLogger(__name__)
 # Environment configuration
 API_URL: str = os.environ.get("ZETTELGARDEN_API_URL", "http://localhost:8080")
 TOKEN: str = os.environ.get("ZETTELGARDEN_TOKEN", "")
+TIMEOUT: float = float(os.environ.get("ZETTELGARDEN_TIMEOUT", "30"))
 
 
 def get_headers() -> dict:
