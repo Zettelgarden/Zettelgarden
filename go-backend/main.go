@@ -230,6 +230,16 @@ func run() error {
 	})
 	log.Printf("LLM job queue and worker pool initialized successfully")
 
+	// Initialize and start the scheduled job runner
+	log.Printf("Initializing scheduled job runner")
+	scheduler := services.NewScheduler(s.DB)
+	// Register scheduled jobs here (we'll add actual jobs in next tasks)
+	// Example: scheduler.Register(jobs.NewCleanupJob(db))
+
+	scheduler.Start()
+	defer scheduler.Stop()
+	log.Printf("Scheduled job runner started")
+
 	if cfg.Services.LLM.ChunkingEnabled {
 		go func() {
 			start := time.Now()
@@ -245,7 +255,7 @@ func run() error {
 	r := mux.NewRouter()
 
 	// Register all API routes
-	routes.RegisterAllRoutes(r, h)
+	routes.RegisterAllRoutes(r, h, scheduler)
 	log.Printf("All routes registered successfully")
 
 	c := cors.New(cors.Options{

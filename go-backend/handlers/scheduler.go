@@ -6,13 +6,15 @@ import (
 	"net/http"
 	"strconv"
 
+	"go-backend/services"
+
 	"github.com/gorilla/mux"
 )
 
 // SchedulerAPI interface for testability
 type SchedulerAPI interface {
 	ListJobs() []string
-	GetJobHistory(ctx context.Context, jobName string, limit int) ([]JobRunResponse, error)
+	GetJobHistory(ctx context.Context, jobName string, limit int) ([]services.JobRun, error)
 }
 
 // JobRunResponse is the DTO for job run history
@@ -59,18 +61,42 @@ func GetJobHistory(scheduler SchedulerAPI) http.HandlerFunc {
 			}
 		}
 
-		history, err := scheduler.GetJobHistory(r.Context(), jobName, limit)
+		runs, err := scheduler.GetJobHistory(r.Context(), jobName, limit)
 		if err != nil {
 			http.Error(w, "Failed to get job history", http.StatusInternalServerError)
 			return
 		}
 
+		// Convert services.JobRun to JobRunResponse
+		responses := convertJobRunsToResponses(runs)
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		if err := json.NewEncoder(w).Encode(history); err != nil {
+		if err := json.NewEncoder(w).Encode(responses); err != nil {
 			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 			return
 		}
 	}
+}
+
+// convertJobRunsToResponses converts services.JobRun to JobRunResponse DTOs
+func convertJobRunsToResponses(runs []services.JobRun) []JobRunResponse {
+	responses := make([]JobRunResponse, len(runs))
+	for i, run := range runs {
+		responses[i] = JobRunResponse{
+			ID:           run.ID,
+			JobName:      run.JobName,
+			StartedAt:    run.StartedAt.Format("2006-01-02T15:04:05Z07:00"),
+			Status:       run.Status,
+			ErrorMessage: run.ErrorMessage,
+			RetryCount:   run.RetryCount,
+		}
+		// Only include CompletedAt for completed jobs
+		if !run.CompletedAt.IsZero() {
+			completedAt := run.CompletedAt.Format("2006-01-02T15:04:05Z07:00")
+			responses[i].CompletedAt = completedAt
+		}
+	}
+	return responses
 }

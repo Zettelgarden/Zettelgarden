@@ -27,7 +27,7 @@ import (
 // External integrations:
 // - POST /api/stripe/webhook - Stripe payment webhooks (verified via webhook signature)
 // - POST /api/mailing-list - Mailing list signup (public subscription)
-func RegisterAllRoutes(r *mux.Router, h *handlers.Handler) {
+func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.SchedulerAPI) {
 	// Authentication routes
 	RegisterAuthRoutes(r, h)
 
@@ -92,6 +92,5 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler) {
 	RegisterAdminEmailRoutes(r, h)
 
 	// Admin-specific routes (dashboard, audit logs, etc.)
-	// Scheduler is nil until Task 7 (Integrate scheduler into main.go)
-	admin.RegisterAllAdminRoutes(r, h, nil)
+	admin.RegisterAllAdminRoutes(r, h, scheduler)
 }
