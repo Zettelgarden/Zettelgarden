@@ -40,6 +40,20 @@ func (m *mockSchedulerForHandler) GetJobInfo(name string) (schedule string, next
 	return schedule, nextRun, nil
 }
 
+func (m *mockSchedulerForHandler) GetJobSummary(ctx context.Context, jobName string) (services.ServiceJobSummary, error) {
+	// Return a basic summary for testing
+	return services.ServiceJobSummary{
+		JobName:       jobName,
+		LastRunStatus: "never",
+		RecentStats: services.ServiceJobStats{
+			TotalRuns:    0,
+			SuccessCount: 0,
+			FailureCount: 0,
+			SuccessRate:  0,
+		},
+	}, nil
+}
+
 func TestListScheduledJobsHandler(t *testing.T) {
 	// Helper time for testing
 	baseTime := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)

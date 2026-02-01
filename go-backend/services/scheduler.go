@@ -11,6 +11,22 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
+// ServiceJobSummary represents summary statistics for a job in the services package
+type ServiceJobSummary struct {
+	JobName       string
+	LastRunStatus string
+	LastRunAt     *time.Time
+	RecentStats   ServiceJobStats
+}
+
+// ServiceJobStats represents statistics for job runs in the services package
+type ServiceJobStats struct {
+	TotalRuns    int
+	SuccessCount int
+	FailureCount int
+	SuccessRate  float64
+}
+
 // Scheduler manages scheduled jobs using cron
 type Scheduler struct {
 	cron    *cron.Cron
@@ -179,4 +195,57 @@ func (s *Scheduler) GetJobInfo(name string) (schedule string, nextRun time.Time,
 	}
 
 	return job.Schedule(), job.NextRun(time.Now()), nil
+}
+
+// GetJobSummary returns summary statistics for a job
+func (s *Scheduler) GetJobSummary(ctx context.Context, jobName string) (ServiceJobSummary, error) {
+	if s.tracker == nil {
+		return ServiceJobSummary{}, fmt.Errorf("job tracking is not enabled")
+	}
+
+	// Get recent runs (last 7 days)
+	runs, err := s.tracker.GetRecentRuns(ctx, jobName, 1000)
+	if err != nil {
+		return ServiceJobSummary{}, err
+	}
+
+	summary := ServiceJobSummary{
+		JobName: jobName,
+		RecentStats: ServiceJobStats{
+			TotalRuns:    0,
+			SuccessCount: 0,
+			FailureCount: 0,
+			SuccessRate:  0,
+		},
+		LastRunStatus: "never",
+	}
+
+	if len(runs) == 0 {
+		return summary, nil
+	}
+
+	// Calculate stats from last 7 days
+	cutoff := time.Now().AddDate(0, 0, -7)
+	for _, run := range runs {
+		if run.StartedAt.After(cutoff) {
+			summary.RecentStats.TotalRuns++
+			if run.Status == "completed" {
+				summary.RecentStats.SuccessCount++
+			} else if run.Status == "failed" {
+				summary.RecentStats.FailureCount++
+			}
+		}
+	}
+
+	// Calculate success rate
+	if summary.RecentStats.TotalRuns > 0 {
+		summary.RecentStats.SuccessRate = float64(summary.RecentStats.SuccessCount) / float64(summary.RecentStats.TotalRuns) * 100
+	}
+
+	// Get last run info
+	lastRun := runs[0]
+	summary.LastRunStatus = lastRun.Status
+	summary.LastRunAt = &lastRun.StartedAt
+
+	return summary, nil
 }
