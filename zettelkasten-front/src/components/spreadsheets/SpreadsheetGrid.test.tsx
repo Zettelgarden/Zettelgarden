@@ -12,7 +12,7 @@ describe('SpreadsheetGrid', () => {
       data: {
         'A1': { value: '10', formula: '' },
         'A2': { value: '20', formula: '' },
-        'A3': { value: '30', formula: '=A1+A2' },
+        'A3': { value: '30', formula: 'A1+A2' },
         'B1': { value: '5', formula: '' },
         'B2': { value: '', formula: '' },
       }
@@ -92,5 +92,42 @@ describe('SpreadsheetGrid', () => {
     fireEvent.blur(input);
 
     expect(mockOnChange).toHaveBeenCalled();
+  });
+
+  it('recalculates formulas when dependent cell changes', () => {
+    const spreadsheetWithFormula: Spreadsheet = {
+      name: 'test',
+      data: {
+        rows: 3,
+        cols: 2,
+        data: {
+          'A1': { value: '10', formula: '' },
+          'A2': { value: '20', formula: '' },
+          'A3': { value: '30', formula: 'A1+A2' },
+        }
+      }
+    };
+
+    const onChange = vi.fn();
+    render(
+      <SpreadsheetGrid
+        spreadsheet={spreadsheetWithFormula}
+        onChange={onChange}
+      />
+    );
+
+    // Change A1 from 10 to 100
+    const cellWith10 = screen.getByText('10');
+    fireEvent.doubleClick(cellWith10);
+
+    const input = screen.getByDisplayValue('10');
+    fireEvent.change(input, { target: { value: '100' } });
+    fireEvent.blur(input);
+
+    // Verify onChange was called with recalculated formula
+    expect(onChange).toHaveBeenCalled();
+    const callArgs = onChange.mock.calls[0][0];
+    expect(callArgs.data.data['A1'].value).toBe('100');
+    expect(callArgs.data.data['A3'].value).toBe('120'); // 100 + 20
   });
 });

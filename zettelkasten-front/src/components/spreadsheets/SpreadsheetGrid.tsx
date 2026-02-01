@@ -22,8 +22,8 @@ export function SpreadsheetGrid({ spreadsheet, onChange, readOnly = false }: Spr
     // For now, we'll do a simple recalculation of all formula cells
     // A more sophisticated approach would track dependencies
     for (const [ref, cell] of Object.entries(newData)) {
-      if (cell.formula && cell.formula.startsWith('=')) {
-        const result = evaluateFormula(cell.formula.slice(1), newData);
+      if (cell.formula) {
+        const result = evaluateFormula(cell.formula, newData);
         newData[ref] = {
           ...cell,
           value: result !== null ? result.toString() : '#ERROR'
