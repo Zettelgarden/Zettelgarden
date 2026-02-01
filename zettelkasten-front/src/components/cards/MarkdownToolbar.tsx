@@ -109,6 +109,13 @@ export function MarkdownToolbar({
           Table
         </Button>
         <Button
+          onClick={() => onFormatText('spreadsheet')}
+          variant="secondary"
+          size="small"
+        >
+          Spreadsheet
+        </Button>
+        <Button
           onClick={onBacklinkClick}
           variant="secondary"
           size="small"
