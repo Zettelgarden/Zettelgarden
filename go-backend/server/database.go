@@ -82,6 +82,9 @@ func ResetDatabase(S *Server) error {
 			DROP TABLE IF EXISTS llm_jobs CASCADE;
 			DROP TABLE IF EXISTS user_stats CASCADE;
 			DROP TABLE IF EXISTS schema_definitions CASCADE;
+			DROP TABLE IF EXISTS external_calendars CASCADE;
+			DROP TABLE IF EXISTS external_events CASCADE;
+			DROP TABLE IF EXISTS scheduled_job_runs CASCADE;
 
 			DROP INDEX IF EXISTS idx_task_statuses_user;
 			DROP INDEX IF EXISTS idx_task_statuses_position;
