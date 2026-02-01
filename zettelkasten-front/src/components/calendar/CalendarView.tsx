@@ -28,6 +28,8 @@ import {
 import { format } from "date-fns";
 import { saveExistingTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
+import { BacklinkInputDropdownList } from "../cards/BacklinkInputDropdownList";
+import { PartialCard } from "../../models/Card";
 
 interface CalendarViewProps {
   tasks: Task[];
@@ -962,59 +964,24 @@ interface LinkToCardInputProps {
 }
 
 function LinkToCardInput({ onLink, onCancel, isLoading }: LinkToCardInputProps) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
-    if (query.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    setIsSearching(true);
-    try {
-      const { searchCards } = await import("../../api/cards");
-      const results = await searchCards(query, false, 10);
-      setSearchResults(results);
-    } catch (error) {
-      console.error("Failed to search cards:", error);
-    } finally {
-      setIsSearching(false);
-    }
+  const handleSelectCard = (card: PartialCard) => {
+    onLink(card.id);
   };
 
   return (
     <div>
       <h4 className="text-sm font-medium mb-2">Link to Card</h4>
-      <input
-        type="text"
-        placeholder="Search cards by title..."
-        value={searchQuery}
-        onChange={(e) => handleSearch(e.target.value)}
-        className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-        autoFocus
+      <BacklinkInputDropdownList
+        onSelect={handleSelectCard}
+        onSearch={() => {}}
+        placeholder="Search cards by title or card ID..."
+        autoFocus={true}
       />
-      {searchResults.length > 0 && (
-        <ul className="mt-2 border rounded max-h-40 overflow-y-auto">
-          {searchResults.map((card) => (
-            <li key={card.id}>
-              <button
-                onClick={() => onLink(card.pk)}
-                disabled={isLoading}
-                className="w-full text-left px-3 py-2 hover:bg-gray-50 flex justify-between items-center"
-              >
-                <span className="truncate">{card.title}</span>
-                <span className="text-xs text-gray-500 ml-2">[{card.card_id}]</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
       <div className="flex gap-2 mt-2">
         <button
           onClick={onCancel}
-          className="px-3 py-1 text-sm border rounded hover:bg-gray-50"
+          disabled={isLoading}
+          className="px-3 py-1 text-sm border rounded hover:bg-gray-50 min-h-[44px]"
         >
           Cancel
         </button>
