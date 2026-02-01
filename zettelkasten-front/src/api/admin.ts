@@ -399,3 +399,59 @@ export async function resumeJobQueue(): Promise<JobQueueControlResponse> {
 
   return response.json() as Promise<JobQueueControlResponse>;
 }
+
+/**
+ * Information about a scheduled job
+ */
+export interface ScheduledJobInfo {
+  name: string;
+  schedule: string;
+  next_run: string;
+}
+
+/**
+ * Summary statistics for a scheduled job
+ */
+export interface JobSummary {
+  job_name: string;
+  last_run_status: string;
+  last_run_at?: string;
+  recent_stats: {
+    total_runs: number;
+    success_count: number;
+    failure_count: number;
+    success_rate: number;
+  };
+}
+
+/**
+ * Single execution record for a scheduled job
+ */
+export interface JobRun {
+  id: number;
+  job_name: string;
+  started_at: string;
+  completed_at?: string;
+  status: string;
+  error_message?: string;
+  retry_count: number;
+}
+
+/**
+ * Response from job history endpoint with pagination
+ */
+export interface JobHistoryResponse {
+  runs: JobRun[];
+  total: number;
+  offset: number;
+  limit: number;
+  has_more: boolean;
+}
+
+/**
+ * Scheduler health status
+ */
+export interface SchedulerHealth {
+  running: boolean;
+  jobs: string[];
+}
