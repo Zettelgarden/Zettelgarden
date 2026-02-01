@@ -77,5 +77,10 @@ func RegisterAllAdminRoutes(r *mux.Router, h *handlers.Handler, scheduler handle
 				h.AdminMiddleware(
 					h.UpdateLastSeenMiddleware(
 						handlers.LogRoute(handlers.GetJobHistory(scheduler)))))).Methods("GET")
+		adminAPI.HandleFunc("/scheduler/health",
+			h.APIKeyOrJWTMiddleware(
+				h.AdminMiddleware(
+					h.UpdateLastSeenMiddleware(
+						handlers.LogRoute(handlers.GetSchedulerHealth(scheduler)))))).Methods("GET")
 	}
 }

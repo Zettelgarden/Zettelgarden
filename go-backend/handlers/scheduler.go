@@ -28,6 +28,12 @@ type JobRunResponse struct {
 	RetryCount   int    `json:"retry_count"`
 }
 
+// SchedulerHealth returns the current health status of the scheduler
+type SchedulerHealth struct {
+	Running bool     `json:"running"`
+	Jobs    []string `json:"jobs"`
+}
+
 // ListScheduledJobs returns a handler that lists all registered scheduled jobs
 func ListScheduledJobs(scheduler SchedulerAPI) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -44,6 +50,21 @@ func ListScheduledJobs(scheduler SchedulerAPI) http.HandlerFunc {
 			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 			return
 		}
+	}
+}
+
+// GetSchedulerHealth returns scheduler health information
+func GetSchedulerHealth(scheduler SchedulerAPI) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		jobs := scheduler.ListJobs()
+
+		health := SchedulerHealth{
+			Running: len(jobs) > 0, // Simple check
+			Jobs:    jobs,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(health)
 	}
 }
 
