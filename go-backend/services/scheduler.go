@@ -69,11 +69,16 @@ func (s *Scheduler) Start() {
 	s.logger.Println("Scheduler started")
 }
 
-// Stop gracefully shuts down the scheduler.
+// Stop gracefully shuts down the scheduler with a timeout.
 func (s *Scheduler) Stop() {
 	ctx := s.cron.Stop()
-	<-ctx.Done()
-	s.logger.Println("Scheduler stopped")
+	select {
+	case <-ctx.Done():
+		// All jobs completed
+	case <-time.After(30 * time.Second):
+		s.logger.Println("[scheduler] WARNING: timeout waiting for jobs to complete")
+	}
+	s.logger.Println("[scheduler] stopped")
 }
 
 // runJob executes a job with retry logic and tracking
@@ -97,13 +102,21 @@ func (s *Scheduler) runJob(job ScheduledJob) {
 	// Execute the job with retry logic
 	maxRetries := job.MaxRetries()
 	lastErr := error(nil)
+	attempt := 0
 
-	for attempt := 0; maxRetries == -1 || attempt <= maxRetries; attempt++ {
+	for ; maxRetries == -1 || attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
-			// Exponential backoff: attempt * time.Second
+			// Linear backoff: attempt * time.Second
 			backoff := time.Duration(attempt) * time.Second
 			s.logger.Printf("Job '%s' retry %d, waiting %v before retry", name, attempt, backoff)
-			time.Sleep(backoff)
+			timer := time.NewTimer(backoff)
+			select {
+			case <-timer.C:
+				// continue with retry
+			case <-ctx.Done():
+				s.logger.Printf("[scheduler] %s cancelled during retry backoff", name)
+				return
+			}
 		}
 
 		// Execute the handler
@@ -124,15 +137,13 @@ func (s *Scheduler) runJob(job ScheduledJob) {
 
 	// All retries exhausted - record failure
 	if s.tracker != nil && runID > 0 {
-		retryCount := job.MaxRetries()
-		if retryCount < 0 {
-			retryCount = 0
-		}
-		if recordErr := s.tracker.RecordFailure(ctx, runID, lastErr, retryCount); recordErr != nil {
+		// Use actual attempt count (number of retries performed)
+		actualRetryCount := attempt
+		if recordErr := s.tracker.RecordFailure(ctx, runID, lastErr, actualRetryCount); recordErr != nil {
 			s.logger.Printf("Failed to record job failure for '%s': %v", name, recordErr)
 		}
 	}
-	s.logger.Printf("Job '%s' failed after %d attempts: %v", name, job.MaxRetries()+1, lastErr)
+	s.logger.Printf("Job '%s' failed after %d attempts: %v", name, attempt+1, lastErr)
 }
 
 // GetJobHistory returns execution history for a specific job.
