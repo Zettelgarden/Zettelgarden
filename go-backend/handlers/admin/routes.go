@@ -64,8 +64,18 @@ func RegisterAllAdminRoutes(r *mux.Router, h *handlers.Handler, scheduler handle
 	}).Methods("GET")
 
 	// Scheduler management routes (admin-only)
+	// These routes require admin authentication - middleware chain follows same pattern as addAdminRoute:
+	// APIKeyOrJWTMiddleware -> AdminMiddleware -> UpdateLastSeenMiddleware -> LogRoute -> handler
 	if scheduler != nil {
-		adminAPI.HandleFunc("/scheduler/jobs", handlers.ListScheduledJobs(scheduler)).Methods("GET")
-		adminAPI.HandleFunc("/scheduler/jobs/{jobName}/history", handlers.GetJobHistory(scheduler)).Methods("GET")
+		adminAPI.HandleFunc("/scheduler/jobs",
+			h.APIKeyOrJWTMiddleware(
+				h.AdminMiddleware(
+					h.UpdateLastSeenMiddleware(
+						handlers.LogRoute(handlers.ListScheduledJobs(scheduler)))))).Methods("GET")
+		adminAPI.HandleFunc("/scheduler/jobs/{jobName}/history",
+			h.APIKeyOrJWTMiddleware(
+				h.AdminMiddleware(
+					h.UpdateLastSeenMiddleware(
+						handlers.LogRoute(handlers.GetJobHistory(scheduler)))))).Methods("GET")
 	}
 }
