@@ -16,4 +16,8 @@ func RegisterExternalEventRoutes(r *mux.Router, h *handlers.Handler) {
 
 	// External events
 	addProtectedRoute(r, h, "/api/user/external-events", h.GetExternalEventsRoute, "GET")
+
+	// Event-card linking
+	addProtectedRoute(r, h, "/api/user/external-events/{id}/link", h.LinkEventToCardRoute, "PUT")
+	addProtectedRoute(r, h, "/api/user/external-events/{id}/link", h.UnlinkEventFromCardRoute, "DELETE")
 }

@@ -312,3 +312,96 @@ func (s *Handler) GetExternalEventsRoute(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
+
+// LinkEventToCardRoute handles PUT /api/user/external-events/{id}/link
+// Links an external calendar event to a card
+func (s *Handler) LinkEventToCardRoute(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserID(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "UNAUTHORIZED", err.Error())
+		return
+	}
+
+	vars := mux.Vars(r)
+	eventID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "INVALID_ID", "Invalid event ID")
+		return
+	}
+
+	var req models.LinkEventToCardRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "INVALID_BODY", "Invalid request body")
+		return
+	}
+
+	if req.CardPK <= 0 {
+		respondWithError(w, http.StatusBadRequest, "INVALID_CARD_ID", "Valid card ID is required")
+		return
+	}
+
+	svc := services.NewExternalEventService(s.GetDB())
+	event, err := svc.LinkEventToCard(s.GetDB(), userID, eventID, req.CardPK)
+	if err != nil {
+		log.Printf("Error linking event to card: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "LINK_FAILED", err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(event)
+}
+
+// UnlinkEventFromCardRoute handles DELETE /api/user/external-events/{id}/link
+// Unlinks an external calendar event from a card
+func (s *Handler) UnlinkEventFromCardRoute(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserID(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "UNAUTHORIZED", err.Error())
+		return
+	}
+
+	vars := mux.Vars(r)
+	eventID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "INVALID_ID", "Invalid event ID")
+		return
+	}
+
+	svc := services.NewExternalEventService(s.GetDB())
+	if err := svc.UnlinkEventFromCard(s.GetDB(), userID, eventID); err != nil {
+		log.Printf("Error unlinking event from card: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "UNLINK_FAILED", err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// GetEventsByCardRoute handles GET /api/user/cards/{id}/external-events
+// Returns all external events linked to a specific card
+func (s *Handler) GetEventsByCardRoute(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserID(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "UNAUTHORIZED", err.Error())
+		return
+	}
+
+	vars := mux.Vars(r)
+	cardPK, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "INVALID_ID", "Invalid card ID")
+		return
+	}
+
+	svc := services.NewExternalEventService(s.GetDB())
+	events, err := svc.GetEventsByCard(s.GetDB(), userID, cardPK)
+	if err != nil {
+		log.Printf("Error fetching events for card: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch events")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(events)
+}

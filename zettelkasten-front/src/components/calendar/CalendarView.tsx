@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { FaChevronLeft, FaChevronRight, FaPlus, FaChevronUp, FaChevronDown } from "react-icons/fa";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { toZonedTime } from "date-fns-tz";
 import { Task } from "../../models/Task";
 import { ExternalEvent } from "../../models/ExternalEvent";
 import {
@@ -75,11 +76,11 @@ export function CalendarView({
 
   // Generate the calendar grid based on view mode
   const grid = viewMode === "month"
-    ? generateMonthGrid(currentDate)
-    : generateWeekGrid(currentDate);
+    ? generateMonthGrid(currentDate, timezone)
+    : generateWeekGrid(currentDate, timezone);
 
   // Populate events into the grid
-  const days = populateDayEvents(grid, events);
+  const days = populateDayEvents(grid, events, timezone);
 
   const weekDayNames = getWeekDayNames();
 
@@ -123,9 +124,12 @@ export function CalendarView({
 
   const handleContextMenuViewTasks = () => {
     if (contextMenu) {
-      const dayEvents = events.filter(
-        e => format(e.date, "yyyy-MM-dd") === format(contextMenu.date, "yyyy-MM-dd")
-      );
+      // Use timezone-aware date comparison
+      const contextDateInTz = toZonedTime(contextMenu.date, timezone);
+      const dayEvents = events.filter(e => {
+        const eventDateInTz = toZonedTime(e.date, timezone);
+        return format(eventDateInTz, "yyyy-MM-dd") === format(contextDateInTz, "yyyy-MM-dd");
+      });
       onDayClick(contextMenu.date, dayEvents);
       closeContextMenu();
     }
@@ -146,7 +150,7 @@ export function CalendarView({
       return;
     }
 
-    const grid = viewMode === "month" ? generateMonthGrid(currentDate) : generateWeekGrid(currentDate);
+    const grid = viewMode === "month" ? generateMonthGrid(currentDate, timezone) : generateWeekGrid(currentDate, timezone);
 
     switch (e.key) {
       case "ArrowLeft":
@@ -222,7 +226,9 @@ export function CalendarView({
     if (!task) return;
 
     // Calculate new scheduled date from destination
-    const newScheduledDate = new Date(destDateStr);
+    // destDateStr is "YYYY-MM-DD" format - parse it to create UTC midnight date
+    const [year, month, day] = destDateStr.split('-').map(Number);
+    const newScheduledDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 
     // Update task with new scheduled date
     const updatedTask = {
@@ -570,7 +576,7 @@ export function CalendarViewWrapper({
   onTaskClick,
   onCreateTask,
   onTaskMoved,
-  timezone,
+  timezone = "UTC",
 }: CalendarViewWrapperProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDayPopover, setShowDayPopover] = useState(false);
@@ -623,7 +629,7 @@ export function CalendarViewWrapper({
         onCreateTask={onCreateTask}
         onTaskMoved={onTaskMoved}
         onExternalEventClick={handleExternalEventClick}
-        timezone={timezone}
+        timezone={timezone || "UTC"}
       />
 
       {/* Day Popover */}
@@ -631,7 +637,11 @@ export function CalendarViewWrapper({
         <DayPopover
           date={selectedDate}
           events={mergeCalendarEvents(tasksToCalendarEvents(tasks, timezone), externalEvents || []).filter(
-            e => format(e.date, "yyyy-MM-dd") === format(selectedDate, "yyyy-MM-dd")
+            e => {
+              const eventDateInTz = toZonedTime(e.date, timezone);
+              const selectedDateInTz = toZonedTime(selectedDate, timezone);
+              return format(eventDateInTz, "yyyy-MM-dd") === format(selectedDateInTz, "yyyy-MM-dd");
+            }
           )}
           onClose={() => setShowDayPopover(false)}
           onTaskClick={onTaskClick}
@@ -759,9 +769,58 @@ interface ExternalEventDialogProps {
 }
 
 function ExternalEventDialog({ event, onClose }: ExternalEventDialogProps) {
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [showCreateCard, setShowCreateCard] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
   const formatTime = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const handleLinkToCard = async (cardPK: number) => {
+    if (!event.externalEventId) return;
+    setIsLoading(true);
+    try {
+      const { linkEventToCard } = await import("../../api/externalEvents");
+      await linkEventToCard(event.externalEventId, { card_pk: cardPK });
+      window.location.reload(); // Simple reload to refresh the view
+    } catch (error) {
+      console.error("Failed to link event to card:", error);
+      setIsLoading(false);
+    }
+  };
+
+  const handleUnlinkFromCard = async () => {
+    if (!event.externalEventId) return;
+    setIsLoading(true);
+    try {
+      const { unlinkEventFromCard } = await import("../../api/externalEvents");
+      await unlinkEventFromCard(event.externalEventId);
+      window.location.reload(); // Simple reload to refresh the view
+    } catch (error) {
+      console.error("Failed to unlink event from card:", error);
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateCard = async (title: string, body: string) => {
+    if (!event.externalEventId) return;
+    setIsLoading(true);
+    try {
+      const { createCard } = await import("../../api/cards");
+      const newCard = await createCard({
+        title: title || event.title,
+        body: body || event.description || "",
+      });
+      // Now link the event to the new card
+      const { linkEventToCard } = await import("../../api/externalEvents");
+      await linkEventToCard(event.externalEventId, { card_pk: newCard.id });
+      window.location.href = `/app/card/${newCard.card_id}`;
+    } catch (error) {
+      console.error("Failed to create card from event:", error);
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -782,6 +841,7 @@ function ExternalEventDialog({ event, onClose }: ExternalEventDialogProps) {
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Close dialog"
+            disabled={isLoading}
           >
             ✕
           </button>
@@ -808,7 +868,21 @@ function ExternalEventDialog({ event, onClose }: ExternalEventDialogProps) {
               }
             </p>
           </div>
-          <div className="flex gap-2 pt-2">
+          {event.cardId && (
+            <div>
+              <span className="text-sm text-gray-500">Linked to Card</span>
+              <p className="mt-1">
+                <a
+                  href={`/app/card/${event.cardPK}`}
+                  className="text-blue-600 hover:text-blue-800"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  [{event.cardId}]
+                </a>
+              </p>
+            </div>
+          )}
+          <div className="flex gap-2 pt-2 flex-wrap">
             {event.externalUrl && (
               <a
                 href={event.externalUrl}
@@ -819,6 +893,30 @@ function ExternalEventDialog({ event, onClose }: ExternalEventDialogProps) {
                 Open in Calendar
               </a>
             )}
+            {event.cardPK ? (
+              <button
+                onClick={handleUnlinkFromCard}
+                disabled={isLoading}
+                className="px-4 py-2 border border-red-300 text-red-600 rounded hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 min-h-[44px]"
+              >
+                {isLoading ? "Unlinking..." : "Unlink from Card"}
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => setShowLinkInput(!showLinkInput)}
+                  className="px-4 py-2 border rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[44px]"
+                >
+                  Link to Card
+                </button>
+                <button
+                  onClick={() => setShowCreateCard(!showCreateCard)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[44px]"
+                >
+                  Create Card
+                </button>
+              </>
+            )}
             <button
               onClick={onClose}
               className="px-4 py-2 border rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[44px]"
@@ -826,8 +924,169 @@ function ExternalEventDialog({ event, onClose }: ExternalEventDialogProps) {
               Close
             </button>
           </div>
+
+          {/* Link to Card Input */}
+          {showLinkInput && (
+            <div className="mt-4 pt-4 border-t">
+              <LinkToCardInput
+                onLink={handleLinkToCard}
+                onCancel={() => setShowLinkInput(false)}
+                isLoading={isLoading}
+              />
+            </div>
+          )}
+
+          {/* Create Card Form */}
+          {showCreateCard && (
+            <div className="mt-4 pt-4 border-t">
+              <CreateCardFromEventForm
+                eventTitle={event.title}
+                eventDescription={event.description}
+                onCreate={handleCreateCard}
+                onCancel={() => setShowCreateCard(false)}
+                isLoading={isLoading}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+// Helper component for linking to card
+interface LinkToCardInputProps {
+  onLink: (cardPK: number) => void;
+  onCancel: () => void;
+  isLoading: boolean;
+}
+
+function LinkToCardInput({ onLink, onCancel, isLoading }: LinkToCardInputProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const { searchCards } = await import("../../api/cards");
+      const results = await searchCards(query, false, 10);
+      setSearchResults(results);
+    } catch (error) {
+      console.error("Failed to search cards:", error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  return (
+    <div>
+      <h4 className="text-sm font-medium mb-2">Link to Card</h4>
+      <input
+        type="text"
+        placeholder="Search cards by title..."
+        value={searchQuery}
+        onChange={(e) => handleSearch(e.target.value)}
+        className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+        autoFocus
+      />
+      {searchResults.length > 0 && (
+        <ul className="mt-2 border rounded max-h-40 overflow-y-auto">
+          {searchResults.map((card) => (
+            <li key={card.id}>
+              <button
+                onClick={() => onLink(card.pk)}
+                disabled={isLoading}
+                className="w-full text-left px-3 py-2 hover:bg-gray-50 flex justify-between items-center"
+              >
+                <span className="truncate">{card.title}</span>
+                <span className="text-xs text-gray-500 ml-2">[{card.card_id}]</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex gap-2 mt-2">
+        <button
+          onClick={onCancel}
+          className="px-3 py-1 text-sm border rounded hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Helper component for creating card from event
+interface CreateCardFromEventFormProps {
+  eventTitle: string;
+  eventDescription: string | undefined;
+  onCreate: (title: string, body: string) => void;
+  onCancel: () => void;
+  isLoading: boolean;
+}
+
+function CreateCardFromEventForm({
+  eventTitle,
+  eventDescription,
+  onCreate,
+  onCancel,
+  isLoading
+}: CreateCardFromEventFormProps) {
+  const [title, setTitle] = useState(eventTitle);
+  const [body, setBody] = useState(eventDescription || "");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onCreate(title, body);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <h4 className="text-sm font-medium mb-2">Create Card from Event</h4>
+      <div className="space-y-2">
+        <div>
+          <label className="text-xs text-gray-500">Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500">Body</label>
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows={3}
+          />
+        </div>
+      </div>
+      <div className="flex gap-2 mt-3">
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+        >
+          {isLoading ? "Creating..." : "Create Card"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 border rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }

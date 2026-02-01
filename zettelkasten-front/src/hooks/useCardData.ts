@@ -5,7 +5,7 @@ import { isErrorResponse } from "../models/common";
 import { convertCardToPartialCard } from "../utils/cards";
 import { useUIState } from "../contexts/UIStateContext";
 import { fetchSummariesForCard, fetchAnalysisForCard, SectionAnalysis, SummarizeJobResponse } from "../api/summarizer";
-import { getCard, getCardReferences, getCardChildren, getCardFiles, getCardTags, getCardTasks, getCardEntities, getLinkedEntitiesByCardPK, CategorizedReferences } from "../api/cards";
+import { getCard, getCardReferences, getCardChildren, getCardFiles, getCardTags, getCardTasks, getCardExternalEvents, getCardEntities, getLinkedEntitiesByCardPK, CategorizedReferences } from "../api/cards";
 
 export interface UseCardDataResult {
   // Data state
@@ -114,6 +114,9 @@ export function useCardData(cardId?: string): UseCardDataResult {
         // Also fetch tasks via new endpoint
         const tasks = await getCardTasks(id);
         refreshed.tasks = tasks;
+        // Also fetch external events via new endpoint
+        const externalEvents = await getCardExternalEvents(id);
+        refreshed.external_events = externalEvents;
         // Also fetch entities via new endpoint
         const entities = await getCardEntities(id);
         refreshed.entities = entities;

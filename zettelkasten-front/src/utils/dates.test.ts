@@ -8,6 +8,10 @@ import {
   compareDatesInTimezone,
   isTodayOrPast,
   isPast,
+  getStartOfMonthInTimezone,
+  getEndOfMonthInTimezone,
+  getStartOfWeekInTimezone,
+  getEndOfWeekInTimezone,
 } from "./dates";
 
 describe("Date utility functions", () => {
@@ -212,5 +216,136 @@ describe('Timezone-aware date comparison scenarios', () => {
 
     // These should be comparable correctly - both represent the same calendar day
     expect(compareDatesInTimezone(todayInUtc, todayInUserTz, "America/New_York")).toBe(true);
+  });
+});
+
+describe('Timezone-aware date range functions', () => {
+  describe('getStartOfMonthInTimezone', () => {
+    it('should return midnight on first day of month in UTC for UTC timezone', () => {
+      const date = new Date('2023-02-15T12:00:00Z');
+      const start = getStartOfMonthInTimezone(date, 'UTC');
+
+      expect(start.getUTCFullYear()).toBe(2023);
+      expect(start.getUTCMonth()).toBe(1); // February
+      expect(start.getUTCDate()).toBe(1);
+      expect(start.getUTCHours()).toBe(0);
+      expect(start.getUTCMinutes()).toBe(0);
+    });
+
+    it('should return midnight on first day of month in America/New_York timezone', () => {
+      // Feb 15, 2023 at 12:00 UTC = Feb 15, 2023 at 07:00 EST
+      const date = new Date('2023-02-15T12:00:00Z');
+      const start = getStartOfMonthInTimezone(date, 'America/New_York');
+
+      // Should be Feb 1, 2023 at 00:00 EST = Feb 1, 2023 at 05:00 UTC
+      expect(start.getUTCFullYear()).toBe(2023);
+      expect(start.getUTCMonth()).toBe(1); // February
+      expect(start.getUTCDate()).toBe(1);
+      expect(start.getUTCHours()).toBe(5); // 00:00 EST = 05:00 UTC
+    });
+  });
+
+  describe('getEndOfMonthInTimezone', () => {
+    it('should return end of day on last day of month in UTC timezone', () => {
+      const date = new Date('2023-02-15T12:00:00Z');
+      const end = getEndOfMonthInTimezone(date, 'UTC');
+
+      // Feb 2023 has 28 days
+      expect(end.getUTCFullYear()).toBe(2023);
+      expect(end.getUTCMonth()).toBe(1); // February
+      expect(end.getUTCDate()).toBe(28);
+      expect(end.getUTCHours()).toBe(23);
+      expect(end.getUTCMinutes()).toBe(59);
+      expect(end.getUTCSeconds()).toBe(59);
+    });
+
+    it('should return end of day on last day of month in America/New_York timezone', () => {
+      const date = new Date('2023-02-15T12:00:00Z');
+      const end = getEndOfMonthInTimezone(date, 'America/New_York');
+
+      // Should be Feb 28, 2023 at 23:59:59 EST = Feb 28, 2023 at 04:59:59 UTC (next day)
+      expect(end.getUTCFullYear()).toBe(2023);
+      expect(end.getUTCMonth()).toBe(2); // March (in UTC)
+      expect(end.getUTCDate()).toBe(1);
+      expect(end.getUTCHours()).toBe(4); // 23:59 EST = 04:59 UTC next day
+    });
+  });
+
+  describe('getStartOfWeekInTimezone', () => {
+    it('should return start of week (Sunday) in UTC timezone', () => {
+      // Wednesday, Feb 15, 2023 at 12:00 UTC
+      const date = new Date('2023-02-15T12:00:00Z');
+      const start = getStartOfWeekInTimezone(date, 'UTC', 0); // Week starts on Sunday
+
+      // Should be Sunday, Feb 12, 2023 at 00:00 UTC
+      expect(start.getUTCFullYear()).toBe(2023);
+      expect(start.getUTCMonth()).toBe(1); // February
+      expect(start.getUTCDate()).toBe(12);
+      expect(start.getUTCHours()).toBe(0);
+    });
+
+    it('should return start of week (Monday) in UTC timezone', () => {
+      // Wednesday, Feb 15, 2023 at 12:00 UTC
+      const date = new Date('2023-02-15T12:00:00Z');
+      const start = getStartOfWeekInTimezone(date, 'UTC', 1); // Week starts on Monday
+
+      // Should be Monday, Feb 13, 2023 at 00:00 UTC
+      expect(start.getUTCFullYear()).toBe(2023);
+      expect(start.getUTCMonth()).toBe(1); // February
+      expect(start.getUTCDate()).toBe(13);
+      expect(start.getUTCHours()).toBe(0);
+    });
+
+    it('should return start of week (Sunday) in America/New_York timezone', () => {
+      // Wednesday, Feb 15, 2023 at 12:00 UTC = 07:00 EST
+      const date = new Date('2023-02-15T12:00:00Z');
+      const start = getStartOfWeekInTimezone(date, 'America/New_York', 0); // Week starts on Sunday
+
+      // Should be Sunday, Feb 12, 2023 at 00:00 EST = Feb 12, 2023 at 05:00 UTC
+      expect(start.getUTCFullYear()).toBe(2023);
+      expect(start.getUTCMonth()).toBe(1); // February
+      expect(start.getUTCDate()).toBe(12);
+      expect(start.getUTCHours()).toBe(5); // 00:00 EST = 05:00 UTC
+    });
+  });
+
+  describe('getEndOfWeekInTimezone', () => {
+    it('should return end of week (Saturday) in UTC timezone', () => {
+      // Wednesday, Feb 15, 2023 at 12:00 UTC
+      const date = new Date('2023-02-15T12:00:00Z');
+      const end = getEndOfWeekInTimezone(date, 'UTC', 0); // Week starts on Sunday, ends on Saturday
+
+      // Should be Saturday, Feb 18, 2023 at 23:59:59 UTC
+      expect(end.getUTCFullYear()).toBe(2023);
+      expect(end.getUTCMonth()).toBe(1); // February
+      expect(end.getUTCDate()).toBe(18);
+      expect(end.getUTCHours()).toBe(23);
+      expect(end.getUTCMinutes()).toBe(59);
+    });
+
+    it('should return end of week (Sunday) in UTC timezone when week starts on Monday', () => {
+      // Wednesday, Feb 15, 2023 at 12:00 UTC
+      const date = new Date('2023-02-15T12:00:00Z');
+      const end = getEndOfWeekInTimezone(date, 'UTC', 1); // Week starts on Monday, ends on Sunday
+
+      // Should be Sunday, Feb 19, 2023 at 23:59:59 UTC
+      expect(end.getUTCFullYear()).toBe(2023);
+      expect(end.getUTCMonth()).toBe(1); // February
+      expect(end.getUTCDate()).toBe(19);
+      expect(end.getUTCHours()).toBe(23);
+      expect(end.getUTCMinutes()).toBe(59);
+    });
+
+    it('should return end of week (Saturday) in America/New_York timezone', () => {
+      // Wednesday, Feb 15, 2023 at 12:00 UTC = 07:00 EST
+      const date = new Date('2023-02-15T12:00:00Z');
+      const end = getEndOfWeekInTimezone(date, 'America/New_York', 0); // Week starts on Sunday
+
+      // Should be Saturday, Feb 18, 2023 at 23:59:59 EST = Feb 19, 2023 at 04:59:59 UTC
+      expect(end.getUTCFullYear()).toBe(2023);
+      expect(end.getUTCMonth()).toBe(1); // February
+      expect(end.getUTCDate()).toBe(19);
+      expect(end.getUTCHours()).toBe(4); // 23:59 EST = 04:59 UTC next day
+    });
   });
 });

@@ -6,6 +6,7 @@ import {
   SearchResult,
   CardWithDescendants,
   processCardWithDescendants,
+  defaultCard,
 } from "../models/Card";
 import { apiClient, getData } from "./client";
 
@@ -330,6 +331,27 @@ export async function getCardTasks(cardId: string | number): Promise<any[]> {
   }));
 }
 
+/**
+ * Get external events for a card
+ */
+export async function getCardExternalEvents(cardId: string | number): Promise<any[]> {
+  const { data: events } = await apiClient.get<any[]>(
+    `/cards/${encodeURIComponent(cardId)}/external-events`
+  );
+
+  if (!events) {
+    return [];
+  }
+
+  return events.map((event) => ({
+    ...event,
+    start_time: new Date(event.start_time),
+    end_time: new Date(event.end_time),
+    created_at: new Date(event.created_at),
+    updated_at: new Date(event.updated_at),
+  }));
+}
+
 export interface CategorizedReferences {
   bidirectional: PartialCard[]; // Two-way links (mutual references)
   outgoing: PartialCard[];      // One-way links (this card references them)
@@ -526,4 +548,55 @@ export async function createArticle(
     created_at: new Date(card.created_at),
     updated_at: new Date(card.updated_at),
   };
+}
+
+/**
+ * Create a card - convenience wrapper for saveNewCard
+ * Accepts partial card data for creating a new card
+ */
+export async function createCard(cardData: {
+  title: string;
+  body?: string;
+  link?: string;
+  parent_id?: number;
+  tags?: string[];
+}): Promise<Card> {
+  const newCard: Card = {
+    ...defaultCard,
+    title: cardData.title,
+    body: cardData.body || "",
+    link: cardData.link || "",
+    parent_id: cardData.parent_id || 0,
+    tags: cardData.tags?.map(tag => ({ id: 0, name: tag, color: "black", user_id: 1 })) || [],
+  };
+  return saveNewCard(newCard);
+}
+
+/**
+ * Search cards - convenience wrapper for semanticSearchCardsPaginated
+ * Returns simplified search results
+ * @param query - Search query string
+ * @param fullText - Whether to use full-text search (default false)
+ * @param perPage - Number of results per page (default 10)
+ * @param page - Page number (default 1)
+ */
+export async function searchCards(
+  query: string,
+  fullText = false,
+  perPage = 10,
+  page = 1
+): Promise<SearchResult[]> {
+  const response = await semanticSearchCardsPaginated(
+    query,
+    fullText,
+    false, // showEntities
+    true,  // showFacts
+    true,  // showCards
+    "sortByRanking",
+    "classic",
+    true,  // rerank
+    page,
+    perPage
+  );
+  return response.results;
 }

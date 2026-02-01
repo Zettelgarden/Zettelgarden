@@ -1,3 +1,5 @@
+import { PartialCard } from "./Card";
+
 /**
  * External calendar event imported from iCal feed
  */
@@ -15,9 +17,11 @@ export interface ExternalEvent {
   external_url?: string;
   recurrence_rule?: string;
   color?: string;
+  card_pk?: number;
   created_at: string;
   updated_at: string;
   last_synced_at?: string;
+  card?: PartialCard;
 }
 
 /**
@@ -55,4 +59,19 @@ export interface UpdateExternalCalendarRequest {
   color?: string;
   sync_enabled?: boolean;
   sync_interval_hours?: number;
+}
+
+/**
+ * Request to link an external event to a card
+ */
+export interface LinkEventToCardRequest {
+  card_pk: number;
+}
+
+/**
+ * Request to create a card from an external event
+ */
+export interface CreateCardFromEventRequest {
+  title?: string;
+  body?: string;
 }

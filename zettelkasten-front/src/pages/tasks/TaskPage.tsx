@@ -18,7 +18,12 @@ import { CalendarViewWrapper } from "../../components/calendar/CalendarView";
 import { useNavigate } from "react-router-dom";
 import { getExternalEvents } from "../../api/externalEvents";
 import { ExternalEvent } from "../../models/ExternalEvent";
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
+import {
+  getStartOfMonthInTimezone,
+  getEndOfMonthInTimezone,
+  getStartOfWeekInTimezone,
+  getEndOfWeekInTimezone,
+} from "../../utils/dates";
 import { parseTaskQuery, updateQueryDateView, updateQueryShowCompleted } from "../../utils/tasks";
 import {
   QuickTagPopover,
@@ -112,15 +117,16 @@ export function TaskPage({ }: TaskListProps) {
         let end: Date;
 
         if (settings.calendarViewMode === "month") {
-          start = startOfMonth(currentDate);
-          end = endOfMonth(currentDate);
+          start = getStartOfMonthInTimezone(currentDate, userTimezone);
+          end = getEndOfMonthInTimezone(currentDate, userTimezone);
         } else {
           // Week view
-          start = startOfWeek(currentDate, { weekStartsOn: 0 });
-          end = endOfWeek(currentDate, { weekStartsOn: 0 });
+          start = getStartOfWeekInTimezone(currentDate, userTimezone, 0);
+          end = getEndOfWeekInTimezone(currentDate, userTimezone, 0);
         }
 
         const events = await getExternalEvents(start, end);
+        console.log("? events", events)
         setExternalEvents(events);
       } catch (err) {
         console.error("Failed to load external events:", err);
@@ -129,7 +135,7 @@ export function TaskPage({ }: TaskListProps) {
     }
 
     loadExternalEvents();
-  }, [settings.viewMode, settings.calendarViewMode, settings.calendarCurrentDate]);
+  }, [settings.viewMode, settings.calendarViewMode, settings.calendarCurrentDate, userTimezone]);
 
   function handleFilterChange(
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,

@@ -3,6 +3,7 @@ import {
   ExternalCalendar,
   CreateExternalCalendarRequest,
   UpdateExternalCalendarRequest,
+  LinkEventToCardRequest,
 } from "src/models/ExternalEvent";
 import { apiClient, getData } from "./client";
 
@@ -50,12 +51,37 @@ export async function syncExternalCalendar(id: number): Promise<ExternalCalendar
  * Fetch external events within a date range
  */
 export async function getExternalEvents(start: Date, end: Date): Promise<ExternalEvent[]> {
-  return getData(
-    apiClient.get<ExternalEvent[]>("/user/external-events", {
+  const response = await getData(
+    apiClient.get<{ events: ExternalEvent[]; total: number; limit: number; offset: number }>("/user/external-events", {
       params: {
         start: start.toISOString(),
         end: end.toISOString(),
       },
     })
   );
+  return response.events;
+}
+
+/**
+ * Link an external event to a card
+ */
+export async function linkEventToCard(
+  eventId: number,
+  data: LinkEventToCardRequest
+): Promise<ExternalEvent> {
+  return getData(apiClient.put<ExternalEvent>(`/user/external-events/${eventId}/link`, data));
+}
+
+/**
+ * Unlink an external event from its card
+ */
+export async function unlinkEventFromCard(eventId: number): Promise<void> {
+  return getData(apiClient.delete<void>(`/user/external-events/${eventId}/link`));
+}
+
+/**
+ * Fetch all external events linked to a specific card
+ */
+export async function getExternalEventsByCard(cardPK: number): Promise<ExternalEvent[]> {
+  return getData(apiClient.get<ExternalEvent[]>(`/user/cards/${cardPK}/external-events`));
 }

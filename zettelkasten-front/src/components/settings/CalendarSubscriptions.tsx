@@ -32,6 +32,7 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
     try {
       setError(null);
       const data = await getExternalCalendars();
+      console.log("calendars", data)
       setCalendars(data);
     } catch (err) {
       setError("Failed to load calendar subscriptions");

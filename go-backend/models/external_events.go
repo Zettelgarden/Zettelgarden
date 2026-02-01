@@ -48,13 +48,26 @@ type ExternalEvent struct {
 	ExternalURL        *string    `json:"external_url,omitempty"`
 	RecurrenceRule     *string    `json:"recurrence_rule,omitempty"`
 	Color              *string    `json:"color,omitempty"`
+	CardPK             *int       `json:"card_pk,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
 	LastSyncedAt       *time.Time `json:"last_synced_at,omitempty"`
+	Card               PartialCard `json:"card"`
 }
 
 // ExternalEventsResponse is the API response for listing external events
 type ExternalEventsResponse struct {
 	Events []ExternalEvent `json:"events"`
 	Total  int             `json:"total"`
+}
+
+// LinkEventToCardRequest is used to link an external event to a card
+type LinkEventToCardRequest struct {
+	CardPK int `json:"card_pk"`
+}
+
+// CreateCardFromEventRequest is used to create a new card from an external event
+type CreateCardFromEventRequest struct {
+	Title string `json:"title,omitempty"`
+	Body  string `json:"body,omitempty"`
 }

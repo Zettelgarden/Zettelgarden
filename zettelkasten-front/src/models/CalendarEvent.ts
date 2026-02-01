@@ -1,4 +1,6 @@
 import { Task } from "./Task";
+import { getToday } from "../utils/dates";
+import { toZonedTime } from "date-fns-tz";
 
 /**
  * Source of a calendar event - either from a task or external feed
@@ -30,6 +32,8 @@ export interface CalendarEvent {
   location?: string;
   externalUrl?: string;
   color?: string;               // From calendar subscription
+  cardPK?: number;              // ID of linked card (for external events)
+  cardId?: string;              // Card ID string for display
 }
 
 /**
@@ -200,27 +204,44 @@ export function isEventDraggable(event: CalendarEvent): boolean {
  * Check if a date is today in the given timezone
  */
 export function isToday(date: Date, timezone: string = "UTC"): boolean {
-  const today = new Date();
-  const d = new Date(date);
-  const t = new Date(today);
+  const today = getToday(timezone);
 
-  // Reset times to midnight for comparison
-  d.setHours(0, 0, 0, 0);
-  t.setHours(0, 0, 0, 0);
+  // Convert the input date to the user's timezone to get its calendar date
+  const dateInTz = toZonedTime(date, timezone);
 
-  return d.getTime() === t.getTime();
+  // getToday returns midnight UTC for today's date in the user's timezone
+  // We need to check if the input date falls on the same calendar day
+  // by comparing their date components in the user's timezone
+  return (
+    dateInTz.getFullYear() === today.getUTCFullYear() &&
+    dateInTz.getMonth() === today.getUTCMonth() &&
+    dateInTz.getDate() === today.getUTCDate()
+  );
 }
 
 /**
  * Check if a date is in the past (before today) in the given timezone
  */
 export function isPast(date: Date, timezone: string = "UTC"): boolean {
-  const today = new Date();
-  const d = new Date(date);
+  const today = getToday(timezone);
 
-  // Reset times to midnight for comparison
-  d.setHours(0, 0, 0, 0);
-  today.setHours(0, 0, 0, 0);
+  // Convert the input date to the user's timezone to get its calendar date
+  const dateInTz = toZonedTime(date, timezone);
 
-  return d.getTime() < today.getTime();
+  // Compare the calendar dates in the user's timezone
+  // GetToday returns midnight UTC for today, so we compare the date components
+  const dateYear = dateInTz.getFullYear();
+  const dateMonth = dateInTz.getMonth();
+  const dateDay = dateInTz.getDate();
+
+  const todayYear = today.getUTCFullYear();
+  const todayMonth = today.getUTCMonth();
+  const todayDay = today.getUTCDate();
+
+  // Check if the date is before today
+  if (dateYear < todayYear) return true;
+  if (dateYear > todayYear) return false;
+  if (dateMonth < todayMonth) return true;
+  if (dateMonth > todayMonth) return false;
+  return dateDay < todayDay;
 }

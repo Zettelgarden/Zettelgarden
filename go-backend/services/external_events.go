@@ -190,7 +190,7 @@ func (s *ExternalEventService) GetEventsInRange(userID int, start, end time.Time
 	query := `
 		SELECT id, user_id, external_calendar_id, title, description,
 		       start_time, end_time, all_day, location,
-		       external_uid, external_url, recurrence_rule, color,
+		       external_uid, external_url, recurrence_rule, color, card_pk,
 		       created_at, updated_at, last_synced_at
 		FROM external_events
 		WHERE user_id = $1
@@ -211,6 +211,7 @@ func (s *ExternalEventService) GetEventsInRange(userID int, start, end time.Time
 		var event models.ExternalEvent
 		var description, location, externalUID, externalURL, recurrenceRule, color sql.NullString
 		var externalCalendarID sql.NullInt32
+		var cardPK sql.NullInt32
 		var lastSyncedAt sql.NullTime
 
 		err := rows.Scan(
@@ -218,6 +219,7 @@ func (s *ExternalEventService) GetEventsInRange(userID int, start, end time.Time
 			&event.Title, &description,
 			&event.StartTime, &event.EndTime, &event.AllDay, &location,
 			&externalUID, &externalURL, &recurrenceRule, &color,
+			&cardPK,
 			&event.CreatedAt, &event.UpdatedAt, &lastSyncedAt,
 		)
 		if err != nil {
@@ -247,8 +249,20 @@ func (s *ExternalEventService) GetEventsInRange(userID int, start, end time.Time
 			id := int(externalCalendarID.Int32)
 			event.ExternalCalendarID = &id
 		}
+		if cardPK.Valid {
+			pk := int(cardPK.Int32)
+			event.CardPK = &pk
+		}
 		if lastSyncedAt.Valid {
 			event.LastSyncedAt = &lastSyncedAt.Time
+		}
+
+		// Load linked card info if present
+		if event.CardPK != nil {
+			card, err := GetPartialCard(s.db, userID, *event.CardPK)
+			if err == nil {
+				event.Card = card
+			}
 		}
 
 		events = append(events, event)
@@ -479,3 +493,222 @@ func nullString(s string) interface{} {
 	}
 	return s
 }
+
+// LinkEventToCard links an external event to a card
+func (s *ExternalEventService) LinkEventToCard(db models.Database, userID int, eventID int, cardPK int) (*models.ExternalEvent, error) {
+	// Verify the event belongs to the user
+	var exists bool
+	err := db.QueryRow(`
+		SELECT EXISTS(SELECT 1 FROM external_events WHERE id = $1 AND user_id = $2)
+	`, eventID, userID).Scan(&exists)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("event not found")
+	}
+
+	// Verify the card belongs to the user
+	err = db.QueryRow(`
+		SELECT EXISTS(SELECT 1 FROM cards WHERE pk = $1 AND user_id = $2)
+	`, cardPK, userID).Scan(&exists)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("card not found")
+	}
+
+	// Update the event with the card link
+	_, err = db.Exec(`
+		UPDATE external_events
+		SET card_pk = $1, updated_at = NOW()
+		WHERE id = $2 AND user_id = $3
+	`, cardPK, eventID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch and return the updated event
+	return s.getEventByID(db, eventID, userID)
+}
+
+// UnlinkEventFromCard unlinks an external event from its card
+func (s *ExternalEventService) UnlinkEventFromCard(db models.Database, userID int, eventID int) error {
+	// Verify the event belongs to the user
+	var exists bool
+	err := db.QueryRow(`
+		SELECT EXISTS(SELECT 1 FROM external_events WHERE id = $1 AND user_id = $2)
+	`, eventID, userID).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("event not found")
+	}
+
+	// Clear the card link
+	_, err = db.Exec(`
+		UPDATE external_events
+		SET card_pk = NULL, updated_at = NOW()
+		WHERE id = $1 AND user_id = $2
+	`, eventID, userID)
+	return err
+}
+
+// GetEventsByCard returns all external events linked to a specific card
+func (s *ExternalEventService) GetEventsByCard(db models.Database, userID int, cardPK int) ([]models.ExternalEvent, error) {
+	query := `
+		SELECT id, user_id, external_calendar_id, title, description,
+		       start_time, end_time, all_day, location,
+		       external_uid, external_url, recurrence_rule, color, card_pk,
+		       created_at, updated_at, last_synced_at
+		FROM external_events
+		WHERE user_id = $1 AND card_pk = $2
+		ORDER BY start_time DESC
+	`
+
+	rows, err := db.Query(query, userID, cardPK)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []models.ExternalEvent
+	for rows.Next() {
+		var event models.ExternalEvent
+		var description, location, externalUID, externalURL, recurrenceRule, color sql.NullString
+		var externalCalendarID sql.NullInt32
+		var scannedCardPK sql.NullInt32
+		var lastSyncedAt sql.NullTime
+
+		err := rows.Scan(
+			&event.ID, &event.UserID, &externalCalendarID,
+			&event.Title, &description,
+			&event.StartTime, &event.EndTime, &event.AllDay, &location,
+			&externalUID, &externalURL, &recurrenceRule, &color,
+			&scannedCardPK,
+			&event.CreatedAt, &event.UpdatedAt, &lastSyncedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Convert null fields
+		if description.Valid {
+			event.Description = &description.String
+		}
+		if location.Valid {
+			event.Location = &location.String
+		}
+		if externalUID.Valid {
+			event.ExternalUID = &externalUID.String
+		}
+		if externalURL.Valid {
+			event.ExternalURL = &externalURL.String
+		}
+		if recurrenceRule.Valid {
+			event.RecurrenceRule = &recurrenceRule.String
+		}
+		if color.Valid {
+			event.Color = &color.String
+		}
+		if externalCalendarID.Valid {
+			id := int(externalCalendarID.Int32)
+			event.ExternalCalendarID = &id
+		}
+		if scannedCardPK.Valid {
+			pk := int(scannedCardPK.Int32)
+			event.CardPK = &pk
+		}
+		if lastSyncedAt.Valid {
+			event.LastSyncedAt = &lastSyncedAt.Time
+		}
+
+		// Load linked card info if present
+		if event.CardPK != nil {
+			card, err := GetPartialCard(db, userID, *event.CardPK)
+			if err == nil {
+				event.Card = card
+			}
+		}
+
+		events = append(events, event)
+	}
+
+	return events, nil
+}
+
+// getEventByID fetches a single event by ID with card info
+func (s *ExternalEventService) getEventByID(db models.Database, eventID int, userID int) (*models.ExternalEvent, error) {
+	var event models.ExternalEvent
+	var description, location, externalUID, externalURL, recurrenceRule, color sql.NullString
+	var externalCalendarID sql.NullInt32
+	var cardPK sql.NullInt32
+	var lastSyncedAt sql.NullTime
+
+	err := db.QueryRow(`
+		SELECT id, user_id, external_calendar_id, title, description,
+		       start_time, end_time, all_day, location,
+		       external_uid, external_url, recurrence_rule, color, card_pk,
+		       created_at, updated_at, last_synced_at
+		FROM external_events
+		WHERE id = $1 AND user_id = $2
+	`, eventID, userID).Scan(
+		&event.ID, &event.UserID, &externalCalendarID,
+		&event.Title, &description,
+		&event.StartTime, &event.EndTime, &event.AllDay, &location,
+		&externalUID, &externalURL, &recurrenceRule, &color,
+		&cardPK,
+		&event.CreatedAt, &event.UpdatedAt, &lastSyncedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("event not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert null fields
+	if description.Valid {
+		event.Description = &description.String
+	}
+	if location.Valid {
+		event.Location = &location.String
+	}
+	if externalUID.Valid {
+		event.ExternalUID = &externalUID.String
+	}
+	if externalURL.Valid {
+		event.ExternalURL = &externalURL.String
+	}
+	if recurrenceRule.Valid {
+		event.RecurrenceRule = &recurrenceRule.String
+	}
+	if color.Valid {
+		event.Color = &color.String
+	}
+	if externalCalendarID.Valid {
+		id := int(externalCalendarID.Int32)
+		event.ExternalCalendarID = &id
+	}
+	if cardPK.Valid {
+		pk := int(cardPK.Int32)
+		event.CardPK = &pk
+	}
+	if lastSyncedAt.Valid {
+		event.LastSyncedAt = &lastSyncedAt.Time
+	}
+
+	// Load linked card info if present
+	if event.CardPK != nil {
+		card, err := GetPartialCard(db, userID, *event.CardPK)
+		if err == nil {
+			event.Card = card
+		}
+	}
+
+	return &event, nil
+}
+

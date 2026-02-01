@@ -42,6 +42,11 @@ from .articles import (
     parse_url,
     create_article,
 )
+from .calendar import (
+    list_external_calendars,
+    list_external_events,
+    link_event_to_card,
+)
 
 __all__ = [
     # Cards
@@ -77,4 +82,8 @@ __all__ = [
     # Articles
     "parse_url",
     "create_article",
+    # Calendar
+    "list_external_calendars",
+    "list_external_events",
+    "link_event_to_card",
 ]

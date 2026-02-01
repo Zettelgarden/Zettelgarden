@@ -1,6 +1,7 @@
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, addMonths, subMonths, addWeeks, subWeeks, startOfDay, isSameDay, isSameMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, addMonths, subMonths, addWeeks, subWeeks, isSameDay, isSameMonth } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 import { CalendarDay, CalendarEvent } from "../models/CalendarEvent";
-import { isToday } from "../models/CalendarEvent";
+import { isToday, isPast } from "../models/CalendarEvent";
 import { ExternalEvent } from "../models/ExternalEvent";
 
 /**
@@ -16,7 +17,7 @@ export function getFirstDayOfWeek(): 0 | 1 | 6 {
  * Generate a 6-week grid for a given month
  * This ensures all days of the month are visible plus some days from adjacent months
  */
-export function generateMonthGrid(date: Date): CalendarDay[] {
+export function generateMonthGrid(date: Date, timezone: string = "UTC"): CalendarDay[] {
   const firstDayOfWeek = getFirstDayOfWeek();
   const monthStart = startOfMonth(date);
   const monthEnd = endOfMonth(date);
@@ -39,7 +40,7 @@ export function generateMonthGrid(date: Date): CalendarDay[] {
 
   return days.map(day => ({
     date: day,
-    isToday: isToday(day),
+    isToday: isToday(day, timezone),
     isCurrentMonth: isSameMonth(day, date),
     events: [],
     taskCount: 0,
@@ -51,7 +52,7 @@ export function generateMonthGrid(date: Date): CalendarDay[] {
 /**
  * Generate a week grid for a given date
  */
-export function generateWeekGrid(date: Date): CalendarDay[] {
+export function generateWeekGrid(date: Date, timezone: string = "UTC"): CalendarDay[] {
   const firstDayOfWeek = getFirstDayOfWeek();
   const weekStart = startOfWeek(date, { weekStartsOn: firstDayOfWeek });
   const weekEnd = endOfWeek(date, { weekStartsOn: firstDayOfWeek });
@@ -60,7 +61,7 @@ export function generateWeekGrid(date: Date): CalendarDay[] {
 
   return days.map(day => ({
     date: day,
-    isToday: isToday(day),
+    isToday: isToday(day, timezone),
     isCurrentMonth: true,
     events: [],
     taskCount: 0,
@@ -71,13 +72,17 @@ export function generateWeekGrid(date: Date): CalendarDay[] {
 
 /**
  * Populate calendar days with events
+ * Uses timezone-aware date comparison for accurate event mapping
  */
-export function populateDayEvents(days: CalendarDay[], events: CalendarEvent[]): CalendarDay[] {
+export function populateDayEvents(days: CalendarDay[], events: CalendarEvent[], timezone: string = "UTC"): CalendarDay[] {
   // Create a map of date strings to events for efficient lookup
+  // Use timezone-aware date formatting to group events correctly
   const eventsByDate = new Map<string, CalendarEvent[]>();
 
   events.forEach(event => {
-    const dateKey = format(startOfDay(event.date), "yyyy-MM-dd");
+    // Convert the event date to the user's timezone for grouping
+    const eventDateInTz = toZonedTime(event.date, timezone);
+    const dateKey = format(eventDateInTz, "yyyy-MM-dd");
     if (!eventsByDate.has(dateKey)) {
       eventsByDate.set(dateKey, []);
     }
@@ -86,12 +91,14 @@ export function populateDayEvents(days: CalendarDay[], events: CalendarEvent[]):
 
   // Assign events to days and calculate counts
   return days.map(day => {
-    const dateKey = format(startOfDay(day.date), "yyyy-MM-dd");
+    // Convert the day date to the user's timezone for lookup
+    const dayDateInTz = toZonedTime(day.date, timezone);
+    const dateKey = format(dayDateInTz, "yyyy-MM-dd");
     const dayEvents = eventsByDate.get(dateKey) || [];
 
-    // Count by event type
+    // Count by event type - use timezone-aware isPast function
     const overdueCount = dayEvents.filter(e =>
-      !e.isComplete && e.date < new Date() && e.eventType === "due"
+      !e.isComplete && isPast(e.date, timezone) && e.eventType === "due"
     ).length;
     const completedCount = dayEvents.filter(e => e.isComplete).length;
 
@@ -207,9 +214,12 @@ export function groupEventsByTask(events: CalendarEvent[]): Map<number, Calendar
  */
 export function mergeCalendarEvents(
   taskEvents: CalendarEvent[],
-  externalEvents: ExternalEvent[] | null
+  externalEvents: ExternalEvent[] | null | undefined
 ): CalendarEvent[] {
-  const converted: CalendarEvent[] = (externalEvents || []).map(ee => ({
+  // Ensure externalEvents is always an array
+  const eventsArray = Array.isArray(externalEvents) ? externalEvents : [];
+
+  const converted: CalendarEvent[] = eventsArray.map(ee => ({
     id: ee.id,
     externalEventId: ee.id,
     source: "external" as const,
@@ -220,6 +230,8 @@ export function mergeCalendarEvents(
     location: ee.location,
     externalUrl: ee.external_url,
     color: ee.color || "#6366f1", // Default indigo
+    cardPK: ee.card_pk || undefined,
+    cardId: ee.card?.card_id || undefined,
   }));
 
   return [...taskEvents, ...converted];

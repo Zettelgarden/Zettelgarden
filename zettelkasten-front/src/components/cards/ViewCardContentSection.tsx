@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { TaskListItem } from "../tasks/TaskListItem";
+import { CalendarEventListItem } from "../calendar/CalendarEventListItem";
 import { Card, PartialCard } from "../../models/Card";
 import { SectionAnalysis, SummarizeJobResponse } from "../../api/summarizer";
 import { CategorizedReferences } from "../../api/cards";
@@ -199,6 +200,30 @@ export function ViewCardContentSection({
                 key={task.id}
                 task={task}
                 onTagClick={(tag: string) => { }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Calendar Events Section */}
+      {viewingCard.external_events && viewingCard.external_events.length > 0 && (
+        <div className="bg-white rounded-lg p-4 shadow-sm">
+          <HeaderSubSection text="Calendar Events" />
+          <div className="mt-2 space-y-2">
+            {viewingCard.external_events.map((event, index) => (
+              <CalendarEventListItem
+                key={event.id}
+                event={event}
+                onUnlink={() => {
+                  // Refresh card data to update the list
+                  if (setViewCard) {
+                    setViewCard({
+                      ...viewingCard,
+                      external_events: viewingCard.external_events?.filter(e => e.id !== event.id) || []
+                    });
+                  }
+                }}
               />
             ))}
           </div>

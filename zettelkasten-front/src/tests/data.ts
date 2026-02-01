@@ -260,6 +260,7 @@ const sampleCardData: Card[] = [
     is_deleted: false,
     tags: [],
     tasks: [],
+    external_events: [],
     entities: sampleEntityData,
   },
   {
@@ -279,6 +280,7 @@ const sampleCardData: Card[] = [
     is_deleted: false,
     tags: [],
     tasks: [],
+    external_events: [],
     entities: sampleEntityData,
   },
 ];

@@ -197,3 +197,79 @@ export function getNowInTimezone(timezone: string): Date {
   const second = nowInTz.getSeconds();
   return new Date(Date.UTC(year, month, day, hour, minute, second));
 }
+
+/**
+ * Get the start of the month in the user's timezone as a UTC Date object.
+ * Returns midnight (00:00:00) on the first day of the month in the user's timezone.
+ */
+export function getStartOfMonthInTimezone(date: Date, timezone: string): Date {
+  const dateInTz = toZonedTime(date, timezone);
+  const year = dateInTz.getFullYear();
+  const month = dateInTz.getMonth();
+
+  // Create a date representing midnight on the first day of the month in the user's timezone
+  const midnightInTz = new Date(year, month, 1, 0, 0, 0);
+
+  // Convert back to UTC
+  return fromZonedTime(midnightInTz, timezone);
+}
+
+/**
+ * Get the end of the month in the user's timezone as a UTC Date object.
+ * Returns the last moment (23:59:59.999) of the last day of the month in the user's timezone.
+ */
+export function getEndOfMonthInTimezone(date: Date, timezone: string): Date {
+  const dateInTz = toZonedTime(date, timezone);
+  const year = dateInTz.getFullYear();
+  const month = dateInTz.getMonth();
+
+  // Create a date representing the last day of the month at end of day in the user's timezone
+  const lastDayInTz = new Date(year, month + 1, 0, 23, 59, 59, 999);
+
+  // Convert back to UTC
+  return fromZonedTime(lastDayInTz, timezone);
+}
+
+/**
+ * Get the start of the week in the user's timezone as a UTC Date object.
+ * Returns midnight (00:00:00) on the first day of the week in the user's timezone.
+ * @param date The reference date
+ * @param timezone The user's timezone
+ * @param weekStartsOn Day of the week (0 = Sunday, 1 = Monday, etc.)
+ */
+export function getStartOfWeekInTimezone(date: Date, timezone: string, weekStartsOn: 0 | 1 | 6 = 0): Date {
+  const dateInTz = toZonedTime(date, timezone);
+  const dayOfWeek = dateInTz.getDay(); // 0 = Sunday, 1 = Monday, etc.
+
+  // Calculate days to subtract to get to the first day of the week
+  const daysToSubtract = (dayOfWeek - weekStartsOn + 7) % 7;
+
+  const startDateInTz = new Date(dateInTz);
+  startDateInTz.setDate(startDateInTz.getDate() - daysToSubtract);
+  startDateInTz.setHours(0, 0, 0, 0);
+
+  // Convert back to UTC
+  return fromZonedTime(startDateInTz, timezone);
+}
+
+/**
+ * Get the end of the week in the user's timezone as a UTC Date object.
+ * Returns the last moment (23:59:59.999) of the last day of the week in the user's timezone.
+ * @param date The reference date
+ * @param timezone The user's timezone
+ * @param weekStartsOn Day of the week (0 = Sunday, 1 = Monday, etc.)
+ */
+export function getEndOfWeekInTimezone(date: Date, timezone: string, weekStartsOn: 0 | 1 | 6 = 0): Date {
+  const dateInTz = toZonedTime(date, timezone);
+  const dayOfWeek = dateInTz.getDay(); // 0 = Sunday, 1 = Monday, etc.
+
+  // Calculate days to add to get to the last day of the week
+  const daysToAdd = (weekStartsOn - dayOfWeek + 6) % 7;
+
+  const endDateInTz = new Date(dateInTz);
+  endDateInTz.setDate(endDateInTz.getDate() + daysToAdd);
+  endDateInTz.setHours(23, 59, 59, 999);
+
+  // Convert back to UTC
+  return fromZonedTime(endDateInTz, timezone);
+}
