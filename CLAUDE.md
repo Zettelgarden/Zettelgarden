@@ -115,6 +115,11 @@ docker-compose up  # Start all services locally
 The application requires extensive environment configuration for:
 - Database connection (DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME)
 - JWT secret (SECRET_KEY)
+- Calendar encryption (CALENDAR_ENCRYPTION_KEY)
+  - Purpose: Encryption key for calendar passwords (AES-256-GCM)
+  - Requirements: 32+ character random string
+  - Generation command: `openssl rand -base64 32`
+  - When required: For authenticated calendar feeds
 - LLM integration (ZETTEL_LLM_KEY, ZETTEL_LLM_ENDPOINT)
 - S3/file storage configuration
 - Stripe payment integration

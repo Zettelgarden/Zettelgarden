@@ -3,7 +3,7 @@
  */
 export interface SpreadsheetCell {
   value: string;        // Display value (result of formula or raw input)
-  formula?: string;     // Formula if applicable (starts with =), empty string if plain value
+  formula?: string;     // Formula WITHOUT leading = (e.g., "A1+B1" not "=A1+B1"), empty string if plain value
   computed?: number;    // Computed numeric result (if applicable)
 }
 

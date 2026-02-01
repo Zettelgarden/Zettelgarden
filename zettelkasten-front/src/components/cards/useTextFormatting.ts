@@ -236,12 +236,24 @@ export function useTextFormatting({
         newCursorEnd = start + (beforeTable ? 3 : 2);
         break;
 
+      case 'spreadsheet':
+        // Insert spreadsheet syntax with JSON template
+        formattedText = '\n{{spreadsheet:mysheet}}\n\n```spreadsheet:mysheet\n{\n  "rows": 5,\n  "cols": 5,\n  "data": {}\n}\n```\n';
+        newBody =
+          editingCard.body.substring(0, start) +
+          formattedText +
+          editingCard.body.substring(end);
+        // Place cursor after the inserted text
+        newCursorStart = start + formattedText.length;
+        newCursorEnd = start + formattedText.length;
+        break;
+
       default:
         return;
     }
 
-    // Update the body and cursor position if we have either selected text or if it's a structural format (like table)
-    if (selectedText || formatType === 'table') {
+    // Update the body and cursor position if we have either selected text or if it's a structural format (like table or spreadsheet)
+    if (selectedText || formatType === 'table' || formatType === 'spreadsheet') {
       setEditingCard({ ...editingCard, body: newBody });
 
       // Re-focus and set selection to maintain cursor position after the formatting

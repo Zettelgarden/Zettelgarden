@@ -5,6 +5,7 @@ import { Card, Entity } from "../../models/Card";
 import remarkEntity from "../../remark-entity";
 import remarkTaskQuery from "../../remark-task-query";
 import remarkSchemaTable from "../../remark-schema-table";
+import remarkSpreadsheet from "../../remark-spreadsheet";
 import { useNavigate } from "react-router-dom";
 import remarkGfm from "remark-gfm";
 
@@ -13,6 +14,7 @@ import { useDialogState } from "../../contexts/DialogStateContext";
 import { CardLinkWithPreview } from "./CardLinkWithPreview";
 import { DynamicTaskList } from "./DynamicTaskList";
 import { DynamicSchemaTable } from "./DynamicSchemaTable";
+import { DynamicSpreadsheet } from "../spreadsheets/DynamicSpreadsheet";
 import { H1, H2, H3, H4, H5, H6 } from "../Header";
 import {
   Table,
@@ -294,7 +296,7 @@ function renderCardText(
   return (
     <Markdown
       children={processedBody}
-      remarkPlugins={[remarkGfm, remarkTaskQuery, remarkEntity, remarkSchemaTable]}
+      remarkPlugins={[remarkGfm, remarkTaskQuery, remarkEntity, remarkSchemaTable, remarkSpreadsheet]}
       components={{
         // Add our custom components for code
         code: CustomCode,
@@ -394,6 +396,12 @@ function renderCardText(
             const columns = propsData["data-columns"];
             const filters = propsData["data-filters"];
             return <DynamicSchemaTable schemaRef={schemaRef} columns={columns} filters={filters} />;
+          }
+
+          // Check if this is a spreadsheet container
+          if (propsData.className === "spreadsheet-container" || propsData["data-spreadsheet-name"] !== undefined) {
+            const spreadsheetName = propsData["data-spreadsheet-name"] || "sheet1";
+            return <DynamicSpreadsheet name={spreadsheetName} />;
           }
 
           // Default div rendering

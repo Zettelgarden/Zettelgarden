@@ -16,6 +16,7 @@ import { FactsTab } from "../tabs/FactsTab";
 import { HistoryTab } from "../tabs/HistoryTab";
 import { SummariesTab } from "../tabs/SummariesTab";
 import { FilesTab } from "../tabs/FilesTab";
+import { SpreadsheetsTab } from "../tabs/SpreadsheetsTab";
 import { RollbackConfirmDialog } from "../tabs/RollbackConfirmDialog";
 
 // Props interface
@@ -62,6 +63,7 @@ export function ViewCardTabbedDisplay({
     { label: "History" },
     { label: "Summaries" },
     { label: "Files" },
+    { label: "Spreadsheets" },
   ];
 
 
@@ -226,6 +228,13 @@ export function ViewCardTabbedDisplay({
           setFactFilterString={setFactFilterString}
           setSelectedFact={setSelectedFact}
           setShowFactDialog={setShowFactDialog}
+        />
+      )}
+      {activeTab === "Spreadsheets" && (
+        <SpreadsheetsTab
+          viewingCard={viewingCard}
+          setViewCard={setViewCard}
+          setError={setError}
         />
       )}
 

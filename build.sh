@@ -4,9 +4,9 @@ set -e
 
 source .env
 
+# Build and push images locally
 sudo docker compose build
+sudo docker compose push
 
-#sudo docker compose push
-
-cd /mnt/nas-2-fast-data/config/zettelgarden
-sudo docker compose up -d
+# SSH to remote server and deploy
+ssh 192.168.0.93 "cd /mnt/nas-2-fast-data/config/zettelgarden && docker compose pull && docker compose up -d"
