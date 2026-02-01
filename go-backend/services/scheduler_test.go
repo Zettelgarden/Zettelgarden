@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/robfig/cron/v3"
 )
 
 // testMockJob is a test helper for scheduler tests that extends mockScheduledJob
@@ -65,6 +67,14 @@ func (m *testMockJob) Handler(ctx context.Context) error {
 
 func (m *testMockJob) MaxRetries() int {
 	return m.maxRetries
+}
+
+func (m *testMockJob) NextRun(from time.Time) time.Time {
+	schedule, err := cron.ParseStandard(m.schedule)
+	if err != nil {
+		return time.Time{}
+	}
+	return schedule.Next(from)
 }
 
 // waitTimeout waits for the channel to receive a value or timeout

@@ -3,6 +3,9 @@ package services
 import (
 	"context"
 	"testing"
+	"time"
+
+	"github.com/robfig/cron/v3"
 )
 
 // Test that a job implementing the interface can be queried
@@ -40,4 +43,11 @@ func (m *mockScheduledJob) Schedule() string   { return m.schedule }
 func (m *mockScheduledJob) MaxRetries() int    { return m.maxRetries }
 func (m *mockScheduledJob) Handler(ctx context.Context) error {
 	return m.handlerErr
+}
+func (m *mockScheduledJob) NextRun(from time.Time) time.Time {
+	schedule, err := cron.ParseStandard(m.schedule)
+	if err != nil {
+		return time.Time{}
+	}
+	return schedule.Next(from)
 }

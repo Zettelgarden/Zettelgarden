@@ -4,13 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"time"
+
+	"github.com/robfig/cron/v3"
 
 	"go-backend/services"
 )
 
 // CleanupJob performs daily cleanup of old data
 type CleanupJob struct {
-	db *sql.DB
+	db       *sql.DB
+	schedule string
 }
 
 // NewCleanupJob creates a new cleanup job
@@ -32,6 +36,15 @@ func (j *CleanupJob) Schedule() string {
 // MaxRetries returns the number of times to retry on failure
 func (j *CleanupJob) MaxRetries() int {
 	return 3
+}
+
+// NextRun returns the next scheduled run time for this job
+func (j *CleanupJob) NextRun(from time.Time) time.Time {
+	schedule, err := cron.ParseStandard(j.Schedule())
+	if err != nil {
+		return time.Time{}
+	}
+	return schedule.Next(from)
 }
 
 // Handler executes the cleanup job logic

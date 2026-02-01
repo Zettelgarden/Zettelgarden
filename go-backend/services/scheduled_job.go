@@ -1,6 +1,9 @@
 package services
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // ScheduledJob defines the interface for jobs that can be scheduled
 // for periodic execution using cron syntax.
@@ -24,4 +27,7 @@ type ScheduledJob interface {
 	// MaxRetries returns the number of times to retry on failure.
 	// Use 0 for no retries, -1 for infinite retries.
 	MaxRetries() int
+
+	// NextRun returns the next scheduled run time for this job
+	NextRun(time.Time) time.Time
 }
