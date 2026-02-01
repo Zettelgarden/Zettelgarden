@@ -34,7 +34,7 @@ func (j *TaskRemindersJob) Name() string {
 // Schedule returns the cron expression for when this job should run
 // Note: Using 6-field cron expression (with seconds) as required by the scheduler
 func (j *TaskRemindersJob) Schedule() string {
-	return "0 * * * * *" // Run every minute (seconds, minutes, hours, day, month, weekday)
+	return "* * * * * *" // Run every minute (seconds, minutes, hours, day, month, weekday)
 }
 
 // MaxRetries returns the number of times to retry on failure
