@@ -238,7 +238,7 @@ func run() error {
 
 	scheduler.Start()
 	defer scheduler.Stop()
-	log.Printf("Scheduled job runner started")
+	log.Printf("[main] scheduled job runner started")
 
 	if cfg.Services.LLM.ChunkingEnabled {
 		go func() {
