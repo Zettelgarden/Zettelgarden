@@ -510,7 +510,7 @@ func (s *ExternalEventService) LinkEventToCard(db models.Database, userID int, e
 
 	// Verify the card belongs to the user
 	err = db.QueryRow(`
-		SELECT EXISTS(SELECT 1 FROM cards WHERE pk = $1 AND user_id = $2)
+		SELECT EXISTS(SELECT 1 FROM cards WHERE id = $1 AND user_id = $2)
 	`, cardPK, userID).Scan(&exists)
 	if err != nil {
 		return nil, err
