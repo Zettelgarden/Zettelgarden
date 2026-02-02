@@ -23,6 +23,7 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editUsername, setEditUsername] = useState("");
   const [editPassword, setEditPassword] = useState("");
+  const [editColor, setEditColor] = useState("#6366f1");
   const [clearPassword, setClearPassword] = useState(false);
   const [syncing, setSyncing] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState<Set<number>>(new Set());
@@ -130,6 +131,7 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
     setEditingId(cal.id);
     setEditUsername(cal.username || "");
     setEditPassword("");
+    setEditColor(cal.color);
     setClearPassword(false);
   }
 
@@ -137,6 +139,7 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
     setEditingId(null);
     setEditUsername("");
     setEditPassword("");
+    setEditColor("#6366f1");
     setClearPassword(false);
   }
 
@@ -145,8 +148,10 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
     setUpdating(prev => new Set(prev).add(id));
 
     try {
+      const calendar = calendars.find(c => c.id === id);
       const data: UpdateExternalCalendarRequest = {};
-      if (editUsername !== calendars.find(c => c.id === id)?.username) {
+
+      if (editUsername !== calendar?.username) {
         data.username = editUsername || undefined;
       }
       if (editPassword) {
@@ -155,17 +160,21 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
       if (clearPassword) {
         data.clear_password = true;
       }
+      if (editColor !== calendar?.color) {
+        data.color = editColor;
+      }
 
       await updateExternalCalendar(id, data);
-      setSuccess("Calendar credentials updated successfully");
+      setSuccess("Calendar updated successfully");
       setEditingId(null);
       setEditUsername("");
       setEditPassword("");
+      setEditColor("#6366f1");
       setClearPassword(false);
       await loadCalendars();
       onCalendarChange?.();
     } catch (err: any) {
-      setError(err.message || "Failed to update calendar credentials");
+      setError(err.message || "Failed to update calendar");
     } finally {
       setUpdating(prev => {
         const next = new Set(prev);
@@ -323,8 +332,8 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
                     onClick={() => startEdit(cal)}
                     disabled={editingId === cal.id}
                     className="p-2 text-slate-600 hover:bg-slate-50 rounded min-h-[36px] min-w-[36px] focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Edit credentials"
-                    aria-label="Edit calendar credentials"
+                    title="Edit calendar settings"
+                    aria-label="Edit calendar settings"
                   >
                     <FaEdit size={14} aria-hidden="true" />
                   </button>
@@ -344,7 +353,7 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
               {/* Edit Credentials Form */}
               {editingId === cal.id && (
                 <div className="px-3 pb-3 border-t border-slate-100 pt-3">
-                  <h4 className="text-sm font-medium text-slate-700 mb-2">Update Authentication Credentials</h4>
+                  <h4 className="text-sm font-medium text-slate-700 mb-2">Update Calendar Settings</h4>
                   <div className="space-y-2">
                     <div>
                       <label htmlFor={`edit-username-${cal.id}`} className="block text-xs font-medium text-slate-600 mb-1">Username</label>
@@ -380,6 +389,19 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
                         <label htmlFor={`clear-password-${cal.id}`} className="text-xs text-slate-600">Remove password protection</label>
                       </div>
                     )}
+                    <div>
+                      <label htmlFor={`edit-color-${cal.id}`} className="block text-xs font-medium text-slate-600 mb-1">Event Color</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id={`edit-color-${cal.id}`}
+                          type="color"
+                          value={editColor}
+                          onChange={(e) => setEditColor(e.target.value)}
+                          className="w-16 h-8 border border-slate-300 rounded cursor-pointer"
+                        />
+                        <span className="text-xs text-slate-500">Choose a color for calendar events</span>
+                      </div>
+                    </div>
                     <div className="flex gap-2 pt-2">
                       <button
                         onClick={() => handleUpdateCredentials(cal.id)}
