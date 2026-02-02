@@ -46,6 +46,7 @@ interface CalendarViewProps {
   onExternalEventClick?: (event: CalendarEvent) => void;
   onExternalEventChange?: () => void;
   timezone?: string;
+  calendarSettingsButton?: React.ReactNode;
 }
 
 export function CalendarView({
@@ -62,6 +63,7 @@ export function CalendarView({
   onExternalEventClick,
   onExternalEventChange,
   timezone = "UTC",
+  calendarSettingsButton,
 }: CalendarViewProps) {
   const [hoveredDay, setHoveredDay] = useState<Date | null>(null);
   const [contextMenu, setContextMenu] = useState<{
@@ -273,7 +275,7 @@ export function CalendarView({
       {/* Calendar Header */}
       <div className="bg-slate-100 px-2 sm:px-4 py-2 sm:py-3 border-b border-slate-300">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
-          {/* View Mode Toggle - Hidden on mobile, show on tablet+ */}
+          {/* Left Section: View Mode Toggle + Settings Button */}
           <div className="flex items-center gap-1 sm:gap-2 hidden sm:flex">
             <span className="text-xs text-slate-600 font-medium">View:</span>
             <button
@@ -302,9 +304,10 @@ export function CalendarView({
               <span className="hidden sm:inline">Week</span>
               <span className="sm:hidden">Wk</span>
             </button>
+            {calendarSettingsButton}
           </div>
 
-          {/* Mobile View Mode Indicator */}
+          {/* Mobile View Mode Indicator + Settings Button */}
           <div className="flex sm:hidden items-center gap-1">
             <span className="text-xs font-medium text-slate-700">
               {viewMode === "month" ? "Month" : "Week"}
@@ -316,6 +319,7 @@ export function CalendarView({
             >
               Toggle
             </button>
+            {calendarSettingsButton}
           </div>
 
           {/* Navigation Controls */}
@@ -605,6 +609,7 @@ interface CalendarViewWrapperProps {
   onTaskMoved?: () => void;
   onExternalEventChange?: () => void;
   timezone?: string;
+  calendarSettingsButton?: React.ReactNode;
 }
 
 export function CalendarViewWrapper({
@@ -619,6 +624,7 @@ export function CalendarViewWrapper({
   onTaskMoved,
   onExternalEventChange,
   timezone = "UTC",
+  calendarSettingsButton,
 }: CalendarViewWrapperProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDayPopover, setShowDayPopover] = useState(false);
@@ -681,6 +687,7 @@ export function CalendarViewWrapper({
         onExternalEventClick={handleExternalEventClick}
         onExternalEventChange={onExternalEventChange}
         timezone={timezone || "UTC"}
+        calendarSettingsButton={calendarSettingsButton}
       />
 
       {/* Day Popover */}
