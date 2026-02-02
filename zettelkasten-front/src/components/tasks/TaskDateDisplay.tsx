@@ -190,7 +190,7 @@ export function TaskDateDisplay({
 
       {dropdown.isOpen && dropdownPosition && createPortal(
         <div
-          className="fixed z-50 bg-white rounded-md shadow-lg py-1 min-w-[160px] border border-gray-200"
+          className="fixed z-[1001] bg-white rounded-md shadow-lg py-1 min-w-[160px] border border-gray-200"
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,

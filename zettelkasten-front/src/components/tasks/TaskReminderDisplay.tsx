@@ -171,7 +171,7 @@ export function TaskReminderDisplay({
       </div>
       {dropdown.isOpen && dropdownPosition && createPortal(
         <div
-          className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]"
+          className="fixed z-[1001] bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]"
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,

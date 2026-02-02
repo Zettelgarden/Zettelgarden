@@ -234,7 +234,7 @@ export function TaskListOptionsMenu({
         <div
           ref={dropdownRef}
           role="menu"
-          className="fixed z-50 bg-white rounded-md shadow-lg py-1 border border-gray-200"
+          className="fixed z-[1001] bg-white rounded-md shadow-lg py-1 border border-gray-200"
           style={{
             top: dropdownPosition.top + 40,
             left: dropdownPosition.left,

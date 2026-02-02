@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 
 interface TaskDropdownProps {
@@ -35,8 +35,10 @@ export function TaskDropdown({
   usePortal = false,
 }: TaskDropdownProps) {
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null);
+  const [isDropdownRendered, setIsDropdownRendered] = useState(false);
   const internalRef = useRef<HTMLSpanElement>(null);
   const effectiveRef = triggerRef || internalRef;
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside (portal mode only)
   useEffect(() => {
@@ -52,10 +54,48 @@ export function TaskDropdown({
     return () => document.removeEventListener("click", handleClickOutside);
   }, [usePortal, isOpen, onClose, effectiveRef]);
 
-  // Calculate position when opening with portal
+  // Track when dropdown has been rendered (for positioning adjustment)
+  useEffect(() => {
+    if (isOpen) {
+      setIsDropdownRendered(true);
+    } else {
+      setIsDropdownRendered(false);
+    }
+  }, [isOpen]);
+
+  // Adjust dropdown position after render to avoid clipping
+  useLayoutEffect(() => {
+    if (usePortal && isOpen && isDropdownRendered && dropdownRef.current && effectiveRef.current) {
+      const dropdownRect = dropdownRef.current.getBoundingClientRect();
+      const triggerRect = effectiveRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+
+      // Calculate space above and below trigger
+      const spaceBelow = viewportHeight - triggerRect.bottom;
+      const spaceAbove = triggerRect.top;
+
+      // Determine if we should position above (not enough space below)
+      const shouldPositionAbove = spaceBelow < dropdownRect.height + 8;
+
+      const top = shouldPositionAbove
+        ? triggerRect.top - dropdownRect.height - 4
+        : triggerRect.bottom + 4;
+
+      // Only update if position changed to avoid flicker
+      setDropdownPosition(prev => {
+        if (!prev || Math.abs(prev.top - top) > 1) {
+          return { top, left: triggerRect.left };
+        }
+        return prev;
+      });
+    }
+  }, [usePortal, isOpen, isDropdownRendered, effectiveRef]);
+
+  // Calculate initial position when opening with portal
   const handleToggle = (e: React.MouseEvent) => {
     if (usePortal && effectiveRef.current && !isOpen) {
       const rect = effectiveRef.current.getBoundingClientRect();
+      // Start with position below, useLayoutEffect will adjust if needed
       setDropdownPosition({ top: rect.bottom + 4, left: rect.left });
     } else {
       setDropdownPosition(null);
@@ -74,8 +114,9 @@ export function TaskDropdown({
 
   const dropdownContent = (
     <div
+      ref={dropdownRef}
       className={`${
-        usePortal ? "fixed z-50" : "absolute z-20"
+        usePortal ? "fixed z-[1001]" : "absolute z-20"
       } mt-1 bg-white rounded-md shadow-lg py-1 border border-gray-200 ${menuClassName}`}
       style={
         usePortal && dropdownPosition
@@ -95,7 +136,7 @@ export function TaskDropdown({
   return (
     <div className="relative inline-block">
       <span
-        ref={triggerRef ? undefined : effectiveRef}
+        ref={triggerRef || internalRef}
         onClick={handleToggle}
         className="cursor-pointer inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition-colors hover:opacity-80"
         style={{
