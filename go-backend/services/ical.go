@@ -104,6 +104,9 @@ func parseEventProperty(event *ICalEvent, line string) {
 		event.RecurrenceRule = value
 	case "URL":
 		event.URL = value
+	case "TZID":
+		// TZID may come as a separate property in some feeds
+		event.TZID = value
 	}
 }
 

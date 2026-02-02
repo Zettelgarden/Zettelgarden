@@ -156,7 +156,12 @@ func (s *ExternalEventService) SyncExternalCalendar(calendarID int, userID int) 
 
 // importEvent imports a single event, handling upsert logic
 func (s *ExternalEventService) importEvent(calendarID, userID int, event ICalEvent, defaultColor string) error {
-	// Check if event already exists
+	// If this event has a recurrence rule, we need to expand it
+	if event.RecurrenceRule != "" {
+		return s.importRecurringEvent(calendarID, userID, event, defaultColor)
+	}
+
+	// For non-recurring events, check if event already exists
 	var existingID int
 	var existingColor sql.NullString
 	err := s.db.QueryRow(`
@@ -201,6 +206,148 @@ func (s *ExternalEventService) importEvent(calendarID, userID int, event ICalEve
 	return err
 }
 
+// importRecurringEvent expands and imports a recurring event
+func (s *ExternalEventService) importRecurringEvent(calendarID, userID int, event ICalEvent, defaultColor string) error {
+	log.Printf("[Recurrence] Expanding recurring event %s with RRULE: %s", event.UID, event.RecurrenceRule)
+
+	// Expand the recurrence rule into occurrences
+	occurrences, err := ExpandRecurrence(event.RecurrenceRule, event.DTStart, event.DTEnd, event.AllDay)
+	if err != nil {
+		log.Printf("[Recurrence] Failed to expand RRULE for event %s: %v", event.UID, err)
+		// Fall back to storing just the base event
+		return s.importSingleEvent(calendarID, userID, event, defaultColor)
+	}
+
+	log.Printf("[Recurrence] Generated %d occurrences for event %s", len(occurrences), event.UID)
+
+	// Clean up old instances of this recurring series
+	s.cleanupOldRecurringInstances(userID, event.UID)
+
+	// Import each occurrence
+	for _, occ := range occurrences {
+		instanceUID := GetInstanceUID(event.UID, occ.Index)
+
+		// Check if this instance already exists
+		var existingID int
+		var existingColor sql.NullString
+		err := s.db.QueryRow(`
+			SELECT id, color
+			FROM external_events
+			WHERE user_id = $1 AND external_uid = $2
+		`, userID, instanceUID).Scan(&existingID, &existingColor)
+
+		if err == sql.ErrNoRows {
+			// Insert new instance
+			_, err = s.db.Exec(`
+				INSERT INTO external_events (
+					user_id, external_calendar_id, title, description,
+					start_time, end_time, all_day, location,
+					external_uid, external_url, recurrence_rule, recurrence_id, recurrence_instance, color,
+					last_synced_at
+				) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+			`, userID, calendarID, event.Summary, nullString(event.Description),
+				occ.StartTime, occ.EndTime, event.AllDay, nullString(event.Location),
+				instanceUID, nullString(event.URL), nullString(event.RecurrenceRule),
+				GetRecurrenceID(event.UID), occ.Index, defaultColor)
+			if err != nil {
+				log.Printf("[Recurrence] Failed to insert instance %s: %v", instanceUID, err)
+			}
+		} else if err == nil {
+			// Update existing instance (preserve event-specific color if set)
+			color := existingColor.String
+			if !existingColor.Valid {
+				color = defaultColor
+			}
+
+			_, err = s.db.Exec(`
+				UPDATE external_events SET
+					title = $1, description = $2, start_time = $3, end_time = $4,
+					all_day = $5, location = $6, external_url = $7,
+					recurrence_rule = $8, color = $9,
+					updated_at = NOW(), last_synced_at = NOW()
+				WHERE id = $10
+			`, event.Summary, nullString(event.Description), occ.StartTime, occ.EndTime,
+				event.AllDay, nullString(event.Location), nullString(event.URL),
+				nullString(event.RecurrenceRule), color, existingID)
+			if err != nil {
+				log.Printf("[Recurrence] Failed to update instance %s: %v", instanceUID, err)
+			}
+		} else {
+			log.Printf("[Recurrence] Error checking for instance %s: %v", instanceUID, err)
+		}
+	}
+
+	return nil
+}
+
+// importSingleEvent imports a single event (fallback for recurrence expansion failures)
+func (s *ExternalEventService) importSingleEvent(calendarID, userID int, event ICalEvent, defaultColor string) error {
+	var existingID int
+	var existingColor sql.NullString
+	err := s.db.QueryRow(`
+		SELECT id, color
+		FROM external_events
+		WHERE user_id = $1 AND external_uid = $2
+	`, userID, event.UID).Scan(&existingID, &existingColor)
+
+	if err == sql.ErrNoRows {
+		// Insert new event
+		_, err = s.db.Exec(`
+			INSERT INTO external_events (
+				user_id, external_calendar_id, title, description,
+				start_time, end_time, all_day, location,
+				external_uid, external_url, recurrence_rule, color,
+				last_synced_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+		`, userID, calendarID, event.Summary, nullString(event.Description),
+			event.DTStart, event.DTEnd, event.AllDay, nullString(event.Location),
+			event.UID, nullString(event.URL), nullString(event.RecurrenceRule), defaultColor)
+		return err
+	} else if err == nil {
+		// Update existing event (preserve event-specific color if set)
+		color := existingColor.String
+		if !existingColor.Valid {
+			color = defaultColor
+		}
+
+		_, err = s.db.Exec(`
+			UPDATE external_events SET
+				title = $1, description = $2, start_time = $3, end_time = $4,
+				all_day = $5, location = $6, external_url = $7,
+				recurrence_rule = $8, color = $9,
+				updated_at = NOW(), last_synced_at = NOW()
+			WHERE id = $10
+		`, event.Summary, nullString(event.Description), event.DTStart, event.DTEnd,
+			event.AllDay, nullString(event.Location), nullString(event.URL),
+			nullString(event.RecurrenceRule), color, existingID)
+		return err
+	}
+
+	return err
+}
+
+// cleanupOldRecurringInstances removes old instances of a recurring event series
+// that are no longer in the current expansion (e.g., past occurrences older than 30 days)
+func (s *ExternalEventService) cleanupOldRecurringInstances(userID int, baseUID string) {
+	recurrenceID := GetRecurrenceID(baseUID)
+
+	// Delete instances that are more than 60 days old and not manually modified
+	// We keep a buffer to avoid deleting instances that might still be relevant
+	_, err := s.db.Exec(`
+		DELETE FROM external_events
+		WHERE user_id = $1
+		  AND recurrence_id = $2
+		  AND start_time < NOW() - INTERVAL '60 days'
+		  AND card_pk IS NULL  -- Don't delete events that are linked to cards
+	`, userID, recurrenceID)
+
+	if err != nil {
+		log.Printf("[Recurrence] Failed to cleanup old instances for %s: %v", baseUID, err)
+	} else {
+		log.Printf("[Recurrence] Cleaned up old instances for %s", baseUID)
+	}
+}
+
 // GetEventsInRange returns events for a user within a date range with pagination
 func (s *ExternalEventService) GetEventsInRange(userID int, start, end time.Time, limit, offset int) ([]models.ExternalEvent, int, error) {
 	// First, get the total count
@@ -229,6 +376,7 @@ func (s *ExternalEventService) GetEventsInRange(userID int, start, end time.Time
 		SELECT e.id, e.user_id, e.external_calendar_id, e.title, e.description,
 		       e.start_time, e.end_time, e.all_day, e.location,
 		       e.external_uid, e.external_url, e.recurrence_rule,
+		       e.recurrence_id, e.recurrence_instance,
 		       COALESCE(ec.color, e.color) as color,
 		       e.card_pk, e.created_at, e.updated_at, e.last_synced_at
 		FROM external_events e
@@ -249,16 +397,18 @@ func (s *ExternalEventService) GetEventsInRange(userID int, start, end time.Time
 	var events []models.ExternalEvent
 	for rows.Next() {
 		var event models.ExternalEvent
-		var description, location, externalUID, externalURL, recurrenceRule, color sql.NullString
+		var description, location, externalUID, externalURL, recurrenceRule, recurrenceID, color sql.NullString
 		var externalCalendarID sql.NullInt32
 		var cardPK sql.NullInt32
+		var recurrenceInstance sql.NullInt32
 		var lastSyncedAt sql.NullTime
 
 		err := rows.Scan(
 			&event.ID, &event.UserID, &externalCalendarID,
 			&event.Title, &description,
 			&event.StartTime, &event.EndTime, &event.AllDay, &location,
-			&externalUID, &externalURL, &recurrenceRule, &color,
+			&externalUID, &externalURL, &recurrenceRule, &recurrenceID, &recurrenceInstance,
+			&color,
 			&cardPK,
 			&event.CreatedAt, &event.UpdatedAt, &lastSyncedAt,
 		)
@@ -281,6 +431,13 @@ func (s *ExternalEventService) GetEventsInRange(userID int, start, end time.Time
 		}
 		if recurrenceRule.Valid {
 			event.RecurrenceRule = &recurrenceRule.String
+		}
+		if recurrenceID.Valid {
+			event.RecurrenceID = &recurrenceID.String
+		}
+		if recurrenceInstance.Valid {
+			instance := int(recurrenceInstance.Int32)
+			event.RecurrenceInstance = &instance
 		}
 		if color.Valid {
 			event.Color = &color.String
@@ -679,7 +836,8 @@ func (s *ExternalEventService) GetEventsByCard(db models.Database, userID int, c
 	query := `
 		SELECT id, user_id, external_calendar_id, title, description,
 		       start_time, end_time, all_day, location,
-		       external_uid, external_url, recurrence_rule, color, card_pk,
+		       external_uid, external_url, recurrence_rule, recurrence_id, recurrence_instance,
+		       color, card_pk,
 		       created_at, updated_at, last_synced_at
 		FROM external_events
 		WHERE user_id = $1 AND card_pk = $2
@@ -695,16 +853,18 @@ func (s *ExternalEventService) GetEventsByCard(db models.Database, userID int, c
 	var events []models.ExternalEvent
 	for rows.Next() {
 		var event models.ExternalEvent
-		var description, location, externalUID, externalURL, recurrenceRule, color sql.NullString
+		var description, location, externalUID, externalURL, recurrenceRule, recurrenceID, color sql.NullString
 		var externalCalendarID sql.NullInt32
 		var scannedCardPK sql.NullInt32
+		var recurrenceInstance sql.NullInt32
 		var lastSyncedAt sql.NullTime
 
 		err := rows.Scan(
 			&event.ID, &event.UserID, &externalCalendarID,
 			&event.Title, &description,
 			&event.StartTime, &event.EndTime, &event.AllDay, &location,
-			&externalUID, &externalURL, &recurrenceRule, &color,
+			&externalUID, &externalURL, &recurrenceRule, &recurrenceID, &recurrenceInstance,
+			&color,
 			&scannedCardPK,
 			&event.CreatedAt, &event.UpdatedAt, &lastSyncedAt,
 		)
@@ -727,6 +887,13 @@ func (s *ExternalEventService) GetEventsByCard(db models.Database, userID int, c
 		}
 		if recurrenceRule.Valid {
 			event.RecurrenceRule = &recurrenceRule.String
+		}
+		if recurrenceID.Valid {
+			event.RecurrenceID = &recurrenceID.String
+		}
+		if recurrenceInstance.Valid {
+			instance := int(recurrenceInstance.Int32)
+			event.RecurrenceInstance = &instance
 		}
 		if color.Valid {
 			event.Color = &color.String
@@ -760,15 +927,17 @@ func (s *ExternalEventService) GetEventsByCard(db models.Database, userID int, c
 // getEventByID fetches a single event by ID with card info
 func (s *ExternalEventService) getEventByID(db models.Database, eventID int, userID int) (*models.ExternalEvent, error) {
 	var event models.ExternalEvent
-	var description, location, externalUID, externalURL, recurrenceRule, color sql.NullString
+	var description, location, externalUID, externalURL, recurrenceRule, recurrenceID, color sql.NullString
 	var externalCalendarID sql.NullInt32
 	var cardPK sql.NullInt32
+	var recurrenceInstance sql.NullInt32
 	var lastSyncedAt sql.NullTime
 
 	err := db.QueryRow(`
 		SELECT id, user_id, external_calendar_id, title, description,
 		       start_time, end_time, all_day, location,
-		       external_uid, external_url, recurrence_rule, color, card_pk,
+		       external_uid, external_url, recurrence_rule, recurrence_id, recurrence_instance,
+		       color, card_pk,
 		       created_at, updated_at, last_synced_at
 		FROM external_events
 		WHERE id = $1 AND user_id = $2
@@ -776,7 +945,8 @@ func (s *ExternalEventService) getEventByID(db models.Database, eventID int, use
 		&event.ID, &event.UserID, &externalCalendarID,
 		&event.Title, &description,
 		&event.StartTime, &event.EndTime, &event.AllDay, &location,
-		&externalUID, &externalURL, &recurrenceRule, &color,
+		&externalUID, &externalURL, &recurrenceRule, &recurrenceID, &recurrenceInstance,
+		&color,
 		&cardPK,
 		&event.CreatedAt, &event.UpdatedAt, &lastSyncedAt,
 	)
@@ -803,6 +973,13 @@ func (s *ExternalEventService) getEventByID(db models.Database, eventID int, use
 	}
 	if recurrenceRule.Valid {
 		event.RecurrenceRule = &recurrenceRule.String
+	}
+	if recurrenceID.Valid {
+		event.RecurrenceID = &recurrenceID.String
+	}
+	if recurrenceInstance.Valid {
+		instance := int(recurrenceInstance.Int32)
+		event.RecurrenceInstance = &instance
 	}
 	if color.Valid {
 		event.Color = &color.String

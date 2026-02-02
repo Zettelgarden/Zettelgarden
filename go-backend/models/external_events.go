@@ -53,6 +53,8 @@ type ExternalEvent struct {
 	ExternalUID        *string    `json:"external_uid,omitempty"`
 	ExternalURL        *string    `json:"external_url,omitempty"`
 	RecurrenceRule     *string    `json:"recurrence_rule,omitempty"`
+	RecurrenceID       *string    `json:"recurrence_id,omitempty"`       // Series identifier for recurring events
+	RecurrenceInstance *int       `json:"recurrence_instance,omitempty"` // Instance index (0-based)
 	Color              *string    `json:"color,omitempty"`
 	CardPK             *int       `json:"card_pk,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`
