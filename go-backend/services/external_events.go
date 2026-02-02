@@ -109,6 +109,7 @@ func (s *ExternalEventService) SyncExternalCalendar(calendarID int, userID int) 
 	}
 
 	log.Printf("[Sync] Fetching events from iCal feed for calendar %d", calendarID)
+	log.Printf("[Sync] URL: %s, Username: %s", url, username.String)
 
 	// Decrypt password if provided
 	var password string
@@ -120,6 +121,7 @@ func (s *ExternalEventService) SyncExternalCalendar(calendarID int, userID int) 
 			return fmt.Errorf("failed to decrypt password: %w", err)
 		}
 		password = decrypted
+		log.Printf("[Sync] Decrypted password length: %d (first 3 chars: %s***)", len(password), string(password[:3]))
 	}
 
 	// Fetch events from iCal feed with credentials
@@ -224,15 +226,17 @@ func (s *ExternalEventService) GetEventsInRange(userID int, start, end time.Time
 	}
 
 	query := `
-		SELECT id, user_id, external_calendar_id, title, description,
-		       start_time, end_time, all_day, location,
-		       external_uid, external_url, recurrence_rule, color, card_pk,
-		       created_at, updated_at, last_synced_at
-		FROM external_events
-		WHERE user_id = $1
-		  AND start_time >= $2
-		  AND end_time <= $3
-		ORDER BY start_time
+		SELECT e.id, e.user_id, e.external_calendar_id, e.title, e.description,
+		       e.start_time, e.end_time, e.all_day, e.location,
+		       e.external_uid, e.external_url, e.recurrence_rule,
+		       COALESCE(ec.color, e.color) as color,
+		       e.card_pk, e.created_at, e.updated_at, e.last_synced_at
+		FROM external_events e
+		LEFT JOIN external_calendars ec ON e.external_calendar_id = ec.id
+		WHERE e.user_id = $1
+		  AND e.start_time >= $2
+		  AND e.end_time <= $3
+		ORDER BY e.start_time
 		LIMIT $4 OFFSET $5
 	`
 

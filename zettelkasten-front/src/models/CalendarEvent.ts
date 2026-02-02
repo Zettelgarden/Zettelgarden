@@ -153,11 +153,10 @@ export function tasksToCalendarEvents(tasks: Task[], timezone: string = "UTC"): 
  * Get calendar event color based on priority, status, or source
  */
 export function getEventColor(event: CalendarEvent): string {
-  // External events use their custom color
+  // External events use their custom color - return base styling
+  // The actual color is applied via inline style in the component
   if (event.source === "external") {
-    const color = event.color || "#6366f1"; // Default indigo
-    // Generate Tailwind-style classes with the custom color
-    return `border-l-4`;
+    return "border-l-4 bg-slate-50 text-slate-700 border-slate-300";
   }
 
   // Task events use existing color logic
