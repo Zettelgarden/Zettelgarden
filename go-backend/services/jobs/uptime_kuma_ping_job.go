@@ -2,7 +2,9 @@ package jobs
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -58,8 +60,33 @@ func (j *UptimeKumaPingJob) Handler(ctx context.Context) error {
 		return nil
 	}
 
-	// TODO: Make HTTP POST request
-	log.Println("[uptime-kuma-ping] completed (not yet implemented)")
+	// Create request with context for timeout cancellation
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, j.pushURL, nil)
+	if err != nil {
+		log.Printf("[uptime-kuma-ping] failed to create request: %v", err)
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers (Uptime Kuma accepts empty body for push)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("[uptime-kuma-ping] request failed: %v", err)
+		return fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("[uptime-kuma-ping] unexpected status code: %d", resp.StatusCode)
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	log.Println("[uptime-kuma-ping] completed successfully")
 	return nil
 }
 

@@ -2,8 +2,11 @@ package jobs
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"go-backend/services"
 )
@@ -43,5 +46,44 @@ func TestUptimeKumaPingJobHandler_MissingURL(t *testing.T) {
 	// Handler should succeed when URL is not configured (graceful degradation)
 	if err := job.Handler(ctx); err != nil {
 		t.Errorf("Handler() with missing URL should succeed, got error: %v", err)
+	}
+}
+
+// TestUptimeKumaPingJobHandler_Success verifies successful POST to Uptime Kuma
+func TestUptimeKumaPingJobHandler_Success(t *testing.T) {
+	// Create a test server that acts like Uptime Kuma
+	receivedRequest := make(chan struct{})
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(receivedRequest)
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST request, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer testServer.Close()
+
+	// Set the environment variable to point to our test server
+	os.Setenv("UPTIME_KUMA_PUSH_URL", testServer.URL)
+	defer os.Unsetenv("UPTIME_KUMA_PUSH_URL")
+
+	job := NewUptimeKumaPingJob()
+	ctx := context.Background()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- job.Handler(ctx)
+	}()
+
+	select {
+	case <-receivedRequest:
+		// Request was received
+	case err := <-done:
+		t.Fatalf("Handler() completed before request was received: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Handler did not send HTTP request within timeout")
+	}
+
+	if err := <-done; err != nil {
+		t.Errorf("Handler() should succeed, got error: %v", err)
 	}
 }
