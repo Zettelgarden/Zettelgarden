@@ -1,3 +1,4 @@
+import React from "react";
 import { Popover } from "@headlessui/react";
 
 interface HelpFeature {
@@ -51,7 +52,7 @@ export function CardBodyHelpPopover() {
         ?
       </Popover.Button>
 
-      <Popover.Panel className="absolute z-50 w-96 max-w-md mt-2 -left-48 bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+      <Popover.Panel className="absolute z-[60] w-96 max-w-md mt-2 -left-48 bg-white rounded-lg shadow-lg border border-gray-200 p-4">
         <div className="text-sm">
           <h3 className="font-semibold text-gray-900 mb-3">Card Body Features</h3>
 
