@@ -18,6 +18,7 @@ export interface CalendarEvent {
 
   title: string;
   date: Date;
+  endTime?: Date;              // End time for external events with specific times
   allDay: boolean;
 
   // Task-specific fields

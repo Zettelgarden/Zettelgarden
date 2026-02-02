@@ -231,6 +231,7 @@ export function mergeCalendarEvents(
     source: "external" as const,
     title: ee.title,
     date: new Date(ee.start_time),
+    endTime: new Date(ee.end_time),
     allDay: ee.all_day,
     description: ee.description,
     location: ee.location,

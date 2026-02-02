@@ -795,6 +795,12 @@ function DayPopover({ date, events, onClose, onTaskClick, onCreateTask }: DayPop
                       {isExternal && <span className="text-xs">📅</span>}
                     </div>
                     <div className="text-xs mt-1 opacity-75 flex items-center gap-2">
+                      {isExternal && !event.allDay && (
+                        <span>
+                          {format(event.date, "h:mm a")}
+                          {event.endTime && ` - ${format(event.endTime, "h:mm a")}`}
+                        </span>
+                      )}
                       {!isExternal && (
                         <span>
                           {event.eventType === "scheduled" && "📅 Scheduled"}
