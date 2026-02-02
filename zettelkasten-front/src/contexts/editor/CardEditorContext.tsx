@@ -16,6 +16,9 @@ export function useCardEditorContext() {
   return context;
 }
 
+// Export the context directly for optional usage
+export { CardEditorContext };
+
 interface CardEditorProviderProps {
   children: React.ReactNode;
   editingCard: Card;

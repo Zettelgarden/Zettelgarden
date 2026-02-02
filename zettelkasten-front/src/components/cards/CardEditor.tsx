@@ -7,6 +7,7 @@ import { MarkdownToolbar } from "./MarkdownToolbar";
 import { BacklinkDialog } from "./BacklinkDialog";
 import { SaveAsTemplateDialog } from "./SaveAsTemplateDialog";
 import { CardIdDiscoveryDialog } from "./CardIdDiscoveryDialog";
+import { CardBodyHelpPopover } from "./CardBodyHelpPopover";
 import { Button } from "../Button";
 import { useCardEditorContext } from "../../contexts/editor";
 import { useEditorUIContext } from "../../contexts/editor";
@@ -145,6 +146,7 @@ export function CardEditor({
       <div className="space-y-2">
         <label htmlFor="body" className="block text-sm font-medium text-gray-700">
           Body:
+          <CardBodyHelpPopover />
         </label>
         <MarkdownToolbar
           onFormatText={(formatType) => {

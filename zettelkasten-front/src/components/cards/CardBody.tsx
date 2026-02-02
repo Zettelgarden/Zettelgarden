@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import remarkGfm from "remark-gfm";
 
 import { useDialogState } from "../../contexts/DialogStateContext";
-import { useCardEditorContext } from "../../contexts/editor";
+import { CardEditorContext } from "../../contexts/editor";
 
 import { CardLinkWithPreview } from "./CardLinkWithPreview";
 import { DynamicTaskList } from "./DynamicTaskList";
@@ -417,7 +417,7 @@ function renderCardText(
 
 export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities }) => {
   const navigate = useNavigate();
-  const { setEditingCard } = useCardEditorContext();
+  const cardEditorContext = React.useContext(CardEditorContext);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [shouldShowToggle, setShouldShowToggle] = useState(false);
   const contentRef = React.useRef<HTMLDivElement>(null);
@@ -457,7 +457,9 @@ export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities }) => 
         }}
       >
         {renderCardTextWithDialog(viewingCard, handleCardClick, entities, (newBody) => {
-          setEditingCard((prevCard) => ({ ...prevCard, body: newBody }));
+          if (cardEditorContext?.setEditingCard) {
+            cardEditorContext.setEditingCard((prevCard: any) => ({ ...prevCard, body: newBody }));
+          }
         })}
       </div>
 
