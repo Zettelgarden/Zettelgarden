@@ -102,10 +102,16 @@ export function populateDayEvents(days: CalendarDay[], events: CalendarEvent[], 
     ).length;
     const completedCount = dayEvents.filter(e => e.isComplete).length;
 
-    // Remove duplicate events (same task on same date) - keep only one per task
-    const uniqueEvents = dayEvents.filter((event, index, self) =>
-      index === self.findIndex(e => e.taskId === event.taskId)
-    );
+    // Remove duplicate TASK events (same task on same date) - keep only one per task
+    // External events should NOT be deduplicated - they're already unique
+    const uniqueEvents = dayEvents.filter((event, index, self) => {
+      // External events are always unique - keep all of them
+      if (event.source === "external") {
+        return true;
+      }
+      // For task events, remove duplicates by taskId
+      return index === self.findIndex(e => e.taskId === event.taskId);
+    });
 
     return {
       ...day,
