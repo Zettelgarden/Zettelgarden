@@ -1,6 +1,8 @@
 package jobs
 
 import (
+	"context"
+	"os"
 	"testing"
 
 	"go-backend/services"
@@ -28,4 +30,18 @@ func TestUptimeKumaPingJobImplementsInterface(t *testing.T) {
 
 	// Verify the job implements ScheduledJob interface
 	var _ services.ScheduledJob = job
+}
+
+// TestUptimeKumaPingJobHandler_MissingURL verifies behavior when UPTIME_KUMA_PUSH_URL is not set
+func TestUptimeKumaPingJobHandler_MissingURL(t *testing.T) {
+	// Unset the environment variable
+	os.Unsetenv("UPTIME_KUMA_PUSH_URL")
+
+	job := NewUptimeKumaPingJob()
+	ctx := context.Background()
+
+	// Handler should succeed when URL is not configured (graceful degradation)
+	if err := job.Handler(ctx); err != nil {
+		t.Errorf("Handler() with missing URL should succeed, got error: %v", err)
+	}
 }

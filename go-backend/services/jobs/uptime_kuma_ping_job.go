@@ -49,10 +49,17 @@ func (j *UptimeKumaPingJob) NextRun(from time.Time) time.Time {
 	return schedule.Next(from)
 }
 
-// Handler executes the job logic - sends a heartbeat POST request to Uptime Kuma
-// TODO: Implementation in Task 4
+// Handler executes the uptime kuma ping job logic
 func (j *UptimeKumaPingJob) Handler(ctx context.Context) error {
-	log.Println("[uptime-kuma-ping] job handler called (not yet implemented)")
+	log.Println("[uptime-kuma-ping] starting heartbeat")
+
+	if j.pushURL == "" {
+		log.Println("[uptime-kuma-ping] UPTIME_KUMA_PUSH_URL not configured, skipping")
+		return nil
+	}
+
+	// TODO: Make HTTP POST request
+	log.Println("[uptime-kuma-ping] completed (not yet implemented)")
 	return nil
 }
 
