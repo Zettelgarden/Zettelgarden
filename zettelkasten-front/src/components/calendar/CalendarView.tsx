@@ -685,6 +685,7 @@ export function CalendarViewWrapper({
           events={selectedDateEvents}
           onClose={() => setShowDayPopover(false)}
           onTaskClick={onTaskClick}
+          onExternalEventClick={handleExternalEventClick}
           onCreateTask={() => handleCreateTask(selectedDate)}
         />
       )}
@@ -706,10 +707,11 @@ interface DayPopoverProps {
   events: CalendarEvent[];
   onClose: () => void;
   onTaskClick: (taskId: number) => void;
+  onExternalEventClick: (event: CalendarEvent) => void;
   onCreateTask?: () => void;
 }
 
-function DayPopover({ date, events, onClose, onTaskClick, onCreateTask }: DayPopoverProps) {
+function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, onCreateTask }: DayPopoverProps) {
   // Separate external events from task events
   // Task events are deduplicated by taskId, external events are kept as-is
   const taskEventsById = new Map<number, CalendarEvent>();
@@ -776,16 +778,22 @@ function DayPopover({ date, events, onClose, onTaskClick, onCreateTask }: DayPop
                 return (
                   <div
                     key={event.id}
-                    onClick={() => !isExternal && event.taskId && onTaskClick(event.taskId)}
+                    onClick={() => {
+                      if (isExternal) {
+                        onExternalEventClick(event);
+                      } else if (event.taskId) {
+                        onTaskClick(event.taskId);
+                      }
+                    }}
                     className={`
-                      p-3 rounded border ${isExternal ? "" : "cursor-pointer hover:opacity-80"} focus:outline-none focus:ring-2 focus:ring-blue-500
+                      p-3 rounded border cursor-pointer hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500
                       ${getEventColor(event)}
                       ${isExternal ? "border-l-4" : ""}
                     `}
-                    role={isExternal ? "presentation" : "button"}
-                    tabIndex={isExternal ? -1 : 0}
+                    role="button"
+                    tabIndex={0}
                     aria-label={isExternal
-                      ? `External event: ${event.title}`
+                      ? `View external event: ${event.title}`
                       : `View task: ${event.title} (${event.eventType}${event.priority ? `, priority ${event.priority}` : ""})`
                     }
                     style={isExternal ? { borderLeftColor: customColor } : undefined}
