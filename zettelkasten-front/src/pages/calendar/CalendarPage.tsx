@@ -18,6 +18,7 @@ import {
 
 const CALENDAR_SETTINGS_KEY = "calendarPageSettings";
 const CALENDAR_VISIBILITY_KEY = "calendarVisibility";
+const CALENDAR_SHOW_TASKS_KEY = "calendarShowTasks";
 
 interface CalendarSettings {
   viewMode: "month" | "week";
@@ -67,6 +68,17 @@ export function CalendarPage() {
   const [calendars, setCalendars] = useState<ExternalCalendar[]>([]);
   const [isLoadingCalendars, setIsLoadingCalendars] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+
+  // Initialize showTasks from localStorage to avoid overwriting on mount
+  const getInitialShowTasks = () => {
+    try {
+      const saved = localStorage.getItem(CALENDAR_SHOW_TASKS_KEY);
+      return saved === null ? true : saved === "true";
+    } catch {
+      return true;
+    }
+  };
+  const [showTasks, setShowTasks] = useState(getInitialShowTasks);
 
   // Ref for abort controller to cancel pending external events requests
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -128,6 +140,15 @@ export function CalendarPage() {
 
     loadCalendars();
   }, []);
+
+  // Persist show tasks preference
+  useEffect(() => {
+    try {
+      localStorage.setItem(CALENDAR_SHOW_TASKS_KEY, String(showTasks));
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [showTasks]);
 
   // Toggle calendar visibility
   const toggleCalendarVisibility = (calendarId: number) => {
@@ -284,7 +305,7 @@ export function CalendarPage() {
         }
       >
         <CalendarViewWrapper
-          tasks={tasks}
+          tasks={showTasks ? tasks : []}
           externalEvents={visibleExternalEvents}
           currentDate={currentDate}
           viewMode={viewMode}
@@ -362,6 +383,20 @@ export function CalendarPage() {
               </button>
             </div>
             <div className="p-4 space-y-3">
+              <div>
+                <h4 className="text-sm font-medium text-slate-700 mb-3">Show Tasks</h4>
+                <label className="flex items-center gap-3 cursor-pointer select-none p-2 hover:bg-slate-50 rounded">
+                  <input
+                    type="checkbox"
+                    checked={showTasks}
+                    onChange={(e) => setShowTasks(e.target.checked)}
+                    className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
+                  />
+                  <span className="flex-1 text-slate-700">
+                    Show tasks on calendar
+                  </span>
+                </label>
+              </div>
               <div>
                 <h4 className="text-sm font-medium text-slate-700 mb-3">Show Calendars</h4>
                 {calendars.length === 0 ? (
