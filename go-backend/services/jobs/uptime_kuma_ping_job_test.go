@@ -87,3 +87,46 @@ func TestUptimeKumaPingJobHandler_Success(t *testing.T) {
 		t.Errorf("Handler() should succeed, got error: %v", err)
 	}
 }
+
+// TestUptimeKumaPingJobHandler_HTTPError verifies error handling
+func TestUptimeKumaPingJobHandler_HTTPError(t *testing.T) {
+	tests := []struct {
+		name           string
+		responseStatus int
+		expectError    bool
+	}{
+		{
+			name:           "server error 500",
+			responseStatus: http.StatusInternalServerError,
+			expectError:    true,
+		},
+		{
+			name:           "not found 404",
+			responseStatus: http.StatusNotFound,
+			expectError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.responseStatus)
+			}))
+			defer testServer.Close()
+
+			os.Setenv("UPTIME_KUMA_PUSH_URL", testServer.URL)
+			defer os.Unsetenv("UPTIME_KUMA_PUSH_URL")
+
+			job := NewUptimeKumaPingJob()
+			ctx := context.Background()
+
+			err := job.Handler(ctx)
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+		})
+	}
+}
