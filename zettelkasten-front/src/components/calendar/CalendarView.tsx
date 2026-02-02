@@ -545,7 +545,12 @@ function CalendarDayCell({
                         aria-label={`${event.title}${isExternal ? " (external event)" : ""}${event.eventType ? ` - ${event.eventType}` : ""}${event.priority ? `, priority ${event.priority}` : ""}`}
                       >
                         {icon && <span className="mr-1" aria-hidden="true">{icon}</span>}
-                        {event.title}
+                        <span className="truncate flex-1">{event.title}</span>
+                        {isExternal && !event.allDay && (
+                          <span className="ml-1 text-xs opacity-75 whitespace-nowrap" aria-hidden="true">
+                            {format(event.date, "h:mm a")}
+                          </span>
+                        )}
                       </div>
                     );
                   }}
