@@ -52,7 +52,7 @@ export function CardBodyHelpPopover() {
         ?
       </Popover.Button>
 
-      <Popover.Panel className="absolute z-[60] w-96 max-w-md mt-2 -left-48 bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+      <Popover.Panel className="absolute z-[60] left-full ml-2 top-0 w-80 max-w-md bg-white rounded-lg shadow-lg border border-gray-200 p-4">
         <div className="text-sm">
           <h3 className="font-semibold text-gray-900 mb-3">Card Body Features</h3>
 
