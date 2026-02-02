@@ -710,8 +710,26 @@ interface DayPopoverProps {
 }
 
 function DayPopover({ date, events, onClose, onTaskClick, onCreateTask }: DayPopoverProps) {
-  // Group events by task to avoid duplicates
-  const uniqueEvents = Array.from(groupEventsByTask(events).values());
+  // Separate external events from task events
+  // Task events are deduplicated by taskId, external events are kept as-is
+  const taskEventsById = new Map<number, CalendarEvent>();
+  const externalEvents: CalendarEvent[] = [];
+
+  events.forEach(event => {
+    if (event.source === "external") {
+      externalEvents.push(event);
+    } else if (event.taskId) {
+      // Deduplicate task events - prefer scheduled over due over completed
+      const existing = taskEventsById.get(event.taskId);
+      if (!existing || event.eventType === "scheduled" ||
+        (existing.eventType !== "scheduled" && event.eventType === "due")) {
+        taskEventsById.set(event.taskId, event);
+      }
+    }
+  });
+
+  const uniqueTaskEvents = Array.from(taskEventsById.values());
+  const allEvents = [...uniqueTaskEvents, ...externalEvents];
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -734,7 +752,7 @@ function DayPopover({ date, events, onClose, onTaskClick, onCreateTask }: DayPop
           </button>
         </div>
         <div className="p-4">
-          {uniqueEvents.length === 0 ? (
+          {allEvents.length === 0 ? (
             <div className="text-center py-4">
               <p className="text-slate-500 mb-3">No tasks scheduled</p>
               {onCreateTask && (
@@ -751,39 +769,54 @@ function DayPopover({ date, events, onClose, onTaskClick, onCreateTask }: DayPop
             </div>
           ) : (
             <div className="space-y-2">
-              {uniqueEvents.map((event) => (
-                <div
-                  key={event.id}
-                  onClick={() => event.taskId && onTaskClick(event.taskId)}
-                  className={`
-                    p-3 rounded border cursor-pointer hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500
-                    ${getEventColor(event)}
-                  `}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`View task: ${event.title} (${event.eventType}${event.priority ? `, priority ${event.priority}` : ""})`}
-                >
-                  <div className="font-medium">{event.title}</div>
-                  <div className="text-xs mt-1 opacity-75 flex items-center gap-2">
-                    <span>
-                      {event.eventType === "scheduled" && "📅 Scheduled"}
-                      {event.eventType === "due" && "⏰ Due"}
-                      {event.eventType === "completed" && "✅ Completed"}
-                    </span>
-                    {event.priority && (
-                      <span className="inline-flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full" aria-hidden="true" style={{
-                          backgroundColor: event.priority === "A" ? "#f97316" :
-                                        event.priority === "B" ? "#fbbf24" :
-                                        event.priority === "C" ? "#60a5fa" : "#9ca3af"
-                        }}></span>
-                        <span className="sr-only">Priority {event.priority}</span>
-                        <span>Priority {event.priority}</span>
-                      </span>
-                    )}
+              {allEvents.map((event) => {
+                const isExternal = event.source === "external";
+                const customColor = event.color || "#6366f1";
+
+                return (
+                  <div
+                    key={event.id}
+                    onClick={() => !isExternal && event.taskId && onTaskClick(event.taskId)}
+                    className={`
+                      p-3 rounded border ${isExternal ? "" : "cursor-pointer hover:opacity-80"} focus:outline-none focus:ring-2 focus:ring-blue-500
+                      ${getEventColor(event)}
+                      ${isExternal ? "border-l-4" : ""}
+                    `}
+                    role={isExternal ? "presentation" : "button"}
+                    tabIndex={isExternal ? -1 : 0}
+                    aria-label={isExternal
+                      ? `External event: ${event.title}`
+                      : `View task: ${event.title} (${event.eventType}${event.priority ? `, priority ${event.priority}` : ""})`
+                    }
+                    style={isExternal ? { borderLeftColor: customColor } : undefined}
+                  >
+                    <div className="font-medium flex items-center gap-2">
+                      {event.title}
+                      {isExternal && <span className="text-xs">📅</span>}
+                    </div>
+                    <div className="text-xs mt-1 opacity-75 flex items-center gap-2">
+                      {!isExternal && (
+                        <span>
+                          {event.eventType === "scheduled" && "📅 Scheduled"}
+                          {event.eventType === "due" && "⏰ Due"}
+                          {event.eventType === "completed" && "✅ Completed"}
+                        </span>
+                      )}
+                      {event.priority && (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full" aria-hidden="true" style={{
+                            backgroundColor: event.priority === "A" ? "#f97316" :
+                                          event.priority === "B" ? "#fbbf24" :
+                                          event.priority === "C" ? "#60a5fa" : "#9ca3af"
+                          }}></span>
+                          <span className="sr-only">Priority {event.priority}</span>
+                          <span>Priority {event.priority}</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {onCreateTask && (
                 <button
                   onClick={() => {
