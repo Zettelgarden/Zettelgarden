@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { useState } from 'react';
 import { CardBody } from '../components/cards/CardBody';
 import { Card } from '../models/Card';
 import { MemoryRouter } from 'react-router-dom';
+import { CardEditorProvider } from '../contexts/editor';
 
 // Mock DialogStateContext
 vi.mock('../contexts/DialogStateContext', () => ({
@@ -65,11 +67,23 @@ describe('Spreadsheet Integration', () => {
     entities: []
   };
 
+  // Wrapper for the test with CardEditorProvider
+  function TestWrapper({ children }: { children: React.ReactNode }) {
+    const [editingCard, setEditingCard] = useState(cardWithSpreadsheet);
+    return (
+      <CardEditorProvider editingCard={editingCard} setEditingCard={setEditingCard}>
+        <MemoryRouter>
+          {children}
+        </MemoryRouter>
+      </CardEditorProvider>
+    );
+  }
+
   it('renders card with embedded spreadsheet', () => {
     render(
-      <MemoryRouter>
+      <TestWrapper>
         <CardBody viewingCard={cardWithSpreadsheet} />
-      </MemoryRouter>
+      </TestWrapper>
     );
 
     expect(screen.getByText('My budget:')).toBeInTheDocument();
@@ -78,9 +92,9 @@ describe('Spreadsheet Integration', () => {
 
   it('renders spreadsheet grid', () => {
     render(
-      <MemoryRouter>
+      <TestWrapper>
         <CardBody viewingCard={cardWithSpreadsheet} />
-      </MemoryRouter>
+      </TestWrapper>
     );
 
     expect(screen.getByText('A')).toBeInTheDocument();

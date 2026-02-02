@@ -31,3 +31,13 @@ type ScheduledJob interface {
 	// NextRun returns the next scheduled run time for this job
 	NextRun(time.Time) time.Time
 }
+
+// OptionalTimeoutJob is an optional interface that jobs can implement
+// to specify a custom timeout. If not implemented, the default 30-minute
+// timeout is used.
+type OptionalTimeoutJob interface {
+	ScheduledJob
+	// Timeout returns the maximum duration for this job execution.
+	// Jobs that take longer than this will be cancelled.
+	Timeout() time.Duration
+}

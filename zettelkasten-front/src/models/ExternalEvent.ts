@@ -61,6 +61,7 @@ export interface UpdateExternalCalendarRequest {
   url?: string;
   username?: string;
   password?: string;
+  clear_password?: boolean;
   color?: string;
   sync_enabled?: boolean;
   sync_interval_hours?: number;

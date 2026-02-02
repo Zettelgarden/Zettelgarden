@@ -46,14 +46,11 @@ type WorkerPool struct {
 	// Monitoring goroutine fields
 	monitorStop   chan struct{}
 	monitorWg     sync.WaitGroup
-	cleanupStop   chan struct{}
-	cleanupWg     sync.WaitGroup
 
 	// Configuration
 	workerCount      int
 	pollInterval     time.Duration
 	shutdownTimeout  time.Duration
-	retentionDays    int // Number of days to retain completed/failed jobs
 }
 
 // WorkerConfig holds configuration for the worker pool
@@ -61,7 +58,6 @@ type WorkerConfig struct {
 	WorkerCount      int           // Number of worker goroutines (default: 5)
 	PollInterval     time.Duration // How often to poll for jobs (default: 1s)
 	ShutdownTimeout  time.Duration // Max time to wait for graceful shutdown (default: 30s)
-	RetentionDays    int           // Number of days to retain completed/failed jobs (default: 30)
 }
 
 // DefaultWorkerConfig returns default worker configuration
@@ -70,7 +66,6 @@ func DefaultWorkerConfig() WorkerConfig {
 		WorkerCount:      getEnvInt("LLM_WORKERS", 5),
 		PollInterval:     1 * time.Second,
 		ShutdownTimeout:  30 * time.Second,
-		RetentionDays:    getEnvInt("JOB_RETENTION_DAYS", 30),
 	}
 }
 
@@ -272,7 +267,6 @@ func NewWorkerPool(queue JobQueue, processor JobProcessor, config WorkerConfig) 
 		workerCount:     config.WorkerCount,
 		pollInterval:    config.PollInterval,
 		shutdownTimeout: config.ShutdownTimeout,
-		retentionDays:   config.RetentionDays,
 		stopChan:        make(chan struct{}),
 	}
 }
@@ -297,11 +291,6 @@ func (p *WorkerPool) Start() error {
 	p.monitorStop = make(chan struct{})
 	p.monitorWg.Add(1)
 	go p.monitorRunningJobs()
-
-	// Start cleanup goroutine for old job deletion
-	p.cleanupStop = make(chan struct{})
-	p.cleanupWg.Add(1)
-	go p.cleanupOldJobs()
 
 	p.running.Store(true)
 	log.Printf("[WorkerPool] Started with %d workers", p.workerCount)
@@ -328,12 +317,6 @@ func (p *WorkerPool) Stop() error {
 	if p.monitorStop != nil {
 		close(p.monitorStop)
 		p.monitorWg.Wait()
-	}
-
-	// Stop cleanup goroutine
-	if p.cleanupStop != nil {
-		close(p.cleanupStop)
-		p.cleanupWg.Wait()
 	}
 
 	// Signal all workers to stop
@@ -387,30 +370,6 @@ func (p *WorkerPool) monitorRunningJobs() {
 				log.Printf("[WorkerPool] Failed to mark stuck jobs: %v", err)
 			} else if count > 0 {
 				log.Printf("[WorkerPool] Marked %d stuck jobs as failed", count)
-			}
-		}
-	}
-}
-
-// cleanupOldJobs periodically deletes old completed/failed jobs based on retention policy
-func (p *WorkerPool) cleanupOldJobs() {
-	defer p.cleanupWg.Done()
-	ticker := time.NewTicker(24 * time.Hour) // Run once per day
-	defer ticker.Stop()
-
-	log.Printf("[WorkerPool] Started cleanup goroutine for old job deletion (retention: %d days)", p.retentionDays)
-
-	for {
-		select {
-		case <-p.cleanupStop:
-			log.Printf("[WorkerPool] Stopping cleanup goroutine")
-			return
-		case <-ticker.C:
-			count, err := p.queue.CleanupOldJobs(context.Background(), p.retentionDays)
-			if err != nil {
-				log.Printf("[WorkerPool] Failed to cleanup old jobs: %v", err)
-			} else if count > 0 {
-				log.Printf("[WorkerPool] Cleaned up %d old jobs", count)
 			}
 		}
 	}

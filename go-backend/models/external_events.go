@@ -35,7 +35,8 @@ type UpdateExternalCalendarRequest struct {
 	SyncEnabled       *bool   `json:"sync_enabled,omitempty"`
 	SyncIntervalHours *int    `json:"sync_interval_hours,omitempty"`
 	Username          *string `json:"username,omitempty"` // Username for Basic Auth
-	Password          *string `json:"password,omitempty"` // Password for Basic Auth (empty string clears it)
+	Password          *string `json:"password,omitempty"` // Password for Basic Auth
+	ClearPassword     *bool   `json:"clear_password,omitempty"` // If true, clear the password
 }
 
 // ExternalEvent represents an imported calendar event from an external feed

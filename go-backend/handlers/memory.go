@@ -199,3 +199,31 @@ Your task is to produce a new, superior, and more compact version of the entire 
 
 	return response.Choices[0].Message.Content, nil
 }
+
+// MemoryCompressorAdapter wraps the Handler to implement jobs.MemoryCompressor interface
+// This avoids circular dependency between handlers and jobs packages
+type MemoryCompressorAdapter struct {
+	handler *Handler
+}
+
+// NewMemoryCompressorAdapter creates a new adapter for memory compression
+func NewMemoryCompressorAdapter(h *Handler) *MemoryCompressorAdapter {
+	return &MemoryCompressorAdapter{handler: h}
+}
+
+// CompressUserMemory compresses memory for a given user ID
+func (a *MemoryCompressorAdapter) CompressUserMemory(ctx context.Context, userID uint) (string, error) {
+	if a.handler == nil {
+		return "", fmt.Errorf("handler not initialized")
+	}
+
+	// Create a client for this user
+	client := services.NewDefaultClient(a.handler.DB, int(userID), false)
+	client.RequestType = "memory"
+
+	// Set the LLM client for this user (with proper user ID for rate limiting)
+	userLLMClient := *a.handler.Server.LLMClient
+	userLLMClient.UserID = int(userID)
+
+	return CompressUserMemory(a.handler.DB, &userLLMClient, userID)
+}

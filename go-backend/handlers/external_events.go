@@ -128,17 +128,19 @@ func (s *Handler) UpdateExternalCalendarRoute(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Validate name length if provided
+	// Validate and normalize name if provided
 	if req.Name != nil {
 		name := strings.TrimSpace(*req.Name)
 		if name == "" {
 			respondWithError(w, http.StatusBadRequest, "INVALID_NAME", "Name cannot be empty or whitespace only")
 			return
 		}
-		if utf8.RuneCountInString(name) > MaxCalendarNameLength {
+		if utf8.RuneCountInString(*req.Name) > MaxCalendarNameLength {
 			respondWithError(w, http.StatusBadRequest, "NAME_TOO_LONG", fmt.Sprintf("Name must be at most %d characters", MaxCalendarNameLength))
 			return
 		}
+		// Store trimmed value
+		req.Name = &name
 	}
 
 	svc := services.NewExternalEventService(s.GetDB(), s.EncryptionService)

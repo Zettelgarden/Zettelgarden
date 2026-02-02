@@ -16,12 +16,22 @@ type EncryptionService struct {
 	key []byte
 }
 
+const (
+	// MinEncryptionKeyLength is the minimum allowed length for encryption keys
+	MinEncryptionKeyLength = 16
+)
+
 // NewEncryptionService creates a new encryption service
 // The CALENDAR_ENCRYPTION_KEY env var must be set (32+ characters recommended)
 func NewEncryptionService() (*EncryptionService, error) {
 	keyStr := os.Getenv("CALENDAR_ENCRYPTION_KEY")
 	if keyStr == "" {
 		return nil, fmt.Errorf("CALENDAR_ENCRYPTION_KEY environment variable not set")
+	}
+
+	// Validate minimum key length to prevent low-entropy keys
+	if len(keyStr) < MinEncryptionKeyLength {
+		return nil, fmt.Errorf("CALENDAR_ENCRYPTION_KEY must be at least %d characters", MinEncryptionKeyLength)
 	}
 
 	// Derive 32-byte key from env var using SHA256

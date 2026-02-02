@@ -28,11 +28,32 @@ func RegisterAllAdminRoutes(r *mux.Router, h *handlers.Handler, scheduler handle
 
 	// Mailing list management (admin-only)
 	// These are moved under /api/admin for clarity
-	adminAPI.HandleFunc("/mailing-list/subscribers", h.GetMailingListSubscribersRoute).Methods("GET")
-	adminAPI.HandleFunc("/mailing-list/messages", h.GetMailingListMessagesRoute).Methods("GET")
-	adminAPI.HandleFunc("/mailing-list/messages/send", h.SendMailingListMessageRoute).Methods("POST")
-	adminAPI.HandleFunc("/mailing-list/messages/recipients", h.GetMessageRecipientsRoute).Methods("GET")
-	adminAPI.HandleFunc("/mailing-list/unsubscribe", h.UnsubscribeMailingListRoute).Methods("POST")
+	// All routes require authentication and admin authorization
+	adminAPI.HandleFunc("/mailing-list/subscribers",
+		h.APIKeyOrJWTMiddleware(
+			h.AdminMiddleware(
+				h.UpdateLastSeenMiddleware(
+					handlers.LogRoute(h.GetMailingListSubscribersRoute))))).Methods("GET")
+	adminAPI.HandleFunc("/mailing-list/messages",
+		h.APIKeyOrJWTMiddleware(
+			h.AdminMiddleware(
+				h.UpdateLastSeenMiddleware(
+					handlers.LogRoute(h.GetMailingListMessagesRoute))))).Methods("GET")
+	adminAPI.HandleFunc("/mailing-list/messages/send",
+		h.APIKeyOrJWTMiddleware(
+			h.AdminMiddleware(
+				h.UpdateLastSeenMiddleware(
+					handlers.LogRoute(h.SendMailingListMessageRoute))))).Methods("POST")
+	adminAPI.HandleFunc("/mailing-list/messages/recipients",
+		h.APIKeyOrJWTMiddleware(
+			h.AdminMiddleware(
+				h.UpdateLastSeenMiddleware(
+					handlers.LogRoute(h.GetMessageRecipientsRoute))))).Methods("GET")
+	adminAPI.HandleFunc("/mailing-list/unsubscribe",
+		h.APIKeyOrJWTMiddleware(
+			h.AdminMiddleware(
+				h.UpdateLastSeenMiddleware(
+					handlers.LogRoute(h.UnsubscribeMailingListRoute))))).Methods("POST")
 
 	// Job queue management (admin-only)
 	adminAPI.HandleFunc("/jobs", func(w http.ResponseWriter, r *http.Request) {

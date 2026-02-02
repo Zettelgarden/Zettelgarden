@@ -4,26 +4,26 @@ import (
 	"context"
 	"database/sql"
 	"log"
-	"os"
 	"time"
 
 	"github.com/robfig/cron/v3"
 
-	"go-backend/bootstrap"
 	"go-backend/mail"
-	"go-backend/pkg/config"
 	"go-backend/services"
 )
 
 // TaskRemindersJob sends task reminders to users
 type TaskRemindersJob struct {
-	db       *sql.DB
-	schedule string
+	db    *sql.DB
+	mail  *mail.MailClient
 }
 
 // NewTaskRemindersJob creates a new task reminders job
-func NewTaskRemindersJob(db *sql.DB) *TaskRemindersJob {
-	return &TaskRemindersJob{db: db}
+func NewTaskRemindersJob(db *sql.DB, mailClient *mail.MailClient) *TaskRemindersJob {
+	return &TaskRemindersJob{
+		db:   db,
+		mail: mailClient,
+	}
 }
 
 // Name returns the unique identifier for this job
@@ -58,21 +58,14 @@ func (j *TaskRemindersJob) Handler(ctx context.Context) error {
 		return nil
 	}
 
-	// Initialize server with mail client
-	cfg := config.LoadConfig()
-	s := bootstrap.InitServer(cfg.Database)
-
-	// Set up mail client from environment
-	s.Mail = &mail.MailClient{
-		Host:     os.Getenv("MAIL_HOST"),
-		Password: os.Getenv("MAIL_PASSWORD"),
-		Queue:    mail.NewEmailQueue(),
-		DB:       s.DB,
+	if j.mail == nil {
+		log.Println("[task-reminders-job] no mail client configured, skipping")
+		return nil
 	}
 
 	log.Println("[task-reminders-job] checking for task reminders to send")
 
-	err := services.SendTaskReminders(s.DB, s.Mail)
+	err := services.SendTaskReminders(j.db, j.mail)
 	if err != nil {
 		log.Printf("[task-reminders-job] error sending reminders: %v", err)
 		return err

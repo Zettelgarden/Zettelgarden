@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { SchemaTable } from "../schemas/SchemaTable";
+import { PartialCard } from "../../models/Card";
 
 interface DynamicSchemaTableProps {
   schemaRef: string; // Can be an ID (numeric string) or slug
@@ -11,7 +12,7 @@ interface DynamicSchemaTableProps {
 export function DynamicSchemaTable({ schemaRef, columns, filters }: DynamicSchemaTableProps) {
   const navigate = useNavigate();
 
-  const handleCardClick = (card: any) => {
+  const handleCardClick = (card: PartialCard) => {
     navigate(`/app/card/${card.id}`);
   };
 

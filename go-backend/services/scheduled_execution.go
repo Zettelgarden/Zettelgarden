@@ -75,12 +75,21 @@ func (t *ScheduledExecutionTracker) RecordFailure(ctx context.Context, runID int
 }
 
 // GetRecentRuns returns execution history for a specific job
-func (t *ScheduledExecutionTracker) GetRecentRuns(ctx context.Context, jobName string, limit int) ([]JobRun, error) {
+func (t *ScheduledExecutionTracker) GetRecentRuns(ctx context.Context, jobName string, limit int) ([]JobRun, int, error) {
 	return t.GetRecentRunWithOffset(ctx, jobName, limit, 0)
 }
 
 // GetRecentRunWithOffset returns execution history for a specific job with offset support
-func (t *ScheduledExecutionTracker) GetRecentRunWithOffset(ctx context.Context, jobName string, limit int, offset int) ([]JobRun, error) {
+func (t *ScheduledExecutionTracker) GetRecentRunWithOffset(ctx context.Context, jobName string, limit int, offset int) ([]JobRun, int, error) {
+	// First, get the total count
+	var totalCount int
+	countQuery := `SELECT COUNT(*) FROM scheduled_job_runs WHERE job_name = $1`
+	err := t.db.QueryRowContext(ctx, countQuery, jobName).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count job runs: %w", err)
+	}
+
+	// Then get the paginated results
 	query := `
 		SELECT id, job_name, started_at, completed_at, status, error_message, retry_count
 		FROM scheduled_job_runs
@@ -91,7 +100,7 @@ func (t *ScheduledExecutionTracker) GetRecentRunWithOffset(ctx context.Context, 
 
 	rows, err := t.db.QueryContext(ctx, query, jobName, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query job runs: %w", err)
+		return nil, 0, fmt.Errorf("failed to query job runs: %w", err)
 	}
 	defer rows.Close()
 
@@ -106,7 +115,7 @@ func (t *ScheduledExecutionTracker) GetRecentRunWithOffset(ctx context.Context, 
 			&run.Status, &errMsg, &run.RetryCount,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan job run: %w", err)
+			return nil, 0, fmt.Errorf("failed to scan job run: %w", err)
 		}
 
 		run.CompletedAt = completedAt.Time
@@ -114,7 +123,7 @@ func (t *ScheduledExecutionTracker) GetRecentRunWithOffset(ctx context.Context, 
 		runs = append(runs, run)
 	}
 
-	return runs, rows.Err()
+	return runs, totalCount, rows.Err()
 }
 
 // JobRun represents a single scheduled job execution record

@@ -181,13 +181,17 @@ func TestGetRecentRuns(t *testing.T) {
 	}
 
 	// Get recent runs
-	runs, err := tracker.GetRecentRuns(ctx, jobName, 10)
+	runs, total, err := tracker.GetRecentRuns(ctx, jobName, 10)
 	if err != nil {
 		t.Fatalf("GetRecentRuns failed: %v", err)
 	}
 
 	if len(runs) != 3 {
 		t.Errorf("Expected 3 runs, got %d", len(runs))
+	}
+
+	if total != 3 {
+		t.Errorf("Expected total count 3, got %d", total)
 	}
 
 	// Verify runs are ordered by started_at DESC (most recent first)

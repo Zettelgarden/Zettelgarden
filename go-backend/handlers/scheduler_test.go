@@ -27,17 +27,17 @@ func (m *mockSchedulerForHandler) ListJobs() []string {
 	return m.jobs
 }
 
-func (m *mockSchedulerForHandler) GetJobHistory(ctx context.Context, jobName string, limit int, offset int) ([]services.JobRun, error) {
+func (m *mockSchedulerForHandler) GetJobHistory(ctx context.Context, jobName string, limit int, offset int) ([]services.JobRun, int, error) {
 	// Return results based on offset for pagination testing
 	if offset >= len(m.history) {
-		return []services.JobRun{}, nil
+		return []services.JobRun{}, len(m.history), nil
 	}
 
 	end := offset + limit
 	if end > len(m.history) {
 		end = len(m.history)
 	}
-	return m.history[offset:end], nil
+	return m.history[offset:end], len(m.history), nil
 }
 
 func (m *mockSchedulerForHandler) GetJobInfo(name string) (schedule string, nextRun time.Time, err error) {

@@ -3,23 +3,39 @@ package jobs
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/robfig/cron/v3"
 
+	"go-backend/models"
 	"go-backend/services"
 )
 
 // CleanupJob performs daily cleanup of old data
 type CleanupJob struct {
-	db       *sql.DB
-	schedule string
+	db             *sql.DB
+	schedule       string
+	llmRetentionDays int
 }
 
 // NewCleanupJob creates a new cleanup job
 func NewCleanupJob(db *sql.DB) *CleanupJob {
-	return &CleanupJob{db: db}
+	// Get retention days from environment or use default
+	retentionDays := 30
+	if val := os.Getenv("JOB_RETENTION_DAYS"); val != "" {
+		var days int
+		if _, err := fmt.Sscanf(val, "%d", &days); err == nil && days > 0 {
+			retentionDays = days
+		}
+	}
+
+	return &CleanupJob{
+		db: db,
+		llmRetentionDays: retentionDays,
+	}
 }
 
 // Name returns the unique identifier for this job
@@ -57,12 +73,22 @@ func (j *CleanupJob) Handler(ctx context.Context) error {
 	}
 
 	// Clean up old scheduled_job_runs (keep last 90 days)
-	_, err := j.db.ExecContext(ctx,
+	scheduledRunsResult, err := j.db.ExecContext(ctx,
 		"DELETE FROM scheduled_job_runs WHERE created_at < NOW() - INTERVAL '90 days'")
 	if err != nil {
-		log.Printf("[cleanup-job] failed to clean old runs: %v", err)
+		log.Printf("[cleanup-job] failed to clean old scheduled job runs: %v", err)
 		return err
 	}
+	scheduledRunsDeleted, _ := scheduledRunsResult.RowsAffected()
+	log.Printf("[cleanup-job] cleaned up %d old scheduled_job_runs (retention: 90 days)", scheduledRunsDeleted)
+
+	// Clean up old llm_jobs (keep last N days, default 30)
+	llmJobsDeleted, err := models.CleanupOldJobs(j.db, j.llmRetentionDays)
+	if err != nil {
+		log.Printf("[cleanup-job] failed to clean old llm_jobs: %v", err)
+		return err
+	}
+	log.Printf("[cleanup-job] cleaned up %d old llm_jobs (retention: %d days)", llmJobsDeleted, j.llmRetentionDays)
 
 	log.Println("[cleanup-job] completed successfully")
 	return nil

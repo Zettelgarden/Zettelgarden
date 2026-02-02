@@ -332,3 +332,24 @@ export function parseCellValue(input: string): { value: string; formula: string 
     formula: ''
   };
 }
+
+/**
+ * Extract all cell references from a formula string
+ * Returns array of cell references like ['A1', 'B2']
+ */
+export function extractCellReferences(formula: string): string[] {
+  const tokens = tokenizeFormula(formula);
+  const refs: string[] = [];
+
+  for (const token of tokens) {
+    if (token.type === 'cell') {
+      refs.push(token.value);
+    } else if (token.type === 'range') {
+      // Expand range to individual cells
+      const cells = getCellsInRange(token.value);
+      refs.push(...cells);
+    }
+  }
+
+  return refs;
+}

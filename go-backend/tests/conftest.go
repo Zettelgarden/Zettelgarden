@@ -155,6 +155,9 @@ func setTestEnvironmentVariables() {
 	setEnvIfNotSet("TYPESENSE_PASSWORD", "test-typesense-password")
 	setEnvIfNotSet("TYPESENSE_COLLECTION", "zettelgarden_test")
 
+	// Calendar encryption - test defaults
+	setEnvIfNotSet("CALENDAR_ENCRYPTION_KEY", "test-calendar-encryption-key-with-32-chars-minimum")
+
 	// Optional features
 	setEnvIfNotSet("ZETTEL_RUN_CHUNKING_EMBEDDING", "false")
 }

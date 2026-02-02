@@ -49,14 +49,22 @@ export async function syncExternalCalendar(id: number): Promise<ExternalCalendar
 
 /**
  * Fetch external events within a date range
+ * @param start Start date of the range
+ * @param end End date of the range
+ * @param signal Optional AbortSignal to cancel the request
  */
-export async function getExternalEvents(start: Date, end: Date): Promise<ExternalEvent[]> {
+export async function getExternalEvents(
+  start: Date,
+  end: Date,
+  signal?: AbortSignal
+): Promise<ExternalEvent[]> {
   const response = await getData(
     apiClient.get<{ events: ExternalEvent[]; total: number; limit: number; offset: number }>("/user/external-events", {
       params: {
         start: start.toISOString(),
         end: end.toISOString(),
       },
+      signal, // Pass the abort signal to axios
     })
   );
   return response.events;

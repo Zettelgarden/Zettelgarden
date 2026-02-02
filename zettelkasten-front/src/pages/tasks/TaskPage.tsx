@@ -18,6 +18,7 @@ import { CalendarViewWrapper } from "../../components/calendar/CalendarView";
 import { useNavigate } from "react-router-dom";
 import { getExternalEvents } from "../../api/externalEvents";
 import { ExternalEvent } from "../../models/ExternalEvent";
+import { ErrorBoundary } from "../../components/ErrorBoundary";
 import {
   getStartOfMonthInTimezone,
   getEndOfMonthInTimezone,
@@ -50,9 +51,13 @@ export function TaskPage({ }: TaskListProps) {
 
   // External calendar events state
   const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
 
   // Ref to prevent infinite loops when syncing query and UI
   const isInternalUpdate = useRef(false);
+
+  // Ref for abort controller to cancel pending external events requests
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Filter input quick tag autocomplete state
   const filterInputRef = useRef<HTMLInputElement>(null);
@@ -107,8 +112,20 @@ export function TaskPage({ }: TaskListProps) {
     async function loadExternalEvents() {
       if (settings.viewMode !== "calendar") {
         setExternalEvents([]);
+        setIsLoadingEvents(false);
         return;
       }
+
+      // Cancel any pending request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      // Create new abort controller for this request
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
+      setIsLoadingEvents(true);
 
       try {
         // Calculate date range based on view mode and current date
@@ -125,16 +142,33 @@ export function TaskPage({ }: TaskListProps) {
           end = getEndOfWeekInTimezone(currentDate, userTimezone, 0);
         }
 
-        const events = await getExternalEvents(start, end);
-        console.log("? events", events)
-        setExternalEvents(events);
+        const events = await getExternalEvents(start, end, abortController.signal);
+        // Only update state if this request wasn't aborted
+        if (!abortController.signal.aborted) {
+          setExternalEvents(events);
+        }
       } catch (err) {
-        console.error("Failed to load external events:", err);
-        setExternalEvents([]);
+        // Only handle error if not due to abort
+        if (!abortController.signal.aborted) {
+          console.error("Failed to load external events:", err);
+          setExternalEvents([]);
+        }
+      } finally {
+        // Only clear loading state if this request wasn't aborted
+        if (!abortController.signal.aborted) {
+          setIsLoadingEvents(false);
+        }
       }
     }
 
     loadExternalEvents();
+
+    // Cleanup function to abort pending requests on unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [settings.viewMode, settings.calendarViewMode, settings.calendarCurrentDate, userTimezone]);
 
   function handleFilterChange(
@@ -454,27 +488,60 @@ export function TaskPage({ }: TaskListProps) {
       />
       <div className="p-4">
         {settings.viewMode === "calendar" ? (
-          <CalendarViewWrapper
-            tasks={tasksToDisplay}
-            externalEvents={externalEvents}
-            currentDate={settings.calendarCurrentDate}
-            viewMode={settings.calendarViewMode}
-            onNavigate={settings.navigateCalendar}
-            onViewModeChange={settings.setCalendarViewMode}
-            onTaskClick={(taskId) => {
-              setSelectedTaskId(taskId);
-              setIsTaskDialogOpen(true);
-            }}
-            onCreateTask={(date) => {
-              setCalendarSelectedDate(date);
-              setCreateTaskStatus(undefined);
-              setShowCreateTaskWindow(true);
-            }}
-            onTaskMoved={() => {
-              setRefreshTasks(true);
-            }}
-            timezone={userTimezone}
-          />
+          <ErrorBoundary
+            fallback={
+              <div className="p-4 m-4 border border-red-300 rounded bg-red-50">
+                <h2 className="text-lg font-semibold text-red-800 mb-2">Calendar Error</h2>
+                <p className="text-red-600 mb-3">
+                  We encountered an error while displaying the calendar. Please try refreshing the page or switching to a different view.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                    onClick={() => window.location.reload()}
+                  >
+                    Refresh Page
+                  </button>
+                  <button
+                    className="px-4 py-2 border border-slate-300 text-slate-700 rounded hover:bg-slate-50 transition-colors"
+                    onClick={() => settings.setViewMode("list")}
+                  >
+                    Switch to List View
+                  </button>
+                </div>
+              </div>
+            }
+          >
+            <>
+              {isLoadingEvents && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" aria-hidden="true"></div>
+                  <span className="text-sm text-blue-700">Loading calendar events...</span>
+                </div>
+              )}
+              <CalendarViewWrapper
+                tasks={tasksToDisplay}
+                externalEvents={externalEvents}
+                currentDate={settings.calendarCurrentDate}
+                viewMode={settings.calendarViewMode}
+                onNavigate={settings.navigateCalendar}
+                onViewModeChange={settings.setCalendarViewMode}
+                onTaskClick={(taskId) => {
+                  setSelectedTaskId(taskId);
+                  setIsTaskDialogOpen(true);
+                }}
+                onCreateTask={(date) => {
+                  setCalendarSelectedDate(date);
+                  setCreateTaskStatus(undefined);
+                  setShowCreateTaskWindow(true);
+                }}
+                onTaskMoved={() => {
+                  setRefreshTasks(true);
+                }}
+                timezone={userTimezone}
+              />
+            </>
+          </ErrorBoundary>
         ) : settings.viewMode === "list" ? (
           <>
             <ul>

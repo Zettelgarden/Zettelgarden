@@ -8,22 +8,31 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"go-backend/bootstrap"
-	"go-backend/handlers"
-	"go-backend/pkg/config"
-	"go-backend/server"
+	"go-backend/models"
 	"go-backend/services"
 )
 
+// MemoryCompressor is an interface for compressing user memory
+// This avoids a circular dependency between services/jobs and handlers
+type MemoryCompressor interface {
+	CompressUserMemory(ctx context.Context, userID uint) (string, error)
+}
+
 // UserMemoryMaintenanceJob processes user memory compression for users with memory_has_changed flag
 type UserMemoryMaintenanceJob struct {
-	db       *sql.DB
-	schedule string
+	db              *sql.DB
+	llmClient       *models.LLMClient
+	memoryCompressor MemoryCompressor
+	schedule        string
 }
 
 // NewUserMemoryMaintenanceJob creates a new user memory maintenance job
-func NewUserMemoryMaintenanceJob(db *sql.DB) *UserMemoryMaintenanceJob {
-	return &UserMemoryMaintenanceJob{db: db}
+func NewUserMemoryMaintenanceJob(db *sql.DB, llmClient *models.LLMClient, compressor MemoryCompressor) *UserMemoryMaintenanceJob {
+	return &UserMemoryMaintenanceJob{
+		db:              db,
+		llmClient:       llmClient,
+		memoryCompressor: compressor,
+	}
 }
 
 // Name returns the unique identifier for this job
@@ -52,11 +61,13 @@ func (j *UserMemoryMaintenanceJob) NextRun(from time.Time) time.Time {
 }
 
 // processUserMemory processes memory compression for a single user
-func (j *UserMemoryMaintenanceJob) processUserMemory(ctx context.Context, s *server.Server, userID uint) error {
-	client := services.NewDefaultClient(s.DB, int(userID), false)
-	client.RequestType = "memory"
+func (j *UserMemoryMaintenanceJob) processUserMemory(ctx context.Context, userID uint) error {
+	if j.memoryCompressor == nil {
+		log.Printf("[memory-maintenance-job] no memory compressor configured for user %d", userID)
+		return nil
+	}
 
-	result, err := handlers.CompressUserMemory(s.DB, client, userID)
+	result, err := j.memoryCompressor.CompressUserMemory(ctx, userID)
 	if err != nil {
 		log.Printf("[memory-maintenance-job] failed to compress memory for user %d: %v", userID, err)
 		return err
@@ -64,7 +75,7 @@ func (j *UserMemoryMaintenanceJob) processUserMemory(ctx context.Context, s *ser
 	log.Printf("[memory-maintenance-job] compression result for user %d: %s", userID, result)
 
 	// Reset the memory_has_changed flag
-	_, err = s.DB.ExecContext(ctx, "UPDATE users SET memory_has_changed = false WHERE id = $1", userID)
+	_, err = j.db.ExecContext(ctx, "UPDATE users SET memory_has_changed = false WHERE id = $1", userID)
 	if err != nil {
 		log.Printf("[memory-maintenance-job] failed to reset memory_has_changed flag for user %d: %v", userID, err)
 		return err
@@ -90,10 +101,6 @@ func (j *UserMemoryMaintenanceJob) Handler(ctx context.Context) error {
 	}
 	defer rows.Close()
 
-	// Get a minimal server instance (we need it for LLM client operations)
-	cfg := config.LoadConfig()
-	s := bootstrap.InitServer(cfg.Database)
-
 	userCount := 0
 	errorCount := 0
 
@@ -105,7 +112,7 @@ func (j *UserMemoryMaintenanceJob) Handler(ctx context.Context) error {
 			continue
 		}
 
-		if err := j.processUserMemory(ctx, s, userID); err != nil {
+		if err := j.processUserMemory(ctx, userID); err != nil {
 			errorCount++
 		}
 		userCount++

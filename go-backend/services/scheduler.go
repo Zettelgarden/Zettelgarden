@@ -29,11 +29,12 @@ type ServiceJobStats struct {
 
 // Scheduler manages scheduled jobs using cron
 type Scheduler struct {
-	cron    *cron.Cron
-	jobs    map[string]ScheduledJob
-	tracker *ScheduledExecutionTracker
-	mu      sync.RWMutex
-	logger  *log.Logger
+	cron       *cron.Cron
+	jobs       map[string]ScheduledJob
+	tracker    *ScheduledExecutionTracker
+	mu         sync.RWMutex
+	jobMutexes sync.Map // map[string]*sync.Mutex - per-job mutexes to prevent concurrent executions
+	logger     *log.Logger
 }
 
 // NewScheduler creates a new scheduler. If db is nil, tracking is disabled.
@@ -100,16 +101,38 @@ func (s *Scheduler) Stop() {
 // runJob executes a job with retry logic and tracking
 func (s *Scheduler) runJob(job ScheduledJob) {
 	name := job.Name()
+
+	// Get or create per-job mutex to prevent concurrent executions
+	muRaw, _ := s.jobMutexes.LoadOrStore(name, &sync.Mutex{})
+	jobMu := muRaw.(*sync.Mutex)
+
+	// Try to acquire lock - if job is already running, skip this execution
+	if !jobMu.TryLock() {
+		s.logger.Printf("Job '%s' is already running, skipping this scheduled execution", name)
+		return
+	}
+	defer jobMu.Unlock()
+
 	var runID int64
 	var err error
 
+	// Get job timeout with default of 30 minutes if Timeout() method exists
+	timeout := 30 * time.Minute
+	if jobWithTimeout, ok := job.(OptionalTimeoutJob); ok {
+		timeout = jobWithTimeout.Timeout()
+	}
+
 	// Create a context with timeout for the job
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// Record job start if tracker is available
-	if s.tracker != nil {
-		runID, err = s.tracker.RecordStart(ctx, name)
+	// Record job start - safely access tracker with read lock
+	s.mu.RLock()
+	tracker := s.tracker
+	s.mu.RUnlock()
+
+	if tracker != nil {
+		runID, err = tracker.RecordStart(ctx, name)
 		if err != nil {
 			s.logger.Printf("Failed to record job start for '%s': %v", name, err)
 		}
@@ -139,8 +162,8 @@ func (s *Scheduler) runJob(job ScheduledJob) {
 		lastErr = job.Handler(ctx)
 		if lastErr == nil {
 			// Success - record completion
-			if s.tracker != nil && runID > 0 {
-				if recordErr := s.tracker.RecordCompletion(ctx, runID, nil); recordErr != nil {
+			if tracker != nil && runID > 0 {
+				if recordErr := tracker.RecordCompletion(ctx, runID, nil); recordErr != nil {
 					s.logger.Printf("Failed to record job completion for '%s': %v", name, recordErr)
 				}
 			}
@@ -152,10 +175,10 @@ func (s *Scheduler) runJob(job ScheduledJob) {
 	}
 
 	// All retries exhausted - record failure
-	if s.tracker != nil && runID > 0 {
+	if tracker != nil && runID > 0 {
 		// Use actual attempt count (number of retries performed)
 		actualRetryCount := attempt
-		if recordErr := s.tracker.RecordFailure(ctx, runID, lastErr, actualRetryCount); recordErr != nil {
+		if recordErr := tracker.RecordFailure(ctx, runID, lastErr, actualRetryCount); recordErr != nil {
 			s.logger.Printf("Failed to record job failure for '%s': %v", name, recordErr)
 		}
 	}
@@ -163,9 +186,12 @@ func (s *Scheduler) runJob(job ScheduledJob) {
 }
 
 // GetJobHistory returns execution history for a specific job with pagination
-func (s *Scheduler) GetJobHistory(ctx context.Context, jobName string, limit int, offset int) ([]JobRun, error) {
+func (s *Scheduler) GetJobHistory(ctx context.Context, jobName string, limit int, offset int) ([]JobRun, int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	if s.tracker == nil {
-		return nil, fmt.Errorf("job tracking is not enabled (database not configured)")
+		return nil, 0, fmt.Errorf("job tracking is not enabled (database not configured)")
 	}
 
 	return s.tracker.GetRecentRunWithOffset(ctx, jobName, limit, offset)
@@ -198,12 +224,15 @@ func (s *Scheduler) GetJobInfo(name string) (schedule string, nextRun time.Time,
 
 // GetJobSummary returns summary statistics for a job
 func (s *Scheduler) GetJobSummary(ctx context.Context, jobName string) (ServiceJobSummary, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	if s.tracker == nil {
 		return ServiceJobSummary{}, fmt.Errorf("job tracking is not enabled")
 	}
 
 	// Get recent runs (last 7 days)
-	runs, err := s.tracker.GetRecentRuns(ctx, jobName, 1000)
+	runs, _, err := s.tracker.GetRecentRuns(ctx, jobName, 1000)
 	if err != nil {
 		return ServiceJobSummary{}, err
 	}

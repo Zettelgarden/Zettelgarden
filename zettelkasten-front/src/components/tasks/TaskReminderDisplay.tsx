@@ -83,26 +83,28 @@ export function TaskReminderDisplay({
 
     const now = getNowInTimezone(userTimezone);
     const reminderTime = new Date(task.reminder_time);
+    // Convert UTC time to user's timezone for display
+    const reminderTimeInTz = toZonedTime(reminderTime, userTimezone);
     const diffMs = reminderTime.getTime() - now.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
     if (task.reminder_sent) {
-      setDisplayText(`Sent ${format(reminderTime, 'MMM d, h:mm a', { timeZone: userTimezone })}`);
+      setDisplayText(`Sent ${format(reminderTimeInTz, 'MMM d, h:mm a')}`);
       return;
     }
 
     if (diffMins < 0) {
-      setDisplayText(`Past ${format(reminderTime, 'MMM d, h:mm a', { timeZone: userTimezone })}`);
+      setDisplayText(`Past ${format(reminderTimeInTz, 'MMM d, h:mm a')}`);
     } else if (diffMins < 60) {
       setDisplayText(`In ${diffMins}m`);
     } else if (diffHours < 24) {
       setDisplayText(`In ${diffHours}h`);
     } else if (diffDays === 1) {
-      setDisplayText(`Tomorrow ${format(reminderTime, 'h:mm a', { timeZone: userTimezone })}`);
+      setDisplayText(`Tomorrow ${format(reminderTimeInTz, 'h:mm a')}`);
     } else {
-      setDisplayText(format(reminderTime, 'MMM d, h:mm a', { timeZone: userTimezone }));
+      setDisplayText(format(reminderTimeInTz, 'MMM d, h:mm a'));
     }
   }
 

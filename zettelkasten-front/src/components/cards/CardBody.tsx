@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import remarkGfm from "remark-gfm";
 
 import { useDialogState } from "../../contexts/DialogStateContext";
+import { useCardEditorContext } from "../../contexts/editor";
 
 import { CardLinkWithPreview } from "./CardLinkWithPreview";
 import { DynamicTaskList } from "./DynamicTaskList";
@@ -216,7 +217,8 @@ const CustomImageRenderer: React.FC<CustomImageRendererProps> = ({
 function renderCardTextWithDialog(
   card: Card,
   handleViewBacklink: (card_id: number) => void,
-  entities?: Entity[]
+  entities?: Entity[],
+  onCardBodyChange?: (newBody: string) => void
 ) {
   const [isEntityDialogOpen, setIsEntityDialogOpen] = React.useState(false);
 
@@ -250,7 +252,7 @@ function renderCardTextWithDialog(
     setShowEntityDialog(true);
   }
 
-  const markdown = renderCardText(card, handleViewBacklink, entities, handleEntityClickById as any);
+  const markdown = renderCardText(card, handleViewBacklink, entities, handleEntityClickById as any, onCardBodyChange);
   return (
     <>
       {markdown}
@@ -262,7 +264,8 @@ function renderCardText(
   card: Card,
   handleViewBacklink: (card_id: number) => void,
   entities?: Entity[],
-  onEntityClick?: (id: string, name: string) => void
+  onEntityClick?: (id: string, name: string) => void,
+  onCardBodyChange?: (newBody: string) => void
 ) {
 
   // Preprocess task queries first, then card links, then schema tables, then entities
@@ -401,7 +404,7 @@ function renderCardText(
           // Check if this is a spreadsheet container
           if (propsData.className === "spreadsheet-container" || propsData["data-spreadsheet-name"] !== undefined) {
             const spreadsheetName = propsData["data-spreadsheet-name"] || "sheet1";
-            return <DynamicSpreadsheet name={spreadsheetName} />;
+            return <DynamicSpreadsheet name={spreadsheetName} cardBody={card.body} onBodyChange={onCardBodyChange} />;
           }
 
           // Default div rendering
@@ -414,6 +417,7 @@ function renderCardText(
 
 export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities }) => {
   const navigate = useNavigate();
+  const { setEditingCard } = useCardEditorContext();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [shouldShowToggle, setShouldShowToggle] = useState(false);
   const contentRef = React.useRef<HTMLDivElement>(null);
@@ -452,7 +456,9 @@ export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities }) => 
           maxHeight: isCollapsed && shouldShowToggle ? `${HEIGHT_THRESHOLD}px` : 'none'
         }}
       >
-        {renderCardTextWithDialog(viewingCard, handleCardClick, entities)}
+        {renderCardTextWithDialog(viewingCard, handleCardClick, entities, (newBody) => {
+          setEditingCard((prevCard) => ({ ...prevCard, body: newBody }));
+        })}
       </div>
 
       {/* Gradient fade effect when collapsed */}

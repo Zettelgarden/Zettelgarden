@@ -16,7 +16,7 @@ import (
 // SchedulerAPI interface for testability
 type SchedulerAPI interface {
 	ListJobs() []string
-	GetJobHistory(ctx context.Context, jobName string, limit int, offset int) ([]services.JobRun, error)
+	GetJobHistory(ctx context.Context, jobName string, limit int, offset int) ([]services.JobRun, int, error)
 	GetJobInfo(name string) (schedule string, nextRun time.Time, err error)
 	GetJobSummary(ctx context.Context, jobName string) (services.ServiceJobSummary, error)
 }
@@ -142,14 +142,14 @@ func GetJobHistory(scheduler SchedulerAPI) http.HandlerFunc {
 			}
 		}
 
-		runs, err := scheduler.GetJobHistory(r.Context(), jobName, limit, offset)
+		runs, total, err := scheduler.GetJobHistory(r.Context(), jobName, limit, offset)
 		if err != nil {
 			http.Error(w, "Failed to get job history", http.StatusInternalServerError)
 			return
 		}
 
-		// Simple pagination: has_more is true if we got limit results
-		total := len(runs) + offset
+		// Calculate has_more: true if we got a full page, which means there might be more results
+		// This is the standard pattern for cursor/pagination APIs
 		hasMore := len(runs) == limit
 
 		// Convert services.JobRun to JobRunResponse

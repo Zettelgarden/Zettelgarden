@@ -273,3 +273,39 @@ export function getEndOfWeekInTimezone(date: Date, timezone: string, weekStartsO
   // Convert back to UTC
   return fromZonedTime(endDateInTz, timezone);
 }
+
+/**
+ * Check if two dates represent the same day in a specific timezone.
+ * This provides consistent date comparison regardless of timezone.
+ * @param date1 First date to compare
+ * @param date2 Second date to compare
+ * @param timezone Timezone to use for comparison
+ * @returns true if both dates represent the same calendar day in the given timezone
+ */
+export function isSameDayInTimezone(date1: Date, date2: Date, timezone: string): boolean {
+  const date1InTz = toZonedTime(date1, timezone);
+  const date2InTz = toZonedTime(date2, timezone);
+
+  return (
+    date1InTz.getFullYear() === date2InTz.getFullYear() &&
+    date1InTz.getMonth() === date2InTz.getMonth() &&
+    date1InTz.getDate() === date2InTz.getDate()
+  );
+}
+
+/**
+ * Create a date representing midnight in a specific timezone from a date string.
+ * This is useful for creating calendar dates from drag-drop operations.
+ * @param dateStr Date string in "YYYY-MM-DD" format
+ * @param timezone Timezone to create the date in
+ * @returns Date object representing midnight in the specified timezone
+ */
+export function createMidnightInTimezone(dateStr: string, timezone: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+
+  // Create a date in the user's timezone at midnight
+  const dateInTz = new Date(year, month - 1, day, 0, 0, 0, 0);
+
+  // Convert back to UTC for storage
+  return fromZonedTime(dateInTz, timezone);
+}

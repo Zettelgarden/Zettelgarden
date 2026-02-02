@@ -27,6 +27,7 @@ import {
 } from "../../utils/calendar";
 import { format } from "date-fns";
 import { saveExistingTask } from "../../api/tasks";
+import { isSameDayInTimezone, createMidnightInTimezone } from "../../utils/dates";
 import { useTaskContext } from "../../contexts/TaskContext";
 import { BacklinkInputDropdownList } from "../cards/BacklinkInputDropdownList";
 import { PartialCard } from "../../models/Card";
@@ -134,12 +135,8 @@ export function CalendarView({
 
   const handleContextMenuViewTasks = () => {
     if (contextMenu) {
-      // Use timezone-aware date comparison
-      const contextDateInTz = toZonedTime(contextMenu.date, timezone);
-      const dayEvents = events.filter(e => {
-        const eventDateInTz = toZonedTime(e.date, timezone);
-        return format(eventDateInTz, "yyyy-MM-dd") === format(contextDateInTz, "yyyy-MM-dd");
-      });
+      // Use consistent timezone-aware date comparison
+      const dayEvents = events.filter(e => isSameDayInTimezone(e.date, contextMenu.date, timezone));
       onDayClick(contextMenu.date, dayEvents);
       closeContextMenu();
     }
@@ -203,7 +200,7 @@ export function CalendarView({
         e.preventDefault();
         if (selectedDayIndex >= 0 && hoveredDay) {
           const dayEvents = events.filter(
-            ev => format(ev.date, "yyyy-MM-dd") === format(hoveredDay, "yyyy-MM-dd")
+            ev => isSameDayInTimezone(ev.date, hoveredDay, timezone)
           );
           onDayClick(hoveredDay, dayEvents);
         }
@@ -246,9 +243,8 @@ export function CalendarView({
     if (!task) return;
 
     // Calculate new scheduled date from destination
-    // destDateStr is "YYYY-MM-DD" format - parse it to create UTC midnight date
-    const [year, month, day] = destDateStr.split('-').map(Number);
-    const newScheduledDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    // destDateStr is "YYYY-MM-DD" format - create midnight in user's timezone
+    const newScheduledDate = createMidnightInTimezone(destDateStr, timezone);
 
     // Update task with new scheduled date
     const updatedTask = {
@@ -660,11 +656,7 @@ export function CalendarViewWrapper({
   const selectedDateEvents = useMemo(() => {
     if (!selectedDate) return [];
     return mergeCalendarEvents(tasksToCalendarEvents(tasks, timezone), externalEvents || []).filter(
-      e => {
-        const eventDateInTz = toZonedTime(e.date, timezone);
-        const selectedDateInTz = toZonedTime(selectedDate, timezone);
-        return format(eventDateInTz, "yyyy-MM-dd") === format(selectedDateInTz, "yyyy-MM-dd");
-      }
+      e => isSameDayInTimezone(e.date, selectedDate, timezone)
     );
   }, [selectedDate, tasks, externalEvents, timezone]);
 
@@ -824,9 +816,15 @@ function ExternalEventDialog({ event, onClose, onSuccess }: ExternalEventDialogP
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const formatTime = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  // Get timezone from user context or default to UTC
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  const formatTime = (date: Date) => {
+    return format(date, "h:mm a");
+  };
+
+  const formatDate = (date: Date) => {
+    return format(date, "MMMM d, yyyy");
   };
 
   const handleLinkToCard = async (cardPK: number) => {
@@ -930,7 +928,7 @@ function ExternalEventDialog({ event, onClose, onSuccess }: ExternalEventDialogP
             <p className="mt-1">
               {event.allDay
                 ? "All day"
-                : `${formatTime(event.date.toISOString())} - ${event.date.toLocaleDateString()}`
+                : `${formatTime(event.date)} (${formatDate(event.date)})`
               }
             </p>
           </div>
