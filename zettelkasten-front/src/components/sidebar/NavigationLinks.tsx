@@ -2,6 +2,7 @@ import React from "react";
 import { SidebarLink } from "../SidebarLink";
 import { SearchIcon } from "../../assets/icons/SearchIcon";
 import { TasksIcon } from "../../assets/icons/TasksIcon";
+import { CalendarIcon } from "../../assets/icons/CalendarIcon";
 import { ChatIcon } from "../../assets/icons/ChatIcon";
 
 interface NavigationLinksProps {
@@ -24,6 +25,11 @@ export function NavigationLinks({ todayTasksCount, hasSubscription }: Navigation
           <span className="px-3 py-1.5 md:px-2 md:py-1 text-xs bg-blue-100 rounded-full min-h-[32px] md:min-h-0 flex items-center">
             {todayTasksCount}
           </span>
+        </SidebarLink>
+
+        <SidebarLink to="/app/calendar">
+          <CalendarIcon />
+          <span className="px-2 flex-grow">Calendar</span>
         </SidebarLink>
 
         <SidebarLink to="/app/chat">

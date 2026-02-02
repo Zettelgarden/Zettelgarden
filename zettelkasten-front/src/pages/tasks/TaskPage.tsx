@@ -297,7 +297,7 @@ export function TaskPage({ }: TaskListProps) {
     return () => {
       document.removeEventListener("keydown", handleKeyPress);
     };
-  }, [setShowCreateTaskWindow, settings.setFilterString]); // Added setShowCreateTaskWindow to dependency array
+  }, [setShowCreateTaskWindow, settings.setFilterString]);
 
   return (
     <div>
