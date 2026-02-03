@@ -139,6 +139,7 @@ export function ChatInterface({
   } = chatHook;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputContainerRef = useRef<HTMLDivElement>(null);
   const [showToolCallLoading, setShowToolCallLoading] = useState(false);
 
   // Edit dialog state
@@ -189,6 +190,17 @@ export function ChatInterface({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Focus input when chat is cleared (no messages)
+  useEffect(() => {
+    if (messages.length === 0 && inputContainerRef.current) {
+      // Find the input element within the container
+      const inputElement = inputContainerRef.current.querySelector('textarea, input') as HTMLTextAreaElement | HTMLInputElement;
+      if (inputElement && document.activeElement !== inputElement) {
+        inputElement.focus();
+      }
+    }
+  }, [messages.length]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -413,7 +425,7 @@ export function ChatInterface({
 
   const inputPadding = compact ? "p-3" : "p-4";
   const messageSpacing = compact ? "space-y-4" : "space-y-6";
-  const messagesPadding = compact ? "p-4" : "p-6";
+  const messagesPadding = compact ? "p-3 sm:p-4" : "p-4 sm:p-6";
   const inputBorder = compact ? "border-t border-gray-200" : "bg-white border-t border-gray-200";
   const textSize = compact ? "text-sm" : "text-sm";
 
@@ -486,10 +498,10 @@ export function ChatInterface({
 
                 {/* Regenerate button for assistant messages */}
                 {message.role === "assistant" && message.status === "completed" && onRegenerateMessage && (
-                  <div className="mt-2 flex justify-start">
+                  <div className="mt-2 flex justify-start group">
                     <button
                       onClick={() => onRegenerateMessage(message.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-gray-500 hover:text-gray-700 text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100"
+                      className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 text-gray-500 hover:text-gray-700 text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100"
                       title="Regenerate this message"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -502,11 +514,11 @@ export function ChatInterface({
 
                 {/* Edit button for user messages (within 5 minutes) */}
                 {message.role === "user" && isMessageEditable(message) && (
-                  <div className="mt-2 flex justify-end">
+                  <div className="mt-2 flex justify-end group">
                     <button
                       onClick={() => handleOpenEditDialog(message)}
                       disabled={isEditing}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-blue-100 hover:text-white text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 text-blue-100 hover:text-white text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Edit this message"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -526,7 +538,7 @@ export function ChatInterface({
 
       {/* Input */}
       <div className={inputBorder}>
-        <div className={`relative max-w-4xl mx-auto ${compact ? '' : 'max-w-4xl'}`}>
+        <div className="relative w-full sm:max-w-4xl mx-auto">
           <div className="relative border border-gray-300 rounded-2xl bg-white shadow-sm hover:shadow-md transition-all duration-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
             {/* Referenced Cards Display */}
             {referencedCardDetails.length > 0 && (
@@ -537,10 +549,10 @@ export function ChatInterface({
                     className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 group hover:bg-blue-100 transition-colors"
                   >
                     <span className="font-medium">[{card.card_id}]</span>
-                    <span className="truncate max-w-[150px]">{card.title}</span>
+                    <span className="truncate max-w-[100px] sm:max-w-[150px]">{card.title}</span>
                     <button
                       onClick={() => handleRemoveReferencedCard(String(card.id))}
-                      className="ml-0.5 text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="ml-0.5 text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 md:opacity-0 focus-within:opacity-100 transition-opacity"
                       title="Remove card reference"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -551,7 +563,7 @@ export function ChatInterface({
                 ))}
               </div>
             )}
-            <div className={`flex items-end gap-3 ${inputPadding}`}>
+            <div className={`flex items-end gap-2 sm:gap-3 ${inputPadding}`} ref={inputContainerRef}>
               <div className="flex-1 relative">
                 <ChatInput
                   value={messageInput}
