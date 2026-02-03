@@ -1,6 +1,6 @@
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, addMonths, subMonths, addWeeks, subWeeks, isSameDay, isSameMonth } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
-import { CalendarDay, CalendarEvent } from "../models/CalendarEvent";
+import { CalendarDay, CalendarEvent, CalendarViewType } from "../models/CalendarEvent";
 import { isToday, isPast } from "../models/CalendarEvent";
 import { ExternalEvent } from "../models/ExternalEvent";
 
@@ -259,20 +259,26 @@ export function hasCompletedTasks(day: CalendarDay): boolean {
 }
 
 /**
- * Get max number of events to show in a day cell
+ * Get max number of events to show in a day cell, based on view mode
  */
-export const MAX_VISIBLE_EVENTS = 3;
+export const MAX_VISIBLE_EVENTS: Record<CalendarViewType, number> = {
+  month: 3,
+  week: 6,
+  day: 10,
+};
 
 /**
- * Truncate events to maximum visible count
+ * Truncate events to maximum visible count for the given view mode
  */
-export function getVisibleEvents(day: CalendarDay): CalendarEvent[] {
-  return day.events.slice(0, MAX_VISIBLE_EVENTS);
+export function getVisibleEvents(day: CalendarDay, viewMode: CalendarViewType = "month"): CalendarEvent[] {
+  const limit = MAX_VISIBLE_EVENTS[viewMode] ?? 3;
+  return day.events.slice(0, limit);
 }
 
 /**
- * Get count of hidden events
+ * Get count of hidden events for the given view mode
  */
-export function getHiddenEventCount(day: CalendarDay): number {
-  return Math.max(0, day.events.length - MAX_VISIBLE_EVENTS);
+export function getHiddenEventCount(day: CalendarDay, viewMode: CalendarViewType = "month"): number {
+  const limit = MAX_VISIBLE_EVENTS[viewMode] ?? 3;
+  return Math.max(0, day.events.length - limit);
 }

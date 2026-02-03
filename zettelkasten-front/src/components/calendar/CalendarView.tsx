@@ -398,6 +398,7 @@ export function CalendarView({
               onDayClick={handleDayClick}
               onEventClick={handleEventClick}
               onContextMenu={handleContextMenu}
+              onCreateTask={onCreateTask}
             />
           ))}
         </div>
@@ -455,6 +456,7 @@ interface CalendarDayCellProps {
   onDayClick: (day: CalendarDay) => void;
   onEventClick: (e: React.MouseEvent, event: CalendarEvent) => void;
   onContextMenu: (e: React.MouseEvent, day: CalendarDay) => void;
+  onCreateTask?: (date: Date) => void;
 }
 
 function CalendarDayCell({
@@ -465,9 +467,16 @@ function CalendarDayCell({
   onDayClick,
   onEventClick,
   onContextMenu,
+  onCreateTask,
 }: CalendarDayCellProps) {
   const visibleEvents = getVisibleEvents(day);
   const hiddenCount = getHiddenEventCount(day);
+
+  const handleDoubleClick = () => {
+    if (onCreateTask) {
+      onCreateTask(day.date);
+    }
+  };
 
   const cellClasses = `
     min-h-[60px] sm:min-h-[80px] p-1 border-b border-r border-slate-200 last:border-r-0 cursor-pointer focus-within:ring-2 focus-within:ring-blue-300 focus:outline-none
@@ -499,6 +508,7 @@ function CalendarDayCell({
           onMouseLeave={() => onHover(null)}
           onClick={() => onDayClick(day)}
           onContextMenu={(e) => onContextMenu(e, day)}
+          onDoubleClick={handleDoubleClick}
           role="gridcell"
           aria-label={`${format(day.date, "MMM d")}, ${day.taskCount} task${day.taskCount !== 1 ? "s" : ""}`}
           aria-selected={isSelected}
