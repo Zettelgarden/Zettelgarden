@@ -123,6 +123,10 @@ The application requires extensive environment configuration for:
 - LLM integration (ZETTEL_LLM_KEY, ZETTEL_LLM_ENDPOINT)
 - S3/file storage configuration
 - Stripe payment integration
+- Uptime Kuma integration (UPTIME_KUMA_PUSH_URL)
+  - Purpose: Push monitor URL for heartbeat signals to verify job scheduler is operational
+  - Format: Full URL including monitor UUID, e.g.: https://uptime.example.com/api/push/YOUR_MONITOR_ID?status=up&msg=OK
+  - When required: Optional - job will gracefully skip if not configured
 - Mail service configuration
 
 ## Development Notes
