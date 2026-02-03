@@ -66,6 +66,32 @@ export function useChat(options: UseChatOptions = {}) {
     localStorage.setItem('chatSelectedModel', selectedModel);
   }, [selectedModel]);
 
+  // Listen for model changes from other components (same tab)
+  useEffect(() => {
+    const handleModelChange = (e: CustomEvent<string>) => {
+      setSelectedModel(e.detail);
+    };
+
+    window.addEventListener('chatModelChange', handleModelChange as EventListener);
+    return () => {
+      window.removeEventListener('chatModelChange', handleModelChange as EventListener);
+    };
+  }, []);
+
+  // Listen for model changes from other tabs (storage event)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'chatSelectedModel' && e.newValue) {
+        setSelectedModel(e.newValue);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   // Persist lastClearedSession to localStorage
   useEffect(() => {
     if (lastClearedSession) {

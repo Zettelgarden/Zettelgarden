@@ -138,6 +138,8 @@ export function UserSettingsPage() {
   const handleModelChange = (model: string) => {
     setChatModel(model);
     localStorage.setItem('chatSelectedModel', model);
+    // Dispatch event for other components (useChat hook) to react to model change
+    window.dispatchEvent(new CustomEvent('chatModelChange', { detail: model }));
   };
 
   const subscriptionEnabled =
