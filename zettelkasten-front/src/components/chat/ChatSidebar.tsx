@@ -272,7 +272,6 @@ export function ChatSidebar({ card }: ChatSidebarProps) {
             onTaskClick={handleTaskClick}
             placeholder="Ask about this card..."
             compact={true}
-            showModelDropdown={true}
           />
         </div>
       )}

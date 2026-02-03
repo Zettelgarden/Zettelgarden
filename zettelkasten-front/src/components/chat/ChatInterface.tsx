@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
-import { ChatMessage, ChatModel, getChatModels } from "../../api/chat";
+import { ChatMessage, ChatModel } from "../../api/chat";
 import { parseMessageContent } from "../../utils/chatUtils";
 import { CardsSection } from "./CardsSection";
 import { TasksSection } from "./TasksSection";
@@ -102,8 +102,6 @@ interface ChatInterfaceProps {
   onTaskClick: (taskId: number) => void;
   placeholder?: string;
   compact?: boolean;
-  showModelDropdown?: boolean;
-  availableModels?: { value: string; label: string }[];
   onRegenerateMessage?: (messageId: string) => void;
   onRetryToolCall?: (messageId: string, conversationId: string) => void;
 }
@@ -114,8 +112,6 @@ export function ChatInterface({
   onTaskClick,
   placeholder = "Ask about your cards... Type @ to mention a card",
   compact = false,
-  showModelDropdown = true,
-  availableModels: propAvailableModels,
   onRegenerateMessage,
   onRetryToolCall,
 }: ChatInterfaceProps) {
@@ -127,14 +123,11 @@ export function ChatInterface({
     selectedModel,
     collapsedToolResults,
     retryingToolIds,
-    showModelDropdown: internalShowModelDropdown,
     failedMessage,
     currentConversation,
     streamingMessageId,
     activeToolCalls,
     setMessageInput,
-    setSelectedModel,
-    setShowModelDropdown,
     sendMessage,
     handleCardReference,
     toggleToolResult,
@@ -146,7 +139,6 @@ export function ChatInterface({
   } = chatHook;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const modelDropdownRef = useRef<HTMLDivElement>(null);
   const [showToolCallLoading, setShowToolCallLoading] = useState(false);
 
   // Edit dialog state
@@ -160,35 +152,6 @@ export function ChatInterface({
   // Card reference state
   const [showBacklinkDialog, setShowBacklinkDialog] = useState(false);
   const [referencedCardDetails, setReferencedCardDetails] = useState<PartialCard[]>([]);
-
-  // Models state - fetch from API if not provided via props
-  const [fetchedModels, setFetchedModels] = useState<{ value: string; label: string }[] | null>(null);
-
-  // Fetch chat models from API on mount (if not provided via props)
-  useEffect(() => {
-    if (propAvailableModels) {
-      return; // Use prop models if provided
-    }
-
-    const fetchModels = async () => {
-      try {
-        const models = await getChatModels();
-        const formattedModels = models.map(m => ({ value: m.value, label: m.label }));
-        setFetchedModels(formattedModels);
-      } catch (error) {
-        console.error('Failed to fetch chat models:', error);
-        // Set fallback models on error
-        setFetchedModels([
-          { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-        ]);
-      }
-    };
-
-    fetchModels();
-  }, [propAvailableModels]);
-
-  // Use fetched models if prop not provided, otherwise use prop
-  const availableModels = propAvailableModels || fetchedModels || [];
 
   // Fetch card details when referenced cards change
   useEffect(() => {
@@ -226,22 +189,6 @@ export function ChatInterface({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  // Handle clicking outside the model dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (modelDropdownRef.current && !modelDropdownRef.current.contains(event.target as Node)) {
-        setShowModelDropdown(false);
-      }
-    };
-
-    if (internalShowModelDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }
-  }, [internalShowModelDropdown, setShowModelDropdown]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -634,30 +581,6 @@ export function ChatInterface({
                   </svg>
                 </button>
 
-                {/* Model Dropdown */}
-                {showModelDropdown && internalShowModelDropdown && (
-                  <div ref={modelDropdownRef} className="absolute bottom-16 left-4 z-10">
-                    <div className="bg-white border border-gray-200 rounded-lg shadow-lg min-w-[200px] max-h-60 overflow-y-auto">
-                      {availableModels.map((model) => (
-                        <button
-                          key={model.value}
-                          onClick={() => {
-                            setSelectedModel(model.value);
-                            setShowModelDropdown(false);
-                          }}
-                          className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-50 transition-colors ${
-                            selectedModel === model.value
-                              ? 'bg-blue-50 text-blue-700 font-medium'
-                              : 'text-gray-700'
-                          }`}
-                        >
-                          {model.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {/* Send Button */}
                 <button
                   onClick={() => sendMessage()}
@@ -674,34 +597,6 @@ export function ChatInterface({
                 </button>
               </div>
             </div>
-
-            {/* Model indicator */}
-            {showModelDropdown && (
-              <div className={`px-4 pb-3 ${compact ? 'px-3 pb-2' : ''}`}>
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <button
-                    onClick={() => setShowModelDropdown(!internalShowModelDropdown)}
-                    className="flex items-center gap-2 hover:text-gray-700 transition-colors cursor-pointer rounded-md px-2 py-1 hover:bg-gray-50"
-                  >
-                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                    <span>Using {availableModels.find(m => m.value === selectedModel)?.label}</span>
-                    <svg
-                      className={`w-3 h-3 transition-transform duration-200 ${internalShowModelDropdown ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {!compact && (
-                    <div className="text-gray-400">
-                      Press Enter to send • Shift+Enter for new line
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>

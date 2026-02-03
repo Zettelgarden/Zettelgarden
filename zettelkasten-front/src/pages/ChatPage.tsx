@@ -138,7 +138,6 @@ export function ChatPage({ }: ChatPageProps) {
             onRegenerateMessage={handleRegenerateMessage}
             placeholder="Ask about your cards... Type @ to mention a card, /clear to clear chat"
             compact={false}
-            showModelDropdown={true}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center bg-white">
