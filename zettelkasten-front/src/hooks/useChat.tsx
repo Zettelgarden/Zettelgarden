@@ -20,8 +20,6 @@ export interface LastClearedSession {
 }
 
 export interface UseChatOptions {
-  onConversationChange?: (conversation: ChatConversation | null) => void;
-  onConversationCreated?: (conversation: ChatConversation) => void;
   initialModel?: string;
   enableStreaming?: boolean;
 }
@@ -41,7 +39,6 @@ export function useChat(options: UseChatOptions = {}) {
   const [retryingToolIds, setRetryingToolIds] = useState<Set<string>>(new Set());
   const [referencedCards, setReferencedCards] = useState<string[]>([]);
   const [isPolling, setIsPolling] = useState(false);
-  const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [failedMessage, setFailedMessage] = useState<{ content: string; referencedCards: string[] } | null>(null);
   const [activeToolCalls, setActiveToolCalls] = useState<Set<string>>(new Set());
@@ -83,13 +80,6 @@ export function useChat(options: UseChatOptions = {}) {
       stopPolling();
     };
   }, []);
-
-  // Notify parent when conversation changes
-  useEffect(() => {
-    if (options.onConversationChange) {
-      options.onConversationChange(currentConversation);
-    }
-  }, [currentConversation, options.onConversationChange]);
 
   const startPolling = (conversationId: string) => {
     if (pollingIntervalRef.current) {
@@ -439,11 +429,6 @@ export function useChat(options: UseChatOptions = {}) {
         realConversationIdRef.current = newConv.id; // Track real UUID immediately
         conversationId = newConv.id;
 
-        // Notify that a conversation was created from a draft
-        if (options.onConversationCreated) {
-          options.onConversationCreated(newConv);
-        }
-
         // Refresh messages for the new conversation to ensure consistency
         await refreshMessages(conversationId);
       } catch (error) {
@@ -582,7 +567,6 @@ export function useChat(options: UseChatOptions = {}) {
     retryingToolIds,
     referencedCards,
     isPolling,
-    showModelDropdown,
     failedMessage,
     streamingMessageId,
     activeToolCalls,
@@ -595,7 +579,6 @@ export function useChat(options: UseChatOptions = {}) {
     setError,
     setSelectedModel,
     setReferencedCards,
-    setShowModelDropdown,
 
     // Actions
     createNewConversation,

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
-import { ChatMessage, ChatModel } from "../../api/chat";
+import { ChatMessage } from "../../api/chat";
 import { parseMessageContent } from "../../utils/chatUtils";
 import { CardsSection } from "./CardsSection";
 import { TasksSection } from "./TasksSection";

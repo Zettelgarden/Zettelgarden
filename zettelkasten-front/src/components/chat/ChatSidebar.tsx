@@ -15,17 +15,8 @@ export function ChatSidebar({ card }: ChatSidebarProps) {
   const { setChatSidebarCard, setRefreshTrigger } = useUIState();
 
   const chatHook = useChat({
-    onConversationChange: (conversation) => {
-      // Update selected conversation ID whenever the current conversation changes
-      if (conversation) {
-        setSelectedConversationId(conversation.id);
-      }
-    },
-    onConversationCreated: async (conversation) => {
-      // Refresh the conversation list after a draft is converted to real conversation
-      const conversations = await getConversations(card.id);
-      setCardConversations(conversations);
-    }
+    initialModel: localStorage.getItem('chatSelectedModel') || "google/gemini-2.5-flash",
+    enableStreaming: true,
   });
   const [cardConversations, setCardConversations] = useState<ChatConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -60,6 +51,27 @@ export function ChatSidebar({ card }: ChatSidebarProps) {
 
     loadConversations();
   }, [card.id]);
+
+  // Update selected conversation ID whenever the current conversation changes
+  useEffect(() => {
+    if (chatHook.currentConversation) {
+      setSelectedConversationId(chatHook.currentConversation.id);
+    }
+  }, [chatHook.currentConversation]);
+
+  // Refresh the conversation list when a draft is converted to real conversation
+  useEffect(() => {
+    const refreshConversationList = async () => {
+      if (chatHook.currentConversation && !chatHook.isDraftConversation) {
+        // Only refresh if we have a real conversation (not draft)
+        // and the conversation list might be stale
+        const conversations = await getConversations(card.id);
+        setCardConversations(conversations);
+      }
+    };
+
+    refreshConversationList();
+  }, [chatHook.isDraftConversation, card.id]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -135,7 +147,7 @@ export function ChatSidebar({ card }: ChatSidebarProps) {
       chatHook.handleCardReference([card.id.toString()]);
 
       // Send the message - this will create the conversation on the backend
-      // The onConversationCreated callback will handle updating the conversation ID
+      // The conversation list will be refreshed automatically via useEffect
       await chatHook.sendMessage();
     } catch (error) {
       console.error("Failed to create conversation for card:", error);
