@@ -137,7 +137,6 @@ export function ChatPage({ }: ChatPageProps) {
             onTaskClick={handleTaskClick}
             onRegenerateMessage={handleRegenerateMessage}
             placeholder="Ask about your cards... Type @ to mention a card, /clear to clear chat"
-            compact={false}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center bg-white">
