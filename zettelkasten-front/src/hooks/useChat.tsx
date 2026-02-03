@@ -13,6 +13,12 @@ import {
 } from "../api/chat";
 import { useUIState } from "../contexts/UIStateContext";
 
+export interface LastClearedSession {
+  conversationId: string;
+  messages: ChatMessage[];
+  timestamp: string;
+}
+
 export interface UseChatOptions {
   onConversationChange?: (conversation: ChatConversation | null) => void;
   onConversationCreated?: (conversation: ChatConversation) => void;
@@ -39,6 +45,7 @@ export function useChat(options: UseChatOptions = {}) {
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [failedMessage, setFailedMessage] = useState<{ content: string; referencedCards: string[] } | null>(null);
   const [activeToolCalls, setActiveToolCalls] = useState<Set<string>>(new Set());
+  const [lastClearedSession, setLastClearedSession] = useState<LastClearedSession | null>(null);
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const streamingContentRef = useRef<string>("");
@@ -526,6 +533,41 @@ export function useChat(options: UseChatOptions = {}) {
     }
   };
 
+  const clearChat = async () => {
+    if (!currentConversation || isSending) return;
+
+    // Stop any active polling
+    stopPolling();
+
+    // Archive current session if it has messages
+    if (messages.length > 0 && !isDraftConversation) {
+      const archived: LastClearedSession = {
+        conversationId: currentConversation.id,
+        messages: [...messages],
+        timestamp: new Date().toISOString(),
+      };
+      setLastClearedSession(archived);
+    }
+
+    // Create new conversation
+    await createNewConversation("", selectedModel);
+    setConversationId(""); // Clear stale conversation ID in UIStateContext
+    setError(null);
+  };
+
+  const restoreLastCleared = async () => {
+    if (!lastClearedSession) return;
+
+    try {
+      await loadConversation(lastClearedSession.conversationId);
+      setLastClearedSession(null);
+    } catch (error) {
+      console.error("Failed to restore last cleared session:", error);
+      setError("Failed to restore previous session");
+      setLastClearedSession(null); // Clear invalid archive
+    }
+  };
+
   return {
     // State
     currentConversation,
@@ -544,6 +586,7 @@ export function useChat(options: UseChatOptions = {}) {
     failedMessage,
     streamingMessageId,
     activeToolCalls,
+    lastClearedSession,
 
     // Setters
     setCurrentConversation,
@@ -566,5 +609,7 @@ export function useChat(options: UseChatOptions = {}) {
     startPolling,
     stopPolling,
     retryFailedMessage,
+    clearChat,
+    restoreLastCleared,
   };
 }
