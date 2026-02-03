@@ -524,8 +524,8 @@ export function useChat(options: UseChatOptions = {}) {
     // Stop any active polling
     stopPolling();
 
-    // Archive current session if it has messages
-    if (messages.length > 0 && !isDraftConversation) {
+    // Archive current session if it has messages (including drafts)
+    if (messages.length > 0) {
       const archived: LastClearedSession = {
         conversationId: currentConversation.id,
         messages: [...messages],
