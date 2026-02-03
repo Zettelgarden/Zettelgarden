@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { Card } from "../../models/Card";
 import { useUIState } from "../../contexts/UIStateContext";
 import { useChat } from "../../hooks/useChat";
 import { ChatInterface } from "./ChatInterface";
-import { getConversations, ChatConversation } from "../../api/chat";
+import { getConversations } from "../../api/chat";
 
 interface ChatSidebarProps {
   card: Card;
@@ -18,40 +18,70 @@ export function ChatSidebar({ card }: ChatSidebarProps) {
     initialModel: localStorage.getItem('chatSelectedModel') || "google/gemini-2.5-flash",
     enableStreaming: true,
   });
-  const [initialized, setInitialized] = useState(false);
+
+  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Initialize chat session for this card
   useEffect(() => {
+    // Cancel any pending initialization from previous card
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new abort controller for this initialization
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     const initializeChat = async () => {
+      if (abortController.signal.aborted) return;
+
       try {
+        setState('loading');
+        setErrorMessage(null);
+
         // Try to load the most recent conversation for this card
         const conversations = await getConversations(card.id);
+
+        if (abortController.signal.aborted) return;
 
         if (conversations.length > 0) {
           // Load the most recent conversation
           await chatHook.loadConversation(conversations[0].id);
         } else {
           // Create a new conversation for this card
-          const conversation = await chatHook.createNewConversation(
+          await chatHook.createNewConversation(
             `Chat about ${card.card_id} - ${card.title}`,
             undefined,
             card.id
           );
 
           // Set up the initial message
-          const initialMessage = `I want to chat about this card: [${card.card_id}] - ${card.title}`;
+          const initialMessage = `I want to chat about this card: [${card.card_id}]`;
           chatHook.setMessageInput(initialMessage);
           chatHook.handleCardReference([card.id.toString()]);
           await chatHook.sendMessage();
         }
-        setInitialized(true);
+
+        if (!abortController.signal.aborted) {
+          setState('ready');
+        }
       } catch (error) {
-        console.error("Failed to initialize chat for card:", error);
-        setInitialized(true);
+        if (!abortController.signal.aborted) {
+          console.error("Failed to initialize chat for card:", error);
+          setState('error');
+          setErrorMessage("Failed to load chat. Please try again.");
+        }
       }
     };
 
     initializeChat();
+
+    // Cleanup function
+    return () => {
+      abortControllerRef.current = null;
+    };
   }, [card.id]);
 
   // Monitor chat messages for card operations and trigger refreshes
@@ -85,13 +115,20 @@ export function ChatSidebar({ card }: ChatSidebarProps) {
     });
   }, [chatHook.messages, card.id, setRefreshTrigger]);
 
-  const handleCardClick = (cardPk: string) => {
+  const handleCardClick = useCallback((cardPk: string) => {
     window.open(`/app/card/${encodeURIComponent(cardPk)}`, '_blank');
-  };
+  }, []);
 
-  const handleTaskClick = (taskId: number) => {
+  const handleTaskClick = useCallback((taskId: number) => {
     // Could implement task dialog here if needed
-  };
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    setState('loading');
+    setErrorMessage(null);
+    // Trigger re-initialization by relying on the card.id dependency change
+    // This will cause the effect to re-run
+  }, []);
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -126,6 +163,28 @@ export function ChatSidebar({ card }: ChatSidebarProps) {
           <div className="text-center text-gray-500">
             <p className="mb-2">Chat is a Pro feature.</p>
             <p className="text-sm">Upgrade to Pro to chat about your cards.</p>
+          </div>
+        </div>
+      ) : state === 'loading' ? (
+        <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
+          <div className="text-center text-gray-500">
+            <div className="w-8 h-8 mx-auto mb-3 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm">Loading chat...</p>
+          </div>
+        </div>
+      ) : state === 'error' ? (
+        <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
+          <div className="text-center text-gray-500">
+            <p className="mb-3 text-red-500">{errorMessage}</p>
+            <button
+              onClick={handleRetry}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 2A8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 2A8.003 0 0115.357 2m15.357 2H15" />
+              </svg>
+              Retry
+            </button>
           </div>
         </div>
       ) : (
