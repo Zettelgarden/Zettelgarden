@@ -42,7 +42,17 @@ export function useChat(options: UseChatOptions = {}) {
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [failedMessage, setFailedMessage] = useState<{ content: string; referencedCards: string[] } | null>(null);
   const [activeToolCalls, setActiveToolCalls] = useState<Set<string>>(new Set());
-  const [lastClearedSession, setLastClearedSession] = useState<LastClearedSession | null>(null);
+  const [lastClearedSession, setLastClearedSession] = useState<LastClearedSession | null>(() => {
+    const saved = localStorage.getItem('chatLastClearedSession');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const streamingContentRef = useRef<string>("");
@@ -55,6 +65,15 @@ export function useChat(options: UseChatOptions = {}) {
   useEffect(() => {
     localStorage.setItem('chatSelectedModel', selectedModel);
   }, [selectedModel]);
+
+  // Persist lastClearedSession to localStorage
+  useEffect(() => {
+    if (lastClearedSession) {
+      localStorage.setItem('chatLastClearedSession', JSON.stringify(lastClearedSession));
+    } else {
+      localStorage.removeItem('chatLastClearedSession');
+    }
+  }, [lastClearedSession]);
 
   // Clear failed message when user starts typing new content
   useEffect(() => {
