@@ -20,6 +20,7 @@ export function ChatPage({ }: ChatPageProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [regeneratingMessageIds, setRegeneratingMessageIds] = useState<Set<string>>(new Set());
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const { hasSubscription } = useAuth();
   const { showToast } = useToast();
@@ -64,9 +65,21 @@ export function ChatPage({ }: ChatPageProps) {
     } else if (newParam === 'true') {
       // Clear URL params to avoid re-triggering
       window.history.replaceState({}, '', '/app/chat');
-      // For rolling session, just clear existing chat
-      await chatHook.clearChat();
+
+      // Check if there are messages to clear before showing confirmation
+      if (chatHook.messages.length > 0) {
+        setShowClearConfirm(true);
+      } else {
+        // No messages to lose, just clear
+        await chatHook.clearChat();
+      }
     }
+  };
+
+  const handleClearConfirmed = async () => {
+    setShowClearConfirm(false);
+    await chatHook.clearChat();
+    showToast("success", "Chat cleared", "Started a new chat session.");
   };
 
   const handleCardClick = (cardPk: string) => {
@@ -167,6 +180,49 @@ export function ChatPage({ }: ChatPageProps) {
         isOpen={showInstructionsMenu}
         onClose={() => setShowInstructionsMenu(false)}
       />
+
+      {/* Clear Chat Confirmation Dialog */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Clear Chat?</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              This will clear your current chat session and start a new one. You can restore it later using the "Restore Last" button.
+            </p>
+            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+              <p className="text-sm text-gray-500">
+                Current session has <strong>{chatHook.messages.length} message{chatHook.messages.length !== 1 ? 's' : ''}</strong>.
+                {chatHook.messages.length > 0 && (
+                  <span className="block mt-2 text-xs text-gray-400">
+                    This will be archived and can be restored later.
+                  </span>
+                )}
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClearConfirmed}
+                className="px-4 py-2 text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+              >
+                Clear Chat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Task Dialog */}
       <TaskDialog
