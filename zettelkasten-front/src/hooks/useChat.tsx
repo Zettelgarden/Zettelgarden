@@ -182,7 +182,7 @@ export function useChat(options: UseChatOptions = {}) {
       }
     } catch (error) {
       console.error("Failed to load conversation:", error);
-      setError("Failed to load conversationz");
+      setError("Failed to load conversation");
     } finally {
       setIsLoading(false);
     }
