@@ -17,8 +17,9 @@ import { CalendarSubscriptions } from "../components/settings/CalendarSubscripti
 import { MemoryPage } from "./MemoryPage";
 import { SchemaPage } from "./SchemaPage";
 import { StatsPage } from "./StatsPage";
+import { ModelSelector } from "../components/settings/ModelSelector";
 
-type Tab = "profile" | "templates" | "tags" | "files" | "statuses" | "apiKeys" | "calendars" | "memory" | "schemas" | "stats";
+type Tab = "profile" | "templates" | "tags" | "files" | "statuses" | "apiKeys" | "calendars" | "memory" | "schemas" | "stats" | "chat";
 
 export function UserSettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
@@ -30,6 +31,9 @@ export function UserSettingsPage() {
   const [timezone, setTimezone] = useState<string>("UTC");
   const [caldavUrl, setCaldavUrl] = useState<string>("");
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
+  const [chatModel, setChatModel] = useState(() =>
+    localStorage.getItem('chatSelectedModel') || "google/gemini-2.5-flash"
+  );
 
   // Get the base URL for API calls
   const getApiBaseUrl = () => {
@@ -129,6 +133,11 @@ export function UserSettingsPage() {
     } catch (error) {
       console.error("Failed to copy to clipboard:", error);
     }
+  };
+
+  const handleModelChange = (model: string) => {
+    setChatModel(model);
+    localStorage.setItem('chatSelectedModel', model);
   };
 
   const subscriptionEnabled =
@@ -429,6 +438,16 @@ export function UserSettingsPage() {
         return <SchemaPage />;
       case "stats":
         return <StatsPage />;
+      case "chat":
+        return (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Chat Settings</h2>
+            <ModelSelector
+              currentModel={chatModel}
+              onModelChange={handleModelChange}
+            />
+          </div>
+        );
     }
   };
 
@@ -478,6 +497,12 @@ export function UserSettingsPage() {
           onClick={() => setActiveTab("calendars")}
         >
           Calendars
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium ${activeTab === "chat" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+          onClick={() => setActiveTab("chat")}
+        >
+          Chat
         </button>
         <button
           className={`px-4 py-2 text-sm font-medium ${activeTab === "memory" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
