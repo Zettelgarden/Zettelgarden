@@ -399,6 +399,7 @@ export function CalendarView({
               onEventClick={handleEventClick}
               onContextMenu={handleContextMenu}
               onCreateTask={onCreateTask}
+              viewMode={viewMode}
             />
           ))}
         </div>
@@ -457,6 +458,7 @@ interface CalendarDayCellProps {
   onEventClick: (e: React.MouseEvent, event: CalendarEvent) => void;
   onContextMenu: (e: React.MouseEvent, day: CalendarDay) => void;
   onCreateTask?: (date: Date) => void;
+  viewMode: CalendarViewType;
 }
 
 function CalendarDayCell({
@@ -468,9 +470,10 @@ function CalendarDayCell({
   onEventClick,
   onContextMenu,
   onCreateTask,
+  viewMode,
 }: CalendarDayCellProps) {
-  const visibleEvents = getVisibleEvents(day);
-  const hiddenCount = getHiddenEventCount(day);
+  const visibleEvents = getVisibleEvents(day, viewMode);
+  const hiddenCount = getHiddenEventCount(day, viewMode);
 
   const handleDoubleClick = () => {
     if (onCreateTask) {
@@ -478,8 +481,9 @@ function CalendarDayCell({
     }
   };
 
+  // Week view uses taller cells to utilize available vertical space
   const cellClasses = `
-    min-h-[60px] sm:min-h-[80px] p-1 border-b border-r border-slate-200 last:border-r-0 cursor-pointer focus-within:ring-2 focus-within:ring-blue-300 focus:outline-none
+    ${viewMode === "week" ? "min-h-[400px]" : "min-h-[60px] sm:min-h-[80px]"} p-1 border-b border-r border-slate-200 last:border-r-0 cursor-pointer focus-within:ring-2 focus-within:ring-blue-300 focus:outline-none
     ${day.isToday ? "bg-blue-50" : ""}
     ${!day.isCurrentMonth ? "bg-slate-100 text-slate-400" : ""}
     ${isHovered ? "bg-slate-100" : "bg-white"}
@@ -734,6 +738,43 @@ interface DayPopoverProps {
 }
 
 function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, onCreateTask }: DayPopoverProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Focus management and escape key handler
+  useEffect(() => {
+    // Focus the close button when dialog opens
+    closeButtonRef.current?.focus();
+
+    // Handle escape key and focus trap
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+
+      // Simple focus trap - keep Tab/Shift+Tab within the dialog
+      if (e.key === 'Tab' && dialogRef.current) {
+        const focusableElements = dialogRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const firstElement = focusableElements[0] as HTMLElement;
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+        if (e.shiftKey && document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement?.focus();
+        } else if (!e.shiftKey && document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement?.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   // Separate external events from task events
   // Task events are deduplicated by taskId, external events are kept as-is
   const taskEventsById = new Map<number, CalendarEvent>();
@@ -753,11 +794,19 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
   });
 
   const uniqueTaskEvents = Array.from(taskEventsById.values());
-  const allEvents = [...uniqueTaskEvents, ...externalEvents];
+  // Sort events chronologically - all-day events first, then by time
+  const allEvents = [...uniqueTaskEvents, ...externalEvents].sort((a, b) => {
+    // If one is all-day and one isn't, all-day comes first
+    if (a.allDay && !b.allDay) return -1;
+    if (!a.allDay && b.allDay) return 1;
+    // Both have times or both don't - sort by date
+    return a.date.getTime() - b.date.getTime();
+  });
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-auto"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
@@ -767,6 +816,7 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
         <div className="p-4 border-b border-slate-200 flex items-center justify-between">
           <h3 id="day-popover-title" className="text-lg font-semibold">{format(date, "MMMM d, yyyy")}</h3>
           <button
+            ref={closeButtonRef}
             onClick={onClose}
             className="p-2 hover:bg-slate-100 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Close dialog"
@@ -783,7 +833,7 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
                 <button
                   onClick={() => {
                     onCreateTask();
-                    onClose();
+                    // Keep dialog open to allow creating multiple tasks
                   }}
                   className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[44px]"
                 >
@@ -857,7 +907,7 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
                 <button
                   onClick={() => {
                     onCreateTask();
-                    onClose();
+                    // Keep dialog open to allow creating multiple tasks
                   }}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2 min-h-[44px] mt-2"
                 >

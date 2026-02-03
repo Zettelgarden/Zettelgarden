@@ -166,12 +166,23 @@ export function formatMonthHeader(date: Date): string {
 }
 
 /**
- * Format week header (e.g., "Week of Jan 5, 2026")
+ * Format week header (e.g., "Week 2 (Jan 5-11, 2026)")
  */
 export function formatWeekHeader(date: Date): string {
   const firstDayOfWeek = getFirstDayOfWeek();
   const weekStart = startOfWeek(date, { weekStartsOn: firstDayOfWeek });
-  return `Week of ${format(weekStart, "MMM d, yyyy")}`;
+  const weekEnd = endOfWeek(date, { weekStartsOn: firstDayOfWeek });
+  const weekNumber = getWeekNumber(date);
+  return `Week ${weekNumber} (${format(weekStart, "MMM d")}-${format(weekEnd, "MMM d, yyyy")}`;
+}
+
+/**
+ * Get ISO week number for a date (1-53)
+ */
+function getWeekNumber(date: Date): number {
+  const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+  const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+  return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
 }
 
 /**
