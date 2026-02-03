@@ -142,6 +142,7 @@ export function ChatInterface({
     retryTool,
     referencedCards,
     setReferencedCards,
+    clearChat,
   } = chatHook;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -610,6 +611,7 @@ export function ChatInterface({
                   onChange={setMessageInput}
                   onSubmit={sendMessage}
                   onCardReference={handleCardReference}
+                  onClearCommand={clearChat}
                   placeholder={placeholder}
                   disabled={isSending}
                   isLoading={isSending}

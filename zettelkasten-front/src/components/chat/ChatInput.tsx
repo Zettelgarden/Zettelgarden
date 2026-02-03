@@ -7,6 +7,7 @@ interface ChatInputProps {
   onChange: (value: string) => void;
   onSubmit: (referencedCards?: string[]) => void;
   onCardReference: (cardIds: string[]) => void;
+  onClearCommand?: () => void;
   placeholder?: string;
   disabled?: boolean;
   isLoading?: boolean;
@@ -20,6 +21,7 @@ export function ChatInput({
   onChange,
   onSubmit,
   onCardReference,
+  onClearCommand,
   placeholder = "Type your message...",
   disabled = false,
   isLoading = false,
@@ -31,6 +33,16 @@ export function ChatInput({
   const [referencedCards, setReferencedCards] = useState<Set<string>>(new Set());
   const [atTriggerPosition, setAtTriggerPosition] = useState(0);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+
+  // Helper function to handle command execution
+  const handleCommandExecution = () => {
+    if (value.trim() === '/clear' && onClearCommand) {
+      onClearCommand();
+      onChange('');
+      return true;
+    }
+    return false;
+  };
 
   // Auto-resize functionality for textarea
   const adjustTextareaHeight = () => {
@@ -89,6 +101,9 @@ export function ChatInput({
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (!multiline || !e.shiftKey)) {
       e.preventDefault();
+      if (handleCommandExecution()) {
+        return;
+      }
       onSubmit(referencedCards.size > 0 ? Array.from(referencedCards) : undefined);
     } else if (e.key === 'Escape') {
       setShowCardDropdown(false);
@@ -166,7 +181,12 @@ export function ChatInput({
           />
           {submitButtonText && (
             <button
-              onClick={() => onSubmit(referencedCards.size > 0 ? Array.from(referencedCards) : undefined)}
+              onClick={() => {
+                if (handleCommandExecution()) {
+                  return;
+                }
+                onSubmit(referencedCards.size > 0 ? Array.from(referencedCards) : undefined);
+              }}
               disabled={!value.trim() || disabled || isLoading}
               className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
