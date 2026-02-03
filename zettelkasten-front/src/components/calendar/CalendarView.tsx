@@ -842,7 +842,7 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
               )}
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {allEvents.map((event) => {
                 const isExternal = event.source === "external";
                 const customColor = event.color || "#6366f1";
@@ -859,7 +859,7 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
                       }
                     }}
                     className={`
-                      w-full text-left p-3 rounded border hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500
+                      w-full text-left px-2 py-1.5 rounded border hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between gap-2
                       ${getEventColor(event)}
                       ${isExternal ? "border-l-4" : ""}
                     `}
@@ -869,53 +869,32 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
                     }
                     style={isExternal ? { borderLeftColor: customColor } : undefined}
                   >
-                    <div className="font-medium flex items-center gap-2">
-                      {event.title}
-                      {isExternal && (
-                        <span className="text-xs bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] font-medium">
-                          External
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs mt-1 opacity-75 flex items-center gap-2">
+                    <span className="font-medium text-sm truncate flex-1">{event.title}</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
                       {isExternal && !event.allDay && (
-                        <span>
+                        <span className="text-[10px] opacity-75 whitespace-nowrap">
                           {format(event.date, "h:mm a")}
-                          {event.endTime && ` - ${format(event.endTime, "h:mm a")}`}
                         </span>
                       )}
                       {!isExternal && (
-                        <span className="inline-flex items-center gap-1">
+                        <>
                           {event.eventType === "scheduled" && (
-                            <>
-                              <span className="w-2 h-2 rounded-full bg-blue-500" aria-hidden="true"></span>
-                              <span>Scheduled</span>
-                            </>
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" aria-hidden="true" title="Scheduled"></span>
                           )}
                           {event.eventType === "due" && (
-                            <>
-                              <span className="w-2 h-2 rounded-full bg-amber-500" aria-hidden="true"></span>
-                              <span>Due</span>
-                            </>
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true" title="Due"></span>
                           )}
                           {event.eventType === "completed" && (
-                            <>
-                              <span className="w-2 h-2 rounded-full bg-green-500" aria-hidden="true"></span>
-                              <span>Completed</span>
-                            </>
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500" aria-hidden="true" title="Completed"></span>
                           )}
-                        </span>
-                      )}
-                      {event.priority && (
-                        <span className="inline-flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full" aria-hidden="true" style={{
-                            backgroundColor: event.priority === "A" ? "#f97316" :
-                                          event.priority === "B" ? "#fbbf24" :
-                                          event.priority === "C" ? "#60a5fa" : "#9ca3af"
-                          }}></span>
-                          <span className="sr-only">Priority {event.priority}</span>
-                          <span>Priority {event.priority}</span>
-                        </span>
+                          {event.priority && (
+                            <span className="w-1.5 h-1.5 rounded-full" aria-hidden="true" title={`Priority ${event.priority}`} style={{
+                              backgroundColor: event.priority === "A" ? "#f97316" :
+                                            event.priority === "B" ? "#fbbf24" :
+                                            event.priority === "C" ? "#60a5fa" : "#9ca3af"
+                            }}></span>
+                          )}
+                        </>
                       )}
                     </div>
                   </button>
