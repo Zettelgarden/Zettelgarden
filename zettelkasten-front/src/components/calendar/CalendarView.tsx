@@ -848,7 +848,8 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
                 const customColor = event.color || "#6366f1";
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={event.id}
                     onClick={() => {
                       if (isExternal) {
@@ -858,12 +859,10 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
                       }
                     }}
                     className={`
-                      p-3 rounded border cursor-pointer hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500
+                      w-full text-left p-3 rounded border hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500
                       ${getEventColor(event)}
                       ${isExternal ? "border-l-4" : ""}
                     `}
-                    role="button"
-                    tabIndex={0}
                     aria-label={isExternal
                       ? `View external event: ${event.title}`
                       : `View task: ${event.title} (${event.eventType}${event.priority ? `, priority ${event.priority}` : ""})`
@@ -872,7 +871,11 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
                   >
                     <div className="font-medium flex items-center gap-2">
                       {event.title}
-                      {isExternal && <span className="text-xs">📅</span>}
+                      {isExternal && (
+                        <span className="text-xs bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] font-medium">
+                          External
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs mt-1 opacity-75 flex items-center gap-2">
                       {isExternal && !event.allDay && (
@@ -882,10 +885,25 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
                         </span>
                       )}
                       {!isExternal && (
-                        <span>
-                          {event.eventType === "scheduled" && "📅 Scheduled"}
-                          {event.eventType === "due" && "⏰ Due"}
-                          {event.eventType === "completed" && "✅ Completed"}
+                        <span className="inline-flex items-center gap-1">
+                          {event.eventType === "scheduled" && (
+                            <>
+                              <span className="w-2 h-2 rounded-full bg-blue-500" aria-hidden="true"></span>
+                              <span>Scheduled</span>
+                            </>
+                          )}
+                          {event.eventType === "due" && (
+                            <>
+                              <span className="w-2 h-2 rounded-full bg-amber-500" aria-hidden="true"></span>
+                              <span>Due</span>
+                            </>
+                          )}
+                          {event.eventType === "completed" && (
+                            <>
+                              <span className="w-2 h-2 rounded-full bg-green-500" aria-hidden="true"></span>
+                              <span>Completed</span>
+                            </>
+                          )}
                         </span>
                       )}
                       {event.priority && (
@@ -900,7 +918,7 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
                         </span>
                       )}
                     </div>
-                  </div>
+                  </button>
                 );
               })}
               {onCreateTask && (
