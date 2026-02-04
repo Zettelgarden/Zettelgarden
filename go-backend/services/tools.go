@@ -50,6 +50,13 @@ const (
 	ToolGetTemplate      = "get_template"
 	ToolListTemplates    = "list_templates"
 	ToolGetNextChildID   = "get_next_child_id"
+	// Calendar tools
+	ToolListExternalCalendars = "list_external_calendars"
+	ToolListExternalEvents    = "list_external_events"
+	ToolLinkEventToCard       = "link_event_to_card"
+	// Article tools
+	ToolParseURL      = "parse_url"
+	ToolCreateArticle = "create_article"
 )
 
 // ToolContext contains all the context needed for tool execution
@@ -205,6 +212,13 @@ func NewToolRegistry() *ToolRegistry {
 	registry.registerGetTemplate()
 	registry.registerListTemplates()
 	registry.registerGetNextChildID()
+	// Calendar tools
+	registry.registerListExternalCalendars()
+	registry.registerListExternalEvents()
+	registry.registerLinkEventToCard()
+	// Article tools
+	registry.registerParseURL()
+	registry.registerCreateArticle()
 
 	return registry
 }
@@ -2155,4 +2169,244 @@ func handleGetSimilarEntities(args map[string]interface{}, ctx *ToolContext) (ma
 		"total":         len(results),
 		"limit":         limit,
 	}, nil
+}
+
+// Calendar tool implementations
+
+func (tr *ToolRegistry) registerListExternalCalendars() {
+	tr.tools["list_external_calendars"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "list_external_calendars",
+				Description: "List all external calendar subscriptions for the current user. Returns calendar names, URLs, sync status, colors, and last sync times.",
+				Parameters: map[string]interface{}{
+					"type":       "object",
+					"properties": map[string]interface{}{},
+					"required":   []string{},
+				},
+			},
+		},
+		Handler: handleListExternalCalendars,
+	}
+}
+
+func handleListExternalCalendars(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	service := NewExternalEventService(ctx.DB, nil)
+	calendars, err := service.GetCalendars(ctx.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get calendars: %v", err)
+	}
+
+	var results []map[string]interface{}
+	for _, cal := range calendars {
+		results = append(results, StructToMap(cal))
+	}
+
+	return map[string]interface{}{
+		"calendars": results,
+		"total":     len(calendars),
+	}, nil
+}
+
+func (tr *ToolRegistry) registerListExternalEvents() {
+	tr.tools["list_external_events"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "list_external_events",
+				Description: "List external calendar events within a date range. Returns events with titles, times, locations, linked cards, and descriptions.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"start": map[string]interface{}{
+							"type":        "string",
+							"description": "Start date in ISO 8601 format (e.g., '2026-01-01T00:00:00Z')",
+						},
+						"end": map[string]interface{}{
+							"type":        "string",
+							"description": "End date in ISO 8601 format (e.g., '2026-12-31T23:59:59Z')",
+						},
+					},
+					"required": []string{"start", "end"},
+				},
+			},
+		},
+		Handler: handleListExternalEvents,
+	}
+}
+
+func handleListExternalEvents(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	startStr, err := getStringParam(args, "start")
+	if err != nil {
+		return nil, err
+	}
+
+	endStr, err := getStringParam(args, "end")
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse ISO 8601 dates
+	start, err := time.Parse(time.RFC3339, startStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid start date format: %w", err)
+	}
+
+	end, err := time.Parse(time.RFC3339, endStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid end date format: %w", err)
+	}
+
+	service := NewExternalEventService(ctx.DB, nil)
+	events, total, err := service.GetEventsInRange(ctx.UserID, start, end, 100, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get events: %v", err)
+	}
+
+	var results []map[string]interface{}
+	for _, event := range events {
+		results = append(results, StructToMap(event))
+	}
+
+	return map[string]interface{}{
+		"events": results,
+		"total":  total,
+	}, nil
+}
+
+func (tr *ToolRegistry) registerLinkEventToCard() {
+	tr.tools["link_event_to_card"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "link_event_to_card",
+				Description: "Link an external calendar event to a card. Creates a bidirectional association between the event and card.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"event_id": map[string]interface{}{
+							"type":        "integer",
+							"description": "The external event ID",
+						},
+						"card_pk": map[string]interface{}{
+							"type":        "integer",
+							"description": "The card primary key to link to",
+						},
+					},
+					"required": []string{"event_id", "card_pk"},
+				},
+			},
+		},
+		Handler: handleLinkEventToCard,
+	}
+}
+
+func handleLinkEventToCard(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	eventID, err := getIntParam(args, "event_id")
+	if err != nil {
+		return nil, err
+	}
+
+	cardPK, err := getIntParam(args, "card_pk")
+	if err != nil {
+		return nil, err
+	}
+
+	service := NewExternalEventService(ctx.DB, nil)
+	event, err := service.LinkEventToCard(ctx.DB, ctx.UserID, eventID, cardPK)
+	if err != nil {
+		return nil, fmt.Errorf("failed to link event to card: %v", err)
+	}
+
+	return StructToMap(event), nil
+}
+
+// Article tool implementations
+
+func (tr *ToolRegistry) registerParseURL() {
+	tr.tools["parse_url"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "parse_url",
+				Description: "Parse a URL to extract article content (title, body, author, excerpt). Returns the parsed content for preview before creating a card.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"url": map[string]interface{}{
+							"type":        "string",
+							"description": "URL to parse and extract content from",
+						},
+					},
+					"required": []string{"url"},
+				},
+			},
+		},
+		Handler: handleParseURL,
+	}
+}
+
+func handleParseURL(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	url, err := getStringParam(args, "url")
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := ParseURL(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse URL: %v", err)
+	}
+
+	return StructToMap(result), nil
+}
+
+func (tr *ToolRegistry) registerCreateArticle() {
+	tr.tools["create_article"] = Tool{
+		Definition: openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "create_article",
+				Description: "Create a new article card from a URL. Automatically parses the URL, extracts content, adds the link, and tags with #to-read #reference by default.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"url": map[string]interface{}{
+							"type":        "string",
+							"description": "URL of the article to import",
+						},
+						"card_id": map[string]interface{}{
+							"type":        "string",
+							"description": "Optional card_id (e.g., '1a'). Leave empty for auto-generated root ID.",
+						},
+						"tags": map[string]interface{}{
+							"type":        "string",
+							"description": "Optional custom tags (default: '#to-read #reference'). Provide as space-separated tags like '#tag1 #tag2'",
+						},
+					},
+					"required": []string{"url"},
+				},
+			},
+		},
+		Handler: handleCreateArticle,
+	}
+}
+
+func handleCreateArticle(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	url, err := getStringParam(args, "url")
+	if err != nil {
+		return nil, err
+	}
+
+	cardID, _ := getOptionalStringParam(args, "card_id")
+	tags, _ := getOptionalStringParam(args, "tags")
+
+	card, err := CreateArticle(ctx.DB, ctx.UserID, url, cardID, tags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create article: %v", err)
+	}
+
+	result := StructToMap(card)
+	result["operation"] = "article_created"
+	return result, nil
 }
