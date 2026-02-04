@@ -43,7 +43,7 @@ func (b *Bot) handleClear(ctx context.Context, chatID int64) {
 	conversation, err := b.handler.CreateConversation(
 		b.userID,
 		&title,
-		os.Getenv("ZETTEL_LLM_DEFAULT_MODEL", "google/gemini-3-flash-preview"),
+		os.Getenv("ZETTEL_LLM_DEFAULT_MODEL"),
 		nil,
 		nil,
 	)
