@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"go-backend/handlers"
 	"go-backend/models"
@@ -258,7 +259,9 @@ func (b *Bot) processAssistantResponse(ctx context.Context, chatID int64, conver
 		}
 
 		if message.Status == "completed" && message.Content != nil {
-			b.sendMessage(ctx, chatID, *message.Content)
+			// Build response with tool usage summary
+			response := b.buildResponseWithToolSummary(conversation.ID, messageID, *message.Content)
+			b.sendMessage(ctx, chatID, response)
 			return
 		}
 
@@ -271,4 +274,98 @@ func (b *Bot) processAssistantResponse(ctx context.Context, chatID int64, conver
 	}
 
 	b.sendMessage(ctx, chatID, "Request is taking longer than expected. Please check the web UI for the response.")
+}
+
+// buildResponseWithToolSummary builds a response with tool usage summary appended
+func (b *Bot) buildResponseWithToolSummary(conversationID, assistantMessageID, content string) string {
+	// Get all messages in this conversation to find tool calls and results
+	messages, err := b.handler.GetConversationMessages(conversationID)
+	if err != nil {
+		log.Printf("[telegram] Error getting conversation messages: %v", err)
+		return content
+	}
+
+	// Find assistant message and collect tool calls/results
+	var toolCalls []string
+	var toolErrors []string
+	foundAssistant := false
+
+	for _, msg := range messages {
+		// Stop processing once we've passed the assistant message
+		if msg.ID == assistantMessageID {
+			if msg.Role == "assistant" {
+				foundAssistant = true
+				// Collect tool calls from assistant message
+				for _, tc := range msg.ToolCalls {
+					toolName := tc.Function.Name
+					toolCalls = append(toolCalls, toolName)
+				}
+			}
+			continue
+		}
+
+		// Only process tool messages that come after the assistant message
+		if !foundAssistant {
+			continue
+		}
+
+		// Process tool result messages
+		if msg.Role == "tool" && msg.Content != nil {
+			// Parse the tool result to check for errors
+			var result map[string]interface{}
+			if err := json.Unmarshal([]byte(*msg.Content), &result); err == nil {
+				if hasErr, ok := result["error"].(bool); ok && hasErr {
+					// Extract error message if available
+					if errMsg, ok := result["message"].(string); ok {
+						toolErrors = append(toolErrors, errMsg)
+					} else {
+						toolErrors = append(toolErrors, "unknown error")
+					}
+				}
+			}
+		}
+
+		// Stop if we hit another user or assistant message
+		if msg.Role == "user" || (msg.Role == "assistant" && msg.ID != assistantMessageID) {
+			break
+		}
+	}
+
+	// Build the response with tool summary
+	response := content
+
+	if len(toolCalls) > 0 {
+		response += "\n\n---\n*Tools used: " + formatToolList(toolCalls) + "*"
+	}
+
+	if len(toolErrors) > 0 {
+		response += "\n*⚠️ Some tools had errors:*"
+		for _, errMsg := range toolErrors {
+			response += "\n  • " + errMsg
+		}
+	}
+
+	return response
+}
+
+// formatToolList formats a list of tool names for display
+func formatToolList(tools []string) string {
+	if len(tools) == 0 {
+		return "none"
+	}
+
+	// Create a simple formatted list
+	var result string
+	for i, tool := range tools {
+		if i > 0 {
+			result += ", "
+		}
+		// Format tool name: replace underscores with spaces, capitalize
+		formatted := strings.ReplaceAll(tool, "_", " ")
+		if len(formatted) > 0 {
+			formatted = strings.ToUpper(formatted[:1]) + formatted[1:]
+		}
+		result += formatted
+	}
+	return result
 }
