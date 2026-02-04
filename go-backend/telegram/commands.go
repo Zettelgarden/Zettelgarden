@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -42,7 +43,7 @@ func (b *Bot) handleClear(ctx context.Context, chatID int64) {
 	conversation, err := b.handler.CreateConversation(
 		b.userID,
 		&title,
-		"google/gemini-2.5-flash",
+		os.Getenv("ZETTEL_LLM_DEFAULT_MODEL", "google/gemini-3-flash-preview"),
 		nil,
 		nil,
 	)
