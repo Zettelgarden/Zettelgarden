@@ -47,6 +47,7 @@ docker-compose up  # Start all services locally
 - **Server**: `server/` - Database connections and server configuration
 - **Migrations**: `schema/` - SQL migration files for database schema
 - **LLMs**: `llms/` - AI/ML integration for embeddings, chat, and entity processing
+- **Telegram**: `telegram/` - Telegram bot for chat via Telegram
 
 ### Frontend (React/TypeScript)
 - **Pages**: `src/pages/` - Main application routes and page components
@@ -127,6 +128,9 @@ The application requires extensive environment configuration for:
   - Purpose: Push monitor URL for heartbeat signals to verify job scheduler is operational
   - Format: Full URL including monitor UUID, e.g.: https://uptime.example.com/api/push/YOUR_MONITOR_ID?status=up&msg=OK
   - When required: Optional - job will gracefully skip if not configured
+- Telegram bot (TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_USER_ID, TELEGRAM_ZETTELGARDEN_USER_ID, TELEGRAM_ENABLED)
+  - Purpose: Enable Telegram bot for knowledge base chat
+  - Requirements: Bot token from @BotFather, your Telegram user ID, your Zettelgarden user ID
 - Mail service configuration
 
 ## Development Notes
