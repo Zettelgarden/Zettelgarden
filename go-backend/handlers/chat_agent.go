@@ -483,7 +483,7 @@ func (s *Handler) executeToolCall(toolRegistry *services.ToolRegistry, tc openai
 }
 
 // executeAndSaveToolCalls executes all tool calls and saves their responses
-func (s *Handler) executeAndSaveToolCalls(toolRegistry *services.ToolRegistry, toolCalls []openai.ToolCall, userID int, conversation *models.ChatConversation, assistantMessageID string, model string) error {
+func (s *Handler) executeAndSaveToolCalls(toolRegistry *services.ToolRegistry, toolCalls []openai.ToolCall, userID int, conversation *models.ChatConversation, assistantMessageID string, model string, loopDetector *services.LoopDetector) error {
 	ctx := &services.ToolContext{
 		UserID:          userID,
 		DB:              s.DB,
@@ -495,6 +495,14 @@ func (s *Handler) executeAndSaveToolCalls(toolRegistry *services.ToolRegistry, t
 
 	for _, tc := range toolCalls {
 		result := s.executeToolCall(toolRegistry, tc, ctx)
+
+		// Record the call for loop detection
+		var args map[string]interface{}
+		json.Unmarshal([]byte(tc.Function.Arguments), &args)
+		wasError := models.HasError(result)
+		if loopDetector != nil {
+			loopDetector.RecordCall(tc.Function.Name, args, result, wasError)
+		}
 
 		// Convert result to JSON string for tool response
 		resultJSON, _ := json.Marshal(result)
@@ -578,8 +586,23 @@ func (s *Handler) GenerateChatResponse(ctx context.Context, userID int, conversa
 	toolRegistry := services.NewToolRegistry()
 	tools := toolRegistry.GetToolDefinitions()
 
+	// Initialize loop detector for this conversation
+	loopDetector := services.NewLoopDetector()
+
 	// Loop until no more tool calls are needed
 	for {
+		// Check for loops before making the next LLM call
+		if shouldBlock, reason, interventionMsg := loopDetector.ShouldBlock(); shouldBlock {
+			log.Printf("[LoopDetector] Loop detected: %s - injecting intervention message", reason)
+			// Add intervention as a system message to break the loop
+			openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleSystem,
+				Content: interventionMsg,
+			})
+			// Clear the loop detector history after intervention
+			loopDetector.Reset()
+		}
+
 		resp, err := services.ExecuteLLMToolRequest(ctx, client, openaiMessages, tools)
 		if err != nil {
 			return s.handleLLMError(err, userID, conversation, assistantMessageID)
@@ -621,7 +644,7 @@ func (s *Handler) GenerateChatResponse(ctx context.Context, userID int, conversa
 		}
 
 		// Execute tool calls and save tool responses
-		if err = s.executeAndSaveToolCalls(toolRegistry, assistantMessage.ToolCalls, userID, conversation, assistantMessageID, model); err != nil {
+		if err = s.executeAndSaveToolCalls(toolRegistry, assistantMessage.ToolCalls, userID, conversation, assistantMessageID, model, loopDetector); err != nil {
 			return nil, err
 		}
 
@@ -895,7 +918,7 @@ func convertAndBroadcastToolCalls(toolCalls []openai.ToolCall, sendEvent func(st
 }
 
 // executeAndBroadcastToolCalls executes tool calls and sends result events
-func (s *Handler) executeAndBroadcastToolCalls(toolRegistry *services.ToolRegistry, toolCalls []openai.ToolCall, userID int, conversation *models.ChatConversation, assistantMessageID string, model string, sendEvent func(string, interface{}) error) error {
+func (s *Handler) executeAndBroadcastToolCalls(toolRegistry *services.ToolRegistry, toolCalls []openai.ToolCall, userID int, conversation *models.ChatConversation, assistantMessageID string, model string, sendEvent func(string, interface{}) error, loopDetector *services.LoopDetector) error {
 	ctx := &services.ToolContext{
 		UserID:          userID,
 		DB:              s.DB,
@@ -908,12 +931,19 @@ func (s *Handler) executeAndBroadcastToolCalls(toolRegistry *services.ToolRegist
 	for _, tc := range toolCalls {
 		result := s.executeToolCall(toolRegistry, tc, ctx)
 
-		// Check if result contains an error
-		hasError := models.HasError(result)
-
-		// Parse arguments for the event
+		// Record the call for loop detection
 		var args map[string]interface{}
 		json.Unmarshal([]byte(tc.Function.Arguments), &args)
+		wasError := models.HasError(result)
+		if loopDetector != nil {
+			loopDetector.RecordCall(tc.Function.Name, args, result, wasError)
+		}
+
+		// Check if result contains an error
+		hasError := wasError
+
+		// Parse arguments for the event
+		// (args already parsed above)
 
 		// Send enhanced tool result event
 		eventData := map[string]interface{}{
@@ -964,8 +994,23 @@ func (s *Handler) streamChatResponse(ctx context.Context, w http.ResponseWriter,
 	toolRegistry := services.NewToolRegistry()
 	tools := toolRegistry.GetToolDefinitions()
 
+	// Initialize loop detector for this conversation
+	loopDetector := services.NewLoopDetector()
+
 	// Loop until no more tool calls are needed
 	for {
+		// Check for loops before making the next LLM call
+		if shouldBlock, reason, interventionMsg := loopDetector.ShouldBlock(); shouldBlock {
+			log.Printf("[LoopDetector] Loop detected: %s - injecting intervention message", reason)
+			// Add intervention as a system message to break the loop
+			openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleSystem,
+				Content: interventionMsg,
+			})
+			// Clear the loop detector history after intervention
+			loopDetector.Reset()
+		}
+
 		stream, err := services.StreamLLMToolRequest(ctx, client, openaiMessages, tools)
 		if err != nil {
 			if services.IsContextLengthError(err) {
@@ -1008,7 +1053,7 @@ func (s *Handler) streamChatResponse(ctx context.Context, w http.ResponseWriter,
 		}
 
 		// Execute tool calls and broadcast results
-		if err = s.executeAndBroadcastToolCalls(toolRegistry, currentToolCalls, userID, conversation, assistantMessageID, model, sendEvent); err != nil {
+		if err = s.executeAndBroadcastToolCalls(toolRegistry, currentToolCalls, userID, conversation, assistantMessageID, model, sendEvent, loopDetector); err != nil {
 			return err
 		}
 

@@ -304,3 +304,25 @@ func ExecuteToolWithErrorClassification(executeFunc func() (map[string]interface
 	}
 	return result
 }
+
+// ToLLMMessage generates a helpful error message for the LLM
+// This is designed to help the agent recover from errors more intelligently
+func ToLLMMessage(toolName string, args map[string]interface{}, err error) string {
+	if err == nil {
+		return ""
+	}
+
+	toolErr := ClassifyToolError(toolName, args, err)
+	if toolErr == nil {
+		return fmt.Sprintf("Tool '%s' encountered an error: %s", toolName, err.Error())
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("**Tool Error**: %s\n\n", toolName))
+	sb.WriteString(fmt.Sprintf("**Error Type**: %s\n\n", toolErr.Type))
+	sb.WriteString(fmt.Sprintf("**What Happened**: %s\n\n", toolErr.Type.Explanation()))
+	sb.WriteString(fmt.Sprintf("**Details**: %s\n\n", toolErr.Message))
+	sb.WriteString(fmt.Sprintf("**How to Fix This**:\n%s", toolErr.Type.SuggestionForLLM()))
+
+	return sb.String()
+}
