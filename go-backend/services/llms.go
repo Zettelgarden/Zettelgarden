@@ -140,6 +140,11 @@ func ExecuteLLMToolRequest(ctx context.Context, c *models.LLMClient, messages []
 	} else {
 		log.Printf("errored resp %v", resp)
 		log.Printf("error in getting a response: %v", err)
+		// Log more details about the request for debugging
+		log.Printf("[LLM Error] Model: %s, Messages: %d, Tools: %d", c.Model, len(messages), len(tools))
+		if apiErr, ok := err.(*openai.APIError); ok {
+			log.Printf("[LLM Error] Type: %s, Message: %s", apiErr.Type, apiErr.Message)
+		}
 	}
 
 	return resp, err
