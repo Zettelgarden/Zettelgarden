@@ -616,6 +616,14 @@ func (s *Handler) GenerateChatResponse(ctx context.Context, userID int, conversa
 
 		assistantMessage := resp.Choices[0].Message
 
+		// Retry on empty response (transient issue)
+		if strings.TrimSpace(assistantMessage.Content) == "" && len(assistantMessage.ToolCalls) == 0 {
+			log.Printf("[EmptyResponse] LLM returned empty content for conversation %s, retrying...", conversation.ID)
+			// Add a small delay before retry
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+
 		// If no tool calls, update the existing assistant message and return
 		if len(assistantMessage.ToolCalls) == 0 {
 			log.Printf("no more tool calls")
@@ -1029,6 +1037,15 @@ func (s *Handler) streamChatResponse(ctx context.Context, w http.ResponseWriter,
 		currentContent, currentToolCalls, err := processStreamResponse(ctx, stream, sendEvent)
 		if err != nil {
 			return err
+		}
+
+		// Retry on empty response (transient issue)
+		if strings.TrimSpace(currentContent) == "" && len(currentToolCalls) == 0 {
+			log.Printf("[EmptyResponse] Streaming LLM returned empty content for conversation %s, retrying...", conversation.ID)
+			// Add a small delay before retry
+			time.Sleep(500 * time.Millisecond)
+			// Continue to next iteration to retry
+			continue
 		}
 
 		// If no tool calls, we're done
