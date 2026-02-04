@@ -241,6 +241,15 @@ func (b *Bot) processAssistantResponse(ctx context.Context, chatID int64, conver
 	// Wait for processing to complete, then send response
 	// Poll for message completion
 	for i := 0; i < 60; i++ { // Max 60 seconds
+		// Check for context cancellation (bot shutdown)
+		select {
+		case <-ctx.Done():
+			log.Printf("[telegram] Bot shutting down, stopping message processing for message %s", messageID)
+			return
+		default:
+			// Continue processing
+		}
+
 		message, err := b.handler.GetChatMessage(messageID)
 		if err != nil {
 			log.Printf("[telegram] Error getting message: %v", err)
