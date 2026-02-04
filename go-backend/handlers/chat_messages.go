@@ -404,7 +404,7 @@ func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 	s.IncrementChatUsageQuota(userID, "messages_per_day")
 
 	// Start async processing
-	go s.processAssistantResponse(userID, conversation, assistantMessage.ID, req.Model)
+	go s.ProcessAssistantResponse(userID, conversation, assistantMessage.ID, req.Model)
 
 	// Return both messages immediately
 	response := []models.ChatMessage{*userMessage, *assistantMessage}
@@ -491,7 +491,7 @@ func (s *Handler) RegenerateMessageRoute(w http.ResponseWriter, r *http.Request)
 	s.IncrementChatUsageQuota(userID, "messages_per_day")
 
 	// Start async regeneration process
-	go s.processAssistantResponse(userID, conversation, messageID, nil)
+	go s.ProcessAssistantResponse(userID, conversation, messageID, nil)
 
 	// Return the updated message
 	updatedMessage, err := s.GetChatMessage(messageID)

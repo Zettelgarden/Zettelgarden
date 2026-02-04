@@ -90,8 +90,8 @@ func determineModel(conversation *models.ChatConversation, modelOverride *string
 	return conversation.Model
 }
 
-// processAssistantResponse handles the async processing of the assistant response
-func (s *Handler) processAssistantResponse(userID int, conversation *models.ChatConversation, assistantMessageID string, modelOverride *string) {
+// ProcessAssistantResponse handles the async processing of the assistant response
+func (s *Handler) ProcessAssistantResponse(userID int, conversation *models.ChatConversation, assistantMessageID string, modelOverride *string) {
 	// Update status to processing
 	if err := s.UpdateMessageStatus(assistantMessageID, "processing"); err != nil {
 		log.Printf("Error updating message status to processing: %v", err)
