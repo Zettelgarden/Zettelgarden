@@ -119,7 +119,8 @@ func (b *Bot) handleMessage(ctx context.Context, message *tgbotapi.Message) {
 // sendMessage sends a message to the chat
 func (b *Bot) sendMessage(ctx context.Context, chatID int64, text string) {
 	msg := tgbotapi.NewMessage(chatID, text)
-	msg.ParseMode = "markdown"
+	// Disable markdown parsing to avoid parsing errors from malformed markdown in LLM responses
+	// msg.ParseMode = "markdown"
 
 	// Handle Telegram message length limit
 	const maxMessageLength = 4096
@@ -331,36 +332,21 @@ func (b *Bot) buildResponseWithToolSummary(conversationID, assistantMessageID, c
 		}
 	}
 
-	// Build the response with tool summary
+	// Build the response with tool summary (no markdown formatting)
 	response := content
 
 	if len(toolCalls) > 0 {
-		response += "\n\n---\n" + escapeMarkdown("*Tools used: " + formatToolList(toolCalls) + "*")
+		response += "\n\n---\nTools used: " + formatToolList(toolCalls)
 	}
 
 	if len(toolErrors) > 0 {
-		response += "\n" + escapeMarkdown("*⚠️ Some tools had errors:*")
+		response += "\n⚠️ Some tools had errors:"
 		for _, errMsg := range toolErrors {
-			// Escape error messages to prevent markdown parsing issues
-			response += "\n  - " + escapeMarkdown(errMsg)
+			response += "\n  - " + errMsg
 		}
 	}
 
 	return response
-}
-
-// escapeMarkdown escapes special markdown characters to prevent parsing errors
-func escapeMarkdown(text string) string {
-	// Telegram markdown v2 special characters that need escaping: * _ - ~ . > + = | { } ( ) [ ]
-	// We'll escape the most common ones that cause issues
-	replacer := strings.NewReplacer(
-		"_", "\\_",
-		"*", "\\*",
-		"`", "\\`",
-		"[", "\\[",
-		"]", "\\]",
-	)
-	return replacer.Replace(text)
 }
 
 // formatToolList formats a list of tool names for display
