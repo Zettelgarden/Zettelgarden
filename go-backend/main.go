@@ -268,17 +268,14 @@ func run() error {
 	// Initialize Telegram bot if enabled
 	var telegramBot *telegram.Bot
 	if cfg.Services.Telegram.Enabled {
-		log.Printf("Initializing Telegram bot (allowed_user_id=%d)", cfg.Services.Telegram.AllowedUserID)
-
-		// TODO: For now, use user ID 1. In production, you'd look up the Zettelgarden user ID
-		// associated with the Telegram user ID via a database mapping.
-		telegramUserID := 1
+		log.Printf("Initializing Telegram bot (allowed_user_id=%d, zettelgarden_user_id=%d)",
+			cfg.Services.Telegram.AllowedUserID, cfg.Services.Telegram.ZettelgardenUserID)
 
 		var err error
 		telegramBot, err = telegram.NewBot(
 			cfg.Services.Telegram.BotToken,
 			cfg.Services.Telegram.AllowedUserID,
-			telegramUserID,
+			cfg.Services.Telegram.ZettelgardenUserID,
 			h,
 		)
 		if err != nil {

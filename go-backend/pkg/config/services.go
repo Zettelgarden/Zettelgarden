@@ -59,9 +59,10 @@ type SearchConfig struct {
 
 // TelegramConfig holds Telegram bot configuration
 type TelegramConfig struct {
-	BotToken      string // Telegram bot token from @BotFather (sensitive)
-	AllowedUserID int64  // Telegram user ID allowed to use the bot
-	Enabled       bool   // Enable/disable bot
+	BotToken         string // Telegram bot token from @BotFather (sensitive)
+	AllowedUserID    int64  // Telegram user ID allowed to use the bot
+	ZettelgardenUserID int   // Zettelgarden user ID to associate with Telegram user (default: 1)
+	Enabled          bool   // Enable/disable bot
 }
 
 // LoadServiceConfig loads and validates service configuration from environment variables
@@ -170,9 +171,15 @@ func loadSearchConfig() SearchConfig {
 // loadTelegramConfig loads Telegram bot configuration
 func loadTelegramConfig() TelegramConfig {
 	config := TelegramConfig{
-		BotToken:      optionalString("TELEGRAM_BOT_TOKEN"),
-		AllowedUserID: optionalInt64("TELEGRAM_ALLOWED_USER_ID"),
-		Enabled:       optionalBool("TELEGRAM_ENABLED"),
+		BotToken:         optionalString("TELEGRAM_BOT_TOKEN"),
+		AllowedUserID:    optionalInt64("TELEGRAM_ALLOWED_USER_ID"),
+		ZettelgardenUserID: optionalInt("TELEGRAM_ZETTELGARDEN_USER_ID"),
+		Enabled:          optionalBool("TELEGRAM_ENABLED"),
+	}
+
+	// Default Zettelgarden user ID to 1 if not set
+	if config.ZettelgardenUserID == 0 {
+		config.ZettelgardenUserID = 1
 	}
 
 	// Validate that if enabled, required fields are present

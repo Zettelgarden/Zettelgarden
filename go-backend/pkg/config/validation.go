@@ -81,6 +81,16 @@ func optionalInt64(key string) int64 {
 	return 0
 }
 
+// optionalInt gets an optional int environment variable
+func optionalInt(key string) int {
+	if val := os.Getenv(key); val != "" {
+		if intVal, err := strconv.Atoi(val); err == nil {
+			return intVal
+		}
+	}
+	return 0
+}
+
 // validateURL performs basic URL validation (must contain ://)
 func validateURL(key, value string) {
 	if value != "" && !strings.Contains(value, "://") {
