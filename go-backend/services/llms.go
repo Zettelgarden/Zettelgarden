@@ -91,12 +91,16 @@ func ExecuteLLMRequest(ctx context.Context, c *models.LLMClient, messages []open
 		return mockLLMResponse(c), nil
 	}
 
+	// Add stop sequences to prevent model from continuing user text
+	stopSequences := []string{"\n\nUser:", "\n\nuser:", "\n\nUSER:"}
+
 	log.Printf("request")
 	resp, err := c.Client.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{
 			Model:    c.Model,
 			Messages: messages,
+			Stop:     stopSequences,
 		},
 	)
 	log.Printf("response")
@@ -114,6 +118,11 @@ func ExecuteLLMToolRequest(ctx context.Context, c *models.LLMClient, messages []
 		return mockLLMResponse(c), nil
 	}
 
+	// Add stop sequences to prevent model from continuing user text
+	// This addresses issues where models like Gemini try to "complete" user messages
+	// instead of responding to them
+	stopSequences := []string{"\n\nUser:", "\n\nuser:", "\n\nUSER:"}
+
 	log.Printf("request")
 	resp, err := c.Client.CreateChatCompletion(
 		ctx,
@@ -121,6 +130,7 @@ func ExecuteLLMToolRequest(ctx context.Context, c *models.LLMClient, messages []
 			Model:    c.Model,
 			Messages: messages,
 			Tools:    tools,
+			Stop:     stopSequences,
 		},
 	)
 	log.Printf("response")
@@ -152,6 +162,11 @@ func StreamLLMToolRequest(ctx context.Context, c *models.LLMClient, messages []o
 		}
 	}
 
+	// Add stop sequences to prevent model from continuing user text
+	// This addresses issues where models like Gemini try to "complete" user messages
+	// instead of responding to them
+	stopSequences := []string{"\n\nUser:", "\n\nuser:", "\n\nUSER:"}
+
 	log.Printf("streaming request")
 	stream, err := c.Client.CreateChatCompletionStream(
 		ctx,
@@ -160,6 +175,7 @@ func StreamLLMToolRequest(ctx context.Context, c *models.LLMClient, messages []o
 			Messages: messages,
 			Tools:    tools,
 			Stream:   true,
+			Stop:     stopSequences,
 		},
 	)
 
