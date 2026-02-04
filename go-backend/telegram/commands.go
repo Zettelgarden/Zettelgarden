@@ -43,7 +43,7 @@ func (b *Bot) handleClear(ctx context.Context, chatID int64) {
 	conversation, err := b.handler.CreateConversation(
 		b.userID,
 		&title,
-		os.Getenv("ZETTEL_LLM_DEFAULT_MODEL"),
+		os.Getenv("ZETTEL_LLM_DEFAULT_TELEGRAM_MODEL"),
 		nil,
 		nil,
 	)
