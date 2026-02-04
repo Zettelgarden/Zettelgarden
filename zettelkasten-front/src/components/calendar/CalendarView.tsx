@@ -677,6 +677,13 @@ export function CalendarViewWrapper({
     }
   };
 
+  const handleNavigateDay = (direction: number) => {
+    if (!selectedDate) return;
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + direction);
+    setSelectedDate(newDate);
+  };
+
   // Memoize filtered events for the selected date
   const selectedDateEvents = useMemo(() => {
     if (!selectedDate) return [];
@@ -713,6 +720,7 @@ export function CalendarViewWrapper({
           onTaskClick={onTaskClick}
           onExternalEventClick={handleExternalEventClick}
           onCreateTask={() => handleCreateTask(selectedDate)}
+          onNavigateDay={handleNavigateDay}
         />
       )}
 
@@ -735,11 +743,18 @@ interface DayPopoverProps {
   onTaskClick: (taskId: number) => void;
   onExternalEventClick: (event: CalendarEvent) => void;
   onCreateTask?: () => void;
+  onNavigateDay?: (direction: number) => void;
 }
 
-function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, onCreateTask }: DayPopoverProps) {
+function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, onCreateTask, onNavigateDay }: DayPopoverProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const [timeView, setTimeView] = useState(false);
+
+  // Time grid configuration
+  const timeGridStart = 6; // 6 AM
+  const timeGridEnd = 22;  // 10 PM
+  const hourHeight = 40;   // pixels per hour
 
   // Focus management and escape key handler
   useEffect(() => {
@@ -803,6 +818,26 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
     return a.date.getTime() - b.date.getTime();
   });
 
+  // Separate all-day and timed events for time grid view
+  const allDayEvents = allEvents.filter(e => e.allDay);
+  const timedEvents = allEvents.filter(e => !e.allDay);
+
+  // Calculate position for timed events in the grid
+  const getEventPosition = (event: CalendarEvent) => {
+    const hour = event.date.getHours();
+    const minute = event.date.getMinutes();
+    const totalMinutes = hour * 60 + minute;
+    const startMinutes = timeGridStart * 60;
+    const top = ((totalMinutes - startMinutes) / 60) * hourHeight;
+
+    const endHour = event.endTime?.getHours() ?? hour + 1;
+    const endMinute = event.endTime?.getMinutes() ?? 0;
+    const endTotalMinutes = endHour * 60 + endMinute;
+    const height = Math.max(((endTotalMinutes - startMinutes) / 60) * hourHeight - top, hourHeight / 2);
+
+    return { top, height };
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
@@ -813,19 +848,60 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
         aria-modal="true"
         aria-labelledby="day-popover-title"
       >
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-          <h3 id="day-popover-title" className="text-lg font-semibold">{format(date, "MMMM d, yyyy")}</h3>
-          <button
-            ref={closeButtonRef}
-            onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            aria-label="Close dialog"
-          >
-            ✕
-            <span className="sr-only">Close</span>
-          </button>
+        <div className="p-3 border-b border-slate-200">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1">
+              {onNavigateDay && (
+                <button
+                  onClick={() => onNavigateDay(-1)}
+                  className="p-1 hover:bg-slate-100 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[32px] min-w-[32px]"
+                  aria-label="Previous day"
+                  title="Previous day"
+                >
+                  <FaChevronLeft size={14} aria-hidden="true" />
+                </button>
+              )}
+              <h3 id="day-popover-title" className="text-base font-semibold">{format(date, "MMM d, yyyy")}</h3>
+              {onNavigateDay && (
+                <button
+                  onClick={() => onNavigateDay(1)}
+                  className="p-1 hover:bg-slate-100 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[32px] min-w-[32px]"
+                  aria-label="Next day"
+                  title="Next day"
+                >
+                  <FaChevronRight size={14} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setTimeView(!timeView)}
+                className={`p-1 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[32px] min-w-[32px] text-xs font-medium ${
+                  timeView ? "bg-blue-100 text-blue-700" : "hover:bg-slate-100 text-slate-600"
+                }`}
+                aria-label={timeView ? "Switch to list view" : "Switch to time view"}
+                title={timeView ? "List view" : "Time grid view"}
+              >
+                {timeView ? "☰" : "⏱"}
+              </button>
+              <button
+                ref={closeButtonRef}
+                onClick={onClose}
+                className="p-1 hover:bg-slate-100 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Close dialog"
+              >
+                ✕
+                <span className="sr-only">Close</span>
+              </button>
+            </div>
+          </div>
+          {events.length > 0 && (
+            <p id="day-popover-count" className="text-xs text-slate-500">
+              {events.length} {events.length === 1 ? 'event' : 'events'} scheduled
+            </p>
+          )}
         </div>
-        <div className="p-4">
+        <div className="p-3">
           {allEvents.length === 0 ? (
             <div className="text-center py-4">
               <p className="text-slate-500 mb-3">No tasks scheduled</p>
@@ -841,7 +917,123 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
                 </button>
               )}
             </div>
+          ) : timeView ? (
+            // Time grid view
+            <div className="space-y-2">
+              {/* All-day events */}
+              {allDayEvents.length > 0 && (
+                <div className="space-y-1">
+                  {allDayEvents.map((event) => {
+                    const isExternal = event.source === "external";
+                    const customColor = event.color || "#6366f1";
+                    return (
+                      <button
+                        type="button"
+                        key={event.id}
+                        onClick={() => {
+                          if (isExternal) {
+                            onExternalEventClick(event);
+                          } else if (event.taskId) {
+                            onTaskClick(event.taskId);
+                          }
+                        }}
+                        className={`
+                          w-full text-left px-2 py-1 rounded border hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between gap-2
+                          ${getEventColor(event)}
+                          ${isExternal ? "border-l-4" : ""}
+                        `}
+                        aria-label={isExternal
+                          ? `View external event: ${event.title}`
+                          : `View task: ${event.title} (${event.eventType}${event.priority ? `, priority ${event.priority}` : ""})`
+                        }
+                        style={isExternal ? { borderLeftColor: customColor } : undefined}
+                      >
+                        <span className="text-sm truncate flex-1">{event.title}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {!isExternal && (
+                            <>
+                              {event.eventType === "scheduled" && <span className="w-1 h-1 rounded-full bg-blue-500" aria-hidden="true"></span>}
+                              {event.eventType === "due" && <span className="w-1 h-1 rounded-full bg-amber-500" aria-hidden="true"></span>}
+                              {event.eventType === "completed" && <span className="w-1 h-1 rounded-full bg-green-500" aria-hidden="true"></span>}
+                            </>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Time grid */}
+              <div className="relative border rounded bg-slate-50" style={{ height: `${(timeGridEnd - timeGridStart) * hourHeight}px` }}>
+                {/* Hour lines */}
+                {Array.from({ length: timeGridEnd - timeGridStart }, (_, i) => (
+                  <div
+                    key={i}
+                    className="absolute left-0 right-0 border-t border-slate-200 flex items-center"
+                    style={{ top: `${i * hourHeight}px` }}
+                  >
+                    <span className="text-[10px] text-slate-400 w-10 text-center pt-0.5">
+                      {format(new Date().setHours(timeGridStart + i, 0, 0, 0), "ha")}
+                    </span>
+                  </div>
+                ))}
+
+                {/* Timed events */}
+                {timedEvents.map((event) => {
+                  const isExternal = event.source === "external";
+                  const customColor = event.color || "#6366f1";
+                  const { top, height } = getEventPosition(event);
+
+                  return (
+                    <button
+                      type="button"
+                      key={event.id}
+                      onClick={() => {
+                        if (isExternal) {
+                          onExternalEventClick(event);
+                        } else if (event.taskId) {
+                          onTaskClick(event.taskId);
+                        }
+                      }}
+                      className={`
+                        absolute left-12 right-1 rounded border-l-2 px-2 py-1 text-left overflow-hidden hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-blue-500
+                        ${getEventColor(event)}
+                      `}
+                      style={{
+                        top: `${top}px`,
+                        height: `${height}px`,
+                        minHeight: '20px',
+                        borderLeftColor: isExternal ? customColor : undefined,
+                      }}
+                      aria-label={`${format(event.date, "h:mm a")} - ${event.endTime ? format(event.endTime, "h:mm a") : ''}: ${event.title}`}
+                    >
+                      <div className="text-xs font-medium truncate">{event.title}</div>
+                      {height > 30 && (
+                        <div className="text-[10px] opacity-75 truncate">
+                          {format(event.date, "h:mm a")}{event.endTime && ` - ${format(event.endTime, "h:mm a")}`}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {onCreateTask && (
+                <button
+                  onClick={() => {
+                    onCreateTask();
+                    // Keep dialog open to allow creating multiple tasks
+                  }}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2 min-h-[44px] mt-2"
+                >
+                  <FaPlus size={14} aria-hidden="true" />
+                  Create Task
+                </button>
+              )}
+            </div>
           ) : (
+            // List view
             <div className="space-y-1">
               {allEvents.map((event) => {
                 const isExternal = event.source === "external";
