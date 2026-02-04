@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"go-backend/models"
-	"go-backend/prompts"
 	"log"
 	"reflect"
 	"regexp"
@@ -30,7 +29,6 @@ const (
 	ToolGetCardFacts       = "get_card_facts"
 	ToolGetEntityFacts     = "get_entity_facts"
 	ToolGetFactCards       = "get_fact_cards"
-	ToolTask               = "Task"
 	ToolGetTasks           = "get_tasks"
 	ToolCreateTask         = "create_task"
 	ToolUpdateTask         = "update_task"
@@ -186,7 +184,6 @@ func NewToolRegistry() *ToolRegistry {
 	registry.registerGetCardFacts()
 	registry.registerGetEntityFacts()
 	registry.registerGetFactCards()
-	registry.registerTask()
 	registry.registerGetTasks()
 	registry.registerCreateTask()
 	registry.registerUpdateTask()
@@ -219,28 +216,6 @@ func (tr *ToolRegistry) GetToolDefinitions() []openai.Tool {
 		tools = append(tools, tool.Definition)
 	}
 	return tools
-}
-
-// CreateSubagentRegistry creates a new registry excluding specified tools (to prevent recursion)
-func (tr *ToolRegistry) CreateSubagentRegistry(excludeTools []string) *ToolRegistry {
-	subagentRegistry := &ToolRegistry{
-		tools: make(map[string]Tool),
-	}
-
-	// Create a set of excluded tool names for quick lookup
-	excluded := make(map[string]bool)
-	for _, name := range excludeTools {
-		excluded[name] = true
-	}
-
-	// Copy all tools except the excluded ones
-	for name, tool := range tr.tools {
-		if !excluded[name] {
-			subagentRegistry.tools[name] = tool
-		}
-	}
-
-	return subagentRegistry
 }
 
 // registerTool is a helper for registering tools with less boilerplate
@@ -516,39 +491,6 @@ func (tr *ToolRegistry) registerSearchFacts() {
 	}
 }
 
-func (tr *ToolRegistry) registerTask() {
-	tr.tools["Task"] = Tool{
-		Definition: openai.Tool{
-			Type: openai.ToolTypeFunction,
-			Function: &openai.FunctionDefinition{
-				Name:        "Task",
-				Description: "Launch a specialized subagent to handle complex, multi-step tasks autonomously. Use this for complex research, searches, or when you need to perform multiple knowledge base operations while preserving the main conversation context.",
-				Parameters: map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"description": map[string]interface{}{
-							"type":        "string",
-							"description": "A short (3-5 word) description of the task",
-						},
-						"prompt": map[string]interface{}{
-							"type":        "string",
-							"description": "The detailed task for the agent to perform autonomously",
-						},
-						"subagent_type": map[string]interface{}{
-							"type":        "string",
-							"description": "The type of specialized agent to use",
-							"enum":        []string{"general-purpose"},
-							"default":     "general-purpose",
-						},
-					},
-					"required": []string{"description", "prompt", "subagent_type"},
-				},
-			},
-		},
-		Handler: handleTask,
-	}
-}
-
 // Tool handlers
 
 func handleSearchCards(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -777,165 +719,6 @@ func handleBrowseCardHierarchy(args map[string]interface{}, ctx *ToolContext) (m
 		"direction": direction,
 		"depth":     depth,
 		"total":     len(cards),
-	}, nil
-}
-
-func handleTask(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	description, err := getStringParam(args, "description")
-	if err != nil {
-		return nil, err
-	}
-
-	prompt, err := getStringParam(args, "prompt")
-	if err != nil {
-		return nil, err
-	}
-
-	subagentType, _ := getOptionalStringParam(args, "subagent_type")
-	if subagentType == "" {
-		subagentType = "general-purpose"
-	}
-
-	log.Printf("Launching subagent - Description: %s, Type: %s", description, subagentType)
-
-	// Execute the subagent task
-	result, err := executeSubagentTask(prompt, subagentType, ctx)
-	if err != nil {
-		return nil, fmt.Errorf("subagent execution failed: %v", err)
-	}
-
-	return map[string]interface{}{
-		"status":        "completed",
-		"description":   description,
-		"subagent_type": subagentType,
-		"result":        result,
-	}, nil
-}
-
-// executeSubagentTask runs a subagent with access to knowledge base tools
-func executeSubagentTask(prompt, subagentType string, ctx *ToolContext) (string, error) {
-	// Create LLM client for the subagent
-	client := NewDefaultClient(ctx.DB, ctx.UserID, false)
-	client.RequestType = "tools"
-	client.Model = ctx.Model
-
-	// Create a tool registry for the subagent by excluding the Task tool to prevent recursion
-	mainRegistry := NewToolRegistry()
-	subagentRegistry := mainRegistry.CreateSubagentRegistry([]string{ToolTask})
-
-	tools := subagentRegistry.GetToolDefinitions()
-
-	// Create initial messages
-	messages, err := createSubagentMessages(prompt)
-	if err != nil {
-		return "", err
-	}
-
-	// Run the subagent conversation
-	return runSubagentConversation(client, messages, tools, subagentRegistry, ctx)
-}
-
-// createSubagentMessages creates the initial messages for the subagent
-func createSubagentMessages(prompt string) ([]openai.ChatCompletionMessage, error) {
-	// Load system prompt for the subagent
-	systemPrompt, err := prompts.GetSubagentResearcherPrompt()
-	if err != nil {
-		log.Printf("Error loading subagent system prompt: %v, using fallback", err)
-		// Fallback to a basic prompt if file loading fails
-		systemPrompt = "You are a specialized research assistant with access to a user's knowledge base. Use the available tools to help answer questions and gather information."
-	}
-
-	return []openai.ChatCompletionMessage{
-		{
-			Role:    openai.ChatMessageRoleSystem,
-			Content: systemPrompt,
-		},
-		{
-			Role:    openai.ChatMessageRoleUser,
-			Content: prompt,
-		},
-	}, nil
-}
-
-// runSubagentConversation runs the conversation loop for the subagent
-func runSubagentConversation(
-	client *models.LLMClient,
-	messages []openai.ChatCompletionMessage,
-	tools []openai.Tool,
-	registry *ToolRegistry,
-	ctx *ToolContext,
-) (string, error) {
-	maxIterations := 5 // Prevent infinite loops
-	for i := 0; i < maxIterations; i++ {
-		resp, err := ExecuteLLMToolRequest(context.Background(), client, messages, tools)
-		if err != nil {
-			return "", fmt.Errorf("LLM request failed: %v", err)
-		}
-
-		assistantMessage := resp.Choices[0].Message
-		messages = append(messages, assistantMessage)
-
-		// If no tool calls, we're done
-		if len(assistantMessage.ToolCalls) == 0 {
-			return assistantMessage.Content, nil
-		}
-
-		// Execute tool calls
-		for _, tc := range assistantMessage.ToolCalls {
-			toolResp, err := executeSubagentToolCall(tc, registry, ctx)
-			if err != nil {
-				log.Printf("Error executing tool %s: %v", tc.Function.Name, err)
-			}
-			messages = append(messages, toolResp)
-		}
-	}
-
-	return "Subagent completed after maximum iterations", nil
-}
-
-// executeSubagentToolCall executes a single tool call for the subagent
-func executeSubagentToolCall(
-	tc openai.ToolCall,
-	registry *ToolRegistry,
-	ctx *ToolContext,
-) (openai.ChatCompletionMessage, error) {
-	var args map[string]interface{}
-	if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
-		log.Printf("Error parsing tool arguments: %v", err)
-		return openai.ChatCompletionMessage{
-			Role:       openai.ChatMessageRoleTool,
-			Content:    `{"error":"invalid arguments"}`,
-			ToolCallID: tc.ID,
-		}, nil
-	}
-
-	start := time.Now()
-	log.Printf("subagent tool - %v", tc.Function.Name)
-	result, execErr := registry.ExecuteTool(tc.Function.Name, args, ctx)
-	executionTime := int(time.Since(start).Milliseconds())
-
-	if execErr != nil {
-		log.Printf("Error executing tool %s: %v", tc.Function.Name, execErr)
-		result = map[string]interface{}{
-			"error": execErr.Error(),
-		}
-	}
-
-	// Log subagent tool execution
-	go func(toolName string, toolArgs, toolResult map[string]interface{}, execTime int) {
-		logErr := logToolExecution(ctx.DB, ctx.UserID, toolName, toolArgs, toolResult, execTime, execErr, ctx.ConversationID, ctx.MessageID)
-		if logErr != nil {
-			log.Printf("Error logging subagent tool execution: %v", logErr)
-		}
-	}(tc.Function.Name, args, result, executionTime)
-
-	// Convert result to JSON string for tool response
-	resultJSON, _ := json.Marshal(result)
-
-	return openai.ChatCompletionMessage{
-		Role:       openai.ChatMessageRoleTool,
-		Content:    string(resultJSON),
-		ToolCallID: tc.ID,
 	}, nil
 }
 

@@ -26,14 +26,9 @@ func LoadPrompt(filename string) (string, error) {
 	return string(content), nil
 }
 
-// GetResearchAssistantPrompt loads the research assistant system prompt
-func GetResearchAssistantPrompt() (string, error) {
-	return LoadPrompt("research_assistant.md")
-}
-
-// GetSubagentResearcherPrompt loads the subagent researcher system prompt
-func GetSubagentResearcherPrompt() (string, error) {
-	return LoadPrompt("subagent_researcher.md")
+// GetZettelgardenAssistantPrompt loads the Zettelgarden assistant system prompt
+func GetZettelgardenAssistantPrompt() (string, error) {
+	return LoadPrompt("zettelgarden_assistant.md")
 }
 
 // GetTitleGeneratorPrompt loads the title generator system prompt

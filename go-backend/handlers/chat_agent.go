@@ -208,11 +208,11 @@ func (s *Handler) getLatestUserMessage(conversationID string) string {
 
 // buildSystemPrompt constructs the complete system prompt including memory, instructions, and context
 func (s *Handler) buildSystemPrompt(userID int, conversation *models.ChatConversation) (string, error) {
-	systemPrompt, err := prompts.GetResearchAssistantPrompt()
+	systemPrompt, err := prompts.GetZettelgardenAssistantPrompt()
 	if err != nil {
 		log.Printf("Error loading system prompt: %v, using fallback", err)
 		// Fallback to a basic prompt if file loading fails
-		systemPrompt = "You are the Research Assistant for a Zettelkasten knowledge base. Help users explore and synthesize information across their cards."
+		systemPrompt = "You are the Zettelgarden Assistant, a daily productivity companion for managing a Zettelkasten knowledge base."
 	}
 
 	// Add primary card context if this conversation is about a specific card
