@@ -335,17 +335,32 @@ func (b *Bot) buildResponseWithToolSummary(conversationID, assistantMessageID, c
 	response := content
 
 	if len(toolCalls) > 0 {
-		response += "\n\n---\n*Tools used: " + formatToolList(toolCalls) + "*"
+		response += "\n\n---\n" + escapeMarkdown("*Tools used: " + formatToolList(toolCalls) + "*")
 	}
 
 	if len(toolErrors) > 0 {
-		response += "\n*⚠️ Some tools had errors:*"
+		response += "\n" + escapeMarkdown("*⚠️ Some tools had errors:*")
 		for _, errMsg := range toolErrors {
-			response += "\n  • " + errMsg
+			// Escape error messages to prevent markdown parsing issues
+			response += "\n  - " + escapeMarkdown(errMsg)
 		}
 	}
 
 	return response
+}
+
+// escapeMarkdown escapes special markdown characters to prevent parsing errors
+func escapeMarkdown(text string) string {
+	// Telegram markdown v2 special characters that need escaping: * _ - ~ . > + = | { } ( ) [ ]
+	// We'll escape the most common ones that cause issues
+	replacer := strings.NewReplacer(
+		"_", "\\_",
+		"*", "\\*",
+		"`", "\\`",
+		"[", "\\[",
+		"]", "\\]",
+	)
+	return replacer.Replace(text)
 }
 
 // formatToolList formats a list of tool names for display
