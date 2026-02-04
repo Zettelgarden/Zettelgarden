@@ -71,6 +71,16 @@ func requireInt(key string) int {
 	return intValue
 }
 
+// optionalInt64 gets an optional int64 environment variable
+func optionalInt64(key string) int64 {
+	if val := os.Getenv(key); val != "" {
+		if intVal, err := strconv.ParseInt(val, 10, 64); err == nil {
+			return intVal
+		}
+	}
+	return 0
+}
+
 // validateURL performs basic URL validation (must contain ://)
 func validateURL(key, value string) {
 	if value != "" && !strings.Contains(value, "://") {

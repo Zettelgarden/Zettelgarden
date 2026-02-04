@@ -2,12 +2,13 @@ package config
 
 // ServiceConfig holds configuration for all external services
 type ServiceConfig struct {
-	LLM     LLMConfig     // Language model/embedding services
-	Mail    MailConfig    // Email service
-	Stripe  StripeConfig  // Payment processing
-	S3      S3Config      // Object storage
-	GitHub  GitHubConfig  // OAuth service
-	Search  SearchConfig  // Search engine
+	LLM      LLMConfig      // Language model/embedding services
+	Mail     MailConfig     // Email service
+	Stripe   StripeConfig   // Payment processing
+	S3       S3Config       // Object storage
+	GitHub   GitHubConfig   // OAuth service
+	Search   SearchConfig   // Search engine
+	Telegram TelegramConfig // Telegram bot
 }
 
 // LLMConfig holds language model service configuration
@@ -56,15 +57,23 @@ type SearchConfig struct {
 	Collection string // Typesense collection name
 }
 
+// TelegramConfig holds Telegram bot configuration
+type TelegramConfig struct {
+	BotToken      string // Telegram bot token from @BotFather (sensitive)
+	AllowedUserID int64  // Telegram user ID allowed to use the bot
+	Enabled       bool   // Enable/disable bot
+}
+
 // LoadServiceConfig loads and validates service configuration from environment variables
 func loadServiceConfig() ServiceConfig {
 	return ServiceConfig{
-		LLM:     loadLLMConfig(),
-		Mail:    loadMailConfig(),
-		Stripe:  loadStripeConfig(),
-		S3:      loadS3Config(),
-		GitHub:  loadGitHubConfig(),
-		Search:  loadSearchConfig(),
+		LLM:      loadLLMConfig(),
+		Mail:     loadMailConfig(),
+		Stripe:   loadStripeConfig(),
+		S3:       loadS3Config(),
+		GitHub:   loadGitHubConfig(),
+		Search:   loadSearchConfig(),
+		Telegram: loadTelegramConfig(),
 	}
 }
 
@@ -154,6 +163,29 @@ func loadSearchConfig() SearchConfig {
 	}
 
 	validateURL("TYPESENSE_HOST", config.Host)
+
+	return config
+}
+
+// loadTelegramConfig loads Telegram bot configuration
+func loadTelegramConfig() TelegramConfig {
+	config := TelegramConfig{
+		BotToken:      optionalString("TELEGRAM_BOT_TOKEN"),
+		AllowedUserID: optionalInt64("TELEGRAM_ALLOWED_USER_ID"),
+		Enabled:       optionalBool("TELEGRAM_ENABLED"),
+	}
+
+	// Validate that if enabled, required fields are present
+	if config.Enabled {
+		if config.BotToken == "" {
+			validationErrors = append(validationErrors,
+				"TELEGRAM_BOT_TOKEN is required when TELEGRAM_ENABLED=true")
+		}
+		if config.AllowedUserID == 0 {
+			validationErrors = append(validationErrors,
+				"TELEGRAM_ALLOWED_USER_ID is required when TELEGRAM_ENABLED=true")
+		}
+	}
 
 	return config
 }
