@@ -121,7 +121,7 @@ Example:
 - Always respond in a professional tone
 - Focus on actionable advice
 - Include relevant examples when possible"
-                  className="w-full h-64 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                  className="w-full min-h-[120px] max-h-[40vh] sm:h-64 sm:max-h-none px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y text-sm"
                   style={{ fontFamily: 'monospace' }}
                   maxLength={10000}
                 />
