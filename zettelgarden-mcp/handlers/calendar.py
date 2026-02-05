@@ -6,11 +6,13 @@ import httpx
 from datetime import datetime, timedelta
 from typing import Any
 
+from config import API_URL, get_headers
+
 
 async def list_external_calendars(client: httpx.AsyncClient) -> str:
     """List all external calendar subscriptions for the current user."""
     try:
-        response = await client.get("/user/external-calendars")
+        response = await client.get(f"{API_URL}/user/external-calendars")
         response.raise_for_status()
         data = response.json()
 
@@ -55,7 +57,7 @@ async def list_external_events(client: httpx.AsyncClient, args: dict[str, Any]) 
             return "Error: Invalid date format. Use ISO 8601 format (e.g., '2026-01-01T00:00:00Z')."
 
         response = await client.get(
-            "/user/external-events",
+            f"{API_URL}/user/external-events",
             params={"start": start, "end": end}
         )
         response.raise_for_status()
@@ -102,7 +104,7 @@ async def link_event_to_card(client: httpx.AsyncClient, args: dict[str, Any]) ->
 
     try:
         response = await client.put(
-            f"/user/external-events/{event_id}/link",
+            f"{API_URL}/user/external-events/{event_id}/link",
             json={"card_pk": card_pk}
         )
         response.raise_for_status()
