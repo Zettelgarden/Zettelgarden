@@ -237,7 +237,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                   onChange={(e) => setNewTemplateBody(e.target.value)}
                   placeholder="Template content (use template variables like $date, $time, etc.)"
                   rows={10}
-                  className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono"
+                  className="block w-full min-h-[120px] max-h-[40vh] sm:max-h-none rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono resize-y"
                 />
               </div>
             </div>
@@ -360,7 +360,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                       value={editBody}
                       onChange={(e) => setEditBody(e.target.value)}
                       rows={10}
-                      className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono"
+                      className="block w-full min-h-[120px] max-h-[40vh] sm:max-h-none rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono resize-y"
                     />
                   </div>
                 </div>

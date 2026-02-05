@@ -105,7 +105,7 @@ export function EditEntityDialog({ entity, isOpen, onClose, onSuccess, onDelete 
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30 transition-colors"
+                className="w-full min-h-[100px] max-h-[30vh] sm:max-h-none rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30 transition-colors resize-y"
               />
             </div>
 

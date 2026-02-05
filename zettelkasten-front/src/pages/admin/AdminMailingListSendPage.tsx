@@ -142,7 +142,7 @@ export function AdminMailingListSendPage() {
             id="body"
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline min-h-[120px] max-h-[40vh] sm:max-h-none resize-y"
             rows={10}
             placeholder="Enter message body"
           />

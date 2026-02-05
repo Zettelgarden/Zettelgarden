@@ -230,7 +230,7 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                                     <textarea
                                         value={editedFact}
                                         onChange={(e) => setEditedFact(e.target.value)}
-                                        className="w-full h-40 p-2 border rounded"
+                                        className="w-full min-h-[120px] max-h-[30vh] sm:h-40 sm:max-h-none p-2 border rounded resize-y"
                                     />
                                 ) : (
                                     <p onClick={handleStartEditing} className="cursor-pointer hover:bg-gray-100 p-2 rounded">

@@ -40,7 +40,7 @@ export function EditMessageDialog({
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="w-full min-h-[120px] p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y"
+              className="w-full min-h-[120px] max-h-[40vh] sm:max-h-none p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y"
               placeholder="Edit your message..."
               disabled={isLoading}
               autoFocus

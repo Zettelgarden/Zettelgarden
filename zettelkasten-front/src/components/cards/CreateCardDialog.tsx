@@ -186,7 +186,7 @@ export function CreateCardDialog({
                             <textarea
                                 value={cardBody}
                                 onChange={(e) => setCardBody(e.target.value)}
-                                className="w-full h-32 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                className="w-full min-h-[120px] max-h-[30vh] sm:h-32 sm:max-h-none p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-y"
                                 placeholder="Enter card content..."
                             />
                         </div>
