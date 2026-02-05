@@ -163,7 +163,7 @@ export function TaskReminderDisplay({
       <div
         ref={triggerRef}
         onClick={handleToggle}
-        className="cursor-pointer px-2 py-1 rounded hover:bg-gray-100 text-sm font-medium"
+        className="cursor-pointer px-2 py-1 min-h-[44px] flex items-center rounded hover:bg-gray-100 text-sm font-medium"
         style={{ color: getDisplayColor() }}
         title={task.reminder_sent ? "Reminder already sent" : "Click to set reminder"}
       >
@@ -182,31 +182,31 @@ export function TaskReminderDisplay({
           <div className="flex flex-col space-y-2">
             <button
               onClick={setNoReminder}
-              className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded"
+              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 rounded"
             >
               No Reminder
             </button>
             <button
               onClick={() => setReminderIn(15)}
-              className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded"
+              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 rounded"
             >
               In 15 minutes
             </button>
             <button
               onClick={() => setReminderIn(60)}
-              className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded"
+              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 rounded"
             >
               In 1 hour
             </button>
             <button
               onClick={() => setReminderIn(180)}
-              className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded"
+              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 rounded"
             >
               In 3 hours
             </button>
             <button
               onClick={setReminderTomorrowMorning}
-              className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded"
+              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 rounded"
             >
               Tomorrow 9:00 AM
             </button>
@@ -214,14 +214,14 @@ export function TaskReminderDisplay({
               <div className="flex gap-2">
                 <input
                   type="datetime-local"
-                  className="flex-grow px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-grow px-3 py-2 min-h-[44px] border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={customDateTime}
                   onChange={handleCustomDateTimeChange}
                 />
                 <button
                   onClick={applyCustomDateTime}
                   disabled={!customDateTime}
-                  className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  className="px-4 py-3 min-h-[44px] bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                 >
                   Set
                 </button>

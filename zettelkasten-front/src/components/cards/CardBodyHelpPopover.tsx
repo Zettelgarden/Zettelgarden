@@ -47,7 +47,7 @@ const templateVariables: HelpFeature[] = [
 export function CardBodyHelpPopover() {
   return (
     <Popover className="relative inline-block ml-2">
-      <Popover.Button className="inline-flex items-center justify-center rounded-full bg-blue-100 text-blue-600 w-5 h-5 text-xs font-medium hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1" title="Body syntax help">
+      <Popover.Button className="inline-flex items-center justify-center rounded-full bg-blue-100 text-blue-600 min-w-[44px] min-h-[44px] text-xs font-medium hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1" title="Body syntax help">
         <span className="sr-only">Show body syntax help</span>
         ?
       </Popover.Button>

@@ -74,7 +74,7 @@ export function SidebarHeader({
       <div className="relative flex-shrink-0" ref={dropdownRef}>
         <Button
           onClick={toggleNewDropdown}
-          className="w-8 h-8 flex items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
           aria-haspopup="true"
           aria-expanded={isNewDropdownOpen}
           aria-label="Create new item"
@@ -88,21 +88,21 @@ export function SidebarHeader({
           >
             <button
               onClick={onNewStandardCard}
-              className="w-full text-left px-4 py-2 hover:bg-gray-100"
+              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100"
               role="menuitem"
             >
               Create Card
             </button>
             <button
               onClick={onNewArticle}
-              className="w-full text-left px-4 py-2 hover:bg-gray-100"
+              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100"
               role="menuitem"
             >
               Add Article (Card)
             </button>
             <button
               onClick={onNewTask}
-              className="w-full text-left px-4 py-2 hover:bg-gray-100"
+              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100"
               role="menuitem"
             >
               Create Task
@@ -110,7 +110,7 @@ export function SidebarHeader({
             {hasSubscription && (
               <button
                 onClick={onNewChat}
-                className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100"
                 role="menuitem"
               >
                 New Chat

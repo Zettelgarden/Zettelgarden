@@ -325,7 +325,7 @@ export function QuickTagPopover({
               <button
                 key={name}
                 type="button"
-                className={`w-full text-left px-3 py-2 text-sm ${
+                className={`w-full text-left px-4 py-3 min-h-[44px] text-sm ${
                   isActive
                     ? "bg-purple-600 text-white"
                     : "text-gray-700 hover:bg-purple-50"

@@ -39,13 +39,13 @@ export function TaskDescriptionSection({
         <div className="flex gap-2">
           <button
             onClick={handleDescriptionSave}
-            className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+            className="px-4 py-3 min-h-[44px] bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
           >
             Save
           </button>
           <button
             onClick={() => setIsEditingDescription(false)}
-            className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm"
+            className="px-4 py-3 min-h-[44px] bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm"
           >
             Cancel
           </button>
@@ -54,7 +54,7 @@ export function TaskDescriptionSection({
     </div>
   ) : (
     <div
-      className="text-gray-600 cursor-pointer hover:bg-gray-50 p-2 rounded min-h-[40px]"
+      className="text-gray-600 cursor-pointer hover:bg-gray-50 p-2 rounded min-h-[44px] flex items-center"
       onClick={() => setIsEditingDescription(true)}
     >
       {task.description ? (
