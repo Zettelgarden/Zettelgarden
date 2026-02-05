@@ -23,7 +23,6 @@ const (
 type Handler struct {
 	DB             *sql.DB
 	Server         *server.Server
-	ToolRetry      *services.ToolCircuitBreaker
 	messageMutexes sync.Map // map[string]*sync.Mutex - per-message mutexes
 
 	// Rate limiting and concurrency control for summarization

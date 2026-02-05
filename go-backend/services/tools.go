@@ -67,6 +67,7 @@ type ToolContext struct {
 	ConversationID  *string
 	MessageID       *string
 	Model           string
+	Context         context.Context // Request context for timeout/cancellation
 }
 
 // Tool represents a tool that can be called by the LLM

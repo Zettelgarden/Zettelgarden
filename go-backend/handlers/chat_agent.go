@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go-backend/models"
 	"go-backend/prompts"
@@ -15,6 +16,175 @@ import (
 
 	openai "github.com/sashabaranov/go-openai"
 )
+
+// ErrorType represents different categories of errors for better user feedback
+type ErrorType int
+
+const (
+	UnknownError ErrorType = iota
+	NetworkError
+	ValidationError
+	NotFoundError
+	DatabaseError
+	ContextLengthError
+	LLMError
+	ToolError
+)
+
+// ErrorInfo contains detailed error information for user feedback
+type ErrorInfo struct {
+	Type       ErrorType
+	Message    string
+	UserFacing string
+	IsRetryable bool
+}
+
+// getErrorWithMessage returns a copy of ErrorInfo with a custom user-facing message
+// This prevents direct mutation of the ErrorClassifier map values
+func getErrorWithMessage(errorType ErrorType, customMessage string) ErrorInfo {
+	base := ErrorClassifier[errorType]
+	if customMessage != "" {
+		base.UserFacing = customMessage
+	}
+	return base
+}
+
+// ErrorClassifier provides detailed error classification and user-facing messages
+var ErrorClassifier = map[ErrorType]ErrorInfo{
+	NetworkError: {
+		Type:        NetworkError,
+		Message:     "Network connection failed",
+		UserFacing:  "I'm having trouble connecting to my language model. Please try again in a moment.",
+		IsRetryable: true,
+	},
+	ValidationError: {
+		Type:        ValidationError,
+		Message:     "Validation failed",
+		UserFacing:  "I couldn't process that request. Please check your input and try again.",
+		IsRetryable: false,
+	},
+	NotFoundError: {
+		Type:        NotFoundError,
+		Message:     "Resource not found",
+		UserFacing:  "I couldn't find what you're looking for. Would you like me to search for it?",
+		IsRetryable: false,
+	},
+	DatabaseError: {
+		Type:        DatabaseError,
+		Message:     "Database operation failed",
+		UserFacing:  "The system is slow right now. Please try again.",
+		IsRetryable: true,
+	},
+	ContextLengthError: {
+		Type:        ContextLengthError,
+		Message:     "Context length exceeded",
+		UserFacing:  "I apologize, but this conversation has become too long for me to process. Please consider starting a new conversation or summarizing the key points you'd like to continue discussing.",
+		IsRetryable: false,
+	},
+	LLMError: {
+		Type:        LLMError,
+		Message:     "LLM API error",
+		UserFacing:  "I'm having trouble connecting to my language model. Please try again in a moment.",
+		IsRetryable: true,
+	},
+	ToolError: {
+		Type:        ToolError,
+		Message:     "Tool execution failed",
+		UserFacing:  "I encountered an issue while trying to complete your request. Please try again.",
+		IsRetryable: true,
+	},
+	UnknownError: {
+		Type:        UnknownError,
+		Message:     "Unknown error occurred",
+		UserFacing:  "Something went wrong. Please try again.",
+		IsRetryable: true,
+	},
+}
+
+// classifyError determines the error type and returns appropriate error info
+func classifyError(err error) ErrorInfo {
+	if err == nil {
+		return ErrorClassifier[UnknownError]
+	}
+
+	// Check for context length errors
+	if services.IsContextLengthError(err) {
+		return ErrorClassifier[ContextLengthError]
+	}
+
+	// Check for network/LLM errors
+	errStr := err.Error()
+	switch {
+	case strings.Contains(errStr, "connection refused") ||
+	     strings.Contains(errStr, "timeout") ||
+	     strings.Contains(errStr, "network") ||
+	     strings.Contains(errStr, "dial tcp"):
+		return ErrorClassifier[NetworkError]
+
+	case strings.Contains(errStr, "not found") ||
+	     strings.Contains(errStr, "no rows in result set"):
+		return ErrorClassifier[NotFoundError]
+
+	case strings.Contains(errStr, "validation") ||
+	     strings.Contains(errStr, "invalid") ||
+	     strings.Contains(errStr, "malformed"):
+		return ErrorClassifier[ValidationError]
+
+	case strings.Contains(errStr, "database") ||
+	     strings.Contains(errStr, "db:") ||
+	     strings.Contains(errStr, "sql:") ||
+	     strings.Contains(errStr, "constraint"):
+		return ErrorClassifier[DatabaseError]
+
+	case strings.Contains(errStr, "llm") ||
+	     strings.Contains(errStr, "openai") ||
+	     strings.Contains(errStr, "api") ||
+	     strings.Contains(errStr, "rate limit"):
+		return ErrorClassifier[LLMError]
+
+	case strings.Contains(errStr, "tool"):
+		return ErrorClassifier[ToolError]
+
+	default:
+		return ErrorClassifier[UnknownError]
+	}
+}
+
+// classifyToolError determines the error type from tool execution results
+func classifyToolError(toolName string, result map[string]interface{}) ErrorInfo {
+	if result == nil {
+		return ErrorClassifier[ToolError]
+	}
+
+	errMsg, hasError := result["error"].(string)
+	if !hasError || errMsg == "" {
+		return ErrorClassifier[UnknownError]
+	}
+
+	switch toolName {
+	case "get_card_by_id", "search_cards", "get_card_content":
+		if strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "no card found") {
+			return ErrorInfo{
+				Type:        NotFoundError,
+				Message:     "Card not found",
+				UserFacing:  "I couldn't find a card with that ID. Would you like me to search for it?",
+				IsRetryable: false,
+			}
+		}
+	case "create_card", "update_card", "delete_card":
+		if strings.Contains(errMsg, "validation") || strings.Contains(errMsg, "invalid") {
+			return ErrorInfo{
+				Type:        ValidationError,
+				Message:     "Card validation failed",
+				UserFacing:  fmt.Sprintf("I couldn't save the card. %s", errMsg),
+				IsRetryable: false,
+			}
+		}
+	}
+
+	// Default classification based on error message content
+	return classifyError(errors.New(errMsg))
+}
 
 // isToolResultEmpty checks if a tool result is effectively empty
 func isToolResultEmpty(result map[string]interface{}) bool {
@@ -445,41 +615,27 @@ func convertToOpenAIMessages(messages []models.ChatMessage, systemPrompt string)
 	return openaiMessages
 }
 
-// executeToolCall executes a single tool call with intelligent retry logic
+// executeToolCall executes a single tool call with simple retry logic
 func (s *Handler) executeToolCall(toolRegistry *services.ToolRegistry, tc openai.ToolCall, ctx *services.ToolContext) map[string]interface{} {
 	var args map[string]interface{}
 	json.Unmarshal([]byte(tc.Function.Arguments), &args)
 
-	// Use the new retry logic with circuit breaker
-	config := services.DefaultRetryConfig()
-	execResult := services.ExecuteToolWithRetry(
+	// Use simplified retry logic (max 1 retry)
+	result, err := services.ExecuteToolWithRetry(
 		context.Background(),
 		tc.Function.Name,
 		args,
 		toolRegistry,
 		ctx,
-		s.ToolRetry,
-		config,
 	)
 
-	// Handle circuit open case
-	if execResult.CircuitOpen {
-		log.Printf("Tool %s: circuit breaker OPEN - %s", tc.Function.Name, execResult.LastError)
-		return services.WrapToolError(tc.Function.Name, args, fmt.Errorf("tool temporarily unavailable due to repeated failures"))
-	}
-
 	// Handle execution error
-	if execResult.Error != nil {
-		log.Printf("Tool %s: failed after %d attempts (%v) - %s", tc.Function.Name, execResult.Attempts, execResult.TotalTime, execResult.LastError)
-		return services.WrapToolError(tc.Function.Name, args, execResult.Error)
+	if err != nil {
+		log.Printf("Tool %s: failed - %v", tc.Function.Name, err)
+		return services.WrapToolError(tc.Function.Name, args, err)
 	}
 
-	// Log successful retries
-	if execResult.Attempts > 1 {
-		log.Printf("Tool %s: succeeded after %d attempts (%v)", tc.Function.Name, execResult.Attempts, execResult.TotalTime)
-	}
-
-	return execResult.Result
+	return result
 }
 
 // executeAndSaveToolCalls executes all tool calls and saves their responses
@@ -491,17 +647,15 @@ func (s *Handler) executeAndSaveToolCalls(toolRegistry *services.ToolRegistry, t
 		ConversationID:  &conversation.ID,
 		MessageID:       &assistantMessageID,
 		Model:           model,
+		Context:         context.Background(),
 	}
 
 	for _, tc := range toolCalls {
 		result := s.executeToolCall(toolRegistry, tc, ctx)
 
-		// Record the call for loop detection
-		var args map[string]interface{}
-		json.Unmarshal([]byte(tc.Function.Arguments), &args)
-		wasError := models.HasError(result)
+		// Increment loop detector counter for each tool call
 		if loopDetector != nil {
-			loopDetector.RecordCall(tc.Function.Name, args, result, wasError)
+			loopDetector.Increment()
 		}
 
 		// Convert result to JSON string for tool response
@@ -522,17 +676,11 @@ func (s *Handler) executeAndSaveToolCalls(toolRegistry *services.ToolRegistry, t
 func (s *Handler) handleLLMError(err error, userID int, conversation *models.ChatConversation, assistantMessageID string) (*models.ChatMessage, error) {
 	log.Printf("executing LLM error for conversation %s: %v", conversation.ID, err)
 
-	var errorMessage string
-	if services.IsContextLengthError(err) {
-		log.Printf("Context length exceeded for conversation %s", conversation.ID)
-		errorMessage = "I apologize, but this conversation has become too long for me to process. The context exceeds the model's token limit. Please consider starting a new conversation or summarizing the key points you'd like to continue discussing."
-	} else {
-		return nil, err
-	}
+	errorInfo := classifyError(err)
 
 	finalMessage := &models.ChatMessage{
 		ID:      assistantMessageID,
-		Content: &errorMessage,
+		Content: &errorInfo.UserFacing,
 	}
 	if updateErr := s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, finalMessage); updateErr != nil {
 		log.Printf("Error updating message with error: %v", updateErr)
@@ -545,7 +693,8 @@ func (s *Handler) handleLLMError(err error, userID int, conversation *models.Cha
 func (s *Handler) finalizeChatMessage(content string, userID int, conversation *models.ChatConversation, assistantMessageID string) (*models.ChatMessage, error) {
 	if strings.TrimSpace(content) == "" {
 		log.Printf("Warning: LLM returned empty content for conversation %s", conversation.ID)
-		content = "I apologize, but I wasn't able to generate a proper response. Could you please try rephrasing your question?"
+		errorInfo := getErrorWithMessage(LLMError, "I apologize, but I wasn't able to generate a proper response. Could you please try rephrasing your question?")
+		content = errorInfo.UserFacing
 	}
 
 	finalMessage := &models.ChatMessage{
@@ -589,11 +738,17 @@ func (s *Handler) GenerateChatResponse(ctx context.Context, userID int, conversa
 	// Initialize loop detector for this conversation
 	loopDetector := services.NewLoopDetector()
 
+	// Track iteration count for progress logging
+	iterationCount := 0
+	const progressFeedbackInterval = 5 // Log progress every 5 iterations
+
 	// Loop until no more tool calls are needed
 	for {
-		// Check for loops before making the next LLM call
-		if shouldBlock, reason, interventionMsg := loopDetector.ShouldBlock(); shouldBlock {
-			log.Printf("[LoopDetector] Loop detected: %s - injecting intervention message", reason)
+		// Check if loop detector has reached max iterations
+		// We check against maxIterations-1 because Increment() is called in executeAndSaveToolCalls
+		if loopDetector.GetIteration() >= 9 { // maxIterations is 10 in NewLoopDetector
+			log.Printf("[LoopDetector] Max iterations reached for conversation %s", conversation.ID)
+			interventionMsg := loopDetector.GetInterventionMessage()
 			// Add intervention as a system message to break the loop
 			openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
 				Role:    openai.ChatMessageRoleSystem,
@@ -611,17 +766,23 @@ func (s *Handler) GenerateChatResponse(ctx context.Context, userID int, conversa
 		// Validate response
 		if len(resp.Choices) == 0 {
 			log.Printf("Warning: LLM returned no choices for conversation %s", conversation.ID)
-			return s.finalizeChatMessage("I apologize, but I encountered an issue generating a response. Please try again.", userID, conversation, assistantMessageID)
+			errorInfo := getErrorWithMessage(LLMError, "")
+			return s.finalizeChatMessage(errorInfo.UserFacing, userID, conversation, assistantMessageID)
 		}
 
 		assistantMessage := resp.Choices[0].Message
 
-		// Retry on empty response (transient issue)
+		// Handle empty response - provide immediate specific error instead of silent retry
 		if strings.TrimSpace(assistantMessage.Content) == "" && len(assistantMessage.ToolCalls) == 0 {
-			log.Printf("[EmptyResponse] LLM returned empty content for conversation %s, retrying...", conversation.ID)
-			// Add a small delay before retry
-			time.Sleep(500 * time.Millisecond)
-			continue
+			log.Printf("[EmptyResponse] LLM returned empty content for conversation %s", conversation.ID)
+			errorInfo := getErrorWithMessage(LLMError, "I'm having trouble connecting to my language model right now. It returned an empty response. Please try again in a moment.")
+			return s.finalizeChatMessage(errorInfo.UserFacing, userID, conversation, assistantMessageID)
+		}
+
+		// Increment iteration counter and log progress
+		iterationCount++
+		if iterationCount%progressFeedbackInterval == 0 && iterationCount > 0 {
+			log.Printf("[Progress] Chat response iteration %d for conversation %s", iterationCount, conversation.ID)
 		}
 
 		// If no tool calls, update the existing assistant message and return
@@ -934,24 +1095,21 @@ func (s *Handler) executeAndBroadcastToolCalls(toolRegistry *services.ToolRegist
 		ConversationID:  &conversation.ID,
 		MessageID:       &assistantMessageID,
 		Model:           model,
+		Context:         context.Background(),
 	}
 
 	for _, tc := range toolCalls {
 		result := s.executeToolCall(toolRegistry, tc, ctx)
 
-		// Record the call for loop detection
-		var args map[string]interface{}
-		json.Unmarshal([]byte(tc.Function.Arguments), &args)
-		wasError := models.HasError(result)
+		// Increment loop detector counter for each tool call
 		if loopDetector != nil {
-			loopDetector.RecordCall(tc.Function.Name, args, result, wasError)
+			loopDetector.Increment()
 		}
 
 		// Check if result contains an error
-		hasError := wasError
-
-		// Parse arguments for the event
-		// (args already parsed above)
+		var args map[string]interface{}
+		json.Unmarshal([]byte(tc.Function.Arguments), &args)
+		hasError := models.HasError(result)
 
 		// Send enhanced tool result event
 		eventData := map[string]interface{}{
@@ -1005,11 +1163,17 @@ func (s *Handler) streamChatResponse(ctx context.Context, w http.ResponseWriter,
 	// Initialize loop detector for this conversation
 	loopDetector := services.NewLoopDetector()
 
+	// Track iteration count for progress feedback
+	iterationCount := 0
+	const progressFeedbackInterval = 5 // Send progress every 5 iterations
+
 	// Loop until no more tool calls are needed
 	for {
-		// Check for loops before making the next LLM call
-		if shouldBlock, reason, interventionMsg := loopDetector.ShouldBlock(); shouldBlock {
-			log.Printf("[LoopDetector] Loop detected: %s - injecting intervention message", reason)
+		// Check if loop detector has reached max iterations
+		// We check against maxIterations-1 because Increment() is called in executeAndSaveToolCalls
+		if loopDetector.GetIteration() >= 9 { // maxIterations is 10 in NewLoopDetector
+			log.Printf("[LoopDetector] Max iterations reached for conversation %s", conversation.ID)
+			interventionMsg := loopDetector.GetInterventionMessage()
 			// Add intervention as a system message to break the loop
 			openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
 				Role:    openai.ChatMessageRoleSystem,
@@ -1021,15 +1185,16 @@ func (s *Handler) streamChatResponse(ctx context.Context, w http.ResponseWriter,
 
 		stream, err := services.StreamLLMToolRequest(ctx, client, openaiMessages, tools)
 		if err != nil {
-			if services.IsContextLengthError(err) {
-				errorMessage := "I apologize, but this conversation has become too long for me to process. The context exceeds the model's token limit."
+			errorInfo := classifyError(err)
+			if errorInfo.Type == ContextLengthError {
 				s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, &models.ChatMessage{
 					ID:      assistantMessageID,
-					Content: &errorMessage,
+					Content: &errorInfo.UserFacing,
 				})
-				return sendEvent("error", map[string]string{"error": errorMessage})
+				return sendEvent("error", map[string]string{"error": errorInfo.UserFacing})
 			}
-			return err
+			// For other errors, return the user-friendly message
+			return sendEvent("error", map[string]string{"error": errorInfo.UserFacing})
 		}
 		defer stream.Close()
 
@@ -1039,13 +1204,26 @@ func (s *Handler) streamChatResponse(ctx context.Context, w http.ResponseWriter,
 			return err
 		}
 
-		// Retry on empty response (transient issue)
+		// Handle empty response - provide immediate specific error instead of silent retry
 		if strings.TrimSpace(currentContent) == "" && len(currentToolCalls) == 0 {
-			log.Printf("[EmptyResponse] Streaming LLM returned empty content for conversation %s, retrying...", conversation.ID)
-			// Add a small delay before retry
-			time.Sleep(500 * time.Millisecond)
-			// Continue to next iteration to retry
-			continue
+			log.Printf("[EmptyResponse] Streaming LLM returned empty content for conversation %s", conversation.ID)
+			errorInfo := getErrorWithMessage(LLMError, "I'm having trouble connecting to my language model right now. It returned an empty response. Please try again in a moment.")
+			s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, &models.ChatMessage{
+				ID:      assistantMessageID,
+				Content: &errorInfo.UserFacing,
+			})
+			return sendEvent("error", map[string]string{"error": errorInfo.UserFacing})
+		}
+
+		// Increment iteration counter and send progress feedback
+		iterationCount++
+		if iterationCount%progressFeedbackInterval == 0 && iterationCount > 0 {
+			progressMsg := fmt.Sprintf("Working on it... (step %d)", iterationCount)
+			sendEvent("progress", map[string]interface{}{
+				"step":    iterationCount,
+				"message": progressMsg,
+			})
+			log.Printf("[Progress] Chat response iteration %d for conversation %s", iterationCount, conversation.ID)
 		}
 
 		// If no tool calls, we're done

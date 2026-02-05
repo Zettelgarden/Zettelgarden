@@ -108,9 +108,8 @@ func run() error {
 	}
 
 	h = &handlers.Handler{
-		Server:    s,
-		DB:        s.DB,
-		ToolRetry: services.NewToolCircuitBreaker(),
+		Server: s,
+		DB:     s.DB,
 	}
 
 	// Initialize job rate limiter

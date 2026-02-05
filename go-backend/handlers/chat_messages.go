@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -553,6 +554,7 @@ func (s *Handler) RetryToolCallRoute(w http.ResponseWriter, r *http.Request) {
 		TypesenseClient: s.Server.TypesenseClient,
 		ConversationID:  &conversation.ID,
 		Model:           conversation.Model,
+		Context:         context.Background(),
 	}
 
 	// Get the tool registry
