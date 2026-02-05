@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"go-backend/models"
+	"go-backend/services"
 	"testing"
 
 	openai "github.com/sashabaranov/go-openai"
@@ -156,9 +157,10 @@ func TestShouldClearToolResult(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := shouldClearToolResult(tt.msg, tt.messageIndex, tt.totalMessages)
+			converter := services.NewMessageConverter()
+			result := converter.ShouldClearToolResult(tt.msg, tt.messageIndex, tt.totalMessages)
 			if result != tt.expected {
-				t.Errorf("shouldClearToolResult() = %v, expected %v", result, tt.expected)
+				t.Errorf("ShouldClearToolResult() = %v, expected %v", result, tt.expected)
 			}
 		})
 	}

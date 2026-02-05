@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"go-backend/models"
 	"go-backend/prompts"
@@ -17,173 +16,21 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
-// ErrorType represents different categories of errors for better user feedback
-type ErrorType int
-
-const (
-	UnknownError ErrorType = iota
-	NetworkError
-	ValidationError
-	NotFoundError
-	DatabaseError
-	ContextLengthError
-	LLMError
-	ToolError
-)
-
-// ErrorInfo contains detailed error information for user feedback
-type ErrorInfo struct {
-	Type       ErrorType
-	Message    string
-	UserFacing string
-	IsRetryable bool
-}
-
-// getErrorWithMessage returns a copy of ErrorInfo with a custom user-facing message
-// This prevents direct mutation of the ErrorClassifier map values
-func getErrorWithMessage(errorType ErrorType, customMessage string) ErrorInfo {
-	base := ErrorClassifier[errorType]
+// getUserFacingMessage returns a user-friendly error message using the canonical error classifier
+func getUserFacingMessage(err error, customMessage string) string {
+	// Use the canonical error classifier from services package
+	errInfo := services.ClassifyToolError("", nil, err)
 	if customMessage != "" {
-		base.UserFacing = customMessage
+		return customMessage
 	}
-	return base
-}
-
-// ErrorClassifier provides detailed error classification and user-facing messages
-var ErrorClassifier = map[ErrorType]ErrorInfo{
-	NetworkError: {
-		Type:        NetworkError,
-		Message:     "Network connection failed",
-		UserFacing:  "I'm having trouble connecting to my language model. Please try again in a moment.",
-		IsRetryable: true,
-	},
-	ValidationError: {
-		Type:        ValidationError,
-		Message:     "Validation failed",
-		UserFacing:  "I couldn't process that request. Please check your input and try again.",
-		IsRetryable: false,
-	},
-	NotFoundError: {
-		Type:        NotFoundError,
-		Message:     "Resource not found",
-		UserFacing:  "I couldn't find what you're looking for. Would you like me to search for it?",
-		IsRetryable: false,
-	},
-	DatabaseError: {
-		Type:        DatabaseError,
-		Message:     "Database operation failed",
-		UserFacing:  "The system is slow right now. Please try again.",
-		IsRetryable: true,
-	},
-	ContextLengthError: {
-		Type:        ContextLengthError,
-		Message:     "Context length exceeded",
-		UserFacing:  "I apologize, but this conversation has become too long for me to process. Please consider starting a new conversation or summarizing the key points you'd like to continue discussing.",
-		IsRetryable: false,
-	},
-	LLMError: {
-		Type:        LLMError,
-		Message:     "LLM API error",
-		UserFacing:  "I'm having trouble connecting to my language model. Please try again in a moment.",
-		IsRetryable: true,
-	},
-	ToolError: {
-		Type:        ToolError,
-		Message:     "Tool execution failed",
-		UserFacing:  "I encountered an issue while trying to complete your request. Please try again.",
-		IsRetryable: true,
-	},
-	UnknownError: {
-		Type:        UnknownError,
-		Message:     "Unknown error occurred",
-		UserFacing:  "Something went wrong. Please try again.",
-		IsRetryable: true,
-	},
-}
-
-// classifyError determines the error type and returns appropriate error info
-func classifyError(err error) ErrorInfo {
-	if err == nil {
-		return ErrorClassifier[UnknownError]
+	if errInfo != nil {
+		return errInfo.Suggestion
 	}
-
-	// Check for context length errors
+	// Fallback for context length errors (special case for LLM chat)
 	if services.IsContextLengthError(err) {
-		return ErrorClassifier[ContextLengthError]
+		return "I apologize, but this conversation has become too long for me to process. Please consider starting a new conversation or summarizing the key points you'd like to continue discussing."
 	}
-
-	// Check for network/LLM errors
-	errStr := err.Error()
-	switch {
-	case strings.Contains(errStr, "connection refused") ||
-	     strings.Contains(errStr, "timeout") ||
-	     strings.Contains(errStr, "network") ||
-	     strings.Contains(errStr, "dial tcp"):
-		return ErrorClassifier[NetworkError]
-
-	case strings.Contains(errStr, "not found") ||
-	     strings.Contains(errStr, "no rows in result set"):
-		return ErrorClassifier[NotFoundError]
-
-	case strings.Contains(errStr, "validation") ||
-	     strings.Contains(errStr, "invalid") ||
-	     strings.Contains(errStr, "malformed"):
-		return ErrorClassifier[ValidationError]
-
-	case strings.Contains(errStr, "database") ||
-	     strings.Contains(errStr, "db:") ||
-	     strings.Contains(errStr, "sql:") ||
-	     strings.Contains(errStr, "constraint"):
-		return ErrorClassifier[DatabaseError]
-
-	case strings.Contains(errStr, "llm") ||
-	     strings.Contains(errStr, "openai") ||
-	     strings.Contains(errStr, "api") ||
-	     strings.Contains(errStr, "rate limit"):
-		return ErrorClassifier[LLMError]
-
-	case strings.Contains(errStr, "tool"):
-		return ErrorClassifier[ToolError]
-
-	default:
-		return ErrorClassifier[UnknownError]
-	}
-}
-
-// classifyToolError determines the error type from tool execution results
-func classifyToolError(toolName string, result map[string]interface{}) ErrorInfo {
-	if result == nil {
-		return ErrorClassifier[ToolError]
-	}
-
-	errMsg, hasError := result["error"].(string)
-	if !hasError || errMsg == "" {
-		return ErrorClassifier[UnknownError]
-	}
-
-	switch toolName {
-	case "get_card_by_id", "search_cards", "get_card_content":
-		if strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "no card found") {
-			return ErrorInfo{
-				Type:        NotFoundError,
-				Message:     "Card not found",
-				UserFacing:  "I couldn't find a card with that ID. Would you like me to search for it?",
-				IsRetryable: false,
-			}
-		}
-	case "create_card", "update_card", "delete_card":
-		if strings.Contains(errMsg, "validation") || strings.Contains(errMsg, "invalid") {
-			return ErrorInfo{
-				Type:        ValidationError,
-				Message:     "Card validation failed",
-				UserFacing:  fmt.Sprintf("I couldn't save the card. %s", errMsg),
-				IsRetryable: false,
-			}
-		}
-	}
-
-	// Default classification based on error message content
-	return classifyError(errors.New(errMsg))
+	return "Something went wrong. Please try again."
 }
 
 // isToolResultEmpty checks if a tool result is effectively empty
@@ -540,80 +387,6 @@ func (s *Handler) compactConversationIfNeeded(ctx context.Context, userID int, m
 	return compactedMessages, nil
 }
 
-// shouldClearToolResult determines if a tool result should be cleared to save context
-func shouldClearToolResult(msg models.ChatMessage, messageIndex int, totalMessages int) bool {
-	// Only clear tool messages
-	if msg.Role != "tool" {
-		return false
-	}
-
-	// Don't clear if it's in the last 10 messages (keep recent context)
-	messagesFromEnd := totalMessages - messageIndex
-	if messagesFromEnd <= 10 {
-		return false
-	}
-
-	return true
-}
-
-// convertToOpenAIMessages converts our chat messages to OpenAI format
-func convertToOpenAIMessages(messages []models.ChatMessage, systemPrompt string) []openai.ChatCompletionMessage {
-	openaiMessages := []openai.ChatCompletionMessage{
-		{
-			Role:    openai.ChatMessageRoleSystem,
-			Content: systemPrompt,
-		},
-	}
-
-	for i, msg := range messages {
-		// Clear old tool results to reduce context pollution
-		if shouldClearToolResult(msg, i, len(messages)) {
-			// Replace with minimal placeholder
-			openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
-				Role:       "tool",
-				ToolCallID: *msg.ToolCallID,
-				Content:    "[Result cleared to save context]",
-			})
-			continue
-		}
-
-		var content string
-		if msg.Content != nil {
-			content = *msg.Content
-		}
-
-		openaiMsg := openai.ChatCompletionMessage{
-			Role:    msg.Role,
-			Content: content,
-		}
-
-		// Handle tool calls
-		if len(msg.ToolCalls) > 0 {
-			var toolCalls []openai.ToolCall
-			for _, tc := range msg.ToolCalls {
-				argsJSON, _ := json.Marshal(tc.Function.Arguments)
-				toolCalls = append(toolCalls, openai.ToolCall{
-					ID:   tc.ID,
-					Type: openai.ToolTypeFunction,
-					Function: openai.FunctionCall{
-						Name:      tc.Function.Name,
-						Arguments: string(argsJSON),
-					},
-				})
-			}
-			openaiMsg.ToolCalls = toolCalls
-		}
-
-		// Handle tool call responses
-		if msg.ToolCallID != nil {
-			openaiMsg.ToolCallID = *msg.ToolCallID
-		}
-
-		openaiMessages = append(openaiMessages, openaiMsg)
-	}
-
-	return openaiMessages
-}
 
 // executeToolCall executes a single tool call with simple retry logic
 func (s *Handler) executeToolCall(toolRegistry *services.ToolRegistry, tc openai.ToolCall, ctx *services.ToolContext) map[string]interface{} {
@@ -676,11 +449,11 @@ func (s *Handler) executeAndSaveToolCalls(toolRegistry *services.ToolRegistry, t
 func (s *Handler) handleLLMError(err error, userID int, conversation *models.ChatConversation, assistantMessageID string) (*models.ChatMessage, error) {
 	log.Printf("executing LLM error for conversation %s: %v", conversation.ID, err)
 
-	errorInfo := classifyError(err)
+	userMessage := getUserFacingMessage(err, "")
 
 	finalMessage := &models.ChatMessage{
 		ID:      assistantMessageID,
-		Content: &errorInfo.UserFacing,
+		Content: &userMessage,
 	}
 	if updateErr := s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, finalMessage); updateErr != nil {
 		log.Printf("Error updating message with error: %v", updateErr)
@@ -693,8 +466,7 @@ func (s *Handler) handleLLMError(err error, userID int, conversation *models.Cha
 func (s *Handler) finalizeChatMessage(content string, userID int, conversation *models.ChatConversation, assistantMessageID string) (*models.ChatMessage, error) {
 	if strings.TrimSpace(content) == "" {
 		log.Printf("Warning: LLM returned empty content for conversation %s", conversation.ID)
-		errorInfo := getErrorWithMessage(LLMError, "I apologize, but I wasn't able to generate a proper response. Could you please try rephrasing your question?")
-		content = errorInfo.UserFacing
+		content = getUserFacingMessage(fmt.Errorf("empty response"), "I apologize, but I wasn't able to generate a proper response. Could you please try rephrasing your question?")
 	}
 
 	finalMessage := &models.ChatMessage{
@@ -716,7 +488,8 @@ func (s *Handler) GenerateChatResponse(ctx context.Context, userID int, conversa
 		return nil, err
 	}
 
-	openaiMessages := convertToOpenAIMessages(messages, systemPrompt)
+	converter := services.NewMessageConverter()
+	openaiMessages := converter.ToOpenAI(messages, systemPrompt)
 
 	// Check if compaction is needed and perform it proactively
 	openaiMessages, err = s.compactConversationIfNeeded(ctx, userID, openaiMessages, model)
@@ -766,8 +539,7 @@ func (s *Handler) GenerateChatResponse(ctx context.Context, userID int, conversa
 		// Validate response
 		if len(resp.Choices) == 0 {
 			log.Printf("Warning: LLM returned no choices for conversation %s", conversation.ID)
-			errorInfo := getErrorWithMessage(LLMError, "")
-			return s.finalizeChatMessage(errorInfo.UserFacing, userID, conversation, assistantMessageID)
+			return s.finalizeChatMessage(getUserFacingMessage(fmt.Errorf("no choices"), ""), userID, conversation, assistantMessageID)
 		}
 
 		assistantMessage := resp.Choices[0].Message
@@ -775,8 +547,8 @@ func (s *Handler) GenerateChatResponse(ctx context.Context, userID int, conversa
 		// Handle empty response - provide immediate specific error instead of silent retry
 		if strings.TrimSpace(assistantMessage.Content) == "" && len(assistantMessage.ToolCalls) == 0 {
 			log.Printf("[EmptyResponse] LLM returned empty content for conversation %s", conversation.ID)
-			errorInfo := getErrorWithMessage(LLMError, "I'm having trouble connecting to my language model right now. It returned an empty response. Please try again in a moment.")
-			return s.finalizeChatMessage(errorInfo.UserFacing, userID, conversation, assistantMessageID)
+			errorMsg := "I'm having trouble connecting to my language model right now. It returned an empty response. Please try again in a moment."
+			return s.finalizeChatMessage(getUserFacingMessage(fmt.Errorf("empty response"), errorMsg), userID, conversation, assistantMessageID)
 		}
 
 		// Increment iteration counter and log progress
@@ -830,7 +602,7 @@ func (s *Handler) GenerateChatResponse(ctx context.Context, userID int, conversa
 			currentSystemPrompt = systemPrompt
 		}
 
-		openaiMessages = convertToOpenAIMessages(updatedMessages, currentSystemPrompt)
+		openaiMessages = converter.ToOpenAI(updatedMessages, currentSystemPrompt)
 	}
 }
 
@@ -1141,7 +913,8 @@ func (s *Handler) streamChatResponse(ctx context.Context, w http.ResponseWriter,
 		return err
 	}
 
-	openaiMessages := convertToOpenAIMessages(messages, systemPrompt)
+	converter := services.NewMessageConverter()
+	openaiMessages := converter.ToOpenAI(messages, systemPrompt)
 
 	// Check if compaction is needed and perform it proactively
 	openaiMessages, err = s.compactConversationIfNeeded(ctx, userID, openaiMessages, model)
@@ -1185,16 +958,17 @@ func (s *Handler) streamChatResponse(ctx context.Context, w http.ResponseWriter,
 
 		stream, err := services.StreamLLMToolRequest(ctx, client, openaiMessages, tools)
 		if err != nil {
-			errorInfo := classifyError(err)
-			if errorInfo.Type == ContextLengthError {
+			userMsg := getUserFacingMessage(err, "")
+			// Check for context length error specifically
+			if services.IsContextLengthError(err) {
 				s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, &models.ChatMessage{
 					ID:      assistantMessageID,
-					Content: &errorInfo.UserFacing,
+					Content: &userMsg,
 				})
-				return sendEvent("error", map[string]string{"error": errorInfo.UserFacing})
+				return sendEvent("error", map[string]string{"error": userMsg})
 			}
 			// For other errors, return the user-friendly message
-			return sendEvent("error", map[string]string{"error": errorInfo.UserFacing})
+			return sendEvent("error", map[string]string{"error": userMsg})
 		}
 		defer stream.Close()
 
@@ -1207,12 +981,13 @@ func (s *Handler) streamChatResponse(ctx context.Context, w http.ResponseWriter,
 		// Handle empty response - provide immediate specific error instead of silent retry
 		if strings.TrimSpace(currentContent) == "" && len(currentToolCalls) == 0 {
 			log.Printf("[EmptyResponse] Streaming LLM returned empty content for conversation %s", conversation.ID)
-			errorInfo := getErrorWithMessage(LLMError, "I'm having trouble connecting to my language model right now. It returned an empty response. Please try again in a moment.")
+			errorMsg := "I'm having trouble connecting to my language model right now. It returned an empty response. Please try again in a moment."
+			userMsg := getUserFacingMessage(fmt.Errorf("empty response"), errorMsg)
 			s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, &models.ChatMessage{
 				ID:      assistantMessageID,
-				Content: &errorInfo.UserFacing,
+				Content: &userMsg,
 			})
-			return sendEvent("error", map[string]string{"error": errorInfo.UserFacing})
+			return sendEvent("error", map[string]string{"error": userMsg})
 		}
 
 		// Increment iteration counter and send progress feedback
@@ -1264,6 +1039,6 @@ func (s *Handler) streamChatResponse(ctx context.Context, w http.ResponseWriter,
 			currentSystemPrompt = systemPrompt
 		}
 
-		openaiMessages = convertToOpenAIMessages(updatedMessages, currentSystemPrompt)
+		openaiMessages = converter.ToOpenAI(updatedMessages, currentSystemPrompt)
 	}
 }
