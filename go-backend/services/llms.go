@@ -12,25 +12,13 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
-// ModelPricing contains pricing information for a model (per 1k tokens in USD)
-type ModelPricing struct {
-	PromptPer1K     float64
-	CompletionPer1K float64
-}
-
-// ValidChatModels contains pricing info for all allowed chat models
-// This is the single source of truth for valid models and their pricing across the application
-var ValidChatModels = map[string]ModelPricing{
-	"google/gemini-2.5-flash":       {PromptPer1K: 0.0003, CompletionPer1K: 0.0025},
-	"google/gemini-2.5-pro":         {PromptPer1K: 0.00125, CompletionPer1K: 0.010},
-	"google/gemini-2.5-flash-lite":  {PromptPer1K: 0.0001, CompletionPer1K: 0.0004},
-	"openai/gpt-5-chat":             {PromptPer1K: 0.00125, CompletionPer1K: 0.010},
-	"openai/gpt-5.1-chat":           {PromptPer1K: 0.00125, CompletionPer1K: 0.010},
-	"openai/gpt-5.2-chat":           {PromptPer1K: 0.00175, CompletionPer1K: 0.014},
-	"openai/gpt-4o-mini":            {PromptPer1K: 0.00015, CompletionPer1K: 0.0006},
-	"anthropic/claude-sonnet-4.5":   {PromptPer1K: 0.003, CompletionPer1K: 0.015},
-	"google/gemini-3-pro-preview":   {PromptPer1K: 0.002, CompletionPer1K: 0.012},
-	"google/gemini-3-flash-preview": {PromptPer1K: 0.0005, CompletionPer1K: 0.003},
+func init() {
+	// Initialize AI configuration from config file
+	// If the config file is not found, hardcoded defaults will be used
+	configPath := GetConfigPath()
+	if err := LoadAIConfig(configPath); err != nil {
+		log.Printf("Warning: Failed to load AI config from %s: %v (using defaults)", configPath, err)
+	}
 }
 
 func NewDefaultClient(db *sql.DB, userID int, testing bool) *models.LLMClient {
@@ -212,10 +200,20 @@ func logLLMRequest(c *models.LLMClient, resp openai.ChatCompletionResponse, requ
 	// fire and forget
 	go func() {
 		var cost *float64
-		if pricing, ok := ValidChatModels[c.Model]; ok {
+
+		// Try to get pricing from config first
+		if modelConfig, err := GetModelConfig(c.Model); err == nil {
+			est := float64(resp.Usage.PromptTokens)/1000.0*modelConfig.PromptPer1K +
+				float64(resp.Usage.CompletionTokens)/1000.0*modelConfig.CompletionPer1K
+			cost = &est
+		} else if pricing, ok := ValidChatModels[c.Model]; ok {
+			// Fallback to ValidChatModels for backward compatibility
 			est := float64(resp.Usage.PromptTokens)/1000.0*pricing.PromptPer1K +
 				float64(resp.Usage.CompletionTokens)/1000.0*pricing.CompletionPer1K
 			cost = &est
+		} else {
+			// Neither config lookup nor ValidChatModels fallback succeeded
+			log.Printf("Warning: Unable to find pricing information for model %s - cost will not be calculated", c.Model)
 		}
 
 		_, err := c.DB.Exec(`

@@ -85,7 +85,7 @@ func GetUserMemory(db *sql.DB, userID int) (string, error) {
 }
 
 // UpdateUserMemory is a wrapper for services.UpdateUserMemory for backward compatibility
-func UpdateUserMemory(db *sql.DB, userID uint, memory string) error {
+func UpdateUserMemory(db *sql.DB, userID int, memory string) error {
 	return services.UpdateUserMemory(db, userID, memory)
 }
 
@@ -124,7 +124,7 @@ func (s *Handler) UpdateUserMemoryRoute(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Update memory in database
-	err = UpdateUserMemory(s.DB, uint(userID), requestData.Memory)
+	err = UpdateUserMemory(s.DB, userID, requestData.Memory)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -192,7 +192,7 @@ Your task is to produce a new, superior, and more compact version of the entire 
 		return "", fmt.Errorf("no response from AI")
 	}
 
-	err = UpdateUserMemory(db, uint(userID), response.Choices[0].Message.Content)
+	err = UpdateUserMemory(db, int(userID), response.Choices[0].Message.Content)
 	if err != nil {
 		return "", err
 	}

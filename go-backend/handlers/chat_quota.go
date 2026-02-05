@@ -21,15 +21,21 @@ type ChatModel struct {
 
 // GetChatModelsRoute returns the list of valid chat models with their labels and pricing
 func (s *Handler) GetChatModelsRoute(w http.ResponseWriter, r *http.Request) {
+	// Ensure config is loaded
+	services.EnsureConfigLoaded()
+
+	// Get all models from config
+	allModels := services.GetAllModels()
+
 	// Generate labels from model IDs
-	models := make([]ChatModel, 0, len(services.ValidChatModels))
-	for modelID, pricing := range services.ValidChatModels {
+	models := make([]ChatModel, 0, len(allModels))
+	for modelID, modelConfig := range allModels {
 		label := generateModelLabel(modelID)
 		models = append(models, ChatModel{
 			Value:          modelID,
 			Label:          label,
-			PromptPer1K:    pricing.PromptPer1K,
-			CompletionPer1K: pricing.CompletionPer1K,
+			PromptPer1K:    modelConfig.PromptPer1K,
+			CompletionPer1K: modelConfig.CompletionPer1K,
 		})
 	}
 

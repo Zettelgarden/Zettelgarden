@@ -2,27 +2,18 @@ package services
 
 import (
 	"database/sql"
+
+	"go-backend/services/tools/memory"
 )
 
-// GetUserMemory retrieves the memory for a user from the database
+// GetUserMemory retrieves the memory for a user from the database.
+// This function now delegates to the memory domain package (Phase 3 migration).
 func GetUserMemory(db *sql.DB, userID int) (string, error) {
-	var memory string
-	err := db.QueryRow("SELECT memory FROM user_memories WHERE user_id = $1", userID).Scan(&memory)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return "", nil
-		}
-		return "", err
-	}
-	return memory, nil
+	return memory.GetUserMemory(db, userID)
 }
 
-// UpdateUserMemory updates or creates a user's memory in the database
-func UpdateUserMemory(db *sql.DB, userID uint, memory string) error {
-	_, err := db.Exec(`
-		INSERT INTO user_memories (user_id, memory, created_at, updated_at)
-		VALUES ($1, $2, NOW(), NOW())
-		ON CONFLICT (user_id) DO UPDATE SET memory = $2, updated_at = NOW()
-	`, userID, memory)
-	return err
+// UpdateUserMemory updates or creates a user's memory in the database.
+// This function now delegates to the memory domain package (Phase 3 migration).
+func UpdateUserMemory(db *sql.DB, userID int, mem string) error {
+	return memory.UpdateUserMemory(db, userID, mem)
 }

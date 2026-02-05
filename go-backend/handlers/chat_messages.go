@@ -56,8 +56,9 @@ func validateReferencedCards(referencedCards []string) error {
 // validateChatModel validates the model name is in the allowed list
 func validateChatModel(model *string) error {
 	if model != nil && *model != "" {
-		if _, ok := services.ValidChatModels[*model]; !ok {
-			return fmt.Errorf("invalid model: %s", *model)
+		// Use the new validation function from ai_config
+		if err := services.ValidateChatModel(*model); err != nil {
+			return err
 		}
 	}
 	return nil

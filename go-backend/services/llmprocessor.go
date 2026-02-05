@@ -590,7 +590,7 @@ func GenerateUserMemory(ctx context.Context, db *sql.DB, client *models.LLMClien
 	content = strings.TrimPrefix(content, "```json")
 	content = strings.TrimSuffix(content, "```")
 
-	err = UpdateUserMemory(db, uint(userID), content)
+	err = UpdateUserMemory(db, int(userID), content)
 	if err != nil {
 		return "", err
 	}
@@ -642,7 +642,7 @@ Assistant: %s
 	content = strings.TrimPrefix(content, "```json")
 	content = strings.TrimSuffix(content, "```")
 
-	err = UpdateUserMemory(db, uint(userID), content)
+	err = UpdateUserMemory(db, int(userID), content)
 	if err != nil {
 		return "", err
 	}
