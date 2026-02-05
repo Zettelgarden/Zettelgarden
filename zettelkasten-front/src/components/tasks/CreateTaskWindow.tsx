@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { saveNewTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
 import { useAuth } from "../../contexts/AuthContext";
+import { useUIState } from "../../contexts/UIStateContext";
 import { Task, emptyTask } from "../../models/Task";
 import { Card, PartialCard } from "../../models/Card";
 import { Button } from "../Button";
@@ -35,6 +36,7 @@ export function CreateTaskWindow({
   const [selectedCard, setSelectedCard] = useState<PartialCard | null>(null);
 
   const { setRefreshTasks } = useTaskContext();
+  const { setRefreshTrigger } = useUIState();
 
   // Function to detect and extract priority from text
   function detectAndSetPriority(text: string) {
@@ -62,6 +64,10 @@ export function CreateTaskWindow({
       setShowTaskWindow(false);
       setSelectedCard(null);
       setRefreshTasks(true);
+      // If task is associated with a card, trigger card refresh to update displayed tasks
+      if (currentCard) {
+        setRefreshTrigger(currentCard.id.toString());
+      }
       setNewTask({
         ...emptyTask,
         scheduled_date: getToday(userTimezone),
