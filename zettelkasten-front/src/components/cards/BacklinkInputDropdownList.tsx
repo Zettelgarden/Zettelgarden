@@ -109,14 +109,14 @@ export function BacklinkInputDropdownList({
           <div className="relative">
             <Combobox.Input
               ref={inputRef}
-              className="w-full px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+              className="w-full px-3 py-2 min-h-[44px] text-sm text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
               placeholder={placeholder}
               displayValue={() => inputValue}
               onChange={(e) => handleInputChange(e.target.value)}
             />
           </div>
           {(searchResults.length > 0 || inputValue.length > 0) && (
-            <Combobox.Options className="w-full mt-1 overflow-hidden bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-y-auto text-sm" style={{ zIndex: 9999 }}>
+            <Combobox.Options className="w-full mt-1 overflow-hidden bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-y-auto text-sm" style={{ zIndex: 9999, minHeight: '44px' }}>
               {isLoading ? (
                 <div className="p-2 text-gray-500">Loading...</div>
               ) : searchResults.length > 0 ? (
@@ -125,7 +125,7 @@ export function BacklinkInputDropdownList({
                     key={card.card_id}
                     value={card}
                     className={({ active }) =>
-                      `cursor-pointer p-2 border-b border-gray-100 last:border-b-0 transition-colors duration-150 ${active ? "bg-blue-50" : ""
+                      `cursor-pointer px-4 py-3 min-h-[44px] border-b border-gray-100 last:border-b-0 transition-colors duration-150 ${active ? "bg-blue-50" : ""
                       }`
                     }
                   >

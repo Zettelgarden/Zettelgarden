@@ -21,7 +21,7 @@ export function PopupMenu({ options, isOpen, className = "" }: PopupMenuProps) {
         <button
           key={index}
           onClick={option.onClick}
-          className={`block w-full text-left px-4 py-2 hover:bg-gray-100 ${option.className || ''}`}
+          className={`block w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 ${option.className || ''}`}
         >
           {option.label}
         </button>

@@ -17,7 +17,7 @@ export function SidebarMobileMenu({ isSidebarOpen, setIsSidebarOpen }: SidebarMo
     <>
       {/* Mobile Menu Button */}
       <button
-        className="md:hidden fixed top-4 right-4 z-[60] p-2 bg-white rounded shadow"
+        className="md:hidden fixed top-4 right-4 z-[60] p-2 min-w-[44px] min-h-[44px] bg-white rounded shadow"
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         aria-label={isSidebarOpen ? "Close sidebar menu" : "Open sidebar menu"}
         aria-expanded={isSidebarOpen}

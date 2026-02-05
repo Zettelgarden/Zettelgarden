@@ -138,7 +138,7 @@ export function TaskDropdown({
       <span
         ref={triggerRef || internalRef}
         onClick={handleToggle}
-        className="cursor-pointer inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition-colors hover:opacity-80"
+        className="cursor-pointer inline-flex items-center justify-center gap-1 px-2 py-0.5 min-w-[44px] min-h-[44px] rounded-md text-xs font-medium transition-colors hover:opacity-80"
         style={{
           backgroundColor: display.color + "20",
           color: display.color,
