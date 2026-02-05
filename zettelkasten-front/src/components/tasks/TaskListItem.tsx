@@ -241,7 +241,8 @@ export function TaskListItem({
         {task.card && task.card.id > 0 && (
           <Link
             to={`/app/card/${task.card.id}`}
-            style={{ textDecoration: "none", color: "inherit" }}
+            className="text-blue-600 hover:text-blue-800"
+            style={{ textDecoration: "none" }}
           >
             <span className="card-id">[{task.card.card_id}]</span>
           </Link>
