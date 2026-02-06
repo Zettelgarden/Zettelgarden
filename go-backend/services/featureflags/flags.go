@@ -20,9 +20,10 @@ const (
 	FeatureFlagCalendarTools = "calendar_tools_v2"
 	// FeatureFlagArticleTools enables the new article_tools domain package
 	FeatureFlagArticleTools = "article_tools_v2"
+	// FeatureFlagFactTools enables the new fact_tools domain package
+	FeatureFlagFactTools = "fact_tools_v2"
 
 	// Future flags for other domains (to be added):
-	// FeatureFlagFactTools = "fact_tools_v2"
 	// FeatureFlagTaskTools = "task_tools_v2"
 	// FeatureFlagEntityTools = "entity_tools_v2"
 	// FeatureFlagCardTools = "card_tools_v2"
