@@ -4,7 +4,7 @@
 // ZETTELGARDEN_FEATURE_{FLAG_NAME}=true
 //
 // Example:
-//   ZETTELGARDEN_FEATURE_MEMORY_TOOLS_V2=true ./go-backend
+//   ZETTELGARDEN_FEATURE_TEMPLATE_TOOLS_V2=true ./go-backend
 package featureflags
 
 import (
@@ -14,11 +14,10 @@ import (
 
 // Feature flag constants
 const (
-	// FeatureFlagMemoryTools enables the new memory_tools domain package
-	FeatureFlagMemoryTools = "memory_tools_v2"
+	// FeatureFlagTemplateTools enables the new template_tools domain package
+	FeatureFlagTemplateTools = "template_tools_v2"
 
 	// Future flags for other domains (to be added):
-	// FeatureFlagTemplateTools = "template_tools_v2"
 	// FeatureFlagCalendarTools = "calendar_tools_v2"
 	// FeatureFlagArticleTools = "article_tools_v2"
 	// FeatureFlagFactTools = "fact_tools_v2"
