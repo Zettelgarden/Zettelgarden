@@ -168,7 +168,8 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
   };
 
   const renderEditInput = () => {
-    const baseClassName = "w-full px-2 py-1 text-sm border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30";
+    const baseClassName = "w-full px-2 py-1 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30";
+    const inputStyle = { fontSize: '16px' };
 
     switch (field.type) {
       case "text":
@@ -181,6 +182,7 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             className={baseClassName}
+            style={inputStyle}
             disabled={isLoading}
           />
         );
@@ -195,6 +197,7 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             className={baseClassName}
+            style={inputStyle}
             disabled={isLoading}
           />
         );
@@ -209,6 +212,7 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             className={baseClassName}
+            style={inputStyle}
             disabled={isLoading}
           />
         );
@@ -221,6 +225,7 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
             onChange={(e) => setValue(e.target.value === "true")}
             onBlur={handleBlur}
             className={baseClassName}
+            style={inputStyle}
             disabled={isLoading}
           >
             <option value="true">Yes</option>
@@ -237,6 +242,7 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             className={baseClassName}
+            style={inputStyle}
             disabled={isLoading}
           >
             <option value="">Select...</option>
@@ -303,6 +309,7 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             className={baseClassName}
+            style={inputStyle}
             placeholder="Card ID"
             disabled={isLoading}
           />

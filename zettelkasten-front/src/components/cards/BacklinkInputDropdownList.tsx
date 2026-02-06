@@ -109,10 +109,11 @@ export function BacklinkInputDropdownList({
           <div className="relative">
             <Combobox.Input
               ref={inputRef}
-              className="w-full px-3 py-2 min-h-[44px] text-sm text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+              className="w-full px-3 py-2 min-h-[44px] text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
               placeholder={placeholder}
               displayValue={() => inputValue}
               onChange={(e) => handleInputChange(e.target.value)}
+              style={{ fontSize: '16px' }}
             />
           </div>
           {(searchResults.length > 0 || inputValue.length > 0) && (

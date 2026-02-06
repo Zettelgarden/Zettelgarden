@@ -91,6 +91,7 @@ function PasswordReset() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Enter new password"
                   className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  style={{ fontSize: '16px' }}
                   required
                 />
               </div>
@@ -109,6 +110,7 @@ function PasswordReset() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm new password"
                   className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  style={{ fontSize: '16px' }}
                   required
                 />
               </div>
@@ -155,6 +157,7 @@ function PasswordReset() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email"
                   className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  style={{ fontSize: '16px' }}
                   required
                 />
               </div>

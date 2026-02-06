@@ -92,6 +92,7 @@ export function EditEntityDialog({ entity, isOpen, onClose, onSuccess, onDelete 
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30 transition-colors"
+                style={{ fontSize: '16px' }}
                 required
               />
             </div>
@@ -106,6 +107,7 @@ export function EditEntityDialog({ entity, isOpen, onClose, onSuccess, onDelete 
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
                 className="w-full min-h-[100px] max-h-[30vh] sm:max-h-none rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30 transition-colors resize-y"
+                style={{ fontSize: '16px' }}
               />
             </div>
 
@@ -119,6 +121,7 @@ export function EditEntityDialog({ entity, isOpen, onClose, onSuccess, onDelete 
                 value={type}
                 onChange={(e) => setType(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30 transition-colors"
+                style={{ fontSize: '16px' }}
               />
             </div>
 
