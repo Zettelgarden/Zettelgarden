@@ -427,14 +427,14 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                         <div className="flex justify-end gap-4">
                             <button
                                 onClick={() => setShowDeleteConfirm(false)}
-                                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                                className="px-4 py-3 min-h-[44px] text-gray-600 hover:text-gray-800"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleConfirmDelete}
                                 disabled={isDeleting}
-                                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                                className="px-4 py-3 min-h-[44px] bg-red-500 text-white rounded hover:bg-red-600"
                             >
                                 {isDeleting ? "Deleting..." : "Delete"}
                             </button>
@@ -468,14 +468,14 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
                         <div className="flex justify-end gap-4">
                             <button
                                 onClick={() => setShowConfirmDialog(false)}
-                                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                                className="px-4 py-3 min-h-[44px] text-gray-600 hover:text-gray-800"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleConfirmMerge}
                                 disabled={isMerging}
-                                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                className="px-4 py-3 min-h-[44px] bg-blue-500 text-white rounded hover:bg-blue-600"
                             >
                                 {isMerging ? "Merging..." : "Merge"}
                             </button>

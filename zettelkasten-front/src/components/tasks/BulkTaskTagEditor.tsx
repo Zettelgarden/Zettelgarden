@@ -102,7 +102,7 @@ export function BulkTaskTagEditor({
           <div className="flex gap-2">
             <button
               onClick={() => setOperation('add')}
-              className={`flex-1 py-2 px-4 rounded ${operation === 'add'
+              className={`flex-1 py-3 min-h-[44px] px-4 rounded ${operation === 'add'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-200 text-gray-700'
                 }`}
@@ -111,7 +111,7 @@ export function BulkTaskTagEditor({
             </button>
             <button
               onClick={() => setOperation('remove')}
-              className={`flex-1 py-2 px-4 rounded ${operation === 'remove'
+              className={`flex-1 py-3 min-h-[44px] px-4 rounded ${operation === 'remove'
                   ? 'bg-red-600 text-white'
                   : 'bg-gray-200 text-gray-700'
                 }`}
@@ -140,7 +140,7 @@ export function BulkTaskTagEditor({
               />
               <button
                 onClick={handleAddNewTag}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="px-4 py-3 min-h-[44px] bg-blue-600 text-white rounded hover:bg-blue-700"
               >
                 Add
               </button>
@@ -231,14 +231,14 @@ export function BulkTaskTagEditor({
           <button
             onClick={() => setShowBulkTagEdit(false)}
             disabled={isProcessing}
-            className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+            className="px-4 py-3 min-h-[44px] border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={handleApply}
             disabled={selectedTags.size === 0 || isProcessing}
-            className={`px-4 py-2 rounded text-white disabled:opacity-50 ${operation === 'add'
+            className={`px-4 py-3 min-h-[44px] rounded text-white disabled:opacity-50 ${operation === 'add'
                 ? 'bg-blue-600 hover:bg-blue-700'
                 : 'bg-red-600 hover:bg-red-700'
               }`}

@@ -40,7 +40,7 @@ export function StarCardDialog({ onClose, onStarSuccess }: StarCardDialogProps) 
         <div className="mt-4 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+            className="px-4 py-3 min-h-[44px] bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
           >
             Cancel
           </button>

@@ -182,19 +182,19 @@ export function TaskTitleSection({
                 </div>
                 <button
                   onClick={() => handleAddRecurring("every day")}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-50"
+                  className="w-full px-4 py-3 min-h-[44px] text-left hover:bg-gray-50"
                 >
                   Daily
                 </button>
                 <button
                   onClick={() => handleAddRecurring("every week")}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-50"
+                  className="w-full px-4 py-3 min-h-[44px] text-left hover:bg-gray-50"
                 >
                   Weekly
                 </button>
                 <button
                   onClick={() => handleAddRecurring("every month")}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-50"
+                  className="w-full px-4 py-3 min-h-[44px] text-left hover:bg-gray-50"
                 >
                   Monthly
                 </button>

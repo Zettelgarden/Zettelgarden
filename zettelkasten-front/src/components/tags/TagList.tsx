@@ -76,13 +76,13 @@ export function TagList({ }: TagListInterface) {
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setIsCreateModalOpen(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                className="px-4 py-3 min-h-[44px] text-gray-600 hover:text-gray-800"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateTag}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 min-h-[44px] rounded"
               >
                 Create
               </button>

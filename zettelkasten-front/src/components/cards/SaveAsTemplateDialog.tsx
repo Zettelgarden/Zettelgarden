@@ -93,9 +93,9 @@ export function SaveAsTemplateDialog({ body, title: cardTitle = "", onClose, onS
                         >
                             Cancel
                         </Button>
-                        <button 
-                            type="submit" 
-                            className="px-4 py-2 bg-palette-dark text-white font-semibold rounded hover:bg-palette-darkest focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        <button
+                            type="submit"
+                            className="px-4 py-3 min-h-[44px] bg-palette-dark text-white font-semibold rounded hover:bg-palette-darkest focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             disabled={isSubmitting}
                         >
                             {isSubmitting ? "Saving..." : "Save Template"}

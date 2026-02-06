@@ -332,14 +332,14 @@ export function SchemaDialog({ schema, isOpen, onClose, onSuccess }: SchemaDialo
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors"
+            className="px-4 py-3 min-h-[44px] text-gray-700 hover:text-gray-900 transition-colors"
           >
             Cancel
           </button>
           <button
             type="button"
             disabled={isSubmitting || !name.trim() || fields.length === 0}
-            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+            className="px-6 py-3 min-h-[44px] bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
             onClick={handleSubmit}
           >
             {isSubmitting ? "Saving..." : schema ? "Save Changes" : "Create Schema"}
