@@ -79,3 +79,74 @@ code {
   font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, "Courier New",
     monospace;
 }
+
+/* Safe Area Inset Support for Notched Devices (Task 5) */
+@layer utilities {
+  /* CSS custom properties for safe area insets */
+  :root {
+    --safe-area-inset-top: env(safe-area-inset-top, 0px);
+    --safe-area-inset-right: env(safe-area-inset-right, 0px);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  }
+
+  /* Safe area padding utilities */
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-left {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+
+  .safe-right {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  .safe-all {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+
+  /* Safe area margin utilities */
+  .mt-safe {
+    margin-top: env(safe-area-inset-top, 0px);
+  }
+
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .ml-safe {
+    margin-left: env(safe-area-inset-left, 0px);
+  }
+
+  .mr-safe {
+    margin-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* Safe area for fixed bottom elements */
+  .safe-bottom-fixed {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Safe area for fixed top elements */
+  .safe-top-fixed {
+    top: env(safe-area-inset-top, 0px);
+  }
+
+  /* For dropdown menus that need safe area support */
+  .safe-dropdown-bottom {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+  }
+
+  .safe-dropdown-top {
+    top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
+  }
+}
