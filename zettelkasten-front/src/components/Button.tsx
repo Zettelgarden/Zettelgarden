@@ -30,9 +30,9 @@ export const Button: React.FC<ButtonProps> = ({
       "bg-transparent border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-500",
   };
   const sizeClasses = {
-    small: "px-3 py-1 text-sm",
-    medium: "px-4 py-2",
-    large: "px-6 py-3 text-lg",
+    small: "px-3 py-2 min-h-[44px] text-sm",
+    medium: "px-4 py-3 min-h-[44px]",
+    large: "px-6 py-3 min-h-[44px] text-lg",
   };
 
   const classes = `${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`;

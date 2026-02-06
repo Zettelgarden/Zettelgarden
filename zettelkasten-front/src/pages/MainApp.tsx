@@ -76,7 +76,7 @@ function MainAppContent() {
 
       <div className="flex h-screen overflow-hidden">
         <Sidebar />
-        <div className="flex-grow overflow-y-auto">
+        <div className="flex-grow overflow-y-auto pb-16 md:pb-0 safe-bottom">
           {isPinMode && pinnedCard ? (
             <ErrorBoundary>
               <SplitViewLayout pinnedCard={pinnedCard}>

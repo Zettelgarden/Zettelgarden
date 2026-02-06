@@ -293,7 +293,7 @@ export function ChatPage({ }: ChatPageProps) {
                     setInstructionsHasChanges(true);
                   }}
                   placeholder="Enter custom instructions for the AI. These will be included with every chat message."
-                  className="w-full h-48 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                  className="w-full min-h-[120px] max-h-[40vh] sm:h-48 sm:max-h-none px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y text-sm"
                   style={{ fontFamily: 'monospace' }}
                   maxLength={10000}
                 />

@@ -34,7 +34,7 @@ export function CardLink({ card, showTitle, showTags = false, onRemoveTag, showT
                     e.stopPropagation();
                     onRemoveTag(tag.name);
                   }}
-                  className="ml-1.5 text-purple-400 hover:text-purple-600"
+                  className="ml-1.5 text-purple-400 hover:text-purple-600 min-w-[44px] min-h-[44px] flex items-center justify-center"
                 >
                   &times;
                 </button>

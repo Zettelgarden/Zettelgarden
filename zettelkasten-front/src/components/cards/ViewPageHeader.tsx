@@ -67,7 +67,7 @@ export function ViewPageHeader({
         <Button onClick={onEditCard}>Edit</Button>
         <Menu as="div" className="relative inline-block text-right">
           <div>
-            <Menu.Button className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-2 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-indigo-500">
+            <Menu.Button className="inline-flex justify-center items-center w-full rounded-md border border-gray-300 shadow-sm px-2 py-2 min-w-[44px] min-h-[44px] bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-indigo-500">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
               </svg>
@@ -83,7 +83,7 @@ export function ViewPageHeader({
                     onClick={() => onViewModeChange('normal')}
                     className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                       } ${viewMode === 'normal' ? 'bg-blue-50 font-medium' : ''
-                      } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                      } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
                   >
                     📄 Normal View
                   </button>
@@ -95,7 +95,7 @@ export function ViewPageHeader({
                     onClick={() => onViewModeChange('tree')}
                     className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                       } ${viewMode === 'tree' ? 'bg-blue-50 font-medium' : ''
-                      } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                      } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
                   >
                     📂 Tree View
                   </button>
@@ -107,7 +107,7 @@ export function ViewPageHeader({
                     onClick={() => onViewModeChange('summary')}
                     className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                       } ${viewMode === 'summary' ? 'bg-blue-50 font-medium' : ''
-                      } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                      } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
                   >
                     📝 Summary View
                   </button>
@@ -119,7 +119,7 @@ export function ViewPageHeader({
                     onClick={() => onViewModeChange('analysis')}
                     className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                       } ${viewMode === 'analysis' ? 'bg-blue-50 font-medium' : ''
-                      } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                      } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
                   >
                     🔍 Analysis View
                   </button>
@@ -132,7 +132,7 @@ export function ViewPageHeader({
                   <button
                     onClick={toggleCreateTaskWindow}
                     className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                      } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                      } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
                   >
                     Add Task
                   </button>
@@ -143,7 +143,7 @@ export function ViewPageHeader({
                   <button
                     onClick={onToggleStar}
                     className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                      } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                      } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
                   >
                     {viewingCard.is_starred ? 'Unstar Card' : 'Star Card'}
                   </button>
@@ -154,7 +154,7 @@ export function ViewPageHeader({
                   <button
                     onClick={onResummarize}
                     className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                      } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                      } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
                   >
                     Resummarize Card
                   </button>
@@ -166,7 +166,7 @@ export function ViewPageHeader({
                     <button
                       onClick={onRecategorize}
                       className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                        } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                        } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
                     >
                       Recategorize
                     </button>

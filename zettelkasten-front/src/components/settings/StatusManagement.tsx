@@ -73,13 +73,13 @@ const StatusItem: React.FC<StatusItemProps> = ({ status, onEdit, onDelete, index
             <div className="flex gap-2">
               <button
                 onClick={() => onEdit(status)}
-                className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                className="px-4 py-3 min-h-[44px] text-sm text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
               >
                 Edit
               </button>
               <button
                 onClick={() => onDelete(status)}
-                className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                className="px-4 py-3 min-h-[44px] text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
               >
                 Delete
               </button>

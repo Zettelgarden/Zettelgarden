@@ -34,7 +34,7 @@ export function BacklinkDialog({ onClose, onSelect, setMessage, excludeCardId }:
         <div className="mt-3 flex justify-end">
           <button
             onClick={onClose}
-            className="px-3 py-1.5 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 text-sm"
+            className="px-4 py-3 min-h-[44px] bg-gray-200 text-gray-800 rounded hover:bg-gray-300 text-sm"
           >
             Cancel
           </button>

@@ -49,7 +49,7 @@ export function CardListMenu({
               <button
                 onClick={onEditClick}
                 className={`${active ? "bg-gray-100" : ""
-                  } flex w-full items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100`}
+                  } flex w-full items-center px-4 py-3 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100`}
               >
                 <svg
                   className="w-4 h-4 mr-2"
@@ -75,7 +75,7 @@ export function CardListMenu({
                 <button
                   onClick={onToggleStar}
                   className={`${active ? "bg-gray-100" : ""
-                    } flex w-full items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100`}
+                    } flex w-full items-center px-4 py-3 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100`}
                 >
                   <svg
                     className="w-4 h-4 mr-2"
@@ -100,7 +100,7 @@ export function CardListMenu({
             {({ active }) => (
               <div
                 className={`${active ? "bg-gray-100" : ""
-                  } flex w-full items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 border-t border-gray-100`}
+                  } flex w-full items-center px-4 py-3 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100 border-t border-gray-100`}
               >
                 <svg
                   className="w-4 h-4 mr-2"
@@ -127,7 +127,7 @@ export function CardListMenu({
                 <button
                   onClick={onRecategoryClick}
                   className={`${active ? "bg-gray-100" : ""
-                    } flex w-full items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100`}
+                    } flex w-full items-center px-4 py-3 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100`}
                 >
                   <svg
                     className="w-4 h-4 mr-2"

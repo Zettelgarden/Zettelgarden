@@ -187,7 +187,7 @@ const APIKeysManagement: React.FC<APIKeysManagementProps> = () => {
                 onChange={(e) => setNewKeyDescription(e.target.value)}
                 placeholder="Brief description of what this key is used for"
                 rows={2}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-[100px] max-h-[30vh] sm:max-h-none border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
               />
             </div>
 

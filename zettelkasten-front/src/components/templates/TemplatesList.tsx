@@ -143,7 +143,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
         </div>
         <button
           onClick={() => setShowCreateDialog(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="inline-flex items-center gap-2 px-4 py-3 min-h-[44px] text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
@@ -237,7 +237,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                   onChange={(e) => setNewTemplateBody(e.target.value)}
                   placeholder="Template content (use template variables like $date, $time, etc.)"
                   rows={10}
-                  className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono"
+                  className="block w-full min-h-[120px] max-h-[40vh] sm:max-h-none rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono resize-y"
                 />
               </div>
             </div>
@@ -251,14 +251,14 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                   setNewTemplateBody("");
                   setError("");
                 }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-4 py-3 min-h-[44px] text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateTemplate}
                 disabled={creating}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                className="px-4 py-3 min-h-[44px] text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
               >
                 {creating ? "Creating..." : "Create Template"}
               </button>
@@ -360,7 +360,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                       value={editBody}
                       onChange={(e) => setEditBody(e.target.value)}
                       rows={10}
-                      className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono"
+                      className="block w-full min-h-[120px] max-h-[40vh] sm:max-h-none rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono resize-y"
                     />
                   </div>
                 </div>
@@ -372,13 +372,13 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                 <>
                   <button
                     onClick={() => startEditing(viewingTemplate)}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                    className="px-4 py-3 min-h-[44px] text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
                   >
                     Edit
                   </button>
                   <button
                     onClick={closeViewDialog}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                    className="px-4 py-3 min-h-[44px] text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                   >
                     Close
                   </button>
@@ -387,14 +387,14 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                 <>
                   <button
                     onClick={cancelEditing}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                    className="px-4 py-3 min-h-[44px] text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleUpdateTemplate}
                     disabled={saving}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    className="px-4 py-3 min-h-[44px] text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
                   >
                     {saving ? "Saving..." : "Save Changes"}
                   </button>

@@ -43,7 +43,7 @@ export function EditorToolbar({
       <div className="mt-2 md:mt-0 md:ml-4 flex gap-2">
         <Menu as="div" className="relative inline-block text-left">
           <div>
-            <Menu.Button className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-2 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-indigo-500">
+            <Menu.Button className="inline-flex justify-center items-center w-full rounded-md border border-gray-300 shadow-sm px-2 py-2 min-w-[44px] min-h-[44px] bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-indigo-500">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-5"
@@ -85,7 +85,7 @@ export function EditorToolbar({
                       onClick={() => setShowSaveAsTemplate(true)}
                       className={`${
                         active ? "bg-gray-100 text-gray-900" : "text-gray-700"
-                      } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                      } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
                     >
                       <span className="flex-grow text-left">Save as Template</span>
                     </button>
@@ -109,7 +109,7 @@ export function EditorToolbar({
                         }}
                         className={`${
                           active ? "bg-gray-100 text-gray-900" : "text-red-700"
-                        } group flex rounded-md items-center w-full px-2 py-2 text-sm hover:bg-red-50`}
+                        } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm hover:bg-red-50`}
                       >
                         <span className="flex-grow text-left">Delete Card</span>
                       </button>

@@ -455,7 +455,7 @@ export function ChatInterface({
               <button
                 onClick={() => retryFailedMessage?.()}
                 disabled={isSending}
-                className="flex-shrink-0 flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-shrink-0 flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 min-h-[44px] rounded-lg text-sm font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -501,7 +501,7 @@ export function ChatInterface({
                   <div className="mt-2 flex justify-start group">
                     <button
                       onClick={() => onRegenerateMessage(message.id)}
-                      className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 text-gray-500 hover:text-gray-700 text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100"
+                      className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 text-gray-500 hover:text-gray-700 text-xs flex items-center gap-1 px-3 py-2 min-h-[44px] rounded hover:bg-gray-100"
                       title="Regenerate this message"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -518,7 +518,7 @@ export function ChatInterface({
                     <button
                       onClick={() => handleOpenEditDialog(message)}
                       disabled={isEditing}
-                      className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 text-blue-100 hover:text-white text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 text-blue-100 hover:text-white text-xs flex items-center gap-1 px-3 py-2 min-h-[44px] rounded hover:bg-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Edit this message"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -585,7 +585,7 @@ export function ChatInterface({
                 <button
                   onClick={() => setShowBacklinkDialog(true)}
                   disabled={isSending}
-                  className="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-abled disabled:hover:bg-transparent"
+                  className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                   title="Add card reference"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -597,7 +597,7 @@ export function ChatInterface({
                 <button
                   onClick={() => sendMessage()}
                   disabled={!messageInput.trim() || isSending}
-                  className={`p-2.5 bg-black hover:bg-gray-800 text-white rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black flex items-center justify-center ${compact ? 'min-w-[36px] p-2' : 'min-w-[44px]'}`}
+                  className="p-3 min-w-[44px] min-h-[44px] bg-black hover:bg-gray-800 text-white rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black flex items-center justify-center"
                 >
                   {isSending ? (
                     <div className={`border-2 border-white border-t-transparent rounded-full animate-spin ${compact ? 'w-3 h-3' : 'w-4 h-4'}`}></div>

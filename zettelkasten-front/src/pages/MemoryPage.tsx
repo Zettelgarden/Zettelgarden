@@ -90,14 +90,14 @@ export function MemoryPage() {
                             <textarea
                                 value={editedMemory}
                                 onChange={(e) => setEditedMemory(e.target.value)}
-                                className="w-full h-96 p-3 border border-gray-300 rounded-md font-mono text-sm"
+                                className="w-full min-h-[200px] max-h-[40vh] lg:h-96 lg:max-h-none p-3 border border-gray-300 rounded-md font-mono text-sm resize-y"
                                 placeholder="Enter your memory content in markdown format..."
                             />
                         </div>
 
                         <div>
                             <h3 className="text-lg font-medium mb-2">Preview</h3>
-                            <div className="h-96 p-3 border border-gray-200 rounded-md overflow-y-auto bg-gray-50">
+                            <div className="min-h-[200px] max-h-[40vh] lg:h-96 lg:max-h-none p-3 border border-gray-200 rounded-md overflow-y-auto bg-gray-50">
                                 {editedMemory ? (
                                     <ReactMarkdown>{editedMemory}</ReactMarkdown>
                                 ) : (

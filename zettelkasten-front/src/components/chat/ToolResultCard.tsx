@@ -80,7 +80,7 @@ export function ToolResultCard({
     <div className={`bg-gradient-to-br ${baseGradient} border rounded-lg shadow-sm`}>
       <button
         onClick={onToggle}
-        className={`w-full px-4 py-2 text-left transition-colors rounded-lg ${bgHover}`}
+        className={`w-full px-4 py-3 min-h-[44px] text-left transition-colors rounded-lg ${bgHover}`}
       >
         <div className={`flex items-center justify-between ${textColor}`}>
           <div className="flex items-center gap-2">
@@ -128,7 +128,7 @@ export function ToolResultCard({
               <button
                 onClick={() => onRetry(messageId, conversationId)}
                 disabled={isRetrying}
-                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-3 min-h-[44px] rounded-lg text-sm font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isRetrying ? (
                   <>

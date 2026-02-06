@@ -69,6 +69,7 @@ function RegisterPage() {
               onChange={(e) => setUsername(e.target.value)}
               required
               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              style={{ fontSize: '16px' }}
             />
           </div>
           <div>
@@ -82,6 +83,7 @@ function RegisterPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              style={{ fontSize: '16px' }}
             />
           </div>
           <div>
@@ -94,6 +96,7 @@ function RegisterPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              style={{ fontSize: '16px' }}
             />
           </div>
           <div>
@@ -106,6 +109,7 @@ function RegisterPage() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              style={{ fontSize: '16px' }}
             />
           </div>
           {error && <p className="text-red-500 text-center">{error}</p>}

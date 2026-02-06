@@ -83,21 +83,21 @@ export function BulkTaskDateDisplay({
                     Edit Date ({tasks.length} tasks)
                 </h3>
                 <div className="flex flex-col space-y-2">
-                    <button onClick={setNoDate} className="w-full text-left px-4 py-2 hover:bg-slate-100 rounded border border-slate-200">
+                    <button onClick={setNoDate} className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-slate-100 rounded border border-slate-200">
                         No Date
                     </button>
-                    <button onClick={setToday} className="w-full text-left px-4 py-2 hover:bg-slate-100 rounded border border-slate-200">
+                    <button onClick={setToday} className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-slate-100 rounded border border-slate-200">
                         Today
                     </button>
-                    <button onClick={setTomorrow} className="w-full text-left px-4 py-2 hover:bg-slate-100 rounded border border-slate-200">
+                    <button onClick={setTomorrow} className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-slate-100 rounded border border-slate-200">
                         Tomorrow
                     </button>
                     {isFriday(userTimezone) ? (
-                        <button onClick={setNextMonday} className="w-full text-left px-4 py-2 hover:bg-slate-100 rounded border border-slate-200">
+                        <button onClick={setNextMonday} className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-slate-100 rounded border border-slate-200">
                             Next Monday
                         </button>
                     ) : null}
-                    <button onClick={setNextWeek} className="w-full text-left px-4 py-2 hover:bg-slate-100 rounded border border-slate-200">
+                    <button onClick={setNextWeek} className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-slate-100 rounded border border-slate-200">
                         Next Week
                     </button>
 
@@ -106,7 +106,7 @@ export function BulkTaskDateDisplay({
                         <input
                             aria-label="Date"
                             type="date"
-                            className="p-2 w-full border border-slate-300 rounded"
+                            className="p-2 min-h-[44px] w-full border border-slate-300 rounded"
                             value={selectedDate}
                             onChange={handleScheduledDateChange}
                         />
@@ -114,7 +114,7 @@ export function BulkTaskDateDisplay({
 
                     <button
                         onClick={() => setShowBulkEdit(false)}
-                        className="mt-4 px-4 py-2 border border-slate-300 rounded hover:bg-slate-50 w-full"
+                        className="mt-4 px-4 py-3 min-h-[44px] border border-slate-300 rounded hover:bg-slate-50 w-full"
                     >
                         Cancel
                     </button>

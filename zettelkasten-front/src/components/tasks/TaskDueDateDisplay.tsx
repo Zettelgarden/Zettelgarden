@@ -171,7 +171,7 @@ export function TaskDueDateDisplay({
       <span
         ref={triggerRef}
         onClick={handleToggle}
-        className="cursor-pointer inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition-colors hover:opacity-80"
+        className="cursor-pointer inline-flex items-center justify-center gap-1 px-2 py-0.5 min-w-[44px] min-h-[44px] rounded-md text-xs font-medium transition-colors hover:opacity-80"
         style={{
           backgroundColor: color + "20",
           color: color,
@@ -195,33 +195,33 @@ export function TaskDueDateDisplay({
           <div className="flex flex-col">
             <button
               onClick={() => setNoDate()}
-              className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 text-sm"
             >
               No Deadline
             </button>
             <button
               onClick={() => setDate(() => getToday(userTimezone))}
-              className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 text-sm"
             >
               Today
             </button>
             <button
               onClick={() => setDate(() => getTomorrow(userTimezone))}
-              className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 text-sm"
             >
               Tomorrow
             </button>
             {isFriday(userTimezone) && (
               <button
                 onClick={() => setDate(() => getNextMonday(userTimezone))}
-                className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+                className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 text-sm"
               >
                 Next Monday
               </button>
             )}
             <button
               onClick={() => setDate(() => getNextWeek(userTimezone))}
-              className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 text-sm"
             >
               Next Week
             </button>
@@ -229,7 +229,7 @@ export function TaskDueDateDisplay({
               <input
                 aria-label="Due Date"
                 type="date"
-                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 value={selectedDate}
                 onChange={handleDueDateChange}
               />

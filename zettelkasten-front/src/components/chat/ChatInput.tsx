@@ -159,10 +159,10 @@ export function ChatInput({
           onChange={handleInputChange}
           onKeyPress={handleKeyPress}
           placeholder={placeholder}
-          className={`w-full px-0 py-0 text-sm bg-transparent border-none focus:outline-none resize-none ${multiline ? 'min-h-[48px] overflow-hidden' : 'h-10'}`}
+          className={`w-full px-0 py-0 bg-transparent border-none focus:outline-none resize-none ${multiline ? 'min-h-[48px] overflow-hidden' : 'h-10'}`}
+          style={{ fontSize: '16px' }}
           disabled={disabled}
           rows={multiline ? 1 : undefined}
-          style={multiline ? { resize: 'none' } : undefined}
         />
       ) : (
         // Default mode - with border and submit button
@@ -174,10 +174,10 @@ export function ChatInput({
             onChange={handleInputChange}
             onKeyPress={handleKeyPress}
             placeholder={placeholder}
-            className={`flex-1 px-4 py-3 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${multiline ? 'min-h-[48px] overflow-hidden resize-none' : ''}`}
+            className={`flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${multiline ? 'min-h-[48px] overflow-hidden resize-none' : ''}`}
+            style={{ fontSize: '16px' }}
             disabled={disabled}
             rows={multiline ? 1 : undefined}
-            style={multiline ? { resize: 'none' } : undefined}
           />
           {submitButtonText && (
             <button

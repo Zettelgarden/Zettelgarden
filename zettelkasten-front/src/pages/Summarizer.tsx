@@ -65,7 +65,7 @@ export function Summarizer() {
         <div className="p-4">
             <h2 className="text-xl font-semibold mb-4">Summarize Text</h2>
             <textarea
-                className="w-full border border-slate-400 rounded p-2 mb-2"
+                className="w-full min-h-[150px] max-h-[40vh] sm:max-h-none border border-slate-400 rounded p-2 mb-2 resize-y"
                 rows={6}
                 placeholder="Enter text to summarize..."
                 value={text}

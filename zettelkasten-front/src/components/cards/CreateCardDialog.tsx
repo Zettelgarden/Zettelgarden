@@ -126,7 +126,7 @@ export function CreateCardDialog({
                                             const response = await getNextRootId();
                                             setCardId(response.new_id);
                                         }}
-                                        className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                                        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
                                         type="button"
                                         title="Use next available root ID"
                                     >
@@ -136,7 +136,7 @@ export function CreateCardDialog({
                                     </button>
                                     <button
                                         onClick={() => setShowCardIdDiscovery(true)}
-                                        className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                                        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
                                         type="button"
                                         title="Discover card ID from hierarchy"
                                     >
@@ -162,7 +162,7 @@ export function CreateCardDialog({
                                 <button
                                     onClick={handleSuggestTitle}
                                     disabled={suggestingTitle || !cardBody.trim()}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                                     type="button"
                                     title={suggestingTitle ? "Suggesting title..." : "Suggest title from content"}
                                 >
@@ -186,7 +186,7 @@ export function CreateCardDialog({
                             <textarea
                                 value={cardBody}
                                 onChange={(e) => setCardBody(e.target.value)}
-                                className="w-full h-32 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                className="w-full min-h-[120px] max-h-[30vh] sm:h-32 sm:max-h-none p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-y"
                                 placeholder="Enter card content..."
                             />
                         </div>
@@ -204,7 +204,7 @@ export function CreateCardDialog({
                     <div className="flex justify-end gap-3">
                         <button
                             onClick={handleClose}
-                            className="px-3 py-1.5 text-gray-600 hover:text-gray-800 text-sm"
+                            className="px-4 py-3 min-h-[44px] text-gray-600 hover:text-gray-800 text-sm"
                             disabled={isConverting}
                         >
                             Cancel
@@ -212,7 +212,7 @@ export function CreateCardDialog({
                         <button
                             onClick={handleCreateCard}
                             disabled={isConverting || !cardTitle.trim() || !cardBody.trim()}
-                            className="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 text-sm"
+                            className="px-4 py-3 min-h-[44px] bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 text-sm"
                         >
                             {isConverting ? "Creating..." : "Create Card"}
                         </button>

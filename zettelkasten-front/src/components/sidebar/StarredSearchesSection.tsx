@@ -63,7 +63,7 @@ export function StarredSearchesSection({ }: StarredSearchesSectionProps) {
                   </Link>
                   <button
                     onClick={() => handleUnstarSearch(search.id)}
-                    className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity px-1"
+                    className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center px-1"
                     aria-label={`Unstar "${search.title}"`}
                     title="Unstar search"
                   >

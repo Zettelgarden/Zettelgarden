@@ -19,7 +19,7 @@ import { StarredCardsSection } from "./sidebar/StarredCardsSection";
 import { SidebarFooter } from "./sidebar/SidebarFooter";
 import { SidebarModals } from "./sidebar/SidebarModals";
 import { SidebarMobileMenu } from "./sidebar/SidebarMobileMenu";
-
+import { MobileBottomNav } from "./mobile/MobileBottomNav";
 
 export function Sidebar() {
   const navigate = useNavigate();
@@ -172,6 +172,12 @@ export function Sidebar() {
         </div>
         <SidebarFooter />
       </div>
+
+      {/* Mobile Bottom Navigation Bar (Task 4) */}
+      <MobileBottomNav
+        onCreateCard={handleNewStandardCard}
+        onCreateTask={handleNewTask}
+      />
 
       <SidebarModals
         showCreateTaskWindow={showCreateTaskWindow}

@@ -190,7 +190,7 @@ export function CalendarSubscriptions({ onCalendarChange }: CalendarSubscription
         <h2 className="text-lg font-semibold text-slate-800">Calendar Subscriptions</h2>
         <button
           onClick={() => setShowAddForm(true)}
-          className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center gap-2 min-h-[36px]"
+          className="px-4 py-3 min-h-[44px] bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center gap-2"
         >
           <FaPlus size={14} aria-hidden="true" />
           Add Calendar

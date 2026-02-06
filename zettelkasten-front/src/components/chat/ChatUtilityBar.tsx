@@ -32,7 +32,7 @@ export function ChatUtilityBar({
           <button
             onClick={onSettings}
             aria-label="Chat settings"
-            className="text-gray-600 hover:text-gray-900 p-1.5 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-gray-600 hover:text-gray-900 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
             title="Chat Settings"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,7 +44,7 @@ export function ChatUtilityBar({
             onClick={onClear}
             disabled={isSending}
             aria-label="Clear chat history"
-            className="text-gray-600 hover:text-gray-900 px-2 py-1.5 sm:px-3 sm:py-1.5 text-sm font-medium rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-gray-600 hover:text-gray-900 px-4 py-3 min-h-[44px] text-sm font-medium rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             Clear
           </button>
@@ -52,7 +52,7 @@ export function ChatUtilityBar({
             <button
               onClick={onRestoreLast}
               aria-label="Restore last cleared chat"
-              className="text-blue-600 hover:text-blue-700 px-2 py-1.5 sm:px-3 sm:py-1.5 text-sm font-medium rounded-lg hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-blue-600 hover:text-blue-700 px-4 py-3 min-h-[44px] text-sm font-medium rounded-lg hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <span className="hidden sm:inline">Restore Last</span>
               <span className="sm:hidden">Restore</span>

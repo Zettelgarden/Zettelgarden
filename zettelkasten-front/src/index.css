@@ -3,16 +3,160 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-body {
-  margin: 0;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+
+/* Ensure minimum 16px font size to prevent iOS auto-zoom on input focus */
+@layer base {
+  html {
+    /* Set base font size to 16px (1rem) to prevent iOS zoom */
+    font-size: 16px;
+
+    /* On smaller mobile devices, ensure 16px minimum */
+    @media (max-width: 640px) {
+      font-size: 16px;
+    }
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+      "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Ensure body text is at least 16px on mobile */
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  /* Ensure all inputs and textareas have minimum 16px font size to prevent iOS zoom */
+  input,
+  textarea,
+  select {
+    font-size: 1rem !important;
+  }
+
+  /* Smaller elements should use relative sizing from base 16px */
+  /* text-xs class override for mobile to be readable */
+  @media (max-width: 640px) {
+    .text-xs {
+      font-size: 0.875rem !important; /* 14px instead of 12px */
+      line-height: 1.25rem;
+    }
+
+    /* Ensure input text is readable on mobile */
+    input.text-sm,
+    textarea.text-sm,
+    select.text-sm {
+      font-size: 1rem !important;
+    }
+  }
+
+  /* Better typography for headings on mobile */
+  @media (max-width: 640px) {
+    h1 {
+      font-size: 1.875rem; /* 30px */
+      line-height: 2.25rem;
+    }
+
+    h2 {
+      font-size: 1.5rem; /* 24px */
+      line-height: 2rem;
+    }
+
+    h3 {
+      font-size: 1.25rem; /* 20px */
+      line-height: 1.75rem;
+    }
+
+    h4 {
+      font-size: 1.125rem; /* 18px */
+      line-height: 1.5rem;
+    }
+  }
 }
 
 code {
   font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, "Courier New",
     monospace;
+}
+
+/* Safe Area Inset Support for Notched Devices (Task 5) */
+@layer utilities {
+  /* CSS custom properties for safe area insets */
+  :root {
+    --safe-area-inset-top: env(safe-area-inset-top, 0px);
+    --safe-area-inset-right: env(safe-area-inset-right, 0px);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  }
+
+  /* Safe area padding utilities */
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-left {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+
+  .safe-right {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  .safe-all {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+
+  /* Safe area margin utilities */
+  .mt-safe {
+    margin-top: env(safe-area-inset-top, 0px);
+  }
+
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .ml-safe {
+    margin-left: env(safe-area-inset-left, 0px);
+  }
+
+  .mr-safe {
+    margin-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* Safe area for fixed bottom elements */
+  .safe-bottom-fixed {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Safe area for fixed top elements */
+  .safe-top-fixed {
+    top: env(safe-area-inset-top, 0px);
+  }
+
+  /* Safe area for fixed right elements */
+  .safe-right-fixed {
+    right: env(safe-area-inset-right, 0px);
+  }
+
+  /* Safe area for fixed left elements */
+  .safe-left-fixed {
+    left: env(safe-area-inset-left, 0px);
+  }
+
+  /* For dropdown menus that need safe area support */
+  .safe-dropdown-bottom {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+  }
+
+  .safe-dropdown-top {
+    top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
+  }
 }

@@ -158,15 +158,20 @@ export function TaskListItem({
     <div className="flex items-center bg-white">
       <div className="mr-2.5">
         {selectMode ? (
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={onSelect}
-            className="w-5 h-5 cursor-pointer"
-            onClick={(e) => e.stopPropagation()}
-          />
+          <div className="min-w-[44px] min-h-[44px] flex items-center justify-center">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={onSelect}
+              className="w-5 h-5 cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
         ) : (
-          <span onClick={handleToggleComplete}>
+          <span
+            onClick={handleToggleComplete}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer"
+          >
             {task.is_complete ? <TaskClosedIcon /> : <TaskOpenIcon />}
           </span>
         )}

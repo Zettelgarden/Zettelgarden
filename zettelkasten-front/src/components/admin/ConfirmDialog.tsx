@@ -198,14 +198,14 @@ export function ConfirmDialog({
           <button
             onClick={handleClose}
             disabled={isClosing}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-3 min-h-[44px] text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {cancelText}
           </button>
           <button
             onClick={handleConfirm}
             disabled={!canConfirm || isClosing}
-            className={`px-4 py-2 text-sm font-medium rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${styles.confirmButton}`}
+            className={`px-4 py-3 min-h-[44px] text-sm font-medium rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${styles.confirmButton}`}
           >
             {confirmText}
           </button>

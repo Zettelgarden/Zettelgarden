@@ -23,7 +23,7 @@ export const ToggleSlider = ({
 
   return (
     <div>
-      <label className="relative inline-block w-[46px] h-[24px]">
+      <label className="relative inline-block w-[46px] h-[44px]">
         <input
           type="checkbox"
           checked={isOn}
@@ -34,6 +34,7 @@ export const ToggleSlider = ({
           className={`absolute cursor-pointer top-0 left-0 right-0 bottom-0 bg-gray-300 transition-all duration-400 rounded-[24px] ${styles.sliderKnob} ${
             isOn ? "bg-blue-500 " + styles.sliderKnobChecked : ""
           }`}
+          style={{ height: '24px', top: '10px' }}
         ></span>
       </label>
       <span>{label}</span>
