@@ -57,7 +57,7 @@ export function StarredCardsSection({ onShowStarCardDialog }: StarredCardsSectio
           </h3>
           <button
             onClick={onShowStarCardDialog}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-blue-500 rounded-full"
+            className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center text-gray-400 hover:text-blue-500 rounded-full"
             title="Star a card"
           >
             +
@@ -73,7 +73,7 @@ export function StarredCardsSection({ onShowStarCardDialog }: StarredCardsSectio
                   </div>
                   <button
                     onClick={() => handleUnstarCard(card.id)}
-                    className="absolute right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity min-w-[44px] min-h-[44px] flex items-center justify-center"
+                    className="absolute right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center"
                     aria-label={`Unstar "${card.title}"`}
                     title="Unstar card"
                   >
