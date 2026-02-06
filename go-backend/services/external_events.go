@@ -124,15 +124,15 @@ func (s *ExternalEventService) SyncExternalCalendar(calendarID int, userID int) 
 		log.Printf("[Sync] Decrypted password length: %d (first 3 chars: %s***)", len(password), string(password[:3]))
 	}
 
-	// Fetch events from iCal feed with credentials
-	icalEvents, err := FetchICalURL(url, username.String, password)
+	// Fetch events and todos from iCal feed with credentials
+	icalEvents, icalTodos, err := FetchICalURLWithTodos(url, username.String, password)
 	if err != nil {
 		log.Printf("[Sync] Failed to fetch iCal feed for calendar %d: %v", calendarID, err)
 		s.UpdateLastSyncError(calendarID, err.Error())
-		return fmt.Errorf("failed to fetch events: %w", err)
+		return fmt.Errorf("failed to fetch iCal feed: %w", err)
 	}
 
-	log.Printf("[Sync] Fetched %d events from iCal feed for calendar %d", len(icalEvents), calendarID)
+	log.Printf("[Sync] Fetched %d events and %d todos from iCal feed for calendar %d", len(icalEvents), len(icalTodos), calendarID)
 
 	// Import events
 	successCount := 0
@@ -147,7 +147,20 @@ func (s *ExternalEventService) SyncExternalCalendar(calendarID int, userID int) 
 		}
 	}
 
-	log.Printf("[Sync] Synced calendar %d: %d events imported, %d errors", calendarID, successCount, errorCount)
+	// Import todos
+	todoSuccessCount := 0
+	todoErrorCount := 0
+	for _, todo := range icalTodos {
+		err := s.importTodo(calendarID, userID, todo)
+		if err != nil {
+			log.Printf("[Sync] Failed to import todo %s: %v", todo.UID, err)
+			todoErrorCount++
+		} else {
+			todoSuccessCount++
+		}
+	}
+
+	log.Printf("[Sync] Synced calendar %d: %d events imported, %d todos imported, %d total errors", calendarID, successCount, todoSuccessCount, successCount+errorCount+todoSuccessCount+todoErrorCount)
 
 	// Update last synced timestamp and clear error
 	s.UpdateLastSynced(calendarID)
@@ -204,6 +217,187 @@ func (s *ExternalEventService) importEvent(calendarID, userID int, event ICalEve
 	}
 
 	return err
+}
+
+// importTodo imports a single todo as a task, handling upsert logic
+func (s *ExternalEventService) importTodo(calendarID, userID int, todo ICalTodo) error {
+	// Skip todos without a summary (required field)
+	if todo.Summary == "" {
+		log.Printf("[Sync] Skipping todo %s: no summary", todo.UID)
+		return nil
+	}
+
+	// Skip todos with recurrence - not supported in this phase
+	if todo.Summary == "" {
+		log.Printf("[Sync] Skipping todo %s: no summary", todo.UID)
+		return nil
+	}
+
+	// Check if task already exists by external_uid
+	var existingID int
+	var existingStatus sql.NullString
+	var existingPriority sql.NullString
+	var existingIsComplete bool
+	err := s.db.QueryRow(`
+		SELECT id, status, priority, is_complete
+		FROM tasks
+		WHERE user_id = $1 AND external_uid = $2 AND is_deleted = FALSE
+	`, userID, todo.UID).Scan(&existingID, &existingStatus, &existingPriority, &existingIsComplete)
+
+	if err == sql.ErrNoRows {
+		// Insert new task
+		return s.insertTaskFromTodo(calendarID, userID, todo)
+	} else if err == nil {
+		// Update existing task (preserve status and priority per requirements)
+		return s.updateTaskFromTodo(existingID, userID, todo, existingStatus.String, existingPriority.String, existingIsComplete)
+	}
+
+	return err
+}
+
+// insertTaskFromTodo creates a new task from a VTODO
+func (s *ExternalEventService) insertTaskFromTodo(calendarID, userID int, todo ICalTodo) error {
+	// Map VTODO status to task status
+	status, isComplete := mapTodoStatus(todo.Status, todo.PercentComplete)
+
+	// Map due date - use DUE if available, otherwise DTSTART as scheduled_date
+	var dueDate *time.Time
+	if !todo.Due.IsZero() {
+		dueDate = &todo.Due
+	}
+
+	var scheduledDate *time.Time
+	if !todo.DTStart.IsZero() && todo.Due.IsZero() {
+		scheduledDate = &todo.DTStart
+	}
+
+	// Map completed timestamp
+	var completedAt *time.Time
+	if !todo.Completed.IsZero() {
+		completedAt = &todo.Completed
+	} else if isComplete {
+		now := time.Now()
+		completedAt = &now
+	}
+
+	// Title is required
+	title := todo.Summary
+	if title == "" {
+		title = "(No title)"
+	}
+
+	_, err := s.db.Exec(`
+		INSERT INTO tasks (card_pk, user_id, scheduled_date, due_date, created_at, updated_at, completed_at, title, description, status, is_complete, is_deleted, external_uid, external_calendar_id)
+		VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, $7, $8, $9, FALSE, $10, $11)
+	`, nil, userID, scheduledDate, dueDate, completedAt, title, nullString(todo.Description), status, isComplete, todo.UID, calendarID)
+
+	if err != nil {
+		log.Printf("[Sync] Failed to insert task from todo %s: %v", todo.UID, err)
+		return fmt.Errorf("failed to insert task: %w", err)
+	}
+
+	log.Printf("[Sync] Created task from todo %s: %s", todo.UID, title)
+	return nil
+}
+
+// updateTaskFromTodo updates an existing task from VTODO, preserving status and priority
+func (s *ExternalEventService) updateTaskFromTodo(taskID, userID int, todo ICalTodo, existingStatus, existingPriority string, existingIsComplete bool) error {
+	// Map VTODO status to task status
+	_, sourceIsComplete := mapTodoStatus(todo.Status, todo.PercentComplete)
+
+	// Map due date - use DUE if available, otherwise DTSTART as scheduled_date
+	var dueDate *time.Time
+	if !todo.Due.IsZero() {
+		dueDate = &todo.Due
+	}
+
+	var scheduledDate *time.Time
+	if !todo.DTStart.IsZero() && todo.Due.IsZero() {
+		scheduledDate = &todo.DTStart
+	}
+
+	// Preserve user's status and priority choices (per requirements)
+	status := existingStatus
+	priority := existingPriority
+	isComplete := existingIsComplete
+
+	// Only update completion status if the source says completed and task wasn't already complete
+	if sourceIsComplete && !existingIsComplete {
+		isComplete = true
+		// Also update status to user's "done" status if possible
+		defaultStatus, err := GetDefaultTaskStatus(s.db, userID)
+		if err == nil {
+			status = defaultStatus.Name
+		}
+	}
+
+	// Update completed_at if source says completed but we don't have a completed_at
+	var completedAt *time.Time
+	if sourceIsComplete && !todo.Completed.IsZero() {
+		completedAt = &todo.Completed
+	} else if sourceIsComplete {
+		// STATUS=COMPLETED but no COMPLETED timestamp - use current time
+		now := time.Now()
+		completedAt = &now
+	}
+
+	// Preserve existing completed_at if task was already complete locally
+	if existingIsComplete {
+		completedAt = nil // Don't overwrite existing completion
+	}
+
+	// Title is required
+	title := todo.Summary
+	if title == "" {
+		title = "(No title)"
+	}
+
+	_, err := s.db.Exec(`
+		UPDATE tasks SET
+			title = $1,
+			description = $2,
+			scheduled_date = $3,
+			due_date = $4,
+			status = $5,
+			priority = $6,
+			is_complete = $7,
+			completed_at = COALESCE($8, completed_at),
+			updated_at = NOW()
+		WHERE id = $9 AND user_id = $10
+	`, title, nullString(todo.Description), scheduledDate, dueDate, status, priority, isComplete, completedAt, taskID, userID)
+
+	if err != nil {
+		log.Printf("[Sync] Failed to update task from todo %s: %v", todo.UID, err)
+		return fmt.Errorf("failed to update task: %w", err)
+	}
+
+	log.Printf("[Sync] Updated task from todo %s: %s", todo.UID, title)
+	return nil
+}
+
+// mapTodoStatus maps VTODO STATUS and PERCENT-COMPLETE to task status
+// Returns (status string, isComplete bool)
+func mapTodoStatus(vtodoStatus string, percentComplete int) (string, bool) {
+	// Check percent-complete first (overrides status)
+	if percentComplete >= 100 {
+		return "done", true
+	}
+
+	// Map VTODO status values
+	switch strings.ToUpper(vtodoStatus) {
+	case "COMPLETED":
+		return "done", true
+	case "CANCELLED":
+		// Treat cancelled as deleted - skip import
+		return "", false
+	case "IN-PROCESS", "IN-PROGRESS":
+		return "in-progress", false
+	case "NEEDS-ACTION":
+		return "todo", false
+	default:
+		// Unknown or empty status - treat as todo
+		return "todo", false
+	}
 }
 
 // importRecurringEvent expands and imports a recurring event

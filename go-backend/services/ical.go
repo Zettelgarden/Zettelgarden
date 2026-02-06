@@ -14,6 +14,8 @@ import (
 const (
 	// Max events to import from a single feed
 	MaxEventsPerFeed = 2000
+	// Max todos to import from a single feed
+	MaxTodosPerFeed = 500
 )
 
 // ICalEvent represents a parsed VEVENT from iCal format
@@ -30,12 +32,34 @@ type ICalEvent struct {
 	TZID           string // Timezone ID from the event
 }
 
+// ICalTodo represents a parsed VTODO from iCal format
+type ICalTodo struct {
+	UID             string
+	Summary         string
+	Description     string
+	Due             time.Time
+	DTStart         time.Time // Scheduled date (DTSTART maps to scheduled_date)
+	Status          string    // NEEDS-ACTION, IN-PROCESS, COMPLETED, CANCELLED
+	Priority        int       // 0-9 (0=undefined, 1=highest, 9=lowest)
+	PercentComplete int       // 0-100
+	Completed       time.Time // COMPLETED timestamp
+}
+
 // ParseICalendar parses an iCal feed and returns VEVENT components
 func ParseICalendar(r io.Reader) ([]ICalEvent, error) {
+	events, _, err := ParseICalendarWithTodos(r)
+	return events, err
+}
+
+// ParseICalendarWithTodos parses an iCal feed and returns both VEVENT and VTODO components
+func ParseICalendarWithTodos(r io.Reader) ([]ICalEvent, []ICalTodo, error) {
 	scanner := bufio.NewScanner(r)
 	var events []ICalEvent
+	var todos []ICalTodo
 	var currentEvent *ICalEvent
+	var currentTodo *ICalTodo
 	var inVEVENT bool
+	var inVTODO bool
 
 	// Increase buffer size for long lines
 	scanner.Buffer(make([]byte, 0, 256*1024), 1024*1024)
@@ -52,7 +76,7 @@ func ParseICalendar(r io.Reader) ([]ICalEvent, error) {
 		case line == "END:VEVENT":
 			if currentEvent != nil && currentEvent.UID != "" {
 				if len(events) >= MaxEventsPerFeed {
-					return events, fmt.Errorf("exceeded maximum events per feed (%d)", MaxEventsPerFeed)
+					return events, todos, fmt.Errorf("exceeded maximum events per feed (%d)", MaxEventsPerFeed)
 				}
 				events = append(events, *currentEvent)
 			}
@@ -61,10 +85,27 @@ func ParseICalendar(r io.Reader) ([]ICalEvent, error) {
 
 		case inVEVENT && currentEvent != nil:
 			parseEventProperty(currentEvent, line)
+
+		case line == "BEGIN:VTODO":
+			inVTODO = true
+			currentTodo = &ICalTodo{}
+
+		case line == "END:VTODO":
+			if currentTodo != nil && currentTodo.UID != "" {
+				if len(todos) >= MaxTodosPerFeed {
+					return events, todos, fmt.Errorf("exceeded maximum todos per feed (%d)", MaxTodosPerFeed)
+				}
+				todos = append(todos, *currentTodo)
+			}
+			inVTODO = false
+			currentTodo = nil
+
+		case inVTODO && currentTodo != nil:
+			parseTodoProperty(currentTodo, line)
 		}
 	}
 
-	return events, scanner.Err()
+	return events, todos, scanner.Err()
 }
 
 // parseEventProperty parses a single iCal property line into an event
@@ -107,6 +148,52 @@ func parseEventProperty(event *ICalEvent, line string) {
 	case "TZID":
 		// TZID may come as a separate property in some feeds
 		event.TZID = value
+	}
+}
+
+// parseTodoProperty parses a single iCal property line into a todo
+func parseTodoProperty(todo *ICalTodo, line string) {
+	// Handle line continuations (lines starting with space/tabs continue previous property)
+	for strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
+		line = line[1:]
+	}
+
+	// Split on first colon to separate key from value
+	parts := strings.SplitN(line, ":", 2)
+	if len(parts) < 2 {
+		return
+	}
+
+	key := parts[0]
+	value := parts[1]
+
+	// Handle parameters (e.g., DTSTART;VALUE=DATE:20230101)
+	keyParts := strings.Split(key, ";")
+	key = keyParts[0]
+
+	switch key {
+	case "UID":
+		todo.UID = value
+	case "SUMMARY":
+		todo.Summary = unescapeICalText(value)
+	case "DESCRIPTION":
+		todo.Description = unescapeICalText(value)
+	case "DTSTART":
+		todo.DTStart = parseICalDateTime(value, keyParts)
+	case "DUE":
+		todo.Due = parseICalDateTime(value, keyParts)
+	case "STATUS":
+		todo.Status = value
+	case "PRIORITY":
+		// PRIORITY is 0-9 (0=undefined, 1=highest, 9=lowest)
+		if pri := parseICalIntSafe(value, 0); pri >= 0 && pri <= 9 {
+			todo.Priority = pri
+		}
+	case "PERCENT-COMPLETE":
+		todo.PercentComplete = parseICalIntSafe(value, 0)
+	case "COMPLETED":
+		// COMPLETED is a datetime stamp
+		todo.Completed = parseICalDateTime(value, keyParts)
 	}
 }
 
@@ -162,16 +249,33 @@ func parseICalDateTime(value string, params []string) time.Time {
 	return time.Time{}
 }
 
+// parseICalIntSafe parses an integer from an iCal value string, returning defaultValue on failure
+func parseICalIntSafe(s string, defaultValue int) int {
+	var result int
+	_, err := fmt.Sscanf(s, "%d", &result)
+	if err != nil {
+		return defaultValue
+	}
+	return result
+}
+
 // FetchICalURL fetches an iCal feed from a URL with optional Basic Authentication
 // Returns the parsed events from the feed
 func FetchICalURL(feedURL, username, password string) ([]ICalEvent, error) {
+	events, _, err := FetchICalURLWithTodos(feedURL, username, password)
+	return events, err
+}
+
+// FetchICalURLWithTodos fetches an iCal feed from a URL with optional Basic Authentication
+// Returns both parsed VEVENT and VTODO components from the feed
+func FetchICalURLWithTodos(feedURL, username, password string) ([]ICalEvent, []ICalTodo, error) {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
 
 	req, err := http.NewRequest("GET", feedURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Add Basic Auth if credentials provided
@@ -181,17 +285,17 @@ func FetchICalURL(feedURL, username, password string) ([]ICalEvent, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch iCal feed: %w", err)
+		return nil, nil, fmt.Errorf("failed to fetch iCal feed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("iCal feed returned status %d", resp.StatusCode)
+		return nil, nil, fmt.Errorf("iCal feed returned status %d", resp.StatusCode)
 	}
 
 	// Check content-length header to prevent memory exhaustion
 	if resp.ContentLength > MaxICalFeedSizeBytes {
-		return nil, fmt.Errorf("iCal feed too large (%d bytes, max %d bytes)", resp.ContentLength, MaxICalFeedSizeBytes)
+		return nil, nil, fmt.Errorf("iCal feed too large (%d bytes, max %d bytes)", resp.ContentLength, MaxICalFeedSizeBytes)
 	}
 
 	// Check content type
@@ -204,12 +308,12 @@ func FetchICalURL(feedURL, username, password string) ([]ICalEvent, error) {
 	// Limit the reader to prevent memory exhaustion for feeds without content-length header
 	limitedReader := io.LimitReader(resp.Body, MaxICalFeedSizeBytes)
 
-	events, err := ParseICalendar(limitedReader)
+	events, todos, err := ParseICalendarWithTodos(limitedReader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse iCal feed: %w", err)
+		return nil, nil, fmt.Errorf("failed to parse iCal feed: %w", err)
 	}
 
-	return events, nil
+	return events, todos, nil
 }
 
 // ValidatePublicURL validates that a URL is safe to fetch (SSRF protection)
@@ -287,14 +391,14 @@ func ValidateICalURL(rawURL, username, password string) error {
 	}
 
 	// Try to fetch and parse
-	events, err := FetchICalURL(rawURL, username, password)
+	events, todos, err := FetchICalURLWithTodos(rawURL, username, password)
 	if err != nil {
 		return err
 	}
 
-	// Should have at least one event to be considered valid
-	if len(events) == 0 {
-		return fmt.Errorf("feed contains no events")
+	// Should have at least one event or todo to be considered valid
+	if len(events) == 0 && len(todos) == 0 {
+		return fmt.Errorf("feed contains no events or todos")
 	}
 
 	return nil
