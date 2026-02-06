@@ -148,7 +148,7 @@ export function ChatSidebar({ card }: ChatSidebarProps) {
           </div>
           <button
             onClick={() => setChatSidebarCard(null)}
-            className="text-gray-500 hover:text-gray-700 p-1 rounded flex-shrink-0"
+            className="text-gray-500 hover:text-gray-700 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded flex-shrink-0"
             title="Close chat"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -178,7 +178,7 @@ export function ChatSidebar({ card }: ChatSidebarProps) {
             <p className="mb-3 text-red-500">{errorMessage}</p>
             <button
               onClick={handleRetry}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-3 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 2A8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 2A8.003 0 0115.357 2m15.357 2H15" />

@@ -113,7 +113,7 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => onAddTaskWithStatus(column.name)}
-                      className="w-5 h-5 flex items-center justify-center rounded hover:bg-black/10 transition-colors"
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded hover:bg-black/10 transition-colors"
                       title={`Add task to ${column.display_name}`}
                       style={{ color: column.color }}
                     >

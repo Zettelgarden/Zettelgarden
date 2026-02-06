@@ -38,14 +38,14 @@ export function TaskSelectionOverlay({
         <Button
           onClick={() => setShowBulkTagEdit(true)}
           disabled={selectedTaskIds.size === 0}
-          className="text-sm px-3 py-1.5 h-8 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 shadow-sm border-transparent"
+          className="text-sm px-4 py-3 min-h-[44px] bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 shadow-sm border-transparent"
         >
           Edit Tags
         </Button>
         <Button
           onClick={() => setShowBulkEdit(true)}
           disabled={selectedTaskIds.size === 0}
-          className="text-sm px-3 py-1.5 h-8 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 shadow-sm border-transparent"
+          className="text-sm px-4 py-3 min-h-[44px] bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 shadow-sm border-transparent"
         >
           Edit Date
         </Button>
@@ -53,7 +53,7 @@ export function TaskSelectionOverlay({
         <Button
           onClick={onSelectAll}
           variant="outline"
-          className="text-sm px-3 py-1.5 h-8 bg-white hover:bg-slate-50 shadow-sm"
+          className="text-sm px-4 py-3 min-h-[44px] bg-white hover:bg-slate-50 shadow-sm"
         >
           Select All
         </Button>
@@ -61,7 +61,7 @@ export function TaskSelectionOverlay({
           onClick={onClearSelection}
           variant="outline"
           disabled={selectedTaskIds.size === 0}
-          className="text-sm px-3 py-1.5 h-8 bg-transparent hover:bg-slate-100 border-transparent shadow-none"
+          className="text-sm px-4 py-3 min-h-[44px] bg-transparent hover:bg-slate-100 border-transparent shadow-none"
         >
           Clear
         </Button>
@@ -72,7 +72,7 @@ export function TaskSelectionOverlay({
       <Button
         onClick={onToggleSelectMode}
         variant="outline"
-        className="text-sm px-3 py-1.5 h-8 bg-red-50 hover:bg-red-100 text-red-700 border-red-200 font-medium"
+        className="text-sm px-4 py-3 min-h-[44px] bg-red-50 hover:bg-red-100 text-red-700 border-red-200 font-medium"
       >
         Done
       </Button>
