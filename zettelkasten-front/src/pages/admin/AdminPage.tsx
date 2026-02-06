@@ -41,7 +41,7 @@ export function Admin() {
     <div className="flex h-screen overflow-hidden">
       {/* Mobile Menu Button */}
       <button
-        className="md:hidden fixed top-4 right-4 z-[60] p-3 bg-white rounded-lg shadow-lg hover:bg-gray-50 active:bg-gray-100"
+        className="md:hidden fixed top-4 right-4 z-[60] p-3 bg-white rounded-lg shadow-lg hover:bg-gray-50 active:bg-gray-100 safe-top-fixed safe-right-fixed"
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         aria-label="Toggle menu"
       >

@@ -141,6 +141,16 @@ code {
     top: env(safe-area-inset-top, 0px);
   }
 
+  /* Safe area for fixed right elements */
+  .safe-right-fixed {
+    right: env(safe-area-inset-right, 0px);
+  }
+
+  /* Safe area for fixed left elements */
+  .safe-left-fixed {
+    left: env(safe-area-inset-left, 0px);
+  }
+
   /* For dropdown menus that need safe area support */
   .safe-dropdown-bottom {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);

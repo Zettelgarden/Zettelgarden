@@ -28,7 +28,7 @@ export function MobileBottomNav({ onCreateCard, onCreateTask }: MobileBottomNavP
       className="md:hidden fixed bottom-0 left-0 right-0 z-[55] bg-white border-t safe-bottom-fixed"
       aria-label="Primary actions"
     >
-      <div className="flex items-center justify-around py-2 pb-safe">
+      <div className="flex items-center justify-around py-2">
         {/* Create Card Button */}
         <button
           onClick={onCreateCard}

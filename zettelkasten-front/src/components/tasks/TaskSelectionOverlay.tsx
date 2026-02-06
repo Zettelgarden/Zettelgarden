@@ -27,7 +27,7 @@ export function TaskSelectionOverlay({
   if (!selectMode) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-white border border-slate-300 shadow-2xl rounded-lg p-3 z-50 flex flex-wrap items-center justify-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-200 backdrop-blur-sm bg-opacity-95">
+    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-white border border-slate-300 shadow-2xl rounded-lg p-3 z-50 flex flex-wrap items-center justify-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-200 backdrop-blur-sm bg-opacity-95 safe-bottom-fixed">
       <div className="text-sm font-semibold text-slate-700 whitespace-nowrap px-1">
         {selectedTaskIds.size} selected
       </div>
