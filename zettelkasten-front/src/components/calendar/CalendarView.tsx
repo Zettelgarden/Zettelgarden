@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { FaChevronLeft, FaChevronRight, FaPlus, FaChevronUp, FaChevronDown } from "react-icons/fa";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { toZonedTime } from "date-fns-tz";
+import { format } from "date-fns";
 import { Task } from "../../models/Task";
 import { ExternalEvent } from "../../models/ExternalEvent";
 import {
@@ -25,7 +26,6 @@ import {
   groupEventsByTask,
   mergeCalendarEvents,
 } from "../../utils/calendar";
-import { format } from "date-fns";
 import { saveExistingTask } from "../../api/tasks";
 import { isSameDayInTimezone, createMidnightInTimezone } from "../../utils/dates";
 import { useTaskContext } from "../../contexts/TaskContext";
@@ -400,6 +400,7 @@ export function CalendarView({
               onContextMenu={handleContextMenu}
               onCreateTask={onCreateTask}
               viewMode={viewMode}
+              timezone={timezone}
             />
           ))}
         </div>
@@ -459,6 +460,7 @@ interface CalendarDayCellProps {
   onContextMenu: (e: React.MouseEvent, day: CalendarDay) => void;
   onCreateTask?: (date: Date) => void;
   viewMode: CalendarViewType;
+  timezone: string;
 }
 
 function CalendarDayCell({
@@ -471,9 +473,22 @@ function CalendarDayCell({
   onContextMenu,
   onCreateTask,
   viewMode,
+  timezone,
 }: CalendarDayCellProps) {
   const visibleEvents = getVisibleEvents(day, viewMode);
   const hiddenCount = getHiddenEventCount(day, viewMode);
+
+  // Current time state - updates every minute
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+
+  useEffect(() => {
+    // Update current time every minute
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // 60 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleDoubleClick = () => {
     if (onCreateTask) {
@@ -481,9 +496,72 @@ function CalendarDayCell({
     }
   };
 
+  // Calculate current time position for week view indicator
+  const getCurrentTimePosition = (): { percentage: number; timeLabel: string } | null => {
+    // Only show in week view for today
+    if (viewMode !== "week" || !day.isToday) {
+      return null;
+    }
+
+    // Get timed events (excluding all-day events)
+    const timedEvents = visibleEvents.filter(e => !e.allDay && e.date);
+
+    if (timedEvents.length === 0) {
+      // No timed events - use default range 6AM-10PM
+      const now = toZonedTime(currentTime, timezone);
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+      const totalMinutes = hours * 60 + minutes;
+      const startMinutes = 6 * 60; // 6AM
+      const endMinutes = 22 * 60; // 10PM
+
+      if (totalMinutes < startMinutes || totalMinutes > endMinutes) {
+        // Current time is outside default range
+        return null;
+      }
+
+      const percentage = ((totalMinutes - startMinutes) / (endMinutes - startMinutes)) * 100;
+      return {
+        percentage: Math.max(0, Math.min(100, percentage)),
+        timeLabel: format(now, "h:mm a"),
+      };
+    }
+
+    // Calculate range based on visible timed events
+    const eventMinutes = timedEvents.flatMap(e => {
+      const start = toZonedTime(e.date, timezone);
+      const startMinutes = start.getHours() * 60 + start.getMinutes();
+      const end = e.endTime ? toZonedTime(e.endTime, timezone) : start;
+      const endMinutes = end.getHours() * 60 + end.getMinutes();
+      return [startMinutes, endMinutes];
+    });
+
+    const minMinutes = Math.min(...eventMinutes);
+    const maxMinutes = Math.max(...eventMinutes);
+
+    // Add buffer (30 minutes before first event, 30 minutes after last event)
+    const startMinutes = Math.max(0, minMinutes - 30);
+    const endMinutes = Math.min(24 * 60, maxMinutes + 30);
+
+    // Get current time in timezone
+    const now = toZonedTime(currentTime, timezone);
+    const totalMinutes = now.getHours() * 60 + now.getMinutes();
+
+    // Clamp to range
+    const clampedMinutes = Math.max(startMinutes, Math.min(endMinutes, totalMinutes));
+    const percentage = ((clampedMinutes - startMinutes) / (endMinutes - startMinutes)) * 100;
+
+    return {
+      percentage: Math.max(0, Math.min(100, percentage)),
+      timeLabel: format(now, "h:mm a"),
+    };
+  };
+
+  const nowPosition = getCurrentTimePosition();
+
   // Week view uses taller cells to utilize available vertical space
   const cellClasses = `
-    ${viewMode === "week" ? "min-h-[400px]" : "min-h-[60px] sm:min-h-[80px]"} p-1 border-b border-r border-slate-200 last:border-r-0 cursor-pointer focus-within:ring-2 focus-within:ring-blue-300 focus:outline-none
+    ${viewMode === "week" ? "min-h-[400px]" : "min-h-[60px] sm:min-h-[80px]"} p-1 border-b border-r border-slate-200 last:border-r-0 cursor-pointer focus-within:ring-2 focus-within:ring-blue-300 focus:outline-none relative
     ${day.isToday ? "bg-blue-50" : ""}
     ${!day.isCurrentMonth ? "bg-slate-100 text-slate-400" : ""}
     ${isHovered ? "bg-slate-100" : "bg-white"}
@@ -522,6 +600,24 @@ function CalendarDayCell({
             <span className="sr-only">{format(day.date, "MMMM d")}</span>
             <span aria-hidden="true">{format(day.date, "d")}</span>
           </div>
+
+          {/* Current Time Indicator - only in week view for today */}
+          {nowPosition && (
+            <div
+              className="absolute left-0 right-0 pointer-events-none z-10"
+              style={{ top: `${nowPosition.percentage}%` }}
+              aria-label={`Current time: ${nowPosition.timeLabel}`}
+            >
+              <div className="flex items-center">
+                <span className="text-[10px] text-red-500 font-medium bg-white/80 px-1 rounded shadow-sm ml-1">
+                  {nowPosition.timeLabel}
+                </span>
+                <div className="flex-1 h-[2px] bg-red-500"></div>
+              </div>
+              {/* Small dot at the end for visibility */}
+              <div className="absolute right-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+            </div>
+          )}
 
           {/* Task Count Indicator */}
           {day.taskCount > 0 && (
