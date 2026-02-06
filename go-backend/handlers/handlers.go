@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"database/sql"
-	"go-backend/handlers/chat"
 	"go-backend/models"
 	"go-backend/server"
 	"go-backend/services"
@@ -40,9 +39,6 @@ type Handler struct {
 
 	// Encryption service for sensitive data
 	EncryptionService *services.EncryptionService
-
-	// Chat service for AI agent conversations
-	ChatService *chat.Service
 }
 
 // GetDB returns the appropriate database connection for database operations.
