@@ -15,63 +15,107 @@
 // - calendar_tools.go: Calendar integration
 // - article_tools.go: Article parsing and creation
 // - memory_tools.go: User memory operations
+//
+// PHASE 3: Domain Package Migration with Feature Flags
+// ---------------------------------------------------
+// This file now supports both legacy and new domain package registration
+// controlled by the FeatureFlagTemplateTools feature flag.
+//
+// - Feature flag DISABLED (default): Uses legacy registration in this file
+// - Feature flag ENABLED: Uses services/tools/template package
+//
+// To enable the new domain package:
+//   export ZETTELGARDEN_FEATURE_TEMPLATE_TOOLS_V2=true
 package services
 
 import (
-	"database/sql"
 	"fmt"
-	"go-backend/models"
-	"log"
-	"regexp"
-	"strconv"
-	"strings"
+
+	"go-backend/services/featureflags"
+	"go-backend/services/tools/template"
 )
 
-// RegisterTemplateTools registers all template-related tools
+// RegisterTemplateTools registers all template-related tools.
+//
+// This method supports two registration paths controlled by feature flag:
+// 1. Legacy path (default): Registers tools directly from this file
+// 2. New path (feature flag): Delegates to services/tools/template package
 func (tr *ToolRegistry) RegisterTemplateTools() {
+	if featureflags.IsEnabled(featureflags.FeatureFlagTemplateTools) {
+		// NEW: Use the domain package
+		tr.registerTemplateToolsV2()
+	} else {
+		// LEGACY: Use the original registration in this file
+		tr.registerTemplateToolsLegacy()
+	}
+}
+
+// registerTemplateToolsV2 uses the new template domain package
+func (tr *ToolRegistry) registerTemplateToolsV2() {
 	RegisterTool(tr, "get_template",
 		"Get a specific template by its numeric ID. Returns the full template details including name, title, and body templates.",
-		handleGetTemplate,
+		handleGetTemplateV2,
 		ToolParam{Name: "template_id", Type: "integer", Required: true, Desc: "The numeric ID of the template to retrieve"},
 	)
 
 	RegisterTool(tr, "list_templates",
 		"Get all templates for the current user. Templates are reusable card structures with variable substitution.",
-		handleListTemplates,
+		handleListTemplatesV2,
 	)
 
 	RegisterTool(tr, "get_next_child_id",
 		"Get the next available child card ID for a parent card (e.g., '1a2.3'). This is useful for creating structured card hierarchies.",
-		handleGetNextChildID,
+		handleGetNextChildIDV2,
 		ToolParam{Name: "card_pk", Type: "integer", Required: true, Desc: "The primary key ID of the parent card"},
 	)
 }
 
-// Template tool handlers
+// registerTemplateToolsLegacy is the original template tools registration.
+// Kept for backward compatibility and as a fallback.
+func (tr *ToolRegistry) registerTemplateToolsLegacy() {
+	RegisterTool(tr, "get_template",
+		"Get a specific template by its numeric ID. Returns the full template details including name, title, and body templates.",
+		handleGetTemplateLegacy,
+		ToolParam{Name: "template_id", Type: "integer", Required: true, Desc: "The numeric ID of the template to retrieve"},
+	)
 
-func handleGetTemplate(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	RegisterTool(tr, "list_templates",
+		"Get all templates for the current user. Templates are reusable card structures with variable substitution.",
+		handleListTemplatesLegacy,
+	)
+
+	RegisterTool(tr, "get_next_child_id",
+		"Get the next available child card ID for a parent card (e.g., '1a2.3'). This is useful for creating structured card hierarchies.",
+		handleGetNextChildIDLegacy,
+		ToolParam{Name: "card_pk", Type: "integer", Required: true, Desc: "The primary key ID of the parent card"},
+	)
+}
+
+// V2 template tool handlers (use domain package logic)
+
+func handleGetTemplateV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
 	templateID, err := getIntParam(args, "template_id")
 	if err != nil {
 		return nil, err
 	}
 
-	template, err := GetTemplate(ctx.DB, ctx.UserID, templateID)
+	tmpl, err := template.GetTemplate(ctx.DB, ctx.UserID, templateID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get template: %v", err)
 	}
 
-	return StructToMap(template), nil
+	return StructToMap(tmpl), nil
 }
 
-func handleListTemplates(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
-	templates, err := GetTemplates(ctx.DB, ctx.UserID)
+func handleListTemplatesV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	templates, err := template.GetTemplates(ctx.DB, ctx.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get templates: %v", err)
 	}
 
 	var results []map[string]interface{}
-	for _, template := range templates {
-		results = append(results, StructToMap(template))
+	for _, tmpl := range templates {
+		results = append(results, StructToMap(tmpl))
 	}
 
 	return map[string]interface{}{
@@ -80,13 +124,13 @@ func handleListTemplates(args map[string]interface{}, ctx *ToolContext) (map[str
 	}, nil
 }
 
-func handleGetNextChildID(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+func handleGetNextChildIDV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
 	cardPK, err := getIntParam(args, "card_pk")
 	if err != nil {
 		return nil, err
 	}
 
-	nextID, err := GetNextChildCardID(ctx.DB, ctx.UserID, cardPK)
+	nextID, err := template.GetNextChildCardID(ctx.DB, ctx.UserID, cardPK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get next child ID: %v", err)
 	}
@@ -106,124 +150,62 @@ func handleGetNextChildID(args map[string]interface{}, ctx *ToolContext) (map[st
 	}, nil
 }
 
-// Template service functions
+// Legacy template tool handlers (kept for backward compatibility)
 
-// GetTemplate retrieves a template by ID for a specific user
-func GetTemplate(db *sql.DB, userID, templateID int) (models.CardTemplate, error) {
-	var template models.CardTemplate
-
-	query := `
-		SELECT id, user_id, name, title, body, created_at, updated_at
-		FROM card_templates
-		WHERE id = $1 AND user_id = $2
-	`
-
-	err := db.QueryRow(query, templateID, userID).Scan(
-		&template.ID,
-		&template.UserID,
-		&template.Name,
-		&template.Title,
-		&template.Body,
-		&template.CreatedAt,
-		&template.UpdatedAt,
-	)
-	if err != nil {
-		return models.CardTemplate{}, fmt.Errorf("template not found")
-	}
-
-	return template, nil
-}
-
-// GetTemplates retrieves all templates for a specific user
-func GetTemplates(db *sql.DB, userID int) ([]models.CardTemplate, error) {
-	query := `
-		SELECT id, user_id, name, title, body, created_at, updated_at
-		FROM card_templates
-		WHERE user_id = $1
-		ORDER BY updated_at DESC
-	`
-
-	rows, err := db.Query(query, userID)
+func handleGetTemplateLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	templateID, err := getIntParam(args, "template_id")
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var templates []models.CardTemplate
-	for rows.Next() {
-		var template models.CardTemplate
-		if err := rows.Scan(
-			&template.ID,
-			&template.UserID,
-			&template.Name,
-			&template.Title,
-			&template.Body,
-			&template.CreatedAt,
-			&template.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		templates = append(templates, template)
+	// Use domain package - the legacy refers to the registration pattern
+	tmpl, err := template.GetTemplate(ctx.DB, ctx.UserID, templateID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get template: %v", err)
 	}
 
-	return templates, nil
+	return StructToMap(tmpl), nil
 }
 
-// GetNextChildCardID returns the next available child card ID for a parent card
-func GetNextChildCardID(db *sql.DB, userID int, parentID int) (string, error) {
-	// 1. Get parent card's card_id (human readable ID)
-	var parentCardID string
-	err := db.QueryRow("SELECT card_id FROM cards WHERE id = $1 AND user_id = $2", parentID, userID).Scan(&parentCardID)
+func handleListTemplatesLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	templates, err := template.GetTemplates(ctx.DB, ctx.UserID)
 	if err != nil {
-		log.Printf("Error finding parent card ID for parentID %d: %v", parentID, err)
-		return "", fmt.Errorf("parent card not found")
+		return nil, fmt.Errorf("failed to get templates: %v", err)
 	}
 
-	// 2. Get all existing children using service
-	children, err := GetChildCards(db, userID, parentID)
+	var results []map[string]interface{}
+	for _, tmpl := range templates {
+		results = append(results, StructToMap(tmpl))
+	}
+
+	return map[string]interface{}{
+		"templates": results,
+		"total":     len(templates),
+	}, nil
+}
+
+func handleGetNextChildIDLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
+	cardPK, err := getIntParam(args, "card_pk")
 	if err != nil {
-		log.Printf("Error getting child cards for parentID %d: %v", parentID, err)
-		return parentCardID + ".1", nil // Default to .1 if there's an error
+		return nil, err
 	}
 
-	// 3. Extract numeric suffixes from children's card_ids
-	childNumbers := make([]int, 0)
-	parentIDLength := len(parentCardID)
-
-	for _, child := range children {
-		childID := child.CardID
-
-		// Verify this is actually a direct child by checking it starts with parent ID
-		if !strings.HasPrefix(childID, parentCardID) || len(childID) <= parentIDLength {
-			continue
-		}
-
-		// Get the part after the parent ID
-		suffix := childID[parentIDLength:]
-
-		// Extract the first number after any separator using regex
-		re := regexp.MustCompile(`^[.\\/-]+(\d+)`)
-		match := re.FindStringSubmatch(suffix)
-		if len(match) == 2 {
-			num, err := strconv.Atoi(match[1])
-			if err == nil {
-				childNumbers = append(childNumbers, num)
-			}
-		}
+	nextID, err := template.GetNextChildCardID(ctx.DB, ctx.UserID, cardPK)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get next child ID: %v", err)
 	}
 
-	// 4. Find the highest number and increment
-	if len(childNumbers) == 0 {
-		return parentCardID + ".1", nil // No existing children, start with 1
+	if nextID == "" {
+		return map[string]interface{}{
+			"error":   true,
+			"message": "Parent card not found or error occurred",
+			"new_id":  "",
+		}, nil
 	}
 
-	maxNumber := 0
-	for _, num := range childNumbers {
-		if num > maxNumber {
-			maxNumber = num
-		}
-	}
-
-	nextNumber := maxNumber + 1
-	return fmt.Sprintf("%s.%d", parentCardID, nextNumber), nil
+	return map[string]interface{}{
+		"error":   false,
+		"message": "",
+		"new_id":  nextID,
+	}, nil
 }
