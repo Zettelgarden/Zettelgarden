@@ -195,10 +195,23 @@ For each domain migration:
 - [ ] Test chat conversations for 1-2 days
 - [ ] If clean, enable in production; else disable and debug
 
+### Migration Progress (as of Feb 6, 2026)
+
+- [x] **template_tools** (3 tools) - ✅ Merged to master (commit: 9f0d3e5b)
+- [x] **calendar_tools** (3 tools) - ✅ Merged to master (commit: 720c2e3a)
+- [x] **article_tools** (2 tools) - ✅ Merged to master (commit: 4108dc21)
+- [x] **fact_tools** (4 tools) - ✅ Merged to master (commit: 33beae9a)
+- [x] **task_tools** (7 tools) - ✅ Merged to master (commit: d9a99307)
+- [ ] **entity_tools** (10 tools) - Next domain
+- [ ] **card_tools** (6 tools) - Final domain
+
+**Status: 5 of 7 domains complete (71%)**
+
 ### Total Timeline Estimate
 
 - 1 domain per week = ~7 weeks for all 7 remaining domains
 - Each domain: 1-2 days dev + 1-2 days staging verification
+- **On track**: 5 domains completed in first session
 
 ---
 
