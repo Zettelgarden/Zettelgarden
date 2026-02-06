@@ -16,9 +16,10 @@ import (
 const (
 	// FeatureFlagTemplateTools enables the new template_tools domain package
 	FeatureFlagTemplateTools = "template_tools_v2"
+	// FeatureFlagCalendarTools enables the new calendar_tools domain package
+	FeatureFlagCalendarTools = "calendar_tools_v2"
 
 	// Future flags for other domains (to be added):
-	// FeatureFlagCalendarTools = "calendar_tools_v2"
 	// FeatureFlagArticleTools = "article_tools_v2"
 	// FeatureFlagFactTools = "fact_tools_v2"
 	// FeatureFlagTaskTools = "task_tools_v2"
