@@ -9,8 +9,6 @@ import (
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	readability "github.com/go-shiori/go-readability"
 	"go-backend/models"
-
-	"go-backend/services/tools/article"
 )
 
 // ParseResult represents the result of parsing a URL
@@ -24,40 +22,7 @@ type ParseResult struct {
 }
 
 // ParseURL extracts article content from a URL for preview
-// Re-exports from the article domain package
 func ParseURL(url string) (*ParseResult, error) {
-	result, err := article.ParseURL(url)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert from domain package type to services package type
-	return &ParseResult{
-		Title:    result.Title,
-		Content:  result.Content,
-		Author:   result.Author,
-		Excerpt:  result.Excerpt,
-		SiteName: result.SiteName,
-		URL:      result.URL,
-	}, nil
-}
-
-// CreateArticle creates a card from a URL with auto-parsed content
-// Re-exports from the article domain package
-func CreateArticle(db *sql.DB, userID int, url, cardID, tags string) (*models.Card, error) {
-	// Re-export to the domain package with CreateCard as dependency
-	result, err := article.CreateArticle(db, userID, url, cardID, tags, CreateCard)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-// The following functions are kept for backward compatibility and external usage
-// They are maintained here to avoid breaking existing imports
-
-// ParseURLLegacy is the original implementation kept for fallback
-func ParseURLLegacy(url string) (*ParseResult, error) {
 	if url == "" {
 		return nil, fmt.Errorf("url is required")
 	}
@@ -85,10 +50,10 @@ func ParseURLLegacy(url string) (*ParseResult, error) {
 	}, nil
 }
 
-// CreateArticleLegacy is the original implementation kept for fallback
-func CreateArticleLegacy(db *sql.DB, userID int, url, cardID, tags string) (*models.Card, error) {
+// CreateArticle creates a card from a URL with auto-parsed content
+func CreateArticle(db *sql.DB, userID int, url, cardID, tags string) (*models.Card, error) {
 	// Parse the URL
-	parsed, err := ParseURLLegacy(url)
+	parsed, err := ParseURL(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %w", err)
 	}

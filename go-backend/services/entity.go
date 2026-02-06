@@ -1178,19 +1178,3 @@ func FindSimilarEntities(db *sql.DB, typesenseClient *typesense.Client, userID i
 	return results, nil
 }
 
-// PHASE 3: Domain Package Migration
-// ----------------------------------
-// The entity domain package is now available at go-backend/services/tools/entity.
-//
-// The functions in this file (GetEntityByName, SearchEntities, GetEntityByID, etc.)
-// are the original implementations and are used by the legacy registration path.
-//
-// The new domain package provides the same functions with improved organization.
-// New code should import the domain package directly:
-//
-//	import "go-backend/services/tools/entity"
-//
-// The entity_tools.go file handles registration with a feature flag to toggle
-// between the legacy path (these functions) and the new path (domain package).
-//
-// Both paths are maintained for backward compatibility during the migration period.
