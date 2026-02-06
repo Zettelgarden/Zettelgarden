@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go-backend/bootstrap"
 	"go-backend/handlers"
+	"go-backend/handlers/chat"
 	"go-backend/mail"
 	"go-backend/models"
 	"go-backend/pkg/config"
@@ -117,6 +118,19 @@ func run() error {
 		getEnvInt("MAX_JOBS_PER_USER", 10), getEnvInt("MAX_GLOBAL_JOBS", 50))
 	h.JobRateLimiter = services.NewJobRateLimiter(s.DB)
 	log.Printf("Job rate limiter initialized successfully")
+
+	// Initialize chat service
+	log.Printf("Initializing chat service")
+	chatService := chat.NewService(
+		s.DB,
+		s.LLMClient,
+		services.NewToolRegistry(),
+		s.TypesenseClient,
+		s,
+		nil, // logger - using default log package
+	)
+	h.ChatService = chatService
+	log.Printf("Chat service initialized successfully")
 
 	// Initialize Stripe
 	log.Printf("Initializing Stripe payment processing")
