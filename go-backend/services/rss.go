@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/mmcdole/gofeed"
@@ -193,7 +194,7 @@ func UpdateRSSFeed(db models.Database, userID, feedID int, params models.UpdateR
 	argPos++
 
 	query := fmt.Sprintf("UPDATE rss_feeds SET %s WHERE id = $%d AND user_id = $%d",
-		fmt.Sprintf("%s", updates), argPos, argPos+1)
+		strings.Join(updates, ", "), argPos, argPos+1)
 	args = append(args, feedID, userID)
 
 	_, err := db.Exec(query, args...)
@@ -601,7 +602,7 @@ func UpdateRSSFolder(db models.Database, userID, folderID int, name *string, ord
 	}
 
 	query := fmt.Sprintf("UPDATE rss_folders SET %s WHERE id = $%d AND user_id = $%d",
-		fmt.Sprintf("%s", updates), argPos, argPos+1)
+		strings.Join(updates, ", "), argPos, argPos+1)
 	args = append(args, folderID, userID)
 
 	_, err := db.Exec(query, args...)
