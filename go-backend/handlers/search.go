@@ -63,7 +63,7 @@ func (s *Handler) InitSearchCollection() {
 			var cardPK int
 			var cardID string
 			var userID int
-			var parentID int
+			var parentID sql.NullInt64
 			var title, body string
 			var tagNames sql.NullString
 			err := rows.Scan(
@@ -93,6 +93,12 @@ func (s *Handler) InitSearchCollection() {
 				tags = []string{}
 			}
 
+			// Convert parentID to int or -1 for NULL
+			parentIDValue := -1
+			if parentID.Valid {
+				parentIDValue = int(parentID.Int64)
+			}
+
 			doc := map[string]interface{}{
 				"id":                    "card-" + strconv.Itoa(cardPK),
 				"fact_pk":               -1,
@@ -103,7 +109,7 @@ func (s *Handler) InitSearchCollection() {
 				"type":                  "card",
 				"title":                 title,
 				"preview":               body,
-				"parent_id":             parentID,
+				"parent_id":             parentIDValue,
 				"created_at":            createdAtTime.Unix(),
 				"updated_at":            updatedAtTime.Unix(),
 				"linked_card_id":        "",
@@ -143,7 +149,8 @@ func (s *Handler) InitSearchCollection() {
 			var createdAtTime, updatedAtTime time.Time
 			var cardPK int
 			var cardCardID string
-			var userID, parentID int
+			var userID int
+			var parentID sql.NullInt64
 			var cardTitle string
 			var cardCreatedAt, cardUpdatedAt time.Time
 			err := rows.Scan(
@@ -154,6 +161,13 @@ func (s *Handler) InitSearchCollection() {
 				log.Printf("error scanning fact: %v", err)
 				continue
 			}
+
+			// Convert parentID to int or -1 for NULL
+			parentIDValue := -1
+			if parentID.Valid {
+				parentIDValue = int(parentID.Int64)
+			}
+
 			doc := map[string]interface{}{
 				"id":                    "fact-" + strconv.Itoa(factID),
 				"fact_pk":               factID,
@@ -171,7 +185,7 @@ func (s *Handler) InitSearchCollection() {
 				"linked_card_id":        cardCardID,
 				"linked_card_pk":        cardPK,
 				"linked_card_title":     cardTitle,
-				"linked_card_parent_id": parentID,
+				"linked_card_parent_id": parentIDValue,
 				"tags":                  []string{},
 			}
 			_, err = s.Server.TypesenseClient.Collection(collectionName).Documents().Upsert(context.Background(), doc)
@@ -199,7 +213,6 @@ func (s *Handler) InitSearchCollection() {
 			var name, description, etype string
 			var createdAtTime, updatedAtTime time.Time
 			var userID int
-			var parentID int
 			var cardPK sql.NullInt64
 			var cardCardID, cardTitle sql.NullString
 			var cardParentID sql.NullInt64
@@ -250,7 +263,12 @@ func (s *Handler) InitSearchCollection() {
 				"linked_card_id":        linkedCardID,
 				"linked_card_pk":        linkedCardPK,
 				"linked_card_title":     linkedCardTitle,
-				"linked_card_parent_id": parentID,
+				"linked_card_parent_id": func() int {
+					if cardParentID.Valid {
+						return int(cardParentID.Int64)
+					}
+					return -1
+				}(),
 				"tags":                  []string{},
 			}
 			_, err = s.Server.TypesenseClient.Collection(collectionName).Documents().Upsert(context.Background(), doc)

@@ -73,6 +73,13 @@ func (s *ChatService) finalizeChatMessage(content string) string {
 
 // SaveToolResponse saves a tool response message to the database
 func (s *ChatService) SaveToolResponse(conversationID, toolCallID string, result map[string]interface{}) error {
+	// Get next sequence number for this conversation
+	var sequenceNumber int
+	err := s.DB.QueryRow("SELECT COALESCE(MAX(sequence_number), 0) + 1 FROM chat_messages WHERE conversation_id = $1", conversationID).Scan(&sequenceNumber)
+	if err != nil {
+		return fmt.Errorf("failed to get sequence number: %w", err)
+	}
+
 	// Convert result to JSON string for tool response
 	resultJSON, err := json.Marshal(result)
 	if err != nil {
@@ -81,9 +88,9 @@ func (s *ChatService) SaveToolResponse(conversationID, toolCallID string, result
 	resultStr := string(resultJSON)
 
 	query := `
-		INSERT INTO chat_messages (conversation_id, role, content, tool_call_id, status)
-		VALUES ($1, 'tool', $2, $3, 'completed')
+		INSERT INTO chat_messages (conversation_id, role, content, tool_call_id, sequence_number, status)
+		VALUES ($1, 'tool', $2, $3, $4, 'completed')
 	`
-	_, err = s.DB.Exec(query, conversationID, resultStr, toolCallID)
+	_, err = s.DB.Exec(query, conversationID, resultStr, toolCallID, sequenceNumber)
 	return err
 }

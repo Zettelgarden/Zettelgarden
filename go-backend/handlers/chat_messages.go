@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"go-backend/models"
 	"go-backend/services"
+	"go-backend/services/featureflags"
 	"log"
 	"net/http"
 	"strconv"
@@ -215,8 +216,32 @@ func (s *Handler) StreamMessageRoute(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "event: messages\ndata: %s\n\n", initialData)
 	w.(http.Flusher).Flush()
 
-	// Stream the response
-	s.streamAssistantResponse(r.Context(), w, userID, conversation, assistantMessage.ID, req.Model)
+	// Stream the response - route based on feature flag
+	if featureflags.IsEnabled(featureflags.FeatureFlagChatAgentV2) {
+		// Use new ChatService (refactored code)
+		if s.ChatService == nil {
+			log.Printf("[ChatAgentV2] ERROR: ChatService is nil! Falling back to original code.")
+			s.streamAssistantResponse(r.Context(), w, userID, conversation, assistantMessage.ID, req.Model)
+			return
+		}
+		log.Printf("[ChatAgentV2] Using new ChatService for streaming")
+		err := s.ChatService.StreamAssistantResponse(
+			r.Context(),
+			w,
+			userID,
+			conversation,
+			assistantMessage.ID,
+			req.Model,
+			s.GetConversationMessages,
+			s.UpdateMessageStatus,
+		)
+		if err != nil {
+			log.Printf("[ChatAgentV2] Error in StreamAssistantResponse: %v", err)
+		}
+	} else {
+		// Use original Handler method (proven code)
+		s.streamAssistantResponse(r.Context(), w, userID, conversation, assistantMessage.ID, req.Model)
+	}
 }
 
 // SendMessageRoute sends a message and returns immediately, processing async

@@ -17,23 +17,28 @@ import (
 // StreamEventHandler is a callback function for sending SSE events
 type StreamEventHandler func(eventType string, data interface{}) error
 
+// GetConversationMessagesFunc is the function signature for fetching conversation messages
+type GetConversationMessagesFunc func(conversationID string) ([]models.ChatMessage, error)
+
 const (
 	// maxLoopIterations is the maximum number of tool loop iterations before intervention
 	// The LoopDetector has maxIterations=10, so we intervene at 9 to allow one more cycle
 	maxLoopIterations = 9
 	// progressFeedbackInterval is how often to send progress updates during tool loops
 	progressFeedbackInterval = 5
+	// absoluteMaxLoops is a hard limit to prevent infinite loops even with interventions
+	absoluteMaxLoops = 20
 )
 
-// streamAssistantResponse handles streaming the assistant response
-func (s *ChatService) streamAssistantResponse(
+// StreamAssistantResponse handles streaming the assistant response (exported for Handler integration)
+func (s *ChatService) StreamAssistantResponse(
 	ctx context.Context,
 	w http.ResponseWriter,
 	userID int,
 	conversation *models.ChatConversation,
 	assistantMessageID string,
 	modelOverride *string,
-	getMessagesFn func(string, string) ([]models.ChatMessage, error),
+	getMessagesFn GetConversationMessagesFunc,
 	updateMessageStatusFn func(string, string) error,
 ) error {
 	flusher, ok := w.(http.Flusher)
@@ -65,7 +70,7 @@ func (s *ChatService) streamAssistantResponse(
 	modelToUse := determineModel(conversation.Model, modelOverride)
 
 	// Get conversation history
-	messages, err := getMessagesFn(conversation.ID, assistantMessageID)
+	messages, err := getMessagesFn(conversation.ID)
 	if err != nil {
 		log.Printf("Error getting conversation history: %v", err)
 		updateMessageStatusFn(assistantMessageID, "failed")
@@ -74,7 +79,7 @@ func (s *ChatService) streamAssistantResponse(
 	}
 
 	// Generate response with streaming
-	err = s.streamChatResponse(ctx, userID, conversation, messages, modelToUse, assistantMessageID, sendEvent)
+	err = s.streamChatResponse(ctx, userID, conversation, messages, modelToUse, assistantMessageID, sendEvent, getMessagesFn)
 	if err != nil {
 		log.Printf("Error generating chat response: %v", err)
 		updateMessageStatusFn(assistantMessageID, "failed")
@@ -185,6 +190,7 @@ func (s *ChatService) streamChatResponse(
 	model string,
 	assistantMessageID string,
 	sendEvent StreamEventHandler,
+	getMessagesFn GetConversationMessagesFunc,
 ) error {
 	// buildSystemPrompt will be called with appropriate callbacks
 	systemPrompt, err := s.buildSystemPrompt(userID, conversation, nil, nil)
@@ -217,8 +223,12 @@ func (s *ChatService) streamChatResponse(
 	// Track iteration count for progress feedback
 	iterationCount := 0
 
+	// Track total iterations to prevent infinite loops
+	totalIterations := 0
+
 	// Loop until no more tool calls are needed
-	for {
+	for totalIterations < absoluteMaxLoops {
+		totalIterations++
 		// Check if loop detector has reached max iterations
 		if loopDetector.GetIteration() >= maxLoopIterations {
 			log.Printf("[LoopDetector] Max iterations reached for conversation %s", conversation.ID)
@@ -303,9 +313,35 @@ func (s *ChatService) streamChatResponse(
 			return err
 		}
 
-		// Note: In the full implementation, we would fetch updated messages here
-		// For now, we'll break the loop to avoid circular dependencies
-		break
+		// Get updated messages including tool responses for next iteration
+		updatedMessages, err := getMessagesFn(conversation.ID)
+		if err != nil {
+			log.Printf("[ChatAgentV2] Error getting updated messages: %v", err)
+			return err
+		}
+
+		// Rebuild system prompt for next iteration
+		currentSystemPrompt, err := s.buildSystemPrompt(userID, conversation, nil, nil)
+		if err != nil {
+			log.Printf("[ChatAgentV2] Error rebuilding system prompt: %v", err)
+			// Continue with previous system prompt
+		} else {
+			systemPrompt = currentSystemPrompt
+		}
+
+		// Convert updated messages to OpenAI format and continue loop
+		converter := services.NewMessageConverter()
+		openaiMessages = converter.ToOpenAI(updatedMessages, systemPrompt)
+		// Loop continues to get LLM's final response with tool results
+	}
+
+	// If we exited due to hitting absolute max, provide an error message
+	if totalIterations >= absoluteMaxLoops {
+		errorMsg := "I'm having trouble completing this task due to a technical issue. The conversation has become too complex. Please try starting a new conversation or simplifying your request."
+		return s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, &models.ChatMessage{
+			ID:      assistantMessageID,
+			Content: &errorMsg,
+		})
 	}
 
 	return nil

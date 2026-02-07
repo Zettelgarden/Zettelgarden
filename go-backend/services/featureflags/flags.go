@@ -30,6 +30,8 @@ const (
 	FeatureFlagEntityTools = "entity_tools_v2"
 	// FeatureFlagCardTools enables the new card_tools domain package
 	FeatureFlagCardTools = "card_tools_v2"
+	// FeatureFlagChatAgentV2 enables the refactored ChatService for chat operations
+	FeatureFlagChatAgentV2 = "chat_agent_v2"
 )
 
 // IsEnabled checks if a feature flag is enabled via environment variable.
