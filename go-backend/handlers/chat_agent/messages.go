@@ -2,6 +2,7 @@ package chat_agent
 
 import (
 	"encoding/json"
+	"fmt"
 	"go-backend/models"
 	"log"
 )
@@ -73,13 +74,16 @@ func (s *ChatService) finalizeChatMessage(content string) string {
 // SaveToolResponse saves a tool response message to the database
 func (s *ChatService) SaveToolResponse(conversationID, toolCallID string, result map[string]interface{}) error {
 	// Convert result to JSON string for tool response
-	resultJSON, _ := json.Marshal(result)
+	resultJSON, err := json.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tool result: %w", err)
+	}
 	resultStr := string(resultJSON)
 
 	query := `
 		INSERT INTO chat_messages (conversation_id, role, content, tool_call_id, status)
 		VALUES ($1, 'tool', $2, $3, 'completed')
 	`
-	_, err := s.DB.Exec(query, conversationID, resultStr, toolCallID)
+	_, err = s.DB.Exec(query, conversationID, resultStr, toolCallID)
 	return err
 }

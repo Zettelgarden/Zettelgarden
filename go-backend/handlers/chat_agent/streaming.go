@@ -17,6 +17,14 @@ import (
 // StreamEventHandler is a callback function for sending SSE events
 type StreamEventHandler func(eventType string, data interface{}) error
 
+const (
+	// maxLoopIterations is the maximum number of tool loop iterations before intervention
+	// The LoopDetector has maxIterations=10, so we intervene at 9 to allow one more cycle
+	maxLoopIterations = 9
+	// progressFeedbackInterval is how often to send progress updates during tool loops
+	progressFeedbackInterval = 5
+)
+
 // streamAssistantResponse handles streaming the assistant response
 func (s *ChatService) streamAssistantResponse(
 	ctx context.Context,
@@ -208,12 +216,11 @@ func (s *ChatService) streamChatResponse(
 
 	// Track iteration count for progress feedback
 	iterationCount := 0
-	const progressFeedbackInterval = 5 // Send progress every 5 iterations
 
 	// Loop until no more tool calls are needed
 	for {
 		// Check if loop detector has reached max iterations
-		if loopDetector.GetIteration() >= 9 { // maxIterations is 10 in NewLoopDetector
+		if loopDetector.GetIteration() >= maxLoopIterations {
 			log.Printf("[LoopDetector] Max iterations reached for conversation %s", conversation.ID)
 			interventionMsg := loopDetector.GetInterventionMessage()
 			// Add intervention as a system message to break the loop

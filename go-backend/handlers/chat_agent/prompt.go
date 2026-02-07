@@ -18,7 +18,7 @@ func (s *ChatService) buildSystemPrompt(userID int, conversation *models.ChatCon
 	}
 
 	// Add primary card context if this conversation is about a specific card
-	if conversation != nil && conversation.PrimaryCardID != nil {
+	if conversation != nil && conversation.PrimaryCardID != nil && getCardFn != nil {
 		cardID := fmt.Sprintf("%d", *conversation.PrimaryCardID)
 		card, cardErr := getCardFn(userID, cardID)
 		if cardErr == nil {
@@ -27,7 +27,9 @@ func (s *ChatService) buildSystemPrompt(userID int, conversation *models.ChatCon
 			systemPrompt += fmt.Sprintf("This conversation is primarily about a card (ID: %s).\n", cardID)
 			systemPrompt += "Use the get_card_by_id tool to retrieve the full content when needed.\n"
 			systemPrompt += "Reference this card's content to help the user explore and develop related ideas.\n"
-			_ = card // Use card to avoid unused variable warning
+			// Card data is available but not directly used here - the tool call pattern allows
+			// the LLM to fetch card details on demand rather than pre-loading all context
+			_ = card
 		}
 	}
 

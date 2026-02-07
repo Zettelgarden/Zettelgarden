@@ -11,6 +11,15 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
+const (
+	// compactionThresholdPercent is the percentage of context limit at which to trigger compaction
+	compactionThresholdPercent = 0.60
+	// minMessagesForCompaction is the minimum number of messages before considering compaction
+	minMessagesForCompaction = 10
+	// compactionSplitPercent is the percentage of messages to summarize (oldest half)
+	compactionSplitPercent = 0.50
+)
+
 // estimateTokenCount provides a rough estimate of token count for messages
 // Uses approximation: ~4 characters per token
 func estimateTokenCount(messages []openai.ChatCompletionMessage) int {
@@ -95,8 +104,8 @@ func (s *ChatService) compactConversationIfNeeded(ctx context.Context, userID in
 	tokenCount := estimateTokenCount(messages)
 	contextLimit := getModelContextLimit(model)
 
-	// Trigger compaction at 60% of context limit
-	threshold := int(float64(contextLimit) * 0.6)
+	// Trigger compaction at threshold percentage of context limit
+	threshold := int(float64(contextLimit) * compactionThresholdPercent)
 
 	if tokenCount < threshold {
 		return messages, nil
@@ -105,12 +114,12 @@ func (s *ChatService) compactConversationIfNeeded(ctx context.Context, userID in
 	log.Printf("Conversation approaching token limit (%d/%d tokens). Performing compaction...", tokenCount, contextLimit)
 
 	// Don't compact if conversation is too short
-	if len(messages) < 10 {
+	if len(messages) < minMessagesForCompaction {
 		log.Printf("Conversation too short to compact (%d messages)", len(messages))
 		return messages, nil
 	}
 
-	// Split: first 50% gets summarized, last 50% kept
+	// Split: oldest portion gets summarized, recent portion kept
 	pivotPoint := len(messages) / 2
 
 	// Keep system prompt separate (it's always first)
