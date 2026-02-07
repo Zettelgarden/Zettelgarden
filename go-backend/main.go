@@ -259,6 +259,7 @@ func run() error {
 	scheduler.Register(jobs.NewUserMemoryMaintenanceJob(s.DB, s.LLMClient, memoryCompressor))
 	scheduler.Register(jobs.NewTaskRemindersJob(s.DB, s.Mail))
 	scheduler.Register(jobs.NewUptimeKumaPingJob())
+	scheduler.Register(jobs.NewRSSFetchJob(s.DB))
 
 	scheduler.Start()
 	defer scheduler.Stop()
