@@ -4,6 +4,7 @@ import { SearchIcon } from "../../assets/icons/SearchIcon";
 import { TasksIcon } from "../../assets/icons/TasksIcon";
 import { CalendarIcon } from "../../assets/icons/CalendarIcon";
 import { ChatIcon } from "../../assets/icons/ChatIcon";
+import { RssIcon } from "../../assets/icons/RssIcon";
 
 interface NavigationLinksProps {
   todayTasksCount: number;
@@ -38,6 +39,11 @@ export function NavigationLinks({ todayTasksCount, hasSubscription }: Navigation
           {!hasSubscription && (
             <span className="ml-2 bg-purple-500 text-white text-xs font-semibold px-3 py-1.5 md:px-2 md:py-0.5 rounded-full min-h-[32px] md:min-h-0 flex items-center">PRO</span>
           )}
+        </SidebarLink>
+
+        <SidebarLink to="/app/rss">
+          <RssIcon />
+          <span className="px-2 flex-grow">RSS</span>
         </SidebarLink>
       </ul>
     </div>
