@@ -9,12 +9,17 @@ import {
   markAsRead,
   convertToCard,
   refreshFeeds,
+  deleteFeed,
+  deleteFolder,
   RSSFeed,
   RSSArticle,
   RSSFolder,
   ArticleFilters,
 } from "../api/rss";
 import { RssAddFeedDialog } from "../components/rss/RssAddFeedDialog";
+import { RssEditFeedDialog } from "../components/rss/RssEditFeedDialog";
+import { RssEditFolderDialog } from "../components/rss/RssEditFolderDialog";
+import { RssConfirmDialog } from "../components/rss/RssConfirmDialog";
 import { RssConvertDialog } from "../components/rss/RssConvertDialog";
 
 export function RssPage() {
@@ -29,6 +34,13 @@ export function RssPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showAddFeedDialog, setShowAddFeedDialog] = useState(false);
+  const [showEditFeedDialog, setShowEditFeedDialog] = useState(false);
+  const [showEditFolderDialog, setShowEditFolderDialog] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [editingFeed, setEditingFeed] = useState<RSSFeed | null>(null);
+  const [editingFolder, setEditingFolder] = useState<RSSFolder | null>(null);
+  const [deletingType, setDeletingType] = useState<"feed" | "folder" | null>(null);
+  const [deletingItem, setDeletingItem] = useState<RSSFeed | RSSFolder | null>(null);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
 
@@ -123,6 +135,98 @@ export function RssPage() {
     return feed?.name || "Unknown Feed";
   };
 
+  const handleEditFeed = (feed: RSSFeed) => {
+    setEditingFeed(feed);
+    setShowEditFeedDialog(true);
+  };
+
+  const handleFeedUpdated = (updatedFeed: RSSFeed) => {
+    setFeeds((prev) =>
+      prev.map((f) => (f.id === updatedFeed.id ? updatedFeed : f))
+    );
+    setShowEditFeedDialog(false);
+    setEditingFeed(null);
+  };
+
+  const handleDeleteFeed = (feed: RSSFeed) => {
+    setDeletingType("feed");
+    setDeletingItem(feed);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleEditFolder = (folder: RSSFolder) => {
+    setEditingFolder(folder);
+    setShowEditFolderDialog(true);
+  };
+
+  const handleFolderUpdated = (updatedFolder: RSSFolder) => {
+    setFolders((prev) =>
+      prev.map((f) => (f.id === updatedFolder.id ? updatedFolder : f))
+    );
+    // Update feeds that reference this folder
+    setFeeds((prev) =>
+      prev.map((f) => (f.folder === editingFolder?.name ? { ...f, folder: updatedFolder.name } : f))
+    );
+    // Update selected folder if it's the one being edited
+    if (selectedFolder === editingFolder?.name) {
+      setSelectedFolder(updatedFolder.name);
+    }
+    setShowEditFolderDialog(false);
+    setEditingFolder(null);
+  };
+
+  const handleDeleteFolder = (folder: RSSFolder) => {
+    setDeletingType("folder");
+    setDeletingItem(folder);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingType || !deletingItem) return;
+
+    try {
+      if (deletingType === "feed") {
+        await deleteFeed((deletingItem as RSSFeed).id);
+        setFeeds((prev) => prev.filter((f) => f.id !== (deletingItem as RSSFeed).id));
+        // Clear selected feed if it was deleted
+        if (selectedFeedId === (deletingItem as RSSFeed).id) {
+          setSelectedFeedId(null);
+        }
+      } else if (deletingType === "folder") {
+        await deleteFolder((deletingItem as RSSFolder).id);
+        setFolders((prev) => prev.filter((f) => f.id !== (deletingItem as RSSFolder).id));
+        // Update feeds to remove folder reference
+        setFeeds((prev) =>
+          prev.map((f) => (f.folder === (deletingItem as RSSFolder).name ? { ...f, folder: undefined } : f))
+        );
+        // Clear selected folder if it was deleted
+        if (selectedFolder === (deletingItem as RSSFolder).name) {
+          setSelectedFolder(null);
+        }
+      }
+      setShowDeleteConfirm(false);
+      setDeletingType(null);
+      setDeletingItem(null);
+    } catch (error) {
+      console.error("Failed to delete:", error);
+      alert("Failed to delete. Please try again.");
+    }
+  };
+
+  const handleMarkAsUnread = async () => {
+    if (!selectedArticle) return;
+
+    try {
+      await markAsRead(selectedArticle.id, false);
+      setArticles((prev) =>
+        prev.map((a) => (a.id === selectedArticle.id ? { ...a, read: false } : a))
+      );
+      setSelectedArticle((prev) => (prev ? { ...prev, read: false } : null));
+    } catch (error) {
+      console.error("Failed to mark as unread:", error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -185,24 +289,54 @@ export function RssPage() {
             </h3>
             <div className="space-y-1">
               {feeds.map((feed) => (
-                <button
+                <div
                   key={feed.id}
-                  onClick={() => {
-                    setSelectedFeedId(feed.id);
-                    setSelectedFolder(null);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
-                    selectedFeedId === feed.id ? "bg-blue-100 text-blue-900" : "hover:bg-gray-100"
+                  className={`group flex items-center rounded-md transition-colors text-sm ${
+                    selectedFeedId === feed.id ? "bg-blue-100" : "hover:bg-gray-100"
                   }`}
-                  title={feed.url}
                 >
-                  <div className="truncate">{feed.name}</div>
-                  {feed.last_error && (
-                    <div className="text-xs text-red-500 truncate" title={feed.last_error}>
-                      Error
-                    </div>
-                  )}
-                </button>
+                  <button
+                    onClick={() => {
+                      setSelectedFeedId(feed.id);
+                      setSelectedFolder(null);
+                    }}
+                    className="flex-1 text-left px-3 py-2"
+                    title={feed.url}
+                  >
+                    <div className="truncate">{feed.name}</div>
+                    {feed.last_error && (
+                      <div className="text-xs text-red-500 truncate" title={feed.last_error}>
+                        Error
+                      </div>
+                    )}
+                  </button>
+                  <div className="flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditFeed(feed);
+                      }}
+                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                      title="Edit feed"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteFeed(feed);
+                      }}
+                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      title="Delete feed"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -227,18 +361,48 @@ export function RssPage() {
             </h3>
             <div className="space-y-1">
               {folders.map((folder) => (
-                <button
+                <div
                   key={folder.id}
-                  onClick={() => {
-                    setSelectedFolder(folder.name);
-                    setSelectedFeedId(null);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                    selectedFolder === folder.name ? "bg-blue-100 text-blue-900" : "hover:bg-gray-100"
+                  className={`group flex items-center rounded-md transition-colors text-sm ${
+                    selectedFolder === folder.name ? "bg-blue-100" : "hover:bg-gray-100"
                   }`}
                 >
-                  {folder.name}
-                </button>
+                  <button
+                    onClick={() => {
+                      setSelectedFolder(folder.name);
+                      setSelectedFeedId(null);
+                    }}
+                    className="flex-1 text-left px-3 py-2"
+                  >
+                    {folder.name}
+                  </button>
+                  <div className="flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditFolder(folder);
+                      }}
+                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                      title="Rename folder"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteFolder(folder);
+                      }}
+                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      title="Delete folder"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -324,6 +488,17 @@ export function RssPage() {
             )}
 
             <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-gray-200">
+              {selectedArticle.read && (
+                <button
+                  onClick={handleMarkAsUnread}
+                  className="bg-gray-600 text-white px-6 py-2 rounded-md hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Mark as Unread
+                </button>
+              )}
               <button
                 onClick={handleConvertClick}
                 className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
@@ -351,6 +526,31 @@ export function RssPage() {
         isOpen={showAddFeedDialog}
         onClose={() => setShowAddFeedDialog(false)}
         onFeedAdded={handleFeedAdded}
+      />
+      <RssEditFeedDialog
+        isOpen={showEditFeedDialog}
+        onClose={() => setShowEditFeedDialog(false)}
+        feed={editingFeed}
+        onFeedUpdated={handleFeedUpdated}
+      />
+      <RssEditFolderDialog
+        isOpen={showEditFolderDialog}
+        onClose={() => setShowEditFolderDialog(false)}
+        folder={editingFolder}
+        onFolderUpdated={handleFolderUpdated}
+      />
+      <RssConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleConfirmDelete}
+        title={deletingType === "feed" ? "Delete Feed" : "Delete Folder"}
+        message={
+          deletingType === "feed"
+            ? `Are you sure you want to delete "${(deletingItem as RSSFeed)?.name}"? This will also delete all articles from this feed.`
+            : `Are you sure you want to delete folder "${(deletingItem as RSSFolder)?.name}"? Feeds in this folder will become uncategorized.`
+        }
+        confirmText="Delete"
+        dangerous={true}
       />
       <RssConvertDialog
         isOpen={showConvertDialog}

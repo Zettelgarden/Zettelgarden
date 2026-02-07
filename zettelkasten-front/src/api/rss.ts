@@ -36,6 +36,16 @@ export interface RSSFolder {
   order_index: number;
 }
 
+export interface CreateRSSFolderParams {
+  name: string;
+  order_index?: number;
+}
+
+export interface UpdateRSSFolderParams {
+  name?: string;
+  order_index?: number;
+}
+
 export interface CreateRSSFeedParams {
   url: string;
   name?: string;
@@ -118,4 +128,20 @@ export function convertToCard(id: number, params?: ConvertArticleParams): Promis
 // Folder API
 export function listFolders(): Promise<RSSFolder[]> {
   return getData(apiClient.get<RSSFolder[]>("/rss/folders")).then(data => data ?? []);
+}
+
+export function getFolder(id: number): Promise<RSSFolder> {
+  return getData(apiClient.get<RSSFolder>(`/rss/folders/${id}`));
+}
+
+export function createFolder(params: CreateRSSFolderParams): Promise<RSSFolder> {
+  return getData(apiClient.post<RSSFolder>("/rss/folders", params));
+}
+
+export function updateFolder(id: number, params: UpdateRSSFolderParams): Promise<RSSFolder> {
+  return getData(apiClient.put<RSSFolder>(`/rss/folders/${id}`, params));
+}
+
+export function deleteFolder(id: number): Promise<void> {
+  return getData(apiClient.delete<void>(`/rss/folders/${id}`));
 }
