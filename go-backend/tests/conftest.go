@@ -12,6 +12,8 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -200,7 +202,12 @@ func Setup() *server.Server {
 		S = &server.Server{}
 		S.DB = db
 		S.Testing = true
-		S.SchemaDir = "../schema"
+		// Use absolute path for schema directory to work from any test directory
+		schemaDir, err := getSchemaDir()
+		if err != nil {
+			log.Fatalf("Failed to get schema directory: %v\n", err)
+		}
+		S.SchemaDir = schemaDir
 
 		S.Mail = &mail.MailClient{
 			Testing:           true,
@@ -796,6 +803,21 @@ func generateData() map[string]interface{} {
 		"entity_cards": entity_cards,
 	}
 	return results
+}
+
+// getSchemaDir returns the absolute path to the schema directory
+func getSchemaDir() (string, error) {
+	// Get the directory containing this file (tests/)
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("could not get caller info")
+	}
+	// Get the tests directory
+	testsDir := filepath.Dir(filename)
+	// Go up one level to get go-backend directory
+	backendDir := filepath.Dir(testsDir)
+	// Return the schema directory path
+	return filepath.Join(backendDir, "schema"), nil
 }
 
 func randomString(length int) string {
