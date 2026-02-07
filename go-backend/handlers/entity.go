@@ -1175,12 +1175,17 @@ func (s *Handler) GetSimilarEntitiesRoute(w http.ResponseWriter, r *http.Request
 		entity.Score = scoreMap[entity.ID]
 
 		if cardID.Valid {
+			var parentIDPtr *int
+			if cardParentID.Valid {
+				parentID := int(cardParentID.Int64)
+				parentIDPtr = &parentID
+			}
 			entity.Card = &models.PartialCard{
 				ID:        int(cardID.Int64),
 				CardID:    cardCardID.String,
 				Title:     cardTitle.String,
 				UserID:    int(cardUserID.Int64),
-				ParentID:  int(cardParentID.Int64),
+				ParentID:  parentIDPtr,
 				CreatedAt: cardCreatedAt.Time,
 				UpdatedAt: cardUpdatedAt.Time,
 				Tags:      []models.Tag{},
