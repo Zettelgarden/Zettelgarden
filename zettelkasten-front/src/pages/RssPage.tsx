@@ -63,7 +63,9 @@ export function RssPage() {
   const [importResult, setImportResult] = useState<OPMLImportResult | null>(null);
   const [importing, setImporting] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showFeedMenuId, setShowFeedMenuId] = useState<number | null>(null);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
+  const feedMenuRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // Calculate total unread count
   const totalUnreadCount = useMemo(() => {
@@ -104,6 +106,29 @@ export function RssPage() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showSettingsMenu]);
+
+  // Close feed menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showFeedMenuId !== null) {
+        const target = event.target as Node;
+        feedMenuRefs.current.forEach((_, feedId) => {
+          const el = feedMenuRefs.current.get(feedId);
+          if (el && !el.contains(target)) {
+            setShowFeedMenuId(null);
+          }
+        });
+      }
+    };
+
+    if (showFeedMenuId !== null) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showFeedMenuId]);
 
   useEffect(() => {
     loadArticles();
@@ -509,7 +534,7 @@ export function RssPage() {
 
         {/* Folders with Feeds */}
         {folders.length > 0 && (
-          <div className="mb-3 space-y-1">
+          <div className="mb-3 space-y-2">
             {folders.map((folder) => {
               const folderFeeds = getFeedsByFolder(folder.name);
               const isExpanded = expandedFolders.has(folder.name);
@@ -517,11 +542,11 @@ export function RssPage() {
               const unreadCount = getUnreadCountForFolder(folder.name);
 
               return (
-                <div key={folder.id}>
+                <div key={folder.id} className="bg-gray-100/50 rounded-lg p-2">
                   {/* Folder header */}
                   <div
                     className={`group flex items-center rounded-md transition-colors text-sm ${
-                      isSelected ? "bg-blue-100" : "hover:bg-gray-100"
+                      isSelected ? "bg-amber-100" : "hover:bg-amber-50"
                     }`}
                   >
                     <button
@@ -581,52 +606,80 @@ export function RssPage() {
                     <div className="ml-4 space-y-1 mt-1">
                       {folderFeeds.map((feed) => {
                         const unreadCount = getUnreadCountForFeed(feed.id);
+                        const showMenu = showFeedMenuId === feed.id;
                         return (
                           <div
                             key={feed.id}
-                            className={`group flex items-center rounded-md transition-colors text-sm ${
+                            className={`group flex items-center gap-1 rounded-md transition-colors text-sm ${
                               selectedFeedId === feed.id ? "bg-blue-50" : "hover:bg-gray-50"
                             }`}
+                            ref={(el) => {
+                              if (el) feedMenuRefs.current.set(feed.id, el);
+                            }}
                           >
+                            {/* Settings button on left */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowFeedMenuId(showMenu ? null : feed.id);
+                              }}
+                              className="p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                              aria-label={`Feed options for ${feed.name}`}
+                            >
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4z" />
+                                <path d="M2 10a2 2 0 114 0 2 2 0 01-4 0z" />
+                                <path d="M10 14a2 2 0 110-4 2 2 0 010 4z" />
+                              </svg>
+                            </button>
+
+                            {/* Feed name in middle */}
                             <button
                               onClick={() => {
                                 setSelectedFeedId(feed.id);
                                 setSelectedFolder(null);
+                                setShowFeedMenuId(null);
                               }}
-                              className="flex-1 text-left px-3 py-1.5 truncate flex items-center gap-1"
+                              className="flex-1 text-left px-3 py-1.5 truncate"
                               title={feed.url}
                             >
                               <span className="truncate">{feed.name}</span>
-                              {renderUnreadBadge(unreadCount)}
                             </button>
-                            <div className="flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditFeed(feed);
-                                }}
-                                className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                                aria-label={`Edit feed ${feed.name}`}
-                                title="Edit feed"
-                              >
-                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteFeed(feed);
-                                }}
-                                className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                                aria-label={`Delete feed ${feed.name}`}
-                                title="Delete feed"
-                              >
-                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </button>
-                            </div>
+
+                            {/* Unread badge on right */}
+                            {renderUnreadBadge(unreadCount)}
+
+                            {/* Dropdown menu */}
+                            {showMenu && (
+                              <div className="absolute left-8 top-full mt-1 w-32 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowFeedMenuId(null);
+                                    handleEditFeed(feed);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                >
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowFeedMenuId(null);
+                                    handleDeleteFeed(feed);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2"
+                                >
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                  Delete
+                                </button>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -648,10 +701,10 @@ export function RssPage() {
 
           const isExpanded = expandedFolders.has("__uncategorized__");
           return (
-            <div className="mb-3">
+            <div className="mb-3 bg-gray-100/50 rounded-lg p-2">
               <div
                 className={`group flex items-center rounded-md transition-colors text-sm ${
-                  selectedFolder === null && selectedFeedId === null ? "bg-gray-100" : "hover:bg-gray-50"
+                  selectedFolder === null && selectedFeedId === null ? "bg-amber-100" : "hover:bg-amber-50"
                 }`}
               >
                 <button
@@ -673,52 +726,80 @@ export function RssPage() {
                 <div className="ml-4 space-y-1 mt-1">
                   {uncategorizedFeeds.map((feed) => {
                     const unreadCount = getUnreadCountForFeed(feed.id);
+                    const showMenu = showFeedMenuId === feed.id;
                     return (
                       <div
                         key={feed.id}
-                        className={`group flex items-center rounded-md transition-colors text-sm ${
+                        className={`group flex items-center gap-1 rounded-md transition-colors text-sm ${
                           selectedFeedId === feed.id ? "bg-blue-50" : "hover:bg-gray-50"
                         }`}
+                        ref={(el) => {
+                          if (el) feedMenuRefs.current.set(feed.id, el);
+                        }}
                       >
+                        {/* Settings button on left */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowFeedMenuId(showMenu ? null : feed.id);
+                          }}
+                          className="p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          aria-label={`Feed options for ${feed.name}`}
+                        >
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4z" />
+                            <path d="M2 10a2 2 0 114 0 2 2 0 01-4 0z" />
+                            <path d="M10 14a2 2 0 110-4 2 2 0 010 4z" />
+                          </svg>
+                        </button>
+
+                        {/* Feed name in middle */}
                         <button
                           onClick={() => {
                             setSelectedFeedId(feed.id);
                             setSelectedFolder(null);
+                            setShowFeedMenuId(null);
                           }}
-                          className="flex-1 text-left px-3 py-1.5 truncate flex items-center gap-1"
+                          className="flex-1 text-left px-3 py-1.5 truncate"
                           title={feed.url}
                         >
                           <span className="truncate">{feed.name}</span>
-                          {renderUnreadBadge(unreadCount)}
                         </button>
-                        <div className="flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditFeed(feed);
-                            }}
-                            className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                            aria-label={`Edit feed ${feed.name}`}
-                            title="Edit feed"
-                          >
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteFeed(feed);
-                            }}
-                            className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                            aria-label={`Delete feed ${feed.name}`}
-                            title="Delete feed"
-                          >
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
+
+                        {/* Unread badge on right */}
+                        {renderUnreadBadge(unreadCount)}
+
+                        {/* Dropdown menu */}
+                        {showMenu && (
+                          <div className="absolute left-8 top-full mt-1 w-32 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowFeedMenuId(null);
+                                handleEditFeed(feed);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              Edit
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowFeedMenuId(null);
+                                handleDeleteFeed(feed);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Delete
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
