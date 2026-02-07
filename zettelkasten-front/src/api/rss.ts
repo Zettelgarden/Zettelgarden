@@ -72,7 +72,7 @@ export function createFeed(feed: CreateRSSFeedParams): Promise<RSSFeed> {
 }
 
 export function listFeeds(): Promise<RSSFeed[]> {
-  return getData(apiClient.get<RSSFeed[]>("/rss/feeds"));
+  return getData(apiClient.get<RSSFeed[]>("/rss/feeds")).then(data => data ?? []);
 }
 
 export function getFeed(id: number): Promise<RSSFeed> {
@@ -100,7 +100,7 @@ export function listArticles(filters?: ArticleFilters): Promise<RSSArticle[]> {
   if (filters?.limit) params.set("limit", filters.limit.toString());
 
   const query = params.toString();
-  return getData(apiClient.get<RSSArticle[]>(`/rss/articles${query ? `?${query}` : ""}`));
+  return getData(apiClient.get<RSSArticle[]>(`/rss/articles${query ? `?${query}` : ""}`)).then(data => data ?? []);
 }
 
 export function getArticle(id: number): Promise<RSSArticle> {
@@ -117,5 +117,5 @@ export function convertToCard(id: number, params?: ConvertArticleParams): Promis
 
 // Folder API
 export function listFolders(): Promise<RSSFolder[]> {
-  return getData(apiClient.get<RSSFolder[]>("/rss/folders"));
+  return getData(apiClient.get<RSSFolder[]>("/rss/folders")).then(data => data ?? []);
 }
