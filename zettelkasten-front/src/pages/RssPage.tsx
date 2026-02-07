@@ -546,12 +546,14 @@ export function RssPage() {
       <RssAddFeedDialog
         isOpen={showAddFeedDialog}
         onClose={() => setShowAddFeedDialog(false)}
+        folders={folders}
         onFeedAdded={handleFeedAdded}
       />
       <RssEditFeedDialog
         isOpen={showEditFeedDialog}
         onClose={() => setShowEditFeedDialog(false)}
         feed={editingFeed}
+        folders={folders}
         onFeedUpdated={handleFeedUpdated}
       />
       <RssEditFolderDialog

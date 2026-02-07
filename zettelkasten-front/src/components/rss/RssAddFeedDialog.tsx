@@ -1,17 +1,19 @@
 import React, { useState } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment } from "react";
-import { createFeed, CreateRSSFeedParams, RSSFeed } from "../../api/rss";
+import { createFeed, CreateRSSFeedParams, RSSFeed, RSSFolder } from "../../api/rss";
 
 interface RssAddFeedDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  folders: RSSFolder[];
   onFeedAdded: (feed: RSSFeed) => void;
 }
 
 export function RssAddFeedDialog({
   isOpen,
   onClose,
+  folders,
   onFeedAdded,
 }: RssAddFeedDialogProps) {
   const [url, setUrl] = useState("");
@@ -135,14 +137,19 @@ export function RssAddFeedDialog({
                     <label htmlFor="feed-folder" className="block text-sm font-medium text-gray-700 mb-1">
                       Folder <span className="text-gray-400">(optional)</span>
                     </label>
-                    <input
+                    <select
                       id="feed-folder"
-                      type="text"
                       value={folder}
                       onChange={(e) => setFolder(e.target.value)}
-                      placeholder="Tech"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    />
+                    >
+                      <option value="">No folder</option>
+                      {folders.map((f) => (
+                        <option key={f.id} value={f.name}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Auto Tags - Optional */}
