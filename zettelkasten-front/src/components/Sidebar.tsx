@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { useTaskContext } from "../contexts/TaskContext";
 import { useUIState } from "../contexts/UIStateContext";
 import { useDialogState } from "../contexts/DialogStateContext";
+import { useRSS } from "../contexts/RSSContext";
 import { isTodayOrPast } from "../utils/dates";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -27,6 +28,7 @@ export function Sidebar() {
   const { lastCard, conversationId, setConversationId, isSidebarCollapsed, toggleSidebarCollapsed } = useUIState();
   const { showToast } = useToast();
   const { tasks } = useTaskContext();
+  const { unreadCount: unreadRssCount } = useRSS();
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [showAddArticleDialog, setShowAddArticleDialog] = useState(false);
   const [showStarCardDialog, setShowStarCardDialog] = useState(false);
@@ -159,6 +161,7 @@ export function Sidebar() {
         <div className="flex-1 overflow-y-auto">
           <NavigationLinks
             todayTasksCount={todayTasks.length}
+            unreadRssCount={unreadRssCount}
             hasSubscription={hasSubscription}
             isCollapsed={isSidebarCollapsed}
           />

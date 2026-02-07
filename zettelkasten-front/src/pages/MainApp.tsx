@@ -11,6 +11,7 @@ import { StatusProvider } from "../contexts/StatusContext";
 import { TagProvider } from "../contexts/TagContext";
 import { UIStateProvider } from "../contexts/UIStateContext";
 import { DialogStateProvider } from "../contexts/DialogStateContext";
+import { RSSProvider } from "../contexts/RSSContext";
 import { SplitViewLayout } from "../components/cards/SplitViewLayout";
 import { ChatSidebarLayout } from "../components/chat/ChatSidebarLayout";
 import { ErrorBoundary } from "../components/ErrorBoundary";
@@ -140,7 +141,9 @@ function MainApp() {
           <StatusProvider>
             <UIStateProvider>
               <DialogStateProvider>
-                <MainAppContent />
+                <RSSProvider>
+                  <MainAppContent />
+                </RSSProvider>
               </DialogStateProvider>
             </UIStateProvider>
           </StatusProvider>

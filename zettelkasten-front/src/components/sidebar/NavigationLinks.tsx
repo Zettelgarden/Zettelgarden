@@ -8,6 +8,7 @@ import { RssIcon } from "../../assets/icons/RssIcon";
 
 interface NavigationLinksProps {
   todayTasksCount: number;
+  unreadRssCount: number;
   hasSubscription: boolean;
   isCollapsed: boolean;
 }
@@ -107,7 +108,7 @@ function CollapsibleLink({
   );
 }
 
-export function NavigationLinks({ todayTasksCount, hasSubscription, isCollapsed }: NavigationLinksProps) {
+export function NavigationLinks({ todayTasksCount, unreadRssCount, hasSubscription, isCollapsed }: NavigationLinksProps) {
   return (
     <div className={`p-2 ${isCollapsed ? "px-1" : ""}`}>
       <ul className="space-y-1">
@@ -159,6 +160,14 @@ export function NavigationLinks({ todayTasksCount, hasSubscription, isCollapsed 
           icon={<RssIcon />}
           label="RSS"
           isCollapsed={isCollapsed}
+          badgeCount={unreadRssCount}
+          badge={
+            unreadRssCount > 0 && (
+              <span className="px-3 py-1.5 md:px-2 md:py-1 text-xs bg-blue-100 rounded-full min-h-[32px] md:min-h-0 flex items-center">
+                {unreadRssCount}
+              </span>
+            )
+          }
         />
       </ul>
     </div>

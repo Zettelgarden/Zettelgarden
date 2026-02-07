@@ -30,9 +30,11 @@ import { RssCreateFolderDialog } from "../components/rss/RssCreateFolderDialog";
 import { RssConfirmDialog } from "../components/rss/RssConfirmDialog";
 import { RssConvertDialog } from "../components/rss/RssConvertDialog";
 import { RssImportDialog } from "../components/rss/RssImportDialog";
+import { useRSS } from "../contexts/RSSContext";
 
 export function RssPage() {
   const navigate = useNavigate();
+  const { setUnreadCount } = useRSS();
   const [feeds, setFeeds] = useState<RSSFeed[]>([]);
   const [articles, setArticles] = useState<RSSArticle[]>([]);
   const [folders, setFolders] = useState<RSSFolder[]>([]);
@@ -63,8 +65,26 @@ export function RssPage() {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
 
+  // Calculate total unread count
+  const totalUnreadCount = useMemo(() => {
+    return Object.values(unreadCounts.feeds).reduce((sum, count) => sum + count, 0);
+  }, [unreadCounts]);
+
+  // Update page title with unread count
   useEffect(() => {
-    setDocumentTitle("RSS");
+    if (totalUnreadCount > 0) {
+      setDocumentTitle(`RSS (${totalUnreadCount})`);
+    } else {
+      setDocumentTitle("RSS");
+    }
+  }, [totalUnreadCount]);
+
+  // Update RSS context when unread count changes
+  useEffect(() => {
+    setUnreadCount(totalUnreadCount);
+  }, [totalUnreadCount, setUnreadCount]);
+
+  useEffect(() => {
     loadData();
   }, []);
 
