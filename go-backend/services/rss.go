@@ -133,6 +133,10 @@ func ListRSSFeeds(db models.Database, userID int) ([]models.RSSFeed, error) {
 		feeds = append(feeds, feed)
 	}
 
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating feeds: %w", err)
+	}
+
 	return feeds, nil
 }
 
@@ -273,6 +277,10 @@ func ListRSSArticles(db models.Database, userID int, filters map[string]interfac
 		articles = append(articles, article)
 	}
 
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating articles: %w", err)
+	}
+
 	return articles, nil
 }
 
@@ -380,7 +388,9 @@ func ConvertRSSArticleToCard(db models.Database, userID, articleID int, params *
 	}
 
 	// Mark article as read
-	_ = MarkRSSArticleAsRead(db, userID, articleID, true)
+	if err := MarkRSSArticleAsRead(db, userID, articleID, true); err != nil {
+		log.Printf("[rss-article:%d] failed to mark as read after conversion: %v", articleID, err)
+	}
 
 	return &card, nil
 }
@@ -431,8 +441,12 @@ func FetchRSSFeedArticles(db models.Database, feedID int) error {
 		var exists bool
 		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM rss_articles WHERE user_id = $1 AND url = $2)",
 			feed.UserID, item.Link).Scan(&exists)
-		if err != nil || exists {
-			continue // Skip existing or error
+		if err != nil {
+			log.Printf("[rss-feed:%d] failed to check article existence: %v", feedID, err)
+			continue
+		}
+		if exists {
+			continue
 		}
 
 		// Fetch full content using readability
@@ -509,6 +523,10 @@ func ListRSSFolders(db models.Database, userID int) ([]models.RSSFolder, error) 
 			return nil, fmt.Errorf("failed to scan folder: %w", err)
 		}
 		folders = append(folders, folder)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating folders: %w", err)
 	}
 
 	return folders, nil
