@@ -472,13 +472,17 @@ func FetchRSSFeedArticles(db models.Database, feedID int) error {
 				content = &parsed.Content
 			} else {
 				log.Printf("[rss-feed:%d] failed to parse article content: %v", feedID, parseErr)
-				// Fall back to description
-				if item.Description != "" {
-					content = &item.Description
-				}
 			}
-		} else if item.Description != "" {
-			content = &item.Description
+		}
+
+		// Fall back to feed's content or description
+		if content == nil {
+			// Try item.Content first (from content:encoded), then Description
+			if item.Content != "" {
+				content = &item.Content
+			} else if item.Description != "" {
+				content = &item.Description
+			}
 		}
 
 		// Parse published date
