@@ -9,7 +9,7 @@ const turndownService = new TurndownService({
 // Preserve links when converting
 turndownService.addRule('links', {
   filter: 'a',
-  replacement: (content: string, node: any) => {
+  replacement: (content: string, node: HTMLElement) => {
     const href = node.getAttribute('href');
     if (href) {
       return `[${content}](${href})`;
@@ -21,7 +21,7 @@ turndownService.addRule('links', {
 // Preserve images when converting
 turndownService.addRule('images', {
   filter: 'img',
-  replacement: (content: string, node: any) => {
+  replacement: (content: string, node: HTMLElement) => {
     const src = node.getAttribute('src');
     const alt = node.getAttribute('alt') || '';
     if (src) {

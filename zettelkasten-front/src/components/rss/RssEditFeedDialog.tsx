@@ -64,9 +64,9 @@ export function RssEditFeedDialog({
       const updatedFeed = await updateFeed(feed.id, feedParams);
       onFeedUpdated(updatedFeed);
       handleClose();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to update feed:", err);
-      setError(err.message || "Failed to update feed. Please try again.");
+      setError(err instanceof Error ? err.message : "Failed to update feed. Please try again.");
     } finally {
       setLoading(false);
     }

@@ -51,9 +51,9 @@ export function RssAddFeedDialog({
       const newFeed = await createFeed(feedParams);
       onFeedAdded(newFeed);
       handleClose();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to create feed:", err);
-      setError(err.message || "Failed to add feed. Please check the URL and try again.");
+      setError(err instanceof Error ? err.message : "Failed to add feed. Please check the URL and try again.");
     } finally {
       setLoading(false);
     }

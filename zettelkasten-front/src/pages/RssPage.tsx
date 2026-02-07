@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { setDocumentTitle } from "../utils/title";
 import { safeHtmlToMarkdown } from "../utils/markdown";
@@ -49,8 +49,10 @@ export function RssPage() {
   const [deletingItem, setDeletingItem] = useState<RSSFeed | RSSFolder | null>(null);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [unreadCounts, setUnreadCounts] = useState<UnreadCounts>({ folders: {}, feeds: {} });
+  const [markingAsRead, setMarkingAsRead] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     setDocumentTitle("RSS");
@@ -88,12 +90,25 @@ export function RssPage() {
 
       const articlesData = await listArticles(filters);
       setArticles(articlesData);
+      setErrorMessage("");
     } catch (error) {
       console.error("Failed to load articles:", error);
+      setErrorMessage("Failed to load articles. Please try again.");
+      setTimeout(() => setErrorMessage(""), 5000);
     }
   };
 
-  const handleRefresh = async () => {
+  const refreshUnreadCounts = useCallback(async () => {
+    try {
+      const counts = await getUnreadCounts();
+      setUnreadCounts(counts);
+    } catch (error) {
+      console.error("Failed to refresh unread counts:", error);
+      // Non-blocking error - counts will update on next refresh
+    }
+  }, []);
+
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     setRefreshMessage("");
     try {
@@ -109,32 +124,39 @@ export function RssPage() {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  const refreshUnreadCounts = async () => {
-    try {
-      const counts = await getUnreadCounts();
-      setUnreadCounts(counts);
-    } catch (error) {
-      console.error("Failed to refresh unread counts:", error);
+  const handleArticleClick = useCallback(async (article: RSSArticle) => {
+    // Prevent duplicate requests for the same article
+    if (markingAsRead.has(article.id)) {
+      return;
     }
-  };
 
-  const handleArticleClick = async (article: RSSArticle) => {
     setSelectedArticle(article);
     if (!article.read) {
+      setMarkingAsRead((prev) => new Set(prev).add(article.id));
       try {
         await markAsRead(article.id, true);
         setArticles((prev) =>
           prev.map((a) => (a.id === article.id ? { ...a, read: true } : a))
         );
-        // Refresh unread counts
-        refreshUnreadCounts();
+        // Refresh unread counts (fire and forget, non-blocking)
+        refreshUnreadCounts().catch(() => {
+          // Silently fail - counts will update on next refresh
+        });
       } catch (error) {
         console.error("Failed to mark as read:", error);
+        setErrorMessage("Failed to mark article as read. Please try again.");
+        setTimeout(() => setErrorMessage(""), 3000);
+      } finally {
+        setMarkingAsRead((prev) => {
+          const next = new Set(prev);
+          next.delete(article.id);
+          return next;
+        });
       }
     }
-  };
+  }, [markingAsRead, refreshUnreadCounts]);
 
   const handleFeedAdded = (feed: RSSFeed) => {
     setFeeds((prev) => [...prev, feed]);
@@ -268,7 +290,8 @@ export function RssPage() {
       setDeletingItem(null);
     } catch (error) {
       console.error("Failed to delete:", error);
-      alert("Failed to delete. Please try again.");
+      setErrorMessage("Failed to delete. Please try again.");
+      setTimeout(() => setErrorMessage(""), 5000);
     }
   };
 
@@ -281,10 +304,14 @@ export function RssPage() {
         prev.map((a) => (a.id === selectedArticle.id ? { ...a, read: false } : a))
       );
       setSelectedArticle((prev) => (prev ? { ...prev, read: false } : null));
-      // Refresh unread counts
-      refreshUnreadCounts();
+      // Refresh unread counts (fire and forget, non-blocking)
+      refreshUnreadCounts().catch(() => {
+        // Silently fail - counts will update on next refresh
+      });
     } catch (error) {
       console.error("Failed to mark as unread:", error);
+      setErrorMessage("Failed to mark article as unread. Please try again.");
+      setTimeout(() => setErrorMessage(""), 3000);
     }
   };
 
@@ -315,6 +342,11 @@ export function RssPage() {
                 refreshMessage.includes("Failed") ? "text-red-600" : "text-green-600"
               }`}>
                 {refreshMessage}
+              </div>
+            )}
+            {errorMessage && (
+              <div className="text-sm text-center px-2 py-1 rounded bg-red-50 text-red-600">
+                {errorMessage}
               </div>
             )}
             <button
@@ -390,6 +422,7 @@ export function RssPage() {
                           handleEditFolder(folder);
                         }}
                         className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                        aria-label={`Rename folder ${folder.name}`}
                         title="Rename folder"
                       >
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -402,6 +435,7 @@ export function RssPage() {
                           handleDeleteFolder(folder);
                         }}
                         className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                        aria-label={`Delete folder ${folder.name}`}
                         title="Delete folder"
                       >
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -441,6 +475,7 @@ export function RssPage() {
                                   handleEditFeed(feed);
                                 }}
                                 className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                                aria-label={`Edit feed ${feed.name}`}
                                 title="Edit feed"
                               >
                                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -453,6 +488,7 @@ export function RssPage() {
                                   handleDeleteFeed(feed);
                                 }}
                                 className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                                aria-label={`Delete feed ${feed.name}`}
                                 title="Delete feed"
                               >
                                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -531,6 +567,7 @@ export function RssPage() {
                               handleEditFeed(feed);
                             }}
                             className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                            aria-label={`Edit feed ${feed.name}`}
                             title="Edit feed"
                           >
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -543,6 +580,7 @@ export function RssPage() {
                               handleDeleteFeed(feed);
                             }}
                             className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                            aria-label={`Delete feed ${feed.name}`}
                             title="Delete feed"
                           >
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

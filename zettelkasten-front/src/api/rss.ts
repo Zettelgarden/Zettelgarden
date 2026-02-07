@@ -69,6 +69,10 @@ export interface ConvertArticleParams {
   tags?: string;
 }
 
+export interface ConvertCardResponse {
+  id: number;
+}
+
 export interface ArticleFilters {
   folder?: string;
   unread?: boolean;
@@ -126,8 +130,8 @@ export function markAsRead(id: number, read: boolean = true): Promise<void> {
   return getData(apiClient.post<void>(`/rss/articles/${id}/read`, { read }));
 }
 
-export function convertToCard(id: number, params?: ConvertArticleParams): Promise<any> {
-  return getData(apiClient.post<any>(`/rss/articles/${id}/convert`, params));
+export function convertToCard(id: number, params?: ConvertArticleParams): Promise<ConvertCardResponse> {
+  return getData(apiClient.post<ConvertCardResponse>(`/rss/articles/${id}/convert`, params));
 }
 
 // Folder API

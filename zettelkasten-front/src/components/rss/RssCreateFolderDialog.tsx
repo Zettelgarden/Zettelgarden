@@ -37,9 +37,9 @@ export function RssCreateFolderDialog({
       const newFolder = await createFolder(folderParams);
       onFolderCreated(newFolder);
       handleClose();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to create folder:", err);
-      setError(err.message || "Failed to create folder. Please try again.");
+      setError(err instanceof Error ? err.message : "Failed to create folder. Please try again.");
     } finally {
       setLoading(false);
     }

@@ -52,9 +52,9 @@ export function RssEditFolderDialog({
       const updatedFolder = await updateFolder(folder.id, folderParams);
       onFolderUpdated(updatedFolder);
       handleClose();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to update folder:", err);
-      setError(err.message || "Failed to update folder. Please try again.");
+      setError(err instanceof Error ? err.message : "Failed to update folder. Please try again.");
     } finally {
       setLoading(false);
     }

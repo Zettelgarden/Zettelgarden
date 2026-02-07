@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment } from "react";
-import { convertToCard, ConvertArticleParams, RSSArticle } from "../../api/rss";
+import { convertToCard, ConvertArticleParams, RSSArticle, ConvertCardResponse } from "../../api/rss";
+import { safeHtmlToMarkdown } from "../../utils/markdown";
 
 interface RssConvertDialogProps {
   isOpen: boolean;
@@ -26,13 +27,9 @@ export function RssConvertDialog({
   useEffect(() => {
     if (article) {
       setTitle(article.title);
-      // Convert HTML content to plain text for editing
+      // Convert HTML content to markdown for editing
       if (article.content) {
-        // Create a temporary div to extract text content
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = article.content;
-        const textContent = tempDiv.textContent || tempDiv.innerText || "";
-        setBody(textContent);
+        setBody(safeHtmlToMarkdown(article.content));
       } else {
         setBody("");
       }
@@ -65,17 +62,17 @@ export function RssConvertDialog({
         params.tags = tags.trim();
       }
 
-      const result = await convertToCard(article.id, params);
+      const result: ConvertCardResponse = await convertToCard(article.id, params);
 
-      if (result?.id) {
+      if (result.id) {
         onConverted(result.id);
         handleClose();
       } else {
         setError("Failed to convert article to card");
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to convert article:", err);
-      setError(err.message || "Failed to convert article. Please try again.");
+      setError(err instanceof Error ? err.message : "Failed to convert article. Please try again.");
     } finally {
       setLoading(false);
     }
