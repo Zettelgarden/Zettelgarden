@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"go-backend/handlers/chat_agent"
 	"go-backend/tests"
 )
 
@@ -33,5 +34,6 @@ func NewHandler() *Handler {
 	}
 
 	S.S3 = s.CreateS3Client()
+	s.ChatService = chat_agent.NewChatService(s.DB, s.Server)
 	return s
 }

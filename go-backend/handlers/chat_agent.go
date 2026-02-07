@@ -1,5 +1,22 @@
 package handlers
 
+// DEPRECATED: This file is being refactored.
+//
+// The chat agent functionality has been split into focused files in the chat_agent package:
+//   - chat_agent/chat_service.go    - Core service struct with dependency injection
+//   - chat_agent/errors.go          - Error handling utilities
+//   - chat_agent/messages.go        - Message management
+//   - chat_agent/compaction.go      - Conversation compaction
+//   - chat_agent/tools_execution.go - Tool execution logic
+//   - chat_agent/prompt.go          - Prompt building
+//   - chat_agent/conversation.go    - Conversation management
+//   - chat_agent/streaming.go       - Streaming response handling
+//
+// During the migration period, methods are being moved from here to the new package.
+// The Handler.ChatService field provides access to the new ChatService.
+//
+// TODO: Migrate all methods to ChatService and remove deprecated functions from this file
+
 import (
 	"context"
 	"encoding/json"
@@ -17,6 +34,7 @@ import (
 )
 
 // getUserFacingMessage returns a user-friendly error message using the canonical error classifier
+// DEPRECATED: This function is being moved to the chat_agent package
 func getUserFacingMessage(err error, customMessage string) string {
 	// Use the canonical error classifier from services package
 	errInfo := services.ClassifyToolError("", nil, err)
