@@ -394,3 +394,43 @@ func (h *Handler) ListRSSFoldersRoute(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(folders)
 }
+
+// UpdateRSSFolderRoute handles PUT /api/rss/folders/{id}
+func (h *Handler) UpdateRSSFolderRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	folderID, _ := strconv.Atoi(mux.Vars(r)["id"])
+
+	var params struct {
+		Name       *string `json:"name"`
+		OrderIndex *int    `json:"order_index"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		log.Printf("Failed to decode request body: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	folder, err := services.UpdateRSSFolder(h.GetDB(), userID, folderID, params.Name, params.OrderIndex)
+	if err != nil {
+		log.Printf("Failed to update RSS folder: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(folder)
+}
+
+// DeleteRSSFolderRoute handles DELETE /api/rss/folders/{id}
+func (h *Handler) DeleteRSSFolderRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	folderID, _ := strconv.Atoi(mux.Vars(r)["id"])
+
+	if err := services.DeleteRSSFolder(h.GetDB(), userID, folderID); err != nil {
+		log.Printf("Failed to delete RSS folder: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

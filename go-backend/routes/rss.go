@@ -19,4 +19,6 @@ func RegisterRSSRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/rss/articles/{id}/convert", h.ConvertRSSArticleToCardRoute, "POST")
 
 	addProtectedRoute(r, h, "/api/rss/folders", h.ListRSSFoldersRoute, "GET")
+	addProtectedRoute(r, h, "/api/rss/folders/{id}", h.UpdateRSSFolderRoute, "PUT")
+	addProtectedRoute(r, h, "/api/rss/folders/{id}", h.DeleteRSSFolderRoute, "DELETE")
 }

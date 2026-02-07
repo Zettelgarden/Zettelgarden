@@ -4,16 +4,27 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/mmcdole/gofeed"
 	"go-backend/models"
 )
 
+const (
+	// DefaultFetchInterval is the default RSS feed fetch interval in minutes
+	DefaultFetchInterval = 60
+	// RSSTimeout is the HTTP timeout for RSS feed fetching
+	RSSTimeout = 30 * time.Second
+	// DefaultArticleLimit is the default number of articles to return
+	DefaultArticleLimit = 100
+)
+
 // CreateRSSFeed creates a new RSS feed for a user
 func CreateRSSFeed(db models.Database, userID int, params models.CreateRSSFeedParams) (*models.RSSFeed, error) {
 	// Validate URL by attempting to parse it
 	fp := gofeed.NewParser()
+	fp.Client = &http.Client{Timeout: RSSTimeout}
 	feed, err := fp.ParseURL(params.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse feed URL: %w", err)
@@ -26,7 +37,7 @@ func CreateRSSFeed(db models.Database, userID int, params models.CreateRSSFeedPa
 	}
 
 	// Set defaults
-	fetchInterval := 60
+	fetchInterval := DefaultFetchInterval
 	if params.FetchInterval != nil {
 		fetchInterval = *params.FetchInterval
 	}
@@ -238,10 +249,12 @@ func ListRSSArticles(db models.Database, userID int, filters map[string]interfac
 
 	query += " ORDER BY published_at DESC NULLS LAST, fetched_at DESC"
 
-	if limit, ok := filters["limit"].(int); ok && limit > 0 {
-		query += fmt.Sprintf(" LIMIT $%d", argPos)
-		args = append(args, limit)
+	limit := DefaultArticleLimit
+	if limitParam, ok := filters["limit"].(int); ok && limitParam > 0 {
+		limit = limitParam
 	}
+	query += fmt.Sprintf(" LIMIT $%d", argPos)
+	args = append(args, limit)
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
@@ -427,6 +440,7 @@ func FetchRSSFeedArticles(db models.Database, feedID int) error {
 
 	// Parse the RSS feed
 	fp := gofeed.NewParser()
+	fp.Client = &http.Client{Timeout: RSSTimeout}
 	parsedFeed, err := fp.ParseURL(feed.URL)
 	if err != nil {
 		// Update last_error
@@ -563,4 +577,52 @@ func GetRSSFolderByID(db models.Database, userID, folderID int) (*models.RSSFold
 	}
 
 	return &folder, nil
+}
+
+// UpdateRSSFolder updates an existing RSS folder
+func UpdateRSSFolder(db models.Database, userID, folderID int, name *string, orderIndex *int) (*models.RSSFolder, error) {
+	updates := []string{}
+	args := []interface{}{}
+	argPos := 1
+
+	if name != nil {
+		updates = append(updates, fmt.Sprintf("name = $%d", argPos))
+		args = append(args, *name)
+		argPos++
+	}
+	if orderIndex != nil {
+		updates = append(updates, fmt.Sprintf("order_index = $%d", argPos))
+		args = append(args, *orderIndex)
+		argPos++
+	}
+
+	if len(updates) == 0 {
+		return GetRSSFolderByID(db, userID, folderID)
+	}
+
+	query := fmt.Sprintf("UPDATE rss_folders SET %s WHERE id = $%d AND user_id = $%d",
+		fmt.Sprintf("%s", updates), argPos, argPos+1)
+	args = append(args, folderID, userID)
+
+	_, err := db.Exec(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update folder: %w", err)
+	}
+
+	return GetRSSFolderByID(db, userID, folderID)
+}
+
+// DeleteRSSFolder deletes an RSS folder
+func DeleteRSSFolder(db models.Database, userID, folderID int) error {
+	result, err := db.Exec("DELETE FROM rss_folders WHERE id = $1 AND user_id = $2", folderID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete folder: %w", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("folder not found")
+	}
+
+	return nil
 }
