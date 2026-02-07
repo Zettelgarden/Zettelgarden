@@ -406,9 +406,9 @@ export function RssPage() {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-screen overflow-hidden">
       {/* Left Panel: Feeds & Folders */}
-      <div className="w-64 border-r border-gray-200 p-4 overflow-y-auto bg-gray-50">
+      <div className="w-64 border-r border-gray-200 p-4 overflow-y-auto bg-gray-50 flex-shrink-0">
         <div className="mb-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold">RSS Feeds</h2>
@@ -756,7 +756,7 @@ export function RssPage() {
       </div>
 
       {/* Middle Panel: Articles */}
-      <div className="w-80 border-r border-gray-200 p-4 overflow-y-auto bg-white">
+      <div className="w-80 border-r border-gray-200 p-4 overflow-y-auto bg-white flex-shrink-0">
         <h2 className="text-lg font-semibold mb-4">Articles</h2>
         {articles.length === 0 ? (
           <p className="text-gray-500 text-center py-8">No articles found</p>
@@ -795,7 +795,7 @@ export function RssPage() {
       </div>
 
       {/* Right Panel: Article Reader */}
-      <div className="flex-1 p-6 overflow-y-auto bg-white">
+      <div className="flex-1 p-6 overflow-y-auto bg-white min-w-0">
         {selectedArticle ? (
           <div className="max-w-3xl mx-auto">
             <div className="mb-6">
