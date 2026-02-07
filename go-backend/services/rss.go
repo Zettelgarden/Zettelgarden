@@ -260,6 +260,14 @@ func ListRSSArticles(db models.Database, userID int, filters map[string]interfac
 	}
 	query += fmt.Sprintf(" LIMIT $%d", argPos)
 	args = append(args, limit)
+	argPos++
+
+	offset := 0
+	if offsetParam, ok := filters["offset"].(int); ok && offsetParam > 0 {
+		offset = offsetParam
+	}
+	query += fmt.Sprintf(" OFFSET $%d", argPos)
+	args = append(args, offset)
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
@@ -305,6 +313,38 @@ func ListRSSArticles(db models.Database, userID int, filters map[string]interfac
 	}
 
 	return articles, nil
+}
+
+// CountRSSArticles returns the total count of articles for a user with optional filters
+func CountRSSArticles(db models.Database, userID int, filters map[string]interface{}) (int, error) {
+	query := `SELECT COUNT(*) FROM rss_articles WHERE user_id = $1`
+	args := []interface{}{userID}
+	argPos := 2
+
+	// Apply same filters as ListRSSArticles
+	if folder, ok := filters["folder"].(string); ok && folder != "" {
+		query += fmt.Sprintf(" AND feed_id IN (SELECT id FROM rss_feeds WHERE user_id = $1 AND folder = $%d)", argPos)
+		args = append(args, folder)
+		argPos++
+	}
+
+	if unreadOnly, ok := filters["unread"].(bool); ok && unreadOnly {
+		query += " AND read = false"
+	}
+
+	if feedID, ok := filters["feed_id"].(int); ok && feedID > 0 {
+		query += fmt.Sprintf(" AND feed_id = $%d", argPos)
+		args = append(args, feedID)
+		argPos++
+	}
+
+	var count int
+	err := db.QueryRow(query, args...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count articles: %w", err)
+	}
+
+	return count, nil
 }
 
 // GetRSSArticleByID retrieves a single RSS article

@@ -67,6 +67,11 @@ export function RssPage() {
   const settingsMenuRef = useRef<HTMLDivElement>(null);
   const feedMenuRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalArticles, setTotalArticles] = useState(0);
+  const articlesPerPage = 20;
+
   // Calculate total unread count
   const totalUnreadCount = useMemo(() => {
     return Object.values(unreadCounts.feeds).reduce((sum, count) => sum + count, 0);
@@ -130,9 +135,14 @@ export function RssPage() {
     };
   }, [showFeedMenuId]);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedFolder, selectedFeedId, showUnreadOnly]);
+
   useEffect(() => {
     loadArticles();
-  }, [selectedFolder, selectedFeedId, showUnreadOnly]);
+  }, [selectedFolder, selectedFeedId, showUnreadOnly, currentPage]);
 
   const loadData = async () => {
     setLoading(true);
@@ -154,13 +164,17 @@ export function RssPage() {
 
   const loadArticles = async () => {
     try {
-      const filters: ArticleFilters = { limit: 50 };
+      const filters: ArticleFilters = {
+        limit: articlesPerPage,
+        offset: (currentPage - 1) * articlesPerPage
+      };
       if (selectedFolder) filters.folder = selectedFolder;
       if (selectedFeedId) filters.feed_id = selectedFeedId;
       if (showUnreadOnly) filters.unread = true;
 
-      const articlesData = await listArticles(filters);
-      setArticles(articlesData);
+      const response = await listArticles(filters);
+      setArticles(response.articles);
+      setTotalArticles(response.total);
       setErrorMessage("");
     } catch (error) {
       console.error("Failed to load articles:", error);
@@ -837,41 +851,72 @@ export function RssPage() {
       </div>
 
       {/* Middle Panel: Articles */}
-      <div className="w-80 border-r border-gray-200 p-4 overflow-y-auto bg-white flex-shrink-0">
-        <h2 className="text-lg font-semibold mb-4">Articles</h2>
-        {articles.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No articles found</p>
-        ) : (
-          <div className="space-y-2">
-            {articles.map((article) => (
-              <div
-                key={article.id}
-                onClick={() => handleArticleClick(article)}
-                className={`p-3 rounded-md cursor-pointer transition-colors ${
-                  selectedArticle?.id === article.id
-                    ? "bg-blue-100 border-l-4 border-blue-600"
-                    : article.read
-                    ? "bg-gray-50 hover:bg-gray-100"
-                    : "bg-white hover:bg-gray-100 border-l-4 border-blue-500 shadow-sm"
-                }`}
-              >
-                <div className="flex items-start gap-2">
-                  <h3 className="font-medium text-sm line-clamp-2 mb-1 flex-1">
-                    {article.title}
-                  </h3>
-                  {article.card_id && (
-                    <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <title>Converted to card</title>
-                      <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
-                    </svg>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500">
-                  {getFeedName(article.feed_id)} • {new Date(article.fetched_at).toLocaleDateString()}
-                </p>
-              </div>
-            ))}
+      <div className="w-80 border-r border-gray-200 bg-white flex-shrink-0 flex flex-col">
+        <div className="p-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold mb-4">Articles</h2>
+        </div>
+        {articles.length === 0 && !loading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-gray-500">No articles found</p>
           </div>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {articles.map((article) => (
+                <div
+                  key={article.id}
+                  onClick={() => handleArticleClick(article)}
+                  className={`p-3 rounded-md cursor-pointer transition-colors ${
+                    selectedArticle?.id === article.id
+                      ? "bg-blue-100 border-l-4 border-blue-600"
+                      : article.read
+                      ? "bg-gray-50 hover:bg-gray-100"
+                      : "bg-white hover:bg-gray-100 border-l-4 border-blue-500 shadow-sm"
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    <h3 className="font-medium text-sm line-clamp-2 mb-1 flex-1">
+                      {article.title}
+                    </h3>
+                    {article.card_id && (
+                      <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <title>Converted to card</title>
+                        <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+                      </svg>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {getFeedName(article.feed_id)} • {new Date(article.fetched_at).toLocaleDateString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {totalArticles > articlesPerPage && (
+              <div className="p-3 border-t border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between text-sm">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-gray-600">
+                    Page {currentPage} of {Math.ceil(totalArticles / articlesPerPage)}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(Math.ceil(totalArticles / articlesPerPage), p + 1))}
+                    disabled={currentPage >= Math.ceil(totalArticles / articlesPerPage)}
+                    className="px-3 py-1 rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 

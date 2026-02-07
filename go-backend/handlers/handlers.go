@@ -312,6 +312,19 @@ func (h *Handler) ListRSSArticlesRoute(w http.ResponseWriter, r *http.Request) {
 			filters["limit"] = l
 		}
 	}
+	if offset := r.URL.Query().Get("offset"); offset != "" {
+		if o, err := strconv.Atoi(offset); err == nil {
+			filters["offset"] = o
+		}
+	}
+
+	// Get total count for pagination
+	total, err := services.CountRSSArticles(h.GetDB(), userID, filters)
+	if err != nil {
+		log.Printf("Failed to count RSS articles: %v", err)
+		http.Error(w, "Failed to count articles", http.StatusInternalServerError)
+		return
+	}
 
 	articles, err := services.ListRSSArticles(h.GetDB(), userID, filters)
 	if err != nil {
@@ -321,7 +334,14 @@ func (h *Handler) ListRSSArticlesRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(articles)
+	w.Header().Set("X-Total-Count", strconv.Itoa(total))
+
+	result := map[string]interface{}{
+		"articles": articles,
+		"total":    total,
+	}
+
+	json.NewEncoder(w).Encode(result)
 }
 
 // GetRSSArticleRoute handles GET /api/rss/articles/{id}

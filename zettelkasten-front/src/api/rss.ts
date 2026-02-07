@@ -80,6 +80,12 @@ export interface ArticleFilters {
   unread?: boolean;
   feed_id?: number;
   limit?: number;
+  offset?: number;
+}
+
+export interface PaginatedArticlesResponse {
+  articles: RSSArticle[];
+  total: number;
 }
 
 export interface UnreadCounts {
@@ -120,15 +126,16 @@ export function refreshFeeds(): Promise<{ fetched: number }> {
 }
 
 // Article API
-export function listArticles(filters?: ArticleFilters): Promise<RSSArticle[]> {
+export function listArticles(filters?: ArticleFilters): Promise<PaginatedArticlesResponse> {
   const params = new URLSearchParams();
   if (filters?.folder) params.set("folder", filters.folder);
   if (filters?.unread) params.set("unread", "true");
   if (filters?.feed_id) params.set("feed_id", filters.feed_id.toString());
   if (filters?.limit) params.set("limit", filters.limit.toString());
+  if (filters?.offset) params.set("offset", filters.offset.toString());
 
   const query = params.toString();
-  return getData(apiClient.get<RSSArticle[]>(`/rss/articles${query ? `?${query}` : ""}`)).then(data => data ?? []);
+  return getData(apiClient.get<PaginatedArticlesResponse>(`/rss/articles${query ? `?${query}` : ""}`));
 }
 
 export function getArticle(id: number): Promise<RSSArticle> {
