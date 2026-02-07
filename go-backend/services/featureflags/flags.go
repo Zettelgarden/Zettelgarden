@@ -26,9 +26,8 @@ const (
 	FeatureFlagTaskTools = "task_tools_v2"
 	// FeatureFlagEntityTools enables the new entity_tools domain package
 	FeatureFlagEntityTools = "entity_tools_v2"
-
-	// Future flags for other domains (to be added):
-	// FeatureFlagCardTools = "card_tools_v2"
+	// FeatureFlagCardTools enables the new card_tools domain package
+	FeatureFlagCardTools = "card_tools_v2"
 )
 
 // IsEnabled checks if a feature flag is enabled via environment variable.
