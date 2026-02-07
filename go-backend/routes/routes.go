@@ -1,9 +1,9 @@
 package routes
 
 import (
+	"github.com/gorilla/mux"
 	"go-backend/handlers"
 	"go-backend/handlers/admin"
-	"github.com/gorilla/mux"
 )
 
 // RegisterAllRoutes registers all API routes for the application with consistent
@@ -69,6 +69,9 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.Sc
 
 	// Mailing list routes
 	RegisterMailingListRoutes(r, h)
+
+	// RSS feed routes
+	RegisterRSSRoutes(r, h)
 
 	// Entity routes
 	RegisterEntityRoutes(r, h)
