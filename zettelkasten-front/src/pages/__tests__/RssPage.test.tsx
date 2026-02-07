@@ -16,6 +16,7 @@ vi.mock("../../api/rss", () => ({
   markAsRead: vi.fn(() => Promise.resolve()),
   convertToCard: vi.fn(() => Promise.resolve({ id: 1 })),
   refreshFeeds: vi.fn(() => Promise.resolve({ fetched: 0 })),
+  getUnreadCounts: vi.fn(() => Promise.resolve({ folders: {}, feeds: {} })),
 }));
 
 // Mock the RSS components to avoid complex dependencies
@@ -24,6 +25,42 @@ vi.mock("../../components/rss/RssAddFeedDialog", () => ({
     isOpen ? (
       <div data-testid="add-feed-dialog">
         <button onClick={() => onFeedAdded({ id: 1, name: "Test Feed" })}>Add Feed</button>
+        <button onClick={onClose}>Cancel</button>
+      </div>
+    ) : null,
+}));
+
+vi.mock("../../components/rss/RssEditFeedDialog", () => ({
+  RssEditFeedDialog: ({ isOpen, onClose }: any) =>
+    isOpen ? (
+      <div data-testid="edit-feed-dialog">
+        <button onClick={onClose}>Cancel</button>
+      </div>
+    ) : null,
+}));
+
+vi.mock("../../components/rss/RssEditFolderDialog", () => ({
+  RssEditFolderDialog: ({ isOpen, onClose }: any) =>
+    isOpen ? (
+      <div data-testid="edit-folder-dialog">
+        <button onClick={onClose}>Cancel</button>
+      </div>
+    ) : null,
+}));
+
+vi.mock("../../components/rss/RssCreateFolderDialog", () => ({
+  RssCreateFolderDialog: ({ isOpen, onClose }: any) =>
+    isOpen ? (
+      <div data-testid="create-folder-dialog">
+        <button onClick={onClose}>Cancel</button>
+      </div>
+    ) : null,
+}));
+
+vi.mock("../../components/rss/RssConfirmDialog", () => ({
+  RssConfirmDialog: ({ isOpen, onClose }: any) =>
+    isOpen ? (
+      <div data-testid="confirm-dialog">
         <button onClick={onClose}>Cancel</button>
       </div>
     ) : null,

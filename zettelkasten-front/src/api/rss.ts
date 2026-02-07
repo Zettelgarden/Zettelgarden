@@ -76,6 +76,11 @@ export interface ArticleFilters {
   limit?: number;
 }
 
+export interface UnreadCounts {
+  folders: Record<string, number>;
+  feeds: Record<number, number>;
+}
+
 // Feed API
 export function createFeed(feed: CreateRSSFeedParams): Promise<RSSFeed> {
   return getData(apiClient.post<RSSFeed>("/rss/feeds", feed));
@@ -144,4 +149,9 @@ export function updateFolder(id: number, params: UpdateRSSFolderParams): Promise
 
 export function deleteFolder(id: number): Promise<void> {
   return getData(apiClient.delete<void>(`/rss/folders/${id}`));
+}
+
+// Unread Counts API
+export function getUnreadCounts(): Promise<UnreadCounts> {
+  return getData(apiClient.get<UnreadCounts>("/rss/unread-counts"));
 }

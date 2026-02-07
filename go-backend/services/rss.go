@@ -637,3 +637,73 @@ func DeleteRSSFolder(db models.Database, userID, folderID int) error {
 
 	return nil
 }
+
+// UnreadCount represents unread count for a feed or folder
+type UnreadCount struct {
+	FeedID  *int    `json:"feed_id,omitempty"`
+	Folder  *string `json:"folder,omitempty"`
+	Count   int     `json:"count"`
+}
+
+// GetUnreadCounts returns unread article counts grouped by feed and folder
+func GetUnreadCounts(db models.Database, userID int) (map[string]int, map[int]int, error) {
+	// Get counts by feed
+	feedCounts := make(map[int]int)
+	query := `
+		SELECT f.id, COUNT(a.id) as unread_count
+		FROM rss_feeds f
+		LEFT JOIN rss_articles a ON f.id = a.feed_id AND a.read = false
+		WHERE f.user_id = $1
+		GROUP BY f.id
+	`
+	rows, err := db.Query(query, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get feed unread counts: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var feedID int
+		var count int
+		if err := rows.Scan(&feedID, &count); err != nil {
+			return nil, nil, fmt.Errorf("failed to scan feed count: %w", err)
+		}
+		if count > 0 {
+			feedCounts[feedID] = count
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("error iterating feed counts: %w", err)
+	}
+
+	// Get counts by folder
+	folderCounts := make(map[string]int)
+	query = `
+		SELECT COALESCE(f.folder, ''), COUNT(a.id) as unread_count
+		FROM rss_feeds f
+		LEFT JOIN rss_articles a ON f.id = a.feed_id AND a.read = false
+		WHERE f.user_id = $1
+		GROUP BY f.folder
+	`
+	rows, err = db.Query(query, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get folder unread counts: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var folder string
+		var count int
+		if err := rows.Scan(&folder, &count); err != nil {
+			return nil, nil, fmt.Errorf("failed to scan folder count: %w", err)
+		}
+		if count > 0 {
+			folderCounts[folder] = count
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("error iterating folder counts: %w", err)
+	}
+
+	return folderCounts, feedCounts, nil
+}

@@ -11,10 +11,12 @@ import {
   refreshFeeds,
   deleteFeed,
   deleteFolder,
+  getUnreadCounts,
   RSSFeed,
   RSSArticle,
   RSSFolder,
   ArticleFilters,
+  UnreadCounts,
 } from "../api/rss";
 import { RssAddFeedDialog } from "../components/rss/RssAddFeedDialog";
 import { RssEditFeedDialog } from "../components/rss/RssEditFeedDialog";
@@ -46,6 +48,7 @@ export function RssPage() {
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [unreadCounts, setUnreadCounts] = useState<UnreadCounts>({ folders: {}, feeds: {} });
 
   useEffect(() => {
     setDocumentTitle("RSS");
@@ -59,12 +62,14 @@ export function RssPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [feedsData, foldersData] = await Promise.all([
+      const [feedsData, foldersData, countsData] = await Promise.all([
         listFeeds(),
         listFolders(),
+        getUnreadCounts(),
       ]);
       setFeeds(feedsData);
       setFolders(foldersData);
+      setUnreadCounts(countsData);
     } catch (error) {
       console.error("Failed to load RSS data:", error);
     } finally {
@@ -104,6 +109,15 @@ export function RssPage() {
     }
   };
 
+  const refreshUnreadCounts = async () => {
+    try {
+      const counts = await getUnreadCounts();
+      setUnreadCounts(counts);
+    } catch (error) {
+      console.error("Failed to refresh unread counts:", error);
+    }
+  };
+
   const handleArticleClick = async (article: RSSArticle) => {
     setSelectedArticle(article);
     if (!article.read) {
@@ -112,6 +126,8 @@ export function RssPage() {
         setArticles((prev) =>
           prev.map((a) => (a.id === article.id ? { ...a, read: true } : a))
         );
+        // Refresh unread counts
+        refreshUnreadCounts();
       } catch (error) {
         console.error("Failed to mark as read:", error);
       }
@@ -152,6 +168,23 @@ export function RssPage() {
 
   const getFeedsByFolder = (folderName: string | null) => {
     return feeds.filter((f) => f.folder === folderName || (folderName === null && !f.folder));
+  };
+
+  const getUnreadCountForFeed = (feedId: number): number => {
+    return unreadCounts.feeds[feedId] || 0;
+  };
+
+  const getUnreadCountForFolder = (folderName: string): number => {
+    return unreadCounts.folders[folderName] || 0;
+  };
+
+  const renderUnreadBadge = (count: number) => {
+    if (count === 0) return null;
+    return (
+      <span className="ml-1.5 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center">
+        {count > 99 ? "99+" : count}
+      </span>
+    );
   };
 
   const handleEditFeed = (feed: RSSFeed) => {
@@ -246,6 +279,8 @@ export function RssPage() {
         prev.map((a) => (a.id === selectedArticle.id ? { ...a, read: false } : a))
       );
       setSelectedArticle((prev) => (prev ? { ...prev, read: false } : null));
+      // Refresh unread counts
+      refreshUnreadCounts();
     } catch (error) {
       console.error("Failed to mark as unread:", error);
     }
@@ -314,6 +349,7 @@ export function RssPage() {
               const folderFeeds = getFeedsByFolder(folder.name);
               const isExpanded = expandedFolders.has(folder.name);
               const isSelected = selectedFolder === folder.name && selectedFeedId === null;
+              const unreadCount = getUnreadCountForFolder(folder.name);
 
               return (
                 <div key={folder.id}>
@@ -343,6 +379,7 @@ export function RssPage() {
                       </svg>
                       <span className="font-medium">{folder.name}</span>
                       <span className="text-gray-400 text-xs">({folderFeeds.length})</span>
+                      {renderUnreadBadge(unreadCount)}
                     </button>
                     <div className="flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
@@ -375,51 +412,55 @@ export function RssPage() {
                   {/* Feeds in folder (expanded) */}
                   {isExpanded && (
                     <div className="ml-4 space-y-1 mt-1">
-                      {folderFeeds.map((feed) => (
-                        <div
-                          key={feed.id}
-                          className={`group flex items-center rounded-md transition-colors text-sm ${
-                            selectedFeedId === feed.id ? "bg-blue-50" : "hover:bg-gray-50"
-                          }`}
-                        >
-                          <button
-                            onClick={() => {
-                              setSelectedFeedId(feed.id);
-                              setSelectedFolder(null);
-                            }}
-                            className="flex-1 text-left px-3 py-1.5 truncate"
-                            title={feed.url}
+                      {folderFeeds.map((feed) => {
+                        const unreadCount = getUnreadCountForFeed(feed.id);
+                        return (
+                          <div
+                            key={feed.id}
+                            className={`group flex items-center rounded-md transition-colors text-sm ${
+                              selectedFeedId === feed.id ? "bg-blue-50" : "hover:bg-gray-50"
+                            }`}
                           >
-                            {feed.name}
-                          </button>
-                          <div className="flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditFeed(feed);
+                              onClick={() => {
+                                setSelectedFeedId(feed.id);
+                                setSelectedFolder(null);
                               }}
-                              className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                              title="Edit feed"
+                              className="flex-1 text-left px-3 py-1.5 truncate flex items-center gap-1"
+                              title={feed.url}
                             >
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
+                              <span className="truncate">{feed.name}</span>
+                              {renderUnreadBadge(unreadCount)}
                             </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteFeed(feed);
-                              }}
-                              className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                              title="Delete feed"
-                            >
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
+                            <div className="flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditFeed(feed);
+                                }}
+                                className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                                title="Edit feed"
+                              >
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteFeed(feed);
+                                }}
+                                className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                                title="Delete feed"
+                              >
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                       {folderFeeds.length === 0 && (
                         <div className="px-3 py-1.5 text-xs text-gray-400 italic">No feeds</div>
                       )}
@@ -461,51 +502,55 @@ export function RssPage() {
               </div>
               {isExpanded && (
                 <div className="ml-4 space-y-1 mt-1">
-                  {uncategorizedFeeds.map((feed) => (
-                    <div
-                      key={feed.id}
-                      className={`group flex items-center rounded-md transition-colors text-sm ${
-                        selectedFeedId === feed.id ? "bg-blue-50" : "hover:bg-gray-50"
-                      }`}
-                    >
-                      <button
-                        onClick={() => {
-                          setSelectedFeedId(feed.id);
-                          setSelectedFolder(null);
-                        }}
-                        className="flex-1 text-left px-3 py-1.5 truncate"
-                        title={feed.url}
+                  {uncategorizedFeeds.map((feed) => {
+                    const unreadCount = getUnreadCountForFeed(feed.id);
+                    return (
+                      <div
+                        key={feed.id}
+                        className={`group flex items-center rounded-md transition-colors text-sm ${
+                          selectedFeedId === feed.id ? "bg-blue-50" : "hover:bg-gray-50"
+                        }`}
                       >
-                        {feed.name}
-                      </button>
-                      <div className="flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditFeed(feed);
+                          onClick={() => {
+                            setSelectedFeedId(feed.id);
+                            setSelectedFolder(null);
                           }}
-                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                          title="Edit feed"
+                          className="flex-1 text-left px-3 py-1.5 truncate flex items-center gap-1"
+                          title={feed.url}
                         >
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
+                          <span className="truncate">{feed.name}</span>
+                          {renderUnreadBadge(unreadCount)}
                         </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteFeed(feed);
-                          }}
-                          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                          title="Delete feed"
-                        >
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                        <div className="flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditFeed(feed);
+                            }}
+                            className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                            title="Edit feed"
+                          >
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteFeed(feed);
+                            }}
+                            className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                            title="Delete feed"
+                          >
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

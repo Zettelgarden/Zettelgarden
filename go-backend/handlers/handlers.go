@@ -466,3 +466,23 @@ func (h *Handler) DeleteRSSFolderRoute(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// GetUnreadCountsRoute handles GET /api/rss/unread-counts
+func (h *Handler) GetUnreadCountsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	folderCounts, feedCounts, err := services.GetUnreadCounts(h.GetDB(), userID)
+	if err != nil {
+		log.Printf("Failed to get unread counts: %v", err)
+		http.Error(w, "Failed to get unread counts", http.StatusInternalServerError)
+		return
+	}
+
+	result := map[string]interface{}{
+		"folders": folderCounts,
+		"feeds":   feedCounts,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
