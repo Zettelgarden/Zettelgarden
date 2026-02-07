@@ -730,12 +730,17 @@ func (s *Handler) GetEntityByID(userID int, entityID int) (models.Entity, error)
 	}
 
 	if cardID.Valid {
+		var parentIDPtr *int
+		if cardParentID.Valid {
+			parentID := int(cardParentID.Int64)
+			parentIDPtr = &parentID
+		}
 		entity.Card = &models.PartialCard{
 			ID:        int(cardID.Int64),
 			CardID:    cardCardID.String,
 			Title:     cardTitle.String,
 			UserID:    int(cardUserID.Int64),
-			ParentID:  int(cardParentID.Int64),
+			ParentID:  parentIDPtr,
 			CreatedAt: cardCreatedAt.Time,
 			UpdatedAt: cardUpdatedAt.Time,
 		}
@@ -843,12 +848,17 @@ func (s *Handler) GetEntityByNameRoute(w http.ResponseWriter, r *http.Request) {
 
 	// Set the linked card if it exists
 	if cardID.Valid {
+		var parentIDPtr *int
+		if cardParentID.Valid {
+			parentID := int(cardParentID.Int64)
+			parentIDPtr = &parentID
+		}
 		entity.Card = &models.PartialCard{
 			ID:        int(cardID.Int64),
 			CardID:    cardCardID.String,
 			Title:     cardTitle.String,
 			UserID:    int(cardUserID.Int64),
-			ParentID:  int(cardParentID.Int64),
+			ParentID:  parentIDPtr,
 			CreatedAt: cardCreatedAt.Time,
 			UpdatedAt: cardUpdatedAt.Time,
 		}
@@ -991,12 +1001,17 @@ func (s *Handler) GetEntityByLinkedCardPKRoute(w http.ResponseWriter, r *http.Re
 	}
 
 	if cardID.Valid {
+		var parentIDPtr *int
+		if cardParentID.Valid {
+			parentID := int(cardParentID.Int64)
+			parentIDPtr = &parentID
+		}
 		entity.Card = &models.PartialCard{
 			ID:        int(cardID.Int64),
 			CardID:    cardCardID.String,
 			Title:     cardTitle.String,
 			UserID:    int(cardUserID.Int64),
-			ParentID:  int(cardParentID.Int64),
+			ParentID:  parentIDPtr,
 			CreatedAt: cardCreatedAt.Time,
 			UpdatedAt: cardUpdatedAt.Time,
 		}

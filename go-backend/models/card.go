@@ -17,7 +17,7 @@ type Card struct {
 	IsDeleted      bool          `json:"is_deleted"`
 	CreatedAt      time.Time     `json:"created_at"`
 	UpdatedAt      time.Time     `json:"updated_at"`
-	ParentID       int           `json:"parent_id"`
+	ParentID       *int          `json:"parent_id"`
 	Parent         PartialCard   `json:"parent"`
 	Files          []File        `json:"files"`
 	Children       []PartialCard `json:"children"`
@@ -37,6 +37,7 @@ func ScanCards(rows *sql.Rows) ([]Card, error) {
 
 	for rows.Next() {
 		var card Card
+		var parentID sql.NullInt64
 		if err := rows.Scan(
 			&card.ID,
 			&card.CardID,
@@ -44,13 +45,17 @@ func ScanCards(rows *sql.Rows) ([]Card, error) {
 			&card.Title,
 			&card.Body,
 			&card.Link,
-			&card.ParentID,
+			&parentID,
 			&card.CreatedAt,
 			&card.UpdatedAt,
 			&card.TagCount,
 		); err != nil {
 			log.Printf(" query full err %v", err)
 			return cards, err
+		}
+		if parentID.Valid {
+			card.ParentID = new(int)
+			*card.ParentID = int(parentID.Int64)
 		}
 		cards = append(cards, card)
 	}
@@ -63,17 +68,22 @@ func ScanPartialCards(rows *sql.Rows) ([]PartialCard, error) {
 
 	for rows.Next() {
 		var card PartialCard
+		var parentID sql.NullInt64
 		if err := rows.Scan(
 			&card.ID,
 			&card.CardID,
 			&card.UserID,
 			&card.Title,
-			&card.ParentID,
+			&parentID,
 			&card.CreatedAt,
 			&card.UpdatedAt,
 		); err != nil {
 			log.Printf("err %v", err)
 			return cards, err
+		}
+		if parentID.Valid {
+			card.ParentID = new(int)
+			*card.ParentID = int(parentID.Int64)
 		}
 		cards = append(cards, card)
 
@@ -87,7 +97,7 @@ type PartialCard struct {
 	CardID    string    `json:"card_id"`
 	UserID    int       `json:"user_id"`
 	Title     string    `json:"title"`
-	ParentID  int       `json:"parent_id"`
+	ParentID  *int      `json:"parent_id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Tags      []Tag     `json:"tags"`
@@ -156,7 +166,7 @@ type CardChunk struct {
 	Chunk            string    `json:"body"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
-	ParentID         int       `json:"parent_id"`
+	ParentID         *int      `json:"parent_id"`
 	Ranking          float64   `json:"ranking"`
 	SharedEntities   int       `json:"shared_entities"`
 	EntitySimilarity float64   `json:"entity_similarity"`

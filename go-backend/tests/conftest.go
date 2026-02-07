@@ -604,7 +604,7 @@ func generateData() map[string]interface{} {
 			Link:      fmt.Sprintf("https://%s.com", randomString(10)),
 			CreatedAt: randomDate(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
 			UpdatedAt: randomDate(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)),
-			ParentID:  i,
+			ParentID:  &[]int{i}[0],
 		}
 		if i == 1 {
 			card.Body = card.Body + "\n[" + strconv.Itoa(i+1) + "]"
@@ -628,7 +628,7 @@ func generateData() map[string]interface{} {
 		Link:      fmt.Sprintf("https://%s.com", randomString(10)),
 		CreatedAt: randomDate(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
 		UpdatedAt: randomDate(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)),
-		ParentID:  1,
+		ParentID:  &[]int{1}[0],
 	})
 	cards = append(cards, models.Card{
 		ID:        12,
@@ -639,7 +639,7 @@ func generateData() map[string]interface{} {
 		Link:      fmt.Sprintf("https://%s.com", randomString(10)),
 		CreatedAt: randomDate(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
 		UpdatedAt: randomDate(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)),
-		ParentID:  2,
+		ParentID:  &[]int{2}[0],
 	})
 	cards = append(cards, models.Card{
 		ID:        13,
@@ -650,7 +650,7 @@ func generateData() map[string]interface{} {
 		Link:      fmt.Sprintf("https://%s.com", randomString(10)),
 		CreatedAt: randomDate(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
 		UpdatedAt: randomDate(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)),
-		ParentID:  13,
+		ParentID:  &[]int{13}[0],
 	})
 	cards = append(cards, models.Card{
 		ID:        14,
@@ -661,7 +661,7 @@ func generateData() map[string]interface{} {
 		Link:      fmt.Sprintf("https://%s.com", randomString(10)),
 		CreatedAt: randomDate(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
 		UpdatedAt: randomDate(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)),
-		ParentID:  12,
+		ParentID:  &[]int{12}[0],
 	})
 
 	// Backlinks: reduced to 5 (was 32)

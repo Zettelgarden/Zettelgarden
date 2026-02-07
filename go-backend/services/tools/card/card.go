@@ -298,8 +298,14 @@ func GetParentCardsWithDepth(db models.Database, userID int, cardPK int, depth i
 		return allCards, err
 	}
 
+	// Check if card has a parent
+	if card.ParentID == nil {
+		// No parent, return empty slice
+		return allCards, nil
+	}
+
 	// Get immediate parent
-	parent, err := getPartialCard(db, userID, card.ParentID)
+	parent, err := getPartialCard(db, userID, *card.ParentID)
 	if err != nil {
 		// No parent found, return empty slice
 		return allCards, nil

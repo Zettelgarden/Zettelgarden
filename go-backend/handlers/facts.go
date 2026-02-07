@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"go-backend/models"
 	"go-backend/services"
@@ -1009,9 +1010,14 @@ func (s *Handler) GetFactCards(w http.ResponseWriter, r *http.Request) {
 	var cards []models.PartialCard
 	for rows.Next() {
 		var c models.PartialCard
-		if err := rows.Scan(&c.ID, &c.CardID, &c.UserID, &c.Title, &c.ParentID, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		var parentID sql.NullInt64
+		if err := rows.Scan(&c.ID, &c.CardID, &c.UserID, &c.Title, &parentID, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if parentID.Valid {
+			c.ParentID = new(int)
+			*c.ParentID = int(parentID.Int64)
 		}
 		cards = append(cards, c)
 	}

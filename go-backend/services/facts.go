@@ -77,8 +77,13 @@ func GetFactCards(db *sql.DB, userID int, factID int) ([]models.PartialCard, err
 	var cards []models.PartialCard
 	for rows.Next() {
 		var c models.PartialCard
-		if err := rows.Scan(&c.ID, &c.CardID, &c.UserID, &c.Title, &c.ParentID, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		var parentID sql.NullInt64
+		if err := rows.Scan(&c.ID, &c.CardID, &c.UserID, &c.Title, &parentID, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err
+		}
+		if parentID.Valid {
+			c.ParentID = new(int)
+			*c.ParentID = int(parentID.Int64)
 		}
 		cards = append(cards, c)
 	}
@@ -153,7 +158,8 @@ func executeFactTextSearchFallback(db *sql.DB, userID int, query string, limit i
 	var facts []map[string]interface{}
 	for rows.Next() {
 		fact := make(map[string]interface{})
-		var id, cardPK, cardParentID int
+		var id, cardPK int
+		var cardParentID sql.NullInt64
 		var factText, cardID, cardTitle string
 		var createdAt, updatedAt time.Time
 
@@ -169,7 +175,11 @@ func executeFactTextSearchFallback(db *sql.DB, userID int, query string, limit i
 		fact["linked_card_id"] = cardID
 		fact["linked_card_pk"] = cardPK
 		fact["linked_card_title"] = cardTitle
-		fact["linked_card_parent_id"] = cardParentID
+		if cardParentID.Valid {
+			fact["linked_card_parent_id"] = int(cardParentID.Int64)
+		} else {
+			fact["linked_card_parent_id"] = nil
+		}
 
 		facts = append(facts, fact)
 	}

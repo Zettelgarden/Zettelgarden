@@ -156,7 +156,10 @@ func GetParentCard(db models.Database, userID int, cardPK int) ([]models.Partial
 	if err != nil {
 		return results, err
 	}
-	parent, err := GetPartialCard(db, userID, card.ParentID)
+	if card.ParentID == nil {
+		return results, nil
+	}
+	parent, err := GetPartialCard(db, userID, *card.ParentID)
 	if err != nil {
 		return results, err
 	}
@@ -223,8 +226,14 @@ func GetParentCardsWithDepth(db models.Database, userID int, cardPK int, depth i
 		return allCards, err
 	}
 
+	// Check if card has a parent
+	if card.ParentID == nil {
+		// No parent, return empty slice
+		return allCards, nil
+	}
+
 	// Get immediate parent
-	parent, err := GetPartialCard(db, userID, card.ParentID)
+	parent, err := GetPartialCard(db, userID, *card.ParentID)
 	if err != nil {
 		// No parent found, return empty slice
 		return allCards, nil
@@ -938,8 +947,13 @@ func GetCardsByEntity(db models.Database, userID int, entityID int) ([]models.Pa
 	var cards []models.PartialCard
 	for rows.Next() {
 		var c models.PartialCard
-		if err := rows.Scan(&c.ID, &c.CardID, &c.UserID, &c.Title, &c.ParentID, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		var parentID sql.NullInt64
+		if err := rows.Scan(&c.ID, &c.CardID, &c.UserID, &c.Title, &parentID, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err
+		}
+		if parentID.Valid {
+			c.ParentID = new(int)
+			*c.ParentID = int(parentID.Int64)
 		}
 		cards = append(cards, c)
 	}

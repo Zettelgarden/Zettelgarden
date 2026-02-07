@@ -38,7 +38,7 @@ func (s *Handler) checkChunkLinkedOrRelated(
 	mainCard models.Card,
 	relatedCard models.CardChunk,
 ) bool {
-	if relatedCard.ParentID == mainCard.ID {
+	if relatedCard.ParentID != nil && *relatedCard.ParentID == mainCard.ID {
 		return true
 	}
 	references, err := services.GetReferences(s.DB, userID, mainCard)
@@ -268,11 +268,14 @@ func (s *Handler) GetCardRoute(w http.ResponseWriter, r *http.Request) {
 	} else {
 		card.IsStarred = isStarred
 	}
-	parent, err := s.QueryPartialCardByID(userID, card.ParentID)
-	if err != nil {
-		log.Printf("err %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	var parent models.PartialCard
+	if card.ParentID != nil {
+		parent, err = s.QueryPartialCardByID(userID, *card.ParentID)
+		if err != nil {
+			log.Printf("err %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 	card.Parent = parent
 

@@ -459,12 +459,17 @@ func getEntitiesTypesense(db *sql.DB, typesenseClient *typesense.Client, collect
 						*entity.CardPK = int(linkedCardPK)
 
 						if linkedCardID, ok := doc["linked_card_id"].(string); ok && linkedCardID != "" {
+							var parentIDPtr *int
+							if parentIDVal, ok := doc["linked_card_parent_id"].(float64); ok {
+								parentID := int(parentIDVal)
+								parentIDPtr = &parentID
+							}
 							entity.Card = &models.PartialCard{
 								ID:        int(linkedCardPK),
 								CardID:    linkedCardID,
 								Title:     doc["linked_card_title"].(string),
 								UserID:    userID,
-								ParentID:  int(doc["linked_card_parent_id"].(float64)),
+								ParentID:  parentIDPtr,
 								CreatedAt: entity.CreatedAt, // Use entity dates as approximation
 								UpdatedAt: entity.UpdatedAt,
 								Tags:      []models.Tag{},
@@ -604,12 +609,17 @@ func GetEntityByName(db *sql.DB, userID int, entityName string) (models.Entity, 
 	}
 
 	if cardID.Valid {
+		var parentIDPtr *int
+		if cardParentID.Valid {
+			parentID := int(cardParentID.Int64)
+			parentIDPtr = &parentID
+		}
 		entity.Card = &models.PartialCard{
 			ID:        int(cardID.Int64),
 			CardID:    cardCardID.String,
 			Title:     cardTitle.String,
 			UserID:    int(cardUserID.Int64),
-			ParentID:  int(cardParentID.Int64),
+			ParentID:  parentIDPtr,
 			CreatedAt: cardCreatedAt.Time,
 			UpdatedAt: cardUpdatedAt.Time,
 			Tags:      []models.Tag{},
@@ -674,12 +684,17 @@ func SearchEntities(db *sql.DB, typesenseClient *typesense.Client, userID int, q
 						*entity.CardPK = int(linkedCardPK)
 
 						if linkedCardID, ok := doc["linked_card_id"].(string); ok && linkedCardID != "" {
+							var parentIDPtr *int
+							if parentIDVal, ok := doc["linked_card_parent_id"].(float64); ok {
+								parentID := int(parentIDVal)
+								parentIDPtr = &parentID
+							}
 							entity.Card = &models.PartialCard{
 								ID:        int(linkedCardPK),
 								CardID:    linkedCardID,
 								Title:     doc["linked_card_title"].(string),
 								UserID:    userID,
-								ParentID:  int(doc["linked_card_parent_id"].(float64)),
+								ParentID:  parentIDPtr,
 								CreatedAt: entity.CreatedAt,
 								UpdatedAt: entity.UpdatedAt,
 								Tags:      []models.Tag{},
@@ -793,12 +808,17 @@ func GetEntityByID(db *sql.DB, userID int, entityID int) (models.Entity, error) 
 	}
 
 	if cardID.Valid {
+		var parentIDPtr *int
+		if cardParentID.Valid {
+			parentID := int(cardParentID.Int64)
+			parentIDPtr = &parentID
+		}
 		entity.Card = &models.PartialCard{
 			ID:        int(cardID.Int64),
 			CardID:    cardCardID.String,
 			Title:     cardTitle.String,
 			UserID:    int(cardUserID.Int64),
-			ParentID:  int(cardParentID.Int64),
+			ParentID:  parentIDPtr,
 			CreatedAt: cardCreatedAt.Time,
 			UpdatedAt: cardUpdatedAt.Time,
 			Tags:      []models.Tag{},

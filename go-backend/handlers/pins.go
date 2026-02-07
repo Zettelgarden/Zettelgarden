@@ -116,10 +116,13 @@ func (s *Handler) GetStarredCardsRoute(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Get parent card
-		parent, err := s.QueryPartialCardByID(userID, card.ParentID)
-		if err != nil {
-			log.Printf("Error getting parent card: %v", err)
-			// Continue even if parent can't be found
+		var parent models.PartialCard
+		if card.ParentID != nil {
+			parent, err = s.QueryPartialCardByID(userID, *card.ParentID)
+			if err != nil {
+				log.Printf("Error getting parent card: %v", err)
+				// Continue even if parent can't be found
+			}
 		}
 		card.Parent = parent
 

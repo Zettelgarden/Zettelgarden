@@ -43,11 +43,15 @@ func QueryTagsForCard(db models.Database, userID int, cardPK int) ([]models.Tag,
 
 }
 func IdentifyParentTags(db models.Database, userID int, card models.PartialCard) ([]models.Tag, error) {
-	if card.ParentID == card.ID {
+	if card.ParentID != nil && *card.ParentID == card.ID {
 		// card is its own parent, no further work needed
 		return QueryTagsForCard(db, userID, card.ID)
 	}
-	parent, err := GetPartialCard(db, userID, card.ParentID)
+	if card.ParentID == nil {
+		// No parent, just return this card's tags
+		return QueryTagsForCard(db, userID, card.ID)
+	}
+	parent, err := GetPartialCard(db, userID, *card.ParentID)
 	if err != nil {
 		return []models.Tag{}, err
 	}
@@ -126,7 +130,7 @@ func AddTagsFromCard(db models.Database, userID, cardPK int) error {
 	if err != nil {
 		return err
 	}
-	if card.ParentID == card.ID {
+	if card.ParentID != nil && *card.ParentID == card.ID {
 		// card is its own parent, no need to go on
 		return nil
 	}
