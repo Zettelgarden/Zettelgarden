@@ -895,10 +895,54 @@ func checkIsCardIDUnique(db models.Database, userID int, cardID string) bool {
 	}
 }
 
+// getNextRootCardID generates the next root card ID for a user
+func getNextRootCardID(db models.Database, userID int) (string, error) {
+	var result string
+
+	// Query to get the highest numeric card_id
+	query := `
+        SELECT card_id
+        FROM cards
+        WHERE user_id = $1
+        AND is_deleted = FALSE
+        AND card_id ~ '^[0-9]+$'  -- Only match pure numeric card_ids
+        ORDER BY CAST(card_id AS INTEGER) DESC
+        LIMIT 1
+    `
+
+	err := db.QueryRow(query, userID).Scan(&result)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("Error finding next root card ID: %v", err)
+		return "1", nil // Default to 1 if there's an error
+	}
+
+	if result == "" {
+		return "1", nil // If no cards exist, start with 1
+	}
+
+	// Convert the highest card_id to int and increment
+	highestNumber, err := strconv.Atoi(result)
+	if err != nil {
+		log.Printf("Error converting card_id to number: %v", err)
+		return "1", nil
+	}
+
+	return strconv.Itoa(highestNumber + 1), nil
+}
+
 func CreateCard(db models.Database, userID int, params models.EditCardParams) (models.Card, error) {
 	// Strip all whitespace from card_id before proceeding
 	params.CardID = strings.ReplaceAll(params.CardID, " ", "")
 	params.CardID = regexp.MustCompile(`\s+`).ReplaceAllString(params.CardID, "")
+
+	// Auto-generate card_id if empty
+	if params.CardID == "" {
+		var err error
+		params.CardID, err = getNextRootCardID(db, userID)
+		if err != nil {
+			return models.Card{}, fmt.Errorf("failed to generate card_id: %w", err)
+		}
+	}
 
 	// Check if card_id is unique
 	if !checkIsCardIDUnique(db, userID, params.CardID) {
