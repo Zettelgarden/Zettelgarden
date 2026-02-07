@@ -18,6 +18,11 @@ interface UIStateContextType {
   showChat: boolean;
   setShowChat: (show: boolean) => void;
 
+  // Sidebar state
+  isSidebarCollapsed: boolean;
+  setIsSidebarCollapsed: (collapsed: boolean) => void;
+  toggleSidebarCollapsed: () => void;
+
   // Pin state
   pinnedCard: Card | null;
   setPinnedCard: (card: Card | null) => void;
@@ -47,12 +52,36 @@ interface UIStateContextType {
 
 const UIStateContext = createContext<UIStateContextType | undefined>(undefined);
 
+const SIDEBAR_COLLAPSED_KEY = 'zettelgarden-sidebar-collapsed';
+
+const getInitialSidebarState = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+  return stored === 'true';
+};
+
 export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   // Chat state
   const [conversationId, setConversationId] = useState<string>("");
   const [showChat, setShowChat] = useState<boolean>(false);
+
+  // Sidebar state
+  const [isSidebarCollapsed, setIsSidebarCollapsedState] = useState<boolean>(getInitialSidebarState);
+
+  const setIsSidebarCollapsed = (collapsed: boolean) => {
+    setIsSidebarCollapsedState(collapsed);
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
+  };
+
+  const toggleSidebarCollapsed = () => {
+    setIsSidebarCollapsedState(prev => {
+      const newValue = !prev;
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(newValue));
+      return newValue;
+    });
+  };
 
   // Pin state
   const [pinnedCard, setPinnedCard] = useState<Card | null>(null);
@@ -94,6 +123,11 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
         setConversationId,
         showChat,
         setShowChat,
+
+        // Sidebar
+        isSidebarCollapsed,
+        setIsSidebarCollapsed,
+        toggleSidebarCollapsed,
 
         // Pin
         pinnedCard,

@@ -1,14 +1,16 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import logo from "../../assets/logo.png";
-import { Button } from "../Button";
 import { useAuth } from "../../contexts/AuthContext";
+import { ChevronLeft, Plus } from "lucide-react";
 
 interface SidebarHeaderProps {
   onNewStandardCard: () => void;
   onNewArticle: () => void;
   onNewTask: () => void;
   onNewChat: () => void;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
 export function SidebarHeader({
@@ -16,6 +18,8 @@ export function SidebarHeader({
   onNewArticle,
   onNewTask,
   onNewChat,
+  isCollapsed,
+  onToggleCollapse,
 }: SidebarHeaderProps) {
   const username = localStorage.getItem("username");
   const [isNewDropdownOpen, setIsNewDropdownOpen] = useState(false);
@@ -56,67 +60,86 @@ export function SidebarHeader({
   }, [isNewDropdownOpen]);
 
   return (
-    <div className="flex items-center p-4 border-b">
+    <div className={`flex items-center border-b ${isCollapsed ? "flex-col justify-center py-3 gap-3" : "p-4"}`}>
       <Link to="/app" className="flex-shrink-0">
         <img
           src={logo}
           alt="Company Logo"
-          className="h-8 w-auto rounded-md"
+          className={`rounded-md ${isCollapsed ? "h-10 w-10" : "h-8 w-auto"}`}
         />
       </Link>
-      <div className="flex-grow mx-2 min-w-0">
-        <Link to="/app/settings">
-          <span className="text-sm font-medium hover:text-gray-700 truncate block">
-            {username}
-          </span>
-        </Link>
-      </div>
-      <div className="relative flex-shrink-0" ref={dropdownRef}>
-        <Button
-          onClick={toggleNewDropdown}
-          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
-          aria-haspopup="true"
-          aria-expanded={isNewDropdownOpen}
-          aria-label="Create new item"
-        >
-          +
-        </Button>
-        {isNewDropdownOpen && (
-          <div
-            className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-[70] border"
-            role="menu"
+      {!isCollapsed && (
+        <div className="flex-grow mx-2 min-w-0">
+          <Link to="/app/settings">
+            <span className="text-sm font-medium hover:text-gray-700 truncate block">
+              {username}
+            </span>
+          </Link>
+        </div>
+      )}
+      <div className={`flex items-center ${isCollapsed ? "" : ""} flex-shrink-0`}>
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={toggleNewDropdown}
+            className={`flex items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600 transition-colors ${
+              isCollapsed
+                ? "w-10 h-10"
+                : "min-w-[44px] min-h-[44px]"
+            }`}
+            aria-haspopup="true"
+            aria-expanded={isNewDropdownOpen}
+            aria-label="Create new item"
           >
-            <button
-              onClick={onNewStandardCard}
-              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100"
-              role="menuitem"
+            <Plus size={isCollapsed ? 20 : 24} strokeWidth={2.5} />
+          </button>
+          {isNewDropdownOpen && (
+            <div
+              className={`absolute ${isCollapsed ? "left-full ml-2 top-0" : "right-0"} mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-[70] border`}
+              role="menu"
             >
-              Create Card
-            </button>
-            <button
-              onClick={onNewArticle}
-              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100"
-              role="menuitem"
-            >
-              Add Article (Card)
-            </button>
-            <button
-              onClick={onNewTask}
-              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100"
-              role="menuitem"
-            >
-              Create Task
-            </button>
-            {hasSubscription && (
               <button
-                onClick={onNewChat}
+                onClick={onNewStandardCard}
                 className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100"
                 role="menuitem"
               >
-                New Chat
+                Create Card
               </button>
-            )}
-          </div>
+              <button
+                onClick={onNewArticle}
+                className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100"
+                role="menuitem"
+              >
+                Add Article (Card)
+              </button>
+              <button
+                onClick={onNewTask}
+                className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100"
+                role="menuitem"
+              >
+                Create Task
+              </button>
+              {hasSubscription && (
+                <button
+                  onClick={onNewChat}
+                  className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100"
+                  role="menuitem"
+                >
+                  New Chat
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        {!isCollapsed && (
+          <button
+            onClick={onToggleCollapse}
+            className="ml-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md bg-gray-100 hover:bg-gray-200 transition-colors"
+            aria-label="Collapse sidebar"
+            aria-pressed={isCollapsed}
+            title="Collapse sidebar"
+          >
+            <ChevronLeft size={18} className="transition-transform duration-300" />
+          </button>
         )}
       </div>
     </div>

@@ -24,7 +24,7 @@ import { MobileBottomNav } from "./mobile/MobileBottomNav";
 export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { lastCard, conversationId, setConversationId } = useUIState();
+  const { lastCard, conversationId, setConversationId, isSidebarCollapsed, toggleSidebarCollapsed } = useUIState();
   const { showToast } = useToast();
   const { tasks } = useTaskContext();
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
@@ -132,9 +132,6 @@ export function Sidebar() {
         className={`
     fixed md:relative
     z-[50]
-    w-72
-    min-w-[18rem]
-    max-w-[18rem]
     flex-shrink-0
     h-screen
     bg-white
@@ -143,9 +140,10 @@ export function Sidebar() {
     transform
     ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
     md:translate-x-0
-    transition-transform
+    transition-all
     duration-300
     ease-in-out
+    ${isSidebarCollapsed ? "w-16 min-w-[4rem] max-w-[4rem]" : "w-72 min-w-[18rem] max-w-[18rem]"}
   `}
       >
         <SidebarHeader
@@ -153,6 +151,8 @@ export function Sidebar() {
           onNewArticle={handleAddArticle}
           onNewTask={handleNewTask}
           onNewChat={handleNewChat}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={toggleSidebarCollapsed}
         />
 
         {/* Scrollable Middle Section */}
@@ -160,17 +160,28 @@ export function Sidebar() {
           <NavigationLinks
             todayTasksCount={todayTasks.length}
             hasSubscription={hasSubscription}
+            isCollapsed={isSidebarCollapsed}
           />
           <hr />
-          <SecondaryNavigationLinks hasSubscription={hasSubscription} />
+          <SecondaryNavigationLinks
+            hasSubscription={hasSubscription}
+            isCollapsed={isSidebarCollapsed}
+          />
 
-          <StarredSearchesSection />
-          <StarredCardsSection
-            onShowStarCardDialog={() => setShowStarCardDialog(true)}
-          />
-          <hr />
+          {!isSidebarCollapsed && (
+            <>
+              <StarredSearchesSection />
+              <StarredCardsSection
+                onShowStarCardDialog={() => setShowStarCardDialog(true)}
+              />
+              <hr />
+            </>
+          )}
         </div>
-        <SidebarFooter />
+        <SidebarFooter
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={toggleSidebarCollapsed}
+        />
       </div>
 
       {/* Mobile Bottom Navigation Bar (Task 4) */}
