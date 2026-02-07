@@ -24,9 +24,10 @@ const (
 	FeatureFlagFactTools = "fact_tools_v2"
 	// FeatureFlagTaskTools enables the new task_tools domain package
 	FeatureFlagTaskTools = "task_tools_v2"
+	// FeatureFlagEntityTools enables the new entity_tools domain package
+	FeatureFlagEntityTools = "entity_tools_v2"
 
 	// Future flags for other domains (to be added):
-	// FeatureFlagEntityTools = "entity_tools_v2"
 	// FeatureFlagCardTools = "card_tools_v2"
 )
 
