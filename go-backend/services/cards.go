@@ -436,6 +436,42 @@ func GetFullCard(db models.Database, userID int, cardPK int) (models.Card, error
 		return models.Card{}, fmt.Errorf("unable to access card")
 	}
 
+	// Fetch source RSS article if this card was created from one
+	if card.Link != "" {
+		var article models.RSSArticle
+		var content, author sql.NullString
+		var publishedAt sql.NullTime
+		var cardID sql.NullInt64
+
+		err := db.QueryRow(`
+			SELECT id, user_id, feed_id, title, content, author, url,
+			       published_at, fetched_at, read, card_id
+			FROM rss_articles
+			WHERE user_id = $1 AND url = $2
+		`, userID, card.Link).Scan(
+			&article.ID, &article.UserID, &article.FeedID, &article.Title,
+			&content, &author, &article.URL, &publishedAt,
+			&article.FetchedAt, &article.Read, &cardID,
+		)
+		if err == nil {
+			if content.Valid {
+				article.Content = &content.String
+			}
+			if author.Valid {
+				article.Author = &author.String
+			}
+			if publishedAt.Valid {
+				article.PublishedAt = &publishedAt.Time
+			}
+			if cardID.Valid {
+				cardIDInt := int(cardID.Int64)
+				article.CardID = &cardIDInt
+			}
+			card.SourceArticle = &article
+		}
+		// If no article found, card.SourceArticle remains nil - that's fine
+	}
+
 	return card, nil
 }
 func GetPartialCardByCardID(db models.Database, userID int, cardID string) (models.PartialCard, error) {

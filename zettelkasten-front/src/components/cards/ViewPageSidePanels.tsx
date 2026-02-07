@@ -9,6 +9,7 @@ import { SearchTagDropdown } from "../tags/SearchTagDropdown";
 import { linkifyWithDefaultOptions } from "../../utils/strings";
 import { PersonIcon } from "../../assets/icons/PersonIcon";
 import { CardStructuredDataDisplay } from "../schemas/CardStructuredDataDisplay";
+import { RSSArticle } from "../../api/rss";
 
 interface ViewPageSidePanelsProps {
   parentCard: Card | null;
@@ -20,6 +21,7 @@ interface ViewPageSidePanelsProps {
   tags: any[];
   onTagClick: (tagName: string) => void;
   onRemoveTag: (tagName: string) => void;
+  sourceArticle?: RSSArticle;
 }
 
 export function ViewPageSidePanels({
@@ -31,7 +33,8 @@ export function ViewPageSidePanels({
   viewingCard,
   tags,
   onTagClick,
-  onRemoveTag
+  onRemoveTag,
+  sourceArticle
 }: ViewPageSidePanelsProps) {
   const navigate = useNavigate();
 
@@ -69,6 +72,34 @@ export function ViewPageSidePanels({
               Next →
             </Button>
           )}
+          <hr className="my-4" />
+        </div>
+      )}
+
+      {/* Source Article Section */}
+      {sourceArticle && (
+        <div>
+          <HeaderSubSection text="Source Article" />
+          <div className="mt-2">
+            <button
+              onClick={() => navigate('/app/rss', { state: { selectedArticleId: sourceArticle.id } })}
+              className="w-full text-left p-2 rounded-md hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-start gap-2">
+                <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+                </svg>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-blue-600 hover:text-blue-800 line-clamp-2">
+                    {sourceArticle.title}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    RSS Feed • {new Date(sourceArticle.fetched_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            </button>
+          </div>
           <hr className="my-4" />
         </div>
       )}

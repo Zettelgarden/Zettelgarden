@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ViewPageHeader } from "../../components/cards/ViewPageHeader";
 import { ViewCardContentSection } from "../../components/cards/ViewCardContentSection";
 import { ViewPageSidePanels } from "../../components/cards/ViewPageSidePanels";
@@ -21,6 +22,7 @@ interface ViewPageProps {
 export function ViewPage({ cardId }: ViewPageProps) {
   const { tags } = useTagContext();
   const { pinnedCard } = useUIState();
+  const navigate = useNavigate();
 
   const fileUploadRef = useRef<HTMLInputElement>(null);
   type ViewMode = 'normal' | 'tree' | 'summary' | 'analysis';
@@ -209,6 +211,7 @@ export function ViewPage({ cardId }: ViewPageProps) {
               tags={tags}
               onTagClick={onTagClick}
               onRemoveTag={onRemoveTag}
+              sourceArticle={viewingCard.source_article}
             />
           </div>
         </div>

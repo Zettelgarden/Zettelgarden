@@ -224,7 +224,7 @@ func DeleteRSSFeed(db models.Database, userID, feedID int) error {
 func ListRSSArticles(db models.Database, userID int, filters map[string]interface{}) ([]models.RSSArticle, error) {
 	query := `
 		SELECT id, user_id, feed_id, title, content, author, url,
-		       published_at, fetched_at, read
+		       published_at, fetched_at, read, card_id
 		FROM rss_articles
 		WHERE user_id = $1
 	`
@@ -268,11 +268,12 @@ func ListRSSArticles(db models.Database, userID int, filters map[string]interfac
 		var article models.RSSArticle
 		var content, author sql.NullString
 		var publishedAt sql.NullTime
+		var cardID sql.NullInt64
 
 		err := rows.Scan(
 			&article.ID, &article.UserID, &article.FeedID, &article.Title,
 			&content, &author, &article.URL, &publishedAt,
-			&article.FetchedAt, &article.Read,
+			&article.FetchedAt, &article.Read, &cardID,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan article: %w", err)
@@ -286,6 +287,10 @@ func ListRSSArticles(db models.Database, userID int, filters map[string]interfac
 		}
 		if publishedAt.Valid {
 			article.PublishedAt = &publishedAt.Time
+		}
+		if cardID.Valid {
+			cardIDInt := int(cardID.Int64)
+			article.CardID = &cardIDInt
 		}
 
 		articles = append(articles, article)
@@ -303,16 +308,17 @@ func GetRSSArticleByID(db models.Database, userID, articleID int) (*models.RSSAr
 	var article models.RSSArticle
 	var content, author sql.NullString
 	var publishedAt sql.NullTime
+	var cardID sql.NullInt64
 
 	err := db.QueryRow(`
 		SELECT id, user_id, feed_id, title, content, author, url,
-		       published_at, fetched_at, read
+		       published_at, fetched_at, read, card_id
 		FROM rss_articles
 		WHERE id = $1 AND user_id = $2
 	`, articleID, userID).Scan(
 		&article.ID, &article.UserID, &article.FeedID, &article.Title,
 		&content, &author, &article.URL, &publishedAt,
-		&article.FetchedAt, &article.Read,
+		&article.FetchedAt, &article.Read, &cardID,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -329,6 +335,10 @@ func GetRSSArticleByID(db models.Database, userID, articleID int) (*models.RSSAr
 	}
 	if publishedAt.Valid {
 		article.PublishedAt = &publishedAt.Time
+	}
+	if cardID.Valid {
+		cardIDInt := int(cardID.Int64)
+		article.CardID = &cardIDInt
 	}
 
 	return &article, nil
@@ -399,6 +409,17 @@ func ConvertRSSArticleToCard(db models.Database, userID, articleID int, params *
 	card, err := CreateCard(db, userID, cardParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create card: %w", err)
+	}
+
+	// Store the card_id on the article
+	_, err = db.Exec(`
+		UPDATE rss_articles
+		SET card_id = $1
+		WHERE id = $2 AND user_id = $3
+	`, card.ID, articleID, userID)
+	if err != nil {
+		log.Printf("[rss-article:%d] failed to update card_id after conversion: %v", articleID, err)
+		// Non-fatal error - still return the card
 	}
 
 	// Mark article as read

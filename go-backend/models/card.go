@@ -30,6 +30,7 @@ type Card struct {
 	IsStarred      bool          `json:"is_starred"`
 	SchemaID       *int          `json:"schema_id,omitempty"`
 	StructuredData *json.RawMessage `json:"structured_data,omitempty"`
+	SourceArticle  *RSSArticle   `json:"source_article,omitempty"`
 }
 
 func ScanCards(rows *sql.Rows) ([]Card, error) {

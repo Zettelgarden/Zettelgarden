@@ -27,6 +27,7 @@ export interface RSSArticle {
   published_at?: string;
   fetched_at: string;
   read: boolean;
+  card_id?: number;
 }
 
 export interface RSSFolder {

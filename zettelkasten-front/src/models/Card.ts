@@ -2,6 +2,7 @@ import { File } from "./File";
 import { Tag } from "./Tags";
 import { Task } from "./Task";
 import { ExternalEvent } from "./ExternalEvent";
+import { RSSArticle } from "../api/rss";
 
 export interface PartialCard {
   id: number;
@@ -55,6 +56,7 @@ export interface Card {
   process_entities_and_facts?: boolean; // Whether to process entities and facts on save
   schema_id?: number | null; // ID of the schema this card uses
   structured_data?: Record<string, any> | null; // The structured data for this card's schema
+  source_article?: RSSArticle; // The RSS article this card was created from, if any
 }
 
 export interface CardChunk {
