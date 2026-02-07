@@ -2,11 +2,17 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"go-backend/models"
 	"go-backend/server"
 	"go-backend/services"
+	"log"
+	"net/http"
+	"strconv"
 	"sync"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 const (
@@ -158,4 +164,233 @@ func (h *Handler) releaseSummarizationJobSlot(userID int) {
 	if count > 0 {
 		h.summarizationActiveJobs.Store(userID, count-1)
 	}
+}
+
+// CreateRSSFeedRoute handles POST /api/rss/feeds
+func (h *Handler) CreateRSSFeedRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	var params models.CreateRSSFeedParams
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		log.Printf("Failed to decode request body: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	feed, err := services.CreateRSSFeed(h.GetDB(), userID, params)
+	if err != nil {
+		log.Printf("Failed to create RSS feed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(feed)
+}
+
+// ListRSSFeedsRoute handles GET /api/rss/feeds
+func (h *Handler) ListRSSFeedsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	feeds, err := services.ListRSSFeeds(h.GetDB(), userID)
+	if err != nil {
+		log.Printf("Failed to list RSS feeds: %v", err)
+		http.Error(w, "Failed to list feeds", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(feeds)
+}
+
+// GetRSSFeedRoute handles GET /api/rss/feeds/{id}
+func (h *Handler) GetRSSFeedRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	feedID, _ := strconv.Atoi(mux.Vars(r)["id"])
+
+	feed, err := services.GetRSSFeedByID(h.GetDB(), userID, feedID)
+	if err != nil {
+		log.Printf("Failed to get RSS feed: %v", err)
+		http.Error(w, "Feed not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(feed)
+}
+
+// UpdateRSSFeedRoute handles PUT /api/rss/feeds/{id}
+func (h *Handler) UpdateRSSFeedRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	feedID, _ := strconv.Atoi(mux.Vars(r)["id"])
+
+	var params models.UpdateRSSFeedParams
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		log.Printf("Failed to decode request body: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	feed, err := services.UpdateRSSFeed(h.GetDB(), userID, feedID, params)
+	if err != nil {
+		log.Printf("Failed to update RSS feed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(feed)
+}
+
+// DeleteRSSFeedRoute handles DELETE /api/rss/feeds/{id}
+func (h *Handler) DeleteRSSFeedRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	feedID, _ := strconv.Atoi(mux.Vars(r)["id"])
+
+	if err := services.DeleteRSSFeed(h.GetDB(), userID, feedID); err != nil {
+		log.Printf("Failed to delete RSS feed: %v", err)
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// RefreshRSSFeedsRoute handles POST /api/rss/feeds/fetch
+func (h *Handler) RefreshRSSFeedsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Get all enabled feeds for the user
+	feeds, err := services.ListRSSFeeds(h.GetDB(), userID)
+	if err != nil {
+		log.Printf("Failed to list RSS feeds: %v", err)
+		http.Error(w, "Failed to list feeds", http.StatusInternalServerError)
+		return
+	}
+
+	// Fetch articles for each enabled feed
+	count := 0
+	for _, feed := range feeds {
+		if feed.Enabled {
+			if err := services.FetchRSSFeedArticles(h.GetDB(), feed.ID); err != nil {
+				log.Printf("Failed to fetch feed %d: %v", feed.ID, err)
+			} else {
+				count++
+			}
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"fetched": count,
+	})
+}
+
+// ListRSSArticlesRoute handles GET /api/rss/articles
+func (h *Handler) ListRSSArticlesRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Parse query parameters
+	filters := make(map[string]interface{})
+	if folder := r.URL.Query().Get("folder"); folder != "" {
+		filters["folder"] = folder
+	}
+	if unread := r.URL.Query().Get("unread"); unread == "true" {
+		filters["unread"] = true
+	}
+	if feedID := r.URL.Query().Get("feed_id"); feedID != "" {
+		if id, err := strconv.Atoi(feedID); err == nil {
+			filters["feed_id"] = id
+		}
+	}
+	if limit := r.URL.Query().Get("limit"); limit != "" {
+		if l, err := strconv.Atoi(limit); err == nil {
+			filters["limit"] = l
+		}
+	}
+
+	articles, err := services.ListRSSArticles(h.GetDB(), userID, filters)
+	if err != nil {
+		log.Printf("Failed to list RSS articles: %v", err)
+		http.Error(w, "Failed to list articles", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(articles)
+}
+
+// GetRSSArticleRoute handles GET /api/rss/articles/{id}
+func (h *Handler) GetRSSArticleRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	articleID, _ := strconv.Atoi(mux.Vars(r)["id"])
+
+	article, err := services.GetRSSArticleByID(h.GetDB(), userID, articleID)
+	if err != nil {
+		log.Printf("Failed to get RSS article: %v", err)
+		http.Error(w, "Article not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(article)
+}
+
+// MarkRSSArticleAsReadRoute handles POST /api/rss/articles/{id}/read
+func (h *Handler) MarkRSSArticleAsReadRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	articleID, _ := strconv.Atoi(mux.Vars(r)["id"])
+
+	var params struct {
+		Read bool `json:"read"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		params.Read = true // Default to marking as read
+	}
+
+	if err := services.MarkRSSArticleAsRead(h.GetDB(), userID, articleID, params.Read); err != nil {
+		log.Printf("Failed to mark article as read: %v", err)
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ConvertRSSArticleToCardRoute handles POST /api/rss/articles/{id}/convert
+func (h *Handler) ConvertRSSArticleToCardRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	articleID, _ := strconv.Atoi(mux.Vars(r)["id"])
+
+	var params *models.ConvertArticleParams
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil && err.Error() != "EOF" {
+		log.Printf("Failed to decode request body: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	card, err := services.ConvertRSSArticleToCard(h.GetDB(), userID, articleID, params)
+	if err != nil {
+		log.Printf("Failed to convert article to card: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(card)
+}
+
+// ListRSSFoldersRoute handles GET /api/rss/folders
+func (h *Handler) ListRSSFoldersRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	folders, err := services.ListRSSFolders(h.GetDB(), userID)
+	if err != nil {
+		log.Printf("Failed to list RSS folders: %v", err)
+		http.Error(w, "Failed to list folders", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(folders)
 }
