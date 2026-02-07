@@ -14,6 +14,8 @@ import (
 
 // Feature flag constants
 const (
+	// FeatureFlagMemoryTools enables the new memory_tools domain package
+	FeatureFlagMemoryTools = "memory_tools_v2"
 	// FeatureFlagTemplateTools enables the new template_tools domain package
 	FeatureFlagTemplateTools = "template_tools_v2"
 	// FeatureFlagCalendarTools enables the new calendar_tools domain package
