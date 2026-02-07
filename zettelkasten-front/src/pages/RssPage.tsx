@@ -361,23 +361,23 @@ export function RssPage() {
           </label>
         </div>
 
-        {folders.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Folders
-              </h3>
-              <button
-                onClick={() => setShowCreateFolderDialog(true)}
-                className="text-xs text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1"
-                title="Create new folder"
-              >
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                </svg>
-                Add
-              </button>
-            </div>
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Folders
+            </h3>
+            <button
+              onClick={() => setShowCreateFolderDialog(true)}
+              className="text-xs text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1"
+              title="Create new folder"
+            >
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+              </svg>
+              Add
+            </button>
+          </div>
+          {folders.length > 0 ? (
             <div className="space-y-1">
               {folders.map((folder) => (
                 <div
@@ -424,8 +424,10 @@ export function RssPage() {
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <p className="text-xs text-gray-400 italic px-3 py-1">No folders yet</p>
+          )}
+        </div>
       </div>
 
       {/* Middle Panel: Articles */}
