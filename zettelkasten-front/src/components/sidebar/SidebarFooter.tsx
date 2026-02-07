@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { BookOpenIcon } from "../../assets/icons/BookOpenIcon";
 import { SettingsIcon } from "../../assets/icons/SettingsIcon";
-import { ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface SidebarFooterProps {
   isCollapsed: boolean;
@@ -103,7 +103,7 @@ export function SidebarFooter({ isCollapsed, onToggleCollapse }: SidebarFooterPr
           label="Settings"
           isCollapsed={isCollapsed}
         />
-        {isCollapsed && (
+        {isCollapsed ? (
           <div className="relative">
             <button
               ref={buttonRef}
@@ -133,6 +133,16 @@ export function SidebarFooter({ isCollapsed, onToggleCollapse }: SidebarFooterPr
               </div>
             )}
           </div>
+        ) : (
+          <button
+            onClick={onToggleCollapse}
+            className="min-h-[44px] px-3 py-2 flex items-center rounded-md hover:bg-gray-100 transition-colors"
+            aria-label="Collapse sidebar"
+            aria-pressed={isCollapsed}
+            title="Collapse sidebar"
+          >
+            <ChevronLeft size={18} className="transition-transform duration-300" />
+          </button>
         )}
       </div>
     </div>

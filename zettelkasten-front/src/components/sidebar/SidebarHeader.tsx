@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import logo from "../../assets/logo.png";
 import { useAuth } from "../../contexts/AuthContext";
-import { ChevronLeft, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 interface SidebarHeaderProps {
   onNewStandardCard: () => void;
@@ -81,10 +81,10 @@ export function SidebarHeader({
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={toggleNewDropdown}
-            className={`flex items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600 transition-colors ${
+            className={`flex items-center justify-center rounded-full transition-colors ${
               isCollapsed
-                ? "w-10 h-10"
-                : "min-w-[44px] min-h-[44px]"
+                ? "w-10 h-10 text-gray-700 hover:bg-gray-100"
+                : "bg-blue-500 text-white hover:bg-blue-600 min-w-[44px] min-h-[44px]"
             }`}
             aria-haspopup="true"
             aria-expanded={isNewDropdownOpen}
@@ -130,17 +130,6 @@ export function SidebarHeader({
             </div>
           )}
         </div>
-        {!isCollapsed && (
-          <button
-            onClick={onToggleCollapse}
-            className="ml-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md bg-gray-100 hover:bg-gray-200 transition-colors"
-            aria-label="Collapse sidebar"
-            aria-pressed={isCollapsed}
-            title="Collapse sidebar"
-          >
-            <ChevronLeft size={18} className="transition-transform duration-300" />
-          </button>
-        )}
       </div>
     </div>
   );
