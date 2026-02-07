@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { setDocumentTitle } from "../utils/title";
-import DOMPurify from "dompurify";
+import { safeHtmlToMarkdown } from "../utils/markdown";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   listFeeds,
   listArticles,
@@ -656,10 +658,20 @@ export function RssPage() {
             </div>
 
             {selectedArticle.content && (
-              <div
-                className="prose prose-sm max-w-none mb-8"
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedArticle.content) }}
-              />
+              <div className="prose prose-sm max-w-none mb-8">
+                <Markdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a: ({ href, children, ...props }) => (
+                      <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+                        {children}
+                      </a>
+                    ),
+                  }}
+                >
+                  {safeHtmlToMarkdown(selectedArticle.content)}
+                </Markdown>
+              </div>
             )}
 
             <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-gray-200">
