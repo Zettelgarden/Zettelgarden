@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { setDocumentTitle } from "../utils/title";
+import DOMPurify from "dompurify";
 import {
   listFeeds,
   listArticles,
@@ -10,11 +12,13 @@ import {
   RSSFeed,
   RSSArticle,
   RSSFolder,
+  ArticleFilters,
 } from "../api/rss";
 import { RssAddFeedDialog } from "../components/rss/RssAddFeedDialog";
 import { RssConvertDialog } from "../components/rss/RssConvertDialog";
 
 export function RssPage() {
+  const navigate = useNavigate();
   const [feeds, setFeeds] = useState<RSSFeed[]>([]);
   const [articles, setArticles] = useState<RSSArticle[]>([]);
   const [folders, setFolders] = useState<RSSFolder[]>([]);
@@ -25,6 +29,7 @@ export function RssPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [showAddFeedDialog, setShowAddFeedDialog] = useState(false);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState("");
 
   useEffect(() => {
     setDocumentTitle("RSS");
@@ -53,10 +58,9 @@ export function RssPage() {
 
   const loadArticles = async () => {
     try {
-      const filters: any = {};
+      const filters: ArticleFilters = { limit: 50 };
       if (selectedFolder) filters.folder = selectedFolder;
       if (showUnreadOnly) filters.unread = true;
-      filters.limit = 50;
 
       const articlesData = await listArticles(filters);
       setArticles(articlesData);
@@ -67,12 +71,17 @@ export function RssPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    setRefreshMessage("");
     try {
-      await refreshFeeds();
+      const result = await refreshFeeds();
       await loadData();
       await loadArticles();
+      setRefreshMessage(`Refreshed ${result.fetched} feeds`);
+      setTimeout(() => setRefreshMessage(""), 3000);
     } catch (error) {
       console.error("Failed to refresh feeds:", error);
+      setRefreshMessage("Failed to refresh feeds");
+      setTimeout(() => setRefreshMessage(""), 3000);
     } finally {
       setRefreshing(false);
     }
@@ -104,7 +113,7 @@ export function RssPage() {
   const handleConverted = (cardId: number) => {
     setShowConvertDialog(false);
     // Navigate to the new card
-    window.location.href = `/app/card/${cardId}`;
+    navigate(`/app/card/${cardId}`);
   };
 
   if (loading) {
@@ -129,6 +138,13 @@ export function RssPage() {
             >
               {refreshing ? "Refreshing..." : "Refresh All"}
             </button>
+            {refreshMessage && (
+              <div className={`text-sm text-center px-2 py-1 rounded ${
+                refreshMessage.includes("Failed") ? "text-red-600" : "text-green-600"
+              }`}>
+                {refreshMessage}
+              </div>
+            )}
             <button
               onClick={() => setShowAddFeedDialog(true)}
               className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
@@ -260,7 +276,7 @@ export function RssPage() {
             {selectedArticle.content && (
               <div
                 className="prose prose-sm max-w-none mb-8"
-                dangerouslySetInnerHTML={{ __html: selectedArticle.content }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedArticle.content) }}
               />
             )}
 
