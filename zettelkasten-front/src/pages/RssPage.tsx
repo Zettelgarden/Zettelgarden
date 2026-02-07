@@ -11,6 +11,8 @@ import {
   RSSArticle,
   RSSFolder,
 } from "../api/rss";
+import { RssAddFeedDialog } from "../components/rss/RssAddFeedDialog";
+import { RssConvertDialog } from "../components/rss/RssConvertDialog";
 
 export function RssPage() {
   const [feeds, setFeeds] = useState<RSSFeed[]>([]);
@@ -21,8 +23,8 @@ export function RssPage() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [converting, setConverting] = useState(false);
-  const [convertMessage, setConvertMessage] = useState<string>("");
+  const [showAddFeedDialog, setShowAddFeedDialog] = useState(false);
+  const [showConvertDialog, setShowConvertDialog] = useState(false);
 
   useEffect(() => {
     setDocumentTitle("RSS");
@@ -90,25 +92,19 @@ export function RssPage() {
     }
   };
 
-  const handleConvertToCard = async () => {
-    if (!selectedArticle) return;
-    setConverting(true);
-    setConvertMessage("");
-    try {
-      const result = await convertToCard(selectedArticle.id);
-      setConvertMessage("Article converted to card successfully!");
-      // Optionally navigate to the new card after a short delay
-      setTimeout(() => {
-        if (result?.id) {
-          window.location.href = `/app/card/${result.id}`;
-        }
-      }, 1000);
-    } catch (error) {
-      console.error("Failed to convert to card:", error);
-      setConvertMessage("Failed to convert article to card");
-    } finally {
-      setConverting(false);
-    }
+  const handleFeedAdded = (feed: RSSFeed) => {
+    setFeeds((prev) => [...prev, feed]);
+    setShowAddFeedDialog(false);
+  };
+
+  const handleConvertClick = () => {
+    setShowConvertDialog(true);
+  };
+
+  const handleConverted = (cardId: number) => {
+    setShowConvertDialog(false);
+    // Navigate to the new card
+    window.location.href = `/app/card/${cardId}`;
   };
 
   if (loading) {
@@ -125,13 +121,24 @@ export function RssPage() {
       <div className="w-64 border-r border-gray-200 p-4 overflow-y-auto bg-gray-50">
         <div className="mb-4">
           <h2 className="text-lg font-semibold mb-3">RSS Feeds</h2>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-          >
-            {refreshing ? "Refreshing..." : "Refresh All"}
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            >
+              {refreshing ? "Refreshing..." : "Refresh All"}
+            </button>
+            <button
+              onClick={() => setShowAddFeedDialog(true)}
+              className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+              </svg>
+              Add Feed
+            </button>
+          </div>
         </div>
 
         <div className="mb-4">
@@ -259,36 +266,14 @@ export function RssPage() {
 
             <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-gray-200">
               <button
-                onClick={handleConvertToCard}
-                disabled={converting}
-                className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                onClick={handleConvertClick}
+                className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
               >
-                {converting ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Converting...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
-                    </svg>
-                    Convert to Card
-                  </>
-                )}
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+                </svg>
+                Convert to Card
               </button>
-              {convertMessage && (
-                <div className={`text-sm px-4 py-2 rounded-md ${
-                  convertMessage.includes("success")
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
-                }`}>
-                  {convertMessage}
-                </div>
-              )}
             </div>
           </div>
         ) : (
@@ -301,6 +286,19 @@ export function RssPage() {
           </div>
         )}
       </div>
+
+      {/* Dialogs */}
+      <RssAddFeedDialog
+        isOpen={showAddFeedDialog}
+        onClose={() => setShowAddFeedDialog(false)}
+        onFeedAdded={handleFeedAdded}
+      />
+      <RssConvertDialog
+        isOpen={showConvertDialog}
+        onClose={() => setShowConvertDialog(false)}
+        article={selectedArticle}
+        onConverted={handleConverted}
+      />
     </div>
   );
 }
