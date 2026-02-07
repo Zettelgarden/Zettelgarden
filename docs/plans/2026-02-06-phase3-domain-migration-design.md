@@ -202,10 +202,10 @@ For each domain migration:
 - [x] **article_tools** (2 tools) - ✅ Merged to master (commit: 4108dc21)
 - [x] **fact_tools** (4 tools) - ✅ Merged to master (commit: 33beae9a)
 - [x] **task_tools** (7 tools) - ✅ Merged to master (commit: d9a99307)
-- [ ] **entity_tools** (10 tools) - Next domain
+- [x] **entity_tools** (10 tools) - ✅ Merged to master (commit: 3ef6ed2e)
 - [ ] **card_tools** (6 tools) - Final domain
 
-**Status: 5 of 7 domains complete (71%)**
+**Status: 6 of 7 domains complete (86%)**
 
 ### Total Timeline Estimate
 
