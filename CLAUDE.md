@@ -67,6 +67,12 @@ docker-compose up  # Start all services locally
   - Task creation shortcuts and dialogs
   - Task tagging and filtering
 - **Files**: File upload/storage with S3 integration and card attachment
+- **RSS Feed Client**: Subscribe to RSS/Atom feeds with auto-tagging support
+  - Feeds: Browse and manage RSS/Atom feed subscriptions
+  - Articles: Reader-style inbox for fetched articles
+  - Conversion: Selectively convert interesting articles to cards
+  - Folders: Organize feeds into folders for better navigation
+  - Scheduled Fetch: Background job fetches new articles every 60 minutes
 - **Search**: Vector search with embeddings, traditional text search, and starred searches
   - Quick search functionality with keyboard shortcuts
   - Search result starring and management
@@ -131,6 +137,10 @@ The application requires extensive environment configuration for:
 - Telegram bot (TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_USER_ID, TELEGRAM_ZETTELGARDEN_USER_ID, TELEGRAM_ENABLED)
   - Purpose: Enable Telegram bot for knowledge base chat
   - Requirements: Bot token from @BotFather, your Telegram user ID, your Zettelgarden user ID
+- RSS feed fetching (RSS_FETCH_INTERVAL_MINUTES)
+  - Purpose: Interval in minutes for RSS feed fetching
+  - Default: 60 minutes
+  - When required: Optional - uses default if not configured
 - Mail service configuration
 
 ## Development Notes
