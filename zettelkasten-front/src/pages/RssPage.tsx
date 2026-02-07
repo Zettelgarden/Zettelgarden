@@ -45,6 +45,7 @@ export function RssPage() {
   const [deletingItem, setDeletingItem] = useState<RSSFeed | RSSFolder | null>(null);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setDocumentTitle("RSS");
@@ -135,6 +136,22 @@ export function RssPage() {
   const getFeedName = (feedId: number): string => {
     const feed = feeds.find((f) => f.id === feedId);
     return feed?.name || "Unknown Feed";
+  };
+
+  const toggleFolderExpanded = (folderName: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(folderName)) {
+        next.delete(folderName);
+      } else {
+        next.add(folderName);
+      }
+      return next;
+    });
+  };
+
+  const getFeedsByFolder = (folderName: string | null) => {
+    return feeds.filter((f) => f.folder === folderName || (folderName === null && !f.folder));
   };
 
   const handleEditFeed = (feed: RSSFeed) => {
@@ -244,7 +261,7 @@ export function RssPage() {
 
   return (
     <div className="flex h-full">
-      {/* Left Panel: Folders */}
+      {/* Left Panel: Feeds & Folders */}
       <div className="w-64 border-r border-gray-200 p-4 overflow-y-auto bg-gray-50">
         <div className="mb-4">
           <h2 className="text-lg font-semibold mb-3">RSS Feeds</h2>
@@ -275,13 +292,14 @@ export function RssPage() {
           </div>
         </div>
 
-        <div className="mb-4">
+        {/* All Feeds */}
+        <div className="mb-3">
           <button
             onClick={() => {
               setSelectedFolder(null);
               setSelectedFeedId(null);
             }}
-            className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
+            className={`w-full text-left px-3 py-2 rounded-md transition-colors font-medium ${
               selectedFolder === null && selectedFeedId === null ? "bg-blue-100 text-blue-900" : "hover:bg-gray-100"
             }`}
           >
@@ -289,66 +307,225 @@ export function RssPage() {
           </button>
         </div>
 
-        {feeds.length > 0 && (
-          <div className="mb-4">
-            <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
-              Feeds
-            </h3>
-            <div className="space-y-1">
-              {feeds.map((feed) => (
-                <div
-                  key={feed.id}
-                  className={`group flex items-center rounded-md transition-colors text-sm ${
-                    selectedFeedId === feed.id ? "bg-blue-100" : "hover:bg-gray-100"
-                  }`}
-                >
-                  <button
-                    onClick={() => {
-                      setSelectedFeedId(feed.id);
-                      setSelectedFolder(null);
-                    }}
-                    className="flex-1 text-left px-3 py-2"
-                    title={feed.url}
+        {/* Folders with Feeds */}
+        {folders.length > 0 && (
+          <div className="mb-3 space-y-1">
+            {folders.map((folder) => {
+              const folderFeeds = getFeedsByFolder(folder.name);
+              const isExpanded = expandedFolders.has(folder.name);
+              const isSelected = selectedFolder === folder.name && selectedFeedId === null;
+
+              return (
+                <div key={folder.id}>
+                  {/* Folder header */}
+                  <div
+                    className={`group flex items-center rounded-md transition-colors text-sm ${
+                      isSelected ? "bg-blue-100" : "hover:bg-gray-100"
+                    }`}
                   >
-                    <div className="truncate">{feed.name}</div>
-                    {feed.last_error && (
-                      <div className="text-xs text-red-500 truncate" title={feed.last_error}>
-                        Error
-                      </div>
-                    )}
-                  </button>
-                  <div className="flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditFeed(feed);
+                      onClick={() => {
+                        setSelectedFolder(folder.name);
+                        setSelectedFeedId(null);
                       }}
-                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                      title="Edit feed"
+                      className="flex-1 text-left px-3 py-2 flex items-center gap-1"
                     >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      <svg
+                        className={`w-3 h-3 text-gray-400 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFolderExpanded(folder.name);
+                        }}
+                      >
+                        <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                       </svg>
+                      <span className="font-medium">{folder.name}</span>
+                      <span className="text-gray-400 text-xs">({folderFeeds.length})</span>
                     </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteFeed(feed);
-                      }}
-                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                      title="Delete feed"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                    <div className="flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditFolder(folder);
+                        }}
+                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                        title="Rename folder"
+                      >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteFolder(folder);
+                        }}
+                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                        title="Delete folder"
+                      >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Feeds in folder (expanded) */}
+                  {isExpanded && (
+                    <div className="ml-4 space-y-1 mt-1">
+                      {folderFeeds.map((feed) => (
+                        <div
+                          key={feed.id}
+                          className={`group flex items-center rounded-md transition-colors text-sm ${
+                            selectedFeedId === feed.id ? "bg-blue-50" : "hover:bg-gray-50"
+                          }`}
+                        >
+                          <button
+                            onClick={() => {
+                              setSelectedFeedId(feed.id);
+                              setSelectedFolder(null);
+                            }}
+                            className="flex-1 text-left px-3 py-1.5 truncate"
+                            title={feed.url}
+                          >
+                            {feed.name}
+                          </button>
+                          <div className="flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditFeed(feed);
+                              }}
+                              className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                              title="Edit feed"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteFeed(feed);
+                              }}
+                              className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                              title="Delete feed"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {folderFeeds.length === 0 && (
+                        <div className="px-3 py-1.5 text-xs text-gray-400 italic">No feeds</div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         )}
 
+        {/* Uncategorized Feeds */}
+        {(() => {
+          const uncategorizedFeeds = getFeedsByFolder(null);
+          if (uncategorizedFeeds.length === 0) return null;
+
+          const isExpanded = expandedFolders.has("__uncategorized__");
+          return (
+            <div className="mb-3">
+              <div
+                className={`group flex items-center rounded-md transition-colors text-sm ${
+                  selectedFolder === null && selectedFeedId === null ? "bg-gray-100" : "hover:bg-gray-50"
+                }`}
+              >
+                <button
+                  onClick={() => toggleFolderExpanded("__uncategorized__")}
+                  className="flex-1 text-left px-3 py-2 flex items-center gap-1"
+                >
+                  <svg
+                    className={`w-3 h-3 text-gray-400 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span className="font-medium text-gray-600">Uncategorized</span>
+                  <span className="text-gray-400 text-xs">({uncategorizedFeeds.length})</span>
+                </button>
+              </div>
+              {isExpanded && (
+                <div className="ml-4 space-y-1 mt-1">
+                  {uncategorizedFeeds.map((feed) => (
+                    <div
+                      key={feed.id}
+                      className={`group flex items-center rounded-md transition-colors text-sm ${
+                        selectedFeedId === feed.id ? "bg-blue-50" : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <button
+                        onClick={() => {
+                          setSelectedFeedId(feed.id);
+                          setSelectedFolder(null);
+                        }}
+                        className="flex-1 text-left px-3 py-1.5 truncate"
+                        title={feed.url}
+                      >
+                        {feed.name}
+                      </button>
+                      <div className="flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditFeed(feed);
+                          }}
+                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Edit feed"
+                        >
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteFeed(feed);
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete feed"
+                        >
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Create Folder Link */}
+        <div className="mb-4">
+          <button
+            onClick={() => setShowCreateFolderDialog(true)}
+            className="text-xs text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1"
+          >
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+            </svg>
+            Create new folder
+          </button>
+        </div>
+
+        {/* Unread Filter */}
         <div className="mb-4">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -359,74 +536,6 @@ export function RssPage() {
             />
             <span className="text-sm">Unread only</span>
           </label>
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Folders
-            </h3>
-            <button
-              onClick={() => setShowCreateFolderDialog(true)}
-              className="text-xs text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1"
-              title="Create new folder"
-            >
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
-              Add
-            </button>
-          </div>
-          {folders.length > 0 ? (
-            <div className="space-y-1">
-              {folders.map((folder) => (
-                <div
-                  key={folder.id}
-                  className={`group flex items-center rounded-md transition-colors text-sm ${
-                    selectedFolder === folder.name ? "bg-blue-100" : "hover:bg-gray-100"
-                  }`}
-                >
-                  <button
-                    onClick={() => {
-                      setSelectedFolder(folder.name);
-                      setSelectedFeedId(null);
-                    }}
-                    className="flex-1 text-left px-3 py-2"
-                  >
-                    {folder.name}
-                  </button>
-                  <div className="flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditFolder(folder);
-                      }}
-                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                      title="Rename folder"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteFolder(folder);
-                      }}
-                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                      title="Delete folder"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-gray-400 italic px-3 py-1">No folders yet</p>
-          )}
         </div>
       </div>
 
