@@ -118,7 +118,7 @@ export function RssAddFeedDialog({
                   {/* Name - Optional */}
                   <div>
                     <label htmlFor="feed-name" className="block text-sm font-medium text-gray-700 mb-1">
-                      Name <span className="text-gray-400">(optional)</span>
+                      Name <span className="text-gray-400">(optional - auto-detected from feed if blank)</span>
                     </label>
                     <input
                       id="feed-name"

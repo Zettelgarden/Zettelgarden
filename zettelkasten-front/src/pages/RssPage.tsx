@@ -23,6 +23,7 @@ export function RssPage() {
   const [articles, setArticles] = useState<RSSArticle[]>([]);
   const [folders, setFolders] = useState<RSSFolder[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [selectedFeedId, setSelectedFeedId] = useState<number | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<RSSArticle | null>(null);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -38,7 +39,7 @@ export function RssPage() {
 
   useEffect(() => {
     loadArticles();
-  }, [selectedFolder, showUnreadOnly]);
+  }, [selectedFolder, selectedFeedId, showUnreadOnly]);
 
   const loadData = async () => {
     setLoading(true);
@@ -60,6 +61,7 @@ export function RssPage() {
     try {
       const filters: ArticleFilters = { limit: 50 };
       if (selectedFolder) filters.folder = selectedFolder;
+      if (selectedFeedId) filters.feed_id = selectedFeedId;
       if (showUnreadOnly) filters.unread = true;
 
       const articlesData = await listArticles(filters);
@@ -116,6 +118,11 @@ export function RssPage() {
     navigate(`/app/card/${cardId}`);
   };
 
+  const getFeedName = (feedId: number): string => {
+    const feed = feeds.find((f) => f.id === feedId);
+    return feed?.name || "Unknown Feed";
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -159,14 +166,47 @@ export function RssPage() {
 
         <div className="mb-4">
           <button
-            onClick={() => setSelectedFolder(null)}
+            onClick={() => {
+              setSelectedFolder(null);
+              setSelectedFeedId(null);
+            }}
             className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-              selectedFolder === null ? "bg-blue-100 text-blue-900" : "hover:bg-gray-100"
+              selectedFolder === null && selectedFeedId === null ? "bg-blue-100 text-blue-900" : "hover:bg-gray-100"
             }`}
           >
             All Feeds ({feeds.length})
           </button>
         </div>
+
+        {feeds.length > 0 && (
+          <div className="mb-4">
+            <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+              Feeds
+            </h3>
+            <div className="space-y-1">
+              {feeds.map((feed) => (
+                <button
+                  key={feed.id}
+                  onClick={() => {
+                    setSelectedFeedId(feed.id);
+                    setSelectedFolder(null);
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
+                    selectedFeedId === feed.id ? "bg-blue-100 text-blue-900" : "hover:bg-gray-100"
+                  }`}
+                  title={feed.url}
+                >
+                  <div className="truncate">{feed.name}</div>
+                  {feed.last_error && (
+                    <div className="text-xs text-red-500 truncate" title={feed.last_error}>
+                      Error
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="mb-4">
           <label className="flex items-center gap-2 cursor-pointer">
@@ -189,7 +229,10 @@ export function RssPage() {
               {folders.map((folder) => (
                 <button
                   key={folder.id}
-                  onClick={() => setSelectedFolder(folder.name)}
+                  onClick={() => {
+                    setSelectedFolder(folder.name);
+                    setSelectedFeedId(null);
+                  }}
                   className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
                     selectedFolder === folder.name ? "bg-blue-100 text-blue-900" : "hover:bg-gray-100"
                   }`}
@@ -225,7 +268,7 @@ export function RssPage() {
                   {article.title}
                 </h3>
                 <p className="text-xs text-gray-500">
-                  {new Date(article.fetched_at).toLocaleDateString()}
+                  {getFeedName(article.feed_id)} • {new Date(article.fetched_at).toLocaleDateString()}
                 </p>
               </div>
             ))}
