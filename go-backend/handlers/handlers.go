@@ -486,3 +486,61 @@ func (h *Handler) GetUnreadCountsRoute(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
 }
+
+// ExportOPMLRoute handles GET /api/rss/opml/export
+func (h *Handler) ExportOPMLRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	opml, err := services.ExportOPML(h.GetDB(), userID)
+	if err != nil {
+		log.Printf("Failed to export OPML: %v", err)
+		http.Error(w, "Failed to export OPML", http.StatusInternalServerError)
+		return
+	}
+
+	// Set headers for file download
+	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="zettelgarden-feeds.opml"`)
+	w.Write([]byte(opml))
+}
+
+// ImportOPMLRoute handles POST /api/rss/opml/import
+func (h *Handler) ImportOPMLRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Parse multipart form (max 10MB)
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		log.Printf("Failed to parse multipart form: %v", err)
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	// Get the uploaded file
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		log.Printf("Failed to get file from form: %v", err)
+		http.Error(w, "No file provided", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Read file content
+	content := make([]byte, header.Size)
+	_, err = file.Read(content)
+	if err != nil {
+		log.Printf("Failed to read file content: %v", err)
+		http.Error(w, "Failed to read file", http.StatusInternalServerError)
+		return
+	}
+
+	// Import OPML
+	result, err := services.ImportOPML(h.GetDB(), userID, content)
+	if err != nil {
+		log.Printf("Failed to import OPML: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}

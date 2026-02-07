@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { setDocumentTitle } from "../utils/title";
 import { safeHtmlToMarkdown } from "../utils/markdown";
@@ -14,11 +14,14 @@ import {
   deleteFeed,
   deleteFolder,
   getUnreadCounts,
+  exportOPML,
+  importOPML,
   RSSFeed,
   RSSArticle,
   RSSFolder,
   ArticleFilters,
   UnreadCounts,
+  OPMLImportResult,
 } from "../api/rss";
 import { RssAddFeedDialog } from "../components/rss/RssAddFeedDialog";
 import { RssEditFeedDialog } from "../components/rss/RssEditFeedDialog";
@@ -26,6 +29,7 @@ import { RssEditFolderDialog } from "../components/rss/RssEditFolderDialog";
 import { RssCreateFolderDialog } from "../components/rss/RssCreateFolderDialog";
 import { RssConfirmDialog } from "../components/rss/RssConfirmDialog";
 import { RssConvertDialog } from "../components/rss/RssConvertDialog";
+import { RssImportDialog } from "../components/rss/RssImportDialog";
 
 export function RssPage() {
   const navigate = useNavigate();
@@ -53,11 +57,33 @@ export function RssPage() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [unreadCounts, setUnreadCounts] = useState<UnreadCounts>({ folders: {}, feeds: {} });
   const [markingAsRead, setMarkingAsRead] = useState<Set<number>>(new Set());
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importResult, setImportResult] = useState<OPMLImportResult | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setDocumentTitle("RSS");
     loadData();
   }, []);
+
+  // Close settings menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (settingsMenuRef.current && !settingsMenuRef.current.contains(event.target as Node)) {
+        setShowSettingsMenu(false);
+      }
+    };
+
+    if (showSettingsMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showSettingsMenu]);
 
   useEffect(() => {
     loadArticles();
@@ -315,6 +341,42 @@ export function RssPage() {
     }
   };
 
+  const handleExportOPML = async () => {
+    try {
+      const blob = await exportOPML();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `zettelgarden-feeds-${new Date().toISOString().split("T")[0]}.opml`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Failed to export OPML:", error);
+      setErrorMessage("Failed to export feeds. Please try again.");
+      setTimeout(() => setErrorMessage(""), 5000);
+    }
+  };
+
+  const handleImportOPML = async (file: File) => {
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const result = await importOPML(file);
+      setImportResult(result);
+      // Reload data to show new feeds
+      await loadData();
+      await loadArticles();
+    } catch (error) {
+      console.error("Failed to import OPML:", error);
+      setErrorMessage("Failed to import feeds. Please check the file format and try again.");
+      setTimeout(() => setErrorMessage(""), 5000);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -328,15 +390,64 @@ export function RssPage() {
       {/* Left Panel: Feeds & Folders */}
       <div className="w-64 border-r border-gray-200 p-4 overflow-y-auto bg-gray-50">
         <div className="mb-4">
-          <h2 className="text-lg font-semibold mb-3">RSS Feeds</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">RSS Feeds</h2>
+            <div className="relative" ref={settingsMenuRef}>
+              <button
+                onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                aria-label="Settings"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+
+              {showSettingsMenu && (
+                <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+                  <button
+                    onClick={() => {
+                      setShowSettingsMenu(false);
+                      handleRefresh();
+                    }}
+                    disabled={refreshing}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <svg className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    {refreshing ? "Refreshing..." : "Refresh All"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowSettingsMenu(false);
+                      handleExportOPML();
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Export OPML
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowSettingsMenu(false);
+                      setShowImportDialog(true);
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Import OPML
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
           <div className="space-y-2">
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-            >
-              {refreshing ? "Refreshing..." : "Refresh All"}
-            </button>
             {refreshMessage && (
               <div className={`text-sm text-center px-2 py-1 rounded ${
                 refreshMessage.includes("Failed") ? "text-red-600" : "text-green-600"
@@ -820,6 +931,16 @@ export function RssPage() {
         onClose={() => setShowConvertDialog(false)}
         article={selectedArticle}
         onConverted={handleConverted}
+      />
+      <RssImportDialog
+        isOpen={showImportDialog}
+        onClose={() => {
+          setShowImportDialog(false);
+          setImportResult(null);
+        }}
+        onImport={handleImportOPML}
+        importing={importing}
+        importResult={importResult}
       />
     </div>
   );

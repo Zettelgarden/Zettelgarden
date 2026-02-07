@@ -73,3 +73,11 @@ type CreateRSSFolderParams struct {
 	Name       string `json:"name"`
 	OrderIndex *int   `json:"order_index,omitempty"`
 }
+
+// OPMLImportResult represents the result of an OPML import operation
+type OPMLImportResult struct {
+	CreatedFeeds   int      `json:"created_feeds"`
+	SkippedFeeds   int      `json:"skipped_feeds"`
+	CreatedFolders int      `json:"created_folders"`
+	Errors         []string `json:"errors,omitempty"`
+}

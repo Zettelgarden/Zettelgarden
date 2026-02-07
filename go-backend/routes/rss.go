@@ -24,4 +24,8 @@ func RegisterRSSRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/rss/folders/{id}", h.DeleteRSSFolderRoute, "DELETE")
 
 	addProtectedRoute(r, h, "/api/rss/unread-counts", h.GetUnreadCountsRoute, "GET")
+
+	// OPML import/export routes
+	addProtectedRoute(r, h, "/api/rss/opml/export", h.ExportOPMLRoute, "GET")
+	addProtectedRoute(r, h, "/api/rss/opml/import", h.ImportOPMLRoute, "POST")
 }

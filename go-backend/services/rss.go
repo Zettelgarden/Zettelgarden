@@ -1,10 +1,14 @@
 package services
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/xml"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -734,4 +738,319 @@ func GetUnreadCounts(db models.Database, userID int) (map[string]int, map[int]in
 	}
 
 	return folderCounts, feedCounts, nil
+}
+
+// ExportOPML generates OPML XML from user's RSS feeds
+func ExportOPML(db models.Database, userID int) (string, error) {
+	feeds, err := ListRSSFeeds(db, userID)
+	if err != nil {
+		return "", fmt.Errorf("failed to list feeds: %w", err)
+	}
+
+	// Group feeds by folder
+	folderMap := make(map[string][]models.RSSFeed)
+	uncategorizedFeeds := []models.RSSFeed{}
+
+	for _, feed := range feeds {
+		if feed.Folder != nil && *feed.Folder != "" {
+			folderMap[*feed.Folder] = append(folderMap[*feed.Folder], feed)
+		} else {
+			uncategorizedFeeds = append(uncategorizedFeeds, feed)
+		}
+	}
+
+	// Build OPML XML
+	opml := `<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head>
+    <title>Zettelgarden RSS Feeds</title>
+    <dateCreated>` + time.Now().Format(time.RFC1123) + `</dateCreated>
+  </head>
+  <body>
+`
+
+	// Add categorized feeds
+	for folderName, folderFeeds := range folderMap {
+		opml += fmt.Sprintf("    <outline text=\"%s\" title=\"%s\">\n", escapeXML(folderName), escapeXML(folderName))
+		for _, feed := range folderFeeds {
+			opml += exportFeedToOPML(feed, "      ")
+		}
+		opml += "    </outline>\n"
+	}
+
+	// Add uncategorized feeds
+	for _, feed := range uncategorizedFeeds {
+		opml += exportFeedToOPML(feed, "    ")
+	}
+
+	opml += `  </body>
+</opml>`
+
+	return opml, nil
+}
+
+// exportFeedToOPML converts a feed to OPML outline element
+func exportFeedToOPML(feed models.RSSFeed, indent string) string {
+	attrs := []string{
+		fmt.Sprintf("type=\"rss\""),
+		fmt.Sprintf("text=\"%s\"", escapeXML(feed.Name)),
+		fmt.Sprintf("title=\"%s\"", escapeXML(feed.Name)),
+		fmt.Sprintf("xmlUrl=\"%s\"", escapeXML(feed.URL)),
+	}
+
+	// Add custom attributes as extensions
+	if feed.AutoTags != "" {
+		attrs = append(attrs, fmt.Sprintf("zettelgarden:tags=\"%s\"", escapeXML(feed.AutoTags)))
+	}
+	if feed.FetchInterval != DefaultFetchInterval {
+		attrs = append(attrs, fmt.Sprintf("zettelgarden:fetchInterval=\"%d\"", feed.FetchInterval))
+	}
+	if !feed.Enabled {
+		attrs = append(attrs, "zettelgarden:enabled=\"false\"")
+	}
+
+	return indent + "<outline " + strings.Join(attrs, " ") + "/>\n"
+}
+
+// escapeXML escapes special characters for XML
+func escapeXML(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	s = strings.ReplaceAll(s, "'", "&apos;")
+	return s
+}
+
+// unescapeXML unescapes special characters from XML
+func unescapeXML(s string) string {
+	s = strings.ReplaceAll(s, "&apos;", "'")
+	s = strings.ReplaceAll(s, "&quot;", "\"")
+	s = strings.ReplaceAll(s, "&gt;", ">")
+	s = strings.ReplaceAll(s, "&lt;", "<")
+	s = strings.ReplaceAll(s, "&amp;", "&")
+	return s
+}
+
+// ImportOPML parses OPML XML and creates feeds and folders
+func ImportOPML(db models.Database, userID int, opmlContent []byte) (*models.OPMLImportResult, error) {
+	result := &models.OPMLImportResult{
+		Errors: []string{},
+	}
+
+	// Parse OPML using a custom parser that handles nested outlines
+	opmlDoc, err := parseOPML(opmlContent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse OPML: %w", err)
+	}
+
+	// Process each outline
+	for _, outline := range opmlDoc {
+		if err := processOPMLOutline(db, userID, outline, "", result); err != nil {
+			result.Errors = append(result.Errors, err.Error())
+		}
+	}
+
+	return result, nil
+}
+
+// OPMLOutline represents an OPML outline element
+type OPMLOutline struct {
+	Text     string
+	Title    string
+	XMLURL   string
+	Type     string
+	Tags     string
+	Interval int
+	Enabled  string
+	Children []*OPMLOutline
+}
+
+// parseOPML parses OPML content recursively
+func parseOPML(content []byte) ([]*OPMLOutline, error) {
+	decoder := xml.NewDecoder(bytes.NewReader(content))
+
+	var outlines []*OPMLOutline
+	var stack []*OPMLOutline
+	inBody := false
+
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+
+		switch se := token.(type) {
+		case xml.StartElement:
+			if se.Name.Local == "body" {
+				inBody = true
+				continue
+			}
+			if se.Name.Local == "outline" && inBody {
+				outline := &OPMLOutline{}
+				for _, attr := range se.Attr {
+					switch attr.Name.Local {
+					case "text":
+						outline.Text = attr.Value
+					case "title":
+						outline.Title = attr.Value
+					case "xmlUrl":
+						outline.XMLURL = attr.Value
+					case "type":
+						outline.Type = attr.Value
+					case "zettelgarden:tags":
+						outline.Tags = attr.Value
+					case "zettelgarden:fetchInterval":
+						if val, err := strconv.Atoi(attr.Value); err == nil {
+							outline.Interval = val
+						}
+					case "zettelgarden:enabled":
+						outline.Enabled = attr.Value
+					}
+				}
+
+				if len(stack) == 0 {
+					outlines = append(outlines, outline)
+				} else {
+					parent := stack[len(stack)-1]
+					parent.Children = append(parent.Children, outline)
+				}
+				stack = append(stack, outline)
+			}
+
+		case xml.EndElement:
+			if se.Name.Local == "body" {
+				inBody = false
+			}
+			if se.Name.Local == "outline" && len(stack) > 0 {
+				stack = stack[:len(stack)-1]
+			}
+		}
+	}
+
+	return outlines, nil
+}
+
+// processOPMLOutline processes a single OPML outline element (recursively)
+func processOPMLOutline(db models.Database, userID int, outline *OPMLOutline, folder string, result *models.OPMLImportResult) error {
+	// If this has xmlUrl, it's a feed
+	if outline.XMLURL != "" || outline.Type == "rss" {
+		return importRSSFeed(db, userID, outline, folder, result)
+	}
+
+	// Otherwise, it's a folder - process nested outlines
+	folderName := outline.Text
+	if folderName == "" {
+		folderName = outline.Title
+	}
+
+	// Create folder if it has a name
+	if folderName != "" {
+		if err := ensureFolderExists(db, userID, folderName, result); err != nil {
+			return err
+		}
+	}
+
+	// Process children with this folder context
+	for _, child := range outline.Children {
+		childFolder := folder
+		if folderName != "" {
+			childFolder = folderName
+		}
+		if err := processOPMLOutline(db, userID, child, childFolder, result); err != nil {
+			result.Errors = append(result.Errors, err.Error())
+		}
+	}
+
+	return nil
+}
+
+// importRSSFeed imports a single RSS feed from OPML
+func importRSSFeed(db models.Database, userID int, outline *OPMLOutline, folder string, result *models.OPMLImportResult) error {
+	url := unescapeXML(outline.XMLURL)
+	if url == "" {
+		return fmt.Errorf("feed has no URL")
+	}
+
+	// Check if feed already exists
+	var exists bool
+	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM rss_feeds WHERE user_id = $1 AND url = $2)",
+		userID, url).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to check feed existence: %w", err)
+	}
+
+	if exists {
+		result.SkippedFeeds++
+		return nil
+	}
+
+	// Determine feed name
+	name := unescapeXML(outline.Text)
+	if name == "" {
+		name = unescapeXML(outline.Title)
+	}
+
+	// Determine auto tags
+	autoTags := unescapeXML(outline.Tags)
+
+	// Determine fetch interval
+	fetchInterval := DefaultFetchInterval
+	if outline.Interval > 0 {
+		fetchInterval = outline.Interval
+	}
+
+	// Determine enabled status
+	enabled := true
+	if strings.ToLower(outline.Enabled) == "false" {
+		enabled = false
+	}
+
+	// Create the feed
+	params := models.CreateRSSFeedParams{
+		URL:           url,
+		Name:          name,
+		AutoTags:      autoTags,
+		FetchInterval: &fetchInterval,
+		Enabled:       &enabled,
+	}
+
+	if folder != "" {
+		params.Folder = &folder
+	}
+
+	_, err = CreateRSSFeed(db, userID, params)
+	if err != nil {
+		return fmt.Errorf("failed to create feed %s: %w", url, err)
+	}
+
+	result.CreatedFeeds++
+	return nil
+}
+
+// ensureFolderExists creates a folder if it doesn't exist
+func ensureFolderExists(db models.Database, userID int, folderName string, result *models.OPMLImportResult) error {
+	// Check if folder exists
+	var exists bool
+	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM rss_folders WHERE user_id = $1 AND name = $2)",
+		userID, folderName).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to check folder existence: %w", err)
+	}
+
+	if !exists {
+		params := models.CreateRSSFolderParams{
+			Name: folderName,
+		}
+		_, err = CreateRSSFolder(db, userID, params)
+		if err != nil {
+			return fmt.Errorf("failed to create folder %s: %w", folderName, err)
+		}
+		result.CreatedFolders++
+	}
+
+	return nil
 }

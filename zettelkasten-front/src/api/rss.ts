@@ -87,6 +87,13 @@ export interface UnreadCounts {
   feeds: Record<number, number>;
 }
 
+export interface OPMLImportResult {
+  created_feeds: number;
+  skipped_feeds: number;
+  created_folders: number;
+  errors?: string[];
+}
+
 // Feed API
 export function createFeed(feed: CreateRSSFeedParams): Promise<RSSFeed> {
   return getData(apiClient.post<RSSFeed>("/rss/feeds", feed));
@@ -160,4 +167,53 @@ export function deleteFolder(id: number): Promise<void> {
 // Unread Counts API
 export function getUnreadCounts(): Promise<UnreadCounts> {
   return getData(apiClient.get<UnreadCounts>("/rss/unread-counts"));
+}
+
+// OPML Export/Import API
+export async function exportOPML(): Promise<Blob> {
+  const BASE_URL = import.meta.env.VITE_URL;
+  const url = BASE_URL.endsWith("/")
+    ? BASE_URL + "rss/opml/export"
+    : BASE_URL + "/rss/opml/export";
+
+  const token = localStorage.getItem("token");
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: token ? `Bearer ${token}` : "",
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Export failed with status: ${response.status}`);
+  }
+
+  return response.blob();
+}
+
+export async function importOPML(file: File): Promise<OPMLImportResult> {
+  const BASE_URL = import.meta.env.VITE_URL;
+  const url = BASE_URL.endsWith("/")
+    ? BASE_URL + "rss/opml/import"
+    : BASE_URL + "/rss/opml/import";
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const token = localStorage.getItem("token");
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: token ? `Bearer ${token}` : "",
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Import failed with status: ${response.status}`);
+  }
+
+  return response.json();
 }
