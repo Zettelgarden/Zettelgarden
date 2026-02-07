@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -399,11 +400,23 @@ func ConvertRSSArticleToCard(db models.Database, userID, articleID int, params *
 		content = fmt.Sprintf("%s\n\n%s", content, tags)
 	}
 
+	// Determine card_id - use custom if provided, otherwise generate
+	cardID := ""
+	if params != nil && params.CardID != nil && *params.CardID != "" {
+		cardID = *params.CardID
+	} else {
+		cardID, err = getNextRootCardID(db, userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate card_id: %w", err)
+		}
+	}
+
 	// Create the card
 	cardParams := models.EditCardParams{
-		Title: title,
-		Body:  content,
-		Link:  article.URL,
+		CardID: cardID,
+		Title:  title,
+		Body:   content,
+		Link:   article.URL,
 	}
 
 	card, err := CreateCard(db, userID, cardParams)
@@ -428,6 +441,41 @@ func ConvertRSSArticleToCard(db models.Database, userID, articleID int, params *
 	}
 
 	return &card, nil
+}
+
+// getNextRootCardID generates the next root card ID for a user
+func getNextRootCardID(db models.Database, userID int) (string, error) {
+	var result string
+
+	// Query to get the highest numeric card_id
+	query := `
+        SELECT card_id
+        FROM cards
+        WHERE user_id = $1
+        AND is_deleted = FALSE
+        AND card_id ~ '^[0-9]+$'  -- Only match pure numeric card_ids
+        ORDER BY CAST(card_id AS INTEGER) DESC
+        LIMIT 1
+    `
+
+	err := db.QueryRow(query, userID).Scan(&result)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("Error finding next root card ID: %v", err)
+		return "1", nil // Default to 1 if there's an error
+	}
+
+	if result == "" {
+		return "1", nil // If no cards exist, start with 1
+	}
+
+	// Convert the highest card_id to int and increment
+	highestNumber, err := strconv.Atoi(result)
+	if err != nil {
+		log.Printf("Error converting card_id to number: %v", err)
+		return "1", nil
+	}
+
+	return strconv.Itoa(highestNumber + 1), nil
 }
 
 // FetchRSSFeedArticles fetches new articles from an RSS feed

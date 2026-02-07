@@ -68,6 +68,7 @@ export interface ConvertArticleParams {
   title?: string;
   body?: string;
   tags?: string;
+  card_id?: string;
 }
 
 export interface ConvertCardResponse {

@@ -62,9 +62,10 @@ type UpdateRSSFeedParams struct {
 
 // ConvertArticleParams represents parameters for converting an RSS article to a card
 type ConvertArticleParams struct {
-	Title *string `json:"title,omitempty"`
-	Body  *string `json:"body,omitempty"`
-	Tags  *string `json:"tags,omitempty"`
+	Title  *string `json:"title,omitempty"`
+	Body   *string `json:"body,omitempty"`
+	Tags   *string `json:"tags,omitempty"`
+	CardID *string `json:"card_id,omitempty"`
 }
 
 // CreateRSSFolderParams represents parameters for creating an RSS folder
