@@ -548,13 +548,19 @@ func ListRSSFolders(db models.Database, userID int) ([]models.RSSFolder, error) 
 }
 
 // CreateRSSFolder creates a new folder
-func CreateRSSFolder(db models.Database, userID int, name string, orderIndex int) (*models.RSSFolder, error) {
+func CreateRSSFolder(db models.Database, userID int, params models.CreateRSSFolderParams) (*models.RSSFolder, error) {
+	// Set default order_index if not provided
+	orderIndex := 0
+	if params.OrderIndex != nil {
+		orderIndex = *params.OrderIndex
+	}
+
 	var folderID int
 	err := db.QueryRow(`
 		INSERT INTO rss_folders (user_id, name, order_index)
 		VALUES ($1, $2, $3)
 		RETURNING id
-	`, userID, name, orderIndex).Scan(&folderID)
+	`, userID, params.Name, orderIndex).Scan(&folderID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create folder: %w", err)
 	}

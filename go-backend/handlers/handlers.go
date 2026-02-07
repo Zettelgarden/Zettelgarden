@@ -395,6 +395,34 @@ func (h *Handler) ListRSSFoldersRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(folders)
 }
 
+// CreateRSSFolderRoute handles POST /api/rss/folders
+func (h *Handler) CreateRSSFolderRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	var params models.CreateRSSFolderParams
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		log.Printf("Failed to decode request body: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if params.Name == "" {
+		http.Error(w, "Folder name is required", http.StatusBadRequest)
+		return
+	}
+
+	folder, err := services.CreateRSSFolder(h.GetDB(), userID, params)
+	if err != nil {
+		log.Printf("Failed to create RSS folder: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(folder)
+}
+
 // UpdateRSSFolderRoute handles PUT /api/rss/folders/{id}
 func (h *Handler) UpdateRSSFolderRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)

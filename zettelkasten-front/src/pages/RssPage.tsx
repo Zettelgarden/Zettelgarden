@@ -19,6 +19,7 @@ import {
 import { RssAddFeedDialog } from "../components/rss/RssAddFeedDialog";
 import { RssEditFeedDialog } from "../components/rss/RssEditFeedDialog";
 import { RssEditFolderDialog } from "../components/rss/RssEditFolderDialog";
+import { RssCreateFolderDialog } from "../components/rss/RssCreateFolderDialog";
 import { RssConfirmDialog } from "../components/rss/RssConfirmDialog";
 import { RssConvertDialog } from "../components/rss/RssConvertDialog";
 
@@ -36,6 +37,7 @@ export function RssPage() {
   const [showAddFeedDialog, setShowAddFeedDialog] = useState(false);
   const [showEditFeedDialog, setShowEditFeedDialog] = useState(false);
   const [showEditFolderDialog, setShowEditFolderDialog] = useState(false);
+  const [showCreateFolderDialog, setShowCreateFolderDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editingFeed, setEditingFeed] = useState<RSSFeed | null>(null);
   const [editingFolder, setEditingFolder] = useState<RSSFolder | null>(null);
@@ -173,6 +175,11 @@ export function RssPage() {
     }
     setShowEditFolderDialog(false);
     setEditingFolder(null);
+  };
+
+  const handleFolderCreated = (newFolder: RSSFolder) => {
+    setFolders((prev) => [...prev, newFolder]);
+    setShowCreateFolderDialog(false);
   };
 
   const handleDeleteFolder = (folder: RSSFolder) => {
@@ -356,9 +363,21 @@ export function RssPage() {
 
         {folders.length > 0 && (
           <div>
-            <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
-              Folders
-            </h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Folders
+              </h3>
+              <button
+                onClick={() => setShowCreateFolderDialog(true)}
+                className="text-xs text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1"
+                title="Create new folder"
+              >
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                </svg>
+                Add
+              </button>
+            </div>
             <div className="space-y-1">
               {folders.map((folder) => (
                 <div
@@ -538,6 +557,11 @@ export function RssPage() {
         onClose={() => setShowEditFolderDialog(false)}
         folder={editingFolder}
         onFolderUpdated={handleFolderUpdated}
+      />
+      <RssCreateFolderDialog
+        isOpen={showCreateFolderDialog}
+        onClose={() => setShowCreateFolderDialog(false)}
+        onFolderCreated={handleFolderCreated}
       />
       <RssConfirmDialog
         isOpen={showDeleteConfirm}

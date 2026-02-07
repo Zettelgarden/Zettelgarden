@@ -83,7 +83,11 @@ func TestCreateRSSFolder(t *testing.T) {
 	name := "Tech"
 	orderIndex := 0
 
-	folder, err := CreateRSSFolder(s.Tx, userID, name, orderIndex)
+	params := models.CreateRSSFolderParams{
+		Name:       name,
+		OrderIndex: &orderIndex,
+	}
+	folder, err := CreateRSSFolder(s.Tx, userID, params)
 	if err != nil {
 		t.Fatalf("failed to create folder: %v", err)
 	}
@@ -110,7 +114,11 @@ func TestGetRSSFolderByID(t *testing.T) {
 	orderIndex := 1
 
 	// Create a folder first
-	createdFolder, err := CreateRSSFolder(s.Tx, userID, name, orderIndex)
+	params := models.CreateRSSFolderParams{
+		Name:       name,
+		OrderIndex: &orderIndex,
+	}
+	createdFolder, err := CreateRSSFolder(s.Tx, userID, params)
 	if err != nil {
 		t.Fatalf("failed to create folder: %v", err)
 	}
@@ -225,7 +233,10 @@ func TestUpdateRSSFeedNoChanges(t *testing.T) {
 
 	// First create a folder to use in feed
 	userID := 1
-	folder, err := CreateRSSFolder(s.Tx, userID, "Tech", 0)
+	folderParams := models.CreateRSSFolderParams{
+		Name: "Tech",
+	}
+	folder, err := CreateRSSFolder(s.Tx, userID, folderParams)
 	if err != nil {
 		t.Fatalf("failed to create folder: %v", err)
 	}

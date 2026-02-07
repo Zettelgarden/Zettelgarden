@@ -65,3 +65,9 @@ type ConvertArticleParams struct {
 	Body  *string `json:"body,omitempty"`
 	Tags  *string `json:"tags,omitempty"`
 }
+
+// CreateRSSFolderParams represents parameters for creating an RSS folder
+type CreateRSSFolderParams struct {
+	Name       string `json:"name"`
+	OrderIndex *int   `json:"order_index,omitempty"`
+}
