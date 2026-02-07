@@ -935,15 +935,6 @@ func CreateCard(db models.Database, userID int, params models.EditCardParams) (m
 	params.CardID = strings.ReplaceAll(params.CardID, " ", "")
 	params.CardID = regexp.MustCompile(`\s+`).ReplaceAllString(params.CardID, "")
 
-	// Auto-generate card_id if empty
-	if params.CardID == "" {
-		var err error
-		params.CardID, err = getNextRootCardID(db, userID)
-		if err != nil {
-			return models.Card{}, fmt.Errorf("failed to generate card_id: %w", err)
-		}
-	}
-
 	// Check if card_id is unique
 	if !checkIsCardIDUnique(db, userID, params.CardID) {
 		return models.Card{}, fmt.Errorf("card_id already exists")

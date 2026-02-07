@@ -169,7 +169,6 @@ export function RssConvertDialog({
                           type="text"
                           value={cardId}
                           onChange={(e) => setCardId(e.target.value)}
-                          placeholder="Auto-generated if empty"
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm font-mono text-sm"
                         />
                         <button
@@ -181,9 +180,6 @@ export function RssConvertDialog({
                           Discover
                         </button>
                       </div>
-                      <p className="mt-1 text-xs text-gray-500">
-                        Leave empty to auto-generate, or enter a custom ID
-                      </p>
                     </div>
 
                     {/* Article Link */}

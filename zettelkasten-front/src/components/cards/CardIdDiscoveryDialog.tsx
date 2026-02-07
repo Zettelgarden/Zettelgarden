@@ -125,7 +125,7 @@ export function CardIdDiscoveryDialog({ onClose, onSelectId }: CardIdDiscoveryDi
   }
 
   return (
-    <Dialog open={true} onClose={onClose} className="relative z-50">
+    <Dialog open={true} onClose={onClose} className="relative z-[90]">
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
       <div className="fixed inset-0 flex items-center justify-center p-4">
