@@ -120,7 +120,7 @@ func TestCreateCardWithParent(t *testing.T) {
 		t.Fatalf("Failed to create child card: %v", err)
 	}
 
-	if childCard.ParentID != parentCard.ID {
+	if childCard.ParentID == nil || *childCard.ParentID != parentCard.ID {
 		t.Errorf("Expected parent_id %v, got %v", parentCard.ID, childCard.ParentID)
 	}
 }
