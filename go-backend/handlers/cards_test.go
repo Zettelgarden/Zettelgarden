@@ -591,7 +591,7 @@ func TestCreateCardLinkedParentId(t *testing.T) {
 	rr = makeCardRequestSuccess(s, t, card.ID)
 	log.Printf("%v", rr.Body.String())
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &newCard)
-	if newCard.ParentID != parentCard.ID {
+	if newCard.ParentID == nil || *newCard.ParentID != parentCard.ID {
 		t.Errorf("handler returned wrong parent: got %v want %v", newCard.ParentID, parentCard.ID)
 	}
 }
@@ -700,9 +700,10 @@ func TestCheckCardLinkedOrRelated(t *testing.T) {
 	}
 
 	// Test parent-child relationship
+	mainCardIDPtr := mainCard.ID
 	if !s.checkChunkLinkedOrRelated(userID, mainCard, models.CardChunk{
 		ID:       testCard.ID,
-		ParentID: mainCard.ID,
+		ParentID: &mainCardIDPtr,
 	}) {
 		t.Error("Failed to detect parent-child relationship")
 	}
@@ -793,9 +794,10 @@ func TestCheckChunkLinkedOrRelated_Integration(t *testing.T) {
 
 	// Test 1: Chunk is linked when ParentID matches main card
 	t.Run("Linked when ParentID matches", func(t *testing.T) {
+		mainCardIDPtr := mainCard.ID
 		chunk := models.CardChunk{
 			ID:       childCard.ID,
-			ParentID: mainCard.ID,
+			ParentID: &mainCardIDPtr,
 		}
 		if !s.checkChunkLinkedOrRelated(userID, mainCard, chunk) {
 			t.Error("Expected chunk to be linked when ParentID matches main card")
@@ -806,7 +808,7 @@ func TestCheckChunkLinkedOrRelated_Integration(t *testing.T) {
 	t.Run("Linked when found in references", func(t *testing.T) {
 		chunk := models.CardChunk{
 			ID:       referencedCard.ID,
-			ParentID: 0, // No parent match
+			ParentID: nil, // No parent match
 		}
 		if !s.checkChunkLinkedOrRelated(userID, mainCard, chunk) {
 			t.Error("Expected chunk to be linked when found in references")
@@ -817,7 +819,7 @@ func TestCheckChunkLinkedOrRelated_Integration(t *testing.T) {
 	t.Run("Not linked when unrelated", func(t *testing.T) {
 		chunk := models.CardChunk{
 			ID:       unrelatedCard.ID,
-			ParentID: 0, // No parent match
+			ParentID: nil, // No parent match
 		}
 		if s.checkChunkLinkedOrRelated(userID, mainCard, chunk) {
 			t.Error("Expected chunk to NOT be linked when unrelated and ParentID doesn't match")
@@ -854,9 +856,10 @@ func TestCheckChunkLinkedOrRelated_Integration(t *testing.T) {
 		// Also update the child to have mainCard as parent
 		// (Note: this would require updating the card's parent_id, which we can't do through UpdateCard)
 		// Instead, we test with a simulated chunk that has both conditions
+		mainCardIDPtr2 := mainCard.ID
 		chunk := models.CardChunk{
 			ID:       childOfReferenced.ID,
-			ParentID: mainCard.ID,
+			ParentID: &mainCardIDPtr2,
 		}
 		if !s.checkChunkLinkedOrRelated(userID, mainCard, chunk) {
 			t.Error("Expected chunk to be linked when ParentID matches")
@@ -872,7 +875,7 @@ func TestCheckChunkLinkedOrRelated_Integration(t *testing.T) {
 
 		chunk := models.CardChunk{
 			ID:       unrelatedCard.ID,
-			ParentID: 0, // No parent match
+			ParentID: nil, // No parent match
 		}
 
 		// Call with invalid userID - if GetReferences fails, it should return true
