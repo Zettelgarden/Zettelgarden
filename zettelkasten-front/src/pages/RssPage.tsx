@@ -9,6 +9,7 @@ import {
   listArticles,
   listFolders,
   markAsRead,
+  markFeedAsRead,
   convertToCard,
   refreshFeeds,
   deleteFeed,
@@ -382,6 +383,22 @@ export function RssPage() {
     setShowDeleteConfirm(true);
   };
 
+  const handleMarkFeedAsRead = async (feed: RSSFeed) => {
+    try {
+      await markFeedAsRead(feed.id);
+      // Update articles to mark as read
+      setArticles((prev) =>
+        prev.map((a) => (a.feed_id === feed.id ? { ...a, read: true } : a))
+      );
+      // Refresh unread counts
+      await refreshUnreadCounts();
+    } catch (error) {
+      console.error("Failed to mark feed as read:", error);
+      setErrorMessage("Failed to mark feed as read. Please try again.");
+      setTimeout(() => setErrorMessage(""), 3000);
+    }
+  };
+
   const handleEditFolder = (folder: RSSFolder) => {
     setEditingFolder(folder);
     setShowEditFolderDialog(true);
@@ -730,6 +747,19 @@ export function RssPage() {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setShowFeedMenuId(null);
+                                    handleMarkFeedAsRead(feed);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                >
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  Mark as read
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowFeedMenuId(null);
                                     handleEditFeed(feed);
                                   }}
                                   className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
@@ -844,6 +874,19 @@ export function RssPage() {
                         {/* Dropdown menu */}
                         {showMenu && (
                           <div className="absolute left-8 top-full mt-1 w-32 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowFeedMenuId(null);
+                                handleMarkFeedAsRead(feed);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Mark as read
+                            </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1247,6 +1290,7 @@ export function RssPage() {
         onCreateFolder={() => setShowCreateFolderDialog(true)}
         onEditFeed={handleEditFeed}
         onDeleteFeed={handleDeleteFeed}
+        onMarkFeedAsRead={handleMarkFeedAsRead}
         onEditFolder={handleEditFolder}
         onDeleteFolder={handleDeleteFolder}
         selectedFeedId={selectedFeedId}

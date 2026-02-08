@@ -121,6 +121,10 @@ export function deleteFeed(id: number): Promise<void> {
   return getData(apiClient.delete<void>(`/rss/feeds/${id}`));
 }
 
+export function markFeedAsRead(id: number): Promise<void> {
+  return getData(apiClient.post<void>(`/rss/feeds/${id}/read`, {}));
+}
+
 export function refreshFeeds(): Promise<{ fetched: number }> {
   return getData(apiClient.post<{ fetched: number }>("/rss/feeds/fetch", {}));
 }

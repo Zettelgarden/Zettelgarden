@@ -16,6 +16,7 @@ interface RssFeedsBottomSheetProps {
   onCreateFolder: () => void;
   onEditFeed: (feed: RSSFeed) => void;
   onDeleteFeed: (feed: RSSFeed) => void;
+  onMarkFeedAsRead: (feed: RSSFeed) => void;
   onEditFolder: (folder: RSSFolder) => void;
   onDeleteFolder: (folder: RSSFolder) => void;
   selectedFeedId: number | null;
@@ -39,6 +40,7 @@ export function RssFeedsBottomSheet({
   onCreateFolder,
   onEditFeed,
   onDeleteFeed,
+  onMarkFeedAsRead,
   onEditFolder,
   onDeleteFolder,
   selectedFeedId,
@@ -284,6 +286,24 @@ export function RssFeedsBottomSheet({
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         onShowFeedMenu(null);
+                                        onMarkFeedAsRead(feed);
+                                      }}
+                                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                    >
+                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M5 13l4 4L19 7"
+                                        />
+                                      </svg>
+                                      Mark as read
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onShowFeedMenu(null);
                                         onEditFeed(feed);
                                       }}
                                       className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
@@ -408,6 +428,24 @@ export function RssFeedsBottomSheet({
                             {/* Dropdown menu */}
                             {showMenu && (
                               <div className="absolute left-8 top-full mt-1 w-32 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onShowFeedMenu(null);
+                                    onMarkFeedAsRead(feed);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                >
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M5 13l4 4L19 7"
+                                    />
+                                  </svg>
+                                  Mark as read
+                                </button>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();

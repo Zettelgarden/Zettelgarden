@@ -381,6 +381,20 @@ func (h *Handler) MarkRSSArticleAsReadRoute(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// MarkRSSFeedAsReadRoute handles POST /api/rss/feeds/{id}/read
+func (h *Handler) MarkRSSFeedAsReadRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	feedID, _ := strconv.Atoi(mux.Vars(r)["id"])
+
+	if err := services.MarkRSSFeedAsRead(h.GetDB(), userID, feedID); err != nil {
+		log.Printf("Failed to mark feed as read: %v", err)
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // ConvertRSSArticleToCardRoute handles POST /api/rss/articles/{id}/convert
 func (h *Handler) ConvertRSSArticleToCardRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
