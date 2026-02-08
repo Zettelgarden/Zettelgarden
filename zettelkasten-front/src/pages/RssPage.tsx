@@ -518,9 +518,8 @@ export function RssPage() {
           </div>
           <div className="space-y-2">
             {refreshMessage && (
-              <div className={`text-sm text-center px-2 py-1 rounded ${
-                refreshMessage.includes("Failed") ? "text-red-600" : "text-green-600"
-              }`}>
+              <div className={`text-sm text-center px-2 py-1 rounded ${refreshMessage.includes("Failed") ? "text-red-600" : "text-green-600"
+                }`}>
                 {refreshMessage}
               </div>
             )}
@@ -548,9 +547,8 @@ export function RssPage() {
               setSelectedFolder(null);
               setSelectedFeedId(null);
             }}
-            className={`w-full text-left px-3 py-2 rounded-md transition-colors font-medium ${
-              selectedFolder === null && selectedFeedId === null ? "bg-blue-100 text-blue-900" : "hover:bg-gray-100"
-            }`}
+            className={`w-full text-left px-3 py-2 rounded-md transition-colors font-medium ${selectedFolder === null && selectedFeedId === null ? "bg-blue-100 text-blue-900" : "hover:bg-gray-100"
+              }`}
           >
             All Feeds ({feeds.length})
           </button>
@@ -569,9 +567,8 @@ export function RssPage() {
                 <div key={folder.id} className="bg-gray-100/50 rounded-lg p-2">
                   {/* Folder header */}
                   <div
-                    className={`group flex items-center rounded-md transition-colors text-sm ${
-                      isSelected ? "bg-amber-100" : "hover:bg-amber-50"
-                    }`}
+                    className={`group flex items-center rounded-md transition-colors text-sm ${isSelected ? "bg-amber-100" : "hover:bg-amber-50"
+                      }`}
                   >
                     <button
                       onClick={() => {
@@ -634,9 +631,8 @@ export function RssPage() {
                         return (
                           <div
                             key={feed.id}
-                            className={`relative group flex items-center gap-1 rounded-md transition-colors text-sm ${
-                              selectedFeedId === feed.id ? "bg-blue-50" : "hover:bg-gray-50"
-                            }`}
+                            className={`relative group flex items-center gap-1 rounded-md transition-colors text-sm ${selectedFeedId === feed.id ? "bg-blue-50" : "hover:bg-gray-50"
+                              }`}
                           >
                             {/* Settings button on left */}
                             <button
@@ -661,7 +657,7 @@ export function RssPage() {
                                 setSelectedFolder(null);
                                 setShowFeedMenuId(null);
                               }}
-                              className="flex-1 text-left px-3 py-1.5 truncate"
+                              className="flex-1 text-left truncate"
                               title={feed.url}
                             >
                               <span className="truncate">{feed.name}</span>
@@ -724,13 +720,12 @@ export function RssPage() {
           return (
             <div className="mb-3 bg-gray-100/50 rounded-lg p-2">
               <div
-                className={`group flex items-center rounded-md transition-colors text-sm ${
-                  selectedFolder === null && selectedFeedId === null ? "bg-amber-100" : "hover:bg-amber-50"
-                }`}
+                className={`group flex items-center rounded-md transition-colors text-sm ${selectedFolder === null && selectedFeedId === null ? "bg-amber-100" : "hover:bg-amber-50"
+                  }`}
               >
                 <button
                   onClick={() => toggleFolderExpanded("__uncategorized__")}
-                  className="flex-1 text-left px-3 py-2 flex items-center gap-1"
+                  className="flex-1 text-left px-1 py-1 flex items-center gap-1"
                 >
                   <svg
                     className={`w-3 h-3 text-gray-400 transition-transform ${isExpanded ? "rotate-90" : ""}`}
@@ -751,9 +746,8 @@ export function RssPage() {
                     return (
                       <div
                         key={feed.id}
-                        className={`relative group flex items-center gap-1 rounded-md transition-colors text-sm ${
-                          selectedFeedId === feed.id ? "bg-blue-50" : "hover:bg-gray-50"
-                        }`}
+                        className={`relative group flex items-center gap-1 rounded-md transition-colors text-sm ${selectedFeedId === feed.id ? "bg-blue-50" : "hover:bg-gray-50"
+                          }`}
                         ref={(el) => {
                           if (el) feedMenuRefs.current.set(feed.id, el);
                         }}
@@ -781,7 +775,7 @@ export function RssPage() {
                             setSelectedFolder(null);
                             setShowFeedMenuId(null);
                           }}
-                          className="flex-1 text-left px-3 py-1.5 truncate"
+                          className="flex-1 text-left"
                           title={feed.url}
                         >
                           <span className="truncate">{feed.name}</span>
@@ -870,21 +864,19 @@ export function RssPage() {
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setShowUnreadOnly(false)}
-              className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors ${
-                !showUnreadOnly
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
+              className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors ${!showUnreadOnly
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+                }`}
             >
               All
             </button>
             <button
               onClick={() => setShowUnreadOnly(true)}
-              className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors relative ${
-                showUnreadOnly
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
+              className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors relative ${showUnreadOnly
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+                }`}
             >
               Unread
               {currentUnreadCount > 0 && (
@@ -906,13 +898,12 @@ export function RssPage() {
                 <div
                   key={article.id}
                   onClick={() => handleArticleClick(article)}
-                  className={`p-3 rounded-md cursor-pointer transition-colors ${
-                    selectedArticle?.id === article.id
-                      ? "bg-blue-100 border-l-4 border-blue-600"
-                      : article.read
+                  className={`p-3 rounded-md cursor-pointer transition-colors ${selectedArticle?.id === article.id
+                    ? "bg-blue-100 border-l-4 border-blue-600"
+                    : article.read
                       ? "bg-gray-50 hover:bg-gray-100"
                       : "bg-white hover:bg-gray-100 border-l-4 border-blue-500 shadow-sm"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-start gap-2">
                     <h3 className="font-medium text-sm line-clamp-2 mb-1 flex-1">
