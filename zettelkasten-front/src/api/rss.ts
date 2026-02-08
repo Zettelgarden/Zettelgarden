@@ -175,6 +175,10 @@ export function deleteFolder(id: number): Promise<void> {
   return getData(apiClient.delete<void>(`/rss/folders/${id}`));
 }
 
+export function markFolderAsRead(id: number): Promise<void> {
+  return getData(apiClient.post<void>(`/rss/folders/${id}/read`, {}));
+}
+
 // Unread Counts API
 export function getUnreadCounts(): Promise<UnreadCounts> {
   return getData(apiClient.get<UnreadCounts>("/rss/unread-counts"));

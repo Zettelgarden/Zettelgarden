@@ -424,6 +424,24 @@ func MarkRSSFeedAsRead(db models.Database, userID, feedID int) error {
 	return nil
 }
 
+// MarkRSSFolderAsRead marks all articles in feeds in a folder as read
+func MarkRSSFolderAsRead(db models.Database, userID int, folderName string) error {
+	result, err := db.Exec(
+		"UPDATE rss_articles SET read = true WHERE feed_id IN (SELECT id FROM rss_feeds WHERE folder = $1 AND user_id = $2)",
+		folderName, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to mark folder articles as read: %w", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("folder not found or no articles to mark")
+	}
+
+	return nil
+}
+
 // ConvertRSSArticleToCard converts an RSS article to a card
 func ConvertRSSArticleToCard(db models.Database, userID, articleID int, params *models.ConvertArticleParams) (*models.Card, error) {
 	// Get the article

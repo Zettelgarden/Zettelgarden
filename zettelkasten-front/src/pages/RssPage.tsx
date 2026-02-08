@@ -10,6 +10,7 @@ import {
   listFolders,
   markAsRead,
   markFeedAsRead,
+  markFolderAsRead,
   convertToCard,
   refreshFeeds,
   deleteFeed,
@@ -35,10 +36,12 @@ import { RssMobileTopBar } from "../components/rss/RssMobileTopBar";
 import { RssMobileReader } from "../components/rss/RssMobileReader";
 import { RssFeedsBottomSheet } from "../components/rss/RssFeedsBottomSheet";
 import { useRSS } from "../contexts/RSSContext";
+import { useUIState } from "../contexts/UIStateContext";
 
 export function RssPage() {
   const navigate = useNavigate();
   const { setUnreadCount } = useRSS();
+  const { toggleSidebarOpen } = useUIState();
   const [feeds, setFeeds] = useState<RSSFeed[]>([]);
   const [articles, setArticles] = useState<RSSArticle[]>([]);
   const [folders, setFolders] = useState<RSSFolder[]>([]);
@@ -399,6 +402,25 @@ export function RssPage() {
     }
   };
 
+  const handleMarkFolderAsRead = async (folder: RSSFolder) => {
+    try {
+      await markFolderAsRead(folder.id);
+      // Get feeds in this folder
+      const folderFeeds = feeds.filter((f) => f.folder === folder.name);
+      const feedIds = new Set(folderFeeds.map((f) => f.id));
+      // Update articles to mark as read
+      setArticles((prev) =>
+        prev.map((a) => (feedIds.has(a.feed_id) ? { ...a, read: true } : a))
+      );
+      // Refresh unread counts
+      await refreshUnreadCounts();
+    } catch (error) {
+      console.error("Failed to mark folder as read:", error);
+      setErrorMessage("Failed to mark folder as read. Please try again.");
+      setTimeout(() => setErrorMessage(""), 3000);
+    }
+  };
+
   const handleEditFolder = (folder: RSSFolder) => {
     setEditingFolder(folder);
     setShowEditFolderDialog(true);
@@ -667,6 +689,19 @@ export function RssPage() {
                       {renderUnreadBadge(unreadCount)}
                     </button>
                     <div className="flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMarkFolderAsRead(folder);
+                        }}
+                        className="p-1 text-gray-400 hover:text-green-600 transition-colors"
+                        aria-label={`Mark folder ${folder.name} as read`}
+                        title="Mark all as read"
+                      >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -956,8 +991,33 @@ export function RssPage() {
         <RssMobileTopBar
           title="RSS"
           unreadCount={totalUnreadCount}
-          onMenuClick={handleMobileMenuClick}
+          onMenuClick={toggleSidebarOpen}
           onSettingsClick={() => setShowSettingsMenu(true)}
+          rightAction={
+            <div className="flex items-center gap-1">
+              {/* Feeds button */}
+              <button
+                onClick={handleMobileMenuClick}
+                className="p-2 -mr-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+                aria-label="Open feeds"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                </svg>
+              </button>
+              {/* Settings button */}
+              <button
+                onClick={() => setShowSettingsMenu(true)}
+                className="p-2 -mr-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+                aria-label="Settings"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+            </div>
+          }
         />
 
         {/* Articles list content - same as desktop but full width */}
@@ -1293,6 +1353,7 @@ export function RssPage() {
         onMarkFeedAsRead={handleMarkFeedAsRead}
         onEditFolder={handleEditFolder}
         onDeleteFolder={handleDeleteFolder}
+        onMarkFolderAsRead={handleMarkFolderAsRead}
         selectedFeedId={selectedFeedId}
         selectedFolder={selectedFolder}
         showFeedMenuId={showFeedMenuId}

@@ -19,6 +19,7 @@ interface RssFeedsBottomSheetProps {
   onMarkFeedAsRead: (feed: RSSFeed) => void;
   onEditFolder: (folder: RSSFolder) => void;
   onDeleteFolder: (folder: RSSFolder) => void;
+  onMarkFolderAsRead: (folder: RSSFolder) => void;
   selectedFeedId: number | null;
   selectedFolder: string | null;
   showFeedMenuId: number | null;
@@ -43,6 +44,7 @@ export function RssFeedsBottomSheet({
   onMarkFeedAsRead,
   onEditFolder,
   onDeleteFolder,
+  onMarkFolderAsRead,
   selectedFeedId,
   selectedFolder,
   showFeedMenuId,
@@ -200,6 +202,23 @@ export function RssFeedsBottomSheet({
                           {renderUnreadBadge(unreadCount)}
                         </button>
                         <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onMarkFolderAsRead(folder);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-gray-100 rounded-md transition-colors"
+                            aria-label={`Mark folder ${folder.name} as read`}
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();

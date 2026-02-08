@@ -395,6 +395,28 @@ func (h *Handler) MarkRSSFeedAsReadRoute(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// MarkRSSFolderAsReadRoute handles POST /api/rss/folders/{id}/read
+func (h *Handler) MarkRSSFolderAsReadRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	folderID, _ := strconv.Atoi(mux.Vars(r)["id"])
+
+	// Get folder name
+	folder, err := services.GetRSSFolderByID(h.GetDB(), userID, folderID)
+	if err != nil {
+		log.Printf("Failed to get folder: %v", err)
+		http.Error(w, "Folder not found", http.StatusNotFound)
+		return
+	}
+
+	if err := services.MarkRSSFolderAsRead(h.GetDB(), userID, folder.Name); err != nil {
+		log.Printf("Failed to mark folder as read: %v", err)
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // ConvertRSSArticleToCardRoute handles POST /api/rss/articles/{id}/convert
 func (h *Handler) ConvertRSSArticleToCardRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
