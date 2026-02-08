@@ -540,10 +540,14 @@ func FetchRSSFeedArticles(db models.Database, feedID int) error {
 		var content *string
 		if item.Link != "" {
 			parsed, parseErr := ParseURL(item.Link)
-			if parseErr == nil {
+			if parseErr == nil && parsed.Content != "" {
 				content = &parsed.Content
 			} else {
-				log.Printf("[rss-feed:%d] failed to parse article content: %v", feedID, parseErr)
+				if parseErr != nil {
+					log.Printf("[rss-feed:%d] failed to parse article content: %v", feedID, parseErr)
+				} else {
+					log.Printf("[rss-feed:%d] readability returned empty content for %s", feedID, item.Link)
+				}
 			}
 		}
 
