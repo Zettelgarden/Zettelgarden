@@ -10,6 +10,7 @@ interface RssMobileReaderProps {
   onConvert: () => void;
   onMarkAsUnread: () => void;
   getFeedName: (feedId: number) => string;
+  onViewCard: (cardId: number) => void;
 }
 
 export function RssMobileReader({
@@ -18,6 +19,7 @@ export function RssMobileReader({
   onConvert,
   onMarkAsUnread,
   getFeedName,
+  onViewCard,
 }: RssMobileReaderProps) {
   return (
     <div className="fixed inset-0 bg-white z-50 overflow-y-auto flex flex-col md:hidden animate-slide-up">
@@ -138,7 +140,7 @@ export function RssMobileReader({
 
           {article.card_id && (
             <button
-              onClick={() => window.location.href = `/app/card/${article.card_id}`}
+              onClick={() => onViewCard(article.card_id!)}
               className="flex-1 bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 font-medium"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">

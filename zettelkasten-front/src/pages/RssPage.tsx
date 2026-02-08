@@ -257,7 +257,7 @@ export function RssPage() {
     setSelectedArticle(article);
 
     // Mobile: show reader view
-    if (window.innerWidth < 768) {
+    if (isMobile) {
       setMobileView('reader');
     }
 
@@ -284,7 +284,7 @@ export function RssPage() {
         });
       }
     }
-  }, [markingAsRead, refreshUnreadCounts]);
+  }, [markingAsRead, refreshUnreadCounts, isMobile]);
 
   const handleMobileBack = useCallback(() => {
     setMobileView('list');
@@ -1221,6 +1221,7 @@ export function RssPage() {
           onConvert={handleConvertClick}
           onMarkAsUnread={handleMarkAsUnread}
           getFeedName={getFeedName}
+          onViewCard={(cardId) => navigate(`/app/card/${cardId}`)}
         />
       )}
 
