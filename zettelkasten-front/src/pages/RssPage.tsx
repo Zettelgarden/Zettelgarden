@@ -67,10 +67,16 @@ export function RssPage() {
   const settingsMenuRef = useRef<HTMLDivElement>(null);
   const feedMenuRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
+  // Mobile navigation state
+  const [mobileView, setMobileView] = useState<'list' | 'reader' | 'feeds'>('list');
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [totalArticles, setTotalArticles] = useState(0);
   const articlesPerPage = 20;
+
+  // Mobile breakpoint detection
+  const isMobile = window.innerWidth < 768;
 
   // Calculate total unread count (all feeds)
   const totalUnreadCount = useMemo(() => {
