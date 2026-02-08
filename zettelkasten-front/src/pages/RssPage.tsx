@@ -76,7 +76,21 @@ export function RssPage() {
   const articlesPerPage = 20;
 
   // Mobile breakpoint detection
-  const isMobile = window.innerWidth < 768;
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Calculate total unread count (all feeds)
   const totalUnreadCount = useMemo(() => {
