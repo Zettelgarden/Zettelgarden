@@ -187,12 +187,6 @@ export function Sidebar() {
         />
       </div>
 
-      {/* Mobile Bottom Navigation Bar (Task 4) */}
-      <MobileBottomNav
-        onCreateCard={handleNewStandardCard}
-        onCreateTask={handleNewTask}
-      />
-
       <SidebarModals
         showCreateTaskWindow={showCreateTaskWindow}
         setShowCreateTaskWindow={setShowCreateTaskWindow}
