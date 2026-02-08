@@ -31,6 +31,7 @@ interface ViewCardContentSectionProps {
   setSelectedFact: (fact: any) => void;
   setShowFactDialog: (show: boolean) => void;
   fileUploadRef: React.RefObject<HTMLInputElement>;
+  onSaveCard?: (updatedCard: Card) => void | Promise<void>;
 }
 
 export function ViewCardContentSection({
@@ -48,7 +49,8 @@ export function ViewCardContentSection({
   summaries,
   setSelectedFact,
   setShowFactDialog,
-  fileUploadRef
+  fileUploadRef,
+  onSaveCard
 }: ViewCardContentSectionProps) {
   const [childrenSortMethod, setChildrenSortMethod] = useState<SortMethod>("cardId");
   const [referencesSortMethod, setReferencesSortMethod] = useState<SortMethod>("cardId");
@@ -103,6 +105,7 @@ export function ViewCardContentSection({
           <CardBody
             viewingCard={viewingCard}
             entities={viewingCard.entities}
+            onSave={onSaveCard}
           />
         )}
       </div>

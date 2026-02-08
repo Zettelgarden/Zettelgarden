@@ -32,7 +32,7 @@ export function SpreadsheetCell({
     }
   }, [isEditing]);
 
-  const handleDoubleClick = () => {
+  const handleClick = () => {
     if (!readOnly) {
       setIsEditing(true);
       setEditValue((cell.formula ? '=' + cell.formula : cell.value) || '');
@@ -130,7 +130,7 @@ export function SpreadsheetCell({
   return (
     <td
       className="border border-gray-300 px-2 py-1 min-w-[80px] h-8 text-sm"
-      onDoubleClick={handleDoubleClick}
+      onClick={handleClick}
       style={{ cursor: readOnly ? 'default' : 'pointer' }}
     >
       {isEditing ? (

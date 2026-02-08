@@ -79,6 +79,18 @@ export function ViewPage({ cardId }: ViewPageProps) {
 
   const isPinned = pinnedCard && viewingCard && pinnedCard.id === viewingCard.id;
 
+  // Handle saving card when spreadsheet is edited
+  const handleSaveCard = async (updatedCard: Card) => {
+    try {
+      await saveExistingCard(updatedCard);
+      // Update the viewingCard state with the saved data
+      setViewCard(updatedCard);
+    } catch (err) {
+      console.error("Failed to save card:", err);
+      setError("Failed to save card");
+    }
+  };
+
   return (
     <div className="overflow-x-hidden">
       {error && (
@@ -196,6 +208,7 @@ export function ViewPage({ cardId }: ViewPageProps) {
                   setSelectedFact={setSelectedFact}
                   setShowFactDialog={setShowFactDialog}
                   fileUploadRef={fileUploadRef}
+                  onSaveCard={handleSaveCard}
                 />
               )}
             </div>

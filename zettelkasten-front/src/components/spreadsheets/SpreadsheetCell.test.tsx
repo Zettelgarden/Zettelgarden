@@ -29,7 +29,7 @@ describe('SpreadsheetCell', () => {
     expect(screen.getByText('42')).toBeInTheDocument();
   });
 
-  it('enters edit mode on double-click', () => {
+  it('enters edit mode on click', () => {
     render(
       <table>
         <tbody>
@@ -45,7 +45,7 @@ describe('SpreadsheetCell', () => {
     );
 
     const cell = screen.getByText('42');
-    fireEvent.doubleClick(cell);
+    fireEvent.click(cell);
 
     const input = screen.getByDisplayValue('42');
     expect(input).toBeInTheDocument();
@@ -66,7 +66,7 @@ describe('SpreadsheetCell', () => {
       </table>
     );
 
-    fireEvent.doubleClick(screen.getByText('42'));
+    fireEvent.click(screen.getByText('42'));
     const input = screen.getByDisplayValue('42');
 
     fireEvent.change(input, { target: { value: '100' } });

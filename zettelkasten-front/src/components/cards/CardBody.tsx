@@ -37,6 +37,7 @@ interface CustomImageRendererProps {
 interface CardBodyProps {
   viewingCard: Card;
   entities?: Entity[];
+  onSave?: (updatedCard: Card) => void | Promise<void>;
 }
 
 function preprocessTaskQueries(body: string): string {
@@ -216,6 +217,7 @@ const CustomImageRenderer: React.FC<CustomImageRendererProps> = ({
 
 function renderCardTextWithDialog(
   card: Card,
+  activeCard: Card,
   handleViewBacklink: (card_id: number) => void,
   entities?: Entity[],
   onCardBodyChange?: (newBody: string) => void
@@ -252,7 +254,7 @@ function renderCardTextWithDialog(
     setShowEntityDialog(true);
   }
 
-  const markdown = renderCardText(card, handleViewBacklink, entities, handleEntityClickById as any, onCardBodyChange);
+  const markdown = renderCardText(card, activeCard, handleViewBacklink, entities, handleEntityClickById as any, onCardBodyChange);
   return (
     <>
       {markdown}
@@ -262,6 +264,7 @@ function renderCardTextWithDialog(
 
 function renderCardText(
   card: Card,
+  activeCard: Card,
   handleViewBacklink: (card_id: number) => void,
   entities?: Entity[],
   onEntityClick?: (id: string, name: string) => void,
@@ -269,7 +272,7 @@ function renderCardText(
 ) {
 
   // Preprocess task queries first, then card links, then schema tables, then entities
-  let processedBody = preprocessTaskQueries(card.body);
+  let processedBody = preprocessTaskQueries(activeCard.body);
   processedBody = preprocessCardLinks(processedBody);
   processedBody = preprocessSchemaTables(processedBody);
   processedBody = preprocessEntities(processedBody, entities);
@@ -404,7 +407,7 @@ function renderCardText(
           // Check if this is a spreadsheet container
           if (propsData.className === "spreadsheet-container" || propsData["data-spreadsheet-name"] !== undefined) {
             const spreadsheetName = propsData["data-spreadsheet-name"] || "sheet1";
-            return <DynamicSpreadsheet name={spreadsheetName} cardBody={card.body} onBodyChange={onCardBodyChange} />;
+            return <DynamicSpreadsheet name={spreadsheetName} cardBody={activeCard.body} onBodyChange={onCardBodyChange} />;
           }
 
           // Default div rendering
@@ -415,12 +418,18 @@ function renderCardText(
   );
 }
 
-export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities }) => {
+export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities, onSave }) => {
   const navigate = useNavigate();
   const cardEditorContext = React.useContext(CardEditorContext);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [shouldShowToggle, setShouldShowToggle] = useState(false);
   const contentRef = React.useRef<HTMLDivElement>(null);
+
+  // Use the context's editingCard if it's the same card (by id), otherwise use viewingCard
+  // This ensures spreadsheet edits update the rendered body
+  const activeCard = cardEditorContext?.editingCard?.id === viewingCard.id
+    ? cardEditorContext.editingCard
+    : viewingCard;
 
   // Height threshold for showing the collapse toggle (in pixels)
   const HEIGHT_THRESHOLD = 600;
@@ -439,7 +448,7 @@ export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities }) => 
         setIsCollapsed(true);
       }
     }
-  }, [viewingCard.body]);
+  }, [activeCard.body]);
 
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
@@ -456,9 +465,13 @@ export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities }) => 
           maxHeight: isCollapsed && shouldShowToggle ? `${HEIGHT_THRESHOLD}px` : 'none'
         }}
       >
-        {renderCardTextWithDialog(viewingCard, handleCardClick, entities, (newBody) => {
+        {renderCardTextWithDialog(activeCard, activeCard, handleCardClick, entities, (newBody) => {
+          const updatedCard = { ...activeCard, body: newBody };
           if (cardEditorContext?.setEditingCard) {
-            cardEditorContext.setEditingCard((prevCard: any) => ({ ...prevCard, body: newBody }));
+            cardEditorContext.setEditingCard(updatedCard);
+          }
+          if (onSave) {
+            onSave(updatedCard);
           }
         })}
       </div>
