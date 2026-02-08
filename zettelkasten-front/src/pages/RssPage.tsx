@@ -512,9 +512,9 @@ export function RssPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex flex-col md:flex-row h-screen overflow-hidden">
       {/* Left Panel: Feeds & Folders */}
-      <div className="hidden md:flex w-64 border-r border-gray-200 p-4 overflow-y-auto bg-gray-50 flex-shrink-0">
+      <div className="md:flex hidden w-64 border-r border-gray-200 p-4 overflow-y-auto bg-gray-50 flex-shrink-0 flex-col">
         <div className="mb-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold">RSS Feeds</h2>
@@ -909,7 +909,7 @@ export function RssPage() {
       </div>
 
       {/* Mobile Article List View */}
-      <div className="flex-1 flex flex-col md:hidden">
+      <div className="md:hidden flex flex-col flex-1 overflow-hidden">
         <RssMobileTopBar
           title="RSS"
           unreadCount={totalUnreadCount}
@@ -1002,7 +1002,7 @@ export function RssPage() {
       </div>
 
       {/* Middle Panel: Articles */}
-      <div className="hidden md:flex w-80 border-r border-gray-200 bg-white flex-shrink-0 flex flex-col">
+      <div className="md:flex hidden w-80 border-r border-gray-200 bg-white flex-shrink-0 flex-col">
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold">Articles</h2>
@@ -1106,7 +1106,7 @@ export function RssPage() {
       </div>
 
       {/* Right Panel: Article Reader */}
-      <div className="hidden md:flex flex-1 p-6 overflow-y-auto bg-white min-w-0">
+      <div className="md:flex hidden flex-1 p-6 overflow-y-auto bg-white min-w-0 flex-col">
         {selectedArticle ? (
           <div className="max-w-3xl mx-auto">
             <div className="mb-6">
