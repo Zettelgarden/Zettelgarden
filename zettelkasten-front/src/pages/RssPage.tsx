@@ -31,6 +31,7 @@ import { RssConfirmDialog } from "../components/rss/RssConfirmDialog";
 import { RssConvertDialog } from "../components/rss/RssConvertDialog";
 import { RssImportDialog } from "../components/rss/RssImportDialog";
 import { RssMobileTopBar } from "../components/rss/RssMobileTopBar";
+import { RssMobileReader } from "../components/rss/RssMobileReader";
 import { useRSS } from "../contexts/RSSContext";
 
 export function RssPage() {
@@ -253,6 +254,12 @@ export function RssPage() {
     }
 
     setSelectedArticle(article);
+
+    // Mobile: show reader view
+    if (window.innerWidth < 768) {
+      setMobileView('reader');
+    }
+
     if (!article.read) {
       setMarkingAsRead((prev) => new Set(prev).add(article.id));
       try {
@@ -277,6 +284,10 @@ export function RssPage() {
       }
     }
   }, [markingAsRead, refreshUnreadCounts]);
+
+  const handleMobileBack = useCallback(() => {
+    setMobileView('list');
+  }, []);
 
   const handleFeedAdded = (feed: RSSFeed) => {
     setFeeds((prev) => [...prev, feed]);
@@ -1182,6 +1193,17 @@ export function RssPage() {
           </div>
         )}
       </div>
+
+      {/* Mobile Reader */}
+      {selectedArticle && mobileView === 'reader' && (
+        <RssMobileReader
+          article={selectedArticle}
+          onBack={handleMobileBack}
+          onConvert={handleConvertClick}
+          onMarkAsUnread={handleMarkAsUnread}
+          getFeedName={getFeedName}
+        />
+      )}
 
       {/* Dialogs */}
       <RssAddFeedDialog
