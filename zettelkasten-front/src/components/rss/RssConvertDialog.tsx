@@ -4,6 +4,8 @@ import { Fragment } from "react";
 import { convertToCard, ConvertArticleParams, RSSArticle, ConvertCardResponse } from "../../api/rss";
 import { safeHtmlToMarkdown } from "../../utils/markdown";
 import { CardIdDiscoveryDialog } from "../cards/CardIdDiscoveryDialog";
+import { SearchTagDropdown } from "../tags/SearchTagDropdown";
+import { useTagContext } from "../../contexts/TagContext";
 
 interface RssConvertDialogProps {
   isOpen: boolean;
@@ -18,9 +20,10 @@ export function RssConvertDialog({
   article,
   onConverted,
 }: RssConvertDialogProps) {
+  const { tags: allTags } = useTagContext();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [tags, setTags] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [cardId, setCardId] = useState("");
   const [showCardIdDiscovery, setShowCardIdDiscovery] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -36,7 +39,7 @@ export function RssConvertDialog({
       } else {
         setBody("");
       }
-      setTags("");
+      setSelectedTags([]);
       setCardId("");
     }
   }, [article]);
@@ -62,8 +65,8 @@ export function RssConvertDialog({
         params.body = body.trim();
       }
 
-      if (tags.trim()) {
-        params.tags = tags.trim();
+      if (selectedTags.length > 0) {
+        params.tags = selectedTags.map(t => `#${t.replace(/^#/, '')}`).join(' ');
       }
 
       if (cardId.trim()) {
@@ -89,7 +92,7 @@ export function RssConvertDialog({
   const handleClose = () => {
     setTitle("");
     setBody("");
-    setTags("");
+    setSelectedTags([]);
     setCardId("");
     setError("");
     onClose();
@@ -98,6 +101,17 @@ export function RssConvertDialog({
   const handleCardIdSelected = (selectedCardId: string) => {
     setCardId(selectedCardId);
     setShowCardIdDiscovery(false);
+  };
+
+  const handleTagClick = (tagName: string) => {
+    const cleanTag = tagName.replace(/^#/, '');
+    if (!selectedTags.includes(cleanTag)) {
+      setSelectedTags([...selectedTags, cleanTag]);
+    }
+  };
+
+  const handleRemoveTag = (tagName: string) => {
+    setSelectedTags(selectedTags.filter(t => t !== tagName));
   };
 
   return (
@@ -167,20 +181,40 @@ export function RssConvertDialog({
 
                     {/* Tags - Optional */}
                     <div>
-                      <label htmlFor="card-tags" className="block text-sm font-medium text-gray-700 mb-1">
-                        Tags <span className="text-gray-400">(optional)</span>
-                      </label>
-                      <input
-                        id="card-tags"
-                        type="text"
-                        value={tags}
-                        onChange={(e) => setTags(e.target.value)}
-                        placeholder="tech, ai, machine-learning"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      />
-                      <p className="mt-1 text-xs text-gray-500">
-                        Comma-separated tags to add to the card
-                      </p>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Tags <span className="text-gray-400">(optional)</span>
+                        </label>
+                        <SearchTagDropdown
+                          tags={allTags}
+                          handleTagClick={handleTagClick}
+                        />
+                      </div>
+                      {selectedTags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {selectedTags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="inline-flex items-center px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full"
+                            >
+                              <span className="cursor-pointer hover:bg-purple-100">
+                                #{tag}
+                              </span>
+                              <button
+                                onClick={() => handleRemoveTag(tag)}
+                                className="ml-1.5 text-purple-400 hover:text-purple-600"
+                              >
+                                &times;
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {selectedTags.length === 0 && (
+                        <p className="mt-1 text-xs text-gray-500">
+                          Select tags from dropdown to add to the card
+                        </p>
+                      )}
                     </div>
 
                     {/* Card ID - Optional */}
