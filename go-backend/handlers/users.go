@@ -712,11 +712,7 @@ func (s *Handler) UserHasSubscription(userID int) bool {
 	if s.Server.Testing {
 		return true
 	}
-	user, err := s.QueryUser(userID)
-	if err != nil {
-		return false
-	}
-	return user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trialing"
+	return services.UserHasSubscription(s.GetDB(), userID)
 }
 
 func (s *Handler) UpdateLastSeen(userID int) error {

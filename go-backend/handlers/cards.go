@@ -362,12 +362,8 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if s.UserHasSubscription(userID) {
-		s.GenerateMemory(uint(userID), card.Body)
-		if params.ProcessEntitiesAndFacts != nil && *params.ProcessEntitiesAndFacts {
-			s.ProcessEntitiesAndFacts(userID, card)
-		}
-	}
+	shouldProcess := params.ProcessEntitiesAndFacts != nil && *params.ProcessEntitiesAndFacts
+	s.ProcessCardAfterCreation(userID, card, shouldProcess)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(card)
 }
@@ -439,12 +435,8 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if s.UserHasSubscription(userID) {
-		s.GenerateMemory(uint(userID), card.Body)
-		if params.ProcessEntitiesAndFacts == nil || *params.ProcessEntitiesAndFacts {
-			s.ProcessEntitiesAndFacts(userID, card)
-		}
-	}
+	shouldProcess := params.ProcessEntitiesAndFacts == nil || *params.ProcessEntitiesAndFacts
+	s.ProcessCardAfterCreation(userID, card, shouldProcess)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(card)
 }
@@ -1253,14 +1245,23 @@ func (s *Handler) CreateArticleRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Step 5: Process entities and facts if user has subscription
+	s.ProcessCardAfterCreation(userID, card, true)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(card)
+}
+
+// ProcessCardAfterCreation handles post-creation processing for a card
+// This includes memory generation and summarization for PRO users
+// Call this after any card creation to ensure consistent processing
+func (s *Handler) ProcessCardAfterCreation(userID int, card models.Card, shouldProcess bool) {
+	if !shouldProcess {
+		return
+	}
 	if s.UserHasSubscription(userID) {
 		s.GenerateMemory(uint(userID), card.Body)
 		s.ProcessEntitiesAndFacts(userID, card)
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(card)
 }
 
 // boolPtr returns a pointer to a bool

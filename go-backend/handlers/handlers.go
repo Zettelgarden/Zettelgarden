@@ -400,6 +400,9 @@ func (h *Handler) ConvertRSSArticleToCardRoute(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Process the card after creation (memory generation + summarization for PRO users)
+	h.ProcessCardAfterCreation(userID, *card, true)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(card)
 }
