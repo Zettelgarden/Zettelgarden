@@ -72,10 +72,20 @@ export function RssPage() {
   const [totalArticles, setTotalArticles] = useState(0);
   const articlesPerPage = 20;
 
-  // Calculate total unread count
+  // Calculate total unread count (all feeds)
   const totalUnreadCount = useMemo(() => {
     return Object.values(unreadCounts.feeds).reduce((sum, count) => sum + count, 0);
   }, [unreadCounts]);
+
+  // Calculate unread count for current view
+  const currentUnreadCount = useMemo(() => {
+    if (selectedFeedId) {
+      return unreadCounts.feeds[selectedFeedId] || 0;
+    } else if (selectedFolder) {
+      return unreadCounts.folders[selectedFolder] || 0;
+    }
+    return totalUnreadCount;
+  }, [unreadCounts, selectedFeedId, selectedFolder, totalUnreadCount]);
 
   // Update page title with unread count
   useEffect(() => {
@@ -853,7 +863,40 @@ export function RssPage() {
       {/* Middle Panel: Articles */}
       <div className="w-80 border-r border-gray-200 bg-white flex-shrink-0 flex flex-col">
         <div className="p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold mb-4">Articles</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Articles</h2>
+            <span className="text-xs text-gray-500">
+              {totalArticles > 0 && `${totalArticles} total`}
+            </span>
+          </div>
+          {/* Filter tabs */}
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setShowUnreadOnly(false)}
+              className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors ${
+                !showUnreadOnly
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setShowUnreadOnly(true)}
+              className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors relative ${
+                showUnreadOnly
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Unread
+              {currentUnreadCount > 0 && (
+                <span className="ml-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                  {currentUnreadCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
         {articles.length === 0 && !loading ? (
           <div className="flex-1 flex items-center justify-center">
