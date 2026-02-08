@@ -627,19 +627,16 @@ export function RssPage() {
 
                   {/* Feeds in folder (expanded) */}
                   {isExpanded && (
-                    <div className="ml-4 space-y-1 mt-1">
+                    <div className="ml-2 space-y-1 mt-1">
                       {folderFeeds.map((feed) => {
                         const unreadCount = getUnreadCountForFeed(feed.id);
                         const showMenu = showFeedMenuId === feed.id;
                         return (
                           <div
                             key={feed.id}
-                            className={`group flex items-center gap-1 rounded-md transition-colors text-sm ${
+                            className={`relative group flex items-center gap-1 rounded-md transition-colors text-sm ${
                               selectedFeedId === feed.id ? "bg-blue-50" : "hover:bg-gray-50"
                             }`}
-                            ref={(el) => {
-                              if (el) feedMenuRefs.current.set(feed.id, el);
-                            }}
                           >
                             {/* Settings button on left */}
                             <button
@@ -747,14 +744,14 @@ export function RssPage() {
                 </button>
               </div>
               {isExpanded && (
-                <div className="ml-4 space-y-1 mt-1">
+                <div className="ml-2 space-y-1 mt-1">
                   {uncategorizedFeeds.map((feed) => {
                     const unreadCount = getUnreadCountForFeed(feed.id);
                     const showMenu = showFeedMenuId === feed.id;
                     return (
                       <div
                         key={feed.id}
-                        className={`group flex items-center gap-1 rounded-md transition-colors text-sm ${
+                        className={`relative group flex items-center gap-1 rounded-md transition-colors text-sm ${
                           selectedFeedId === feed.id ? "bg-blue-50" : "hover:bg-gray-50"
                         }`}
                         ref={(el) => {
