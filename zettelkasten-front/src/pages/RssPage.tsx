@@ -269,6 +269,7 @@ export function RssPage() {
   };
 
   const getFeedName = (feedId: number): string => {
+    if (!feeds) return "Unknown Feed";
     const feed = feeds.find((f) => f.id === feedId);
     return feed?.name || "Unknown Feed";
   };
@@ -286,6 +287,7 @@ export function RssPage() {
   };
 
   const getFeedsByFolder = (folderName: string | null) => {
+    if (!feeds) return [];
     return feeds.filter((f) => f.folder === folderName || (folderName === null && !f.folder));
   };
 
@@ -550,12 +552,12 @@ export function RssPage() {
             className={`w-full text-left px-3 py-2 rounded-md transition-colors font-medium ${selectedFolder === null && selectedFeedId === null ? "bg-blue-100 text-blue-900" : "hover:bg-gray-100"
               }`}
           >
-            All Feeds ({feeds.length})
+            All Feeds ({feeds?.length ?? 0})
           </button>
         </div>
 
         {/* Folders with Feeds */}
-        {folders.length > 0 && (
+        {folders && folders.length > 0 && (
           <div className="mb-3 space-y-2">
             {folders.map((folder) => {
               const folderFeeds = getFeedsByFolder(folder.name);
@@ -887,7 +889,11 @@ export function RssPage() {
             </button>
           </div>
         </div>
-        {articles.length === 0 && !loading ? (
+        {!articles ? (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-gray-500">Loading...</p>
+          </div>
+        ) : articles.length === 0 && !loading ? (
           <div className="flex-1 flex items-center justify-center">
             <p className="text-gray-500">No articles found</p>
           </div>
