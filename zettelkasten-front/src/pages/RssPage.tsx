@@ -41,7 +41,7 @@ import { useUIState } from "../contexts/UIStateContext";
 export function RssPage() {
   const navigate = useNavigate();
   const { setUnreadCount } = useRSS();
-  const { toggleSidebarOpen } = useUIState();
+  const { toggleSidebarCollapsed } = useUIState();
   const [feeds, setFeeds] = useState<RSSFeed[]>([]);
   const [articles, setArticles] = useState<RSSArticle[]>([]);
   const [folders, setFolders] = useState<RSSFolder[]>([]);
@@ -991,7 +991,7 @@ export function RssPage() {
         <RssMobileTopBar
           title="RSS"
           unreadCount={totalUnreadCount}
-          onMenuClick={toggleSidebarOpen}
+          onMenuClick={toggleSidebarCollapsed}
           onSettingsClick={() => setShowSettingsMenu(true)}
           rightAction={
             <div className="flex items-center gap-1">
