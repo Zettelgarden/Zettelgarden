@@ -61,7 +61,7 @@ export function TaskPriorityDisplay({
       {PRIORITIES.map((priority) => (
         <div
           key={priority.value ?? "none"}
-          className="px-4 py-3 min-h-[44px] hover:bg-gray-100 cursor-pointer flex items-center gap-2 text-sm"
+          className="px-4 py-3 md:py-1.5 min-h-[44px] md:min-h-[32px] hover:bg-gray-100 cursor-pointer flex items-center gap-2 text-sm"
           onClick={() => setPriority(priority.value)}
           style={{ color: priority.color }}
         >

@@ -30,7 +30,7 @@ export function TaskTagDisplay({ task, tags, onTagClick, onRemoveTag, hideMatrix
             className="inline-flex items-center px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full mr-1"
           >
             <span
-              className="cursor-pointer hover:bg-purple-100 min-h-[44px] flex items-center"
+              className="cursor-pointer hover:bg-purple-100 min-h-[44px] md:min-h-[24px] flex items-center"
               onClick={() => onTagClick(tag.name)}
             >
               {tag.name}
@@ -41,7 +41,7 @@ export function TaskTagDisplay({ task, tags, onTagClick, onRemoveTag, hideMatrix
                   e.stopPropagation();
                   onRemoveTag(tag.name);
                 }}
-                className="ml-1.5 text-purple-400 hover:text-purple-600 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                className="ml-1.5 text-purple-400 hover:text-purple-600 min-w-[44px] md:min-w-[24px] min-h-[44px] md:min-h-[24px] flex items-center justify-center"
               >
                 &times;
               </button>

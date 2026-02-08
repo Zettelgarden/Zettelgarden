@@ -155,10 +155,10 @@ export function TaskListItem({
   }, [task]);
 
   return (
-    <div className="flex items-center bg-white">
+    <div className="flex items-center bg-white py-0.5 md:py-0">
       <div className="mr-2.5">
         {selectMode ? (
-          <div className="min-w-[44px] min-h-[44px] flex items-center justify-center">
+          <div className="min-w-[36px] md:min-w-[24px] min-h-[36px] md:min-h-[24px] flex items-center justify-center">
             <input
               type="checkbox"
               checked={isSelected}
@@ -170,7 +170,7 @@ export function TaskListItem({
         ) : (
           <span
             onClick={handleToggleComplete}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer"
+            className="min-w-[36px] md:min-w-[24px] min-h-[36px] md:min-h-[24px] flex items-center justify-center cursor-pointer"
           >
             {task.is_complete ? <TaskClosedIcon /> : <TaskOpenIcon />}
           </span>
@@ -264,7 +264,7 @@ export function TaskListItem({
           setSelectedTaskId(task.id);
           setShowTaskDialog(true);
         }}
-        className="bg-transparent border-0 cursor-pointer p-2.5 md:p-1 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center hover:bg-gray-100 rounded transition-colors"
+        className="bg-transparent border-0 cursor-pointer p-1 md:p-0.5 min-w-[36px] md:min-w-[24px] min-h-[36px] md:min-h-[24px] flex items-center justify-center hover:bg-gray-100 rounded transition-colors"
         aria-label="Task options"
       >
         ⋮
