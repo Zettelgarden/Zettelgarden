@@ -30,6 +30,9 @@ import { RssCreateFolderDialog } from "../components/rss/RssCreateFolderDialog";
 import { RssConfirmDialog } from "../components/rss/RssConfirmDialog";
 import { RssConvertDialog } from "../components/rss/RssConvertDialog";
 import { RssImportDialog } from "../components/rss/RssImportDialog";
+import { RssMobileTopBar } from "../components/rss/RssMobileTopBar";
+import { RssMobileReader } from "../components/rss/RssMobileReader";
+import { RssFeedsBottomSheet } from "../components/rss/RssFeedsBottomSheet";
 import { useRSS } from "../contexts/RSSContext";
 
 export function RssPage() {
@@ -67,10 +70,30 @@ export function RssPage() {
   const settingsMenuRef = useRef<HTMLDivElement>(null);
   const feedMenuRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
+  // Mobile navigation state
+  const [mobileView, setMobileView] = useState<'list' | 'reader' | 'feeds'>('list');
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [totalArticles, setTotalArticles] = useState(0);
   const articlesPerPage = 20;
+
+  // Mobile breakpoint detection
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Calculate total unread count (all feeds)
   const totalUnreadCount = useMemo(() => {
@@ -221,6 +244,10 @@ export function RssPage() {
     }
   }, []);
 
+  const handleMobileMenuClick = useCallback(() => {
+    setMobileView('feeds');
+  }, []);
+
   const handleArticleClick = useCallback(async (article: RSSArticle) => {
     // Prevent duplicate requests for the same article
     if (markingAsRead.has(article.id)) {
@@ -228,6 +255,12 @@ export function RssPage() {
     }
 
     setSelectedArticle(article);
+
+    // Mobile: show reader view
+    if (isMobile) {
+      setMobileView('reader');
+    }
+
     if (!article.read) {
       setMarkingAsRead((prev) => new Set(prev).add(article.id));
       try {
@@ -251,7 +284,29 @@ export function RssPage() {
         });
       }
     }
-  }, [markingAsRead, refreshUnreadCounts]);
+  }, [markingAsRead, refreshUnreadCounts, isMobile]);
+
+  const handleMobileBack = useCallback(() => {
+    setMobileView('list');
+  }, []);
+
+  const handleFeedSelectMobile = useCallback((feedId: number) => {
+    setSelectedFeedId(feedId);
+    setSelectedFolder(null);
+    setMobileView('list');
+  }, []);
+
+  const handleFolderSelectMobile = useCallback((folderName: string) => {
+    setSelectedFolder(folderName);
+    setSelectedFeedId(null);
+    setMobileView('list');
+  }, []);
+
+  const handleAllFeedsSelectMobile = useCallback(() => {
+    setSelectedFolder(null);
+    setSelectedFeedId(null);
+    setMobileView('list');
+  }, []);
 
   const handleFeedAdded = (feed: RSSFeed) => {
     setFeeds((prev) => [...prev, feed]);
@@ -459,7 +514,7 @@ export function RssPage() {
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Left Panel: Feeds & Folders */}
-      <div className="w-64 border-r border-gray-200 p-4 overflow-y-auto bg-gray-50 flex-shrink-0">
+      <div className="hidden md:flex w-64 border-r border-gray-200 p-4 overflow-y-auto bg-gray-50 flex-shrink-0">
         <div className="mb-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold">RSS Feeds</h2>
@@ -853,8 +908,101 @@ export function RssPage() {
         </div>
       </div>
 
+      {/* Mobile Article List View */}
+      <div className="flex-1 flex flex-col md:hidden">
+        <RssMobileTopBar
+          title="RSS"
+          unreadCount={totalUnreadCount}
+          onMenuClick={handleMobileMenuClick}
+          onSettingsClick={() => setShowSettingsMenu(true)}
+        />
+
+        {/* Articles list content - same as desktop but full width */}
+        <div className="flex-1 bg-white flex flex-col overflow-hidden">
+          {/* Filter tabs - copied from desktop */}
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setShowUnreadOnly(false)}
+                className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors ${!showUnreadOnly
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+                  }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setShowUnreadOnly(true)}
+                className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors relative ${showUnreadOnly
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+                  }`}
+              >
+                Unread
+                {currentUnreadCount > 0 && (
+                  <span className="ml-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                    {currentUnreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Articles list - same items but full width */}
+          {articles.length === 0 && !loading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-gray-500">No articles found</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {articles.map((article) => (
+                  <div
+                    key={article.id}
+                    onClick={() => handleArticleClick(article)}
+                    className={`p-4 rounded-lg cursor-pointer transition-colors min-h-[60px] ${selectedArticle?.id === article.id
+                      ? "bg-blue-100 border-l-4 border-blue-600"
+                      : article.read
+                        ? "bg-gray-50 hover:bg-gray-100"
+                        : "bg-white hover:bg-gray-100 border-l-4 border-blue-500 shadow-sm"
+                      }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <h3 className="font-semibold text-base line-clamp-3 flex-1 text-gray-900">
+                        {article.title}
+                      </h3>
+                      {article.card_id && (
+                        <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <title>Converted to card</title>
+                          <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+                        </svg>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-500 mt-2">
+                      {getFeedName(article.feed_id)} • {new Date(article.fetched_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pagination - Load More button for mobile */}
+              {totalArticles > articlesPerPage && currentPage * articlesPerPage < totalArticles && (
+                <div className="p-4 border-t border-gray-200 bg-gray-50">
+                  <button
+                    onClick={() => setCurrentPage(p => p + 1)}
+                    className="w-full bg-white border border-gray-300 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Load More Articles ({totalArticles - currentPage * articlesPerPage} remaining)
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Middle Panel: Articles */}
-      <div className="w-80 border-r border-gray-200 bg-white flex-shrink-0 flex flex-col">
+      <div className="hidden md:flex w-80 border-r border-gray-200 bg-white flex-shrink-0 flex flex-col">
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold">Articles</h2>
@@ -958,7 +1106,7 @@ export function RssPage() {
       </div>
 
       {/* Right Panel: Article Reader */}
-      <div className="flex-1 p-6 overflow-y-auto bg-white min-w-0">
+      <div className="hidden md:flex flex-1 p-6 overflow-y-auto bg-white min-w-0">
         {selectedArticle ? (
           <div className="max-w-3xl mx-auto">
             <div className="mb-6">
@@ -1070,6 +1218,42 @@ export function RssPage() {
           </div>
         )}
       </div>
+
+      {/* Mobile Reader */}
+      {selectedArticle && mobileView === 'reader' && (
+        <RssMobileReader
+          article={selectedArticle}
+          onBack={handleMobileBack}
+          onConvert={handleConvertClick}
+          onMarkAsUnread={handleMarkAsUnread}
+          getFeedName={getFeedName}
+          onViewCard={(cardId) => navigate(`/app/card/${cardId}`)}
+        />
+      )}
+
+      {/* Mobile Feeds Bottom Sheet */}
+      <RssFeedsBottomSheet
+        isOpen={mobileView === 'feeds'}
+        onClose={() => setMobileView('list')}
+        feeds={feeds}
+        folders={folders}
+        unreadCounts={unreadCounts}
+        expandedFolders={expandedFolders}
+        onToggleFolder={toggleFolderExpanded}
+        onSelectFeed={handleFeedSelectMobile}
+        onSelectFolder={handleFolderSelectMobile}
+        onSelectAllFeeds={handleAllFeedsSelectMobile}
+        onAddFeed={() => setShowAddFeedDialog(true)}
+        onCreateFolder={() => setShowCreateFolderDialog(true)}
+        onEditFeed={handleEditFeed}
+        onDeleteFeed={handleDeleteFeed}
+        onEditFolder={handleEditFolder}
+        onDeleteFolder={handleDeleteFolder}
+        selectedFeedId={selectedFeedId}
+        selectedFolder={selectedFolder}
+        showFeedMenuId={showFeedMenuId}
+        onShowFeedMenu={setShowFeedMenuId}
+      />
 
       {/* Dialogs */}
       <RssAddFeedDialog
