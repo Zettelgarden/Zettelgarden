@@ -32,6 +32,7 @@ import { RssConvertDialog } from "../components/rss/RssConvertDialog";
 import { RssImportDialog } from "../components/rss/RssImportDialog";
 import { RssMobileTopBar } from "../components/rss/RssMobileTopBar";
 import { RssMobileReader } from "../components/rss/RssMobileReader";
+import { RssFeedsBottomSheet } from "../components/rss/RssFeedsBottomSheet";
 import { useRSS } from "../contexts/RSSContext";
 
 export function RssPage() {
@@ -286,6 +287,24 @@ export function RssPage() {
   }, [markingAsRead, refreshUnreadCounts]);
 
   const handleMobileBack = useCallback(() => {
+    setMobileView('list');
+  }, []);
+
+  const handleFeedSelectMobile = useCallback((feedId: number) => {
+    setSelectedFeedId(feedId);
+    setSelectedFolder(null);
+    setMobileView('list');
+  }, []);
+
+  const handleFolderSelectMobile = useCallback((folderName: string) => {
+    setSelectedFolder(folderName);
+    setSelectedFeedId(null);
+    setMobileView('list');
+  }, []);
+
+  const handleAllFeedsSelectMobile = useCallback(() => {
+    setSelectedFolder(null);
+    setSelectedFeedId(null);
     setMobileView('list');
   }, []);
 
@@ -1204,6 +1223,30 @@ export function RssPage() {
           getFeedName={getFeedName}
         />
       )}
+
+      {/* Mobile Feeds Bottom Sheet */}
+      <RssFeedsBottomSheet
+        isOpen={mobileView === 'feeds'}
+        onClose={() => setMobileView('list')}
+        feeds={feeds}
+        folders={folders}
+        unreadCounts={unreadCounts}
+        expandedFolders={expandedFolders}
+        onToggleFolder={toggleFolderExpanded}
+        onSelectFeed={handleFeedSelectMobile}
+        onSelectFolder={handleFolderSelectMobile}
+        onSelectAllFeeds={handleAllFeedsSelectMobile}
+        onAddFeed={() => setShowAddFeedDialog(true)}
+        onCreateFolder={() => setShowCreateFolderDialog(true)}
+        onEditFeed={handleEditFeed}
+        onDeleteFeed={handleDeleteFeed}
+        onEditFolder={handleEditFolder}
+        onDeleteFolder={handleDeleteFolder}
+        selectedFeedId={selectedFeedId}
+        selectedFolder={selectedFolder}
+        showFeedMenuId={showFeedMenuId}
+        onShowFeedMenu={setShowFeedMenuId}
+      />
 
       {/* Dialogs */}
       <RssAddFeedDialog
