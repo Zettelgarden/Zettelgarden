@@ -21,6 +21,7 @@ interface RssMobileLayoutProps {
   currentUnreadCount: number;
   showFeedMenuId: number | null;
   mobileView: 'list' | 'reader' | 'feeds';
+  setMobileView: (view: 'list' | 'reader' | 'feeds') => void;
   loadingArticles: boolean;
   totalArticles: number;
   currentPage: number;
@@ -44,6 +45,9 @@ interface RssMobileLayoutProps {
   onToggleShowUnreadOnly: () => void;
   onConvertClick: () => void;
   onMarkAsUnread: () => void;
+  onRefresh?: () => void;
+  onExportOPML?: () => void;
+  onImportOPML?: () => void;
 }
 
 /**
@@ -63,6 +67,7 @@ export function RssMobileLayout({
   currentUnreadCount,
   showFeedMenuId,
   mobileView,
+  setMobileView,
   loadingArticles,
   totalArticles,
   currentPage,
@@ -86,6 +91,9 @@ export function RssMobileLayout({
   onToggleShowUnreadOnly,
   onConvertClick,
   onMarkAsUnread,
+  onRefresh,
+  onExportOPML,
+  onImportOPML,
 }: RssMobileLayoutProps) {
   const navigate = useNavigate();
 
@@ -240,6 +248,41 @@ export function RssMobileLayout({
           onMarkAsUnread={onMarkAsUnread}
           getFeedName={getFeedName}
           onViewCard={handleViewCard}
+        />
+      </RssErrorBoundary>
+    );
+  }
+
+  // Mobile Feeds View
+  if (mobileView === 'feeds') {
+    return (
+      <RssErrorBoundary>
+        <RssFeedsBottomSheet
+          isOpen={true}
+          onClose={() => setMobileView('list')}
+          feeds={feeds}
+          folders={folders}
+          unreadCounts={unreadCounts}
+          expandedFolders={expandedFolders}
+          onToggleFolder={onToggleFolder}
+          onSelectFeed={onFeedSelectMobile}
+          onSelectFolder={onFolderSelectMobile}
+          onSelectAllFeeds={onAllFeedsSelectMobile}
+          onAddFeed={onAddFeed}
+          onCreateFolder={onCreateFolder}
+          onEditFeed={onEditFeed}
+          onDeleteFeed={onDeleteFeed}
+          onMarkFeedAsRead={onMarkFeedAsRead}
+          onEditFolder={onEditFolder}
+          onDeleteFolder={onDeleteFolder}
+          onMarkFolderAsRead={onMarkFolderAsRead}
+          selectedFeedId={selectedFeedId}
+          selectedFolder={selectedFolder}
+          showFeedMenuId={showFeedMenuId}
+          onShowFeedMenu={onShowFeedMenu}
+          onRefresh={onRefresh}
+          onExportOPML={onExportOPML}
+          onImportOPML={onImportOPML}
         />
       </RssErrorBoundary>
     );

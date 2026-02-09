@@ -382,7 +382,7 @@ export function RssPage() {
   const handleAllFeedsSelectMobile = useCallback(() => {
     setSelectedFolder(null);
     setSelectedFeedId(null);
-    setMobileView('list');
+    setMobileView('feeds');
   }, []);
 
   const handleMobileBack = useCallback(() => {
@@ -490,11 +490,12 @@ export function RssPage() {
           currentUnreadCount={currentUnreadCount}
           showFeedMenuId={showFeedMenuId}
           mobileView={mobileView}
+          setMobileView={setMobileView}
           loadingArticles={loadingArticles}
           totalArticles={totalArticles}
           currentPage={currentPage}
           onMenuClick={toggleMobileSidebar}
-          onSettingsClick={() => setShowSettingsMenu(true)}
+          onSettingsClick={() => setMobileView('feeds')}
           onFeedSelectMobile={handleFeedSelectMobile}
           onFolderSelectMobile={handleFolderSelectMobile}
           onAllFeedsSelectMobile={handleAllFeedsSelectMobile}
@@ -513,6 +514,9 @@ export function RssPage() {
           onToggleShowUnreadOnly={() => setShowUnreadOnly((prev) => !prev)}
           onConvertClick={handleConvertClick}
           onMarkAsUnread={handleMarkAsUnread}
+          onRefresh={handleRefresh}
+          onExportOPML={handleExportOPML}
+          onImportOPML={() => setDialogState(DialogStates.import())}
         />
       )}
 

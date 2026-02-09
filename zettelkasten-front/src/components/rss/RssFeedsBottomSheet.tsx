@@ -30,6 +30,9 @@ interface RssFeedsBottomSheetProps {
   selectedFolder: string | null;
   showFeedMenuId: number | null;
   onShowFeedMenu: (feedId: number | null) => void;
+  onRefresh?: () => void;
+  onExportOPML?: () => void;
+  onImportOPML?: () => void;
 }
 
 export function RssFeedsBottomSheet({
@@ -55,6 +58,9 @@ export function RssFeedsBottomSheet({
   selectedFolder,
   showFeedMenuId,
   onShowFeedMenu,
+  onRefresh,
+  onExportOPML,
+  onImportOPML,
 }: RssFeedsBottomSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -498,6 +504,57 @@ export function RssFeedsBottomSheet({
             );
           })()}
         </div>
+
+        {/* Settings Section */}
+        {(onRefresh || onExportOPML || onImportOPML) && (
+          <div className="px-4 py-3 border-t border-gray-200">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Settings</h3>
+            <div className="space-y-1">
+              {onRefresh && (
+                <button
+                  onClick={() => {
+                    onRefresh();
+                    onClose();
+                  }}
+                  className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700"
+                >
+                  <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span className="font-medium">Refresh Feeds</span>
+                </button>
+              )}
+              {onExportOPML && (
+                <button
+                  onClick={() => {
+                    onExportOPML();
+                    onClose();
+                  }}
+                  className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700"
+                >
+                  <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  <span className="font-medium">Export OPML</span>
+                </button>
+              )}
+              {onImportOPML && (
+                <button
+                  onClick={() => {
+                    onImportOPML();
+                    onClose();
+                  }}
+                  className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700"
+                >
+                  <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  <span className="font-medium">Import OPML</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Bottom Actions */}
         <div className="px-4 py-3 border-t border-gray-200 space-y-2 flex-shrink-0">
