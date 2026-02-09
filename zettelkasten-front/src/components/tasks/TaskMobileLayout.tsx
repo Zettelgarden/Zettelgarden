@@ -444,13 +444,15 @@ export function TaskMobileLayout({
           isOpen={isTaskDialogOpen}
           onClose={onCloseTaskDialog}
         />
-        <CreateTaskWindow
-          currentCard={currentCard}
-          setShowTaskWindow={setShowCreateTaskWindow}
-          currentFilter={filterString}
-          initialStatus={createTaskStatus}
-          initialDate={calendarSelectedDate || undefined}
-        />
+        {showCreateTaskWindow && (
+          <CreateTaskWindow
+            currentCard={currentCard}
+            setShowTaskWindow={setShowCreateTaskWindow}
+            currentFilter={filterString}
+            initialStatus={createTaskStatus}
+            initialDate={calendarSelectedDate || undefined}
+          />
+        )}
       </div>
     );
   }
