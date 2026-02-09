@@ -822,7 +822,7 @@ export function RssPage() {
                           </div>
                         );
                       })}
-                      {folderFeeds.length === 0 && (
+                      {folderFeeds && folderFeeds.length === 0 && (
                         <div className="px-3 py-1.5 text-xs text-gray-400 italic">No feeds</div>
                       )}
                     </div>
@@ -1052,14 +1052,14 @@ export function RssPage() {
           </div>
 
           {/* Articles list - same items but full width */}
-          {articles.length === 0 && !loading ? (
+          {articles && articles.length === 0 && !loading ? (
             <div className="flex-1 flex items-center justify-center">
               <p className="text-gray-500">No articles found</p>
             </div>
           ) : (
             <>
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {articles.map((article) => (
+                {articles && articles.map((article) => (
                   <div
                     key={article.id}
                     onClick={() => handleArticleClick(article)}
