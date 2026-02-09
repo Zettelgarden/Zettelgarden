@@ -19,6 +19,11 @@ import { useNavigate } from "react-router-dom";
 import { getExternalEvents } from "../../api/externalEvents";
 import { ExternalEvent } from "../../models/ExternalEvent";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
+import { TaskDesktopLayout } from "../../components/tasks/TaskDesktopLayout";
+import { TaskMobileLayout } from "../../components/tasks/TaskMobileLayout";
+import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
+
+type TaskMobileView = 'list' | 'filters';
 import {
   getStartOfMonthInTimezone,
   getEndOfMonthInTimezone,
@@ -43,6 +48,12 @@ export function TaskPage({ }: TaskListProps) {
   const navigate = useNavigate();
   const userTimezone = user?.timezone || "UTC";
 
+  // Responsive layout state
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const [mobileView, setMobileView] = useState<TaskMobileView>('list');
+  const [showQuickListsPanel, setShowQuickListsPanel] = useState(false);
+  const [isFilterFocused, setIsFilterFocused] = useState(false);
+
   // State for task dialog
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
@@ -63,7 +74,6 @@ export function TaskPage({ }: TaskListProps) {
   const filterInputRef = useRef<HTMLInputElement>(null);
   const [cursorPosition, setCursorPosition] = useState(0);
   const [filterTrigger, setFilterTrigger] = useState<QuickTagTrigger | null>(null);
-  const [isFilterFocused, setIsFilterFocused] = useState(false);
 
   // Use custom hooks for settings and filtering
   const settings = useTaskPageSettings();
@@ -262,6 +272,11 @@ export function TaskPage({ }: TaskListProps) {
     navigate(`/app/tasks${newSearch ? `?${newSearch}` : ""}`, { replace: true });
   }
 
+  function handleTaskClick(taskId: number) {
+    setSelectedTaskId(taskId);
+    setIsTaskDialogOpen(true);
+  }
+
   const handleKeyPress = (event: KeyboardEvent) => {
     // if this is true, the user is using a system shortcut, don't do anything with it
     if (event.metaKey) {
@@ -300,348 +315,171 @@ export function TaskPage({ }: TaskListProps) {
   }, [setShowCreateTaskWindow, settings.setFilterString]);
 
   return (
-    <div>
-      {/* Redesigned toolbar header */}
-      <div className="bg-slate-100 p-3 border-b border-slate-300">
-        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-between gap-2 sm:gap-3">
-          {/* Left section: Filter */}
-          <div className="flex flex-wrap items-center gap-2 flex-grow min-w-0 w-full sm:w-auto">
-            <div className="relative flex-grow w-full sm:max-w-md">
-              <input
-                ref={filterInputRef}
-                type="text"
-                value={settings.filterString}
-                onChange={handleFilterChange}
-                onKeyUp={(e) => refreshFilterTriggerFromInput(e.currentTarget)}
-                onClick={(e) => refreshFilterTriggerFromInput(e.currentTarget)}
-                onFocus={(e) => {
-                  setIsFilterFocused(true);
-                  refreshFilterTriggerFromInput(e.currentTarget);
-                }}
-                onBlur={() => setIsFilterFocused(false)}
-                placeholder="Filter tasks..."
-                className="h-9 w-full pl-3 pr-8 border border-slate-300 rounded-md text-sm"
-              />
-              <span
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 cursor-help"
-                onMouseEnter={() => settings.setShowFilterHelp(true)}
-                onMouseLeave={() => settings.setShowFilterHelp(false)}
-              >
-                ?
-              </span>
-              {settings.showFilterHelp && (
-                <div className="absolute top-full mt-2 left-0 bg-white p-3 border border-slate-300 rounded shadow-lg z-20 w-auto min-w-[280px]">
-                  <h4 className="font-semibold mb-2 text-slate-700">Filter Options:</h4>
-                  <ul className="list-none space-y-1 text-sm text-slate-600">
-                    <li><strong>Text:</strong> e.g., <code>meeting</code></li>
-                    <li><strong>Tag:</strong> <code>#tagName</code></li>
-                    <li><strong>Priority:</strong> <code>priority:A</code></li>
-                    <li><strong>Status:</strong> <code>status:todo</code>, <code>status:in_progress</code>, <code>status:blocked</code>, <code>status:done</code></li>
-                    <li><strong>Date:</strong> <code>date:today</code>, <code>date:tomorrow</code>, <code>date:2026-01-05</code></li>
-                    <li><strong>Show Completed:</strong> <code>show:completed</code></li>
-                    <li><strong>Reminder:</strong> <code>has:reminder</code></li>
-                    <li><strong>Negate:</strong> prepend <code>!</code></li>
-                  </ul>
-                </div>
-              )}
-            </div>
-
-            <QuickTagPopover
-              open={Boolean(filterTrigger && isFilterFocused)}
-              anchorInputRef={filterInputRef}
-              titleValue={settings.filterString}
-              cursorPosition={cursorPosition}
-              trigger={filterTrigger}
-              onSelectTag={(selectedTagName) => handleSelectQuickTag(selectedTagName)}
-              onRequestClose={() => setFilterTrigger(null)}
-            />
-            <div className="h-9 flex items-center">
-              <SearchTagDropdown
-                tags={tags}
-                handleTagClick={handleTagClick}
-              />
-            </div>
-          </div>
-          {/* Right section: Count, Display menu, Actions */}
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full text-xs whitespace-nowrap">
-              {tasksToDisplay.length}/{totalTasksForDateView}
-              {settings.dateView === "today"
-                ? " today"
-                : settings.dateView === "tomorrow"
-                  ? " tomorrow"
-                  : ""} tasks
-            </span>
-            {settings.selectMode && (
-              <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs whitespace-nowrap">
-                {settings.selectedTaskIds.size} selected
-              </span>
-            )}
-            {/* Display dropdown */}
-            <div className="relative">
-              <Button
-                className="h-9 px-3 text-sm bg-slate-300 rounded-md"
-                onClick={() => settings.setShowDisplayMenu((prev: boolean) => !prev)}
-              >
-                Display ▾
-              </Button>
-              {settings.showDisplayMenu && (
-                <div className="absolute right-0 mt-1 w-64 bg-white border border-slate-300 rounded shadow-lg p-3 z-20">
-                  <div className="mb-2">
-                    <label className="block text-xs font-semibold mb-1">Date Range</label>
-                    <select
-                      className="w-full p-1 border border-slate-300 rounded-md text-sm"
-                      value={settings.dateView}
-                      onChange={handleDateChange}
-                    >
-                      <option value="today">Today</option>
-                      <option value="tomorrow">Tomorrow</option>
-                      <option value="all">All</option>
-                    </select>
-                  </div>
-                  <div className="mb-2">
-                    <label className="block text-xs font-semibold mb-1">View Mode</label>
-                    <select
-                      className="w-full p-1 border border-slate-300 rounded-md text-sm"
-                      value={settings.viewMode}
-                      onChange={(e) => settings.setViewMode(e.target.value as "list" | "matrix" | "kanban" | "calendar")}
-                    >
-                      <option value="list">List View</option>
-                      <option value="matrix">Eisenhower Matrix</option>
-                      <option value="kanban">Kanban Board</option>
-                      <option value="calendar">Calendar View</option>
-                    </select>
-                  </div>
-                  <div className="mb-2">
-                    <label className="flex items-center gap-2 text-xs font-semibold">
-                      <input
-                        type="checkbox"
-                        checked={showCompleted}
-                        onChange={handleShowCompletedChange}
-                        className="rounded"
-                      />
-                      Show Completed Tasks
-                    </label>
-                  </div>
-                  <div className="mb-2">
-                    <label className="flex items-center gap-2 text-xs font-semibold">
-                      <input
-                        type="checkbox"
-                        checked={settings.selectMode}
-                        onChange={settings.toggleSelectMode}
-                        className="rounded"
-                      />
-                      Select Mode
-                    </label>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">Sort By</label>
-                    <div className="flex items-center gap-1">
-                      <select
-                        id="sort-select"
-                        className="flex-grow p-1 border border-slate-300 rounded-md text-sm"
-                        value={settings.sortField}
-                        onChange={handleSortFieldChange}
-                      >
-                        <option value="updated_at">Updated</option>
-                        <option value="title">Name</option>
-                        <option value="priority">Priority</option>
-                        <option value="status">Status</option>
-                        <option value="scheduled_date">Scheduled Date</option>
-                        <option value="due_date">Due Date</option>
-                        <option value="id">ID</option>
-                      </select>
-                      <Button onClick={settings.toggleSortDirection} className="p-1 text-xs border border-slate-300 rounded-md">
-                        {settings.sortDirection === "asc" ? "↑" : "↓"}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <Button
-              onClick={toggleShowTaskWindow}
-              className="h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 text-lg font-bold flex items-center justify-center pb-2"
-              title="Add Task"
-            >
-              +
-            </Button>
-          </div>
-        </div>
-      </div>
-      <div>
-        {showCreateTaskWindow && (
-          <CreateTaskWindow
-            currentCard={null}
-            setShowTaskWindow={setShowCreateTaskWindow}
-            currentFilter={settings.filterString}
-            initialStatus={createTaskStatus}
-            initialDate={calendarSelectedDate || undefined}
-          />
-        )}
-      </div>
-      {/* Task Dialog */}
-      <TaskDialog
-        taskId={selectedTaskId}
-        isOpen={isTaskDialogOpen}
-        onClose={handleCloseTaskDialog}
-      />
-      <div className="p-4">
-        {settings.viewMode === "calendar" ? (
-          <ErrorBoundary
-            fallback={
-              <div className="p-4 m-4 border border-red-300 rounded bg-red-50">
-                <h2 className="text-lg font-semibold text-red-800 mb-2">Calendar Error</h2>
-                <p className="text-red-600 mb-3">
-                  We encountered an error while displaying the calendar. Please try refreshing the page or switching to a different view.
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                    onClick={() => window.location.reload()}
-                  >
-                    Refresh Page
-                  </button>
-                  <button
-                    className="px-4 py-2 border border-slate-300 text-slate-700 rounded hover:bg-slate-50 transition-colors"
-                    onClick={() => settings.setViewMode("list")}
-                  >
-                    Switch to List View
-                  </button>
-                </div>
-              </div>
-            }
-          >
-            <>
-              {isLoadingEvents && (
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" aria-hidden="true"></div>
-                  <span className="text-sm text-blue-700">Loading calendar events...</span>
-                </div>
-              )}
-              <CalendarViewWrapper
-                tasks={tasksToDisplay}
-                externalEvents={externalEvents}
-                currentDate={settings.calendarCurrentDate}
-                viewMode={settings.calendarViewMode}
-                onNavigate={settings.navigateCalendar}
-                onViewModeChange={settings.setCalendarViewMode}
-                onTaskClick={(taskId) => {
-                  setSelectedTaskId(taskId);
-                  setIsTaskDialogOpen(true);
-                }}
-                onCreateTask={(date) => {
-                  setCalendarSelectedDate(date);
-                  setCreateTaskStatus(undefined);
-                  setShowCreateTaskWindow(true);
-                }}
-                onTaskMoved={() => {
-                  setRefreshTasks(true);
-                }}
-                timezone={userTimezone}
-              />
-            </>
-          </ErrorBoundary>
-        ) : settings.viewMode === "list" ? (
-          <>
-            <ul>
-              {paginatedTasks.length > 0 ? (
-                <TaskList
-                  onTagClick={handleTagClick}
-                  tasks={paginatedTasks}
-                  selectMode={settings.selectMode}
-                  selectedTaskIds={settings.selectedTaskIds}
-                  onTaskSelect={settings.toggleTaskSelection}
-                />
-              ) : (
-                <div className="flex justify-center items-center">
-                  No tasks, you're done for the day!
-                </div>
-              )}
-            </ul>
-            {/* Pagination controls - only show if there are tasks and multiple pages */}
-            {tasksToDisplay.length > 0 && totalPages > 1 && (
-              <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t pt-4">
-                <div className="text-sm text-slate-600">
-                  Showing {((settings.currentPage - 1) * settings.itemsPerPage) + 1}-{Math.min(settings.currentPage * settings.itemsPerPage, tasksToDisplay.length)} of {tasksToDisplay.length} tasks
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={() => settings.setCurrentPage(1)}
-                    disabled={settings.currentPage === 1}
-                    className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    First
-                  </Button>
-                  <Button
-                    onClick={() => settings.setCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={settings.currentPage === 1}
-                    className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm text-slate-600">
-                    Page {settings.currentPage} of {totalPages}
-                  </span>
-                  <Button
-                    onClick={() => settings.setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    disabled={settings.currentPage === totalPages}
-                    className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </Button>
-                  <Button
-                    onClick={() => settings.setCurrentPage(totalPages)}
-                    disabled={settings.currentPage === totalPages}
-                    className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Last
-                  </Button>
-                  <select
-                    value={settings.itemsPerPage}
-                    onChange={(e) => settings.setItemsPerPage(Number(e.target.value))}
-                    className="ml-2 px-2 py-1 text-sm border border-slate-300 rounded"
-                  >
-                    <option value={25}>25 per page</option>
-                    <option value={50}>50 per page</option>
-                    <option value={100}>100 per page</option>
-                    <option value={200}>200 per page</option>
-                  </select>
-                </div>
-              </div>
-            )}
-          </>
-        ) : settings.viewMode === "kanban" ? (
-          <KanbanBoard
-            onTagClick={handleTagClick}
-            tasks={tasksToDisplay}
-            onAddTaskWithStatus={handleAddTaskWithStatus}
-            selectMode={settings.selectMode}
-            selectedTaskIds={settings.selectedTaskIds}
-            onTaskSelect={settings.toggleTaskSelection}
-          />
-        ) : (
-          <EisenhowerMatrix
-            onTagClick={handleTagClick}
-            tasks={tasksToDisplay}
-            onAddTaskWithTags={(tags: string[]) => {
-              settings.setFilterString(tags.join(" "));
-              setShowCreateTaskWindow(true);
-            }}
-            selectMode={settings.selectMode}
-            selectedTaskIds={settings.selectedTaskIds}
-            onTaskSelect={settings.toggleTaskSelection}
-          />
-        )}
-      </div>
-      <TaskSelectionOverlay
-        tasks={tasksToDisplay}
-        selectMode={settings.selectMode}
-        selectedTaskIds={settings.selectedTaskIds}
-        onSelectAll={() => settings.selectAllTasks(paginatedTasks.map(t => t.id))}
-        onClearSelection={settings.clearSelection}
-        onToggleSelectMode={settings.toggleSelectMode}
-      />
-    </div >
+    <div className="h-screen overflow-hidden">
+      {isMobile ? (
+        <TaskMobileLayout
+          mobileView={mobileView}
+          setMobileView={setMobileView}
+          // Task data
+          tasks={tasks}
+          tasksToDisplay={tasksToDisplay}
+          paginatedTasks={paginatedTasks}
+          totalTasksForDateView={totalTasksForDateView}
+          totalPages={totalPages}
+          tags={tags}
+          userTimezone={userTimezone}
+          // Settings
+          dateView={settings.dateView}
+          filterString={settings.filterString}
+          sortField={settings.sortField}
+          sortDirection={settings.sortDirection}
+          viewMode={settings.viewMode}
+          currentPage={settings.currentPage}
+          itemsPerPage={settings.itemsPerPage}
+          calendarViewMode={settings.calendarViewMode}
+          calendarCurrentDate={settings.calendarCurrentDate}
+          showCompleted={showCompleted}
+          // UI state
+          showFilterHelp={settings.showFilterHelp}
+          showDisplayMenu={settings.showDisplayMenu}
+          selectMode={settings.selectMode}
+          selectedTaskIds={settings.selectedTaskIds}
+          // External events
+          externalEvents={externalEvents}
+          isLoadingEvents={isLoadingEvents}
+          // Dialog states
+          showCreateTaskWindow={showCreateTaskWindow}
+          selectedTaskId={selectedTaskId}
+          isTaskDialogOpen={isTaskDialogOpen}
+          createTaskStatus={createTaskStatus}
+          calendarSelectedDate={calendarSelectedDate}
+          // Setters
+          setRefreshTasks={setRefreshTasks}
+          setShowCreateTaskWindow={setShowCreateTaskWindow}
+          setSelectedTaskId={setSelectedTaskId}
+          setIsTaskDialogOpen={setIsTaskDialogOpen}
+          setCreateTaskStatus={setCreateTaskStatus}
+          setCalendarSelectedDate={setCalendarSelectedDate}
+          setExternalEvents={setExternalEvents}
+          setIsLoadingEvents={setIsLoadingEvents}
+          // Settings setters
+          setDateView={settings.setDateView}
+          setFilterString={settings.setFilterString}
+          setSortField={settings.setSortField}
+          setSortDirection={settings.setSortDirection}
+          setViewMode={settings.setViewMode}
+          setCurrentPage={settings.setCurrentPage}
+          setItemsPerPage={settings.setItemsPerPage}
+          setCalendarViewMode={settings.setCalendarViewMode}
+          setCalendarCurrentDate={settings.setCalendarCurrentDate}
+          setShowFilterHelp={settings.setShowFilterHelp}
+          setShowDisplayMenu={settings.setShowDisplayMenu}
+          setSelectMode={settings.setSelectMode}
+          setSelectedTaskIds={settings.setSelectedTaskIds}
+          // Actions
+          toggleSelectMode={settings.toggleSelectMode}
+          toggleTaskSelection={settings.toggleTaskSelection}
+          selectAllTasks={settings.selectAllTasks}
+          clearSelection={settings.clearSelection}
+          toggleSortDirection={settings.toggleSortDirection}
+          navigateCalendar={settings.navigateCalendar}
+          setShowCompleted={setShowCompleted}
+          // Handlers
+          onMenuClick={() => {/* Handled by parent */}}
+          onTagClick={handleTagClick}
+          onAddTaskWithStatus={handleAddTaskWithStatus}
+          onCloseTaskDialog={handleCloseTaskDialog}
+          onTaskClick={handleTaskClick}
+          // Filter handlers
+          onFilterChange={handleFilterChange}
+          onRefreshFilterTriggerFromInput={refreshFilterTriggerFromInput}
+          onSelectQuickTag={handleSelectQuickTag}
+          filterInputRef={filterInputRef}
+          cursorPosition={cursorPosition}
+          filterTrigger={filterTrigger}
+          setFilterTrigger={setFilterTrigger}
+          isFilterFocused={isFilterFocused}
+          setIsFilterFocused={setIsFilterFocused}
+        />
+      ) : (
+        <TaskDesktopLayout
+          showQuickListsPanel={showQuickListsPanel}
+          // Task data
+          tasks={tasks}
+          tags={tags}
+          userTimezone={userTimezone}
+          // Filtered tasks
+          tasksToDisplay={tasksToDisplay}
+          paginatedTasks={paginatedTasks}
+          totalTasksForDateView={totalTasksForDateView}
+          totalPages={totalPages}
+          // Settings
+          dateView={settings.dateView}
+          filterString={settings.filterString}
+          sortField={settings.sortField}
+          sortDirection={settings.sortDirection}
+          viewMode={settings.viewMode}
+          currentPage={settings.currentPage}
+          itemsPerPage={settings.itemsPerPage}
+          calendarViewMode={settings.calendarViewMode}
+          calendarCurrentDate={settings.calendarCurrentDate}
+          showCompleted={showCompleted}
+          // UI state
+          showFilterHelp={settings.showFilterHelp}
+          showDisplayMenu={settings.showDisplayMenu}
+          selectMode={settings.selectMode}
+          selectedTaskIds={settings.selectedTaskIds}
+          // External events
+          externalEvents={externalEvents}
+          isLoadingEvents={isLoadingEvents}
+          // Dialog states
+          showCreateTaskWindow={showCreateTaskWindow}
+          selectedTaskId={selectedTaskId}
+          isTaskDialogOpen={isTaskDialogOpen}
+          createTaskStatus={createTaskStatus}
+          calendarSelectedDate={calendarSelectedDate}
+          // Setters
+          setRefreshTasks={setRefreshTasks}
+          setShowCreateTaskWindow={setShowCreateTaskWindow}
+          setSelectedTaskId={setSelectedTaskId}
+          setIsTaskDialogOpen={setIsTaskDialogOpen}
+          setCreateTaskStatus={setCreateTaskStatus}
+          setCalendarSelectedDate={setCalendarSelectedDate}
+          setExternalEvents={setExternalEvents}
+          setIsLoadingEvents={setIsLoadingEvents}
+          // Settings setters
+          setDateView={settings.setDateView}
+          setFilterString={settings.setFilterString}
+          setSortField={settings.setSortField}
+          setSortDirection={settings.setSortDirection}
+          setViewMode={settings.setViewMode}
+          setCurrentPage={settings.setCurrentPage}
+          setItemsPerPage={settings.setItemsPerPage}
+          setCalendarViewMode={settings.setCalendarViewMode}
+          setCalendarCurrentDate={settings.setCalendarCurrentDate}
+          setShowFilterHelp={settings.setShowFilterHelp}
+          setShowDisplayMenu={settings.setShowDisplayMenu}
+          setSelectMode={settings.setSelectMode}
+          setSelectedTaskIds={settings.setSelectedTaskIds}
+          toggleSelectMode={settings.toggleSelectMode}
+          toggleTaskSelection={settings.toggleTaskSelection}
+          selectAllTasks={settings.selectAllTasks}
+          clearSelection={settings.clearSelection}
+          toggleSortDirection={settings.toggleSortDirection}
+          setShowCompleted={setShowCompleted}
+          navigateCalendar={settings.navigateCalendar}
+          // Handlers
+          onTagClick={handleTagClick}
+          onAddTaskWithStatus={handleAddTaskWithStatus}
+          onCloseTaskDialog={handleCloseTaskDialog}
+          onDateChange={handleDateChange}
+          onSortFieldChange={handleSortFieldChange}
+          onShowCompletedChange={handleShowCompletedChange}
+          onFilterChange={handleFilterChange}
+          onSelectQuickTag={handleSelectQuickTag}
+          onRefreshFilterTriggerFromInput={refreshFilterTriggerFromInput}
+        />
+      )}
+    </div>
   );
 }

@@ -10,11 +10,14 @@ import { StarSearchDialog } from "../../components/search/StarSearchDialog";
 import { SearchForm } from "../../components/search/SearchForm";
 import { SearchConfig } from "../../components/search/SearchConfig";
 import { SearchResults } from "../../components/search/SearchResults";
+import { SearchDesktopLayout } from "../../components/search/SearchDesktopLayout";
+import { SearchMobileLayout } from "../../components/search/SearchMobileLayout";
 import { getStarredSearches } from "../../api/starredSearches";
 import { useTagContext } from "../../contexts/TagContext";
 import { Entity } from "../../models/Card";
 import { fetchEntityByName } from "../../api/entities";
 import { setDocumentTitle } from "../../utils/title";
+import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 
 import { useDialogState } from "../../contexts/DialogStateContext";
 
@@ -59,6 +62,18 @@ export function SearchPage({
 
   const params = new URLSearchParams(location.search);
   const starredId = params.get("starred");
+
+  // Responsive layout state
+  const { isMobile, mobileView, setMobileView } = useResponsiveLayout();
+  const [selectedCard, setSelectedCard] = useState<SearchResult | null>(null);
+
+  // Handler for clicking on a search result
+  const handleResultClick = (result: SearchResult) => {
+    setSelectedCard(result);
+    if (isMobile) {
+      setMobileView('detail');
+    }
+  };
 
   // Function to update URL with current search state
   const updateURL = (term: string, config: SearchConfigType, page: number = 1) => {
@@ -271,45 +286,73 @@ export function SearchPage({
     handleSearch(searchTerm, config, resetPage ? 1 : currentPage);
   };
 
-  return (
-    <div className="text-sm">
-      <div>
-        <div className="bg-slate-100 p-4 border-b border-slate-300">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <SearchForm
-              searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
-              searchConfig={searchConfig}
-              onSearch={handleSearch}
-              disabled={isLoading}
-            />
+  // Fetch schemas for filter panel
+  const [schemas, setSchemas] = useState<any[]>([]);
+  useEffect(() => {
+    const loadSchemas = async () => {
+      try {
+        const { fetchSchemas } = await import("../../api/schemas");
+        const data = await fetchSchemas();
+        setSchemas(data);
+      } catch (error) {
+        console.error("Failed to load schemas:", error);
+      }
+    };
+    loadSchemas();
+  }, []);
 
-            <SearchConfig
-              searchTerm={searchTerm}
-              searchConfig={searchConfig}
-              setSearchConfig={setSearchConfig}
-              tags={tags}
-              starredId={starredId}
-              setShowStarSearchDialog={setShowStarSearchDialog}
-              onTagClick={handleTagClick}
-              onSearchTrigger={handleConfigChangeWithSearch}
-            />
-          </div>
-        </div>
-        <SearchResults
+  return (
+    <div className="h-screen overflow-hidden">
+      {isMobile ? (
+        <SearchMobileLayout
+          mobileView={mobileView}
+          setMobileView={setMobileView}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          searchConfig={searchConfig}
+          setSearchConfig={setSearchConfig}
           searchResults={searchResults}
+          setSearchResults={setSearchResults}
           isLoading={isLoading}
           error={error}
-          searchConfig={searchConfig}
           totalResults={totalResults}
           totalPages={totalPages}
           currentPage={currentPage}
+          tags={tags}
+          starredId={starredId}
+          schemas={schemas}
+          setShowStarSearchDialog={setShowStarSearchDialog}
+          onSearch={handleSearch}
           handlePageChange={handlePageChange}
           handleEntityClick={handleEntityClick}
           handleTagClick={handleTagClick}
-          setSearchResults={setSearchResults}
+          onMenuClick={() => setMobileView('filters')}
         />
-      </div>
+      ) : (
+        <SearchDesktopLayout
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          searchConfig={searchConfig}
+          setSearchConfig={setSearchConfig}
+          searchResults={searchResults}
+          setSearchResults={setSearchResults}
+          isLoading={isLoading}
+          error={error}
+          totalResults={totalResults}
+          totalPages={totalPages}
+          currentPage={currentPage}
+          tags={tags}
+          starredId={starredId}
+          setShowStarSearchDialog={setShowStarSearchDialog}
+          onSearch={handleSearch}
+          onPageChange={handlePageChange}
+          onEntityClick={handleEntityClick}
+          onTagClick={handleTagClick}
+          selectedResult={selectedCard}
+          setSelectedResult={setSelectedCard}
+          onEditCard={(cardId) => navigate(`/app/card/${cardId}`)}
+        />
+      )}
 
       {/* Message display */}
       {message && (
@@ -325,7 +368,7 @@ export function SearchPage({
           searchConfig={searchConfig}
           onClose={() => setShowStarSearchDialog(false)}
           onStarSuccess={() => {
-            // You might want to refresh something here
+            // Refresh starred searches
           }}
           setMessage={setMessage}
         />
