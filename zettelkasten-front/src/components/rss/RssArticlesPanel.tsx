@@ -51,7 +51,7 @@ export function RssArticlesPanel({
         {/* Filter tabs */}
         <div className="flex bg-gray-100 rounded-lg p-1">
           <button
-            onClick={() => !showUnreadOnly && onToggleShowUnreadOnly()}
+            onClick={onToggleShowUnreadOnly}
             className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors ${
               !showUnreadOnly
                 ? "bg-white text-gray-900 shadow-sm"
@@ -61,7 +61,7 @@ export function RssArticlesPanel({
             All
           </button>
           <button
-            onClick={() => showUnreadOnly && onToggleShowUnreadOnly()}
+            onClick={onToggleShowUnreadOnly}
             className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors relative ${
               showUnreadOnly
                 ? "bg-white text-gray-900 shadow-sm"

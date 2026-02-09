@@ -435,7 +435,7 @@ export function RssFeedsPanel({
           <input
             type="checkbox"
             checked={showUnreadOnly}
-            onChange={onToggleShowUnreadOnly}
+            onChange={() => onToggleShowUnreadOnly()}
             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
           <span className="text-sm">Unread only</span>
