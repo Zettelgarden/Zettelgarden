@@ -138,7 +138,7 @@ export function RssMobileLayout({
             <div className="p-4 border-b border-gray-200">
               <div className="flex bg-gray-100 rounded-lg p-1">
                 <button
-                  onClick={() => !showUnreadOnly && onToggleShowUnreadOnly()}
+                  onClick={onToggleShowUnreadOnly}
                   className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors ${
                     !showUnreadOnly
                       ? "bg-white text-gray-900 shadow-sm"
@@ -148,7 +148,7 @@ export function RssMobileLayout({
                   All
                 </button>
                 <button
-                  onClick={() => showUnreadOnly && onToggleShowUnreadOnly()}
+                  onClick={onToggleShowUnreadOnly}
                   className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors relative ${
                     showUnreadOnly
                       ? "bg-white text-gray-900 shadow-sm"
