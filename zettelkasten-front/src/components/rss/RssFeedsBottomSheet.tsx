@@ -1,5 +1,11 @@
 import React, { useEffect, useRef } from "react";
 import { RSSFeed, RSSFolder, UnreadCounts } from "../../api/rss";
+import {
+  getFeedsByFolder,
+  getUnreadCountForFeed,
+  getUnreadCountForFolder,
+  renderUnreadBadge,
+} from "../../utils/rssHelpers";
 
 interface RssFeedsBottomSheetProps {
   isOpen: boolean;
@@ -79,27 +85,6 @@ export function RssFeedsBottomSheet({
     }
   };
 
-  const getFeedsByFolder = (folderName: string | null) => {
-    return feeds.filter((f) => f.folder === folderName || (folderName === null && !f.folder));
-  };
-
-  const getUnreadCountForFeed = (feedId: number): number => {
-    return unreadCounts.feeds[feedId] || 0;
-  };
-
-  const getUnreadCountForFolder = (folderName: string): number => {
-    return unreadCounts.folders[folderName] || 0;
-  };
-
-  const renderUnreadBadge = (count: number) => {
-    if (count === 0) return null;
-    return (
-      <span className="ml-1.5 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center">
-        {count > 99 ? "99+" : count}
-      </span>
-    );
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -159,10 +144,10 @@ export function RssFeedsBottomSheet({
           {folders.length > 0 && (
             <div className="space-y-2">
               {folders.map((folder) => {
-                const folderFeeds = getFeedsByFolder(folder.name);
+                const folderFeeds = getFeedsByFolder(feeds, folder.name);
                 const isExpanded = expandedFolders.has(folder.name);
                 const isSelected = selectedFolder === folder.name && selectedFeedId === null;
-                const unreadCount = getUnreadCountForFolder(folder.name);
+                const unreadCount = getUnreadCountForFolder(unreadCounts, folder.name);
 
                 return (
                   <div key={folder.id} className="bg-gray-50 rounded-lg overflow-hidden">
@@ -260,7 +245,7 @@ export function RssFeedsBottomSheet({
                       {isExpanded && (
                         <div className="ml-4 mt-1 space-y-1">
                           {folderFeeds.map((feed) => {
-                            const unreadCount = getUnreadCountForFeed(feed.id);
+                            const unreadCount = getUnreadCountForFeed(unreadCounts, feed.id);
                             const showMenu = showFeedMenuId === feed.id;
 
                             return (
@@ -374,7 +359,7 @@ export function RssFeedsBottomSheet({
 
           {/* Uncategorized Feeds */}
           {(() => {
-            const uncategorizedFeeds = getFeedsByFolder(null);
+            const uncategorizedFeeds = getFeedsByFolder(feeds, null);
             if (uncategorizedFeeds.length === 0) return null;
 
             const isExpanded = expandedFolders.has("__uncategorized__");
@@ -406,7 +391,7 @@ export function RssFeedsBottomSheet({
                   {isExpanded && (
                     <div className="ml-4 mt-1 space-y-1">
                       {uncategorizedFeeds.map((feed) => {
-                        const unreadCount = getUnreadCountForFeed(feed.id);
+                        const unreadCount = getUnreadCountForFeed(unreadCounts, feed.id);
                         const showMenu = showFeedMenuId === feed.id;
 
                         return (
