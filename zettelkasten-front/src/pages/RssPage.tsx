@@ -513,6 +513,7 @@ export function RssPage() {
           onToggleShowUnreadOnly={() => setShowUnreadOnly((prev) => !prev)}
           onConvertClick={handleConvertClick}
           onMarkAsUnread={handleMarkAsUnread}
+          onMobileBack={handleMobileBack}
           onRefresh={handleRefresh}
           onExportOPML={handleExportOPML}
           onImportOPML={() => setDialogState(DialogStates.import())}

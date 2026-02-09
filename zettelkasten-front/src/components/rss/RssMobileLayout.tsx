@@ -47,6 +47,7 @@ interface RssMobileLayoutProps {
   onRefresh?: () => void;
   onExportOPML?: () => void;
   onImportOPML?: () => void;
+  onMobileBack: () => void;
 }
 
 /**
@@ -92,6 +93,7 @@ export function RssMobileLayout({
   onRefresh,
   onExportOPML,
   onImportOPML,
+  onMobileBack,
 }: RssMobileLayoutProps) {
   const navigate = useNavigate();
 
@@ -101,7 +103,7 @@ export function RssMobileLayout({
   };
 
   const handleMobileBack = () => {
-    // This will be handled by parent component
+    onMobileBack();
   };
 
   const handleViewCard = (cardId: number) => {
