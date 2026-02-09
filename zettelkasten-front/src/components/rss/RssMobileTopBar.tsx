@@ -4,7 +4,7 @@ interface RssMobileTopBarProps {
   title: string;
   unreadCount?: number;
   onMenuClick: () => void;
-  onSettingsClick: () => void;
+  onSettingsClick?: () => void;
   rightAction?: React.ReactNode;
 }
 
@@ -41,7 +41,7 @@ export function RssMobileTopBar({
       {/* Right: Settings or action button */}
       {rightAction ? (
         rightAction
-      ) : (
+      ) : onSettingsClick ? (
         <button
           onClick={onSettingsClick}
           className="p-2 -mr-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
@@ -52,7 +52,7 @@ export function RssMobileTopBar({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         </button>
-      )}
+      ) : null}
     </div>
   );
 }

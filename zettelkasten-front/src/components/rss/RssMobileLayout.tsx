@@ -117,7 +117,6 @@ export function RssMobileLayout({
             title="RSS"
             unreadCount={totalUnreadCount}
             onMenuClick={onMenuClick}
-            onSettingsClick={undefined}
             rightAction={
               <button
                 onClick={() => onAllFeedsSelectMobile()}
