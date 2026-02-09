@@ -33,7 +33,7 @@ import { RSS_CONFIG } from "../constants/rss";
 export function RssPage() {
   const navigate = useNavigate();
   const { setUnreadCount } = useRSS();
-  const { toggleSidebarCollapsed } = useUIState();
+  const { toggleMobileSidebar } = useUIState();
 
   // Custom hooks for data fetching
   const {
@@ -493,7 +493,7 @@ export function RssPage() {
           loadingArticles={loadingArticles}
           totalArticles={totalArticles}
           currentPage={currentPage}
-          onMenuClick={toggleSidebarCollapsed}
+          onMenuClick={toggleMobileSidebar}
           onSettingsClick={() => setShowSettingsMenu(true)}
           onFeedSelectMobile={handleFeedSelectMobile}
           onFolderSelectMobile={handleFolderSelectMobile}

@@ -9,6 +9,7 @@ import { AuthProvider } from '../contexts/AuthContext';
 import { TagProvider } from '../contexts/TagContext';
 import { StatusProvider } from '../contexts/StatusContext';
 import { ToastProvider } from './toast/ToastContext';
+import { RSSProvider } from '../contexts/RSSContext';
 
 // Mock the child components that may make API calls
 vi.mock('./sidebar/SidebarHeader', () => ({
@@ -39,10 +40,6 @@ vi.mock('./sidebar/SidebarModals', () => ({
   SidebarModals: () => <div data-testid="sidebar-modals">Modals</div>,
 }));
 
-vi.mock('./sidebar/SidebarMobileMenu', () => ({
-  SidebarMobileMenu: () => <div>Mobile Menu</div>,
-}));
-
 function SidebarWrapper() {
   return (
     <BrowserRouter>
@@ -52,9 +49,11 @@ function SidebarWrapper() {
             <StatusProvider>
               <UIStateProvider>
                 <DialogStateProvider>
-                  <AuthProvider>
-                    <Sidebar />
-                  </AuthProvider>
+                  <RSSProvider>
+                    <AuthProvider>
+                      <Sidebar />
+                    </AuthProvider>
+                  </RSSProvider>
                 </DialogStateProvider>
               </UIStateProvider>
             </StatusProvider>

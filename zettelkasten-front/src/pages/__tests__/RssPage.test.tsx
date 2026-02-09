@@ -76,6 +76,47 @@ vi.mock("../../components/rss/RssConvertDialog", () => ({
     ) : null,
 }));
 
+vi.mock("../../components/rss/RssImportDialog", () => ({
+  RssImportDialog: ({ isOpen, onClose }: any) =>
+    isOpen ? (
+      <div data-testid="import-dialog">
+        <button onClick={onClose}>Cancel</button>
+      </div>
+    ) : null,
+}));
+
+vi.mock("../../components/rss/RssDesktopLayout", () => {
+  return {
+    RssDesktopLayout: ({ ...props }: any) => (
+      <div data-testid="desktop-layout">
+        <div>RSS Feeds</div>
+        <div>Articles</div>
+        <button onClick={() => props.onAddFeed && props.onAddFeed()}>Add Feed</button>
+        <button onClick={() => props.onRefresh && props.onRefresh()}>Refresh All</button>
+        <label>
+          <input
+            type="checkbox"
+            checked={props.showUnreadOnly || false}
+            onChange={() => props.onToggleShowUnreadOnly && props.onToggleShowUnreadOnly()}
+          />
+          Unread only
+        </label>
+        <div>{props.selectedFolder ? "Folder: " + props.selectedFolder : "All Feeds (" + (props.feeds?.length || 0) + ")"}</div>
+        <div>{(props.articles?.length || 0) === 0 ? "No articles found" : "Articles loaded"}</div>
+        <div>{props.selectedArticle ? "Article content" : "Select an article to read"}</div>
+      </div>
+    ),
+  };
+});
+
+vi.mock("../../components/rss/RssMobileLayout", () => ({
+  RssMobileLayout: ({ ...props }: any) => (
+    <div data-testid="mobile-layout">
+      <div>Mobile RSS</div>
+    </div>
+  ),
+}));
+
 // Mock the title utility
 vi.mock("../../utils/title", () => ({
   setDocumentTitle: vi.fn(),
@@ -156,11 +197,7 @@ describe("RssPage", () => {
   });
 
   it("shows loading state initially", () => {
-    const { container } = render(
-      <BrowserRouter>
-        <RssPage />
-      </BrowserRouter>
-    );
+    renderWithProviders(<RssPage />);
 
     expect(screen.getByText("Loading RSS feeds...")).toBeInTheDocument();
   });

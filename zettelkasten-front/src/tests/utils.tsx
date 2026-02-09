@@ -7,6 +7,7 @@ import { TaskProvider } from "../contexts/TaskContext";
 import { TagProvider } from "../contexts/TagContext";
 import { StatusProvider } from "../contexts/StatusContext";
 import { AuthProvider } from "../contexts/AuthContext";
+import { RSSProvider } from "../contexts/RSSContext";
 import { sampleTasks, sampleTags } from "../tests/data";
 
 function AllTheProviders({ children }) {
@@ -16,11 +17,13 @@ function AllTheProviders({ children }) {
         <TagProvider testing={true} testTags={sampleTags()} >
           <TaskProvider testing={true} testTasks={sampleTasks()}>
             <StatusProvider>
-              <UIStateProvider>
-                <DialogStateProvider>
-                  {children}
-                </DialogStateProvider>
-              </UIStateProvider>
+              <RSSProvider>
+                <UIStateProvider>
+                  <DialogStateProvider>
+                    {children}
+                  </DialogStateProvider>
+                </UIStateProvider>
+              </RSSProvider>
             </StatusProvider>
           </TaskProvider>
         </TagProvider>

@@ -19,17 +19,15 @@ import { StarredSearchesSection } from "./sidebar/StarredSearchesSection";
 import { StarredCardsSection } from "./sidebar/StarredCardsSection";
 import { SidebarFooter } from "./sidebar/SidebarFooter";
 import { SidebarModals } from "./sidebar/SidebarModals";
-import { SidebarMobileMenu } from "./sidebar/SidebarMobileMenu";
 import { MobileBottomNav } from "./mobile/MobileBottomNav";
 
 export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { lastCard, conversationId, setConversationId, isSidebarCollapsed, toggleSidebarCollapsed } = useUIState();
+  const { lastCard, conversationId, setConversationId, isSidebarCollapsed, toggleSidebarCollapsed, isMobileSidebarOpen, setIsMobileSidebarOpen } = useUIState();
   const { showToast } = useToast();
   const { tasks } = useTaskContext();
   const { unreadCount: unreadRssCount } = useRSS();
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [showAddArticleDialog, setShowAddArticleDialog] = useState(false);
   const [showStarCardDialog, setShowStarCardDialog] = useState(false);
   const { hasSubscription, user, updateUser } = useAuth();
@@ -124,10 +122,21 @@ export function Sidebar() {
 
   return (
     <>
-      <SidebarMobileMenu
-        isSidebarOpen={isSidebarOpen}
-        setIsSidebarOpen={setIsSidebarOpen}
-      />
+      {/* Mobile Backdrop */}
+      {isMobileSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 md:hidden z-[45] safe-all"
+          onClick={() => setIsMobileSidebarOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              setIsMobileSidebarOpen(false);
+            }
+          }}
+          tabIndex={0}
+          role="button"
+          aria-label="Close sidebar menu"
+        />
+      )}
 
       {/* Sidebar */}
       <div
@@ -140,7 +149,7 @@ export function Sidebar() {
     flex flex-col
     border-r
     transform
-    ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+    ${isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}
     md:translate-x-0
     transition-all
     duration-300

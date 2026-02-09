@@ -6,6 +6,7 @@ import { FileListItem } from "../components/files/FileListItem";
 import { FileUpload } from "../components/files/FileUpload";
 import { Button } from "../components/Button";
 import { useUIState } from "../contexts/UIStateContext";
+import { MobileTopBar } from "../components/layout/MobileTopBar";
 
 import { File } from "../models/File";
 import { defaultCard } from "../models/Card";
@@ -13,6 +14,7 @@ import { HeaderSection } from "../components/Header";
 import { setDocumentTitle } from "../utils/title";
 
 export function FileVault() {
+  const { toggleMobileSidebar, refreshFiles, setRefreshFiles } = useUIState();
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +27,6 @@ export function FileVault() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [showFilterHelp, setShowFilterHelp] = useState<boolean>(false);
-  const { refreshFiles, setRefreshFiles } = useUIState();
 
   function onDelete(file_id: number) {
     setFiles(files.filter((file) => file.id !== file_id));
@@ -97,8 +98,13 @@ export function FileVault() {
   }, [searchTerm]);
 
   return (
-    <div className="p-4">
-      <HeaderSection text="Files" />
+    <div>
+      <MobileTopBar
+        title="Files"
+        onMenuClick={toggleMobileSidebar}
+      />
+      <div className="p-4">
+        <HeaderSection text="Files" />
 
       {/* Search and Upload Section */}
       <div className="bg-slate-100 p-4 border-b border-slate-300 mb-4">
@@ -245,6 +251,7 @@ export function FileVault() {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }

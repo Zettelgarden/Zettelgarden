@@ -3,14 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { CardList } from "../components/cards/CardList";
 import { setDocumentTitle } from "../utils/title";
 import { useAuth } from "../contexts/AuthContext";
+import { useUIState } from "../contexts/UIStateContext";
 import { semanticSearchCardsPaginated, getUnsortedCards } from "../api/cards";
 import { PartialCard } from "../models/Card";
 import { ChatInput } from "../components/chat/ChatInput";
 import { AddArticleDialog } from "../components/cards/AddArticleDialog";
 import { useDialogState } from "../contexts/DialogStateContext";
+import { MobileTopBar } from "../components/layout/MobileTopBar";
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const { toggleMobileSidebar } = useUIState();
   const [recentCards, setRecentCards] = useState<PartialCard[]>([]);
   const [unsortedCards, setUnsortedCards] = useState<PartialCard[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -117,6 +120,12 @@ export function DashboardPage() {
 
   return (
     <div>
+      {/* Mobile Top Bar */}
+      <MobileTopBar
+        title="Dashboard"
+        onMenuClick={toggleMobileSidebar}
+      />
+
       {/* Main Content Section */}
       <div className="p-2">
         <div className="">

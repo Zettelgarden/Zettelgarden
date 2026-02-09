@@ -22,6 +22,9 @@ interface UIStateContextType {
   isSidebarCollapsed: boolean;
   setIsSidebarCollapsed: (collapsed: boolean) => void;
   toggleSidebarCollapsed: () => void;
+  isMobileSidebarOpen: boolean;
+  setIsMobileSidebarOpen: (open: boolean) => void;
+  toggleMobileSidebar: () => void;
 
   // Pin state
   pinnedCard: Card | null;
@@ -69,6 +72,7 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Sidebar state
   const [isSidebarCollapsed, setIsSidebarCollapsedState] = useState<boolean>(getInitialSidebarState);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpenState] = useState<boolean>(false);
 
   const setIsSidebarCollapsed = (collapsed: boolean) => {
     setIsSidebarCollapsedState(collapsed);
@@ -81,6 +85,14 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
       localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(newValue));
       return newValue;
     });
+  };
+
+  const setIsMobileSidebarOpen = (open: boolean) => {
+    setIsMobileSidebarOpenState(open);
+  };
+
+  const toggleMobileSidebar = () => {
+    setIsMobileSidebarOpenState(prev => !prev);
   };
 
   // Pin state
@@ -128,6 +140,9 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
         isSidebarCollapsed,
         setIsSidebarCollapsed,
         toggleSidebarCollapsed,
+        isMobileSidebarOpen,
+        setIsMobileSidebarOpen,
+        toggleMobileSidebar,
 
         // Pin
         pinnedCard,

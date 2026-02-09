@@ -7,8 +7,11 @@ import { PartialCard } from "../models/Card";
 import { ActivityHeatMap } from "../components/stats/ActivityHeatMap";
 import { DayTaskList } from "../components/stats/DayTaskList";
 import { DayCardList } from "../components/stats/DayCardList";
+import { MobileTopBar } from "../components/layout/MobileTopBar";
+import { useUIState } from "../contexts/UIStateContext";
 
 export function StatsPage() {
+  const { toggleMobileSidebar } = useUIState();
   const [stats, setStats] = useState<DailyStatsResponse | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [dayTasks, setDayTasks] = useState<Task[]>([]);
@@ -95,8 +98,13 @@ export function StatsPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Activity Stats</h1>
+    <div>
+      <MobileTopBar
+        title="Activity Stats"
+        onMenuClick={toggleMobileSidebar}
+      />
+      <div className="p-6 max-w-7xl mx-auto">
+        <h1 className="text-3xl font-bold text-gray-900 mb-6 md:block hidden">Activity Stats</h1>
 
       {/* Summary Cards */}
       {stats && (
@@ -173,6 +181,7 @@ export function StatsPage() {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }
