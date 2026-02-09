@@ -495,7 +495,6 @@ export function RssPage() {
           totalArticles={totalArticles}
           currentPage={currentPage}
           onMenuClick={toggleMobileSidebar}
-          onSettingsClick={() => setMobileView('feeds')}
           onFeedSelectMobile={handleFeedSelectMobile}
           onFolderSelectMobile={handleFolderSelectMobile}
           onAllFeedsSelectMobile={handleAllFeedsSelectMobile}
