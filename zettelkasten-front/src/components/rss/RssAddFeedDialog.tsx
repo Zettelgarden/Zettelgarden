@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment } from "react";
-import { createFeed, CreateRSSFeedParams, RSSFeed, RSSFolder } from "../../api/rss";
+import { createFeed, CreateRSSFeedParams, RSSFeed, RSSFolder, discoverFeed, DiscoverFeedResponse } from "../../api/rss";
 
 interface RssAddFeedDialogProps {
   isOpen: boolean;
@@ -21,6 +21,7 @@ export function RssAddFeedDialog({
   const [folder, setFolder] = useState("");
   const [autoTags, setAutoTags] = useState("");
   const [loading, setLoading] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
   const [error, setError] = useState<string>("");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,6 +69,29 @@ export function RssAddFeedDialog({
     onClose();
   };
 
+  const handleDiscover = async () => {
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) {
+      setError("Please enter a URL to discover the feed");
+      return;
+    }
+
+    setDiscovering(true);
+    setError("");
+
+    try {
+      const discovered: DiscoverFeedResponse = await discoverFeed(trimmedUrl);
+      setUrl(discovered.feed_url);
+      setName(discovered.title);
+    } catch (err) {
+      console.error("Failed to discover feed:", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to discover feed. Please check the URL and try again.";
+      setError(errorMessage);
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
   return (
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-[80]" onClose={handleClose}>
@@ -105,16 +129,42 @@ export function RssAddFeedDialog({
                     <label htmlFor="feed-url" className="block text-sm font-medium text-gray-700 mb-1">
                       Feed URL <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      id="feed-url"
-                      type="url"
-                      value={url}
-                      onChange={(e) => setUrl(e.target.value)}
-                      placeholder="https://example.com/feed"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      required
-                      autoFocus
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        id="feed-url"
+                        type="url"
+                        value={url}
+                        onChange={(e) => setUrl(e.target.value)}
+                        placeholder="https://example.com/feed"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        required
+                        autoFocus
+                        disabled={loading || discovering}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleDiscover}
+                        disabled={!url.trim() || loading || discovering}
+                        className="px-3 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+                      >
+                        {discovering ? (
+                          <>
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            Discovering...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            Discover Feed
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Name - Optional */}
@@ -182,14 +232,14 @@ export function RssAddFeedDialog({
                     <button
                       type="button"
                       onClick={handleClose}
-                      disabled={loading}
+                      disabled={loading || discovering}
                       className="px-4 py-2 min-h-[44px] text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      disabled={loading || !url.trim()}
+                      disabled={loading || discovering || !url.trim()}
                       className="px-4 py-2 min-h-[44px] bg-blue-600 text-white hover:bg-blue-700 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {loading ? (

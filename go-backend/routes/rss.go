@@ -6,6 +6,9 @@ import (
 )
 
 func RegisterRSSRoutes(r *mux.Router, h *handlers.Handler) {
+	// Feed discovery route
+	addProtectedRoute(r, h, "/api/rss/discover", h.DiscoverFeedRoute, "POST")
+
 	addProtectedRoute(r, h, "/api/rss/feeds", h.ListRSSFeedsRoute, "GET")
 	addProtectedRoute(r, h, "/api/rss/feeds", h.CreateRSSFeedRoute, "POST")
 	addProtectedRoute(r, h, "/api/rss/feeds/{id}", h.GetRSSFeedRoute, "GET")

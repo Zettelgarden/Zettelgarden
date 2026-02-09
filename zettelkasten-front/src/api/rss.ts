@@ -100,6 +100,15 @@ export interface OPMLImportResult {
   errors?: string[];
 }
 
+export interface DiscoverFeedRequest {
+  url: string;
+}
+
+export interface DiscoverFeedResponse {
+  feed_url: string;
+  title: string;
+}
+
 // Feed API
 export function createFeed(feed: CreateRSSFeedParams): Promise<RSSFeed> {
   return getData(apiClient.post<RSSFeed>("/rss/feeds", feed));
@@ -127,6 +136,11 @@ export function markFeedAsRead(id: number): Promise<void> {
 
 export function refreshFeeds(): Promise<{ fetched: number }> {
   return getData(apiClient.post<{ fetched: number }>("/rss/feeds/fetch", {}));
+}
+
+// Feed Discovery API
+export function discoverFeed(url: string): Promise<DiscoverFeedResponse> {
+  return getData(apiClient.post<DiscoverFeedResponse>("/rss/discover", { url }));
 }
 
 // Article API
