@@ -265,14 +265,18 @@ export function RssPage() {
           setSelectedFeedId(null);
         }
       } else if (dialogState.itemType === "folder") {
-        await deleteFolder((dialogState.item as RSSFolder).id);
-        setFolders((prev) => prev.filter((f) => f.id !== (dialogState.item as RSSFolder).id));
-        // Update feeds to remove folder reference
-        setFeeds((prev) =>
-          prev.map((f) => (f.folder === (dialogState.item as RSSFolder).name ? { ...f, folder: undefined } : f))
-        );
+        const folder = dialogState.item as RSSFolder;
+        // Get all feeds in this folder
+        const folderFeeds = feeds.filter((f) => f.folder === folder.name);
+        // Delete all feeds in the folder first
+        await Promise.all(folderFeeds.map((feed) => deleteFeed(feed.id)));
+        // Then delete the folder
+        await deleteFolder(folder.id);
+        setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+        // Remove feeds that were in the deleted folder
+        setFeeds((prev) => prev.filter((f) => f.folder !== folder.name));
         // Clear selected folder if it was deleted
-        if (selectedFolder === (dialogState.item as RSSFolder).name) {
+        if (selectedFolder === folder.name) {
           setSelectedFolder(null);
         }
       }
