@@ -47,7 +47,7 @@ function MainAppContent() {
     updateUser,
   } = useAuth();
   const { setRefreshTasks } = useTaskContext();
-  const { pinnedCard, isPinMode, chatSidebarCard, isChatSidebarMode, hideGlobalSidebar } = useUIState();
+  const { pinnedCard, isPinMode, chatSidebarCard, isChatSidebarMode } = useUIState();
 
   // changing pages
 
@@ -76,7 +76,7 @@ function MainAppContent() {
     <div>
 
       <div className="flex h-screen overflow-hidden">
-        {!hideGlobalSidebar && <Sidebar />}
+        <Sidebar />
         <div className="flex-grow overflow-y-auto pb-16 md:pb-0 safe-bottom">
           {isPinMode && pinnedCard ? (
             <ErrorBoundary>
