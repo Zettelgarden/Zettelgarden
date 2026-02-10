@@ -2,9 +2,8 @@ import React from "react";
 import { SearchResult } from "../../models/Card";
 import { SearchConfig } from "../../models/StarredSearch";
 import { Tag } from "../../models/Tags";
-import { SearchFiltersPanel } from "./SearchFiltersPanel";
-import { SearchResultsPanel } from "./SearchResultsPanel";
-import { SearchCardDetailPanel } from "./SearchCardDetailPanel";
+import { SearchSidebar } from "./SearchSidebar";
+import { SearchMainContent } from "./SearchMainContent";
 
 interface SearchDesktopLayoutProps {
   // Search input state
@@ -26,10 +25,6 @@ interface SearchDesktopLayoutProps {
   isLoading: boolean;
   error: Error | null;
 
-  // Selected result for detail panel
-  selectedResult: SearchResult | null;
-  setSelectedResult: (result: SearchResult | null) => void;
-
   // Tags
   tags: Tag[];
 
@@ -42,12 +37,12 @@ interface SearchDesktopLayoutProps {
   onPageChange: (newPage: number) => void;
   onEntityClick: (entityName: string) => void;
   onTagClick: (tagName: string) => void;
-  onEditCard?: (cardId: number) => void;
 }
 
 /**
- * Desktop three-panel layout for Search
- * Layout: Filters sidebar | Results panel | Card detail panel
+ * Desktop two-panel layout for Search
+ * Layout: Sidebar (navigation) | Main Content (search + results)
+ * Clicking a result navigates to the card detail page
  */
 export function SearchDesktopLayout({
   searchTerm,
@@ -61,8 +56,6 @@ export function SearchDesktopLayout({
   currentPage,
   isLoading,
   error,
-  selectedResult,
-  setSelectedResult,
   tags,
   starredId,
   setShowStarSearchDialog,
@@ -70,43 +63,23 @@ export function SearchDesktopLayout({
   onPageChange,
   onEntityClick,
   onTagClick,
-  onEditCard,
 }: SearchDesktopLayoutProps) {
-  const handleConfigChangeWithSearch = (config: SearchConfig, resetPage?: boolean) => {
-    if (resetPage) {
-      onPageChange(1);
-    }
-    onSearch(searchTerm, config);
-  };
-
-  const handleResultClick = (result: SearchResult) => {
-    setSelectedResult(result);
-  };
-
   return (
     <div className="hidden md:flex flex-row h-screen overflow-hidden">
-      {/* Left Panel: Filters */}
-      <SearchFiltersPanel
-        searchTerm={searchTerm}
-        searchConfig={searchConfig}
-        setSearchConfig={setSearchConfig}
+      {/* Left Panel: Sidebar with starred searches and tags 
+      <SearchSidebar
         tags={tags}
-        starredId={starredId}
-        setShowStarSearchDialog={setShowStarSearchDialog}
         onTagClick={onTagClick}
-        onSearchTrigger={handleConfigChangeWithSearch}
-        onSearchTermChange={setSearchTerm}
-        onSearch={onSearch}
-        isLoading={isLoading}
       />
-
-      {/* Middle Panel: Results */}
-      <SearchResultsPanel
+*/}
+      {/* Right Panel: Main content with search header and results */}
+      <SearchMainContent
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         searchConfig={searchConfig}
         setSearchConfig={setSearchConfig}
         searchResults={searchResults}
+        setSearchResults={setSearchResults}
         totalResults={totalResults}
         totalPages={totalPages}
         currentPage={currentPage}
@@ -114,21 +87,10 @@ export function SearchDesktopLayout({
         error={error}
         onSearch={onSearch}
         onPageChange={onPageChange}
-        onResultClick={handleResultClick}
         onEntityClick={onEntityClick}
         onTagClick={onTagClick}
-        onResultsUpdate={setSearchResults}
-        tags={tags.map(t => t.name)}
         starredId={starredId}
         setShowStarSearchDialog={setShowStarSearchDialog}
-      />
-
-      {/* Right Panel: Card Detail */}
-      <SearchCardDetailPanel
-        selectedCard={selectedResult}
-        onEdit={onEditCard}
-        onTagClick={onTagClick}
-        onEntityClick={onEntityClick}
       />
     </div>
   );

@@ -65,15 +65,6 @@ export function SearchPage({
 
   // Responsive layout state
   const { isMobile, mobileView, setMobileView } = useResponsiveLayout();
-  const [selectedCard, setSelectedCard] = useState<SearchResult | null>(null);
-
-  // Handler for clicking on a search result
-  const handleResultClick = (result: SearchResult) => {
-    setSelectedCard(result);
-    if (isMobile) {
-      setMobileView('detail');
-    }
-  };
 
   // Function to update URL with current search state
   const updateURL = (term: string, config: SearchConfigType, page: number = 1) => {
@@ -348,9 +339,6 @@ export function SearchPage({
           onPageChange={handlePageChange}
           onEntityClick={handleEntityClick}
           onTagClick={handleTagClick}
-          selectedResult={selectedCard}
-          setSelectedResult={setSelectedCard}
-          onEditCard={(cardId) => navigate(`/app/card/${cardId}`)}
         />
       )}
 
