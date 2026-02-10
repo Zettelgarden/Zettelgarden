@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { MobileTopBar } from "../../components/layout/MobileTopBar";
 import { isCardIdUnique } from "../../utils/cards";
 import { uploadFile } from "../../api/files";
 import { parseURL } from "../../api/references";
@@ -57,7 +58,7 @@ function renderWarningLabel(cards: PartialCard[], editingCard: Card) {
 function EditPageContent({ newCard }: EditPageProps) {
   const [originalCard, setOriginalCard] = useState<Card>(defaultCard);
   const [previewModeActive, setPreviewModeActive] = useState(false);
-  const { lastCard, nextCardId, setNextCardId } = useUIState();
+  const { lastCard, nextCardId, setNextCardId, toggleMobileSidebar } = useUIState();
   const [filesToUpdate, setFilesToUpdate] = useState<File[]>([]);
   const cardBodyRef = useRef<CardBodyTextAreaHandle>(null);
   const [suggestingTitle, setSuggestingTitle] = useState(false);
@@ -298,6 +299,12 @@ function EditPageContent({ newCard }: EditPageProps) {
   return (
 
     <div className="pb-10">
+      {editingCard && (
+        <MobileTopBar
+          title={editingCard.title || (newCard ? "New Card" : "Edit Card")}
+          onMenuClick={toggleMobileSidebar}
+        />
+      )}
       <div className="space-y-6">
 
         <EditorToolbar

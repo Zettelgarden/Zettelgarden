@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { MobileTopBar } from "../../components/layout/MobileTopBar";
 import { ViewPageHeader } from "../../components/cards/ViewPageHeader";
 import { ViewCardContentSection } from "../../components/cards/ViewCardContentSection";
 import { ViewPageSidePanels } from "../../components/cards/ViewPageSidePanels";
@@ -21,7 +22,7 @@ interface ViewPageProps {
 
 export function ViewPage({ cardId }: ViewPageProps) {
   const { tags } = useTagContext();
-  const { pinnedCard } = useUIState();
+  const { pinnedCard, toggleMobileSidebar } = useUIState();
   const navigate = useNavigate();
 
   const fileUploadRef = useRef<HTMLInputElement>(null);
@@ -93,6 +94,12 @@ export function ViewPage({ cardId }: ViewPageProps) {
 
   return (
     <div className="overflow-x-hidden">
+      {viewingCard && (
+        <MobileTopBar
+          title={viewingCard.title || "Card"}
+          onMenuClick={toggleMobileSidebar}
+        />
+      )}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
           <div className="text-red-700">{error}</div>
