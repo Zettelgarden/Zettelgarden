@@ -33,8 +33,9 @@ export function useRssArticles(filters: ArticleFilters = {}) {
       };
 
       const response = await listArticles(requestFilters);
-      setArticles(response.articles);
-      setTotalArticles(response.total);
+      // Ensure articles is always an array, even if API returns null/undefined
+      setArticles(response?.articles || []);
+      setTotalArticles(response?.total || 0);
     } catch (error) {
       console.error("Failed to load articles:", error);
       setError("Failed to load articles. Please try again.");

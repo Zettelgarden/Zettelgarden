@@ -81,7 +81,7 @@ export function RssArticlesPanel({
         <div className="flex-1 flex items-center justify-center">
           <p className="text-gray-500">Loading...</p>
         </div>
-      ) : articles.length === 0 ? (
+      ) : !articles || articles.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-gray-500">No articles found</p>
         </div>
