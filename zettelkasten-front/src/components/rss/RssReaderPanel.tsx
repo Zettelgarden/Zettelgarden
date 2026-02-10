@@ -78,7 +78,7 @@ export function RssReaderPanel({
               </svg>
               View original
             </a>
-            {selectedArticle.card_id && (
+            {selectedArticle.card_id ? (
               <button
                 onClick={() => navigate(`/app/card/${selectedArticle.card_id}`)}
                 className="flex items-center gap-1 text-green-600 hover:text-green-800 hover:underline"
@@ -87,6 +87,16 @@ export function RssReaderPanel({
                   <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
                 </svg>
                 View card
+              </button>
+            ) : (
+              <button
+                onClick={onConvertClick}
+                className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline font-medium"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+                </svg>
+                Convert to Card
               </button>
             )}
           </div>
@@ -119,27 +129,6 @@ export function RssReaderPanel({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               Mark as Unread
-            </button>
-          )}
-          {selectedArticle.card_id ? (
-            <button
-              onClick={() => navigate(`/app/card/${selectedArticle.card_id}`)}
-              className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
-              </svg>
-              View card
-            </button>
-          ) : (
-            <button
-              onClick={onConvertClick}
-              className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
-              </svg>
-              Convert to Card
             </button>
           )}
         </div>
