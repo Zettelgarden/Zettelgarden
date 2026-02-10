@@ -89,7 +89,7 @@ export function SidebarFooter({ isCollapsed, onToggleCollapse }: SidebarFooterPr
   }, [showTooltip]);
 
   return (
-    <div className={`p-2 border-t ${isCollapsed ? "flex flex-col items-center gap-2" : ""}`}>
+    <div className={`p-2 border-t ${isCollapsed ? "flex flex-col items-center gap-2" : ""}`} style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0.5rem))' }}>
       <div className={`flex ${isCollapsed ? "flex-col gap-2" : "justify-end space-x-4 pr-2"}`}>
         <CollapsibleLink
           to="/app/help"

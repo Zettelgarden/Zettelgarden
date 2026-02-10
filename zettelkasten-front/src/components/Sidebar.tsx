@@ -167,7 +167,7 @@ export function Sidebar() {
         />
 
         {/* Scrollable Middle Section */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}>
           <NavigationLinks
             todayTasksCount={todayTasks.length}
             unreadRssCount={unreadRssCount}
