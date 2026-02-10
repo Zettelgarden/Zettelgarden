@@ -98,7 +98,7 @@ export function SearchMobileLayout({
   // Mobile List View
   if (mobileView === 'list') {
     return (
-      <div className="md:hidden flex flex-col flex-1 overflow-hidden">
+      <div className="md:hidden flex flex-col flex-1 h-full">
         {/* Mobile Top Bar */}
         <div className="sticky top-0 z-40 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
           {/* Left: Hamburger menu */}
@@ -156,7 +156,7 @@ export function SearchMobileLayout({
         </div>
 
         {/* Results content */}
-        <div className="flex-1 bg-white flex flex-col overflow-hidden">
+        <div className="flex-1 bg-white flex flex-col overflow-y-auto">
           {isLoading ? (
             <div className="flex justify-center items-center py-20">
               <div className="text-gray-500">Loading...</div>
@@ -232,7 +232,7 @@ export function SearchMobileLayout({
     return (
       <>
         {/* Background content - shows list behind the filter overlay */}
-        <div className="md:hidden flex flex-col flex-1 overflow-hidden opacity-50">
+        <div className="md:hidden flex flex-col flex-1 h-full opacity-50">
           <div className="sticky top-0 z-40 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
             <h1 className="text-lg font-semibold text-gray-900">Search</h1>
           </div>
