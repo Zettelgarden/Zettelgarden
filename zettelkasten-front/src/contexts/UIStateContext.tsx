@@ -25,6 +25,8 @@ interface UIStateContextType {
   isMobileSidebarOpen: boolean;
   setIsMobileSidebarOpen: (open: boolean) => void;
   toggleMobileSidebar: () => void;
+  hideGlobalSidebar: boolean;
+  setHideGlobalSidebar: (hide: boolean) => void;
 
   // Pin state
   pinnedCard: Card | null;
@@ -73,6 +75,7 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
   // Sidebar state
   const [isSidebarCollapsed, setIsSidebarCollapsedState] = useState<boolean>(getInitialSidebarState);
   const [isMobileSidebarOpen, setIsMobileSidebarOpenState] = useState<boolean>(false);
+  const [hideGlobalSidebar, setHideGlobalSidebar] = useState<boolean>(false);
 
   const setIsSidebarCollapsed = (collapsed: boolean) => {
     setIsSidebarCollapsedState(collapsed);
@@ -143,6 +146,8 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
         isMobileSidebarOpen,
         setIsMobileSidebarOpen,
         toggleMobileSidebar,
+        hideGlobalSidebar,
+        setHideGlobalSidebar,
 
         // Pin
         pinnedCard,

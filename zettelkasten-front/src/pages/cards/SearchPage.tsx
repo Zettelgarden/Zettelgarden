@@ -20,6 +20,7 @@ import { setDocumentTitle } from "../../utils/title";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 
 import { useDialogState } from "../../contexts/DialogStateContext";
+import { useUIState } from "../../contexts/UIStateContext";
 
 interface SearchPageProps {
   searchTerm: string;
@@ -40,6 +41,7 @@ export function SearchPage({
 }: SearchPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { setHideGlobalSidebar } = useUIState();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
   const { tags } = useTagContext();
@@ -66,6 +68,14 @@ export function SearchPage({
   // Responsive layout state
   const { isMobile, mobileView, setMobileView } = useResponsiveLayout();
   const [selectedCard, setSelectedCard] = useState<SearchResult | null>(null);
+
+  // Hide global sidebar on desktop (SearchDesktopLayout has its own navigation)
+  useEffect(() => {
+    setHideGlobalSidebar(true);
+    return () => {
+      setHideGlobalSidebar(false);
+    };
+  }, [setHideGlobalSidebar]);
 
   // Handler for clicking on a search result
   const handleResultClick = (result: SearchResult) => {
