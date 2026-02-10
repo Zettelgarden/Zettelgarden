@@ -315,7 +315,7 @@ export function TaskMobileLayout({
   // Mobile List View
   if (mobileView === 'list') {
     return (
-      <div className="md:hidden flex flex-col flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 h-full">
         {/* Mobile Top Bar */}
         <MobileTopBar
           title="Tasks"
@@ -462,9 +462,9 @@ export function TaskMobileLayout({
     return (
       <>
         {/* Background content - shows list behind the filter overlay */}
-        <div className="md:hidden flex flex-col flex-1 overflow-hidden opacity-50">
+        <div className="flex flex-col flex-1 h-full opacity-50">
           <MobileTopBar title="Tasks" onMenuClick={onMenuClick} />
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
             {renderCurrentView()}
           </div>
         </div>

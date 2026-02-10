@@ -317,7 +317,7 @@ export function TaskPage({ }: TaskListProps) {
   }, [setShowCreateTaskWindow, settings.setFilterString]);
 
   return (
-    <div className="h-screen overflow-hidden">
+    <div className="h-screen flex flex-col md:overflow-hidden">
       {isMobile ? (
         <TaskMobileLayout
           mobileView={mobileView}
