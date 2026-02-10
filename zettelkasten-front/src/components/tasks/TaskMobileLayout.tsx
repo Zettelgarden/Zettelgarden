@@ -426,7 +426,7 @@ export function TaskMobileLayout({
         </div>
 
         {/* Task content area */}
-        <div className="flex-1 bg-white flex flex-col overflow-hidden">
+        <div className="flex-1 bg-white flex flex-col overflow-y-auto">
           {renderCurrentView()}
         </div>
 
