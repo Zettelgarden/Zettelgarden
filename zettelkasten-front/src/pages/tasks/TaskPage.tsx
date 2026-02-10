@@ -22,6 +22,7 @@ import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { TaskDesktopLayout } from "../../components/tasks/TaskDesktopLayout";
 import { TaskMobileLayout } from "../../components/tasks/TaskMobileLayout";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
+import { useUIState } from "../../contexts/UIStateContext";
 
 type TaskMobileView = 'list' | 'filters';
 import {
@@ -46,6 +47,7 @@ export function TaskPage({ }: TaskListProps) {
   const { user } = useAuth();
   const { showCreateTaskWindow, setShowCreateTaskWindow } = useDialogState();
   const navigate = useNavigate();
+  const { toggleMobileSidebar } = useUIState();
   const userTimezone = user?.timezone || "UTC";
 
   // Responsive layout state
@@ -385,7 +387,7 @@ export function TaskPage({ }: TaskListProps) {
           navigateCalendar={settings.navigateCalendar}
           setShowCompleted={setShowCompleted}
           // Handlers
-          onMenuClick={() => {/* Handled by parent */}}
+          onMenuClick={toggleMobileSidebar}
           onTagClick={handleTagClick}
           onAddTaskWithStatus={handleAddTaskWithStatus}
           onCloseTaskDialog={handleCloseTaskDialog}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { semanticSearchCards, semanticSearchCardsPaginated } from "../../api/cards";
 import { fetchUserTags } from "../../api/tags";
+import { useUIState } from "../../contexts/UIStateContext";
 import { SearchResult } from "../../models/Card";
 import { Tag } from "../../models/Tags";
 import { SearchConfig as SearchConfigType } from "../../models/StarredSearch";
@@ -46,6 +47,7 @@ export function SearchPage({
   const [showStarSearchDialog, setShowStarSearchDialog] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
   const latestRequestId = React.useRef(0);
+  const { toggleMobileSidebar } = useUIState();
 
   // Pagination state
   const [totalResults, setTotalResults] = useState<number>(0);
@@ -317,7 +319,7 @@ export function SearchPage({
           handlePageChange={handlePageChange}
           handleEntityClick={handleEntityClick}
           handleTagClick={handleTagClick}
-          onMenuClick={() => setMobileView('filters')}
+          onMenuClick={toggleMobileSidebar}
         />
       ) : (
         <SearchDesktopLayout
