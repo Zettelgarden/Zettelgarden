@@ -49,6 +49,8 @@ func getModelContextLimit(model string) int {
 		"openai/gpt-5.2-chat":           128000,
 		"openai/gpt-4o-mini":            128000,
 		"anthropic/claude-sonnet-4":     200000,
+		"anthropic/claude-sonnet-4.5":     1000000,
+		"anthropic/claude-opus-4.6":     10000000,
 	}
 
 	if limit, ok := limits[model]; ok {
