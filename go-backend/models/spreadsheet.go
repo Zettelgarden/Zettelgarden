@@ -3,9 +3,13 @@ package models
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 )
+
+// ErrSpreadsheetNotFound is returned when a spreadsheet cannot be found
+var ErrSpreadsheetNotFound = errors.New("spreadsheet not found")
 
 // Spreadsheet represents a spreadsheet attached to a card
 type Spreadsheet struct {
@@ -111,7 +115,7 @@ func GetSpreadsheetByID(db Database, id int, userID int) (*Spreadsheet, error) {
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("spreadsheet not found")
+		return nil, ErrSpreadsheetNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to query spreadsheet: %w", err)
@@ -162,7 +166,7 @@ func CreateSpreadsheet(db Database, spreadsheet *Spreadsheet) error {
 // UpdateSpreadsheet updates an existing spreadsheet's data
 func UpdateSpreadsheet(db Database, id int, userID int, data SpreadsheetData) error {
 	// Verify spreadsheet exists and belongs to user
-	existing, err := GetSpreadsheetByID(db, id, userID)
+	_, err := GetSpreadsheetByID(db, id, userID)
 	if err != nil {
 		return err
 	}
@@ -184,7 +188,6 @@ func UpdateSpreadsheet(db Database, id int, userID int, data SpreadsheetData) er
 		return fmt.Errorf("failed to update spreadsheet: %w", err)
 	}
 
-	_ = existing // Used for verification, avoid unused variable warning
 	return nil
 }
 
@@ -198,18 +201,9 @@ func DeleteSpreadsheet(db Database, id int, userID int) error {
 
 	query := `DELETE FROM spreadsheets WHERE id = $1 AND user_id = $2`
 
-	result, err := db.Exec(query, id, userID)
+	_, err = db.Exec(query, id, userID)
 	if err != nil {
 		return fmt.Errorf("failed to delete spreadsheet: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return fmt.Errorf("spreadsheet not found")
 	}
 
 	return nil
