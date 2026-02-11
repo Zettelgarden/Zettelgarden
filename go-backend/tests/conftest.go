@@ -290,6 +290,7 @@ func truncateTestData() {
 		"revenue",
 		"schema_definitions",
 		"scheduled_job_runs",
+		"spreadsheets",
 		"starred_cards",
 		"starred_searches",
 		"stripe_plans",
