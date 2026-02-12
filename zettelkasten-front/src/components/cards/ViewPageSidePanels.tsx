@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, PartialCard } from "../../models/Card";
+import { Card, PartialCard, RelatedCard } from "../../models/Card";
 import { Entity } from "../../models/Card";
 import { HeaderSubSection } from "../Header";
 import { Button } from "../Button";
@@ -10,6 +10,7 @@ import { linkifyWithDefaultOptions } from "../../utils/strings";
 import { PersonIcon } from "../../assets/icons/PersonIcon";
 import { CardStructuredDataDisplay } from "../schemas/CardStructuredDataDisplay";
 import { RSSArticle } from "../../api/rss";
+import { RelatedCards } from "./RelatedCards";
 
 interface ViewPageSidePanelsProps {
   parentCard: Card | null;
@@ -22,6 +23,8 @@ interface ViewPageSidePanelsProps {
   onTagClick: (tagName: string) => void;
   onRemoveTag: (tagName: string) => void;
   sourceArticle?: RSSArticle;
+  relatedCards?: RelatedCard[];
+  onRelatedCardClick?: (cardId: number) => void;
 }
 
 export function ViewPageSidePanels({
@@ -34,7 +37,9 @@ export function ViewPageSidePanels({
   tags,
   onTagClick,
   onRemoveTag,
-  sourceArticle
+  sourceArticle,
+  relatedCards,
+  onRelatedCardClick
 }: ViewPageSidePanelsProps) {
   const navigate = useNavigate();
 
@@ -136,6 +141,14 @@ export function ViewPageSidePanels({
           </ul>
           <hr className="my-4" />
         </div>
+      )}
+
+      {/* Related Cards Section */}
+      {relatedCards && onRelatedCardClick && (
+        <RelatedCards
+          relatedCards={relatedCards}
+          onCardClick={onRelatedCardClick}
+        />
       )}
 
       <div>
