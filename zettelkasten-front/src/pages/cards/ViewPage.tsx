@@ -45,6 +45,7 @@ export function ViewPage({ cardId }: ViewPageProps) {
     summaries,
     latestSummary,
     analysis,
+    relatedCards,
     showIdDiscovery,
     error,
   } = data;
@@ -232,6 +233,8 @@ export function ViewPage({ cardId }: ViewPageProps) {
               onTagClick={onTagClick}
               onRemoveTag={onRemoveTag}
               sourceArticle={viewingCard.source_article}
+              relatedCards={relatedCards}
+              onRelatedCardClick={(cardId) => navigate(`/app/card/${cardId}`)}
             />
           </div>
         </div>
