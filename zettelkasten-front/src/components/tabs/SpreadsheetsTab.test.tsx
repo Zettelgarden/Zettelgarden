@@ -408,4 +408,47 @@ describe('SpreadsheetsTab', () => {
     // Should request 'sheet2' since 'sheet1' already exists
     expect(spreadsheetsApi.createSpreadsheet).toHaveBeenCalledWith(1, 'sheet2');
   });
+
+  it('appends spreadsheet reference to card body after creation', async () => {
+    const cardWithBody: Card = {
+      ...mockCard,
+      body: '# My Card\nExisting content.'
+    };
+
+    const newSpreadsheet: Spreadsheet = {
+      id: 123,
+      user_id: 1,
+      card_id: 1,
+      name: 'sheet3',
+      data: { rows: 5, cols: 5, data: {} },
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+
+    vi.mocked(spreadsheetsApi.createSpreadsheet).mockResolvedValue(newSpreadsheet);
+
+    render(
+      <SpreadsheetsTab
+        viewingCard={cardWithBody}
+        setViewCard={mockSetViewCard}
+        setError={mockSetError}
+      />
+    );
+
+    // Wait for loading to complete and button to be enabled
+    await waitFor(() => {
+      const addButton = screen.getByRole('button', { name: /add spreadsheet/i });
+      expect(addButton).not.toBeDisabled();
+    });
+
+    const addButton = screen.getByRole('button', { name: /add spreadsheet/i });
+    await userEvent.click(addButton);
+
+    // Verify card body was updated with spreadsheet reference
+    expect(mockSetViewCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: '# My Card\nExisting content.\n\n{{spreadsheet:123}}\n'
+      })
+    );
+  });
 });

@@ -60,6 +60,13 @@ export function SpreadsheetsTab({ viewingCard, setViewCard, setError }: Spreadsh
       const newSpreadsheet = await createSpreadsheet(viewingCard.id, newName);
       setSpreadsheets(prev => [...prev, newSpreadsheet]);
       setSelectedSpreadsheet(newSpreadsheet);
+
+      // Append spreadsheet reference to card body
+      const updatedCard = {
+        ...viewingCard,
+        body: viewingCard.body.trim() + `\n\n{{spreadsheet:${newSpreadsheet.id}}}\n`
+      };
+      setViewCard(updatedCard);
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
