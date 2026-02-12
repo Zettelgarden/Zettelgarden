@@ -8,13 +8,24 @@ import (
 	"go-backend/models"
 )
 
+const (
+	// DefaultLimit is the default number of articles to return
+	DefaultLimit = 100
+	// MaxLimit is the maximum number of articles allowed per request
+	MaxLimit = 1000
+	// VolumeDays is the number of days to look back for volume scoring
+	VolumeDays = 30
+	// InteractionDays is the number of days to look back for interaction scoring
+	InteractionDays = 90
+)
+
 // calculateVolumeScore converts article count to volume score (0-100)
 // score = max(0, 100 - (daily_avg x 10))
 func calculateVolumeScore(articleCount int) float64 {
 	if articleCount <= 0 {
 		return 100.0
 	}
-	dailyAvg := float64(articleCount) / 30.0
+	dailyAvg := float64(articleCount) / float64(VolumeDays)
 	score := 100.0 - (dailyAvg * 10.0)
 	if score < 0 {
 		return 0.0
@@ -22,12 +33,12 @@ func calculateVolumeScore(articleCount int) float64 {
 	return score
 }
 
-// calculateFeedVolumeScores gets article counts for each feed in the last 30 days
+// calculateFeedVolumeScores gets article counts for each feed in the last VolumeDays
 func calculateFeedVolumeScores(db models.Database, userID int) (map[int]float64, error) {
 	query := `
 		SELECT feed_id, COUNT(*) as article_count
 		FROM rss_articles
-		WHERE user_id = $1 AND published_at > NOW() - INTERVAL '30 days'
+		WHERE user_id = $1 AND published_at > NOW() - INTERVAL '` + fmt.Sprintf("%d days", VolumeDays) + `'
 		GROUP BY feed_id
 	`
 	rows, err := db.Query(query, userID)
@@ -62,14 +73,14 @@ func calculateInteractionBonus(conversionCount int) float64 {
 	return bonus
 }
 
-// calculateInteractionBonuses gets conversion counts for each feed in last 90 days
+// calculateInteractionBonuses gets conversion counts for each feed in last InteractionDays
 func calculateInteractionBonuses(db models.Database, userID int) (map[int]float64, error) {
 	query := `
         SELECT f.id, COUNT(a.card_id) as conversion_count
         FROM rss_feeds f
         JOIN rss_articles a ON f.id = a.feed_id
         WHERE f.user_id = $1 AND a.card_id IS NOT NULL
-          AND a.published_at > NOW() - INTERVAL '90 days'
+          AND a.published_at > NOW() - INTERVAL '` + fmt.Sprintf("%d days", InteractionDays) + `'
         GROUP BY f.id
     `
 	rows, err := db.Query(query, userID)
@@ -189,6 +200,12 @@ func queryArticlesWithScoring(db models.Database, userID int, filters map[string
 		argPos++
 	}
 
+	if feedID, ok := filters["feed_id"].(int); ok && feedID > 0 {
+		whereClause += fmt.Sprintf(" AND feed_id = $%d", argPos)
+		args = append(args, feedID)
+		argPos++
+	}
+
 	if unreadOnly, ok := filters["unread"].(bool); ok && unreadOnly {
 		whereClause += " AND read = false"
 	}
@@ -301,9 +318,13 @@ func queryArticlesWithScoring(db models.Database, userID int, filters map[string
 	})
 
 	// Apply limit/offset after sorting
-	limit := 100
-	if limitParam, ok := filters["limit"].(int); ok && limitParam > 0 {
-		limit = limitParam
+	limit := DefaultLimit
+	if limitParam, ok := filters["limit"].(int); ok {
+		if limitParam > 0 && limitParam <= MaxLimit {
+			limit = limitParam
+		} else if limitParam > MaxLimit {
+			limit = MaxLimit
+		}
 	}
 	offset := 0
 	if offsetParam, ok := filters["offset"].(int); ok && offsetParam > 0 {

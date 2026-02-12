@@ -9,6 +9,7 @@ import (
 	"go-backend/handlers/chat_agent"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -84,6 +85,36 @@ func (h *Handler) BeginTx() (*sql.Tx, error) {
 func (s *Handler) getMessageMutex(messageID string) *sync.Mutex {
 	mu, _ := s.messageMutexes.LoadOrStore(messageID, &sync.Mutex{})
 	return mu.(*sync.Mutex)
+}
+
+// parseRSSArticleFilters extracts and validates common RSS article query parameters
+// Returns a filters map that can be passed to service layer functions
+func parseRSSArticleFilters(query url.Values) map[string]interface{} {
+	filters := make(map[string]interface{})
+
+	if folder := query.Get("folder"); folder != "" {
+		filters["folder"] = folder
+	}
+	if unread := query.Get("unread"); unread == "true" {
+		filters["unread"] = true
+	}
+	if feedID := query.Get("feed_id"); feedID != "" {
+		if id, err := strconv.Atoi(feedID); err == nil && id >= 0 {
+			filters["feed_id"] = id
+		}
+	}
+	if limit := query.Get("limit"); limit != "" {
+		if l, err := strconv.Atoi(limit); err == nil && l >= 0 {
+			filters["limit"] = l
+		}
+	}
+	if offset := query.Get("offset"); offset != "" {
+		if o, err := strconv.Atoi(offset); err == nil && o >= 0 {
+			filters["offset"] = o
+		}
+	}
+
+	return filters
 }
 
 // cleanupMessageMutex removes a mutex after a message is completed/failed
@@ -294,29 +325,8 @@ func (h *Handler) RefreshRSSFeedsRoute(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListRSSArticlesRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
-	// Parse query parameters
-	filters := make(map[string]interface{})
-	if folder := r.URL.Query().Get("folder"); folder != "" {
-		filters["folder"] = folder
-	}
-	if unread := r.URL.Query().Get("unread"); unread == "true" {
-		filters["unread"] = true
-	}
-	if feedID := r.URL.Query().Get("feed_id"); feedID != "" {
-		if id, err := strconv.Atoi(feedID); err == nil {
-			filters["feed_id"] = id
-		}
-	}
-	if limit := r.URL.Query().Get("limit"); limit != "" {
-		if l, err := strconv.Atoi(limit); err == nil {
-			filters["limit"] = l
-		}
-	}
-	if offset := r.URL.Query().Get("offset"); offset != "" {
-		if o, err := strconv.Atoi(offset); err == nil {
-			filters["offset"] = o
-		}
-	}
+	// Parse and validate query parameters using shared helper
+	filters := parseRSSArticleFilters(r.URL.Query())
 
 	// Get total count for pagination
 	total, err := services.CountRSSArticles(h.GetDB(), userID, filters)
@@ -348,24 +358,8 @@ func (h *Handler) ListRSSArticlesRoute(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListSmartRSSArticlesRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
-	// Parse query parameters (same as ListRSSArticlesRoute)
-	filters := make(map[string]interface{})
-	if folder := r.URL.Query().Get("folder"); folder != "" {
-		filters["folder"] = folder
-	}
-	if unread := r.URL.Query().Get("unread"); unread == "true" {
-		filters["unread"] = true
-	}
-	if limit := r.URL.Query().Get("limit"); limit != "" {
-		if l, err := strconv.Atoi(limit); err == nil {
-			filters["limit"] = l
-		}
-	}
-	if offset := r.URL.Query().Get("offset"); offset != "" {
-		if o, err := strconv.Atoi(offset); err == nil {
-			filters["offset"] = o
-		}
-	}
+	// Parse and validate query parameters using shared helper
+	filters := parseRSSArticleFilters(r.URL.Query())
 
 	articles, total, err := services.ListSmartRSSArticles(h.GetDB(), userID, filters)
 	if err != nil {
