@@ -237,8 +237,8 @@ export function useTextFormatting({
         break;
 
       case 'spreadsheet':
-        // Insert spreadsheet syntax with JSON template
-        formattedText = '\n{{spreadsheet:mysheet}}\n\n```spreadsheet:mysheet\n{\n  "rows": 5,\n  "cols": 5,\n  "data": {}\n}\n```\n';
+        // Insert spreadsheet ID reference - will be replaced with actual ID after creation
+        formattedText = '\n{{spreadsheet:ID}}\n  // Will be replaced with actual ID after creation\n';
         newBody =
           editingCard.body.substring(0, start) +
           formattedText +
