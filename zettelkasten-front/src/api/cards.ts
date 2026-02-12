@@ -7,6 +7,7 @@ import {
   CardWithDescendants,
   processCardWithDescendants,
   defaultCard,
+  RelatedCard,
 } from "../models/Card";
 import { apiClient, getData } from "./client";
 
@@ -599,4 +600,14 @@ export async function searchCards(
     perPage
   );
   return response.results;
+}
+
+/**
+ * Get related cards for a given card
+ */
+export async function getRelatedCards(cardId: string): Promise<RelatedCard[]> {
+  const { data: relatedCards } = await apiClient.get<RelatedCard[]>(
+    `/cards/${encodeURIComponent(cardId)}/related`
+  );
+  return relatedCards;
 }
