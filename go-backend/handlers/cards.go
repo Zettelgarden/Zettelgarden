@@ -1280,6 +1280,10 @@ func (s *Handler) GetRelatedCardsRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid card ID", http.StatusBadRequest)
 		return
 	}
+	if cardID <= 0 {
+		http.Error(w, "Invalid card ID", http.StatusBadRequest)
+		return
+	}
 
 	// Get source card
 	card, err := s.QueryFullCard(userID, cardID)
@@ -1340,15 +1344,24 @@ func (s *Handler) GetRelatedCardsRoute(w http.ResponseWriter, r *http.Request) {
 		cardReasons[sc.ID] = append(cardReasons[sc.ID], "similarity")
 	}
 
+	// Return early if no candidates
+	if len(combinedScores) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]models.RelatedCard{})
+		return
+	}
+
 	// Collect IDs to exclude
 	excludeIDs := make(map[int]bool)
 	excludeIDs[cardID] = true // Exclude current card
 	if card.ParentID != nil {
-		excludeIDs[*card.ParentID] = true // Exclude parent
+		if *card.ParentID != cardID {
+			excludeIDs[*card.ParentID] = true // Exclude parent
+		}
 	}
 
 	// Get siblings (cards with same parent)
-	if card.ParentID != nil && *card.ParentID != cardID {
+	if card.ParentID != nil {
 		siblings, err := services.GetChildCards(s.GetDB(), userID, *card.ParentID)
 		if err == nil {
 			for _, sibling := range siblings {
@@ -1417,5 +1430,8 @@ func (s *Handler) GetRelatedCardsRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(relatedCards)
+	if err := json.NewEncoder(w).Encode(relatedCards); err != nil {
+		log.Printf("Failed to encode related cards: %v", err)
+		return
+	}
 }
