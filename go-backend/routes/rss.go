@@ -21,6 +21,7 @@ func RegisterRSSRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/rss/articles/{id}", h.GetRSSArticleRoute, "GET")
 	addProtectedRoute(r, h, "/api/rss/articles/{id}/read", h.MarkRSSArticleAsReadRoute, "POST")
 	addProtectedRoute(r, h, "/api/rss/articles/{id}/convert", h.ConvertRSSArticleToCardRoute, "POST")
+	addProtectedRoute(r, h, "/api/rss/articles/smart", h.ListSmartRSSArticlesRoute, "GET")
 
 	addProtectedRoute(r, h, "/api/rss/folders", h.ListRSSFoldersRoute, "GET")
 	addProtectedRoute(r, h, "/api/rss/folders", h.CreateRSSFolderRoute, "POST")
