@@ -1417,3 +1417,68 @@ func GetCardsBySharedEntities(db models.Database, userID int, sourceCardID int) 
 
 	return scores, nil
 }
+
+// GetCardsBySharedTags finds cards that share tags with the source card
+// Returns a map of cardID to score (higher = more shared tags)
+func GetCardsBySharedTags(db models.Database, userID int, sourceCardID int) (map[int]int, error) {
+	// First, get all tag IDs for the source card
+	tagQuery := `
+		SELECT DISTINCT ct.tag_id
+		FROM card_tags ct
+		JOIN cards c ON ct.card_pk = c.id
+		WHERE ct.card_pk = $1
+		  AND c.user_id = $2
+		  AND c.is_deleted = FALSE
+	`
+
+	rows, err := db.Query(tagQuery, sourceCardID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get card tags: %w", err)
+	}
+	defer rows.Close()
+
+	var tagIDs []int
+	for rows.Next() {
+		var tagID int
+		if err := rows.Scan(&tagID); err != nil {
+			return nil, fmt.Errorf("failed to scan tag ID: %w", err)
+		}
+		tagIDs = append(tagIDs, tagID)
+	}
+
+	if len(tagIDs) == 0 {
+		return make(map[int]int), nil
+	}
+
+	// Now find all cards that share these tags
+	query := `
+		SELECT ct.card_pk, COUNT(DISTINCT ct.tag_id) as shared_count
+		FROM card_tags ct
+		JOIN cards c ON ct.card_pk = c.id
+		JOIN tags t ON ct.tag_id = t.id
+		WHERE ct.tag_id = ANY($1)
+		  AND c.user_id = $2
+		  AND ct.card_pk != $3
+		  AND c.is_deleted = FALSE
+		  AND t.is_deleted = FALSE
+		GROUP BY ct.card_pk
+	`
+
+	rows, err = db.Query(query, pq.Array(tagIDs), userID, sourceCardID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find shared tag cards: %w", err)
+	}
+	defer rows.Close()
+
+	scores := make(map[int]int)
+	for rows.Next() {
+		var cardID, sharedCount int
+		if err := rows.Scan(&cardID, &sharedCount); err != nil {
+			return nil, fmt.Errorf("failed to scan shared tag card: %w", err)
+		}
+		// Each shared tag adds 1 point
+		scores[cardID] = sharedCount * 1
+	}
+
+	return scores, nil
+}
