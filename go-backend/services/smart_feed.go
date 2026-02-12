@@ -177,29 +177,24 @@ func ListSmartRSSArticles(db models.Database, userID int, filters map[string]int
 
 // queryArticlesWithScoring fetches articles and calculates scores
 func queryArticlesWithScoring(db models.Database, userID int, filters map[string]interface{}, volumeScores map[int]float64, interactionBonuses map[int]float64, priorityFeeds map[int]bool) ([]models.RSSArticleWithScore, int, error) {
-	// Build base query
-	query := `
-        SELECT id, user_id, feed_id, title, content, author, url,
-               published_at, fetched_at, read, card_id
-        FROM rss_articles
-        WHERE user_id = $1
-    `
+	// Build WHERE clause separately for reuse in both count and main queries
+	whereClause := "user_id = $1"
 	args := []interface{}{userID}
 	argPos := 2
 
 	// Apply filters (same as ListRSSArticles)
 	if folder, ok := filters["folder"].(string); ok && folder != "" {
-		query += fmt.Sprintf(" AND feed_id IN (SELECT id FROM rss_feeds WHERE user_id = $1 AND folder = $%d)", argPos)
+		whereClause += fmt.Sprintf(" AND feed_id IN (SELECT id FROM rss_feeds WHERE user_id = $1 AND folder = $%d)", argPos)
 		args = append(args, folder)
 		argPos++
 	}
 
 	if unreadOnly, ok := filters["unread"].(bool); ok && unreadOnly {
-		query += " AND read = false"
+		whereClause += " AND read = false"
 	}
 
 	// Get count first
-	countQuery := "SELECT COUNT(*) FROM rss_articles WHERE " + query[59:] // Strip "SELECT ... FROM "
+	countQuery := "SELECT COUNT(*) FROM rss_articles WHERE " + whereClause
 	var total int
 	countArgs := make([]interface{}, len(args))
 	copy(countArgs, args)
@@ -208,8 +203,12 @@ func queryArticlesWithScoring(db models.Database, userID int, filters map[string
 		return nil, 0, fmt.Errorf("failed to count articles: %w", err)
 	}
 
-	// Get all articles (we'll sort in memory)
-	query += " ORDER BY published_at DESC NULLS LAST, fetched_at DESC"
+	// Build main query
+	query := `
+		SELECT id, user_id, feed_id, title, content, author, url,
+		       published_at, fetched_at, read, card_id
+		FROM rss_articles
+		WHERE ` + whereClause + ` ORDER BY published_at DESC NULLS LAST, fetched_at DESC`
 
 	rows, err := db.Query(query, args...)
 	if err != nil {

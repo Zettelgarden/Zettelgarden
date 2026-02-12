@@ -188,7 +188,7 @@ export async function getSmartRSSArticles(params: {
   if (params.limit) queryParams.append('limit', params.limit.toString());
   if (params.offset) queryParams.append('offset', params.offset.toString());
 
-  return getData(apiClient.get<{ articles: RSSArticleWithScore[]; total: number }>(`/rss/articles/smart?${queryParams.toString()}`));
+  return getData(apiClient.get<{ articles: RSSArticleWithScore[]; total: number }>(`/rss/smart?${queryParams.toString()}`));
 }
 
 export function markAsRead(id: number, read: boolean = true): Promise<void> {
