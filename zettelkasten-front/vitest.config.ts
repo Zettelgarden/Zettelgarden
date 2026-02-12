@@ -8,6 +8,9 @@ export default defineConfig({
     globals: true,
     environment: 'happy-dom',
     setupFiles: './src/tests/setup.ts',
+    env: {
+      VITE_URL: 'http://localhost:8079/api',
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

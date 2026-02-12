@@ -5,6 +5,9 @@ import { Spreadsheet, SpreadsheetCell } from '../../models/Spreadsheet';
 
 describe('SpreadsheetGrid', () => {
   const mockSpreadsheet: Spreadsheet = {
+    id: 1,
+    user_id: 1,
+    card_id: 1,
     name: 'test',
     data: {
       rows: 3,
@@ -16,7 +19,9 @@ describe('SpreadsheetGrid', () => {
         'B1': { value: '5', formula: '' },
         'B2': { value: '', formula: '' },
       }
-    }
+    },
+    created_at: new Date(),
+    updated_at: new Date()
   };
 
   const mockOnChange = vi.fn();
@@ -96,6 +101,9 @@ describe('SpreadsheetGrid', () => {
 
   it('recalculates formulas when dependent cell changes', () => {
     const spreadsheetWithFormula: Spreadsheet = {
+      id: 1,
+      user_id: 1,
+      card_id: 1,
       name: 'test',
       data: {
         rows: 3,
@@ -105,7 +113,9 @@ describe('SpreadsheetGrid', () => {
           'A2': { value: '20', formula: '' },
           'A3': { value: '30', formula: 'A1+A2' },
         }
-      }
+      },
+      created_at: new Date(),
+      updated_at: new Date()
     };
 
     const onChange = vi.fn();

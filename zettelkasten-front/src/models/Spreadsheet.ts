@@ -20,8 +20,13 @@ export interface SpreadsheetData {
  * A spreadsheet with a name identifier
  */
 export interface Spreadsheet {
-  name: string;         // Identifier for this spreadsheet
+  id: number;          // Database ID
+  user_id: number;     // Owner user ID
+  card_id: number;     // Parent card ID
+  name: string;        // Identifier for this spreadsheet
   data: SpreadsheetData;
+  created_at: Date;    // Creation timestamp
+  updated_at: Date;    // Last update timestamp
 }
 
 /**
@@ -54,8 +59,13 @@ export const createEmptySpreadsheet = (name: string = "sheet1", rows: number = 5
   }
 
   return {
+    id: 0,              // Placeholder - will be set by backend
+    user_id: 0,         // Placeholder - will be set by backend
+    card_id: 0,         // Placeholder - will be set by backend
     name,
-    data: { rows, cols, data }
+    data: { rows, cols, data },
+    created_at: new Date(),
+    updated_at: new Date()
   };
 };
 
@@ -66,6 +76,11 @@ export const defaultSpreadsheetData: SpreadsheetData = {
 };
 
 export const defaultSpreadsheet: Spreadsheet = {
+  id: 0,
+  user_id: 0,
+  card_id: 0,
   name: "",
-  data: defaultSpreadsheetData
+  data: defaultSpreadsheetData,
+  created_at: new Date(),
+  updated_at: new Date()
 };
