@@ -32,6 +32,9 @@ import { RssMobileLayout } from "../components/rss/RssMobileLayout";
 import { DialogState, DialogStates, initialDialogState } from "../types/rssDialogs";
 import { RSS_CONFIG } from "../constants/rss";
 
+// Stable empty object to avoid infinite re-renders
+const EMPTY_FILTERS = Object.freeze({});
+
 export function RssPage() {
   const navigate = useNavigate();
   const { setUnreadCount } = useRSS();
@@ -55,32 +58,40 @@ export function RssPage() {
   const [selectedFeedId, setSelectedFeedId] = useState<number | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<RSSArticle | null>(null);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
-  const [showSmartFeed, setShowSmartFeed] = useState(false);
+  const [isSmartFeedActive, setIsSmartFeedActive] = useState(false);
   const [markingAsRead, setMarkingAsRead] = useState<Set<number>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showFeedMenuId, setShowFeedMenuId] = useState<number | null>(null);
 
-  // Articles hook - use different hooks based on smart feed mode
+  // Articles hook - use smart feed hook when smart feed is active, regular hook otherwise
+  // Smart feed uses no filters, regular feed uses folder/feed/unread filters
   const articleFilters = useMemo(() => ({
     folder: selectedFolder ?? undefined,
     feed_id: selectedFeedId ?? undefined,
     unread: showUnreadOnly || undefined,
   }), [selectedFolder, selectedFeedId, showUnreadOnly]);
 
-  const regularArticles = useRssArticles(showSmartFeed ? {} : articleFilters);
-  const smartArticles = useSmartRssArticles(showSmartFeed ? articleFilters : {});
+  // Only one hook should fetch at a time - skip the inactive one
+  const regularArticles = useRssArticles({
+    filters: isSmartFeedActive ? EMPTY_FILTERS : articleFilters,
+    skip: isSmartFeedActive
+  });
+  const smartArticles = useSmartRssArticles({
+    filters: EMPTY_FILTERS,
+    skip: !isSmartFeedActive
+  });
 
   // Use either regular or smart articles based on mode
-  const articles = showSmartFeed ? smartArticles.articles : regularArticles.articles;
-  const totalArticles = showSmartFeed ? smartArticles.totalArticles : regularArticles.totalArticles;
-  const loadingArticles = showSmartFeed ? smartArticles.loading : regularArticles.loading;
-  const articlesError = showSmartFeed ? smartArticles.error : regularArticles.error;
-  const currentPage = showSmartFeed ? smartArticles.currentPage : regularArticles.currentPage;
-  const updateArticle = showSmartFeed ? smartArticles.updateArticle : regularArticles.updateArticle;
-  const updateArticles = showSmartFeed ? smartArticles.updateArticles : regularArticles.updateArticles;
-  const resetToFirstPage = showSmartFeed ? smartArticles.resetToFirstPage : regularArticles.resetToFirstPage;
-  const setCurrentPage = showSmartFeed ? smartArticles.setCurrentPage : regularArticles.setCurrentPage;
+  const articles = isSmartFeedActive ? smartArticles.articles : regularArticles.articles;
+  const totalArticles = isSmartFeedActive ? smartArticles.totalArticles : regularArticles.totalArticles;
+  const loadingArticles = isSmartFeedActive ? smartArticles.loading : regularArticles.loading;
+  const articlesError = isSmartFeedActive ? smartArticles.error : regularArticles.error;
+  const currentPage = isSmartFeedActive ? smartArticles.currentPage : regularArticles.currentPage;
+  const updateArticle = isSmartFeedActive ? smartArticles.updateArticle : regularArticles.updateArticle;
+  const updateArticles = isSmartFeedActive ? smartArticles.updateArticles : regularArticles.updateArticles;
+  const resetToFirstPage = isSmartFeedActive ? smartArticles.resetToFirstPage : regularArticles.resetToFirstPage;
+  const setCurrentPage = isSmartFeedActive ? smartArticles.setCurrentPage : regularArticles.setCurrentPage;
 
   // Dialog state
   const [dialogState, setDialogState] = useState<DialogState>(initialDialogState);
@@ -141,7 +152,7 @@ export function RssPage() {
   // Reset to page 1 when filters change
   useEffect(() => {
     resetToFirstPage();
-  }, [selectedFolder, selectedFeedId, showUnreadOnly, showSmartFeed, resetToFirstPage]);
+  }, [selectedFolder, selectedFeedId, showUnreadOnly, isSmartFeedActive, resetToFirstPage]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshMessage("");
@@ -155,6 +166,12 @@ export function RssPage() {
       setTimeout(() => setRefreshMessage(""), 3000);
     }
   }, [refreshAllFeeds]);
+
+  const handleSelectSmartFeed = useCallback(() => {
+    setIsSmartFeedActive(true);
+    setSelectedFolder(null);
+    setSelectedFeedId(null);
+  }, []);
 
   const handleArticleClick = useCallback(async (article: RSSArticle) => {
     // Prevent duplicate requests for the same article
@@ -377,18 +394,21 @@ export function RssPage() {
 
   // Mobile handlers
   const handleFeedSelectMobile = useCallback((feedId: number) => {
+    setIsSmartFeedActive(false);
     setSelectedFeedId(feedId);
     setSelectedFolder(null);
     setMobileView('list');
   }, []);
 
   const handleFolderSelectMobile = useCallback((folderName: string) => {
+    setIsSmartFeedActive(false);
     setSelectedFolder(folderName);
     setSelectedFeedId(null);
     setMobileView('list');
   }, []);
 
   const handleAllFeedsSelectMobile = useCallback(() => {
+    setIsSmartFeedActive(false);
     setSelectedFolder(null);
     setSelectedFeedId(null);
     setMobileView('feeds');
@@ -439,7 +459,7 @@ export function RssPage() {
           selectedFeedId={selectedFeedId}
           selectedArticle={selectedArticle}
           showUnreadOnly={showUnreadOnly}
-          showSmartFeed={showSmartFeed}
+          isSmartFeedActive={isSmartFeedActive}
           expandedFolders={expandedFolders}
           currentUnreadCount={currentUnreadCount}
           refreshMessage={refreshMessage}
@@ -451,20 +471,23 @@ export function RssPage() {
           totalArticles={totalArticles}
           currentPage={currentPage}
           onSelectAllFeeds={() => {
+            setIsSmartFeedActive(false);
             setSelectedFolder(null);
             setSelectedFeedId(null);
           }}
           onSelectFolder={(folderName) => {
+            setIsSmartFeedActive(false);
             setSelectedFolder(folderName);
             setSelectedFeedId(null);
           }}
           onSelectFeed={(feedId) => {
+            setIsSmartFeedActive(false);
             setSelectedFeedId(feedId);
             setSelectedFolder(null);
           }}
           onToggleFolder={toggleFolderExpanded}
           onToggleShowUnreadOnly={() => setShowUnreadOnly((prev) => !prev)}
-          onToggleSmartFeed={() => setShowSmartFeed((prev) => !prev)}
+          onSelectSmartFeed={handleSelectSmartFeed}
           onAddFeed={() => setDialogState(DialogStates.addFeed())}
           onCreateFolder={() => setDialogState(DialogStates.createFolder())}
           onEditFeed={(feed) => setDialogState(DialogStates.editFeed(feed))}
@@ -496,7 +519,7 @@ export function RssPage() {
           selectedFeedId={selectedFeedId}
           selectedArticle={selectedArticle}
           showUnreadOnly={showUnreadOnly}
-          showSmartFeed={showSmartFeed}
+          isSmartFeedActive={isSmartFeedActive}
           expandedFolders={expandedFolders}
           totalUnreadCount={totalUnreadCount}
           currentUnreadCount={currentUnreadCount}
@@ -510,6 +533,7 @@ export function RssPage() {
           onFeedSelectMobile={handleFeedSelectMobile}
           onFolderSelectMobile={handleFolderSelectMobile}
           onAllFeedsSelectMobile={handleAllFeedsSelectMobile}
+          onSmartFeedSelectMobile={handleSelectSmartFeed}
           onToggleFolder={toggleFolderExpanded}
           onAddFeed={() => setDialogState(DialogStates.addFeed())}
           onCreateFolder={() => setDialogState(DialogStates.createFolder())}
@@ -523,7 +547,7 @@ export function RssPage() {
           onArticleClick={handleArticleClick}
           onLoadMore={handleLoadMore}
           onToggleShowUnreadOnly={() => setShowUnreadOnly((prev) => !prev)}
-          onToggleSmartFeed={() => setShowSmartFeed((prev) => !prev)}
+          onSelectSmartFeed={handleSelectSmartFeed}
           onConvertClick={handleConvertClick}
           onMarkAsUnread={handleMarkAsUnread}
           onMobileBack={handleMobileBack}

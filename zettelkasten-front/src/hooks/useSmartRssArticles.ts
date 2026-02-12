@@ -11,11 +11,20 @@ export interface SmartFeedFilters {
 }
 
 /**
+ * Options for useSmartRssArticles hook
+ */
+interface UseSmartRssArticlesOptions {
+  filters?: SmartFeedFilters;
+  skip?: boolean; // Skip fetching when true (useful for conditional hooks)
+}
+
+/**
  * Hook for fetching and managing RSS articles with smart scoring
- * @param filters - Article filters to apply
+ * @param options - Options object with filters and skip flag
  * @returns Object containing articles with scores, pagination state, loading state, and control functions
  */
-export function useSmartRssArticles(filters: SmartFeedFilters = {}) {
+export function useSmartRssArticles(options: UseSmartRssArticlesOptions = {}) {
+  const { filters = {}, skip = false } = options;
   const [articles, setArticles] = useState<RSSArticleWithScore[]>([]);
   const [totalArticles, setTotalArticles] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -27,6 +36,11 @@ export function useSmartRssArticles(filters: SmartFeedFilters = {}) {
    * Load articles based on current filters and page
    */
   const loadArticles = useCallback(async () => {
+    if (skip) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -51,7 +65,7 @@ export function useSmartRssArticles(filters: SmartFeedFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }, [filters, currentPage]);
+  }, [filters, currentPage, skip]);
 
   /**
    * Go to next page

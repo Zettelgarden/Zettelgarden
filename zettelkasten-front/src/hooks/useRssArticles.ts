@@ -7,11 +7,20 @@ import {
 import { RSS_CONFIG } from "../constants/rss";
 
 /**
+ * Options for useRssArticles hook
+ */
+interface UseRssArticlesOptions {
+  filters?: ArticleFilters;
+  skip?: boolean; // Skip fetching when true (useful for conditional hooks)
+}
+
+/**
  * Hook for fetching and managing RSS articles with pagination
- * @param filters - Article filters to apply
+ * @param options - Options object with filters and skip flag
  * @returns Object containing articles, pagination state, loading state, and control functions
  */
-export function useRssArticles(filters: ArticleFilters = {}) {
+export function useRssArticles(options: UseRssArticlesOptions = {}) {
+  const { filters = {}, skip = false } = options;
   const [articles, setArticles] = useState<RSSArticle[]>([]);
   const [totalArticles, setTotalArticles] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -23,6 +32,11 @@ export function useRssArticles(filters: ArticleFilters = {}) {
    * Load articles based on current filters and page
    */
   const loadArticles = useCallback(async () => {
+    if (skip) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -47,7 +61,7 @@ export function useRssArticles(filters: ArticleFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }, [filters, currentPage]);
+  }, [filters, currentPage, skip]);
 
   /**
    * Go to next page

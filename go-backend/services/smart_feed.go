@@ -3,7 +3,9 @@ package services
 import (
 	"database/sql"
 	"fmt"
+	"math"
 	"sort"
+	"time"
 
 	"go-backend/models"
 )
@@ -17,6 +19,10 @@ const (
 	VolumeDays = 30
 	// InteractionDays is the number of days to look back for interaction scoring
 	InteractionDays = 90
+	// SmartFeedMaxAgeDays is the maximum age of articles to include in smart feed
+	SmartFeedMaxAgeDays = 14
+	// SmartFeedDecayDays is the decay constant for age-based scoring
+	SmartFeedDecayDays = 7
 )
 
 // calculateVolumeScore converts article count to volume score (0-100)
@@ -210,6 +216,9 @@ func queryArticlesWithScoring(db models.Database, userID int, filters map[string
 		whereClause += " AND read = false"
 	}
 
+	// Apply 14-day age cutoff for smart feed
+	whereClause += fmt.Sprintf(" AND published_at > NOW() - INTERVAL '%d days'", SmartFeedMaxAgeDays)
+
 	// Get count first
 	countQuery := "SELECT COUNT(*) FROM rss_articles WHERE " + whereClause
 	var total int
@@ -274,7 +283,19 @@ func queryArticlesWithScoring(db models.Database, userID int, filters map[string
 			priorityBonus = 100.0
 		}
 
-		totalScore := volumeScore + interactionBonus + priorityBonus
+		// Calculate age decay - newer articles get higher scores
+		// Decay ranges from 1.0 (new) to ~0 (old), maxes at 1.0 for future dates
+		ageDecay := 1.0
+		if article.PublishedAt != nil {
+			articleAgeDays := time.Since(*article.PublishedAt).Hours() / 24
+			calculatedDecay := math.Exp(-articleAgeDays / SmartFeedDecayDays)
+			// Clamp to max 1.0 - future-dated articles shouldn't get boosted beyond base score
+			if calculatedDecay < ageDecay {
+				ageDecay = calculatedDecay
+			}
+		}
+
+		totalScore := (volumeScore + interactionBonus + priorityBonus) * ageDecay
 
 		// Calculate daily average for reason
 		dailyAvg := 0.0

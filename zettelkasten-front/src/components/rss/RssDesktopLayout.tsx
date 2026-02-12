@@ -14,7 +14,7 @@ interface RssDesktopLayoutProps {
   selectedFeedId: number | null;
   selectedArticle: RSSArticle | null;
   showUnreadOnly: boolean;
-  showSmartFeed: boolean;
+  isSmartFeedActive: boolean;
   expandedFolders: Set<string>;
   currentUnreadCount: number;
   refreshMessage: string;
@@ -28,9 +28,9 @@ interface RssDesktopLayoutProps {
   onSelectAllFeeds: () => void;
   onSelectFolder: (folderName: string) => void;
   onSelectFeed: (feedId: number) => void;
+  onSelectSmartFeed: () => void;
   onToggleFolder: (folderName: string) => void;
   onToggleShowUnreadOnly: () => void;
-  onToggleSmartFeed: () => void;
   onAddFeed: () => void;
   onCreateFolder: () => void;
   onEditFeed: (feed: RSSFeed) => void;
@@ -62,7 +62,7 @@ export function RssDesktopLayout({
   selectedFeedId,
   selectedArticle,
   showUnreadOnly,
-  showSmartFeed,
+  isSmartFeedActive,
   expandedFolders,
   currentUnreadCount,
   refreshMessage,
@@ -76,9 +76,9 @@ export function RssDesktopLayout({
   onSelectAllFeeds,
   onSelectFolder,
   onSelectFeed,
+  onSelectSmartFeed,
   onToggleFolder,
   onToggleShowUnreadOnly,
-  onToggleSmartFeed,
   onAddFeed,
   onCreateFolder,
   onEditFeed,
@@ -107,6 +107,7 @@ export function RssDesktopLayout({
           selectedFolder={selectedFolder}
           selectedFeedId={selectedFeedId}
           showUnreadOnly={showUnreadOnly}
+          isSmartFeedActive={isSmartFeedActive}
           expandedFolders={expandedFolders}
           refreshMessage={refreshMessage}
           errorMessage={errorMessage}
@@ -116,6 +117,7 @@ export function RssDesktopLayout({
           onSelectAllFeeds={onSelectAllFeeds}
           onSelectFolder={onSelectFolder}
           onSelectFeed={onSelectFeed}
+          onSelectSmartFeed={onSelectSmartFeed}
           onToggleFolder={onToggleFolder}
           onToggleShowUnreadOnly={onToggleShowUnreadOnly}
           onAddFeed={onAddFeed}
@@ -143,10 +145,9 @@ export function RssDesktopLayout({
           currentPage={currentPage}
           currentUnreadCount={currentUnreadCount}
           showUnreadOnly={showUnreadOnly}
-          showSmartFeed={showSmartFeed}
+          isSmartFeedActive={isSmartFeedActive}
           onArticleClick={onArticleClick}
           onToggleShowUnreadOnly={onToggleShowUnreadOnly}
-          onToggleSmartFeed={onToggleSmartFeed}
           onPageChange={onPageChange}
         />
       </RssErrorBoundary>

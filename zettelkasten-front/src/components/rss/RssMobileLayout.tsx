@@ -16,7 +16,7 @@ interface RssMobileLayoutProps {
   selectedFeedId: number | null;
   selectedArticle: RSSArticle | null;
   showUnreadOnly: boolean;
-  showSmartFeed: boolean;
+  isSmartFeedActive: boolean;
   expandedFolders: Set<string>;
   totalUnreadCount: number;
   currentUnreadCount: number;
@@ -30,6 +30,7 @@ interface RssMobileLayoutProps {
   onFeedSelectMobile: (feedId: number) => void;
   onFolderSelectMobile: (folderName: string) => void;
   onAllFeedsSelectMobile: () => void;
+  onSmartFeedSelectMobile?: () => void;
   onToggleFolder: (folderName: string) => void;
   onAddFeed: () => void;
   onCreateFolder: () => void;
@@ -43,7 +44,7 @@ interface RssMobileLayoutProps {
   onArticleClick: (article: RSSArticle) => void;
   onLoadMore: () => void;
   onToggleShowUnreadOnly: () => void;
-  onToggleSmartFeed: () => void;
+  onSelectSmartFeed: () => void;
   onConvertClick: () => void;
   onMarkAsUnread: () => void;
   onRefresh?: () => void;
@@ -64,7 +65,7 @@ export function RssMobileLayout({
   selectedFeedId,
   selectedArticle,
   showUnreadOnly,
-  showSmartFeed,
+  isSmartFeedActive,
   expandedFolders,
   totalUnreadCount,
   currentUnreadCount,
@@ -78,6 +79,7 @@ export function RssMobileLayout({
   onFeedSelectMobile,
   onFolderSelectMobile,
   onAllFeedsSelectMobile,
+  onSmartFeedSelectMobile,
   onToggleFolder,
   onAddFeed,
   onCreateFolder,
@@ -91,7 +93,7 @@ export function RssMobileLayout({
   onArticleClick,
   onLoadMore,
   onToggleShowUnreadOnly,
-  onToggleSmartFeed,
+  onSelectSmartFeed,
   onConvertClick,
   onMarkAsUnread,
   onRefresh,
@@ -120,7 +122,7 @@ export function RssMobileLayout({
       <RssErrorBoundary>
         <div className="md:hidden flex flex-col flex-1 overflow-hidden">
           <RssMobileTopBar
-            title="RSS"
+            title={isSmartFeedActive ? "Smart Feed" : "RSS"}
             unreadCount={totalUnreadCount}
             onMenuClick={onMenuClick}
             rightAction={
@@ -138,59 +140,42 @@ export function RssMobileLayout({
 
           {/* Articles list content */}
           <div className="flex-1 bg-white flex flex-col overflow-hidden">
-            {/* Filter tabs */}
-            <div className="p-4 border-b border-gray-200">
-              <div className="flex bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => {
-                    if (showSmartFeed) onToggleSmartFeed();
-                    else if (showUnreadOnly) onToggleShowUnreadOnly();
-                  }}
-                  className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors ${
-                    !showUnreadOnly && !showSmartFeed
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  All
-                </button>
-                <button
-                  onClick={() => {
-                    if (showSmartFeed) onToggleSmartFeed();
-                    if (!showUnreadOnly) onToggleShowUnreadOnly();
-                  }}
-                  className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors relative ${
-                    showUnreadOnly && !showSmartFeed
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  Unread
-                  {currentUnreadCount > 0 && (
-                    <span className="ml-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                      {currentUnreadCount}
-                    </span>
-                  )}
-                </button>
-                <button
-                  onClick={() => {
-                    if (!showSmartFeed) onToggleSmartFeed();
-                    if (showUnreadOnly) onToggleShowUnreadOnly();
-                  }}
-                  className={`flex-1 py-1.5 px-2.5 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-1 ${
-                    showSmartFeed
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                  title="Articles ranked by relevance using AI-powered smart scoring"
-                >
-                  <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                  </svg>
-                  Smart
-                </button>
+            {/* Filter tabs - hidden when Smart Feed is active */}
+            {!isSmartFeedActive && (
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => {
+                      if (showUnreadOnly) onToggleShowUnreadOnly();
+                    }}
+                    className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors ${
+                      !showUnreadOnly
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!showUnreadOnly) onToggleShowUnreadOnly();
+                    }}
+                    className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors relative ${
+                      showUnreadOnly
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Unread
+                    {currentUnreadCount > 0 && (
+                      <span className="ml-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                        {currentUnreadCount}
+                      </span>
+                    )}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Articles list */}
             {articles.length === 0 && !loadingArticles ? (
@@ -296,6 +281,7 @@ export function RssMobileLayout({
           onSelectFeed={onFeedSelectMobile}
           onSelectFolder={onFolderSelectMobile}
           onSelectAllFeeds={onAllFeedsSelectMobile}
+          onSelectSmartFeed={onSmartFeedSelectMobile}
           onAddFeed={onAddFeed}
           onCreateFolder={onCreateFolder}
           onEditFeed={onEditFeed}
@@ -306,6 +292,7 @@ export function RssMobileLayout({
           onMarkFolderAsRead={onMarkFolderAsRead}
           selectedFeedId={selectedFeedId}
           selectedFolder={selectedFolder}
+          isSmartFeedActive={isSmartFeedActive}
           showFeedMenuId={showFeedMenuId}
           onShowFeedMenu={onShowFeedMenu}
           onRefresh={onRefresh}
