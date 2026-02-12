@@ -79,12 +79,12 @@ func GetRSSFeedByID(db models.Database, userID, feedID int) (*models.RSSFeed, er
 
 	err := db.QueryRow(`
 		SELECT id, user_id, url, name, folder, auto_tags, fetch_interval,
-		       last_fetched_at, last_error, enabled, created_at, updated_at
+		       last_fetched_at, last_error, enabled, priority, created_at, updated_at
 		FROM rss_feeds
 		WHERE id = $1 AND user_id = $2
 	`, feedID, userID).Scan(
 		&feed.ID, &feed.UserID, &feed.URL, &feed.Name, &folder, &feed.AutoTags,
-		&feed.FetchInterval, &lastFetched, &lastError, &feed.Enabled,
+		&feed.FetchInterval, &lastFetched, &lastError, &feed.Enabled, &feed.Priority,
 		&feed.CreatedAt, &feed.UpdatedAt,
 	)
 	if err != nil {
@@ -111,7 +111,7 @@ func GetRSSFeedByID(db models.Database, userID, feedID int) (*models.RSSFeed, er
 func ListRSSFeeds(db models.Database, userID int) ([]models.RSSFeed, error) {
 	rows, err := db.Query(`
 		SELECT id, user_id, url, name, folder, auto_tags, fetch_interval,
-		       last_fetched_at, last_error, enabled, created_at, updated_at
+		       last_fetched_at, last_error, enabled, priority, created_at, updated_at
 		FROM rss_feeds
 		WHERE user_id = $1
 		ORDER BY name ASC
@@ -129,7 +129,7 @@ func ListRSSFeeds(db models.Database, userID int) ([]models.RSSFeed, error) {
 
 		err := rows.Scan(
 			&feed.ID, &feed.UserID, &feed.URL, &feed.Name, &folder, &feed.AutoTags,
-			&feed.FetchInterval, &lastFetched, &lastError, &feed.Enabled,
+			&feed.FetchInterval, &lastFetched, &lastError, &feed.Enabled, &feed.Priority,
 			&feed.CreatedAt, &feed.UpdatedAt,
 		)
 		if err != nil {
@@ -186,6 +186,11 @@ func UpdateRSSFeed(db models.Database, userID, feedID int, params models.UpdateR
 	if params.Enabled != nil {
 		updates = append(updates, fmt.Sprintf("enabled = $%d", argPos))
 		args = append(args, *params.Enabled)
+		argPos++
+	}
+	if params.Priority != nil {
+		updates = append(updates, fmt.Sprintf("priority = $%d", argPos))
+		args = append(args, *params.Priority)
 		argPos++
 	}
 
@@ -526,12 +531,12 @@ func FetchRSSFeedArticles(db models.Database, feedID int) error {
 
 	err := db.QueryRow(`
 		SELECT id, user_id, url, name, folder, auto_tags, fetch_interval,
-		       last_fetched_at, last_error, enabled
+		       last_fetched_at, last_error, enabled, priority
 		FROM rss_feeds
 		WHERE id = $1
 	`, feedID).Scan(
 		&feed.ID, &feed.UserID, &feed.URL, &feed.Name, &folder, &feed.AutoTags,
-		&feed.FetchInterval, &lastFetched, &lastError, &feed.Enabled,
+		&feed.FetchInterval, &lastFetched, &lastError, &feed.Enabled, &feed.Priority,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get feed: %w", err)

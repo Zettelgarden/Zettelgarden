@@ -1,5 +1,5 @@
 import React from "react";
-import { RSSFeed, RSSFolder, RSSArticle, UnreadCounts } from "../../api/rss";
+import { RSSFeed, RSSFolder, RSSArticle, RSSArticleWithScore, UnreadCounts } from "../../api/rss";
 import { RssFeedsPanel } from "./RssFeedsPanel";
 import { RssArticlesPanel } from "./RssArticlesPanel";
 import { RssReaderPanel } from "./RssReaderPanel";
@@ -9,11 +9,12 @@ interface RssDesktopLayoutProps {
   feeds: RSSFeed[];
   folders: RSSFolder[];
   unreadCounts: UnreadCounts;
-  articles: RSSArticle[];
+  articles: (RSSArticle | RSSArticleWithScore)[];
   selectedFolder: string | null;
   selectedFeedId: number | null;
   selectedArticle: RSSArticle | null;
   showUnreadOnly: boolean;
+  showSmartFeed: boolean;
   expandedFolders: Set<string>;
   currentUnreadCount: number;
   refreshMessage: string;
@@ -29,6 +30,7 @@ interface RssDesktopLayoutProps {
   onSelectFeed: (feedId: number) => void;
   onToggleFolder: (folderName: string) => void;
   onToggleShowUnreadOnly: () => void;
+  onToggleSmartFeed: () => void;
   onAddFeed: () => void;
   onCreateFolder: () => void;
   onEditFeed: (feed: RSSFeed) => void;
@@ -60,6 +62,7 @@ export function RssDesktopLayout({
   selectedFeedId,
   selectedArticle,
   showUnreadOnly,
+  showSmartFeed,
   expandedFolders,
   currentUnreadCount,
   refreshMessage,
@@ -75,6 +78,7 @@ export function RssDesktopLayout({
   onSelectFeed,
   onToggleFolder,
   onToggleShowUnreadOnly,
+  onToggleSmartFeed,
   onAddFeed,
   onCreateFolder,
   onEditFeed,
@@ -139,8 +143,10 @@ export function RssDesktopLayout({
           currentPage={currentPage}
           currentUnreadCount={currentUnreadCount}
           showUnreadOnly={showUnreadOnly}
+          showSmartFeed={showSmartFeed}
           onArticleClick={onArticleClick}
           onToggleShowUnreadOnly={onToggleShowUnreadOnly}
+          onToggleSmartFeed={onToggleSmartFeed}
           onPageChange={onPageChange}
         />
       </RssErrorBoundary>

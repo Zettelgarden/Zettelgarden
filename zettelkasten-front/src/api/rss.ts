@@ -10,6 +10,7 @@ export interface RSSFeed {
   auto_tags: string;
   fetch_interval: number;
   enabled: boolean;
+  priority: boolean;
   last_fetched_at?: string;
   last_error?: string;
   created_at: string;
@@ -54,6 +55,7 @@ export interface CreateRSSFeedParams {
   auto_tags?: string;
   fetch_interval?: number;
   enabled?: boolean;
+  priority?: boolean;
 }
 
 export interface UpdateRSSFeedParams {
@@ -62,6 +64,7 @@ export interface UpdateRSSFeedParams {
   auto_tags?: string;
   fetch_interval?: number;
   enabled?: boolean;
+  priority?: boolean;
 }
 
 export interface ConvertArticleParams {
@@ -86,6 +89,19 @@ export interface ArticleFilters {
 export interface PaginatedArticlesResponse {
   articles: RSSArticle[];
   total: number;
+}
+
+export interface SmartFeedScore {
+  article_id: number;
+  score: number;
+  volume_score: number;
+  interaction_bonus: number;
+  is_priority: boolean;
+  reason: string;
+}
+
+export interface RSSArticleWithScore extends RSSArticle {
+  smart_score?: SmartFeedScore;
 }
 
 export interface UnreadCounts {
@@ -158,6 +174,21 @@ export function listArticles(filters?: ArticleFilters): Promise<PaginatedArticle
 
 export function getArticle(id: number): Promise<RSSArticle> {
   return getData(apiClient.get<RSSArticle>(`/rss/articles/${id}`));
+}
+
+export async function getSmartRSSArticles(params: {
+  folder?: string;
+  unread?: boolean;
+  limit?: number;
+  offset?: number;
+}): Promise<{ articles: RSSArticleWithScore[]; total: number }> {
+  const queryParams = new URLSearchParams();
+  if (params.folder) queryParams.append('folder', params.folder);
+  if (params.unread) queryParams.append('unread', 'true');
+  if (params.limit) queryParams.append('limit', params.limit.toString());
+  if (params.offset) queryParams.append('offset', params.offset.toString());
+
+  return getData(apiClient.get<{ articles: RSSArticleWithScore[]; total: number }>(`/rss/smart?${queryParams.toString()}`));
 }
 
 export function markAsRead(id: number, read: boolean = true): Promise<void> {

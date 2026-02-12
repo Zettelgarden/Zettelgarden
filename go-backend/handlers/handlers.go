@@ -344,6 +344,47 @@ func (h *Handler) ListRSSArticlesRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(result)
 }
 
+// ListSmartRSSArticlesRoute handles GET /api/rss/articles/smart
+func (h *Handler) ListSmartRSSArticlesRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Parse query parameters (same as ListRSSArticlesRoute)
+	filters := make(map[string]interface{})
+	if folder := r.URL.Query().Get("folder"); folder != "" {
+		filters["folder"] = folder
+	}
+	if unread := r.URL.Query().Get("unread"); unread == "true" {
+		filters["unread"] = true
+	}
+	if limit := r.URL.Query().Get("limit"); limit != "" {
+		if l, err := strconv.Atoi(limit); err == nil {
+			filters["limit"] = l
+		}
+	}
+	if offset := r.URL.Query().Get("offset"); offset != "" {
+		if o, err := strconv.Atoi(offset); err == nil {
+			filters["offset"] = o
+		}
+	}
+
+	articles, total, err := services.ListSmartRSSArticles(h.GetDB(), userID, filters)
+	if err != nil {
+		log.Printf("Failed to list smart RSS articles: %v", err)
+		http.Error(w, "Failed to list smart feed articles", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Total-Count", strconv.Itoa(total))
+
+	result := map[string]interface{}{
+		"articles": articles,
+		"total":    total,
+	}
+
+	json.NewEncoder(w).Encode(result)
+}
+
 // GetRSSArticleRoute handles GET /api/rss/articles/{id}
 func (h *Handler) GetRSSArticleRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)

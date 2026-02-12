@@ -14,6 +14,7 @@ type RSSFeed struct {
 	LastFetchedAt  *time.Time `json:"last_fetched_at,omitempty"`
 	LastError      *string    `json:"last_error,omitempty"`
 	Enabled        bool       `json:"enabled"`
+	Priority       bool       `json:"priority"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 }
@@ -58,6 +59,7 @@ type UpdateRSSFeedParams struct {
 	AutoTags      *string `json:"auto_tags,omitempty"`
 	FetchInterval *int    `json:"fetch_interval,omitempty"`
 	Enabled       *bool   `json:"enabled,omitempty"`
+	Priority      *bool   `json:"priority,omitempty"`
 }
 
 // ConvertArticleParams represents parameters for converting an RSS article to a card
