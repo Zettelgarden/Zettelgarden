@@ -125,6 +125,13 @@ type CardWithDescendants struct {
 	Descendants  []CardWithDescendants  `json:"descendants"`
 }
 
+// RelatedCard represents a card with its relatedness score and reasons
+type RelatedCard struct {
+	Card    PartialCard `json:"card"`
+	Score   float64     `json:"score"`
+	Reasons []string    `json:"reasons"` // e.g. entity/tag names that caused the match
+}
+
 func ConvertCardToPartialCard(input Card) PartialCard {
 	return PartialCard{
 		ID:        input.ID,
