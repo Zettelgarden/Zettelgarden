@@ -2284,3 +2284,135 @@ func TestUpdateCardWithSchema_PartialUpdatePreservesSchema(t *testing.T) {
 		}
 	}
 }
+
+// TestGetRelatedCards_Success tests successful retrieval of related cards
+func TestGetRelatedCards_Success(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	// Get related cards for card 1 (has entities, tags, and content)
+	req, err := http.NewRequest("GET", "/api/cards/1/related", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", "1")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}/related", s.JwtMiddleware(s.GetRelatedCardsRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v, body: %v", status, http.StatusOK, rr.Body.String())
+	}
+
+	var relatedCards []models.RelatedCard
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &relatedCards)
+
+	// Verify we got some results
+	if len(relatedCards) == 0 {
+		t.Error("Expected at least one related card, got none")
+	}
+
+	// Verify response structure
+	for _, rc := range relatedCards {
+		if rc.Card.ID == 0 {
+			t.Error("Related card has invalid ID")
+		}
+		if rc.Score < 0 {
+			t.Errorf("Related card has invalid score: %v", rc.Score)
+		}
+		if len(rc.Reasons) == 0 {
+			t.Error("Related card should have at least one reason")
+		}
+	}
+}
+
+// TestGetRelatedCards_ExcludesFamily tests that parent, siblings, and children are excluded
+func TestGetRelatedCards_ExcludesFamily(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	// Card 1 has child 1/A, which should be excluded
+	req, err := http.NewRequest("GET", "/api/cards/1/related", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", "1")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}/related", s.JwtMiddleware(s.GetRelatedCardsRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var relatedCards []models.RelatedCard
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &relatedCards)
+
+	// Verify that card 1/A (child of 1) is not in results
+	for _, rc := range relatedCards {
+		if rc.Card.CardID == "1/A" {
+			t.Error("Expected child card 1/A to be excluded from related cards")
+		}
+		if rc.Card.ID == 1 {
+			t.Error("Expected source card itself to be excluded from related cards")
+		}
+	}
+}
+
+// TestGetRelatedCards_UnauthorizedUser tests that user cannot access other user's cards
+func TestGetRelatedCards_UnauthorizedUser(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(2) // Different user
+
+	req, err := http.NewRequest("GET", "/api/cards/1/related", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", "1")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}/related", s.JwtMiddleware(s.GetRelatedCardsRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNotFound {
+		t.Errorf("Expected status code %v for non-existent card, got %v", http.StatusNotFound, status)
+	}
+}
+
+// TestGetRelatedCards_NonExistentCard tests 404 for non-existent card
+func TestGetRelatedCards_NonExistentCard(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	req, err := http.NewRequest("GET", "/api/cards/99999/related", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", "99999")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}/related", s.JwtMiddleware(s.GetRelatedCardsRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNotFound {
+		t.Errorf("Expected status code %v for non-existent card, got %v", http.StatusNotFound, status)
+	}
+}

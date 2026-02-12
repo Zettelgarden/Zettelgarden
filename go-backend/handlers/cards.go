@@ -7,11 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"go-backend/models"
+	"go-backend/server"
 	"go-backend/services"
 	"log"
 	"net/http"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1267,4 +1269,153 @@ func (s *Handler) ProcessCardAfterCreation(userID int, card models.Card, shouldP
 // boolPtr returns a pointer to a bool
 func boolPtr(b bool) *bool {
 	return &b
+}
+
+// GetRelatedCardsRoute returns cards related to the source card based on
+// shared entities, shared tags, and semantic similarity
+func (s *Handler) GetRelatedCardsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	cardID, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil {
+		http.Error(w, "Invalid card ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get source card
+	card, err := s.QueryFullCard(userID, cardID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	// Get cards by shared entities
+	entityScores, err := services.GetCardsBySharedEntities(s.GetDB(), userID, cardID)
+	if err != nil {
+		log.Printf("Failed to get cards by shared entities: %v", err)
+		http.Error(w, "Failed to find related cards", http.StatusInternalServerError)
+		return
+	}
+
+	// Get cards by shared tags
+	tagScores, err := services.GetCardsBySharedTags(s.GetDB(), userID, cardID)
+	if err != nil {
+		log.Printf("Failed to get cards by shared tags: %v", err)
+		http.Error(w, "Failed to find related cards", http.StatusInternalServerError)
+		return
+	}
+
+	// Get semantically similar cards (up to 20 for more candidate variety)
+	var semanticScores []server.SimilarCard
+	if s.Server != nil && s.Server.TypesenseClient != nil {
+		ctx := r.Context()
+		semanticScores, err = s.Server.FindSimilarCards(ctx, card, 20)
+		if err != nil {
+			log.Printf("Failed to find similar cards: %v", err)
+			// Continue without semantic results rather than failing completely
+			semanticScores = []server.SimilarCard{}
+		}
+	}
+
+	// Merge scores from all sources
+	combinedScores := make(map[int]float64)
+	cardReasons := make(map[int][]string)
+
+	// Add entity scores (each shared entity = 3 points)
+	for cardID, score := range entityScores {
+		combinedScores[cardID] += float64(score)
+		cardReasons[cardID] = append(cardReasons[cardID], "entities")
+	}
+
+	// Add tag scores (each shared tag = 1 point)
+	for cardID, score := range tagScores {
+		combinedScores[cardID] += float64(score)
+		cardReasons[cardID] = append(cardReasons[cardID], "tags")
+	}
+
+	// Add semantic scores (already 0-1 range)
+	for _, sc := range semanticScores {
+		// Scale semantic score (0-1) to 0-10 range for better balance with entity/tag scores
+		scaledScore := sc.Score * 10.0
+		combinedScores[sc.ID] += scaledScore
+		cardReasons[sc.ID] = append(cardReasons[sc.ID], "similarity")
+	}
+
+	// Collect IDs to exclude
+	excludeIDs := make(map[int]bool)
+	excludeIDs[cardID] = true // Exclude current card
+	if card.ParentID != nil {
+		excludeIDs[*card.ParentID] = true // Exclude parent
+	}
+
+	// Get siblings (cards with same parent)
+	if card.ParentID != nil && *card.ParentID != cardID {
+		siblings, err := services.GetChildCards(s.GetDB(), userID, *card.ParentID)
+		if err == nil {
+			for _, sibling := range siblings {
+				excludeIDs[sibling.ID] = true // Exclude siblings
+			}
+		}
+	}
+
+	// Get children (already includes cardID != childID check)
+	children, err := services.GetChildCards(s.GetDB(), userID, cardID)
+	if err == nil {
+		for _, child := range children {
+			excludeIDs[child.ID] = true // Exclude children
+		}
+	}
+
+	// Build results, excluding specified cards
+	var relatedCards []models.RelatedCard
+	for relatedCardID, score := range combinedScores {
+		if excludeIDs[relatedCardID] {
+			continue // Skip excluded cards
+		}
+
+		// Get partial card with tags
+		partialCard, err := services.GetPartialCard(s.GetDB(), userID, relatedCardID)
+		if err != nil {
+			log.Printf("Failed to get partial card %d: %v", relatedCardID, err)
+			continue
+		}
+
+		// Fetch tags for this card
+		tags, err := services.QueryTagsForCard(s.GetDB(), userID, relatedCardID)
+		if err != nil {
+			log.Printf("Failed to fetch tags for card %d: %v", relatedCardID, err)
+			// Continue with empty tags
+			partialCard.Tags = []models.Tag{}
+		} else {
+			partialCard.Tags = tags
+		}
+
+		// Deduplicate reasons
+		uniqueReasons := make(map[string]bool)
+		var reasons []string
+		for _, reason := range cardReasons[relatedCardID] {
+			if !uniqueReasons[reason] {
+				uniqueReasons[reason] = true
+				reasons = append(reasons, reason)
+			}
+		}
+
+		relatedCards = append(relatedCards, models.RelatedCard{
+			Card:    partialCard,
+			Score:   score,
+			Reasons: reasons,
+		})
+	}
+
+	// Sort by score descending
+	sort.Slice(relatedCards, func(i, j int) bool {
+		return relatedCards[i].Score > relatedCards[j].Score
+	})
+
+	// Limit to top 10
+	if len(relatedCards) > 10 {
+		relatedCards = relatedCards[:10]
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(relatedCards)
 }
