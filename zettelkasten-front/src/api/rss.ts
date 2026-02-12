@@ -10,6 +10,7 @@ export interface RSSFeed {
   auto_tags: string;
   fetch_interval: number;
   enabled: boolean;
+  priority: boolean;
   last_fetched_at?: string;
   last_error?: string;
   created_at: string;
@@ -54,6 +55,7 @@ export interface CreateRSSFeedParams {
   auto_tags?: string;
   fetch_interval?: number;
   enabled?: boolean;
+  priority?: boolean;
 }
 
 export interface UpdateRSSFeedParams {
@@ -62,6 +64,7 @@ export interface UpdateRSSFeedParams {
   auto_tags?: string;
   fetch_interval?: number;
   enabled?: boolean;
+  priority?: boolean;
 }
 
 export interface ConvertArticleParams {

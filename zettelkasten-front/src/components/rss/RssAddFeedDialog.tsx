@@ -20,6 +20,7 @@ export function RssAddFeedDialog({
   const [name, setName] = useState("");
   const [folder, setFolder] = useState("");
   const [autoTags, setAutoTags] = useState("");
+  const [priority, setPriority] = useState(false);
   const [loading, setLoading] = useState(false);
   const [discovering, setDiscovering] = useState(false);
   const [error, setError] = useState<string>("");
@@ -48,6 +49,9 @@ export function RssAddFeedDialog({
       if (autoTags.trim()) {
         feedParams.auto_tags = autoTags.trim();
       }
+      if (priority) {
+        feedParams.priority = priority;
+      }
 
       const newFeed = await createFeed(feedParams);
       onFeedAdded(newFeed);
@@ -65,6 +69,7 @@ export function RssAddFeedDialog({
     setName("");
     setFolder("");
     setAutoTags("");
+    setPriority(false);
     setError("");
     onClose();
   };
@@ -217,6 +222,22 @@ export function RssAddFeedDialog({
                     />
                     <p className="mt-1 text-xs text-gray-500">
                       Comma-separated tags to automatically apply to articles from this feed
+                    </p>
+                  </div>
+
+                  {/* Priority - Optional */}
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={priority}
+                        onChange={(e) => setPriority(e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">Priority feed</span>
+                    </label>
+                    <p className="mt-1 text-xs text-gray-500 ml-6">
+                      Priority feeds receive a +100 boost in the smart feed ranking
                     </p>
                   </div>
 

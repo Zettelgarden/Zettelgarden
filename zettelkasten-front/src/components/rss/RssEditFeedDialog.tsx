@@ -22,6 +22,7 @@ export function RssEditFeedDialog({
   const [folder, setFolder] = useState("");
   const [autoTags, setAutoTags] = useState("");
   const [enabled, setEnabled] = useState(true);
+  const [priority, setPriority] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
 
@@ -32,6 +33,7 @@ export function RssEditFeedDialog({
       setFolder(feed.folder || "");
       setAutoTags(feed.auto_tags || "");
       setEnabled(feed.enabled);
+      setPriority(feed.priority || false);
     }
   }, [feed]);
 
@@ -60,6 +62,9 @@ export function RssEditFeedDialog({
       if (enabled !== feed.enabled) {
         feedParams.enabled = enabled;
       }
+      if (priority !== (feed.priority || false)) {
+        feedParams.priority = priority;
+      }
 
       const updatedFeed = await updateFeed(feed.id, feedParams);
       onFeedUpdated(updatedFeed);
@@ -77,6 +82,7 @@ export function RssEditFeedDialog({
     setFolder("");
     setAutoTags("");
     setEnabled(true);
+    setPriority(false);
     setError("");
     onClose();
   };
@@ -194,6 +200,22 @@ export function RssEditFeedDialog({
                     </label>
                     <p className="mt-1 text-xs text-gray-500 ml-6">
                       When disabled, this feed won't be refreshed
+                    </p>
+                  </div>
+
+                  {/* Priority */}
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={priority}
+                        onChange={(e) => setPriority(e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">Priority feed</span>
+                    </label>
+                    <p className="mt-1 text-xs text-gray-500 ml-6">
+                      Priority feeds receive a +100 boost in the smart feed ranking
                     </p>
                   </div>
 
