@@ -59,9 +59,8 @@ export function RssArticlesPanel({
             {totalArticles > 0 && `${totalArticles} total`}
           </span>
         </div>
-        {/* Filter tabs - hidden when Smart Feed is active */}
-        {!isSmartFeedActive && (
-          <div className="flex bg-gray-100 rounded-lg p-1">
+        {/* Filter tabs - shown for all views including Smart Feed */}
+        <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => {
                 if (showUnreadOnly) onToggleShowUnreadOnly();
@@ -92,7 +91,6 @@ export function RssArticlesPanel({
               )}
             </button>
           </div>
-        )}
       </div>
       {loading ? (
         <div className="flex-1 flex items-center justify-center">

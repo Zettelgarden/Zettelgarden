@@ -140,9 +140,8 @@ export function RssMobileLayout({
 
           {/* Articles list content */}
           <div className="flex-1 bg-white flex flex-col overflow-hidden">
-            {/* Filter tabs - hidden when Smart Feed is active */}
-            {!isSmartFeedActive && (
-              <div className="p-4 border-b border-gray-200">
+            {/* Filter tabs - shown for all views including Smart Feed */}
+            <div className="p-4 border-b border-gray-200">
                 <div className="flex bg-gray-100 rounded-lg p-1">
                   <button
                     onClick={() => {
@@ -175,7 +174,6 @@ export function RssMobileLayout({
                   </button>
                 </div>
               </div>
-            )}
 
             {/* Articles list */}
             {articles.length === 0 && !loadingArticles ? (

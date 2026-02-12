@@ -83,7 +83,16 @@ export function RssPage() {
   });
 
   // Use either regular or smart articles based on mode
-  const articles = isSmartFeedActive ? smartArticles.articles : regularArticles.articles;
+  const rawArticles = isSmartFeedActive ? smartArticles.articles : regularArticles.articles;
+
+  // Apply frontend unread filter for smart feed (smart feed returns all articles regardless of read status)
+  const articles = useMemo(() => {
+    if (isSmartFeedActive && showUnreadOnly) {
+      return rawArticles.filter((a) => !a.read);
+    }
+    return rawArticles;
+  }, [isSmartFeedActive, showUnreadOnly, rawArticles]);
+
   const totalArticles = isSmartFeedActive ? smartArticles.totalArticles : regularArticles.totalArticles;
   const loadingArticles = isSmartFeedActive ? smartArticles.loading : regularArticles.loading;
   const articlesError = isSmartFeedActive ? smartArticles.error : regularArticles.error;
