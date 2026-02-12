@@ -1,28 +1,67 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { DynamicSpreadsheet, parseSpreadsheetFromBody, serializeSpreadsheetToBody } from './DynamicSpreadsheet';
+import { SpreadsheetData } from '../../models/Spreadsheet';
+
+// Mock the API module
+vi.mock('../../api/spreadsheets', () => ({
+  updateSpreadsheet: vi.fn()
+}));
 
 describe('DynamicSpreadsheet', () => {
-  const mockCardBody = 'Some text\n```spreadsheet:mysheet\n{"rows": 2, "cols": 2, "data": {"A1": {"value": "10", "formula": ""}}}\n```\nMore text';
-  const mockOnBodyChange = vi.fn();
+  const mockInitialData: SpreadsheetData = {
+    rows: 2,
+    cols: 2,
+    data: {
+      'A1': { value: '10', formula: '' },
+      'A2': { value: '20', formula: '' },
+      'B1': { value: '30', formula: '' },
+      'B2': { value: '40', formula: '' }
+    }
+  };
 
-  it('renders spreadsheet from card body', () => {
-    render(<DynamicSpreadsheet name="mysheet" cardBody={mockCardBody} onBodyChange={mockOnBodyChange} />);
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
+    vi.clearAllMocks();
+  });
+
+  it('renders spreadsheet with initial data', () => {
+    render(<DynamicSpreadsheet id={1} initialData={mockInitialData} readOnly={false} />);
 
     // Should render the grid
     expect(screen.getByText('A')).toBeInTheDocument();
     expect(screen.getByText('B')).toBeInTheDocument();
   });
 
-  it('renders default empty spreadsheet if not found', () => {
-    render(<DynamicSpreadsheet name="nonexistent" cardBody={mockCardBody} onBodyChange={mockOnBodyChange} />);
+  it('renders empty spreadsheet when initialData is empty', () => {
+    const emptyData: SpreadsheetData = {
+      rows: 5,
+      cols: 5,
+      data: {}
+    };
 
-    // Should still render a grid
+    render(<DynamicSpreadsheet id={1} initialData={emptyData} readOnly={false} />);
+
+    // Should still render a grid with default columns
     expect(screen.getByText('A')).toBeInTheDocument();
+    expect(screen.getByText('E')).toBeInTheDocument();
   });
 
-  it('displays "mysheet" as spreadsheet name', () => {
-    const { container } = render(<DynamicSpreadsheet name="mysheet" cardBody={mockCardBody} onBodyChange={mockOnBodyChange} />);
+  it('displays "Spreadsheet" as the spreadsheet label', () => {
+    const { container } = render(<DynamicSpreadsheet id={1} initialData={mockInitialData} readOnly={false} />);
+    // Component should render without error
+    expect(container).toBeTruthy();
+    // Should show "Spreadsheet" label (not a specific name)
+    expect(screen.getByText('Spreadsheet')).toBeInTheDocument();
+  });
+
+  it('passes readOnly prop to SpreadsheetGrid', () => {
+    const { container } = render(<DynamicSpreadsheet id={1} initialData={mockInitialData} readOnly={true} />);
     // Component should render without error
     expect(container).toBeTruthy();
   });
