@@ -2,6 +2,8 @@ import Markdown from "react-markdown";
 import React, { useState, useEffect } from "react";
 import { downloadFile } from "../../api/files";
 import { Card, Entity } from "../../models/Card";
+import { fetchSpreadsheets } from "../../api/spreadsheets";
+import { SpreadsheetData } from "../../models/Spreadsheet";
 import remarkEntity from "../../remark-entity";
 import remarkTaskQuery from "../../remark-task-query";
 import remarkSchemaTable from "../../remark-schema-table";
@@ -220,7 +222,8 @@ function renderCardTextWithDialog(
   activeCard: Card,
   handleViewBacklink: (card_id: number) => void,
   entities?: Entity[],
-  onCardBodyChange?: (newBody: string) => void
+  onCardBodyChange?: (newBody: string) => void,
+  spreadsheets?: Record<number, SpreadsheetData>
 ) {
   const [isEntityDialogOpen, setIsEntityDialogOpen] = React.useState(false);
 
@@ -254,7 +257,7 @@ function renderCardTextWithDialog(
     setShowEntityDialog(true);
   }
 
-  const markdown = renderCardText(card, activeCard, handleViewBacklink, entities, handleEntityClickById as any, onCardBodyChange);
+  const markdown = renderCardText(card, activeCard, handleViewBacklink, entities, handleEntityClickById as any, onCardBodyChange, spreadsheets);
   return (
     <>
       {markdown}
@@ -268,7 +271,8 @@ function renderCardText(
   handleViewBacklink: (card_id: number) => void,
   entities?: Entity[],
   onEntityClick?: (id: string, name: string) => void,
-  onCardBodyChange?: (newBody: string) => void
+  onCardBodyChange?: (newBody: string) => void,
+  spreadsheets?: Record<number, SpreadsheetData>
 ) {
 
   // Preprocess task queries first, then card links, then schema tables, then entities
@@ -405,9 +409,15 @@ function renderCardText(
           }
 
           // Check if this is a spreadsheet container
-          if (propsData.className === "spreadsheet-container" || propsData["data-spreadsheet-name"] !== undefined) {
-            const spreadsheetName = propsData["data-spreadsheet-name"] || "sheet1";
-            return <DynamicSpreadsheet name={spreadsheetName} cardBody={activeCard.body} onBodyChange={onCardBodyChange} />;
+          if (propsData.className === "spreadsheet-container" || propsData["data-spreadsheet-id"] !== undefined) {
+            const spreadsheetId = parseInt(propsData["data-spreadsheet-id"] || "0", 10);
+            const initialData = spreadsheets?.[spreadsheetId];
+
+            if (!initialData) {
+              return <div className="p-4 text-gray-500">Loading spreadsheet...</div>;
+            }
+
+            return <DynamicSpreadsheet id={spreadsheetId} initialData={initialData} />;
           }
 
           // Default div rendering
@@ -424,12 +434,30 @@ export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities, onSav
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [shouldShowToggle, setShouldShowToggle] = useState(false);
   const contentRef = React.useRef<HTMLDivElement>(null);
+  const [spreadsheets, setSpreadsheets] = useState<Record<number, SpreadsheetData>>({});
 
   // Use the context's editingCard if it's the same card (by id), otherwise use viewingCard
   // This ensures spreadsheet edits update the rendered body
   const activeCard = cardEditorContext?.editingCard?.id === viewingCard.id
     ? cardEditorContext.editingCard
     : viewingCard;
+
+  // Load spreadsheets when card changes
+  useEffect(() => {
+    async function loadSpreadsheets() {
+      try {
+        const data = await fetchSpreadsheets(activeCard.id);
+        const dataMap: Record<number, SpreadsheetData> = {};
+        data.forEach(s => {
+          dataMap[s.id] = s.data;
+        });
+        setSpreadsheets(dataMap);
+      } catch (error) {
+        console.error('Failed to load spreadsheets:', error);
+      }
+    }
+    loadSpreadsheets();
+  }, [activeCard.id]);
 
   // Height threshold for showing the collapse toggle (in pixels)
   const HEIGHT_THRESHOLD = 600;
@@ -473,7 +501,7 @@ export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities, onSav
           if (onSave) {
             onSave(updatedCard);
           }
-        })}
+        }, spreadsheets)}
       </div>
 
       {/* Gradient fade effect when collapsed */}
