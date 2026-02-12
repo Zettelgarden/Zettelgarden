@@ -1,7 +1,9 @@
 package services
 
 import (
+	"database/sql"
 	"fmt"
+	"sort"
 
 	"go-backend/models"
 )
@@ -142,4 +144,181 @@ func generateScoreReason(volumeScore, interactionBonus float64, isPriority bool,
 	}
 
 	return reasons[0]
+}
+
+// ListSmartRSSArticles returns articles ranked by smart scoring
+func ListSmartRSSArticles(db models.Database, userID int, filters map[string]interface{}) ([]models.RSSArticleWithScore, int, error) {
+	// 1. Calculate volume scores (last 30 days)
+	volumeScores, err := calculateFeedVolumeScores(db, userID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to calculate volume scores: %w", err)
+	}
+
+	// 2. Calculate interaction bonuses (last 90 days)
+	interactionBonuses, err := calculateInteractionBonuses(db, userID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to calculate interaction bonuses: %w", err)
+	}
+
+	// 3. Get priority feeds
+	priorityFeeds, err := getPriorityFeeds(db, userID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get priority feeds: %w", err)
+	}
+
+	// 4. Query articles with scoring and sort
+	articles, total, err := queryArticlesWithScoring(db, userID, filters, volumeScores, interactionBonuses, priorityFeeds)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query articles: %w", err)
+	}
+
+	return articles, total, nil
+}
+
+// queryArticlesWithScoring fetches articles and calculates scores
+func queryArticlesWithScoring(db models.Database, userID int, filters map[string]interface{}, volumeScores map[int]float64, interactionBonuses map[int]float64, priorityFeeds map[int]bool) ([]models.RSSArticleWithScore, int, error) {
+	// Build base query
+	query := `
+        SELECT id, user_id, feed_id, title, content, author, url,
+               published_at, fetched_at, read, card_id
+        FROM rss_articles
+        WHERE user_id = $1
+    `
+	args := []interface{}{userID}
+	argPos := 2
+
+	// Apply filters (same as ListRSSArticles)
+	if folder, ok := filters["folder"].(string); ok && folder != "" {
+		query += fmt.Sprintf(" AND feed_id IN (SELECT id FROM rss_feeds WHERE user_id = $1 AND folder = $%d)", argPos)
+		args = append(args, folder)
+		argPos++
+	}
+
+	if unreadOnly, ok := filters["unread"].(bool); ok && unreadOnly {
+		query += " AND read = false"
+	}
+
+	// Get count first
+	countQuery := "SELECT COUNT(*) FROM rss_articles WHERE " + query[59:] // Strip "SELECT ... FROM "
+	var total int
+	countArgs := make([]interface{}, len(args))
+	copy(countArgs, args)
+	err := db.QueryRow(countQuery, countArgs...).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count articles: %w", err)
+	}
+
+	// Get all articles (we'll sort in memory)
+	query += " ORDER BY published_at DESC NULLS LAST, fetched_at DESC"
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query articles: %w", err)
+	}
+	defer rows.Close()
+
+	// Collect articles with scores
+	var scoredArticles []models.RSSArticleWithScore
+	for rows.Next() {
+		var article models.RSSArticleWithScore
+		var content, author sql.NullString
+		var publishedAt sql.NullTime
+		var cardID sql.NullInt64
+
+		err := rows.Scan(
+			&article.ID, &article.UserID, &article.FeedID, &article.Title,
+			&content, &author, &article.URL, &publishedAt,
+			&article.FetchedAt, &article.Read, &cardID,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan article: %w", err)
+		}
+
+		if content.Valid {
+			article.Content = &content.String
+		}
+		if author.Valid {
+			article.Author = &author.String
+		}
+		if publishedAt.Valid {
+			article.PublishedAt = &publishedAt.Time
+		}
+		if cardID.Valid {
+			cardIDInt := int(cardID.Int64)
+			article.CardID = &cardIDInt
+		}
+
+		// Calculate scores
+		volumeScore := volumeScores[article.FeedID]
+		interactionBonus := interactionBonuses[article.FeedID]
+		isPriority := priorityFeeds[article.FeedID]
+
+		priorityBonus := 0.0
+		if isPriority {
+			priorityBonus = 100.0
+		}
+
+		totalScore := volumeScore + interactionBonus + priorityBonus
+
+		// Calculate daily average for reason
+		dailyAvg := 0.0
+		if volumeScore < 100 {
+			// Reverse engineer from score
+			dailyAvg = (100.0 - volumeScore) / 10.0
+		}
+
+		article.SmartScore = &models.SmartFeedScore{
+			ArticleID:        article.ID,
+			Score:            totalScore,
+			VolumeScore:      volumeScore,
+			InteractionBonus: interactionBonus,
+			IsPriority:       isPriority,
+			Reason:           generateScoreReason(volumeScore, interactionBonus, isPriority, dailyAvg),
+		}
+
+		scoredArticles = append(scoredArticles, article)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("error iterating articles: %w", err)
+	}
+
+	// Sort by score DESC, then published_at DESC
+	sort.Slice(scoredArticles, func(i, j int) bool {
+		si := scoredArticles[i].SmartScore
+		sj := scoredArticles[j].SmartScore
+		if si.Score != sj.Score {
+			return si.Score > sj.Score
+		}
+		// Tie-break by published date
+		pi, pj := scoredArticles[i].PublishedAt, scoredArticles[j].PublishedAt
+		if pi == nil {
+			return false
+		}
+		if pj == nil {
+			return true
+		}
+		return pi.After(*pj)
+	})
+
+	// Apply limit/offset after sorting
+	limit := 100
+	if limitParam, ok := filters["limit"].(int); ok && limitParam > 0 {
+		limit = limitParam
+	}
+	offset := 0
+	if offsetParam, ok := filters["offset"].(int); ok && offsetParam > 0 {
+		offset = offsetParam
+	}
+
+	if offset >= len(scoredArticles) {
+		return []models.RSSArticleWithScore{}, total, nil
+	}
+
+	end := offset + limit
+	if end > len(scoredArticles) {
+		end = len(scoredArticles)
+	}
+
+	return scoredArticles[offset:end], total, nil
 }
