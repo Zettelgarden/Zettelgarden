@@ -259,6 +259,7 @@ export function RssMobileLayout({
           onMarkAsUnread={onMarkAsUnread}
           getFeedName={getFeedName}
           onViewCard={handleViewCard}
+          onFeedClick={onFeedSelectMobile}
         />
       </RssErrorBoundary>
     );

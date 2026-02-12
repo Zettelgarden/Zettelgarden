@@ -157,6 +157,7 @@ export function RssDesktopLayout({
           feeds={feeds}
           onConvertClick={onConvertClick}
           onMarkAsUnread={onMarkAsUnread}
+          onFeedClick={onSelectFeed}
         />
       </RssErrorBoundary>
     </div>

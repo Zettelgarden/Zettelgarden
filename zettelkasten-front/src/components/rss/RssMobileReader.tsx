@@ -11,6 +11,7 @@ interface RssMobileReaderProps {
   onMarkAsUnread: () => void;
   getFeedName: (feedId: number) => string;
   onViewCard: (cardId: number) => void;
+  onFeedClick?: (feedId: number) => void;
 }
 
 export function RssMobileReader({
@@ -20,6 +21,7 @@ export function RssMobileReader({
   onMarkAsUnread,
   getFeedName,
   onViewCard,
+  onFeedClick,
 }: RssMobileReaderProps) {
   return (
     <div className="fixed inset-0 bg-white z-50 overflow-y-auto flex flex-col md:hidden animate-slide-up">
@@ -71,7 +73,14 @@ export function RssMobileReader({
                 ? new Date(article.published_at).toLocaleDateString()
                 : new Date(article.fetched_at).toLocaleDateString()}
             </span>
-            <span className="text-gray-500">
+            <span
+              onClick={() => onFeedClick?.(article.feed_id)}
+              className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+              </svg>
               {getFeedName(article.feed_id)}
             </span>
           </div>
