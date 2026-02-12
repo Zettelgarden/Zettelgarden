@@ -33,6 +33,12 @@ export interface EntityWithScore extends Entity {
   score: number;
 }
 
+export interface RelatedCard {
+  card: PartialCard;
+  score: number;
+  reasons: string[];
+}
+
 export interface Card {
   id: number;
   card_id: string;
