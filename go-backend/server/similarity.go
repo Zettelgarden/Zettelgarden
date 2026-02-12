@@ -16,6 +16,12 @@ type SimilarEntity struct {
 	Score float64
 }
 
+// SimilarCard represents a card with its similarity score
+type SimilarCard struct {
+	ID    int
+	Score float64
+}
+
 // SimilarFact represents a fact with its similarity score
 type SimilarFact struct {
 	ID    int
@@ -144,6 +150,70 @@ func (s *Server) FindSimilarFacts(ctx context.Context, fact models.Fact, limit i
 	}
 
 	return similarFacts, nil
+}
+
+// FindSimilarCards finds cards semantically similar to the given card using Typesense
+func (s *Server) FindSimilarCards(ctx context.Context, card models.Card, limit int) ([]SimilarCard, error) {
+	if s.TypesenseClient == nil {
+		log.Printf("Typesense client not available")
+		return []SimilarCard{}, nil // Return empty slice, will use entity/tag matches only
+	}
+
+	collectionName := os.Getenv("TYPESENSE_COLLECTION")
+	if collectionName == "" {
+		log.Printf("TYPESENSE_COLLECTION env var not set")
+		return []SimilarCard{}, nil
+	}
+
+	// Build search query from title and body
+	searchQuery := fmt.Sprintf("%s %s", card.Title, card.Body)
+
+	// Filter for cards only, excluding current card
+	filter := fmt.Sprintf("user_id:=%d && type:=card && card_pk:!=%d", card.UserID, card.ID)
+
+	perPage := limit
+	searchParams := &api.SearchCollectionParams{
+		Q:        searchQuery,
+		QueryBy:  "title,preview,embedding", // Include embedding for vector search
+		FilterBy: &filter,
+		PerPage:  &perPage,
+	}
+
+	searchResult, err := s.TypesenseClient.Collection(collectionName).Documents().Search(ctx, searchParams)
+	if err != nil {
+		log.Printf("Typesense semantic search failed: %v", err)
+		return []SimilarCard{}, nil // Return empty to trigger fallback
+	}
+
+	var similarCards []SimilarCard
+	if searchResult.Hits != nil {
+		for _, hit := range *searchResult.Hits {
+			if hit.Document != nil {
+				doc := *hit.Document
+				if pk, ok := doc["card_pk"].(float64); ok {
+					score := 0.0
+					// Extract vector distance if available
+					if hit.VectorDistance != nil {
+						distance := float64(*hit.VectorDistance)
+						// Convert cosine distance to similarity (0-1 range)
+						score = 1.0 - (distance / 2.0)
+						// Clamp to 0-1
+						if score < 0 {
+							score = 0
+						} else if score > 1 {
+							score = 1
+						}
+					}
+					similarCards = append(similarCards, SimilarCard{
+						ID:    int(pk),
+						Score: score,
+					})
+				}
+			}
+		}
+	}
+
+	return similarCards, nil
 }
 
 // MergeEntities merges entity2 into entity1
