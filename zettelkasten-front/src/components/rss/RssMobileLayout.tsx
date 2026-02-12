@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { RSSFeed, RSSFolder, RSSArticle, UnreadCounts } from "../../api/rss";
+import { RSSFeed, RSSFolder, RSSArticle, RSSArticleWithScore, UnreadCounts } from "../../api/rss";
 import { RssMobileTopBar } from "./RssMobileTopBar";
 import { RssMobileReader } from "./RssMobileReader";
 import { RssFeedsBottomSheet } from "./RssFeedsBottomSheet";
@@ -11,11 +11,12 @@ interface RssMobileLayoutProps {
   feeds: RSSFeed[];
   folders: RSSFolder[];
   unreadCounts: UnreadCounts;
-  articles: RSSArticle[];
+  articles: (RSSArticle | RSSArticleWithScore)[];
   selectedFolder: string | null;
   selectedFeedId: number | null;
   selectedArticle: RSSArticle | null;
   showUnreadOnly: boolean;
+  showSmartFeed: boolean;
   expandedFolders: Set<string>;
   totalUnreadCount: number;
   currentUnreadCount: number;
@@ -42,6 +43,7 @@ interface RssMobileLayoutProps {
   onArticleClick: (article: RSSArticle) => void;
   onLoadMore: () => void;
   onToggleShowUnreadOnly: () => void;
+  onToggleSmartFeed: () => void;
   onConvertClick: () => void;
   onMarkAsUnread: () => void;
   onRefresh?: () => void;
@@ -62,6 +64,7 @@ export function RssMobileLayout({
   selectedFeedId,
   selectedArticle,
   showUnreadOnly,
+  showSmartFeed,
   expandedFolders,
   totalUnreadCount,
   currentUnreadCount,
@@ -88,6 +91,7 @@ export function RssMobileLayout({
   onArticleClick,
   onLoadMore,
   onToggleShowUnreadOnly,
+  onToggleSmartFeed,
   onConvertClick,
   onMarkAsUnread,
   onRefresh,
@@ -138,9 +142,12 @@ export function RssMobileLayout({
             <div className="p-4 border-b border-gray-200">
               <div className="flex bg-gray-100 rounded-lg p-1">
                 <button
-                  onClick={onToggleShowUnreadOnly}
+                  onClick={() => {
+                    if (showSmartFeed) onToggleSmartFeed();
+                    else if (showUnreadOnly) onToggleShowUnreadOnly();
+                  }}
                   className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors ${
-                    !showUnreadOnly
+                    !showUnreadOnly && !showSmartFeed
                       ? "bg-white text-gray-900 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
                   }`}
@@ -148,9 +155,12 @@ export function RssMobileLayout({
                   All
                 </button>
                 <button
-                  onClick={onToggleShowUnreadOnly}
+                  onClick={() => {
+                    if (showSmartFeed) onToggleSmartFeed();
+                    if (!showUnreadOnly) onToggleShowUnreadOnly();
+                  }}
                   className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors relative ${
-                    showUnreadOnly
+                    showUnreadOnly && !showSmartFeed
                       ? "bg-white text-gray-900 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
                   }`}
@@ -161,6 +171,23 @@ export function RssMobileLayout({
                       {currentUnreadCount}
                     </span>
                   )}
+                </button>
+                <button
+                  onClick={() => {
+                    if (!showSmartFeed) onToggleSmartFeed();
+                    if (showUnreadOnly) onToggleShowUnreadOnly();
+                  }}
+                  className={`flex-1 py-1.5 px-2.5 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-1 ${
+                    showSmartFeed
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                  title="Articles ranked by relevance using AI-powered smart scoring"
+                >
+                  <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                  </svg>
+                  Smart
                 </button>
               </div>
             </div>
@@ -173,34 +200,50 @@ export function RssMobileLayout({
             ) : (
               <>
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                  {articles.map((article) => (
-                    <div
-                      key={article.id}
-                      onClick={() => onArticleClick(article)}
-                      className={`p-4 rounded-lg cursor-pointer transition-colors min-h-[60px] ${
-                        selectedArticle?.id === article.id
-                          ? "bg-blue-100 border-l-4 border-blue-600"
-                          : article.read
-                            ? "bg-gray-50 hover:bg-gray-100"
-                            : "bg-white hover:bg-gray-100 border-l-4 border-blue-500 shadow-sm"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <h3 className="font-semibold text-base line-clamp-3 flex-1 text-gray-900">
-                          {article.title}
-                        </h3>
-                        {article.card_id && (
-                          <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <title>Converted to card</title>
-                            <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
-                          </svg>
-                        )}
+                  {articles.map((article) => {
+                    const articleWithScore = article as RSSArticleWithScore;
+                    const hasSmartScore = 'smart_score' in article && articleWithScore.smart_score;
+                    return (
+                      <div
+                        key={article.id}
+                        onClick={() => onArticleClick(article)}
+                        className={`p-4 rounded-lg cursor-pointer transition-colors min-h-[60px] ${
+                          selectedArticle?.id === article.id
+                            ? "bg-blue-100 border-l-4 border-blue-600"
+                            : article.read
+                              ? "bg-gray-50 hover:bg-gray-100"
+                              : "bg-white hover:bg-gray-100 border-l-4 border-blue-500 shadow-sm"
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <h3 className="font-semibold text-base line-clamp-3 flex-1 text-gray-900">
+                            {article.title}
+                          </h3>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {hasSmartScore && articleWithScore.smart_score && (
+                              <div className="flex items-center gap-1" title={articleWithScore.smart_score.reason}>
+                                <span className="text-sm font-medium text-amber-600">
+                                  {articleWithScore.smart_score.score.toFixed(1)}
+                                </span>
+                                <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                </svg>
+                              </div>
+                            )}
+                            {article.card_id && (
+                              <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                <title>Converted to card</title>
+                                <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-2">
+                          {getFeedName(article.feed_id)} • {new Date(article.fetched_at).toLocaleDateString()}
+                        </p>
                       </div>
-                      <p className="text-sm text-gray-500 mt-2">
-                        {getFeedName(article.feed_id)} • {new Date(article.fetched_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Pagination - Load More button for mobile */}

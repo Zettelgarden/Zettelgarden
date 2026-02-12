@@ -13,6 +13,7 @@ import {
   RSSFeed,
   RSSFolder,
   RSSArticle,
+  RSSArticleWithScore,
 } from "../api/rss";
 import { RssAddFeedDialog } from "../components/rss/RssAddFeedDialog";
 import { RssEditFeedDialog } from "../components/rss/RssEditFeedDialog";
@@ -25,6 +26,7 @@ import { useRSS } from "../contexts/RSSContext";
 import { useUIState } from "../contexts/UIStateContext";
 import { useRssData } from "../hooks/useRssData";
 import { useRssArticles } from "../hooks/useRssArticles";
+import { useSmartRssArticles } from "../hooks/useSmartRssArticles";
 import { RssDesktopLayout } from "../components/rss/RssDesktopLayout";
 import { RssMobileLayout } from "../components/rss/RssMobileLayout";
 import { DialogState, DialogStates, initialDialogState } from "../types/rssDialogs";
@@ -53,29 +55,32 @@ export function RssPage() {
   const [selectedFeedId, setSelectedFeedId] = useState<number | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<RSSArticle | null>(null);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [showSmartFeed, setShowSmartFeed] = useState(false);
   const [markingAsRead, setMarkingAsRead] = useState<Set<number>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showFeedMenuId, setShowFeedMenuId] = useState<number | null>(null);
 
-  // Articles hook
+  // Articles hook - use different hooks based on smart feed mode
   const articleFilters = useMemo(() => ({
     folder: selectedFolder ?? undefined,
     feed_id: selectedFeedId ?? undefined,
     unread: showUnreadOnly || undefined,
   }), [selectedFolder, selectedFeedId, showUnreadOnly]);
 
-  const {
-    articles,
-    totalArticles,
-    loading: loadingArticles,
-    error: articlesError,
-    currentPage,
-    setCurrentPage,
-    resetToFirstPage,
-    updateArticle,
-    updateArticles,
-  } = useRssArticles(articleFilters);
+  const regularArticles = useRssArticles(showSmartFeed ? {} : articleFilters);
+  const smartArticles = useSmartRssArticles(showSmartFeed ? articleFilters : {});
+
+  // Use either regular or smart articles based on mode
+  const articles = showSmartFeed ? smartArticles.articles : regularArticles.articles;
+  const totalArticles = showSmartFeed ? smartArticles.totalArticles : regularArticles.totalArticles;
+  const loadingArticles = showSmartFeed ? smartArticles.loading : regularArticles.loading;
+  const articlesError = showSmartFeed ? smartArticles.error : regularArticles.error;
+  const currentPage = showSmartFeed ? smartArticles.currentPage : regularArticles.currentPage;
+  const updateArticle = showSmartFeed ? smartArticles.updateArticle : regularArticles.updateArticle;
+  const updateArticles = showSmartFeed ? smartArticles.updateArticles : regularArticles.updateArticles;
+  const resetToFirstPage = showSmartFeed ? smartArticles.resetToFirstPage : regularArticles.resetToFirstPage;
+  const setCurrentPage = showSmartFeed ? smartArticles.setCurrentPage : regularArticles.setCurrentPage;
 
   // Dialog state
   const [dialogState, setDialogState] = useState<DialogState>(initialDialogState);
@@ -136,7 +141,7 @@ export function RssPage() {
   // Reset to page 1 when filters change
   useEffect(() => {
     resetToFirstPage();
-  }, [selectedFolder, selectedFeedId, showUnreadOnly, resetToFirstPage]);
+  }, [selectedFolder, selectedFeedId, showUnreadOnly, showSmartFeed, resetToFirstPage]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshMessage("");
@@ -434,6 +439,7 @@ export function RssPage() {
           selectedFeedId={selectedFeedId}
           selectedArticle={selectedArticle}
           showUnreadOnly={showUnreadOnly}
+          showSmartFeed={showSmartFeed}
           expandedFolders={expandedFolders}
           currentUnreadCount={currentUnreadCount}
           refreshMessage={refreshMessage}
@@ -458,6 +464,7 @@ export function RssPage() {
           }}
           onToggleFolder={toggleFolderExpanded}
           onToggleShowUnreadOnly={() => setShowUnreadOnly((prev) => !prev)}
+          onToggleSmartFeed={() => setShowSmartFeed((prev) => !prev)}
           onAddFeed={() => setDialogState(DialogStates.addFeed())}
           onCreateFolder={() => setDialogState(DialogStates.createFolder())}
           onEditFeed={(feed) => setDialogState(DialogStates.editFeed(feed))}
@@ -489,6 +496,7 @@ export function RssPage() {
           selectedFeedId={selectedFeedId}
           selectedArticle={selectedArticle}
           showUnreadOnly={showUnreadOnly}
+          showSmartFeed={showSmartFeed}
           expandedFolders={expandedFolders}
           totalUnreadCount={totalUnreadCount}
           currentUnreadCount={currentUnreadCount}
@@ -515,6 +523,7 @@ export function RssPage() {
           onArticleClick={handleArticleClick}
           onLoadMore={handleLoadMore}
           onToggleShowUnreadOnly={() => setShowUnreadOnly((prev) => !prev)}
+          onToggleSmartFeed={() => setShowSmartFeed((prev) => !prev)}
           onConvertClick={handleConvertClick}
           onMarkAsUnread={handleMarkAsUnread}
           onMobileBack={handleMobileBack}

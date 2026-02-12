@@ -1,9 +1,9 @@
 import React from "react";
-import { RSSArticle, RSSFeed } from "../../api/rss";
+import { RSSArticle, RSSArticleWithScore, RSSFeed } from "../../api/rss";
 import { RSS_CONFIG } from "../../constants/rss";
 
 interface RssArticlesPanelProps {
-  articles: RSSArticle[];
+  articles: (RSSArticle | RSSArticleWithScore)[];
   feeds: RSSFeed[];
   selectedArticle: RSSArticle | null;
   loading: boolean;
@@ -11,8 +11,10 @@ interface RssArticlesPanelProps {
   currentPage: number;
   currentUnreadCount: number;
   showUnreadOnly: boolean;
+  showSmartFeed: boolean;
   onArticleClick: (article: RSSArticle) => void;
   onToggleShowUnreadOnly: () => void;
+  onToggleSmartFeed: () => void;
   onPageChange: (page: number) => void;
 }
 
@@ -28,8 +30,10 @@ export function RssArticlesPanel({
   currentPage,
   currentUnreadCount,
   showUnreadOnly,
+  showSmartFeed,
   onArticleClick,
   onToggleShowUnreadOnly,
+  onToggleSmartFeed,
   onPageChange,
 }: RssArticlesPanelProps) {
   const getFeedName = (feedId: number): string => {
@@ -51,9 +55,12 @@ export function RssArticlesPanel({
         {/* Filter tabs */}
         <div className="flex bg-gray-100 rounded-lg p-1">
           <button
-            onClick={onToggleShowUnreadOnly}
+            onClick={() => {
+              if (showSmartFeed) onToggleSmartFeed();
+              else if (showUnreadOnly) onToggleShowUnreadOnly();
+            }}
             className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors ${
-              !showUnreadOnly
+              !showUnreadOnly && !showSmartFeed
                 ? "bg-white text-gray-900 shadow-sm"
                 : "text-gray-600 hover:text-gray-900"
             }`}
@@ -61,9 +68,12 @@ export function RssArticlesPanel({
             All
           </button>
           <button
-            onClick={onToggleShowUnreadOnly}
+            onClick={() => {
+              if (showSmartFeed) onToggleSmartFeed();
+              if (!showUnreadOnly) onToggleShowUnreadOnly();
+            }}
             className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-colors relative ${
-              showUnreadOnly
+              showUnreadOnly && !showSmartFeed
                 ? "bg-white text-gray-900 shadow-sm"
                 : "text-gray-600 hover:text-gray-900"
             }`}
@@ -74,6 +84,23 @@ export function RssArticlesPanel({
                 {currentUnreadCount}
               </span>
             )}
+          </button>
+          <button
+            onClick={() => {
+              if (!showSmartFeed) onToggleSmartFeed();
+              if (showUnreadOnly) onToggleShowUnreadOnly();
+            }}
+            className={`flex-1 py-1.5 px-2.5 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-1 ${
+              showSmartFeed
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+            title="Articles ranked by relevance using AI-powered smart scoring"
+          >
+            <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+            </svg>
+            Smart
           </button>
         </div>
       </div>
@@ -88,34 +115,50 @@ export function RssArticlesPanel({
       ) : (
         <>
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {articles.map((article) => (
-              <div
-                key={article.id}
-                onClick={() => onArticleClick(article)}
-                className={`p-3 rounded-md cursor-pointer transition-colors ${
-                  selectedArticle?.id === article.id
-                    ? "bg-blue-100 border-l-4 border-blue-600"
-                    : article.read
-                      ? "bg-gray-50 hover:bg-gray-100"
-                      : "bg-white hover:bg-gray-100 border-l-4 border-blue-500 shadow-sm"
-                }`}
-              >
-                <div className="flex items-start gap-2">
-                  <h3 className="font-medium text-sm line-clamp-2 mb-1 flex-1">
-                    {article.title}
-                  </h3>
-                  {article.card_id && (
-                    <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <title>Converted to card</title>
-                      <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
-                    </svg>
-                  )}
+            {articles.map((article) => {
+              const articleWithScore = article as RSSArticleWithScore;
+              const hasSmartScore = 'smart_score' in article && articleWithScore.smart_score;
+              return (
+                <div
+                  key={article.id}
+                  onClick={() => onArticleClick(article)}
+                  className={`p-3 rounded-md cursor-pointer transition-colors ${
+                    selectedArticle?.id === article.id
+                      ? "bg-blue-100 border-l-4 border-blue-600"
+                      : article.read
+                        ? "bg-gray-50 hover:bg-gray-100"
+                        : "bg-white hover:bg-gray-100 border-l-4 border-blue-500 shadow-sm"
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    <h3 className="font-medium text-sm line-clamp-2 mb-1 flex-1">
+                      {article.title}
+                    </h3>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {hasSmartScore && articleWithScore.smart_score && (
+                        <div className="flex items-center gap-1" title={articleWithScore.smart_score.reason}>
+                          <span className="text-xs font-medium text-amber-600">
+                            {articleWithScore.smart_score.score.toFixed(1)}
+                          </span>
+                          <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                          </svg>
+                        </div>
+                      )}
+                      {article.card_id && (
+                        <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                          <title>Converted to card</title>
+                          <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {getFeedName(article.feed_id)} • {new Date(article.fetched_at).toLocaleDateString()}
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500">
-                  {getFeedName(article.feed_id)} • {new Date(article.fetched_at).toLocaleDateString()}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Pagination */}
