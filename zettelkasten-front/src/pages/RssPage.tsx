@@ -63,6 +63,8 @@ export function RssPage() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showFeedMenuId, setShowFeedMenuId] = useState<number | null>(null);
+  const [extraArticles, setExtraArticles] = useState<RSSArticleWithScore[]>([]);
+  const [fetchingExtra, setFetchingExtra] = useState(false);
 
   // Articles hook - use smart feed hook when smart feed is active, regular hook otherwise
   // Smart feed uses no filters, regular feed uses folder/feed/unread filters
@@ -85,13 +87,71 @@ export function RssPage() {
   // Use either regular or smart articles based on mode
   const rawArticles = isSmartFeedActive ? smartArticles.articles : regularArticles.articles;
 
-  // Apply frontend unread filter for smart feed (smart feed returns all articles regardless of read status)
-  const articles = useMemo(() => {
-    if (isSmartFeedActive && showUnreadOnly) {
-      return rawArticles.filter((a) => !a.read);
+  // Fetch extra articles from next page for reflow (smart feed only)
+  const fetchExtraArticles = useCallback(async () => {
+    if (!isSmartFeedActive || fetchingExtra || !smartArticles.hasMore) {
+      return;
     }
-    return rawArticles;
-  }, [isSmartFeedActive, showUnreadOnly, rawArticles]);
+    setFetchingExtra(true);
+    try {
+      const { getSmartRSSArticles } = await import("../api/rss");
+      const response = await getSmartRSSArticles({
+        limit: RSS_CONFIG.ARTICLES_PER_PAGE,
+        offset: smartArticles.currentPage * RSS_CONFIG.ARTICLES_PER_PAGE,
+      });
+      if (response?.articles) {
+        setExtraArticles((prev) => [...prev, ...response.articles]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch extra articles:", error);
+    } finally {
+      setFetchingExtra(false);
+    }
+  }, [isSmartFeedActive, fetchingExtra, smartArticles.hasMore, smartArticles.currentPage]);
+
+  // Apply frontend unread filter for smart feed (smart feed returns all articles regardless of read status)
+  // Include extra articles when reflowing to maintain page size
+  const articles = useMemo(() => {
+    let result: RSSArticleWithScore[] = rawArticles;
+
+    // For smart feed with unread filter, combine raw + extra articles, then filter
+    if (isSmartFeedActive && showUnreadOnly) {
+      const combined = [...rawArticles, ...extraArticles];
+      const unread = combined.filter((a) => !a.read);
+      // Only take up to page size to avoid showing too many items
+      result = unread.slice(0, RSS_CONFIG.ARTICLES_PER_PAGE);
+    }
+
+    return result;
+  }, [isSmartFeedActive, showUnreadOnly, rawArticles, extraArticles]);
+
+  // Reset extra articles when filters or smart feed mode changes
+  useEffect(() => {
+    setExtraArticles([]);
+  }, [selectedFolder, selectedFeedId, isSmartFeedActive]);
+
+  // Refill articles when we need more (smart feed + unread mode)
+  useEffect(() => {
+    // Only reflow in smart feed with unread filter
+    if (!isSmartFeedActive || !showUnreadOnly) {
+      return;
+    }
+
+    // Don't fetch if we're already fetching or don't have more articles
+    if (fetchingExtra || !smartArticles.hasMore) {
+      return;
+    }
+
+    // Count unread articles from both raw and extra
+    const unreadFromRaw = rawArticles.filter((a) => !a.read).length;
+    const unreadFromExtra = extraArticles.filter((a) => !a.read).length;
+    const totalUnread = unreadFromRaw + unreadFromExtra;
+
+    // If we have fewer than page size, fetch more articles
+    if (totalUnread < RSS_CONFIG.ARTICLES_PER_PAGE) {
+      fetchExtraArticles();
+    }
+  }, [isSmartFeedActive, showUnreadOnly, rawArticles, extraArticles, fetchingExtra, smartArticles.hasMore, fetchExtraArticles]);
 
   const totalArticles = isSmartFeedActive ? smartArticles.totalArticles : regularArticles.totalArticles;
   const loadingArticles = isSmartFeedActive ? smartArticles.loading : regularArticles.loading;
