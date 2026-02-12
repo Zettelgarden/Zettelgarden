@@ -3,6 +3,7 @@ package services
 import (
 	"testing"
 
+	"go-backend/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -54,5 +55,14 @@ func TestCalculateInteractionBonus(t *testing.T) {
 	t.Run("10+ conversions caps at 50 points", func(t *testing.T) {
 		bonus := calculateInteractionBonus(10)
 		assert.Equal(t, 50.0, bonus)
+	})
+}
+
+func TestGetPriorityFeeds(t *testing.T) {
+	// This would require DB setup, so we'll test the function structure
+	// For now, just ensure it compiles
+	t.Run("function exists", func(t *testing.T) {
+		// This is a compile-time check
+		var _ func(models.Database, int) (map[int]bool, error) = getPriorityFeeds
 	})
 }

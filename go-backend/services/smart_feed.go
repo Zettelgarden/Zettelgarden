@@ -91,3 +91,28 @@ func calculateInteractionBonuses(db models.Database, userID int) (map[int]float6
 
 	return bonuses, nil
 }
+
+// getPriorityFeeds returns a map of feed IDs that have priority=true
+func getPriorityFeeds(db models.Database, userID int) (map[int]bool, error) {
+	query := `SELECT id FROM rss_feeds WHERE user_id = $1 AND priority = TRUE`
+	rows, err := db.Query(query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get priority feeds: %w", err)
+	}
+	defer rows.Close()
+
+	priorityFeeds := make(map[int]bool)
+	for rows.Next() {
+		var feedID int
+		if err := rows.Scan(&feedID); err != nil {
+			return nil, fmt.Errorf("failed to scan priority feed: %w", err)
+		}
+		priorityFeeds[feedID] = true
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating priority feeds: %w", err)
+	}
+
+	return priorityFeeds, nil
+}
