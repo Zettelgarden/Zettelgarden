@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Card, PartialCard, Entity } from "../../models/Card";
+import { Card, PartialCard, Entity, RelatedCard } from "../../models/Card";
 import { isErrorResponse } from "../../models/common";
 import { TaskListItem } from "../../components/tasks/TaskListItem";
 import { useTaskContext } from "../../contexts/TaskContext";
@@ -9,7 +9,7 @@ import { useParams, useNavigate } from "react-router-dom";
 
 import { CardItem } from "../../components/cards/CardItem";
 import { BacklinkInput } from "../../components/cards/BacklinkInput";
-import { getCard, CategorizedReferences } from "../../api/cards";
+import { getCard, CategorizedReferences, getRelatedCards } from "../../api/cards";
 import { Menu } from "@headlessui/react";
 
 import { convertCardToPartialCard } from "../../utils/cards";
@@ -44,6 +44,7 @@ interface ViewPageContainerData {
   summaries: SummarizeJobResponse[] | null;
   latestSummary: SummarizeJobResponse | null;
   analysis: SectionAnalysis[] | null;
+  relatedCards: RelatedCard[] | null;
   showingSummary: boolean;
   showingAnalysis: boolean;
   showIdDiscovery: boolean;
@@ -108,7 +109,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   const [showingSummary, setShowingSummary] = useState(false);
   const [showingAnalysis, setShowingAnalysis] = useState(false);
   const [showIdDiscovery, setShowIdDiscovery] = useState(false);
-
+  const [relatedCards, setRelatedCards] = useState<RelatedCard[] | null>(null);
 
   const navigate = useNavigate();
 
@@ -235,6 +236,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
     // Reset view states when card changes
     setShowingSummary(false);
     setShowingAnalysis(false);
+    setRelatedCards(null);
   }, [id]);
 
   useEffect(() => {
@@ -244,6 +246,14 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
     }
   }, [refreshTrigger, id, cardData]);
 
+  useEffect(() => {
+    // Fetch related cards when viewingCard loads and relatedCards is null
+    if (cardData.viewingCard && relatedCards === null) {
+      getRelatedCards(cardData.viewingCard.id.toString())
+        .then(setRelatedCards)
+        .catch(err => console.error("Failed to fetch related cards:", err));
+    }
+  }, [cardData.viewingCard]);
 
   // Return data, setters, and actions
   return {
@@ -257,6 +267,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
       summaries: cardData.summaries,
       latestSummary: cardData.latestSummary,
       analysis: cardData.analysis,
+      relatedCards,
       showingSummary,
       showingAnalysis,
       showIdDiscovery,
