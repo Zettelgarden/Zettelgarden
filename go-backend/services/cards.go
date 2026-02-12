@@ -1445,6 +1445,9 @@ func GetCardsBySharedTags(db models.Database, userID int, sourceCardID int) (map
 		}
 		tagIDs = append(tagIDs, tagID)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating tag rows: %w", err)
+	}
 
 	if len(tagIDs) == 0 {
 		return make(map[int]int), nil
@@ -1470,6 +1473,7 @@ func GetCardsBySharedTags(db models.Database, userID int, sourceCardID int) (map
 	}
 	defer rows.Close()
 
+	const sharedTagScoreWeight = 1
 	scores := make(map[int]int)
 	for rows.Next() {
 		var cardID, sharedCount int
@@ -1477,7 +1481,10 @@ func GetCardsBySharedTags(db models.Database, userID int, sourceCardID int) (map
 			return nil, fmt.Errorf("failed to scan shared tag card: %w", err)
 		}
 		// Each shared tag adds 1 point
-		scores[cardID] = sharedCount * 1
+		scores[cardID] = sharedCount * sharedTagScoreWeight
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating shared tag rows: %w", err)
 	}
 
 	return scores, nil
