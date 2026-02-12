@@ -34,3 +34,25 @@ func TestCalculateFeedVolumeScores(t *testing.T) {
 		assert.Equal(t, 0.0, score)
 	})
 }
+
+func TestCalculateInteractionBonus(t *testing.T) {
+	t.Run("zero conversions gets zero bonus", func(t *testing.T) {
+		bonus := calculateInteractionBonus(0)
+		assert.Equal(t, 0.0, bonus)
+	})
+
+	t.Run("1 conversion gets 10 points", func(t *testing.T) {
+		bonus := calculateInteractionBonus(1)
+		assert.Equal(t, 10.0, bonus)
+	})
+
+	t.Run("5 conversions gets 50 points (max)", func(t *testing.T) {
+		bonus := calculateInteractionBonus(5)
+		assert.Equal(t, 50.0, bonus)
+	})
+
+	t.Run("10+ conversions caps at 50 points", func(t *testing.T) {
+		bonus := calculateInteractionBonus(10)
+		assert.Equal(t, 50.0, bonus)
+	})
+}
