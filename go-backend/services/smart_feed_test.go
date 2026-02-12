@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	_ "github.com/lib/pq"
 )
 
 func TestCalculateFeedVolumeScores(t *testing.T) {
