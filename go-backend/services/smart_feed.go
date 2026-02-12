@@ -116,3 +116,30 @@ func getPriorityFeeds(db models.Database, userID int) (map[int]bool, error) {
 
 	return priorityFeeds, nil
 }
+
+// generateScoreReason creates a human-readable explanation for the score
+func generateScoreReason(volumeScore, interactionBonus float64, isPriority bool, dailyAvg float64) string {
+	reasons := []string{}
+
+	if isPriority {
+		reasons = append(reasons, "Priority feed")
+	}
+
+	if volumeScore >= 80 {
+		reasons = append(reasons, fmt.Sprintf("Low-volume feed (~%.1f article/day)", dailyAvg))
+	} else if volumeScore >= 50 {
+		reasons = append(reasons, fmt.Sprintf("Medium-volume feed (~%.1f articles/day)", dailyAvg))
+	} else if volumeScore > 0 {
+		reasons = append(reasons, fmt.Sprintf("High-volume feed (~%.1f articles/day)", dailyAvg))
+	}
+
+	if interactionBonus > 0 {
+		reasons = append(reasons, fmt.Sprintf("You convert %.0f%% of articles", interactionBonus/5))
+	}
+
+	if len(reasons) == 0 {
+		return "New feed"
+	}
+
+	return reasons[0]
+}
