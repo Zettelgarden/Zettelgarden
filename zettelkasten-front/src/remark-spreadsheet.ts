@@ -6,15 +6,15 @@ export default function remarkSpreadsheet() {
     visit(tree, "text", (node: any, index: number | undefined, parent: any) => {
       if (!parent || typeof node.value !== "string" || index === undefined) return;
 
-      // Match {{spreadsheet:name}} or {{spreadsheet}} syntax
-      const regex = /\{\{spreadsheet(?::([^}\s]+))?\}\}/gi;
+      // Match {{spreadsheet:123}} or {{spreadsheet}} syntax (numeric ID)
+      const regex = /\{\{spreadsheet(?::(\d+))?\}\}/gi;
       let match;
       const newNodes: any[] = [];
       let lastIndex = 0;
 
       while ((match = regex.exec(node.value)) !== null) {
-        const [fullMatch, name] = match;
-        const spreadsheetName = name || "sheet1";
+        const [fullMatch, id] = match;
+        const spreadsheetId = id || "";
 
         // Push text before match
         if (match.index > lastIndex) {
@@ -28,11 +28,11 @@ export default function remarkSpreadsheet() {
         newNodes.push({
           type: "spreadsheet",
           data: {
-            name: spreadsheetName,
+            id: spreadsheetId,
             hName: "div",
             hProperties: {
               className: "spreadsheet-container",
-              "data-spreadsheet-name": spreadsheetName
+              "data-spreadsheet-id": spreadsheetId
             }
           },
           children: [],

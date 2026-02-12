@@ -5,27 +5,30 @@ import remarkSpreadsheet from './remark-spreadsheet';
 import { visit } from 'unist-util-visit';
 
 describe('remark-spreadsheet', () => {
-  it('parses {{spreadsheet:name}} syntax', () => {
+  it('parses {{spreadsheet:123}} syntax with numeric ID', () => {
     const processor = unified()
       .use(remarkParse)
       .use(remarkSpreadsheet);
 
-    const tree = processor.parse('Check out {{spreadsheet:budget}} for details');
+    const tree = processor.parse('Check out {{spreadsheet:123}} for details');
     processor.runSync(tree);
 
     let foundSpreadsheet = false;
-    let spreadsheetName = '';
+    let spreadsheetId = '';
+    let dataSpreadsheetId = '';
 
     visit(tree, 'spreadsheet', (node: any) => {
       foundSpreadsheet = true;
-      spreadsheetName = node.data?.name || '';
+      spreadsheetId = node.data?.id || '';
+      dataSpreadsheetId = node.data?.hProperties?.['data-spreadsheet-id'] || '';
     });
 
     expect(foundSpreadsheet).toBe(true);
-    expect(spreadsheetName).toBe('budget');
+    expect(spreadsheetId).toBe('123');
+    expect(dataSpreadsheetId).toBe('123');
   });
 
-  it('handles default name without colon', () => {
+  it('handles empty string for syntax without colon (legacy support)', () => {
     const processor = unified()
       .use(remarkParse)
       .use(remarkSpreadsheet);
@@ -34,33 +37,53 @@ describe('remark-spreadsheet', () => {
     processor.runSync(tree);
 
     let foundSpreadsheet = false;
-    let spreadsheetName = '';
+    let spreadsheetId = '';
+    let dataSpreadsheetId = '';
 
     visit(tree, 'spreadsheet', (node: any) => {
       foundSpreadsheet = true;
-      spreadsheetName = node.data?.name || '';
+      spreadsheetId = node.data?.id || '';
+      dataSpreadsheetId = node.data?.hProperties?.['data-spreadsheet-id'] || '';
     });
 
     expect(foundSpreadsheet).toBe(true);
-    expect(spreadsheetName).toBe('sheet1'); // Default name
+    expect(spreadsheetId).toBe(''); // Empty string for legacy support
+    expect(dataSpreadsheetId).toBe('');
   });
 
-  it('parses multiple spreadsheets', () => {
+  it('parses multiple spreadsheets with numeric IDs', () => {
     const processor = unified()
       .use(remarkParse)
       .use(remarkSpreadsheet);
 
-    const tree = processor.parse('{{spreadsheet:sales}} and {{spreadsheet:expenses}}');
+    const tree = processor.parse('{{spreadsheet:456}} and {{spreadsheet:789}}');
     processor.runSync(tree);
 
-    const spreadsheetNames: string[] = [];
+    const spreadsheetIds: string[] = [];
 
     visit(tree, 'spreadsheet', (node: any) => {
-      spreadsheetNames.push(node.data?.name || '');
+      spreadsheetIds.push(node.data?.id || '');
     });
 
-    expect(spreadsheetNames).toHaveLength(2);
-    expect(spreadsheetNames).toContain('sales');
-    expect(spreadsheetNames).toContain('expenses');
+    expect(spreadsheetIds).toHaveLength(2);
+    expect(spreadsheetIds).toContain('456');
+    expect(spreadsheetIds).toContain('789');
+  });
+
+  it('does not match non-numeric values after colon', () => {
+    const processor = unified()
+      .use(remarkParse)
+      .use(remarkSpreadsheet);
+
+    const tree = processor.parse('{{spreadsheet:budget}} should not match');
+    processor.runSync(tree);
+
+    let foundSpreadsheet = false;
+
+    visit(tree, 'spreadsheet', (node: any) => {
+      foundSpreadsheet = true;
+    });
+
+    expect(foundSpreadsheet).toBe(false);
   });
 });
