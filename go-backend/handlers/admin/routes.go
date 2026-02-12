@@ -109,4 +109,12 @@ func RegisterAllAdminRoutes(r *mux.Router, h *handlers.Handler, scheduler handle
 					h.UpdateLastSeenMiddleware(
 						handlers.LogRoute(handlers.GetSchedulerHealth(scheduler)))))).Methods("GET")
 	}
+
+	// Data migration routes (admin-only)
+	// These routes allow admins to perform one-time data migrations
+	adminAPI.HandleFunc("/migrate-spreadsheets",
+		h.APIKeyOrJWTMiddleware(
+			h.AdminMiddleware(
+				h.UpdateLastSeenMiddleware(
+					handlers.LogRoute(h.MigrateCardSpreadsheets))))).Methods("POST")
 }
