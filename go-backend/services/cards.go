@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/typesense/typesense-go/typesense"
 	"github.com/typesense/typesense-go/typesense/api"
 	"github.com/typesense/typesense-go/typesense/api/pointer"
@@ -1355,4 +1356,64 @@ func RestoreCardToAuditEvent(db models.Database, userID int, cardPK int, auditEv
 	}
 
 	return restoredCard, nil
+}
+
+// GetCardsBySharedEntities finds cards that share entities with the source card
+// Returns a map of cardID to score (higher = more shared entities)
+func GetCardsBySharedEntities(db models.Database, userID int, sourceCardID int) (map[int]int, error) {
+	// First, get all entity IDs for the source card
+	entityQuery := `
+		SELECT DISTINCT entity_id
+		FROM entity_card_junction
+		WHERE card_pk = $1 AND user_id = $2
+	`
+
+	rows, err := db.Query(entityQuery, sourceCardID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get card entities: %w", err)
+	}
+	defer rows.Close()
+
+	var entityIDs []int
+	for rows.Next() {
+		var entityID int
+		if err := rows.Scan(&entityID); err != nil {
+			return nil, fmt.Errorf("failed to scan entity ID: %w", err)
+		}
+		entityIDs = append(entityIDs, entityID)
+	}
+
+	if len(entityIDs) == 0 {
+		return make(map[int]int), nil
+	}
+
+	// Now find all cards that share these entities
+	query := `
+		SELECT ecj.card_pk, COUNT(DISTINCT ecj.entity_id) as shared_count
+		FROM entity_card_junction ecj
+		JOIN cards c ON ecj.card_pk = c.id
+		WHERE ecj.entity_id = ANY($1)
+		  AND ecj.user_id = $2
+		  AND ecj.card_pk != $3
+		  AND c.is_deleted = FALSE
+		GROUP BY ecj.card_pk
+	`
+
+	rows, err = db.Query(query, pq.Array(entityIDs), userID, sourceCardID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find shared entity cards: %w", err)
+	}
+	defer rows.Close()
+
+	scores := make(map[int]int)
+	for rows.Next() {
+		var cardID, sharedCount int
+		if err := rows.Scan(&cardID, &sharedCount); err != nil {
+			return nil, fmt.Errorf("failed to scan shared entity card: %w", err)
+		}
+		// Each shared entity adds 3 points
+		scores[cardID] = sharedCount * 3
+	}
+
+	return scores, nil
 }
