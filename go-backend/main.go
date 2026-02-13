@@ -116,6 +116,10 @@ func run() error {
 	// Initialize ChatService for AI/agent operations
 	log.Printf("Initializing ChatService")
 	h.ChatService = chat_agent.NewChatService(s.DB, s)
+	if h.ChatService == nil {
+		log.Fatal("ERROR: Failed to initialize ChatService")
+	}
+	log.Printf("ChatService initialized successfully")
 
 	// Initialize job rate limiter
 	log.Printf("Initializing job rate limiter (max_per_user=%d, max_global=%d)",
