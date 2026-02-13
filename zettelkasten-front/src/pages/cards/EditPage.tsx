@@ -8,6 +8,7 @@ import { editFile } from "../../api/files";
 import { getTemplates } from "../../api/templates";
 import { FileListItem } from "../../components/files/FileListItem";
 import { BacklinkDialog } from "../../components/cards/BacklinkDialog";
+import { CardIdDiscoveryDialog } from "../../components/cards/CardIdDiscoveryDialog";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, PartialCard, defaultCard, CardTemplate } from "../../models/Card";
 import { File } from "../../models/File";
@@ -71,6 +72,8 @@ function EditPageContent({ newCard }: EditPageProps) {
     setTemplates,
     setLoadingTemplates,
     setTemplateError,
+    showCardIdDiscovery,
+    setShowCardIdDiscovery,
   } = useEditorUIContext();
   const { message, setMessage, error, setError } = useEditorMessagesContext();
 
@@ -404,7 +407,7 @@ function EditPageContent({ newCard }: EditPageProps) {
                   originalCard={originalCard}
                   editingCard={editingCard}
                   setEditingCard={setEditingCard}
-                  setShowCardIdDiscovery={() => {}}
+                  setShowCardIdDiscovery={setShowCardIdDiscovery}
                   handleClickFillCard={handleClickFillCard}
                   tags={tags}
                   handleTagClick={handleTagClick}
@@ -430,6 +433,16 @@ function EditPageContent({ newCard }: EditPageProps) {
           )}
         </div>
       </div>
+
+      {showCardIdDiscovery && (
+        <CardIdDiscoveryDialog
+          onClose={() => setShowCardIdDiscovery(false)}
+          onSelectId={(cardId) => {
+            setEditingCard({ ...editingCard, card_id: cardId });
+            setShowCardIdDiscovery(false);
+          }}
+        />
+      )}
 
     </div >
   );
