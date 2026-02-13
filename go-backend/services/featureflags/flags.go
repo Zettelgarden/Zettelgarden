@@ -30,14 +30,10 @@ const (
 	FeatureFlagEntityTools = "entity_tools_v2"
 	// FeatureFlagCardTools enables the new card_tools domain package
 	FeatureFlagCardTools = "card_tools_v2"
-	// FeatureFlagChatAgentV2 enables the refactored ChatService for chat operations
-	FeatureFlagChatAgentV2 = "chat_agent_v2"
 )
 
 // defaultEnabledFlags are flags that are enabled by default
-var defaultEnabledFlags = map[string]bool{
-	FeatureFlagChatAgentV2: true, // New chat agent is now the default
-}
+var defaultEnabledFlags = map[string]bool{}
 
 // IsEnabled checks if a feature flag is enabled via environment variable.
 // The environment variable format is: ZETTELGARDEN_FEATURE_{FLAG_NAME}
@@ -46,8 +42,6 @@ var defaultEnabledFlags = map[string]bool{
 //   ZETTELGARDEN_FEATURE_MEMORY_TOOLS_V2=true
 //
 // Flags can be explicitly disabled by setting them to "false", "0", or "no".
-// Default-enabled flags can be disabled with:
-//   ZETTELGARDEN_FEATURE_CHAT_AGENT_V2=false
 func IsEnabled(flag string) bool {
 	envVar := "ZETTELGARDEN_FEATURE_" + strings.ToUpper(flag)
 	val := os.Getenv(envVar)
