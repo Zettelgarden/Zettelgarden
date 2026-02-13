@@ -130,8 +130,20 @@ func TestMigrateCardSpreadsheets_DeletedCard(t *testing.T) {
 	_, err = s.GetDB().Exec("UPDATE cards SET is_deleted = true WHERE id = $1", card.ID)
 	require.NoError(t, err, "Failed to mark card as deleted")
 
+	// Re-fetch the card to get the updated is_deleted status (including deleted cards)
+	var title string
+	var body string
+	var isDeleted bool
+	err = s.GetDB().QueryRow("SELECT title, body, is_deleted FROM cards WHERE id = $1", card.ID).Scan(&title, &body, &isDeleted)
+	require.NoError(t, err, "Failed to re-fetch card")
+
+	updatedCard := card
+	updatedCard.Title = title
+	updatedCard.Body = body
+	updatedCard.IsDeleted = isDeleted
+
 	// Run migration - deleted cards should be skipped
-	migrated, errors := s.migrateCardSpreadsheets(card)
+	migrated, errors := s.migrateCardSpreadsheets(updatedCard)
 
 	assert.Equal(t, 0, migrated, "Expected 0 spreadsheets migrated (deleted card)")
 	assert.Empty(t, errors, "Expected no errors for deleted card")

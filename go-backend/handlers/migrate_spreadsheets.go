@@ -208,12 +208,15 @@ func (s *Handler) migrateCardSpreadsheets(card models.Card) (int, []MigrationErr
 
 	log.Printf("Found %d spreadsheet blocks in card %d (%s)", len(matches), card.ID, card.Title)
 
-	// Process matches in reverse order to maintain string positions during replacement
+	// Process matches in forward order, adjusting positions after each replacement
 	newBody := card.Body
-	replacementOffset := 0
+	currentOffset := 0
 
-	for i := len(matches) - 1; i >= 0; i-- {
-		match := matches[i]
+	for _, match := range matches {
+		// Calculate actual positions in the current newBody
+		startPos := match[0] + currentOffset
+		endPos := match[1] + currentOffset
+
 		name := card.Body[match[2]:match[3]]
 		jsonData := card.Body[match[4]:match[5]]
 
@@ -254,15 +257,11 @@ func (s *Handler) migrateCardSpreadsheets(card models.Card) (int, []MigrationErr
 		// Create the replacement string: {{spreadsheet:ID}}
 		replacement := fmt.Sprintf("{{spreadsheet:%d}}", spreadsheet.ID)
 
-		// Calculate the new position considering previous replacements
-		adjustedStart := match[0] + replacementOffset
-		adjustedEnd := match[1] + replacementOffset
-
 		// Replace the block with the reference
-		newBody = newBody[:adjustedStart] + replacement + newBody[adjustedEnd:]
+		newBody = newBody[:startPos] + replacement + newBody[endPos:]
 
-		// Update the offset for the next replacement
-		replacementOffset += len(replacement) - (match[1] - match[0])
+		// Update offset for subsequent matches
+		currentOffset += len(replacement) - (match[1] - match[0])
 
 		migratedCount++
 	}
