@@ -19,8 +19,12 @@ export function RelatedCards({ relatedCards, onCardClick }: RelatedCardsProps) {
       <ul className="mt-2 space-y-1">
         {relatedCards.map((rc) => (
           <li key={rc.card.id} onClick={() => onCardClick(rc.card.id)} className="cursor-pointer">
-            <CardItem card={rc.card} />
-            {rc.score > 0 && <span className="text-xs text-gray-400 ml-2">{rc.score.toFixed(1)}</span>}
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <CardItem card={rc.card} />
+              </div>
+              {rc.score > 0 && <span className="text-xs text-gray-400 ml-2 shrink-0">{rc.score.toFixed(1)}</span>}
+            </div>
           </li>
         ))}
       </ul>

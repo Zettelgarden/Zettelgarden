@@ -1378,6 +1378,14 @@ func (s *Handler) GetRelatedCardsRoute(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Get references and exclude them
+	references, err := services.GetReferences(s.GetDB(), userID, card)
+	if err == nil {
+		for _, ref := range references {
+			excludeIDs[ref.ID] = true // Exclude references
+		}
+	}
+
 	// Build results, excluding specified cards
 	var relatedCards []models.RelatedCard
 	for relatedCardID, score := range combinedScores {
