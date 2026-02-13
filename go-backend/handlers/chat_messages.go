@@ -222,7 +222,7 @@ func (s *Handler) StreamMessageRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("[ChatAgent] Using ChatService for streaming")
-	err := s.ChatService.StreamAssistantResponse(
+	err = s.ChatService.StreamAssistantResponse(
 		r.Context(),
 		w,
 		userID,
@@ -335,8 +335,21 @@ func (s *Handler) SendMessageRoute(w http.ResponseWriter, r *http.Request) {
 	// Update usage quota
 	s.IncrementChatUsageQuota(userID, "messages_per_day")
 
-	// Start async processing
-	go s.ProcessAssistantResponse(userID, conversation, assistantMessage.ID, req.Model)
+	// Start async processing using ChatService
+	if s.ChatService == nil {
+		log.Printf("[ChatAgent] ERROR: ChatService is nil!")
+		http.Error(w, "Chat service not available", http.StatusInternalServerError)
+		return
+	}
+	go s.ChatService.ProcessAssistantResponse(
+		context.Background(),
+		userID,
+		conversation,
+		assistantMessage.ID,
+		req.Model,
+		s.GetConversationMessages,
+		s.UpdateMessageStatus,
+	)
 
 	// Return both messages immediately
 	response := []models.ChatMessage{*userMessage, *assistantMessage}
@@ -422,8 +435,21 @@ func (s *Handler) RegenerateMessageRoute(w http.ResponseWriter, r *http.Request)
 	// Update usage quota
 	s.IncrementChatUsageQuota(userID, "messages_per_day")
 
-	// Start async regeneration process
-	go s.ProcessAssistantResponse(userID, conversation, messageID, nil)
+	// Start async regeneration process using ChatService
+	if s.ChatService == nil {
+		log.Printf("[ChatAgent] ERROR: ChatService is nil!")
+		http.Error(w, "Chat service not available", http.StatusInternalServerError)
+		return
+	}
+	go s.ChatService.ProcessAssistantResponse(
+		context.Background(),
+		userID,
+		conversation,
+		messageID,
+		nil,
+		s.GetConversationMessages,
+		s.UpdateMessageStatus,
+	)
 
 	// Return the updated message
 	updatedMessage, err := s.GetChatMessage(messageID)

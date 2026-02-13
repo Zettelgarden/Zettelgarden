@@ -237,8 +237,21 @@ func (b *Bot) getOrCreateConversation() (*models.ChatConversation, error) {
 
 // processAssistantResponse processes the assistant response asynchronously
 func (b *Bot) processAssistantResponse(ctx context.Context, chatID int64, conversation *models.ChatConversation, messageID string) {
-	// Process using existing handler logic
-	b.handler.ProcessAssistantResponse(b.userID, conversation, messageID, nil)
+	// Process using ChatService
+	if b.handler.ChatService == nil {
+		log.Printf("[telegram] ERROR: ChatService is nil!")
+		b.sendMessage(ctx, chatID, "Error: Chat service not available.")
+		return
+	}
+	b.handler.ChatService.ProcessAssistantResponse(
+		ctx,
+		b.userID,
+		conversation,
+		messageID,
+		nil,
+		b.handler.GetConversationMessages,
+		b.handler.UpdateMessageStatus,
+	)
 
 	// Wait for processing to complete, then send response
 	// Poll for message completion

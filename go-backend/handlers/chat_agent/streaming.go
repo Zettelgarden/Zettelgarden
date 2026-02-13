@@ -181,6 +181,45 @@ func convertAndBroadcastToolCalls(toolCalls []openai.ToolCall, sendEvent StreamE
 	return convertedToolCalls
 }
 
+// ProcessAssistantResponse handles the async (non-streaming) processing of the assistant response.
+// This is used by SendMessageRoute and RegenerateMessageRoute when SSE streaming is not used.
+func (s *ChatService) ProcessAssistantResponse(
+	ctx context.Context,
+	userID int,
+	conversation *models.ChatConversation,
+	assistantMessageID string,
+	modelOverride *string,
+	getMessagesFn GetConversationMessagesFunc,
+	updateMessageStatusFn func(string, string) error,
+) error {
+	// Determine which model to use
+	modelToUse := determineModel(conversation.Model, modelOverride)
+
+	// Update status to processing
+	if err := updateMessageStatusFn(assistantMessageID, "processing"); err != nil {
+		log.Printf("Error updating message status to processing: %v", err)
+		return err
+	}
+
+	// Get conversation history
+	messages, err := getMessagesFn(conversation.ID)
+	if err != nil {
+		log.Printf("Error getting conversation history: %v", err)
+		updateMessageStatusFn(assistantMessageID, "failed")
+		return err
+	}
+
+	// Generate response without streaming
+	err = s.processChatResponse(ctx, userID, conversation, messages, modelToUse, assistantMessageID, getMessagesFn)
+	if err != nil {
+		log.Printf("Error generating chat response: %v", err)
+		updateMessageStatusFn(assistantMessageID, "failed")
+		return err
+	}
+
+	return nil
+}
+
 // streamChatResponse generates a chat response with streaming and tool support
 func (s *ChatService) streamChatResponse(
 	ctx context.Context,
@@ -331,6 +370,192 @@ func (s *ChatService) streamChatResponse(
 
 		// Convert updated messages to OpenAI format and continue loop
 		converter := services.NewMessageConverter()
+		openaiMessages = converter.ToOpenAI(updatedMessages, systemPrompt)
+		// Loop continues to get LLM's final response with tool results
+	}
+
+	// If we exited due to hitting absolute max, provide an error message
+	if totalIterations >= absoluteMaxLoops {
+		errorMsg := "I'm having trouble completing this task due to a technical issue. The conversation has become too complex. Please try starting a new conversation or simplifying your request."
+		return s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, &models.ChatMessage{
+			ID:      assistantMessageID,
+			Content: &errorMsg,
+		})
+	}
+
+	return nil
+}
+
+// processChatResponse generates a chat response without streaming (async processing)
+func (s *ChatService) processChatResponse(
+	ctx context.Context,
+	userID int,
+	conversation *models.ChatConversation,
+	messages []models.ChatMessage,
+	model string,
+	assistantMessageID string,
+	getMessagesFn GetConversationMessagesFunc,
+) error {
+	// buildSystemPrompt will be called with appropriate callbacks
+	systemPrompt, err := s.buildSystemPrompt(userID, conversation, nil, nil)
+	if err != nil {
+		return err
+	}
+
+	converter := services.NewMessageConverter()
+	openaiMessages := converter.ToOpenAI(messages, systemPrompt)
+
+	// Check if compaction is needed and perform it proactively
+	openaiMessages, err = s.compactConversationIfNeeded(ctx, userID, openaiMessages, model)
+	if err != nil {
+		log.Printf("Error during compaction: %v", err)
+		// Continue anyway - compaction is an optimization, not required
+	}
+
+	// Create LLM client
+	isTesting := s.Server != nil && s.Server.Testing
+	client := services.NewDefaultClient(s.DB, userID, isTesting)
+	client.Model = model
+	client.RequestType = "chat"
+
+	// Get tools registry
+	tools := s.getToolRegistry().GetToolDefinitions()
+
+	// Initialize loop detector for this conversation
+	loopDetector := services.NewLoopDetector()
+
+	// Track total iterations to prevent infinite loops
+	totalIterations := 0
+
+	// Loop until no more tool calls are needed
+	for totalIterations < absoluteMaxLoops {
+		totalIterations++
+		// Check if loop detector has reached max iterations
+		if loopDetector.GetIteration() >= maxLoopIterations {
+			log.Printf("[LoopDetector] Max iterations reached for conversation %s", conversation.ID)
+			interventionMsg := loopDetector.GetInterventionMessage()
+			// Add intervention as a system message to break the loop
+			openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleSystem,
+				Content: interventionMsg,
+			})
+			// Clear the loop detector history after intervention
+			loopDetector.Reset()
+		}
+
+		// Make non-streaming request to LLM
+		response, err := services.ExecuteLLMToolRequest(ctx, client, openaiMessages, tools)
+		if err != nil {
+			userMsg := getUserFacingErrorMessage(err, "")
+			// Check for context length error specifically
+			if services.IsContextLengthError(err) {
+				finalMessage := &models.ChatMessage{
+					ID:      assistantMessageID,
+					Content: &userMsg,
+				}
+				updateErr := s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, finalMessage)
+				if updateErr != nil {
+					log.Printf("Error updating message with context length error: %v", updateErr)
+				}
+				return err
+			}
+			// For other errors, update message with user-friendly message
+			finalMessage := &models.ChatMessage{
+				ID:      assistantMessageID,
+				Content: &userMsg,
+			}
+			updateErr := s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, finalMessage)
+			if updateErr != nil {
+				log.Printf("Error updating message with error: %v", updateErr)
+			}
+			return err
+		}
+
+		if len(response.Choices) == 0 {
+			log.Printf("[EmptyResponse] LLM returned no choices")
+			errorMsg := "I'm having trouble connecting to my language model right now. It returned an empty response. Please try again in a moment."
+			finalMessage := &models.ChatMessage{
+				ID:      assistantMessageID,
+				Content: &errorMsg,
+			}
+			s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, finalMessage)
+			return fmt.Errorf("empty response from LLM")
+		}
+
+		choice := response.Choices[0]
+		currentContent := choice.Message.Content
+		currentToolCalls := choice.Message.ToolCalls
+
+		// Handle empty response
+		if strings.TrimSpace(currentContent) == "" && len(currentToolCalls) == 0 {
+			log.Printf("[EmptyResponse] LLM returned empty content for conversation %s", conversation.ID)
+			errorMsg := "I'm having trouble connecting to my language model right now. It returned an empty response. Please try again in a moment."
+			finalMessage := &models.ChatMessage{
+				ID:      assistantMessageID,
+				Content: &errorMsg,
+			}
+			s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, finalMessage)
+			return fmt.Errorf("empty response from LLM")
+		}
+
+		// If no tool calls, we're done
+		if len(currentToolCalls) == 0 {
+			if strings.TrimSpace(currentContent) == "" {
+				currentContent = "I apologize, but I wasn't able to generate a proper response."
+			}
+
+			finalMessage := &models.ChatMessage{
+				ID:      assistantMessageID,
+				Content: &currentContent,
+			}
+			return s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, finalMessage)
+		}
+
+		// Convert tool calls
+		var toolCalls []models.ChatToolCall
+		for _, tc := range currentToolCalls {
+			var args map[string]interface{}
+			json.Unmarshal([]byte(tc.Function.Arguments), &args)
+
+			toolCalls = append(toolCalls, models.ChatToolCall{
+				ID:   tc.ID,
+				Type: string(tc.Type),
+				Function: models.ChatToolCallFunction{
+					Name:      tc.Function.Name,
+					Arguments: args,
+				},
+			})
+		}
+
+		// Update message with tool calls
+		if err = s.updateAssistantMessageWithToolCalls(assistantMessageID, &currentContent, toolCalls); err != nil {
+			return err
+		}
+
+		// Execute tool calls
+		if err = s.executeAndSaveToolCalls(currentToolCalls, userID, conversation.ID, assistantMessageID, model, loopDetector); err != nil {
+			log.Printf("Error executing tool calls: %v", err)
+			return err
+		}
+
+		// Get updated messages including tool responses for next iteration
+		updatedMessages, err := getMessagesFn(conversation.ID)
+		if err != nil {
+			log.Printf("[ChatAgent] Error getting updated messages: %v", err)
+			return err
+		}
+
+		// Rebuild system prompt for next iteration
+		currentSystemPrompt, err := s.buildSystemPrompt(userID, conversation, nil, nil)
+		if err != nil {
+			log.Printf("[ChatAgent] Error rebuilding system prompt: %v", err)
+			// Continue with previous system prompt
+		} else {
+			systemPrompt = currentSystemPrompt
+		}
+
+		// Convert updated messages to OpenAI format and continue loop
+		converter = services.NewMessageConverter()
 		openaiMessages = converter.ToOpenAI(updatedMessages, systemPrompt)
 		// Loop continues to get LLM's final response with tool results
 	}
