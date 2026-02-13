@@ -4,6 +4,67 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom animations for chat page */
+@layer utilities {
+  /* Dialog fade in animation */
+  .animate-dialog-fade-in {
+    animation: dialogFadeIn 0.15s ease-out;
+  }
+
+  @keyframes dialogFadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Dialog slide up animation */
+  .animate-dialog-slide-up {
+    animation: dialogSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes dialogSlideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  /* Fade in animation */
+  .animate-fade-in {
+    animation: fadeIn 0.4s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Soft pulse animation for indicators */
+  .animate-pulse-soft {
+    animation: pulseSoft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulseSoft {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+}
+
 /* Ensure minimum 16px font size to prevent iOS auto-zoom on input focus */
 @layer base {
   html {

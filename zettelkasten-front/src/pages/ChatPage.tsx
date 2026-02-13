@@ -179,7 +179,7 @@ export function ChatPage({ }: ChatPageProps) {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex flex-col h-screen bg-gray-50">
       {/* Utility Bar */}
       <ChatUtilityBar
         hasLastCleared={!!chatHook.lastClearedSession}
@@ -201,21 +201,34 @@ export function ChatPage({ }: ChatPageProps) {
             placeholder="Ask about your cards... Type @ to mention a card, /clear to clear chat"
           />
         ) : (
-          <div className="flex-1 flex items-center justify-center bg-white">
-            <div className="text-center text-gray-500 max-w-md mx-auto p-8">
-              <div className="w-16 h-16 mx-auto mb-6 rounded-lg bg-gray-100 flex items-center justify-center">
-                <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center text-gray-600 max-w-lg mx-auto p-8 animate-fade-in">
+              {/* Animated icon container */}
+              <div className="w-20 h-20 mx-auto mb-8 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg">
+                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Welcome to Chat</h3>
-              <p className="text-gray-600 mb-6 leading-relaxed">Start typing to chat with your knowledge base.</p>
+              <h3 className="text-2xl font-semibold text-gray-900 mb-3">Welcome to Chat</h3>
+              <p className="text-gray-600 mb-8 leading-relaxed text-base">
+                Ask questions, explore your knowledge base, and discover connections between your cards.
+              </p>
               {!hasSubscription && (
-                <div className="text-center text-gray-500 mb-6 p-4 bg-gray-50 rounded-lg">
-                  AI Agents are a Pro feature.
-                  <br />
-                  <Link to="/app/subscribe" className="text-blue-500 hover:underline">
-                    Upgrade to Pro to unlock intelligent AI agents that can work with your knowledge base.
+                <div className="inline-flex flex-col items-center gap-2 p-5 bg-amber-50 border border-amber-200 rounded-2xl shadow-sm">
+                  <div className="flex items-center gap-2 text-amber-800 font-medium">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    <span>AI Chat is a Pro feature</span>
+                  </div>
+                  <Link
+                    to="/app/subscribe"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-xl transition-colors duration-200 shadow-md"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Upgrade to Pro
                   </Link>
                 </div>
               )}
@@ -226,15 +239,15 @@ export function ChatPage({ }: ChatPageProps) {
 
       {/* Unified Settings Dialog */}
       {showSettingsDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 p-4 animate-dialog-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-dialog-slide-up">
             {/* Header */}
-            <div className="p-6 border-b border-gray-200">
+            <div className="p-6 border-b border-gray-100 bg-blue-50">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900">Chat Settings</h2>
                   <p className="text-sm text-gray-600 mt-1">
-                    Customize your chat experience
+                    Customize your AI chat experience
                   </p>
                 </div>
                 <button
@@ -245,7 +258,7 @@ export function ChatPage({ }: ChatPageProps) {
                     }
                     setShowSettingsDialog(false);
                   }}
-                  className="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="text-gray-400 hover:text-gray-600 p-2.5 rounded-xl hover:bg-gray-100 transition-all duration-200 hover:scale-105"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -257,56 +270,92 @@ export function ChatPage({ }: ChatPageProps) {
             {/* Content */}
             <div className="flex-1 p-6 overflow-y-auto space-y-6">
               {/* Model Section */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Model</h3>
-                <select
-                  value={chatHook.selectedModel}
-                  onChange={(e) => handleModelChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {availableModels.map((model) => (
-                    <option key={model.value} value={model.value}>
-                      {model.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-2">
-                  This model will be used for all new chat conversations.
+              <div className="group">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-sm font-semibold text-gray-900">AI Model</h3>
+                </div>
+                <div className="relative">
+                  <select
+                    value={chatHook.selectedModel}
+                    onChange={(e) => handleModelChange(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-all duration-200 appearance-none cursor-pointer hover:border-gray-300"
+                  >
+                    {availableModels.map((model) => (
+                      <option key={model.value} value={model.value}>
+                        {model.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2.5 flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  This model will be used for all new chat conversations
                 </p>
               </div>
 
               {/* Instructions Section */}
-              <div>
+              <div className="group">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-900">Instructions</h3>
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-indigo-100 text-indigo-600">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-sm font-semibold text-gray-900">System Instructions</h3>
+                  </div>
                   {instructionsHasChanges && (
-                    <span className="text-xs text-amber-600 flex items-center gap-1">
-                      <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full animate-pulse-soft">
+                      <div className="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
                       Unsaved changes
                     </span>
                   )}
                 </div>
-                <textarea
-                  value={instructions}
-                  onChange={(e) => {
-                    setInstructions(e.target.value);
-                    setInstructionsHasChanges(true);
-                  }}
-                  placeholder="Enter custom instructions for the AI. These will be included with every chat message."
-                  className="w-full min-h-[120px] max-h-[40vh] sm:h-48 sm:max-h-none px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y text-sm"
-                  style={{ fontFamily: 'monospace' }}
-                  maxLength={10000}
-                />
-                <div className="mt-2 flex justify-between items-center">
-                  <span className={`text-xs ${instructions.length > 8000 ? 'text-red-600 font-medium' : instructions.length > 6000 ? 'text-amber-600' : 'text-gray-500'}`}>
-                    {instructions.length}/10000 characters
-                  </span>
+                <div className="relative">
+                  <textarea
+                    value={instructions}
+                    onChange={(e) => {
+                      setInstructions(e.target.value);
+                      setInstructionsHasChanges(true);
+                    }}
+                    placeholder="Enter custom instructions for the AI. These will be included with every chat message."
+                    className="w-full min-h-[140px] max-h-[40vh] sm:h-48 sm:max-h-none px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-y text-sm bg-white transition-all duration-200 hover:border-gray-300 font-mono leading-relaxed"
+                    maxLength={10000}
+                  />
+                  {/* Character count badge */}
+                  <div className={`absolute bottom-3 right-3 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    instructions.length > 8000
+                      ? 'bg-red-100 text-red-700'
+                      : instructions.length > 6000
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {instructions.length.toLocaleString()} / 10,000
+                  </div>
+                </div>
+                <div className="mt-2.5 flex items-center gap-2 text-xs text-gray-500">
+                  <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Custom instructions help the AI understand your preferences and context
                 </div>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t border-gray-200">
+            <div className="p-6 border-t border-gray-100 bg-gray-50/50">
               <div className="flex justify-between items-center">
                 <button
                   onClick={() => {
@@ -316,9 +365,9 @@ export function ChatPage({ }: ChatPageProps) {
                     }
                     setShowSettingsDialog(false);
                   }}
-                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                  className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-200/50 rounded-xl transition-all duration-200"
                 >
-                  Close
+                  Cancel
                 </button>
                 <div className="flex gap-3">
                   {instructionsHasChanges && (
@@ -327,7 +376,7 @@ export function ChatPage({ }: ChatPageProps) {
                         loadInstructions();
                         showToast("info", "Reset", "Instructions reset to saved value.");
                       }}
-                      className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg transition-colors"
+                      className="px-4 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 border-2 border-gray-300 hover:border-gray-400 rounded-xl transition-all duration-200"
                     >
                       Reset
                     </button>
@@ -335,7 +384,7 @@ export function ChatPage({ }: ChatPageProps) {
                   <button
                     onClick={handleSaveInstructions}
                     disabled={isSavingInstructions || !instructionsHasChanges}
-                    className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
                   >
                     {isSavingInstructions ? (
                       <>
@@ -347,7 +396,7 @@ export function ChatPage({ }: ChatPageProps) {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        <span>Save Instructions</span>
+                        <span>Save Changes</span>
                       </>
                     )}
                   </button>
@@ -360,42 +409,70 @@ export function ChatPage({ }: ChatPageProps) {
 
       {/* Clear Chat Confirmation Dialog */}
       {showClearConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex-shrink-0 w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 p-4 animate-dialog-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden animate-dialog-slide-up">
+            {/* Header */}
+            <div className="p-6 bg-amber-50 border-b border-amber-100">
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0 w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center shadow-lg">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Clear Chat?</h3>
+                  <p className="text-sm text-gray-600 mt-0.5">This action can be undone</p>
+                </div>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Clear Chat?</h3>
             </div>
-            <p className="text-gray-600 mb-6">
-              This will clear your current chat session and start a new one. You can restore it later using the "Restore Last" button.
-            </p>
-            <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <p className="text-sm text-gray-500">
-                Current session has <strong>{chatHook.messages.length} message{chatHook.messages.length !== 1 ? 's' : ''}</strong>.
-                {chatHook.messages.length > 0 && (
-                  <span className="block mt-2 text-xs text-gray-400">
-                    This will be archived and can be restored later.
-                  </span>
-                )}
+
+            <div className="p-6">
+              <p className="text-gray-600 mb-5 leading-relaxed">
+                This will clear your current chat session and start a new one. You can restore it later using the "Restore Last" button.
               </p>
-            </div>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowClearConfirm(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleClearConfirmed}
-                className="px-4 py-2 text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              >
-                Clear Chat
-              </button>
+
+              {/* Message count card */}
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-blue-700 uppercase tracking-wide">Current Session</p>
+                    <p className="text-2xl font-bold text-blue-900 mt-1">
+                      {chatHook.messages.length}
+                      <span className="text-lg font-normal text-blue-700 ml-1">
+                        message{chatHook.messages.length !== 1 ? 's' : ''}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </div>
+                </div>
+                {chatHook.messages.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-blue-200/50 flex items-center gap-2 text-xs text-blue-600">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    This will be archived and can be restored later
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowClearConfirm(false)}
+                  className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border-2 border-gray-300 hover:border-gray-400 rounded-xl transition-all duration-200 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleClearConfirmed}
+                  className="px-5 py-2.5 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-colors duration-200 shadow-lg"
+                >
+                  Clear Chat
+                </button>
+              </div>
             </div>
           </div>
         </div>

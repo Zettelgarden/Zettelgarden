@@ -211,28 +211,39 @@ export function ChatInput({
       {/* Card Selection Modal */}
       {showCardDropdown && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 animate-dialog-fade-in"
           onClick={() => setShowCardDropdown(false)}
         >
           <div
-            className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6"
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-dialog-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a Card</h3>
-              <p className="text-sm text-gray-600">Choose a card to reference in your message</p>
+            <div className="p-5 bg-blue-50 border-b border-blue-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-blue-100 text-blue-600">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Select a Card</h3>
+                  <p className="text-sm text-gray-600">Choose a card to reference in your message</p>
+                </div>
+              </div>
             </div>
-            <BacklinkInputDropdownList
-              onSelect={handleCardSelect}
-              onSearch={handleCardDropdownSearch}
-              placeholder="Search cards..."
-              className="w-full"
-              autoFocus={true}
-            />
-            <div className="mt-4 flex justify-end">
+            <div className="p-5">
+              <BacklinkInputDropdownList
+                onSelect={handleCardSelect}
+                onSearch={handleCardDropdownSearch}
+                placeholder="Search cards..."
+                className="w-full"
+                autoFocus={true}
+              />
+            </div>
+            <div className="p-5 pt-0 flex justify-end">
               <button
                 onClick={() => setShowCardDropdown(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition-all duration-200"
               >
                 Cancel
               </button>

@@ -68,9 +68,9 @@ const RelativeTime = ({ timestamp }: { timestamp: string }) => {
 const StreamingCursor = () => (
   <span className="inline-flex items-center ml-1">
     <span className="flex space-x-0.5">
-      <span className="w-1 h-1 bg-blue-500 rounded-full animate-[ping_1s_ease-in-out_infinite]"></span>
-      <span className="w-1 h-1 bg-blue-500 rounded-full animate-[ping_1s_ease-in-out_0.2s_infinite]"></span>
-      <span className="w-1 h-1 bg-blue-500 rounded-full animate-[ping_1s_ease-in-out_0.4s_infinite]"></span>
+      <span className="w-1 h-1 bg-blue-600 rounded-full animate-[ping_1s_cubic-bezier(0.4,0,0.6,1)_infinite]"></span>
+      <span className="w-1 h-1 bg-blue-600 rounded-full animate-[ping_1s_cubic-bezier(0.4,0,0.6,1)_0.15s_infinite]"></span>
+      <span className="w-1 h-1 bg-blue-600 rounded-full animate-[ping_1s_cubic-bezier(0.4,0,0.6,1)_0.3s_infinite]"></span>
     </span>
   </span>
 );
@@ -86,13 +86,13 @@ const StreamingCursor = () => (
 
 // Tool call loading indicator
 const ToolCallLoading = () => (
-  <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+  <div className="inline-flex items-center gap-2.5 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl shadow-sm">
     <div className="flex space-x-1">
       <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce"></div>
       <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
       <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
     </div>
-    <span className="text-sm text-amber-700 font-medium">Running tools...</span>
+    <span className="text-sm font-medium text-amber-700">Running tools...</span>
   </div>
 );
 
@@ -280,10 +280,10 @@ export function ChatInterface({
     switch (status) {
       case 'pending':
         return (
-          <div className="flex items-center gap-2 text-amber-600 text-sm font-medium">
+          <div className="flex items-center gap-2.5 text-amber-600 text-sm font-medium">
             <div className="relative flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500 shadow-sm"></span>
             </div>
             <span>Pending...</span>
           </div>
@@ -295,9 +295,9 @@ export function ChatInterface({
             <div className="flex items-center gap-3 text-blue-600 text-sm font-medium">
               <div className="flex items-center gap-2">
                 <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce shadow-sm"></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '0.15s' }}></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '0.3s' }}></div>
                 </div>
                 <span>Thinking</span>
               </div>
@@ -410,16 +410,16 @@ export function ChatInterface({
   };
 
   const getMessageStyle = (role: string) => {
-    const baseStyle = "shadow-sm border break-words transform transition-all duration-200 hover:shadow-md";
+    const baseStyle = "shadow-sm border break-words transform transition-all duration-200 hover:shadow-md hover:-translate-y-0.5";
     switch (role) {
       case "user":
-        return `bg-gradient-to-br from-blue-500 to-blue-600 text-white ml-auto max-w-[80%] text-right rounded-2xl rounded-br-md ${baseStyle}`;
+        return `bg-blue-600 text-white ml-auto max-w-[80%] text-right rounded-2xl rounded-br-md shadow-lg ${baseStyle}`;
       case "assistant":
-        return `bg-gradient-to-br from-white to-gray-50 text-gray-900 mr-auto max-w-[80%] rounded-2xl rounded-bl-md border-gray-200 ${baseStyle}`;
+        return `bg-white text-gray-900 mr-auto max-w-[80%] rounded-2xl rounded-bl-md border-gray-200 ${baseStyle}`;
       case "tool":
         return `mr-auto max-w-[90%] ${baseStyle}`;
       default:
-        return `bg-gradient-to-br from-gray-50 to-gray-100 text-gray-600 mr-auto max-w-[80%] rounded-2xl border-gray-200 ${baseStyle}`;
+        return `bg-gray-50 text-gray-600 mr-auto max-w-[80%] rounded-2xl border-gray-200 ${baseStyle}`;
     }
   };
 
@@ -432,9 +432,9 @@ export function ChatInterface({
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Messages */}
-      <div className={`flex-1 overflow-y-auto ${messagesPadding} ${messageSpacing} bg-white min-h-0`}>
+      <div className={`flex-1 overflow-y-auto ${messagesPadding} ${messageSpacing} min-h-0`}>
         {failedMessage && (
-          <div className={`bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-2xl shadow-sm p-4 ${compact ? 'px-3 py-3' : 'px-6 py-4'}`}>
+          <div className={`bg-orange-50 border border-orange-200 rounded-2xl shadow-sm p-4 ${compact ? 'px-3 py-3' : 'px-6 py-4'}`}>
             <div className="flex items-center justify-between gap-3">
               <div className="flex-1">
                 <div className="flex items-center gap-2 text-orange-800 mb-2">
@@ -443,7 +443,7 @@ export function ChatInterface({
                   </svg>
                   <span className="font-medium text-sm">Message failed to send</span>
                 </div>
-                <div className="bg-white rounded-lg p-3 text-sm text-gray-700 border border-orange-100 whitespace-pre-wrap break-words">
+                <div className="bg-white rounded-xl p-3 text-sm text-gray-700 border border-orange-100 whitespace-pre-wrap break-words shadow-sm">
                   {failedMessage.content}
                 </div>
                 {failedMessage.referencedCards && failedMessage.referencedCards.length > 0 && (
@@ -455,7 +455,7 @@ export function ChatInterface({
               <button
                 onClick={() => retryFailedMessage?.()}
                 disabled={isSending}
-                className="flex-shrink-0 flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 min-h-[44px] rounded-lg text-sm font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-shrink-0 flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 min-h-[44px] rounded-xl text-sm font-medium transition-colors duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -467,7 +467,7 @@ export function ChatInterface({
         )}
 
         {error && (
-          <div className={`bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl shadow-sm flex items-center gap-3 ${compact ? 'px-4 py-3' : ''}`}>
+          <div className={`bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl shadow-sm flex items-center gap-3 ${compact ? 'px-4 py-3' : ''}`}>
             <span className="text-xl">⚠️</span>
             <div>
               <div className="font-medium">Error</div>
@@ -539,20 +539,20 @@ export function ChatInterface({
       {/* Input */}
       <div className={inputBorder}>
         <div className="relative w-full sm:max-w-4xl mx-auto">
-          <div className="relative border border-gray-300 rounded-2xl bg-white shadow-sm hover:shadow-md transition-all duration-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
+          <div className="relative border-2 border-gray-200 rounded-2xl bg-white shadow-lg hover:shadow-xl transition-all duration-200 focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-500/10">
             {/* Referenced Cards Display */}
             {referencedCardDetails.length > 0 && (
               <div className={`flex flex-wrap gap-2 px-4 pt-3 ${compact ? 'px-3 pt-2' : ''}`}>
                 {referencedCardDetails.map((card) => (
                   <div
                     key={card.id}
-                    className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 group hover:bg-blue-100 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700 group hover:bg-blue-100 transition-colors duration-200 shadow-sm hover:shadow-md"
                   >
                     <span className="font-medium">[{card.card_id}]</span>
                     <span className="truncate max-w-[100px] sm:max-w-[150px]">{card.title}</span>
                     <button
                       onClick={() => handleRemoveReferencedCard(String(card.id))}
-                      className="ml-0.5 text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 md:opacity-0 focus-within:opacity-100 transition-opacity"
+                      className="ml-0.5 text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 md:opacity-0 focus-within:opacity-100 transition-opacity hover:scale-110 transform"
                       title="Remove card reference"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -585,10 +585,10 @@ export function ChatInterface({
                 <button
                   onClick={() => setShowBacklinkDialog(true)}
                   disabled={isSending}
-                  className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                  className="group p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent hover:scale-105 active:scale-95"
                   title="Add card reference"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 transition-transform duration-200 group-hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                 </button>
@@ -597,7 +597,7 @@ export function ChatInterface({
                 <button
                   onClick={() => sendMessage()}
                   disabled={!messageInput.trim() || isSending}
-                  className="p-3 min-w-[44px] min-h-[44px] bg-black hover:bg-gray-800 text-white rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black flex items-center justify-center"
+                  className="group p-3 min-w-[44px] min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
                 >
                   {isSending ? (
                     <div className={`border-2 border-white border-t-transparent rounded-full animate-spin ${compact ? 'w-3 h-3' : 'w-4 h-4'}`}></div>
