@@ -1,7 +1,7 @@
 import React from "react";
-import React from "react";
 import { HeaderSubSection } from "../Header";
 import { CardItem } from "./CardItem";
+import { RelatedCard } from "../../models/Card";
 
 interface RelatedCardsProps {
   relatedCards: RelatedCard[];

@@ -233,7 +233,7 @@ export function ViewPage({ cardId }: ViewPageProps) {
               onTagClick={onTagClick}
               onRemoveTag={onRemoveTag}
               sourceArticle={viewingCard.source_article}
-              relatedCards={relatedCards}
+              relatedCards={relatedCards || undefined}
               onRelatedCardClick={(cardId) => navigate(`/app/card/${cardId}`)}
             />
           </div>
