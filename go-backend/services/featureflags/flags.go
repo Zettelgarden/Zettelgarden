@@ -34,15 +34,37 @@ const (
 	FeatureFlagChatAgentV2 = "chat_agent_v2"
 )
 
+// defaultEnabledFlags are flags that are enabled by default
+var defaultEnabledFlags = map[string]bool{
+	FeatureFlagChatAgentV2: true, // New chat agent is now the default
+}
+
 // IsEnabled checks if a feature flag is enabled via environment variable.
 // The environment variable format is: ZETTELGARDEN_FEATURE_{FLAG_NAME}
 //
 // Example for "memory_tools_v2":
 //   ZETTELGARDEN_FEATURE_MEMORY_TOOLS_V2=true
+//
+// Flags can be explicitly disabled by setting them to "false", "0", or "no".
+// Default-enabled flags can be disabled with:
+//   ZETTELGARDEN_FEATURE_CHAT_AGENT_V2=false
 func IsEnabled(flag string) bool {
 	envVar := "ZETTELGARDEN_FEATURE_" + strings.ToUpper(flag)
 	val := os.Getenv(envVar)
-	return strings.ToLower(val) == "true" || strings.ToLower(val) == "1" || strings.ToLower(val) == "yes"
+
+	// If env var is explicitly set, respect it (including "false" to disable defaults)
+	if val != "" {
+		lowerVal := strings.ToLower(val)
+		// Explicit false values
+		if lowerVal == "false" || lowerVal == "0" || lowerVal == "no" {
+			return false
+		}
+		// Explicit true values
+		return lowerVal == "true" || lowerVal == "1" || lowerVal == "yes"
+	}
+
+	// No env var set, check if flag is enabled by default
+	return defaultEnabledFlags[flag]
 }
 
 // Enable is used for testing to programmatically enable a feature flag.

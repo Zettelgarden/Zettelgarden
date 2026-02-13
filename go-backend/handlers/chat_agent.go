@@ -170,7 +170,12 @@ func (s *Handler) updateAssistantMessage(userID int, conversationID, messageID s
 	mu.Lock()
 	defer mu.Unlock()
 
+	var query string
+	var args []interface{}
+
 	// Convert tool calls to JSON if present
+	// IMPORTANT: Only update tool_calls if we have tool_calls to set.
+	// If toolCallsJSON is nil, we don't want to overwrite existing tool_calls in the DB.
 	var toolCallsJSON *string
 	if generatedMessage.ToolCalls != nil && len(generatedMessage.ToolCalls) > 0 {
 		toolCallsData, err := json.Marshal(generatedMessage.ToolCalls)
@@ -179,14 +184,25 @@ func (s *Handler) updateAssistantMessage(userID int, conversationID, messageID s
 		}
 		toolCallsStr := string(toolCallsData)
 		toolCallsJSON = &toolCallsStr
+
+		// Update both content and tool_calls
+		query = `
+			UPDATE chat_messages
+			SET content = $1, tool_calls = $2, status = 'completed'
+			WHERE id = $3
+		`
+		args = []interface{}{generatedMessage.Content, toolCallsJSON, messageID}
+	} else {
+		// Only update content, preserve existing tool_calls
+		query = `
+			UPDATE chat_messages
+			SET content = $1, status = 'completed'
+			WHERE id = $2
+		`
+		args = []interface{}{generatedMessage.Content, messageID}
 	}
 
-	query := `
-		UPDATE chat_messages
-		SET content = $1, tool_calls = $2, status = 'completed'
-		WHERE id = $3
-	`
-	_, err := s.DB.Exec(query, generatedMessage.Content, toolCallsJSON, messageID)
+	_, err := s.DB.Exec(query, args...)
 
 	// Update user memory based on chat exchange (async) - if there's actual content
 	if err == nil && generatedMessage.Content != nil && *generatedMessage.Content != "" {

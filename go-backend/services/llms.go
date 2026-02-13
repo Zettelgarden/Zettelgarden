@@ -161,6 +161,7 @@ func StreamLLMToolRequest(ctx context.Context, c *models.LLMClient, messages []o
 	stopSequences := []string{"\n\nUser:", "\n\nuser:", "\n\nUSER:"}
 
 	log.Printf("streaming request")
+
 	stream, err := c.Client.CreateChatCompletionStream(
 		ctx,
 		openai.ChatCompletionRequest{
