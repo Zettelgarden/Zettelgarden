@@ -1,5 +1,5 @@
 import React from "react";
-import { RelatedCard } from "../../models/Card";
+import React from "react";
 import { HeaderSubSection } from "../Header";
 import { CardItem } from "./CardItem";
 
