@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, memo } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
@@ -38,7 +38,7 @@ const RelativeTime = ({ timestamp }: { timestamp: string }) => {
     } else if (diffDays < 7) {
       setRelativeTime(`${diffDays}d ago`);
     } else {
-      // For older messages, show the date
+      // For older messages, show date
       setRelativeTime(then.toLocaleDateString());
     }
   }, [timestamp]);
@@ -105,6 +105,100 @@ interface ChatInterfaceProps {
   onRegenerateMessage?: (messageId: string) => void;
   onRetryToolCall?: (messageId: string, conversationId: string) => void;
 }
+
+// Memoized message item component to prevent unnecessary re-renders
+interface MessageItemProps {
+  message: ChatMessage;
+  streamingMessageId: string | null;
+  collapsedToolResults: Set<string>;
+  retryingToolIds: Set<string>;
+  currentConversation: { id: string } | null;
+  compact: boolean;
+  textSize: string;
+  isMessageEditable: (message: ChatMessage) => boolean;
+  formatMessageContent: (message: ChatMessage) => React.ReactNode;
+  getMessageStyle: (role: string) => string;
+  handleOpenEditDialog: (message: ChatMessage) => void;
+  onRegenerateMessage?: (messageId: string) => void;
+  isEditing: boolean;
+}
+
+const MessageItem = memo<MessageItemProps>(({
+  message,
+  streamingMessageId,
+  compact,
+  textSize,
+  isMessageEditable,
+  formatMessageContent,
+  getMessageStyle,
+  handleOpenEditDialog,
+  onRegenerateMessage,
+  isEditing,
+}) => {
+  const ariaLabel = `${message.role} message${message.created_at ? ', ' + new Date(message.created_at).toLocaleString() : ''}`;
+
+  return (
+    <div className="flex items-start gap-3 group" role="listitem" aria-label={ariaLabel}>
+      <div className={`flex flex-col ${message.role === "user" ? "items-end w-full" : "flex-1"}`}>
+        <div className={`${getMessageStyle(message.role)} ${message.role === "tool" ? "" : `py-2 px-4 ${textSize}`}`}>
+          {message.role !== "tool" && (
+            <div className={`text-xs mb-2 flex items-center gap-2 ${message.role === "user" ? "text-blue-100 justify-end" : "text-gray-500"}`}>
+              <span className="font-medium capitalize">{message.role}</span>
+              <span>•</span>
+              <RelativeTime timestamp={message.created_at} />
+            </div>
+          )}
+          {formatMessageContent(message)}
+        </div>
+
+        {/* Regenerate button for assistant messages */}
+        {message.role === "assistant" && message.status === "completed" && onRegenerateMessage && (
+          <div className="mt-2 flex justify-start group">
+            <button
+              onClick={() => onRegenerateMessage(message.id)}
+              className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 text-gray-500 hover:text-gray-700 text-xs flex items-center gap-1 px-3 py-2 min-h-[44px] rounded hover:bg-gray-100"
+              title="Regenerate this message"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Regenerate
+            </button>
+          </div>
+        )}
+
+        {/* Edit button for user messages (within 5 minutes) */}
+        {message.role === "user" && isMessageEditable(message) && (
+          <div className="mt-2 flex justify-end group">
+            <button
+              onClick={() => handleOpenEditDialog(message)}
+              disabled={isEditing}
+              className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 text-blue-100 hover:text-white text-xs flex items-center gap-1 px-3 py-2 min-h-[44px] rounded hover:bg-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Edit this message"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison for React.memo - only re-render if relevant props change
+  return (
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.message.content === nextProps.message.content &&
+    prevProps.message.status === nextProps.message.status &&
+    prevProps.message.role === nextProps.message.role &&
+    prevProps.streamingMessageId === nextProps.streamingMessageId &&
+    prevProps.compact === nextProps.compact
+  );
+});
+
+MessageItem.displayName = "MessageItem";
 
 export function ChatInterface({
   chatHook,
@@ -194,7 +288,7 @@ export function ChatInterface({
   // Focus input when chat is cleared (no messages)
   useEffect(() => {
     if (messages.length === 0 && inputContainerRef.current) {
-      // Find the input element within the container
+      // Find input element within container
       const inputElement = inputContainerRef.current.querySelector('textarea, input') as HTMLTextAreaElement | HTMLInputElement;
       if (inputElement && document.activeElement !== inputElement) {
         inputElement.focus();
@@ -242,7 +336,7 @@ export function ChatInterface({
     try {
       const result = await editUserMessage(currentConversation.id, editDialog.messageId, { content: newContent });
 
-      // Update the messages in the chat hook
+      // Update messages in the chat hook
       chatHook.setMessages(result.messages || []);
 
       // Close the dialog
@@ -251,7 +345,7 @@ export function ChatInterface({
       // Trigger regeneration by sending a message to continue the conversation
       // The backend has deleted all messages after the edited one, so we need to regenerate
       if (result.messages && result.messages.length > 0) {
-        // Find the last user message (the one we just edited)
+        // Find last user message (the one we just edited)
         const lastUserMessage = [...result.messages].reverse().find(m => m.role === "user");
         if (lastUserMessage && lastUserMessage.id === editDialog.messageId) {
           // Trigger regeneration by streaming a new response
@@ -432,7 +526,13 @@ export function ChatInterface({
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Messages */}
-      <div className={`flex-1 overflow-y-auto ${messagesPadding} ${messageSpacing} min-h-0`}>
+      <div
+        className={`flex-1 overflow-y-auto ${messagesPadding} ${messageSpacing} min-h-0`}
+        role="log"
+        aria-live="polite"
+        aria-atomic="false"
+        aria-label="Chat messages"
+      >
         {failedMessage && (
           <div className={`bg-orange-50 border border-orange-200 rounded-2xl shadow-sm p-4 ${compact ? 'px-3 py-3' : 'px-6 py-4'}`}>
             <div className="flex items-center justify-between gap-3">
@@ -481,57 +581,24 @@ export function ChatInterface({
           <ToolCallLoading />
         )}
 
-        {messages.map((message) => {
-          return (
-            <div key={message.id} className="flex items-start gap-3 group">
-              <div className={`flex flex-col ${message.role === "user" ? "items-end w-full" : "flex-1"}`}>
-                <div className={`${getMessageStyle(message.role)} ${message.role === "tool" ? "" : `py-2 px-4 ${textSize}`}`}>
-                  {message.role !== "tool" && (
-                    <div className={`text-xs mb-2 flex items-center gap-2 ${message.role === "user" ? "text-blue-100 justify-end" : "text-gray-500"}`}>
-                      <span className="font-medium capitalize">{message.role}</span>
-                      <span>•</span>
-                      <RelativeTime timestamp={message.created_at} />
-                    </div>
-                  )}
-                  {formatMessageContent(message)}
-                </div>
-
-                {/* Regenerate button for assistant messages */}
-                {message.role === "assistant" && message.status === "completed" && onRegenerateMessage && (
-                  <div className="mt-2 flex justify-start group">
-                    <button
-                      onClick={() => onRegenerateMessage(message.id)}
-                      className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 text-gray-500 hover:text-gray-700 text-xs flex items-center gap-1 px-3 py-2 min-h-[44px] rounded hover:bg-gray-100"
-                      title="Regenerate this message"
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 2A8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      Regenerate
-                    </button>
-                  </div>
-                )}
-
-                {/* Edit button for user messages (within 5 minutes) */}
-                {message.role === "user" && isMessageEditable(message) && (
-                  <div className="mt-2 flex justify-end group">
-                    <button
-                      onClick={() => handleOpenEditDialog(message)}
-                      disabled={isEditing}
-                      className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 text-blue-100 hover:text-white text-xs flex items-center gap-1 px-3 py-2 min-h-[44px] rounded hover:bg-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Edit this message"
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      Edit
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {messages.map((message) => (
+          <MessageItem
+            key={message.id}
+            message={message}
+            streamingMessageId={streamingMessageId}
+            collapsedToolResults={collapsedToolResults}
+            retryingToolIds={retryingToolIds}
+            currentConversation={currentConversation}
+            compact={compact}
+            textSize={textSize}
+            isMessageEditable={isMessageEditable}
+            formatMessageContent={formatMessageContent}
+            getMessageStyle={getMessageStyle}
+            handleOpenEditDialog={handleOpenEditDialog}
+            onRegenerateMessage={onRegenerateMessage}
+            isEditing={isEditing}
+          />
+        ))}
 
         <div ref={messagesEndRef} />
       </div>
@@ -563,7 +630,7 @@ export function ChatInterface({
                 ))}
               </div>
             )}
-            <div className={`flex items-end gap-2 sm:gap-3 ${inputPadding}`} ref={inputContainerRef}>
+            <div className={`flex items-end gap-2 sm:gap-3 ${inputPadding}`} ref={inputContainerRef} role="form" aria-label="Chat input area">
               <div className="flex-1 relative">
                 <ChatInput
                   value={messageInput}
@@ -577,6 +644,8 @@ export function ChatInterface({
                   submitButtonText=""
                   multiline={true}
                   className="border-0 rounded-none p-0"
+                  aria-label={`Type a message to send to the AI${referencedCardDetails.length > 0 ? '. You can reference cards using the @ symbol' : ''}`}
+                  aria-describedby="chat-input-instructions"
                 />
               </div>
 
@@ -587,8 +656,10 @@ export function ChatInterface({
                   disabled={isSending}
                   className="group p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent hover:scale-105 active:scale-95"
                   title="Add card reference"
+                  aria-label="Add card reference"
+                  type="button"
                 >
-                  <svg className="w-4 h-4 transition-transform duration-200 group-hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 transition-transform duration-200 group-hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                 </button>
@@ -598,6 +669,8 @@ export function ChatInterface({
                   onClick={() => sendMessage()}
                   disabled={!messageInput.trim() || isSending}
                   className="group p-3 min-w-[44px] min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
+                  aria-label={isSending ? 'Sending message...' : messageInput.trim() ? 'Send message' : 'Enter a message to send'}
+                  type="submit"
                 >
                   {isSending ? (
                     <div className={`border-2 border-white border-t-transparent rounded-full animate-spin ${compact ? 'w-3 h-3' : 'w-4 h-4'}`}></div>
