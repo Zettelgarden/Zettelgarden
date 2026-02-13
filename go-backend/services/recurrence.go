@@ -36,14 +36,36 @@ func ExpandRecurrence(rruleStr string, startTime, endTime time.Time, allDay bool
 	}
 
 	// Calculate the end of the expansion window
-	expansionEnd := time.Now().AddDate(0, RecurrenceExpansionMonths, 0)
+	// Use the later of time.Now() or startTime as the base for expansion
+	// This ensures tests with future dates work correctly
+	baseTime := time.Now()
+	if startTime.After(baseTime) {
+		baseTime = startTime
+	}
+	expansionEnd := baseTime.AddDate(0, RecurrenceExpansionMonths, 0)
 
-	// Don't expand past occurrences that ended more than a week ago
-	oneWeekAgo := time.Now().AddDate(0, 0, -7)
+	// Get all occurrences using All() method, then filter
+	// Between() can have issues with boundary conditions
+	allOccurrences := rule.All()
 
-	// Get all occurrences within the expansion window
-	// Between() returns occurrences between the two dates (inclusive)
-	occurrences := rule.Between(oneWeekAgo, expansionEnd, true)
+	// Filter to occurrences within our window
+	// IMPORTANT: Always include event's startTime to ensure first occurrence is included
+	// Then filter out any occurrences that ended more than a week ago
+	oneWeekAgo := time.Now().AddDate(0, 0, -7).UTC()
+	occurrences := make([]time.Time, 0)
+	for _, occ := range allOccurrences {
+		// Stop if we've gone past our expansion window
+		if occ.After(expansionEnd) {
+			break
+		}
+		// Skip occurrences that ended more than a week ago
+		// But always include the event's start time
+		occEnd := occ.Add(endTime.Sub(startTime))
+		if occEnd.Before(oneWeekAgo) && !occ.Equal(startTime) {
+			continue
+		}
+		occurrences = append(occurrences, occ)
+	}
 
 	// Convert to our RecurrenceOccurrence format
 	result := make([]RecurrenceOccurrence, 0, len(occurrences))
