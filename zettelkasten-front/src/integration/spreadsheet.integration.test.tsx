@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { CardBody } from '../components/cards/CardBody';
 import { Card } from '../models/Card';
 import { MemoryRouter } from 'react-router-dom';
 import { CardEditorProvider } from '../contexts/editor';
+import { Spreadsheet } from '../models/Spreadsheet';
 
 // Mock DialogStateContext
 vi.mock('../contexts/DialogStateContext', () => ({
@@ -36,13 +37,40 @@ vi.mock('../api/entities', () => ({
   })),
 }));
 
+// Mock spreadsheets API
+vi.mock('../api/spreadsheets', () => ({
+  fetchSpreadsheets: vi.fn((cardId: number): Promise<Spreadsheet[]> => {
+    return Promise.resolve([{
+      id: 1,
+      user_id: 1,
+      card_id: cardId,
+      name: 'budget',
+      data: {
+        rows: 3,
+        cols: 2,
+        data: {
+          'A1': { value: '100', formula: '' },
+          'A2': { value: '200', formula: '' },
+          'A3': { value: '300', formula: '=SUM(A1:A2)' }
+        }
+      },
+      created_at: new Date(),
+      updated_at: new Date()
+    }]);
+  }),
+  fetchSpreadsheet: vi.fn(),
+  createSpreadsheet: vi.fn(),
+  updateSpreadsheet: vi.fn(),
+  deleteSpreadsheet: vi.fn(),
+}));
+
 describe('Spreadsheet Integration', () => {
   const cardWithSpreadsheet: Card = {
     id: 1,
     card_id: '1',
     user_id: 1,
     title: 'Test Card with Spreadsheet',
-    body: 'My budget:\n\n{{spreadsheet:budget}}\n\n```spreadsheet:budget\n{\n  "rows": 3,\n  "cols": 2,\n  "data": {\n    "A1": {"value": "100", "formula": ""},\n    "A2": {"value": "200", "formula": ""},\n    "A3": {"value": "300", "formula": "=SUM(A1:A2)"}\n  }\n}\n```\n\nTotal is calculated.',
+    body: 'My budget:\n\n{{spreadsheet:1}}\n\nTotal is calculated.',
     link: '',
     is_deleted: false,
     created_at: new Date(),
@@ -90,14 +118,17 @@ describe('Spreadsheet Integration', () => {
     expect(screen.getByText('Total is calculated.')).toBeInTheDocument();
   });
 
-  it('renders spreadsheet grid', () => {
+  it('renders spreadsheet grid', async () => {
     render(
       <TestWrapper>
         <CardBody viewingCard={cardWithSpreadsheet} />
       </TestWrapper>
     );
 
-    expect(screen.getByText('A')).toBeInTheDocument();
-    expect(screen.getByText('B')).toBeInTheDocument();
+    // Wait for the async fetchSpreadsheets to complete and grid to render
+    await waitFor(() => {
+      expect(screen.getByText('A')).toBeInTheDocument();
+      expect(screen.getByText('B')).toBeInTheDocument();
+    });
   });
 });

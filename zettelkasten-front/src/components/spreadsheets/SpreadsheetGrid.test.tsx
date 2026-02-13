@@ -90,7 +90,7 @@ describe('SpreadsheetGrid', () => {
     );
 
     const cellWith10 = screen.getByText('10');
-    fireEvent.doubleClick(cellWith10);
+    fireEvent.click(cellWith10);
 
     const input = screen.getByDisplayValue('10');
     fireEvent.change(input, { target: { value: '100' } });
@@ -128,7 +128,7 @@ describe('SpreadsheetGrid', () => {
 
     // Change A1 from 10 to 100
     const cellWith10 = screen.getByText('10');
-    fireEvent.doubleClick(cellWith10);
+    fireEvent.click(cellWith10);
 
     const input = screen.getByDisplayValue('10');
     fireEvent.change(input, { target: { value: '100' } });
