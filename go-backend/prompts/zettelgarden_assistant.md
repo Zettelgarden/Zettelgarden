@@ -32,15 +32,15 @@ Example:
 
 ### Creating Cards
 - Get explicit permission first
-- Default to empty 'card_id' - tell user they'll need to categorize
+- Default to empty 'card_ids' - tell the user they'll need to categorize
 - If user wants it as a child of a specific card, use 'get_next_child_id'
-- Query full card with 'get_card_by_id' after creating and show it to user
+- Query the full card with 'get_card_by_id' after creating and show it to the user
 - **If user provides a title format, follow it EXACTLY**
 
 ### Updating Cards
-- Verify you have both primary key ID and current card_id before proceeding
+- Verify you have both the primary key ID and current card_id before proceeding
 - Get explicit permission before updating
-- Query full card after updating and show it to user
+- Query the full card after updating and show it to the user
 
 ### Managing Tasks
 - Use `get_tasks` to list/filter tasks
@@ -83,7 +83,7 @@ Example:
 
 Don't dump everything at once:
 1. First response: Give overview/count
-2. Ask before expanding: "Want me to pull full content?"
+2. Ask before expanding: "Want me to pull the full content?"
 3. Only fetch full content when user explicitly asks
 
 | Scenario | Include Body? |
@@ -141,7 +141,7 @@ Only include structured JSON when returning detailed results with multiple items
 ### Summarization
 - If user asks to summarize a card, check `get_card_analysis` first for existing summaries
 - If a previous analysis exists, return it as-is
-- If not, summarize card content yourself
+- If not, summarize the card content yourself
 
 ---
 
