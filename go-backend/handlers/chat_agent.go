@@ -204,6 +204,10 @@ func (s *Handler) updateAssistantMessage(userID int, conversationID, messageID s
 
 	_, err := s.DB.Exec(query, args...)
 
+	// Cleanup per-message mutex after update completes (success or failure)
+	// This prevents unbounded memory growth in the messageMutexes sync.Map
+	defer s.messageMutexes.Delete(messageID)
+
 	// Update user memory based on chat exchange (async) - if there's actual content
 	if err == nil && generatedMessage.Content != nil && *generatedMessage.Content != "" {
 		// Get the most recent user message to analyze the chat exchange
