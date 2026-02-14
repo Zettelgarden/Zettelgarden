@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Spreadsheet, SpreadsheetData } from '../models/Spreadsheet';
-import { insertRow, deleteRow, insertColumn, deleteColumn, MAX_ROWS, MAX_COLS } from './spreadsheetOperations';
+import { insertRow, deleteRow, insertColumn, deleteColumn, MAX_ROWS, MAX_COLS, hasDataInRow, hasDataInColumn, updateFormulaReferences } from './spreadsheetOperations';
 
 const createTestSpreadsheet = (rows: number, cols: number): Spreadsheet => ({
   id: 1,
@@ -296,5 +296,154 @@ describe('deleteColumn', () => {
 
     expect(result).toEqual(spreadsheet);
     expect(result.data.cols).toBe(1);
+  });
+});
+
+describe('hasDataInRow', () => {
+  it('should return true if row has non-empty cells', () => {
+    const spreadsheet = createTestSpreadsheet(3, 2);
+    spreadsheet.data.data = {
+      'A1': { value: '', formula: '' },
+      'B1': { value: 'data', formula: '' },
+      'A2': { value: '', formula: '' },
+      'B2': { value: '', formula: '' },
+    };
+
+    expect(hasDataInRow(spreadsheet, 0)).toBe(true);
+    expect(hasDataInRow(spreadsheet, 1)).toBe(false);
+  });
+
+  it('should return false if all cells in row are empty', () => {
+    const spreadsheet = createTestSpreadsheet(2, 2);
+    spreadsheet.data.data = {
+      'A1': { value: '', formula: '' },
+      'B1': { value: '', formula: '' },
+    };
+
+    expect(hasDataInRow(spreadsheet, 0)).toBe(false);
+  });
+
+  it('should return false for invalid row index', () => {
+    const spreadsheet = createTestSpreadsheet(2, 2);
+    spreadsheet.data.data = {
+      'A1': { value: 'data', formula: '' },
+    };
+
+    expect(hasDataInRow(spreadsheet, -1)).toBe(false);
+    expect(hasDataInRow(spreadsheet, 5)).toBe(false);
+  });
+});
+
+describe('hasDataInColumn', () => {
+  it('should return true if column has non-empty cells', () => {
+    const spreadsheet = createTestSpreadsheet(2, 3);
+    spreadsheet.data.data = {
+      'A1': { value: '', formula: '' },
+      'A2': { value: 'data', formula: '' },
+      'B1': { value: '', formula: '' },
+      'B2': { value: '', formula: '' },
+    };
+
+    expect(hasDataInColumn(spreadsheet, 0)).toBe(true);
+    expect(hasDataInColumn(spreadsheet, 1)).toBe(false);
+  });
+
+  it('should return false if all cells in column are empty', () => {
+    const spreadsheet = createTestSpreadsheet(2, 2);
+    spreadsheet.data.data = {
+      'A1': { value: '', formula: '' },
+      'A2': { value: '', formula: '' },
+    };
+
+    expect(hasDataInColumn(spreadsheet, 0)).toBe(false);
+  });
+
+  it('should return false for invalid column index', () => {
+    const spreadsheet = createTestSpreadsheet(2, 2);
+    spreadsheet.data.data = {
+      'A1': { value: 'data', formula: '' },
+    };
+
+    expect(hasDataInColumn(spreadsheet, -1)).toBe(false);
+    expect(hasDataInColumn(spreadsheet, 5)).toBe(false);
+  });
+});
+
+describe('updateFormulaReferences', () => {
+  it('should update row references when row inserted above', () => {
+    const formula = 'A1+A2';
+    const result = updateFormulaReferences(formula, 1, 0, 0);
+    expect(result).toBe('A2+A3');
+  });
+
+  it('should update row references when row deleted', () => {
+    const formula = 'A1+A3';
+    const result = updateFormulaReferences(formula, -1, 0, 1);
+    expect(result).toBe('A1+A2');
+  });
+
+  it('should update column references when column inserted left', () => {
+    const formula = 'A1+B1';
+    const result = updateFormulaReferences(formula, 0, 1, 0);
+    expect(result).toBe('B1+C1');
+  });
+
+  it('should update column references when column deleted', () => {
+    const formula = 'A1+C1';
+    const result = updateFormulaReferences(formula, 0, -1, 1);
+    expect(result).toBe('A1+B1');
+  });
+
+  it('should handle range references', () => {
+    const formula = 'SUM(A1:A5)';
+    const result = updateFormulaReferences(formula, 1, 0, 2);
+    expect(result).toBe('SUM(A1:A6)');
+  });
+
+  it('should return #REF! for deleted references', () => {
+    const formula = 'A1+A2';
+    const result = updateFormulaReferences(formula, 0, 0, 1, new Set(['A1']));
+    expect(result).toBe('#REF!+A2');
+  });
+
+  it('should handle function calls with multiple arguments', () => {
+    const formula = 'SUM(A1,B2)+C3';
+    const result = updateFormulaReferences(formula, 1, 1, 0);
+    expect(result).toBe('SUM(B2,C3)+D4');
+  });
+
+  it('should handle both row and column deltas', () => {
+    const formula = 'A1+B2';
+    const result = updateFormulaReferences(formula, 1, 1, 0);
+    expect(result).toBe('B2+C3');
+  });
+
+  it('should not update references before position when inserting', () => {
+    const formula = 'A1+B2';
+    const result = updateFormulaReferences(formula, 1, 0, 2);
+    expect(result).toBe('A1+B3');
+  });
+
+  it('should not update references at or before position when deleting', () => {
+    const formula = 'A1+B2';
+    const result = updateFormulaReferences(formula, -1, 0, 1);
+    expect(result).toBe('A1+B1');
+  });
+
+  it('should return #REF! for references that go out of bounds', () => {
+    const formula = 'A100';
+    const result = updateFormulaReferences(formula, 1, 0, 100);
+    expect(result).toBe('#REF!');
+  });
+
+  it('should handle empty formula', () => {
+    const result = updateFormulaReferences('', 1, 0, 0);
+    expect(result).toBe('');
+  });
+
+  it('should handle mixed operations in formula', () => {
+    const formula = '(A1+B2)*C3-SUM(D4:E5)';
+    const result = updateFormulaReferences(formula, 1, 1, 0);
+    expect(result).toBe('(B2+C3)*D4-SUM(E5:F6)');
   });
 });

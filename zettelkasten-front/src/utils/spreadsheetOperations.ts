@@ -229,3 +229,138 @@ export function deleteColumn(spreadsheet: Spreadsheet, colIndex: number): Spread
     }
   };
 }
+
+/**
+ * Check if a row contains any non-empty cell values
+ * @param spreadsheet - The spreadsheet to check
+ * @param rowIndex - The row index to check (0-based)
+ * @returns true if any cell in the row has a non-empty value
+ */
+export function hasDataInRow(spreadsheet: Spreadsheet, rowIndex: number): boolean {
+  const { rows, cols, data } = spreadsheet.data;
+  if (rowIndex < 0 || rowIndex >= rows) return false;
+
+  for (let col = 0; col < cols; col++) {
+    const ref = coordsToA1(rowIndex, col);
+    const cell = data[ref];
+    if (cell && cell.value !== '') {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Check if a column contains any non-empty cell values
+ * @param spreadsheet - The spreadsheet to check
+ * @param colIndex - The column index to check (0-based)
+ * @returns true if any cell in the column has a non-empty value
+ */
+export function hasDataInColumn(spreadsheet: Spreadsheet, colIndex: number): boolean {
+  const { rows, cols, data } = spreadsheet.data;
+  if (colIndex < 0 || colIndex >= cols) return false;
+
+  for (let row = 0; row < rows; row++) {
+    const ref = coordsToA1(row, colIndex);
+    const cell = data[ref];
+    if (cell && cell.value !== '') {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Update cell references in a formula after row/column insert/delete
+ * @param formula - The formula string (without leading =)
+ * @param rowDelta - Row offset (+1 for insert, -1 for delete, 0 for no change)
+ * @param colDelta - Column offset (+1 for insert, -1 for delete, 0 for no change)
+ * @param beforePosition - Only update refs with row/col >= this position (for insert) or > this (for delete)
+ * @param deletedRefs - Set of cell references that were deleted (optional)
+ * @returns The updated formula string
+ */
+export function updateFormulaReferences(
+  formula: string,
+  rowDelta: number,
+  colDelta: number,
+  beforePosition: number,
+  deletedRefs?: Set<string>
+): string {
+  if (!formula) return formula;
+
+  // Match cell references like A1, B2, AA10, and ranges like A1:A5
+  const cellRefRegex = /([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?/g;
+
+  return formula.replace(cellRefRegex, (match, colStr, rowStr, rangeColStr, rangeRowStr) => {
+    // Handle range reference
+    if (rangeColStr && rangeRowStr) {
+      const startRef = updateSingleReference(colStr, rowStr, rowDelta, colDelta, beforePosition, deletedRefs);
+      const endRef = updateSingleReference(rangeColStr, rangeRowStr, rowDelta, colDelta, beforePosition, deletedRefs);
+      return `${startRef}:${endRef}`;
+    }
+
+    // Handle single reference
+    return updateSingleReference(colStr, rowStr, rowDelta, colDelta, beforePosition, deletedRefs);
+  });
+}
+
+function updateSingleReference(
+  colStr: string,
+  rowStr: string,
+  rowDelta: number,
+  colDelta: number,
+  beforePosition: number,
+  deletedRefs?: Set<string>
+): string {
+  const ref = `${colStr}${rowStr}`;
+
+  // Check if this reference was deleted
+  if (deletedRefs?.has(ref)) {
+    return '#REF!';
+  }
+
+  let coords;
+  try {
+    coords = a1ToCoords(ref);
+  } catch {
+    return ref; // Invalid ref, return as-is
+  }
+
+  if (coords.row < 0 || coords.col < 0) {
+    return ref; // Invalid ref, return as-is
+  }
+
+  let newCol = coords.col;
+  let newRow = coords.row;
+
+  // Convert beforePosition from 1-indexed to 0-indexed
+  // beforePosition=2 means "before row 2" which is index 1
+  const beforePosition0Indexed = Math.max(0, beforePosition - 1);
+
+  // Update row if it's at or after the position
+  // For insert (rowDelta > 0): update rows >= beforePosition
+  // For delete (rowDelta < 0): update rows > beforePosition
+  if (rowDelta !== 0) {
+    const rowThreshold = rowDelta > 0 ? beforePosition0Indexed : beforePosition0Indexed + 1;
+    if (coords.row >= rowThreshold) {
+      newRow = coords.row + rowDelta;
+    }
+  }
+
+  // Update column if it's at or after the position
+  // For insert (colDelta > 0): update cols >= beforePosition
+  // For delete (colDelta < 0): update cols > beforePosition
+  if (colDelta !== 0) {
+    const colThreshold = colDelta > 0 ? beforePosition0Indexed : beforePosition0Indexed + 1;
+    if (coords.col >= colThreshold) {
+      newCol = coords.col + colDelta;
+    }
+  }
+
+  // Validate new position is within bounds
+  if (newRow < 0 || newRow >= MAX_ROWS || newCol < 0 || newCol >= MAX_COLS) {
+    return '#REF!';
+  }
+
+  return coordsToA1(newRow, newCol);
+}
