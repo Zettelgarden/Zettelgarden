@@ -32,6 +32,7 @@ import (
 	"fmt"
 
 	"go-backend/services/featureflags"
+	"go-backend/services/tools"
 	"go-backend/services/tools/template"
 )
 
@@ -118,10 +119,11 @@ func handleListTemplatesV2(args map[string]interface{}, ctx *ToolContext) (map[s
 		results = append(results, StructToMap(tmpl))
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"templates": results,
-		"total":     len(templates),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(templates)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleGetNextChildIDV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -177,10 +179,11 @@ func handleListTemplatesLegacy(args map[string]interface{}, ctx *ToolContext) (m
 		results = append(results, StructToMap(tmpl))
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"templates": results,
-		"total":     len(templates),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(templates)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleGetNextChildIDLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
