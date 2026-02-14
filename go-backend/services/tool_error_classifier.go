@@ -232,6 +232,7 @@ func IsRetryableError(err error) bool {
 }
 
 // WrapToolError wraps a raw error in a ToolError for SSE events
+// This function now uses the standardized format from the tools package
 func WrapToolError(toolName string, args map[string]interface{}, err error) map[string]interface{} {
 	if err == nil {
 		return nil
@@ -240,10 +241,14 @@ func WrapToolError(toolName string, args map[string]interface{}, err error) map[
 	toolErr := ClassifyToolError(toolName, args, err)
 	if toolErr == nil {
 		return map[string]interface{}{
-			"error": err.Error(),
+			"success": false,
+			"error": map[string]interface{}{
+				"message": err.Error(),
+			},
 		}
 	}
 
+	// ToMap() now returns the standardized format with success: false
 	return toolErr.ToMap()
 }
 

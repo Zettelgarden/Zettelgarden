@@ -72,6 +72,7 @@ type ToolError struct {
 
 func (e *ToolError) ToMap() map[string]interface{} {
 	return map[string]interface{}{
+		"success": false,
 		"error": map[string]interface{}{
 			"type":        e.Type,
 			"message":     e.Message,

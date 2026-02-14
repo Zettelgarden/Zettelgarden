@@ -118,11 +118,13 @@ func WrapToolSuccessWithList(items []map[string]interface{}) map[string]interfac
 //	}
 //	result := WrapToolError(err)
 //	// Returns: {success: false, error: {type: "validation", message: "card_id is required", ...}}
+//
+// Note: Since ToolError.ToMap() now returns the standardized format with success: false,
+// this function returns the result directly to ensure consistency across all error handling.
 func WrapToolError(toolErr *models.ToolError) map[string]interface{} {
-	return map[string]interface{}{
-		"success": false,
-		"error":   toolErr.ToMap()["error"],
-	}
+	// ToMap() now returns the standardized format {success: false, error: {...}}
+	// Return it directly to ensure consistency
+	return toolErr.ToMap()
 }
 
 // MetadataOption is a functional option for building metadata maps.
