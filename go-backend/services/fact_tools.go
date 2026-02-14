@@ -32,6 +32,7 @@ import (
 	"fmt"
 
 	"go-backend/services/featureflags"
+	"go-backend/services/tools"
 	"go-backend/services/tools/fact"
 )
 
@@ -139,12 +140,13 @@ func handleSearchFactsV2(args map[string]interface{}, ctx *ToolContext) (map[str
 		return nil, fmt.Errorf("search failed: %v", err)
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"facts":       facts,
 		"query":       query,
 		"search_type": searchType,
-		"total":       len(facts),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(facts)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleGetCardFactsV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -163,10 +165,11 @@ func handleGetCardFactsV2(args map[string]interface{}, ctx *ToolContext) (map[st
 		results = append(results, StructToMap(fact))
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"facts": results,
-		"total": len(facts),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(facts)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleGetEntityFactsV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -185,10 +188,11 @@ func handleGetEntityFactsV2(args map[string]interface{}, ctx *ToolContext) (map[
 		results = append(results, StructToMap(fact))
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"facts": results,
-		"total": len(facts),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(facts)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleGetFactCardsV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -207,10 +211,11 @@ func handleGetFactCardsV2(args map[string]interface{}, ctx *ToolContext) (map[st
 		results = append(results, StructToMap(card))
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"cards": results,
-		"total": len(cards),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(cards)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 // Legacy fact tool handlers (kept for backward compatibility)
@@ -243,12 +248,13 @@ func handleSearchFactsLegacy(args map[string]interface{}, ctx *ToolContext) (map
 		return nil, fmt.Errorf("search failed: %v", err)
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"facts":       facts,
 		"query":       query,
 		"search_type": searchType,
-		"total":       len(facts),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(facts)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleGetCardFactsLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -267,10 +273,11 @@ func handleGetCardFactsLegacy(args map[string]interface{}, ctx *ToolContext) (ma
 		results = append(results, StructToMap(fact))
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"facts": results,
-		"total": len(facts),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(facts)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleGetEntityFactsLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -289,10 +296,11 @@ func handleGetEntityFactsLegacy(args map[string]interface{}, ctx *ToolContext) (
 		results = append(results, StructToMap(fact))
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"facts": results,
-		"total": len(facts),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(facts)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleGetFactCardsLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -311,8 +319,9 @@ func handleGetFactCardsLegacy(args map[string]interface{}, ctx *ToolContext) (ma
 		results = append(results, StructToMap(card))
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"cards": results,
-		"total": len(cards),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(cards)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
