@@ -428,7 +428,6 @@ export function ChatInterface({
             messageId={message.id}
             toolName={toolName}
             result={toolResult}
-            metadata={message._metadata}
             isCollapsed={isCollapsed}
             onToggle={() => toggleToolResult(message.id)}
             onRetry={onRetryToolCall || retryTool}

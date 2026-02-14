@@ -1,11 +1,10 @@
 import React, { useState } from "react";
-import { ToolError, ToolResultMetadata, isStandardToolResult, ToolResultSuccess, ToolResultError, StandardToolResult } from "../../api/chat";
+import { ToolError, ToolResultMetadata, ToolResultSuccess, ToolResultError, StandardToolResult } from "../../api/chat";
 
 interface ToolResultCardProps {
   messageId: string;
   toolName: string;
   result: Record<string, any>;
-  metadata?: ToolResultMetadata;
   isCollapsed: boolean;
   onToggle: () => void;
   onRetry?: (messageId: string, conversationId: string) => void;
@@ -28,7 +27,6 @@ export function ToolResultCard({
   messageId,
   toolName,
   result,
-  metadata,
   isCollapsed,
   onToggle,
   onRetry,
@@ -37,55 +35,28 @@ export function ToolResultCard({
 }: ToolResultCardProps) {
   const [showFullJson, setShowFullJson] = useState(false);
 
-  // Check if this is a standardized format result
-  const isStandard = isStandardToolResult(result);
-
-  // Extract data and error based on format
+  // Extract data and error from standardized format
+  const standardResult = result as StandardToolResult;
   let data: Record<string, any>;
-  let errorData: any;
+  let errorData: ToolError | undefined;
   let resultMetadata: ToolResultMetadata | undefined;
 
-  if (isStandard) {
-    // New standardized format
-    if (result.success) {
-      // Success format
-      const successResult = result as ToolResultSuccess;
-      data = successResult.data;
-      errorData = undefined;
-      resultMetadata = successResult.metadata;
-    } else {
-      // Error format
-      const errorResult = result as ToolResultError;
-      data = {};
-      errorData = errorResult.error;
-      resultMetadata = errorResult.metadata;
-    }
+  if (standardResult.success) {
+    // Success format
+    const successResult = standardResult as ToolResultSuccess;
+    data = successResult.data;
+    errorData = undefined;
+    resultMetadata = successResult.metadata;
   } else {
-    // Legacy format - result is the data directly
-    data = result;
-    errorData = result.error;
-    resultMetadata = metadata;
+    // Error format
+    const errorResult = standardResult as ToolResultError;
+    data = {};
+    errorData = errorResult.error;
+    resultMetadata = errorResult.metadata;
   }
 
   const hasError = !!errorData;
-
-  // Parse error data if present
-  let toolError: ToolError | null = null;
-  if (hasError) {
-    if (typeof errorData === "string") {
-      // Old format: just an error string
-      toolError = {
-        type: "unknown",
-        message: errorData,
-        retryable: true,
-        tool_name: toolName,
-      };
-    } else if (typeof errorData === "object") {
-      // New format: structured error object
-      toolError = errorData as ToolError;
-    }
-  }
-
+  const toolError = errorData;
   const isError = hasError || resultMetadata?.has_error;
   const bgColor = isError ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200";
 
@@ -102,10 +73,10 @@ export function ToolResultCard({
   const errorType = toolError?.type || "unknown";
   const errorTypeInfo = errorTypeLabels[errorType] || errorTypeLabels.unknown;
 
-  // Extract metadata for display (from both formats)
-  const total = resultMetadata?.total || data.total;
-  const operation = resultMetadata?.operation || data.operation;
-  const tool = resultMetadata?.tool || data.tool;
+  // Extract metadata for display
+  const total = resultMetadata?.total;
+  const operation = resultMetadata?.operation;
+  const tool = resultMetadata?.tool;
 
   return (
     <div className={`${bgColor} border rounded-xl shadow-sm overflow-hidden`}>
@@ -223,7 +194,7 @@ export function ToolResultCard({
                   : "bg-amber-50 text-amber-800 border-amber-100"
               }`}
             >
-              {JSON.stringify(isStandard ? result : data, null, 2)}
+              {JSON.stringify(result, null, 2)}
             </pre>
 
             {/* Show arguments if available */}
