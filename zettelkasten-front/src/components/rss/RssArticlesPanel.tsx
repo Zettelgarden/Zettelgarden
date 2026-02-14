@@ -7,14 +7,15 @@ interface RssArticlesPanelProps {
   feeds: RSSFeed[];
   selectedArticle: RSSArticle | null;
   loading: boolean;
+  loadingMore?: boolean;
   totalArticles: number;
-  currentPage: number;
   currentUnreadCount: number;
   showUnreadOnly: boolean;
   isSmartFeedActive: boolean;
+  hasMore: boolean;
   onArticleClick: (article: RSSArticle) => void;
   onToggleShowUnreadOnly: () => void;
-  onPageChange: (page: number) => void;
+  onLoadMore: () => void;
 }
 
 /**
@@ -25,14 +26,15 @@ export function RssArticlesPanel({
   feeds,
   selectedArticle,
   loading,
+  loadingMore = false,
   totalArticles,
-  currentPage,
   currentUnreadCount,
   showUnreadOnly,
   isSmartFeedActive,
+  hasMore,
   onArticleClick,
   onToggleShowUnreadOnly,
-  onPageChange,
+  onLoadMore,
 }: RssArticlesPanelProps) {
   const getFeedName = (feedId: number): string => {
     const feed = feeds.find((f) => f.id === feedId);
@@ -149,28 +151,16 @@ export function RssArticlesPanel({
             })}
           </div>
 
-          {/* Pagination */}
-          {totalArticles > RSS_CONFIG.ARTICLES_PER_PAGE && (
+          {/* Load More */}
+          {hasMore && (
             <div className="p-3 border-t border-gray-200 bg-gray-50">
-              <div className="flex items-center justify-between text-sm">
-                <button
-                  onClick={() => onPageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                <span className="text-gray-600">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <button
-                  onClick={() => onPageChange(currentPage + 1)}
-                  disabled={currentPage >= totalPages}
-                  className="px-3 py-1 rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
+              <button
+                onClick={onLoadMore}
+                disabled={loadingMore}
+                className="w-full px-3 py-2 rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium text-gray-700"
+              >
+                {loadingMore ? "Loading..." : `Load More (${totalArticles - articles.length} remaining)`}
+              </button>
             </div>
           )}
         </>

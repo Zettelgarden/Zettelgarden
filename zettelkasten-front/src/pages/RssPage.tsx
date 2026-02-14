@@ -63,7 +63,6 @@ export function RssPage() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showFeedMenuId, setShowFeedMenuId] = useState<number | null>(null);
-  const [smartFeedVisibleCount, setSmartFeedVisibleCount] = useState<number>(RSS_CONFIG.ARTICLES_PER_PAGE);
 
   // Articles hook - use smart feed hook when smart feed is active, regular hook otherwise
   // Smart feed uses no filters, regular feed uses folder/feed/unread filters
@@ -84,55 +83,23 @@ export function RssPage() {
   });
 
   // Use either regular or smart articles based on mode
-  const rawArticles = isSmartFeedActive ? smartArticles.articles : regularArticles.articles;
-
-  // Client-side rendering: filter for unread if needed, then limit visible count
-  const articles = useMemo(() => {
-    let result: RSSArticleWithScore[] = rawArticles;
-
-    // For smart feed with unread filter, apply frontend filtering
-    if (isSmartFeedActive && showUnreadOnly) {
-      result = result.filter((a) => !a.read);
-    }
-
-    // For smart feed, limit to visible count (client-side pagination)
-    if (isSmartFeedActive) {
-      result = result.slice(0, smartFeedVisibleCount);
-    }
-
-    return result;
-  }, [isSmartFeedActive, showUnreadOnly, rawArticles, smartFeedVisibleCount]);
-
-  // Reset visible count when smart feed mode or filters change
-  useEffect(() => {
-    setSmartFeedVisibleCount(RSS_CONFIG.ARTICLES_PER_PAGE);
-  }, [selectedFolder, selectedFeedId, isSmartFeedActive, showUnreadOnly]);
-
+  const articles = isSmartFeedActive ? smartArticles.articles : regularArticles.articles;
   const totalArticles = isSmartFeedActive ? smartArticles.totalArticles : regularArticles.totalArticles;
   const loadingArticles = isSmartFeedActive ? smartArticles.loading : regularArticles.loading;
+  const loadingMoreArticles = isSmartFeedActive ? false : regularArticles.loadingMore;
   const articlesError = isSmartFeedActive ? smartArticles.error : regularArticles.error;
-  const currentPage = isSmartFeedActive ? smartArticles.currentPage : regularArticles.currentPage;
+  const hasMoreArticles = isSmartFeedActive ? smartArticles.hasMore : regularArticles.hasMore;
   const updateArticle = isSmartFeedActive ? smartArticles.updateArticle : regularArticles.updateArticle;
   const updateArticles = isSmartFeedActive ? smartArticles.updateArticles : regularArticles.updateArticles;
   const resetToFirstPage = isSmartFeedActive ? smartArticles.resetToFirstPage : regularArticles.resetToFirstPage;
-  const setCurrentPage = isSmartFeedActive ? smartArticles.setCurrentPage : regularArticles.setCurrentPage;
 
-  // For smart feed: check if there are more articles to show (client-side)
-  const smartFeedHasMore = useMemo(() => {
-    if (!isSmartFeedActive) return false;
-    const available = showUnreadOnly
-      ? rawArticles.filter((a) => !a.read).length
-      : rawArticles.length;
-    return available > smartFeedVisibleCount;
-  }, [isSmartFeedActive, showUnreadOnly, rawArticles, smartFeedVisibleCount]);
-
-  const handleShowMore = useCallback(() => {
+  const handleLoadMore = useCallback(() => {
     if (isSmartFeedActive) {
-      setSmartFeedVisibleCount((prev) => prev + RSS_CONFIG.ARTICLES_PER_PAGE);
+      smartArticles.loadMore();
     } else {
-      setCurrentPage((prev) => prev + 1);
+      regularArticles.loadMore();
     }
-  }, [isSmartFeedActive, setCurrentPage]);
+  }, [isSmartFeedActive, smartArticles, regularArticles]);
 
   // Dialog state
   const [dialogState, setDialogState] = useState<DialogState>(initialDialogState);
@@ -505,8 +472,9 @@ export function RssPage() {
           showSettingsMenu={showSettingsMenu}
           showFeedMenuId={showFeedMenuId}
           loadingArticles={loadingArticles}
+          loadingMoreArticles={loadingMoreArticles}
           totalArticles={totalArticles}
-          currentPage={currentPage}
+          hasMore={hasMoreArticles}
           onSelectAllFeeds={() => {
             setIsSmartFeedActive(false);
             setSelectedFolder(null);
@@ -539,7 +507,7 @@ export function RssPage() {
           onToggleSettingsMenu={() => setShowSettingsMenu((prev) => !prev)}
           onToggleFeedMenu={setShowFeedMenuId}
           onArticleClick={handleArticleClick}
-          onPageChange={setCurrentPage}
+          onLoadMore={handleLoadMore}
           onConvertClick={handleConvertClick}
           onMarkAsUnread={handleMarkAsUnread}
         />
@@ -564,9 +532,9 @@ export function RssPage() {
           mobileView={mobileView}
           setMobileView={setMobileView}
           loadingArticles={loadingArticles}
+          loadingMoreArticles={loadingMoreArticles}
           totalArticles={totalArticles}
-          currentPage={currentPage}
-          hasMore={isSmartFeedActive ? smartFeedHasMore : undefined}
+          hasMore={hasMoreArticles}
           onMenuClick={toggleMobileSidebar}
           onFeedSelectMobile={handleFeedSelectMobile}
           onFolderSelectMobile={handleFolderSelectMobile}
@@ -583,7 +551,7 @@ export function RssPage() {
           onMarkFolderAsRead={handleMarkFolderAsRead}
           onShowFeedMenu={setShowFeedMenuId}
           onArticleClick={handleArticleClick}
-          onLoadMore={handleShowMore}
+          onLoadMore={handleLoadMore}
           onToggleShowUnreadOnly={() => setShowUnreadOnly((prev) => !prev)}
           onSelectSmartFeed={handleSelectSmartFeed}
           onConvertClick={handleConvertClick}

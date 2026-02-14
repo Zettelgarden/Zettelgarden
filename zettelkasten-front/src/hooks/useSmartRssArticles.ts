@@ -3,6 +3,7 @@ import {
   getSmartRSSArticles,
   RSSArticleWithScore,
 } from "../api/rss";
+import { RSS_CONFIG } from "../constants/rss";
 
 export interface SmartFeedFilters {
   folder?: string;
@@ -19,15 +20,16 @@ interface UseSmartRssArticlesOptions {
 
 /**
  * Hook for fetching and managing RSS articles with smart scoring.
- * Fetches all articles at once to avoid duplicate issues with pagination.
+ * Fetches all articles at once and uses client-side load more.
  * @param options - Options object with filters and skip flag
- * @returns Object containing all articles, loading state, and control functions
+ * @returns Object containing all articles, visible count, loading state, and control functions
  */
 export function useSmartRssArticles(options: UseSmartRssArticlesOptions = {}) {
   const { filters = {}, skip = false } = options;
   const [articles, setArticles] = useState<RSSArticleWithScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState<number>(RSS_CONFIG.ARTICLES_PER_PAGE);
   const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   /**
@@ -46,6 +48,8 @@ export function useSmartRssArticles(options: UseSmartRssArticlesOptions = {}) {
       const response = await getSmartRSSArticles(filters);
       // Ensure articles is always an array, even if API returns null/undefined
       setArticles(response?.articles || []);
+      // Reset visible count when loading new articles
+      setVisibleCount(RSS_CONFIG.ARTICLES_PER_PAGE);
     } catch (error) {
       console.error("Failed to load smart articles:", error);
       setError("Failed to load articles. Please try again.");
@@ -58,6 +62,13 @@ export function useSmartRssArticles(options: UseSmartRssArticlesOptions = {}) {
       setLoading(false);
     }
   }, [filters, skip]);
+
+  /**
+   * Load more articles (client-side - increase visible count)
+   */
+  const loadMore = useCallback(() => {
+    setVisibleCount((prev) => prev + RSS_CONFIG.ARTICLES_PER_PAGE);
+  }, []);
 
   /**
    * Reset and reload articles
@@ -96,18 +107,22 @@ export function useSmartRssArticles(options: UseSmartRssArticlesOptions = {}) {
     };
   }, []);
 
+  // Client-side: filter articles to show based on visible count
+  const visibleArticles = articles.slice(0, visibleCount);
+  const hasMore = visibleCount < articles.length;
+
   return {
-    articles,
+    articles: visibleArticles,
+    allArticles: articles, // Expose all articles for filtering
     totalArticles: articles.length,
     loading,
     error,
-    currentPage: 1, // Always page 1 since we load everything
-    setCurrentPage: () => {}, // No-op
+    visibleCount,
+    hasMore,
+    loadMore,
     resetToFirstPage,
     loadArticles,
     updateArticle,
     updateArticles,
-    totalPages: 1,
-    hasMore: false,
   };
 }

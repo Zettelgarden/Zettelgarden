@@ -5,7 +5,6 @@ import { RssMobileTopBar } from "./RssMobileTopBar";
 import { RssMobileReader } from "./RssMobileReader";
 import { RssFeedsBottomSheet } from "./RssFeedsBottomSheet";
 import { RssErrorBoundary } from "./RssErrorBoundary";
-import { RSS_CONFIG } from "../../constants/rss";
 
 interface RssMobileLayoutProps {
   feeds: RSSFeed[];
@@ -24,9 +23,9 @@ interface RssMobileLayoutProps {
   mobileView: 'list' | 'reader' | 'feeds';
   setMobileView: (view: 'list' | 'reader' | 'feeds') => void;
   loadingArticles: boolean;
+  loadingMoreArticles: boolean;
   totalArticles: number;
-  currentPage: number;
-  hasMore?: boolean; // For smart feed client-side pagination
+  hasMore: boolean;
   onMenuClick: () => void;
   onFeedSelectMobile: (feedId: number) => void;
   onFolderSelectMobile: (folderName: string) => void;
@@ -74,8 +73,8 @@ export function RssMobileLayout({
   mobileView,
   setMobileView,
   loadingArticles,
+  loadingMoreArticles,
   totalArticles,
-  currentPage,
   hasMore,
   onMenuClick,
   onFeedSelectMobile,
@@ -105,9 +104,8 @@ export function RssMobileLayout({
 }: RssMobileLayoutProps) {
   const navigate = useNavigate();
 
-  // Calculate whether to show "Load More" button
-  // Use hasMore if provided (for smart feed), otherwise use server-side pagination calculation
-  const showLoadMore = hasMore ?? (totalArticles > RSS_CONFIG.ARTICLES_PER_PAGE && currentPage * RSS_CONFIG.ARTICLES_PER_PAGE < totalArticles);
+  // Whether to show "Load More" button
+  const showLoadMore = hasMore;
 
   const getFeedName = (feedId: number): string => {
     const feed = feeds.find((f) => f.id === feedId);
@@ -240,9 +238,10 @@ export function RssMobileLayout({
                   <div className="p-4 border-t border-gray-200 bg-gray-50">
                     <button
                       onClick={onLoadMore}
-                      className="w-full bg-white border border-gray-300 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                      disabled={loadingMoreArticles}
+                      className="w-full bg-white border border-gray-300 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Load More Articles
+                      {loadingMoreArticles ? "Loading..." : `Load More (${totalArticles - articles.length} remaining)`}
                     </button>
                   </div>
                 )}

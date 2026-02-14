@@ -15,21 +15,27 @@ interface UseRssArticlesOptions {
 }
 
 /**
- * Hook for fetching and managing RSS articles with pagination
+ * Hook for fetching and managing RSS articles with load more functionality
  * @param options - Options object with filters and skip flag
- * @returns Object containing articles, pagination state, loading state, and control functions
+ * @returns Object containing articles, loading state, and control functions
  */
 export function useRssArticles(options: UseRssArticlesOptions = {}) {
   const { filters = {}, skip = false } = options;
   const [articles, setArticles] = useState<RSSArticle[]>([]);
   const [totalArticles, setTotalArticles] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const filtersRef = useRef(filters);
+
+  // Keep track of current filters for resetting
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
 
   /**
-   * Load articles based on current filters and page
+   * Load initial articles (first batch)
    */
   const loadArticles = useCallback(async () => {
     if (skip) {
@@ -43,17 +49,15 @@ export function useRssArticles(options: UseRssArticlesOptions = {}) {
       const requestFilters: ArticleFilters = {
         ...filters,
         limit: RSS_CONFIG.ARTICLES_PER_PAGE,
-        offset: (currentPage - 1) * RSS_CONFIG.ARTICLES_PER_PAGE,
+        offset: 0,
       };
 
       const response = await listArticles(requestFilters);
-      // Ensure articles is always an array, even if API returns null/undefined
       setArticles(response?.articles || []);
       setTotalArticles(response?.total || 0);
     } catch (error) {
       console.error("Failed to load articles:", error);
       setError("Failed to load articles. Please try again.");
-      // Clear any existing timeout before setting a new one
       if (errorTimeoutRef.current) {
         clearTimeout(errorTimeoutRef.current);
       }
@@ -61,29 +65,46 @@ export function useRssArticles(options: UseRssArticlesOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [filters, currentPage, skip]);
+  }, [filters, skip]);
 
   /**
-   * Go to next page
+   * Load more articles (append to existing)
    */
-  const nextPage = useCallback(() => {
-    const maxPage = Math.ceil(totalArticles / RSS_CONFIG.ARTICLES_PER_PAGE);
-    setCurrentPage((prev) => Math.min(maxPage, prev + 1));
-  }, [totalArticles]);
+  const loadMore = useCallback(async () => {
+    if (loadingMore || articles.length >= totalArticles) {
+      return;
+    }
+
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const requestFilters: ArticleFilters = {
+        ...filtersRef.current,
+        limit: RSS_CONFIG.ARTICLES_PER_PAGE,
+        offset: articles.length,
+      };
+
+      const response = await listArticles(requestFilters);
+      setArticles((prev) => [...prev, ...(response?.articles || [])]);
+      setTotalArticles(response?.total || 0);
+    } catch (error) {
+      console.error("Failed to load more articles:", error);
+      setError("Failed to load more articles. Please try again.");
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current);
+      }
+      errorTimeoutRef.current = setTimeout(() => setError(null), 5000);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, articles.length, totalArticles]);
 
   /**
-   * Go to previous page
-   */
-  const prevPage = useCallback(() => {
-    setCurrentPage((prev) => Math.max(1, prev - 1));
-  }, []);
-
-  /**
-   * Reset to first page
+   * Reset and reload articles (called when filters change)
    */
   const resetToFirstPage = useCallback(() => {
-    setCurrentPage(1);
-  }, []);
+    loadArticles();
+  }, [loadArticles]);
 
   /**
    * Update an article in the local state
@@ -101,7 +122,7 @@ export function useRssArticles(options: UseRssArticlesOptions = {}) {
     setArticles(updater);
   }, []);
 
-  // Load articles when filters or page changes
+  // Load articles when filters changes
   useEffect(() => {
     loadArticles();
   }, [loadArticles]);
@@ -119,16 +140,13 @@ export function useRssArticles(options: UseRssArticlesOptions = {}) {
     articles,
     totalArticles,
     loading,
+    loadingMore,
     error,
-    currentPage,
-    setCurrentPage,
-    nextPage,
-    prevPage,
+    hasMore: articles.length < totalArticles,
+    loadMore,
     resetToFirstPage,
     loadArticles,
     updateArticle,
     updateArticles,
-    totalPages: Math.ceil(totalArticles / RSS_CONFIG.ARTICLES_PER_PAGE),
-    hasMore: currentPage * RSS_CONFIG.ARTICLES_PER_PAGE < totalArticles,
   };
 }

@@ -23,8 +23,9 @@ interface RssDesktopLayoutProps {
   showSettingsMenu: boolean;
   showFeedMenuId: number | null;
   loadingArticles: boolean;
+  loadingMoreArticles: boolean;
   totalArticles: number;
-  currentPage: number;
+  hasMore: boolean;
   onSelectAllFeeds: () => void;
   onSelectFolder: (folderName: string) => void;
   onSelectFeed: (feedId: number) => void;
@@ -45,7 +46,7 @@ interface RssDesktopLayoutProps {
   onToggleSettingsMenu: () => void;
   onToggleFeedMenu: (feedId: number | null) => void;
   onArticleClick: (article: RSSArticle) => void;
-  onPageChange: (page: number) => void;
+  onLoadMore: () => void;
   onConvertClick: () => void;
   onMarkAsUnread: () => void;
 }
@@ -71,8 +72,9 @@ export function RssDesktopLayout({
   showSettingsMenu,
   showFeedMenuId,
   loadingArticles,
+  loadingMoreArticles,
   totalArticles,
-  currentPage,
+  hasMore,
   onSelectAllFeeds,
   onSelectFolder,
   onSelectFeed,
@@ -93,7 +95,7 @@ export function RssDesktopLayout({
   onToggleSettingsMenu,
   onToggleFeedMenu,
   onArticleClick,
-  onPageChange,
+  onLoadMore,
   onConvertClick,
   onMarkAsUnread,
 }: RssDesktopLayoutProps) {
@@ -141,14 +143,15 @@ export function RssDesktopLayout({
           feeds={feeds}
           selectedArticle={selectedArticle}
           loading={loadingArticles}
+          loadingMore={loadingMoreArticles}
           totalArticles={totalArticles}
-          currentPage={currentPage}
           currentUnreadCount={currentUnreadCount}
           showUnreadOnly={showUnreadOnly}
           isSmartFeedActive={isSmartFeedActive}
+          hasMore={hasMore}
           onArticleClick={onArticleClick}
           onToggleShowUnreadOnly={onToggleShowUnreadOnly}
-          onPageChange={onPageChange}
+          onLoadMore={onLoadMore}
         />
       </RssErrorBoundary>
       <RssErrorBoundary>
