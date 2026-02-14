@@ -350,6 +350,7 @@ func (s *Handler) UpdateMessageStatus(messageID, status string) error {
 	mu := s.getMessageMutex(messageID)
 	mu.Lock()
 	defer mu.Unlock()
+	defer s.cleanupMessageMutex(messageID)
 
 	// Validate status transition
 	currentStatus, err := s.getMessageStatusLocked(messageID)

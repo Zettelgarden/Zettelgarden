@@ -13,6 +13,7 @@ func (s *ChatService) updateAssistantMessage(userID int, conversationID, message
 	mu := s.getMessageMutex(messageID)
 	mu.Lock()
 	defer mu.Unlock()
+	defer s.cleanupMessageMutex(messageID)
 
 	var query string
 	var args []interface{}
