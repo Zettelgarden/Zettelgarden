@@ -151,7 +151,7 @@ func (b *Bot) sendMessage(ctx context.Context, chatID int64, text string) {
 func (b *Bot) handleChatMessage(ctx context.Context, message *tgbotapi.Message) {
 	// Send typing indicator
 	action := tgbotapi.NewChatAction(message.Chat.ID, tgbotapi.ChatTyping)
-	if _, err := b.api.Send(action); err != nil {
+	if _, err := b.api.Request(action); err != nil {
 		log.Printf("[telegram] Error sending typing action: %v", err)
 	}
 
