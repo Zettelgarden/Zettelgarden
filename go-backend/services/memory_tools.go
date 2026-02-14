@@ -20,6 +20,7 @@ package services
 import (
 	"fmt"
 
+	"go-backend/services/tools"
 	"go-backend/services/tools/memory"
 )
 
@@ -39,13 +40,15 @@ func handleGetUserMemory(args map[string]interface{}, ctx *ToolContext) (map[str
 	}
 
 	if userMemory == "" {
-		return map[string]interface{}{
+		result := map[string]interface{}{
 			"memory": "",
 			"note":   "No memory has been recorded yet for this user.",
-		}, nil
+		}
+		return tools.WrapToolSuccessWithMetadata(result, tools.NewMetadata(tools.WithOperation("no_memory"))), nil
 	}
 
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"memory": userMemory,
-	}, nil
+	}
+	return tools.WrapToolSuccessWithMetadata(result, tools.NewMetadata(tools.WithOperation("memory_retrieved"))), nil
 }
