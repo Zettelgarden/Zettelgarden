@@ -28,26 +28,46 @@ export function insertRow(spreadsheet: Spreadsheet, rowIndex: number): Spreadshe
   }
 
   const insertIndex = Math.max(0, Math.min(rowIndex, rows));
-
   const newData: Record<string, SpreadsheetCell> = { ...data };
 
-  // Shift existing data down
+  // Collect deleted references (empty for insert)
+  const deletedRefs = new Set<string>();
+
+  // Move cells down and update formulas
   for (let row = rows - 1; row >= insertIndex; row--) {
     for (let col = 0; col < cols; col++) {
       const oldRef = coordsToA1(row, col);
       const newRef = coordsToA1(row + 1, col);
 
       if (data[oldRef]) {
-        newData[newRef] = { ...data[oldRef] };
+        const cell = { ...data[oldRef] };
+        // Update formula references
+        if (cell.formula) {
+          cell.formula = updateFormulaReferences(cell.formula, 1, 0, insertIndex + 1, deletedRefs);
+        }
+        newData[newRef] = cell;
         delete newData[oldRef];
       }
     }
   }
 
-  // Insert empty cells at the new row
+  // Create empty cells for the new row
   for (let col = 0; col < cols; col++) {
     const newRef = coordsToA1(insertIndex, col);
     newData[newRef] = { value: '' };
+  }
+
+  // Update formulas in cells that were not moved
+  for (let row = 0; row < insertIndex; row++) {
+    for (let col = 0; col < cols; col++) {
+      const ref = coordsToA1(row, col);
+      if (newData[ref] && newData[ref].formula) {
+        newData[ref] = {
+          ...newData[ref],
+          formula: updateFormulaReferences(newData[ref].formula!, 1, 0, insertIndex + 1, deletedRefs)
+        };
+      }
+    }
   }
 
   return {
@@ -85,25 +105,54 @@ export function deleteRow(spreadsheet: Spreadsheet, rowIndex: number): Spreadshe
   }
 
   const deleteIndex = Math.max(0, Math.min(rowIndex, rows - 1));
-
   const newData: Record<string, SpreadsheetCell> = { ...data };
 
-  // Remove the deleted row's cells
+  // Track deleted references
+  const deletedRefs = new Set<string>();
+  for (let col = 0; col < cols; col++) {
+    deletedRefs.add(coordsToA1(deleteIndex, col));
+  }
+
+  // Delete cells at the target row
   for (let col = 0; col < cols; col++) {
     const ref = coordsToA1(deleteIndex, col);
     delete newData[ref];
   }
 
-  // Shift data up
-  for (let row = deleteIndex + 1; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const oldRef = coordsToA1(row, col);
-      const newRef = coordsToA1(row - 1, col);
+  // Process all existing cells to shift up and update formulas
+  const cellsToProcess: Array<{ oldRef: string; newRef: string; cell: SpreadsheetCell }> = [];
+  const movedRefs = new Set<string>();
 
-      if (data[oldRef]) {
-        newData[newRef] = { ...data[oldRef] };
-        delete newData[oldRef];
+  for (const ref in data) {
+    try {
+      const coords = a1ToCoords(ref);
+      if (coords.row > deleteIndex) {
+        const newRef = coordsToA1(coords.row - 1, coords.col);
+        const cell = { ...data[ref] };
+        if (cell.formula) {
+          cell.formula = updateFormulaReferences(cell.formula, -1, 0, deleteIndex + 1, deletedRefs);
+        }
+        cellsToProcess.push({ oldRef: ref, newRef, cell });
+        movedRefs.add(newRef);
       }
+    } catch {
+      // Invalid ref, skip
+    }
+  }
+
+  // Move cells
+  for (const { oldRef, newRef, cell } of cellsToProcess) {
+    newData[newRef] = cell;
+    delete newData[oldRef];
+  }
+
+  // Update formulas in cells that were not moved
+  for (const ref in newData) {
+    if (!movedRefs.has(ref) && newData[ref].formula) {
+      newData[ref] = {
+        ...newData[ref],
+        formula: updateFormulaReferences(newData[ref].formula!, -1, 0, deleteIndex + 1, deletedRefs)
+      };
     }
   }
 
@@ -141,26 +190,46 @@ export function insertColumn(spreadsheet: Spreadsheet, colIndex: number): Spread
   }
 
   const insertIndex = Math.max(0, Math.min(colIndex, cols));
-
   const newData: Record<string, SpreadsheetCell> = { ...data };
 
-  // Shift existing data right
+  // Collect deleted references (empty for insert)
+  const deletedRefs = new Set<string>();
+
+  // Move cells right and update formulas
   for (let col = cols - 1; col >= insertIndex; col--) {
     for (let row = 0; row < rows; row++) {
       const oldRef = coordsToA1(row, col);
       const newRef = coordsToA1(row, col + 1);
 
       if (data[oldRef]) {
-        newData[newRef] = { ...data[oldRef] };
+        const cell = { ...data[oldRef] };
+        // Update formula references
+        if (cell.formula) {
+          cell.formula = updateFormulaReferences(cell.formula, 0, 1, insertIndex + 1, deletedRefs);
+        }
+        newData[newRef] = cell;
         delete newData[oldRef];
       }
     }
   }
 
-  // Insert empty cells at the new column
+  // Create empty cells for the new column
   for (let row = 0; row < rows; row++) {
     const newRef = coordsToA1(row, insertIndex);
     newData[newRef] = { value: '' };
+  }
+
+  // Update formulas in cells that were not moved
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < insertIndex; col++) {
+      const ref = coordsToA1(row, col);
+      if (newData[ref] && newData[ref].formula) {
+        newData[ref] = {
+          ...newData[ref],
+          formula: updateFormulaReferences(newData[ref].formula!, 0, 1, insertIndex + 1, deletedRefs)
+        };
+      }
+    }
   }
 
   return {
@@ -198,25 +267,54 @@ export function deleteColumn(spreadsheet: Spreadsheet, colIndex: number): Spread
   }
 
   const deleteIndex = Math.max(0, Math.min(colIndex, cols - 1));
-
   const newData: Record<string, SpreadsheetCell> = { ...data };
 
-  // Remove the deleted column's cells
+  // Track deleted references
+  const deletedRefs = new Set<string>();
+  for (let row = 0; row < rows; row++) {
+    deletedRefs.add(coordsToA1(row, deleteIndex));
+  }
+
+  // Delete cells at the target column
   for (let row = 0; row < rows; row++) {
     const ref = coordsToA1(row, deleteIndex);
     delete newData[ref];
   }
 
-  // Shift data left
-  for (let col = deleteIndex + 1; col < cols; col++) {
-    for (let row = 0; row < rows; row++) {
-      const oldRef = coordsToA1(row, col);
-      const newRef = coordsToA1(row, col - 1);
+  // Process all existing cells to shift left and update formulas
+  const cellsToProcess: Array<{ oldRef: string; newRef: string; cell: SpreadsheetCell }> = [];
+  const movedRefs = new Set<string>();
 
-      if (data[oldRef]) {
-        newData[newRef] = { ...data[oldRef] };
-        delete newData[oldRef];
+  for (const ref in data) {
+    try {
+      const coords = a1ToCoords(ref);
+      if (coords.col > deleteIndex) {
+        const newRef = coordsToA1(coords.row, coords.col - 1);
+        const cell = { ...data[ref] };
+        if (cell.formula) {
+          cell.formula = updateFormulaReferences(cell.formula, 0, -1, deleteIndex + 1, deletedRefs);
+        }
+        cellsToProcess.push({ oldRef: ref, newRef, cell });
+        movedRefs.add(newRef);
       }
+    } catch {
+      // Invalid ref, skip
+    }
+  }
+
+  // Move cells
+  for (const { oldRef, newRef, cell } of cellsToProcess) {
+    newData[newRef] = cell;
+    delete newData[oldRef];
+  }
+
+  // Update formulas in cells that were not moved
+  for (const ref in newData) {
+    if (!movedRefs.has(ref) && newData[ref].formula) {
+      newData[ref] = {
+        ...newData[ref],
+        formula: updateFormulaReferences(newData[ref].formula!, 0, -1, deleteIndex + 1, deletedRefs)
+      };
     }
   }
 

@@ -299,6 +299,186 @@ describe('deleteColumn', () => {
   });
 });
 
+describe('insertRow with formulas', () => {
+  it('should update formula references when inserting row', () => {
+    const spreadsheet = createTestSpreadsheet(3, 2);
+    spreadsheet.data.data = {
+      'A1': { value: '1', formula: '' },
+      'A2': { value: '2', formula: '' },
+      'A3': { value: '3', formula: '' },
+      'B1': { value: '', formula: 'A1+A2' }, // should become A2+A3
+    };
+
+    const result = insertRow(spreadsheet, 0);
+
+    expect(result.data.data['B2']).toEqual({
+      value: '',
+      formula: 'A2+A3'
+    });
+  });
+
+  it('should update formulas when inserting row in middle', () => {
+    const spreadsheet = createTestSpreadsheet(3, 2);
+    spreadsheet.data.data = {
+      'A1': { value: '1', formula: '' },
+      'A2': { value: '2', formula: '' },
+      'A3': { value: '3', formula: '' },
+      'B1': { value: '', formula: 'A1+A3' },
+    };
+
+    const result = insertRow(spreadsheet, 1);
+
+    expect(result.data.data['B1']).toEqual({
+      value: '',
+      formula: 'A1+A4'
+    });
+  });
+
+  it('should update formulas when inserting row at end', () => {
+    const spreadsheet = createTestSpreadsheet(3, 2);
+    spreadsheet.data.data = {
+      'A1': { value: '1', formula: '' },
+      'A2': { value: '2', formula: '' },
+      'A3': { value: '3', formula: '' },
+      'B1': { value: '', formula: 'SUM(A1:A3)' },
+    };
+
+    const result = insertRow(spreadsheet, 3);
+
+    expect(result.data.data['B1']).toEqual({
+      value: '',
+      formula: 'SUM(A1:A3)'
+    });
+  });
+});
+
+describe('deleteRow with formulas', () => {
+  it('should update formula references and mark deleted refs', () => {
+    const spreadsheet = createTestSpreadsheet(3, 2);
+    spreadsheet.data.data = {
+      'A1': { value: '1', formula: '' },
+      'A2': { value: '2', formula: '' },
+      'A3': { value: '3', formula: '' },
+      'B1': { value: '', formula: 'A1+A2+A3' },
+    };
+
+    const result = deleteRow(spreadsheet, 1); // Delete row 2 (index 1)
+
+    expect(result.data.data['B1']).toEqual({
+      value: '',
+      formula: 'A1+#REF!+A2' // A3 becomes A2, A2 was deleted
+    });
+  });
+
+  it('should update formulas when deleting first row', () => {
+    const spreadsheet = createTestSpreadsheet(4, 2);
+    spreadsheet.data.data = {
+      'A1': { value: '1', formula: '' },
+      'A2': { value: '2', formula: '' },
+      'A3': { value: '3', formula: '' },
+      'A4': { value: '4', formula: '' },
+      'B2': { value: '', formula: 'SUM(A1:A4)' },
+    };
+
+    const result = deleteRow(spreadsheet, 0);
+
+    expect(result.data.data['B1']).toEqual({
+      value: '',
+      formula: 'SUM(#REF!:A3)'
+    });
+  });
+
+  it('should update formulas when deleting last row', () => {
+    const spreadsheet = createTestSpreadsheet(4, 2);
+    spreadsheet.data.data = {
+      'A1': { value: '1', formula: '' },
+      'A2': { value: '2', formula: '' },
+      'A3': { value: '3', formula: '' },
+      'A4': { value: '4', formula: '' },
+      'B1': { value: '', formula: 'SUM(A1:A4)' },
+    };
+
+    const result = deleteRow(spreadsheet, 3);
+
+    expect(result.data.data['B1']).toEqual({
+      value: '',
+      formula: 'SUM(A1:#REF!)'
+    });
+  });
+});
+
+describe('insertColumn with formulas', () => {
+  it('should update formula references when inserting column', () => {
+    const spreadsheet = createTestSpreadsheet(2, 3);
+    spreadsheet.data.data = {
+      'A1': { value: '1', formula: '' },
+      'B1': { value: '2', formula: '' },
+      'C1': { value: '3', formula: '' },
+      'A2': { value: '', formula: 'A1+B1' }, // should become B1+C1
+    };
+
+    const result = insertColumn(spreadsheet, 0);
+
+    expect(result.data.data['B2']).toEqual({
+      value: '',
+      formula: 'B1+C1'
+    });
+  });
+
+  it('should update formulas when inserting column in middle', () => {
+    const spreadsheet = createTestSpreadsheet(2, 3);
+    spreadsheet.data.data = {
+      'A1': { value: '1', formula: '' },
+      'B1': { value: '2', formula: '' },
+      'C1': { value: '3', formula: '' },
+      'A2': { value: '', formula: 'A1+C1' },
+    };
+
+    const result = insertColumn(spreadsheet, 1);
+
+    expect(result.data.data['A2']).toEqual({
+      value: '',
+      formula: 'A1+D1'
+    });
+  });
+});
+
+describe('deleteColumn with formulas', () => {
+  it('should update formula references and mark deleted refs', () => {
+    const spreadsheet = createTestSpreadsheet(2, 3);
+    spreadsheet.data.data = {
+      'A1': { value: '1', formula: '' },
+      'B1': { value: '2', formula: '' },
+      'C1': { value: '3', formula: '' },
+      'A2': { value: '', formula: 'A1+B1+C1' },
+    };
+
+    const result = deleteColumn(spreadsheet, 1); // Delete column B (index 1)
+
+    expect(result.data.data['A2']).toEqual({
+      value: '',
+      formula: 'A1+#REF!+B1' // C1 becomes B1, B1 was deleted
+    });
+  });
+
+  it('should update formulas when deleting first column', () => {
+    const spreadsheet = createTestSpreadsheet(2, 3);
+    spreadsheet.data.data = {
+      'A1': { value: '1', formula: '' },
+      'B1': { value: '2', formula: '' },
+      'C1': { value: '3', formula: '' },
+      'D1': { value: '', formula: 'SUM(A1:C1)' },
+    };
+
+    const result = deleteColumn(spreadsheet, 0);
+
+    expect(result.data.data['C1']).toEqual({
+      value: '',
+      formula: 'SUM(#REF!:B1)'
+    });
+  });
+});
+
 describe('hasDataInRow', () => {
   it('should return true if row has non-empty cells', () => {
     const spreadsheet = createTestSpreadsheet(3, 2);
