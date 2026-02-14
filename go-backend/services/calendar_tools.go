@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"go-backend/services/featureflags"
+	"go-backend/services/tools"
 	"go-backend/services/tools/calendar"
 )
 
@@ -109,10 +110,11 @@ func handleListExternalCalendarsV2(args map[string]interface{}, ctx *ToolContext
 		results = append(results, StructToMap(cal))
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"calendars": results,
-		"total":     len(calendars),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(calendars)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleListExternalEventsV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -152,10 +154,11 @@ func handleListExternalEventsV2(args map[string]interface{}, ctx *ToolContext) (
 		results = append(results, StructToMap(event))
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"events": results,
-		"total":  total,
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(total))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleLinkEventToCardV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -174,7 +177,9 @@ func handleLinkEventToCardV2(args map[string]interface{}, ctx *ToolContext) (map
 		return nil, fmt.Errorf("failed to link event to card: %v", err)
 	}
 
-	return StructToMap(event), nil
+	result := StructToMap(event)
+	result["operation"] = "event_linked"
+	return tools.WrapToolSuccessWithMetadata(result, tools.NewMetadata(tools.WithOperation("link_event_to_card"))), nil
 }
 
 // Legacy calendar tool handlers (kept for backward compatibility)
@@ -191,10 +196,11 @@ func handleListExternalCalendarsLegacy(args map[string]interface{}, ctx *ToolCon
 		results = append(results, StructToMap(cal))
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"calendars": results,
-		"total":     len(calendars),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(calendars)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleListExternalEventsLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -230,10 +236,11 @@ func handleListExternalEventsLegacy(args map[string]interface{}, ctx *ToolContex
 		results = append(results, StructToMap(event))
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"events": results,
-		"total":  total,
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(total))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleLinkEventToCardLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -253,5 +260,7 @@ func handleLinkEventToCardLegacy(args map[string]interface{}, ctx *ToolContext) 
 		return nil, fmt.Errorf("failed to link event to card: %v", err)
 	}
 
-	return StructToMap(event), nil
+	result := StructToMap(event)
+	result["operation"] = "event_linked"
+	return tools.WrapToolSuccessWithMetadata(result, tools.NewMetadata(tools.WithOperation("link_event_to_card"))), nil
 }
