@@ -68,6 +68,9 @@ export interface ToolResultMetadata {
   arguments?: Record<string, any>;
   timestamp?: string;
   tool_name?: string;
+  total?: number;
+  operation?: string;
+  tool?: string;
 }
 
 export interface CreateConversationRequest {
@@ -114,6 +117,49 @@ export interface ChatModel {
   label: string;
   prompt_per_1k: number;
   completion_per_1k: number;
+}
+
+// Standard Tool Result Types
+
+/**
+ * ToolResultSuccess represents a successful tool execution result
+ * in the new standardized format.
+ */
+export interface ToolResultSuccess {
+  success: true;
+  data: Record<string, any>;
+  metadata?: ToolResultMetadata;
+}
+
+/**
+ * ToolResultError represents a failed tool execution result
+ * in the new standardized format.
+ */
+export interface ToolResultError {
+  success: false;
+  error: {
+    type: ToolErrorType;
+    message: string;
+    retryable: boolean;
+    tool_name: string;
+    arguments?: Record<string, any>;
+    suggestion?: string;
+  };
+  metadata?: ToolResultMetadata;
+}
+
+/**
+ * StandardToolResult is a union type representing all possible
+ * standardized tool result formats (success or error).
+ */
+export type StandardToolResult = ToolResultSuccess | ToolResultError;
+
+/**
+ * isStandardToolResult is a type guard that checks if a result
+ * follows the new standardized format (has a 'success' field).
+ */
+export function isStandardToolResult(result: Record<string, any>): result is StandardToolResult {
+  return "success" in result && typeof result.success === "boolean";
 }
 
 // API Functions

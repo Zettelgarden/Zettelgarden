@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ToolError, ToolResultMetadata } from "../../api/chat";
+import { ToolError, ToolResultMetadata, isStandardToolResult, ToolResultSuccess, ToolResultError, StandardToolResult } from "../../api/chat";
 
 interface ToolResultCardProps {
   messageId: string;
@@ -37,8 +37,36 @@ export function ToolResultCard({
 }: ToolResultCardProps) {
   const [showFullJson, setShowFullJson] = useState(false);
 
-  // Check if result contains an error
-  const errorData = result.error;
+  // Check if this is a standardized format result
+  const isStandard = isStandardToolResult(result);
+
+  // Extract data and error based on format
+  let data: Record<string, any>;
+  let errorData: any;
+  let resultMetadata: ToolResultMetadata | undefined;
+
+  if (isStandard) {
+    // New standardized format
+    if (result.success) {
+      // Success format
+      const successResult = result as ToolResultSuccess;
+      data = successResult.data;
+      errorData = undefined;
+      resultMetadata = successResult.metadata;
+    } else {
+      // Error format
+      const errorResult = result as ToolResultError;
+      data = {};
+      errorData = errorResult.error;
+      resultMetadata = errorResult.metadata;
+    }
+  } else {
+    // Legacy format - result is the data directly
+    data = result;
+    errorData = result.error;
+    resultMetadata = metadata;
+  }
+
   const hasError = !!errorData;
 
   // Parse error data if present
@@ -58,7 +86,7 @@ export function ToolResultCard({
     }
   }
 
-  const isError = hasError || metadata?.has_error;
+  const isError = hasError || resultMetadata?.has_error;
   const bgColor = isError ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200";
 
   const textColor = isError ? "text-red-700" : "text-amber-700";
@@ -73,6 +101,11 @@ export function ToolResultCard({
   // Extract error type for badge
   const errorType = toolError?.type || "unknown";
   const errorTypeInfo = errorTypeLabels[errorType] || errorTypeLabels.unknown;
+
+  // Extract metadata for display (from both formats)
+  const total = resultMetadata?.total || data.total;
+  const operation = resultMetadata?.operation || data.operation;
+  const tool = resultMetadata?.tool || data.tool;
 
   return (
     <div className={`${bgColor} border rounded-xl shadow-sm overflow-hidden`}>
@@ -145,13 +178,36 @@ export function ToolResultCard({
             </div>
           )}
 
+          {/* Metadata section (for new format) */}
+          {(total !== undefined || operation !== undefined || tool !== undefined) && (
+            <div className="mb-3 pl-8">
+              <div className="flex items-center gap-2 flex-wrap">
+                {total !== undefined && (
+                  <span className="px-2.5 py-0.5 text-xs bg-amber-200 text-amber-800 rounded-full font-medium border border-amber-300">
+                    Total: {total}
+                  </span>
+                )}
+                {operation !== undefined && (
+                  <span className="px-2.5 py-0.5 text-xs bg-blue-200 text-blue-800 rounded-full font-medium border border-blue-300">
+                    Operation: {operation}
+                  </span>
+                )}
+                {tool !== undefined && (
+                  <span className="px-2.5 py-0.5 text-xs bg-green-200 text-green-800 rounded-full font-medium border border-green-300">
+                    Tool: {tool}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* JSON details */}
           <div className="pl-8">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-gray-600">
                 {isError ? "Error Details" : "Tool Output"}
               </span>
-              {Object.keys(result).length > 5 && (
+              {Object.keys(data).length > 5 && (
                 <button
                   onClick={() => setShowFullJson(!showFullJson)}
                   className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
@@ -167,11 +223,11 @@ export function ToolResultCard({
                   : "bg-amber-50 text-amber-800 border-amber-100"
               }`}
             >
-              {JSON.stringify(result, null, 2)}
+              {JSON.stringify(isStandard ? result : data, null, 2)}
             </pre>
 
             {/* Show arguments if available */}
-            {metadata?.arguments && Object.keys(metadata.arguments).length > 0 && (
+            {resultMetadata?.arguments && Object.keys(resultMetadata.arguments).length > 0 && (
               <div className="mt-2">
                 <button
                   onClick={() => setShowFullJson(!showFullJson)}
@@ -191,7 +247,7 @@ export function ToolResultCard({
                   <pre
                     className="text-xs text-gray-700 overflow-x-auto whitespace-pre-wrap break-words font-mono bg-gray-50 p-2 rounded border border-gray-200 mt-1"
                   >
-                    {JSON.stringify(metadata.arguments, null, 2)}
+                    {JSON.stringify(resultMetadata.arguments, null, 2)}
                   </pre>
                 )}
               </div>

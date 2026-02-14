@@ -234,7 +234,9 @@ func handleGetCardByIDV2(args map[string]interface{}, ctx *ToolContext) (map[str
 		return nil, fmt.Errorf("failed to get card: %v", err)
 	}
 
-	return card.StructToMap(c), nil
+	// Return standardized success response for single item result
+	result := card.StructToMap(c)
+	return tools.WrapToolSuccess(result), nil
 }
 
 func handleCreateCardV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -265,13 +267,15 @@ func handleCreateCardV2(args map[string]interface{}, ctx *ToolContext) (map[stri
 		return nil, fmt.Errorf("failed to create card: %v", err)
 	}
 
+	// Build result with operation metadata for frontend refresh detection
 	result := card.StructToMap(newCard)
-	// Add metadata about the operation for frontend refresh detection
-	result["operation"] = "card_created"
-	result["card_pk"] = newCard.ID
-	result["card_id"] = newCard.CardID
+	metadata := tools.NewMetadata(
+		tools.WithOperation("card_created"),
+		tools.WithTool("create_card"),
+	)
 
-	return result, nil
+	// Return standardized response with metadata
+	return tools.WrapToolSuccessWithMetadata(result, metadata), nil
 }
 
 func handleGetCardAnalysisV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -286,11 +290,14 @@ func handleGetCardAnalysisV2(args map[string]interface{}, ctx *ToolContext) (map
 		return nil, fmt.Errorf("failed to get card analysis: %v", err)
 	}
 
-	// Convert analysis to map for tool response
-	return map[string]interface{}{
+	// Build result data
+	result := map[string]interface{}{
 		"card_pk":  cardPK,
 		"analysis": analysis,
-	}, nil
+	}
+
+	// Return standardized success response
+	return tools.WrapToolSuccess(result), nil
 }
 
 func handleUpdateCardV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -340,13 +347,15 @@ func handleUpdateCardV2(args map[string]interface{}, ctx *ToolContext) (map[stri
 		return nil, fmt.Errorf("failed to update card: %v", err)
 	}
 
+	// Build result with operation metadata for frontend refresh detection
 	result := card.StructToMap(updatedCard)
-	// Add metadata about the operation for frontend refresh detection
-	result["operation"] = "card_updated"
-	result["card_pk"] = cardPK
-	result["card_id"] = updatedCard.CardID
+	metadata := tools.NewMetadata(
+		tools.WithOperation("card_updated"),
+		tools.WithTool("update_card"),
+	)
 
-	return result, nil
+	// Return standardized response with metadata
+	return tools.WrapToolSuccessWithMetadata(result, metadata), nil
 }
 
 func handleBrowseCardHierarchyV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -385,12 +394,16 @@ func handleBrowseCardHierarchyV2(args map[string]interface{}, ctx *ToolContext) 
 		results = append(results, card.StructToMap(c))
 	}
 
-	return map[string]interface{}{
+	// Build data map with hierarchy browse results
+	data := map[string]interface{}{
 		"cards":     results,
 		"direction": direction,
 		"depth":     depth,
-		"total":     len(cards),
-	}, nil
+	}
+
+	// Return standardized response format with metadata containing total
+	metadata := tools.NewMetadata(tools.WithTotal(len(cards)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 // Legacy card tool handlers (kept for backward compatibility)
@@ -449,7 +462,9 @@ func handleGetCardByIDLegacy(args map[string]interface{}, ctx *ToolContext) (map
 		return nil, fmt.Errorf("failed to get card: %v", err)
 	}
 
-	return card.StructToMap(c), nil
+	// Return standardized success response for single item result
+	result := card.StructToMap(c)
+	return tools.WrapToolSuccess(result), nil
 }
 
 func handleCreateCardLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -480,13 +495,15 @@ func handleCreateCardLegacy(args map[string]interface{}, ctx *ToolContext) (map[
 		return nil, fmt.Errorf("failed to create card: %v", err)
 	}
 
+	// Build result with operation metadata for frontend refresh detection
 	result := card.StructToMap(newCard)
-	// Add metadata about the operation for frontend refresh detection
-	result["operation"] = "card_created"
-	result["card_pk"] = newCard.ID
-	result["card_id"] = newCard.CardID
+	metadata := tools.NewMetadata(
+		tools.WithOperation("card_created"),
+		tools.WithTool("create_card"),
+	)
 
-	return result, nil
+	// Return standardized response with metadata
+	return tools.WrapToolSuccessWithMetadata(result, metadata), nil
 }
 
 func handleGetCardAnalysisLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -501,11 +518,14 @@ func handleGetCardAnalysisLegacy(args map[string]interface{}, ctx *ToolContext) 
 		return nil, fmt.Errorf("failed to get card analysis: %v", err)
 	}
 
-	// Convert analysis to map for tool response
-	return map[string]interface{}{
+	// Build result data
+	result := map[string]interface{}{
 		"card_pk":  cardPK,
 		"analysis": analysis,
-	}, nil
+	}
+
+	// Return standardized success response
+	return tools.WrapToolSuccess(result), nil
 }
 
 func handleUpdateCardLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -555,13 +575,15 @@ func handleUpdateCardLegacy(args map[string]interface{}, ctx *ToolContext) (map[
 		return nil, fmt.Errorf("failed to update card: %v", err)
 	}
 
+	// Build result with operation metadata for frontend refresh detection
 	result := card.StructToMap(updatedCard)
-	// Add metadata about the operation for frontend refresh detection
-	result["operation"] = "card_updated"
-	result["card_pk"] = cardPK
-	result["card_id"] = updatedCard.CardID
+	metadata := tools.NewMetadata(
+		tools.WithOperation("card_updated"),
+		tools.WithTool("update_card"),
+	)
 
-	return result, nil
+	// Return standardized response with metadata
+	return tools.WrapToolSuccessWithMetadata(result, metadata), nil
 }
 
 func handleBrowseCardHierarchyLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -600,12 +622,16 @@ func handleBrowseCardHierarchyLegacy(args map[string]interface{}, ctx *ToolConte
 		results = append(results, card.StructToMap(c))
 	}
 
-	return map[string]interface{}{
+	// Build data map with hierarchy browse results
+	data := map[string]interface{}{
 		"cards":     results,
 		"direction": direction,
 		"depth":     depth,
-		"total":     len(cards),
-	}, nil
+	}
+
+	// Return standardized response format with metadata containing total
+	metadata := tools.NewMetadata(tools.WithTotal(len(cards)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 // StructToMap converts a struct to a map[string]interface{}
