@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Spreadsheet, SpreadsheetCell } from '../../models/Spreadsheet';
 import { SpreadsheetCell as SpreadsheetCellComponent } from './SpreadsheetCell';
 import { evaluateFormula, extractCellReferences } from './formulaParser';
 import { coordsToA1 } from '../../utils/spreadsheetHelpers';
+import { SpreadsheetContextMenu, ContextMenuPosition, ContextMenuAction } from './SpreadsheetContextMenu';
 
 interface SpreadsheetGridProps {
   spreadsheet: Spreadsheet;
@@ -14,6 +15,11 @@ export function SpreadsheetGrid({ spreadsheet, onChange, readOnly = false }: Spr
   const { rows, cols, data } = spreadsheet.data;
   const [selectedCell, setSelectedCell] = useState<string | null>(null);
   const focusedCellRef = useRef<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    position: ContextMenuPosition;
+    type: 'row' | 'column';
+    index: number;
+  } | null>(null);
 
   // Get all cell references that a formula depends on
   function getDependencies(cellRef: string): Set<string> {
@@ -240,14 +246,88 @@ export function SpreadsheetGrid({ spreadsheet, onChange, readOnly = false }: Spr
     focusedCellRef.current = cellRef;
   };
 
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  const handleRowHeaderContextMenu = useCallback((e: React.MouseEvent, rowIndex: number) => {
+    e.preventDefault();
+
+    if (readOnly) return;
+
+    setContextMenu({
+      position: { x: e.clientX, y: e.clientY },
+      type: 'row',
+      index: rowIndex
+    });
+  }, [readOnly]);
+
+  const handleColumnHeaderContextMenu = useCallback((e: React.MouseEvent, colIndex: number) => {
+    e.preventDefault();
+
+    if (readOnly) return;
+
+    setContextMenu({
+      position: { x: e.clientX, y: e.clientY },
+      type: 'column',
+      index: colIndex
+    });
+  }, [readOnly]);
+
+  const handleInsertRowAbove = useCallback(() => {
+    if (!contextMenu) return;
+    closeContextMenu();
+  }, [contextMenu, closeContextMenu]);
+
+  const handleInsertRowBelow = useCallback(() => {
+    if (!contextMenu) return;
+    closeContextMenu();
+  }, [contextMenu, closeContextMenu]);
+
+  const handleDeleteRow = useCallback(() => {
+    if (!contextMenu) return;
+    closeContextMenu();
+  }, [contextMenu, closeContextMenu]);
+
+  const handleInsertColumnLeft = useCallback(() => {
+    if (!contextMenu) return;
+    closeContextMenu();
+  }, [contextMenu, closeContextMenu]);
+
+  const handleInsertColumnRight = useCallback(() => {
+    if (!contextMenu) return;
+    closeContextMenu();
+  }, [contextMenu, closeContextMenu]);
+
+  const handleDeleteColumn = useCallback(() => {
+    if (!contextMenu) return;
+    closeContextMenu();
+  }, [contextMenu, closeContextMenu]);
+
+  const contextMenuActions: ContextMenuAction[] = contextMenu ? (
+    contextMenu.type === 'row' ? [
+      { label: 'Insert Row Above', action: handleInsertRowAbove },
+      { label: 'Insert Row Below', action: handleInsertRowBelow },
+      { label: 'Delete Row', action: handleDeleteRow },
+    ] : [
+      { label: 'Insert Column Left', action: handleInsertColumnLeft },
+      { label: 'Insert Column Right', action: handleInsertColumnRight },
+      { label: 'Delete Column', action: handleDeleteColumn },
+    ]
+  ) : [];
+
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto relative">
       <table className="border-collapse border border-gray-400">
         <thead>
           <tr>
             <th className="border border-gray-300 bg-gray-100 px-2 py-1 w-8"></th>
-            {columnHeaders.map((col) => (
-              <th key={col} className="border border-gray-300 bg-gray-100 px-2 py-1 min-w-[80px] font-semibold text-sm">
+            {columnHeaders.map((col, colIndex) => (
+              <th
+                key={col}
+                className="border border-gray-300 bg-gray-100 px-2 py-1 min-w-[80px] font-semibold text-sm"
+                onContextMenu={(e) => handleColumnHeaderContextMenu(e, colIndex)}
+              >
                 {col}
               </th>
             ))}
@@ -256,7 +336,10 @@ export function SpreadsheetGrid({ spreadsheet, onChange, readOnly = false }: Spr
         <tbody>
           {rowHeaders.map((row) => (
             <tr key={row}>
-              <td className="border border-gray-300 bg-gray-100 px-2 py-1 text-center font-semibold text-sm">
+              <td
+                className="border border-gray-300 bg-gray-100 px-2 py-1 text-center font-semibold text-sm"
+                onContextMenu={(e) => handleRowHeaderContextMenu(e, parseInt(row, 10) - 1)}
+              >
                 {row}
               </td>
               {columnHeaders.map((col) => {
@@ -280,6 +363,11 @@ export function SpreadsheetGrid({ spreadsheet, onChange, readOnly = false }: Spr
           ))}
         </tbody>
       </table>
+      <SpreadsheetContextMenu
+        position={contextMenu?.position || null}
+        actions={contextMenuActions}
+        onClose={closeContextMenu}
+      />
     </div>
   );
 }

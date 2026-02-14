@@ -141,3 +141,73 @@ describe('SpreadsheetGrid', () => {
     expect(callArgs.data.data['A3'].value).toBe('120'); // 100 + 20
   });
 });
+
+describe('SpreadsheetGrid context menu', () => {
+  const createMockSpreadsheet = (): Spreadsheet => ({
+    id: 1,
+    user_id: 1,
+    card_id: 1,
+    name: 'test',
+    data: {
+      rows: 3,
+      cols: 3,
+      data: {
+        'A1': { value: 'test', formula: '' },
+      }
+    },
+    created_at: new Date(),
+    updated_at: new Date()
+  });
+
+  it('should show context menu on row header right-click', () => {
+    const onChange = vi.fn();
+    render(
+      <SpreadsheetGrid
+        spreadsheet={createMockSpreadsheet()}
+        onChange={onChange}
+        readOnly={false}
+      />
+    );
+
+    const rowHeader = screen.getByText('1');
+    fireEvent.contextMenu(rowHeader);
+
+    expect(screen.getByText('Insert Row Above')).toBeInTheDocument();
+    expect(screen.getByText('Insert Row Below')).toBeInTheDocument();
+    expect(screen.getByText('Delete Row')).toBeInTheDocument();
+  });
+
+  it('should show context menu on column header right-click', () => {
+    const onChange = vi.fn();
+    render(
+      <SpreadsheetGrid
+        spreadsheet={createMockSpreadsheet()}
+        onChange={onChange}
+        readOnly={false}
+      />
+    );
+
+    const colHeader = screen.getByText('A');
+    fireEvent.contextMenu(colHeader);
+
+    expect(screen.getByText('Insert Column Left')).toBeInTheDocument();
+    expect(screen.getByText('Insert Column Right')).toBeInTheDocument();
+    expect(screen.getByText('Delete Column')).toBeInTheDocument();
+  });
+
+  it('should not show context menu in read-only mode', () => {
+    const onChange = vi.fn();
+    render(
+      <SpreadsheetGrid
+        spreadsheet={createMockSpreadsheet()}
+        onChange={onChange}
+        readOnly={true}
+      />
+    );
+
+    const rowHeader = screen.getByText('1');
+    fireEvent.contextMenu(rowHeader);
+
+    expect(screen.queryByText('Insert Row Above')).not.toBeInTheDocument();
+  });
+});
