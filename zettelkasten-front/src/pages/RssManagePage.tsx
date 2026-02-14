@@ -1,81 +1,72 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { setDocumentTitle } from "../utils/title";
 import {
   RSSFeed,
   RSSFolder,
-  UnreadCounts,
-  listFeeds,
-  listFolders,
-  getUnreadCounts,
   updateFeed,
   deleteFeed,
   updateFolder,
   deleteFolder,
   createFolder,
-  refreshFeeds,
-  markFeedAsRead,
 } from "../api/rss";
+import { useRssData } from "../hooks/useRssData";
 import { RssManageFolderPanel } from "../components/rss/RssManageFolderPanel";
 import { RssManageFeedsTable } from "../components/rss/RssManageFeedsTable";
 
 export function RssManagePage() {
   const navigate = useNavigate();
-  const [feeds, setFeeds] = useState<RSSFeed[]>([]);
-  const [folders, setFolders] = useState<RSSFolder[]>([]);
-  const [unreadCounts, setUnreadCounts] = useState<UnreadCounts>({ folders: {}, feeds: {} });
-  const [loading, setLoading] = useState(true);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Load initial data
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [feedsData, foldersData, countsData] = await Promise.all([
-          listFeeds(),
-          listFolders(),
-          getUnreadCounts(),
-        ]);
-        setFeeds(feedsData);
-        setFolders(foldersData);
-        setUnreadCounts(countsData);
-      } catch (error) {
-        console.error("Failed to load RSS data:", error);
-        setErrorMessage("Failed to load feeds and folders");
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
+  const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const {
+    feeds,
+    setFeeds,
+    folders,
+    setFolders,
+    unreadCounts,
+    loading,
+    refreshing,
+    refreshAllFeeds,
+  } = useRssData();
 
   // Set page title
   useEffect(() => {
     setDocumentTitle("Manage RSS Feeds");
   }, []);
 
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current);
+      }
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleRefresh = async () => {
-    setRefreshing(true);
     setErrorMessage("");
     try {
-      const result = await refreshFeeds();
+      const result = await refreshAllFeeds();
       setSuccessMessage(`Refreshed ${result.fetched} feeds`);
-      const [feedsData, countsData] = await Promise.all([
-        listFeeds(),
-        getUnreadCounts(),
-      ]);
-      setFeeds(feedsData);
-      setUnreadCounts(countsData);
-      setTimeout(() => setSuccessMessage(""), 3000);
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+      }
+      successTimeoutRef.current = setTimeout(() => setSuccessMessage(""), 3000);
     } catch (error) {
       console.error("Failed to refresh feeds:", error);
       setErrorMessage("Failed to refresh feeds");
-      setTimeout(() => setErrorMessage(""), 3000);
-    } finally {
-      setRefreshing(false);
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current);
+      }
+      errorTimeoutRef.current = setTimeout(() => setErrorMessage(""), 3000);
     }
   };
 
