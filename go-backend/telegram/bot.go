@@ -208,14 +208,23 @@ func (b *Bot) getOrCreateConversation() (*models.ChatConversation, error) {
 	// Try to get latest conversation for this user
 	conversations, err := b.handler.GetUserConversations(b.userID, nil)
 	if err == nil && len(conversations) > 0 {
-		// Return the most recent conversation
-		return &models.ChatConversation{
-			ID:        conversations[0].ID,
-			UserID:    b.userID,
-			Model:     conversations[0].Model,
-			Title:     conversations[0].Title,
-			UpdatedAt: conversations[0].UpdatedAt,
-		}, nil
+		latest := conversations[0]
+
+		// Check if conversation is stale (older than 2 hours)
+		// This prevents issues with LLM providers when reusing very old conversation contexts
+		staleThreshold := time.Now().Add(-2 * time.Hour)
+		if latest.UpdatedAt.After(staleThreshold) {
+			// Conversation is recent, reuse it
+			return &models.ChatConversation{
+				ID:        latest.ID,
+				UserID:    b.userID,
+				Model:     latest.Model,
+				Title:     latest.Title,
+				UpdatedAt: latest.UpdatedAt,
+			}, nil
+		}
+		// Conversation is stale, fall through to create new one
+		log.Printf("[telegram] Latest conversation is stale (last updated %v), creating new one", latest.UpdatedAt)
 	}
 
 	// Create new conversation
