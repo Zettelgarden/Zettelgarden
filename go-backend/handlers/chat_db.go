@@ -360,8 +360,10 @@ func (s *Handler) UpdateMessageStatus(messageID, status string) error {
 
 	// Define valid status transitions
 	validTransitions := map[string][]string{
-		"pending":   {"processing", "failed"},
-		"processing": {"completed", "failed"},
+		"pending":   {"pending", "processing", "failed"},
+		"processing": {"processing", "completed", "failed"},
+		"completed":  {"completed"},
+		"failed":    {"failed"},
 	}
 
 	// Check if transition is valid
