@@ -63,8 +63,7 @@ export function RssPage() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showFeedMenuId, setShowFeedMenuId] = useState<number | null>(null);
-  const [extraArticles, setExtraArticles] = useState<RSSArticleWithScore[]>([]);
-  const [fetchingExtra, setFetchingExtra] = useState(false);
+  const [smartFeedVisibleCount, setSmartFeedVisibleCount] = useState<number>(RSS_CONFIG.ARTICLES_PER_PAGE);
 
   // Articles hook - use smart feed hook when smart feed is active, regular hook otherwise
   // Smart feed uses no filters, regular feed uses folder/feed/unread filters
@@ -87,71 +86,27 @@ export function RssPage() {
   // Use either regular or smart articles based on mode
   const rawArticles = isSmartFeedActive ? smartArticles.articles : regularArticles.articles;
 
-  // Fetch extra articles from next page for reflow (smart feed only)
-  const fetchExtraArticles = useCallback(async () => {
-    if (!isSmartFeedActive || fetchingExtra || !smartArticles.hasMore) {
-      return;
-    }
-    setFetchingExtra(true);
-    try {
-      const { getSmartRSSArticles } = await import("../api/rss");
-      const response = await getSmartRSSArticles({
-        limit: RSS_CONFIG.ARTICLES_PER_PAGE,
-        offset: smartArticles.currentPage * RSS_CONFIG.ARTICLES_PER_PAGE,
-      });
-      if (response?.articles) {
-        setExtraArticles((prev) => [...prev, ...response.articles]);
-      }
-    } catch (error) {
-      console.error("Failed to fetch extra articles:", error);
-    } finally {
-      setFetchingExtra(false);
-    }
-  }, [isSmartFeedActive, fetchingExtra, smartArticles.hasMore, smartArticles.currentPage]);
-
-  // Apply frontend unread filter for smart feed (smart feed returns all articles regardless of read status)
-  // Include extra articles when reflowing to maintain page size
+  // Client-side rendering: filter for unread if needed, then limit visible count
   const articles = useMemo(() => {
     let result: RSSArticleWithScore[] = rawArticles;
 
-    // For smart feed with unread filter, combine raw + extra articles, then filter
+    // For smart feed with unread filter, apply frontend filtering
     if (isSmartFeedActive && showUnreadOnly) {
-      const combined = [...rawArticles, ...extraArticles];
-      const unread = combined.filter((a) => !a.read);
-      // Only take up to page size to avoid showing too many items
-      result = unread.slice(0, RSS_CONFIG.ARTICLES_PER_PAGE);
+      result = result.filter((a) => !a.read);
+    }
+
+    // For smart feed, limit to visible count (client-side pagination)
+    if (isSmartFeedActive) {
+      result = result.slice(0, smartFeedVisibleCount);
     }
 
     return result;
-  }, [isSmartFeedActive, showUnreadOnly, rawArticles, extraArticles]);
+  }, [isSmartFeedActive, showUnreadOnly, rawArticles, smartFeedVisibleCount]);
 
-  // Reset extra articles when filters or smart feed mode changes
+  // Reset visible count when smart feed mode or filters change
   useEffect(() => {
-    setExtraArticles([]);
-  }, [selectedFolder, selectedFeedId, isSmartFeedActive]);
-
-  // Refill articles when we need more (smart feed + unread mode)
-  useEffect(() => {
-    // Only reflow in smart feed with unread filter
-    if (!isSmartFeedActive || !showUnreadOnly) {
-      return;
-    }
-
-    // Don't fetch if we're already fetching or don't have more articles
-    if (fetchingExtra || !smartArticles.hasMore) {
-      return;
-    }
-
-    // Count unread articles from both raw and extra
-    const unreadFromRaw = rawArticles.filter((a) => !a.read).length;
-    const unreadFromExtra = extraArticles.filter((a) => !a.read).length;
-    const totalUnread = unreadFromRaw + unreadFromExtra;
-
-    // If we have fewer than page size, fetch more articles
-    if (totalUnread < RSS_CONFIG.ARTICLES_PER_PAGE) {
-      fetchExtraArticles();
-    }
-  }, [isSmartFeedActive, showUnreadOnly, rawArticles, extraArticles, fetchingExtra, smartArticles.hasMore, fetchExtraArticles]);
+    setSmartFeedVisibleCount(RSS_CONFIG.ARTICLES_PER_PAGE);
+  }, [selectedFolder, selectedFeedId, isSmartFeedActive, showUnreadOnly]);
 
   const totalArticles = isSmartFeedActive ? smartArticles.totalArticles : regularArticles.totalArticles;
   const loadingArticles = isSmartFeedActive ? smartArticles.loading : regularArticles.loading;
@@ -161,6 +116,23 @@ export function RssPage() {
   const updateArticles = isSmartFeedActive ? smartArticles.updateArticles : regularArticles.updateArticles;
   const resetToFirstPage = isSmartFeedActive ? smartArticles.resetToFirstPage : regularArticles.resetToFirstPage;
   const setCurrentPage = isSmartFeedActive ? smartArticles.setCurrentPage : regularArticles.setCurrentPage;
+
+  // For smart feed: check if there are more articles to show (client-side)
+  const smartFeedHasMore = useMemo(() => {
+    if (!isSmartFeedActive) return false;
+    const available = showUnreadOnly
+      ? rawArticles.filter((a) => !a.read).length
+      : rawArticles.length;
+    return available > smartFeedVisibleCount;
+  }, [isSmartFeedActive, showUnreadOnly, rawArticles, smartFeedVisibleCount]);
+
+  const handleShowMore = useCallback(() => {
+    if (isSmartFeedActive) {
+      setSmartFeedVisibleCount((prev) => prev + RSS_CONFIG.ARTICLES_PER_PAGE);
+    } else {
+      setCurrentPage((prev) => prev + 1);
+    }
+  }, [isSmartFeedActive, setCurrentPage]);
 
   // Dialog state
   const [dialogState, setDialogState] = useState<DialogState>(initialDialogState);
@@ -487,10 +459,6 @@ export function RssPage() {
     setMobileView('list');
   }, []);
 
-  const handleLoadMore = useCallback(() => {
-    setCurrentPage((prev) => prev + 1);
-  }, [setCurrentPage]);
-
   // Loading state
   if (loadingData) {
     return (
@@ -598,6 +566,7 @@ export function RssPage() {
           loadingArticles={loadingArticles}
           totalArticles={totalArticles}
           currentPage={currentPage}
+          hasMore={isSmartFeedActive ? smartFeedHasMore : undefined}
           onMenuClick={toggleMobileSidebar}
           onFeedSelectMobile={handleFeedSelectMobile}
           onFolderSelectMobile={handleFolderSelectMobile}
@@ -614,7 +583,7 @@ export function RssPage() {
           onMarkFolderAsRead={handleMarkFolderAsRead}
           onShowFeedMenu={setShowFeedMenuId}
           onArticleClick={handleArticleClick}
-          onLoadMore={handleLoadMore}
+          onLoadMore={handleShowMore}
           onToggleShowUnreadOnly={() => setShowUnreadOnly((prev) => !prev)}
           onSelectSmartFeed={handleSelectSmartFeed}
           onConvertClick={handleConvertClick}

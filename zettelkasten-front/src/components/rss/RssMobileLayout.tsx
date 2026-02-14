@@ -26,6 +26,7 @@ interface RssMobileLayoutProps {
   loadingArticles: boolean;
   totalArticles: number;
   currentPage: number;
+  hasMore?: boolean; // For smart feed client-side pagination
   onMenuClick: () => void;
   onFeedSelectMobile: (feedId: number) => void;
   onFolderSelectMobile: (folderName: string) => void;
@@ -75,6 +76,7 @@ export function RssMobileLayout({
   loadingArticles,
   totalArticles,
   currentPage,
+  hasMore,
   onMenuClick,
   onFeedSelectMobile,
   onFolderSelectMobile,
@@ -102,6 +104,10 @@ export function RssMobileLayout({
   onMobileBack,
 }: RssMobileLayoutProps) {
   const navigate = useNavigate();
+
+  // Calculate whether to show "Load More" button
+  // Use hasMore if provided (for smart feed), otherwise use server-side pagination calculation
+  const showLoadMore = hasMore ?? (totalArticles > RSS_CONFIG.ARTICLES_PER_PAGE && currentPage * RSS_CONFIG.ARTICLES_PER_PAGE < totalArticles);
 
   const getFeedName = (feedId: number): string => {
     const feed = feeds.find((f) => f.id === feedId);
@@ -230,13 +236,13 @@ export function RssMobileLayout({
                 </div>
 
                 {/* Pagination - Load More button for mobile */}
-                {totalArticles > RSS_CONFIG.ARTICLES_PER_PAGE && currentPage * RSS_CONFIG.ARTICLES_PER_PAGE < totalArticles && (
+                {showLoadMore && (
                   <div className="p-4 border-t border-gray-200 bg-gray-50">
                     <button
                       onClick={onLoadMore}
                       className="w-full bg-white border border-gray-300 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                     >
-                      Load More Articles ({totalArticles - currentPage * RSS_CONFIG.ARTICLES_PER_PAGE} remaining)
+                      Load More Articles
                     </button>
                   </div>
                 )}
