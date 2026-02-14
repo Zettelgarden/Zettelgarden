@@ -9,9 +9,13 @@ interface SpreadsheetGridProps {
   spreadsheet: Spreadsheet;
   onChange: (spreadsheet: Spreadsheet) => void;
   readOnly?: boolean;
+  onInsertRow?: (rowIndex: number, above: boolean) => void;
+  onDeleteRow?: (rowIndex: number) => void;
+  onInsertColumn?: (colIndex: number, left: boolean) => void;
+  onDeleteColumn?: (colIndex: number) => void;
 }
 
-export function SpreadsheetGrid({ spreadsheet, onChange, readOnly = false }: SpreadsheetGridProps) {
+export function SpreadsheetGrid({ spreadsheet, onChange, readOnly = false, onInsertRow, onDeleteRow, onInsertColumn, onDeleteColumn }: SpreadsheetGridProps) {
   const { rows, cols, data } = spreadsheet.data;
   const [selectedCell, setSelectedCell] = useState<string | null>(null);
   const focusedCellRef = useRef<string | null>(null);
@@ -275,34 +279,34 @@ export function SpreadsheetGrid({ spreadsheet, onChange, readOnly = false }: Spr
   }, [readOnly]);
 
   const handleInsertRowAbove = useCallback(() => {
-    if (!contextMenu) return;
-    closeContextMenu();
-  }, [contextMenu, closeContextMenu]);
+    if (!contextMenu || !onInsertRow) return;
+    onInsertRow(contextMenu.index, true);
+  }, [contextMenu, onInsertRow]);
 
   const handleInsertRowBelow = useCallback(() => {
-    if (!contextMenu) return;
-    closeContextMenu();
-  }, [contextMenu, closeContextMenu]);
+    if (!contextMenu || !onInsertRow) return;
+    onInsertRow(contextMenu.index, false);
+  }, [contextMenu, onInsertRow]);
 
   const handleDeleteRow = useCallback(() => {
-    if (!contextMenu) return;
-    closeContextMenu();
-  }, [contextMenu, closeContextMenu]);
+    if (!contextMenu || !onDeleteRow) return;
+    onDeleteRow(contextMenu.index);
+  }, [contextMenu, onDeleteRow]);
 
   const handleInsertColumnLeft = useCallback(() => {
-    if (!contextMenu) return;
-    closeContextMenu();
-  }, [contextMenu, closeContextMenu]);
+    if (!contextMenu || !onInsertColumn) return;
+    onInsertColumn(contextMenu.index, true);
+  }, [contextMenu, onInsertColumn]);
 
   const handleInsertColumnRight = useCallback(() => {
-    if (!contextMenu) return;
-    closeContextMenu();
-  }, [contextMenu, closeContextMenu]);
+    if (!contextMenu || !onInsertColumn) return;
+    onInsertColumn(contextMenu.index, false);
+  }, [contextMenu, onInsertColumn]);
 
   const handleDeleteColumn = useCallback(() => {
-    if (!contextMenu) return;
-    closeContextMenu();
-  }, [contextMenu, closeContextMenu]);
+    if (!contextMenu || !onDeleteColumn) return;
+    onDeleteColumn(contextMenu.index);
+  }, [contextMenu, onDeleteColumn]);
 
   const contextMenuActions: ContextMenuAction[] = contextMenu ? (
     contextMenu.type === 'row' ? [

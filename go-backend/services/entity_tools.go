@@ -32,6 +32,7 @@ import (
 	"fmt"
 
 	"go-backend/services/featureflags"
+	"go-backend/services/tools"
 	"go-backend/services/tools/entity"
 )
 
@@ -248,7 +249,8 @@ func handleGetEntityByNameV2(args map[string]interface{}, ctx *ToolContext) (map
 		return nil, fmt.Errorf("failed to get entity: %v", lerr)
 	}
 
-	return StructToMap(ent), nil
+	result := StructToMap(ent)
+	return tools.WrapToolSuccess(result), nil
 }
 
 func handleSearchEntitiesV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -267,11 +269,12 @@ func handleSearchEntitiesV2(args map[string]interface{}, ctx *ToolContext) (map[
 		return nil, fmt.Errorf("search failed: %v", lerr)
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"entities": entities,
 		"query":    query,
-		"total":    len(entities),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(entities)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleGetCardsByEntityV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -290,11 +293,12 @@ func handleGetCardsByEntityV2(args map[string]interface{}, ctx *ToolContext) (ma
 		results = append(results, StructToMap(card))
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"cards":     results,
 		"entity_id": entityID,
-		"total":     len(cards),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(cards)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleGetEntityByIDV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -308,7 +312,8 @@ func handleGetEntityByIDV2(args map[string]interface{}, ctx *ToolContext) (map[s
 		return nil, fmt.Errorf("failed to get entity: %v", lerr)
 	}
 
-	return StructToMap(ent), nil
+	result := StructToMap(ent)
+	return tools.WrapToolSuccess(result), nil
 }
 
 func handleMergeEntitiesV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -331,13 +336,13 @@ func handleMergeEntitiesV2(args map[string]interface{}, ctx *ToolContext) (map[s
 		return nil, fmt.Errorf("failed to merge entities: %v", lerr)
 	}
 
-	return map[string]interface{}{
-		"status":       "merged",
+	data := map[string]interface{}{
 		"entity1_id":   entity1ID,
 		"entity2_id":   entity2ID,
 		"surviving_id": entity1ID,
-		"message":      fmt.Sprintf("Successfully merged entity %d into entity %d", entity2ID, entity1ID),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithOperation("merged"))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleUpdateEntityV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -390,7 +395,8 @@ func handleUpdateEntityV2(args map[string]interface{}, ctx *ToolContext) (map[st
 		return nil, fmt.Errorf("failed to get updated entity: %v", lerr)
 	}
 
-	return StructToMap(updatedEntity), nil
+	result := StructToMap(updatedEntity)
+	return tools.WrapToolSuccess(result), nil
 }
 
 func handleDeleteEntityV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -404,11 +410,11 @@ func handleDeleteEntityV2(args map[string]interface{}, ctx *ToolContext) (map[st
 		return nil, fmt.Errorf("failed to delete entity: %v", lerr)
 	}
 
-	return map[string]interface{}{
-		"status":    "deleted",
-		"entity_id": entityID,
-		"message":   "Entity deleted successfully",
-	}, nil
+	data := map[string]interface{}{
+		"deleted_id": entityID,
+	}
+	metadata := tools.NewMetadata(tools.WithOperation("deleted"))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleAddEntityToCardV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -427,12 +433,12 @@ func handleAddEntityToCardV2(args map[string]interface{}, ctx *ToolContext) (map
 		return nil, fmt.Errorf("failed to add entity to card: %v", lerr)
 	}
 
-	return map[string]interface{}{
-		"status":    "linked",
+	data := map[string]interface{}{
 		"entity_id": entityID,
 		"card_pk":   cardPK,
-		"message":   "Entity successfully linked to card",
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithOperation("linked"))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleRemoveEntityFromCardV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -451,12 +457,12 @@ func handleRemoveEntityFromCardV2(args map[string]interface{}, ctx *ToolContext)
 		return nil, fmt.Errorf("failed to remove entity from card: %v", lerr)
 	}
 
-	return map[string]interface{}{
-		"status":    "unlinked",
+	data := map[string]interface{}{
 		"entity_id": entityID,
 		"card_pk":   cardPK,
-		"message":   "Entity successfully unlinked from card",
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithOperation("unlinked"))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleGetSimilarEntitiesV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -485,12 +491,13 @@ func handleGetSimilarEntitiesV2(args map[string]interface{}, ctx *ToolContext) (
 		results = append(results, result)
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"entities":  results,
 		"entity_id": entityID,
-		"total":     len(results),
 		"limit":     limit,
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(results)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 // Legacy entity tool handlers (kept for backward compatibility)
@@ -506,7 +513,8 @@ func handleGetEntityByNameLegacy(args map[string]interface{}, ctx *ToolContext) 
 		return nil, fmt.Errorf("failed to get entity: %v", lerr)
 	}
 
-	return StructToMap(ent), nil
+	result := StructToMap(ent)
+	return tools.WrapToolSuccess(result), nil
 }
 
 func handleSearchEntitiesLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -525,11 +533,12 @@ func handleSearchEntitiesLegacy(args map[string]interface{}, ctx *ToolContext) (
 		return nil, fmt.Errorf("search failed: %v", lerr)
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"entities": entities,
 		"query":    query,
-		"total":    len(entities),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(entities)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleGetCardsByEntityLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -548,11 +557,12 @@ func handleGetCardsByEntityLegacy(args map[string]interface{}, ctx *ToolContext)
 		results = append(results, StructToMap(card))
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"cards":     results,
 		"entity_id": entityID,
-		"total":     len(cards),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(cards)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleGetEntityByIDLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -566,7 +576,8 @@ func handleGetEntityByIDLegacy(args map[string]interface{}, ctx *ToolContext) (m
 		return nil, fmt.Errorf("failed to get entity: %v", lerr)
 	}
 
-	return StructToMap(ent), nil
+	result := StructToMap(ent)
+	return tools.WrapToolSuccess(result), nil
 }
 
 func handleMergeEntitiesLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -589,13 +600,13 @@ func handleMergeEntitiesLegacy(args map[string]interface{}, ctx *ToolContext) (m
 		return nil, fmt.Errorf("failed to merge entities: %v", lerr)
 	}
 
-	return map[string]interface{}{
-		"status":       "merged",
+	data := map[string]interface{}{
 		"entity1_id":   entity1ID,
 		"entity2_id":   entity2ID,
 		"surviving_id": entity1ID,
-		"message":      fmt.Sprintf("Successfully merged entity %d into entity %d", entity2ID, entity1ID),
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithOperation("merged"))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleUpdateEntityLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -648,7 +659,8 @@ func handleUpdateEntityLegacy(args map[string]interface{}, ctx *ToolContext) (ma
 		return nil, fmt.Errorf("failed to get updated entity: %v", lerr)
 	}
 
-	return StructToMap(updatedEntity), nil
+	result := StructToMap(updatedEntity)
+	return tools.WrapToolSuccess(result), nil
 }
 
 func handleDeleteEntityLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -662,11 +674,11 @@ func handleDeleteEntityLegacy(args map[string]interface{}, ctx *ToolContext) (ma
 		return nil, fmt.Errorf("failed to delete entity: %v", lerr)
 	}
 
-	return map[string]interface{}{
-		"status":    "deleted",
-		"entity_id": entityID,
-		"message":   "Entity deleted successfully",
-	}, nil
+	data := map[string]interface{}{
+		"deleted_id": entityID,
+	}
+	metadata := tools.NewMetadata(tools.WithOperation("deleted"))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleAddEntityToCardLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -685,12 +697,12 @@ func handleAddEntityToCardLegacy(args map[string]interface{}, ctx *ToolContext) 
 		return nil, fmt.Errorf("failed to add entity to card: %v", lerr)
 	}
 
-	return map[string]interface{}{
-		"status":    "linked",
+	data := map[string]interface{}{
 		"entity_id": entityID,
 		"card_pk":   cardPK,
-		"message":   "Entity successfully linked to card",
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithOperation("linked"))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleRemoveEntityFromCardLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -709,12 +721,12 @@ func handleRemoveEntityFromCardLegacy(args map[string]interface{}, ctx *ToolCont
 		return nil, fmt.Errorf("failed to remove entity from card: %v", lerr)
 	}
 
-	return map[string]interface{}{
-		"status":    "unlinked",
+	data := map[string]interface{}{
 		"entity_id": entityID,
 		"card_pk":   cardPK,
-		"message":   "Entity successfully unlinked from card",
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithOperation("unlinked"))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleGetSimilarEntitiesLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -743,10 +755,11 @@ func handleGetSimilarEntitiesLegacy(args map[string]interface{}, ctx *ToolContex
 		results = append(results, result)
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"entities":  results,
 		"entity_id": entityID,
-		"total":     len(results),
 		"limit":     limit,
-	}, nil
+	}
+	metadata := tools.NewMetadata(tools.WithTotal(len(results)))
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
