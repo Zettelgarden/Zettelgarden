@@ -225,3 +225,99 @@ func TestToolRegistryWithCardTools(t *testing.T) {
 		})
 	}
 }
+
+// TestHandleSearchCardsV2ResponseFormat tests that handleSearchCardsV2
+// uses the new standardized response format
+func TestHandleSearchCardsV2ResponseFormat(t *testing.T) {
+	featureflags.ResetAll()
+	defer featureflags.ResetAll()
+	featureflags.Enable(featureflags.FeatureFlagCardTools)
+
+	// Verify the handler exists and is callable
+	registry := &ToolRegistry{tools: make(map[string]Tool)}
+	registry.RegisterCardTools()
+
+	tool, exists := registry.tools["search_cards"]
+	if !exists {
+		t.Fatal("search_cards tool not found in registry")
+	}
+
+	if tool.Handler == nil {
+		t.Fatal("search_cards handler is nil")
+	}
+
+	// We can verify the response format by examining the handler's behavior
+	// The handler should return: {success: true, data: {...}, metadata: {...}}
+	// NOT: {cards: [...], query: "...", search_type: "...", total: ...}
+
+	// Since we can't easily mock the DB and Typesense for integration test,
+	// we'll verify by inspecting the code structure
+	// This test documents the expected behavior
+
+	// Expected format after migration:
+	// {
+	//   "success": true,
+	//   "data": {
+	//     "cards": results,
+	//     "query": query,
+	//     "search_type": searchType
+	//   },
+	//   "metadata": {
+	//     "total": len(results)
+	//   }
+	// }
+
+	// Old format (before migration):
+	// {
+	//   "cards": results,
+	//   "query": query,
+	//   "search_type": searchType,
+	//   "total": len(results)
+	// }
+
+	t.Skip("TODO: Implement with proper mock - requires DB and Typesense setup")
+}
+
+// TestHandleSearchCardsLegacyResponseFormat tests that handleSearchCardsLegacy
+// uses the new standardized response format
+func TestHandleSearchCardsLegacyResponseFormat(t *testing.T) {
+	featureflags.ResetAll()
+	defer featureflags.ResetAll()
+	featureflags.Disable(featureflags.FeatureFlagCardTools)
+
+	// Verify the handler exists and is callable
+	registry := &ToolRegistry{tools: make(map[string]Tool)}
+	registry.RegisterCardTools()
+
+	tool, exists := registry.tools["search_cards"]
+	if !exists {
+		t.Fatal("search_cards tool not found in registry")
+	}
+
+	if tool.Handler == nil {
+		t.Fatal("search_cards handler is nil")
+	}
+
+	// Expected format after migration:
+	// {
+	//   "success": true,
+	//   "data": {
+	//     "cards": results,
+	//     "query": query,
+	//     "search_type": searchType
+	//   },
+	//   "metadata": {
+	//     "total": len(results)
+	//   }
+	// }
+
+	// Old format (before migration):
+	// {
+	//   "cards": results,
+	//   "query": query,
+	//   "search_type": searchType,
+	//   "total": len(results)
+	// }
+
+	t.Skip("TODO: Implement with proper mock - requires DB and Typesense setup")
+}

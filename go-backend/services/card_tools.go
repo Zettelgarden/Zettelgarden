@@ -34,6 +34,7 @@ import (
 	"reflect"
 
 	"go-backend/services/featureflags"
+	"go-backend/services/tools"
 	"go-backend/services/tools/card"
 )
 
@@ -208,12 +209,18 @@ func handleSearchCardsV2(args map[string]interface{}, ctx *ToolContext) (map[str
 		return nil, fmt.Errorf("search failed: %v", err)
 	}
 
-	return map[string]interface{}{
+	// Build data map with search results
+	data := map[string]interface{}{
 		"cards":       results,
 		"query":       query,
 		"search_type": searchType,
-		"total":       len(results),
-	}, nil
+	}
+
+	// Create metadata with total count
+	metadata := tools.NewMetadata(tools.WithTotal(len(results)))
+
+	// Return standardized response format
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleGetCardByIDV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -417,12 +424,18 @@ func handleSearchCardsLegacy(args map[string]interface{}, ctx *ToolContext) (map
 		return nil, fmt.Errorf("search failed: %v", err)
 	}
 
-	return map[string]interface{}{
+	// Build data map with search results
+	data := map[string]interface{}{
 		"cards":       results,
 		"query":       query,
 		"search_type": searchType,
-		"total":       len(results),
-	}, nil
+	}
+
+	// Create metadata with total count
+	metadata := tools.NewMetadata(tools.WithTotal(len(results)))
+
+	// Return standardized response format
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleGetCardByIDLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
