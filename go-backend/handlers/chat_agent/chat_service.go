@@ -49,3 +49,21 @@ func (s *ChatService) getToolRegistry() *services.ToolRegistry {
 	}
 	return s.toolRegistry
 }
+
+// getUserInstructions retrieves user's chat instructions from the database
+// Returns empty string if instructions don't exist or on error
+func (s *ChatService) getUserInstructions(userID int) string {
+	var instructions string
+	err := s.DB.QueryRow(
+		"SELECT instructions FROM chat_instructions WHERE user_id = $1",
+		userID,
+	).Scan(&instructions)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			// Log unexpected errors but don't fail the request
+			// (ErrNoRows just means user hasn't set instructions)
+		}
+		return ""
+	}
+	return instructions
+}

@@ -232,7 +232,9 @@ func (s *ChatService) streamChatResponse(
 	getMessagesFn GetConversationMessagesFunc,
 ) error {
 	// buildSystemPrompt will be called with appropriate callbacks
-	systemPrompt, err := s.buildSystemPrompt(userID, conversation, nil, nil)
+	systemPrompt, err := s.buildSystemPrompt(userID, conversation, nil, func(id int) (string, error) {
+		return s.getUserInstructions(id), nil
+	})
 	if err != nil {
 		return err
 	}
@@ -360,7 +362,9 @@ func (s *ChatService) streamChatResponse(
 		}
 
 		// Rebuild system prompt for next iteration
-		currentSystemPrompt, err := s.buildSystemPrompt(userID, conversation, nil, nil)
+		currentSystemPrompt, err := s.buildSystemPrompt(userID, conversation, nil, func(id int) (string, error) {
+			return s.getUserInstructions(id), nil
+		})
 		if err != nil {
 			log.Printf("[ChatAgentV2] Error rebuilding system prompt: %v", err)
 			// Continue with previous system prompt
@@ -397,7 +401,9 @@ func (s *ChatService) processChatResponse(
 	getMessagesFn GetConversationMessagesFunc,
 ) error {
 	// buildSystemPrompt will be called with appropriate callbacks
-	systemPrompt, err := s.buildSystemPrompt(userID, conversation, nil, nil)
+	systemPrompt, err := s.buildSystemPrompt(userID, conversation, nil, func(id int) (string, error) {
+		return s.getUserInstructions(id), nil
+	})
 	if err != nil {
 		return err
 	}
@@ -546,7 +552,9 @@ func (s *ChatService) processChatResponse(
 		}
 
 		// Rebuild system prompt for next iteration
-		currentSystemPrompt, err := s.buildSystemPrompt(userID, conversation, nil, nil)
+		currentSystemPrompt, err := s.buildSystemPrompt(userID, conversation, nil, func(id int) (string, error) {
+			return s.getUserInstructions(id), nil
+		})
 		if err != nil {
 			log.Printf("[ChatAgent] Error rebuilding system prompt: %v", err)
 			// Continue with previous system prompt
