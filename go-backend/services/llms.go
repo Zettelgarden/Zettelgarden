@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	openai "github.com/sashabaranov/go-openai"
 )
@@ -32,6 +33,7 @@ func NewDefaultClient(db *sql.DB, userID int, testing bool) *models.LLMClient {
 func NewClient(db *sql.DB, config openai.ClientConfig, userID int, testing bool) *models.LLMClient {
 	config.HTTPClient = &http.Client{
 		Transport: headerTransport{http.DefaultTransport},
+		Timeout:   120 * time.Second,
 	}
 
 	return &models.LLMClient{
