@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Spreadsheet, SpreadsheetData } from '../models/Spreadsheet';
-import { insertRow, deleteRow, insertColumn, deleteColumn } from './spreadsheetOperations';
+import { insertRow, deleteRow, insertColumn, deleteColumn, MAX_ROWS, MAX_COLS } from './spreadsheetOperations';
 
 const createTestSpreadsheet = (rows: number, cols: number): Spreadsheet => ({
   id: 1,
@@ -31,7 +31,7 @@ describe('insertRow', () => {
     const result = insertRow(spreadsheet, 0);
 
     expect(result.data.rows).toBe(4);
-    expect(result.data.data['A1']).toEqual({ value: '', formula: '' });
+    expect(result.data.data['A1']).toEqual({ value: '' });
     expect(result.data.data['A2']).toEqual({ value: 'a1', formula: '' });
     expect(result.data.data['A3']).toEqual({ value: 'a2', formula: '' });
     expect(result.data.data['A4']).toEqual({ value: 'a3', formula: '' });
@@ -49,7 +49,7 @@ describe('insertRow', () => {
 
     expect(result.data.rows).toBe(4);
     expect(result.data.data['A1']).toEqual({ value: 'a1', formula: '' });
-    expect(result.data.data['A2']).toEqual({ value: '', formula: '' });
+    expect(result.data.data['A2']).toEqual({ value: '' });
     expect(result.data.data['A3']).toEqual({ value: 'a2', formula: '' });
     expect(result.data.data['A4']).toEqual({ value: 'a3', formula: '' });
   });
@@ -66,15 +66,15 @@ describe('insertRow', () => {
     expect(result.data.rows).toBe(4);
     expect(result.data.data['A1']).toEqual({ value: 'a1', formula: '' });
     expect(result.data.data['A3']).toEqual({ value: 'a3', formula: '' });
-    expect(result.data.data['A4']).toEqual({ value: '', formula: '' });
+    expect(result.data.data['A4']).toEqual({ value: '' });
   });
 
-  it('should return original spreadsheet if rows >= 100', () => {
-    const spreadsheet = createTestSpreadsheet(100, 2);
+  it('should return original spreadsheet if rows >= MAX_ROWS', () => {
+    const spreadsheet = createTestSpreadsheet(MAX_ROWS, 2);
     const result = insertRow(spreadsheet, 0);
 
     expect(result).toEqual(spreadsheet);
-    expect(result.data.rows).toBe(100);
+    expect(result.data.rows).toBe(MAX_ROWS);
   });
 });
 
@@ -166,7 +166,7 @@ describe('insertColumn', () => {
     const result = insertColumn(spreadsheet, 0);
 
     expect(result.data.cols).toBe(4);
-    expect(result.data.data['A1']).toEqual({ value: '', formula: '' });
+    expect(result.data.data['A1']).toEqual({ value: '' });
     expect(result.data.data['B1']).toEqual({ value: 'a1', formula: '' });
     expect(result.data.data['C1']).toEqual({ value: 'b1', formula: '' });
     expect(result.data.data['D1']).toEqual({ value: 'c1', formula: '' });
@@ -187,7 +187,7 @@ describe('insertColumn', () => {
 
     expect(result.data.cols).toBe(4);
     expect(result.data.data['A1']).toEqual({ value: 'a1', formula: '' });
-    expect(result.data.data['B1']).toEqual({ value: '', formula: '' });
+    expect(result.data.data['B1']).toEqual({ value: '' });
     expect(result.data.data['C1']).toEqual({ value: 'b1', formula: '' });
     expect(result.data.data['D1']).toEqual({ value: 'c1', formula: '' });
   });
@@ -206,15 +206,15 @@ describe('insertColumn', () => {
     expect(result.data.cols).toBe(4);
     expect(result.data.data['A1']).toEqual({ value: 'a1', formula: '' });
     expect(result.data.data['C1']).toEqual({ value: 'c1', formula: '' });
-    expect(result.data.data['D1']).toEqual({ value: '', formula: '' });
+    expect(result.data.data['D1']).toEqual({ value: '' });
   });
 
-  it('should return original spreadsheet if cols >= 26', () => {
-    const spreadsheet = createTestSpreadsheet(2, 26);
+  it('should return original spreadsheet if cols >= MAX_COLS', () => {
+    const spreadsheet = createTestSpreadsheet(2, MAX_COLS);
     const result = insertColumn(spreadsheet, 0);
 
     expect(result).toEqual(spreadsheet);
-    expect(result.data.cols).toBe(26);
+    expect(result.data.cols).toBe(MAX_COLS);
   });
 });
 
