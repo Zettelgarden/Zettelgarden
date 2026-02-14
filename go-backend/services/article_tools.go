@@ -32,6 +32,7 @@ import (
 	"fmt"
 
 	"go-backend/services/featureflags"
+	"go-backend/services/tools"
 	"go-backend/services/tools/article"
 )
 
@@ -98,7 +99,7 @@ func handleParseURLV2(args map[string]interface{}, ctx *ToolContext) (map[string
 		return nil, fmt.Errorf("failed to parse URL: %v", err)
 	}
 
-	return StructToMap(result), nil
+	return tools.WrapToolSuccess(StructToMap(result)), nil
 }
 
 func handleCreateArticleV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -133,7 +134,7 @@ func handleParseURLLegacy(args map[string]interface{}, ctx *ToolContext) (map[st
 		return nil, fmt.Errorf("failed to parse URL: %v", err)
 	}
 
-	return StructToMap(result), nil
+	return tools.WrapToolSuccess(StructToMap(result)), nil
 }
 
 func handleCreateArticleLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
