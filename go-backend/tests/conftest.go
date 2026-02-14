@@ -766,6 +766,15 @@ func generateData() map[string]interface{} {
 			CreatedAt:   randomDate(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
 			UpdatedAt:   randomDate(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)),
 		},
+		{
+			ID:          4,
+			UserID:      1,
+			Name:        "Test Entity 4",
+			Description: "Fourth entity for related card testing",
+			Type:        "person",
+			CreatedAt:   randomDate(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
+			UpdatedAt:   randomDate(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)),
+		},
 	}
 
 	entity_cards := []models.EntityCardJunction{
@@ -788,6 +797,18 @@ func generateData() map[string]interface{} {
 			UserID:   1,
 			EntityID: 2,
 			CardPK:   2,
+		},
+		// Entity 4 is shared between card 1 and card 3
+		// Card 3 is not a reference of card 1, so it should appear in related cards
+		{
+			UserID:   1,
+			EntityID: 4,
+			CardPK:   1,
+		},
+		{
+			UserID:   1,
+			EntityID: 4,
+			CardPK:   3,
 		},
 	}
 
