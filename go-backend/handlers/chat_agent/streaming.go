@@ -480,7 +480,7 @@ func (s *ChatService) processChatResponse(
 		}
 
 		if len(response.Choices) == 0 {
-			log.Printf("[EmptyResponse] LLM returned no choices")
+			log.Printf("[EmptyResponse] LLM returned no choices - full response: %+v", response)
 			errorMsg := "I'm having trouble connecting to my language model right now. It returned an empty response. Please try again in a moment."
 			s.updateAssistantMessageWithError(assistantMessageID, errorMsg)
 			return fmt.Errorf("empty response from LLM")
@@ -490,9 +490,10 @@ func (s *ChatService) processChatResponse(
 		currentContent := choice.Message.Content
 		currentToolCalls := choice.Message.ToolCalls
 
-		// Handle empty response
+		// Handle empty response - log details for debugging cold start issues
 		if strings.TrimSpace(currentContent) == "" && len(currentToolCalls) == 0 {
-			log.Printf("[EmptyResponse] LLM returned empty content for conversation %s", conversation.ID)
+			log.Printf("[EmptyResponse] LLM returned empty content for conversation %s. Content length: %d, ToolCalls: %d, Model: %s, Full choice: %+v",
+				conversation.ID, len(currentContent), len(currentToolCalls), model, choice)
 			errorMsg := "I'm having trouble connecting to my language model right now. It returned an empty response. Please try again in a moment."
 			s.updateAssistantMessageWithError(assistantMessageID, errorMsg)
 			return fmt.Errorf("empty response from LLM")
