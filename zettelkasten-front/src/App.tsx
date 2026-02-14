@@ -26,8 +26,8 @@ function App() {
     <div>
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/app/*" element={<MainApp />} />
         <Route path="/app/rss/manage" element={<RssManagePage />} />
+        <Route path="/app/*" element={<MainApp />} />
         <Route path="/admin/*" element={<Admin />} />
         <Route path="/blog/*" element={<BlogApp />} />
         <Route path="/login" element={<LoginForm />} />
