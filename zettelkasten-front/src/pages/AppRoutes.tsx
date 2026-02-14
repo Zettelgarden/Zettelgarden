@@ -23,6 +23,7 @@ import { SchemaCreatePage } from "./SchemaCreatePage";
 import { SchemaEditPage } from "./SchemaEditPage";
 import { SchemaTableWrapper } from "./SchemaTableWrapper";
 import { RssPage } from "./RssPage";
+import { RssManagePage } from "./RssManagePage";
 import { SearchConfig } from "../models/StarredSearch";
 import { SearchResult } from "../models/Card";
 
@@ -90,6 +91,7 @@ export function AppRoutes({
           <Route path="schemas/:id/table" element={<SchemaTableWrapper />} />
           <Route path="chat" element={<ChatPage />} />
           <Route path="rss" element={<RssPage />} />
+          <Route path="rss/manage" element={<RssManagePage />} />
           <Route path="*" element={<DashboardPage />} />
         </>
       ) : (
