@@ -9,6 +9,7 @@ import { Routes, Route } from "react-router-dom";
 import PasswordReset from "./pages/PasswordReset";
 import EmailValidation from "./pages/EmailValidation";
 import { useAuth } from "./contexts/AuthContext";
+import { RssManagePage } from "./pages/RssManagePage";
 
 import { useNavigate } from "react-router-dom";
 
@@ -26,6 +27,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/app/*" element={<MainApp />} />
+        <Route path="/app/rss/manage" element={<RssManagePage />} />
         <Route path="/admin/*" element={<Admin />} />
         <Route path="/blog/*" element={<BlogApp />} />
         <Route path="/login" element={<LoginForm />} />
