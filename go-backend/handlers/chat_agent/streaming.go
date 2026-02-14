@@ -482,11 +482,7 @@ func (s *ChatService) processChatResponse(
 		if len(response.Choices) == 0 {
 			log.Printf("[EmptyResponse] LLM returned no choices")
 			errorMsg := "I'm having trouble connecting to my language model right now. It returned an empty response. Please try again in a moment."
-			finalMessage := &models.ChatMessage{
-				ID:      assistantMessageID,
-				Content: &errorMsg,
-			}
-			s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, finalMessage)
+			s.updateAssistantMessageWithError(assistantMessageID, errorMsg)
 			return fmt.Errorf("empty response from LLM")
 		}
 
@@ -498,11 +494,7 @@ func (s *ChatService) processChatResponse(
 		if strings.TrimSpace(currentContent) == "" && len(currentToolCalls) == 0 {
 			log.Printf("[EmptyResponse] LLM returned empty content for conversation %s", conversation.ID)
 			errorMsg := "I'm having trouble connecting to my language model right now. It returned an empty response. Please try again in a moment."
-			finalMessage := &models.ChatMessage{
-				ID:      assistantMessageID,
-				Content: &errorMsg,
-			}
-			s.updateAssistantMessage(userID, conversation.ID, assistantMessageID, finalMessage)
+			s.updateAssistantMessageWithError(assistantMessageID, errorMsg)
 			return fmt.Errorf("empty response from LLM")
 		}
 

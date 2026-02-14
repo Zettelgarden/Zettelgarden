@@ -58,6 +58,13 @@ func (s *ChatService) updateAssistantMessage(userID int, conversationID, message
 	return err
 }
 
+// updateAssistantMessageWithError updates an existing assistant message with error content and sets status to 'failed'
+func (s *ChatService) updateAssistantMessageWithError(messageID string, errorMsg string) error {
+	query := `UPDATE chat_messages SET content = $1, status = 'failed' WHERE id = $2`
+	_, err := s.DB.Exec(query, errorMsg, messageID)
+	return err
+}
+
 // updateAssistantMessageWithToolCalls updates an existing assistant message with tool calls (but keeps status as processing)
 func (s *ChatService) updateAssistantMessageWithToolCalls(messageID string, content *string, toolCalls []models.ChatToolCall) error {
 	// Convert tool calls to JSON if present
