@@ -5,6 +5,7 @@ import {
   ChatModel,
   getChatInstructions,
   updateChatInstructions,
+  getConversations,
 } from "../api/chat";
 import { setDocumentTitle } from "../utils/title";
 import { ChatInterface } from "../components/chat/ChatInterface";
@@ -40,7 +41,16 @@ export function ChatPage({ }: ChatPageProps) {
 
   useEffect(() => {
     setDocumentTitle("Chat");
-    initializeChatSession();
+    // Try to load the most recent conversation, then fall back to last cleared session, then create a draft
+    const initializeChat = async () => {
+      const loaded = await loadMostRecentConversation();
+      if (!loaded && chatHook.lastClearedSession) {
+        await chatHook.restoreLastCleared();
+      } else if (!loaded && !chatHook.currentConversation) {
+        chatHook.createNewConversation("", chatHook.selectedModel);
+      }
+    };
+    initializeChat();
     handleUrlParams();
     loadAvailableModels();
     loadInstructions();
@@ -65,6 +75,24 @@ export function ChatPage({ }: ChatPageProps) {
     }
   };
 
+  const loadMostRecentConversation = async () => {
+    try {
+      const conversations = await getConversations();
+      if (conversations && conversations.length > 0) {
+        // Sort by updated_at descending and get the most recent
+        const mostRecent = conversations.sort((a, b) =>
+          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        )[0];
+        await chatHook.loadConversation(mostRecent.id);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Failed to load conversations:", error);
+      return false;
+    }
+  };
+
   const handleSaveInstructions = async () => {
     try {
       setIsSavingInstructions(true);
@@ -76,13 +104,6 @@ export function ChatPage({ }: ChatPageProps) {
       showToast("error", "Failed to save", "Could not save your instructions.");
     } finally {
       setIsSavingInstructions(false);
-    }
-  };
-
-  const initializeChatSession = async () => {
-    // Always start with a fresh session or load existing
-    if (!chatHook.currentConversation) {
-      await chatHook.createNewConversation("", chatHook.selectedModel);
     }
   };
 
