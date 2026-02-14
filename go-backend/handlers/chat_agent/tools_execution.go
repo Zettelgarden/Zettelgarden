@@ -13,7 +13,10 @@ import (
 // executeToolCall executes a single tool call with simple retry logic
 func (s *ChatService) executeToolCall(tc openai.ToolCall, userID int, conversationID, assistantMessageID, model string, loopDetector *services.LoopDetector) map[string]interface{} {
 	var args map[string]interface{}
-	json.Unmarshal([]byte(tc.Function.Arguments), &args)
+	if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+		log.Printf("Failed to unmarshal tool call arguments for %s: %v", tc.Function.Name, err)
+		return services.WrapToolError(tc.Function.Name, nil, err)
+	}
 
 	ctx := &services.ToolContext{
 		UserID:          userID,
@@ -75,7 +78,9 @@ func (s *ChatService) executeAndBroadcastToolCalls(
 
 		// Check if result contains an error
 		var args map[string]interface{}
-		json.Unmarshal([]byte(tc.Function.Arguments), &args)
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+			log.Printf("Failed to unmarshal tool call arguments for %s during broadcast: %v", tc.Function.Name, err)
+		}
 		hasError := models.HasError(result)
 
 		// Send enhanced tool result event

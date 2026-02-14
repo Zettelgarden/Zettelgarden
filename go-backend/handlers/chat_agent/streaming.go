@@ -159,7 +159,9 @@ func convertAndBroadcastToolCalls(toolCalls []openai.ToolCall, sendEvent StreamE
 
 	for _, tc := range toolCalls {
 		var args map[string]interface{}
-		json.Unmarshal([]byte(tc.Function.Arguments), &args)
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+			log.Printf("Failed to unmarshal tool call arguments for %s during broadcast: %v", tc.Function.Name, err)
+		}
 
 		convertedToolCalls = append(convertedToolCalls, models.ChatToolCall{
 			ID:   tc.ID,
@@ -521,7 +523,9 @@ func (s *ChatService) processChatResponse(
 		var toolCalls []models.ChatToolCall
 		for _, tc := range currentToolCalls {
 			var args map[string]interface{}
-			json.Unmarshal([]byte(tc.Function.Arguments), &args)
+			if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+				log.Printf("Failed to unmarshal tool call arguments for %s: %v", tc.Function.Name, err)
+			}
 
 			toolCalls = append(toolCalls, models.ChatToolCall{
 				ID:   tc.ID,
