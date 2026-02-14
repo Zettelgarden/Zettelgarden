@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"go-backend/services/featureflags"
+	"go-backend/services/tools"
 	"go-backend/services/tools/task"
 )
 
@@ -219,10 +220,13 @@ func handleGetTasksV2(args map[string]interface{}, ctx *ToolContext) (map[string
 		results = append(results, StructToMap(t))
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"tasks": results,
-		"total": len(tasks),
-	}, nil
+	}
+
+	metadata := tools.NewMetadata(tools.WithTotal(len(tasks)))
+
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleCreateTaskV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -274,7 +278,13 @@ func handleCreateTaskV2(args map[string]interface{}, ctx *ToolContext) (map[stri
 		return nil, fmt.Errorf("failed to retrieve created task: %v", err)
 	}
 
-	return StructToMap(newTask), nil
+	result := StructToMap(newTask)
+	metadata := tools.NewMetadata(
+		tools.WithOperation("task_created"),
+		tools.WithTool("create_task"),
+	)
+
+	return tools.WrapToolSuccessWithMetadata(result, metadata), nil
 }
 
 func handleUpdateTaskV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -330,7 +340,13 @@ func handleUpdateTaskV2(args map[string]interface{}, ctx *ToolContext) (map[stri
 		return nil, fmt.Errorf("failed to retrieve updated task: %v", uerr)
 	}
 
-	return StructToMap(updatedTask), nil
+	result := StructToMap(updatedTask)
+	metadata := tools.NewMetadata(
+		tools.WithOperation("task_updated"),
+		tools.WithTool("update_task"),
+	)
+
+	return tools.WrapToolSuccessWithMetadata(result, metadata), nil
 }
 
 func handleGetTaskByIDV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -344,7 +360,8 @@ func handleGetTaskByIDV2(args map[string]interface{}, ctx *ToolContext) (map[str
 		return nil, fmt.Errorf("failed to get task: %v", lerr)
 	}
 
-	return StructToMap(task), nil
+	result := StructToMap(task)
+	return tools.WrapToolSuccess(result), nil
 }
 
 func handleCompleteTaskV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -370,7 +387,13 @@ func handleCompleteTaskV2(args map[string]interface{}, ctx *ToolContext) (map[st
 		return nil, fmt.Errorf("failed to retrieve updated task: %v", uerr)
 	}
 
-	return StructToMap(updatedTask), nil
+	result := StructToMap(updatedTask)
+	metadata := tools.NewMetadata(
+		tools.WithOperation("task_completed"),
+		tools.WithTool("complete_task"),
+	)
+
+	return tools.WrapToolSuccessWithMetadata(result, metadata), nil
 }
 
 func handleDeleteTaskV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -384,10 +407,16 @@ func handleDeleteTaskV2(args map[string]interface{}, ctx *ToolContext) (map[stri
 		return nil, fmt.Errorf("failed to delete task: %v", err)
 	}
 
-	return map[string]interface{}{
-		"status":  "deleted",
+	data := map[string]interface{}{
 		"task_id": taskID,
-	}, nil
+	}
+
+	metadata := tools.NewMetadata(
+		tools.WithOperation("deleted"),
+		tools.WithTool("delete_task"),
+	)
+
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleCompleteAndScheduleTaskV2(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -421,12 +450,18 @@ func handleCompleteAndScheduleTaskV2(args map[string]interface{}, ctx *ToolConte
 		return nil, fmt.Errorf("failed to complete and schedule task: %v", lerr)
 	}
 
-	return map[string]interface{}{
-		"status":        "completed_and_scheduled",
-		"task_id":       taskID,
-		"new_task_id":   newTaskID,
-		"scheduled_in":  fmt.Sprintf("%d days", days),
-	}, nil
+	data := map[string]interface{}{
+		"task_id":      taskID,
+		"new_task_id":  newTaskID,
+		"scheduled_in": fmt.Sprintf("%d days", days),
+	}
+
+	metadata := tools.NewMetadata(
+		tools.WithOperation("completed_and_scheduled"),
+		tools.WithTool("complete_and_schedule_task"),
+	)
+
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 // Legacy task tool handlers (kept for backward compatibility)
@@ -453,10 +488,13 @@ func handleGetTasksLegacy(args map[string]interface{}, ctx *ToolContext) (map[st
 		results = append(results, StructToMap(t))
 	}
 
-	return map[string]interface{}{
+	data := map[string]interface{}{
 		"tasks": results,
-		"total": len(tasks),
-	}, nil
+	}
+
+	metadata := tools.NewMetadata(tools.WithTotal(len(tasks)))
+
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleCreateTaskLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -508,7 +546,13 @@ func handleCreateTaskLegacy(args map[string]interface{}, ctx *ToolContext) (map[
 		return nil, fmt.Errorf("failed to retrieve created task: %v", err)
 	}
 
-	return StructToMap(newTask), nil
+	result := StructToMap(newTask)
+	metadata := tools.NewMetadata(
+		tools.WithOperation("task_created"),
+		tools.WithTool("create_task"),
+	)
+
+	return tools.WrapToolSuccessWithMetadata(result, metadata), nil
 }
 
 func handleUpdateTaskLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -564,7 +608,13 @@ func handleUpdateTaskLegacy(args map[string]interface{}, ctx *ToolContext) (map[
 		return nil, fmt.Errorf("failed to retrieve updated task: %v", uerr)
 	}
 
-	return StructToMap(updatedTask), nil
+	result := StructToMap(updatedTask)
+	metadata := tools.NewMetadata(
+		tools.WithOperation("task_updated"),
+		tools.WithTool("update_task"),
+	)
+
+	return tools.WrapToolSuccessWithMetadata(result, metadata), nil
 }
 
 func handleGetTaskByIDLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -578,7 +628,8 @@ func handleGetTaskByIDLegacy(args map[string]interface{}, ctx *ToolContext) (map
 		return nil, fmt.Errorf("failed to get task: %v", lerr)
 	}
 
-	return StructToMap(task), nil
+	result := StructToMap(task)
+	return tools.WrapToolSuccess(result), nil
 }
 
 func handleCompleteTaskLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -604,7 +655,13 @@ func handleCompleteTaskLegacy(args map[string]interface{}, ctx *ToolContext) (ma
 		return nil, fmt.Errorf("failed to retrieve updated task: %v", uerr)
 	}
 
-	return StructToMap(updatedTask), nil
+	result := StructToMap(updatedTask)
+	metadata := tools.NewMetadata(
+		tools.WithOperation("task_completed"),
+		tools.WithTool("complete_task"),
+	)
+
+	return tools.WrapToolSuccessWithMetadata(result, metadata), nil
 }
 
 func handleDeleteTaskLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -618,10 +675,16 @@ func handleDeleteTaskLegacy(args map[string]interface{}, ctx *ToolContext) (map[
 		return nil, fmt.Errorf("failed to delete task: %v", err)
 	}
 
-	return map[string]interface{}{
-		"status":  "deleted",
+	data := map[string]interface{}{
 		"task_id": taskID,
-	}, nil
+	}
+
+	metadata := tools.NewMetadata(
+		tools.WithOperation("deleted"),
+		tools.WithTool("delete_task"),
+	)
+
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
 
 func handleCompleteAndScheduleTaskLegacy(args map[string]interface{}, ctx *ToolContext) (map[string]interface{}, error) {
@@ -655,10 +718,16 @@ func handleCompleteAndScheduleTaskLegacy(args map[string]interface{}, ctx *ToolC
 		return nil, fmt.Errorf("failed to complete and schedule task: %v", lerr)
 	}
 
-	return map[string]interface{}{
-		"status":        "completed_and_scheduled",
-		"task_id":       taskID,
-		"new_task_id":   newTaskID,
-		"scheduled_in":  fmt.Sprintf("%d days", days),
-	}, nil
+	data := map[string]interface{}{
+		"task_id":      taskID,
+		"new_task_id":  newTaskID,
+		"scheduled_in": fmt.Sprintf("%d days", days),
+	}
+
+	metadata := tools.NewMetadata(
+		tools.WithOperation("completed_and_scheduled"),
+		tools.WithTool("complete_and_schedule_task"),
+	)
+
+	return tools.WrapToolSuccessWithMetadata(data, metadata), nil
 }
