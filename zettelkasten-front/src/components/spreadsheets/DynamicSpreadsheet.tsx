@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Spreadsheet, createEmptySpreadsheet, SpreadsheetData } from '../../models/Spreadsheet';
 import { SpreadsheetGrid } from './SpreadsheetGrid';
 import { updateSpreadsheet } from '../../api/spreadsheets';
+import { DeleteConfirmDialog } from './DeleteConfirmDialog';
+import { insertRow, deleteRow, insertColumn, deleteColumn, hasDataInRow, hasDataInColumn, MAX_ROWS, MAX_COLS } from '../../utils/spreadsheetOperations';
+import { Toast } from '../Toast';
 
 interface DynamicSpreadsheetProps {
   /** Database ID of the spreadsheet */
@@ -68,6 +71,11 @@ export function DynamicSpreadsheet({ id, initialData, readOnly = false }: Dynami
   const [saveError, setSaveError] = useState<string | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingUpdateRef = useRef<SpreadsheetData | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{
+    type: 'row' | 'column';
+    index: number;
+  } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   // Update local state when initialData changes (e.g., if parent reloads data)
   useEffect(() => {
@@ -111,6 +119,122 @@ export function DynamicSpreadsheet({ id, initialData, readOnly = false }: Dynami
     saveSpreadsheet(updated.data);
   }, [saveSpreadsheet]);
 
+  const handleInsertRow = useCallback((rowIndex: number, above: boolean) => {
+    const insertIndex = above ? rowIndex : rowIndex + 1;
+    const tempSpreadsheet: Spreadsheet = {
+      id,
+      user_id: 0,
+      card_id: 0,
+      name: '',
+      data: spreadsheetData,
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+
+    if (spreadsheetData.rows >= MAX_ROWS) {
+      setToast('Maximum rows reached (100)');
+      return;
+    }
+
+    const updated = insertRow(tempSpreadsheet, insertIndex);
+
+    if (updated === tempSpreadsheet) {
+      setToast('Maximum rows reached (100)');
+      return;
+    }
+
+    handleChange(updated);
+  }, [id, spreadsheetData, handleChange]);
+
+  const handleDeleteRow = useCallback((rowIndex: number) => {
+    const tempSpreadsheet: Spreadsheet = {
+      id,
+      user_id: 0,
+      card_id: 0,
+      name: '',
+      data: spreadsheetData,
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+
+    if (hasDataInRow(tempSpreadsheet, rowIndex)) {
+      setDeleteDialog({ type: 'row', index: rowIndex });
+    } else {
+      const updated = deleteRow(tempSpreadsheet, rowIndex);
+      handleChange(updated);
+    }
+  }, [id, spreadsheetData, handleChange]);
+
+  const handleInsertColumn = useCallback((colIndex: number, left: boolean) => {
+    const insertIndex = left ? colIndex : colIndex + 1;
+    const tempSpreadsheet: Spreadsheet = {
+      id,
+      user_id: 0,
+      card_id: 0,
+      name: '',
+      data: spreadsheetData,
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+
+    if (spreadsheetData.cols >= MAX_COLS) {
+      setToast('Maximum columns reached (26)');
+      return;
+    }
+
+    const updated = insertColumn(tempSpreadsheet, insertIndex);
+
+    if (updated === tempSpreadsheet) {
+      setToast('Maximum columns reached (26)');
+      return;
+    }
+
+    handleChange(updated);
+  }, [id, spreadsheetData, handleChange]);
+
+  const handleDeleteColumn = useCallback((colIndex: number) => {
+    const tempSpreadsheet: Spreadsheet = {
+      id,
+      user_id: 0,
+      card_id: 0,
+      name: '',
+      data: spreadsheetData,
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+
+    if (hasDataInColumn(tempSpreadsheet, colIndex)) {
+      setDeleteDialog({ type: 'column', index: colIndex });
+    } else {
+      const updated = deleteColumn(tempSpreadsheet, colIndex);
+      handleChange(updated);
+    }
+  }, [id, spreadsheetData, handleChange]);
+
+  const handleConfirmDelete = useCallback(() => {
+    if (!deleteDialog) return;
+
+    const tempSpreadsheet: Spreadsheet = {
+      id,
+      user_id: 0,
+      card_id: 0,
+      name: '',
+      data: spreadsheetData,
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+    let updated: Spreadsheet;
+
+    if (deleteDialog.type === 'row') {
+      updated = deleteRow(tempSpreadsheet, deleteDialog.index);
+    } else {
+      updated = deleteColumn(tempSpreadsheet, deleteDialog.index);
+    }
+
+    handleChange(updated);
+    setDeleteDialog(null);
+  }, [deleteDialog, id, spreadsheetData, handleChange]);
+
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
@@ -147,7 +271,19 @@ export function DynamicSpreadsheet({ id, initialData, readOnly = false }: Dynami
         spreadsheet={spreadsheetForGrid}
         onChange={handleChange}
         readOnly={readOnly}
+        onInsertRow={handleInsertRow}
+        onDeleteRow={handleDeleteRow}
+        onInsertColumn={handleInsertColumn}
+        onDeleteColumn={handleDeleteColumn}
       />
+      <DeleteConfirmDialog
+        isOpen={deleteDialog !== null}
+        itemType={deleteDialog?.type || 'row'}
+        index={deleteDialog?.index || 0}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteDialog(null)}
+      />
+      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }
