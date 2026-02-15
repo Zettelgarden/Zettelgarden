@@ -77,8 +77,12 @@ export function RssPage() {
     filters: isSmartFeedActive ? EMPTY_FILTERS : articleFilters,
     skip: isSmartFeedActive
   });
+  // Smart feed respects the unread filter when enabled
+  const smartFeedFilters = useMemo(() => ({
+    unread: showUnreadOnly || undefined,
+  }), [showUnreadOnly]);
   const smartArticles = useSmartRssArticles({
-    filters: EMPTY_FILTERS,
+    filters: isSmartFeedActive ? smartFeedFilters : EMPTY_FILTERS,
     skip: !isSmartFeedActive
   });
 
