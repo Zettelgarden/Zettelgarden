@@ -73,6 +73,9 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.Sc
 	// RSS feed routes
 	RegisterRSSRoutes(r, h)
 
+	// Email sync routes
+	RegisterEmailRoutes(r, h)
+
 	// Entity routes
 	RegisterEntityRoutes(r, h)
 
