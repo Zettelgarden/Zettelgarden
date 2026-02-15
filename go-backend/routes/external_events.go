@@ -14,6 +14,9 @@ func RegisterExternalEventRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/user/external-calendars/{id}", h.DeleteExternalCalendarRoute, "DELETE")
 	addProtectedRoute(r, h, "/api/user/external-calendars/{id}/sync", h.SyncExternalCalendarRoute, "POST")
 
+	// External events (calendar CRUD)
+	addProtectedRoute(r, h, "/api/user/external-calendars/{id}/events", h.CreateEventOnCalendarRoute, "POST")
+
 	// External events
 	addProtectedRoute(r, h, "/api/user/external-events", h.GetExternalEventsRoute, "GET")
 
