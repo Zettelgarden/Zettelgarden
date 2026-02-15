@@ -1,23 +1,29 @@
 import React, { useState } from "react";
 import { ChatInterface } from "./ChatInterface";
 import { ChatUtilityBar } from "./ChatUtilityBar";
-import { useIsDesktop } from "../../hooks/useWindowSize";
 import { useUIState } from "../../contexts/UIStateContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { TaskDialog } from "../tasks/TaskDialog";
 import { useChat } from "../../hooks/useChat";
 import { getChatModels, ChatModel, getChatInstructions, updateChatInstructions } from "../../api/chat";
 import { useToast } from "../toast/ToastContext";
+import { SidePanelLayout } from "../layout/SidePanelLayout";
+import { PANEL_THEMES } from "../layout/panelThemes";
 
 interface ChatPanelLayoutProps {
   children: React.ReactNode;
 }
 
+// Chat icon for the panel header
+const ChatIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+  </svg>
+);
+
 export const ChatPanelLayout: React.FC<ChatPanelLayoutProps> = ({
   children
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const isDesktop = useIsDesktop(1024);
   const { setIsChatOpen } = useUIState();
   const { hasSubscription } = useAuth();
   const { showToast } = useToast();
@@ -91,6 +97,10 @@ export const ChatPanelLayout: React.FC<ChatPanelLayoutProps> = ({
     }
   };
 
+  const handleClose = () => {
+    setIsChatOpen(false);
+  };
+
   const handleSaveInstructions = async () => {
     try {
       setIsSavingInstructions(true);
@@ -160,119 +170,49 @@ export const ChatPanelLayout: React.FC<ChatPanelLayoutProps> = ({
     }
   };
 
+  // Chat panel content
+  const chatPanelContent = (
+    <div className="flex flex-col h-full">
+      <ChatUtilityBar
+        hasLastCleared={!!chatHook.lastClearedSession}
+        isSending={chatHook.isSending}
+        onClear={chatHook.clearChat}
+        onRestoreLast={chatHook.restoreLastCleared}
+        onSettings={() => setShowSettingsDialog(true)}
+        hasSubscription={hasSubscription}
+      />
+      {chatHook.currentConversation ? (
+        <ChatInterface
+          chatHook={chatHook}
+          onCardClick={handleCardClick}
+          onTaskClick={handleTaskClick}
+          onRegenerateMessage={handleRegenerateMessage}
+          placeholder="Ask about your cards... Type @ to mention a card, /clear to clear chat"
+        />
+      ) : (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center text-gray-600 max-w-lg mx-auto p-8">
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Welcome to Chat</h3>
+            <p className="text-gray-600">
+              Ask questions, explore your knowledge base, and discover connections.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <div className="flex flex-col lg:flex-row h-full">
-      {/* Main Content Pane - Left side on desktop, top on mobile */}
-      <div className={`
-        w-full lg:w-1/2
-        border-b lg:border-b-0 lg:border-r border-gray-200
-        overflow-y-auto
-        ${isExpanded ? 'h-1/3 md:h-1/2 lg:h-full' : 'flex-1 lg:h-full'}
-        transition-all duration-300 ease-in-out
-      `}>
-        <div className="h-full">
-          {children}
-        </div>
-      </div>
-
-      {/* Chat Panel Pane - Right side on desktop, collapsible bottom on mobile */}
-      <div className={`
-        w-full lg:w-1/2
-        ${isExpanded ? 'h-2/3 md:h-1/2' : 'h-auto lg:h-full'}
-        transition-all duration-300 ease-in-out
-      `}>
-        <div className="h-full bg-green-50 flex flex-col">
-          {/* Desktop Header */}
-          <div className="hidden lg:flex bg-green-100 px-3 py-2 border-b border-green-200 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              <span className="text-xs font-semibold uppercase tracking-wide text-green-700">
-                Chat Panel
-              </span>
-            </div>
-            <button
-              onClick={() => setIsChatOpen(false)}
-              className="text-green-600 hover:text-green-800 hover:bg-green-200 px-2 py-1 rounded text-sm flex items-center gap-1"
-              title="Close chat"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Close
-            </button>
-          </div>
-
-          {/* Mobile collapse/expand button */}
-          <div className="lg:hidden bg-green-100 p-2 border-b border-green-200">
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="flex items-center justify-between w-full text-green-700"
-            >
-              <div className="flex items-center gap-2">
-                <svg className="h-3 w-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-                <span className="text-xs font-medium uppercase tracking-wide">
-                  Chat Panel
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={(e) => { e.stopPropagation(); setIsChatOpen(false); }}
-                  className="text-green-600 hover:text-green-800 p-1"
-                  title="Close chat"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-                <svg
-                  className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </button>
-          </div>
-
-          {/* Chat content - conditionally shown on mobile */}
-          {(isExpanded || isDesktop) && (
-            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-              <ChatUtilityBar
-                hasLastCleared={!!chatHook.lastClearedSession}
-                isSending={chatHook.isSending}
-                onClear={chatHook.clearChat}
-                onRestoreLast={chatHook.restoreLastCleared}
-                onSettings={() => setShowSettingsDialog(true)}
-                hasSubscription={hasSubscription}
-              />
-              {chatHook.currentConversation ? (
-                <ChatInterface
-                  chatHook={chatHook}
-                  onCardClick={handleCardClick}
-                  onTaskClick={handleTaskClick}
-                  onRegenerateMessage={handleRegenerateMessage}
-                  placeholder="Ask about your cards... Type @ to mention a card, /clear to clear chat"
-                />
-              ) : (
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center text-gray-600 max-w-lg mx-auto p-8">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Welcome to Chat</h3>
-                    <p className="text-gray-600">
-                      Ask questions, explore your knowledge base, and discover connections.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+    <>
+      <SidePanelLayout
+        theme="green"
+        title="Chat Panel"
+        onClose={handleClose}
+        panelContent={chatPanelContent}
+        icon={<ChatIcon className="h-4 w-4" />}
+      >
+        {children}
+      </SidePanelLayout>
 
       {/* Settings Dialog */}
       {showSettingsDialog && (
@@ -458,6 +398,6 @@ export const ChatPanelLayout: React.FC<ChatPanelLayoutProps> = ({
         isOpen={showTaskDialog}
         onClose={handleTaskDialogClose}
       />
-    </div>
+    </>
   );
 };
