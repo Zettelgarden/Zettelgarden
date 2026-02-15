@@ -249,13 +249,14 @@ func Setup() *server.Server {
 // This ensures that each test starts with a clean database state and that
 // tests don't interfere with each other.
 func Teardown() {
-	// Use truncate for cleanup (savepoint approach has compatibility issues)
-	// With reduced data volume, this is still much faster than before
+	// Rollback the transaction if it exists
 	if S.Tx != nil {
 		S.Tx.Rollback()
-	} else {
-		truncateTestData()
 	}
+
+	// Always truncate test data to ensure clean state
+	// This handles both transaction-based tests and cleans up any old data
+	truncateTestData()
 }
 
 // truncateTestData clears all test data but keeps the schema.
@@ -275,6 +276,10 @@ func truncateTestData() {
 		"chat_tool_calls",
 		"chat_usage_quotas",
 		"chat_conversations",
+		"email_accounts",
+		"email_card_links",
+		"emails",
+		"email_triage_decisions",
 		"entity_card_junction",
 		"entity_fact_junction",
 		"entities",
