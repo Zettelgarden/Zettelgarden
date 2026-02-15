@@ -407,3 +407,69 @@ func (s *Handler) GetEventsByCardRoute(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(events)
 }
+
+// CreateEventOnCalendarRoute handles POST /api/user/external-calendars/{id}/events
+// Creates a new event on an external calendar via CalDAV
+func (s *Handler) CreateEventOnCalendarRoute(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserID(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "UNAUTHORIZED", err.Error())
+		return
+	}
+
+	vars := mux.Vars(r)
+	calendarID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "INVALID_ID", "Invalid calendar ID")
+		return
+	}
+
+	var req models.CreateEventRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "INVALID_BODY", "Invalid request body")
+		return
+	}
+
+	// Validate required fields
+	if strings.TrimSpace(req.Title) == "" {
+		respondWithError(w, http.StatusBadRequest, "MISSING_TITLE", "Title is required")
+		return
+	}
+
+	// Validate time range
+	if req.EndTime.Before(req.StartTime) {
+		respondWithError(w, http.StatusBadRequest, "INVALID_TIME_RANGE", "End time must be after start time")
+		return
+	}
+
+	svc := services.NewExternalEventService(s.GetDB(), s.EncryptionService)
+
+	// Create event on CalDAV server
+	uid, err := svc.CreateEventOnCalendar(calendarID, userID, req)
+	if err != nil {
+		log.Printf("Error creating event on calendar: %v", err)
+		// Determine error code
+		code := "CREATE_FAILED"
+		if strings.Contains(err.Error(), "credentials") {
+			code = "INVALID_CREDENTIALS"
+		} else if strings.Contains(err.Error(), "write access") {
+			code = "NOT_WRITABLE"
+		}
+		respondWithError(w, http.StatusBadRequest, code, err.Error())
+		return
+	}
+
+	// Trigger sync in background to pull the new event back
+	go func() {
+		if syncErr := svc.SyncExternalCalendar(calendarID, userID); syncErr != nil {
+			log.Printf("Error syncing calendar after event creation: %v", syncErr)
+		}
+	}()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"uid":     uid,
+		"message": "Event created successfully",
+	})
+}
