@@ -5,6 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { setDocumentTitle } from "../../utils/title";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { CalendarViewWrapper } from "../../components/calendar/CalendarView";
+import { EventDialog } from "../../components/calendar/EventDialog";
 import { TaskDialog } from "../../components/tasks/TaskDialog";
 import { CreateTaskWindow } from "../../components/tasks/CreateTaskWindow";
 import { getExternalEvents, getExternalCalendars } from "../../api/externalEvents";
@@ -58,6 +59,10 @@ export function CalendarPage() {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [showCreateTaskWindow, setShowCreateTaskWindow] = useState(false);
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | null>(null);
+
+  // State for event dialog
+  const [showEventDialog, setShowEventDialog] = useState(false);
+  const [eventInitialDate, setEventInitialDate] = useState<Date | null>(null);
 
   // External calendar events state
   const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
@@ -268,6 +273,7 @@ export function CalendarPage() {
       event.preventDefault();
       setShowCreateTaskWindow(false);
       setIsSettingsDialogOpen(false);
+      setShowEventDialog(false);
       return;
     }
   };
@@ -277,7 +283,7 @@ export function CalendarPage() {
     return () => {
       document.removeEventListener("keydown", handleKeyPress);
     };
-  }, [setShowCreateTaskWindow]);
+  }, [setShowCreateTaskWindow, setIsSettingsDialogOpen, setShowEventDialog]);
 
   return (
     <div className="p-4">
@@ -319,6 +325,10 @@ export function CalendarPage() {
             setCalendarSelectedDate(date);
             setShowCreateTaskWindow(true);
           }}
+          onCreateEvent={(date) => {
+            setEventInitialDate(date);
+            setShowEventDialog(true);
+          }}
           onTaskMoved={() => {
             setRefreshTasks(true);
           }}
@@ -357,6 +367,18 @@ export function CalendarPage() {
           setSelectedTaskId(null);
         }}
       />
+
+      {/* Event Dialog */}
+      {showEventDialog && (
+        <EventDialog
+          initialDate={eventInitialDate || undefined}
+          onClose={() => setShowEventDialog(false)}
+          onSuccess={() => {
+            // Trigger refresh of external events
+            setRefreshTasks(true); // This will trigger a reload of calendar data
+          }}
+        />
+      )}
 
       {/* Calendar Settings Dialog */}
       {isSettingsDialogOpen && (
