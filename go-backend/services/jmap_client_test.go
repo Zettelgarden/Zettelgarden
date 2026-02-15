@@ -1,0 +1,810 @@
+package services
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+)
+
+func TestJMAPSession(t *testing.T) {
+	var serverURL string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check Basic auth
+		username, password, ok := r.BasicAuth()
+		if !ok || username != "test@example.com" || password != "test-app-password" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		// Return session response
+		sessionResponse := map[string]interface{}{
+			"capabilities": map[string]interface{}{
+				"urn:ietf:params:jmap:mail": map[string]interface{}{},
+			},
+			"apiUrl":        serverURL + "/api",
+			"uploadUrl":     serverURL + "/upload",
+			"downloadUrl":   serverURL + "/download",
+			"eventSourceUrl": serverURL + "/events",
+			"accountId":     "account123",
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(sessionResponse)
+	}))
+	defer server.Close()
+
+	serverURL = server.URL
+
+	// Create JMAP client
+	client := NewJMAPClient(serverURL+"/jmap/session", "test@example.com", "test-app-password")
+
+	// Test Connect
+	ctx := context.Background()
+	err := client.Connect(ctx)
+	if err != nil {
+		t.Fatalf("Connect failed: %v", err)
+	}
+
+	// Verify session was parsed correctly
+	if client.apiURL != serverURL+"/api" {
+		t.Errorf("expected apiURL %s, got %s", serverURL+"/api", client.apiURL)
+	}
+
+	if client.uploadURL != serverURL+"/upload" {
+		t.Errorf("expected uploadURL %s, got %s", serverURL+"/upload", client.uploadURL)
+	}
+
+	if client.downloadURL != serverURL+"/download" {
+		t.Errorf("expected downloadURL %s, got %s", serverURL+"/download", client.downloadURL)
+	}
+}
+
+func TestJMAPSessionUnauthorized(t *testing.T) {
+	// Create a test server that returns 401
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	// Create JMAP client with wrong password
+	client := NewJMAPClient(server.URL, "test@example.com", "wrong-password")
+
+	// Test Connect should fail
+	ctx := context.Background()
+	err := client.Connect(ctx)
+	if err == nil {
+		t.Error("expected error for unauthorized access")
+	}
+}
+
+func TestJMAPGetMailboxes(t *testing.T) {
+	var serverURL string
+	var gotSessionRequest bool
+	var gotAPIRequest bool
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/jmap/session" || r.URL.Path == "/" {
+			// Session request
+			gotSessionRequest = true
+			username, password, ok := r.BasicAuth()
+			if !ok || username != "test@example.com" || password != "test-app-password" {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			sessionResponse := map[string]interface{}{
+				"capabilities": map[string]interface{}{
+					"urn:ietf:params:jmap:mail": map[string]interface{}{},
+				},
+				"apiUrl":      serverURL + "/api",
+				"uploadUrl":   serverURL + "/upload",
+				"downloadUrl": serverURL + "/download",
+				"accountId":   "account123",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(sessionResponse)
+		} else if r.URL.Path == "/api" {
+			// API request
+			gotAPIRequest = true
+			username, password, ok := r.BasicAuth()
+			if !ok || username != "test@example.com" || password != "test-app-password" {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			// Parse request body
+			var reqBody map[string]interface{}
+			json.NewDecoder(r.Body).Decode(&reqBody)
+
+			// Return mailboxes
+			apiResponse := map[string]interface{}{
+				"methodResponses": [][]interface{}{
+					{
+						"Mailbox/get",
+						map[string]interface{}{
+							"accountId": "account123",
+							"data": []map[string]interface{}{
+								{
+									"id":   "mailbox1",
+									"name": "Inbox",
+									"role": "inbox",
+								},
+								{
+									"id":   "mailbox2",
+									"name": "Sent",
+									"role": "sent",
+								},
+								{
+									"id":   "mailbox3",
+									"name": "Archive",
+								},
+							},
+							"state": "state123",
+						},
+						"call1",
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(apiResponse)
+		}
+	}))
+	defer server.Close()
+
+	serverURL = server.URL
+
+	// Create JMAP client and connect
+	client := NewJMAPClient(serverURL+"/jmap/session", "test@example.com", "test-app-password")
+	ctx := context.Background()
+	err := client.Connect(ctx)
+	if err != nil {
+		t.Fatalf("Connect failed: %v", err)
+	}
+
+	// Get mailboxes
+	mailboxes, err := client.GetMailboxes(ctx)
+	if err != nil {
+		t.Fatalf("GetMailboxes failed: %v", err)
+	}
+
+	// Verify mailboxes
+	if len(mailboxes) != 3 {
+		t.Errorf("expected 3 mailboxes, got %d", len(mailboxes))
+	}
+
+	// Check Inbox
+	if mailboxes[0].ID != "mailbox1" {
+		t.Errorf("expected mailbox1, got %s", mailboxes[0].ID)
+	}
+	if mailboxes[0].Name != "Inbox" {
+		t.Errorf("expected Inbox, got %s", mailboxes[0].Name)
+	}
+	if mailboxes[0].Role == nil || *mailboxes[0].Role != "inbox" {
+		t.Errorf("expected role inbox, got %v", mailboxes[0].Role)
+	}
+
+	if !gotSessionRequest {
+		t.Error("expected session request")
+	}
+	if !gotAPIRequest {
+		t.Error("expected API request")
+	}
+}
+
+func TestJMAPFindInboxMailbox(t *testing.T) {
+	var serverURL string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/jmap/session" || r.URL.Path == "/" {
+			username, password, ok := r.BasicAuth()
+			if !ok || username != "test@example.com" || password != "test-app-password" {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			sessionResponse := map[string]interface{}{
+				"capabilities": map[string]interface{}{
+					"urn:ietf:params:jmap:mail": map[string]interface{}{},
+				},
+				"apiUrl":      serverURL + "/api",
+				"uploadUrl":   serverURL + "/upload",
+				"downloadUrl": serverURL + "/download",
+				"accountId":   "account123",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(sessionResponse)
+		} else if r.URL.Path == "/api" {
+			var reqBody map[string]interface{}
+			json.NewDecoder(r.Body).Decode(&reqBody)
+
+			apiResponse := map[string]interface{}{
+				"methodResponses": [][]interface{}{
+					{
+						"Mailbox/get",
+						map[string]interface{}{
+							"accountId": "account123",
+							"data": []map[string]interface{}{
+								{
+									"id":   "mailbox1",
+									"name": "Inbox",
+									"role": "inbox",
+								},
+								{
+									"id":   "mailbox2",
+									"name": "Sent",
+									"role": "sent",
+								},
+							},
+							"state": "state123",
+						},
+						"call1",
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(apiResponse)
+		}
+	}))
+	defer server.Close()
+
+	serverURL = server.URL
+
+	client := NewJMAPClient(serverURL+"/jmap/session", "test@example.com", "test-app-password")
+	ctx := context.Background()
+	err := client.Connect(ctx)
+	if err != nil {
+		t.Fatalf("Connect failed: %v", err)
+	}
+
+	// Find Inbox by role
+	inboxID, err := client.FindInboxMailbox(ctx)
+	if err != nil {
+		t.Fatalf("FindInboxMailbox failed: %v", err)
+	}
+
+	if inboxID != "mailbox1" {
+		t.Errorf("expected mailbox1, got %s", inboxID)
+	}
+}
+
+func TestJMAPFindInboxMailboxByName(t *testing.T) {
+	// Test fallback to name when role is not set
+	var serverURL string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/jmap/session" || r.URL.Path == "/" {
+			username, password, ok := r.BasicAuth()
+			if !ok || username != "test@example.com" || password != "test-app-password" {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			sessionResponse := map[string]interface{}{
+				"capabilities": map[string]interface{}{
+					"urn:ietf:params:jmap:mail": map[string]interface{}{},
+				},
+				"apiUrl":      serverURL + "/api",
+				"uploadUrl":   serverURL + "/upload",
+				"downloadUrl": serverURL + "/download",
+				"accountId":   "account123",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(sessionResponse)
+		} else if r.URL.Path == "/api" {
+			var reqBody map[string]interface{}
+			json.NewDecoder(r.Body).Decode(&reqBody)
+
+			// Return mailboxes without role field
+			apiResponse := map[string]interface{}{
+				"methodResponses": [][]interface{}{
+					{
+						"Mailbox/get",
+						map[string]interface{}{
+							"accountId": "account123",
+							"data": []map[string]interface{}{
+								{
+									"id":   "mailbox1",
+									"name": "Inbox",
+									// No role
+								},
+								{
+									"id":   "mailbox2",
+									"name": "Sent",
+								},
+							},
+							"state": "state123",
+						},
+						"call1",
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(apiResponse)
+		}
+	}))
+	defer server.Close()
+
+	serverURL = server.URL
+
+	client := NewJMAPClient(serverURL+"/jmap/session", "test@example.com", "test-app-password")
+	ctx := context.Background()
+	err := client.Connect(ctx)
+	if err != nil {
+		t.Fatalf("Connect failed: %v", err)
+	}
+
+	// Find Inbox by name
+	inboxID, err := client.FindInboxMailbox(ctx)
+	if err != nil {
+		t.Fatalf("FindInboxMailbox failed: %v", err)
+	}
+
+	if inboxID != "mailbox1" {
+		t.Errorf("expected mailbox1, got %s", inboxID)
+	}
+}
+
+func TestJMAPFetchEmails(t *testing.T) {
+	var serverURL string
+	receivedTime := time.Now().UTC()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/jmap/session" || r.URL.Path == "/" {
+			username, password, ok := r.BasicAuth()
+			if !ok || username != "test@example.com" || password != "test-app-password" {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			sessionResponse := map[string]interface{}{
+				"capabilities": map[string]interface{}{
+					"urn:ietf:params:jmap:mail": map[string]interface{}{},
+				},
+				"apiUrl":      serverURL + "/api",
+				"uploadUrl":   serverURL + "/upload",
+				"downloadUrl": serverURL + "/download",
+				"accountId":   "account123",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(sessionResponse)
+		} else if r.URL.Path == "/api" {
+			var reqBody map[string]interface{}
+			json.NewDecoder(r.Body).Decode(&reqBody)
+
+			methodCalls := reqBody["methodCalls"].([]interface{})
+			firstCall := methodCalls[0].([]interface{})
+			methodName := firstCall[0].(string)
+
+			if methodName == "Mailbox/get" {
+				// Return mailboxes
+				apiResponse := map[string]interface{}{
+					"methodResponses": [][]interface{}{
+						{
+							"Mailbox/get",
+							map[string]interface{}{
+								"accountId": "account123",
+								"data": []map[string]interface{}{
+									{
+										"id":   "mailbox1",
+										"name": "Inbox",
+										"role": "inbox",
+									},
+								},
+								"state": "state123",
+							},
+							"call1",
+						},
+					},
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(apiResponse)
+			} else if methodName == "Email/query" {
+				// Return email IDs
+				apiResponse := map[string]interface{}{
+					"methodResponses": [][]interface{}{
+						{
+							"Email/query",
+							map[string]interface{}{
+								"accountId":          "account123",
+								"queryState":         "queryState123",
+								"ids":                []interface{}{"email1", "email2"},
+								"canCalculateChanges": false,
+							},
+							"call2",
+						},
+					},
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(apiResponse)
+			} else if methodName == "Email/get" {
+				// Return email details
+				apiResponse := map[string]interface{}{
+					"methodResponses": [][]interface{}{
+						{
+							"Email/get",
+							map[string]interface{}{
+								"accountId": "account123",
+								"data": []map[string]interface{}{
+									{
+										"id":         "email1",
+										"messageId":  []interface{}{"<message1@example.com>"},
+										"threadId":   "thread1",
+										"subject":    "Test Email 1",
+										"receivedAt": receivedTime.Format(time.RFC3339Nano),
+										"from": map[string]interface{}{
+											"email": "sender1@example.com",
+											"name":  "Sender One",
+										},
+										"to": []interface{}{
+											map[string]interface{}{
+												"email": "recipient@example.com",
+												"name":  "Recipient",
+											},
+										},
+										"bodyValues": map[string]interface{}{
+											"text": map[string]interface{}{
+												"value": "This is the plain text body",
+											},
+										},
+										"mailboxIds": map[string]interface{}{
+											"mailbox1": true,
+										},
+									},
+									{
+										"id":         "email2",
+										"messageId":  []interface{}{"<message2@example.com>"},
+										"threadId":   "thread2",
+										"subject":    "Test Email 2",
+										"receivedAt": receivedTime.Add(time.Hour).Format(time.RFC3339Nano),
+										"from": map[string]interface{}{
+											"email": "sender2@example.com",
+											"name":  "Sender Two",
+										},
+										"to": []interface{}{
+											map[string]interface{}{
+												"email": "recipient@example.com",
+											},
+										},
+										"bodyValues": map[string]interface{}{
+											"text": map[string]interface{}{
+												"value": "This is another plain text body",
+											},
+										},
+										"mailboxIds": map[string]interface{}{
+											"mailbox1": true,
+										},
+									},
+								},
+								"state": "state123",
+							},
+							"call3",
+						},
+					},
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(apiResponse)
+			}
+		}
+	}))
+	defer server.Close()
+
+	serverURL = server.URL
+
+	client := NewJMAPClient(serverURL+"/jmap/session", "test@example.com", "test-app-password")
+	ctx := context.Background()
+	err := client.Connect(ctx)
+	if err != nil {
+		t.Fatalf("Connect failed: %v", err)
+	}
+
+	// Fetch emails
+	emails, state, err := client.FetchEmails(ctx, 10)
+	if err != nil {
+		t.Fatalf("FetchEmails failed: %v", err)
+	}
+
+	// Verify emails
+	if len(emails) != 2 {
+		t.Errorf("expected 2 emails, got %d", len(emails))
+	}
+
+	if state != "queryState123" {
+		t.Errorf("expected state queryState123, got %s", state)
+	}
+
+	// Check first email
+	if emails[0].MessageID != "<message1@example.com>" {
+		t.Errorf("expected message ID <message1@example.com>, got %s", emails[0].MessageID)
+	}
+
+	if emails[0].Subject == nil || *emails[0].Subject != "Test Email 1" {
+		t.Errorf("expected subject 'Test Email 1', got %v", emails[0].Subject)
+	}
+
+	if emails[0].FromAddress == nil || *emails[0].FromAddress != "sender1@example.com" {
+		t.Errorf("expected from address sender1@example.com, got %v", emails[0].FromAddress)
+	}
+
+	if emails[0].FromName == nil || *emails[0].FromName != "Sender One" {
+		t.Errorf("expected from name 'Sender One', got %v", emails[0].FromName)
+	}
+
+	if emails[0].BodyText == nil || *emails[0].BodyText != "This is the plain text body" {
+		t.Errorf("expected body text 'This is the plain text body', got %v", emails[0].BodyText)
+	}
+
+	if emails[0].Folder == nil || *emails[0].Folder != "Inbox" {
+		t.Errorf("expected folder 'Inbox', got %v", emails[0].Folder)
+	}
+}
+
+func TestJMAPConvertJMAPToEmail(t *testing.T) {
+	receivedTime := time.Date(2024, 2, 15, 10, 30, 0, 0, time.UTC)
+
+	jmapEmail := JMAPEmail{
+		ID:        "email123",
+		MessageID: []string{"<message@example.com>"},
+		ThreadID:  "thread123",
+		Subject:   strPtr("Test Subject"),
+		ReceivedAt: receivedTime,
+		From: JMAPEmailAddress{
+			Email: "sender@example.com",
+			Name:  "Sender Name",
+		},
+		To: []JMAPEmailAddress{
+			{
+				Email: "recipient@example.com",
+				Name:  "Recipient Name",
+			},
+		},
+		BodyValues: map[string]JMAPBodyValue{
+			"text": {
+				Value: strPtr("Plain text body"),
+			},
+		},
+		MailboxIDs: map[string]bool{
+			"mailbox1": true,
+		},
+	}
+
+	// Convert
+	email := convertJMAPToEmail(jmapEmail, "Inbox")
+
+	// Verify
+	if email.MessageID != "<message@example.com>" {
+		t.Errorf("expected message ID <message@example.com>, got %s", email.MessageID)
+	}
+
+	if email.Subject == nil || *email.Subject != "Test Subject" {
+		t.Errorf("expected subject 'Test Subject', got %v", email.Subject)
+	}
+
+	if email.ThreadID == nil || *email.ThreadID != "thread123" {
+		t.Errorf("expected thread ID thread123, got %v", email.ThreadID)
+	}
+
+	if email.FromAddress == nil || *email.FromAddress != "sender@example.com" {
+		t.Errorf("expected from address sender@example.com, got %v", email.FromAddress)
+	}
+
+	if email.FromName == nil || *email.FromName != "Sender Name" {
+		t.Errorf("expected from name 'Sender Name', got %v", email.FromName)
+	}
+
+	if email.BodyText == nil || *email.BodyText != "Plain text body" {
+		t.Errorf("expected body text 'Plain text body', got %v", email.BodyText)
+	}
+
+	if email.ReceivedAt == nil {
+		t.Error("expected received at to be set")
+	} else if !email.ReceivedAt.Equal(receivedTime) {
+		t.Errorf("expected received at %v, got %v", receivedTime, *email.ReceivedAt)
+	}
+
+	if email.Folder == nil || *email.Folder != "Inbox" {
+		t.Errorf("expected folder 'Inbox', got %v", email.Folder)
+	}
+}
+
+func TestJMAPConvertJMAPToEmailWithNulls(t *testing.T) {
+	// Test with missing optional fields
+	jmapEmail := JMAPEmail{
+		ID:        "email123",
+		MessageID: []string{"<message@example.com>"},
+		// No subject, threadId, from.name, etc.
+		ReceivedAt: time.Now(),
+		From: JMAPEmailAddress{
+			Email: "sender@example.com",
+			// No name
+		},
+		To: []JMAPEmailAddress{
+			{
+				Email: "recipient@example.com",
+				// No name
+			},
+		},
+		// No body values
+		BodyValues: map[string]JMAPBodyValue{},
+		MailboxIDs: map[string]bool{
+			"mailbox1": true,
+		},
+	}
+
+	// Convert
+	email := convertJMAPToEmail(jmapEmail, "Inbox")
+
+	// Verify null fields are handled
+	if email.Subject != nil {
+		t.Errorf("expected nil subject, got %v", email.Subject)
+	}
+
+	if email.ThreadID != nil {
+		t.Errorf("expected nil thread ID, got %v", email.ThreadID)
+	}
+
+	if email.FromName != nil {
+		t.Errorf("expected nil from name, got %v", email.FromName)
+	}
+
+	if email.BodyText != nil {
+		t.Errorf("expected nil body text, got %v", email.BodyText)
+	}
+}
+
+func TestJMAPFetchEmailsSince(t *testing.T) {
+	var serverURL string
+	receivedTime := time.Now().UTC()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/jmap/session" || r.URL.Path == "/" {
+			username, password, ok := r.BasicAuth()
+			if !ok || username != "test@example.com" || password != "test-app-password" {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			sessionResponse := map[string]interface{}{
+				"capabilities": map[string]interface{}{
+					"urn:ietf:params:jmap:mail": map[string]interface{}{},
+				},
+				"apiUrl":      serverURL + "/api",
+				"uploadUrl":   serverURL + "/upload",
+				"downloadUrl": serverURL + "/download",
+				"accountId":   "account123",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(sessionResponse)
+		} else if r.URL.Path == "/api" {
+			var reqBody map[string]interface{}
+			json.NewDecoder(r.Body).Decode(&reqBody)
+
+			methodCalls := reqBody["methodCalls"].([]interface{})
+			firstCall := methodCalls[0].([]interface{})
+			methodName := firstCall[0].(string)
+
+			if methodName == "Mailbox/get" {
+				apiResponse := map[string]interface{}{
+					"methodResponses": [][]interface{}{
+						{
+							"Mailbox/get",
+							map[string]interface{}{
+								"accountId": "account123",
+								"data": []map[string]interface{}{
+									{
+										"id":   "mailbox1",
+										"name": "Inbox",
+										"role": "inbox",
+									},
+								},
+								"state": "state123",
+							},
+							"call1",
+						},
+					},
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(apiResponse)
+			} else if methodName == "Email/query" {
+				// Check that filter includes query state
+				callData := firstCall[1].(map[string]interface{})
+				filter := callData["filter"].(map[string]interface{})
+
+				if _, ok := filter["afterQueryState"]; !ok {
+					t.Errorf("expected afterQueryState in filter")
+				}
+
+				// Return email IDs with new state
+				apiResponse := map[string]interface{}{
+					"methodResponses": [][]interface{}{
+						{
+							"Email/query",
+							map[string]interface{}{
+								"accountId":          "account123",
+								"queryState":         "newQueryState456",
+								"ids":                []interface{}{"email3"},
+								"canCalculateChanges": false,
+							},
+							"call2",
+						},
+					},
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(apiResponse)
+			} else if methodName == "Email/get" {
+				apiResponse := map[string]interface{}{
+					"methodResponses": [][]interface{}{
+						{
+							"Email/get",
+							map[string]interface{}{
+								"accountId": "account123",
+								"data": []map[string]interface{}{
+									{
+										"id":         "email3",
+										"messageId":  []interface{}{"<message3@example.com>"},
+										"threadId":   "thread3",
+										"subject":    "New Email",
+										"receivedAt": receivedTime.Format(time.RFC3339Nano),
+										"from": map[string]interface{}{
+											"email": "sender3@example.com",
+											"name":  "Sender Three",
+										},
+										"to": []interface{}{
+											map[string]interface{}{
+												"email": "recipient@example.com",
+											},
+										},
+										"bodyValues": map[string]interface{}{
+											"text": map[string]interface{}{
+												"value": "New email body",
+											},
+										},
+										"mailboxIds": map[string]interface{}{
+											"mailbox1": true,
+										},
+									},
+								},
+								"state": "state123",
+							},
+							"call3",
+						},
+					},
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(apiResponse)
+			}
+		}
+	}))
+	defer server.Close()
+
+	serverURL = server.URL
+
+	client := NewJMAPClient(serverURL+"/jmap/session", "test@example.com", "test-app-password")
+	ctx := context.Background()
+	err := client.Connect(ctx)
+	if err != nil {
+		t.Fatalf("Connect failed: %v", err)
+	}
+
+	// Fetch emails since a state
+	emails, newState, err := client.FetchEmailsSince(ctx, "oldQueryState", 10)
+	if err != nil {
+		t.Fatalf("FetchEmailsSince failed: %v", err)
+	}
+
+	// Verify
+	if len(emails) != 1 {
+		t.Errorf("expected 1 email, got %d", len(emails))
+	}
+
+	if newState != "newQueryState456" {
+		t.Errorf("expected new state newQueryState456, got %s", newState)
+	}
+
+	if emails[0].Subject == nil || *emails[0].Subject != "New Email" {
+		t.Errorf("expected subject 'New Email', got %v", emails[0].Subject)
+	}
+}

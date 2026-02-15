@@ -6,6 +6,7 @@ import { Card, PartialCard } from "../models/Card";
  * - ChatProvider (conversationId, showChat)
  * - PinProvider (pinnedCard) - isPinMode is derived: pinnedCard !== null
  * - ChatSidebarProvider (chatSidebarCard, isChatSidebarMode)
+ * - ChatPanel (isChatOpen) - for sidebar chat without card context
  * - PartialCardProvider (lastCard, nextCardId)
  * - CardRefreshProvider (refreshTrigger)
  * - FileProvider (refreshFiles)
@@ -31,10 +32,15 @@ interface UIStateContextType {
   setPinnedCard: (card: Card | null) => void;
   isPinMode: boolean; // Derived: pinnedCard !== null
 
-  // Chat sidebar state
+  // Chat sidebar state (with card context)
   chatSidebarCard: Card | null;
   setChatSidebarCard: (card: Card | null) => void;
   isChatSidebarMode: boolean; // Derived: chatSidebarCard !== null
+
+  // Chat panel state (without card context - from sidebar button)
+  isChatOpen: boolean;
+  setIsChatOpen: (open: boolean) => void;
+  toggleChatOpen: () => void;
 
   // Partial card state
   lastCard: PartialCard | null;
@@ -56,6 +62,29 @@ const UIStateContext = createContext<UIStateContextType | undefined>(undefined);
 const SIDEBAR_COLLAPSED_KEY = 'zettelgarden-sidebar-collapsed';
 const PINNED_CARD_KEY = 'zettelgarden-pinned-card';
 const CHAT_SIDEBAR_CARD_KEY = 'zettelgarden-chat-sidebar-card';
+const CHAT_OPEN_KEY = 'zettelgarden-chat-open';
+
+const getInitialSidebarState = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+  return stored === 'true';
+};
+
+const getStoredCard = (key: string): Card | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+};
+
+const getInitialChatOpenState = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const stored = localStorage.getItem(CHAT_OPEN_KEY);
+  return stored === 'true';
+};
 
 const getInitialSidebarState = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -110,6 +139,26 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Chat sidebar state
   const [chatSidebarCard, setChatSidebarCard] = useState<Card | null>(() => getStoredCard(CHAT_SIDEBAR_CARD_KEY));
+
+  // Chat panel state (without card context)
+  const [isChatOpen, setIsChatOpenState] = useState<boolean>(getInitialChatOpenState);
+
+  const setIsChatOpen = (open: boolean) => {
+    setIsChatOpenState(open);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(CHAT_OPEN_KEY, String(open));
+    }
+  };
+
+  const toggleChatOpen = () => {
+    setIsChatOpenState(prev => {
+      const newValue = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(CHAT_OPEN_KEY, String(newValue));
+      }
+      return newValue;
+    });
+  };
 
   // Partial card state
   const [lastCard, setLastCard] = useState<PartialCard | null>(null);
@@ -173,6 +222,11 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
         chatSidebarCard,
         setChatSidebarCard,
         isChatSidebarMode: chatSidebarCard !== null,
+
+        // Chat panel (without card)
+        isChatOpen,
+        setIsChatOpen,
+        toggleChatOpen,
 
         // Partial card
         lastCard,

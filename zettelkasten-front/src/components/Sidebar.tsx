@@ -24,7 +24,7 @@ import { MobileBottomNav } from "./mobile/MobileBottomNav";
 export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { lastCard, conversationId, setConversationId, isSidebarCollapsed, toggleSidebarCollapsed, isMobileSidebarOpen, setIsMobileSidebarOpen } = useUIState();
+  const { lastCard, conversationId, setConversationId, isSidebarCollapsed, toggleSidebarCollapsed, isMobileSidebarOpen, setIsMobileSidebarOpen, toggleChatOpen } = useUIState();
   const { showToast } = useToast();
   const { tasks } = useTaskContext();
   const { unreadCount: unreadRssCount } = useRSS();
@@ -78,7 +78,7 @@ export function Sidebar() {
   }
 
   function handleNewChat() {
-    navigate("/app/chat?new=true");
+    toggleChatOpen();
   }
 
   function handleNewTask() {
