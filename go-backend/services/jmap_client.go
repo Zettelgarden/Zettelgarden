@@ -13,13 +13,18 @@ import (
 	"go-backend/models"
 )
 
+const (
+	// JMAPMailCapability is the URN for the JMAP Mail capability
+	JMAPMailCapability = "urn:ietf:params:jmap:mail"
+)
+
 // JMAPClient handles communication with a JMAP server (e.g., Fastmail)
 type JMAPClient struct {
 	httpClient  *http.Client
 	serverURL   string
 	username    string
 	appPassword string
-	accessToken string // JMAP from session
+	accountID   string // from session
 	apiURL      string // from session
 	uploadURL   string
 	downloadURL string
@@ -27,26 +32,26 @@ type JMAPClient struct {
 
 // JMAPSessionResponse represents the JMAP session response
 type JMAPSessionResponse struct {
-	Capabilities    map[string]interface{} `json:"capabilities"`
-	APIURL          string                 `json:"apiUrl"`
-	UploadURL       string                 `json:"uploadUrl"`
-	DownloadURL     string                 `json:"downloadUrl"`
-	EventSourceURL  string                 `json:"eventSourceUrl"`
-	AccountID       string                 `json:"accountId"`
+	Capabilities   map[string]interface{} `json:"capabilities"`
+	APIURL         string                 `json:"apiUrl"`
+	UploadURL      string                 `json:"uploadUrl"`
+	DownloadURL    string                 `json:"downloadUrl"`
+	EventSourceURL string                 `json:"eventSourceUrl"`
+	AccountID      string                 `json:"accountId"`
 }
 
 // JMAPAccount represents a JMAP account
 type JMAPAccount struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	IsPrimary bool  `json:"isPrimary"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	IsPrimary bool   `json:"isPrimary"`
 }
 
 // JMAPRequest represents a JMAP request
 type JMAPRequest struct {
-	Using        []string        `json:"using"`
-	MethodCalls  [][]interface{} `json:"methodCalls"`
-	CreatedIDs   map[string]string `json:"createdIds,omitempty"`
+	Using       []string        `json:"using"`
+	MethodCalls [][]interface{} `json:"methodCalls"`
+	CreatedIDs  map[string]string `json:"createdIds,omitempty"`
 }
 
 // JMAPResponse represents a JMAP response
@@ -124,7 +129,7 @@ func NewJMAPClient(serverURL, username, appPassword string) *JMAPClient {
 func (c *JMAPClient) Connect(ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", c.serverURL, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf("failed to create JMAP session request: %w", err)
 	}
 
 	// Set Basic auth
@@ -132,45 +137,60 @@ func (c *JMAPClient) Connect(ctx context.Context) error {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to connect to JMAP server: %w", err)
+		return fmt.Errorf("failed to connect to JMAP server %s: %w", c.serverURL, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == http.StatusUnauthorized {
-			return fmt.Errorf("authentication failed")
+			return fmt.Errorf("JMAP authentication failed for user %s", c.username)
 		}
 		return fmt.Errorf("JMAP server returned status %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
+		return fmt.Errorf("failed to read JMAP session response: %w", err)
 	}
 
 	var session JMAPSessionResponse
 	if err := json.Unmarshal(body, &session); err != nil {
-		return fmt.Errorf("failed to parse session response: %w", err)
+		return fmt.Errorf("failed to parse JMAP session response: %w", err)
 	}
 
+	// Validate that the server supports mail capability
+	if _, ok := session.Capabilities[JMAPMailCapability]; !ok {
+		return fmt.Errorf("JMAP server does not support mail capability %s", JMAPMailCapability)
+	}
+
+	// Store session data
+	c.accountID = session.AccountID
 	c.apiURL = session.APIURL
 	c.uploadURL = session.UploadURL
 	c.downloadURL = session.DownloadURL
 
-	log.Printf("[jmap] connected to %s, api=%s", c.serverURL, c.apiURL)
+	if c.accountID == "" {
+		return fmt.Errorf("JMAP session did not return an account ID")
+	}
+
+	log.Printf("[jmap] connected to %s, api=%s, account=%s", c.serverURL, c.apiURL, c.accountID)
 
 	return nil
 }
 
 // GetMailboxes retrieves all mailboxes for the account
 func (c *JMAPClient) GetMailboxes(ctx context.Context) ([]JMAPMailbox, error) {
+	if c.accountID == "" {
+		return nil, fmt.Errorf("not connected - call Connect() first")
+	}
+
 	req := JMAPRequest{
-		Using: []string{"urn:ietf:params:jmap:mail"},
+		Using: []string{JMAPMailCapability},
 		MethodCalls: [][]interface{}{
 			{
 				"Mailbox/get",
 				map[string]interface{}{
-					"accountId": "account123", // Will be replaced with actual account ID
+					"accountId": c.accountID,
 				},
 				"call1",
 			},
@@ -183,22 +203,22 @@ func (c *JMAPClient) GetMailboxes(ctx context.Context) ([]JMAPMailbox, error) {
 	}
 
 	if len(resp.MethodResponses) == 0 {
-		return nil, fmt.Errorf("no response from server")
+		return nil, fmt.Errorf("no response from JMAP server")
 	}
 
 	response := resp.MethodResponses[0]
 	if len(response) < 2 {
-		return nil, fmt.Errorf("invalid response format")
+		return nil, fmt.Errorf("invalid JMAP response format from Mailbox/get")
 	}
 
 	data, ok := response[1].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("invalid response data format")
+		return nil, fmt.Errorf("invalid JMAP response data format from Mailbox/get")
 	}
 
 	mailboxesData, ok := data["data"].([]interface{})
 	if !ok {
-		return nil, fmt.Errorf("invalid mailboxes data format")
+		return nil, fmt.Errorf("invalid mailboxes data format in JMAP response")
 	}
 
 	var mailboxes []JMAPMailbox
@@ -210,11 +230,13 @@ func (c *JMAPClient) GetMailboxes(ctx context.Context) ([]JMAPMailbox, error) {
 
 		mboxJSON, err := json.Marshal(mboxMap)
 		if err != nil {
+			log.Printf("[jmap] warning: failed to marshal mailbox data: %v", err)
 			continue
 		}
 
 		var mbox JMAPMailbox
 		if err := json.Unmarshal(mboxJSON, &mbox); err != nil {
+			log.Printf("[jmap] warning: failed to unmarshal mailbox: %v", err)
 			continue
 		}
 
@@ -229,7 +251,7 @@ func (c *JMAPClient) GetMailboxes(ctx context.Context) ([]JMAPMailbox, error) {
 func (c *JMAPClient) FindInboxMailbox(ctx context.Context) (string, error) {
 	mailboxes, err := c.GetMailboxes(ctx)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to find inbox mailbox: %w", err)
 	}
 
 	// First try to find by role
@@ -246,30 +268,34 @@ func (c *JMAPClient) FindInboxMailbox(ctx context.Context) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("inbox mailbox not found")
+	return "", fmt.Errorf("inbox mailbox not found in %d mailboxes", len(mailboxes))
 }
 
 // FetchEmails fetches recent emails from the Inbox
 // Returns emails, query state, and error
 func (c *JMAPClient) FetchEmails(ctx context.Context, limit int) ([]models.Email, string, error) {
+	if c.accountID == "" {
+		return nil, "", fmt.Errorf("not connected - call Connect() first")
+	}
+
 	inboxID, err := c.FindInboxMailbox(ctx)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to find inbox: %w", err)
+		return nil, "", fmt.Errorf("failed to find inbox for email fetch: %w", err)
 	}
 
 	req := JMAPRequest{
-		Using: []string{"urn:ietf:params:jmap:mail"},
+		Using: []string{JMAPMailCapability},
 		MethodCalls: [][]interface{}{
 			{
 				"Email/query",
 				map[string]interface{}{
-					"accountId": "account123",
+					"accountId": c.accountID,
 					"filter": map[string]interface{}{
 						"inMailbox": inboxID,
 					},
 					"sort": []map[string]interface{}{
 						{
-							"property": "receivedAt",
+							"property":    "receivedAt",
 							"isAscending": false,
 						},
 					},
@@ -286,23 +312,23 @@ func (c *JMAPClient) FetchEmails(ctx context.Context, limit int) ([]models.Email
 	}
 
 	if len(resp.MethodResponses) == 0 {
-		return nil, "", fmt.Errorf("no response from server")
+		return nil, "", fmt.Errorf("no response from JMAP server for Email/query")
 	}
 
 	queryResponse := resp.MethodResponses[0]
 	if len(queryResponse) < 2 {
-		return nil, "", fmt.Errorf("invalid query response format")
+		return nil, "", fmt.Errorf("invalid JMAP response format from Email/query")
 	}
 
 	queryData, ok := queryResponse[1].(map[string]interface{})
 	if !ok {
-		return nil, "", fmt.Errorf("invalid query data format")
+		return nil, "", fmt.Errorf("invalid JMAP query data format from Email/query")
 	}
 
 	queryState, _ := queryData["queryState"].(string)
 	idsInterface, ok := queryData["ids"].([]interface{})
 	if !ok {
-		return nil, "", fmt.Errorf("invalid ids format")
+		return nil, "", fmt.Errorf("invalid JMAP email IDs format from Email/query")
 	}
 
 	var ids []string
@@ -318,12 +344,12 @@ func (c *JMAPClient) FetchEmails(ctx context.Context, limit int) ([]models.Email
 
 	// Fetch email details
 	req = JMAPRequest{
-		Using: []string{"urn:ietf:params:jmap:mail"},
+		Using: []string{JMAPMailCapability},
 		MethodCalls: [][]interface{}{
 			{
 				"Email/get",
 				map[string]interface{}{
-					"accountId":  "account123",
+					"accountId":  c.accountID,
 					"ids":        ids,
 					"properties": []string{
 						"id", "messageId", "threadId", "subject",
@@ -338,26 +364,26 @@ func (c *JMAPClient) FetchEmails(ctx context.Context, limit int) ([]models.Email
 
 	var getEmailResp JMAPResponse
 	if err := c.call(ctx, req, &getEmailResp); err != nil {
-		return nil, "", fmt.Errorf("failed to get emails: %w", err)
+		return nil, "", fmt.Errorf("failed to get email details: %w", err)
 	}
 
 	if len(getEmailResp.MethodResponses) == 0 {
-		return nil, "", fmt.Errorf("no response from server")
+		return nil, "", fmt.Errorf("no response from JMAP server for Email/get")
 	}
 
 	getEmailResponse := getEmailResp.MethodResponses[0]
 	if len(getEmailResponse) < 2 {
-		return nil, "", fmt.Errorf("invalid get email response format")
+		return nil, "", fmt.Errorf("invalid JMAP response format from Email/get")
 	}
 
 	emailData, ok := getEmailResponse[1].(map[string]interface{})
 	if !ok {
-		return nil, "", fmt.Errorf("invalid email data format")
+		return nil, "", fmt.Errorf("invalid JMAP email data format from Email/get")
 	}
 
 	emailsData, ok := emailData["data"].([]interface{})
 	if !ok {
-		return nil, "", fmt.Errorf("invalid emails data format")
+		return nil, "", fmt.Errorf("invalid JMAP emails data format from Email/get")
 	}
 
 	var emails []models.Email
@@ -369,11 +395,13 @@ func (c *JMAPClient) FetchEmails(ctx context.Context, limit int) ([]models.Email
 
 		emailJSON, err := json.Marshal(emailMap)
 		if err != nil {
+			log.Printf("[jmap] warning: failed to marshal email data: %v", err)
 			continue
 		}
 
 		var jmapEmail JMAPEmail
 		if err := json.Unmarshal(emailJSON, &jmapEmail); err != nil {
+			log.Printf("[jmap] warning: failed to unmarshal email: %v", err)
 			continue
 		}
 
@@ -387,25 +415,29 @@ func (c *JMAPClient) FetchEmails(ctx context.Context, limit int) ([]models.Email
 // FetchEmailsSince fetches emails incrementally since a given query state
 // Returns emails, new query state, and error
 func (c *JMAPClient) FetchEmailsSince(ctx context.Context, state string, limit int) ([]models.Email, string, error) {
+	if c.accountID == "" {
+		return nil, "", fmt.Errorf("not connected - call Connect() first")
+	}
+
 	inboxID, err := c.FindInboxMailbox(ctx)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to find inbox: %w", err)
+		return nil, "", fmt.Errorf("failed to find inbox for incremental email fetch: %w", err)
 	}
 
 	req := JMAPRequest{
-		Using: []string{"urn:ietf:params:jmap:mail"},
+		Using: []string{JMAPMailCapability},
 		MethodCalls: [][]interface{}{
 			{
 				"Email/query",
 				map[string]interface{}{
-					"accountId": "account123",
+					"accountId": c.accountID,
 					"filter": map[string]interface{}{
-						"inMailbox":        inboxID,
-						"afterQueryState":  state,
+						"inMailbox":       inboxID,
+						"afterQueryState": state,
 					},
 					"sort": []map[string]interface{}{
 						{
-							"property": "receivedAt",
+							"property":    "receivedAt",
 							"isAscending": false,
 						},
 					},
@@ -418,27 +450,27 @@ func (c *JMAPClient) FetchEmailsSince(ctx context.Context, state string, limit i
 
 	var resp JMAPResponse
 	if err := c.call(ctx, req, &resp); err != nil {
-		return nil, "", fmt.Errorf("failed to query emails: %w", err)
+		return nil, "", fmt.Errorf("failed to query emails since state %s: %w", state, err)
 	}
 
 	if len(resp.MethodResponses) == 0 {
-		return nil, "", fmt.Errorf("no response from server")
+		return nil, "", fmt.Errorf("no response from JMAP server for Email/query")
 	}
 
 	queryResponse := resp.MethodResponses[0]
 	if len(queryResponse) < 2 {
-		return nil, "", fmt.Errorf("invalid query response format")
+		return nil, "", fmt.Errorf("invalid JMAP response format from Email/query")
 	}
 
 	queryData, ok := queryResponse[1].(map[string]interface{})
 	if !ok {
-		return nil, "", fmt.Errorf("invalid query data format")
+		return nil, "", fmt.Errorf("invalid JMAP query data format from Email/query")
 	}
 
 	newState, _ := queryData["queryState"].(string)
 	idsInterface, ok := queryData["ids"].([]interface{})
 	if !ok {
-		return nil, "", fmt.Errorf("invalid ids format")
+		return nil, "", fmt.Errorf("invalid JMAP email IDs format from Email/query")
 	}
 
 	var ids []string
@@ -454,12 +486,12 @@ func (c *JMAPClient) FetchEmailsSince(ctx context.Context, state string, limit i
 
 	// Fetch email details
 	req = JMAPRequest{
-		Using: []string{"urn:ietf:params:jmap:mail"},
+		Using: []string{JMAPMailCapability},
 		MethodCalls: [][]interface{}{
 			{
 				"Email/get",
 				map[string]interface{}{
-					"accountId":  "account123",
+					"accountId":  c.accountID,
 					"ids":        ids,
 					"properties": []string{
 						"id", "messageId", "threadId", "subject",
@@ -474,26 +506,26 @@ func (c *JMAPClient) FetchEmailsSince(ctx context.Context, state string, limit i
 
 	var getEmailResp JMAPResponse
 	if err := c.call(ctx, req, &getEmailResp); err != nil {
-		return nil, "", fmt.Errorf("failed to get emails: %w", err)
+		return nil, "", fmt.Errorf("failed to get email details: %w", err)
 	}
 
 	if len(getEmailResp.MethodResponses) == 0 {
-		return nil, "", fmt.Errorf("no response from server")
+		return nil, "", fmt.Errorf("no response from JMAP server for Email/get")
 	}
 
 	getEmailResponse := getEmailResp.MethodResponses[0]
 	if len(getEmailResponse) < 2 {
-		return nil, "", fmt.Errorf("invalid get email response format")
+		return nil, "", fmt.Errorf("invalid JMAP response format from Email/get")
 	}
 
 	emailData, ok := getEmailResponse[1].(map[string]interface{})
 	if !ok {
-		return nil, "", fmt.Errorf("invalid email data format")
+		return nil, "", fmt.Errorf("invalid JMAP email data format from Email/get")
 	}
 
 	emailsData, ok := emailData["data"].([]interface{})
 	if !ok {
-		return nil, "", fmt.Errorf("invalid emails data format")
+		return nil, "", fmt.Errorf("invalid JMAP emails data format from Email/get")
 	}
 
 	var emails []models.Email
@@ -505,11 +537,13 @@ func (c *JMAPClient) FetchEmailsSince(ctx context.Context, state string, limit i
 
 		emailJSON, err := json.Marshal(emailMap)
 		if err != nil {
+			log.Printf("[jmap] warning: failed to marshal email data: %v", err)
 			continue
 		}
 
 		var jmapEmail JMAPEmail
 		if err := json.Unmarshal(emailJSON, &jmapEmail); err != nil {
+			log.Printf("[jmap] warning: failed to unmarshal email: %v", err)
 			continue
 		}
 
@@ -523,17 +557,17 @@ func (c *JMAPClient) FetchEmailsSince(ctx context.Context, state string, limit i
 // call makes a JMAP API call
 func (c *JMAPClient) call(ctx context.Context, req JMAPRequest, resp *JMAPResponse) error {
 	if c.apiURL == "" {
-		return fmt.Errorf("not connected - call Connect() first")
+		return fmt.Errorf("JMAP client not connected - call Connect() first")
 	}
 
 	body, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
+		return fmt.Errorf("failed to marshal JMAP request: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.apiURL, strings.NewReader(string(body)))
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf("failed to create JMAP HTTP request: %w", err)
 	}
 
 	// Set Basic auth
@@ -542,13 +576,13 @@ func (c *JMAPClient) call(ctx context.Context, req JMAPRequest, resp *JMAPRespon
 
 	httpResp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return fmt.Errorf("failed to make request: %w", err)
+		return fmt.Errorf("JMAP HTTP request failed: %w", err)
 	}
 	defer httpResp.Body.Close()
 
 	if httpResp.StatusCode != http.StatusOK {
 		if httpResp.StatusCode == http.StatusUnauthorized {
-			return fmt.Errorf("authentication failed")
+			return fmt.Errorf("JMAP authentication failed for user %s", c.username)
 		}
 		respBody, _ := io.ReadAll(httpResp.Body)
 		return fmt.Errorf("JMAP API returned status %d: %s", httpResp.StatusCode, string(respBody))
@@ -556,11 +590,11 @@ func (c *JMAPClient) call(ctx context.Context, req JMAPRequest, resp *JMAPRespon
 
 	respBody, err := io.ReadAll(httpResp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
+		return fmt.Errorf("failed to read JMAP response body: %w", err)
 	}
 
 	if err := json.Unmarshal(respBody, resp); err != nil {
-		return fmt.Errorf("failed to parse response: %w", err)
+		return fmt.Errorf("failed to parse JMAP response: %w", err)
 	}
 
 	return nil
