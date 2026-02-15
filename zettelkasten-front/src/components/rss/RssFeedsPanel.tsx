@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { RSSFeed, RSSFolder, UnreadCounts } from "../../api/rss";
 import { RssFeedItem } from "./RssFeedItem";
 import {
@@ -81,6 +82,7 @@ export function RssFeedsPanel({
   onToggleSettingsMenu,
   onToggleFeedMenu,
 }: RssFeedsPanelProps) {
+  const navigate = useNavigate();
   const settingsMenuRef = useRef<HTMLDivElement>(null);
   const feedMenuRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const [internalFeedMenuId, setInternalFeedMenuId] = useState<number | null>(null);
@@ -209,7 +211,7 @@ export function RssFeedsPanel({
                 <button
                   onClick={() => {
                     onToggleSettingsMenu();
-                    window.location.href = '/app/rss/manage';
+                    navigate('/app/rss/manage');
                   }}
                   className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                 >

@@ -12,6 +12,7 @@ interface RssManageFeedsTableProps {
   onBulkUpdate: (feedIds: number[], params: any) => Promise<void>;
   onBulkDelete: (feedIds: number[]) => Promise<void>;
   refreshing: boolean;
+  isMobile: boolean;
 }
 
 type SortField = 'name' | 'url' | 'folder' | 'last_fetched' | 'unread';
@@ -26,6 +27,7 @@ export function RssManageFeedsTable({
   onBulkUpdate,
   onBulkDelete,
   refreshing,
+  isMobile,
 }: RssManageFeedsTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sortField, setSortField] = useState<SortField>('name');
@@ -242,7 +244,8 @@ export function RssManageFeedsTable({
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
-        <table className="w-full">
+        <div className="min-w-[800px]">
+          <table className="w-full">
           <thead className="bg-gray-50 sticky top-0">
             <tr>
               <th className="px-4 py-3 text-left">
@@ -446,6 +449,7 @@ export function RssManageFeedsTable({
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Edit Feed Dialog - Reuse existing dialog */}
@@ -594,6 +598,13 @@ export function RssManageFeedsTable({
         onConfirm={handleBulkTags}
         feedCount={selectedIds.size}
       />
+
+      {/* Mobile message when table is too wide */}
+      {isMobile && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-yellow-100 border-t border-yellow-200 p-3 text-sm text-yellow-800">
+          Table view is best viewed on larger screens.
+        </div>
+      )}
     </div>
   );
 }

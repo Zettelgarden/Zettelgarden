@@ -20,6 +20,23 @@ export function RssManagePage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  // Mobile state
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
+  });
+
+  // Handle window resize for mobile detection
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -129,7 +146,7 @@ export function RssManagePage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className={`flex flex-1 overflow-hidden ${isMobile ? 'flex-col' : ''}`}>
         {/* Left Panel - Folders */}
         <RssManageFolderPanel
           folders={folders}
@@ -194,6 +211,7 @@ export function RssManagePage() {
             setFeeds(prev => prev.filter(f => !feedIds.includes(f.id)));
           }}
           refreshing={refreshing}
+          isMobile={isMobile}
         />
       </div>
     </div>

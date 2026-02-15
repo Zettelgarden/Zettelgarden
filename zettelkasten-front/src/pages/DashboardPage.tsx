@@ -95,7 +95,7 @@ export function DashboardPage() {
       params.set('cards', referencedCards.join(','));
     }
 
-    window.location.href = `/app/chat?${params.toString()}`;
+    navigate(`/app/chat?${params.toString()}`);
   };
 
   const handleCardReference = (cardIds: string[]) => {
