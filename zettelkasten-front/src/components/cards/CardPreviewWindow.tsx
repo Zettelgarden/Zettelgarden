@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Transition } from "@headlessui/react";
-import { getCard } from "../../api/cards";
+import { getCard, getCardTags } from "../../api/cards";
 import { Card } from "../../models/Card";
 import { CardBody } from "./CardBody";
 import { isErrorResponse } from "../../models/common";
@@ -25,6 +25,9 @@ export function CardPreviewWindow({
     if (isErrorResponse(refreshed)) {
       setError(refreshed["error"]);
     } else {
+      // Fetch tags separately since getCard doesn't include them
+      const tags = await getCardTags(id);
+      refreshed.tags = tags;
       setViewingCard(refreshed);
       setIsVisible(true);
     }
@@ -92,6 +95,18 @@ export function CardPreviewWindow({
               <p className="text-xs text-gray-500">
                 {formatDate(viewingCard.created_at.toISOString())}
               </p>
+              {viewingCard.tags && viewingCard.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {viewingCard.tags.map((tag) => (
+                    <span
+                      key={tag.name}
+                      className="inline-flex items-center px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full"
+                    >
+                      #{tag.name}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="overflow-y-auto max-h-64 prose prose-xs max-w-none">
               <CardBody viewingCard={viewingCard} entities={viewingCard.entities} />
