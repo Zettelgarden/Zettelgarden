@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { RSSFeed, RSSFolder, UnreadCounts } from "../../api/rss";
 import { RssBulkMoveDialog } from "./RssBulkMoveDialog";
+import { RssBulkTagsDialog } from "./RssBulkTagsDialog";
 
 interface RssManageFeedsTableProps {
   feeds: RSSFeed[];
@@ -132,6 +133,27 @@ export function RssManageFeedsTable({
     await onBulkUpdate(Array.from(selectedIds), { folder: folder || undefined });
     setSelectedIds(new Set());
     setShowBulkMove(false);
+  };
+
+  const handleBulkTags = async (tags: string, mode: 'replace' | 'append') => {
+    const feedUpdates = Array.from(selectedIds).map(id => {
+      const feed = feeds.find(f => f.id === id);
+      let finalTags = tags;
+      if (mode === 'append' && feed?.auto_tags) {
+        const existing = feed.auto_tags.split(',').map(t => t.trim()).filter(t => t);
+        const newTags = tags.split(',').map(t => t.trim()).filter(t => t);
+        const combined = [...new Set([...existing, ...newTags])];
+        finalTags = combined.join(', ');
+      }
+      return { id, params: { auto_tags: finalTags } };
+    });
+
+    for (const { id, params } of feedUpdates) {
+      await onUpdateFeed(id, params);
+    }
+
+    setSelectedIds(new Set());
+    setShowBulkTags(false);
   };
 
   const formatRelativeTime = (dateStr?: string) => {
@@ -562,6 +584,14 @@ export function RssManageFeedsTable({
         onClose={() => setShowBulkMove(false)}
         onConfirm={handleBulkMove}
         folders={folders}
+        feedCount={selectedIds.size}
+      />
+
+      {/* Bulk Tags Dialog */}
+      <RssBulkTagsDialog
+        isOpen={showBulkTags}
+        onClose={() => setShowBulkTags(false)}
+        onConfirm={handleBulkTags}
         feedCount={selectedIds.size}
       />
     </div>
