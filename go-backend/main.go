@@ -269,6 +269,7 @@ func run() error {
 	scheduler.Register(jobs.NewTaskRemindersJob(s.DB, s.Mail))
 	scheduler.Register(jobs.NewUptimeKumaPingJob())
 	scheduler.Register(jobs.NewRSSFetchJob(s.DB))
+	scheduler.Register(jobs.NewEmailSyncJob(s.DB))
 
 	scheduler.Start()
 	defer scheduler.Stop()
