@@ -42,6 +42,7 @@ interface CalendarViewProps {
   onDayClick: (date: Date, events: CalendarEvent[]) => void;
   onEventClick: (event: CalendarEvent) => void;
   onCreateTask?: (date: Date) => void;
+  onCreateEvent?: (date: Date) => void;
   onTaskMoved?: () => void;
   onExternalEventClick?: (event: CalendarEvent) => void;
   onExternalEventChange?: () => void;
@@ -59,6 +60,7 @@ export function CalendarView({
   onDayClick,
   onEventClick,
   onCreateTask,
+  onCreateEvent,
   onTaskMoved,
   onExternalEventClick,
   onExternalEventChange,
@@ -716,6 +718,7 @@ interface CalendarViewWrapperProps {
   onViewModeChange: (viewMode: "month" | "week") => void;
   onTaskClick: (taskId: number) => void;
   onCreateTask?: (date: Date) => void;
+  onCreateEvent?: (date: Date) => void;
   onTaskMoved?: () => void;
   onExternalEventChange?: () => void;
   timezone?: string;
@@ -731,6 +734,7 @@ export function CalendarViewWrapper({
   onViewModeChange,
   onTaskClick,
   onCreateTask,
+  onCreateEvent,
   onTaskMoved,
   onExternalEventChange,
   timezone = "UTC",
@@ -800,6 +804,7 @@ export function CalendarViewWrapper({
         onDayClick={handleDayClick}
         onEventClick={handleEventClick}
         onCreateTask={onCreateTask}
+        onCreateEvent={onCreateEvent}
         onTaskMoved={onTaskMoved}
         onExternalEventClick={handleExternalEventClick}
         onExternalEventChange={onExternalEventChange}
