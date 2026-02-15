@@ -171,6 +171,7 @@ export function Sidebar() {
           <NavigationLinks
             todayTasksCount={todayTasks.length}
             unreadRssCount={unreadRssCount}
+            unreadEmailCount={0}
             hasSubscription={hasSubscription}
             isCollapsed={isSidebarCollapsed}
           />
