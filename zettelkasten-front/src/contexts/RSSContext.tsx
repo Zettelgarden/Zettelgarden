@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { getUnreadCounts } from "../api/rss";
 
 interface RSSContextType {
   unreadCount: number;
@@ -12,6 +13,18 @@ export function RSSProvider({ children }: { children: ReactNode }) {
 
   const setUnreadCountCallback = useCallback((count: number) => {
     setUnreadCount(count);
+  }, []);
+
+  // Fetch unread count on mount so it's available before visiting RSS page
+  useEffect(() => {
+    getUnreadCounts()
+      .then((counts) => {
+        const total = Object.values(counts.feeds).reduce((sum, count) => sum + count, 0);
+        setUnreadCount(total);
+      })
+      .catch(() => {
+        // Silently fail - count will update when RSS page is visited
+      });
   }, []);
 
   return (
