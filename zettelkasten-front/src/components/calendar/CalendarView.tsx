@@ -401,6 +401,7 @@ export function CalendarView({
               onEventClick={handleEventClick}
               onContextMenu={handleContextMenu}
               onCreateTask={onCreateTask}
+              onCreateEvent={onCreateEvent}
               viewMode={viewMode}
               timezone={timezone}
             />
@@ -461,6 +462,7 @@ interface CalendarDayCellProps {
   onEventClick: (e: React.MouseEvent, event: CalendarEvent) => void;
   onContextMenu: (e: React.MouseEvent, day: CalendarDay) => void;
   onCreateTask?: (date: Date) => void;
+  onCreateEvent?: (date: Date) => void;
   viewMode: CalendarViewType;
   timezone: string;
 }
@@ -474,6 +476,7 @@ function CalendarDayCell({
   onEventClick,
   onContextMenu,
   onCreateTask,
+  onCreateEvent,
   viewMode,
   timezone,
 }: CalendarDayCellProps) {
