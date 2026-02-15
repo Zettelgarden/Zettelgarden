@@ -496,8 +496,8 @@ function CalendarDayCell({
   }, []);
 
   const handleDoubleClick = () => {
-    if (onCreateTask) {
-      onCreateTask(day.date);
+    if (onCreateEvent) {
+      onCreateEvent(day.date);
     }
   };
 
@@ -566,7 +566,7 @@ function CalendarDayCell({
 
   // Week view uses taller cells to utilize available vertical space
   const cellClasses = `
-    ${viewMode === "week" ? "min-h-[400px]" : "min-h-[60px] sm:min-h-[80px]"} p-1 border-b border-r border-slate-200 last:border-r-0 cursor-pointer focus-within:ring-2 focus-within:ring-blue-300 focus:outline-none relative
+    ${viewMode === "week" ? "min-h-[400px]" : "min-h-[60px] sm:min-h-[80px]"} p-1 border-b border-r border-slate-200 last:border-r-0 cursor-pointer focus-within:ring-2 focus-within:ring-blue-300 focus:outline-none relative group
     ${day.isToday ? "bg-blue-50" : ""}
     ${!day.isCurrentMonth ? "bg-slate-100 text-slate-400" : ""}
     ${isHovered ? "bg-slate-100" : "bg-white"}
@@ -601,6 +601,19 @@ function CalendarDayCell({
           aria-selected={isSelected}
           tabIndex={0}
         >
+          {onCreateEvent && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCreateEvent(day.date);
+              }}
+              className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-blue-500 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-blue-600 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-opacity"
+              aria-label={`Create event on ${format(day.date, 'MMM d')}`}
+              title="Create event"
+            >
+              <FaPlus size={10} aria-hidden="true" />
+            </button>
+          )}
           <div className={dateNumberClasses}>
             <span className="sr-only">{format(day.date, "MMMM d")}</span>
             <span aria-hidden="true">{format(day.date, "d")}</span>
