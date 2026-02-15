@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { safeHtmlToMarkdown } from "../../utils/markdown";
@@ -23,8 +23,17 @@ export function RssMobileReader({
   onViewCard,
   onFeedClick,
 }: RssMobileReaderProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top when article changes
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [article.id]);
+
   return (
-    <div className="fixed inset-0 bg-white z-50 overflow-y-auto flex flex-col md:hidden animate-slide-up">
+    <div ref={scrollRef} className="fixed inset-0 bg-white z-50 overflow-y-auto flex flex-col md:hidden animate-slide-up">
       {/* Top bar */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
         <button

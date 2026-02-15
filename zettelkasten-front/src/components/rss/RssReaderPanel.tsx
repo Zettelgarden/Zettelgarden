@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { RSSArticle, RSSFeed } from "../../api/rss";
 import Markdown from "react-markdown";
@@ -24,6 +24,14 @@ export function RssReaderPanel({
   onFeedClick,
 }: RssReaderPanelProps) {
   const navigate = useNavigate();
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top when article changes
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [selectedArticle?.id]);
 
   const getFeedName = (feedId: number): string => {
     const feed = feeds.find((f) => f.id === feedId);
@@ -45,7 +53,7 @@ export function RssReaderPanel({
   }
 
   return (
-    <div className="hidden md:flex flex-1 p-6 overflow-y-auto bg-white min-w-0 flex-col">
+    <div ref={scrollRef} className="hidden md:flex flex-1 p-6 overflow-y-auto bg-white min-w-0 flex-col">
       <div className="max-w-3xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold mb-3 text-gray-900">
