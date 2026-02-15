@@ -40,7 +40,7 @@ export function RssBulkMoveDialog({
     setShowNewFolderInput(true);
   };
 
-  const handleSelectFolder = (folderName: string) => {
+  const handleSelectFolder = (folderName: string | null) => {
     setSelectedFolder(folderName);
     setShowNewFolderInput(false);
   };

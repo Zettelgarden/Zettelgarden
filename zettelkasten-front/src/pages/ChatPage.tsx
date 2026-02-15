@@ -11,7 +11,7 @@ import { setDocumentTitle } from "../utils/title";
 import { ChatInterface } from "../components/chat/ChatInterface";
 import { ChatUtilityBar } from "../components/chat/ChatUtilityBar";
 import { TaskDialog } from "../components/tasks/TaskDialog";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useChat } from "../hooks/useChat";
 import { useToast } from "../components/toast/ToastContext";
@@ -19,6 +19,7 @@ import { useToast } from "../components/toast/ToastContext";
 interface ChatPageProps { }
 
 export function ChatPage({ }: ChatPageProps) {
+  const location = useLocation();
   // ChatPage-specific state
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
@@ -51,10 +52,43 @@ export function ChatPage({ }: ChatPageProps) {
       }
     };
     initializeChat();
-    handleUrlParams();
     loadAvailableModels();
     loadInstructions();
   }, []);
+
+  // Handle URL params changing (e.g., when navigating from dashboard with a message)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const message = urlParams.get('message');
+    const cardsParam = urlParams.get('cards');
+    const newParam = urlParams.get('new');
+
+    if (message) {
+      // Clear URL params to avoid re-triggering
+      window.history.replaceState({}, '', '/app/chat');
+
+      // Parse referenced cards
+      const referencedCards = cardsParam ? cardsParam.split(',').filter(Boolean) : undefined;
+
+      // Send message to current session
+      if (chatHook.currentConversation) {
+        chatHook.sendMessageToConversation(chatHook.currentConversation.id, message, referencedCards);
+        showToast("success", "Message sent", "Your message has been sent to the AI.");
+      }
+    } else if (newParam === 'true') {
+      // Clear URL params to avoid re-triggering
+      window.history.replaceState({}, '', '/app/chat');
+
+      // Check if there are messages to clear before showing confirmation
+      if (chatHook.messages.length > 0) {
+        setShowClearConfirm(true);
+      } else {
+        // No messages to lose, just clear
+        chatHook.clearChat();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
 
   const loadAvailableModels = async () => {
     try {
