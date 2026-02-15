@@ -26,24 +26,7 @@ export function ChatPage({ }: ChatPageProps) {
   const isDesktop = useIsDesktop(1024);
   const { setIsChatOpen } = useUIState();
 
-  // Redirect desktop users to home with chat panel open
-  useEffect(() => {
-    if (isDesktop) {
-      setIsChatOpen(true);
-      navigate('/app', { replace: true });
-    }
-  }, [isDesktop, setIsChatOpen, navigate]);
-
-  // Show loading message while redirecting on desktop
-  if (isDesktop) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-gray-600">Opening chat...</div>
-      </div>
-    );
-  }
-
-  // ChatPage-specific state
+  // ChatPage-specific state - MUST be declared before any early returns
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [regeneratingMessageIds, setRegeneratingMessageIds] = useState<Set<string>>(new Set());
@@ -57,12 +40,13 @@ export function ChatPage({ }: ChatPageProps) {
   const { hasSubscription } = useAuth();
   const { showToast } = useToast();
 
-  // Use the shared chat hook
+  // Use the shared chat hook - MUST be declared before any early returns
   const chatHook = useChat({
     initialModel: localStorage.getItem('chatSelectedModel') || "google/gemini-2.5-flash",
     enableStreaming: true,
   });
 
+  // ALL useEffect hooks must be declared before any early returns
   useEffect(() => {
     setDocumentTitle("Chat");
     // Try to load the most recent conversation, then fall back to last cleared session, then create a draft
@@ -78,6 +62,14 @@ export function ChatPage({ }: ChatPageProps) {
     loadAvailableModels();
     loadInstructions();
   }, []);
+
+  // Redirect desktop users to home with chat panel open
+  useEffect(() => {
+    if (isDesktop) {
+      setIsChatOpen(true);
+      navigate('/app', { replace: true });
+    }
+  }, [isDesktop, setIsChatOpen, navigate]);
 
   // Handle URL params changing (e.g., when navigating from dashboard with a message)
   useEffect(() => {
@@ -112,6 +104,15 @@ export function ChatPage({ }: ChatPageProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
+
+  // Show loading message while redirecting on desktop (after ALL hooks)
+  if (isDesktop) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-gray-600">Opening chat...</div>
+      </div>
+    );
+  }
 
   const loadAvailableModels = async () => {
     try {
