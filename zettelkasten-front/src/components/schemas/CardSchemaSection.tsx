@@ -108,7 +108,7 @@ export function CardSchemaSection({
           className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
         >
           <option value="">No schema</option>
-          {schemas.map((schema) => (
+          {schemas.sort((a, b) => a.name.localeCompare(b.name)).map((schema) => (
             <option key={schema.id} value={schema.id}>
               {schema.name}
             </option>
