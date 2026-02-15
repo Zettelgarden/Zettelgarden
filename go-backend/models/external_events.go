@@ -79,3 +79,13 @@ type CreateCardFromEventRequest struct {
 	Title string `json:"title,omitempty"`
 	Body  string `json:"body,omitempty"`
 }
+
+// CreateEventRequest represents a request to create a new calendar event
+type CreateEventRequest struct {
+	Title       string    `json:"title"`
+	Description string    `json:"description,omitempty"`
+	StartTime   time.Time `json:"start_time"`
+	EndTime     time.Time `json:"end_time"`
+	AllDay      bool      `json:"all_day"`
+	Location    string    `json:"location,omitempty"`
+}
