@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { RSSFeed, RSSFolder, UnreadCounts } from "../../api/rss";
+import { RssBulkMoveDialog } from "./RssBulkMoveDialog";
 
 interface RssManageFeedsTableProps {
   feeds: RSSFeed[];
@@ -125,6 +126,12 @@ export function RssManageFeedsTable({
     await onBulkDelete(Array.from(selectedIds));
     setSelectedIds(new Set());
     setShowBulkDelete(false);
+  };
+
+  const handleBulkMove = async (folder: string | null) => {
+    await onBulkUpdate(Array.from(selectedIds), { folder: folder || undefined });
+    setSelectedIds(new Set());
+    setShowBulkMove(false);
   };
 
   const formatRelativeTime = (dateStr?: string) => {
@@ -548,6 +555,15 @@ export function RssManageFeedsTable({
           </div>
         </div>
       )}
+
+      {/* Bulk Move Dialog */}
+      <RssBulkMoveDialog
+        isOpen={showBulkMove}
+        onClose={() => setShowBulkMove(false)}
+        onConfirm={handleBulkMove}
+        folders={folders}
+        feedCount={selectedIds.size}
+      />
     </div>
   );
 }
