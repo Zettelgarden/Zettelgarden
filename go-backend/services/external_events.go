@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"go-backend/models"
@@ -165,6 +166,55 @@ func (s *ExternalEventService) SyncExternalCalendar(calendarID int, userID int) 
 	// Update last synced timestamp and clear error
 	s.UpdateLastSynced(calendarID)
 	return nil
+}
+
+// CreateEventOnCalendar creates a new event via CalDAV and returns the UID
+func (s *ExternalEventService) CreateEventOnCalendar(calendarID, userID int, req models.CreateEventRequest) (string, error) {
+	// Get calendar details
+	cal, err := s.GetCalendar(calendarID, userID)
+	if err != nil {
+		return "", fmt.Errorf("calendar not found: %w", err)
+	}
+
+	// Check if calendar has credentials (writable)
+	if cal.Username == nil || *cal.Username == "" {
+		return "", fmt.Errorf("calendar does not have credentials configured for write access")
+	}
+
+	// Get the encrypted password from database
+	var encryptedPassword sql.NullString
+	err = s.db.QueryRow(`
+		SELECT password
+		FROM external_calendars
+		WHERE id = $1 AND user_id = $2
+	`, calendarID, userID).Scan(&encryptedPassword)
+	if err != nil {
+		return "", fmt.Errorf("failed to get calendar credentials: %w", err)
+	}
+
+	// Decrypt password if present
+	password := ""
+	if encryptedPassword.Valid && encryptedPassword.String != "" {
+		password, err = s.encryptionService.Decrypt(encryptedPassword.String)
+		if err != nil {
+			return "", fmt.Errorf("failed to decrypt calendar credentials: %w", err)
+		}
+	}
+
+	// Create CalDAV client
+	username := *cal.Username
+	caldavSvc, err := NewCalDAVEventService(cal.URL, username, password)
+	if err != nil {
+		return "", fmt.Errorf("failed to create CalDAV client: %w", err)
+	}
+
+	// Create the event via CalDAV
+	uid, err := caldavSvc.CreateEvent(context.Background(), cal.URL, req)
+	if err != nil {
+		return "", fmt.Errorf("failed to create event on CalDAV server: %w", err)
+	}
+
+	return uid, nil
 }
 
 // importEvent imports a single event, handling upsert logic
