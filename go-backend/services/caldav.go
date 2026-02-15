@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -361,26 +362,75 @@ func (s *CalDAVService) ValidateCalDAVURL(caldavURL string) error {
 
 // CalDAVEventService handles CalDAV operations for external calendars
 type CalDAVEventService struct {
-	client *caldav.Client
+	client       *caldav.Client
+	baseEndpoint string // e.g., "https://caldav.fastmail.com"
+	calendarPath string // e.g., "/dav/calendars/user/.../uuid"
+}
+
+// parseCalDAVURL splits a full calendar URL into base endpoint and calendar path
+// For example: "https://caldav.fastmail.com/dav/calendars/user/.../uuid"
+// becomes base="https://caldav.fastmail.com", path="/dav/calendars/user/.../uuid"
+func parseCalDAVURL(calendarURL string) (base, path string, err error) {
+	// Parse the URL
+	parsedURL, err := url.Parse(calendarURL)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to parse CalDAV URL: %w", err)
+	}
+
+	// Base endpoint is scheme + host
+	base = fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
+
+	// Path is the full path including calendar path
+	path = parsedURL.Path
+
+	if path == "" || path == "/" {
+		return "", "", fmt.Errorf("URL does not contain a calendar path")
+	}
+
+	return base, path, nil
 }
 
 // NewCalDAVEventService creates a new CalDAV client for the given endpoint
-func NewCalDAVEventService(endpoint, username, password string) (*CalDAVEventService, error) {
+func NewCalDAVEventService(calendarURL, username, password string) (*CalDAVEventService, error) {
+	// Split the calendar URL into base endpoint and path
+	baseEndpoint, calendarPath, err := parseCalDAVURL(calendarURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse calendar URL: %w", err)
+	}
+
+	// Debug logging to verify credentials
+	log.Printf("[CalDAV] Creating CalDAV client:")
+	log.Printf("[CalDAV]   Calendar URL: %s", calendarURL)
+	log.Printf("[CalDAV]   Base endpoint: %s", baseEndpoint)
+	log.Printf("[CalDAV]   Calendar path: %s", calendarPath)
+	log.Printf("[CalDAV]   Username: %s", username)
+	if len(password) > 0 {
+		log.Printf("[CalDAV]   Password length: %d", len(password))
+		log.Printf("[CalDAV]   Password first 3 chars: %s***", string(password[:3]))
+	} else {
+		log.Printf("[CalDAV]   Password: EMPTY!")
+	}
+
 	// Create HTTP client with basic auth
 	httpClient := webdav.HTTPClientWithBasicAuth(nil, username, password)
 
+	// Create client with base endpoint (not full calendar URL)
 	client, err := caldav.NewClient(
 		httpClient,
-		endpoint,
+		baseEndpoint,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CalDAV client: %w", err)
 	}
-	return &CalDAVEventService{client: client}, nil
+	return &CalDAVEventService{
+		client:       client,
+		baseEndpoint: baseEndpoint,
+		calendarPath: calendarPath,
+	}, nil
 }
 
 // CreateEvent creates a new event on the CalDAV server
-func (s *CalDAVEventService) CreateEvent(ctx context.Context, calendarPath string, req models.CreateEventRequest) (string, error) {
+func (s *CalDAVEventService) CreateEvent(ctx context.Context, _ string, req models.CreateEventRequest) (string, error) {
 	// Generate UID for the event
 	uid := generateEventUID()
 
@@ -388,9 +438,16 @@ func (s *CalDAVEventService) CreateEvent(ctx context.Context, calendarPath strin
 	cal := s.buildEventCalendar(uid, req)
 
 	// PUT to CalDAV server
-	eventPath := fmt.Sprintf("%s/%s.ics", strings.TrimSuffix(calendarPath, "/"), uid)
+	// Construct the event path by appending the event filename to the calendar path
+	eventPath := fmt.Sprintf("%s/%s.ics", strings.TrimSuffix(s.calendarPath, "/"), uid)
+
+	log.Printf("[CalDAV] Creating event:")
+	log.Printf("[CalDAV]   Calendar path: %s", s.calendarPath)
+	log.Printf("[CalDAV]   Event path: %s", eventPath)
+	log.Printf("[CalDAV]   Event UID: %s", uid)
 
 	// Use the CalDAV client to put the calendar object
+	// The event path is relative to the base endpoint
 	_, err := s.client.PutCalendarObject(
 		ctx,
 		eventPath,
