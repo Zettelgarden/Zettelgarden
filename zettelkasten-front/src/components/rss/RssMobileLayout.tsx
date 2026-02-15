@@ -259,12 +259,14 @@ export function RssMobileLayout({
       <RssErrorBoundary>
         <RssMobileReader
           article={selectedArticle}
+          articles={articles}
           onBack={handleMobileBack}
           onConvert={onConvertClick}
           onMarkAsUnread={onMarkAsUnread}
           getFeedName={getFeedName}
           onViewCard={handleViewCard}
           onFeedClick={onFeedSelectMobile}
+          onArticleClick={onArticleClick}
         />
       </RssErrorBoundary>
     );

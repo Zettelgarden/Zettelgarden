@@ -6,24 +6,45 @@ import { RSSArticle } from "../../api/rss";
 
 interface RssMobileReaderProps {
   article: RSSArticle;
+  articles: RSSArticle[];
   onBack: () => void;
   onConvert: () => void;
   onMarkAsUnread: () => void;
   getFeedName: (feedId: number) => string;
   onViewCard: (cardId: number) => void;
   onFeedClick?: (feedId: number) => void;
+  onArticleClick: (article: RSSArticle) => void;
 }
 
 export function RssMobileReader({
   article,
+  articles,
   onBack,
   onConvert,
   onMarkAsUnread,
   getFeedName,
   onViewCard,
   onFeedClick,
+  onArticleClick,
 }: RssMobileReaderProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Find current article index
+  const currentIndex = articles.findIndex(a => a.id === article.id);
+  const hasNextArticle = currentIndex < articles.length - 1;
+  const hasPreviousArticle = currentIndex > 0;
+
+  const handleNext = () => {
+    if (hasNextArticle) {
+      onArticleClick(articles[currentIndex + 1]);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (hasPreviousArticle) {
+      onArticleClick(articles[currentIndex - 1]);
+    }
+  };
 
   // Scroll to top when article changes
   useEffect(() => {
@@ -35,25 +56,45 @@ export function RssMobileReader({
   return (
     <div ref={scrollRef} className="fixed inset-0 bg-white z-50 overflow-y-auto flex flex-col md:hidden animate-slide-up">
       {/* Top bar */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
-        <button
-          onClick={onBack}
-          className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
-          aria-label="Back to articles"
-        >
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-2 py-3 flex items-center justify-between shadow-sm">
+        <div className="flex items-center">
+          <button
+            onClick={onBack}
+            className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+            aria-label="Back to articles"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        </div>
 
-        <h2 className="text-base font-semibold text-gray-900 truncate flex-1 mx-4">Article</h2>
+        <h2 className="text-base font-semibold text-gray-900 truncate flex-1 mx-2 text-center">
+          Article {currentIndex + 1} of {articles.length}
+        </h2>
 
-        <button
-          onClick={onConvert}
-          className="p-2 -mr-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg font-medium text-sm"
-        >
-          Convert
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handlePrevious}
+            disabled={!hasPreviousArticle}
+            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label="Previous article"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            </svg>
+          </button>
+          <button
+            onClick={handleNext}
+            disabled={!hasNextArticle}
+            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label="Next article"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Content */}
