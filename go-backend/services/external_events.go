@@ -963,7 +963,21 @@ func (s *ExternalEventService) UpdateCalendar(calendarID, userID int, req models
 
 // DeleteCalendar deletes a calendar and all its events
 func (s *ExternalEventService) DeleteCalendar(calendarID, userID int) error {
-	result, err := s.db.Exec("DELETE FROM external_calendars WHERE id = $1 AND user_id = $2", calendarID, userID)
+	// First, count how many events will be deleted for logging
+	var eventCount int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM external_events WHERE external_calendar_id = $1 AND user_id = $2", calendarID, userID).Scan(&eventCount)
+	if err != nil {
+		log.Printf("Failed to count events for calendar %d: %v", calendarID, err)
+	}
+
+	// Delete all events associated with this calendar
+	result, err := s.db.Exec("DELETE FROM external_events WHERE external_calendar_id = $1 AND user_id = $2", calendarID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete events: %w", err)
+	}
+
+	// Delete the calendar itself
+	result, err = s.db.Exec("DELETE FROM external_calendars WHERE id = $1 AND user_id = $2", calendarID, userID)
 	if err != nil {
 		return err
 	}
@@ -973,6 +987,7 @@ func (s *ExternalEventService) DeleteCalendar(calendarID, userID int) error {
 		return fmt.Errorf("calendar not found")
 	}
 
+	log.Printf("Deleted calendar %d and %d events for user %d", calendarID, eventCount, userID)
 	return nil
 }
 
