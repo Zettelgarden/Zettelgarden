@@ -11,15 +11,38 @@ import { setDocumentTitle } from "../utils/title";
 import { ChatInterface } from "../components/chat/ChatInterface";
 import { ChatUtilityBar } from "../components/chat/ChatUtilityBar";
 import { TaskDialog } from "../components/tasks/TaskDialog";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useChat } from "../hooks/useChat";
 import { useToast } from "../components/toast/ToastContext";
+import { useUIState } from "../contexts/UIStateContext";
+import { useIsDesktop } from "../hooks/useWindowSize";
 
 interface ChatPageProps { }
 
 export function ChatPage({ }: ChatPageProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const isDesktop = useIsDesktop(1024);
+  const { setIsChatOpen } = useUIState();
+
+  // Redirect desktop users to home with chat panel open
+  useEffect(() => {
+    if (isDesktop) {
+      setIsChatOpen(true);
+      navigate('/app', { replace: true });
+    }
+  }, [isDesktop, setIsChatOpen, navigate]);
+
+  // Show loading message while redirecting on desktop
+  if (isDesktop) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-gray-600">Opening chat...</div>
+      </div>
+    );
+  }
+
   // ChatPage-specific state
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [showTaskDialog, setShowTaskDialog] = useState(false);

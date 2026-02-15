@@ -86,22 +86,6 @@ const getInitialChatOpenState = (): boolean => {
   return stored === 'true';
 };
 
-const getInitialSidebarState = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-  return stored === 'true';
-};
-
-const getStoredCard = (key: string): Card | null => {
-  if (typeof window === 'undefined') return null;
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
-};
-
 export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
