@@ -15,14 +15,17 @@ import { useDialogState } from "../../contexts/DialogStateContext";
 import { defaultPartialCard } from "../../models/Card";
 import { Card, PartialCard } from "../../models/Card";
 import { saveExistingCard } from "../../api/cards";
+import { getCard } from "../../api/cards";
+import { isErrorResponse } from "../../models/common";
 
 interface ViewPageProps {
   cardId?: string; // Optional card ID prop for pinned cards
+  isPinnedView?: boolean; // Whether this ViewPage is in the pinned pane
 }
 
-export function ViewPage({ cardId }: ViewPageProps) {
+export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
   const { tags } = useTagContext();
-  const { pinnedCard, toggleMobileSidebar } = useUIState();
+  const { toggleMobileSidebar, setPinnedCard } = useUIState();
   const navigate = useNavigate();
 
   const fileUploadRef = useRef<HTMLInputElement>(null);
@@ -47,6 +50,7 @@ export function ViewPage({ cardId }: ViewPageProps) {
     analysis,
     relatedCards,
     showIdDiscovery,
+    isPinned,
     error,
   } = data;
 
@@ -77,9 +81,6 @@ export function ViewPage({ cardId }: ViewPageProps) {
     setSelectedFact,
     setShowFactDialog,
   } = useDialogState();
-
-
-  const isPinned = pinnedCard && viewingCard && pinnedCard.id === viewingCard.id;
 
   // Handle saving card when spreadsheet is edited
   const handleSaveCard = async (updatedCard: Card) => {
@@ -234,7 +235,17 @@ export function ViewPage({ cardId }: ViewPageProps) {
               onRemoveTag={onRemoveTag}
               sourceArticle={viewingCard.source_article}
               relatedCards={relatedCards || undefined}
-              onRelatedCardClick={(cardId) => navigate(`/app/card/${cardId}`)}
+              onRelatedCardClick={async (cardId) => {
+                if (isPinnedView) {
+                  // In pinned view, update the pinned card instead of navigating
+                  const card = await getCard(cardId.toString());
+                  if (card && !isErrorResponse(card)) {
+                    setPinnedCard(card);
+                  }
+                } else {
+                  navigate(`/app/card/${cardId}`);
+                }
+              }}
             />
           </div>
         </div>

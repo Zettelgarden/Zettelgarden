@@ -48,6 +48,7 @@ interface ViewPageContainerData {
   showingSummary: boolean;
   showingAnalysis: boolean;
   showIdDiscovery: boolean;
+  isPinned: boolean;
   error: string;
 }
 
@@ -211,7 +212,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
     setChatSidebarCard(cardData.viewingCard);
   };
 
-  const isPinned = pinnedCard && cardData.viewingCard && pinnedCard.id === cardData.viewingCard.id;
+  const isPinned = !!(pinnedCard && cardData.viewingCard && pinnedCard.id === cardData.viewingCard.id);
 
   const onResummarize = async () => {
     if (cardData.viewingCard) {
@@ -271,6 +272,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
       showingSummary,
       showingAnalysis,
       showIdDiscovery,
+      isPinned,
       error,
     },
     setters: {

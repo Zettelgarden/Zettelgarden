@@ -4,7 +4,7 @@ import { Card, PartialCard } from "../models/Card";
 /**
  * UIStateContext - Consolidates simple UI state from multiple providers:
  * - ChatProvider (conversationId, showChat)
- * - PinProvider (pinnedCard, isPinMode)
+ * - PinProvider (pinnedCard) - isPinMode is derived: pinnedCard !== null
  * - ChatSidebarProvider (chatSidebarCard, isChatSidebarMode)
  * - PartialCardProvider (lastCard, nextCardId)
  * - CardRefreshProvider (refreshTrigger)
@@ -29,14 +29,12 @@ interface UIStateContextType {
   // Pin state
   pinnedCard: Card | null;
   setPinnedCard: (card: Card | null) => void;
-  isPinMode: boolean;
-  setIsPinMode: (mode: boolean) => void;
+  isPinMode: boolean; // Derived: pinnedCard !== null
 
   // Chat sidebar state
   chatSidebarCard: Card | null;
   setChatSidebarCard: (card: Card | null) => void;
-  isChatSidebarMode: boolean;
-  setIsChatSidebarMode: (mode: boolean) => void;
+  isChatSidebarMode: boolean; // Derived: chatSidebarCard !== null
 
   // Partial card state
   lastCard: PartialCard | null;
@@ -56,11 +54,23 @@ interface UIStateContextType {
 const UIStateContext = createContext<UIStateContextType | undefined>(undefined);
 
 const SIDEBAR_COLLAPSED_KEY = 'zettelgarden-sidebar-collapsed';
+const PINNED_CARD_KEY = 'zettelgarden-pinned-card';
+const CHAT_SIDEBAR_CARD_KEY = 'zettelgarden-chat-sidebar-card';
 
 const getInitialSidebarState = (): boolean => {
   if (typeof window === 'undefined') return false;
   const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
   return stored === 'true';
+};
+
+const getStoredCard = (key: string): Card | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
 };
 
 export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -96,12 +106,10 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // Pin state
-  const [pinnedCard, setPinnedCard] = useState<Card | null>(null);
-  const [isPinMode, setIsPinMode] = useState<boolean>(false);
+  const [pinnedCard, setPinnedCard] = useState<Card | null>(() => getStoredCard(PINNED_CARD_KEY));
 
   // Chat sidebar state
-  const [chatSidebarCard, setChatSidebarCard] = useState<Card | null>(null);
-  const [isChatSidebarMode, setIsChatSidebarMode] = useState<boolean>(false);
+  const [chatSidebarCard, setChatSidebarCard] = useState<Card | null>(() => getStoredCard(CHAT_SIDEBAR_CARD_KEY));
 
   // Partial card state
   const [lastCard, setLastCard] = useState<PartialCard | null>(null);
@@ -113,19 +121,31 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
   // File refresh state
   const [refreshFiles, setRefreshFiles] = useState(false);
 
-  // Auto-enable pin mode when card is pinned
-  useEffect(() => {
-    setIsPinMode(pinnedCard !== null);
-  }, [pinnedCard]);
-
-  // Auto-enable chat sidebar mode when card is set
-  useEffect(() => {
-    setIsChatSidebarMode(chatSidebarCard !== null);
-  }, [chatSidebarCard]);
-
   const setRefreshTrigger = (cardId: string) => {
     setRefreshTriggerState(cardId);
   };
+
+  // Sync pinned card changes to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (pinnedCard) {
+        localStorage.setItem(PINNED_CARD_KEY, JSON.stringify(pinnedCard));
+      } else {
+        localStorage.removeItem(PINNED_CARD_KEY);
+      }
+    }
+  }, [pinnedCard]);
+
+  // Sync chat sidebar card changes to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (chatSidebarCard) {
+        localStorage.setItem(CHAT_SIDEBAR_CARD_KEY, JSON.stringify(chatSidebarCard));
+      } else {
+        localStorage.removeItem(CHAT_SIDEBAR_CARD_KEY);
+      }
+    }
+  }, [chatSidebarCard]);
 
   return (
     <UIStateContext.Provider
@@ -147,14 +167,12 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
         // Pin
         pinnedCard,
         setPinnedCard,
-        isPinMode,
-        setIsPinMode,
+        isPinMode: pinnedCard !== null,
 
         // Chat sidebar
         chatSidebarCard,
         setChatSidebarCard,
-        isChatSidebarMode,
-        setIsChatSidebarMode,
+        isChatSidebarMode: chatSidebarCard !== null,
 
         // Partial card
         lastCard,
