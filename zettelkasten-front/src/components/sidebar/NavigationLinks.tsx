@@ -5,10 +5,12 @@ import { TasksIcon } from "../../assets/icons/TasksIcon";
 import { CalendarIcon } from "../../assets/icons/CalendarIcon";
 import { ChatIcon } from "../../assets/icons/ChatIcon";
 import { RssIcon } from "../../assets/icons/RssIcon";
+import { InboxIcon } from "../../assets/icons/InboxIcon";
 
 interface NavigationLinksProps {
   todayTasksCount: number;
   unreadRssCount: number;
+  unreadInboxCount: number;
   hasSubscription: boolean;
   isCollapsed: boolean;
 }
@@ -108,7 +110,7 @@ function CollapsibleLink({
   );
 }
 
-export function NavigationLinks({ todayTasksCount, unreadRssCount, hasSubscription, isCollapsed }: NavigationLinksProps) {
+export function NavigationLinks({ todayTasksCount, unreadRssCount, unreadInboxCount, hasSubscription, isCollapsed }: NavigationLinksProps) {
   return (
     <div className={`p-2 ${isCollapsed ? "px-1" : ""}`}>
       <ul className="space-y-1">
@@ -117,6 +119,21 @@ export function NavigationLinks({ todayTasksCount, unreadRssCount, hasSubscripti
           icon={<SearchIcon />}
           label="Search"
           isCollapsed={isCollapsed}
+        />
+
+        <CollapsibleLink
+          to="/app/inbox"
+          icon={<InboxIcon />}
+          label="Inbox"
+          isCollapsed={isCollapsed}
+          badgeCount={unreadInboxCount}
+          badge={
+            unreadInboxCount > 0 && (
+              <span className="px-3 py-1.5 md:px-2 md:py-1 text-xs bg-red-100 text-red-700 rounded-full min-h-[32px] md:min-h-0 flex items-center">
+                {unreadInboxCount}
+              </span>
+            )
+          }
         />
 
         <CollapsibleLink

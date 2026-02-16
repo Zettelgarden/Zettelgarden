@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useToast } from "./toast/ToastContext";
+import { getUnreadCount } from "../api/notifications";
 
 import { PartialCard, Card, Entity } from "../models/Card";
 
@@ -28,6 +29,7 @@ export function Sidebar() {
   const { showToast } = useToast();
   const { tasks } = useTaskContext();
   const { unreadCount: unreadRssCount } = useRSS();
+  const [unreadInboxCount, setUnreadInboxCount] = useState(0);
   const [showAddArticleDialog, setShowAddArticleDialog] = useState(false);
   const [showStarCardDialog, setShowStarCardDialog] = useState(false);
   const { hasSubscription, user, updateUser } = useAuth();
@@ -104,6 +106,18 @@ export function Sidebar() {
     }
   }, [user]);
 
+  useEffect(() => {
+    async function fetchUnreadCount() {
+      try {
+        const response = await getUnreadCount();
+        setUnreadInboxCount(response.unread_count);
+      } catch (error) {
+        console.error("Failed to fetch unread inbox count:", error);
+      }
+    }
+    fetchUnreadCount();
+  }, []);
+
   const handleCreateTask = useCallback(() => {
     setShowQuickSearchWindow(false);
     setShowCreateTaskWindow(true);
@@ -171,6 +185,7 @@ export function Sidebar() {
           <NavigationLinks
             todayTasksCount={todayTasks.length}
             unreadRssCount={unreadRssCount}
+            unreadInboxCount={unreadInboxCount}
             hasSubscription={hasSubscription}
             isCollapsed={isSidebarCollapsed}
           />
