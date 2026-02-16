@@ -386,3 +386,57 @@ func (h *Handler) GetEmailStatsRoute(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
 }
+
+// UpdateEmailStatusParams represents parameters for updating email status
+type UpdateEmailStatusParams struct {
+	Status string `json:"status"`
+}
+
+// UpdateEmailStatusRoute handles PATCH /api/emails/{id}/status
+// Updates the status of an email (e.g., archive, triage, delete)
+func (h *Handler) UpdateEmailStatusRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Get email ID from path
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	emailID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid email ID", http.StatusBadRequest)
+		return
+	}
+
+	// Parse request body
+	var params UpdateEmailStatusParams
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&params); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate status
+	if params.Status == "" {
+		http.Error(w, "Status is required", http.StatusBadRequest)
+		return
+	}
+
+	emailService := services.NewEmailService(h.GetDB())
+
+	email, err := emailService.UpdateEmailStatus(context.Background(), userID, emailID, params.Status)
+	if err != nil {
+		log.Printf("[email-sync] failed to update email status: %v", err)
+		if err.Error() == "email not found" {
+			http.Error(w, "Email not found", http.StatusNotFound)
+			return
+		}
+		if strings.Contains(err.Error(), "invalid status") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Failed to update email status", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(email)
+}

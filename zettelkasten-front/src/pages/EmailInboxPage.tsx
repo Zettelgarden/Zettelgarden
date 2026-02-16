@@ -4,7 +4,7 @@ import { listEmails, listEmailAccounts, createEmailAccount, syncEmailAccount, Em
 import { EmailList } from "../components/email/EmailList";
 import { setDocumentTitle } from "../utils/title";
 
-type StatusFilter = "all" | "unprocessed" | "triaged";
+type StatusFilter = "all" | "unprocessed" | "triaged" | "archived";
 
 /**
  * Email Inbox Page
@@ -83,6 +83,7 @@ export function EmailInboxPage() {
       all: "Email Inbox",
       unprocessed: "Unprocessed Emails",
       triaged: "Triaged Emails",
+      archived: "Archived Emails",
     };
     setDocumentTitle(titleMap[statusFilter]);
   }, [statusFilter]);
@@ -263,6 +264,12 @@ export function EmailInboxPage() {
             onClick={() => handleFilterChange("triaged")}
           >
             Triaged
+          </FilterButton>
+          <FilterButton
+            active={statusFilter === "archived"}
+            onClick={() => handleFilterChange("archived")}
+          >
+            Archived
           </FilterButton>
         </div>
       </div>

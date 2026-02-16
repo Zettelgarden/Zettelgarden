@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getEmail, Email } from "../api/email";
+import { getEmail, updateEmailStatus, Email } from "../api/email";
 import { setDocumentTitle } from "../utils/title";
 
 /**
@@ -15,6 +15,7 @@ export function EmailDetailPage() {
   const [email, setEmail] = useState<Email | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
 
   useEffect(() => {
     const fetchEmail = async () => {
@@ -45,6 +46,34 @@ export function EmailDetailPage() {
   const formatDate = (dateString?: string) => {
     if (!dateString) return "";
     return new Date(dateString).toLocaleString();
+  };
+
+  const handleArchive = async () => {
+    if (!email || !id) return;
+
+    setIsArchiving(true);
+    try {
+      const updated = await updateEmailStatus(email.id, "archived");
+      setEmail(updated);
+    } catch (err: any) {
+      console.error("Failed to archive email:", err);
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
+  const handleUnarchive = async () => {
+    if (!email || !id) return;
+
+    setIsArchiving(true);
+    try {
+      const updated = await updateEmailStatus(email.id, "unprocessed");
+      setEmail(updated);
+    } catch (err: any) {
+      console.error("Failed to unarchive email:", err);
+    } finally {
+      setIsArchiving(false);
+    }
   };
 
   if (loading) {
@@ -88,33 +117,82 @@ export function EmailDetailPage() {
           padding: "16px 24px",
         }}
       >
-        <button
-          onClick={handleBack}
+        <div
           style={{
-            padding: "8px 16px",
-            fontSize: "14px",
-            fontWeight: "500",
-            borderRadius: "8px",
-            border: "1px solid #d1d5db",
-            backgroundColor: "#ffffff",
-            color: "#374151",
-            cursor: "pointer",
             display: "flex",
             alignItems: "center",
-            gap: "6px",
-            transition: "all 0.15s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "#f9fafb";
-            e.currentTarget.style.borderColor = "#9ca3af";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "#ffffff";
-            e.currentTarget.style.borderColor = "#d1d5db";
+            justifyContent: "space-between",
+            width: "100%",
           }}
         >
-          ← Back to Inbox
-        </button>
+          <button
+            onClick={handleBack}
+            style={{
+              padding: "8px 16px",
+              fontSize: "14px",
+              fontWeight: "500",
+              borderRadius: "8px",
+              border: "1px solid #d1d5db",
+              backgroundColor: "#ffffff",
+              color: "#374151",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "#f9fafb";
+              e.currentTarget.style.borderColor = "#9ca3af";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#ffffff";
+              e.currentTarget.style.borderColor = "#d1d5db";
+            }}
+          >
+            ← Back to Inbox
+          </button>
+
+          <button
+            onClick={email.status === "archived" ? handleUnarchive : handleArchive}
+            disabled={isArchiving}
+            style={{
+              padding: "8px 16px",
+              fontSize: "14px",
+              fontWeight: "500",
+              borderRadius: "8px",
+              border: "1px solid #d1d5db",
+              backgroundColor: isArchiving ? "#f3f4f6" : email.status === "archived" ? "#fef3c7" : "#ffffff",
+              color: isArchiving ? "#9ca3af" : email.status === "archived" ? "#92400e" : "#374151",
+              cursor: isArchiving ? "not-allowed" : "pointer",
+              opacity: isArchiving ? 0.6 : 1,
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              if (!isArchiving) {
+                e.currentTarget.style.backgroundColor = email.status === "archived" ? "#fde68a" : "#f9fafb";
+                e.currentTarget.style.borderColor = "#9ca3af";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isArchiving) {
+                e.currentTarget.style.backgroundColor = email.status === "archived" ? "#fef3c7" : "#ffffff";
+                e.currentTarget.style.borderColor = "#d1d5db";
+              }
+            }}
+          >
+            {isArchiving ? (
+              "..."
+            ) : email.status === "archived" ? (
+              <>↱ Unarchive</>
+            ) : (
+              <>📁 Archive</>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Email content */}

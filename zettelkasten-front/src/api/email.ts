@@ -98,6 +98,10 @@ export function getEmail(id: number): Promise<Email> {
   return getData(apiClient.get<Email>(`/emails/${id}`));
 }
 
+export function updateEmailStatus(id: number, status: string): Promise<Email> {
+  return getData(apiClient.patch<Email>(`/emails/${id}/status`, { status }));
+}
+
 export function getEmailStats(): Promise<Record<string, number>> {
   return getData(apiClient.get<Record<string, number>>("/emails/stats"));
 }

@@ -373,3 +373,100 @@ func (s *EmailService) GetEmailStats(ctx context.Context, userID int) (map[strin
 
 	return stats, nil
 }
+
+// UpdateEmailStatus updates the status of an email
+func (s *EmailService) UpdateEmailStatus(ctx context.Context, userID, emailID int, status string) (*models.Email, error) {
+	// Validate status
+	validStatuses := map[string]bool{
+		"unprocessed": true,
+		"triaged":     true,
+		"reviewed":    true,
+		"archived":    true,
+		"deleted":     true,
+		"converted":   true,
+	}
+	if !validStatuses[status] {
+		return nil, fmt.Errorf("invalid status: %s", status)
+	}
+
+	var email models.Email
+	var accountID sql.NullInt32
+	var threadID sql.NullString
+	var subject sql.NullString
+	var fromAddress sql.NullString
+	var fromName sql.NullString
+	var toAddresses sql.NullString
+	var bodyText sql.NullString
+	var bodyHTML sql.NullString
+	var receivedAt sql.NullTime
+	var folder sql.NullString
+
+	err := s.db.QueryRowContext(ctx, `
+		UPDATE emails
+		SET status = $1, updated_at = NOW()
+		WHERE id = $2 AND user_id = $3
+		RETURNING id, user_id, email_account_id, message_id, thread_id, subject,
+			from_address, from_name, to_addresses, body_text, body_html,
+			received_at, folder, status, created_at, updated_at
+	`, status, emailID, userID).Scan(
+		&email.ID,
+		&email.UserID,
+		&accountID,
+		&email.MessageID,
+		&threadID,
+		&subject,
+		&fromAddress,
+		&fromName,
+		&toAddresses,
+		&bodyText,
+		&bodyHTML,
+		&receivedAt,
+		&folder,
+		&email.Status,
+		&email.CreatedAt,
+		&email.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("email not found")
+		}
+		return nil, fmt.Errorf("failed to update email status: %w", err)
+	}
+
+	// Convert nullable fields to pointers
+	if accountID.Valid {
+		id := int(accountID.Int32)
+		email.EmailAccountID = &id
+	}
+	if threadID.Valid {
+		email.ThreadID = &threadID.String
+	}
+	if subject.Valid {
+		email.Subject = &subject.String
+	}
+	if fromAddress.Valid {
+		email.FromAddress = &fromAddress.String
+	}
+	if fromName.Valid {
+		email.FromName = &fromName.String
+	}
+	if toAddresses.Valid {
+		email.ToAddresses = &toAddresses.String
+	}
+	if bodyText.Valid {
+		email.BodyText = &bodyText.String
+	}
+	if bodyHTML.Valid {
+		email.BodyHTML = &bodyHTML.String
+	}
+	if receivedAt.Valid {
+		email.ReceivedAt = &receivedAt.Time
+	}
+	if folder.Valid {
+		email.Folder = &folder.String
+	}
+
+	log.Printf("[email] updated email %d status to %s for user %d", emailID, status, userID)
+
+	return &email, nil
+}
