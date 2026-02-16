@@ -4,31 +4,39 @@ import { setDocumentTitle } from "../utils/title";
 import {
   listNotifications,
   markAsRead,
-  archiveNotification,
   getUnreadCount,
   Notification,
 } from "../api/notifications";
+import { fetchTask, saveExistingTask } from "../api/tasks";
+import { updateEmailStatus } from "../api/email";
+import { RSSArticle, getArticle } from "../api/rss";
+import { CreateTaskWindow } from "../components/tasks/CreateTaskWindow";
+import { RssConvertDialog } from "../components/rss/RssConvertDialog";
+import { useAuth } from "../contexts/AuthContext";
 
 type SourceTab = "all" | "email" | "rss" | "task";
 
 /**
  * Notification Inbox Page
  *
- * Displays a unified inbox of notifications from multiple sources:
+ * Displays a unified inbox of unread notifications from multiple sources:
  * - Email notifications
  * - RSS article notifications
  * - Task notifications
  *
  * Features:
  * - Filter by source type (All, Email, RSS, Tasks)
- * - Mark notifications as read on click
- * - Archive notifications
- * - Navigate to source content
+ * - Mark as read removes notification from list (hides read notifications)
+ * - Archive button (emails only) archives source email and removes notification
+ * - Navigate to source content by clicking notification
+ * - Context-aware actions: Task (emails), Card (RSS), Done (tasks)
  * - Pagination with "Load more" button
  * - Unread count display
  */
 export function NotificationInboxPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const userTimezone = user?.timezone || "UTC";
 
   // State management
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -39,7 +47,13 @@ export function NotificationInboxPage() {
   const [total, setTotal] = useState<number>(0);
   const [offset, setOffset] = useState<number>(0);
   const [hasMore, setHasMore] = useState<boolean>(true);
-  const [archiving, setArchiving] = useState<Set<number>>(new Set());
+  const [markingRead, setMarkingRead] = useState<Set<number>>(new Set());
+  const [archivingEmail, setArchivingEmail] = useState<Set<number>>(new Set());
+  const [togglingTaskComplete, setTogglingTaskComplete] = useState<Set<number>>(new Set());
+  const [showCreateTaskWindow, setShowCreateTaskWindow] = useState(false);
+  const [notificationForTask, setNotificationForTask] = useState<Notification | null>(null);
+  const [showConvertDialog, setShowConvertDialog] = useState(false);
+  const [articleToConvert, setArticleToConvert] = useState<RSSArticle | null>(null);
 
   const ITEMS_PER_PAGE = 25;
 
@@ -144,17 +158,49 @@ export function NotificationInboxPage() {
   };
 
   /**
-   * Handle archive notification
+   * Handle mark as read (removes notification from list)
    */
-  const handleArchive = async (notification: Notification, event: React.MouseEvent) => {
-    event.stopPropagation(); // Prevent navigation
+  const handleMarkRead = async (notification: Notification, event: React.MouseEvent) => {
+    event.stopPropagation();
 
-    setArchiving((prev) => new Set(prev).add(notification.id));
+    // Only mark if not already read
+    if (notification.is_read) return;
+
+    setMarkingRead((prev) => new Set(prev).add(notification.id));
 
     try {
-      await archiveNotification(notification.id);
+      await markAsRead(notification.id, true);
 
-      // Remove from list
+      // Remove from list after marking as read
+      setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
+      setTotal((prev) => prev - 1);
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+    } finally {
+      setMarkingRead((prev) => {
+        const next = new Set(prev);
+        next.delete(notification.id);
+        return next;
+      });
+    }
+  };
+
+  /**
+   * Handle archive email (archives source email and removes notification)
+   */
+  const handleArchiveEmail = async (notification: Notification, event: React.MouseEvent) => {
+    event.stopPropagation();
+
+    if (notification.source_type !== "email") return;
+
+    setArchivingEmail((prev) => new Set(prev).add(notification.id));
+
+    try {
+      // Archive the source email
+      await updateEmailStatus(notification.source_id, "archived");
+
+      // Remove notification from list
       setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
       setTotal((prev) => prev - 1);
 
@@ -163,9 +209,9 @@ export function NotificationInboxPage() {
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
     } catch (error) {
-      console.error("Failed to archive notification:", error);
+      console.error("Failed to archive email:", error);
     } finally {
-      setArchiving((prev) => {
+      setArchivingEmail((prev) => {
         const next = new Set(prev);
         next.delete(notification.id);
         return next;
@@ -179,6 +225,109 @@ export function NotificationInboxPage() {
   const handleLoadMore = () => {
     const newOffset = offset + ITEMS_PER_PAGE;
     fetchNotifications(newOffset, true);
+  };
+
+  /**
+   * Handle create task from email notification
+   */
+  const handleCreateTaskFromNotification = (notification: Notification, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setNotificationForTask(notification);
+    setShowCreateTaskWindow(true);
+  };
+
+  /**
+   * Handle close create task window
+   */
+  const handleCloseTaskWindow = () => {
+    setShowCreateTaskWindow(false);
+    setNotificationForTask(null);
+  };
+
+  /**
+   * Handle convert RSS article to card - opens convert dialog
+   */
+  const handleConvertToCard = async (notification: Notification, event: React.MouseEvent) => {
+    event.stopPropagation();
+
+    if (notification.source_type !== "rss") return;
+
+    try {
+      // Fetch the article details for the dialog
+      const article = await getArticle(notification.source_id);
+      setArticleToConvert(article);
+      setShowConvertDialog(true);
+    } catch (error) {
+      console.error("Failed to fetch article for conversion:", error);
+    }
+  };
+
+  /**
+   * Handle successful card conversion
+   */
+  const handleConverted = (cardId: number) => {
+    setShowConvertDialog(false);
+    setArticleToConvert(null);
+
+    // Remove the notification from the list
+    if (articleToConvert) {
+      setNotifications((prev) => prev.filter((n) => n.source_id !== articleToConvert.id));
+      setTotal((prev) => prev - 1);
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    }
+
+    // Navigate to the new card
+    navigate(`/app/card/${cardId}`);
+  };
+
+  /**
+   * Handle close convert dialog
+   */
+  const handleCloseConvertDialog = () => {
+    setShowConvertDialog(false);
+    setArticleToConvert(null);
+  };
+
+  /**
+   * Handle toggle task complete/incomplete
+   */
+  const handleToggleTaskComplete = async (notification: Notification, event: React.MouseEvent) => {
+    event.stopPropagation();
+
+    setTogglingTaskComplete((prev) => new Set(prev).add(notification.id));
+
+    try {
+      // Fetch the current task state
+      const task = await fetchTask(notification.source_id.toString());
+
+      // Toggle the complete state
+      const updatedTask = {
+        ...task,
+        is_complete: !task.is_complete,
+        completed_at: !task.is_complete ? new Date() : null,
+      };
+
+      await saveExistingTask(updatedTask);
+
+      // Mark notification as read when action is taken
+      if (!notification.is_read) {
+        await markAsRead(notification.id, true);
+        setNotifications((prev) =>
+          prev.map((n) =>
+            n.id === notification.id ? { ...n, is_read: true } : n
+          )
+        );
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error("Failed to toggle task completion:", error);
+    } finally {
+      setTogglingTaskComplete((prev) => {
+        const next = new Set(prev);
+        next.delete(notification.id);
+        return next;
+      });
+    }
   };
 
   /**
@@ -360,8 +509,14 @@ export function NotificationInboxPage() {
                 key={notification.id}
                 notification={notification}
                 onClick={() => handleNotificationClick(notification)}
-                onArchive={(e) => handleArchive(notification, e)}
-                isArchiving={archiving.has(notification.id)}
+                onMarkRead={(e) => handleMarkRead(notification, e)}
+                onArchiveEmail={notification.source_type === "email" ? (e) => handleArchiveEmail(notification, e) : undefined}
+                onCreateTask={notification.source_type === "email" ? (e) => handleCreateTaskFromNotification(notification, e) : undefined}
+                onConvertToCard={notification.source_type === "rss" ? (e) => handleConvertToCard(notification, e) : undefined}
+                onToggleComplete={notification.source_type === "task" ? (e) => handleToggleTaskComplete(notification, e) : undefined}
+                isMarkingRead={markingRead.has(notification.id)}
+                isArchivingEmail={archivingEmail.has(notification.id)}
+                isTogglingComplete={togglingTaskComplete.has(notification.id)}
                 getSourceIcon={getSourceIcon}
                 formatTimestamp={formatTimestamp}
               />
@@ -411,6 +566,23 @@ export function NotificationInboxPage() {
           </>
         )}
       </div>
+
+      {/* Create Task Window */}
+      {showCreateTaskWindow && (
+        <CreateTaskWindow
+          currentCard={null}
+          setShowTaskWindow={handleCloseTaskWindow}
+          currentFilter={notificationForTask?.title ? `Email: ${notificationForTask.title}` : undefined}
+        />
+      )}
+
+      {/* RSS Convert to Card Dialog */}
+      <RssConvertDialog
+        isOpen={showConvertDialog}
+        onClose={handleCloseConvertDialog}
+        article={articleToConvert}
+        onConverted={handleConverted}
+      />
     </div>
   );
 }
@@ -461,8 +633,14 @@ function TabButton({ active, onClick, children }: TabButtonProps) {
 interface NotificationItemProps {
   notification: Notification;
   onClick: () => void;
-  onArchive: (event: React.MouseEvent) => void;
-  isArchiving: boolean;
+  onMarkRead: (event: React.MouseEvent) => void;
+  onArchiveEmail?: (event: React.MouseEvent) => void;
+  onCreateTask?: (event: React.MouseEvent) => void;
+  onConvertToCard?: (event: React.MouseEvent) => void;
+  onToggleComplete?: (event: React.MouseEvent) => void;
+  isMarkingRead: boolean;
+  isArchivingEmail?: boolean;
+  isTogglingComplete?: boolean;
   getSourceIcon: (sourceType: string) => string;
   formatTimestamp: (timestamp: string) => string;
 }
@@ -470,8 +648,14 @@ interface NotificationItemProps {
 function NotificationItem({
   notification,
   onClick,
-  onArchive,
-  isArchiving,
+  onMarkRead,
+  onArchiveEmail,
+  onCreateTask,
+  onConvertToCard,
+  onToggleComplete,
+  isMarkingRead,
+  isArchivingEmail,
+  isTogglingComplete,
   getSourceIcon,
   formatTimestamp,
 }: NotificationItemProps) {
@@ -607,39 +791,188 @@ function NotificationItem({
         </div>
       </div>
 
-      {/* Archive button */}
-      <button
-        onClick={onArchive}
-        disabled={isArchiving}
+      {/* Action buttons */}
+      <div
         style={{
-          padding: "6px 12px",
-          fontSize: "12px",
-          fontWeight: "500",
-          borderRadius: "6px",
-          border: "1px solid #d1d5db",
-          backgroundColor: isArchiving ? "#f3f4f6" : "#ffffff",
-          color: isArchiving ? "#9ca3af" : "#6b7280",
-          cursor: isArchiving ? "not-allowed" : "pointer",
-          opacity: isArchiving ? 0.6 : 1,
-          transition: "all 0.15s ease",
+          display: "flex",
+          gap: "8px",
           marginLeft: "12px",
           flexShrink: 0,
         }}
-        onMouseEnter={(e) => {
-          if (!isArchiving) {
-            e.currentTarget.style.backgroundColor = "#f9fafb";
-            e.currentTarget.style.borderColor = "#9ca3af";
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isArchiving) {
-            e.currentTarget.style.backgroundColor = "#ffffff";
-            e.currentTarget.style.borderColor = "#d1d5db";
-          }
-        }}
       >
-        {isArchiving ? "..." : "Archive"}
-      </button>
+        {/* Create Task button (for email notifications) */}
+        {notification.source_type === "email" && onCreateTask && (
+          <button
+            onClick={onCreateTask}
+            style={{
+              padding: "6px 10px",
+              fontSize: "13px",
+              fontWeight: "500",
+              borderRadius: "6px",
+              border: "none",
+              backgroundColor: "#eff6ff",
+              color: "#1d4ed8",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "#dbeafe";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#eff6ff";
+            }}
+            title="Create task from this email"
+          >
+            <span>✓</span>
+            <span>Task</span>
+          </button>
+        )}
+
+        {/* Convert to Card button (for RSS notifications) */}
+        {notification.source_type === "rss" && onConvertToCard && (
+          <button
+            onClick={onConvertToCard}
+            style={{
+              padding: "6px 10px",
+              fontSize: "13px",
+              fontWeight: "500",
+              borderRadius: "6px",
+              border: "none",
+              backgroundColor: "#f0fdf4",
+              color: "#15803d",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "#dcfce7";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#f0fdf4";
+            }}
+            title="Convert article to card"
+          >
+            <span>📄</span>
+            <span>Card</span>
+          </button>
+        )}
+
+        {/* Toggle Complete button (for task notifications) */}
+        {notification.source_type === "task" && onToggleComplete && (
+          <button
+            onClick={onToggleComplete}
+            disabled={isTogglingComplete}
+            style={{
+              padding: "6px 10px",
+              fontSize: "13px",
+              fontWeight: "500",
+              borderRadius: "6px",
+              border: "none",
+              backgroundColor: isTogglingComplete ? "#f3f4f6" : "#f0fdf4",
+              color: isTogglingComplete ? "#9ca3af" : "#15803d",
+              cursor: isTogglingComplete ? "not-allowed" : "pointer",
+              opacity: isTogglingComplete ? 0.6 : 1,
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              if (!isTogglingComplete) {
+                e.currentTarget.style.backgroundColor = "#dcfce7";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isTogglingComplete) {
+                e.currentTarget.style.backgroundColor = "#f0fdf4";
+              }
+            }}
+            title="Toggle task completion"
+          >
+            <span>✓</span>
+            <span>{isTogglingComplete ? "..." : "Done"}</span>
+          </button>
+        )}
+
+        {/* Archive Email button (for email notifications only) */}
+        {notification.source_type === "email" && onArchiveEmail && (
+          <button
+            onClick={onArchiveEmail}
+            disabled={isArchivingEmail}
+            style={{
+              padding: "6px 10px",
+              fontSize: "13px",
+              fontWeight: "500",
+              borderRadius: "6px",
+              border: "none",
+              backgroundColor: isArchivingEmail ? "#f3f4f6" : "#fef3c7",
+              color: isArchivingEmail ? "#9ca3af" : "#92400e",
+              cursor: isArchivingEmail ? "not-allowed" : "pointer",
+              opacity: isArchivingEmail ? 0.6 : 1,
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              if (!isArchivingEmail) {
+                e.currentTarget.style.backgroundColor = "#fde68a";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isArchivingEmail) {
+                e.currentTarget.style.backgroundColor = "#fef3c7";
+              }
+            }}
+            title="Archive source email"
+          >
+            <span>📁</span>
+            <span>{isArchivingEmail ? "..." : "Archive"}</span>
+          </button>
+        )}
+
+        {/* Mark read button (all types, only for unread notifications) */}
+        {!notification.is_read && (
+          <button
+            onClick={onMarkRead}
+            disabled={isMarkingRead}
+            style={{
+              padding: "6px 10px",
+              fontSize: "13px",
+              fontWeight: "500",
+              borderRadius: "6px",
+              border: "none",
+              backgroundColor: isMarkingRead ? "#f3f4f6" : "#eff6ff",
+              color: isMarkingRead ? "#9ca3af" : "#1d4ed8",
+              cursor: isMarkingRead ? "not-allowed" : "pointer",
+              opacity: isMarkingRead ? 0.6 : 1,
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              if (!isMarkingRead) {
+                e.currentTarget.style.backgroundColor = "#dbeafe";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isMarkingRead) {
+                e.currentTarget.style.backgroundColor = "#eff6ff";
+              }
+            }}
+            title="Mark as read"
+          >
+            <span>✓</span>
+            <span>{isMarkingRead ? "..." : "Read"}</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }
