@@ -2,13 +2,14 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import logo from "../../assets/logo.png";
 import { useAuth } from "../../contexts/AuthContext";
-import { Plus } from "lucide-react";
+import { Plus, Rss } from "lucide-react";
 
 interface SidebarHeaderProps {
   onNewStandardCard: () => void;
   onNewArticle: () => void;
   onNewTask: () => void;
   onNewChat: () => void;
+  onAddFeed: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
 }
@@ -18,6 +19,7 @@ export function SidebarHeader({
   onNewArticle,
   onNewTask,
   onNewChat,
+  onAddFeed,
   isCollapsed,
   onToggleCollapse,
 }: SidebarHeaderProps) {
@@ -127,6 +129,14 @@ export function SidebarHeader({
                   New Chat
                 </button>
               )}
+              <button
+                onClick={onAddFeed}
+                className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 flex items-center gap-2"
+                role="menuitem"
+              >
+                <Rss size={16} />
+                Add RSS Feed
+              </button>
             </div>
           )}
         </div>
