@@ -11,6 +11,8 @@ import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useToast } from "./toast/ToastContext";
 import { getUnreadCount } from "../api/notifications";
 import { listEmails } from "../api/email";
+import { listFolders } from "../api/rss";
+import { RSSFolder, RSSFeed } from "../api/rss";
 
 import { PartialCard, Card, Entity } from "../models/Card";
 
@@ -22,6 +24,7 @@ import { StarredCardsSection } from "./sidebar/StarredCardsSection";
 import { SidebarFooter } from "./sidebar/SidebarFooter";
 import { SidebarModals } from "./sidebar/SidebarModals";
 import { MobileBottomNav } from "./mobile/MobileBottomNav";
+import { RssAddFeedDialog } from "./rss/RssAddFeedDialog";
 
 export function Sidebar() {
   const navigate = useNavigate();
@@ -33,6 +36,8 @@ export function Sidebar() {
   const [unreadInboxCount, setUnreadInboxCount] = useState(0);
   const [unreadEmailCount, setUnreadEmailCount] = useState(0);
   const [showAddArticleDialog, setShowAddArticleDialog] = useState(false);
+  const [showAddFeedDialog, setShowAddFeedDialog] = useState(false);
+  const [rssFolders, setRssFolders] = useState<RSSFolder[]>([]);
   const [showStarCardDialog, setShowStarCardDialog] = useState(false);
   const { hasSubscription, user, updateUser } = useAuth();
 
@@ -93,6 +98,15 @@ export function Sidebar() {
     setShowAddArticleDialog(true);
   }
 
+  function handleAddFeed() {
+    setShowAddFeedDialog(true);
+  }
+
+  function handleFeedAdded(feed: RSSFeed) {
+    // Feed added successfully - dialog will close itself
+    // No additional action needed - RSS page will show the new feed when visited
+    console.log("Feed added:", feed);
+  }
 
   async function handleCloseGettingStarted() {
     setShowGettingStarted(false);
@@ -107,6 +121,18 @@ export function Sidebar() {
       setShowGettingStarted(true);
     }
   }, [user]);
+
+  useEffect(() => {
+    async function fetchFolders() {
+      try {
+        const folders = await listFolders();
+        setRssFolders(folders);
+      } catch (error) {
+        console.error("Failed to fetch RSS folders:", error);
+      }
+    }
+    fetchFolders();
+  }, []);
 
   useEffect(() => {
     async function fetchUnreadCount() {
@@ -190,6 +216,7 @@ export function Sidebar() {
           onNewArticle={handleAddArticle}
           onNewTask={handleNewTask}
           onNewChat={handleNewChat}
+          onAddFeed={handleAddFeed}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={toggleSidebarCollapsed}
         />
@@ -253,6 +280,15 @@ export function Sidebar() {
         currentCard={currentCard}
         handleCloseGettingStarted={handleCloseGettingStarted}
       />
+
+      {showAddFeedDialog && (
+        <RssAddFeedDialog
+          isOpen={showAddFeedDialog}
+          onClose={() => setShowAddFeedDialog(false)}
+          folders={rssFolders}
+          onFeedAdded={handleFeedAdded}
+        />
+      )}
     </>
   );
 }
