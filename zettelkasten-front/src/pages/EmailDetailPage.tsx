@@ -354,6 +354,29 @@ export function EmailDetailPage() {
             >
               {email.status}
             </span>
+            <span
+              style={{
+                marginLeft: "12px",
+                fontSize: "13px",
+                color: "#6b7280",
+                fontWeight: "600",
+                textTransform: "uppercase",
+              }}
+            >
+              Read:
+            </span>
+            <span
+              style={{
+                marginLeft: "8px",
+                fontSize: "13px",
+                padding: "2px 8px",
+                borderRadius: "4px",
+                backgroundColor: email.is_read ? "#d1fae5" : "#dbeafe",
+                color: email.is_read ? "#065f46" : "#1e40af",
+              }}
+            >
+              {email.is_read ? "Yes" : "No"}
+            </span>
           </div>
         </div>
 

@@ -31,6 +31,7 @@ export interface Email {
   received_at?: string;
   folder?: string;
   status: string;
+  is_read: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -43,6 +44,7 @@ export interface CreateEmailAccountParams {
 export interface EmailListFilters {
   status?: string;
   folder?: string;
+  is_read?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -87,6 +89,7 @@ export function listEmails(filters?: EmailListFilters): Promise<EmailListRespons
   const params = new URLSearchParams();
   if (filters?.status) params.set("status", filters.status);
   if (filters?.folder) params.set("folder", filters.folder);
+  if (filters?.is_read !== undefined) params.set("is_read", filters.is_read.toString());
   if (filters?.limit) params.set("limit", filters.limit.toString());
   if (filters?.offset) params.set("offset", filters.offset.toString());
 

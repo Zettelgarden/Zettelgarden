@@ -667,6 +667,15 @@ func (c *IMAPClient) convertIMAPToEmail(msg *imap.Message) models.Email {
 		email.ReceivedAt = &msg.InternalDate
 	}
 
+	// Check for \Seen flag to determine if email has been read
+	email.IsRead = false
+	for _, flag := range msg.Flags {
+		if flag == imap.SeenFlag {
+			email.IsRead = true
+			break
+		}
+	}
+
 	// Extract body content (text/plain and text/html)
 	textBody, htmlBody, err := c.extractBodyText(msg)
 	if err != nil {

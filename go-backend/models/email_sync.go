@@ -36,6 +36,7 @@ type Email struct {
 	Folder         *string    `json:"folder,omitempty"`
 	IMAPUID        *int64     `json:"imap_uid,omitempty"` // IMAP message UID for folder operations
 	Status         string     `json:"status"`
+	IsRead         bool       `json:"is_read"`             // Whether the email has been read (synced with IMAP \Seen flag)
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 }
@@ -75,6 +76,7 @@ type UpdateEmailAccountParams struct {
 type EmailListFilters struct {
 	Status *string `json:"status,omitempty"`
 	Folder *string `json:"folder,omitempty"`
+	IsRead *bool   `json:"is_read,omitempty"` // Filter by read status
 	Limit  *int    `json:"limit,omitempty"`
 	Offset *int    `json:"offset,omitempty"`
 }

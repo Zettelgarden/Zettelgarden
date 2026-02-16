@@ -311,6 +311,12 @@ func (h *Handler) ListEmailsRoute(w http.ResponseWriter, r *http.Request) {
 		filters.Folder = &folderStr
 	}
 
+	if isReadStr := r.URL.Query().Get("is_read"); isReadStr != "" {
+		if isRead, err := strconv.ParseBool(isReadStr); err == nil {
+			filters.IsRead = &isRead
+		}
+	}
+
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
 			filters.Limit = &limit

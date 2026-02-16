@@ -79,9 +79,10 @@ function getStatusBadgeTextColor(status: string): string {
 
 /**
  * Individual email row component displaying:
+ * - Unread indicator (blue dot)
  * - Sender avatar (first letter in circle)
  * - From name
- * - Subject
+ * - Subject (bold if unread)
  * - Date (formatted)
  * - Status badge
  * - Quick action buttons (archive, create task)
@@ -96,6 +97,7 @@ export function EmailRow({ email, onClick, onArchive, onCreateTask }: EmailRowPr
 
   const displayName = email.from_name || email.from_address || "Unknown";
   const displaySubject = email.subject || "(No subject)";
+  const isUnread = !email.is_read;
 
   return (
     <div
@@ -107,22 +109,41 @@ export function EmailRow({ email, onClick, onArchive, onCreateTask }: EmailRowPr
         borderBottom: '1px solid #e5e7eb',
         cursor: 'pointer',
         transition: 'background-color 0.15s ease',
-        backgroundColor: email.status === 'unprocessed' ? '#ffffff' : '#f9fafb',
+        backgroundColor: isUnread ? '#ffffff' : '#f9fafb',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.backgroundColor = '#f3f4f6';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = email.status === 'unprocessed' ? '#ffffff' : '#f9fafb';
+        e.currentTarget.style.backgroundColor = isUnread ? '#ffffff' : '#f9fafb';
       }}
     >
+      {/* Unread indicator - blue dot */}
+      {isUnread && (
+        <div
+          style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: '#3b82f6',
+            flexShrink: 0,
+            marginRight: '8px',
+          }}
+        />
+      )}
+
+      {/* Spacer for read emails to maintain alignment */}
+      {!isUnread && (
+        <div style={{ width: '8px', marginRight: '8px' }} />
+      )}
+
       {/* Sender avatar */}
       <div
         style={{
           width: '40px',
           height: '40px',
           borderRadius: '50%',
-          backgroundColor: '#3b82f6',
+          backgroundColor: isUnread ? '#3b82f6' : '#9ca3af',
           color: '#ffffff',
           display: 'flex',
           alignItems: 'center',
@@ -142,7 +163,7 @@ export function EmailRow({ email, onClick, onArchive, onCreateTask }: EmailRowPr
         <div
           style={{
             fontSize: '14px',
-            fontWeight: '500',
+            fontWeight: isUnread ? '600' : '500',
             color: '#111827',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -157,7 +178,8 @@ export function EmailRow({ email, onClick, onArchive, onCreateTask }: EmailRowPr
         <div
           style={{
             fontSize: '13px',
-            color: '#6b7280',
+            fontWeight: isUnread ? '500' : '400',
+            color: isUnread ? '#1f2937' : '#6b7280',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',

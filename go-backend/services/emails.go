@@ -30,8 +30,8 @@ func (s *EmailService) CreateEmail(ctx context.Context, email models.Email) (*mo
 		INSERT INTO emails (
 			user_id, email_account_id, message_id, thread_id, subject,
 			from_address, from_name, to_addresses, body_text, body_html,
-			received_at, folder, imap_uid, status
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+			received_at, folder, imap_uid, status, is_read
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		ON CONFLICT (user_id, message_id) DO UPDATE SET
 			subject = EXCLUDED.subject,
 			from_address = EXCLUDED.from_address,
@@ -40,10 +40,11 @@ func (s *EmailService) CreateEmail(ctx context.Context, email models.Email) (*mo
 			body_html = EXCLUDED.body_html,
 			folder = EXCLUDED.folder,
 			imap_uid = EXCLUDED.imap_uid,
+			is_read = EXCLUDED.is_read,
 			updated_at = NOW()
 		RETURNING id, user_id, email_account_id, message_id, thread_id, subject,
 			from_address, from_name, to_addresses, body_text, body_html,
-			received_at, folder, imap_uid, status, created_at, updated_at
+			received_at, folder, imap_uid, status, is_read, created_at, updated_at
 	`
 
 	// Handle nullable fields
@@ -102,7 +103,7 @@ func (s *EmailService) CreateEmail(ctx context.Context, email models.Email) (*mo
 	err := s.db.QueryRowContext(ctx, query,
 		email.UserID, accountID, email.MessageID, threadID, subject,
 		fromAddress, fromName, toAddresses, bodyText, bodyHTML,
-		receivedAt, folder, imapUID, status,
+		receivedAt, folder, imapUID, status, email.IsRead,
 	).Scan(
 		&result.ID,
 		&result.UserID,
@@ -119,6 +120,7 @@ func (s *EmailService) CreateEmail(ctx context.Context, email models.Email) (*mo
 		&result.Folder,
 		&result.IMAPUID,
 		&result.Status,
+		&result.IsRead,
 		&result.CreatedAt,
 		&result.UpdatedAt,
 	)
@@ -150,6 +152,12 @@ func (s *EmailService) ListEmails(ctx context.Context, userID int, filters model
 		argPos++
 	}
 
+	if filters.IsRead != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("is_read = $%d", argPos))
+		args = append(args, *filters.IsRead)
+		argPos++
+	}
+
 	whereClause := strings.Join(whereConditions, " AND ")
 
 	// Get total count
@@ -174,7 +182,7 @@ func (s *EmailService) ListEmails(ctx context.Context, userID int, filters model
 	query := fmt.Sprintf(`
 		SELECT id, user_id, email_account_id, message_id, thread_id, subject,
 			from_address, from_name, to_addresses, body_text, body_html,
-			received_at, folder, imap_uid, status, created_at, updated_at
+			received_at, folder, imap_uid, status, is_read, created_at, updated_at
 		FROM emails
 		WHERE %s
 		ORDER BY received_at DESC NULLS LAST, created_at DESC
@@ -220,6 +228,7 @@ func (s *EmailService) ListEmails(ctx context.Context, userID int, filters model
 			&folder,
 			&imapUID,
 			&email.Status,
+			&email.IsRead,
 			&email.CreatedAt,
 			&email.UpdatedAt,
 		)
@@ -292,7 +301,7 @@ func (s *EmailService) GetEmailByID(ctx context.Context, userID, emailID int) (*
 	err := s.db.QueryRowContext(ctx, `
 		SELECT id, user_id, email_account_id, message_id, thread_id, subject,
 			from_address, from_name, to_addresses, body_text, body_html,
-			received_at, folder, imap_uid, status, created_at, updated_at
+			received_at, folder, imap_uid, status, is_read, created_at, updated_at
 		FROM emails
 		WHERE id = $1 AND user_id = $2
 	`, emailID, userID).Scan(
@@ -311,6 +320,7 @@ func (s *EmailService) GetEmailByID(ctx context.Context, userID, emailID int) (*
 		&folder,
 		&imapUID,
 		&email.Status,
+		&email.IsRead,
 		&email.CreatedAt,
 		&email.UpdatedAt,
 	)
@@ -426,7 +436,7 @@ func (s *EmailService) UpdateEmailStatus(ctx context.Context, userID, emailID in
 		WHERE id = $2 AND user_id = $3
 		RETURNING id, user_id, email_account_id, message_id, thread_id, subject,
 			from_address, from_name, to_addresses, body_text, body_html,
-			received_at, folder, imap_uid, status, created_at, updated_at
+			received_at, folder, imap_uid, status, is_read, created_at, updated_at
 	`, status, emailID, userID).Scan(
 		&email.ID,
 		&email.UserID,
@@ -443,6 +453,7 @@ func (s *EmailService) UpdateEmailStatus(ctx context.Context, userID, emailID in
 		&folder,
 		&imapUID,
 		&email.Status,
+		&email.IsRead,
 		&email.CreatedAt,
 		&email.UpdatedAt,
 	)

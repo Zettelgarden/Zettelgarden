@@ -149,7 +149,7 @@ export function Sidebar() {
   useEffect(() => {
     async function fetchUnreadEmailCount() {
       try {
-        const response = await listEmails({ status: "unprocessed", limit: 1 });
+        const response = await listEmails({ status: "unprocessed", is_read: false, limit: 1 });
         setUnreadEmailCount(response.total ?? 0);
       } catch (error) {
         console.error("Failed to fetch unread email count:", error);
