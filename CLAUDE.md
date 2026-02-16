@@ -73,6 +73,10 @@ docker-compose up  # Start all services locally
   - Conversion: Selectively convert interesting articles to cards
   - Folders: Organize feeds into folders for better navigation
   - Scheduled Fetch: Background job fetches new articles every 60 minutes
+  - Starring: Star/unstar articles for later reference
+    - Star icon in article list and reader view
+    - Dedicated Starred feed in sidebar
+    - Filtered API endpoint for starred articles
 - **Search**: Vector search with embeddings, traditional text search, and starred searches
   - Quick search functionality with keyboard shortcuts
   - Search result starring and management
