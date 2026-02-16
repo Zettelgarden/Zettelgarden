@@ -29,6 +29,7 @@ export interface RSSArticle {
   fetched_at: string;
   read: boolean;
   card_id?: number;
+  is_starred?: boolean;
 }
 
 export interface RSSFolder {
@@ -82,6 +83,7 @@ export interface ArticleFilters {
   folder?: string;
   unread?: boolean;
   feed_id?: number;
+  starred?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -165,6 +167,7 @@ export function listArticles(filters?: ArticleFilters): Promise<PaginatedArticle
   if (filters?.folder) params.set("folder", filters.folder);
   if (filters?.unread) params.set("unread", "true");
   if (filters?.feed_id) params.set("feed_id", filters.feed_id.toString());
+  if (filters?.starred) params.set("starred", "true");
   if (filters?.limit) params.set("limit", filters.limit.toString());
   if (filters?.offset) params.set("offset", filters.offset.toString());
 
@@ -197,6 +200,14 @@ export function markAsRead(id: number, read: boolean = true): Promise<void> {
 
 export function convertToCard(id: number, params?: ConvertArticleParams): Promise<ConvertCardResponse> {
   return getData(apiClient.post<ConvertCardResponse>(`/rss/articles/${id}/convert`, params));
+}
+
+export function starArticle(id: number): Promise<void> {
+  return getData(apiClient.post<void>(`/rss/articles/${id}/star`, {}));
+}
+
+export function unstarArticle(id: number): Promise<void> {
+  return getData(apiClient.delete<void>(`/rss/articles/${id}/star`));
 }
 
 // Folder API
