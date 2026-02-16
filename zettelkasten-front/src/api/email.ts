@@ -5,11 +5,13 @@ export interface EmailAccount {
   id: number;
   user_id: number;
   email_address: string;
-  jmap_server_url: string;
+  imap_server?: string;
+  imap_server_type?: string;
   is_active: boolean;
   last_sync_at?: string;
   sync_status: string;
-  jmap_state?: string;
+  imap_uid?: number;
+  imap_uid_validity?: number;
   created_at: string;
   updated_at: string;
 }
@@ -35,7 +37,7 @@ export interface Email {
 
 export interface CreateEmailAccountParams {
   email_address: string;
-  api_token: string;
+  app_password: string;
 }
 
 export interface EmailListFilters {

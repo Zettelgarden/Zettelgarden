@@ -32,19 +32,19 @@ func NewEmailAccountService(db *sql.DB) *EmailAccountService {
 func (s *EmailAccountService) CreateEmailAccount(ctx context.Context, userID int, params models.CreateEmailAccountParams, encryptionKey string) (*models.EmailAccount, error) {
 	// Encrypt the app password using EncryptionService if available
 	var encryptedPassword *string
-	if params.ApiToken != nil && *params.ApiToken != "" {
+	if params.AppPassword != nil && *params.AppPassword != "" {
 		var err error
 		var encrypted string
 
 		// Use EncryptionService if available, otherwise fall back to placeholder
 		if s.encryptionService != nil {
-			encrypted, err = s.encryptionService.Encrypt(*params.ApiToken)
+			encrypted, err = s.encryptionService.Encrypt(*params.AppPassword)
 			if err != nil {
 				return nil, fmt.Errorf("failed to encrypt app password: %w", err)
 			}
 		} else {
 			// Fallback to base64 placeholder if encryption service not available
-			encrypted, err = encryptApiToken(*params.ApiToken, encryptionKey)
+			encrypted, err = encryptAppPassword(*params.AppPassword, encryptionKey)
 			if err != nil {
 				return nil, fmt.Errorf("failed to encrypt app password: %w", err)
 			}
@@ -52,16 +52,16 @@ func (s *EmailAccountService) CreateEmailAccount(ctx context.Context, userID int
 		encryptedPassword = &encrypted
 	}
 
-	// Set default JMAP server URL
-	jmapServerURL := "https://api.fastmail.com/jmap/session"
+	// Set default IMAP server
+	imapServer := "imap.fastmail.com:993"
 
 	// Insert into database
 	var accountID int
 	err := s.db.QueryRowContext(ctx, `
-		INSERT INTO email_accounts (user_id, email_address, jmap_server_url, api_token_encrypted, is_active, sync_status)
-		VALUES ($1, $2, $3, $4, true, 'active')
+		INSERT INTO email_accounts (user_id, email_address, imap_server, imap_server_type, app_password_encrypted, is_active, sync_status)
+		VALUES ($1, $2, $3, 'imap', $4, true, 'active')
 		RETURNING id
-	`, userID, params.EmailAddress, jmapServerURL, encryptedPassword).Scan(&accountID)
+	`, userID, params.EmailAddress, imapServer, encryptedPassword).Scan(&accountID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create email account: %w", err)
 	}
@@ -74,8 +74,8 @@ func (s *EmailAccountService) CreateEmailAccount(ctx context.Context, userID int
 // GetEmailAccounts retrieves all email accounts for a user
 func (s *EmailAccountService) GetEmailAccounts(ctx context.Context, userID int) ([]models.EmailAccount, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, user_id, email_address, jmap_server_url, api_token_encrypted,
-		       is_active, last_sync_at, sync_status, jmap_state, created_at, updated_at
+		SELECT id, user_id, email_address, imap_server, imap_server_type, app_password_encrypted,
+		       is_active, last_sync_at, sync_status, imap_uid, imap_uid_validity, created_at, updated_at
 		FROM email_accounts
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -89,19 +89,22 @@ func (s *EmailAccountService) GetEmailAccounts(ctx context.Context, userID int) 
 	for rows.Next() {
 		var account models.EmailAccount
 		var encryptedPassword sql.NullString
-		var jmapState sql.NullString
+		var imapUID sql.NullInt64
+		var imapUIDValidity sql.NullInt64
 		var lastSyncTime sql.NullTime
 
 		err := rows.Scan(
 			&account.ID,
 			&account.UserID,
 			&account.EmailAddress,
-			&account.JMAPServerURL,
+			&account.IMAPServer,
+			&account.IMAPServerType,
 			&encryptedPassword,
 			&account.IsActive,
 			&lastSyncTime,
 			&account.SyncStatus,
-			&jmapState,
+			&imapUID,
+			&imapUIDValidity,
 			&account.CreatedAt,
 			&account.UpdatedAt,
 		)
@@ -110,13 +113,18 @@ func (s *EmailAccountService) GetEmailAccounts(ctx context.Context, userID int) 
 		}
 
 		if encryptedPassword.Valid {
-			account.ApiTokenEncrypted = &encryptedPassword.String
+			account.AppPasswordEncrypted = &encryptedPassword.String
 		}
 		if lastSyncTime.Valid {
 			account.LastSyncAt = &lastSyncTime.Time
 		}
-		if jmapState.Valid {
-			account.JMAPState = &jmapState.String
+		if imapUID.Valid {
+			uid := int(imapUID.Int64)
+			account.IMAPUID = &uid
+		}
+		if imapUIDValidity.Valid {
+			validity := int(imapUIDValidity.Int64)
+			account.IMAPUIDValidity = &validity
 		}
 
 		accounts = append(accounts, account)
@@ -133,24 +141,27 @@ func (s *EmailAccountService) GetEmailAccounts(ctx context.Context, userID int) 
 func (s *EmailAccountService) GetEmailAccountByID(ctx context.Context, userID, accountID int) (*models.EmailAccount, error) {
 	var account models.EmailAccount
 	var encryptedPassword sql.NullString
-	var jmapState sql.NullString
+	var imapUID sql.NullInt64
+	var imapUIDValidity sql.NullInt64
 	var lastSyncTime sql.NullTime
 
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, user_id, email_address, jmap_server_url, api_token_encrypted,
-		       is_active, last_sync_at, sync_status, jmap_state, created_at, updated_at
+		SELECT id, user_id, email_address, imap_server, imap_server_type, app_password_encrypted,
+		       is_active, last_sync_at, sync_status, imap_uid, imap_uid_validity, created_at, updated_at
 		FROM email_accounts
 		WHERE id = $1 AND user_id = $2
 	`, accountID, userID).Scan(
 		&account.ID,
 		&account.UserID,
 		&account.EmailAddress,
-		&account.JMAPServerURL,
+		&account.IMAPServer,
+		&account.IMAPServerType,
 		&encryptedPassword,
 		&account.IsActive,
 		&lastSyncTime,
 		&account.SyncStatus,
-		&jmapState,
+		&imapUID,
+		&imapUIDValidity,
 		&account.CreatedAt,
 		&account.UpdatedAt,
 	)
@@ -162,13 +173,18 @@ func (s *EmailAccountService) GetEmailAccountByID(ctx context.Context, userID, a
 	}
 
 	if encryptedPassword.Valid {
-		account.ApiTokenEncrypted = &encryptedPassword.String
+		account.AppPasswordEncrypted = &encryptedPassword.String
 	}
 	if lastSyncTime.Valid {
 		account.LastSyncAt = &lastSyncTime.Time
 	}
-	if jmapState.Valid {
-		account.JMAPState = &jmapState.String
+	if imapUID.Valid {
+		uid := int(imapUID.Int64)
+		account.IMAPUID = &uid
+	}
+	if imapUIDValidity.Valid {
+		validity := int(imapUIDValidity.Int64)
+		account.IMAPUIDValidity = &validity
 	}
 
 	return &account, nil
@@ -243,11 +259,13 @@ func (s *EmailAccountService) UpdateLastSync(ctx context.Context, userID, accoun
 	return nil
 }
 
-// UpdateJMAPState updates the jmap_state for an account
-func (s *EmailAccountService) UpdateJMAPState(ctx context.Context, userID, accountID int, state string) error {
-	result, err := s.db.ExecContext(ctx, "UPDATE email_accounts SET jmap_state = $1 WHERE id = $2 AND user_id = $3", state, accountID, userID)
+// UpdateIMAPState updates the imap_uid and imap_uid_validity for an account
+func (s *EmailAccountService) UpdateIMAPState(ctx context.Context, userID, accountID int, uid, uidValidity uint32) error {
+	result, err := s.db.ExecContext(ctx,
+		"UPDATE email_accounts SET imap_uid = $1, imap_uid_validity = $2 WHERE id = $3 AND user_id = $4",
+		uid, uidValidity, accountID, userID)
 	if err != nil {
-		return fmt.Errorf("failed to update JMAP state: %w", err)
+		return fmt.Errorf("failed to update IMAP state: %w", err)
 	}
 
 	rows, _ := result.RowsAffected()
@@ -273,17 +291,17 @@ func (s *EmailAccountService) UpdateSyncStatus(ctx context.Context, userID, acco
 	return nil
 }
 
-// encryptApiToken encrypts an app password using base64 as fallback
+// encryptAppPassword encrypts an app password using base64 as fallback
 // This is only used when EncryptionService is not available (e.g., in tests)
-func encryptApiToken(password, key string) (string, error) {
+func encryptAppPassword(password, key string) (string, error) {
 	// Placeholder: base64 encode
 	// In production, EncryptionService should always be available
 	return encryptionServiceFallback(password)
 }
 
-// decryptApiToken decrypts an encrypted app password using base64 as fallback
+// decryptAppPassword decrypts an encrypted app password using base64 as fallback
 // This is only used when EncryptionService is not available (e.g., in tests)
-func decryptApiToken(encrypted, key string) (string, error) {
+func decryptAppPassword(encrypted, key string) (string, error) {
 	// Placeholder: base64 decode
 	// In production, EncryptionService should always be available
 	return decryptionServiceFallback(encrypted)
@@ -331,12 +349,16 @@ func decodeBase64(s string) (string, error) {
 
 // doBase64Encode is the actual base64 encoding implementation
 func doBase64Encode(s string) string {
-	return base64Encode(s)
+	return base64.StdEncoding.EncodeToString([]byte(s))
 }
 
 // doBase64Decode is the actual base64 decoding implementation
 func doBase64Decode(s string) (string, error) {
-	return base64Decode(s)
+	decoded, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return "", err
+	}
+	return string(decoded), nil
 }
 
 // base64Encode encodes a string to base64
@@ -353,9 +375,9 @@ func base64Decode(s string) (string, error) {
 	return string(decoded), nil
 }
 
-// DecryptApiToken is exported for use by sync jobs
+// DecryptAppPassword is exported for use by sync jobs
 // This function uses EncryptionService if available, otherwise falls back to base64
-func DecryptApiToken(encrypted, key string) (string, error) {
+func DecryptAppPassword(encrypted, key string) (string, error) {
 	// Try to use EncryptionService if available
 	encryptionService, err := NewEncryptionService()
 	if err == nil && encryptionService != nil {
@@ -363,5 +385,5 @@ func DecryptApiToken(encrypted, key string) (string, error) {
 	}
 
 	// Fallback to base64 decoding
-	return decryptApiToken(encrypted, key)
+	return decryptAppPassword(encrypted, key)
 }

@@ -34,8 +34,8 @@ func (h *Handler) CreateEmailAccountRoute(w http.ResponseWriter, r *http.Request
 	}
 
 	// Validate app password
-	if params.ApiToken == nil || *params.ApiToken == "" {
-		http.Error(w, "api_token is required", http.StatusBadRequest)
+	if params.AppPassword == nil || *params.AppPassword == "" {
+		http.Error(w, "app_password is required", http.StatusBadRequest)
 		return
 	}
 
@@ -56,11 +56,11 @@ func (h *Handler) CreateEmailAccountRoute(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Verify credentials by connecting to Fastmail
+	// Verify credentials by connecting to Fastmail via IMAP
 	log.Printf("[email-sync] verifying credentials for account %d (%s)", account.ID, account.EmailAddress)
 
 	// Decrypt the app password
-	password, err := services.DecryptApiToken(*account.ApiTokenEncrypted, "")
+	password, err := services.DecryptAppPassword(*account.AppPasswordEncrypted, "")
 	if err != nil {
 		log.Printf("[email-sync] failed to decrypt password for account %d: %v", account.ID, err)
 		// Delete the account since we can't use it
@@ -69,9 +69,9 @@ func (h *Handler) CreateEmailAccountRoute(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Create JMAP client and try to connect
-	jmapClient := services.NewJMAPClient(account.JMAPServerURL, password)
-	if err := jmapClient.Connect(context.Background()); err != nil {
+	// Create IMAP client and try to connect
+	imapClient := services.NewIMAPClient(account.IMAPServer, account.EmailAddress, password)
+	if err := imapClient.Connect(context.Background()); err != nil {
 		log.Printf("[email-sync] credential verification failed for account %d: %v", account.ID, err)
 		// Delete the account since credentials are invalid
 		_ = accountService.DeleteEmailAccount(context.Background(), userID, account.ID)
@@ -84,6 +84,7 @@ func (h *Handler) CreateEmailAccountRoute(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Failed to connect to Fastmail: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	imapClient.Close()
 
 	log.Printf("[email-sync] credential verification successful for account %d (%s)", account.ID, account.EmailAddress)
 
@@ -218,7 +219,7 @@ func (h *Handler) SyncEmailAccountRoute(w http.ResponseWriter, r *http.Request) 
 	log.Printf("[email-sync] starting sync for account %d (%s)", accountID, account.EmailAddress)
 
 	// Decrypt the app password
-	password, err := services.DecryptApiToken(*account.ApiTokenEncrypted, "")
+	password, err := services.DecryptAppPassword(*account.AppPasswordEncrypted, "")
 	if err != nil {
 		log.Printf("[email-sync] failed to decrypt password for account %d: %v", accountID, err)
 		accountService.UpdateSyncStatus(context.Background(), userID, accountID, "error")
@@ -226,17 +227,26 @@ func (h *Handler) SyncEmailAccountRoute(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Create JMAP client and connect
-	jmapClient := services.NewJMAPClient(account.JMAPServerURL, password)
-	if err := jmapClient.Connect(context.Background()); err != nil {
-		log.Printf("[email-sync] failed to connect to JMAP server for account %d: %v", accountID, err)
+	// Create IMAP client and connect
+	imapClient := services.NewIMAPClient(account.IMAPServer, account.EmailAddress, password)
+	if err := imapClient.Connect(context.Background()); err != nil {
+		log.Printf("[email-sync] failed to connect to IMAP server for account %d: %v", accountID, err)
 		accountService.UpdateSyncStatus(context.Background(), userID, accountID, "error")
 		http.Error(w, "Failed to connect to Fastmail: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	defer imapClient.Close()
 
-	// Fetch emails from Fastmail
-	emails, queryState, err := jmapClient.FetchEmails(context.Background(), 50)
+	// Select INBOX
+	if err := imapClient.SelectInbox(context.Background()); err != nil {
+		log.Printf("[email-sync] failed to select INBOX for account %d: %v", accountID, err)
+		accountService.UpdateSyncStatus(context.Background(), userID, accountID, "error")
+		http.Error(w, "Failed to select INBOX: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Fetch recent emails
+	emails, maxUID, err := imapClient.FetchRecentEmails(context.Background(), 50)
 	if err != nil {
 		log.Printf("[email-sync] failed to fetch emails for account %d: %v", accountID, err)
 		accountService.UpdateSyncStatus(context.Background(), userID, accountID, "error")
@@ -263,10 +273,11 @@ func (h *Handler) SyncEmailAccountRoute(w http.ResponseWriter, r *http.Request) 
 
 	log.Printf("[email-sync] stored %d/%d emails for account %d", storedCount, len(emails), accountID)
 
-	// Update last_sync_at and jmap_state
-	err = accountService.UpdateJMAPState(context.Background(), userID, accountID, queryState)
+	// Update last_sync_at and IMAP state
+	currentUIDValidity := imapClient.GetUIDValidity()
+	err = accountService.UpdateIMAPState(context.Background(), userID, accountID, maxUID, currentUIDValidity)
 	if err != nil {
-		log.Printf("[email-sync] warning: failed to update JMAP state for account %d: %v", accountID, err)
+		log.Printf("[email-sync] warning: failed to update IMAP state for account %d: %v", accountID, err)
 	}
 
 	// Update sync status to "active"
@@ -277,8 +288,8 @@ func (h *Handler) SyncEmailAccountRoute(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"message":      "Sync completed successfully",
-		"account_id":   accountID,
+		"message":       "Sync completed successfully",
+		"account_id":    accountID,
 		"emails_fetched": len(emails),
 		"emails_stored":  storedCount,
 	})

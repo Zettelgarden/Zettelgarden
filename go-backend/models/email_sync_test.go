@@ -6,35 +6,42 @@ import (
 )
 
 func TestEmailAccountModel(t *testing.T) {
-	jmapServerURL := "https://api.fastmail.com/jmap/session"
+	imapServer := "imap.fastmail.com:993"
 	appPasswordEncrypted := "encrypted_password_here"
 	syncTime := time.Now()
-	jmapState := "state_token"
+	imapUID := 12345
+	imapUIDValidity := 67890
 
 	account := EmailAccount{
-		ID:                  1,
-		UserID:              1,
-		EmailAddress:        "user@example.com",
-		JMAPServerURL:       jmapServerURL,
-		ApiTokenEncrypted:  &appPasswordEncrypted,
-		IsActive:            true,
-		LastSyncAt:          &syncTime,
-		SyncStatus:          "active",
-		JMAPState:           &jmapState,
-		CreatedAt:           time.Now(),
-		UpdatedAt:           time.Now(),
+		ID:                    1,
+		UserID:                1,
+		EmailAddress:          "user@example.com",
+		IMAPServer:            imapServer,
+		IMAPServerType:        "imap",
+		AppPasswordEncrypted:  &appPasswordEncrypted,
+		IsActive:              true,
+		LastSyncAt:            &syncTime,
+		SyncStatus:            "active",
+		IMAPUID:               &imapUID,
+		IMAPUIDValidity:       &imapUIDValidity,
+		CreatedAt:             time.Now(),
+		UpdatedAt:             time.Now(),
 	}
 
 	if account.EmailAddress != "user@example.com" {
 		t.Errorf("expected EmailAddress to be user@example.com, got %s", account.EmailAddress)
 	}
 
-	if account.JMAPServerURL != jmapServerURL {
-		t.Errorf("expected JMAPServerURL to be %s, got %s", jmapServerURL, account.JMAPServerURL)
+	if account.IMAPServer != imapServer {
+		t.Errorf("expected IMAPServer to be %s, got %s", imapServer, account.IMAPServer)
 	}
 
-	if account.ApiTokenEncrypted == nil || *account.ApiTokenEncrypted != appPasswordEncrypted {
-		t.Errorf("expected ApiTokenEncrypted to be %s, got %v", appPasswordEncrypted, account.ApiTokenEncrypted)
+	if account.IMAPServerType != "imap" {
+		t.Errorf("expected IMAPServerType to be imap, got %s", account.IMAPServerType)
+	}
+
+	if account.AppPasswordEncrypted == nil || *account.AppPasswordEncrypted != appPasswordEncrypted {
+		t.Errorf("expected AppPasswordEncrypted to be %s, got %v", appPasswordEncrypted, account.AppPasswordEncrypted)
 	}
 
 	if account.IsActive != true {
@@ -45,8 +52,12 @@ func TestEmailAccountModel(t *testing.T) {
 		t.Errorf("expected SyncStatus to be active, got %s", account.SyncStatus)
 	}
 
-	if account.JMAPState == nil || *account.JMAPState != jmapState {
-		t.Errorf("expected JMAPState to be %s, got %v", jmapState, account.JMAPState)
+	if account.IMAPUID == nil || *account.IMAPUID != imapUID {
+		t.Errorf("expected IMAPUID to be %d, got %v", imapUID, account.IMAPUID)
+	}
+
+	if account.IMAPUIDValidity == nil || *account.IMAPUIDValidity != imapUIDValidity {
+		t.Errorf("expected IMAPUIDValidity to be %d, got %v", imapUIDValidity, account.IMAPUIDValidity)
 	}
 }
 
@@ -162,15 +173,15 @@ func TestCreateEmailAccountParams(t *testing.T) {
 
 	params := CreateEmailAccountParams{
 		EmailAddress: "user@example.com",
-		ApiToken:     &appPassword,
+		AppPassword:  &appPassword,
 	}
 
 	if params.EmailAddress != "user@example.com" {
 		t.Errorf("expected EmailAddress to be user@example.com, got %s", params.EmailAddress)
 	}
 
-	if params.ApiToken == nil || *params.ApiToken != appPassword {
-		t.Errorf("expected ApiToken to be %s, got %v", appPassword, params.ApiToken)
+	if params.AppPassword == nil || *params.AppPassword != appPassword {
+		t.Errorf("expected AppPassword to be %s, got %v", appPassword, params.AppPassword)
 	}
 }
 

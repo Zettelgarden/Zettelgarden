@@ -4,17 +4,19 @@ import "time"
 
 // EmailAccount represents a configured email account for synchronization
 type EmailAccount struct {
-	ID                 int        `json:"id"`
-	UserID             int        `json:"user_id"`
-	EmailAddress       string     `json:"email_address"`
-	JMAPServerURL      string     `json:"jmap_server_url"`
-	ApiTokenEncrypted  *string    `json:"api_token_encrypted,omitempty"`
-	IsActive           bool       `json:"is_active"`
-	LastSyncAt         *time.Time `json:"last_sync_at,omitempty"`
-	SyncStatus         string     `json:"sync_status"`
-	JMAPState          *string    `json:"jmap_state,omitempty"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
+	ID                     int        `json:"id"`
+	UserID                 int        `json:"user_id"`
+	EmailAddress           string     `json:"email_address"`
+	IMAPServer             string     `json:"imap_server,omitempty"`             // e.g., "imap.fastmail.com:993"
+	IMAPServerType         string     `json:"imap_server_type,omitempty"`      // "imap"
+	AppPasswordEncrypted   *string    `json:"app_password_encrypted,omitempty"` // Encrypted app password
+	IsActive               bool       `json:"is_active"`
+	LastSyncAt             *time.Time `json:"last_sync_at,omitempty"`
+	SyncStatus             string     `json:"sync_status"`
+	IMAPUID                *int       `json:"imap_uid,omitempty"`    // Last UID synced
+	IMAPUIDValidity        *int       `json:"imap_uid_validity,omitempty"` // UIDVALIDITY for mailbox
+	CreatedAt              time.Time  `json:"created_at"`
+	UpdatedAt              time.Time  `json:"updated_at"`
 }
 
 // Email represents a synchronized email message
@@ -58,8 +60,8 @@ type EmailCardLink struct {
 
 // CreateEmailAccountParams represents parameters for creating an email account
 type CreateEmailAccountParams struct {
-	EmailAddress string  `json:"email_address"`
-	ApiToken     *string `json:"api_token,omitempty"`
+	EmailAddress   string  `json:"email_address"`
+	AppPassword    *string `json:"app_password,omitempty"` // App password (will be encrypted)
 }
 
 // UpdateEmailAccountParams represents parameters for updating an email account

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { listEmails, createEmailAccount, syncEmailAccount, Email } from "../api/email";
+import { listEmails, listEmailAccounts, createEmailAccount, syncEmailAccount, Email, EmailAccount } from "../api/email";
 import { EmailList } from "../components/email/EmailList";
 import { setDocumentTitle } from "../utils/title";
 
@@ -20,6 +20,7 @@ export function EmailInboxPage() {
 
   // State management
   const [emails, setEmails] = useState<Email[]>([]);
+  const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [total, setTotal] = useState<number>(0);
@@ -27,6 +28,18 @@ export function EmailInboxPage() {
   const [accountPassword, setAccountPassword] = useState("");
   const [accountError, setAccountError] = useState("");
   const [isAddingAccount, setIsAddingAccount] = useState(false);
+
+  /**
+   * Fetch email accounts
+   */
+  const fetchEmailAccounts = useCallback(async () => {
+    try {
+      const accounts = await listEmailAccounts();
+      setEmailAccounts(accounts);
+    } catch (error) {
+      console.error("Failed to fetch email accounts:", error);
+    }
+  }, []);
 
   /**
    * Fetch emails from the API with the current status filter
@@ -49,10 +62,18 @@ export function EmailInboxPage() {
     }
   }, [statusFilter]);
 
-  // Fetch emails when component mounts or filter changes
+  // Fetch accounts and emails when component mounts
   useEffect(() => {
+    fetchEmailAccounts();
     fetchEmails();
-  }, [fetchEmails]);
+  }, [fetchEmails, fetchEmailAccounts]);
+
+  // Fetch emails when filter changes
+  useEffect(() => {
+    if (emailAccounts.length > 0) {
+      fetchEmails();
+    }
+  }, [fetchEmails, emailAccounts.length]);
 
   // Update document title based on filter
   useEffect(() => {
@@ -88,7 +109,7 @@ export function EmailInboxPage() {
     try {
       const account = await createEmailAccount({
         email_address: accountEmail,
-        api_token: accountPassword,
+        app_password: accountPassword,
       });
 
       // Clear form
@@ -99,7 +120,8 @@ export function EmailInboxPage() {
       console.log("Triggering initial sync for account", account.id);
       await syncEmailAccount(account.id);
 
-      // Reload emails
+      // Reload accounts and emails
+      fetchEmailAccounts();
       fetchEmails();
     } catch (error: any) {
       setAccountError(error.message || "Failed to add account");
@@ -185,10 +207,10 @@ export function EmailInboxPage() {
           backgroundColor: '#ffffff',
         }}
       >
-        {emails.length === 0 && !loading ? (
+        {emailAccounts.length === 0 && !loading ? (
           <div style={{ padding: '48px', textAlign: 'center' }}>
-            <h2 style={{ fontSize: '20px', marginBottom: '16px' }}>Connect Your Fastmail Account</h2>
-            <p style={{ marginBottom: '24px' }}>Add your Fastmail account to start syncing emails</p>
+            <h2 style={{ fontSize: '20px', marginBottom: '16px' }}>Connect Your Email Account</h2>
+            <p style={{ marginBottom: '24px' }}>Add your email account to start syncing emails</p>
 
             <div style={{ maxWidth: '400px', margin: '0 auto', textAlign: 'left' }}>
               <div style={{ marginBottom: '16px' }}>
@@ -199,24 +221,24 @@ export function EmailInboxPage() {
                   type="email"
                   value={accountEmail}
                   onChange={(e) => setAccountEmail(e.target.value)}
-                  placeholder="you@fastmail.com"
+                  placeholder="you@example.com"
                   style={{ width: '100%', padding: '8px', border: '1px solid #d1d5db', borderRadius: '4px' }}
                 />
               </div>
 
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-                  API Token
+                  App Password
                 </label>
                 <input
                   type="password"
                   value={accountPassword}
                   onChange={(e) => setAccountPassword(e.target.value)}
-                  placeholder="Your Fastmail API token"
+                  placeholder="Your Fastmail app password"
                   style={{ width: '100%', padding: '8px', border: '1px solid #d1d5db', borderRadius: '4px' }}
                 />
                 <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-                  Create an API token in Fastmail → Settings → API
+                  Create an app password in Fastmail → Settings → Password & Security
                 </p>
               </div>
 

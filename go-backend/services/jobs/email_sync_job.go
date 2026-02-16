@@ -12,7 +12,7 @@ import (
 	"go-backend/services"
 )
 
-// EmailSyncJob fetches emails from active Fastmail accounts via JMAP
+// EmailSyncJob fetches emails from active email accounts via IMAP
 type EmailSyncJob struct {
 	db       *sql.DB
 	schedule string
@@ -53,11 +53,13 @@ func (j *EmailSyncJob) NextRun(from time.Time) time.Time {
 
 // emailAccount represents an email account to sync
 type emailAccount struct {
-	ID                   int
-	UserID               int
-	EmailAddress         string
-	ApiTokenEncrypted string
-	JMAPState            *string
+	ID              int
+	UserID          int
+	EmailAddress    string
+	IMAPServer      string
+	AppPasswordEncrypted string
+	IMAPUID         *int
+	IMAPUIDValidity *int
 }
 
 // Handler executes the email sync job logic
@@ -71,7 +73,7 @@ func (j *EmailSyncJob) Handler(ctx context.Context) error {
 
 	// Query active email accounts
 	rows, err := j.db.QueryContext(ctx, `
-		SELECT id, user_id, email_address, api_token_encrypted, jmap_state
+		SELECT id, user_id, email_address, imap_server, app_password_encrypted, imap_uid, imap_uid_validity
 		FROM email_accounts
 		WHERE is_active = true AND sync_status = 'active'
 	`)
@@ -84,16 +86,22 @@ func (j *EmailSyncJob) Handler(ctx context.Context) error {
 	var accountsToSync []emailAccount
 	for rows.Next() {
 		var account emailAccount
-		var jmapState sql.NullString
+		var imapUID sql.NullInt64
+		var imapUIDValidity sql.NullInt64
 
-		err := rows.Scan(&account.ID, &account.UserID, &account.EmailAddress, &account.ApiTokenEncrypted, &jmapState)
+		err := rows.Scan(&account.ID, &account.UserID, &account.EmailAddress, &account.IMAPServer, &account.AppPasswordEncrypted, &imapUID, &imapUIDValidity)
 		if err != nil {
 			log.Printf("[email-sync] failed to scan account row: %v", err)
 			continue
 		}
 
-		if jmapState.Valid {
-			account.JMAPState = &jmapState.String
+		if imapUID.Valid {
+			uid := int(imapUID.Int64)
+			account.IMAPUID = &uid
+		}
+		if imapUIDValidity.Valid {
+			validity := int(imapUIDValidity.Int64)
+			account.IMAPUIDValidity = &validity
 		}
 
 		accountsToSync = append(accountsToSync, account)
@@ -123,31 +131,49 @@ func (j *EmailSyncJob) Handler(ctx context.Context) error {
 // syncAccount handles syncing a single account
 func (j *EmailSyncJob) syncAccount(ctx context.Context, account emailAccount) (int, error) {
 	// Decrypt the app password
-	password, err := services.DecryptApiToken(account.ApiTokenEncrypted, "")
+	password, err := services.DecryptAppPassword(account.AppPasswordEncrypted, "")
 	if err != nil {
 		log.Printf("[email-sync] failed to decrypt password for account %d: %v", account.ID, err)
 		return 0, err
 	}
 
-	// Create JMAP client
-	client := services.NewJMAPClient("https://api.fastmail.com/jmap/session", password)
+	// Create IMAP client
+	client := services.NewIMAPClient(account.IMAPServer, account.EmailAddress, password)
 
-	// Connect to JMAP
+	// Connect to IMAP
 	if err := client.Connect(ctx); err != nil {
-		log.Printf("[email-sync] failed to connect to JMAP for account %d: %v", account.ID, err)
+		log.Printf("[email-sync] failed to connect to IMAP for account %d: %v", account.ID, err)
 		// Update sync status to error
 		j.updateSyncStatus(ctx, account.ID, account.UserID, "error")
 		return 0, err
 	}
+	defer client.Close()
 
-	// Fetch emails (using state if available, otherwise initial fetch)
+	// Select INBOX
+	if err := client.SelectInbox(ctx); err != nil {
+		log.Printf("[email-sync] failed to select INBOX for account %d: %v", account.ID, err)
+		j.updateSyncStatus(ctx, account.ID, account.UserID, "error")
+		return 0, err
+	}
+
+	// Check for UIDVALIDITY changes
+	currentUIDValidity := client.GetUIDValidity()
+	if account.IMAPUIDValidity != nil && *account.IMAPUIDValidity != int(currentUIDValidity) {
+		log.Printf("[email-sync] UIDVALIDITY changed for account %d (old: %d, new: %d), doing full sync",
+			account.ID, *account.IMAPUIDValidity, currentUIDValidity)
+		account.IMAPUID = nil // Reset to force full sync
+	}
+
+	// Fetch emails (using UID if available, otherwise initial fetch)
 	var emails []models.Email
-	var newState string
+	var maxUID uint32
 
-	if account.JMAPState != nil && *account.JMAPState != "" {
-		emails, newState, err = client.FetchEmailsSince(ctx, *account.JMAPState, 100)
+	if account.IMAPUID != nil && *account.IMAPUID > 0 {
+		// Incremental sync
+		emails, maxUID, err = client.FetchEmailsSinceUID(ctx, uint32(*account.IMAPUID))
 	} else {
-		emails, newState, err = client.FetchEmails(ctx, 100)
+		// Initial fetch - get recent emails
+		emails, maxUID, err = client.FetchRecentEmails(ctx, 100)
 	}
 
 	if err != nil {
@@ -172,14 +198,14 @@ func (j *EmailSyncJob) syncAccount(ctx context.Context, account emailAccount) (i
 		}
 	}
 
-	// Update last_sync_at and jmap_state
+	// Update last_sync_at and IMAP state
 	now := time.Now()
 	accountService := services.NewEmailAccountService(j.db)
 	if err := accountService.UpdateLastSync(ctx, account.UserID, account.ID, now); err != nil {
 		log.Printf("[email-sync] failed to update last sync for account %d: %v", account.ID, err)
 	}
-	if err := accountService.UpdateJMAPState(ctx, account.UserID, account.ID, newState); err != nil {
-		log.Printf("[email-sync] failed to update JMAP state for account %d: %v", account.ID, err)
+	if err := accountService.UpdateIMAPState(ctx, account.UserID, account.ID, maxUID, currentUIDValidity); err != nil {
+		log.Printf("[email-sync] failed to update IMAP state for account %d: %v", account.ID, err)
 	}
 
 	// Update sync status to active
