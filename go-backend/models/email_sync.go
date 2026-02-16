@@ -34,6 +34,7 @@ type Email struct {
 	BodyHTML       *string    `json:"body_html,omitempty"`
 	ReceivedAt     *time.Time `json:"received_at,omitempty"`
 	Folder         *string    `json:"folder,omitempty"`
+	IMAPUID        *int64     `json:"imap_uid,omitempty"` // IMAP message UID for folder operations
 	Status         string     `json:"status"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`

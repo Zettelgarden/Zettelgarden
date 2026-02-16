@@ -337,6 +337,101 @@ func (c *IMAPClient) Close() error {
 	return nil
 }
 
+// MoveToArchive moves an email to the Archive folder
+func (c *IMAPClient) MoveToArchive(ctx context.Context, uid uint32) error {
+	if !c.connected {
+		return fmt.Errorf("not connected - call Connect() first")
+	}
+
+	archiveMailbox := "Archive"
+	seqSet := new(imap.SeqSet)
+	seqSet.AddNum(uid)
+
+	// Try MOVE command first (IMAP4rev2)
+	err := c.client.UidMove(seqSet, archiveMailbox)
+	if err == nil {
+		log.Printf("[imap] moved email UID %d to %s", uid, archiveMailbox)
+		return nil
+	}
+
+	// If MOVE is not supported, fall back to COPY + STORE + EXPUNGE
+	if strings.Contains(err.Error(), "MOVE") || strings.Contains(err.Error(), "unsupported") {
+		log.Printf("[imap] MOVE not supported, falling back to COPY + DELETE")
+
+		// First, copy the message to Archive
+		if err := c.client.UidCopy(seqSet, archiveMailbox); err != nil {
+			return fmt.Errorf("failed to copy email to %s: %w", archiveMailbox, err)
+		}
+
+		// Then, mark the original as deleted and expunge
+		ch := make(chan *imap.Message, 1)
+		if err := c.client.Store(seqSet, imap.AddFlags, imap.DeletedFlag, ch); err != nil {
+			return fmt.Errorf("failed to mark email as deleted: %w", err)
+		}
+		<-ch // Wait for operation to complete
+
+		// Expunge to permanently remove the original
+		if err := c.client.Expunge(nil); err != nil {
+			return fmt.Errorf("failed to expunge email: %w", err)
+		}
+
+		log.Printf("[imap] copied email UID %d to %s and deleted original", uid, archiveMailbox)
+		return nil
+	}
+
+	return fmt.Errorf("failed to move email to %s: %w", archiveMailbox, err)
+}
+
+// MoveFromArchive moves an email from Archive back to INBOX
+func (c *IMAPClient) MoveFromArchive(ctx context.Context, uid uint32) error {
+	if !c.connected {
+		return fmt.Errorf("not connected - call Connect() first")
+	}
+
+	// First, select the Archive mailbox to get the message
+	if _, err := c.client.Select("Archive", false); err != nil {
+		return fmt.Errorf("failed to select Archive mailbox: %w", err)
+	}
+
+	inboxMailbox := "INBOX"
+	seqSet := new(imap.SeqSet)
+	seqSet.AddNum(uid)
+
+	// Try MOVE command first
+	err := c.client.UidMove(seqSet, inboxMailbox)
+	if err == nil {
+		log.Printf("[imap] moved email UID %d from Archive to INBOX", uid)
+		return nil
+	}
+
+	// If MOVE is not supported, fall back to COPY + STORE + EXPUNGE
+	if strings.Contains(err.Error(), "MOVE") || strings.Contains(err.Error(), "unsupported") {
+		log.Printf("[imap] MOVE not supported, falling back to COPY + DELETE")
+
+		// Copy to INBOX
+		if err := c.client.UidCopy(seqSet, inboxMailbox); err != nil {
+			return fmt.Errorf("failed to copy email to INBOX: %w", err)
+		}
+
+		// Mark as deleted
+		ch := make(chan *imap.Message, 1)
+		if err := c.client.Store(seqSet, imap.AddFlags, imap.DeletedFlag, ch); err != nil {
+			return fmt.Errorf("failed to mark email as deleted: %w", err)
+		}
+		<-ch // Wait for operation to complete
+
+		// Expunge
+		if err := c.client.Expunge(nil); err != nil {
+			return fmt.Errorf("failed to expunge email: %w", err)
+		}
+
+		log.Printf("[imap] copied email UID %d to INBOX and deleted from Archive", uid)
+		return nil
+	}
+
+	return fmt.Errorf("failed to move email to INBOX: %w", err)
+}
+
 // extractBodyText extracts the text/plain body from an IMAP message
 func (c *IMAPClient) extractBodyText(msg *imap.Message) (string, string, error) {
 	// Look for the RFC822 literal in the message body
@@ -440,10 +535,12 @@ func (c *IMAPClient) extractPlainText(data []byte) string {
 
 // convertIMAPToEmail converts an IMAP message to models.Email
 func (c *IMAPClient) convertIMAPToEmail(msg *imap.Message) models.Email {
+	uid := int64(msg.Uid)
 	email := models.Email{
 		// Use UID as message ID fallback, will be overridden by RFC822 Message-ID if available
 		MessageID: fmt.Sprintf("imap-%d", msg.Uid),
 		Folder:    &c.mailbox,
+		IMAPUID:   &uid, // Store IMAP UID for folder operations like archive
 		Status:    "unprocessed",
 	}
 

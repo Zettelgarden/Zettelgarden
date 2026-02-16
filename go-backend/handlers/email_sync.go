@@ -394,6 +394,7 @@ type UpdateEmailStatusParams struct {
 
 // UpdateEmailStatusRoute handles PATCH /api/emails/{id}/status
 // Updates the status of an email (e.g., archive, triage, delete)
+// For archived status, also moves the email to the Archive folder in IMAP
 func (h *Handler) UpdateEmailStatusRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
@@ -421,6 +422,72 @@ func (h *Handler) UpdateEmailStatusRoute(w http.ResponseWriter, r *http.Request)
 	}
 
 	emailService := services.NewEmailService(h.GetDB())
+	db := h.GetDB()
+
+	// Get the current email first to check if we need to move in IMAP
+	currentEmail, err := emailService.GetEmailByID(context.Background(), userID, emailID)
+	if err != nil {
+		log.Printf("[email-sync] failed to get email: %v", err)
+		http.Error(w, "Email not found", http.StatusNotFound)
+		return
+	}
+
+	// Handle IMAP folder movement for archive/unarchive
+	isArchiving := params.Status == "archived" && currentEmail.Status != "archived"
+	isUnarchiving := params.Status != "archived" && currentEmail.Status == "archived"
+
+	if isArchiving || isUnarchiving {
+		// Only move in IMAP if we have an email account and IMAP UID
+		if currentEmail.EmailAccountID != nil && currentEmail.IMAPUID != nil {
+			// Get email account credentials
+			var accountID int
+			var emailAddress string
+			var encryptedPassword string
+			var imapServer string
+
+			err := db.QueryRowContext(context.Background(), `
+				SELECT id, email_address, app_password_encrypted, imap_server
+				FROM email_accounts
+				WHERE id = $1 AND user_id = $2
+			`, *currentEmail.EmailAccountID, userID).Scan(&accountID, &emailAddress, &encryptedPassword, &imapServer)
+			if err != nil {
+				log.Printf("[email-sync] failed to get email account: %v", err)
+				http.Error(w, "Failed to get email account", http.StatusInternalServerError)
+				return
+			}
+
+			// Decrypt password
+			password, err := services.DecryptAppPassword(encryptedPassword, "")
+			if err != nil {
+				log.Printf("[email-sync] failed to decrypt password: %v", err)
+				http.Error(w, "Failed to decrypt password", http.StatusInternalServerError)
+				return
+			}
+
+			// Create IMAP client and move email
+			client := services.NewIMAPClient(imapServer, emailAddress, password)
+			if err := client.Connect(context.Background()); err != nil {
+				log.Printf("[email-sync] failed to connect to IMAP: %v", err)
+				http.Error(w, "Failed to connect to IMAP", http.StatusInternalServerError)
+				return
+			}
+			defer client.Close()
+
+			if isArchiving {
+				if err := client.MoveToArchive(context.Background(), uint32(*currentEmail.IMAPUID)); err != nil {
+					log.Printf("[email-sync] failed to move to archive: %v", err)
+					// Don't fail the request if IMAP move fails - just log it
+					// The status will still be updated in the database
+				}
+			} else if isUnarchiving {
+				if err := client.MoveFromArchive(context.Background(), uint32(*currentEmail.IMAPUID)); err != nil {
+					log.Printf("[email-sync] failed to move from archive: %v", err)
+					// Don't fail the request if IMAP move fails - just log it
+					// The status will still be updated in the database
+				}
+			}
+		}
+	}
 
 	email, err := emailService.UpdateEmailStatus(context.Background(), userID, emailID, params.Status)
 	if err != nil {
