@@ -638,3 +638,60 @@ func (h *Handler) ImportOPMLRoute(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
 }
+
+// StarRSSArticleRoute handles starring an RSS article
+func (h *Handler) StarRSSArticleRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	articleID, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil {
+		http.Error(w, "Invalid article ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify article exists and belongs to user
+	var exists bool
+	err = h.GetDB().QueryRow(
+		"SELECT EXISTS(SELECT 1 FROM rss_articles WHERE id = $1 AND user_id = $2)",
+		articleID, userID,
+	).Scan(&exists)
+	if err != nil || !exists {
+		http.Error(w, "Article not found", http.StatusNotFound)
+		return
+	}
+
+	// Star the article
+	_, err = h.GetDB().Exec(
+		"UPDATE rss_articles SET is_starred = TRUE WHERE id = $1 AND user_id = $2",
+		articleID, userID,
+	)
+	if err != nil {
+		log.Printf("Error starring article: %v", err)
+		http.Error(w, "Failed to star article", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// UnstarRSSArticleRoute handles unstarring an RSS article
+func (h *Handler) UnstarRSSArticleRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	articleID, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil {
+		http.Error(w, "Invalid article ID", http.StatusBadRequest)
+		return
+	}
+
+	// Unstar the article
+	_, err = h.GetDB().Exec(
+		"UPDATE rss_articles SET is_starred = FALSE WHERE id = $1 AND user_id = $2",
+		articleID, userID,
+	)
+	if err != nil {
+		log.Printf("Error unstarring article: %v", err)
+		http.Error(w, "Failed to unstar article", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
