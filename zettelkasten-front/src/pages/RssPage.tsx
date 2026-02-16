@@ -586,6 +586,8 @@ export function RssPage() {
           selectedArticle={selectedArticle}
           showUnreadOnly={showUnreadOnly}
           isSmartFeedActive={isSmartFeedActive}
+          isStarredFeedActive={isStarredFeedActive}
+          starredCount={starredCount}
           expandedFolders={expandedFolders}
           totalUnreadCount={totalUnreadCount}
           currentUnreadCount={currentUnreadCount}
@@ -601,6 +603,7 @@ export function RssPage() {
           onFolderSelectMobile={handleFolderSelectMobile}
           onAllFeedsSelectMobile={handleAllFeedsSelectMobile}
           onSmartFeedSelectMobile={handleSelectSmartFeed}
+          onSelectStarredFeed={handleSelectStarredFeed}
           onToggleFolder={toggleFolderExpanded}
           onAddFeed={() => setDialogState(DialogStates.addFeed())}
           onCreateFolder={() => setDialogState(DialogStates.createFolder())}
@@ -617,6 +620,13 @@ export function RssPage() {
           onSelectSmartFeed={handleSelectSmartFeed}
           onConvertClick={handleConvertClick}
           onMarkAsUnread={handleMarkAsUnread}
+          onToggleStar={async (articleId, isStarred) => {
+            if (isStarred) {
+              await handleUnstarArticle(articleId);
+            } else {
+              await handleStarArticle(articleId);
+            }
+          }}
           onMobileBack={handleMobileBack}
           onRefresh={handleRefresh}
           onExportOPML={handleExportOPML}

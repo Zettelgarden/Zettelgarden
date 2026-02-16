@@ -16,6 +16,8 @@ interface RssMobileLayoutProps {
   selectedArticle: RSSArticle | null;
   showUnreadOnly: boolean;
   isSmartFeedActive: boolean;
+  isStarredFeedActive: boolean;
+  starredCount?: number;
   expandedFolders: Set<string>;
   totalUnreadCount: number;
   currentUnreadCount: number;
@@ -31,6 +33,7 @@ interface RssMobileLayoutProps {
   onFolderSelectMobile: (folderName: string) => void;
   onAllFeedsSelectMobile: () => void;
   onSmartFeedSelectMobile?: () => void;
+  onSelectStarredFeed: () => void;
   onToggleFolder: (folderName: string) => void;
   onAddFeed: () => void;
   onCreateFolder: () => void;
@@ -47,6 +50,7 @@ interface RssMobileLayoutProps {
   onSelectSmartFeed: () => void;
   onConvertClick: () => void;
   onMarkAsUnread: () => void;
+  onToggleStar: (articleId: number, isStarred: boolean) => void;
   onRefresh?: () => void;
   onExportOPML?: () => void;
   onImportOPML?: () => void;
@@ -66,6 +70,8 @@ export function RssMobileLayout({
   selectedArticle,
   showUnreadOnly,
   isSmartFeedActive,
+  isStarredFeedActive,
+  starredCount,
   expandedFolders,
   totalUnreadCount,
   currentUnreadCount,
@@ -81,6 +87,7 @@ export function RssMobileLayout({
   onFolderSelectMobile,
   onAllFeedsSelectMobile,
   onSmartFeedSelectMobile,
+  onSelectStarredFeed,
   onToggleFolder,
   onAddFeed,
   onCreateFolder,
@@ -97,6 +104,7 @@ export function RssMobileLayout({
   onSelectSmartFeed,
   onConvertClick,
   onMarkAsUnread,
+  onToggleStar,
   onRefresh,
   onExportOPML,
   onImportOPML,
@@ -267,6 +275,7 @@ export function RssMobileLayout({
           onViewCard={handleViewCard}
           onFeedClick={onFeedSelectMobile}
           onArticleClick={onArticleClick}
+          onToggleStar={onToggleStar}
         />
       </RssErrorBoundary>
     );
@@ -288,6 +297,7 @@ export function RssMobileLayout({
           onSelectFolder={onFolderSelectMobile}
           onSelectAllFeeds={onAllFeedsSelectMobile}
           onSelectSmartFeed={onSmartFeedSelectMobile}
+          onSelectStarredFeed={onSelectStarredFeed}
           onAddFeed={onAddFeed}
           onCreateFolder={onCreateFolder}
           onEditFeed={onEditFeed}
@@ -299,6 +309,8 @@ export function RssMobileLayout({
           selectedFeedId={selectedFeedId}
           selectedFolder={selectedFolder}
           isSmartFeedActive={isSmartFeedActive}
+          isStarredFeedActive={isStarredFeedActive}
+          starredCount={starredCount}
           showFeedMenuId={showFeedMenuId}
           onShowFeedMenu={onShowFeedMenu}
           onRefresh={onRefresh}
