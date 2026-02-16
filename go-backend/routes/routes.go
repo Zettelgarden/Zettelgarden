@@ -102,4 +102,7 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.Sc
 
 	// Admin-specific routes (dashboard, audit logs, etc.)
 	admin.RegisterAllAdminRoutes(r, h, scheduler)
+
+	// Notification routes
+	RegisterNotificationRoutes(r, h)
 }
