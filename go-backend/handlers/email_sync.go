@@ -437,8 +437,8 @@ func (h *Handler) UpdateEmailStatusRoute(w http.ResponseWriter, r *http.Request)
 	isUnarchiving := params.Status != "archived" && currentEmail.Status == "archived"
 
 	if isArchiving || isUnarchiving {
-		// Only move in IMAP if we have an email account and IMAP UID
-		if currentEmail.EmailAccountID != nil && currentEmail.IMAPUID != nil {
+		// Only move in IMAP if we have an email account
+		if currentEmail.EmailAccountID != nil {
 			// Get email account credentials
 			var accountID int
 			var emailAddress string
@@ -464,26 +464,59 @@ func (h *Handler) UpdateEmailStatusRoute(w http.ResponseWriter, r *http.Request)
 				return
 			}
 
-			// Create IMAP client and move email
-			client := services.NewIMAPClient(imapServer, emailAddress, password)
-			if err := client.Connect(context.Background()); err != nil {
-				log.Printf("[email-sync] failed to connect to IMAP: %v", err)
-				http.Error(w, "Failed to connect to IMAP", http.StatusInternalServerError)
-				return
+			// Create a client with the specific mailbox based on operation
+			var imapClient *services.IMAPClient
+			if isUnarchiving {
+				// Unarchiving: email is in Archive, move to INBOX
+				imapClient = services.NewIMAPClientWithMailbox(imapServer, emailAddress, password, "Archive")
+			} else {
+				// Archiving: email is in INBOX, move to Archive
+				imapClient = services.NewIMAPClientWithMailbox(imapServer, emailAddress, password, "INBOX")
 			}
-			defer client.Close()
 
-			if isArchiving {
-				if err := client.MoveToArchive(context.Background(), uint32(*currentEmail.IMAPUID)); err != nil {
-					log.Printf("[email-sync] failed to move to archive: %v", err)
-					// Don't fail the request if IMAP move fails - just log it
-					// The status will still be updated in the database
+			if err := imapClient.Connect(context.Background()); err != nil {
+				log.Printf("[email-sync] failed to connect to IMAP: %v", err)
+				// Don't fail the request - just log it
+			} else {
+				defer imapClient.Close()
+
+				// Get UID if missing
+				uidToMove := uint32(0)
+				if currentEmail.IMAPUID != nil {
+					uidToMove = uint32(*currentEmail.IMAPUID)
+				} else {
+					// Backfill: find UID by Message-ID
+					log.Printf("[email-sync] backfilling IMAP UID for email %s", currentEmail.MessageID)
+					foundUID, err := imapClient.FindUIDByMessageID(context.Background(), currentEmail.MessageID)
+					if err != nil {
+						log.Printf("[email-sync] failed to find IMAP UID: %v", err)
+					} else {
+						uidToMove = foundUID
+						// Update database with the found UID
+						uidInt := int64(foundUID)
+						db.ExecContext(context.Background(),
+							"UPDATE emails SET imap_uid = $1 WHERE id = $2",
+							uidInt, currentEmail.ID)
+						log.Printf("[email-sync] backfilled IMAP UID %d for email %d", foundUID, currentEmail.ID)
+					}
 				}
-			} else if isUnarchiving {
-				if err := client.MoveFromArchive(context.Background(), uint32(*currentEmail.IMAPUID)); err != nil {
-					log.Printf("[email-sync] failed to move from archive: %v", err)
-					// Don't fail the request if IMAP move fails - just log it
-					// The status will still be updated in the database
+
+				if uidToMove > 0 {
+					if isArchiving {
+						if err := imapClient.MoveToArchive(context.Background(), uidToMove); err != nil {
+							log.Printf("[email-sync] failed to move to archive: %v", err)
+						} else {
+							log.Printf("[email-sync] successfully moved email UID %d to Archive", uidToMove)
+						}
+					} else if isUnarchiving {
+						if err := imapClient.MoveFromArchive(context.Background(), uidToMove); err != nil {
+							log.Printf("[email-sync] failed to move from archive: %v", err)
+						} else {
+							log.Printf("[email-sync] successfully moved email UID %d from Archive to INBOX", uidToMove)
+						}
+					}
+				} else {
+					log.Printf("[email-sync] skipping IMAP move - no UID available for email %d", currentEmail.ID)
 				}
 			}
 		}

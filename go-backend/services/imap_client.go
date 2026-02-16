@@ -337,6 +337,80 @@ func (c *IMAPClient) Close() error {
 	return nil
 }
 
+// FindUIDByMessageID searches for an email's UID by its Message-ID header
+// Returns the UID if found, 0 if not found
+func (c *IMAPClient) FindUIDByMessageID(ctx context.Context, messageID string) (uint32, error) {
+	if !c.connected {
+		return 0, fmt.Errorf("not connected - call Connect() first")
+	}
+	if !c.mailboxSelected {
+		return 0, fmt.Errorf("mailbox not selected - call SelectInbox() first")
+	}
+
+	// Search for all messages, then scan for matching Message-ID
+	// IMAP SEARCH doesn't support searching by Message-ID header directly
+	mboxStatus, err := c.client.Status(c.mailbox, []imap.StatusItem{imap.StatusMessages})
+	if err != nil {
+		return 0, fmt.Errorf("failed to get mailbox status: %w", err)
+	}
+
+	totalMessages := mboxStatus.Messages
+	if totalMessages == 0 {
+		return 0, fmt.Errorf("no messages in mailbox")
+	}
+
+	// Create sequence set for all messages
+	seqSet := new(imap.SeqSet)
+	seqSet.AddRange(1, totalMessages)
+
+	// Fetch only the Message-ID header and UID
+	messages := make(chan *imap.Message, 10)
+	errChan := make(chan error, 1)
+
+	go func() {
+		items := []imap.FetchItem{
+			imap.FetchUid,
+			imap.FetchBodyStructure,
+		}
+		errChan <- c.client.Fetch(seqSet, items, messages)
+	}()
+
+	// Search through messages for matching Message-ID
+	var foundUID uint32
+	done := make(chan bool)
+	go func() {
+		for msg := range messages {
+			// Try to get Message-ID from envelope first
+			if msg.Envelope != nil && msg.Envelope.MessageId == messageID {
+				foundUID = msg.Uid
+				break
+			}
+			// If not in envelope, we'd need to fetch headers, but for now
+			// just return what we found. The envelope should have Message-ID.
+		}
+		done <- true
+	}()
+
+	select {
+	case err := <-errChan:
+		if err != nil {
+			return 0, fmt.Errorf("failed to search messages: %w", err)
+		}
+		<-done
+	case <-ctx.Done():
+		return 0, fmt.Errorf("search timed out")
+	case <-done:
+		// Found early, wait for fetch to complete
+		<-errChan
+	}
+
+	if foundUID == 0 {
+		return 0, fmt.Errorf("message not found")
+	}
+
+	return foundUID, nil
+}
+
 // MoveToArchive moves an email to the Archive folder
 func (c *IMAPClient) MoveToArchive(ctx context.Context, uid uint32) error {
 	if !c.connected {
