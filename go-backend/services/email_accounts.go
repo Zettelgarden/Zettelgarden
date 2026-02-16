@@ -32,19 +32,19 @@ func NewEmailAccountService(db *sql.DB) *EmailAccountService {
 func (s *EmailAccountService) CreateEmailAccount(ctx context.Context, userID int, params models.CreateEmailAccountParams, encryptionKey string) (*models.EmailAccount, error) {
 	// Encrypt the app password using EncryptionService if available
 	var encryptedPassword *string
-	if params.AppPassword != nil && *params.AppPassword != "" {
+	if params.ApiToken != nil && *params.ApiToken != "" {
 		var err error
 		var encrypted string
 
 		// Use EncryptionService if available, otherwise fall back to placeholder
 		if s.encryptionService != nil {
-			encrypted, err = s.encryptionService.Encrypt(*params.AppPassword)
+			encrypted, err = s.encryptionService.Encrypt(*params.ApiToken)
 			if err != nil {
 				return nil, fmt.Errorf("failed to encrypt app password: %w", err)
 			}
 		} else {
 			// Fallback to base64 placeholder if encryption service not available
-			encrypted, err = encryptAppPassword(*params.AppPassword, encryptionKey)
+			encrypted, err = encryptApiToken(*params.ApiToken, encryptionKey)
 			if err != nil {
 				return nil, fmt.Errorf("failed to encrypt app password: %w", err)
 			}
@@ -58,7 +58,7 @@ func (s *EmailAccountService) CreateEmailAccount(ctx context.Context, userID int
 	// Insert into database
 	var accountID int
 	err := s.db.QueryRowContext(ctx, `
-		INSERT INTO email_accounts (user_id, email_address, jmap_server_url, app_password_encrypted, is_active, sync_status)
+		INSERT INTO email_accounts (user_id, email_address, jmap_server_url, api_token_encrypted, is_active, sync_status)
 		VALUES ($1, $2, $3, $4, true, 'active')
 		RETURNING id
 	`, userID, params.EmailAddress, jmapServerURL, encryptedPassword).Scan(&accountID)
@@ -74,7 +74,7 @@ func (s *EmailAccountService) CreateEmailAccount(ctx context.Context, userID int
 // GetEmailAccounts retrieves all email accounts for a user
 func (s *EmailAccountService) GetEmailAccounts(ctx context.Context, userID int) ([]models.EmailAccount, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, user_id, email_address, jmap_server_url, app_password_encrypted,
+		SELECT id, user_id, email_address, jmap_server_url, api_token_encrypted,
 		       is_active, last_sync_at, sync_status, jmap_state, created_at, updated_at
 		FROM email_accounts
 		WHERE user_id = $1
@@ -110,7 +110,7 @@ func (s *EmailAccountService) GetEmailAccounts(ctx context.Context, userID int) 
 		}
 
 		if encryptedPassword.Valid {
-			account.AppPasswordEncrypted = &encryptedPassword.String
+			account.ApiTokenEncrypted = &encryptedPassword.String
 		}
 		if lastSyncTime.Valid {
 			account.LastSyncAt = &lastSyncTime.Time
@@ -137,7 +137,7 @@ func (s *EmailAccountService) GetEmailAccountByID(ctx context.Context, userID, a
 	var lastSyncTime sql.NullTime
 
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, user_id, email_address, jmap_server_url, app_password_encrypted,
+		SELECT id, user_id, email_address, jmap_server_url, api_token_encrypted,
 		       is_active, last_sync_at, sync_status, jmap_state, created_at, updated_at
 		FROM email_accounts
 		WHERE id = $1 AND user_id = $2
@@ -162,7 +162,7 @@ func (s *EmailAccountService) GetEmailAccountByID(ctx context.Context, userID, a
 	}
 
 	if encryptedPassword.Valid {
-		account.AppPasswordEncrypted = &encryptedPassword.String
+		account.ApiTokenEncrypted = &encryptedPassword.String
 	}
 	if lastSyncTime.Valid {
 		account.LastSyncAt = &lastSyncTime.Time
@@ -273,17 +273,17 @@ func (s *EmailAccountService) UpdateSyncStatus(ctx context.Context, userID, acco
 	return nil
 }
 
-// encryptAppPassword encrypts an app password using base64 as fallback
+// encryptApiToken encrypts an app password using base64 as fallback
 // This is only used when EncryptionService is not available (e.g., in tests)
-func encryptAppPassword(password, key string) (string, error) {
+func encryptApiToken(password, key string) (string, error) {
 	// Placeholder: base64 encode
 	// In production, EncryptionService should always be available
 	return encryptionServiceFallback(password)
 }
 
-// decryptAppPassword decrypts an encrypted app password using base64 as fallback
+// decryptApiToken decrypts an encrypted app password using base64 as fallback
 // This is only used when EncryptionService is not available (e.g., in tests)
-func decryptAppPassword(encrypted, key string) (string, error) {
+func decryptApiToken(encrypted, key string) (string, error) {
 	// Placeholder: base64 decode
 	// In production, EncryptionService should always be available
 	return decryptionServiceFallback(encrypted)
@@ -353,9 +353,9 @@ func base64Decode(s string) (string, error) {
 	return string(decoded), nil
 }
 
-// DecryptAppPassword is exported for use by sync jobs
+// DecryptApiToken is exported for use by sync jobs
 // This function uses EncryptionService if available, otherwise falls back to base64
-func DecryptAppPassword(encrypted, key string) (string, error) {
+func DecryptApiToken(encrypted, key string) (string, error) {
 	// Try to use EncryptionService if available
 	encryptionService, err := NewEncryptionService()
 	if err == nil && encryptionService != nil {
@@ -363,5 +363,5 @@ func DecryptAppPassword(encrypted, key string) (string, error) {
 	}
 
 	// Fallback to base64 decoding
-	return decryptAppPassword(encrypted, key)
+	return decryptApiToken(encrypted, key)
 }

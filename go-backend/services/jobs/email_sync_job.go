@@ -56,7 +56,7 @@ type emailAccount struct {
 	ID                   int
 	UserID               int
 	EmailAddress         string
-	AppPasswordEncrypted string
+	ApiTokenEncrypted string
 	JMAPState            *string
 }
 
@@ -71,7 +71,7 @@ func (j *EmailSyncJob) Handler(ctx context.Context) error {
 
 	// Query active email accounts
 	rows, err := j.db.QueryContext(ctx, `
-		SELECT id, user_id, email_address, app_password_encrypted, jmap_state
+		SELECT id, user_id, email_address, api_token_encrypted, jmap_state
 		FROM email_accounts
 		WHERE is_active = true AND sync_status = 'active'
 	`)
@@ -86,7 +86,7 @@ func (j *EmailSyncJob) Handler(ctx context.Context) error {
 		var account emailAccount
 		var jmapState sql.NullString
 
-		err := rows.Scan(&account.ID, &account.UserID, &account.EmailAddress, &account.AppPasswordEncrypted, &jmapState)
+		err := rows.Scan(&account.ID, &account.UserID, &account.EmailAddress, &account.ApiTokenEncrypted, &jmapState)
 		if err != nil {
 			log.Printf("[email-sync] failed to scan account row: %v", err)
 			continue
@@ -123,14 +123,14 @@ func (j *EmailSyncJob) Handler(ctx context.Context) error {
 // syncAccount handles syncing a single account
 func (j *EmailSyncJob) syncAccount(ctx context.Context, account emailAccount) (int, error) {
 	// Decrypt the app password
-	password, err := services.DecryptAppPassword(account.AppPasswordEncrypted, "")
+	password, err := services.DecryptApiToken(account.ApiTokenEncrypted, "")
 	if err != nil {
 		log.Printf("[email-sync] failed to decrypt password for account %d: %v", account.ID, err)
 		return 0, err
 	}
 
 	// Create JMAP client
-	client := services.NewJMAPClient("https://api.fastmail.com/jmap/session", account.EmailAddress, password)
+	client := services.NewJMAPClient("https://api.fastmail.com/jmap/session", password)
 
 	// Connect to JMAP
 	if err := client.Connect(ctx); err != nil {

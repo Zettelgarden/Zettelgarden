@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { listEmails, Email } from "../api/email";
+import { listEmails, createEmailAccount, syncEmailAccount, Email } from "../api/email";
 import { EmailList } from "../components/email/EmailList";
 import { setDocumentTitle } from "../utils/title";
 
@@ -23,6 +23,10 @@ export function EmailInboxPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [total, setTotal] = useState<number>(0);
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountPassword, setAccountPassword] = useState("");
+  const [accountError, setAccountError] = useState("");
+  const [isAddingAccount, setIsAddingAccount] = useState(false);
 
   /**
    * Fetch emails from the API with the current status filter
@@ -34,8 +38,8 @@ export function EmailInboxPage() {
         status: statusFilter === "all" ? undefined : statusFilter,
         limit: 50,
       });
-      setEmails(response.emails);
-      setTotal(response.total);
+      setEmails(response.emails ?? []);
+      setTotal(response.total ?? 0);
     } catch (error) {
       console.error("Failed to fetch emails:", error);
       setEmails([]);
@@ -72,6 +76,36 @@ export function EmailInboxPage() {
    */
   const handleFilterChange = (filter: StatusFilter) => {
     setStatusFilter(filter);
+  };
+
+  /**
+   * Handle adding a new email account
+   */
+  const handleAddAccount = async () => {
+    setIsAddingAccount(true);
+    setAccountError("");
+
+    try {
+      const account = await createEmailAccount({
+        email_address: accountEmail,
+        api_token: accountPassword,
+      });
+
+      // Clear form
+      setAccountEmail("");
+      setAccountPassword("");
+
+      // Trigger initial sync
+      console.log("Triggering initial sync for account", account.id);
+      await syncEmailAccount(account.id);
+
+      // Reload emails
+      fetchEmails();
+    } catch (error: any) {
+      setAccountError(error.message || "Failed to add account");
+    } finally {
+      setIsAddingAccount(false);
+    }
   };
 
   return (
@@ -151,11 +185,71 @@ export function EmailInboxPage() {
           backgroundColor: '#ffffff',
         }}
       >
-        <EmailList
-          emails={emails}
-          loading={loading}
-          onEmailClick={handleEmailClick}
-        />
+        {emails.length === 0 && !loading ? (
+          <div style={{ padding: '48px', textAlign: 'center' }}>
+            <h2 style={{ fontSize: '20px', marginBottom: '16px' }}>Connect Your Fastmail Account</h2>
+            <p style={{ marginBottom: '24px' }}>Add your Fastmail account to start syncing emails</p>
+
+            <div style={{ maxWidth: '400px', margin: '0 auto', textAlign: 'left' }}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={accountEmail}
+                  onChange={(e) => setAccountEmail(e.target.value)}
+                  placeholder="you@fastmail.com"
+                  style={{ width: '100%', padding: '8px', border: '1px solid #d1d5db', borderRadius: '4px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                  API Token
+                </label>
+                <input
+                  type="password"
+                  value={accountPassword}
+                  onChange={(e) => setAccountPassword(e.target.value)}
+                  placeholder="Your Fastmail API token"
+                  style={{ width: '100%', padding: '8px', border: '1px solid #d1d5db', borderRadius: '4px' }}
+                />
+                <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                  Create an API token in Fastmail → Settings → API
+                </p>
+              </div>
+
+              {accountError && (
+                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#fee', borderRadius: '4px', color: '#c00' }}>
+                  {accountError}
+                </div>
+              )}
+
+              <button
+                onClick={handleAddAccount}
+                disabled={isAddingAccount || !accountEmail || !accountPassword}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: isAddingAccount ? '#9ca3af' : '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: isAddingAccount || !accountEmail || !accountPassword ? 'not-allowed' : 'pointer',
+                  opacity: isAddingAccount || !accountEmail || !accountPassword ? 0.6 : 1
+                }}
+              >
+                {isAddingAccount ? 'Adding...' : 'Connect Account'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <EmailList
+            emails={emails}
+            loading={loading}
+            onEmailClick={handleEmailClick}
+          />
+        )}
       </div>
     </div>
   );

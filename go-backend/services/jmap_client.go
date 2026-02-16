@@ -14,30 +14,32 @@ import (
 )
 
 const (
+	// JMAPCoreCapability is the URN for the JMAP Core capability
+	JMAPCoreCapability = "urn:ietf:params:jmap:core"
 	// JMAPMailCapability is the URN for the JMAP Mail capability
 	JMAPMailCapability = "urn:ietf:params:jmap:mail"
 )
 
 // JMAPClient handles communication with a JMAP server (e.g., Fastmail)
 type JMAPClient struct {
-	httpClient  *http.Client
-	serverURL   string
-	username    string
-	appPassword string
-	accountID   string // from session
-	apiURL      string // from session
-	uploadURL   string
+	httpClient *http.Client
+	serverURL  string
+	authToken  string // Bearer token for authentication
+	accountID  string // from session
+	apiURL     string // from session
+	uploadURL  string
 	downloadURL string
 }
 
 // JMAPSessionResponse represents the JMAP session response
 type JMAPSessionResponse struct {
-	Capabilities   map[string]interface{} `json:"capabilities"`
-	APIURL         string                 `json:"apiUrl"`
-	UploadURL      string                 `json:"uploadUrl"`
-	DownloadURL    string                 `json:"downloadUrl"`
-	EventSourceURL string                 `json:"eventSourceUrl"`
-	AccountID      string                 `json:"accountId"`
+	Capabilities    map[string]interface{} `json:"capabilities"`
+	APIURL          string                 `json:"apiUrl"`
+	UploadURL       string                 `json:"uploadUrl"`
+	DownloadURL     string                 `json:"downloadUrl"`
+	EventSourceURL  string                 `json:"eventSourceUrl"`
+	PrimaryAccounts map[string]string      `json:"primaryAccounts"`
+	Accounts        map[string]JMAPAccount  `json:"accounts"`
 }
 
 // JMAPAccount represents a JMAP account
@@ -114,14 +116,13 @@ type JMAPQueryResponse struct {
 }
 
 // NewJMAPClient creates a new JMAP client
-func NewJMAPClient(serverURL, username, appPassword string) *JMAPClient {
+func NewJMAPClient(serverURL, authToken string) *JMAPClient {
 	return &JMAPClient{
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		serverURL:   serverURL,
-		username:    username,
-		appPassword: appPassword,
+		serverURL: serverURL,
+		authToken: authToken,
 	}
 }
 
@@ -132,8 +133,8 @@ func (c *JMAPClient) Connect(ctx context.Context) error {
 		return fmt.Errorf("failed to create JMAP session request: %w", err)
 	}
 
-	// Set Basic auth
-	req.SetBasicAuth(c.username, c.appPassword)
+	// Set Bearer token auth
+	req.Header.Set("Authorization", "Bearer "+c.authToken)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -143,7 +144,7 @@ func (c *JMAPClient) Connect(ctx context.Context) error {
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == http.StatusUnauthorized {
-			return fmt.Errorf("JMAP authentication failed for user %s", c.username)
+			return fmt.Errorf("JMAP authentication failed - invalid bearer token")
 		}
 		return fmt.Errorf("JMAP server returned status %d", resp.StatusCode)
 	}
@@ -163,15 +164,17 @@ func (c *JMAPClient) Connect(ctx context.Context) error {
 		return fmt.Errorf("JMAP server does not support mail capability %s", JMAPMailCapability)
 	}
 
+	// Extract the primary mail account ID from primaryAccounts
+	accountID, ok := session.PrimaryAccounts[JMAPMailCapability]
+	if !ok || accountID == "" {
+		return fmt.Errorf("JMAP session did not return a primary mail account ID")
+	}
+
 	// Store session data
-	c.accountID = session.AccountID
+	c.accountID = accountID
 	c.apiURL = session.APIURL
 	c.uploadURL = session.UploadURL
 	c.downloadURL = session.DownloadURL
-
-	if c.accountID == "" {
-		return fmt.Errorf("JMAP session did not return an account ID")
-	}
 
 	log.Printf("[jmap] connected to %s, api=%s, account=%s", c.serverURL, c.apiURL, c.accountID)
 
@@ -185,7 +188,7 @@ func (c *JMAPClient) GetMailboxes(ctx context.Context) ([]JMAPMailbox, error) {
 	}
 
 	req := JMAPRequest{
-		Using: []string{JMAPMailCapability},
+		Using: []string{JMAPCoreCapability, JMAPMailCapability},
 		MethodCalls: [][]interface{}{
 			{
 				"Mailbox/get",
@@ -284,7 +287,7 @@ func (c *JMAPClient) FetchEmails(ctx context.Context, limit int) ([]models.Email
 	}
 
 	req := JMAPRequest{
-		Using: []string{JMAPMailCapability},
+		Using: []string{JMAPCoreCapability, JMAPMailCapability},
 		MethodCalls: [][]interface{}{
 			{
 				"Email/query",
@@ -344,7 +347,7 @@ func (c *JMAPClient) FetchEmails(ctx context.Context, limit int) ([]models.Email
 
 	// Fetch email details
 	req = JMAPRequest{
-		Using: []string{JMAPMailCapability},
+		Using: []string{JMAPCoreCapability, JMAPMailCapability},
 		MethodCalls: [][]interface{}{
 			{
 				"Email/get",
@@ -425,7 +428,7 @@ func (c *JMAPClient) FetchEmailsSince(ctx context.Context, state string, limit i
 	}
 
 	req := JMAPRequest{
-		Using: []string{JMAPMailCapability},
+		Using: []string{JMAPCoreCapability, JMAPMailCapability},
 		MethodCalls: [][]interface{}{
 			{
 				"Email/query",
@@ -486,7 +489,7 @@ func (c *JMAPClient) FetchEmailsSince(ctx context.Context, state string, limit i
 
 	// Fetch email details
 	req = JMAPRequest{
-		Using: []string{JMAPMailCapability},
+		Using: []string{JMAPCoreCapability, JMAPMailCapability},
 		MethodCalls: [][]interface{}{
 			{
 				"Email/get",
@@ -570,8 +573,8 @@ func (c *JMAPClient) call(ctx context.Context, req JMAPRequest, resp *JMAPRespon
 		return fmt.Errorf("failed to create JMAP HTTP request: %w", err)
 	}
 
-	// Set Basic auth
-	httpReq.SetBasicAuth(c.username, c.appPassword)
+	// Set Bearer token auth
+	httpReq.Header.Set("Authorization", "Bearer "+c.authToken)
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	httpResp, err := c.httpClient.Do(httpReq)
@@ -582,7 +585,7 @@ func (c *JMAPClient) call(ctx context.Context, req JMAPRequest, resp *JMAPRespon
 
 	if httpResp.StatusCode != http.StatusOK {
 		if httpResp.StatusCode == http.StatusUnauthorized {
-			return fmt.Errorf("JMAP authentication failed for user %s", c.username)
+			return fmt.Errorf("JMAP authentication failed - invalid bearer token")
 		}
 		respBody, _ := io.ReadAll(httpResp.Body)
 		return fmt.Errorf("JMAP API returned status %d: %s", httpResp.StatusCode, string(respBody))

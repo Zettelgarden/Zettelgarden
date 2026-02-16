@@ -29,7 +29,7 @@ func TestCreateEmailAccountRoute(t *testing.T) {
 	appPassword := "test-app-password"
 	params := models.CreateEmailAccountParams{
 		EmailAddress: emailAddr,
-		AppPassword:  &appPassword,
+		ApiToken:     &appPassword,
 	}
 	body, _ := json.Marshal(params)
 
@@ -314,7 +314,7 @@ func createTestEmailAccount(s *Handler, t *testing.T, userID int) models.EmailAc
 	appPassword := "test-password"
 	params := models.CreateEmailAccountParams{
 		EmailAddress: emailAddr,
-		AppPassword:  &appPassword,
+		ApiToken:     &appPassword,
 	}
 	// Type assert to *sql.DB for EmailAccountService
 	db := s.GetDB().(*sql.DB)

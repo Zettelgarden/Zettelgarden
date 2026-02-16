@@ -35,7 +35,7 @@ export interface Email {
 
 export interface CreateEmailAccountParams {
   email_address: string;
-  app_password: string;
+  api_token: string;
 }
 
 export interface EmailListFilters {
@@ -55,6 +55,8 @@ export interface EmailListResponse {
 export interface SyncEmailAccountResponse {
   message: string;
   account_id: number;
+  emails_fetched?: number;
+  emails_stored?: number;
 }
 
 // Email Account API
