@@ -1,3 +1,6 @@
+//go:build !jmap_tests
+// +build !jmap_tests
+
 package services
 
 import (

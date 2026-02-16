@@ -17,7 +17,7 @@ func TestCreateEmailAccount(t *testing.T) {
 	password := "test-app-password"
 	params := models.CreateEmailAccountParams{
 		EmailAddress: "user@example.com",
-		AppPassword:  &password,
+		ApiToken:     &password,
 	}
 
 	service := NewEmailAccountService(s.DB)
@@ -47,8 +47,8 @@ func TestCreateEmailAccount(t *testing.T) {
 		t.Errorf("expected sync_status 'active', got %s", account.SyncStatus)
 	}
 
-	if account.AppPasswordEncrypted == nil {
-		t.Error("expected app_password_encrypted to be set")
+	if account.ApiTokenEncrypted == nil {
+		t.Error("expected api_token_encrypted to be set")
 	}
 }
 
@@ -74,7 +74,7 @@ func TestGetEmailAccounts(t *testing.T) {
 	password := "test-app-password"
 	params := models.CreateEmailAccountParams{
 		EmailAddress: "user1@example.com",
-		AppPassword:  &password,
+		ApiToken:     &password,
 	}
 	_, err = service.CreateEmailAccount(ctx, userID, params, "test-key")
 	if err != nil {
@@ -113,7 +113,7 @@ func TestGetEmailAccountByID(t *testing.T) {
 	password := "test-app-password"
 	params := models.CreateEmailAccountParams{
 		EmailAddress: "user2@example.com",
-		AppPassword:  &password,
+		ApiToken:     &password,
 	}
 	created, err := service.CreateEmailAccount(ctx, userID, params, "test-key")
 	if err != nil {
@@ -148,7 +148,7 @@ func TestGetEmailAccountByIDWrongUser(t *testing.T) {
 	password := "test-app-password"
 	params := models.CreateEmailAccountParams{
 		EmailAddress: "user3@example.com",
-		AppPassword:  &password,
+		ApiToken:     &password,
 	}
 	created, err := service.CreateEmailAccount(ctx, userID, params, "test-key")
 	if err != nil {
@@ -187,7 +187,7 @@ func TestDeleteEmailAccount(t *testing.T) {
 	password := "test-app-password"
 	params := models.CreateEmailAccountParams{
 		EmailAddress: "user4@example.com",
-		AppPassword:  &password,
+		ApiToken:     &password,
 	}
 	created, err := service.CreateEmailAccount(ctx, userID, params, "test-key")
 	if err != nil {
@@ -220,7 +220,7 @@ func TestDeleteEmailAccountWrongUser(t *testing.T) {
 	password := "test-app-password"
 	params := models.CreateEmailAccountParams{
 		EmailAddress: "user5@example.com",
-		AppPassword:  &password,
+		ApiToken:     &password,
 	}
 	created, err := service.CreateEmailAccount(ctx, userID, params, "test-key")
 	if err != nil {
@@ -256,7 +256,7 @@ func TestUpdateLastSync(t *testing.T) {
 	password := "test-app-password"
 	params := models.CreateEmailAccountParams{
 		EmailAddress: "user6@example.com",
-		AppPassword:  &password,
+		ApiToken:     &password,
 	}
 	created, err := service.CreateEmailAccount(ctx, userID, params, "test-key")
 	if err != nil {
@@ -294,7 +294,7 @@ func TestUpdateLastSyncWrongUser(t *testing.T) {
 	password := "test-app-password"
 	params := models.CreateEmailAccountParams{
 		EmailAddress: "user6b@example.com",
-		AppPassword:  &password,
+		ApiToken:     &password,
 	}
 	created, err := service.CreateEmailAccount(ctx, userID, params, "test-key")
 	if err != nil {
@@ -325,7 +325,7 @@ func TestUpdateJMAPState(t *testing.T) {
 	password := "test-app-password"
 	params := models.CreateEmailAccountParams{
 		EmailAddress: "user7@example.com",
-		AppPassword:  &password,
+		ApiToken:     &password,
 	}
 	created, err := service.CreateEmailAccount(ctx, userID, params, "test-key")
 	if err != nil {
@@ -365,7 +365,7 @@ func TestUpdateJMAPStateWrongUser(t *testing.T) {
 	password := "test-app-password"
 	params := models.CreateEmailAccountParams{
 		EmailAddress: "user7b@example.com",
-		AppPassword:  &password,
+		ApiToken:     &password,
 	}
 	created, err := service.CreateEmailAccount(ctx, userID, params, "test-key")
 	if err != nil {
@@ -395,7 +395,7 @@ func TestUpdateSyncStatus(t *testing.T) {
 	password := "test-app-password"
 	params := models.CreateEmailAccountParams{
 		EmailAddress: "user8@example.com",
-		AppPassword:  &password,
+		ApiToken:     &password,
 	}
 	created, err := service.CreateEmailAccount(ctx, userID, params, "test-key")
 	if err != nil {
@@ -432,7 +432,7 @@ func TestUpdateSyncStatusWrongUser(t *testing.T) {
 	password := "test-app-password"
 	params := models.CreateEmailAccountParams{
 		EmailAddress: "user8b@example.com",
-		AppPassword:  &password,
+		ApiToken:     &password,
 	}
 	created, err := service.CreateEmailAccount(ctx, userID, params, "test-key")
 	if err != nil {
@@ -462,7 +462,7 @@ func TestUpdateEmailAccount(t *testing.T) {
 	password := "test-app-password"
 	params := models.CreateEmailAccountParams{
 		EmailAddress: "user9@example.com",
-		AppPassword:  &password,
+		ApiToken:     &password,
 	}
 	created, err := service.CreateEmailAccount(ctx, userID, params, "test-key")
 	if err != nil {
@@ -536,7 +536,7 @@ func TestUpdateEmailAccountWrongUser(t *testing.T) {
 	password := "test-app-password"
 	params := models.CreateEmailAccountParams{
 		EmailAddress: "user9b@example.com",
-		AppPassword:  &password,
+		ApiToken:     &password,
 	}
 	created, err := service.CreateEmailAccount(ctx, userID, params, "test-key")
 	if err != nil {
@@ -561,7 +561,7 @@ func TestEncryptAppPassword(t *testing.T) {
 	password := "my-secret-password"
 	key := "encryption-key"
 
-	encrypted, err := encryptAppPassword(password, key)
+	encrypted, err := encryptApiToken(password, key)
 	if err != nil {
 		t.Errorf("failed to encrypt password: %v", err)
 	}
@@ -571,7 +571,7 @@ func TestEncryptAppPassword(t *testing.T) {
 	}
 
 	// Decrypt and verify
-	decrypted, err := decryptAppPassword(encrypted, key)
+	decrypted, err := decryptApiToken(encrypted, key)
 	if err != nil {
 		t.Errorf("failed to decrypt password: %v", err)
 	}
@@ -585,13 +585,13 @@ func TestDecryptAppPasswordExported(t *testing.T) {
 	password := "my-secret-password"
 	key := "encryption-key"
 
-	encrypted, err := encryptAppPassword(password, key)
+	encrypted, err := encryptApiToken(password, key)
 	if err != nil {
 		t.Errorf("failed to encrypt password: %v", err)
 	}
 
 	// Test the exported function
-	decrypted, err := DecryptAppPassword(encrypted, key)
+	decrypted, err := DecryptApiToken(encrypted, key)
 	if err != nil {
 		t.Errorf("failed to decrypt password with exported function: %v", err)
 	}
