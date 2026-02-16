@@ -5,12 +5,10 @@ import { TasksIcon } from "../../assets/icons/TasksIcon";
 import { CalendarIcon } from "../../assets/icons/CalendarIcon";
 import { ChatIcon } from "../../assets/icons/ChatIcon";
 import { RssIcon } from "../../assets/icons/RssIcon";
-import { EmailIcon } from "../../assets/icons/EmailIcon";
 
 interface NavigationLinksProps {
   todayTasksCount: number;
   unreadRssCount: number;
-  unreadEmailCount: number;
   hasSubscription: boolean;
   isCollapsed: boolean;
 }
@@ -110,7 +108,7 @@ function CollapsibleLink({
   );
 }
 
-export function NavigationLinks({ todayTasksCount, unreadRssCount, unreadEmailCount, hasSubscription, isCollapsed }: NavigationLinksProps) {
+export function NavigationLinks({ todayTasksCount, unreadRssCount, hasSubscription, isCollapsed }: NavigationLinksProps) {
   return (
     <div className={`p-2 ${isCollapsed ? "px-1" : ""}`}>
       <ul className="space-y-1">
@@ -167,21 +165,6 @@ export function NavigationLinks({ todayTasksCount, unreadRssCount, unreadEmailCo
             unreadRssCount > 0 && (
               <span className="px-3 py-1.5 md:px-2 md:py-1 text-xs bg-blue-100 rounded-full min-h-[32px] md:min-h-0 flex items-center">
                 {unreadRssCount}
-              </span>
-            )
-          }
-        />
-
-        <CollapsibleLink
-          to="/app/emails"
-          icon={<EmailIcon />}
-          label="Email"
-          isCollapsed={isCollapsed}
-          badgeCount={unreadEmailCount}
-          badge={
-            unreadEmailCount > 0 && (
-              <span className="px-3 py-1.5 md:px-2 md:py-1 text-xs bg-blue-100 rounded-full min-h-[32px] md:min-h-0 flex items-center">
-                {unreadEmailCount}
               </span>
             )
           }
