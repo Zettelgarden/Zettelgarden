@@ -32,6 +32,7 @@ type RSSArticle struct {
 	FetchedAt   time.Time  `json:"fetched_at"`
 	Read        bool       `json:"read"`
 	CardID      *int       `json:"card_id,omitempty"`
+	IsStarred   bool       `json:"is_starred"`
 }
 
 // RSSFolder represents a folder for organizing RSS feeds
