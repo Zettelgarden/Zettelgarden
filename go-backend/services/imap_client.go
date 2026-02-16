@@ -337,6 +337,11 @@ func (c *IMAPClient) Close() error {
 	return nil
 }
 
+// GetMailbox returns the currently configured mailbox name
+func (c *IMAPClient) GetMailbox() string {
+	return c.mailbox
+}
+
 // FindUIDByMessageID searches for an email's UID by its Message-ID header
 // Returns the UID if found, 0 if not found
 func (c *IMAPClient) FindUIDByMessageID(ctx context.Context, messageID string) (uint32, error) {

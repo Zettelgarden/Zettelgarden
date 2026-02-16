@@ -466,11 +466,14 @@ func (h *Handler) UpdateEmailStatusRoute(w http.ResponseWriter, r *http.Request)
 
 			// Create a client with the specific mailbox based on operation
 			var imapClient *services.IMAPClient
+			var searchMailbox string
 			if isUnarchiving {
-				// Unarchiving: email is in Archive, move to INBOX
+				// Unarchiving: email should be in Archive, move to INBOX
+				searchMailbox = "Archive"
 				imapClient = services.NewIMAPClientWithMailbox(imapServer, emailAddress, password, "Archive")
 			} else {
-				// Archiving: email is in INBOX, move to Archive
+				// Archiving: email should be in INBOX, move to Archive
+				searchMailbox = "INBOX"
 				imapClient = services.NewIMAPClientWithMailbox(imapServer, emailAddress, password, "INBOX")
 			}
 
@@ -490,33 +493,72 @@ func (h *Handler) UpdateEmailStatusRoute(w http.ResponseWriter, r *http.Request)
 					uidToMove = uint32(*currentEmail.IMAPUID)
 				} else {
 					// Backfill: find UID by Message-ID
-					log.Printf("[email-sync] backfilling IMAP UID for email %s", currentEmail.MessageID)
+					log.Printf("[email-sync] backfilling IMAP UID for email %s in %s", currentEmail.MessageID, searchMailbox)
 					foundUID, err := imapClient.FindUIDByMessageID(context.Background(), currentEmail.MessageID)
 					if err != nil {
-						log.Printf("[email-sync] failed to find IMAP UID: %v", err)
-					} else {
+						// Try the other mailbox as fallback
+						fallbackMailbox := "INBOX"
+						if searchMailbox == "INBOX" {
+							fallbackMailbox = "Archive"
+						}
+						log.Printf("[email-sync] not found in %s, trying %s", searchMailbox, fallbackMailbox)
+
+						fallbackClient := services.NewIMAPClientWithMailbox(imapServer, emailAddress, password, fallbackMailbox)
+						if err := fallbackClient.Connect(context.Background()); err == nil {
+							if err := fallbackClient.SelectInbox(context.Background()); err == nil {
+								foundUID, err = fallbackClient.FindUIDByMessageID(context.Background(), currentEmail.MessageID)
+								if err == nil {
+									imapClient.Close()
+									defer func() { fallbackClient.Close() }()
+									imapClient = fallbackClient
+									log.Printf("[email-sync] found email in %s mailbox", fallbackMailbox)
+								} else {
+									fallbackClient.Close()
+								}
+							} else {
+								fallbackClient.Close()
+							}
+						}
+					}
+
+					if foundUID > 0 {
 						uidToMove = foundUID
-						// Update database with the found UID
+						// Update database with the found UID and folder
 						uidInt := int64(foundUID)
+						currentFolder := imapClient.GetMailbox()
 						db.ExecContext(context.Background(),
-							"UPDATE emails SET imap_uid = $1 WHERE id = $2",
-							uidInt, currentEmail.ID)
-						log.Printf("[email-sync] backfilled IMAP UID %d for email %d", foundUID, currentEmail.ID)
+							"UPDATE emails SET imap_uid = $1, folder = $2 WHERE id = $3",
+							uidInt, currentFolder, currentEmail.ID)
+						log.Printf("[email-sync] backfilled IMAP UID %d for email %d (folder: %s)", foundUID, currentEmail.ID, currentFolder)
+					} else {
+						log.Printf("[email-sync] failed to find IMAP UID in any mailbox")
 					}
 				}
 
 				if uidToMove > 0 {
 					if isArchiving {
-						if err := imapClient.MoveToArchive(context.Background(), uidToMove); err != nil {
-							log.Printf("[email-sync] failed to move to archive: %v", err)
+						// Make sure we're moving from the right mailbox
+						if imapClient.GetMailbox() != "INBOX" {
+							// Email is in Archive, not INBOX - no need to move
+							log.Printf("[email-sync] email already in Archive folder, skipping move")
 						} else {
-							log.Printf("[email-sync] successfully moved email UID %d to Archive", uidToMove)
+							if err := imapClient.MoveToArchive(context.Background(), uidToMove); err != nil {
+								log.Printf("[email-sync] failed to move to archive: %v", err)
+							} else {
+								log.Printf("[email-sync] successfully moved email UID %d to Archive", uidToMove)
+							}
 						}
 					} else if isUnarchiving {
-						if err := imapClient.MoveFromArchive(context.Background(), uidToMove); err != nil {
-							log.Printf("[email-sync] failed to move from archive: %v", err)
+						// Make sure we're moving from the right mailbox
+						if imapClient.GetMailbox() != "Archive" {
+							// Email is in INBOX, not Archive - no need to move
+							log.Printf("[email-sync] email already in INBOX folder, skipping move")
 						} else {
-							log.Printf("[email-sync] successfully moved email UID %d from Archive to INBOX", uidToMove)
+							if err := imapClient.MoveFromArchive(context.Background(), uidToMove); err != nil {
+								log.Printf("[email-sync] failed to move from archive: %v", err)
+							} else {
+								log.Printf("[email-sync] successfully moved email UID %d from Archive to INBOX", uidToMove)
+							}
 						}
 					}
 				} else {
