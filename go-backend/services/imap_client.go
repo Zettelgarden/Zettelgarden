@@ -182,7 +182,8 @@ func (c *IMAPClient) FetchRecentEmails(ctx context.Context, limit int) ([]models
 	seqSet := new(imap.SeqSet)
 	seqSet.AddRange(fromSeq, totalMessages)
 
-	// Fetch the emails using UID with body section
+	// Fetch the emails using sequence numbers with body section
+	// Note: Using Fetch() not UidFetch() because seqSet contains sequence numbers, not UIDs
 	messages := make(chan *imap.Message, limit)
 	errChan := make(chan error, 1)
 
@@ -194,7 +195,7 @@ func (c *IMAPClient) FetchRecentEmails(ctx context.Context, limit int) ([]models
 			imap.FetchUid,
 			imap.FetchRFC822,
 		}
-		errChan <- c.client.UidFetch(seqSet, items, messages)
+		errChan <- c.client.Fetch(seqSet, items, messages)
 	}()
 
 	var emails []models.Email

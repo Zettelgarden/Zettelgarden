@@ -28,6 +28,7 @@ export function EmailInboxPage() {
   const [accountPassword, setAccountPassword] = useState("");
   const [accountError, setAccountError] = useState("");
   const [isAddingAccount, setIsAddingAccount] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   /**
    * Fetch email accounts
@@ -35,9 +36,10 @@ export function EmailInboxPage() {
   const fetchEmailAccounts = useCallback(async () => {
     try {
       const accounts = await listEmailAccounts();
-      setEmailAccounts(accounts);
+      setEmailAccounts(accounts ?? []);
     } catch (error) {
       console.error("Failed to fetch email accounts:", error);
+      setEmailAccounts([]);
     }
   }, []);
 
@@ -70,10 +72,10 @@ export function EmailInboxPage() {
 
   // Fetch emails when filter changes
   useEffect(() => {
-    if (emailAccounts.length > 0) {
+    if (emailAccounts && emailAccounts.length > 0) {
       fetchEmails();
     }
-  }, [fetchEmails, emailAccounts.length]);
+  }, [fetchEmails, emailAccounts]);
 
   // Update document title based on filter
   useEffect(() => {
@@ -130,6 +132,28 @@ export function EmailInboxPage() {
     }
   };
 
+  /**
+   * Handle manual sync of all email accounts
+   */
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      // Sync all active accounts
+      for (const account of (emailAccounts ?? [])) {
+        if (account.is_active) {
+          console.log("Syncing account", account.id);
+          await syncEmailAccount(account.id);
+        }
+      }
+      // Refresh emails after sync
+      await fetchEmails();
+    } catch (error) {
+      console.error("Failed to sync emails:", error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       {/* Header */}
@@ -159,16 +183,60 @@ export function EmailInboxPage() {
           >
             Email Inbox
           </h1>
-          {total > 0 && (
-            <div
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
+            }}
+          >
+            {total > 0 && (
+              <div
+                style={{
+                  fontSize: '14px',
+                  color: '#6b7280',
+                }}
+              >
+                {total} {total === 1 ? 'email' : 'emails'}
+              </div>
+            )}
+            <button
+              onClick={handleManualSync}
+              disabled={isSyncing || !emailAccounts || emailAccounts.length === 0}
               style={{
+                padding: '8px 16px',
                 fontSize: '14px',
-                color: '#6b7280',
+                fontWeight: '500',
+                borderRadius: '8px',
+                border: '1px solid #d1d5db',
+                backgroundColor: isSyncing ? '#f3f4f6' : '#ffffff',
+                color: isSyncing ? '#9ca3af' : '#374151',
+                cursor: isSyncing || !emailAccounts || emailAccounts.length === 0 ? 'not-allowed' : 'pointer',
+                opacity: isSyncing || !emailAccounts || emailAccounts.length === 0 ? 0.6 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                if (!isSyncing && emailAccounts && emailAccounts.length > 0) {
+                  e.currentTarget.style.backgroundColor = '#f9fafb';
+                  e.currentTarget.style.borderColor = '#9ca3af';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSyncing && emailAccounts && emailAccounts.length > 0) {
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.borderColor = '#d1d5db';
+                }
               }}
             >
-              {total} {total === 1 ? 'email' : 'emails'}
-            </div>
-          )}
+              <span style={{ fontSize: '16px' }}>
+                {isSyncing ? '⟳' : '↻'}
+              </span>
+              {isSyncing ? 'Syncing...' : 'Sync'}
+            </button>
+          </div>
         </div>
 
         {/* Filter buttons */}
@@ -207,7 +275,7 @@ export function EmailInboxPage() {
           backgroundColor: '#ffffff',
         }}
       >
-        {emailAccounts.length === 0 && !loading ? (
+        {(!emailAccounts || emailAccounts.length === 0) && !loading ? (
           <div style={{ padding: '48px', textAlign: 'center' }}>
             <h2 style={{ fontSize: '20px', marginBottom: '16px' }}>Connect Your Email Account</h2>
             <p style={{ marginBottom: '24px' }}>Add your email account to start syncing emails</p>
