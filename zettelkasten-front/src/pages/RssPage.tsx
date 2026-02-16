@@ -132,6 +132,11 @@ export function RssPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Sort folders alphabetically
+  const sortedFolders = useMemo(() => {
+    return [...folders].sort((a, b) => a.name.localeCompare(b.name));
+  }, [folders]);
+
   // Calculate total unread count (all feeds)
   const totalUnreadCount = useMemo(() => {
     return Object.values(unreadCounts.feeds).reduce((sum, count) => sum + count, 0);
@@ -460,7 +465,7 @@ export function RssPage() {
       {!isMobile && (
         <RssDesktopLayout
           feeds={feeds}
-          folders={folders}
+          folders={sortedFolders}
           unreadCounts={unreadCounts}
           articles={articles}
           selectedFolder={selectedFolder}
@@ -521,7 +526,7 @@ export function RssPage() {
       {isMobile && (
         <RssMobileLayout
           feeds={feeds}
-          folders={folders}
+          folders={sortedFolders}
           unreadCounts={unreadCounts}
           articles={articles}
           selectedFolder={selectedFolder}
@@ -571,14 +576,14 @@ export function RssPage() {
       <RssAddFeedDialog
         isOpen={showAddFeedDialog}
         onClose={() => setDialogState(initialDialogState)}
-        folders={folders}
+        folders={sortedFolders}
         onFeedAdded={handleFeedAdded}
       />
       <RssEditFeedDialog
         isOpen={showEditFeedDialog}
         onClose={() => setDialogState(initialDialogState)}
         feed={editingFeed}
-        folders={folders}
+        folders={sortedFolders}
         onFeedUpdated={handleFeedUpdated}
       />
       <RssEditFolderDialog

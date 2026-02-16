@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { setDocumentTitle } from "../utils/title";
 import {
@@ -50,6 +50,11 @@ export function RssManagePage() {
     refreshing,
     refreshAllFeeds,
   } = useRssData();
+
+  // Sort folders alphabetically
+  const sortedFolders = useMemo(() => {
+    return [...folders].sort((a, b) => a.name.localeCompare(b.name));
+  }, [folders]);
 
   // Set page title
   useEffect(() => {
@@ -149,7 +154,7 @@ export function RssManagePage() {
       <div className={`flex flex-1 overflow-hidden ${isMobile ? 'flex-col' : ''}`}>
         {/* Left Panel - Folders */}
         <RssManageFolderPanel
-          folders={folders}
+          folders={sortedFolders}
           feeds={feeds}
           unreadCounts={unreadCounts}
           selectedFolder={selectedFolder}
@@ -188,7 +193,7 @@ export function RssManagePage() {
         {/* Right Panel - Feeds Table */}
         <RssManageFeedsTable
           feeds={filteredFeeds}
-          folders={folders}
+          folders={sortedFolders}
           unreadCounts={unreadCounts}
           onUpdateFeed={async (id, params) => {
             const updated = await updateFeed(id, params);
