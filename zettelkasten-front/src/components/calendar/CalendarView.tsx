@@ -130,9 +130,9 @@ export function CalendarView({
     setContextMenu(null);
   };
 
-  const handleContextMenuCreateTask = () => {
-    if (contextMenu && onCreateTask) {
-      onCreateTask(contextMenu.date);
+  const handleContextMenuCreateEvent = () => {
+    if (contextMenu && onCreateEvent) {
+      onCreateEvent(contextMenu.date);
       closeContextMenu();
     }
   };
@@ -419,15 +419,15 @@ export function CalendarView({
           aria-label="Calendar day context menu"
           autoFocus
         >
-          {onCreateTask && (
+          {onCreateEvent && (
             <button
-              onClick={handleContextMenuCreateTask}
+              onClick={handleContextMenuCreateEvent}
               className="w-full px-4 py-2 text-left hover:bg-slate-100 flex items-center gap-2 focus:outline-none focus:bg-slate-100"
               role="menuitem"
               tabIndex={0}
             >
               <FaPlus size={14} aria-hidden="true" />
-              Create Task for {format(contextMenu.date, "MMM d")}
+              Create Event for {format(contextMenu.date, "MMM d")}
             </button>
           )}
           <button
@@ -436,7 +436,7 @@ export function CalendarView({
             role="menuitem"
             tabIndex={0}
           >
-            View Tasks for {format(contextMenu.date, "MMM d")}
+            View Events for {format(contextMenu.date, "MMM d")}
           </button>
         </div>
       )}
@@ -762,16 +762,7 @@ export function CalendarViewWrapper({
 
   const handleDayClick = (date: Date, events: CalendarEvent[]) => {
     setSelectedDate(date);
-    if (events.length === 1) {
-      const event = events[0];
-      if (event.source === "task" && event.taskId) {
-        onTaskClick(event.taskId);
-      } else if (event.source === "external") {
-        setExternalEventDialog(event);
-      }
-    } else if (events.length > 1) {
-      setShowDayPopover(true);
-    }
+    setShowDayPopover(true);
   };
 
   const handleEventClick = (event: CalendarEvent) => {
@@ -790,6 +781,13 @@ export function CalendarViewWrapper({
     if (onCreateTask) {
       setSelectedDate(date);
       onCreateTask(date);
+    }
+  };
+
+  const handleCreateEvent = (date: Date) => {
+    if (onCreateEvent) {
+      setSelectedDate(date);
+      onCreateEvent(date);
     }
   };
 
@@ -836,7 +834,7 @@ export function CalendarViewWrapper({
           onClose={() => setShowDayPopover(false)}
           onTaskClick={onTaskClick}
           onExternalEventClick={handleExternalEventClick}
-          onCreateTask={() => handleCreateTask(selectedDate)}
+          onCreateEvent={() => handleCreateEvent(selectedDate)}
           onNavigateDay={handleNavigateDay}
         />
       )}
@@ -859,11 +857,11 @@ interface DayPopoverProps {
   onClose: () => void;
   onTaskClick: (taskId: number) => void;
   onExternalEventClick: (event: CalendarEvent) => void;
-  onCreateTask?: () => void;
+  onCreateEvent?: () => void;
   onNavigateDay?: (direction: number) => void;
 }
 
-function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, onCreateTask, onNavigateDay }: DayPopoverProps) {
+function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, onCreateEvent, onNavigateDay }: DayPopoverProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [timeView, setTimeView] = useState(false);
@@ -1021,16 +1019,16 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
         <div className="p-3">
           {allEvents.length === 0 ? (
             <div className="text-center py-4">
-              <p className="text-slate-500 mb-3">No tasks scheduled</p>
-              {onCreateTask && (
+              <p className="text-slate-500 mb-3">No events scheduled</p>
+              {onCreateEvent && (
                 <button
                   onClick={() => {
-                    onCreateTask();
-                    // Keep dialog open to allow creating multiple tasks
+                    onCreateEvent();
+                    // Keep dialog open to allow creating multiple events
                   }}
                   className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[44px]"
                 >
-                  Create Task
+                  Create Event
                 </button>
               )}
             </div>
@@ -1136,16 +1134,16 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
                 })}
               </div>
 
-              {onCreateTask && (
+              {onCreateEvent && (
                 <button
                   onClick={() => {
-                    onCreateTask();
-                    // Keep dialog open to allow creating multiple tasks
+                    onCreateEvent();
+                    // Keep dialog open to allow creating multiple events
                   }}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2 min-h-[44px] mt-2"
                 >
                   <FaPlus size={14} aria-hidden="true" />
-                  Create Task
+                  Create Event
                 </button>
               )}
             </div>
@@ -1209,16 +1207,16 @@ function DayPopover({ date, events, onClose, onTaskClick, onExternalEventClick, 
                   </button>
                 );
               })}
-              {onCreateTask && (
+              {onCreateEvent && (
                 <button
                   onClick={() => {
-                    onCreateTask();
-                    // Keep dialog open to allow creating multiple tasks
+                    onCreateEvent();
+                    // Keep dialog open to allow creating multiple events
                   }}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2 min-h-[44px] mt-2"
                 >
                   <FaPlus size={14} aria-hidden="true" />
-                  Create Task
+                  Create Event
                 </button>
               )}
             </div>
