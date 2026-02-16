@@ -159,7 +159,6 @@ export function RssDesktopLayout({
           currentUnreadCount={currentUnreadCount}
           showUnreadOnly={showUnreadOnly}
           isSmartFeedActive={isSmartFeedActive}
-          isStarredFeedActive={isStarredFeedActive}
           hasMore={hasMore}
           onArticleClick={onArticleClick}
           onToggleShowUnreadOnly={onToggleShowUnreadOnly}

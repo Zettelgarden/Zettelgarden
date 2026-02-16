@@ -165,7 +165,7 @@ export function RssMobileReader({
         <div className="flex gap-2">
           {onToggleStar && (
             <button
-              onClick={() => onToggleStar(article.id, article.is_starred)}
+              onClick={() => onToggleStar(article.id, article.is_starred ?? false)}
               className={`flex-1 px-4 py-3 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium ${
                 article.is_starred
                   ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
