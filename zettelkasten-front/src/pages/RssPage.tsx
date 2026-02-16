@@ -528,16 +528,19 @@ export function RssPage() {
           hasMore={hasMoreArticles}
           onSelectAllFeeds={() => {
             setIsSmartFeedActive(false);
+            setIsStarredFeedActive(false);
             setSelectedFolder(null);
             setSelectedFeedId(null);
           }}
           onSelectFolder={(folderName) => {
             setIsSmartFeedActive(false);
+            setIsStarredFeedActive(false);
             setSelectedFolder(folderName);
             setSelectedFeedId(null);
           }}
           onSelectFeed={(feedId) => {
             setIsSmartFeedActive(false);
+            setIsStarredFeedActive(false);
             setSelectedFeedId(feedId);
             setSelectedFolder(null);
           }}
