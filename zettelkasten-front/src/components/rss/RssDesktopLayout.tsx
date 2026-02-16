@@ -49,6 +49,10 @@ interface RssDesktopLayoutProps {
   onLoadMore: () => void;
   onConvertClick: () => void;
   onMarkAsUnread: () => void;
+  isStarredFeedActive: boolean;
+  starredCount?: number;
+  onSelectStarredFeed: () => void;
+  onToggleStar: (articleId: number, isStarred: boolean) => void;
 }
 
 /**
@@ -98,6 +102,10 @@ export function RssDesktopLayout({
   onLoadMore,
   onConvertClick,
   onMarkAsUnread,
+  isStarredFeedActive,
+  starredCount,
+  onSelectStarredFeed,
+  onToggleStar,
 }: RssDesktopLayoutProps) {
   return (
     <div className="hidden md:flex flex-row h-screen overflow-hidden">
@@ -110,6 +118,8 @@ export function RssDesktopLayout({
           selectedFeedId={selectedFeedId}
           showUnreadOnly={showUnreadOnly}
           isSmartFeedActive={isSmartFeedActive}
+          isStarredFeedActive={isStarredFeedActive}
+          starredCount={starredCount}
           expandedFolders={expandedFolders}
           refreshMessage={refreshMessage}
           errorMessage={errorMessage}
@@ -120,6 +130,7 @@ export function RssDesktopLayout({
           onSelectFolder={onSelectFolder}
           onSelectFeed={onSelectFeed}
           onSelectSmartFeed={onSelectSmartFeed}
+          onSelectStarredFeed={onSelectStarredFeed}
           onToggleFolder={onToggleFolder}
           onToggleShowUnreadOnly={onToggleShowUnreadOnly}
           onAddFeed={onAddFeed}
@@ -148,10 +159,12 @@ export function RssDesktopLayout({
           currentUnreadCount={currentUnreadCount}
           showUnreadOnly={showUnreadOnly}
           isSmartFeedActive={isSmartFeedActive}
+          isStarredFeedActive={isStarredFeedActive}
           hasMore={hasMore}
           onArticleClick={onArticleClick}
           onToggleShowUnreadOnly={onToggleShowUnreadOnly}
           onLoadMore={onLoadMore}
+          onToggleStar={onToggleStar}
         />
       </RssErrorBoundary>
       <RssErrorBoundary>
@@ -161,6 +174,7 @@ export function RssDesktopLayout({
           onConvertClick={onConvertClick}
           onMarkAsUnread={onMarkAsUnread}
           onFeedClick={onSelectFeed}
+          onToggleStar={onToggleStar}
         />
       </RssErrorBoundary>
     </div>

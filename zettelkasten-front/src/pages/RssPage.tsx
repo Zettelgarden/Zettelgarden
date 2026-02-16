@@ -156,6 +156,11 @@ export function RssPage() {
     return totalUnreadCount;
   }, [unreadCounts, selectedFeedId, selectedFolder, totalUnreadCount]);
 
+  // Calculate starred count
+  const starredCount = useMemo(() => {
+    return articles.filter(a => a.is_starred).length;
+  }, [articles]);
+
   // Update page title with unread count
   useEffect(() => {
     if (totalUnreadCount > 0) {
@@ -556,6 +561,16 @@ export function RssPage() {
           onLoadMore={handleLoadMore}
           onConvertClick={handleConvertClick}
           onMarkAsUnread={handleMarkAsUnread}
+          isStarredFeedActive={isStarredFeedActive}
+          starredCount={starredCount}
+          onSelectStarredFeed={handleSelectStarredFeed}
+          onToggleStar={async (articleId, isStarred) => {
+            if (isStarred) {
+              await handleUnstarArticle(articleId);
+            } else {
+              await handleStarArticle(articleId);
+            }
+          }}
         />
       )}
 
