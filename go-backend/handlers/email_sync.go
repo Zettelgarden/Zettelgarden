@@ -539,25 +539,39 @@ func (h *Handler) UpdateEmailStatusRoute(w http.ResponseWriter, r *http.Request)
 					if isArchiving {
 						// Make sure we're moving from the right mailbox
 						if imapClient.GetMailbox() != "INBOX" {
-							// Email is in Archive, not INBOX - no need to move
-							log.Printf("[email-sync] email already in Archive folder, skipping move")
+							// Email is in Archive, not INBOX - no need to move, just update folder
+							log.Printf("[email-sync] email already in Archive folder, updating folder in database")
+							db.ExecContext(context.Background(),
+								"UPDATE emails SET folder = 'Archive' WHERE id = $1",
+								currentEmail.ID)
 						} else {
 							if err := imapClient.MoveToArchive(context.Background(), uidToMove); err != nil {
 								log.Printf("[email-sync] failed to move to archive: %v", err)
 							} else {
 								log.Printf("[email-sync] successfully moved email UID %d to Archive", uidToMove)
+								// Update folder in database to reflect the move
+								db.ExecContext(context.Background(),
+									"UPDATE emails SET folder = 'Archive' WHERE id = $1",
+									currentEmail.ID)
 							}
 						}
 					} else if isUnarchiving {
 						// Make sure we're moving from the right mailbox
 						if imapClient.GetMailbox() != "Archive" {
-							// Email is in INBOX, not Archive - no need to move
-							log.Printf("[email-sync] email already in INBOX folder, skipping move")
+							// Email is in INBOX, not Archive - no need to move, just update folder
+							log.Printf("[email-sync] email already in INBOX folder, updating folder in database")
+							db.ExecContext(context.Background(),
+								"UPDATE emails SET folder = 'INBOX' WHERE id = $1",
+								currentEmail.ID)
 						} else {
 							if err := imapClient.MoveFromArchive(context.Background(), uidToMove); err != nil {
 								log.Printf("[email-sync] failed to move from archive: %v", err)
 							} else {
 								log.Printf("[email-sync] successfully moved email UID %d from Archive to INBOX", uidToMove)
+								// Update folder in database to reflect the move
+								db.ExecContext(context.Background(),
+									"UPDATE emails SET folder = 'INBOX' WHERE id = $1",
+									currentEmail.ID)
 							}
 						}
 					}
