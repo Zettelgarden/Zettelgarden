@@ -10,10 +10,12 @@ type StatusFilter = "all" | "unprocessed" | "triaged" | "archived";
  * Email Inbox Page
  *
  * Displays a list of emails with filtering by status.
+ * Default view shows unprocessed emails that need attention.
  * Supports filtering by:
  * - All: Shows all emails
- * - Unprocessed: Shows emails that need attention
+ * - Unprocessed: Shows emails that need attention (default)
  * - Triaged: Shows emails that have been reviewed
+ * - Archived: Shows archived emails
  */
 export function EmailInboxPage() {
   const navigate = useNavigate();
@@ -22,7 +24,7 @@ export function EmailInboxPage() {
   const [emails, setEmails] = useState<Email[]>([]);
   const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("unprocessed");
   const [total, setTotal] = useState<number>(0);
   const [accountEmail, setAccountEmail] = useState("");
   const [accountPassword, setAccountPassword] = useState("");
