@@ -477,6 +477,10 @@ func (h *Handler) UpdateEmailStatusRoute(w http.ResponseWriter, r *http.Request)
 			if err := imapClient.Connect(context.Background()); err != nil {
 				log.Printf("[email-sync] failed to connect to IMAP: %v", err)
 				// Don't fail the request - just log it
+			} else if err := imapClient.SelectInbox(context.Background()); err != nil {
+				log.Printf("[email-sync] failed to select mailbox: %v", err)
+				// Don't fail the request - just log it
+				imapClient.Close()
 			} else {
 				defer imapClient.Close()
 
