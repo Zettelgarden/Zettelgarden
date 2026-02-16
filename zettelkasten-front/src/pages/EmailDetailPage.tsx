@@ -8,6 +8,7 @@ import { CreateTaskWindow } from "../components/tasks/CreateTaskWindow";
  * Email Detail Page
  *
  * Displays a single email with its full content.
+ * All links in email bodies open in a new tab for security.
  */
 export function EmailDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +19,7 @@ export function EmailDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
   const [showCreateTaskWindow, setShowCreateTaskWindow] = useState(false);
+  const [processedHtml, setProcessedHtml] = useState<string>("");
 
   useEffect(() => {
     const fetchEmail = async () => {
@@ -40,6 +42,26 @@ export function EmailDetailPage() {
 
     fetchEmail();
   }, [id]);
+
+  // Process HTML to add target="_blank" and rel="noopener noreferrer" to all links
+  useEffect(() => {
+    if (!email?.body_html) {
+      setProcessedHtml("");
+      return;
+    }
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(email.body_html, "text/html");
+
+    // Add target="_blank" and rel="noopener noreferrer" to all anchor tags
+    const links = doc.querySelectorAll("a");
+    links.forEach((link) => {
+      link.setAttribute("target", "_blank");
+      link.setAttribute("rel", "noopener noreferrer");
+    });
+
+    setProcessedHtml(doc.body.innerHTML);
+  }, [email?.body_html]);
 
   const handleBack = () => {
     navigate("/app/emails");
@@ -343,9 +365,9 @@ export function EmailDetailPage() {
             color: "#1f2937",
           }}
         >
-          {email.body_html ? (
+          {processedHtml ? (
             <div
-              dangerouslySetInnerHTML={{ __html: email.body_html }}
+              dangerouslySetInnerHTML={{ __html: processedHtml }}
               style={{
                 overflowWrap: "break-word",
               }}
