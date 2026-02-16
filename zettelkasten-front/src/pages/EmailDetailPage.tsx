@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getEmail, updateEmailStatus, Email } from "../api/email";
 import { setDocumentTitle } from "../utils/title";
+import { CreateTaskWindow } from "../components/tasks/CreateTaskWindow";
 
 /**
  * Email Detail Page
@@ -16,6 +17,7 @@ export function EmailDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [showCreateTaskWindow, setShowCreateTaskWindow] = useState(false);
 
   useEffect(() => {
     const fetchEmail = async () => {
@@ -74,6 +76,15 @@ export function EmailDetailPage() {
     } finally {
       setIsArchiving(false);
     }
+  };
+
+  const handleCreateTaskFromEmail = () => {
+    if (!email) return;
+    setShowCreateTaskWindow(true);
+  };
+
+  const handleCloseTaskWindow = () => {
+    setShowCreateTaskWindow(false);
   };
 
   if (loading) {
@@ -191,6 +202,34 @@ export function EmailDetailPage() {
             ) : (
               <>📁 Archive</>
             )}
+          </button>
+
+          <button
+            onClick={handleCreateTaskFromEmail}
+            style={{
+              padding: "8px 16px",
+              fontSize: "14px",
+              fontWeight: "500",
+              borderRadius: "8px",
+              border: "1px solid #d1d5db",
+              backgroundColor: "#ffffff",
+              color: "#374151",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "#f9fafb";
+              e.currentTarget.style.borderColor = "#9ca3af";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#ffffff";
+              e.currentTarget.style.borderColor = "#d1d5db";
+            }}
+          >
+            ✚ Create Task
           </button>
         </div>
       </div>
@@ -329,6 +368,15 @@ export function EmailDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Create Task Window */}
+      {showCreateTaskWindow && (
+        <CreateTaskWindow
+          currentCard={null}
+          setShowTaskWindow={handleCloseTaskWindow}
+          currentFilter={email?.subject ? `Email: ${email.subject}` : undefined}
+        />
+      )}
     </div>
   );
 }

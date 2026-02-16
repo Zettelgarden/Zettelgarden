@@ -292,6 +292,8 @@ func truncateTestData() {
 		"llm_providers",
 		"llm_query_log",
 		"mailing_list",
+		"notifications",
+		"notification_preferences",
 		"revenue",
 		"schema_definitions",
 		"scheduled_job_runs",
