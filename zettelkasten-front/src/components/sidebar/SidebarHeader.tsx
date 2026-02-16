@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import logo from "../../assets/logo.png";
 import { useAuth } from "../../contexts/AuthContext";
-import { Plus } from "lucide-react";
+import { Plus, Rss } from "lucide-react";
 
 interface SidebarHeaderProps {
   onNewStandardCard: () => void;
