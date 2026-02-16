@@ -22,7 +22,7 @@ type EmailSyncJob struct {
 func NewEmailSyncJob(db *sql.DB) *EmailSyncJob {
 	return &EmailSyncJob{
 		db:       db,
-		schedule: "0 */60 * * * *", // Every 60 minutes
+		schedule: "0 */5 * * * *", // Every 5 minutes
 	}
 }
 
