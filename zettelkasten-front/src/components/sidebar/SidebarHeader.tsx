@@ -129,6 +129,14 @@ export function SidebarHeader({
                   New Chat
                 </button>
               )}
+              <button
+                onClick={onAddFeed}
+                className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 flex items-center gap-2"
+                role="menuitem"
+              >
+                <Rss size={16} />
+                Add RSS Feed
+              </button>
             </div>
           )}
         </div>
