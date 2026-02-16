@@ -9,6 +9,8 @@ import {
   deleteFolder,
   exportOPML,
   importOPML,
+  starArticle,
+  unstarArticle,
   OPMLImportResult,
   RSSFeed,
   RSSFolder,
@@ -59,6 +61,7 @@ export function RssPage() {
   const [selectedArticle, setSelectedArticle] = useState<RSSArticle | null>(null);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [isSmartFeedActive, setIsSmartFeedActive] = useState(false);
+  const [isStarredFeedActive, setIsStarredFeedActive] = useState(false);
   const [markingAsRead, setMarkingAsRead] = useState<Set<number>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -70,7 +73,8 @@ export function RssPage() {
     folder: selectedFolder ?? undefined,
     feed_id: selectedFeedId ?? undefined,
     unread: showUnreadOnly || undefined,
-  }), [selectedFolder, selectedFeedId, showUnreadOnly]);
+    starred: isStarredFeedActive || undefined,
+  }), [selectedFolder, selectedFeedId, showUnreadOnly, isStarredFeedActive]);
 
   // Only one hook should fetch at a time - skip the inactive one
   const regularArticles = useRssArticles({
@@ -169,7 +173,7 @@ export function RssPage() {
   // Reset to page 1 when filters change
   useEffect(() => {
     resetToFirstPage();
-  }, [selectedFolder, selectedFeedId, showUnreadOnly, isSmartFeedActive, resetToFirstPage]);
+  }, [selectedFolder, selectedFeedId, showUnreadOnly, isSmartFeedActive, isStarredFeedActive, resetToFirstPage]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshMessage("");
@@ -186,6 +190,14 @@ export function RssPage() {
 
   const handleSelectSmartFeed = useCallback(() => {
     setIsSmartFeedActive(true);
+    setIsStarredFeedActive(false);
+    setSelectedFolder(null);
+    setSelectedFeedId(null);
+  }, []);
+
+  const handleSelectStarredFeed = useCallback(() => {
+    setIsStarredFeedActive(true);
+    setIsSmartFeedActive(false);
     setSelectedFolder(null);
     setSelectedFeedId(null);
   }, []);
@@ -243,6 +255,28 @@ export function RssPage() {
       setTimeout(() => setErrorMessage(""), 3000);
     }
   }, [selectedArticle, updateArticle, refreshUnreadCounts]);
+
+  const handleStarArticle = useCallback(async (articleId: number) => {
+    try {
+      await starArticle(articleId);
+      updateArticle(articleId, { is_starred: true });
+    } catch (error) {
+      console.error("Failed to star article:", error);
+      setErrorMessage("Failed to star article. Please try again.");
+      setTimeout(() => setErrorMessage(""), 3000);
+    }
+  }, [updateArticle]);
+
+  const handleUnstarArticle = useCallback(async (articleId: number) => {
+    try {
+      await unstarArticle(articleId);
+      updateArticle(articleId, { is_starred: false });
+    } catch (error) {
+      console.error("Failed to unstar article:", error);
+      setErrorMessage("Failed to unstar article. Please try again.");
+      setTimeout(() => setErrorMessage(""), 3000);
+    }
+  }, [updateArticle]);
 
   const handleConvertClick = useCallback(() => {
     if (!selectedArticle) {
@@ -412,6 +446,7 @@ export function RssPage() {
   // Mobile handlers
   const handleFeedSelectMobile = useCallback((feedId: number) => {
     setIsSmartFeedActive(false);
+    setIsStarredFeedActive(false);
     setSelectedFeedId(feedId);
     setSelectedFolder(null);
     setMobileView('list');
@@ -419,6 +454,7 @@ export function RssPage() {
 
   const handleFolderSelectMobile = useCallback((folderName: string) => {
     setIsSmartFeedActive(false);
+    setIsStarredFeedActive(false);
     setSelectedFolder(folderName);
     setSelectedFeedId(null);
     setMobileView('list');
@@ -426,6 +462,7 @@ export function RssPage() {
 
   const handleAllFeedsSelectMobile = useCallback(() => {
     setIsSmartFeedActive(false);
+    setIsStarredFeedActive(false);
     setSelectedFolder(null);
     setSelectedFeedId(null);
     setMobileView('feeds');
