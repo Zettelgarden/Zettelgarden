@@ -98,6 +98,9 @@ func parseRSSArticleFilters(query url.Values) map[string]interface{} {
 	if unread := query.Get("unread"); unread == "true" {
 		filters["unread"] = true
 	}
+	if starred := query.Get("starred"); starred == "true" {
+		filters["starred"] = true
+	}
 	if feedID := query.Get("feed_id"); feedID != "" {
 		if id, err := strconv.Atoi(feedID); err == nil && id >= 0 {
 			filters["feed_id"] = id

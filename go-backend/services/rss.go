@@ -233,7 +233,7 @@ func DeleteRSSFeed(db models.Database, userID, feedID int) error {
 func ListRSSArticles(db models.Database, userID int, filters map[string]interface{}) ([]models.RSSArticle, error) {
 	query := `
 		SELECT id, user_id, feed_id, title, content, author, url,
-		       published_at, fetched_at, read, card_id
+		       published_at, fetched_at, read, card_id, is_starred
 		FROM rss_articles
 		WHERE user_id = $1
 	`
@@ -249,6 +249,10 @@ func ListRSSArticles(db models.Database, userID int, filters map[string]interfac
 
 	if unreadOnly, ok := filters["unread"].(bool); ok && unreadOnly {
 		query += fmt.Sprintf(" AND read = false")
+	}
+
+	if starredOnly, ok := filters["starred"].(bool); ok && starredOnly {
+		query += fmt.Sprintf(" AND is_starred = true")
 	}
 
 	if feedID, ok := filters["feed_id"].(int); ok && feedID > 0 {
@@ -290,7 +294,7 @@ func ListRSSArticles(db models.Database, userID int, filters map[string]interfac
 		err := rows.Scan(
 			&article.ID, &article.UserID, &article.FeedID, &article.Title,
 			&content, &author, &article.URL, &publishedAt,
-			&article.FetchedAt, &article.Read, &cardID,
+			&article.FetchedAt, &article.Read, &cardID, &article.IsStarred,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan article: %w", err)
@@ -337,6 +341,10 @@ func CountRSSArticles(db models.Database, userID int, filters map[string]interfa
 		query += " AND read = false"
 	}
 
+	if starredOnly, ok := filters["starred"].(bool); ok && starredOnly {
+		query += " AND is_starred = true"
+	}
+
 	if feedID, ok := filters["feed_id"].(int); ok && feedID > 0 {
 		query += fmt.Sprintf(" AND feed_id = $%d", argPos)
 		args = append(args, feedID)
@@ -361,13 +369,13 @@ func GetRSSArticleByID(db models.Database, userID, articleID int) (*models.RSSAr
 
 	err := db.QueryRow(`
 		SELECT id, user_id, feed_id, title, content, author, url,
-		       published_at, fetched_at, read, card_id
+		       published_at, fetched_at, read, card_id, is_starred
 		FROM rss_articles
 		WHERE id = $1 AND user_id = $2
 	`, articleID, userID).Scan(
 		&article.ID, &article.UserID, &article.FeedID, &article.Title,
 		&content, &author, &article.URL, &publishedAt,
-		&article.FetchedAt, &article.Read, &cardID,
+		&article.FetchedAt, &article.Read, &cardID, &article.IsStarred,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
