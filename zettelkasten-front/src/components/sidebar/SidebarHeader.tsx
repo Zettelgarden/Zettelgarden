@@ -9,6 +9,7 @@ interface SidebarHeaderProps {
   onNewArticle: () => void;
   onNewTask: () => void;
   onNewChat: () => void;
+  onAddFeed: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
 }
@@ -18,6 +19,7 @@ export function SidebarHeader({
   onNewArticle,
   onNewTask,
   onNewChat,
+  onAddFeed,
   isCollapsed,
   onToggleCollapse,
 }: SidebarHeaderProps) {
