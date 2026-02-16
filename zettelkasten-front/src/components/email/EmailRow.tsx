@@ -4,6 +4,8 @@ import { Email } from "../../api/email";
 interface EmailRowProps {
   email: Email;
   onClick: () => void;
+  onArchive?: (email: Email) => void;
+  onCreateTask?: (email: Email) => void;
 }
 
 /**
@@ -82,8 +84,9 @@ function getStatusBadgeTextColor(status: string): string {
  * - Subject
  * - Date (formatted)
  * - Status badge
+ * - Quick action buttons (archive, create task)
  */
-export function EmailRow({ email, onClick }: EmailRowProps) {
+export function EmailRow({ email, onClick, onArchive, onCreateTask }: EmailRowProps) {
   // Get first letter of sender name or email address for avatar
   const avatarLetter = email.from_name
     ? email.from_name.charAt(0).toUpperCase()
@@ -163,6 +166,86 @@ export function EmailRow({ email, onClick }: EmailRowProps) {
           {displaySubject}
         </div>
       </div>
+
+      {/* Quick action buttons */}
+      {(onArchive || onCreateTask) && (
+        <div
+          style={{
+            display: 'flex',
+            gap: '8px',
+            marginRight: '12px',
+          }}
+        >
+          {onCreateTask && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCreateTask(email);
+              }}
+              style={{
+                padding: '6px 10px',
+                fontSize: '13px',
+                fontWeight: '500',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: '#eff6ff',
+                color: '#1d4ed8',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#dbeafe';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#eff6ff';
+              }}
+              title="Create task from this email"
+            >
+              <span>✓</span>
+              <span>Task</span>
+            </button>
+          )}
+          {onArchive && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onArchive(email);
+              }}
+              style={{
+                padding: '6px 10px',
+                fontSize: '13px',
+                fontWeight: '500',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: email.status === 'archived' ? '#fef3c7' : '#f3f4f6',
+                color: email.status === 'archived' ? '#92400e' : '#6b7280',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                if (email.status !== 'archived') {
+                  e.currentTarget.style.backgroundColor = '#e5e7eb';
+                } else {
+                  e.currentTarget.style.backgroundColor = '#fde68a';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = email.status === 'archived' ? '#fef3c7' : '#f3f4f6';
+              }}
+              title={email.status === 'archived' ? 'Unarchive' : 'Archive'}
+            >
+              <span>{email.status === 'archived' ? '↱' : '📁'}</span>
+              <span>{email.status === 'archived' ? 'Unarchive' : 'Archive'}</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Date and status */}
       <div

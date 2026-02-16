@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { listEmails, listEmailAccounts, createEmailAccount, syncEmailAccount, Email, EmailAccount } from "../api/email";
+import { listEmails, listEmailAccounts, createEmailAccount, syncEmailAccount, updateEmailStatus, Email, EmailAccount } from "../api/email";
 import { EmailList } from "../components/email/EmailList";
+import { CreateTaskWindow } from "../components/tasks/CreateTaskWindow";
 import { setDocumentTitle } from "../utils/title";
 
 type StatusFilter = "all" | "unprocessed" | "triaged" | "archived";
@@ -31,6 +32,8 @@ export function EmailInboxPage() {
   const [accountError, setAccountError] = useState("");
   const [isAddingAccount, setIsAddingAccount] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showCreateTaskWindow, setShowCreateTaskWindow] = useState(false);
+  const [emailForTask, setEmailForTask] = useState<Email | null>(null);
 
   /**
    * Fetch email accounts
@@ -155,6 +158,36 @@ export function EmailInboxPage() {
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  /**
+   * Handle quick archive from the email list
+   */
+  const handleQuickArchive = async (email: Email) => {
+    const newStatus = email.status === 'archived' ? 'unprocessed' : 'archived';
+    try {
+      await updateEmailStatus(email.id, newStatus);
+      // Refresh the email list
+      await fetchEmails();
+    } catch (error) {
+      console.error("Failed to archive email:", error);
+    }
+  };
+
+  /**
+   * Handle create task from email
+   */
+  const handleCreateTaskFromEmail = (email: Email) => {
+    setEmailForTask(email);
+    setShowCreateTaskWindow(true);
+  };
+
+  /**
+   * Handle close create task window
+   */
+  const handleCloseTaskWindow = () => {
+    setShowCreateTaskWindow(false);
+    setEmailForTask(null);
   };
 
   return (
@@ -347,9 +380,20 @@ export function EmailInboxPage() {
             emails={emails}
             loading={loading}
             onEmailClick={handleEmailClick}
+            onArchive={handleQuickArchive}
+            onCreateTask={handleCreateTaskFromEmail}
           />
         )}
       </div>
+
+      {/* Create Task Window */}
+      {showCreateTaskWindow && (
+        <CreateTaskWindow
+          currentCard={null}
+          setShowTaskWindow={handleCloseTaskWindow}
+          currentFilter={emailForTask?.subject ? `Email: ${emailForTask.subject}` : undefined}
+        />
+      )}
     </div>
   );
 }

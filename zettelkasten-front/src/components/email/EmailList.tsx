@@ -6,6 +6,8 @@ interface EmailListProps {
   emails: Email[];
   loading: boolean;
   onEmailClick: (email: Email) => void;
+  onArchive?: (email: Email) => void;
+  onCreateTask?: (email: Email) => void;
 }
 
 /**
@@ -13,8 +15,9 @@ interface EmailListProps {
  * - Loading state when fetching emails
  * - Empty state when no emails
  * - List of EmailRow components for each email
+ * - Quick action buttons for each email (archive, create task)
  */
-export function EmailList({ emails, loading, onEmailClick }: EmailListProps) {
+export function EmailList({ emails, loading, onEmailClick, onArchive, onCreateTask }: EmailListProps) {
   if (loading) {
     return (
       <div
@@ -116,6 +119,8 @@ export function EmailList({ emails, loading, onEmailClick }: EmailListProps) {
           key={email.id}
           email={email}
           onClick={() => onEmailClick(email)}
+          onArchive={onArchive}
+          onCreateTask={onCreateTask}
         />
       ))}
     </div>
