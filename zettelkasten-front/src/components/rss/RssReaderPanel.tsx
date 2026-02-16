@@ -10,6 +10,7 @@ interface RssReaderPanelProps {
   feeds: RSSFeed[];
   onConvertClick: () => void;
   onMarkAsUnread: () => void;
+  onToggleStar: (articleId: number, isStarred: boolean) => void;
   onFeedClick?: (feedId: number) => void;
 }
 
@@ -21,6 +22,7 @@ export function RssReaderPanel({
   feeds,
   onConvertClick,
   onMarkAsUnread,
+  onToggleStar,
   onFeedClick,
 }: RssReaderPanelProps) {
   const navigate = useNavigate();
@@ -139,7 +141,42 @@ export function RssReaderPanel({
           </div>
         )}
 
-        <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-gray-200">
+        <div className="flex flex-wrap gap-3 pt-6 border-t border-gray-200">
+          <button
+            onClick={() => selectedArticle && onToggleStar(selectedArticle.id, selectedArticle.is_starred || false)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${
+              selectedArticle?.is_starred
+                ? "bg-amber-50 border-amber-300 text-amber-700"
+                : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+            title={selectedArticle?.is_starred ? "Unstar article" : "Star article"}
+          >
+            <svg
+              className={`w-5 h-5 ${selectedArticle?.is_starred ? "fill-amber-500 text-amber-500" : "text-gray-500"}`}
+              fill={selectedArticle?.is_starred ? "currentColor" : "none"}
+              stroke="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={selectedArticle?.is_starred ? 0 : 2}
+                d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.364 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.364-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+              />
+            </svg>
+            <span>{selectedArticle?.is_starred ? "Starred" : "Star"}</span>
+          </button>
+          {!selectedArticle.card_id && (
+            <button
+              onClick={onConvertClick}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+              </svg>
+              <span>Convert to Card</span>
+            </button>
+          )}
           {selectedArticle.read && (
             <button
               onClick={onMarkAsUnread}
