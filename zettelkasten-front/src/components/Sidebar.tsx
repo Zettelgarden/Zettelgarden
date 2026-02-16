@@ -10,6 +10,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useToast } from "./toast/ToastContext";
 import { getUnreadCount } from "../api/notifications";
+import { listEmails } from "../api/email";
 
 import { PartialCard, Card, Entity } from "../models/Card";
 
@@ -30,6 +31,7 @@ export function Sidebar() {
   const { tasks } = useTaskContext();
   const { unreadCount: unreadRssCount } = useRSS();
   const [unreadInboxCount, setUnreadInboxCount] = useState(0);
+  const [unreadEmailCount, setUnreadEmailCount] = useState(0);
   const [showAddArticleDialog, setShowAddArticleDialog] = useState(false);
   const [showStarCardDialog, setShowStarCardDialog] = useState(false);
   const { hasSubscription, user, updateUser } = useAuth();
@@ -118,6 +120,18 @@ export function Sidebar() {
     fetchUnreadCount();
   }, []);
 
+  useEffect(() => {
+    async function fetchUnreadEmailCount() {
+      try {
+        const response = await listEmails({ status: "unprocessed", limit: 1 });
+        setUnreadEmailCount(response.total ?? 0);
+      } catch (error) {
+        console.error("Failed to fetch unread email count:", error);
+      }
+    }
+    fetchUnreadEmailCount();
+  }, []);
+
   const handleCreateTask = useCallback(() => {
     setShowQuickSearchWindow(false);
     setShowCreateTaskWindow(true);
@@ -186,6 +200,7 @@ export function Sidebar() {
             todayTasksCount={todayTasks.length}
             unreadRssCount={unreadRssCount}
             unreadInboxCount={unreadInboxCount}
+            unreadEmailCount={unreadEmailCount}
             hasSubscription={hasSubscription}
             isCollapsed={isSidebarCollapsed}
           />
