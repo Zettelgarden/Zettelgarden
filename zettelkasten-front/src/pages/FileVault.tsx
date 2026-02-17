@@ -150,7 +150,6 @@ export function FileVault() {
           {/* Upload section */}
           <div className="flex-shrink-0">
             <FileUpload
-              setMessage={(message: string) => { }}
               card={defaultCard}
             >
               <button className="h-9 bg-green-600 hover:bg-green-700 text-white rounded-md px-4 text-sm font-medium">
