@@ -147,7 +147,7 @@ export function NotificationInboxPage() {
         navigate(`/app/emails/${notification.source_id}`);
         break;
       case "rss":
-        navigate("/app/rss");
+        navigate(`/app/rss?article=${notification.source_id}`);
         break;
       case "task":
         navigate("/app");

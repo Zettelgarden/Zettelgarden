@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { setDocumentTitle } from "../utils/title";
 import {
   markAsRead,
@@ -11,6 +11,7 @@ import {
   importOPML,
   starArticle,
   unstarArticle,
+  getArticle,
   OPMLImportResult,
   RSSFeed,
   RSSFolder,
@@ -39,6 +40,7 @@ const EMPTY_FILTERS = Object.freeze({});
 
 export function RssPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { setUnreadCount } = useRSS();
   const { toggleMobileSidebar } = useUIState();
 
@@ -135,6 +137,26 @@ export function RssPage() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Handle article query parameter (e.g., from notification click)
+  useEffect(() => {
+    const articleId = searchParams.get('article');
+    if (articleId) {
+      const id = parseInt(articleId, 10);
+      if (!isNaN(id)) {
+        // Fetch and select the article
+        getArticle(id)
+          .then((article) => {
+            setSelectedArticle(article);
+            // Clear the query param after loading
+            navigate('/app/rss', { replace: true });
+          })
+          .catch((error) => {
+            console.error('Failed to load article:', error);
+          });
+      }
+    }
+  }, [searchParams, navigate]);
 
   // Sort folders alphabetically
   const sortedFolders = useMemo(() => {
