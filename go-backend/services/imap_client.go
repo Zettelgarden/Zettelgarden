@@ -189,11 +189,13 @@ func (c *IMAPClient) FetchRecentEmails(ctx context.Context, limit int) ([]models
 
 	go func() {
 		// Fetch envelope, flags, UID, and the full RFC822 message for body extraction
+		// Use BodySectionName with Peek: true to reliably avoid marking emails as read
+		bodySection := &imap.BodySectionName{Peek: true}
 		items := []imap.FetchItem{
 			imap.FetchEnvelope,
 			imap.FetchFlags,
 			imap.FetchUid,
-			imap.FetchRFC822,
+			bodySection.FetchItem(),
 		}
 		errChan <- c.client.Fetch(seqSet, items, messages)
 	}()
@@ -266,11 +268,13 @@ func (c *IMAPClient) FetchEmailsSinceUID(ctx context.Context, lastUID uint32) ([
 	errChan := make(chan error, 1)
 
 	go func() {
+		// Use BodySectionName with Peek: true to reliably avoid marking emails as read
+		bodySection := &imap.BodySectionName{Peek: true}
 		items := []imap.FetchItem{
 			imap.FetchEnvelope,
 			imap.FetchFlags,
 			imap.FetchUid,
-			imap.FetchRFC822,
+			bodySection.FetchItem(),
 		}
 		errChan <- c.client.UidFetch(seqSet, items, messages)
 	}()
