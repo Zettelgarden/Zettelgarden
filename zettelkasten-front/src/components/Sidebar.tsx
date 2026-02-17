@@ -18,7 +18,6 @@ import { PartialCard, Card, Entity } from "../models/Card";
 
 import { SidebarHeader } from "./sidebar/SidebarHeader";
 import { NavigationLinks } from "./sidebar/NavigationLinks";
-import { SecondaryNavigationLinks } from "./sidebar/SecondaryNavigationLinks";
 import { StarredSearchesSection } from "./sidebar/StarredSearchesSection";
 import { StarredCardsSection } from "./sidebar/StarredCardsSection";
 import { SidebarFooter } from "./sidebar/SidebarFooter";
@@ -219,6 +218,7 @@ export function Sidebar() {
           onAddFeed={handleAddFeed}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={toggleSidebarCollapsed}
+          unreadInboxCount={unreadInboxCount}
         />
 
         {/* Scrollable Middle Section */}
@@ -226,19 +226,14 @@ export function Sidebar() {
           <NavigationLinks
             todayTasksCount={todayTasks.length}
             unreadRssCount={unreadRssCount}
-            unreadInboxCount={unreadInboxCount}
             unreadEmailCount={unreadEmailCount}
-            hasSubscription={hasSubscription}
-            isCollapsed={isSidebarCollapsed}
-          />
-          <hr />
-          <SecondaryNavigationLinks
             hasSubscription={hasSubscription}
             isCollapsed={isSidebarCollapsed}
           />
 
           {!isSidebarCollapsed && (
             <>
+              <hr />
               <StarredSearchesSection />
               <StarredCardsSection
                 onShowStarCardDialog={() => setShowStarCardDialog(true)}
