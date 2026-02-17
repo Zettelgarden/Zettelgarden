@@ -699,7 +699,6 @@ export function ChatInterface({
         <BacklinkDialog
           onClose={() => setShowBacklinkDialog(false)}
           onSelect={handleAddBacklink}
-          setMessage={() => {}}
           excludeCardId={undefined}
         />
       )}

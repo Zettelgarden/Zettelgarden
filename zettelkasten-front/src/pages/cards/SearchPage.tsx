@@ -19,8 +19,8 @@ import { Entity } from "../../models/Card";
 import { fetchEntityByName } from "../../api/entities";
 import { setDocumentTitle } from "../../utils/title";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
-
 import { useDialogState } from "../../contexts/DialogStateContext";
+import { useToast } from "../../components/toast/ToastContext";
 
 interface SearchPageProps {
   searchTerm: string;
@@ -45,9 +45,9 @@ export function SearchPage({
   const [error, setError] = useState<Error | null>(null);
   const { tags } = useTagContext();
   const [showStarSearchDialog, setShowStarSearchDialog] = useState<boolean>(false);
-  const [message, setMessage] = useState<string>("");
   const latestRequestId = React.useRef(0);
   const { toggleMobileSidebar } = useUIState();
+  const { showToast } = useToast();
 
   // Pagination state
   const [totalResults, setTotalResults] = useState<number>(0);
@@ -187,7 +187,7 @@ export function SearchPage({
           }
         } catch (error) {
           console.error("Error loading starred search:", error);
-          setMessage("Error loading starred search");
+          showToast("error", "Load Failed", "Error loading starred search");
         }
       }
 
@@ -344,13 +344,6 @@ export function SearchPage({
         />
       )}
 
-      {/* Message display */}
-      {message && (
-        <div className="fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded shadow-lg z-50 safe-bottom-fixed safe-right-fixed">
-          {message}
-        </div>
-      )}
-
       {/* Star Search Dialog */}
       {showStarSearchDialog && (
         <StarSearchDialog
@@ -360,7 +353,6 @@ export function SearchPage({
           onStarSuccess={() => {
             // Refresh starred searches
           }}
-          setMessage={setMessage}
         />
       )}
 

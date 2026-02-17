@@ -14,7 +14,6 @@ import { Card, PartialCard, defaultCard, CardTemplate } from "../../models/Card"
 import { File } from "../../models/File";
 import { useUIState } from "../../contexts/UIStateContext";
 import { Button } from "../../components/Button";
-import { ButtonCardDelete } from "../../components/cards/ButtonCardDelete";
 import { CardBodyTextArea, CardBodyTextAreaHandle } from "../../components/cards/CardBodyTextArea";
 import { processTemplateVariables } from "../../utils/templateVariables";
 import { HeaderSubSection } from "../../components/Header";

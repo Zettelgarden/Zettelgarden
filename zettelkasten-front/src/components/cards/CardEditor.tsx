@@ -185,7 +185,6 @@ export function CardEditor({
         <BacklinkDialog
           onClose={() => setShowBacklinkDialog(false)}
           onSelect={addBacklink}
-          setMessage={setMessage}
           excludeCardId={editingCard.id}
         />
       )}

@@ -1,23 +1,24 @@
 import React, { useState } from "react";
 import { BacklinkInputDropdownList } from "./BacklinkInputDropdownList";
 import { PartialCard } from "../../models/Card";
+import { useToast } from "../toast/ToastContext";
 
 interface BacklinkDialogProps {
   onClose: () => void;
   onSelect: (card: PartialCard) => void;
-  setMessage: (message: string) => void;
   excludeCardId?: number;
 }
 
-export function BacklinkDialog({ onClose, onSelect, setMessage, excludeCardId }: BacklinkDialogProps) {
+export function BacklinkDialog({ onClose, onSelect, excludeCardId }: BacklinkDialogProps) {
   const [searchResults, setSearchResults] = useState<PartialCard[]>([]);
+  const { showToast } = useToast();
 
   function handleSearch(searchTerm: string) {
   }
 
   function handleSelect(card: PartialCard) {
     onSelect(card);
-    setMessage(`Backlink to "${card.title}" added successfully`);
+    showToast("success", "Backlink Added", `Backlink to "${card.title}" added successfully`);
     onClose(); // Close the dialog
   }
 

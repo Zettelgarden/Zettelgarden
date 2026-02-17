@@ -2,14 +2,16 @@ import React from "react";
 import { Button } from "../Button";
 import { Card } from "../../models/Card";
 import { deleteCard } from "../../api/cards";
+import { useToast } from "../toast/ToastContext";
 
 interface ButtonCardDeleteProps {
   card: Card;
-  setMessage: (message: string) => void;
   onSuccess?: () => void;
 }
 
-export function ButtonCardDelete({ card, setMessage, onSuccess }: ButtonCardDeleteProps) {
+export function ButtonCardDelete({ card, onSuccess }: ButtonCardDeleteProps) {
+  const { showToast } = useToast();
+
   function handleDeleteButtonClick() {
     if (
       window.confirm(
@@ -18,13 +20,11 @@ export function ButtonCardDelete({ card, setMessage, onSuccess }: ButtonCardDele
     ) {
       deleteCard(card.id)
         .then(() => {
-          setMessage("Card deleted successfully");
+          showToast("success", "Card Deleted", "The card has been deleted successfully");
           onSuccess?.();
         })
         .catch((error) =>
-          setMessage(
-            "Unable to delete card. Does it have backlinks, children or files?"
-          )
+          showToast("error", "Delete Failed", "Unable to delete card. Does it have backlinks, children or files?")
         );
     }
   }

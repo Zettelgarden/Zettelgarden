@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { starSearch } from "../../api/starredSearches";
 import { SearchConfig } from "../../models/StarredSearch";
+import { useToast } from "../toast/ToastContext";
 
 interface StarSearchDialogProps {
   searchTerm: string;
   searchConfig: SearchConfig;
   onClose: () => void;
   onStarSuccess: () => void;
-  setMessage: (message: string) => void;
 }
 
 export function StarSearchDialog({
@@ -15,25 +15,25 @@ export function StarSearchDialog({
   searchConfig,
   onClose,
   onStarSuccess,
-  setMessage
 }: StarSearchDialogProps) {
   const [title, setTitle] = useState<string>(searchTerm || "Untitled Search");
+  const { showToast } = useToast();
 
   function handleSave() {
     if (!title.trim()) {
-      setMessage("Please enter a title for the starred search");
+      showToast("error", "Validation Error", "Please enter a title for the starred search");
       return;
     }
 
     starSearch(title, searchTerm, searchConfig)
       .then(() => {
-        setMessage(`Search "${title}" starred successfully`);
+        showToast("success", "Search Starred", `Search "${title}" starred successfully`);
         onStarSuccess();
         onClose();
       })
       .catch(error => {
         console.error("Error starring search:", error);
-        setMessage(`Error starring search: ${error.message}`);
+        showToast("error", "Star Failed", `Error starring search: ${error.message}`);
       });
   }
 
