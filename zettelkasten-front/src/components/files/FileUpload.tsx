@@ -3,21 +3,21 @@ import { Card } from "../../models/Card";
 import { uploadFile } from "../../api/files";
 import { Button } from "../../components/Button";
 import { useUIState } from "../../contexts/UIStateContext";
+import { useToast } from "../toast/ToastContext";
 
 interface FileUploadProps {
-  setMessage: (message: string) => void;
   card: Card;
   children?: React.ReactNode;
 }
 
 export const FileUpload = forwardRef(({
-  setMessage,
   card,
   children,
 }: FileUploadProps, ref: ForwardedRef<HTMLInputElement>) => {
   const localFileInputRef = useRef<HTMLInputElement | null>(null);
   const inputRef = (ref || localFileInputRef) as React.RefObject<HTMLInputElement>;
   const { setRefreshFiles } = useUIState();
+  const { showToast } = useToast();
 
   const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -28,15 +28,13 @@ export const FileUpload = forwardRef(({
         try {
           const response = await uploadFile(files[i], card.id);
           if ("error" in response) {
-            setMessage("Error uploading file: " + response["message"]);
+            showToast("error", "Upload Failed", response["message"]);
           } else {
-            setMessage(
-              "File uploaded successfully: " + response["file"]["name"],
-            );
+            showToast("success", "File Uploaded", response["file"]["name"]);
             setRefreshFiles(true);
           }
         } catch (error) {
-          setMessage("Error uploading file: " + error);
+          showToast("error", "Upload Failed", String(error));
         }
       }
     }

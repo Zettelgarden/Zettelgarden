@@ -32,7 +32,7 @@ export function FilesTab({
         >
           Upload File
         </a>
-        <FileUpload ref={fileUploadRef} setMessage={setError} card={viewingCard} />
+        <FileUpload ref={fileUploadRef} card={viewingCard} />
       </div>
       {viewingCard.files.length > 0 && (
         <div>
