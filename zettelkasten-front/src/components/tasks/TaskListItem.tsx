@@ -6,6 +6,8 @@ import { TaskDateDisplay } from "./TaskDateDisplay";
 import { TaskDueDateDisplay } from "./TaskDueDateDisplay";
 import { TaskPriorityDisplay } from "./TaskPriorityDisplay";
 import { TaskStatusDisplay } from "./TaskStatusDisplay";
+import { TaskListOptionsMenu } from "./TaskListOptionsMenu";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { Task } from "../../models/Task";
 import { Tag } from "../../models/Tags";
 import { Link } from "react-router-dom";
@@ -42,6 +44,8 @@ export function TaskListItem({
   const [editTitle, setEditTitle] = useState<boolean>(false);
   const [newTitle, setNewTitle] = useState<string>("");
   const [showCardLink, setShowCardLink] = useState<boolean>(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [tags, setTags] = useState<Tag[]>([]);
   const { setRefreshTasks, updateTask } = useTaskContext();
   const { setShowTaskDialog, setSelectedTaskId } = useDialogState();
@@ -150,11 +154,30 @@ export function TaskListItem({
     }
   }
 
+  // Menu handlers
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    await deleteTask(task.id);
+    setRefreshTasks(true);
+  };
+
+  const handleRefresh = () => {
+    setRefreshTasks(true);
+  };
+
+  const handleClose = () => {
+    // Close any open menus - the menu handles this itself
+  };
+
   useEffect(() => {
     setTags(task.tags);
   }, [task]);
 
   return (
+    <>
     <div className="flex items-center bg-white py-0.5 md:py-0">
       <div className="mr-2.5">
         {selectMode ? (
@@ -259,16 +282,28 @@ export function TaskListItem({
             </div>
           ))}
       </div>
-      <button
-        onClick={() => {
-          setSelectedTaskId(task.id);
-          setShowTaskDialog(true);
-        }}
-        className="bg-transparent border-0 cursor-pointer p-1 md:p-0.5 min-w-[36px] md:min-w-[24px] min-h-[36px] md:min-h-[24px] flex items-center justify-center hover:bg-gray-100 rounded transition-colors"
-        aria-label="Task options"
-      >
-        ⋮
-      </button>
+      <TaskListOptionsMenu
+        task={task}
+        showCardLink={showCardLink}
+        setShowCardLink={setShowCardLink}
+        onDelete={handleDelete}
+        onToggleComplete={handleToggleComplete}
+        onRefresh={handleRefresh}
+        onClose={handleClose}
+        showHistory={showHistory}
+        onToggleHistory={() => setShowHistory(!showHistory)}
+      />
     </div>
+    <ConfirmDialog
+      isOpen={showDeleteConfirm}
+      onClose={() => setShowDeleteConfirm(false)}
+      onConfirm={confirmDelete}
+      title="Delete Task"
+      message="Are you sure you want to delete this task? This cannot be undone."
+      confirmText="Delete"
+      cancelText="Cancel"
+      variant="danger"
+    />
+    </>
   );
 }
