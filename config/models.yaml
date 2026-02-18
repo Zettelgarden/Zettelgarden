@@ -82,6 +82,15 @@ models:
     supports_streaming: true
     description: "Anthropic's balanced performance model"
 
+  anthropic/claude-sonnet-4.6:
+    provider: anthropic
+    prompt_per_1k: 0.003
+    completion_per_1k: 0.015
+    context_window: 200000
+    supports_tools: true
+    supports_streaming: true
+    description: "Anthropic's balanced performance model"
+
   anthropic/claude-opus-4.6:
     provider: anthropic
     prompt_per_1k: 0.005

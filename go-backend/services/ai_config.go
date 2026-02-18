@@ -185,6 +185,15 @@ func initDefaultConfig() error {
 				SupportsStreaming: true,
 				Description:       "Anthropic's balanced performance model",
 			},
+			"anthropic/claude-sonnet-4.6": {
+				Provider:          "anthropic",
+				PromptPer1K:       0.003,
+				CompletionPer1K:   0.015,
+				ContextWindow:     1000000,
+				SupportsTools:     true,
+				SupportsStreaming: true,
+				Description:       "Anthropic's balanced performance model",
+			},
 			"anthropic/claude-opus-4.6": {
 				Provider:          "anthropic",
 				PromptPer1K:       0.003,
