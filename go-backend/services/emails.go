@@ -182,7 +182,7 @@ func (s *EmailService) ListEmails(ctx context.Context, userID int, filters model
 	query := fmt.Sprintf(`
 		SELECT id, user_id, email_account_id, message_id, thread_id, subject,
 			from_address, from_name, to_addresses, body_text, body_html,
-			received_at, folder, imap_uid, status, is_read, created_at, updated_at
+			received_at, folder, imap_uid, status, is_read, card_id, created_at, updated_at
 		FROM emails
 		WHERE %s
 		ORDER BY received_at DESC NULLS LAST, created_at DESC
@@ -211,6 +211,7 @@ func (s *EmailService) ListEmails(ctx context.Context, userID int, filters model
 		var receivedAt sql.NullTime
 		var folder sql.NullString
 		var imapUID sql.NullInt64
+		var cardID sql.NullInt32
 
 		err := rows.Scan(
 			&email.ID,
@@ -229,6 +230,7 @@ func (s *EmailService) ListEmails(ctx context.Context, userID int, filters model
 			&imapUID,
 			&email.Status,
 			&email.IsRead,
+			&cardID,
 			&email.CreatedAt,
 			&email.UpdatedAt,
 		)
@@ -271,6 +273,10 @@ func (s *EmailService) ListEmails(ctx context.Context, userID int, filters model
 		if imapUID.Valid {
 			uid := imapUID.Int64
 			email.IMAPUID = &uid
+		}
+		if cardID.Valid {
+			id := int(cardID.Int32)
+			email.CardID = &id
 		}
 
 		emails = append(emails, email)
@@ -437,6 +443,7 @@ func (s *EmailService) UpdateEmailStatus(ctx context.Context, userID, emailID in
 	var receivedAt sql.NullTime
 	var folder sql.NullString
 	var imapUID sql.NullInt64
+	var cardID sql.NullInt32
 
 	err := s.db.QueryRowContext(ctx, `
 		UPDATE emails
@@ -444,7 +451,7 @@ func (s *EmailService) UpdateEmailStatus(ctx context.Context, userID, emailID in
 		WHERE id = $2 AND user_id = $3
 		RETURNING id, user_id, email_account_id, message_id, thread_id, subject,
 			from_address, from_name, to_addresses, body_text, body_html,
-			received_at, folder, imap_uid, status, is_read, created_at, updated_at
+			received_at, folder, imap_uid, status, is_read, card_id, created_at, updated_at
 	`, status, emailID, userID).Scan(
 		&email.ID,
 		&email.UserID,
@@ -462,6 +469,7 @@ func (s *EmailService) UpdateEmailStatus(ctx context.Context, userID, emailID in
 		&imapUID,
 		&email.Status,
 		&email.IsRead,
+		&cardID,
 		&email.CreatedAt,
 		&email.UpdatedAt,
 	)
@@ -507,6 +515,10 @@ func (s *EmailService) UpdateEmailStatus(ctx context.Context, userID, emailID in
 	if imapUID.Valid {
 		uid := imapUID.Int64
 		email.IMAPUID = &uid
+	}
+	if cardID.Valid {
+		id := int(cardID.Int32)
+		email.CardID = &id
 	}
 
 	log.Printf("[email] updated email %d status to %s for user %d", emailID, status, userID)
