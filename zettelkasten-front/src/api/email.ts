@@ -32,6 +32,7 @@ export interface Email {
   folder?: string;
   status: string;
   is_read: boolean;
+  card_id?: number; // Link to card if email was converted
   created_at: string;
   updated_at: string;
 }
