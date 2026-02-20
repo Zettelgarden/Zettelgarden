@@ -37,6 +37,7 @@ type Email struct {
 	IMAPUID        *int64     `json:"imap_uid,omitempty"` // IMAP message UID for folder operations
 	Status         string     `json:"status"`
 	IsRead         bool       `json:"is_read"`             // Whether the email has been read (synced with IMAP \Seen flag)
+	CardID         *int       `json:"card_id,omitempty"`   // ID of card created from this email
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 }
