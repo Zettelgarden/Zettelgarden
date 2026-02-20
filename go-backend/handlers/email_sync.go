@@ -606,3 +606,174 @@ func (h *Handler) UpdateEmailStatusRoute(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(email)
 }
+
+// ConvertEmailToCardRoute handles POST /api/emails/{id}/convert
+// Converts an email to a card, optionally linking to an existing card
+func (h *Handler) ConvertEmailToCardRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Get email ID from path
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	emailID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid email ID", http.StatusBadRequest)
+		return
+	}
+
+	// Parse request body
+	var params models.ConvertEmailParams
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&params); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate title
+	if params.Title == "" {
+		http.Error(w, "Title is required", http.StatusBadRequest)
+		return
+	}
+
+	emailService := services.NewEmailService(h.GetDB())
+	db := h.GetDB()
+
+	// Get the email to verify ownership
+	_, err = emailService.GetEmailByID(context.Background(), userID, emailID)
+	if err != nil {
+		if err.Error() == "email not found" {
+			http.Error(w, "Email not found", http.StatusNotFound)
+			return
+		}
+		log.Printf("[email] failed to get email for conversion: %v", err)
+		http.Error(w, "Failed to get email", http.StatusInternalServerError)
+		return
+	}
+
+	var cardInternalID int
+	var cardID string
+
+	// If card_id provided, update existing card; otherwise create new
+	if params.CardID != nil && *params.CardID != "" {
+		// Get the card by string card_id to get internal ID
+		partialCard, err := services.GetPartialCardByCardID(db, userID, *params.CardID)
+		if err != nil {
+			http.Error(w, "Card not found", http.StatusNotFound)
+			return
+		}
+
+		// Update card with new content
+		updateParams := models.EditCardParams{
+			CardID: *params.CardID,
+			Title:  params.Title,
+		}
+		if params.Body != nil {
+			updateParams.Body = *params.Body
+		}
+
+		_, err = services.UpdateCard(db, userID, partialCard.ID, updateParams)
+		if err != nil {
+			log.Printf("[email] failed to update card: %v", err)
+			http.Error(w, "Failed to update card", http.StatusInternalServerError)
+			return
+		}
+
+		cardInternalID = partialCard.ID
+		cardID = partialCard.CardID
+	} else {
+		// Create new card - generate next root card ID
+		createParams := models.EditCardParams{
+			CardID: h.getNextRootCardID(userID),
+			Title:  params.Title,
+		}
+		if params.Body != nil {
+			createParams.Body = *params.Body
+		}
+
+		card, err := services.CreateCard(db, userID, createParams)
+		if err != nil {
+			log.Printf("[email] failed to create card: %v", err)
+			http.Error(w, "Failed to create card", http.StatusInternalServerError)
+			return
+		}
+
+		cardInternalID = card.ID
+		cardID = card.CardID
+	}
+
+	// Handle tags if provided
+	if params.Tags != nil && *params.Tags != "" {
+		// Parse comma-separated tags
+		tagNames := strings.Split(*params.Tags, ",")
+		// Trim whitespace from each tag
+		for i := range tagNames {
+			tagNames[i] = strings.TrimSpace(tagNames[i])
+		}
+		// Remove empty tags
+		var cleanTags []string
+		for _, tag := range tagNames {
+			if tag != "" {
+				cleanTags = append(cleanTags, tag)
+			}
+		}
+
+		// Remove existing tags and add new ones
+		_ = services.RemoveAllTagsFromCard(db, userID, cardInternalID)
+		if len(cleanTags) > 0 {
+			// Create tags and add to card
+			for _, tagName := range cleanTags {
+				tagParams := models.EditTagParams{
+					Name:  tagName,
+					Color: "black",
+				}
+				_, err := services.CreateTag(db, userID, tagParams)
+				if err != nil {
+					log.Printf("[email] failed to create tag %s: %v", tagName, err)
+					continue
+				}
+				err = services.AddTagToCard(db, userID, tagName, cardInternalID)
+				if err != nil {
+					log.Printf("[email] failed to add tag %s to card: %v", tagName, err)
+				}
+			}
+		}
+	}
+
+	// Create email_card_link record
+	// First check if link already exists
+	var existingLinkID int
+	err = db.QueryRowContext(context.Background(),
+		"SELECT id FROM email_card_links WHERE email_id = $1",
+		emailID).Scan(&existingLinkID)
+
+	if err == sql.ErrNoRows {
+		// No existing link, create one
+		_, err = db.ExecContext(context.Background(),
+			"INSERT INTO email_card_links (email_id, card_id) VALUES ($1, $2)",
+			emailID, cardInternalID)
+		if err != nil {
+			log.Printf("[email] failed to create email_card_link: %v", err)
+			// Don't fail the request - card was created/updated successfully
+		}
+	} else if err != nil {
+		log.Printf("[email] error checking email_card_link: %v", err)
+		// Don't fail the request
+	}
+
+	// Update email's card_id
+	_, err = db.ExecContext(context.Background(),
+		"UPDATE emails SET card_id = $1 WHERE id = $2",
+		cardInternalID, emailID)
+	if err != nil {
+		log.Printf("[email] failed to update email card_id: %v", err)
+		// Don't fail the request
+	}
+
+	log.Printf("[email] converted email %d to card %s", emailID, cardID)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"id": cardID,
+	})
+}
