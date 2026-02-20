@@ -298,10 +298,13 @@ func (s *EmailService) GetEmailByID(ctx context.Context, userID, emailID int) (*
 	var folder sql.NullString
 	var imapUID sql.NullInt64
 
+	var cardID sql.NullInt32
+
 	err := s.db.QueryRowContext(ctx, `
 		SELECT id, user_id, email_account_id, message_id, thread_id, subject,
 			from_address, from_name, to_addresses, body_text, body_html,
-			received_at, folder, imap_uid, status, is_read, created_at, updated_at
+			received_at, folder, imap_uid, status, is_read, card_id,
+			created_at, updated_at
 		FROM emails
 		WHERE id = $1 AND user_id = $2
 	`, emailID, userID).Scan(
@@ -321,6 +324,7 @@ func (s *EmailService) GetEmailByID(ctx context.Context, userID, emailID int) (*
 		&imapUID,
 		&email.Status,
 		&email.IsRead,
+		&cardID,
 		&email.CreatedAt,
 		&email.UpdatedAt,
 	)
@@ -366,6 +370,10 @@ func (s *EmailService) GetEmailByID(ctx context.Context, userID, emailID int) (*
 	if imapUID.Valid {
 		uid := imapUID.Int64
 		email.IMAPUID = &uid
+	}
+	if cardID.Valid {
+		id := int(cardID.Int32)
+		email.CardID = &id
 	}
 
 	return &email, nil
