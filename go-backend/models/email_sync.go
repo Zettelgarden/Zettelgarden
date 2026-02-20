@@ -81,3 +81,11 @@ type EmailListFilters struct {
 	Limit  *int    `json:"limit,omitempty"`
 	Offset *int    `json:"offset,omitempty"`
 }
+
+// ConvertEmailParams represents parameters for converting an email to a card
+type ConvertEmailParams struct {
+	Title   string  `json:"title"`
+	Body    *string `json:"body,omitempty"`
+	Tags    *string `json:"tags,omitempty"`
+	CardID  *string `json:"card_id,omitempty"` // For linking to existing card
+}
