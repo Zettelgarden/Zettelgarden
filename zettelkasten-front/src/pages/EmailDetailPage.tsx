@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getEmail, updateEmailStatus, Email } from "../api/email";
 import { setDocumentTitle } from "../utils/title";
 import { CreateTaskWindow } from "../components/tasks/CreateTaskWindow";
+import { EmailConvertDialog } from "../components/email/EmailConvertDialog";
 
 /**
  * Email Detail Page
@@ -19,6 +20,7 @@ export function EmailDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
   const [showCreateTaskWindow, setShowCreateTaskWindow] = useState(false);
+  const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [processedHtml, setProcessedHtml] = useState<string>("");
 
   useEffect(() => {
@@ -107,6 +109,22 @@ export function EmailDetailPage() {
 
   const handleCloseTaskWindow = () => {
     setShowCreateTaskWindow(false);
+  };
+
+  const handleConvertEmail = () => {
+    if (!email) return;
+    setShowConvertDialog(true);
+  };
+
+  const handleCloseConvertDialog = () => {
+    setShowConvertDialog(false);
+  };
+
+  const handleEmailConverted = (cardId: number) => {
+    // Update email with card_id to show conversion status
+    if (email) {
+      setEmail({ ...email, card_id: cardId });
+    }
   };
 
   if (loading) {
@@ -224,6 +242,38 @@ export function EmailDetailPage() {
             ) : (
               <>📁 Archive</>
             )}
+          </button>
+
+          <button
+            onClick={handleConvertEmail}
+            style={{
+              padding: "8px 16px",
+              fontSize: "14px",
+              fontWeight: "500",
+              borderRadius: "8px",
+              border: "1px solid #d1d5db",
+              backgroundColor: email.card_id ? "#d1fae5" : "#ffffff",
+              color: email.card_id ? "#065f46" : "#374151",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = email.card_id ? "#a7f3d0" : "#f9fafb";
+              e.currentTarget.style.borderColor = "#9ca3af";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = email.card_id ? "#d1fae5" : "#ffffff";
+              e.currentTarget.style.borderColor = "#d1d5db";
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <line x1="9" y1="3" x2="9" y2="21" />
+            </svg>
+            {email.card_id ? "View Card" : "Convert to Card"}
           </button>
 
           <button
@@ -420,6 +470,16 @@ export function EmailDetailPage() {
           currentCard={null}
           setShowTaskWindow={handleCloseTaskWindow}
           currentFilter={email?.subject ? `Email: ${email.subject}` : undefined}
+        />
+      )}
+
+      {/* Convert to Card Dialog */}
+      {showConvertDialog && (
+        <EmailConvertDialog
+          isOpen={showConvertDialog}
+          email={email}
+          onClose={handleCloseConvertDialog}
+          onConverted={handleEmailConverted}
         />
       )}
     </div>
