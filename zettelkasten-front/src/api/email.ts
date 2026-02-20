@@ -109,3 +109,19 @@ export function updateEmailStatus(id: number, status: string): Promise<Email> {
 export function getEmailStats(): Promise<Record<string, number>> {
   return getData(apiClient.get<Record<string, number>>("/emails/stats"));
 }
+
+// Email Conversion API
+export interface ConvertEmailParams {
+  title?: string;
+  body?: string;
+  tags?: string;
+  card_id?: string;
+}
+
+export interface ConvertCardResponse {
+  id: number;
+}
+
+export function convertEmailToCard(id: number, params?: ConvertEmailParams): Promise<ConvertCardResponse> {
+  return getData(apiClient.post<ConvertCardResponse>(`/emails/${id}/convert`, params));
+}
