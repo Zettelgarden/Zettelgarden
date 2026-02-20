@@ -17,5 +17,6 @@ func RegisterEmailRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/emails", h.ListEmailsRoute, "GET")
 	addProtectedRoute(r, h, "/api/emails/{id}", h.GetEmailRoute, "GET")
 	addProtectedRoute(r, h, "/api/emails/{id}/status", h.UpdateEmailStatusRoute, "PATCH")
+	addProtectedRoute(r, h, "/api/emails/{id}/convert", h.ConvertEmailToCardRoute, "POST")
 	addProtectedRoute(r, h, "/api/emails/stats", h.GetEmailStatsRoute, "GET")
 }
