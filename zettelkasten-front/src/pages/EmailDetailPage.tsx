@@ -113,7 +113,13 @@ export function EmailDetailPage() {
 
   const handleConvertEmail = () => {
     if (!email) return;
-    setShowConvertDialog(true);
+    if (email.card_id) {
+      // Navigate to existing card
+      navigate(`/app/card/${email.card_id}`);
+    } else {
+      // Open convert dialog
+      setShowConvertDialog(true);
+    }
   };
 
   const handleCloseConvertDialog = () => {
