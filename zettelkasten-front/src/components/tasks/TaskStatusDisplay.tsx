@@ -64,12 +64,12 @@ export function TaskStatusDisplay({
         {statuses.map((status) => (
           <div
             key={status.id}
-            className="px-4 py-3 md:py-1.5 min-h-[44px] md:min-h-[32px] hover:bg-gray-100 cursor-pointer flex items-center gap-2 text-sm"
+            className="px-2 py-1 min-h-[26px] hover:bg-gray-100 cursor-pointer flex items-center gap-1.5 text-xs overflow-hidden"
             onClick={() => setStatus(status.name)}
             style={{ color: status.color }}
           >
             <span>{status.icon}</span>
-            <span>{status.display_name}</span>
+            <span className="truncate">{status.display_name}</span>
           </div>
         ))}
       </TaskDropdown>

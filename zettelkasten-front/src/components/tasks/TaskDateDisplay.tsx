@@ -174,7 +174,7 @@ export function TaskDateDisplay({
       <span
         ref={triggerRef}
         onClick={handleToggle}
-        className="cursor-pointer inline-flex items-center justify-center gap-1 px-2 py-0.5 md:py-0 min-w-[44px] md:min-w-[32px] min-h-[44px] md:min-h-[28px] rounded-md text-xs font-medium transition-colors hover:opacity-80"
+        className="cursor-pointer inline-flex items-center justify-center gap-1 px-1.5 py-0 min-w-[32px] min-h-[24px] rounded-md text-xs font-medium transition-colors hover:opacity-80"
         style={{
           backgroundColor: color + "20",
           color: color,
@@ -201,33 +201,33 @@ export function TaskDateDisplay({
           <div className="flex flex-col">
             <button
               onClick={() => setNoDate()}
-              className="w-full text-left px-4 py-3 md:py-1.5 min-h-[44px] md:min-h-[32px] hover:bg-gray-100 text-sm"
+              className="w-full text-left px-2 py-1 min-h-[26px] hover:bg-gray-100 text-xs whitespace-nowrap"
             >
               No Date
             </button>
             <button
               onClick={() => setDate(() => getToday(userTimezone))}
-              className="w-full text-left px-4 py-3 md:py-1.5 min-h-[44px] md:min-h-[32px] hover:bg-gray-100 text-sm"
+              className="w-full text-left px-2 py-1 min-h-[26px] hover:bg-gray-100 text-xs whitespace-nowrap"
             >
               Today
             </button>
             <button
               onClick={() => setDate(() => getTomorrow(userTimezone))}
-              className="w-full text-left px-4 py-3 md:py-1.5 min-h-[44px] md:min-h-[32px] hover:bg-gray-100 text-sm"
+              className="w-full text-left px-2 py-1 min-h-[26px] hover:bg-gray-100 text-xs whitespace-nowrap"
             >
               Tomorrow
             </button>
             {isFriday(userTimezone) && (
               <button
                 onClick={() => setDate(() => getNextMonday(userTimezone))}
-                className="w-full text-left px-4 py-3 md:py-1.5 min-h-[44px] md:min-h-[32px] hover:bg-gray-100 text-sm"
+                className="w-full text-left px-2 py-1 min-h-[26px] hover:bg-gray-100 text-xs whitespace-nowrap"
               >
                 Next Monday
               </button>
             )}
             <button
               onClick={() => setDate(() => getNextWeek(userTimezone))}
-              className="w-full text-left px-4 py-3 md:py-1.5 min-h-[44px] md:min-h-[32px] hover:bg-gray-100 text-sm"
+              className="w-full text-left px-2 py-1 min-h-[26px] hover:bg-gray-100 text-xs whitespace-nowrap"
             >
               Next Week
             </button>
@@ -235,7 +235,7 @@ export function TaskDateDisplay({
               <input
                 aria-label="Date"
                 type="date"
-                className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-2 py-1 min-h-[26px] border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={selectedDate}
                 onChange={handleScheduledDateChange}
               />

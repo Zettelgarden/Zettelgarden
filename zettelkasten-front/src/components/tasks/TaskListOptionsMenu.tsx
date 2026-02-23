@@ -168,11 +168,11 @@ export function TaskListOptionsMenu({
     <>
       <Menu as="div" className="relative inline-block text-left">
         <div>
-          <Menu.Button className="inline-flex justify-center items-center w-full rounded-md border border-gray-300 shadow-sm px-2 py-1 min-w-[44px] min-h-[44px] bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-indigo-500">
+          <Menu.Button className="inline-flex justify-center items-center w-full rounded-md border border-gray-300 shadow-sm px-1.5 py-0.5 min-w-[32px] min-h-[24px] bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-indigo-500">
             ⋮
           </Menu.Button>
         </div>
-        <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+        <Menu.Items className="origin-top-right absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
           <div className="py-1">
             <Menu.Item>
               {({ active }) => (
@@ -180,7 +180,7 @@ export function TaskListOptionsMenu({
                   onClick={task.card_pk === 0 ? toggleCardLink : handleCardUnlink}
                   className={`${
                     active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                  } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
+                  } group flex rounded-md items-center w-full px-2 py-1 min-h-[26px] text-xs whitespace-nowrap`}
                 >
                   {task.card_pk === 0 ? 'Link Card' : 'Unlink Card'}
                 </button>
@@ -194,9 +194,9 @@ export function TaskListOptionsMenu({
                     onClick={handleCompleteAndSchedule}
                     className={`${
                       active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                    } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
+                    } group flex rounded-md items-center w-full px-2 py-1 min-h-[26px] text-xs whitespace-nowrap`}
                   >
-                    Complete & Schedule Again
+                    Complete & Schedule
                   </button>
                 )}
               </Menu.Item>
@@ -208,7 +208,7 @@ export function TaskListOptionsMenu({
                     onClick={onToggleHistory}
                     className={`${
                       active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                    } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
+                    } group flex rounded-md items-center w-full px-2 py-1 min-h-[26px] text-xs whitespace-nowrap`}
                   >
                     {showHistory ? 'Hide' : 'Show'} History
                   </button>
@@ -221,7 +221,7 @@ export function TaskListOptionsMenu({
                   onClick={onDelete}
                   className={`${
                     active ? 'bg-gray-100 text-red-600' : 'text-red-600'
-                  } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
+                  } group flex rounded-md items-center w-full px-2 py-1 min-h-[26px] text-xs whitespace-nowrap`}
                 >
                   Delete Task
                 </button>
@@ -248,7 +248,7 @@ export function TaskListOptionsMenu({
               role="menuitem"
               tabIndex={-1}
               onClick={() => scheduleTomorrow()}
-              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 text-sm"
+              className="w-full text-left px-2 py-1 min-h-[26px] hover:bg-gray-100 text-xs whitespace-nowrap"
             >
               Tomorrow
             </button>
@@ -256,7 +256,7 @@ export function TaskListOptionsMenu({
               role="menuitem"
               tabIndex={-1}
               onClick={() => scheduleNextMonday()}
-              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 text-sm"
+              className="w-full text-left px-2 py-1 min-h-[26px] hover:bg-gray-100 text-xs whitespace-nowrap"
             >
               Next Monday
             </button>
@@ -264,7 +264,7 @@ export function TaskListOptionsMenu({
               role="menuitem"
               tabIndex={-1}
               onClick={() => scheduleNextWeek()}
-              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 text-sm"
+              className="w-full text-left px-2 py-1 min-h-[26px] hover:bg-gray-100 text-xs whitespace-nowrap"
             >
               Next Week
             </button>
@@ -272,7 +272,7 @@ export function TaskListOptionsMenu({
               <input
                 aria-label="Schedule Date"
                 type="date"
-                className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-2 py-1 min-h-[26px] border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={selectedScheduleDate}
                 min={getToday(userTimezone).toISOString().split('T')[0]}
                 onChange={(e) => {
