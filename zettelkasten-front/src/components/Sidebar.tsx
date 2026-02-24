@@ -24,6 +24,7 @@ import { SidebarFooter } from "./sidebar/SidebarFooter";
 import { SidebarModals } from "./sidebar/SidebarModals";
 import { MobileBottomNav } from "./mobile/MobileBottomNav";
 import { RssAddFeedDialog } from "./rss/RssAddFeedDialog";
+import { SidebarSearchBar } from "./sidebar/SidebarSearchBar";
 
 export function Sidebar() {
   const navigate = useNavigate();
@@ -220,6 +221,8 @@ export function Sidebar() {
           onToggleCollapse={toggleSidebarCollapsed}
           unreadInboxCount={unreadInboxCount}
         />
+
+        <SidebarSearchBar isCollapsed={isSidebarCollapsed} />
 
         {/* Scrollable Middle Section */}
         <div className="flex-1 overflow-y-auto" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}>
