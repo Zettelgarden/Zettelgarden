@@ -82,10 +82,10 @@ export function SidebarHeader({
           </Link>
         </div>
       )}
-      <div className={`flex items-center ${isCollapsed ? "" : ""} flex-shrink-0`}>
+      <div className={`flex items-center ${isCollapsed ? "justify-center gap-2" : ""} flex-shrink-0`}>
         <Link
           to="/app/inbox"
-          className={`relative flex items-center justify-center rounded-full transition-colors mr-2 ${
+          className={`relative flex items-center justify-center rounded-full transition-colors ${isCollapsed ? "" : "mr-2"} ${
             isCollapsed
               ? "w-10 h-10 text-gray-700 hover:bg-gray-100"
               : "w-11 h-11 min-h-[44px] bg-gray-100 text-gray-700 hover:bg-gray-200"
