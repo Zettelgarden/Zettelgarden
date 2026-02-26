@@ -8,6 +8,8 @@ interface EmailListProps {
   onEmailClick: (email: Email) => void;
   onArchive?: (email: Email) => void;
   onCreateTask?: (email: Email) => void;
+  selectedEmailIds?: Set<number>;
+  onToggleSelect?: (email: Email) => void;
 }
 
 /**
@@ -16,8 +18,9 @@ interface EmailListProps {
  * - Empty state when no emails
  * - List of EmailRow components for each email
  * - Quick action buttons for each email (archive, create task)
+ * - Selection checkboxes when selection mode is enabled
  */
-export function EmailList({ emails, loading, onEmailClick, onArchive, onCreateTask }: EmailListProps) {
+export function EmailList({ emails, loading, onEmailClick, onArchive, onCreateTask, selectedEmailIds, onToggleSelect }: EmailListProps) {
   if (loading) {
     return (
       <div
@@ -121,6 +124,8 @@ export function EmailList({ emails, loading, onEmailClick, onArchive, onCreateTa
           onClick={() => onEmailClick(email)}
           onArchive={onArchive}
           onCreateTask={onCreateTask}
+          isSelected={selectedEmailIds?.has(email.id)}
+          onToggleSelect={onToggleSelect}
         />
       ))}
     </div>

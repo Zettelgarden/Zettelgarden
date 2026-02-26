@@ -1,5 +1,16 @@
 import "@testing-library/jest-dom";
 import { afterAll, beforeAll, vi } from "vitest";
+import DOMPurify from "dompurify";
+
+// Initialize DOMPurify with the test environment's window
+if (typeof window !== "undefined") {
+  DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
+    // Additional security hook for attributes
+    if (data.attrName === "href" && data.attrValue?.toLowerCase().startsWith("javascript:")) {
+      data.attrValue = "";
+    }
+  });
+}
 
 // Many components mount application contexts which fetch from the backend.
 // In tests we provide a safe default fetch mock to avoid cross-origin/network

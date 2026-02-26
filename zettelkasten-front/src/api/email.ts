@@ -46,6 +46,7 @@ export interface EmailListFilters {
   status?: string;
   folder?: string;
   is_read?: boolean;
+  from_address?: string;
   limit?: number;
   offset?: number;
 }
@@ -91,6 +92,7 @@ export function listEmails(filters?: EmailListFilters): Promise<EmailListRespons
   if (filters?.status) params.set("status", filters.status);
   if (filters?.folder) params.set("folder", filters.folder);
   if (filters?.is_read !== undefined) params.set("is_read", filters.is_read.toString());
+  if (filters?.from_address) params.set("from_address", filters.from_address);
   if (filters?.limit) params.set("limit", filters.limit.toString());
   if (filters?.offset) params.set("offset", filters.offset.toString());
 
@@ -110,6 +112,25 @@ export function getEmailStats(): Promise<Record<string, number>> {
   return getData(apiClient.get<Record<string, number>>("/emails/stats"));
 }
 
+export interface SenderInfo {
+  from_address: string;
+  from_name?: string;
+  count: number;
+}
+
+export interface TopSendersResponse {
+  senders: SenderInfo[];
+}
+
+export function getTopSenders(status?: string, limit?: number): Promise<TopSendersResponse> {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (limit) params.set("limit", limit.toString());
+
+  const query = params.toString();
+  return getData(apiClient.get<TopSendersResponse>(`/emails/top-senders${query ? `?${query}` : ""}`));
+}
+
 // Email Conversion API
 export interface ConvertEmailParams {
   title?: string;
@@ -124,4 +145,52 @@ export interface ConvertCardResponse {
 
 export function convertEmailToCard(id: number, params?: ConvertEmailParams): Promise<ConvertCardResponse> {
   return getData(apiClient.post<ConvertCardResponse>(`/emails/${id}/convert`, params));
+}
+
+// Batch operation types
+export interface BatchEmailParams {
+  email_ids: number[];
+}
+
+export interface BatchArchiveParams extends BatchEmailParams {
+  status?: "archived" | "unprocessed";
+}
+
+export interface BatchConvertParams extends BatchEmailParams {
+  title?: string;
+  body?: string;
+  tags?: string;
+}
+
+export interface BatchOperationResponse {
+  success: boolean;
+  total: number;
+  success_count: number;
+  fail_count: number;
+  results: Array<{
+    email_id: number;
+    success: boolean;
+    card_id?: string;
+    task_id?: number;
+    error?: string;
+  }>;
+}
+
+export interface BatchArchiveResponse {
+  success: boolean;
+  count: number;
+  emails: Email[];
+}
+
+// Batch operation API functions
+export function batchArchiveEmails(params: BatchArchiveParams): Promise<BatchArchiveResponse> {
+  return getData(apiClient.post<BatchArchiveResponse>("/emails/batch-archive", params));
+}
+
+export function batchConvertEmails(params: BatchConvertParams): Promise<BatchOperationResponse> {
+  return getData(apiClient.post<BatchOperationResponse>("/emails/batch-convert", params));
+}
+
+export function batchCreateTasks(params: BatchEmailParams): Promise<BatchOperationResponse> {
+  return getData(apiClient.post<BatchOperationResponse>("/emails/batch-create-tasks", params));
 }

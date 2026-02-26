@@ -18,11 +18,13 @@ describe('useKeyboardShortcuts', () => {
   it('should add keydown event listener on mount', () => {
     const onCreateTask = vi.fn();
     const onQuickSearch = vi.fn();
+    const onNavigateToEmails = vi.fn();
 
     renderHook(() =>
       useKeyboardShortcuts({
         onCreateTask,
         onQuickSearch,
+        onNavigateToEmails,
       }),
     );
 
@@ -35,11 +37,13 @@ describe('useKeyboardShortcuts', () => {
   it('should remove keydown event listener on unmount', () => {
     const onCreateTask = vi.fn();
     const onQuickSearch = vi.fn();
+    const onNavigateToEmails = vi.fn();
 
     const { unmount } = renderHook(() =>
       useKeyboardShortcuts({
         onCreateTask,
         onQuickSearch,
+        onNavigateToEmails,
       }),
     );
 
@@ -54,11 +58,13 @@ describe('useKeyboardShortcuts', () => {
   it('should call onCreateTask when "t" key is pressed', () => {
     const onCreateTask = vi.fn();
     const onQuickSearch = vi.fn();
+    const onNavigateToEmails = vi.fn();
 
     renderHook(() =>
       useKeyboardShortcuts({
         onCreateTask,
         onQuickSearch,
+        onNavigateToEmails,
       }),
     );
 
@@ -71,11 +77,13 @@ describe('useKeyboardShortcuts', () => {
   it('should call onQuickSearch when "s" key is pressed', () => {
     const onCreateTask = vi.fn();
     const onQuickSearch = vi.fn();
+    const onNavigateToEmails = vi.fn();
 
     renderHook(() =>
       useKeyboardShortcuts({
         onCreateTask,
         onQuickSearch,
+        onNavigateToEmails,
       }),
     );
 
@@ -85,14 +93,35 @@ describe('useKeyboardShortcuts', () => {
     expect(onQuickSearch).toHaveBeenCalled();
   });
 
-  it('should prevent default behavior when shortcut key is pressed', () => {
+  it('should call onNavigateToEmails when "e" key is pressed', () => {
     const onCreateTask = vi.fn();
     const onQuickSearch = vi.fn();
+    const onNavigateToEmails = vi.fn();
 
     renderHook(() =>
       useKeyboardShortcuts({
         onCreateTask,
         onQuickSearch,
+        onNavigateToEmails,
+      }),
+    );
+
+    const event = new KeyboardEvent('keydown', { key: 'e' });
+    document.dispatchEvent(event);
+
+    expect(onNavigateToEmails).toHaveBeenCalled();
+  });
+
+  it('should prevent default behavior when shortcut key is pressed', () => {
+    const onCreateTask = vi.fn();
+    const onQuickSearch = vi.fn();
+    const onNavigateToEmails = vi.fn();
+
+    renderHook(() =>
+      useKeyboardShortcuts({
+        onCreateTask,
+        onQuickSearch,
+        onNavigateToEmails,
       }),
     );
 
@@ -106,11 +135,13 @@ describe('useKeyboardShortcuts', () => {
   it('should ignore shortcuts when metaKey is pressed', () => {
     const onCreateTask = vi.fn();
     const onQuickSearch = vi.fn();
+    const onNavigateToEmails = vi.fn();
 
     renderHook(() =>
       useKeyboardShortcuts({
         onCreateTask,
         onQuickSearch,
+        onNavigateToEmails,
       }),
     );
 
@@ -123,6 +154,7 @@ describe('useKeyboardShortcuts', () => {
   it('should ignore shortcuts when input element is focused', () => {
     const onCreateTask = vi.fn();
     const onQuickSearch = vi.fn();
+    const onNavigateToEmails = vi.fn();
 
     const input = document.createElement('input');
     document.body.appendChild(input);
@@ -132,6 +164,7 @@ describe('useKeyboardShortcuts', () => {
       useKeyboardShortcuts({
         onCreateTask,
         onQuickSearch,
+        onNavigateToEmails,
       }),
     );
 
@@ -146,6 +179,7 @@ describe('useKeyboardShortcuts', () => {
   it('should ignore shortcuts when textarea element is focused', () => {
     const onCreateTask = vi.fn();
     const onQuickSearch = vi.fn();
+    const onNavigateToEmails = vi.fn();
 
     const textarea = document.createElement('textarea');
     document.body.appendChild(textarea);
@@ -155,6 +189,7 @@ describe('useKeyboardShortcuts', () => {
       useKeyboardShortcuts({
         onCreateTask,
         onQuickSearch,
+        onNavigateToEmails,
       }),
     );
 
@@ -169,6 +204,7 @@ describe('useKeyboardShortcuts', () => {
   it('should trigger shortcuts when non-input element is focused', () => {
     const onCreateTask = vi.fn();
     const onQuickSearch = vi.fn();
+    const onNavigateToEmails = vi.fn();
 
     const div = document.createElement('div');
     document.body.appendChild(div);
@@ -178,6 +214,7 @@ describe('useKeyboardShortcuts', () => {
       useKeyboardShortcuts({
         onCreateTask,
         onQuickSearch,
+        onNavigateToEmails,
       }),
     );
 
@@ -192,11 +229,13 @@ describe('useKeyboardShortcuts', () => {
   it('should ignore unknown keys', () => {
     const onCreateTask = vi.fn();
     const onQuickSearch = vi.fn();
+    const onNavigateToEmails = vi.fn();
 
     renderHook(() =>
       useKeyboardShortcuts({
         onCreateTask,
         onQuickSearch,
+        onNavigateToEmails,
       }),
     );
 
@@ -205,32 +244,38 @@ describe('useKeyboardShortcuts', () => {
 
     expect(onCreateTask).not.toHaveBeenCalled();
     expect(onQuickSearch).not.toHaveBeenCalled();
+    expect(onNavigateToEmails).not.toHaveBeenCalled();
   });
 
   it('should update callbacks when they change', () => {
     const onCreateTask1 = vi.fn();
     const onQuickSearch1 = vi.fn();
+    const onNavigateToEmails1 = vi.fn();
 
     const { rerender } = renderHook(
-      ({ onCreateTask, onQuickSearch }) =>
+      ({ onCreateTask, onQuickSearch, onNavigateToEmails }) =>
         useKeyboardShortcuts({
           onCreateTask,
           onQuickSearch,
+          onNavigateToEmails,
         }),
       {
         initialProps: {
           onCreateTask: onCreateTask1,
           onQuickSearch: onQuickSearch1,
+          onNavigateToEmails: onNavigateToEmails1,
         },
       },
     );
 
     const onCreateTask2 = vi.fn();
     const onQuickSearch2 = vi.fn();
+    const onNavigateToEmails2 = vi.fn();
 
     rerender({
       onCreateTask: onCreateTask2,
       onQuickSearch: onQuickSearch2,
+      onNavigateToEmails: onNavigateToEmails2,
     });
 
     const event = new KeyboardEvent('keydown', { key: 't' });

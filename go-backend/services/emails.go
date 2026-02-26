@@ -158,6 +158,12 @@ func (s *EmailService) ListEmails(ctx context.Context, userID int, filters model
 		argPos++
 	}
 
+	if filters.FromAddress != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("from_address = $%d", argPos))
+		args = append(args, *filters.FromAddress)
+		argPos++
+	}
+
 	whereClause := strings.Join(whereConditions, " AND ")
 
 	// Get total count
@@ -416,6 +422,66 @@ func (s *EmailService) GetEmailStats(ctx context.Context, userID int) (map[strin
 	return stats, nil
 }
 
+// GetTopSenders returns top senders by email count with optional status filter
+func (s *EmailService) GetTopSenders(ctx context.Context, userID int, statusFilter *string, limit int) ([]map[string]interface{}, error) {
+	query := `
+		SELECT from_address, from_name, COUNT(*) as count
+		FROM emails
+		WHERE user_id = $1 AND from_address IS NOT NULL AND from_address != ''
+	`
+	args := []interface{}{userID}
+	argPos := 2
+
+	if statusFilter != nil {
+		query += fmt.Sprintf(" AND status = $%d", argPos)
+		args = append(args, *statusFilter)
+		argPos++
+	}
+
+	query += `
+		GROUP BY from_address, from_name
+		ORDER BY count DESC
+	`
+
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argPos)
+		args = append(args, limit)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get top senders: %w", err)
+	}
+	defer rows.Close()
+
+	var senders []map[string]interface{}
+	for rows.Next() {
+		var fromAddress string
+		var fromName sql.NullString
+		var count int
+
+		err := rows.Scan(&fromAddress, &fromName, &count)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan sender stats: %w", err)
+		}
+
+		sender := map[string]interface{}{
+			"from_address": fromAddress,
+			"count":        count,
+		}
+		if fromName.Valid && fromName.String != "" {
+			sender["from_name"] = fromName.String
+		}
+		senders = append(senders, sender)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating sender stats: %w", err)
+	}
+
+	return senders, nil
+}
+
 // UpdateEmailStatus updates the status of an email
 func (s *EmailService) UpdateEmailStatus(ctx context.Context, userID, emailID int, status string) (*models.Email, error) {
 	// Validate status
@@ -663,4 +729,352 @@ func (s *EmailService) GetEmailsByAccountAndFolder(ctx context.Context, userID, 
 	}
 
 	return emails, nil
+}
+
+// BatchUpdateEmailStatus updates the status of multiple emails
+func (s *EmailService) BatchUpdateEmailStatus(ctx context.Context, userID int, emailIDs []int, status string) ([]models.Email, error) {
+	// Validate status
+	validStatuses := map[string]bool{
+		"unprocessed": true,
+		"triaged":     true,
+		"reviewed":    true,
+		"archived":    true,
+		"deleted":     true,
+		"converted":   true,
+	}
+	if !validStatuses[status] {
+		return nil, fmt.Errorf("invalid status: %s", status)
+	}
+
+	if len(emailIDs) == 0 {
+		return []models.Email{}, nil
+	}
+
+	// Build query with IN clause
+	placeholder := make([]string, len(emailIDs))
+	args := []interface{}{status, userID}
+	for i, id := range emailIDs {
+		placeholder[i] = fmt.Sprintf("$%d", i+3)
+		args = append(args, id)
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE emails
+		SET status = $1, updated_at = NOW()
+		WHERE id IN (%s) AND user_id = $2
+		RETURNING id, user_id, email_account_id, message_id, thread_id, subject,
+			from_address, from_name, to_addresses, body_text, body_html,
+			received_at, folder, imap_uid, status, is_read, card_id, created_at, updated_at
+	`, strings.Join(placeholder, ", "))
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to batch update email status: %w", err)
+	}
+	defer rows.Close()
+
+	var emails []models.Email
+	for rows.Next() {
+		var email models.Email
+		var accountID sql.NullInt32
+		var threadID sql.NullString
+		var subject sql.NullString
+		var fromAddress sql.NullString
+		var fromName sql.NullString
+		var toAddresses sql.NullString
+		var bodyText sql.NullString
+		var bodyHTML sql.NullString
+		var receivedAt sql.NullTime
+		var folder sql.NullString
+		var imapUID sql.NullInt64
+		var cardID sql.NullInt32
+
+		err := rows.Scan(
+			&email.ID,
+			&email.UserID,
+			&accountID,
+			&email.MessageID,
+			&threadID,
+			&subject,
+			&fromAddress,
+			&fromName,
+			&toAddresses,
+			&bodyText,
+			&bodyHTML,
+			&receivedAt,
+			&folder,
+			&imapUID,
+			&email.Status,
+			&email.IsRead,
+			&cardID,
+			&email.CreatedAt,
+			&email.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan email: %w", err)
+		}
+
+		// Convert nullable fields to pointers
+		if accountID.Valid {
+			id := int(accountID.Int32)
+			email.EmailAccountID = &id
+		}
+		if threadID.Valid {
+			email.ThreadID = &threadID.String
+		}
+		if subject.Valid {
+			email.Subject = &subject.String
+		}
+		if fromAddress.Valid {
+			email.FromAddress = &fromAddress.String
+		}
+		if fromName.Valid {
+			email.FromName = &fromName.String
+		}
+		if toAddresses.Valid {
+			email.ToAddresses = &toAddresses.String
+		}
+		if bodyText.Valid {
+			email.BodyText = &bodyText.String
+		}
+		if bodyHTML.Valid {
+			email.BodyHTML = &bodyHTML.String
+		}
+		if receivedAt.Valid {
+			email.ReceivedAt = &receivedAt.Time
+		}
+		if folder.Valid {
+			email.Folder = &folder.String
+		}
+		if imapUID.Valid {
+			uid := imapUID.Int64
+			email.IMAPUID = &uid
+		}
+		if cardID.Valid {
+			id := int(cardID.Int32)
+			email.CardID = &id
+		}
+
+		emails = append(emails, email)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating emails: %w", err)
+	}
+
+	log.Printf("[email] batch updated %d emails to status %s for user %d", len(emails), status, userID)
+
+	return emails, nil
+}
+
+// BatchConvertEmailsToCards converts multiple emails to cards
+func (s *EmailService) BatchConvertEmailsToCards(ctx context.Context, db *sql.DB, userID int, emailIDs []int, title, body string, tags *string) ([]map[string]interface{}, error) {
+	if len(emailIDs) == 0 {
+		return []map[string]interface{}{}, nil
+	}
+
+	var results []map[string]interface{}
+
+	for _, emailID := range emailIDs {
+		result, err := s.convertEmailToCard(ctx, db, userID, emailID, title, body, tags)
+		if err != nil {
+			log.Printf("[email] failed to convert email %d: %v", emailID, err)
+			results = append(results, map[string]interface{}{
+				"email_id": emailID,
+				"success":  false,
+				"error":    err.Error(),
+			})
+		} else {
+			results = append(results, result)
+		}
+	}
+
+	return results, nil
+}
+
+// convertEmailToCard converts a single email to a card (internal helper)
+func (s *EmailService) convertEmailToCard(ctx context.Context, db *sql.DB, userID, emailID int, title, body string, tags *string) (map[string]interface{}, error) {
+	// Get the email to verify ownership and get content
+	email, err := s.GetEmailByID(ctx, userID, emailID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use provided title and body, or fall back to email content
+	cardTitle := title
+	if cardTitle == "" {
+		cardTitle = "Email"
+		if email.Subject != nil && *email.Subject != "" {
+			cardTitle = *email.Subject
+		}
+	}
+
+	cardBody := body
+	if cardBody == "" {
+		// Build email body
+		var parts []string
+		if email.FromName != nil || email.FromAddress != nil {
+			from := email.FromName
+			if from == nil {
+				from = email.FromAddress
+			}
+			parts = append(parts, fmt.Sprintf("From: %s", *from))
+		}
+		if email.Subject != nil {
+			parts = append(parts, fmt.Sprintf("Subject: %s", *email.Subject))
+		}
+		parts = append(parts, "")
+		if email.BodyText != nil && *email.BodyText != "" {
+			parts = append(parts, *email.BodyText)
+		} else if email.BodyHTML != nil && *email.BodyHTML != "" {
+			parts = append(parts, *email.BodyHTML)
+		}
+		cardBody = strings.Join(parts, "\n")
+	}
+
+	// Create new card with auto-generated card_id
+	// We need to use the services.CreateCard function which requires getNextRootCardID
+	// For batch operations, we'll generate a simple card_id
+	cardID := fmt.Sprintf("email-%d", emailID)
+
+	var cardInternalID int
+
+	// Create the card
+	query := `
+		INSERT INTO cards (user_id, card_id, title, body)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id
+	`
+	err = db.QueryRowContext(ctx, query, userID, cardID, cardTitle, cardBody).Scan(&cardInternalID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create card: %w", err)
+	}
+
+	// Handle tags if provided
+	if tags != nil && *tags != "" {
+		// Parse comma-separated tags
+		tagNames := strings.Split(*tags, ",")
+		// Trim whitespace from each tag
+		for i := range tagNames {
+			tagNames[i] = strings.TrimSpace(tagNames[i])
+		}
+		// Remove empty tags
+		var cleanTags []string
+		for _, tag := range tagNames {
+			if tag != "" {
+				cleanTags = append(cleanTags, tag)
+			}
+		}
+
+		// Create tags and add to card
+		for _, tagName := range cleanTags {
+			// Insert tag if not exists
+			var tagID int
+			err = db.QueryRowContext(ctx,
+				"INSERT INTO tags (user_id, name, color) VALUES ($1, $2, 'black') ON CONFLICT (user_id, name) DO NOTHING RETURNING id",
+				userID, tagName).Scan(&tagID)
+			if err == sql.ErrNoRows {
+				// Tag already exists, get its ID
+				err = db.QueryRowContext(ctx,
+					"SELECT id FROM tags WHERE user_id = $1 AND name = $2",
+					userID, tagName).Scan(&tagID)
+			}
+			if err != nil {
+				log.Printf("[email] failed to create/get tag %s: %v", tagName, err)
+				continue
+			}
+
+			// Add tag to card
+			_, err = db.ExecContext(ctx,
+				"INSERT INTO card_tags (card_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+				cardInternalID, tagID)
+			if err != nil {
+				log.Printf("[email] failed to add tag %s to card: %v", tagName, err)
+			}
+		}
+	}
+
+	// Create email_card_link record
+	_, err = db.ExecContext(ctx,
+		"INSERT INTO email_card_links (email_id, card_id) VALUES ($1, $2) ON CONFLICT (email_id) DO UPDATE SET card_id = $2",
+		emailID, cardInternalID)
+	if err != nil {
+		log.Printf("[email] failed to create email_card_link: %v", err)
+	}
+
+	// Update email's card_id
+	_, err = db.ExecContext(ctx,
+		"UPDATE emails SET card_id = $1, status = 'converted', updated_at = NOW() WHERE id = $2",
+		cardInternalID, emailID)
+	if err != nil {
+		log.Printf("[email] failed to update email card_id: %v", err)
+	}
+
+	log.Printf("[email] converted email %d to card %s", emailID, cardID)
+
+	return map[string]interface{}{
+		"email_id": emailID,
+		"success":  true,
+		"card_id":  cardID,
+	}, nil
+}
+
+// BatchCreateTasksFromEmails creates tasks from multiple emails
+func (s *EmailService) BatchCreateTasksFromEmails(ctx context.Context, db *sql.DB, userID int, emailIDs []int) ([]map[string]interface{}, error) {
+	if len(emailIDs) == 0 {
+		return []map[string]interface{}{}, nil
+	}
+
+	var results []map[string]interface{}
+
+	for _, emailID := range emailIDs {
+		result, err := s.createTaskFromEmail(ctx, db, userID, emailID)
+		if err != nil {
+			log.Printf("[email] failed to create task from email %d: %v", emailID, err)
+			results = append(results, map[string]interface{}{
+				"email_id": emailID,
+				"success":  false,
+				"error":    err.Error(),
+			})
+		} else {
+			results = append(results, result)
+		}
+	}
+
+	return results, nil
+}
+
+// createTaskFromEmail creates a task from a single email (internal helper)
+func (s *EmailService) createTaskFromEmail(ctx context.Context, db *sql.DB, userID, emailID int) (map[string]interface{}, error) {
+	// Get the email to verify ownership and get content
+	email, err := s.GetEmailByID(ctx, userID, emailID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create task title from email subject
+	taskTitle := "Follow up on email"
+	if email.Subject != nil && *email.Subject != "" {
+		taskTitle = *email.Subject
+	}
+
+	// Create the task
+	query := `
+		INSERT INTO tasks (user_id, title, status, priority)
+		VALUES ($1, $2, 'todo', 'medium')
+		RETURNING id
+	`
+	var taskID int
+	err = db.QueryRowContext(ctx, query, userID, taskTitle).Scan(&taskID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create task: %w", err)
+	}
+
+	log.Printf("[email] created task %d from email %d", taskID, emailID)
+
+	return map[string]interface{}{
+		"email_id": emailID,
+		"success":  true,
+		"task_id":  taskID,
+	}, nil
 }

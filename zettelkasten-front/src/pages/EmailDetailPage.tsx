@@ -1,16 +1,187 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getEmail, updateEmailStatus, Email } from "../api/email";
 import { setDocumentTitle } from "../utils/title";
 import { CreateTaskWindow } from "../components/tasks/CreateTaskWindow";
 import { EmailConvertDialog } from "../components/email/EmailConvertDialog";
+import { processEmailHtml } from "../utils/emailHtml";
 
 /**
  * Email Detail Page
  *
  * Displays a single email with its full content.
+ * HTML content is sanitized using DOMPurify for security.
  * All links in email bodies open in a new tab for security.
  */
+
+// Responsive CSS for email content
+const emailStyles = `
+  /* Base styles */
+  .email-content {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    color: #1f2937;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* Headings */
+  .email-content h1, .email-content h2, .email-content h3,
+  .email-content h4, .email-content h5, .email-content h6 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .email-content h1 { font-size: 1.75em; }
+  .email-content h2 { font-size: 1.5em; }
+  .email-content h3 { font-size: 1.25em; }
+  .email-content h4 { font-size: 1.1em; }
+  .email-content h5 { font-size: 1em; }
+  .email-content h6 { font-size: 0.9em; }
+
+  /* Paragraphs and lists */
+  .email-content p {
+    margin-top: 0;
+    margin-bottom: 1em;
+  }
+
+  .email-content ul, .email-content ol {
+    margin-top: 0;
+    margin-bottom: 1em;
+    padding-left: 2em;
+  }
+
+  .email-content li {
+    margin-bottom: 0.25em;
+  }
+
+  /* Links */
+  .email-content a {
+    color: #2563eb;
+    text-decoration: underline;
+  }
+
+  .email-content a:hover {
+    color: #1d4ed8;
+  }
+
+  /* Tables - responsive and styled */
+  .email-content table {
+    max-width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+    font-size: 14px;
+    overflow: hidden;
+    table-layout: auto;
+  }
+
+  .email-content table[width] {
+    width: auto !important;
+    max-width: 100%;
+  }
+
+  .email-content th,
+  .email-content td {
+    padding: 0.5em;
+    border: 1px solid #d1d5db;
+    vertical-align: top;
+    text-align: left;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    min-width: 50px;
+  }
+
+  .email-content th {
+    background-color: #f3f4f6;
+    font-weight: 600;
+  }
+
+  .email-content tr:nth-child(even) {
+    background-color: #f9fafb;
+  }
+
+  /* Images - responsive */
+  .email-content img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0.5em 0;
+  }
+
+  .email-content img[width] {
+    width: auto !important;
+    max-width: 100%;
+  }
+
+  .email-content img[height] {
+    height: auto !important;
+  }
+
+  /* Blockquotes */
+  .email-content blockquote {
+    margin: 1em 0;
+    padding: 0.5em 1em;
+    border-left: 4px solid #d1d5db;
+    background-color: #f9fafb;
+    color: #6b7280;
+  }
+
+  /* Code blocks */
+  .email-content pre {
+    background-color: #1f2937;
+    color: #f3f4f6;
+    padding: 1em;
+    border-radius: 0.375em;
+    overflow-x: auto;
+    margin: 1em 0;
+  }
+
+  .email-content code {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9em;
+    background-color: #f3f4f6;
+    padding: 0.125em 0.25em;
+    border-radius: 0.125em;
+  }
+
+  .email-content pre code {
+    background-color: transparent;
+    padding: 0;
+  }
+
+  /* Horizontal rule */
+  .email-content hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 1.5em 0;
+  }
+
+  /* Text formatting */
+  .email-content strong, .email-content b {
+    font-weight: 600;
+  }
+
+  .email-content em, .email-content i {
+    font-style: italic;
+  }
+
+  /* Remove margins from first/last elements */
+  .email-content > *:first-child {
+    margin-top: 0;
+  }
+
+  .email-content > *:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Fix for email clients that add weird styles */
+  .email-content div[style*="font-size"] {
+    font-size: inherit !important;
+  }
+`;
 export function EmailDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -21,7 +192,28 @@ export function EmailDetailPage() {
   const [isArchiving, setIsArchiving] = useState(false);
   const [showCreateTaskWindow, setShowCreateTaskWindow] = useState(false);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
-  const [processedHtml, setProcessedHtml] = useState<string>("");
+
+  // Inject email styles on mount
+  useEffect(() => {
+    const styleId = 'email-content-styles';
+    let styleElement = document.getElementById(styleId) as HTMLStyleElement;
+
+    if (!styleElement) {
+      styleElement = document.createElement('style');
+      styleElement.id = styleId;
+      styleElement.textContent = emailStyles;
+      document.head.appendChild(styleElement);
+    }
+
+    return () => {
+      // Clean up styles when component unmounts
+      // Only remove if this is the last EmailDetailPage instance
+      const remainingElements = document.querySelectorAll('.email-content-wrapper');
+      if (remainingElements.length === 0) {
+        styleElement.remove();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const fetchEmail = async () => {
@@ -45,24 +237,13 @@ export function EmailDetailPage() {
     fetchEmail();
   }, [id]);
 
-  // Process HTML to add target="_blank" and rel="noopener noreferrer" to all links
-  useEffect(() => {
+  // Process and sanitize HTML content
+  const processedHtml = useMemo(() => {
     if (!email?.body_html) {
-      setProcessedHtml("");
-      return;
+      return "";
     }
 
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(email.body_html, "text/html");
-
-    // Add target="_blank" and rel="noopener noreferrer" to all anchor tags
-    const links = doc.querySelectorAll("a");
-    links.forEach((link) => {
-      link.setAttribute("target", "_blank");
-      link.setAttribute("rel", "noopener noreferrer");
-    });
-
-    setProcessedHtml(doc.body.innerHTML);
+    return processEmailHtml(email.body_html);
   }, [email?.body_html]);
 
   const handleBack = () => {
@@ -437,29 +618,22 @@ export function EmailDetailPage() {
         </div>
 
         {/* Email body */}
-        <div
-          style={{
-            fontSize: "15px",
-            lineHeight: "1.6",
-            color: "#1f2937",
-          }}
-        >
+        <div>
           {processedHtml ? (
             <div
+              className="email-content email-content-wrapper"
               dangerouslySetInnerHTML={{ __html: processedHtml }}
-              style={{
-                overflowWrap: "break-word",
-              }}
             />
           ) : email.body_text ? (
             <pre
               style={{
                 fontFamily: "inherit",
-                fontSize: "inherit",
-                lineHeight: "inherit",
+                fontSize: "15px",
+                lineHeight: "1.6",
                 whiteSpace: "pre-wrap",
                 wordWrap: "break-word",
                 margin: 0,
+                color: "#1f2937",
               }}
             >
               {email.body_text}

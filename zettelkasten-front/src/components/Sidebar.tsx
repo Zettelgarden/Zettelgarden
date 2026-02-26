@@ -168,10 +168,17 @@ export function Sidebar() {
     setShowQuickSearchWindow(true);
   }, []);
 
+  const handleNavigateToEmails = useCallback(() => {
+    setShowQuickSearchWindow(false);
+    setShowCreateTaskWindow(false);
+    navigate('/app/emails');
+  }, [navigate]);
+
   // Use custom hook for keyboard shortcuts
   useKeyboardShortcuts({
     onCreateTask: handleCreateTask,
     onQuickSearch: handleQuickSearch,
+    onNavigateToEmails: handleNavigateToEmails,
   });
 
   return (

@@ -6,6 +6,8 @@ interface EmailRowProps {
   onClick: () => void;
   onArchive?: (email: Email) => void;
   onCreateTask?: (email: Email) => void;
+  isSelected?: boolean;
+  onToggleSelect?: (email: Email) => void;
 }
 
 /**
@@ -79,6 +81,7 @@ function getStatusBadgeTextColor(status: string): string {
 
 /**
  * Individual email row component displaying:
+ * - Checkbox for selection
  * - Unread indicator (blue dot)
  * - Sender avatar (first letter in circle)
  * - From name
@@ -87,7 +90,7 @@ function getStatusBadgeTextColor(status: string): string {
  * - Status badge
  * - Quick action buttons (archive, create task)
  */
-export function EmailRow({ email, onClick, onArchive, onCreateTask }: EmailRowProps) {
+export function EmailRow({ email, onClick, onArchive, onCreateTask, isSelected, onToggleSelect }: EmailRowProps) {
   // Get first letter of sender name or email address for avatar
   const avatarLetter = email.from_name
     ? email.from_name.charAt(0).toUpperCase()
@@ -99,9 +102,25 @@ export function EmailRow({ email, onClick, onArchive, onCreateTask }: EmailRowPr
   const displaySubject = email.subject || "(No subject)";
   const isUnread = !email.is_read;
 
+  const handleRowClick = (e: React.MouseEvent) => {
+    // Don't trigger onClick if clicking the checkbox or action buttons
+    if ((e.target as HTMLElement).closest('input[type="checkbox"]') ||
+        (e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    onClick();
+  };
+
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    if (onToggleSelect) {
+      onToggleSelect(email);
+    }
+  };
+
   return (
     <div
-      onClick={onClick}
+      onClick={handleRowClick}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -109,15 +128,36 @@ export function EmailRow({ email, onClick, onArchive, onCreateTask }: EmailRowPr
         borderBottom: '1px solid #e5e7eb',
         cursor: 'pointer',
         transition: 'background-color 0.15s ease',
-        backgroundColor: isUnread ? '#ffffff' : '#f9fafb',
+        backgroundColor: isSelected ? '#eff6ff' : (isUnread ? '#ffffff' : '#f9fafb'),
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = '#f3f4f6';
+        if (!isSelected) {
+          e.currentTarget.style.backgroundColor = '#f3f4f6';
+        }
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = isUnread ? '#ffffff' : '#f9fafb';
+        if (!isSelected) {
+          e.currentTarget.style.backgroundColor = isUnread ? '#ffffff' : '#f9fafb';
+        }
       }}
     >
+      {/* Checkbox for selection */}
+      {onToggleSelect && (
+        <input
+          type="checkbox"
+          checked={isSelected || false}
+          onChange={handleCheckboxChange}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width: '16px',
+            height: '16px',
+            marginRight: '12px',
+            cursor: 'pointer',
+            accentColor: '#3b82f6',
+          }}
+        />
+      )}
+
       {/* Unread indicator - blue dot */}
       {isUnread && (
         <div

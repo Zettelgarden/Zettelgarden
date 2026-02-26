@@ -75,11 +75,12 @@ type UpdateEmailAccountParams struct {
 
 // EmailListFilters represents filters for listing emails
 type EmailListFilters struct {
-	Status *string `json:"status,omitempty"`
-	Folder *string `json:"folder,omitempty"`
-	IsRead *bool   `json:"is_read,omitempty"` // Filter by read status
-	Limit  *int    `json:"limit,omitempty"`
-	Offset *int    `json:"offset,omitempty"`
+	Status      *string `json:"status,omitempty"`
+	Folder      *string `json:"folder,omitempty"`
+	IsRead      *bool   `json:"is_read,omitempty"`   // Filter by read status
+	FromAddress *string `json:"from_address,omitempty"` // Filter by sender email address
+	Limit       *int    `json:"limit,omitempty"`
+	Offset      *int    `json:"offset,omitempty"`
 }
 
 // ConvertEmailParams represents parameters for converting an email to a card

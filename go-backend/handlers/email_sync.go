@@ -404,8 +404,8 @@ func (h *Handler) SyncEmailAccountRoute(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"message":       "Sync completed successfully",
-		"account_id":    accountID,
+		"message":        "Sync completed successfully",
+		"account_id":     accountID,
 		"emails_fetched": totalEmails,
 		"emails_stored":  storedCount,
 	})
@@ -431,6 +431,10 @@ func (h *Handler) ListEmailsRoute(w http.ResponseWriter, r *http.Request) {
 		if isRead, err := strconv.ParseBool(isReadStr); err == nil {
 			filters.IsRead = &isRead
 		}
+	}
+
+	if fromAddressStr := r.URL.Query().Get("from_address"); fromAddressStr != "" {
+		filters.FromAddress = &fromAddressStr
 	}
 
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
@@ -507,6 +511,39 @@ func (h *Handler) GetEmailStatsRoute(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
+}
+
+// GetTopSendersRoute handles GET /api/emails/top-senders
+// Returns top senders by email count with optional status filter
+func (h *Handler) GetTopSendersRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Parse query parameters
+	var statusFilter *string
+	if statusStr := r.URL.Query().Get("status"); statusStr != "" {
+		statusFilter = &statusStr
+	}
+
+	limit := 10 // Default limit
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	emailService := services.NewEmailService(h.GetDB())
+
+	senders, err := emailService.GetTopSenders(context.Background(), userID, statusFilter, limit)
+	if err != nil {
+		log.Printf("[email-sync] failed to get top senders: %v", err)
+		http.Error(w, "Failed to get top senders", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"senders": senders,
+	})
 }
 
 // UpdateEmailStatusParams represents parameters for updating email status
@@ -891,5 +928,288 @@ func (h *Handler) ConvertEmailToCardRoute(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"id": cardID,
+	})
+}
+
+// BatchEmailParams represents parameters for batch email operations
+type BatchEmailParams struct {
+	EmailIDs []int `json:"email_ids"`
+}
+
+// BatchArchiveEmailsParams represents parameters for batch archiving emails
+type BatchArchiveEmailsParams struct {
+	EmailIDs []int  `json:"email_ids"`
+	Status   string `json:"status"` // "archived" or "unprocessed"
+}
+
+// BatchConvertEmailsParams represents parameters for batch converting emails
+type BatchConvertEmailsParams struct {
+	EmailIDs []int  `json:"email_ids"`
+	Title    string `json:"title"`
+	Body     string `json:"body"`
+	Tags     string `json:"tags"`
+}
+
+// BatchArchiveEmailsRoute handles POST /api/emails/batch-archive
+// Archives or unarchives multiple emails at once
+func (h *Handler) BatchArchiveEmailsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Parse request body
+	var params BatchArchiveEmailsParams
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&params); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate email IDs
+	if len(params.EmailIDs) == 0 {
+		http.Error(w, "email_ids is required", http.StatusBadRequest)
+		return
+	}
+
+	// Default to archived if not specified
+	status := params.Status
+	if status == "" {
+		status = "archived"
+	}
+
+	// Validate status
+	if status != "archived" && status != "unprocessed" {
+		http.Error(w, "status must be 'archived' or 'unprocessed'", http.StatusBadRequest)
+		return
+	}
+
+	emailService := services.NewEmailService(h.GetDB())
+	db := h.GetDB()
+
+	// Get emails before updating to handle IMAP folder movement
+	emails, _, err := emailService.ListEmails(context.Background(), userID, models.EmailListFilters{
+		Limit: func() *int { l := 10000; return &l }(),
+	})
+	if err != nil {
+		log.Printf("[email] failed to get emails for batch archive: %v", err)
+		http.Error(w, "Failed to get emails", http.StatusInternalServerError)
+		return
+	}
+
+	// Build map of email ID to email
+	emailMap := make(map[int]models.Email)
+	for _, email := range emails {
+		emailMap[email.ID] = email
+	}
+
+	// Handle IMAP folder movement for each email
+	for _, emailID := range params.EmailIDs {
+		email, exists := emailMap[emailID]
+		if !exists {
+			log.Printf("[email] email %d not found for user %d", emailID, userID)
+			continue
+		}
+
+		isArchiving := status == "archived" && email.Status != "archived"
+		isUnarchiving := status != "archived" && email.Status == "archived"
+
+		if isArchiving || isUnarchiving {
+			// Only move in IMAP if we have an email account
+			if email.EmailAccountID != nil {
+				// Get email account credentials
+				var accountID int
+				var emailAddress string
+				var encryptedPassword string
+				var imapServer string
+
+				err := db.QueryRowContext(context.Background(), `
+					SELECT id, email_address, app_password_encrypted, imap_server
+					FROM email_accounts
+					WHERE id = $1 AND user_id = $2
+				`, *email.EmailAccountID, userID).Scan(&accountID, &emailAddress, &encryptedPassword, &imapServer)
+				if err != nil {
+					log.Printf("[email] failed to get email account for batch archive: %v", err)
+					continue
+				}
+
+				// Decrypt password
+				password, err := services.DecryptAppPassword(encryptedPassword, "")
+				if err != nil {
+					log.Printf("[email] failed to decrypt password for batch archive: %v", err)
+					continue
+				}
+
+				// Create a client with the specific mailbox based on operation
+				var imapClient *services.IMAPClient
+				if isUnarchiving {
+					imapClient = services.NewIMAPClientWithMailbox(imapServer, emailAddress, password, "Archive")
+				} else {
+					imapClient = services.NewIMAPClientWithMailbox(imapServer, emailAddress, password, "INBOX")
+				}
+
+				if err := imapClient.Connect(context.Background()); err != nil {
+					log.Printf("[email] failed to connect to IMAP for batch archive: %v", err)
+					continue
+				} else if err := imapClient.SelectInbox(context.Background()); err != nil {
+					log.Printf("[email] failed to select mailbox for batch archive: %v", err)
+					imapClient.Close()
+				} else {
+					defer imapClient.Close()
+
+					// Get UID if missing
+					uidToMove := uint32(0)
+					if email.IMAPUID != nil {
+						uidToMove = uint32(*email.IMAPUID)
+					} else {
+						// Backfill: find UID by Message-ID
+						foundUID, findErr := imapClient.FindUIDByMessageID(context.Background(), email.MessageID)
+						if findErr == nil && foundUID > 0 {
+							uidToMove = foundUID
+							uidInt := int64(foundUID)
+							currentFolder := imapClient.GetMailbox()
+							db.ExecContext(context.Background(),
+								"UPDATE emails SET imap_uid = $1, folder = $2 WHERE id = $3",
+								uidInt, currentFolder, email.ID)
+						}
+					}
+
+					if uidToMove > 0 {
+						if isArchiving && imapClient.GetMailbox() == "INBOX" {
+							if moveErr := imapClient.MoveToArchive(context.Background(), uidToMove); moveErr != nil {
+								log.Printf("[email] failed to move to archive in batch: %v", moveErr)
+							} else {
+								db.ExecContext(context.Background(),
+									"UPDATE emails SET folder = 'Archive' WHERE id = $1", email.ID)
+							}
+						} else if isUnarchiving && imapClient.GetMailbox() == "Archive" {
+							if moveErr := imapClient.MoveFromArchive(context.Background(), uidToMove); moveErr != nil {
+								log.Printf("[email] failed to move from archive in batch: %v", moveErr)
+							} else {
+								db.ExecContext(context.Background(),
+									"UPDATE emails SET folder = 'INBOX' WHERE id = $1", email.ID)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Batch update status
+	updatedEmails, err := emailService.BatchUpdateEmailStatus(context.Background(), userID, params.EmailIDs, status)
+	if err != nil {
+		log.Printf("[email] failed to batch update email status: %v", err)
+		http.Error(w, "Failed to batch update emails", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"count":   len(updatedEmails),
+		"emails":  updatedEmails,
+	})
+}
+
+// BatchConvertEmailsRoute handles POST /api/emails/batch-convert
+// Converts multiple emails to cards at once
+func (h *Handler) BatchConvertEmailsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Parse request body
+	var params BatchConvertEmailsParams
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&params); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate email IDs
+	if len(params.EmailIDs) == 0 {
+		http.Error(w, "email_ids is required", http.StatusBadRequest)
+		return
+	}
+
+	emailService := services.NewEmailService(h.GetDB())
+	db := h.GetDB().(*sql.DB)
+
+	var tagsPtr *string
+	if params.Tags != "" {
+		tagsPtr = &params.Tags
+	}
+
+	results, err := emailService.BatchConvertEmailsToCards(context.Background(), db, userID, params.EmailIDs, params.Title, params.Body, tagsPtr)
+	if err != nil {
+		log.Printf("[email] failed to batch convert emails: %v", err)
+		http.Error(w, "Failed to batch convert emails", http.StatusInternalServerError)
+		return
+	}
+
+	// Count successes and failures
+	successCount := 0
+	failCount := 0
+	for _, result := range results {
+		if success, ok := result["success"].(bool); ok && success {
+			successCount++
+		} else {
+			failCount++
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":       true,
+		"total":         len(params.EmailIDs),
+		"success_count": successCount,
+		"fail_count":    failCount,
+		"results":       results,
+	})
+}
+
+// BatchCreateTasksRoute handles POST /api/emails/batch-create-tasks
+// Creates tasks from multiple emails at once
+func (h *Handler) BatchCreateTasksRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Parse request body
+	var params BatchEmailParams
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&params); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate email IDs
+	if len(params.EmailIDs) == 0 {
+		http.Error(w, "email_ids is required", http.StatusBadRequest)
+		return
+	}
+
+	emailService := services.NewEmailService(h.GetDB())
+	db := h.GetDB().(*sql.DB)
+
+	results, err := emailService.BatchCreateTasksFromEmails(context.Background(), db, userID, params.EmailIDs)
+	if err != nil {
+		log.Printf("[email] failed to batch create tasks: %v", err)
+		http.Error(w, "Failed to batch create tasks", http.StatusInternalServerError)
+		return
+	}
+
+	// Count successes and failures
+	successCount := 0
+	failCount := 0
+	for _, result := range results {
+		if success, ok := result["success"].(bool); ok && success {
+			successCount++
+		} else {
+			failCount++
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":       true,
+		"total":         len(params.EmailIDs),
+		"success_count": successCount,
+		"fail_count":    failCount,
+		"results":       results,
 	})
 }

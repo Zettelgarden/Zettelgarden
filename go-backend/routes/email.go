@@ -19,4 +19,10 @@ func RegisterEmailRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/emails/{id}/status", h.UpdateEmailStatusRoute, "PATCH")
 	addProtectedRoute(r, h, "/api/emails/{id}/convert", h.ConvertEmailToCardRoute, "POST")
 	addProtectedRoute(r, h, "/api/emails/stats", h.GetEmailStatsRoute, "GET")
+	addProtectedRoute(r, h, "/api/emails/top-senders", h.GetTopSendersRoute, "GET")
+
+	// Batch operation routes
+	addProtectedRoute(r, h, "/api/emails/batch-archive", h.BatchArchiveEmailsRoute, "POST")
+	addProtectedRoute(r, h, "/api/emails/batch-convert", h.BatchConvertEmailsRoute, "POST")
+	addProtectedRoute(r, h, "/api/emails/batch-create-tasks", h.BatchCreateTasksRoute, "POST")
 }
