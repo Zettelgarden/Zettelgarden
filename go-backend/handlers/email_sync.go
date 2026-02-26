@@ -273,6 +273,122 @@ func (h *Handler) SyncEmailAccountRoute(w http.ResponseWriter, r *http.Request) 
 
 	log.Printf("[email-sync] stored %d/%d emails for account %d", storedCount, len(emails), accountID)
 
+	totalEmails := len(emails)
+
+	// Discover archive folder name
+	archiveFolder, err := imapClient.FindArchiveMailbox(context.Background())
+	if err != nil {
+		log.Printf("[email-sync] could not find archive folder for account %d: %v", accountID, err)
+		archiveFolder = "Archive" // fallback to default
+	}
+
+	// Sync from Archive folder
+	err = imapClient.SelectMailbox(context.Background(), archiveFolder)
+	if err != nil {
+		log.Printf("[email-sync] failed to select %s for account %d: %v", archiveFolder, accountID, err)
+		// Continue - Archive might not exist
+	} else {
+		log.Printf("[email-sync] syncing from %s folder for account %d", archiveFolder, accountID)
+		archiveMailEmails, _, err := imapClient.FetchRecentEmails(context.Background(), 100)
+		if err != nil {
+			log.Printf("[email-sync] failed to fetch from %s: %v", archiveFolder, err)
+		} else {
+			for _, email := range archiveMailEmails {
+				email.UserID = userID
+				email.EmailAccountID = &accountID
+				if _, err := emailService.CreateEmail(context.Background(), email); err != nil {
+					log.Printf("[email-sync] warning: failed to store archive email %s: %v", email.MessageID, err)
+				} else {
+					totalEmails++
+				}
+			}
+			log.Printf("[email-sync] synced %d emails from %s for account %d", len(archiveMailEmails), archiveFolder, accountID)
+		}
+	}
+
+	// Reconcile: detect external changes (emails moved by user in email client)
+	log.Printf("[email-sync] starting reconciliation for account %d", accountID)
+
+	// Get all emails for this account from database
+	dbEmails, _, err := emailService.ListEmails(context.Background(), userID, models.EmailListFilters{
+		Limit: func() *int { l := 10000; return &l }(),
+	})
+	if err != nil {
+		log.Printf("[email-sync] failed to get emails for reconciliation: %v", err)
+	} else {
+		// Build a map of normalized Message-ID to email in database
+		dbEmailMap := make(map[string]models.Email)
+		for _, email := range dbEmails {
+			normalized := services.NormalizeMessageID(email.MessageID)
+			dbEmailMap[normalized] = email
+		}
+		log.Printf("[email-sync] reconciling %d emails from database for account %d", len(dbEmailMap), accountID)
+
+		// Check INBOX
+		if err := imapClient.SelectMailbox(context.Background(), "INBOX"); err != nil {
+			log.Printf("[email-sync] failed to select INBOX for reconciliation: %v", err)
+		} else {
+			inboxMessageIDs, err := imapClient.GetAllMessageUIDs(context.Background())
+			if err != nil {
+				log.Printf("[email-sync] failed to get INBOX Message-IDs: %v", err)
+			} else {
+				log.Printf("[email-sync] found %d messages in INBOX for reconciliation", len(inboxMessageIDs))
+				reconciledCount := 0
+
+				for _, dbEmail := range dbEmails {
+					if dbEmail.EmailAccountID == nil || *dbEmail.EmailAccountID != accountID {
+						continue
+					}
+					normalizedDBID := services.NormalizeMessageID(dbEmail.MessageID)
+					inInbox := inboxMessageIDs[normalizedDBID]
+
+					if inInbox && dbEmail.Status == "archived" {
+						log.Printf("[email-sync] reconciliation: email %s found in INBOX, unarchiving", dbEmail.MessageID)
+						status := "unprocessed"
+						if err := emailService.UpdateEmailFolder(context.Background(), userID, dbEmail.MessageID, "INBOX", &status); err != nil {
+							log.Printf("[email-sync] failed to update email: %v", err)
+						} else {
+							reconciledCount++
+						}
+					}
+				}
+				log.Printf("[email-sync] reconciled %d emails from INBOX", reconciledCount)
+			}
+		}
+
+		// Check Archive
+		if err := imapClient.SelectMailbox(context.Background(), archiveFolder); err != nil {
+			log.Printf("[email-sync] failed to select %s for reconciliation: %v", archiveFolder, err)
+		} else {
+			archiveMessageIDs, err := imapClient.GetAllMessageUIDs(context.Background())
+			if err != nil {
+				log.Printf("[email-sync] failed to get %s Message-IDs: %v", archiveFolder, err)
+			} else {
+				log.Printf("[email-sync] found %d messages in %s for reconciliation", len(archiveMessageIDs), archiveFolder)
+				reconciledCount := 0
+
+				for _, dbEmail := range dbEmails {
+					if dbEmail.EmailAccountID == nil || *dbEmail.EmailAccountID != accountID {
+						continue
+					}
+					normalizedDBID := services.NormalizeMessageID(dbEmail.MessageID)
+					inArchive := archiveMessageIDs[normalizedDBID]
+
+					if inArchive && dbEmail.Status != "archived" {
+						log.Printf("[email-sync] reconciliation: email %s found in %s, archiving", dbEmail.MessageID, archiveFolder)
+						status := "archived"
+						if err := emailService.UpdateEmailFolder(context.Background(), userID, dbEmail.MessageID, archiveFolder, &status); err != nil {
+							log.Printf("[email-sync] failed to update email: %v", err)
+						} else {
+							reconciledCount++
+						}
+					}
+				}
+				log.Printf("[email-sync] reconciled %d emails from %s", reconciledCount, archiveFolder)
+			}
+		}
+	}
+
 	// Update last_sync_at and IMAP state
 	currentUIDValidity := imapClient.GetUIDValidity()
 	err = accountService.UpdateIMAPState(context.Background(), userID, accountID, maxUID, currentUIDValidity)
@@ -290,7 +406,7 @@ func (h *Handler) SyncEmailAccountRoute(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message":       "Sync completed successfully",
 		"account_id":    accountID,
-		"emails_fetched": len(emails),
+		"emails_fetched": totalEmails,
 		"emails_stored":  storedCount,
 	})
 }

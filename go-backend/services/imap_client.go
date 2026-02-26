@@ -346,6 +346,169 @@ func (c *IMAPClient) GetMailbox() string {
 	return c.mailbox
 }
 
+// ListMailboxes returns a list of all available mailboxes
+func (c *IMAPClient) ListMailboxes(ctx context.Context) ([]string, error) {
+	if !c.connected {
+		return nil, fmt.Errorf("not connected - call Connect() first")
+	}
+
+	mailboxes := make(chan *imap.MailboxInfo, 20)
+	errChan := make(chan error, 1)
+
+	go func() {
+		errChan <- c.client.List("", "*", mailboxes)
+	}()
+
+	var mailboxNames []string
+	for mbox := range mailboxes {
+		mailboxNames = append(mailboxNames, mbox.Name)
+	}
+
+	if err := <-errChan; err != nil {
+		return nil, fmt.Errorf("failed to list mailboxes: %w", err)
+	}
+
+	log.Printf("[imap] found %d mailboxes: %v", len(mailboxNames), mailboxNames)
+	return mailboxNames, nil
+}
+
+// FindArchiveMailbox tries to find the archive folder by trying common names
+func (c *IMAPClient) FindArchiveMailbox(ctx context.Context) (string, error) {
+	mailboxes, err := c.ListMailboxes(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	// Common archive folder names (case-insensitive)
+	archiveNames := []string{"Archive", "Archives", "All Mail", "AllMail", "archived", "archival"}
+
+	// Try exact matches first
+	for _, name := range archiveNames {
+		for _, mbox := range mailboxes {
+			if strings.EqualFold(mbox, name) {
+				log.Printf("[imap] found archive mailbox: %s", mbox)
+				return mbox, nil
+			}
+		}
+	}
+
+	// Try partial matches
+	for _, mbox := range mailboxes {
+		lower := strings.ToLower(mbox)
+		for _, name := range archiveNames {
+			if strings.Contains(lower, strings.ToLower(name)) {
+				log.Printf("[imap] found archive mailbox (partial match): %s", mbox)
+				return mbox, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("archive mailbox not found")
+}
+
+// SelectMailbox selects a specific mailbox by name
+func (c *IMAPClient) SelectMailbox(ctx context.Context, mailbox string) error {
+	if !c.connected {
+		return fmt.Errorf("not connected - call Connect() first")
+	}
+
+	mbox, err := c.client.Select(mailbox, false)
+	if err != nil {
+		return fmt.Errorf("failed to select mailbox %s: %w", mailbox, err)
+	}
+
+	// Update the client's mailbox and store UIDVALIDITY
+	c.mailbox = mailbox
+	c.uidValidity = mbox.UidValidity
+	c.mailboxSelected = true
+
+	log.Printf("[imap] selected mailbox %s (UIDVALIDITY: %d, Messages: %d)", mailbox, c.uidValidity, mbox.Messages)
+
+	return nil
+}
+
+// NormalizeMessageID removes angle brackets and normalizes Message-ID for comparison
+// Exported for use in other packages
+func NormalizeMessageID(msgID string) string {
+	msgID = strings.TrimSpace(msgID)
+	msgID = strings.TrimPrefix(msgID, "<")
+	msgID = strings.TrimSuffix(msgID, ">")
+	return strings.ToLower(msgID)
+}
+
+// GetAllMessageUIDs retrieves all UIDs and Message-IDs from the currently selected mailbox
+// This is used for reconciliation to detect emails that have been moved externally
+func (c *IMAPClient) GetAllMessageUIDs(ctx context.Context) (map[string]bool, error) {
+	if !c.connected {
+		return nil, fmt.Errorf("not connected - call Connect() first")
+	}
+	if !c.mailboxSelected {
+		return nil, fmt.Errorf("mailbox not selected - call SelectMailbox() first")
+	}
+
+	// Get mailbox status to know total messages
+	mboxStatus, err := c.client.Status(c.mailbox, []imap.StatusItem{imap.StatusMessages})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get mailbox status: %w", err)
+	}
+
+	totalMessages := mboxStatus.Messages
+	if totalMessages == 0 {
+		return make(map[string]bool), nil
+	}
+
+	// Create sequence set for all messages
+	seqSet := new(imap.SeqSet)
+	seqSet.AddRange(1, totalMessages)
+
+	// Fetch only UID and envelope (which contains Message-ID)
+	messages := make(chan *imap.Message, 100)
+	errChan := make(chan error, 1)
+
+	go func() {
+		items := []imap.FetchItem{
+			imap.FetchUid,
+			imap.FetchEnvelope,
+		}
+		errChan <- c.client.Fetch(seqSet, items, messages)
+	}()
+
+	// Build set of normalized Message-IDs (we only need presence, not UIDs)
+	messageIDs := make(map[string]bool)
+	done := make(chan bool)
+	go func() {
+		for msg := range messages {
+			messageID := ""
+			if msg.Envelope != nil && msg.Envelope.MessageId != "" {
+				messageID = msg.Envelope.MessageId
+			} else {
+				// Fallback to IMAP UID-based ID if no Message-ID
+				messageID = fmt.Sprintf("imap-%d", msg.Uid)
+			}
+			normalized := NormalizeMessageID(messageID)
+			messageIDs[normalized] = true
+			if len(messageIDs) <= 5 {
+				log.Printf("[imap] debug: UID %d -> MessageID '%s' -> normalized '%s'", msg.Uid, messageID, normalized)
+			}
+		}
+		done <- true
+	}()
+
+	select {
+	case err := <-errChan:
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch messages: %w", err)
+		}
+		<-done
+	case <-ctx.Done():
+		return nil, fmt.Errorf("fetch messages timed out")
+	}
+
+	log.Printf("[imap] fetched %d Message-IDs from mailbox %s", len(messageIDs), c.mailbox)
+
+	return messageIDs, nil
+}
+
 // FindUIDByMessageID searches for an email's UID by its Message-ID header
 // Returns the UID if found, 0 if not found
 func (c *IMAPClient) FindUIDByMessageID(ctx context.Context, messageID string) (uint32, error) {

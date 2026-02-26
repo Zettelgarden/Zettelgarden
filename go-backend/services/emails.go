@@ -525,3 +525,142 @@ func (s *EmailService) UpdateEmailStatus(ctx context.Context, userID, emailID in
 
 	return &email, nil
 }
+
+// UpdateEmailFolder updates the folder and optionally the status of an email
+func (s *EmailService) UpdateEmailFolder(ctx context.Context, userID int, messageID string, folder string, status *string) error {
+	var query string
+	var args []interface{}
+
+	if status != nil {
+		// Update both folder and status
+		query = `UPDATE emails SET folder = $1, status = $2, updated_at = NOW() WHERE message_id = $3 AND user_id = $4`
+		args = []interface{}{folder, *status, messageID, userID}
+	} else {
+		// Update only folder
+		query = `UPDATE emails SET folder = $1, updated_at = NOW() WHERE message_id = $2 AND user_id = $3`
+		args = []interface{}{folder, messageID, userID}
+	}
+
+	result, err := s.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to update email folder: %w", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("email not found")
+	}
+
+	log.Printf("[email] updated email %s folder to %s for user %d", messageID, folder, userID)
+
+	return nil
+}
+
+// GetEmailsByAccountAndFolder retrieves emails for a specific account and folder
+func (s *EmailService) GetEmailsByAccountAndFolder(ctx context.Context, userID, accountID int, folder string) ([]models.Email, error) {
+	query := `
+		SELECT id, user_id, email_account_id, message_id, thread_id, subject,
+			from_address, from_name, to_addresses, body_text, body_html,
+			received_at, folder, imap_uid, status, is_read, card_id, created_at, updated_at
+		FROM emails
+		WHERE user_id = $1 AND email_account_id = $2 AND folder = $3
+		ORDER BY received_at DESC NULLS LAST, created_at DESC
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, userID, accountID, folder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get emails by account and folder: %w", err)
+	}
+	defer rows.Close()
+
+	var emails []models.Email
+	for rows.Next() {
+		var email models.Email
+		var accountID sql.NullInt32
+		var threadID sql.NullString
+		var subject sql.NullString
+		var fromAddress sql.NullString
+		var fromName sql.NullString
+		var toAddresses sql.NullString
+		var bodyText sql.NullString
+		var bodyHTML sql.NullString
+		var receivedAt sql.NullTime
+		var folder sql.NullString
+		var imapUID sql.NullInt64
+		var cardID sql.NullInt32
+
+		err := rows.Scan(
+			&email.ID,
+			&email.UserID,
+			&accountID,
+			&email.MessageID,
+			&threadID,
+			&subject,
+			&fromAddress,
+			&fromName,
+			&toAddresses,
+			&bodyText,
+			&bodyHTML,
+			&receivedAt,
+			&folder,
+			&imapUID,
+			&email.Status,
+			&email.IsRead,
+			&cardID,
+			&email.CreatedAt,
+			&email.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan email: %w", err)
+		}
+
+		// Convert nullable fields to pointers
+		if accountID.Valid {
+			id := int(accountID.Int32)
+			email.EmailAccountID = &id
+		}
+		if threadID.Valid {
+			email.ThreadID = &threadID.String
+		}
+		if subject.Valid {
+			email.Subject = &subject.String
+		}
+		if fromAddress.Valid {
+			email.FromAddress = &fromAddress.String
+		}
+		if fromName.Valid {
+			email.FromName = &fromName.String
+		}
+		if toAddresses.Valid {
+			email.ToAddresses = &toAddresses.String
+		}
+		if bodyText.Valid {
+			email.BodyText = &bodyText.String
+		}
+		if bodyHTML.Valid {
+			email.BodyHTML = &bodyHTML.String
+		}
+		if receivedAt.Valid {
+			email.ReceivedAt = &receivedAt.Time
+		}
+		if folder.Valid {
+			email.Folder = &folder.String
+		}
+		if imapUID.Valid {
+			uid := imapUID.Int64
+			email.IMAPUID = &uid
+		}
+		if cardID.Valid {
+			id := int(cardID.Int32)
+			email.CardID = &id
+		}
+
+		emails = append(emails, email)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating emails: %w", err)
+	}
+
+	return emails, nil
+}

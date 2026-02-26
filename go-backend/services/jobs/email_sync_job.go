@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"time"
 
@@ -149,42 +150,87 @@ func (j *EmailSyncJob) syncAccount(ctx context.Context, account emailAccount) (i
 	}
 	defer client.Close()
 
-	// Select INBOX
-	if err := client.SelectInbox(ctx); err != nil {
-		log.Printf("[email-sync] failed to select INBOX for account %d: %v", account.ID, err)
-		j.updateSyncStatus(ctx, account.ID, account.UserID, "error")
-		return 0, err
+	// Create EmailService
+	emailService := services.NewEmailService(j.db)
+	accountService := services.NewEmailAccountService(j.db)
+
+	totalEmails := 0
+
+	// Discover archive folder name
+	archiveFolder, err := client.FindArchiveMailbox(ctx)
+	if err != nil {
+		log.Printf("[email-sync] could not find archive folder for account %d: %v", account.ID, err)
+		archiveFolder = "Archive" // fallback to default
+	}
+
+	// Sync from INBOX
+	inboxEmails, err := j.syncFolder(ctx, account, client, emailService, "INBOX")
+	if err != nil {
+		log.Printf("[email-sync] failed to sync INBOX for account %d: %v", account.ID, err)
+		// Don't fail entire sync if one folder fails
+	} else {
+		totalEmails += inboxEmails
+	}
+
+	// Sync from Archive folder
+	archiveEmails, err := j.syncFolder(ctx, account, client, emailService, archiveFolder)
+	if err != nil {
+		log.Printf("[email-sync] failed to sync %s for account %d: %v", archiveFolder, account.ID, err)
+		// Don't fail entire sync if one folder fails
+	} else {
+		totalEmails += archiveEmails
+	}
+
+	// Reconcile: detect external changes (emails moved by user in email client)
+	if err := j.reconcileFolders(ctx, account, client, emailService, archiveFolder); err != nil {
+		log.Printf("[email-sync] failed to reconcile folders for account %d: %v", account.ID, err)
+		// Don't fail entire sync if reconciliation fails
+	}
+
+	// Update last_sync_at
+	now := time.Now()
+	if err := accountService.UpdateLastSync(ctx, account.UserID, account.ID, now); err != nil {
+		log.Printf("[email-sync] failed to update last sync for account %d: %v", account.ID, err)
+	}
+
+	// Update sync status to active
+	if err := j.updateSyncStatus(ctx, account.ID, account.UserID, "active"); err != nil {
+		log.Printf("[email-sync] failed to update sync status for account %d: %v", account.ID, err)
+	}
+
+	return totalEmails, nil
+}
+
+// syncFolder syncs emails from a specific folder (INBOX or Archive)
+func (j *EmailSyncJob) syncFolder(ctx context.Context, account emailAccount, client *services.IMAPClient, emailService *services.EmailService, folder string) (int, error) {
+	// Select the folder
+	if err := client.SelectMailbox(ctx, folder); err != nil {
+		return 0, fmt.Errorf("failed to select %s: %w", folder, err)
 	}
 
 	// Check for UIDVALIDITY changes
 	currentUIDValidity := client.GetUIDValidity()
 	if account.IMAPUIDValidity != nil && *account.IMAPUIDValidity != int(currentUIDValidity) {
-		log.Printf("[email-sync] UIDVALIDITY changed for account %d (old: %d, new: %d), doing full sync",
-			account.ID, *account.IMAPUIDValidity, currentUIDValidity)
-		account.IMAPUID = nil // Reset to force full sync
+		log.Printf("[email-sync] UIDVALIDITY changed for account %d in %s (old: %d, new: %d), doing full sync",
+			account.ID, folder, *account.IMAPUIDValidity, currentUIDValidity)
+		// Reset IMAP UID to force full sync for this folder
 	}
 
 	// Fetch emails (using UID if available, otherwise initial fetch)
 	var emails []models.Email
-	var maxUID uint32
+	var err error
 
-	if account.IMAPUID != nil && *account.IMAPUID > 0 {
-		// Incremental sync
-		emails, maxUID, err = client.FetchEmailsSinceUID(ctx, uint32(*account.IMAPUID))
+	if account.IMAPUID != nil && *account.IMAPUID > 0 && folder == "INBOX" {
+		// Incremental sync only for INBOX (Archive doesn't need incremental sync for new emails)
+		emails, _, err = client.FetchEmailsSinceUID(ctx, uint32(*account.IMAPUID))
 	} else {
-		// Initial fetch - get recent emails
-		emails, maxUID, err = client.FetchRecentEmails(ctx, 100)
+		// Initial fetch - get recent emails from this folder
+		emails, _, err = client.FetchRecentEmails(ctx, 100)
 	}
 
 	if err != nil {
-		log.Printf("[email-sync] failed to fetch emails for account %d: %v", account.ID, err)
-		// Update sync status to error
-		j.updateSyncStatus(ctx, account.ID, account.UserID, "error")
-		return 0, err
+		return 0, fmt.Errorf("failed to fetch emails: %w", err)
 	}
-
-	// Create EmailService
-	emailService := services.NewEmailService(j.db)
 
 	// Store emails
 	for _, email := range emails {
@@ -198,22 +244,113 @@ func (j *EmailSyncJob) syncAccount(ctx context.Context, account emailAccount) (i
 		}
 	}
 
-	// Update last_sync_at and IMAP state
-	now := time.Now()
-	accountService := services.NewEmailAccountService(j.db)
-	if err := accountService.UpdateLastSync(ctx, account.UserID, account.ID, now); err != nil {
-		log.Printf("[email-sync] failed to update last sync for account %d: %v", account.ID, err)
-	}
-	if err := accountService.UpdateIMAPState(ctx, account.UserID, account.ID, maxUID, currentUIDValidity); err != nil {
-		log.Printf("[email-sync] failed to update IMAP state for account %d: %v", account.ID, err)
-	}
-
-	// Update sync status to active
-	if err := j.updateSyncStatus(ctx, account.ID, account.UserID, "active"); err != nil {
-		log.Printf("[email-sync] failed to update sync status for account %d: %v", account.ID, err)
-	}
+	log.Printf("[email-sync] synced %d emails from %s for account %d", len(emails), folder, account.ID)
 
 	return len(emails), nil
+}
+
+// reconcileFolders detects and reconciles external changes (emails moved by user in email client)
+func (j *EmailSyncJob) reconcileFolders(ctx context.Context, account emailAccount, client *services.IMAPClient, emailService *services.EmailService, archiveFolder string) error {
+	// Get all emails for this account from database
+	dbEmails, _, err := emailService.ListEmails(ctx, account.UserID, models.EmailListFilters{
+		Limit: func() *int { l := 10000; return &l }(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get emails from database: %w", err)
+	}
+
+	// Build a map of normalized Message-ID to email in database
+	dbEmailMap := make(map[string]models.Email)
+	for _, email := range dbEmails {
+		// Normalize Message-ID for consistent comparison
+		normalized := services.NormalizeMessageID(email.MessageID)
+		dbEmailMap[normalized] = email
+	}
+
+	log.Printf("[email-sync] reconciling %d emails from database for account %d (archive folder: %s)", len(dbEmailMap), account.ID, archiveFolder)
+
+	// Check INBOX
+	if err := client.SelectMailbox(ctx, "INBOX"); err != nil {
+		log.Printf("[email-sync] failed to select INBOX for reconciliation: %v", err)
+		// Continue to Archive
+	} else {
+		inboxMessageIDs, err := client.GetAllMessageUIDs(ctx)
+		if err != nil {
+			log.Printf("[email-sync] failed to get INBOX Message-IDs: %v", err)
+		} else {
+			log.Printf("[email-sync] found %d messages in INBOX for reconciliation", len(inboxMessageIDs))
+
+			// Reconcile INBOX
+			for normalizedID, dbEmail := range dbEmailMap {
+				if dbEmail.EmailAccountID == nil || *dbEmail.EmailAccountID != account.ID {
+					continue
+				}
+
+				inInbox := inboxMessageIDs[normalizedID]
+
+				// Email is in INBOX on IMAP but marked as archived in DB
+				if inInbox && dbEmail.Status == "archived" {
+					log.Printf("[email-sync] reconciliation: email %s (normalized: %s) found in INBOX on IMAP, updating status from 'archived' to 'unprocessed'", dbEmail.MessageID, normalizedID)
+					status := "unprocessed"
+					if err := emailService.UpdateEmailFolder(ctx, account.UserID, dbEmail.MessageID, "INBOX", &status); err != nil {
+						log.Printf("[email-sync] failed to update email %s: %v", dbEmail.MessageID, err)
+					}
+				}
+
+				// Email is in INBOX on IMAP but folder in DB is not INBOX
+				if inInbox && (dbEmail.Folder == nil || *dbEmail.Folder != "INBOX") {
+					log.Printf("[email-sync] reconciliation: email %s found in INBOX on IMAP, updating folder", dbEmail.MessageID)
+					if err := emailService.UpdateEmailFolder(ctx, account.UserID, dbEmail.MessageID, "INBOX", nil); err != nil {
+						log.Printf("[email-sync] failed to update email folder %s: %v", dbEmail.MessageID, err)
+					}
+				}
+			}
+		}
+	}
+
+	// Check Archive
+	if err := client.SelectMailbox(ctx, archiveFolder); err != nil {
+		log.Printf("[email-sync] failed to select %s for reconciliation: %v", archiveFolder, err)
+		return nil
+	}
+
+	archiveMessageIDs, err := client.GetAllMessageUIDs(ctx)
+	if err != nil {
+		log.Printf("[email-sync] failed to get %s Message-IDs: %v", archiveFolder, err)
+		return nil
+	}
+
+	log.Printf("[email-sync] found %d messages in %s for reconciliation", len(archiveMessageIDs), archiveFolder)
+
+	// Reconcile Archive
+	for normalizedID, dbEmail := range dbEmailMap {
+		if dbEmail.EmailAccountID == nil || *dbEmail.EmailAccountID != account.ID {
+			continue
+		}
+
+		inArchive := archiveMessageIDs[normalizedID]
+
+		// Email is in Archive on IMAP but not marked as archived in DB
+		if inArchive && dbEmail.Status != "archived" {
+			log.Printf("[email-sync] reconciliation: email %s (normalized: %s) found in %s on IMAP, updating status to 'archived'", dbEmail.MessageID, normalizedID, archiveFolder)
+			status := "archived"
+			if err := emailService.UpdateEmailFolder(ctx, account.UserID, dbEmail.MessageID, archiveFolder, &status); err != nil {
+				log.Printf("[email-sync] failed to update email %s: %v", dbEmail.MessageID, err)
+			}
+		}
+
+		// Email is in Archive on IMAP but folder in DB is not Archive
+		if inArchive && (dbEmail.Folder == nil || *dbEmail.Folder != archiveFolder) {
+			log.Printf("[email-sync] reconciliation: email %s found in %s on IMAP, updating folder", dbEmail.MessageID, archiveFolder)
+			if err := emailService.UpdateEmailFolder(ctx, account.UserID, dbEmail.MessageID, archiveFolder, nil); err != nil {
+				log.Printf("[email-sync] failed to update email folder %s: %v", dbEmail.MessageID, err)
+			}
+		}
+	}
+
+	log.Printf("[email-sync] reconciliation completed for account %d", account.ID)
+
+	return nil
 }
 
 // updateSyncStatus updates the sync status for an account
