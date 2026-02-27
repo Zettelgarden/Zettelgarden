@@ -215,6 +215,8 @@ func (j *EmailSyncJob) syncAccount(ctx context.Context, account emailAccount) (i
 
 // syncFolder syncs emails from a specific folder (INBOX or Archive)
 func (j *EmailSyncJob) syncFolder(ctx context.Context, account emailAccount, client *services.IMAPClient, emailService *services.EmailService, folder string) (int, error) {
+	log.Printf("[email-sync] syncFolder: starting sync for folder %s, account %d", folder, account.ID)
+
 	// Select the folder
 	if err := client.SelectMailbox(ctx, folder); err != nil {
 		return 0, fmt.Errorf("failed to select %s: %w", folder, err)
@@ -247,8 +249,11 @@ func (j *EmailSyncJob) syncFolder(ctx context.Context, account emailAccount, cli
 	// Create S3 attachment handler if uploader is available
 	var attachmentService *services.EmailAttachmentService
 	if j.s3Uploader != nil {
+		log.Printf("[email-sync] S3 uploader is configured for account %d", account.ID)
 		s3Handler := &jobS3Handler{uploader: j.s3Uploader}
 		attachmentService = services.NewEmailAttachmentService(j.db, s3Handler, account.UserID)
+	} else {
+		log.Printf("[email-sync] WARNING: S3 uploader is NOT configured for account %d - attachments will not be saved", account.ID)
 	}
 
 	// Store emails and process attachments
@@ -264,6 +269,9 @@ func (j *EmailSyncJob) syncFolder(ctx context.Context, account emailAccount, cli
 		}
 
 		// Process attachments if S3 uploader is available
+		if len(emailWithAtt.Attachments) > 0 {
+			log.Printf("[email-sync] email %s has %d attachments", email.MessageID, len(emailWithAtt.Attachments))
+		}
 		if attachmentService != nil && len(emailWithAtt.Attachments) > 0 {
 			for _, att := range emailWithAtt.Attachments {
 				// Skip inline attachments (embedded images in HTML)
