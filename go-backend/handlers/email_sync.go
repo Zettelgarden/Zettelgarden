@@ -856,8 +856,6 @@ func (h *Handler) ConvertEmailToCardRoute(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	log.Printf("[email] ConvertEmailToCard: params.Title=%q, params.CardID=%v", params.Title, params.CardID)
-
 	// Validate title
 	if params.Title == "" {
 		http.Error(w, "Title is required", http.StatusBadRequest)

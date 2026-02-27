@@ -6,6 +6,24 @@ const turndownService = new TurndownService({
   codeBlockStyle: 'fenced',
 });
 
+/**
+ * Strips script and style tags (and their content) from HTML
+ * This is useful for cleaning up HTML emails before converting to markdown
+ * @param html The HTML string to clean
+ * @returns HTML with script and style tags removed
+ */
+function stripScriptsAndStyles(html: string): string {
+  if (!html) return '';
+
+  // Remove script tags and their content
+  let cleaned = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+
+  // Remove style tags and their content
+  cleaned = cleaned.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+
+  return cleaned;
+}
+
 // Preserve links when converting
 turndownService.addRule('links', {
   filter: 'a',
@@ -87,7 +105,9 @@ function isMarkdownContent(content: string): boolean {
  */
 export function htmlToMarkdown(html: string): string {
   if (!html) return '';
-  return turndownService.turndown(html);
+  // Strip scripts and styles before converting
+  const cleaned = stripScriptsAndStyles(html);
+  return turndownService.turndown(cleaned);
 }
 
 /**

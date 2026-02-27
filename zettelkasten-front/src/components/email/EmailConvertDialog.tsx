@@ -75,9 +75,7 @@ export function EmailConvertDialog({
         params.card_id = cardId.trim();
       }
 
-      console.log("Converting email with params:", params);
       const result: ConvertCardResponse = await convertEmailToCard(email.id, params);
-      console.log("Conversion result:", result);
 
       if (result.id) {
         onConverted(result.id);
