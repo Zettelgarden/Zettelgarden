@@ -133,9 +133,6 @@ func (s *EmailService) CreateEmail(ctx context.Context, email models.Email) (*mo
 
 	log.Printf("[email] created/updated email %s for user %d", email.MessageID, email.UserID)
 
-	// Index email in Typesense for search
-	go UpsertEmailToTypesense(s.db, result)
-
 	return &result, nil
 }
 

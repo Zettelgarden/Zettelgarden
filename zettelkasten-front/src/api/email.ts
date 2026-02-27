@@ -220,7 +220,13 @@ export interface EmailSearchResponse {
 
 // Email Search API
 export function searchEmails(params: EmailSearchParams): Promise<EmailSearchResponse> {
-  return getData(apiClient.post<EmailSearchResponse>("/emails/search", params));
+  const queryParams = new URLSearchParams();
+  queryParams.set("q", params.search_term);
+  if (params.page) queryParams.set("page", params.page.toString());
+  if (params.per_page) queryParams.set("per_page", params.per_page.toString());
+
+  const query = queryParams.toString();
+  return getData(apiClient.get<EmailSearchResponse>(`/emails/search${query ? `?${query}` : ""}`));
 }
 
 // Thread types

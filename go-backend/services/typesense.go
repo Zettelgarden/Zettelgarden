@@ -10,13 +10,21 @@ import (
 	"strconv"
 )
 
-// upsertCardToTypesense adds or updates a card document in Typesense
+// UpsertCardToTypesense adds or updates a card document in Typesense
 func UpsertCardToTypesense(db models.Database, card models.Card) {
 	cfg := config.GetConfig()
 	if os.Getenv("ZETTEL_IS_TESTING") == "true" {
 		return
 	}
-	if cfg == nil || cfg.Server.DevMode {
+	// Don't skip indexing in dev mode - cards should always be searchable
+	// if cfg == nil || cfg.Server.DevMode {
+	// 	return
+	// }
+
+	// Use environment variable directly to match search handler behavior
+	collectionName := os.Getenv("TYPESENSE_COLLECTION")
+	if collectionName == "" {
+		log.Printf("[typesense] TYPESENSE_COLLECTION environment variable not set, skipping card indexing")
 		return
 	}
 
@@ -33,7 +41,6 @@ func UpsertCardToTypesense(db models.Database, card models.Card) {
 		tags = append(tags, tag.Name)
 	}
 
-	collectionName := cfg.Services.Search.Collection
 	doc := map[string]interface{}{
 		"id":                    "card-" + strconv.Itoa(card.ID),
 		"fact_pk":               -1,
@@ -67,10 +74,18 @@ func deleteCardTypesense(cardPK int) {
 	if os.Getenv("ZETTEL_IS_TESTING") == "true" {
 		return
 	}
-	if cfg == nil || cfg.Server.DevMode {
+	// Don't skip indexing in dev mode
+	// if cfg == nil || cfg.Server.DevMode {
+	// 	return
+	// }
+
+	// Use environment variable directly to match search handler behavior
+	collectionName := os.Getenv("TYPESENSE_COLLECTION")
+	if collectionName == "" {
+		log.Printf("[typesense] TYPESENSE_COLLECTION environment variable not set, skipping card deletion")
 		return
 	}
-	collectionName := cfg.Services.Search.Collection
+
 	client := bootstrap.GetTypesenseClient(cfg.Services.Search)
 	_, err := client.Collection(collectionName).
 		Document("card-" + strconv.Itoa(cardPK)).Delete(context.Background())
@@ -80,107 +95,15 @@ func deleteCardTypesense(cardPK int) {
 }
 
 // UpsertEmailToTypesense adds or updates an email document in Typesense
+// NOTE: Email search now uses SQL-based search instead of Typesense
+// This function is kept for backward compatibility but does nothing
 func UpsertEmailToTypesense(db models.Database, email models.Email) {
-	cfg := config.GetConfig()
-	if os.Getenv("ZETTEL_IS_TESTING") == "true" {
-		return
-	}
-	if cfg == nil || cfg.Server.DevMode {
-		return
-	}
-
-	collectionName := cfg.Services.Search.Collection
-
-	// Build a searchable text from email body
-	bodyText := ""
-	if email.BodyText != nil {
-		bodyText = *email.BodyText
-	} else if email.BodyHTML != nil {
-		// Strip HTML tags for searching
-		bodyText = *email.BodyHTML
-	}
-
-	// Build sender display name
-	sender := ""
-	if email.FromName != nil && *email.FromName != "" {
-		sender = *email.FromName + " <" + *email.FromAddress + ">"
-	} else if email.FromAddress != nil {
-		sender = *email.FromAddress
-	}
-
-	// Handle received_at timestamp
-	var receivedAt int64
-	if email.ReceivedAt != nil {
-		receivedAt = email.ReceivedAt.Unix()
-	} else {
-		receivedAt = email.CreatedAt.Unix()
-	}
-
-	// Handle nullable fields for Typesense
-	var subject interface{} = nil
-	if email.Subject != nil {
-		subject = *email.Subject
-	}
-	var fromAddress interface{} = nil
-	if email.FromAddress != nil {
-		fromAddress = *email.FromAddress
-	}
-	var folder interface{} = nil
-	if email.Folder != nil {
-		folder = *email.Folder
-	}
-
-	doc := map[string]interface{}{
-		"id":                    "email-" + strconv.Itoa(email.ID),
-		"fact_pk":               -1,
-		"card_id":               "",
-		"card_pk":               -1,
-		"entity_pk":             -1,
-		"email_pk":              email.ID,
-		"user_id":               email.UserID,
-		"type":                  "email",
-		"title":                 subject,
-		"preview":               bodyText,
-		"parent_id":             -1,
-		"created_at":            email.CreatedAt.Unix(),
-		"updated_at":            email.UpdatedAt.Unix(),
-		"linked_card_id":        "",
-		"linked_card_pk":        -1,
-		"linked_card_title":     "",
-		"linked_card_parent_id": -1,
-		"tags":                  []string{},
-		"email_id":              email.ID,
-		"email_sender":          sender,
-		"email_from_address":    fromAddress,
-		"email_subject":         subject,
-		"email_received_at":     receivedAt,
-		"email_status":          email.Status,
-		"email_folder":          folder,
-		"email_is_read":         email.IsRead,
-	}
-
-	client := bootstrap.GetTypesenseClient(cfg.Services.Search)
-	_, err := client.Collection(collectionName).
-		Documents().Upsert(context.Background(), doc)
-	if err != nil {
-		log.Printf("failed to upsert email ID %d: %v", email.ID, err)
-	}
+	// No-op - emails are now searched via SQL
 }
 
 // DeleteEmailFromTypesense removes an email document from Typesense
+// NOTE: Email search now uses SQL-based search instead of Typesense
+// This function is kept for backward compatibility but does nothing
 func DeleteEmailFromTypesense(emailPK int) {
-	cfg := config.GetConfig()
-	if os.Getenv("ZETTEL_IS_TESTING") == "true" {
-		return
-	}
-	if cfg == nil || cfg.Server.DevMode {
-		return
-	}
-	collectionName := cfg.Services.Search.Collection
-	client := bootstrap.GetTypesenseClient(cfg.Services.Search)
-	_, err := client.Collection(collectionName).
-		Document("email-" + strconv.Itoa(emailPK)).Delete(context.Background())
-	if err != nil {
-		log.Printf("failed to delete email ID %d: %v", emailPK, err)
-	}
+	// No-op - emails are now searched via SQL
 }

@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/typesense/typesense-go/typesense/api"
 )
 
 // CreateEmailAccountRoute handles POST /api/email/accounts
@@ -1244,104 +1243,123 @@ type EmailSearchResponse struct {
 	TotalPages int                        `json:"total_pages"`
 }
 
-// SearchEmailsRoute handles POST /api/emails/search
-// Searches emails using Typesense full-text search
+// SearchEmailsRoute handles GET /api/emails/search
+// Searches emails using SQL-based full-text search across subject, from_address, and body_text
 func (h *Handler) SearchEmailsRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
-	var reqParams EmailSearchParams
-	err := json.NewDecoder(r.Body).Decode(&reqParams)
-	if err != nil {
-		log.Printf("[email] failed to decode search request: %v", err)
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	// Parse query parameters
+	searchTerm := r.URL.Query().Get("q")
+	if searchTerm == "" {
+		http.Error(w, "Search query 'q' is required", http.StatusBadRequest)
 		return
 	}
 
 	// Set default pagination values
-	page := reqParams.Page
-	if page < 1 {
-		page = 1
+	page := 1
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
 	}
 
-	perPage := reqParams.PerPage
-	if perPage <= 0 {
-		perPage = 50
-	}
-	if perPage > 100 {
-		perPage = 100
+	perPage := 20
+	if perPageStr := r.URL.Query().Get("per_page"); perPageStr != "" {
+		if p, err := strconv.Atoi(perPageStr); err == nil && p > 0 && p <= 100 {
+			perPage = p
+		}
 	}
 
-	// Check if Typesense is available
-	if h.Server.TypesenseClient == nil {
-		log.Printf("[email] Typesense not available for email search, skipping search")
-		// Fall back to database search
-		http.Error(w, "Search not available - Typesense not configured", http.StatusServiceUnavailable)
+	offset := (page - 1) * perPage
+
+	// Build SQL search query with ILIKE for case-insensitive search
+	// Search across subject, from_address, and body_text
+	query := `
+		SELECT id, subject, from_address, from_name, body_text
+		FROM emails
+		WHERE user_id = $1
+			AND (subject ILIKE $2 OR from_address ILIKE $2 OR body_text ILIKE $2)
+		ORDER BY received_at DESC NULLS LAST, created_at DESC
+		LIMIT $3 OFFSET $4
+	`
+
+	// Add wildcards to search term for partial matching
+	searchPattern := "%" + strings.ToLower(searchTerm) + "%"
+
+	rows, err := h.GetDB().QueryContext(context.Background(), query, userID, searchPattern, perPage, offset)
+	if err != nil {
+		log.Printf("[email] SQL search error: %v", err)
+		http.Error(w, "Search failed", http.StatusInternalServerError)
 		return
 	}
+	defer rows.Close()
 
-	// Build filter for user ID
-	filter := "user_id:=" + strconv.Itoa(userID) + " && type:=email"
-
-	// Build search parameters
-	searchTerm := reqParams.SearchTerm
-	if searchTerm == "" {
-		searchTerm = "*"
-	}
-
-	sortBy := "email_received_at:desc"
-
-	typesenseParams := &api.SearchCollectionParams{
-		Q:        searchTerm,
-		QueryBy:  "title, preview, email_sender, email_from_address, email_subject",
-		FilterBy: &filter,
-		SortBy:   &sortBy,
-		PerPage:  &perPage,
-		Page:     &page,
-	}
-
-	collectionName := os.Getenv("TYPESENSE_COLLECTION")
-	typesenseResults, err := h.Server.TypesenseClient.Collection(collectionName).Documents().Search(context.Background(), typesenseParams)
+	// Get total count for pagination
+	countQuery := `
+		SELECT COUNT(*)
+		FROM emails
+		WHERE user_id = $1
+			AND (subject ILIKE $2 OR from_address ILIKE $2 OR body_text ILIKE $2)
+	`
+	var total int
+	err = h.GetDB().QueryRowContext(context.Background(), countQuery, userID, searchPattern).Scan(&total)
 	if err != nil {
-		log.Printf("[email] Typesense search error: %v", err)
+		log.Printf("[email] failed to get search count: %v", err)
 		http.Error(w, "Search failed", http.StatusInternalServerError)
 		return
 	}
 
 	// Process results
 	var results []models.EmailSearchResult
-	for _, hit := range *typesenseResults.Hits {
-		if hit.Document != nil {
-			doc := *hit.Document
+	for rows.Next() {
+		var id int
+		var subject sql.NullString
+		var fromAddress sql.NullString
+		var fromName sql.NullString
+		var bodyText sql.NullString
 
-			// Extract fields with proper nil handling
-			var subject string
-			if s, ok := doc["email_subject"].(string); ok {
-				subject = s
-			}
-
-			var sender string
-			if s, ok := doc["email_sender"].(string); ok {
-				sender = s
-			}
-
-			var preview string
-			if p, ok := doc["preview"].(string); ok {
-				preview = p
-			}
-
-			result := models.EmailSearchResult{
-				ID:       int(doc["email_pk"].(float64)),
-				Subject:  subject,
-				Sender:   sender,
-				Preview:  preview,
-				Metadata: doc,
-			}
-			results = append(results, result)
+		err := rows.Scan(&id, &subject, &fromAddress, &fromName, &bodyText)
+		if err != nil {
+			log.Printf("[email] failed to scan search result: %v", err)
+			continue
 		}
+
+		// Build sender display name
+		sender := ""
+		if fromName.Valid && fromName.String != "" {
+			sender = fromName.String
+			if fromAddress.Valid && fromAddress.String != "" {
+				sender += " <" + fromAddress.String + ">"
+			}
+		} else if fromAddress.Valid {
+			sender = fromAddress.String
+		}
+
+		// Build preview (first 200 chars of body)
+		preview := ""
+		if bodyText.Valid && bodyText.String != "" {
+			preview = bodyText.String
+			if len(preview) > 200 {
+				preview = preview[:200] + "..."
+			}
+		}
+
+		result := models.EmailSearchResult{
+			ID:      id,
+			Subject: subject.String,
+			Sender:  sender,
+			Preview: preview,
+		}
+		results = append(results, result)
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Printf("[email] error iterating search results: %v", err)
+		http.Error(w, "Search failed", http.StatusInternalServerError)
+		return
 	}
 
 	// Calculate pagination
-	total := int(*typesenseResults.Found)
 	totalPages := (total + perPage - 1) / perPage
 
 	response := EmailSearchResponse{

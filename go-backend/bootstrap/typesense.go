@@ -32,14 +32,13 @@ func InitTypesense(searchConfig config.SearchConfig) (*typesense.Client, error) 
 
 	collectionName := searchConfig.Collection
 
+	// Check if collection exists
 	_, err := client.Collection(collectionName).Retrieve(ctx)
 	if err == nil {
-		// Collection exists
+		// Collection exists - keep it
 		fmt.Println("Collection already exists:", collectionName)
 		return client, nil
 	}
-	// log.Printf("delete")
-	// client.Collection(collectionName).Delete(context.Background())
 
 	sortField := "updated_at"
 	schema := &api.CollectionSchema{
