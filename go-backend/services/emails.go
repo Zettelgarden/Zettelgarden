@@ -3,11 +3,14 @@ package services
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"go-backend/models"
 	"log"
 	"strings"
+	"time"
 
-	"go-backend/models"
+	openai "github.com/sashabaranov/go-openai"
 )
 
 // EmailService handles email storage operations
@@ -129,6 +132,9 @@ func (s *EmailService) CreateEmail(ctx context.Context, email models.Email) (*mo
 	}
 
 	log.Printf("[email] created/updated email %s for user %d", email.MessageID, email.UserID)
+
+	// Index email in Typesense for search
+	go UpsertEmailToTypesense(s.db, result)
 
 	return &result, nil
 }
@@ -1077,4 +1083,453 @@ func (s *EmailService) createTaskFromEmail(ctx context.Context, db *sql.DB, user
 		"success":  true,
 		"task_id":  taskID,
 	}, nil
+}
+
+// GetEmailThreadByID retrieves all emails in a thread by thread_id
+func (s *EmailService) GetEmailThreadByID(ctx context.Context, userID int, threadID string) (*models.EmailThread, error) {
+	if threadID == "" {
+		return nil, fmt.Errorf("thread_id is required")
+	}
+
+	// Query all emails in the thread
+	query := `
+		SELECT id, user_id, email_account_id, message_id, thread_id, subject,
+			from_address, from_name, to_addresses, body_text, body_html,
+			received_at, folder, imap_uid, status, is_read, card_id, created_at, updated_at
+		FROM emails
+		WHERE user_id = $1 AND thread_id = $2
+		ORDER BY received_at ASC NULLS LAST, created_at ASC
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, userID, threadID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get email thread: %w", err)
+	}
+	defer rows.Close()
+
+	var emails []models.Email
+	var subjects []string
+	participants := make(map[string]bool)
+	var oldestTime, newestTime *time.Time
+	unreadCount := 0
+
+	for rows.Next() {
+		var email models.Email
+		var accountID sql.NullInt32
+		var threadID sql.NullString
+		var subject sql.NullString
+		var fromAddress sql.NullString
+		var fromName sql.NullString
+		var toAddresses sql.NullString
+		var bodyText sql.NullString
+		var bodyHTML sql.NullString
+		var receivedAt sql.NullTime
+		var folder sql.NullString
+		var imapUID sql.NullInt64
+		var cardID sql.NullInt32
+
+		err := rows.Scan(
+			&email.ID,
+			&email.UserID,
+			&accountID,
+			&email.MessageID,
+			&threadID,
+			&subject,
+			&fromAddress,
+			&fromName,
+			&toAddresses,
+			&bodyText,
+			&bodyHTML,
+			&receivedAt,
+			&folder,
+			&imapUID,
+			&email.Status,
+			&email.IsRead,
+			&cardID,
+			&email.CreatedAt,
+			&email.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan email: %w", err)
+		}
+
+		// Convert nullable fields to pointers
+		if accountID.Valid {
+			id := int(accountID.Int32)
+			email.EmailAccountID = &id
+		}
+		if threadID.Valid {
+			email.ThreadID = &threadID.String
+		}
+		if subject.Valid && subject.String != "" {
+			email.Subject = &subject.String
+			subjects = append(subjects, subject.String)
+		}
+		if fromAddress.Valid {
+			email.FromAddress = &fromAddress.String
+			participants[fromAddress.String] = true
+		}
+		if fromName.Valid {
+			email.FromName = &fromName.String
+		}
+		if toAddresses.Valid {
+			email.ToAddresses = &toAddresses.String
+		}
+		if bodyText.Valid {
+			email.BodyText = &bodyText.String
+		}
+		if bodyHTML.Valid {
+			email.BodyHTML = &bodyHTML.String
+		}
+		if receivedAt.Valid {
+			email.ReceivedAt = &receivedAt.Time
+			if oldestTime == nil || receivedAt.Time.Before(*oldestTime) {
+				oldestTime = &receivedAt.Time
+			}
+			if newestTime == nil || receivedAt.Time.After(*newestTime) {
+				newestTime = &receivedAt.Time
+			}
+		}
+		if folder.Valid {
+			email.Folder = &folder.String
+		}
+		if imapUID.Valid {
+			uid := imapUID.Int64
+			email.IMAPUID = &uid
+		}
+		if cardID.Valid {
+			id := int(cardID.Int32)
+			email.CardID = &id
+		}
+
+		if !email.IsRead {
+			unreadCount++
+		}
+
+		emails = append(emails, email)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating emails: %w", err)
+	}
+
+	if len(emails) == 0 {
+		return nil, fmt.Errorf("thread not found")
+	}
+
+	// Determine thread subject (use most common or first non-empty)
+	threadSubject := ""
+	if len(subjects) > 0 {
+		threadSubject = subjects[0]
+		// Remove common reply prefixes
+		for _, prefix := range []string{"Re: ", "RE: ", "re: ", "Fwd: ", "FWD: ", "fwd: ", "FW: "} {
+			threadSubject = strings.TrimPrefix(threadSubject, prefix)
+		}
+	}
+
+	thread := &models.EmailThread{
+		ThreadID:        threadID,
+		Subject:         threadSubject,
+		ParticipantCount: len(participants),
+		MessageCount:    len(emails),
+		UnreadCount:     unreadCount,
+		OldestDate:      oldestTime,
+		NewestDate:      newestTime,
+		Messages:        emails,
+	}
+
+	return thread, nil
+}
+
+// ListEmailThreads lists email threads with pagination and optional filters
+func (s *EmailService) ListEmailThreads(ctx context.Context, userID int, filters models.EmailThreadListFilters) ([]models.EmailThread, int, error) {
+	// Build WHERE clause dynamically
+	whereConditions := []string{"user_id = $1", "thread_id IS NOT NULL"}
+	args := []interface{}{userID}
+	argPos := 2
+
+	if filters.Status != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("status = $%d", argPos))
+		args = append(args, *filters.Status)
+		argPos++
+	}
+
+	if filters.Folder != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("folder = $%d", argPos))
+		args = append(args, *filters.Folder)
+		argPos++
+	}
+
+	whereClause := strings.Join(whereConditions, " AND ")
+
+	// Get total count of distinct threads
+	countQuery := fmt.Sprintf("SELECT COUNT(DISTINCT thread_id) FROM emails WHERE %s", whereClause)
+	var total int
+	err := s.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count threads: %w", err)
+	}
+
+	// Apply pagination defaults
+	limit := 50
+	if filters.Limit != nil {
+		limit = *filters.Limit
+	}
+	offset := 0
+	if filters.Offset != nil {
+		offset = *filters.Offset
+	}
+
+	// Query threads with pagination
+	// We need to get thread metadata and then fetch emails for each thread
+	query := fmt.Sprintf(`
+		SELECT thread_id,
+		       COUNT(*) as message_count,
+		       SUM(CASE WHEN is_read = false THEN 1 ELSE 0 END) as unread_count,
+		       MIN(received_at) as oldest_date,
+		       MAX(received_at) as newest_date
+		FROM emails
+		WHERE %s
+		GROUP BY thread_id
+		ORDER BY MAX(received_at) DESC NULLS LAST
+		LIMIT $%d OFFSET $%d
+	`, whereClause, argPos, argPos+1)
+
+	args = append(args, limit, offset)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list threads: %w", err)
+	}
+	defer rows.Close()
+
+	var threadIDs []string
+	var threads []models.EmailThread
+
+	for rows.Next() {
+		var threadID string
+		var messageCount int
+		var unreadCount int
+		var oldestDate sql.NullTime
+		var newestDate sql.NullTime
+
+		err := rows.Scan(&threadID, &messageCount, &unreadCount, &oldestDate, &newestDate)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan thread metadata: %w", err)
+		}
+
+		threadIDs = append(threadIDs, threadID)
+
+		var oldestPtr, newestPtr *time.Time
+		if oldestDate.Valid {
+			oldestPtr = &oldestDate.Time
+		}
+		if newestDate.Valid {
+			newestPtr = &newestDate.Time
+		}
+
+		threads = append(threads, models.EmailThread{
+			ThreadID:      threadID,
+			MessageCount:  messageCount,
+			UnreadCount:   unreadCount,
+			OldestDate:    oldestPtr,
+			NewestDate:    newestPtr,
+		})
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("error iterating threads: %w", err)
+	}
+
+	// Fetch participants and subject for each thread
+	for i := range threads {
+		thread := &threads[i]
+
+		// Get first email in thread for subject
+		var subject sql.NullString
+		err := s.db.QueryRowContext(ctx, `
+			SELECT subject
+			FROM emails
+			WHERE user_id = $1 AND thread_id = $2
+			ORDER BY created_at ASC
+			LIMIT 1
+		`, userID, thread.ThreadID).Scan(&subject)
+
+		if err == nil && subject.Valid {
+			thread.Subject = subject.String
+			// Remove reply prefixes
+			for _, prefix := range []string{"Re: ", "RE: ", "re: ", "Fwd: ", "FWD: ", "fwd: ", "FW: "} {
+				thread.Subject = strings.TrimPrefix(thread.Subject, prefix)
+			}
+		}
+
+		// Get unique participants (from addresses)
+		participantRows, err := s.db.QueryContext(ctx, `
+			SELECT DISTINCT from_address
+			FROM emails
+			WHERE user_id = $1 AND thread_id = $2 AND from_address IS NOT NULL
+		`, userID, thread.ThreadID)
+		if err == nil {
+			participants := make(map[string]bool)
+			for participantRows.Next() {
+				var addr string
+				if participantRows.Scan(&addr) == nil {
+					participants[addr] = true
+				}
+			}
+			participantRows.Close()
+			thread.ParticipantCount = len(participants)
+		}
+	}
+
+	return threads, total, nil
+}
+
+// MarkThreadAsRead marks all emails in a thread as read
+func (s *EmailService) MarkThreadAsRead(ctx context.Context, userID int, threadID string) error {
+	if threadID == "" {
+		return fmt.Errorf("thread_id is required")
+	}
+
+	result, err := s.db.ExecContext(ctx, `
+		UPDATE emails
+		SET is_read = true, updated_at = NOW()
+		WHERE user_id = $1 AND thread_id = $2
+	`, userID, threadID)
+	if err != nil {
+		return fmt.Errorf("failed to mark thread as read: %w", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("thread not found")
+	}
+
+	log.Printf("[email] marked thread %s as read for user %d (%d emails)", threadID, userID, rows)
+
+	return nil
+}
+
+// ArchiveThread archives all emails in a thread
+func (s *EmailService) ArchiveThread(ctx context.Context, userID int, threadID string) error {
+	if threadID == "" {
+		return fmt.Errorf("thread_id is required")
+	}
+
+	result, err := s.db.ExecContext(ctx, `
+		UPDATE emails
+		SET status = 'archived', updated_at = NOW()
+		WHERE user_id = $1 AND thread_id = $2
+	`, userID, threadID)
+	if err != nil {
+		return fmt.Errorf("failed to archive thread: %w", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("thread not found")
+	}
+
+	log.Printf("[email] archived thread %s for user %d (%d emails)", threadID, userID, rows)
+
+	return nil
+}
+
+// ExtractFactsFromEmail extracts factual statements from an email using LLM
+func (s *EmailService) ExtractFactsFromEmail(ctx context.Context, userID int, emailID int) ([]string, error) {
+	// Get the email
+	email, err := s.GetEmailByID(ctx, userID, emailID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get email: %w", err)
+	}
+
+	// Build email content text for LLM processing
+	var emailText string
+	if email.Subject != nil && *email.Subject != "" {
+		emailText = fmt.Sprintf("Subject: %s\n\n", *email.Subject)
+	}
+	if email.FromName != nil && *email.FromName != "" {
+		emailText += fmt.Sprintf("From: %s <%s>\n\n", *email.FromName, *email.FromAddress)
+	} else if email.FromAddress != nil && *email.FromAddress != "" {
+		emailText += fmt.Sprintf("From: %s\n\n", *email.FromAddress)
+	}
+
+	// Use body_text if available, otherwise fall back to body_html
+	bodyContent := ""
+	if email.BodyText != nil && *email.BodyText != "" {
+		bodyContent = *email.BodyText
+	} else if email.BodyHTML != nil && *email.BodyHTML != "" {
+		// Strip HTML tags for processing (simple approach)
+		// In production, you might want to use a proper HTML-to-text converter
+		bodyContent = *email.BodyHTML
+	}
+
+	emailText += bodyContent
+
+	if emailText == "" {
+		return nil, fmt.Errorf("email has no extractable content")
+	}
+
+	// Use LLM to extract facts
+	// Import services.llm for LLM processing
+	// Create a simple LLM client for fact extraction
+	isTesting := false // Don't use testing mode for real email extraction
+	client := NewDefaultClient(s.db.(*sql.DB), userID, isTesting)
+	client.RequestType = "analysis"
+
+	// Build messages for fact extraction
+	messages := []openai.ChatCompletionMessage{
+		{
+			Role: openai.ChatMessageRoleSystem,
+			Content: `You are an assistant that extracts factual statements from emails.
+Extract discrete, verifiable facts from the email content. Focus on:
+- Specific dates, times, and deadlines
+- Quantifiable information (numbers, prices, quantities)
+- Action items and commitments
+- Important decisions made
+- Names of people, organizations, or locations mentioned
+
+Guidelines:
+- Return ONLY a JSON array of fact strings
+- Each fact should be a standalone, understandable statement
+- Avoid trivial facts like "email was sent on..."
+- Do not include opinions or subjective statements
+- Maximum 10 facts, prioritize the most important ones
+
+Response format:
+["fact 1", "fact 2", "fact 3", ...]`,
+		},
+		{
+			Role:    openai.ChatMessageRoleUser,
+			Content: fmt.Sprintf("Extract factual statements from this email:\n\n%s", emailText),
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), LLMRequestTimeout)
+	resp, err := ExecuteLLMRequest(ctx, client, messages)
+	cancel()
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract facts from email: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return nil, fmt.Errorf("no response from LLM")
+	}
+
+	// Parse the response as JSON array
+	content := strings.TrimSpace(resp.Choices[0].Message.Content)
+	content = strings.TrimPrefix(content, "```json")
+	content = strings.TrimPrefix(content, "```")
+	content = strings.TrimSuffix(content, "```")
+
+	var facts []string
+	if err := json.Unmarshal([]byte(content), &facts); err != nil {
+		log.Printf("[email] failed to parse facts JSON: %v, content: %s", err, content)
+		return nil, fmt.Errorf("failed to parse facts from LLM response: %w", err)
+	}
+
+	log.Printf("[email] extracted %d facts from email %d", len(facts), emailID)
+
+	return facts, nil
 }

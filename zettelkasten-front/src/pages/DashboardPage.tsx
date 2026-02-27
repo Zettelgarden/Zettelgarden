@@ -39,6 +39,7 @@ export function DashboardPage() {
         false, // showEntities
         false, // showFacts
         true, // showCards
+        false, // showEmails
         "sortCreatedNewOld", // sortBy recent
         "classic", // searchType
         false, // rerank

@@ -671,6 +671,7 @@ type SearchRequestParams struct {
 	ShowEntities    bool   `json:"show_entities"`
 	ShowFacts       bool   `json:"show_facts"`
 	ShowCards       bool   `json:"show_cards"`
+	ShowEmails      bool   `json:"show_emails"`
 	OnlyEmptyCardId bool   `json:"only_empty_card_id"`
 	SchemaID        *int   `json:"schema_id,omitempty"`
 	SortBy          string `json:"sort"`
@@ -737,6 +738,9 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 	if !searchParams.ShowCards {
 		typeFilters = append(typeFilters, "type:!=card")
 	}
+	if !searchParams.ShowEmails {
+		typeFilters = append(typeFilters, "type:!=email")
+	}
 	if len(typeFilters) > 0 {
 		filter += " && " + strings.Join(typeFilters, " && ")
 	}
@@ -780,7 +784,7 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 
 	typesenseParams := &api.SearchCollectionParams{
 		Q:             searchTerm,
-		QueryBy:       "card_id, title, tags, embedding",
+		QueryBy:       "card_id, title, tags, embedding, email_sender, email_from_address, email_subject, preview",
 		FilterBy:      &filter,
 		SortBy:        &sortBy,
 		PerPage:       &perPage,
@@ -862,6 +866,23 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 				item.Metadata = metadata
 				// fact_pk
 
+			} else if resultType == "email" {
+				if !searchParams.ShowEmails {
+					continue
+				}
+				item.ID = strconv.FormatInt(int64(doc["email_pk"].(float64)), 10)
+				metadata := map[string]interface{}{
+					"id":                 item.ID,
+					"email_id":           doc["email_id"],
+					"email_sender":       doc["email_sender"],
+					"email_from_address": doc["email_from_address"],
+					"email_subject":      doc["email_subject"],
+					"email_received_at":  doc["email_received_at"],
+					"email_status":       doc["email_status"],
+					"email_folder":       doc["email_folder"],
+					"email_is_read":      doc["email_is_read"],
+				}
+				item.Metadata = metadata
 			}
 			results = append(results, item)
 		} else {

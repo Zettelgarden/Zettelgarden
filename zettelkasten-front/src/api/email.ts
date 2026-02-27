@@ -194,3 +194,171 @@ export function batchConvertEmails(params: BatchConvertParams): Promise<BatchOpe
 export function batchCreateTasks(params: BatchEmailParams): Promise<BatchOperationResponse> {
   return getData(apiClient.post<BatchOperationResponse>("/emails/batch-create-tasks", params));
 }
+
+// Email Search types
+export interface EmailSearchParams {
+  search_term: string;
+  page?: number;
+  per_page?: number;
+}
+
+export interface EmailSearchResult {
+  id: number;
+  subject: string;
+  sender: string;
+  preview: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface EmailSearchResponse {
+  results: EmailSearchResult[];
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+}
+
+// Email Search API
+export function searchEmails(params: EmailSearchParams): Promise<EmailSearchResponse> {
+  return getData(apiClient.post<EmailSearchResponse>("/emails/search", params));
+}
+
+// Thread types
+export interface EmailThread {
+  thread_id: string;
+  subject: string;
+  participant_count: number;
+  message_count: number;
+  unread_count: number;
+  oldest_date?: string;
+  newest_date?: string;
+  messages?: Email[];
+}
+
+export interface EmailThreadListFilters {
+  status?: string;
+  folder?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface EmailThreadListResponse {
+  threads: EmailThread[];
+  total: number;
+}
+
+// Thread API functions
+export function getEmailThread(threadId: string): Promise<EmailThread> {
+  return getData(apiClient.get<EmailThread>(`/emails/threads/${threadId}`));
+}
+
+export function markThreadAsRead(threadId: string): Promise<{ success: boolean }> {
+  return getData(apiClient.patch<{ success: boolean }>(`/emails/threads/${threadId}/read`, {}));
+}
+
+export function archiveThread(threadId: string): Promise<{ success: boolean }> {
+  return getData(apiClient.patch<{ success: boolean }>(`/emails/threads/${threadId}/archive`, {}));
+}
+
+// Email Fact Extraction types (PRO feature)
+export interface ExtractFactsResponse {
+  email_id: number;
+  facts: string[];
+  count: number;
+}
+
+export interface SaveFactsRequest {
+  facts: string[];
+}
+
+export interface SaveFactsResponse {
+  success: boolean;
+  email_id: number;
+  saved_count: number;
+  facts: Array<{
+    id: number;
+    user_id: number;
+    card_pk: number;
+    fact: string;
+  }>;
+}
+
+export interface EmailFactsResponse {
+  email_id: number;
+  facts: Array<{
+    id: number;
+    user_id: number;
+    card_pk: number;
+    fact: string;
+    created_at: string;
+    updated_at: string;
+  }>;
+  count: number;
+}
+
+// Email Fact Extraction API functions (PRO feature)
+export function extractFactsFromEmail(id: number): Promise<ExtractFactsResponse> {
+  return getData(apiClient.post<ExtractFactsResponse>(`/emails/${id}/extract-facts`, {}));
+}
+
+export function saveFactsFromEmail(id: number, facts: string[]): Promise<SaveFactsResponse> {
+  return getData(apiClient.post<SaveFactsResponse>(`/emails/${id}/save-facts`, { facts }));
+}
+
+export function getEmailFacts(id: number): Promise<EmailFactsResponse> {
+  return getData(apiClient.get<EmailFactsResponse>(`/emails/${id}/facts`));
+}
+
+// Email Attachment types
+export interface EmailAttachment {
+  id: number;
+  user_id: number;
+  email_id: number;
+  file_id?: number;
+  filename: string;
+  content_type?: string;
+  size?: number;
+  s3_key?: string;
+  thumbnail_path?: string;
+  content_id?: string;
+  is_inline: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmailAttachmentWithDownloadURL extends EmailAttachment {
+  download_url: string;
+  thumbnail_url?: string;
+  is_image: boolean;
+  is_saved_to_vault: boolean;
+}
+
+export interface EmailAttachmentsResponse {
+  attachments: EmailAttachmentWithDownloadURL[];
+  count: number;
+}
+
+export interface SaveAttachmentToVaultParams {
+  card_pk?: number;
+}
+
+// Email Attachment API functions
+export function getEmailAttachments(id: number): Promise<EmailAttachmentsResponse> {
+  return getData(apiClient.get<EmailAttachmentsResponse>(`/emails/${id}/attachments`));
+}
+
+export function downloadEmailAttachment(id: number): string {
+  return `/api/emails/attachments/${id}/download`;
+}
+
+export function getAttachmentThumbnail(id: number): string {
+  return `/api/emails/attachments/${id}/thumbnail`;
+}
+
+export function saveAttachmentToVault(id: number, params: SaveAttachmentToVaultParams): Promise<EmailAttachment> {
+  return getData(apiClient.post<EmailAttachment>(`/emails/attachments/${id}/save-to-vault`, params));
+}
+
+export function deleteEmailAttachment(id: number): Promise<void> {
+  return getData(apiClient.delete<void>(`/emails/attachments/${id}`));
+}

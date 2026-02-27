@@ -10,15 +10,18 @@ import {
   batchConvertEmails,
   batchCreateTasks,
   getTopSenders,
+  searchEmails,
   SenderInfo,
   Email,
-  EmailAccount
+  EmailAccount,
+  EmailSearchResult
 } from "../api/email";
 import { EmailList } from "../components/email/EmailList";
 import { CreateTaskWindow } from "../components/tasks/CreateTaskWindow";
 import { setDocumentTitle } from "../utils/title";
 
 type StatusFilter = "all" | "unprocessed" | "triaged" | "archived";
+type ViewMode = "flat" | "threaded";
 
 /**
  * Email Inbox Page
@@ -40,6 +43,7 @@ export function EmailInboxPage() {
   const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("unprocessed");
+  const [viewMode, setViewMode] = useState<ViewMode>("threaded");
   const [total, setTotal] = useState<number>(0);
   const [topSenders, setTopSenders] = useState<SenderInfo[]>([]);
   const [selectedSender, setSelectedSender] = useState<string | null>(null);
@@ -60,6 +64,12 @@ export function EmailInboxPage() {
   const [batchError, setBatchError] = useState("");
   const [showBatchConfirm, setShowBatchConfirm] = useState(false);
   const [pendingBatchOperation, setPendingBatchOperation] = useState<string | null>(null);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<EmailSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   /**
    * Fetch email accounts
@@ -154,6 +164,13 @@ export function EmailInboxPage() {
    */
   const handleEmailClick = (email: Email) => {
     navigate(`/app/emails/${email.id}`);
+  };
+
+  /**
+   * Handle thread click - navigate to thread detail page
+   */
+  const handleThreadClick = (threadId: string) => {
+    navigate(`/app/emails/threads/${threadId}`);
   };
 
   /**
@@ -438,6 +455,52 @@ export function EmailInboxPage() {
     setPendingBatchOperation(null);
   }, []);
 
+  /**
+   * Handle email search
+   */
+  const handleEmailSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setShowSearchResults(false);
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchQuery(query);
+    setShowSearchResults(true);
+
+    try {
+      const response = await searchEmails({
+        search_term: query,
+        page: 1,
+        per_page: 20,
+      });
+      setSearchResults(response.results ?? []);
+    } catch (error) {
+      console.error("Failed to search emails:", error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  /**
+   * Clear search results
+   */
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setShowSearchResults(false);
+  }, []);
+
+  /**
+   * Handle search result click
+   */
+  const handleSearchResultClick = useCallback((result: EmailSearchResult) => {
+    setShowSearchResults(false);
+    navigate(`/app/emails/${result.id}`);
+  }, [navigate]);
+
   // Clear selection when filter changes
   useEffect(() => {
     handleClearSelection();
@@ -475,16 +538,187 @@ export function EmailInboxPage() {
             marginBottom: '16px',
           }}
         >
-          <h1
+          <div
             style={{
-              fontSize: '24px',
-              fontWeight: '700',
-              color: '#111827',
-              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
+              flex: 1,
             }}
           >
-            Email Inbox
-          </h1>
+            <h1
+              style={{
+                fontSize: '24px',
+                fontWeight: '700',
+                color: '#111827',
+                margin: 0,
+              }}
+            >
+              Email Inbox
+            </h1>
+
+            {/* Search bar */}
+            <div style={{ position: 'relative', maxWidth: '400px', flex: 1 }}>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleEmailSearch(e.target.value)}
+                placeholder="Search emails..."
+                style={{
+                  width: '100%',
+                  padding: '8px 12px 8px 36px',
+                  fontSize: '14px',
+                  borderRadius: '8px',
+                  border: '1px solid #d1d5db',
+                  backgroundColor: '#ffffff',
+                  outline: 'none',
+                  transition: 'all 0.15s ease',
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = '#3b82f6';
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = '#d1d5db';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              />
+              <span
+                style={{
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  fontSize: '16px',
+                  color: '#9ca3af',
+                  pointerEvents: 'none',
+                }}
+              >
+                🔍
+              </span>
+              {searchQuery && (
+                <button
+                  onClick={handleClearSearch}
+                  style={{
+                    position: 'absolute',
+                    right: '8px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: '#9ca3af',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    fontSize: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = '#6b7280';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = '#9ca3af';
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+
+              {/* Search results dropdown */}
+              {showSearchResults && (searchQuery || searchResults.length > 0) && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    marginTop: '4px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                    zIndex: 100,
+                    maxHeight: '300px',
+                    overflowY: 'auto',
+                  }}
+                >
+                  {isSearching ? (
+                    <div
+                      style={{
+                        padding: '12px 16px',
+                        fontSize: '14px',
+                        color: '#6b7280',
+                        textAlign: 'center',
+                      }}
+                    >
+                      Searching...
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <div
+                      style={{
+                        padding: '12px 16px',
+                        fontSize: '14px',
+                        color: '#6b7280',
+                        textAlign: 'center',
+                      }}
+                    >
+                      No emails found
+                    </div>
+                  ) : (
+                    searchResults.map((result) => (
+                      <div
+                        key={result.id}
+                        onClick={() => handleSearchResultClick(result)}
+                        style={{
+                          padding: '12px 16px',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid #f3f4f6',
+                          transition: 'background-color 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f9fafb';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            color: '#111827',
+                            marginBottom: '4px',
+                          }}
+                        >
+                          {result.subject || '(No subject)'}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '12px',
+                            color: '#6b7280',
+                            marginBottom: '4px',
+                          }}
+                        >
+                          From: {result.sender}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '12px',
+                            color: '#9ca3af',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {result.preview}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
           <div
             style={{
               display: 'flex',
@@ -546,6 +780,8 @@ export function EmailInboxPage() {
           style={{
             display: 'flex',
             gap: '8px',
+            alignItems: 'center',
+            flexWrap: 'wrap',
           }}
         >
           <FilterButton
@@ -572,6 +808,74 @@ export function EmailInboxPage() {
           >
             Archived
           </FilterButton>
+
+          {/* View mode toggle */}
+          <div
+            style={{
+              display: 'flex',
+              backgroundColor: '#f3f4f6',
+              borderRadius: '8px',
+              padding: '2px',
+              marginLeft: '16px',
+            }}
+          >
+            <button
+              onClick={() => setViewMode('threaded')}
+              style={{
+                padding: '6px 12px',
+                fontSize: '13px',
+                fontWeight: '500',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: viewMode === 'threaded' ? '#ffffff' : 'transparent',
+                color: '#374151',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                boxShadow: viewMode === 'threaded' ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'none',
+              }}
+              onMouseEnter={(e) => {
+                if (viewMode !== 'threaded') {
+                  e.currentTarget.style.backgroundColor = '#e5e7eb';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (viewMode !== 'threaded') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+              title="Group emails by conversation thread"
+            >
+              💬 Threads
+            </button>
+            <button
+              onClick={() => setViewMode('flat')}
+              style={{
+                padding: '6px 12px',
+                fontSize: '13px',
+                fontWeight: '500',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: viewMode === 'flat' ? '#ffffff' : 'transparent',
+                color: '#374151',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                boxShadow: viewMode === 'flat' ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'none',
+              }}
+              onMouseEnter={(e) => {
+                if (viewMode !== 'flat') {
+                  e.currentTarget.style.backgroundColor = '#e5e7eb';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (viewMode !== 'flat') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+              title="Show all emails individually"
+            >
+              📄 Flat
+            </button>
+          </div>
         </div>
 
         {/* Sender filter */}
@@ -1082,6 +1386,8 @@ export function EmailInboxPage() {
             onCreateTask={handleCreateTaskFromEmail}
             selectedEmailIds={selectedEmailIds}
             onToggleSelect={handleToggleSelect}
+            viewThreads={viewMode === 'threaded'}
+            onThreadClick={handleThreadClick}
           />
         )}
       </div>

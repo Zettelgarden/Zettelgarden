@@ -10,6 +10,8 @@ interface EmailListProps {
   onCreateTask?: (email: Email) => void;
   selectedEmailIds?: Set<number>;
   onToggleSelect?: (email: Email) => void;
+  viewThreads?: boolean;
+  onThreadClick?: (threadId: string) => void;
 }
 
 /**
@@ -19,8 +21,9 @@ interface EmailListProps {
  * - List of EmailRow components for each email
  * - Quick action buttons for each email (archive, create task)
  * - Selection checkboxes when selection mode is enabled
+ * - Optional thread grouping view
  */
-export function EmailList({ emails, loading, onEmailClick, onArchive, onCreateTask, selectedEmailIds, onToggleSelect }: EmailListProps) {
+export function EmailList({ emails, loading, onEmailClick, onArchive, onCreateTask, selectedEmailIds, onToggleSelect, viewThreads, onThreadClick }: EmailListProps) {
   if (loading) {
     return (
       <div
@@ -117,17 +120,77 @@ export function EmailList({ emails, loading, onEmailClick, onArchive, onCreateTa
 
   return (
     <div>
-      {emails.map((email) => (
-        <EmailRow
-          key={email.id}
-          email={email}
-          onClick={() => onEmailClick(email)}
-          onArchive={onArchive}
-          onCreateTask={onCreateTask}
-          isSelected={selectedEmailIds?.has(email.id)}
-          onToggleSelect={onToggleSelect}
-        />
-      ))}
+      {viewThreads ? (
+        // Group emails by thread
+        (() => {
+          const threadGroups = new Map<string, Email[]>();
+          const nonThreadedEmails: Email[] = [];
+
+          // Group emails by thread_id
+          emails.forEach((email) => {
+            if (email.thread_id) {
+              if (!threadGroups.has(email.thread_id)) {
+                threadGroups.set(email.thread_id, []);
+              }
+              threadGroups.get(email.thread_id)!.push(email);
+            } else {
+              nonThreadedEmails.push(email);
+            }
+          });
+
+          return (
+            <>
+              {/* Render threaded emails */}
+              {Array.from(threadGroups.entries()).map(([threadId, threadEmails]) => {
+                const representativeEmail = threadEmails[0];
+                const unreadCount = threadEmails.filter(e => !e.is_read).length;
+                const messageCount = threadEmails.length;
+
+                return (
+                  <EmailRow
+                    key={threadId}
+                    email={representativeEmail}
+                    onClick={() => onThreadClick ? onThreadClick(threadId) : onEmailClick(representativeEmail)}
+                    onArchive={onArchive}
+                    onCreateTask={onCreateTask}
+                    isSelected={selectedEmailIds?.has(representativeEmail.id)}
+                    onToggleSelect={onToggleSelect}
+                    showThreadIndicator={true}
+                    threadMessageCount={messageCount}
+                    threadUnreadCount={unreadCount}
+                  />
+                );
+              })}
+
+              {/* Render non-threaded emails */}
+              {nonThreadedEmails.map((email) => (
+                <EmailRow
+                  key={email.id}
+                  email={email}
+                  onClick={() => onEmailClick(email)}
+                  onArchive={onArchive}
+                  onCreateTask={onCreateTask}
+                  isSelected={selectedEmailIds?.has(email.id)}
+                  onToggleSelect={onToggleSelect}
+                />
+              ))}
+            </>
+          );
+        })()
+      ) : (
+        // Flat view - show all emails
+        emails.map((email) => (
+          <EmailRow
+            key={email.id}
+            email={email}
+            onClick={() => onEmailClick(email)}
+            onArchive={onArchive}
+            onCreateTask={onCreateTask}
+            isSelected={selectedEmailIds?.has(email.id)}
+            onToggleSelect={onToggleSelect}
+          />
+        ))
+      )}
     </div>
   );
 }

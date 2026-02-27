@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"strings"
 
 	"github.com/emersion/go-imap"
@@ -678,8 +679,9 @@ func (c *IMAPClient) MoveFromArchive(ctx context.Context, uid uint32) error {
 	return fmt.Errorf("failed to move email to INBOX: %w", err)
 }
 
-// extractBodyText extracts the text/plain body from an IMAP message
-func (c *IMAPClient) extractBodyText(msg *imap.Message) (string, string, error) {
+// extractBodyText extracts the text/plain and text/html body from an IMAP message
+// Also extracts any attachments found in the message
+func (c *IMAPClient) extractBodyText(msg *imap.Message) (string, string, []EmailAttachment, error) {
 	// Look for the RFC822 literal in the message body
 	for _, section := range msg.Body {
 		// section is an imap.Literal interface
@@ -691,7 +693,7 @@ func (c *IMAPClient) extractBodyText(msg *imap.Message) (string, string, error) 
 		// Read the literal content
 		data, err := io.ReadAll(literal)
 		if err != nil {
-			return "", "", fmt.Errorf("failed to read message body: %w", err)
+			return "", "", nil, fmt.Errorf("failed to read message body: %w", err)
 		}
 
 		if len(data) == 0 {
@@ -703,11 +705,12 @@ func (c *IMAPClient) extractBodyText(msg *imap.Message) (string, string, error) 
 		mr, err := mail.CreateReader(reader)
 		if err != nil {
 			// If parsing fails, try to extract text directly
-			return c.extractPlainText(data), "", nil
+			return c.extractPlainText(data), "", nil, nil
 		}
 
-		// Iterate through message parts to find text/plain and text/html
+		// Iterate through message parts to find text/plain, text/html, and attachments
 		var textBody, htmlBody strings.Builder
+		var attachments []EmailAttachment
 
 		for {
 			part, err := mr.NextPart()
@@ -716,21 +719,49 @@ func (c *IMAPClient) extractBodyText(msg *imap.Message) (string, string, error) 
 			}
 			if err != nil {
 				// Failed to parse multipart, try to get body from entire message
-				return c.extractPlainText(data), "", nil
+				return c.extractPlainText(data), "", nil, nil
 			}
 
 			contentType := part.Header.Get("Content-Type")
 			log.Printf("[imap] processing part with Content-Type: %s", contentType)
 
+			// Get Content-Disposition to determine if this is an attachment
+			contentDisposition := part.Header.Get("Content-Disposition")
+			contentID := part.Header.Get("Content-ID")
+
+			// Parse filename from Content-Type or Content-Disposition
+			var filename string
+			if contentDisposition != "" {
+			 disposition, params, err := mime.ParseMediaType(contentDisposition)
+				if err == nil {
+					if fname := params["filename"]; fname != "" {
+						filename = fname
+					}
+					if disposition == "inline" && filename == "" {
+						// Inline without filename might have Content-ID
+						if contentID != "" {
+							filename = "inline_" + contentID
+						}
+					}
+				}
+			}
+
+			// Check if this part is an attachment (has disposition or is non-text)
+			isAttachment := contentDisposition != "" ||
+				(contentType != "" && !strings.HasPrefix(contentType, "text/") && !strings.HasPrefix(contentType, "multipart/"))
+
+			// Determine if this is an inline attachment
+			isInline := strings.HasPrefix(contentDisposition, "inline") || contentID != ""
+
 			switch {
-			case strings.HasPrefix(contentType, "text/plain"):
+			case strings.HasPrefix(contentType, "text/plain") && !isAttachment:
 				data, err := io.ReadAll(part.Body)
 				if err != nil {
 					continue
 				}
 				textBody.WriteString(string(data))
 
-			case strings.HasPrefix(contentType, "text/html"):
+			case strings.HasPrefix(contentType, "text/html") && !isAttachment:
 				data, err := io.ReadAll(part.Body)
 				if err != nil {
 					continue
@@ -742,15 +773,60 @@ func (c *IMAPClient) extractBodyText(msg *imap.Message) (string, string, error) 
 				continue
 
 			default:
-				log.Printf("[imap] skipping attachment with Content-Type: %s", contentType)
+				// This is an attachment or inline image
+				attachmentData, err := io.ReadAll(part.Body)
+				if err != nil {
+					log.Printf("[imap] failed to read attachment data: %v", err)
+					continue
+				}
+
+				// If we couldn't determine filename earlier, try to get it from Content-Type params
+				if filename == "" {
+					_, params, err := mime.ParseMediaType(contentType)
+					if err == nil {
+						if fname := params["name"]; fname != "" {
+							filename = fname
+						}
+					}
+				}
+
+				// Last resort: generate a filename
+				if filename == "" {
+					mediaType, _, _ := mime.ParseMediaType(contentType)
+					ext := ".bin"
+					if mediaType != "" {
+						ext = "." + strings.Split(mediaType, "/")[0]
+						if ext == ".image" {
+							ext = ".jpg"
+						} else if ext == ".application" {
+							ext = ".bin"
+						}
+					}
+					filename = fmt.Sprintf("attachment_%d%s", len(attachments)+1, ext)
+				}
+
+				// Clean up Content-ID (remove angle brackets if present)
+				cleanContentID := strings.Trim(contentID, "<>")
+
+				attachment := EmailAttachment{
+					Filename:    filename,
+					ContentType: contentType,
+					ContentID:   cleanContentID,
+					IsInline:    isInline,
+					Size:        int64(len(attachmentData)),
+					Data:        attachmentData,
+				}
+
+				attachments = append(attachments, attachment)
+				log.Printf("[imap] extracted attachment: %s (size: %d, inline: %v, cid: %s)", filename, len(attachmentData), isInline, cleanContentID)
 			}
 		}
 
-		// Return the extracted bodies
-		return textBody.String(), htmlBody.String(), nil
+		// Return the extracted bodies and attachments
+		return textBody.String(), htmlBody.String(), attachments, nil
 	}
 
-	return "", "", fmt.Errorf("no body literal found in message")
+	return "", "", nil, fmt.Errorf("no body literal found in message")
 }
 
 // extractPlainText attempts to extract plain text from raw email data
@@ -777,6 +853,22 @@ func (c *IMAPClient) extractPlainText(data []byte) string {
 		return dataStr[:10000] + "... (truncated)"
 	}
 	return dataStr
+}
+
+// EmailAttachment represents an attachment parsed from an email
+type EmailAttachment struct {
+	Filename    string
+	ContentType string
+	ContentID   string // Content-ID for inline images
+	IsInline    bool
+	Size        int64
+	Data        []byte
+}
+
+// EmailWithAttachments represents an email with its raw attachment data
+type EmailWithAttachments struct {
+	Email       models.Email
+	Attachments []EmailAttachment
 }
 
 // convertIMAPToEmail converts an IMAP message to models.Email
@@ -843,8 +935,8 @@ func (c *IMAPClient) convertIMAPToEmail(msg *imap.Message) models.Email {
 		}
 	}
 
-	// Extract body content (text/plain and text/html)
-	textBody, htmlBody, err := c.extractBodyText(msg)
+	// Extract body content (text/plain and text/html) and attachments
+	textBody, htmlBody, attachments, err := c.extractBodyText(msg)
 	if err != nil {
 		log.Printf("[imap] warning: failed to extract body from email UID %d: %v", msg.Uid, err)
 		// Continue without body rather than failing the entire sync
@@ -855,7 +947,46 @@ func (c *IMAPClient) convertIMAPToEmail(msg *imap.Message) models.Email {
 		if htmlBody != "" {
 			email.BodyHTML = &htmlBody
 		}
+		// Store attachments in email for later processing
+		// Convert services.EmailAttachment to models.EmailAttachment
+		if len(attachments) > 0 {
+			modelAttachments := make([]models.EmailAttachment, len(attachments))
+			for i, att := range attachments {
+				var contentType *string
+				if att.ContentType != "" {
+					contentType = &att.ContentType
+				}
+				var contentID *string
+				if att.ContentID != "" {
+					contentID = &att.ContentID
+				}
+				size := att.Size
+				modelAttachments[i] = models.EmailAttachment{
+					Filename:    att.Filename,
+					ContentType: contentType,
+					ContentID:   contentID,
+					IsInline:    att.IsInline,
+					Size:        &size,
+					// Note: Data is not stored in models.EmailAttachment as it's only used during processing
+				}
+			}
+			email.Attachments = modelAttachments
+		}
 	}
 
 	return email
+}
+
+// convertIMAPToEmailWithAttachments converts an IMAP message to EmailWithAttachments
+// This includes the raw attachment data for upload to S3
+func (c *IMAPClient) convertIMAPToEmailWithAttachments(msg *imap.Message) EmailWithAttachments {
+	email := c.convertIMAPToEmail(msg)
+
+	// Extract attachments with data
+	_, _, rawAttachments, _ := c.extractBodyText(msg)
+
+	return EmailWithAttachments{
+		Email:       email,
+		Attachments: rawAttachments,
+	}
 }

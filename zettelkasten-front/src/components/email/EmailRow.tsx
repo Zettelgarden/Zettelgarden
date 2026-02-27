@@ -8,6 +8,9 @@ interface EmailRowProps {
   onCreateTask?: (email: Email) => void;
   isSelected?: boolean;
   onToggleSelect?: (email: Email) => void;
+  showThreadIndicator?: boolean;
+  threadMessageCount?: number;
+  threadUnreadCount?: number;
 }
 
 /**
@@ -83,6 +86,7 @@ function getStatusBadgeTextColor(status: string): string {
  * Individual email row component displaying:
  * - Checkbox for selection
  * - Unread indicator (blue dot)
+ * - Thread indicator (if part of a thread)
  * - Sender avatar (first letter in circle)
  * - From name
  * - Subject (bold if unread)
@@ -90,7 +94,7 @@ function getStatusBadgeTextColor(status: string): string {
  * - Status badge
  * - Quick action buttons (archive, create task)
  */
-export function EmailRow({ email, onClick, onArchive, onCreateTask, isSelected, onToggleSelect }: EmailRowProps) {
+export function EmailRow({ email, onClick, onArchive, onCreateTask, isSelected, onToggleSelect, showThreadIndicator, threadMessageCount, threadUnreadCount }: EmailRowProps) {
   // Get first letter of sender name or email address for avatar
   const avatarLetter = email.from_name
     ? email.from_name.charAt(0).toUpperCase()
@@ -175,6 +179,29 @@ export function EmailRow({ email, onClick, onArchive, onCreateTask, isSelected, 
       {/* Spacer for read emails to maintain alignment */}
       {!isUnread && (
         <div style={{ width: '8px', marginRight: '8px' }} />
+      )}
+
+      {/* Thread indicator */}
+      {showThreadIndicator && threadMessageCount && threadMessageCount > 1 && (
+        <div
+          style={{
+            width: '20px',
+            height: '20px',
+            borderRadius: '50%',
+            backgroundColor: isUnread ? '#dbeafe' : '#f3f4f6',
+            color: isUnread ? '#1d4ed8' : '#6b7280',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '10px',
+            fontWeight: '600',
+            flexShrink: 0,
+            marginRight: '8px',
+          }}
+          title={`${threadMessageCount} messages in thread${threadUnreadCount ? ` (${threadUnreadCount} unread)` : ''}`}
+        >
+          {threadMessageCount}
+        </div>
       )}
 
       {/* Sender avatar */}

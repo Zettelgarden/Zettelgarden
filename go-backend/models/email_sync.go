@@ -40,6 +40,7 @@ type Email struct {
 	CardID         *int       `json:"card_id,omitempty"`   // ID of card created from this email
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
+	Attachments    []EmailAttachment `json:"attachments,omitempty"` // Attachments parsed during sync
 }
 
 // EmailTriageDecision represents an AI-powered triage recommendation for an email
@@ -89,4 +90,64 @@ type ConvertEmailParams struct {
 	Body    *string `json:"body,omitempty"`
 	Tags    *string `json:"tags,omitempty"`
 	CardID  *string `json:"card_id,omitempty"` // For linking to existing card
+}
+
+// EmailSearchResult represents a single email search result
+type EmailSearchResult struct {
+	ID       int                    `json:"id"`
+	Subject  string                 `json:"subject"`
+	Sender   string                 `json:"sender"`
+	Preview  string                 `json:"preview"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// EmailThread represents a conversation thread with multiple emails
+type EmailThread struct {
+	ThreadID      string        `json:"thread_id"`
+	Subject       string        `json:"subject"`
+	ParticipantCount int        `json:"participant_count"`
+	MessageCount  int           `json:"message_count"`
+	UnreadCount   int           `json:"unread_count"`
+	OldestDate    *time.Time    `json:"oldest_date,omitempty"`
+	NewestDate    *time.Time    `json:"newest_date,omitempty"`
+	Messages      []Email       `json:"messages,omitempty"`
+}
+
+// EmailThreadListFilters represents filters for listing email threads
+type EmailThreadListFilters struct {
+	Status      *string `json:"status,omitempty"`
+	Folder      *string `json:"folder,omitempty"`
+	Limit       *int    `json:"limit,omitempty"`
+	Offset      *int    `json:"offset,omitempty"`
+}
+
+// EmailAttachment represents a file attached to an email
+type EmailAttachment struct {
+	ID           int        `json:"id"`
+	UserID       int        `json:"user_id"`
+	EmailID      int        `json:"email_id"`
+	FileID       *int       `json:"file_id,omitempty"`
+	Filename     string     `json:"filename"`
+	ContentType  *string    `json:"content_type,omitempty"`
+	Size         *int64     `json:"size,omitempty"`
+	S3Key        *string    `json:"s3_key,omitempty"`
+	ThumbnailPath *string   `json:"thumbnail_path,omitempty"`
+	ContentID    *string    `json:"content_id,omitempty"` // Content-ID for inline images
+	IsInline     bool       `json:"is_inline"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}
+
+// EmailAttachmentWithDownloadURL extends EmailAttachment with download info
+type EmailAttachmentWithDownloadURL struct {
+	EmailAttachment
+	DownloadURL     string `json:"download_url"`
+	ThumbnailURL    string `json:"thumbnail_url,omitempty"`
+	IsImage         bool   `json:"is_image"`
+	IsSavedToVault  bool   `json:"is_saved_to_vault"`
+}
+
+// SaveAttachmentToVaultParams represents parameters for saving an attachment to file vault
+type SaveAttachmentToVaultParams struct {
+	CardPK *int `json:"card_pk,omitempty"` // Optional card to link the file to
 }

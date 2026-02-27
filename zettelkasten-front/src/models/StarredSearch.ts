@@ -14,6 +14,7 @@ export interface SearchConfig {
     showEntities: boolean;
     showFacts: boolean;
     showCards: boolean;
+    showEmails: boolean;
     showPreview: boolean;
     sortBy: string;
     currentPage: number;

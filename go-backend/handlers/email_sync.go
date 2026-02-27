@@ -4,14 +4,19 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"go-backend/models"
 	"go-backend/services"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/typesense/typesense-go/typesense/api"
 )
 
 // CreateEmailAccountRoute handles POST /api/email/accounts
@@ -268,6 +273,13 @@ func (h *Handler) SyncEmailAccountRoute(w http.ResponseWriter, r *http.Request) 
 			log.Printf("[email-sync] warning: failed to store email %s: %v", email.MessageID, err)
 			continue
 		}
+
+		// Note: attachments are currently not being uploaded because the models.EmailAttachment
+		// doesn't contain the raw data. The full implementation would require either:
+		// 1. Storing raw attachment data separately during IMAP parsing
+		// 2. Modifying the sync flow to pass raw attachment data through
+		// For now, attachments metadata is stored but files are not uploaded to S3
+
 		storedCount++
 	}
 
@@ -296,11 +308,13 @@ func (h *Handler) SyncEmailAccountRoute(w http.ResponseWriter, r *http.Request) 
 			for _, email := range archiveMailEmails {
 				email.UserID = userID
 				email.EmailAccountID = &accountID
-				if _, err := emailService.CreateEmail(context.Background(), email); err != nil {
+				_, err := emailService.CreateEmail(context.Background(), email)
+				if err != nil {
 					log.Printf("[email-sync] warning: failed to store archive email %s: %v", email.MessageID, err)
 				} else {
 					totalEmails++
 				}
+				// Note: attachments are not being uploaded - see comment above
 			}
 			log.Printf("[email-sync] synced %d emails from %s for account %d", len(archiveMailEmails), archiveFolder, accountID)
 		}
@@ -1212,4 +1226,790 @@ func (h *Handler) BatchCreateTasksRoute(w http.ResponseWriter, r *http.Request) 
 		"fail_count":    failCount,
 		"results":       results,
 	})
+}
+
+// EmailSearchParams represents parameters for email search
+type EmailSearchParams struct {
+	SearchTerm string `json:"search_term"`
+	Page       int    `json:"page"`
+	PerPage    int    `json:"per_page"`
+}
+
+// EmailSearchResponse represents the response from email search
+type EmailSearchResponse struct {
+	Results    []models.EmailSearchResult `json:"results"`
+	Page       int                        `json:"page"`
+	PerPage    int                        `json:"per_page"`
+	Total      int                        `json:"total"`
+	TotalPages int                        `json:"total_pages"`
+}
+
+// SearchEmailsRoute handles POST /api/emails/search
+// Searches emails using Typesense full-text search
+func (h *Handler) SearchEmailsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	var reqParams EmailSearchParams
+	err := json.NewDecoder(r.Body).Decode(&reqParams)
+	if err != nil {
+		log.Printf("[email] failed to decode search request: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Set default pagination values
+	page := reqParams.Page
+	if page < 1 {
+		page = 1
+	}
+
+	perPage := reqParams.PerPage
+	if perPage <= 0 {
+		perPage = 50
+	}
+	if perPage > 100 {
+		perPage = 100
+	}
+
+	// Check if Typesense is available
+	if h.Server.TypesenseClient == nil {
+		log.Printf("[email] Typesense not available for email search, skipping search")
+		// Fall back to database search
+		http.Error(w, "Search not available - Typesense not configured", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Build filter for user ID
+	filter := "user_id:=" + strconv.Itoa(userID) + " && type:=email"
+
+	// Build search parameters
+	searchTerm := reqParams.SearchTerm
+	if searchTerm == "" {
+		searchTerm = "*"
+	}
+
+	sortBy := "email_received_at:desc"
+
+	typesenseParams := &api.SearchCollectionParams{
+		Q:        searchTerm,
+		QueryBy:  "title, preview, email_sender, email_from_address, email_subject",
+		FilterBy: &filter,
+		SortBy:   &sortBy,
+		PerPage:  &perPage,
+		Page:     &page,
+	}
+
+	collectionName := os.Getenv("TYPESENSE_COLLECTION")
+	typesenseResults, err := h.Server.TypesenseClient.Collection(collectionName).Documents().Search(context.Background(), typesenseParams)
+	if err != nil {
+		log.Printf("[email] Typesense search error: %v", err)
+		http.Error(w, "Search failed", http.StatusInternalServerError)
+		return
+	}
+
+	// Process results
+	var results []models.EmailSearchResult
+	for _, hit := range *typesenseResults.Hits {
+		if hit.Document != nil {
+			doc := *hit.Document
+
+			// Extract fields with proper nil handling
+			var subject string
+			if s, ok := doc["email_subject"].(string); ok {
+				subject = s
+			}
+
+			var sender string
+			if s, ok := doc["email_sender"].(string); ok {
+				sender = s
+			}
+
+			var preview string
+			if p, ok := doc["preview"].(string); ok {
+				preview = p
+			}
+
+			result := models.EmailSearchResult{
+				ID:       int(doc["email_pk"].(float64)),
+				Subject:  subject,
+				Sender:   sender,
+				Preview:  preview,
+				Metadata: doc,
+			}
+			results = append(results, result)
+		}
+	}
+
+	// Calculate pagination
+	total := int(*typesenseResults.Found)
+	totalPages := (total + perPage - 1) / perPage
+
+	response := EmailSearchResponse{
+		Results:    results,
+		Page:       page,
+		PerPage:    perPage,
+		Total:      total,
+		TotalPages: totalPages,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// GetEmailThreadRoute handles GET /api/emails/threads/{thread_id}
+// Retrieves all emails in a thread
+func (h *Handler) GetEmailThreadRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Get thread_id from path
+	threadID := mux.Vars(r)["thread_id"]
+	if threadID == "" {
+		http.Error(w, "thread_id is required", http.StatusBadRequest)
+		return
+	}
+
+	emailService := services.NewEmailService(h.GetDB())
+
+	thread, err := emailService.GetEmailThreadByID(context.Background(), userID, threadID)
+	if err != nil {
+		if err.Error() == "thread not found" {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		log.Printf("[email-sync] failed to get email thread: %v", err)
+		http.Error(w, "Failed to get email thread", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(thread)
+}
+
+// MarkThreadAsReadRoute handles PATCH /api/emails/threads/{thread_id}/read
+// Marks all emails in a thread as read
+func (h *Handler) MarkThreadAsReadRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Get thread_id from path
+	threadID := mux.Vars(r)["thread_id"]
+	if threadID == "" {
+		http.Error(w, "thread_id is required", http.StatusBadRequest)
+		return
+	}
+
+	emailService := services.NewEmailService(h.GetDB())
+
+	err := emailService.MarkThreadAsRead(context.Background(), userID, threadID)
+	if err != nil {
+		if err.Error() == "thread not found" {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		log.Printf("[email-sync] failed to mark thread as read: %v", err)
+		http.Error(w, "Failed to mark thread as read", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+	})
+}
+
+// ArchiveThreadRoute handles PATCH /api/emails/threads/{thread_id}/archive
+// Archives all emails in a thread
+func (h *Handler) ArchiveThreadRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Get thread_id from path
+	threadID := mux.Vars(r)["thread_id"]
+	if threadID == "" {
+		http.Error(w, "thread_id is required", http.StatusBadRequest)
+		return
+	}
+
+	emailService := services.NewEmailService(h.GetDB())
+
+	err := emailService.ArchiveThread(context.Background(), userID, threadID)
+	if err != nil {
+		if err.Error() == "thread not found" {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		log.Printf("[email-sync] failed to archive thread: %v", err)
+		http.Error(w, "Failed to archive thread", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+	})
+}
+
+// ExtractFactsFromEmailRoute handles POST /api/emails/{id}/extract-facts
+// Extracts factual statements from an email using AI (PRO feature)
+func (h *Handler) ExtractFactsFromEmailRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Check if user is PRO (has active or trialing subscription)
+	user, err := h.QueryUser(userID)
+	if err != nil {
+		log.Printf("[email] failed to query user for fact extraction: %v", err)
+		http.Error(w, "Failed to verify subscription", http.StatusInternalServerError)
+		return
+	}
+
+	isProUser := user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trialing"
+	if !isProUser {
+		log.Printf("[email] fact extraction rejected for non-PRO user %d", userID)
+		http.Error(w, "Fact extraction is a PRO feature. Please upgrade your subscription.", http.StatusForbidden)
+		return
+	}
+
+	// Get email ID from path
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	emailID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid email ID", http.StatusBadRequest)
+		return
+	}
+
+	emailService := services.NewEmailService(h.GetDB())
+
+	// Extract facts from email
+	facts, err := emailService.ExtractFactsFromEmail(context.Background(), userID, emailID)
+	if err != nil {
+		log.Printf("[email] failed to extract facts from email %d: %v", emailID, err)
+		http.Error(w, "Failed to extract facts: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"email_id": emailID,
+		"facts":    facts,
+		"count":    len(facts),
+	})
+}
+
+// SaveFactsFromEmailRoute handles POST /api/emails/{id}/save-facts
+// Saves extracted facts from an email (PRO feature)
+func (h *Handler) SaveFactsFromEmailRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Check if user is PRO (has active or trialing subscription)
+	user, err := h.QueryUser(userID)
+	if err != nil {
+		log.Printf("[email] failed to query user for fact saving: %v", err)
+		http.Error(w, "Failed to verify subscription", http.StatusInternalServerError)
+		return
+	}
+
+	isProUser := user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trialing"
+	if !isProUser {
+		log.Printf("[email] fact saving rejected for non-PRO user %d", userID)
+		http.Error(w, "Fact saving is a PRO feature. Please upgrade your subscription.", http.StatusForbidden)
+		return
+	}
+
+	// Get email ID from path
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	emailID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid email ID", http.StatusBadRequest)
+		return
+	}
+
+	// Parse request body with facts
+	var req struct {
+		Facts []string `json:"facts"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Facts) == 0 {
+		http.Error(w, "No facts provided", http.StatusBadRequest)
+		return
+	}
+
+	db := h.GetDB().(*sql.DB)
+
+	// Save facts and link them to the email
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("[email] failed to begin transaction: %v", err)
+		http.Error(w, "Failed to save facts", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	savedFacts := make([]models.Fact, 0, len(req.Facts))
+
+	for _, factText := range req.Facts {
+		if strings.TrimSpace(factText) == "" {
+			continue
+		}
+
+		// Create a temporary card for this fact (facts must be linked to a card)
+		// Use the email subject as the card title
+		var subject string
+		err = tx.QueryRow(`SELECT subject FROM emails WHERE id = $1 AND user_id = $2`, emailID, userID).Scan(&subject)
+		if err != nil {
+			log.Printf("[email] failed to get email subject: %v", err)
+			subject = "Email Facts"
+		}
+
+		// Create or find a card for this email's facts
+		cardTitle := fmt.Sprintf("Facts from: %s", subject)
+		cardBody := fmt.Sprintf("Source: Email ID %d\n\nFacts:\n", emailID)
+
+		var cardID int
+		err = tx.QueryRow(`
+			INSERT INTO cards (user_id, card_id, title, body)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (user_id, card_id) DO UPDATE SET title = EXCLUDED.title, body = cards.body || $5, updated_at = NOW()
+			RETURNING id
+		`, userID, fmt.Sprintf("email-facts-%d", emailID), cardTitle, cardBody, "\n"+factText).Scan(&cardID)
+
+		if err != nil {
+			log.Printf("[email] failed to create/find card for facts: %v", err)
+			// Try without ON CONFLICT for older databases
+			err = tx.QueryRow(`
+				INSERT INTO cards (user_id, card_id, title, body)
+				VALUES ($1, $2, $3, $4)
+				RETURNING id
+			`, userID, fmt.Sprintf("email-facts-%d", emailID), cardTitle, cardBody).Scan(&cardID)
+
+			if err != nil {
+				log.Printf("[email] failed to create card for facts: %v", err)
+				continue
+			}
+		}
+
+		// Create the fact
+		var factID int
+		err = tx.QueryRow(`
+			INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
+			VALUES ($1, $2, $3, NOW(), NOW())
+			RETURNING id
+		`, userID, cardID, factText).Scan(&factID)
+
+		if err != nil {
+			log.Printf("[email] failed to create fact: %v", err)
+			continue
+		}
+
+		// Link fact to card
+		_, err = tx.Exec(`
+			INSERT INTO fact_card_junction (fact_id, card_pk, user_id, is_origin, created_at, updated_at)
+			VALUES ($1, $2, $3, TRUE, NOW(), NOW())
+			ON CONFLICT (fact_id, card_pk) DO UPDATE SET updated_at = NOW()
+		`, factID, cardID, userID)
+
+		if err != nil {
+			log.Printf("[email] failed to link fact to card: %v", err)
+			continue
+		}
+
+		// Link fact to email
+		_, err = tx.Exec(`
+			INSERT INTO email_fact_junction (user_id, email_id, fact_id, created_at, updated_at)
+			VALUES ($1, $2, $3, NOW(), NOW())
+			ON CONFLICT (user_id, email_id, fact_id) DO UPDATE SET updated_at = NOW()
+		`, userID, emailID, factID)
+
+		if err != nil {
+			log.Printf("[email] failed to link fact to email: %v", err)
+			continue
+		}
+
+		savedFacts = append(savedFacts, models.Fact{
+			ID:     factID,
+			UserID: userID,
+			CardPK: cardID,
+			Fact:   factText,
+		})
+	}
+
+	if err = tx.Commit(); err != nil {
+		log.Printf("[email] failed to commit transaction: %v", err)
+		http.Error(w, "Failed to save facts", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("[email] saved %d facts from email %d for user %d", len(savedFacts), emailID, userID)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":   true,
+		"email_id":  emailID,
+		"saved_count": len(savedFacts),
+		"facts":     savedFacts,
+	})
+}
+
+// GetEmailFactsRoute handles GET /api/emails/{id}/facts
+// Retrieves all facts extracted from an email (PRO feature)
+func (h *Handler) GetEmailFactsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Check if user is PRO (has active or trialing subscription)
+	user, err := h.QueryUser(userID)
+	if err != nil {
+		log.Printf("[email] failed to query user for email facts: %v", err)
+		http.Error(w, "Failed to verify subscription", http.StatusInternalServerError)
+		return
+	}
+
+	isProUser := user.StripeSubscriptionStatus == "active" || user.StripeSubscriptionStatus == "trialing"
+	if !isProUser {
+		log.Printf("[email] email facts retrieval rejected for non-PRO user %d", userID)
+		http.Error(w, "Email facts are a PRO feature. Please upgrade your subscription.", http.StatusForbidden)
+		return
+	}
+
+	// Get email ID from path
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	emailID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid email ID", http.StatusBadRequest)
+		return
+	}
+
+	db := h.GetDB()
+
+	rows, err := db.Query(`
+		SELECT f.id, f.user_id, f.card_pk, f.fact, f.created_at, f.updated_at,
+		       efj.created_at as linked_at
+		FROM facts f
+		JOIN email_fact_junction efj ON f.id = efj.fact_id
+		WHERE efj.user_id = $1 AND efj.email_id = $2
+		ORDER BY efj.created_at DESC
+	`, userID, emailID)
+
+	if err != nil {
+		log.Printf("[email] failed to get email facts: %v", err)
+		http.Error(w, "Failed to get facts", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var facts []models.Fact
+	for rows.Next() {
+		var f models.Fact
+		var linkedAt time.Time
+		if err := rows.Scan(&f.ID, &f.UserID, &f.CardPK, &f.Fact, &f.CreatedAt, &f.UpdatedAt, &linkedAt); err != nil {
+			log.Printf("[email] error scanning email fact: %v", err)
+			continue
+		}
+		facts = append(facts, f)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"email_id": emailID,
+		"facts":    facts,
+		"count":    len(facts),
+	})
+}
+
+// GetEmailAttachmentsRoute handles GET /api/emails/{id}/attachments
+// Returns all attachments for an email
+func (h *Handler) GetEmailAttachmentsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Get email ID from path
+	idStr := mux.Vars(r)["id"]
+	emailID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid email ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify email exists and belongs to user
+	emailService := services.NewEmailService(h.GetDB())
+	_, err = emailService.GetEmailByID(context.Background(), userID, emailID)
+	if err != nil {
+		http.Error(w, "Email not found", http.StatusNotFound)
+		return
+	}
+
+	// Get attachments
+	attachmentService := services.NewEmailAttachmentService(h.GetDB(), &S3AttachmentHandler{h: h}, userID)
+	attachments, err := attachmentService.GetAttachmentsByEmailID(context.Background(), userID, emailID)
+	if err != nil {
+		log.Printf("[email] failed to get attachments: %v", err)
+		http.Error(w, "Failed to get attachments", http.StatusInternalServerError)
+		return
+	}
+
+	// Add download URLs
+	result := make([]models.EmailAttachmentWithDownloadURL, 0, len(attachments))
+	for _, att := range attachments {
+		withURL := models.EmailAttachmentWithDownloadURL{
+			EmailAttachment: att,
+			DownloadURL:     fmt.Sprintf("/api/emails/attachments/%d/download", att.ID),
+			IsImage:         isImageContentType(att.ContentType),
+			IsSavedToVault:  att.FileID != nil,
+		}
+		if att.ThumbnailPath != nil {
+			withURL.ThumbnailURL = fmt.Sprintf("/api/emails/attachments/%d/thumbnail", att.ID)
+		}
+		result = append(result, withURL)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"attachments": result,
+		"count":       len(result),
+	})
+}
+
+// DownloadEmailAttachmentRoute handles GET /api/emails/attachments/{id}/download
+// Downloads an attachment file
+func (h *Handler) DownloadEmailAttachmentRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Get attachment ID from path
+	idStr := mux.Vars(r)["id"]
+	attachmentID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid attachment ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get attachment
+	attachmentService := services.NewEmailAttachmentService(h.GetDB(), &S3AttachmentHandler{h: h}, userID)
+	attachment, err := attachmentService.GetAttachmentByID(context.Background(), userID, attachmentID)
+	if err != nil {
+		http.Error(w, "Attachment not found", http.StatusNotFound)
+		return
+	}
+
+	if attachment.S3Key == nil {
+		http.Error(w, "Attachment file not available", http.StatusNotFound)
+		return
+	}
+
+	// Stream file from S3
+	s3Output, err := h.downloadObject(h.Server.S3, *attachment.S3Key, "")
+	if err != nil {
+		log.Printf("[email] failed to download attachment from S3: %v", err)
+		http.Error(w, "Failed to download attachment", http.StatusInternalServerError)
+		return
+	}
+	defer s3Output.Body.Close()
+
+	// Set headers
+	contentType := "application/octet-stream"
+	if attachment.ContentType != nil {
+		contentType = *attachment.ContentType
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", attachment.Filename))
+
+	// Copy content to response
+	if _, err := io.Copy(w, s3Output.Body); err != nil {
+		log.Printf("[email] failed to stream attachment: %v", err)
+	}
+}
+
+// GetEmailAttachmentThumbnailRoute handles GET /api/emails/attachments/{id}/thumbnail
+// Returns the thumbnail for an image attachment
+func (h *Handler) GetEmailAttachmentThumbnailRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Get attachment ID from path
+	idStr := mux.Vars(r)["id"]
+	attachmentID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid attachment ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get attachment
+	attachmentService := services.NewEmailAttachmentService(h.GetDB(), &S3AttachmentHandler{h: h}, userID)
+	attachment, err := attachmentService.GetAttachmentByID(context.Background(), userID, attachmentID)
+	if err != nil {
+		http.Error(w, "Attachment not found", http.StatusNotFound)
+		return
+	}
+
+	if attachment.ThumbnailPath == nil || *attachment.ThumbnailPath == "" {
+		http.Error(w, "Thumbnail not available", http.StatusNotFound)
+		return
+	}
+
+	// Stream thumbnail from S3
+	s3Output, err := h.downloadObject(h.Server.S3, *attachment.ThumbnailPath, "")
+	if err != nil {
+		log.Printf("[email] failed to download thumbnail from S3: %v", err)
+		http.Error(w, "Failed to download thumbnail", http.StatusInternalServerError)
+		return
+	}
+	defer s3Output.Body.Close()
+
+	// Set headers
+	w.Header().Set("Content-Type", "image/jpeg")
+
+	// Copy content to response
+	if _, err := io.Copy(w, s3Output.Body); err != nil {
+		log.Printf("[email] failed to stream thumbnail: %v", err)
+	}
+}
+
+// SaveEmailAttachmentToVaultRoute handles POST /api/emails/attachments/{id}/save-to-vault
+// Saves an attachment to the file vault
+func (h *Handler) SaveEmailAttachmentToVaultRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Get attachment ID from path
+	idStr := mux.Vars(r)["id"]
+	attachmentID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid attachment ID", http.StatusBadRequest)
+		return
+	}
+
+	// Parse request body
+	var params models.SaveAttachmentToVaultParams
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&params); err != nil && err != io.EOF {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Save to file vault
+	attachmentService := services.NewEmailAttachmentService(h.GetDB(), &S3AttachmentHandler{h: h}, userID)
+	updatedAttachment, err := attachmentService.SaveToFileVault(context.Background(), userID, attachmentID, params.CardPK)
+	if err != nil {
+		log.Printf("[email] failed to save attachment to vault: %v", err)
+		http.Error(w, "Failed to save attachment: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updatedAttachment)
+}
+
+// DeleteEmailAttachmentRoute handles DELETE /api/emails/attachments/{id}
+// Deletes an attachment
+func (h *Handler) DeleteEmailAttachmentRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Get attachment ID from path
+	idStr := mux.Vars(r)["id"]
+	attachmentID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid attachment ID", http.StatusBadRequest)
+		return
+	}
+
+	// Delete attachment
+	attachmentService := services.NewEmailAttachmentService(h.GetDB(), &S3AttachmentHandler{h: h}, userID)
+	err = attachmentService.DeleteAttachment(context.Background(), userID, attachmentID)
+	if err != nil {
+		log.Printf("[email] failed to delete attachment: %v", err)
+		http.Error(w, "Failed to delete attachment: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// S3AttachmentHandler wraps Handler to implement S3StorageService interface
+type S3AttachmentHandler struct {
+	h *Handler
+}
+
+// UploadAttachment implements S3StorageService
+func (s *S3AttachmentHandler) UploadAttachment(key string, data []byte, contentType string) (string, error) {
+	// Create temp file for upload
+	tempFile, err := os.CreateTemp("/tmp", "email-att-*.tmp")
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(tempFile.Name())
+	defer tempFile.Close()
+
+	if _, err := tempFile.Write(data); err != nil {
+		return "", err
+	}
+
+	// Seek back to start
+	if _, err := tempFile.Seek(0, 0); err != nil {
+		return "", err
+	}
+
+	// Upload to S3
+	s.h.uploadObject(s.h.Server.S3, key, tempFile.Name())
+	return key, nil
+}
+
+// GenerateThumbnail implements S3StorageService
+func (s *S3AttachmentHandler) GenerateThumbnail(data []byte, contentType string) ([]byte, error) {
+	// Check if this is an image
+	if !isImageContentTypeString(contentType) {
+		return nil, fmt.Errorf("not an image")
+	}
+
+	// Create temp file
+	tempFile, err := os.CreateTemp("/tmp", "email-thumb-*.tmp")
+	if err != nil {
+		return nil, err
+	}
+	defer os.Remove(tempFile.Name())
+	defer tempFile.Close()
+
+	if _, err := tempFile.Write(data); err != nil {
+		return nil, err
+	}
+
+	// Generate thumbnail
+	thumbnailTempPath := tempFile.Name() + ".thumb"
+	defer os.Remove(thumbnailTempPath)
+
+	err = s.h.generateThumbnail(tempFile.Name(), thumbnailTempPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Read thumbnail
+	thumbnailData, err := os.ReadFile(thumbnailTempPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return thumbnailData, nil
+}
+
+// isImageContentType checks if content type is an image
+func isImageContentType(contentType *string) bool {
+	if contentType == nil {
+		return false
+	}
+	imageTypes := []string{"image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/bmp", "image/svg+xml"}
+	for _, t := range imageTypes {
+		if *contentType == t {
+			return true
+		}
+	}
+	return false
+}
+
+// isImageContentTypeString checks if content type is an image (string version)
+func isImageContentTypeString(contentType string) bool {
+	imageTypes := []string{"image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/bmp", "image/svg+xml"}
+	for _, t := range imageTypes {
+		if contentType == t {
+			return true
+		}
+	}
+	return false
 }

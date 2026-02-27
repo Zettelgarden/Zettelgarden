@@ -158,6 +158,7 @@ export interface SearchParams {
   showEntities?: boolean;
   showFacts?: boolean;
   showCards?: boolean;
+  showEmails?: boolean;
   sortBy?: string;
   searchType?: string;
   rerank?: boolean;

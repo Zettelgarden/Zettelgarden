@@ -126,6 +126,7 @@ export function SearchPage({
         config.showEntities,
         config.showFacts,
         config.showCards,
+        config.showEmails ?? false,
         config.sortBy,
         config.searchType,
         config.rerank,

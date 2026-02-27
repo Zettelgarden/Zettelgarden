@@ -36,6 +36,7 @@ function MainAppContent() {
     showPreview: true,
     showFacts: true,
     showCards: true,
+    showEmails: false,
     searchType: "typesense",
     rerank: true,
   });

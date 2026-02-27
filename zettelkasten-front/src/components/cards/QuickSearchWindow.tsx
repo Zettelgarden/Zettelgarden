@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PartialCard } from "../../models/Card";
+import { PartialCard, SearchResult } from "../../models/Card";
 import { BacklinkInputDropdownList } from "./BacklinkInputDropdownList";
+import { searchEmails, EmailSearchResult } from "../../api/email";
+import { semanticSearchCards } from "../../api/cards";
 
 interface QuickSearchWindowProps {
   setShowWindow: (showWindow: boolean) => void;
@@ -9,13 +11,45 @@ interface QuickSearchWindowProps {
 
 export function QuickSearchWindow({ setShowWindow }: QuickSearchWindowProps) {
   const navigate = useNavigate();
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [emailResults, setEmailResults] = useState<EmailSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   function handleSelect(card: PartialCard) {
     setShowWindow(false);
     navigate(`/app/card/${card.id}`);
   }
 
+  function handleEmailSelect(email: EmailSearchResult) {
+    setShowWindow(false);
+    navigate(`/app/emails/${email.id}`);
+  }
+
   async function handleSearch(searchTerm: string) {
+    setSearchQuery(searchTerm);
+    if (!searchTerm.trim()) {
+      setSearchResults([]);
+      setEmailResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      // Search cards and emails in parallel
+      const [cardsResponse, emailsResponse] = await Promise.all([
+        semanticSearchCards(searchTerm, true, false, false, true, false, "sortByRanking", "typesense", false),
+        searchEmails({ search_term: searchTerm, page: 1, per_page: 10 })
+      ]);
+      setSearchResults(cardsResponse);
+      setEmailResults(emailsResponse.results ?? []);
+    } catch (error) {
+      console.error("Search failed:", error);
+      setSearchResults([]);
+      setEmailResults([]);
+    } finally {
+      setIsSearching(false);
+    }
   }
 
   return (
@@ -30,7 +64,7 @@ export function QuickSearchWindow({ setShowWindow }: QuickSearchWindowProps) {
         <BacklinkInputDropdownList
           onSelect={handleSelect}
           onSearch={handleSearch}
-          placeholder="Search cards..."
+          placeholder="Search cards and emails..."
         />
       </div>
     </div>
