@@ -545,52 +545,29 @@ export function EmailDetailPage() {
       {/* Fact Extraction Dialog */}
       {showFactDialog && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 50,
-          }}
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
           onClick={() => setShowFactDialog(false)}
         >
           <div
-            style={{
-              backgroundColor: "white",
-              borderRadius: "12px",
-              padding: "24px",
-              maxWidth: "600px",
-              width: "90%",
-              maxHeight: "80vh",
-              overflow: "auto",
-            }}
+            className="bg-white rounded-xl p-6 max-w-lg w-[90%] max-h-[80vh] overflow-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "16px" }}>
+            <h2 className="text-xl font-semibold mb-4">
               Extracted Facts from Email
             </h2>
-            <p style={{ color: "#6b7280", marginBottom: "16px" }}>
+            <p className="text-gray-500 mb-4">
               Review the AI-extracted facts below. Uncheck any facts you don't want to save.
             </p>
 
             {factExtractionError && (
-              <div style={{
-                padding: "12px",
-                backgroundColor: "#fee2e2",
-                border: "1px solid #ef4444",
-                borderRadius: "8px",
-                color: "#b91c1c",
-                marginBottom: "16px"
-              }}>
+              <div className="p-3 bg-red-50 border border-red-500 rounded-lg text-red-700 mb-4">
                 {factExtractionError}
               </div>
             )}
 
-            <div style={{ marginBottom: "16px" }}>
+            <div className="mb-4">
               {extractedFacts.length === 0 ? (
-                <p style={{ color: "#6b7280", fontStyle: "italic" }}>
+                <p className="text-gray-500 italic">
                   No facts were extracted from this email.
                 </p>
               ) : (
@@ -598,22 +575,16 @@ export function EmailDetailPage() {
                   <div
                     key={index}
                     id={`fact-item-${index}`}
-                    style={{
-                      padding: "12px",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "8px",
-                      marginBottom: "8px",
-                      backgroundColor: "#f9fafb",
-                    }}
+                    className="p-3 border rounded-lg mb-2 bg-gray-50"
                   >
-                    <label style={{ display: "flex", alignItems: "flex-start", gap: "8px", cursor: "pointer" }}>
+                    <label className="flex items-start gap-2 cursor-pointer">
                       <input
                         type="checkbox"
                         defaultChecked={true}
-                        style={{ marginTop: "4px" }}
+                        className="mt-1"
                         data-fact-index={index}
                       />
-                      <span style={{ fontSize: "14px", color: "#1f2937" }}>
+                      <span className="text-sm text-gray-800">
                         {fact}
                       </span>
                     </label>
@@ -622,22 +593,13 @@ export function EmailDetailPage() {
               )}
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
               <button
                 onClick={() => {
                   setShowFactDialog(false);
                   setExtractedFacts([]);
                 }}
-                style={{
-                  padding: "8px 16px",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  borderRadius: "8px",
-                  border: "1px solid #d1d5db",
-                  backgroundColor: "#ffffff",
-                  color: "#374151",
-                  cursor: "pointer",
-                }}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 cursor-pointer hover:bg-gray-50"
               >
                 Cancel
               </button>
@@ -662,22 +624,7 @@ export function EmailDetailPage() {
                     alert("Please select at least one fact to save.");
                   }
                 }}
-                style={{
-                  padding: "8px 16px",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  borderRadius: "8px",
-                  border: "none",
-                  backgroundColor: "#3b82f6",
-                  color: "white",
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "#2563eb";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "#3b82f6";
-                }}
+                className="px-4 py-2 text-sm font-medium rounded-lg border-none bg-blue-600 text-white cursor-pointer hover:bg-blue-700"
               >
                 Save Selected Facts ({extractedFacts.length})
               </button>
