@@ -364,7 +364,7 @@ export function EmailDetailPage() {
       </div>
 
       {/* Email content */}
-      <div className="flex-1 overflow-y-auto px-6 py-8 max-w-2xl mx-auto w-full">
+      <div className="flex-1 overflow-y-auto px-6 py-8 max-w-4xl mx-auto w-full">
         {/* Subject */}
         <h1 className="text-2xl font-bold text-gray-900 mb-6 leading-tight">
           {email.subject || "(No subject)"}
