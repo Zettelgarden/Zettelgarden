@@ -79,16 +79,17 @@ func (s *Handler) listObjects(client *s3.Client) {
 		fmt.Printf("Name: %s, Size: %d\n", *item.Key, item.Size)
 	}
 }
-func (s *Handler) uploadObject(client *s3.Client, key, filePath string) {
+
+func (s *Handler) UploadObject(client *s3.Client, key, filePath string) error {
 	// Skip during testing
 	if s.Server.Testing || client == nil {
 		s.Server.TestInspector.FilesUploaded += 1
-		return
+		return nil
 	}
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		log.Fatalf("unable to open file %q, %v", filePath, err)
+		return fmt.Errorf("unable to open file %q: %w", filePath, err)
 	}
 	defer file.Close()
 
@@ -98,7 +99,16 @@ func (s *Handler) uploadObject(client *s3.Client, key, filePath string) {
 		Body:   file,
 	})
 	if err != nil {
-		log.Fatalf("unable to upload %q to %q, %v", filePath, s.getBucketName(), err)
+		return fmt.Errorf("unable to upload %q to %q: %w", filePath, s.getBucketName(), err)
+	}
+	return nil
+}
+
+// uploadObject is a legacy method that calls UploadObject and logs fatally on error
+// TODO: Migrate all callers to use UploadObject directly
+func (s *Handler) uploadObject(client *s3.Client, key, filePath string) {
+	if err := s.UploadObject(client, key, filePath); err != nil {
+		log.Fatalf("uploadObject failed: %v", err)
 	}
 }
 

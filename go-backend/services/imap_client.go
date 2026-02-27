@@ -394,6 +394,85 @@ func (c *IMAPClient) FetchEmailsSinceUID(ctx context.Context, lastUID uint32) ([
 	return emails, maxUID, nil
 }
 
+// FetchEmailsSinceUIDWithAttachments fetches emails with UID greater than the specified lastUID
+// This includes raw attachment data for automatic file vault creation
+func (c *IMAPClient) FetchEmailsSinceUIDWithAttachments(ctx context.Context, lastUID uint32) ([]EmailWithAttachments, uint32, error) {
+	if !c.connected {
+		return nil, 0, fmt.Errorf("not connected - call Connect() first")
+	}
+	if !c.mailboxSelected {
+		return nil, 0, fmt.Errorf("mailbox not selected - call SelectInbox() first")
+	}
+
+	// Get mailbox status
+	mboxStatus, err := c.client.Status(c.mailbox, []imap.StatusItem{imap.StatusUidNext})
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get mailbox status: %w", err)
+	}
+
+	uidNext := mboxStatus.UidNext
+	if uidNext == 0 || uidNext <= lastUID {
+		// No new messages
+		return []EmailWithAttachments{}, lastUID, nil
+	}
+
+	// Create sequence set for UIDs greater than lastUID
+	fromUID := lastUID + 1
+	toUID := uidNext - 1
+
+	seqSet := new(imap.SeqSet)
+	seqSet.AddRange(fromUID, toUID)
+
+	// Fetch the emails with full RFC822 content
+	messages := make(chan *imap.Message, int(toUID-fromUID+1))
+	errChan := make(chan error, 1)
+
+	go func() {
+		bodySection := &imap.BodySectionName{Peek: true}
+		items := []imap.FetchItem{
+			imap.FetchEnvelope,
+			imap.FetchFlags,
+			imap.FetchUid,
+			bodySection.FetchItem(),
+		}
+		errChan <- c.client.UidFetch(seqSet, items, messages)
+	}()
+
+	var emails []EmailWithAttachments
+	var maxUID uint32
+
+	done := make(chan bool)
+	go func() {
+		for msg := range messages {
+			if msg.Uid > maxUID {
+				maxUID = msg.Uid
+			}
+			emailWithAtt := c.convertIMAPToEmailWithAttachments(msg)
+			emails = append(emails, emailWithAtt)
+		}
+		done <- true
+	}()
+
+	select {
+	case err := <-errChan:
+		if err != nil {
+			// IMAP errors for non-existent UIDs are common in incremental sync
+			return []EmailWithAttachments{}, lastUID, nil
+		}
+		<-done
+	case <-ctx.Done():
+		return nil, 0, fmt.Errorf("fetch since UID timed out")
+	}
+
+	if maxUID == 0 {
+		maxUID = lastUID
+	}
+
+	log.Printf("[imap] fetched %d new emails with attachments since UID %d", len(emails), lastUID)
+
+	return emails, maxUID, nil
+}
+
 // GetUIDValidity returns the current UIDVALIDITY value for the selected mailbox
 // Callers should compare this with previously stored values to detect mailbox resets
 func (c *IMAPClient) GetUIDValidity() uint32 {

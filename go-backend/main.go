@@ -31,6 +31,15 @@ import (
 var s *server.Server
 var h *handlers.Handler
 
+// handlerS3Uploader wraps the Handler to implement jobs.S3Uploader interface
+type handlerS3Uploader struct {
+	handler *handlers.Handler
+}
+
+func (u *handlerS3Uploader) UploadObject(key string, filePath string) error {
+	return u.handler.UploadObject(u.handler.Server.S3, key, filePath)
+}
+
 // getEnvInt gets an integer environment variable with a fallback
 func getEnvInt(key string, defaultValue int) int {
 	if val := os.Getenv(key); val != "" {
@@ -269,7 +278,11 @@ func run() error {
 	scheduler.Register(jobs.NewTaskRemindersJob(s.DB, s.Mail))
 	scheduler.Register(jobs.NewUptimeKumaPingJob())
 	scheduler.Register(jobs.NewRSSFetchJob(s.DB))
-	scheduler.Register(jobs.NewEmailSyncJob(s.DB))
+
+	// Configure email sync job with S3 uploader for attachment processing
+	emailSyncJob := jobs.NewEmailSyncJob(s.DB)
+	emailSyncJob.SetS3Uploader(&handlerS3Uploader{handler: h})
+	scheduler.Register(emailSyncJob)
 
 	scheduler.Start()
 	defer scheduler.Stop()

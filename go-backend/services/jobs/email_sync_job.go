@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/robfig/cron/v3"
@@ -15,8 +16,14 @@ import (
 
 // EmailSyncJob fetches emails from active email accounts via IMAP
 type EmailSyncJob struct {
-	db       *sql.DB
-	schedule string
+	db                *sql.DB
+	schedule          string
+	s3Uploader        S3Uploader
+}
+
+// S3Uploader interface for uploading files to S3
+type S3Uploader interface {
+	UploadObject(key string, filePath string) error
 }
 
 // NewEmailSyncJob creates a new email sync job
@@ -25,6 +32,11 @@ func NewEmailSyncJob(db *sql.DB) *EmailSyncJob {
 		db:       db,
 		schedule: "0 */5 * * * *", // Every 5 minutes
 	}
+}
+
+// SetS3Uploader sets the S3 uploader for attachment processing
+func (j *EmailSyncJob) SetS3Uploader(uploader S3Uploader) {
+	j.s3Uploader = uploader
 }
 
 // Name returns the unique identifier for this job
@@ -216,37 +228,111 @@ func (j *EmailSyncJob) syncFolder(ctx context.Context, account emailAccount, cli
 		// Reset IMAP UID to force full sync for this folder
 	}
 
-	// Fetch emails (using UID if available, otherwise initial fetch)
-	var emails []models.Email
+	// Fetch emails with attachments (using UID if available, otherwise initial fetch)
+	var emails []services.EmailWithAttachments
 	var err error
 
 	if account.IMAPUID != nil && *account.IMAPUID > 0 && folder == "INBOX" {
 		// Incremental sync only for INBOX (Archive doesn't need incremental sync for new emails)
-		emails, _, err = client.FetchEmailsSinceUID(ctx, uint32(*account.IMAPUID))
+		emails, _, err = client.FetchEmailsSinceUIDWithAttachments(ctx, uint32(*account.IMAPUID))
 	} else {
 		// Initial fetch - get recent emails from this folder
-		emails, _, err = client.FetchRecentEmails(ctx, 100)
+		emails, _, err = client.FetchRecentEmailsWithAttachments(ctx, 100)
 	}
 
 	if err != nil {
 		return 0, fmt.Errorf("failed to fetch emails: %w", err)
 	}
 
-	// Store emails
-	for _, email := range emails {
+	// Create S3 attachment handler if uploader is available
+	var attachmentService *services.EmailAttachmentService
+	if j.s3Uploader != nil {
+		s3Handler := &jobS3Handler{uploader: j.s3Uploader}
+		attachmentService = services.NewEmailAttachmentService(j.db, s3Handler, account.UserID)
+	}
+
+	// Store emails and process attachments
+	for _, emailWithAtt := range emails {
+		email := emailWithAtt.Email
 		email.UserID = account.UserID
 		email.EmailAccountID = &account.ID
 
-		_, err := emailService.CreateEmail(ctx, email)
+		storedEmail, err := emailService.CreateEmail(ctx, email)
 		if err != nil {
 			log.Printf("[email-sync] failed to store email %s for account %d: %v", email.MessageID, account.ID, err)
-			// Continue with next email
+			continue
+		}
+
+		// Process attachments if S3 uploader is available
+		if attachmentService != nil && len(emailWithAtt.Attachments) > 0 {
+			for _, att := range emailWithAtt.Attachments {
+				// Skip inline attachments (embedded images in HTML)
+				if att.IsInline {
+					continue
+				}
+
+				// Upload attachment to S3 and create email_attachment record
+				createdAtt, err := attachmentService.CreateAttachmentWithData(
+					ctx,
+					storedEmail.ID,
+					att.Filename,
+					att.ContentType,
+					att.ContentID,
+					att.IsInline,
+					att.Data,
+				)
+				if err != nil {
+					log.Printf("[email-sync] warning: failed to save attachment %s: %v", att.Filename, err)
+					continue
+				}
+
+				// Automatically save to file vault
+				_, err = attachmentService.SaveToFileVault(ctx, account.UserID, createdAtt.ID, nil)
+				if err != nil {
+					log.Printf("[email-sync] warning: failed to save attachment %s to vault: %v", att.Filename, err)
+				} else {
+					log.Printf("[email-sync] automatically saved attachment %s to file vault", att.Filename)
+				}
+			}
 		}
 	}
 
 	log.Printf("[email-sync] synced %d emails from %s for account %d", len(emails), folder, account.ID)
 
 	return len(emails), nil
+}
+
+// jobS3Handler implements S3StorageService for the job using S3Uploader
+type jobS3Handler struct {
+	uploader S3Uploader
+}
+
+func (j *jobS3Handler) UploadAttachment(key string, data []byte, contentType string) (string, error) {
+	// Create temp file
+	tempFile, err := os.CreateTemp("/tmp", "email-att-*.tmp")
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(tempFile.Name())
+	defer tempFile.Close()
+
+	if _, err := tempFile.Write(data); err != nil {
+		return "", err
+	}
+	if _, err := tempFile.Seek(0, 0); err != nil {
+		return "", err
+	}
+
+	// Upload using the uploader
+	err = j.uploader.UploadObject(key, tempFile.Name())
+	if err != nil {
+		return "", err
+	}
+	return key, nil
+}
+
+func (j *jobS3Handler) GenerateThumbnail(data []byte, contentType string) ([]byte, error) {
+	return nil, fmt.Errorf("thumbnail generation not supported in job")
 }
 
 // reconcileFolders detects and reconciles external changes (emails moved by user in email client)
