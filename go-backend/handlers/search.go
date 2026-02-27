@@ -689,6 +689,26 @@ type PaginatedSearchResponse struct {
 }
 
 func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) (PaginatedSearchResponse, error) {
+	// Fall back to ClassicCardSearch if TypesenseClient is not available
+	if s.Server == nil || s.Server.TypesenseClient == nil {
+		log.Printf("Typesense client not available, falling back to ClassicCardSearch")
+		cards, total, err := s.ClassicCardSearch(userID, searchParams)
+		if err != nil {
+			return PaginatedSearchResponse{}, err
+		}
+		page := searchParams.Page
+		if page < 1 {
+			page = 1
+		}
+		perPage := searchParams.PerPage
+		if perPage <= 0 {
+			perPage = 50
+		}
+		if perPage > 100 {
+			perPage = 100
+		}
+		return convertCardsToSearchResults(cards, total, page, perPage), nil
+	}
 
 	// Set default pagination values if not provided
 	page := searchParams.Page
@@ -784,7 +804,7 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 
 	typesenseParams := &api.SearchCollectionParams{
 		Q:             searchTerm,
-		QueryBy:       "card_id, title, tags, embedding, email_sender, email_from_address, email_subject, preview",
+		QueryBy:       "card_id, title, tags, embedding, preview",
 		FilterBy:      &filter,
 		SortBy:        &sortBy,
 		PerPage:       &perPage,
@@ -866,24 +886,7 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 				item.Metadata = metadata
 				// fact_pk
 
-			} else if resultType == "email" {
-				if !searchParams.ShowEmails {
-					continue
-				}
-				item.ID = strconv.FormatInt(int64(doc["email_pk"].(float64)), 10)
-				metadata := map[string]interface{}{
-					"id":                 item.ID,
-					"email_id":           doc["email_id"],
-					"email_sender":       doc["email_sender"],
-					"email_from_address": doc["email_from_address"],
-					"email_subject":      doc["email_subject"],
-					"email_received_at":  doc["email_received_at"],
-					"email_status":       doc["email_status"],
-					"email_folder":       doc["email_folder"],
-					"email_is_read":      doc["email_is_read"],
-				}
-				item.Metadata = metadata
-			}
+			} 
 			results = append(results, item)
 		} else {
 			log.Printf("[%d] unexpected document format: %v", i, hit.Document)
