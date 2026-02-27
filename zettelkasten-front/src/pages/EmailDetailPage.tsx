@@ -6,7 +6,6 @@ import {
   Email,
   getEmailAttachments,
   EmailAttachmentWithDownloadURL,
-  saveAttachmentToVault,
   deleteEmailAttachment,
 } from "../api/email";
 import { setDocumentTitle } from "../utils/title";
@@ -163,22 +162,6 @@ export function EmailDetailPage() {
 
   const handleDownloadAttachment = (attachment: EmailAttachmentWithDownloadURL) => {
     window.open(attachment.download_url, '_blank');
-  };
-
-  const handleSaveAttachmentToVault = async (attachmentId: number) => {
-    try {
-      const updated = await saveAttachmentToVault(attachmentId, {});
-      // Update the attachment in the list
-      setAttachments(attachments.map(a =>
-        a.id === attachmentId
-          ? { ...a, is_saved_to_vault: true, file_id: updated.file_id }
-          : a
-      ));
-      alert("Attachment saved to file vault!");
-    } catch (err: any) {
-      console.error("Failed to save attachment to vault:", err);
-      alert("Failed to save attachment: " + (err.message || "Unknown error"));
-    }
   };
 
   const handleDeleteAttachment = async (attachmentId: number) => {
@@ -413,7 +396,6 @@ export function EmailDetailPage() {
                     <div className="text-xs text-gray-500">
                       {formatFileSize(attachment.size)}
                       {attachment.content_type && ` • ${attachment.content_type.split("/")[1]?.toUpperCase() || "FILE"}`}
-                      {attachment.is_saved_to_vault && " • Saved to vault"}
                     </div>
                   </div>
 
@@ -426,15 +408,6 @@ export function EmailDetailPage() {
                     >
                       Download
                     </button>
-                    {!attachment.is_saved_to_vault && (
-                      <button
-                        onClick={() => handleSaveAttachmentToVault(attachment.id)}
-                        title="Save to file vault"
-                        className="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 bg-white text-gray-700 cursor-pointer transition-all duration-150 hover:bg-blue-50 hover:border-blue-500"
-                      >
-                        Save to Vault
-                      </button>
-                    )}
                   </div>
                 </div>
               ))}

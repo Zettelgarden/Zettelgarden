@@ -233,6 +233,83 @@ func (c *IMAPClient) FetchRecentEmails(ctx context.Context, limit int) ([]models
 	return emails, maxUID, nil
 }
 
+// FetchRecentEmailsWithAttachments fetches the most recent emails with raw attachment data
+// This is used for automatic file vault creation during sync
+func (c *IMAPClient) FetchRecentEmailsWithAttachments(ctx context.Context, limit int) ([]EmailWithAttachments, uint32, error) {
+	if !c.connected {
+		return nil, 0, fmt.Errorf("not connected - call Connect() first")
+	}
+	if !c.mailboxSelected {
+		return nil, 0, fmt.Errorf("mailbox not selected - call SelectInbox() first")
+	}
+
+	// Get mailbox status to know total messages
+	mboxStatus, err := c.client.Status(c.mailbox, []imap.StatusItem{imap.StatusMessages})
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get mailbox status: %w", err)
+	}
+
+	totalMessages := mboxStatus.Messages
+	if totalMessages == 0 {
+		return []EmailWithAttachments{}, 0, nil
+	}
+
+	// Calculate sequence numbers for recent emails (limit to 'limit' most recent)
+	fromSeq := uint32(1)
+	if totalMessages > uint32(limit) {
+		fromSeq = totalMessages - uint32(limit) + 1
+	}
+
+	// Create a sequence set for the range
+	seqSet := new(imap.SeqSet)
+	seqSet.AddRange(fromSeq, totalMessages)
+
+	// Fetch the emails using sequence numbers with body section
+	messages := make(chan *imap.Message, limit)
+	errChan := make(chan error, 1)
+
+	go func() {
+		bodySection := &imap.BodySectionName{Peek: true}
+		items := []imap.FetchItem{
+			imap.FetchEnvelope,
+			imap.FetchFlags,
+			imap.FetchUid,
+			bodySection.FetchItem(),
+		}
+		errChan <- c.client.Fetch(seqSet, items, messages)
+	}()
+
+	var emails []EmailWithAttachments
+	var maxUID uint32
+
+	// Process messages
+	done := make(chan bool)
+	go func() {
+		for msg := range messages {
+			if msg.Uid > maxUID {
+				maxUID = msg.Uid
+			}
+			emailWithAtt := c.convertIMAPToEmailWithAttachments(msg)
+			emails = append(emails, emailWithAtt)
+		}
+		done <- true
+	}()
+
+	select {
+	case err := <-errChan:
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to fetch emails: %w", err)
+		}
+		<-done
+	case <-ctx.Done():
+		return nil, 0, fmt.Errorf("fetch emails timed out")
+	}
+
+	log.Printf("[imap] fetched %d emails with attachments (UID range: %d - %d)", len(emails), fromSeq, maxUID)
+
+	return emails, maxUID, nil
+}
+
 // FetchEmailsSinceUID fetches emails with UID greater than the specified lastUID
 // This is used for incremental sync.
 // Note: This does NOT check for UIDVALIDITY changes. Callers should check GetUIDValidity()
