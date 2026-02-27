@@ -713,7 +713,7 @@ func generateData() map[string]interface{} {
 			Size:      rand.Intn(1000),
 			CreatedBy: rand.Intn(3) + 1,
 			UpdatedBy: rand.Intn(3) + 1,
-			CardPK:    i,
+			CardPK:    getIntPtr(i),
 			IsDeleted: false,
 			CreatedAt: randomDate(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
 			UpdatedAt: randomDate(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)),
@@ -902,4 +902,8 @@ func CreateJsonBody(t *testing.T, v interface{}) *bytes.Reader {
 		t.Fatalf("failed to marshal to JSON: %v", err)
 	}
 	return bytes.NewReader(jsonBytes)
+}
+
+func getIntPtr(i int) *int {
+	return &i
 }

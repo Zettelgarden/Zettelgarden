@@ -154,9 +154,10 @@ func TestEditFileSuccess(t *testing.T) {
 
 	new_name := "new_name.txt"
 	token, _ := tests.GenerateTestJWT(1)
+	cardPK := 1
 	fileData := models.EditFileMetadataParams{
 		Name:   new_name,
-		CardPK: 1,
+		CardPK: &cardPK,
 	}
 	body, err := json.Marshal(fileData)
 	if err != nil {
@@ -185,7 +186,7 @@ func TestEditFileSuccess(t *testing.T) {
 	if file.Name != new_name {
 		t.Errorf("handler returned wrong file name, got %v want %v", file.Name, new_name)
 	}
-	if file.CardPK != 1 {
+	if file.CardPK == nil || *file.CardPK != 1 {
 		t.Errorf("handler returned wrong file, got id %v want %v", file.ID, 1)
 	}
 }
@@ -196,9 +197,10 @@ func TestEditFileSuccessChangeCard(t *testing.T) {
 
 	new_name := "new_name.txt"
 	token, _ := tests.GenerateTestJWT(1)
+	cardPK := 2
 	fileData := models.EditFileMetadataParams{
 		Name:   new_name,
-		CardPK: 2,
+		CardPK: &cardPK,
 	}
 	body, err := json.Marshal(fileData)
 	if err != nil {
@@ -227,7 +229,7 @@ func TestEditFileSuccessChangeCard(t *testing.T) {
 	if file.Name != new_name {
 		t.Errorf("handler returned wrong file name, got %v want %v", file.Name, new_name)
 	}
-	if file.CardPK != 2 {
+	if file.CardPK == nil || *file.CardPK != 2 {
 		t.Errorf("handler returned wrong file, got id %v want %v", file.ID, 2)
 	}
 }
