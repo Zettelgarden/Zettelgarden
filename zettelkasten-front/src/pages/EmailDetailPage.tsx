@@ -3,8 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   getEmail,
   updateEmailStatus,
-  extractFactsFromEmail,
-  saveFactsFromEmail,
   Email,
   getEmailAttachments,
   EmailAttachmentWithDownloadURL,
@@ -36,12 +34,6 @@ export function EmailDetailPage() {
   const [isArchiving, setIsArchiving] = useState(false);
   const [showCreateTaskWindow, setShowCreateTaskWindow] = useState(false);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
-
-  // Fact extraction state
-  const [extractedFacts, setExtractedFacts] = useState<string[]>([]);
-  const [isExtractingFacts, setIsExtractingFacts] = useState(false);
-  const [showFactDialog, setShowFactDialog] = useState(false);
-  const [factExtractionError, setFactExtractionError] = useState<string | null>(null);
 
   // Attachments state
   const [attachments, setAttachments] = useState<EmailAttachmentWithDownloadURL[]>([]);
@@ -169,48 +161,6 @@ export function EmailDetailPage() {
     }
   };
 
-  const handleExtractFacts = async () => {
-    if (!email || !id) return;
-
-    // Check if user is PRO
-    const isPro = user?.stripe_subscription_status === "active" || user?.stripe_subscription_status === "trialing";
-    if (!isPro) {
-      alert("Fact extraction is a PRO feature. Please upgrade your subscription to access this feature.");
-      return;
-    }
-
-    setIsExtractingFacts(true);
-    setFactExtractionError(null);
-    try {
-      const response = await extractFactsFromEmail(parseInt(id));
-      setExtractedFacts(response.facts);
-      if (response.facts.length > 0) {
-        setShowFactDialog(true);
-      } else {
-        alert("No facts were extracted from this email. The email may not contain enough factual information.");
-      }
-    } catch (err: any) {
-      console.error("Failed to extract facts:", err);
-      setFactExtractionError(err.message || "Failed to extract facts");
-    } finally {
-      setIsExtractingFacts(false);
-    }
-  };
-
-  const handleSaveFacts = async (factsToSave: string[]) => {
-    if (!email || !id) return;
-
-    try {
-      const response = await saveFactsFromEmail(parseInt(id), factsToSave);
-      alert(`Successfully saved ${response.saved_count} facts from this email.`);
-      setShowFactDialog(false);
-      setExtractedFacts([]);
-    } catch (err: any) {
-      console.error("Failed to save facts:", err);
-      alert("Failed to save facts: " + (err.message || "Unknown error"));
-    }
-  };
-
   const handleDownloadAttachment = (attachment: EmailAttachmentWithDownloadURL) => {
     window.open(attachment.download_url, '_blank');
   };
@@ -252,8 +202,6 @@ export function EmailDetailPage() {
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
-
-  const isProUser = user?.stripe_subscription_status === "active" || user?.stripe_subscription_status === "trialing";
 
   if (loading) {
     return (
@@ -331,34 +279,6 @@ export function EmailDetailPage() {
             className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 cursor-pointer flex items-center gap-1.5 transition-all duration-150 hover:bg-gray-50 hover:border-gray-400"
           >
             ✚ Create Task
-          </button>
-
-          <button
-            onClick={handleExtractFacts}
-            disabled={isExtractingFacts}
-            title={isProUser ? "Extract facts from email using AI" : "PRO feature: Extract facts from email using AI"}
-            className={`px-4 py-2 text-sm font-medium rounded-lg border flex items-center gap-1.5 transition-all duration-150 ${
-              isExtractingFacts
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60 border-gray-300"
-                : isProUser
-                  ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 cursor-pointer"
-                  : "bg-yellow-50 text-yellow-800 border-yellow-400 hover:bg-yellow-100 hover:border-yellow-500 cursor-pointer"
-            }`}
-          >
-            {isExtractingFacts ? (
-              "..."
-            ) : isProUser ? (
-              <>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M2 12h20M2 12l5-5m-5 5l5 5" />
-                </svg>
-                Extract Facts
-              </>
-            ) : (
-              <>
-                👑 Extract Facts
-              </>
-            )}
           </button>
         </div>
       </div>
@@ -540,97 +460,6 @@ export function EmailDetailPage() {
           onClose={handleCloseConvertDialog}
           onConverted={handleEmailConverted}
         />
-      )}
-
-      {/* Fact Extraction Dialog */}
-      {showFactDialog && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={() => setShowFactDialog(false)}
-        >
-          <div
-            className="bg-white rounded-xl p-6 max-w-lg w-[90%] max-h-[80vh] overflow-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-xl font-semibold mb-4">
-              Extracted Facts from Email
-            </h2>
-            <p className="text-gray-500 mb-4">
-              Review the AI-extracted facts below. Uncheck any facts you don't want to save.
-            </p>
-
-            {factExtractionError && (
-              <div className="p-3 bg-red-50 border border-red-500 rounded-lg text-red-700 mb-4">
-                {factExtractionError}
-              </div>
-            )}
-
-            <div className="mb-4">
-              {extractedFacts.length === 0 ? (
-                <p className="text-gray-500 italic">
-                  No facts were extracted from this email.
-                </p>
-              ) : (
-                extractedFacts.map((fact, index) => (
-                  <div
-                    key={index}
-                    id={`fact-item-${index}`}
-                    className="p-3 border rounded-lg mb-2 bg-gray-50"
-                  >
-                    <label className="flex items-start gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        defaultChecked={true}
-                        className="mt-1"
-                        data-fact-index={index}
-                      />
-                      <span className="text-sm text-gray-800">
-                        {fact}
-                      </span>
-                    </label>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-              <button
-                onClick={() => {
-                  setShowFactDialog(false);
-                  setExtractedFacts([]);
-                }}
-                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 cursor-pointer hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  // Get all checked facts
-                  const checkboxes = document.querySelectorAll('input[type="checkbox"][data-fact-index]');
-                  const checkedFacts: string[] = [];
-                  checkboxes.forEach((cb) => {
-                    if (cb instanceof HTMLInputElement && cb.checked) {
-                      const factSpan = cb.parentElement?.querySelector("span");
-                      const factText = factSpan?.textContent || "";
-                      if (factText.trim()) {
-                        checkedFacts.push(factText.trim());
-                      }
-                    }
-                  });
-
-                  if (checkedFacts.length > 0) {
-                    handleSaveFacts(checkedFacts);
-                  } else {
-                    alert("Please select at least one fact to save.");
-                  }
-                }}
-                className="px-4 py-2 text-sm font-medium rounded-lg border-none bg-blue-600 text-white cursor-pointer hover:bg-blue-700"
-              >
-                Save Selected Facts ({extractedFacts.length})
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
