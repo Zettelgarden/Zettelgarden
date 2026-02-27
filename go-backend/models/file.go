@@ -12,7 +12,7 @@ type File struct {
 	Size          int         `json:"size"`
 	CreatedBy     int         `json:"created_by"`
 	UpdatedBy     int         `json:"updated_by"`
-	CardPK        int         `json:"card_pk"`
+	CardPK        *int        `json:"card_pk,omitempty"`
 	IsDeleted     bool        `json:"is_deleted"`
 	CreatedAt     time.Time   `json:"created_at"`
 	UpdatedAt     time.Time   `json:"updated_at"`
@@ -22,7 +22,7 @@ type File struct {
 
 type EditFileMetadataParams struct {
 	Name   string `json:"name"`
-	CardPK int    `json:"card_pk"`
+	CardPK *int   `json:"card_pk,omitempty"`
 }
 
 type UploadFileResponse struct {

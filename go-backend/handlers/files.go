@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -188,6 +189,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 	var files []models.File
 	for rows.Next() {
 		var file models.File
+		var cardPK sql.NullInt32
 		if err := rows.Scan(
 			&file.ID,
 			&file.UserID,
@@ -198,7 +200,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 			&file.Size,
 			&file.CreatedBy,
 			&file.UpdatedBy,
-			&file.CardPK,
+			&cardPK,
 			&file.IsDeleted,
 			&file.CreatedAt,
 			&file.UpdatedAt,
@@ -207,6 +209,11 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Error scanning file: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		// Convert nullable cardPK
+		if cardPK.Valid {
+			pk := int(cardPK.Int32)
+			file.CardPK = &pk
 		}
 		files = append(files, file)
 	}
@@ -218,12 +225,16 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 
 	// Now fetch cards for each file after closing the result set
 	for i := range files {
-		partialCard, err := s.QueryPartialCardByID(userID, files[i].CardPK)
-		if err != nil {
-			log.Printf("card %v", partialCard)
-			files[i].Card = models.PartialCard{}
+		if files[i].CardPK != nil {
+			partialCard, err := s.QueryPartialCardByID(userID, *files[i].CardPK)
+			if err != nil {
+				log.Printf("card %v", partialCard)
+				files[i].Card = models.PartialCard{}
+			} else {
+				files[i].Card = partialCard
+			}
 		} else {
-			files[i].Card = partialCard
+			files[i].Card = models.PartialCard{}
 		}
 	}
 
@@ -261,6 +272,7 @@ FROM files
 	WHERE files.is_deleted = FALSE and files.id = $1 AND files.user_id = $2`, id, userID)
 
 	var file models.File
+	var cardPK sql.NullInt32
 
 	if err := row.Scan(
 		&file.ID,
@@ -272,7 +284,7 @@ FROM files
 		&file.Size,
 		&file.CreatedBy,
 		&file.UpdatedBy,
-		&file.CardPK,
+		&cardPK,
 		&file.IsDeleted,
 		&file.CreatedAt,
 		&file.UpdatedAt,
@@ -281,12 +293,20 @@ FROM files
 		log.Printf("err id %v %v", id, err)
 		return models.File{}, errors.New("unable to access file")
 	}
-	card, err := s.QueryPartialCardByID(userID, file.CardPK)
-	if err != nil {
-		file.Card = models.PartialCard{}
-
+	// Convert nullable cardPK
+	if cardPK.Valid {
+		pk := int(cardPK.Int32)
+		file.CardPK = &pk
+	}
+	if file.CardPK != nil {
+		card, err := s.QueryPartialCardByID(userID, *file.CardPK)
+		if err != nil {
+			file.Card = models.PartialCard{}
+		} else {
+			file.Card = card
+		}
 	} else {
-		file.Card = card
+		file.Card = models.PartialCard{}
 	}
 	return file, nil
 }
@@ -310,6 +330,7 @@ func (s *Handler) getFilesFromCardPK(userID int, cardPK int) ([]models.File, err
 
 	for rows.Next() {
 		var file models.File
+		var cardPK sql.NullInt32
 		if err := rows.Scan(
 			&file.ID,
 			&file.UserID,
@@ -320,13 +341,18 @@ func (s *Handler) getFilesFromCardPK(userID int, cardPK int) ([]models.File, err
 			&file.Size,
 			&file.CreatedBy,
 			&file.UpdatedBy,
-			&file.CardPK,
+			&cardPK,
 			&file.IsDeleted,
 			&file.CreatedAt,
 			&file.UpdatedAt,
 			&file.ThumbnailPath,
 		); err != nil {
 			return files, err
+		}
+		// Convert nullable cardPK
+		if cardPK.Valid {
+			pk := int(cardPK.Int32)
+			file.CardPK = &pk
 		}
 		files = append(files, file)
 	}

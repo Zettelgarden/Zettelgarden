@@ -62,11 +62,19 @@ func (s *EmailAttachmentService) CreateAttachment(ctx context.Context, emailID i
 	if attachment.ContentID != nil {
 		contentIDVal = *attachment.ContentID
 	}
+	var s3KeyVal interface{}
+	if attachment.S3Key != nil {
+		s3KeyVal = *attachment.S3Key
+	}
+	var thumbnailPathVal interface{}
+	if attachment.ThumbnailPath != nil {
+		thumbnailPathVal = *attachment.ThumbnailPath
+	}
 
 	err := s.db.QueryRowContext(ctx, query,
 		s.userID, emailID, attachment.Filename,
-		contentTypeVal, attachment.Size, nil,
-		nil, contentIDVal, attachment.IsInline,
+		contentTypeVal, attachment.Size, s3KeyVal,
+		thumbnailPathVal, contentIDVal, attachment.IsInline,
 	).Scan(
 		&result.ID,
 		&result.UserID,
