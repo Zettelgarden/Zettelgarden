@@ -371,123 +371,78 @@ export function EmailDetailPage() {
       </div>
 
       {/* Email content */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "32px 24px",
-          maxWidth: "900px",
-          margin: "0 auto",
-          width: "100%",
-        }}
-      >
+      <div className="flex-1 overflow-y-auto px-6 py-8 max-w-2xl mx-auto w-full">
         {/* Subject */}
-        <h1
-          style={{
-            fontSize: "28px",
-            fontWeight: "700",
-            color: "#111827",
-            marginBottom: "24px",
-            lineHeight: "1.3",
-          }}
-        >
+        <h1 className="text-2xl font-bold text-gray-900 mb-6 leading-tight">
           {email.subject || "(No subject)"}
         </h1>
 
         {/* Email metadata */}
-        <div
-          style={{
-            marginBottom: "32px",
-            paddingBottom: "24px",
-            borderBottom: "1px solid #e5e7eb",
-          }}
-        >
-          <div style={{ marginBottom: "12px" }}>
-            <span style={{ fontSize: "13px", color: "#6b7280", fontWeight: "600", textTransform: "uppercase" }}>
+        <div className="mb-8 pb-6 border-b border-gray-200">
+          <div className="mb-3">
+            <span className="text-xs font-semibold text-gray-500 uppercase">
               From:
             </span>
-            <span style={{ marginLeft: "8px", fontSize: "15px", color: "#1f2937" }}>
+            <span className="ml-2 text-base text-gray-800">
               {email.from_name && email.from_address ? `${email.from_name} <${email.from_address}>` : email.from_address || "Unknown"}
             </span>
           </div>
 
           {email.to_addresses && (
-            <div style={{ marginBottom: "12px" }}>
-              <span style={{ fontSize: "13px", color: "#6b7280", fontWeight: "600", textTransform: "uppercase" }}>
+            <div className="mb-3">
+              <span className="text-xs font-semibold text-gray-500 uppercase">
                 To:
               </span>
-              <span style={{ marginLeft: "8px", fontSize: "15px", color: "#1f2937" }}>
+              <span className="ml-2 text-base text-gray-800">
                 {email.to_addresses}
               </span>
             </div>
           )}
 
-          <div style={{ marginBottom: "12px" }}>
-            <span style={{ fontSize: "13px", color: "#6b7280", fontWeight: "600", textTransform: "uppercase" }}>
+          <div className="mb-3">
+            <span className="text-xs font-semibold text-gray-500 uppercase">
               Date:
             </span>
-            <span style={{ marginLeft: "8px", fontSize: "15px", color: "#1f2937" }}>
+            <span className="ml-2 text-base text-gray-800">
               {formatDate(email.received_at)}
             </span>
           </div>
 
           {email.folder && (
-            <div style={{ marginBottom: "12px" }}>
-              <span style={{ fontSize: "13px", color: "#6b7280", fontWeight: "600", textTransform: "uppercase" }}>
+            <div className="mb-3">
+              <span className="text-xs font-semibold text-gray-500 uppercase">
                 Folder:
               </span>
-              <span style={{ marginLeft: "8px", fontSize: "15px", color: "#1f2937" }}>
+              <span className="ml-2 text-base text-gray-800">
                 {email.folder}
               </span>
             </div>
           )}
 
           <div>
-            <span style={{ fontSize: "13px", color: "#6b7280", fontWeight: "600", textTransform: "uppercase" }}>
+            <span className="text-xs font-semibold text-gray-500 uppercase">
               Status:
             </span>
             <span
-              style={{
-                marginLeft: "8px",
-                fontSize: "13px",
-                padding: "2px 8px",
-                borderRadius: "4px",
-                backgroundColor:
-                  email.status === "unprocessed"
-                    ? "#fef3c7"
-                    : email.status === "triaged"
-                      ? "#d1fae5"
-                      : "#f3f4f6",
-                color:
-                  email.status === "unprocessed"
-                    ? "#92400e"
-                    : email.status === "triaged"
-                      ? "#065f46"
-                      : "#6b7280",
-              }}
+              className={`ml-2 text-xs px-2 py-0.5 rounded ${
+                email.status === "unprocessed"
+                  ? "bg-yellow-100 text-yellow-800"
+                  : email.status === "triaged"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-gray-100 text-gray-700"
+              }`}
             >
               {email.status}
             </span>
             <span
-              style={{
-                marginLeft: "12px",
-                fontSize: "13px",
-                color: "#6b7280",
-                fontWeight: "600",
-                textTransform: "uppercase",
-              }}
+              className="ml-3 text-xs font-semibold text-gray-500 uppercase"
             >
               Read:
             </span>
             <span
-              style={{
-                marginLeft: "8px",
-                fontSize: "13px",
-                padding: "2px 8px",
-                borderRadius: "4px",
-                backgroundColor: email.is_read ? "#d1fae5" : "#dbeafe",
-                color: email.is_read ? "#065f46" : "#1e40af",
-              }}
+              className={`ml-2 text-xs px-2 py-0.5 rounded ${
+                email.is_read ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"
+              }`}
             >
               {email.is_read ? "Yes" : "No"}
             </span>
@@ -498,24 +453,15 @@ export function EmailDetailPage() {
         <div>
           {processedHtml ? (
             <div
+              className={styles.emailContent}
               dangerouslySetInnerHTML={{ __html: processedHtml }}
             />
           ) : email.body_text ? (
-            <pre
-              style={{
-                fontFamily: "inherit",
-                fontSize: "15px",
-                lineHeight: "1.6",
-                whiteSpace: "pre-wrap",
-                wordWrap: "break-word",
-                margin: 0,
-                color: "#1f2937",
-              }}
-            >
+            <pre className="font-inherit text-base leading-relaxed whitespace-pre-wrap break-word m-0 text-gray-800">
               {email.body_text}
             </pre>
           ) : (
-            <div style={{ color: "#9ca3af", fontStyle: "italic" }}>No content available</div>
+            <div className="text-gray-400 italic">No content available</div>
           )}
         </div>
 
