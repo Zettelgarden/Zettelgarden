@@ -1137,7 +1137,7 @@ func (c *IMAPClient) convertIMAPToEmail(msg *imap.Message) models.Email {
 // This includes the raw attachment data for upload to S3
 func (c *IMAPClient) convertIMAPToEmailWithAttachments(msg *imap.Message) EmailWithAttachments {
 	// Call extractBodyText once to get both body content AND attachments
-	textBody, htmlBody, attachments, err := c.extractBodyText(msg)
+	textBody, htmlBody, attachments, _ := c.extractBodyText(msg)
 
 	// Build the email object (similar to convertIMAPToEmail but using extracted data)
 	uid := int64(msg.Uid)
