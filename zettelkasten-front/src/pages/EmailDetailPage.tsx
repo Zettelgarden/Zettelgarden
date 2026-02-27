@@ -257,28 +257,21 @@ export function EmailDetailPage() {
 
   if (loading) {
     return (
-      <div style={{ padding: "48px", textAlign: "center" }}>
-        <div style={{ fontSize: "16px", color: "#6b7280" }}>Loading email...</div>
+      <div className="px-12 text-center">
+        <div className="text-base text-gray-500">Loading email...</div>
       </div>
     );
   }
 
   if (error || !email) {
     return (
-      <div style={{ padding: "48px", textAlign: "center" }}>
-        <div style={{ fontSize: "18px", color: "#dc2626", marginBottom: "16px" }}>
+      <div className="px-12 text-center">
+        <div className="text-lg text-red-600 mb-4">
           {error || "Email not found"}
         </div>
         <button
           onClick={handleBack}
-          style={{
-            padding: "10px 20px",
-            backgroundColor: "#3b82f6",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
+          className="px-5 py-2.5 bg-blue-600 text-white border-none rounded cursor-pointer hover:bg-blue-700"
         >
           Back to Inbox
         </button>
