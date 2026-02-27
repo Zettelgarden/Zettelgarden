@@ -882,49 +882,35 @@ func (h *Handler) ConvertEmailToCardRoute(w http.ResponseWriter, r *http.Request
 	var cardInternalID int
 	var cardID string
 
-	// If card_id provided, try to update existing card; otherwise create new with specified or generated ID
+	// If card_id provided, verify it doesn't exist before creating
 	if params.CardID != nil && *params.CardID != "" {
-		// Try to get the existing card by string card_id
-		partialCard, err := services.GetPartialCardByCardID(db, userID, *params.CardID)
+		// Check if a card with this ID already exists
+		_, err := services.GetPartialCardByCardID(db, userID, *params.CardID)
 		if err == nil {
-			// Card exists, update it
-			updateParams := models.EditCardParams{
-				CardID: *params.CardID,
-				Title:  params.Title,
-			}
-			if params.Body != nil {
-				updateParams.Body = *params.Body
-			}
-
-			_, err = services.UpdateCard(db, userID, partialCard.ID, updateParams)
-			if err != nil {
-				log.Printf("[email] failed to update card: %v", err)
-				http.Error(w, "Failed to update card", http.StatusInternalServerError)
-				return
-			}
-
-			cardInternalID = partialCard.ID
-			cardID = partialCard.CardID
-		} else {
-			// Card doesn't exist, create new card with the specified card_id
-			createParams := models.EditCardParams{
-				CardID: *params.CardID,
-				Title:  params.Title,
-			}
-			if params.Body != nil {
-				createParams.Body = *params.Body
-			}
-
-			card, err := services.CreateCard(db, userID, createParams)
-			if err != nil {
-				log.Printf("[email] failed to create card with specified ID: %v", err)
-				http.Error(w, "Failed to create card", http.StatusInternalServerError)
-				return
-			}
-
-			cardInternalID = card.ID
-			cardID = card.CardID
+			// Card already exists, return error
+			log.Printf("[email] card with ID %s already exists", *params.CardID)
+			http.Error(w, "A card with this ID already exists. Please choose a different ID.", http.StatusConflict)
+			return
 		}
+
+		// Card doesn't exist, create new card with the specified card_id
+		createParams := models.EditCardParams{
+			CardID: *params.CardID,
+			Title:  params.Title,
+		}
+		if params.Body != nil {
+			createParams.Body = *params.Body
+		}
+
+		card, err := services.CreateCard(db, userID, createParams)
+		if err != nil {
+			log.Printf("[email] failed to create card with specified ID: %v", err)
+			http.Error(w, "Failed to create card", http.StatusInternalServerError)
+			return
+		}
+
+		cardInternalID = card.ID
+		cardID = card.CardID
 	} else {
 		// Create new card - generate next root card ID
 		createParams := models.EditCardParams{
