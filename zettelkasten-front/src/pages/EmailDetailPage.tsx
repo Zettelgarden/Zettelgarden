@@ -467,70 +467,37 @@ export function EmailDetailPage() {
 
         {/* Attachments section */}
         {attachments.length > 0 && (
-          <div style={{ marginTop: "32px", paddingTop: "24px", borderTop: "1px solid #e5e7eb" }}>
-            <h3 style={{ fontSize: "16px", fontWeight: "600", color: "#111827", marginBottom: "16px" }}>
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <h3 className="text-base font-semibold text-gray-900 mb-4">
               Attachments ({attachments.length})
             </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div className="flex flex-col gap-3">
               {attachments.map((attachment) => (
                 <div
                   key={attachment.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "12px 16px",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                    backgroundColor: "#ffffff",
-                    transition: "all 0.15s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "#f9fafb";
-                    e.currentTarget.style.borderColor = "#d1d5db";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "#ffffff";
-                    e.currentTarget.style.borderColor = "#e5e7eb";
-                  }}
+                  className="flex items-center px-4 py-3 border rounded-lg bg-white transition-all duration-150 hover:bg-gray-50 hover:border-gray-300"
                 >
                   {/* Thumbnail or icon */}
-                  <div style={{ marginRight: "12px", flexShrink: 0 }}>
+                  <div className="mr-3 flex-shrink-0">
                     {attachment.is_image && attachment.thumbnail_url ? (
                       <img
                         src={attachment.thumbnail_url}
                         alt={attachment.filename}
-                        style={{
-                          width: "48px",
-                          height: "48px",
-                          objectFit: "cover",
-                          borderRadius: "4px",
-                          border: "1px solid #e5e7eb",
-                        }}
+                        className="w-12 h-12 object-cover rounded border border-gray-200"
                       />
                     ) : (
-                      <div
-                        style={{
-                          width: "48px",
-                          height: "48px",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          backgroundColor: "#f3f4f6",
-                          borderRadius: "4px",
-                          fontSize: "20px",
-                        }}
-                      >
+                      <div className="w-12 h-12 flex items-center justify-center bg-gray-100 rounded text-xl">
                         📎
                       </div>
                     )}
                   </div>
 
                   {/* File info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: "14px", fontWeight: "500", color: "#111827", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-900 mb-0.5 truncate">
                       {attachment.filename}
                     </div>
-                    <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                    <div className="text-xs text-gray-500">
                       {formatFileSize(attachment.size)}
                       {attachment.content_type && ` • ${attachment.content_type.split("/")[1]?.toUpperCase() || "FILE"}`}
                       {attachment.is_saved_to_vault && " • Saved to vault"}
@@ -538,29 +505,11 @@ export function EmailDetailPage() {
                   </div>
 
                   {/* Actions */}
-                  <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
+                  <div className="flex gap-2 flex-shrink-0">
                     <button
                       onClick={() => handleDownloadAttachment(attachment)}
                       title="Download attachment"
-                      style={{
-                        padding: "6px 12px",
-                        fontSize: "12px",
-                        fontWeight: "500",
-                        borderRadius: "6px",
-                        border: "1px solid #d1d5db",
-                        backgroundColor: "#ffffff",
-                        color: "#374151",
-                        cursor: "pointer",
-                        transition: "all 0.15s ease",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "#f9fafb";
-                        e.currentTarget.style.borderColor = "#9ca3af";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "#ffffff";
-                        e.currentTarget.style.borderColor = "#d1d5db";
-                      }}
+                      className="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 bg-white text-gray-700 cursor-pointer transition-all duration-150 hover:bg-gray-50 hover:border-gray-400"
                     >
                       Download
                     </button>
@@ -568,25 +517,7 @@ export function EmailDetailPage() {
                       <button
                         onClick={() => handleSaveAttachmentToVault(attachment.id)}
                         title="Save to file vault"
-                        style={{
-                          padding: "6px 12px",
-                          fontSize: "12px",
-                          fontWeight: "500",
-                          borderRadius: "6px",
-                          border: "1px solid #d1d5db",
-                          backgroundColor: "#ffffff",
-                          color: "#374151",
-                          cursor: "pointer",
-                          transition: "all 0.15s ease",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = "#eff6ff";
-                          e.currentTarget.style.borderColor = "#3b82f6";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = "#ffffff";
-                          e.currentTarget.style.borderColor = "#d1d5db";
-                        }}
+                        className="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 bg-white text-gray-700 cursor-pointer transition-all duration-150 hover:bg-blue-50 hover:border-blue-500"
                       >
                         Save to Vault
                       </button>
