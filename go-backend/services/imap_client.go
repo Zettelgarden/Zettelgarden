@@ -1136,13 +1136,98 @@ func (c *IMAPClient) convertIMAPToEmail(msg *imap.Message) models.Email {
 // convertIMAPToEmailWithAttachments converts an IMAP message to EmailWithAttachments
 // This includes the raw attachment data for upload to S3
 func (c *IMAPClient) convertIMAPToEmailWithAttachments(msg *imap.Message) EmailWithAttachments {
-	email := c.convertIMAPToEmail(msg)
+	// Call extractBodyText once to get both body content AND attachments
+	textBody, htmlBody, attachments, err := c.extractBodyText(msg)
 
-	// Extract attachments with data
-	_, _, rawAttachments, _ := c.extractBodyText(msg)
+	// Build the email object (similar to convertIMAPToEmail but using extracted data)
+	uid := int64(msg.Uid)
+	email := models.Email{
+		MessageID: fmt.Sprintf("imap-%d", msg.Uid),
+		Folder:    &c.mailbox,
+		IMAPUID:   &uid,
+		Status:    "unprocessed",
+	}
+
+	// Extract envelope
+	if msg.Envelope != nil {
+		if msg.Envelope.Subject != "" {
+			email.Subject = &msg.Envelope.Subject
+		}
+		if len(msg.Envelope.From) > 0 {
+			from := msg.Envelope.From[0]
+			if from.Address() != "" {
+				addr := from.Address()
+				email.FromAddress = &addr
+			}
+			if from.PersonalName != "" {
+				email.FromName = &msg.Envelope.From[0].PersonalName
+			}
+		}
+		if len(msg.Envelope.To) > 0 {
+			var toAddresses []string
+			for _, addr := range msg.Envelope.To {
+				if addr.PersonalName != "" {
+					toAddresses = append(toAddresses, fmt.Sprintf("%s <%s>", addr.PersonalName, addr.Address()))
+				} else {
+					toAddresses = append(toAddresses, addr.Address())
+				}
+			}
+			toStr := strings.Join(toAddresses, ", ")
+			email.ToAddresses = &toStr
+		}
+		if msg.Envelope.MessageId != "" {
+			email.MessageID = msg.Envelope.MessageId
+		}
+	}
+
+	// Extract internal date
+	if !msg.InternalDate.IsZero() {
+		email.ReceivedAt = &msg.InternalDate
+	}
+
+	// Check for \Seen flag
+	email.IsRead = false
+	for _, flag := range msg.Flags {
+		if flag == imap.SeenFlag {
+			email.IsRead = true
+			break
+		}
+	}
+
+	// Set body content from extractBodyText results
+	if textBody != "" {
+		email.BodyText = &textBody
+	}
+	if htmlBody != "" {
+		email.BodyHTML = &htmlBody
+	}
+
+	// Store attachments in email (convert services.EmailAttachment to models.EmailAttachment)
+	if len(attachments) > 0 {
+		modelAttachments := make([]models.EmailAttachment, len(attachments))
+		for i, att := range attachments {
+			var contentType *string
+			if att.ContentType != "" {
+				contentType = &att.ContentType
+			}
+			var contentID *string
+			if att.ContentID != "" {
+				contentID = &att.ContentID
+			}
+			size := att.Size
+			modelAttachments[i] = models.EmailAttachment{
+				Filename:    att.Filename,
+				ContentType: contentType,
+				ContentID:   contentID,
+				IsInline:    att.IsInline,
+				Size:        &size,
+			}
+		}
+		email.Attachments = modelAttachments
+	}
 
 	return EmailWithAttachments{
 		Email:       email,
-		Attachments: rawAttachments,
+		Attachments: attachments, // Keep the raw attachment data with S3 data
 	}
 }
