@@ -287,47 +287,13 @@ export function EmailDetailPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", backgroundColor: "#ffffff" }}>
+    <div className="flex flex-col h-screen bg-white">
       {/* Header */}
-      <div
-        style={{
-          borderBottom: "1px solid #e5e7eb",
-          backgroundColor: "#ffffff",
-          padding: "16px 24px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            width: "100%",
-          }}
-        >
+      <div className="border-b border-gray-200 bg-white px-6 py-4">
+        <div className="flex items-center justify-between w-full">
           <button
             onClick={handleBack}
-            style={{
-              padding: "8px 16px",
-              fontSize: "14px",
-              fontWeight: "500",
-              borderRadius: "8px",
-              border: "1px solid #d1d5db",
-              backgroundColor: "#ffffff",
-              color: "#374151",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              transition: "all 0.15s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "#f9fafb";
-              e.currentTarget.style.borderColor = "#9ca3af";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "#ffffff";
-              e.currentTarget.style.borderColor = "#d1d5db";
-            }}
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 cursor-pointer flex items-center gap-1.5 transition-all duration-150 hover:bg-gray-50 hover:border-gray-400"
           >
             ← Back to Inbox
           </button>
@@ -335,33 +301,13 @@ export function EmailDetailPage() {
           <button
             onClick={email.status === "archived" ? handleUnarchive : handleArchive}
             disabled={isArchiving}
-            style={{
-              padding: "8px 16px",
-              fontSize: "14px",
-              fontWeight: "500",
-              borderRadius: "8px",
-              border: "1px solid #d1d5db",
-              backgroundColor: isArchiving ? "#f3f4f6" : email.status === "archived" ? "#fef3c7" : "#ffffff",
-              color: isArchiving ? "#9ca3af" : email.status === "archived" ? "#92400e" : "#374151",
-              cursor: isArchiving ? "not-allowed" : "pointer",
-              opacity: isArchiving ? 0.6 : 1,
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              transition: "all 0.15s ease",
-            }}
-            onMouseEnter={(e) => {
-              if (!isArchiving) {
-                e.currentTarget.style.backgroundColor = email.status === "archived" ? "#fde68a" : "#f9fafb";
-                e.currentTarget.style.borderColor = "#9ca3af";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isArchiving) {
-                e.currentTarget.style.backgroundColor = email.status === "archived" ? "#fef3c7" : "#ffffff";
-                e.currentTarget.style.borderColor = "#d1d5db";
-              }
-            }}
+            className={`px-4 py-2 text-sm font-medium rounded-lg border flex items-center gap-1.5 transition-all duration-150 ${
+              isArchiving
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60 border-gray-300"
+                : email.status === "archived"
+                  ? "bg-yellow-50 text-yellow-800 border-yellow-200 hover:bg-yellow-100 hover:border-yellow-300 cursor-pointer"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 cursor-pointer"
+            }`}
           >
             {isArchiving ? (
               "..."
@@ -374,28 +320,11 @@ export function EmailDetailPage() {
 
           <button
             onClick={handleConvertEmail}
-            style={{
-              padding: "8px 16px",
-              fontSize: "14px",
-              fontWeight: "500",
-              borderRadius: "8px",
-              border: "1px solid #d1d5db",
-              backgroundColor: email.card_id ? "#d1fae5" : "#ffffff",
-              color: email.card_id ? "#065f46" : "#374151",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              transition: "all 0.15s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = email.card_id ? "#a7f3d0" : "#f9fafb";
-              e.currentTarget.style.borderColor = "#9ca3af";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = email.card_id ? "#d1fae5" : "#ffffff";
-              e.currentTarget.style.borderColor = "#d1d5db";
-            }}
+            className={`px-4 py-2 text-sm font-medium rounded-lg border flex items-center gap-1.5 transition-all duration-150 cursor-pointer ${
+              email.card_id
+                ? "bg-green-100 text-green-800 border-green-200 hover:bg-green-200 hover:border-green-300"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+            }`}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -406,28 +335,7 @@ export function EmailDetailPage() {
 
           <button
             onClick={handleCreateTaskFromEmail}
-            style={{
-              padding: "8px 16px",
-              fontSize: "14px",
-              fontWeight: "500",
-              borderRadius: "8px",
-              border: "1px solid #d1d5db",
-              backgroundColor: "#ffffff",
-              color: "#374151",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              transition: "all 0.15s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "#f9fafb";
-              e.currentTarget.style.borderColor = "#9ca3af";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "#ffffff";
-              e.currentTarget.style.borderColor = "#d1d5db";
-            }}
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 cursor-pointer flex items-center gap-1.5 transition-all duration-150 hover:bg-gray-50 hover:border-gray-400"
           >
             ✚ Create Task
           </button>
@@ -435,34 +343,14 @@ export function EmailDetailPage() {
           <button
             onClick={handleExtractFacts}
             disabled={isExtractingFacts}
-            style={{
-              padding: "8px 16px",
-              fontSize: "14px",
-              fontWeight: "500",
-              borderRadius: "8px",
-              border: isProUser ? "1px solid #d1d5db" : "1px solid #fbbf24",
-              backgroundColor: isExtractingFacts ? "#f3f4f6" : isProUser ? "#ffffff" : "#fef3c7",
-              color: isExtractingFacts ? "#9ca3af" : isProUser ? "#374151" : "#92400e",
-              cursor: isExtractingFacts ? "not-allowed" : "pointer",
-              opacity: isExtractingFacts ? 0.6 : 1,
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              transition: "all 0.15s ease",
-            }}
-            onMouseEnter={(e) => {
-              if (!isExtractingFacts) {
-                e.currentTarget.style.backgroundColor = isProUser ? "#f9fafb" : "#fde68a";
-                e.currentTarget.style.borderColor = isProUser ? "#9ca3af" : "#f59e0b";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isExtractingFacts) {
-                e.currentTarget.style.backgroundColor = isProUser ? "#ffffff" : "#fef3c7";
-                e.currentTarget.style.borderColor = isProUser ? "#d1d5db" : "#fbbf24";
-              }
-            }}
             title={isProUser ? "Extract facts from email using AI" : "PRO feature: Extract facts from email using AI"}
+            className={`px-4 py-2 text-sm font-medium rounded-lg border flex items-center gap-1.5 transition-all duration-150 ${
+              isExtractingFacts
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60 border-gray-300"
+                : isProUser
+                  ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 cursor-pointer"
+                  : "bg-yellow-50 text-yellow-800 border-yellow-400 hover:bg-yellow-100 hover:border-yellow-500 cursor-pointer"
+            }`}
           >
             {isExtractingFacts ? (
               "..."
