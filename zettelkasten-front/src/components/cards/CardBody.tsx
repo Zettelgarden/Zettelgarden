@@ -1,5 +1,5 @@
 import Markdown from "react-markdown";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { downloadFile } from "../../api/files";
 import { Card, Entity } from "../../models/Card";
 import { fetchSpreadsheets } from "../../api/spreadsheets";
@@ -181,25 +181,39 @@ function preprocessEntities(body: string, entities?: Entity[]): string {
   return result;
 }
 
-const CustomImageRenderer: React.FC<CustomImageRendererProps> = ({
+// Module-level cache for blob URLs to prevent re-downloading images on re-renders
+const blobUrlCache = new Map<string, string>();
+
+const CustomImageRenderer: React.FC<CustomImageRendererProps> = React.memo(({
   src,
   alt,
   title,
 }) => {
-  const [imageSrc, setImageSrc] = useState<string>("");
+  const [imageSrc, setImageSrc] = useState<string>(() => {
+    // Initialize from cache if available
+    return src ? (blobUrlCache.get(src) || "") : "";
+  });
 
   useEffect(() => {
-    if (src) {
-      downloadFile(src)
-        .then((blobUrl) => {
-          if (blobUrl) {
-            setImageSrc(blobUrl);
-          }
-        })
-        .catch((error) => {
-          console.error("Error fetching image:", error);
-        });
+    if (!src) return;
+
+    // Use cached blob URL if available
+    const cached = blobUrlCache.get(src);
+    if (cached) {
+      setImageSrc(cached);
+      return;
     }
+
+    downloadFile(src)
+      .then((blobUrl) => {
+        if (blobUrl) {
+          blobUrlCache.set(src, blobUrl);
+          setImageSrc(blobUrl);
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching image:", error);
+      });
   }, [src]);
 
   if (!imageSrc) {
@@ -215,27 +229,29 @@ const CustomImageRenderer: React.FC<CustomImageRendererProps> = ({
       onClick={() => console.log(`Image clicked: ${src}`)}
     />
   );
-};
+});
 
-function renderCardTextWithDialog(
-  card: Card,
-  activeCard: Card,
-  handleViewBacklink: (card_id: number) => void,
-  entities?: Entity[],
-  onCardBodyChange?: (newBody: string) => void,
-  spreadsheets?: Record<number, SpreadsheetData>
-) {
-  const [isEntityDialogOpen, setIsEntityDialogOpen] = React.useState(false);
-
-
+function CardMarkdownWithDialog({
+  card,
+  activeCard,
+  handleViewBacklink,
+  entities,
+  onCardBodyChange,
+  spreadsheets,
+}: {
+  card: Card;
+  activeCard: Card;
+  handleViewBacklink: (card_id: number) => void;
+  entities?: Entity[];
+  onCardBodyChange?: (newBody: string) => void;
+  spreadsheets?: Record<number, SpreadsheetData>;
+}) {
   const {
-    showEntityDialog,
     setShowEntityDialog,
-    selectedEntity,
     setSelectedEntity,
   } = useDialogState();
 
-  async function handleEntityClickById(id: string, name: string) {
+  const handleEntityClickById = React.useCallback(async (id: string, name: string) => {
     try {
       const entity = await fetchEntityById(Number(id));
       setSelectedEntity(entity);
@@ -255,17 +271,36 @@ function renderCardTextWithDialog(
       setSelectedEntity(fallbackEntity);
     }
     setShowEntityDialog(true);
-  }
+  }, [setSelectedEntity, setShowEntityDialog]);
 
-  const markdown = renderCardText(card, activeCard, handleViewBacklink, entities, handleEntityClickById as any, onCardBodyChange, spreadsheets);
-  return (
-    <>
-      {markdown}
-    </>
-  );
+  return useCardMarkdown(card, activeCard, handleViewBacklink, entities, handleEntityClickById, onCardBodyChange, spreadsheets);
 }
 
-function renderCardText(
+// Custom component for inline code only
+const CustomCode = ({ node, inline, className, children, ...props }: any) => {
+  return (
+    <code
+      className="bg-gray-100 px-1 rounded font-mono text-sm not-prose"
+      style={{ display: 'inline', whiteSpace: 'nowrap' }}
+      {...props}
+    >
+      {children}
+    </code>
+  );
+};
+
+// Custom component for code blocks (pre)
+const CustomPre = ({ children, ...props }: any) => {
+  return (
+    <pre className="bg-gray-50 p-3 rounded overflow-x-auto text-gray-800" {...props}>
+      {children}
+    </pre>
+  );
+};
+
+const remarkPlugins = [remarkGfm, remarkTaskQuery, remarkEntity, remarkSchemaTable, remarkSpreadsheet];
+
+function useCardMarkdown(
   card: Card,
   activeCard: Card,
   handleViewBacklink: (card_id: number) => void,
@@ -274,156 +309,102 @@ function renderCardText(
   onCardBodyChange?: (newBody: string) => void,
   spreadsheets?: Record<number, SpreadsheetData>
 ) {
-
   // Preprocess task queries first, then card links, then schema tables, then entities
-  let processedBody = preprocessTaskQueries(activeCard.body);
-  processedBody = preprocessCardLinks(processedBody);
-  processedBody = preprocessSchemaTables(processedBody);
-  processedBody = preprocessEntities(processedBody, entities);
+  const processedBody = useMemo(() => {
+    let body = preprocessTaskQueries(activeCard.body);
+    body = preprocessCardLinks(body);
+    body = preprocessSchemaTables(body);
+    body = preprocessEntities(body, entities);
+    return body;
+  }, [activeCard.body, entities]);
 
-  // Custom component for inline code only
-  const CustomCode = ({ node, inline, className, children, ...props }: any) => {
-    return (
-      <code
-        className="bg-gray-100 px-1 rounded font-mono text-sm not-prose"
-        style={{ display: 'inline', whiteSpace: 'nowrap' }}
-        {...props}
-      >
-        {children}
-      </code>
-    );
-  };
+  // Memoize the components object so React doesn't unmount/remount on every render
+  const components = useMemo(() => ({
+    code: CustomCode,
+    pre: CustomPre,
+    a({ children, href, ...props }: any) {
+      if (href === "#") {
+        const cardId = children as string;
+        return (
+          <CardLinkWithPreview
+            currentCard={card}
+            card_id={cardId}
+            handleViewBacklink={handleViewBacklink}
+          />
+        );
+      }
+      return (
+        <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+          {children}
+        </a>
+      );
+    },
+    h1({ children }: any) { return (<H1 children={children as string} />) },
+    h2({ children }: any) { return (<H2 children={children as string} />) },
+    h3({ children }: any) { return (<H3 children={children as string} />) },
+    h4({ children }: any) { return (<H4 children={children as string} />) },
+    h5({ children }: any) { return (<H5 children={children as string} />) },
+    h6({ children }: any) { return (<H6 children={children as string} />) },
+    table({ children, ...props }: any) { return <Table {...props}>{children}</Table>; },
+    thead({ children, ...props }: any) { return <TableHead {...props}>{children}</TableHead>; },
+    tbody({ children, ...props }: any) { return <TableBody {...props}>{children}</TableBody>; },
+    tr({ children, ...props }: any) { return <TableRow {...props}>{children}</TableRow>; },
+    th({ children, ...props }: any) { return <TableHeader {...props}>{children}</TableHeader>; },
+    td({ children, ...props }: any) { return <TableCell {...props}>{children}</TableCell>; },
+    span: ({ node, children, ...props }: any) => {
+      const propsData = (node as any).properties || {};
+      if (propsData.className === "entity" || propsData["data-id"]) {
+        const id = propsData["data-id"];
+        const name = propsData["data-name"] || children;
+        return (
+          <span
+            style={{ backgroundColor: "#fff9c4", cursor: "pointer" }}
+            onClick={() => onEntityClick?.(id, name)}
+          >
+            {name}
+          </span>
+        );
+      }
+      return <span {...props}>{children}</span>;
+    },
+    img({ src, alt, title, ...props }: any) {
+      return (
+        <CustomImageRenderer src={src} alt={alt} title={title} {...props} />
+      );
+    },
+    div: ({ node, children, ...props }: any) => {
+      const propsData = (node as any).properties || {};
 
-  // Custom component for code blocks (pre)
-  const CustomPre = ({ children, ...props }: any) => {
-    return (
-      <pre className="bg-gray-50 p-3 rounded overflow-x-auto text-gray-800" {...props}>
-        {children}
-      </pre>
-    );
-  };
+      if (propsData.className === "task-query-container" || propsData["data-query"] !== undefined) {
+        const query = propsData["data-query"] || "";
+        return <DynamicTaskList query={query} />;
+      }
+
+      if (propsData.className === "schema-table-container" || propsData["data-schema-id"] !== undefined || propsData["data-schema-ref"] !== undefined) {
+        const schemaRef = propsData["data-schema-ref"] || propsData["data-schema-id"] || "";
+        const columns = propsData["data-columns"];
+        const filters = propsData["data-filters"];
+        return <DynamicSchemaTable schemaRef={schemaRef} columns={columns} filters={filters} />;
+      }
+
+      if (propsData.className === "spreadsheet-container" || propsData["data-spreadsheet-id"] !== undefined) {
+        const spreadsheetId = parseInt(propsData["data-spreadsheet-id"] || "0", 10);
+        const initialData = spreadsheets?.[spreadsheetId];
+        if (!initialData) {
+          return <div className="p-4 text-gray-500">Loading spreadsheet...</div>;
+        }
+        return <DynamicSpreadsheet id={spreadsheetId} initialData={initialData} />;
+      }
+
+      return <div {...props}>{children}</div>;
+    },
+  }), [card, handleViewBacklink, onEntityClick, spreadsheets]);
 
   return (
     <Markdown
       children={processedBody}
-      remarkPlugins={[remarkGfm, remarkTaskQuery, remarkEntity, remarkSchemaTable, remarkSpreadsheet]}
-      components={{
-        // Add our custom components for code
-        code: CustomCode,
-        pre: CustomPre,
-        a({ children, href, ...props }) {
-          // For internal links, href will be "#" and children will be the card ID
-          if (href === "#") {
-            const cardId = children as string;
-            return (
-              <CardLinkWithPreview
-                currentCard={card}
-                card_id={cardId}
-                handleViewBacklink={handleViewBacklink}
-              />
-            );
-          }
-          // For external links, render a regular anchor tag
-          else {
-            return (
-              <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
-                {children}
-              </a>
-            );
-          }
-        },
-        h1({ children, ...props }) {
-          return (<H1 children={children as string} />)
-        },
-        h2({ children, ...props }) {
-          return (<H2 children={children as string} />)
-        },
-        h3({ children, ...props }) {
-          return (<H3 children={children as string} />)
-        },
-        h4({ children, ...props }) {
-          return (<H4 children={children as string} />)
-        },
-        h5({ children, ...props }) {
-          return (<H5 children={children as string} />)
-        },
-        h6({ children, ...props }) {
-          return (<H6 children={children as string} />)
-        },
-        // Table components
-        table({ children, ...props }) {
-          return <Table {...props}>{children}</Table>;
-        },
-        thead({ children, ...props }) {
-          return <TableHead {...props}>{children}</TableHead>;
-        },
-        tbody({ children, ...props }) {
-          return <TableBody {...props}>{children}</TableBody>;
-        },
-        tr({ children, ...props }) {
-          return <TableRow {...props}>{children}</TableRow>;
-        },
-        th({ children, ...props }) {
-          return <TableHeader {...props}>{children}</TableHeader>;
-        },
-        td({ children, ...props }) {
-          return <TableCell {...props}>{children}</TableCell>;
-        },
-        span: ({ node, children, ...props }) => {
-          const propsData = (node as any).properties || {};
-          if (propsData.className === "entity" || propsData["data-id"]) {
-            const id = propsData["data-id"];
-            const name = propsData["data-name"] || children;
-            return (
-              <span
-                style={{ backgroundColor: "#fff9c4", cursor: "pointer" }}
-                onClick={() => onEntityClick?.(id, name)}
-              >
-                {name}
-              </span>
-            );
-          }
-          return <span {...props}>{children}</span>;
-        },
-        img({ src, alt, title, ...props }) {
-          return (
-            <CustomImageRenderer src={src} alt={alt} title={title} {...props} />
-          );
-        },
-        div: ({ node, children, ...props }) => {
-          const propsData = (node as any).properties || {};
-
-          // Check if this is a task query container
-          if (propsData.className === "task-query-container" || propsData["data-query"] !== undefined) {
-            const query = propsData["data-query"] || "";
-            return <DynamicTaskList query={query} />;
-          }
-
-          // Check if this is a schema table container
-          // Support both old data-schema-id (ID) and new data-schema-ref (ID or slug)
-          if (propsData.className === "schema-table-container" || propsData["data-schema-id"] !== undefined || propsData["data-schema-ref"] !== undefined) {
-            const schemaRef = propsData["data-schema-ref"] || propsData["data-schema-id"] || "";
-            const columns = propsData["data-columns"];
-            const filters = propsData["data-filters"];
-            return <DynamicSchemaTable schemaRef={schemaRef} columns={columns} filters={filters} />;
-          }
-
-          // Check if this is a spreadsheet container
-          if (propsData.className === "spreadsheet-container" || propsData["data-spreadsheet-id"] !== undefined) {
-            const spreadsheetId = parseInt(propsData["data-spreadsheet-id"] || "0", 10);
-            const initialData = spreadsheets?.[spreadsheetId];
-
-            if (!initialData) {
-              return <div className="p-4 text-gray-500">Loading spreadsheet...</div>;
-            }
-
-            return <DynamicSpreadsheet id={spreadsheetId} initialData={initialData} />;
-          }
-
-          // Default div rendering
-          return <div {...props}>{children}</div>;
-        },
-      }}
+      remarkPlugins={remarkPlugins}
+      components={components}
     />
   );
 }
@@ -493,15 +474,22 @@ export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities, onSav
           maxHeight: isCollapsed && shouldShowToggle ? `${HEIGHT_THRESHOLD}px` : 'none'
         }}
       >
-        {renderCardTextWithDialog(activeCard, activeCard, handleCardClick, entities, (newBody) => {
-          const updatedCard = { ...activeCard, body: newBody };
-          if (cardEditorContext?.setEditingCard) {
-            cardEditorContext.setEditingCard(updatedCard);
-          }
-          if (onSave) {
-            onSave(updatedCard);
-          }
-        }, spreadsheets)}
+        <CardMarkdownWithDialog
+          card={activeCard}
+          activeCard={activeCard}
+          handleViewBacklink={handleCardClick}
+          entities={entities}
+          onCardBodyChange={(newBody) => {
+            const updatedCard = { ...activeCard, body: newBody };
+            if (cardEditorContext?.setEditingCard) {
+              cardEditorContext.setEditingCard(updatedCard);
+            }
+            if (onSave) {
+              onSave(updatedCard);
+            }
+          }}
+          spreadsheets={spreadsheets}
+        />
       </div>
 
       {/* Gradient fade effect when collapsed */}
