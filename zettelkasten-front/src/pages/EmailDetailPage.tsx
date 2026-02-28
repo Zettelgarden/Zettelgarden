@@ -300,7 +300,7 @@ export function EmailDetailPage() {
               Date:
             </span>
             <span className="ml-2 text-base text-gray-800">
-              {formatDate(email.received_at)}
+              {formatDate(email.received_at || email.created_at)}
             </span>
           </div>
 
