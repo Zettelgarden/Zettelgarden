@@ -260,10 +260,6 @@ func (h *Handler) SyncEmailAccountRoute(w http.ResponseWriter, r *http.Request) 
 
 	log.Printf("[email-sync] fetched %d emails for account %d", len(emails), accountID)
 
-	// Create S3 attachment handler for file uploads
-	s3Handler := &S3AttachmentHandler{h: h}
-	attachmentService := services.NewEmailAttachmentService(db, s3Handler, userID)
-
 	// Store emails in database
 	storedCount := 0
 	for _, emailWithAtt := range emails {
@@ -272,42 +268,10 @@ func (h *Handler) SyncEmailAccountRoute(w http.ResponseWriter, r *http.Request) 
 		email.EmailAccountID = &accountID
 
 		// Create email (upsert logic handles duplicates)
-		storedEmail, err := emailService.CreateEmail(context.Background(), email)
+		_, err := emailService.CreateEmail(context.Background(), email)
 		if err != nil {
 			log.Printf("[email-sync] warning: failed to store email %s: %v", email.MessageID, err)
 			continue
-		}
-
-		// Process attachments: upload to S3 and automatically save to file vault
-		for _, att := range emailWithAtt.Attachments {
-			// Skip inline attachments (they're embedded in HTML)
-			if att.IsInline {
-				continue
-			}
-
-			// Upload attachment to S3 and create email_attachment record
-			createdAtt, err := attachmentService.CreateAttachmentWithData(
-				context.Background(),
-				storedEmail.ID,
-				att.Filename,
-				att.ContentType,
-				att.ContentID,
-				att.IsInline,
-				att.Data,
-			)
-			if err != nil {
-				log.Printf("[email-sync] warning: failed to save attachment %s: %v", att.Filename, err)
-				continue
-			}
-
-			// Automatically save to file vault
-			_, err = attachmentService.SaveToFileVault(context.Background(), userID, createdAtt.ID, nil)
-			if err != nil {
-				log.Printf("[email-sync] warning: failed to save attachment %s to vault: %v", att.Filename, err)
-				// Continue anyway - attachment is stored in S3
-			} else {
-				log.Printf("[email-sync] automatically saved attachment %s to file vault", att.Filename)
-			}
 		}
 
 		storedCount++
@@ -345,35 +309,9 @@ func (h *Handler) SyncEmailAccountRoute(w http.ResponseWriter, r *http.Request) 
 				} else {
 					totalEmails++
 
-					// Process attachments for archive emails
-					for _, att := range emailWithAtt.Attachments {
-						if att.IsInline {
-							continue
-						}
-
-						// Upload attachment to S3 and create email_attachment record
-						createdAtt, err := attachmentService.CreateAttachmentWithData(
-							context.Background(),
-							storedEmail.ID,
-							att.Filename,
-							att.ContentType,
-							att.ContentID,
-							att.IsInline,
-							att.Data,
-						)
-						if err != nil {
-							log.Printf("[email-sync] warning: failed to save archive attachment %s: %v", att.Filename, err)
-							continue
-						}
-
-						// Automatically save to file vault
-						_, err = attachmentService.SaveToFileVault(context.Background(), userID, createdAtt.ID, nil)
-						if err != nil {
-							log.Printf("[email-sync] warning: failed to save archive attachment %s to vault: %v", att.Filename, err)
-						} else {
-							log.Printf("[email-sync] automatically saved archive attachment %s to file vault", att.Filename)
-						}
-					}
+					// Attachment syncing disabled
+					_ = emailWithAtt.Attachments
+					_ = storedEmail
 				}
 			}
 			log.Printf("[email-sync] synced %d emails from %s for account %d", len(archiveMailEmails), archiveFolder, accountID)

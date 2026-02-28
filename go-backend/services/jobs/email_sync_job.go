@@ -246,62 +246,16 @@ func (j *EmailSyncJob) syncFolder(ctx context.Context, account emailAccount, cli
 		return 0, fmt.Errorf("failed to fetch emails: %w", err)
 	}
 
-	// Create S3 attachment handler if uploader is available
-	var attachmentService *services.EmailAttachmentService
-	if j.s3Uploader != nil {
-		log.Printf("[email-sync] S3 uploader is configured for account %d", account.ID)
-		s3Handler := &jobS3Handler{uploader: j.s3Uploader}
-		attachmentService = services.NewEmailAttachmentService(j.db, s3Handler, account.UserID)
-	} else {
-		log.Printf("[email-sync] WARNING: S3 uploader is NOT configured for account %d - attachments will not be saved", account.ID)
-	}
-
-	// Store emails and process attachments
+	// Store emails (attachment syncing disabled)
 	for _, emailWithAtt := range emails {
 		email := emailWithAtt.Email
 		email.UserID = account.UserID
 		email.EmailAccountID = &account.ID
 
-		storedEmail, err := emailService.CreateEmail(ctx, email)
+		_, err := emailService.CreateEmail(ctx, email)
 		if err != nil {
 			log.Printf("[email-sync] failed to store email %s for account %d: %v", email.MessageID, account.ID, err)
 			continue
-		}
-
-		// Process attachments if S3 uploader is available
-		if len(emailWithAtt.Attachments) > 0 {
-			log.Printf("[email-sync] email %s has %d attachments", email.MessageID, len(emailWithAtt.Attachments))
-		}
-		if attachmentService != nil && len(emailWithAtt.Attachments) > 0 {
-			for _, att := range emailWithAtt.Attachments {
-				// Skip inline attachments (embedded images in HTML)
-				if att.IsInline {
-					continue
-				}
-
-				// Upload attachment to S3 and create email_attachment record
-				createdAtt, err := attachmentService.CreateAttachmentWithData(
-					ctx,
-					storedEmail.ID,
-					att.Filename,
-					att.ContentType,
-					att.ContentID,
-					att.IsInline,
-					att.Data,
-				)
-				if err != nil {
-					log.Printf("[email-sync] warning: failed to save attachment %s: %v", att.Filename, err)
-					continue
-				}
-
-				// Automatically save to file vault
-				_, err = attachmentService.SaveToFileVault(ctx, account.UserID, createdAtt.ID, nil)
-				if err != nil {
-					log.Printf("[email-sync] warning: failed to save attachment %s to vault: %v", att.Filename, err)
-				} else {
-					log.Printf("[email-sync] automatically saved attachment %s to file vault", att.Filename)
-				}
-			}
 		}
 	}
 
