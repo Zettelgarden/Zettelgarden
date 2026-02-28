@@ -2,6 +2,20 @@ import "@testing-library/jest-dom";
 import { afterAll, beforeAll, vi } from "vitest";
 import DOMPurify from "dompurify";
 
+// Suppress known happy-dom bug: DOMParser triggers an unhandled rejection
+// from HTMLIFrameElement internals ("Cannot read properties of null (reading 'console')")
+// See: https://github.com/nicedoc/html-encoding-sniffer/issues/1
+process.on("unhandledRejection", (reason) => {
+  if (
+    reason instanceof TypeError &&
+    reason.message.includes("reading 'console'") &&
+    reason.stack?.includes("HTMLIFrameElement")
+  ) {
+    return;
+  }
+  throw reason;
+});
+
 // Initialize DOMPurify with the test environment's window
 if (typeof window !== "undefined") {
   DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {

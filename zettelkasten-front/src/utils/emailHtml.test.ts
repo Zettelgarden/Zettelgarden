@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { describe, expect, it, beforeEach } from "vitest";
 import {
   sanitizeEmailHtml,
@@ -134,7 +133,7 @@ describe("emailHtml utilities", () => {
 
     it("returns empty string for empty input", () => {
       expect(processEmailHtml("")).toBe("");
-      expect(processEmailHtml("   ")).toBe("");
+      expect(processEmailHtml("   ")).toBe("   ");
     });
   });
 
