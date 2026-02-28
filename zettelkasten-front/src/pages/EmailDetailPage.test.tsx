@@ -3,6 +3,21 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { EmailDetailPage } from "./EmailDetailPage";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+// Mock the auth context
+vi.mock("../contexts/AuthContext", () => ({
+  useAuth: () => ({
+    isAuthenticated: true,
+    isLoading: false,
+    isAdmin: false,
+    hasSubscription: false,
+    loginUser: vi.fn(),
+    loginUserFromToken: vi.fn(),
+    logoutUser: vi.fn(),
+    currentUser: { id: 1, username: "testuser" },
+    user: { id: 1, username: "testuser" },
+    updateUser: vi.fn(),
+  }),
+}));
 
 // Mock the email API
 vi.mock("../api/email", () => ({
