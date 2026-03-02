@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/nick-zettelgarden/zg/internal/cmd"
 )
 
 var rootCmd = &cobra.Command{
@@ -14,6 +15,9 @@ var rootCmd = &cobra.Command{
 }
 
 func main() {
+	// Add card commands
+	rootCmd.AddCommand(cmd.GetCardCmd())
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
