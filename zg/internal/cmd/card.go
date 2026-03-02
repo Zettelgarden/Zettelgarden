@@ -35,8 +35,24 @@ var cardGetCmd = &cobra.Command{
 	RunE:  runCardGet,
 }
 
+var cardListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List cards",
+	RunE:  runCardList,
+}
+
+var (
+	listLimit   int
+	listOffset  int
+	listStarred bool
+)
+
 func init() {
 	cardCmd.AddCommand(cardGetCmd)
+	cardListCmd.Flags().IntVarP(&listLimit, "limit", "l", 20, "Limit results")
+	cardListCmd.Flags().IntVarP(&listOffset, "offset", "o", 0, "Offset results")
+	cardListCmd.Flags().BoolVar(&listStarred, "starred", false, "Show only starred cards")
+	cardCmd.AddCommand(cardListCmd)
 }
 
 func runCardGet(cmd *cobra.Command, args []string) error {
@@ -71,6 +87,53 @@ func runCardGet(cmd *cobra.Command, args []string) error {
 	}
 
 	return output.WriteSuccess(os.Stdout, card)
+}
+
+func runCardList(cmd *cobra.Command, args []string) error {
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+
+	url := fmt.Sprintf("/api/user/cards?limit=%d&offset=%d", listLimit, listOffset)
+	if listStarred {
+		url += "&starred=true"
+	}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	body, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
+	}
+
+	// Parse paginated response
+	var result struct {
+		Cards  []Card `json:"cards"`
+		Total  int    `json:"total"`
+		Limit  int    `json:"limit"`
+		Offset int    `json:"offset"`
+	}
+
+	if err := json.Unmarshal(body, &result); err != nil {
+		// Try direct array parse
+		var cards []Card
+		if err2 := json.Unmarshal(body, &cards); err2 == nil {
+			return output.WriteSuccess(os.Stdout, cards)
+		}
+		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+
+	return output.WriteList(os.Stdout, result.Cards, result.Total, result.Limit, result.Offset)
 }
 
 func loadConfig() (*config.Config, error) {
