@@ -47,6 +47,13 @@ var cardCreateCmd = &cobra.Command{
 	RunE:  runCardCreate,
 }
 
+var cardUpdateCmd = &cobra.Command{
+	Use:   "update <id>",
+	Short: "Update a card",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runCardUpdate,
+}
+
 var (
 	listLimit   int
 	listOffset  int
@@ -55,6 +62,10 @@ var (
 	createTitle string
 	createBody  string
 	createLink  string
+
+	updateTitle string
+	updateBody  string
+	updateLink  string
 )
 
 func init() {
@@ -69,6 +80,11 @@ func init() {
 	cardCreateCmd.Flags().StringVarP(&createLink, "link", "l", "", "URL link")
 	cardCreateCmd.MarkFlagRequired("title")
 	cardCmd.AddCommand(cardCreateCmd)
+
+	cardUpdateCmd.Flags().StringVarP(&updateTitle, "title", "t", "", "New title")
+	cardUpdateCmd.Flags().StringVarP(&updateBody, "body", "b", "", "New body")
+	cardUpdateCmd.Flags().StringVarP(&updateLink, "link", "l", "", "New link")
+	cardCmd.AddCommand(cardUpdateCmd)
 }
 
 func runCardGet(cmd *cobra.Command, args []string) error {
@@ -194,6 +210,55 @@ func runCardCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	return output.WriteSuccess(os.Stdout, card)
+}
+
+func runCardUpdate(cmd *cobra.Command, args []string) error {
+	cardID, err := strconv.Atoi(args[0])
+	if err != nil {
+		return output.WriteError(os.Stdout, "Invalid card ID", "ID must be a number")
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	requestBody := map[string]any{}
+	if updateTitle != "" {
+		requestBody["title"] = updateTitle
+	}
+	if updateBody != "" {
+		requestBody["body"] = updateBody
+	}
+	if updateLink != "" {
+		requestBody["link"] = updateLink
+	}
+
+	if len(requestBody) == 0 {
+		return output.WriteError(os.Stdout, "No updates", "Specify at least one field")
+	}
+
+	bodyBytes, err := json.Marshal(requestBody)
+	if err != nil {
+		return output.WriteError(os.Stdout, "JSON encode error", err.Error())
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Put(fmt.Sprintf("/api/user/cards/%d", cardID), bodyBytes)
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	respBody, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(respBody))
+	}
+
+	return output.WriteSuccess(os.Stdout, map[string]any{"message": "Card updated"})
 }
 
 func loadConfig() (*config.Config, error) {
