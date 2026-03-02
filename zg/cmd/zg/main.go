@@ -17,6 +17,8 @@ var rootCmd = &cobra.Command{
 func main() {
 	// Add card commands
 	rootCmd.AddCommand(cmd.GetCardCmd())
+	// Add task commands
+	rootCmd.AddCommand(cmd.GetTaskCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
