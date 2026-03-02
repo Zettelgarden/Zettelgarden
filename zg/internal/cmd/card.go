@@ -61,6 +61,13 @@ var cardDeleteCmd = &cobra.Command{
 	RunE:  runCardDelete,
 }
 
+var cardSearchCmd = &cobra.Command{
+	Use:   "search <query>",
+	Short: "Search cards",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runCardSearch,
+}
+
 var (
 	listLimit   int
 	listOffset  int
@@ -73,6 +80,9 @@ var (
 	updateTitle string
 	updateBody  string
 	updateLink  string
+
+	searchFullText bool
+	searchLimit    int
 )
 
 func init() {
@@ -94,6 +104,10 @@ func init() {
 	cardCmd.AddCommand(cardUpdateCmd)
 
 	cardCmd.AddCommand(cardDeleteCmd)
+
+	cardSearchCmd.Flags().BoolVarP(&searchFullText, "full-text", "f", false, "Search in body too")
+	cardSearchCmd.Flags().IntVarP(&searchLimit, "limit", "l", 20, "Limit results")
+	cardCmd.AddCommand(cardSearchCmd)
 }
 
 func runCardGet(cmd *cobra.Command, args []string) error {
@@ -293,6 +307,41 @@ func runCardDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	return output.WriteSuccess(os.Stdout, map[string]any{"message": "Card deleted"})
+}
+
+func runCardSearch(cmd *cobra.Command, args []string) error {
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	query := args[0]
+	url := fmt.Sprintf("/api/user/search?query=%s&limit=%d", query, searchLimit)
+	if searchFullText {
+		url += "&full_text=true"
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Get(url)
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	body, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
+	}
+
+	var cards []Card
+	if err := json.Unmarshal(body, &cards); err != nil {
+		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+
+	return output.WriteSuccess(os.Stdout, cards)
 }
 
 func loadConfig() (*config.Config, error) {
