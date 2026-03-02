@@ -41,10 +41,20 @@ var cardListCmd = &cobra.Command{
 	RunE:  runCardList,
 }
 
+var cardCreateCmd = &cobra.Command{
+	Use:   "create",
+	Short: "Create a new card",
+	RunE:  runCardCreate,
+}
+
 var (
 	listLimit   int
 	listOffset  int
 	listStarred bool
+
+	createTitle string
+	createBody  string
+	createLink  string
 )
 
 func init() {
@@ -53,6 +63,12 @@ func init() {
 	cardListCmd.Flags().IntVarP(&listOffset, "offset", "o", 0, "Offset results")
 	cardListCmd.Flags().BoolVar(&listStarred, "starred", false, "Show only starred cards")
 	cardCmd.AddCommand(cardListCmd)
+
+	cardCreateCmd.Flags().StringVarP(&createTitle, "title", "t", "", "Card title (required)")
+	cardCreateCmd.Flags().StringVarP(&createBody, "body", "b", "", "Card body content")
+	cardCreateCmd.Flags().StringVarP(&createLink, "link", "l", "", "URL link")
+	cardCreateCmd.MarkFlagRequired("title")
+	cardCmd.AddCommand(cardCreateCmd)
 }
 
 func runCardGet(cmd *cobra.Command, args []string) error {
@@ -134,6 +150,50 @@ func runCardList(cmd *cobra.Command, args []string) error {
 	}
 
 	return output.WriteList(os.Stdout, result.Cards, result.Total, result.Limit, result.Offset)
+}
+
+func runCardCreate(cmd *cobra.Command, args []string) error {
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	requestBody := map[string]any{
+		"title": createTitle,
+	}
+	if createBody != "" {
+		requestBody["body"] = createBody
+	}
+	if createLink != "" {
+		requestBody["link"] = createLink
+	}
+
+	bodyBytes, err := json.Marshal(requestBody)
+	if err != nil {
+		return output.WriteError(os.Stdout, "JSON encode error", err.Error())
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Post("/api/user/cards", bodyBytes)
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	respBody, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+
+	if resp.StatusCode != 201 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(respBody))
+	}
+
+	var card Card
+	if err := json.Unmarshal(respBody, &card); err != nil {
+		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+
+	return output.WriteSuccess(os.Stdout, card)
 }
 
 func loadConfig() (*config.Config, error) {
