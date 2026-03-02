@@ -54,6 +54,13 @@ var cardUpdateCmd = &cobra.Command{
 	RunE:  runCardUpdate,
 }
 
+var cardDeleteCmd = &cobra.Command{
+	Use:   "delete <id>",
+	Short: "Delete a card",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runCardDelete,
+}
+
 var (
 	listLimit   int
 	listOffset  int
@@ -85,6 +92,8 @@ func init() {
 	cardUpdateCmd.Flags().StringVarP(&updateBody, "body", "b", "", "New body")
 	cardUpdateCmd.Flags().StringVarP(&updateLink, "link", "l", "", "New link")
 	cardCmd.AddCommand(cardUpdateCmd)
+
+	cardCmd.AddCommand(cardDeleteCmd)
 }
 
 func runCardGet(cmd *cobra.Command, args []string) error {
@@ -259,6 +268,31 @@ func runCardUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	return output.WriteSuccess(os.Stdout, map[string]any{"message": "Card updated"})
+}
+
+func runCardDelete(cmd *cobra.Command, args []string) error {
+	cardID, err := strconv.Atoi(args[0])
+	if err != nil {
+		return output.WriteError(os.Stdout, "Invalid card ID", "ID must be a number")
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Delete(fmt.Sprintf("/api/user/cards/%d", cardID))
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	if resp.StatusCode != 204 {
+		body, _ := api.GetBodyString(resp)
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), body)
+	}
+
+	return output.WriteSuccess(os.Stdout, map[string]any{"message": "Card deleted"})
 }
 
 func loadConfig() (*config.Config, error) {
