@@ -1,0 +1,15 @@
+# Binaries
+zg
+zg-*
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Config (for local testing)
+config.json
