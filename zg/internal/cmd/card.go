@@ -23,6 +23,27 @@ type Card struct {
 	UpdatedAt string `json:"updated_at"`
 }
 
+// Global flag values (set by main.go)
+var (
+	cfgFile  string
+	apiURL   string
+	apiToken string
+)
+
+// SetCfgFile sets the config file path from global flags
+func SetCfgFile(v string) { cfgFile = v }
+
+// SetAPIURL sets the API URL from global flags
+func SetAPIURL(v string) { apiURL = v }
+
+// SetAPIToken sets the API token from global flags
+func SetAPIToken(v string) { apiToken = v }
+
+// Get the flag values for loadConfig to use
+func getCfgFile() string  { return cfgFile }
+func getAPIURL() string   { return apiURL }
+func getAPIToken() string { return apiToken }
+
 var cardCmd = &cobra.Command{
 	Use:   "card",
 	Short: "Manage cards",
@@ -122,7 +143,7 @@ func runCardGet(cmd *cobra.Command, args []string) error {
 	}
 
 	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
-	resp, err := client.Get(fmt.Sprintf("/api/user/cards/%d", cardID))
+	resp, err := client.Get(fmt.Sprintf("/api/cards/%d", cardID))
 	if err != nil {
 		return output.WriteError(os.Stdout, "API request failed", err.Error())
 	}
@@ -152,7 +173,7 @@ func runCardList(cmd *cobra.Command, args []string) error {
 
 	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
 
-	url := fmt.Sprintf("/api/user/cards?limit=%d&offset=%d", listLimit, listOffset)
+	url := fmt.Sprintf("/api/cards?limit=%d&offset=%d", listLimit, listOffset)
 	if listStarred {
 		url += "&starred=true"
 	}
@@ -213,7 +234,7 @@ func runCardCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
-	resp, err := client.Post("/api/user/cards", bodyBytes)
+	resp, err := client.Post("/api/cards", bodyBytes)
 	if err != nil {
 		return output.WriteError(os.Stdout, "API request failed", err.Error())
 	}
@@ -267,7 +288,7 @@ func runCardUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
-	resp, err := client.Put(fmt.Sprintf("/api/user/cards/%d", cardID), bodyBytes)
+	resp, err := client.Put(fmt.Sprintf("/api/cards/%d", cardID), bodyBytes)
 	if err != nil {
 		return output.WriteError(os.Stdout, "API request failed", err.Error())
 	}
@@ -296,7 +317,7 @@ func runCardDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
-	resp, err := client.Delete(fmt.Sprintf("/api/user/cards/%d", cardID))
+	resp, err := client.Delete(fmt.Sprintf("/api/cards/%d", cardID))
 	if err != nil {
 		return output.WriteError(os.Stdout, "API request failed", err.Error())
 	}
@@ -316,7 +337,7 @@ func runCardSearch(cmd *cobra.Command, args []string) error {
 	}
 
 	query := args[0]
-	url := fmt.Sprintf("/api/user/search?query=%s&limit=%d", query, searchLimit)
+	url := fmt.Sprintf("/api/search?query=%s&limit=%d", query, searchLimit)
 	if searchFullText {
 		url += "&full_text=true"
 	}
@@ -345,11 +366,32 @@ func runCardSearch(cmd *cobra.Command, args []string) error {
 }
 
 func loadConfig() (*config.Config, error) {
-	configPath, err := config.GetDefaultConfigPath()
+	var configPath string
+	var err error
+
+	if getCfgFile() != "" {
+		configPath = getCfgFile()
+	} else {
+		configPath, err = config.GetDefaultConfigPath()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
 		return nil, err
 	}
-	return config.LoadConfig(configPath)
+
+	// Apply command-line overrides
+	if getAPIURL() != "" {
+		cfg.APIURL = getAPIURL()
+	}
+	if getAPIToken() != "" {
+		cfg.Token = getAPIToken()
+	}
+
+	return cfg, nil
 }
 
 // GetCardCmd returns the card command for registration

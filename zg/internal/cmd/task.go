@@ -142,7 +142,7 @@ func runTaskGet(cmd *cobra.Command, args []string) error {
 	}
 
 	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
-	resp, err := client.Get(fmt.Sprintf("/api/user/tasks/%d", taskID))
+	resp, err := client.Get(fmt.Sprintf("/api/tasks/%d", taskID))
 	if err != nil {
 		return output.WriteError(os.Stdout, "API request failed", err.Error())
 	}
@@ -170,7 +170,7 @@ func runTaskList(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, "Config error", err.Error())
 	}
 
-	url := fmt.Sprintf("/api/user/tasks?limit=%d", taskListLimit)
+	url := fmt.Sprintf("/api/tasks?limit=%d", taskListLimit)
 	if cmd.Flags().Changed("completed") || cmd.Flags().Changed("incomplete") {
 		url += "&completed=" + strconv.FormatBool(*taskListCompleted)
 	}
@@ -242,7 +242,7 @@ func runTaskCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
-	resp, err := client.Post("/api/user/tasks", bodyBytes)
+	resp, err := client.Post("/api/tasks", bodyBytes)
 	if err != nil {
 		return output.WriteError(os.Stdout, "API request failed", err.Error())
 	}
@@ -305,7 +305,7 @@ func runTaskUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
-	resp, err := client.Put(fmt.Sprintf("/api/user/tasks/%d", taskID), bodyBytes)
+	resp, err := client.Put(fmt.Sprintf("/api/tasks/%d", taskID), bodyBytes)
 	if err != nil {
 		return output.WriteError(os.Stdout, "API request failed", err.Error())
 	}
@@ -334,7 +334,7 @@ func runTaskDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
-	resp, err := client.Delete(fmt.Sprintf("/api/user/tasks/%d", taskID))
+	resp, err := client.Delete(fmt.Sprintf("/api/tasks/%d", taskID))
 	if err != nil {
 		return output.WriteError(os.Stdout, "API request failed", err.Error())
 	}

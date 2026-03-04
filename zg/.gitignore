@@ -2,6 +2,10 @@
 zg
 zg-*
 
+# Source directories should not be ignored
+!zg/cmd/
+!zg/internal/
+
 # Go
 *.exe
 *.exe~

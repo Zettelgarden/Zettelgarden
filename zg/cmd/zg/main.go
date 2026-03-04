@@ -20,10 +20,14 @@ var rootCmd = &cobra.Command{
 	Use:   "zg",
 	Short: "Zettelgarden CLI tool",
 	Long:  `A standalone CLI tool for Zettelgarden card and task operations.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	PersistentPreRun: func(command *cobra.Command, args []string) {
 		if pretty {
 			output.SetPretty(true)
 		}
+		// Pass global flag values to cmd package
+		cmd.SetCfgFile(cfgFile)
+		cmd.SetAPIURL(apiURL)
+		cmd.SetAPIToken(apiToken)
 	},
 }
 
