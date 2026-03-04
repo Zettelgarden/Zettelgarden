@@ -1,0 +1,5 @@
+{
+  "api_url": "http://localhost:8080",
+  "token": "your-jwt-token-here",
+  "timeout_seconds": 30
+}

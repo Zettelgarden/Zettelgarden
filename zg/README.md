@@ -13,14 +13,26 @@ cp zg /usr/local/bin/
 
 Create `~/.config/zettelgarden/config.json`:
 
+```bash
+mkdir -p ~/.config/zettelgarden
+cp config.example.json ~/.config/zettelgarden/config.json
+# Edit ~/.config/zettelgarden/config.json with your JWT token
+```
+
+Or create manually:
 ```json
 {
   "api_url": "http://localhost:8080",
-  "token": "your-jwt-token"
+  "token": "your-jwt-token-here"
 }
 ```
 
 Get your token from the Zettelgarden web UI.
+
+**For local testing:** You can also use `./config.json` in the zg directory and run:
+```bash
+./zg --config ./config.json card list
+```
 
 ## Usage
 
