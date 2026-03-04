@@ -58,6 +58,13 @@ zg task complete <id>         # Mark complete
 zg task delete <id>           # Delete task
 ```
 
+### Templates
+
+```bash
+zg template list              # List all templates
+zg template get <id>          # Get a template by ID
+```
+
 ### Global Flags
 
 - `--pretty` - Pretty-print JSON output
