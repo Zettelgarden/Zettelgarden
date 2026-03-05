@@ -89,6 +89,19 @@ var cardSearchCmd = &cobra.Command{
 	RunE:  runCardSearch,
 }
 
+var cardNextIDCmd = &cobra.Command{
+	Use:   "next-id",
+	Short: "Get the next root card ID",
+	RunE:  runCardNextID,
+}
+
+var cardNextChildIDCmd = &cobra.Command{
+	Use:   "next-child-id <parent-id>",
+	Short: "Get the next child card ID for a parent card",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runCardNextChildID,
+}
+
 var (
 	listLimit   int
 	listOffset  int
@@ -129,6 +142,9 @@ func init() {
 	cardSearchCmd.Flags().BoolVarP(&searchFullText, "full-text", "f", false, "Search in body too")
 	cardSearchCmd.Flags().IntVarP(&searchLimit, "limit", "l", 20, "Limit results")
 	cardCmd.AddCommand(cardSearchCmd)
+
+	cardCmd.AddCommand(cardNextIDCmd)
+	cardCmd.AddCommand(cardNextChildIDCmd)
 }
 
 func runCardGet(cmd *cobra.Command, args []string) error {
@@ -363,6 +379,75 @@ func runCardSearch(cmd *cobra.Command, args []string) error {
 	}
 
 	return output.WriteSuccess(os.Stdout, cards)
+}
+
+func runCardNextID(cmd *cobra.Command, args []string) error {
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Get("/api/cards/next-root-id")
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	body, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
+	}
+
+	var result struct {
+		NextID string `json:"new_id"`
+		Error  bool   `json:"error"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+
+	return output.WriteSuccess(os.Stdout, result)
+}
+
+func runCardNextChildID(cmd *cobra.Command, args []string) error {
+	parentID, err := strconv.Atoi(args[0])
+	if err != nil {
+		return output.WriteError(os.Stdout, "Invalid parent ID", "ID must be a number")
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Get(fmt.Sprintf("/api/cards/%d/next-child-id", parentID))
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	body, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
+	}
+
+	var result struct {
+		NextID string `json:"new_id"`
+		Error  bool   `json:"error"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+
+	return output.WriteSuccess(os.Stdout, result)
 }
 
 func loadConfig() (*config.Config, error) {
