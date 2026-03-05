@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useHabits } from '../../contexts/HabitContext';
+import { CreateHabitDialog } from './CreateHabitDialog';
 
 export const HabitList: React.FC = () => {
   const { habits, selectedHabit, setSelectedHabit, deleteHabit } = useHabits();
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   const handleDelete = async (id: number) => {
     if (confirm('Delete this habit?')) {
@@ -18,7 +20,7 @@ export const HabitList: React.FC = () => {
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Habits</h2>
-        <button className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">
+        <button className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600" onClick={() => setShowCreateDialog(true)}>
           + New Habit
         </button>
       </div>
@@ -50,6 +52,7 @@ export const HabitList: React.FC = () => {
           ))}
         </div>
       )}
+      {showCreateDialog && <CreateHabitDialog onClose={() => setShowCreateDialog(false)} />}
     </div>
   );
 };
