@@ -22,7 +22,7 @@ export const TodaysHabitsWidget: React.FC = () => {
     }
   };
 
-  if (todaysHabits.length === 0) return null;
+  if (!todaysHabits || todaysHabits.length === 0) return null;
 
   return (
     <div className="mb-4">
