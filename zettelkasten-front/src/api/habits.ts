@@ -6,7 +6,7 @@ import { Habit, HabitWithCheckin, HabitLog, HabitStats, CreateHabitParams, Updat
  */
 export async function getHabits(): Promise<Habit[]> {
   const { data } = await apiClient.get<Habit[]>('/habits');
-  return data;
+  return data ?? [];
 }
 
 /**
@@ -14,7 +14,7 @@ export async function getHabits(): Promise<Habit[]> {
  */
 export async function getTodaysHabits(): Promise<HabitWithCheckin[]> {
   const { data } = await apiClient.get<HabitWithCheckin[]>('/habits/today');
-  return data;
+  return data ?? [];
 }
 
 /**
