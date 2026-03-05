@@ -24,7 +24,7 @@ export const HabitList: React.FC = () => {
           + New Habit
         </button>
       </div>
-      {habits.length === 0 ? (
+      {!habits || habits.length === 0 ? (
         <p className="text-gray-500 text-center py-8">No habits yet. Create one to start tracking!</p>
       ) : (
         <div className="space-y-2">
