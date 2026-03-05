@@ -12,6 +12,7 @@ import { TagProvider } from "../contexts/TagContext";
 import { UIStateProvider } from "../contexts/UIStateContext";
 import { DialogStateProvider } from "../contexts/DialogStateContext";
 import { RSSProvider } from "../contexts/RSSContext";
+import { HabitProvider } from "../contexts/HabitContext";
 import { SplitViewLayout } from "../components/cards/SplitViewLayout";
 import { ChatSidebarLayout } from "../components/chat/ChatSidebarLayout";
 import { ChatPanelLayout } from "../components/chat/ChatPanelLayout";
@@ -161,7 +162,9 @@ function MainApp() {
             <UIStateProvider>
               <DialogStateProvider>
                 <RSSProvider>
-                  <MainAppContent />
+                  <HabitProvider>
+                    <MainAppContent />
+                  </HabitProvider>
                 </RSSProvider>
               </DialogStateProvider>
             </UIStateProvider>

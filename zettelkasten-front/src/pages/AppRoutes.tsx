@@ -24,6 +24,7 @@ import { SchemaEditPage } from "./SchemaEditPage";
 import { SchemaTableWrapper } from "./SchemaTableWrapper";
 import { RssPage } from "./RssPage";
 import { RssManagePage } from "./RssManagePage";
+import { Habits } from "./Habits";
 import { EmailInboxPage } from "./EmailInboxPage";
 import { EmailDetailPage } from "./EmailDetailPage";
 import { EmailThreadPage } from "./EmailThreadPage";
@@ -94,6 +95,7 @@ export function AppRoutes({
           <Route path="schemas/:id/edit" element={<SchemaEditPage />} />
           <Route path="schemas/:id/table" element={<SchemaTableWrapper />} />
           <Route path="chat" element={<ChatPage />} />
+          <Route path="habits" element={<Habits />} />
           <Route path="rss" element={<RssPage />} />
           <Route path="rss/manage" element={<RssManagePage />} />
           <Route path="emails" element={<EmailInboxPage />} />
