@@ -25,7 +25,7 @@ export const TodaysHabitsWidget: React.FC = () => {
   if (!todaysHabits || todaysHabits.length === 0) return null;
 
   return (
-    <div className="mb-4">
+    <div className="mb-4 px-3">
       <h3 className="text-sm font-semibold mb-2">Today's Habits</h3>
       <div className="space-y-1">
         {todaysHabits.map((h) => (
