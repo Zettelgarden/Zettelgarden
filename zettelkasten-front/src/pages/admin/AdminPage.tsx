@@ -11,6 +11,7 @@ import { AdminMailingListSendPage } from "./AdminMailingListSendPage";
 import { AdminMailingListHistoryPage } from "./AdminMailingListHistoryPage";
 import { AdminJobQueuePage } from "./AdminJobQueuePage";
 import { AdminSchedulerPage } from "./AdminSchedulerPage";
+import { AdminDashboard } from "./AdminDashboard";
 
 import { Routes, Route } from "react-router-dom";
 
@@ -98,7 +99,16 @@ export function Admin() {
                     className="block py-3 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors min-h-[44px] flex items-center"
                     onClick={() => setIsSidebarOpen(false)}
                   >
-                    👥 Users
+                    📊 Dashboard
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/admin/users"
+                    className="block py-3 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors min-h-[44px] flex items-center"
+                    onClick={() => setIsSidebarOpen(false)}
+                  >
+                    👥 All Users
                   </Link>
                 </li>
                 <li>
@@ -166,7 +176,8 @@ export function Admin() {
         <div className="h-full overflow-y-auto">
           <div className="p-4">
             <Routes>
-              <Route path="/" element={<AdminUserIndex />} />
+              <Route path="/" element={<AdminDashboard />} />
+              <Route path="users" element={<AdminUserIndex />} />
               <Route path="user/:id" element={<AdminUserDetailPage />} />
               <Route path="user/:id/edit" element={<AdminEditUserPage />} />
               <Route path="job-queue" element={<AdminJobQueuePage />} />

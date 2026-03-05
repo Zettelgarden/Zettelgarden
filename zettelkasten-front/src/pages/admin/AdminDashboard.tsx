@@ -1,5 +1,19 @@
-import React, { useState, useEffect } from "react";
-import { getAdminStats, AdminStats } from "../../api/admin";
+import React, { useState, useEffect, useMemo } from "react";
+import { getUsers, GetUsersResponse } from "../../api/users";
+import { User } from "../../models/User";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  createColumnHelper,
+  SortingState,
+  ColumnDef,
+} from "@tanstack/react-table";
+import { Link } from "react-router-dom";
+import { fuzzyFilter } from "../../utils/tableFilters";
+import { StatusBadge, getSubscriptionStatusBadge } from "../../components/admin/StatusBadge";
+import { AdminTableContainer } from "../../components/admin/AdminTable";
 import { AdminErrorDisplay } from "../../components/admin/AdminErrorDisplay";
 
 interface ErrorState {
@@ -7,93 +21,164 @@ interface ErrorState {
   details?: string;
 }
 
-interface StatCardProps {
-  title: string;
-  value: string | number;
-  subtitle?: string;
-  icon?: string;
-  color?: string;
-}
+// Helper to get ALL users by fetching with high per_page
+const fetchAllUsers = async (): Promise<User[]> => {
+  const allUsers: User[] = [];
+  let page = 1;
+  const PER_PAGE = 100;
+  let hasMore = true;
 
-function StatCard({ title, value, subtitle, icon = "📊", color = "bg-blue-500" }: StatCardProps) {
-  return (
-    <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <p className="text-sm text-gray-600 font-medium">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-          {subtitle && (
-            <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
-          )}
-        </div>
-        <div className="text-3xl ml-4">{icon}</div>
-      </div>
-    </div>
-  );
-}
+  while (hasMore) {
+    const response: GetUsersResponse = await getUsers({ page, per_page: PER_PAGE });
+    allUsers.push(...response.users);
+    hasMore = page < response.pagination.total_pages;
+    page++;
+  }
 
-interface StatSectionProps {
-  title: string;
-  icon: string;
-  children: React.ReactNode;
-}
+  return allUsers;
+};
 
-function StatSection({ title, icon, children }: StatSectionProps) {
-  return (
-    <div className="mb-8">
-      <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-        <span className="mr-2">{icon}</span>
-        {title}
-      </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {children}
-      </div>
-    </div>
-  );
-}
+// Sort users by last_seen (most recent first, nulls last)
+const sortUsersByLastSeen = (users: User[]): User[] => {
+  return [...users].sort((a, b) => {
+    const aTime = a.last_seen ? new Date(a.last_seen).getTime() : 0;
+    const bTime = b.last_seen ? new Date(b.last_seen).getTime() : 0;
+    if (aTime === 0 && bTime === 0) return 0;
+    if (aTime === 0) return 1; // nulls last
+    if (bTime === 0) return -1; // nulls last
+    return bTime - aTime; // descending
+  });
+};
+
+const TOP_N = 10;
 
 export function AdminDashboard() {
-  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "last_seen", desc: true }
+  ]);
+  const [globalFilter, setGlobalFilter] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<ErrorState | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchDashboardUsers = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const data = await getAdminStats();
-        setStats(data);
+        const allUsers = await fetchAllUsers();
+        setTotalCount(allUsers.length);
+        const sorted = sortUsersByLastSeen(allUsers);
+        setUsers(sorted.slice(0, TOP_N));
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to load statistics";
+        const message = err instanceof Error ? err.message : "Failed to load users";
         setError({ message, details: err instanceof Error ? err.stack : undefined });
       } finally {
         setIsLoading(false);
       }
     };
-    fetchStats();
+    fetchDashboardUsers();
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto px-4">
-        <div className="space-y-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-gray-200 rounded-lg h-32"></div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const columnHelper = createColumnHelper<User>();
 
-  if (error) {
-    return (
-      <div className="container mx-auto px-4">
+  const columns = useMemo<ColumnDef<User, any>[]>(
+    () => [
+      columnHelper.accessor("id", {
+        header: "ID",
+        cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor("username", {
+        header: "Name",
+        cell: (info) => (
+          <Link
+            to={`/admin/user/${info.row.original.id}`}
+            className={`hover:text-blue-800 ${info.row.original.is_admin ? "text-purple-600" : "text-blue-600"
+              }`}
+          >
+            {info.getValue()}
+          </Link>
+        ),
+      }),
+      columnHelper.accessor("last_seen", {
+        header: "Last Seen",
+        cell: (info) => info.getValue() ? new Date(info.getValue()).toLocaleString() : 'Never',
+      }),
+      columnHelper.accessor("email_validated", {
+        header: "Email Validated",
+        cell: (info) => (
+          <StatusBadge
+            value={info.getValue()}
+            type={info.getValue() ? "success" : "warning"}
+            label={info.getValue() ? "Verified" : "Pending"}
+          />
+        ),
+      }),
+      columnHelper.accessor("stripe_subscription_status", {
+        header: "Subscription",
+        cell: (info) => {
+          const badge = getSubscriptionStatusBadge(info.getValue() as string);
+          return <StatusBadge type={badge.type} label={badge.label} />;
+        },
+      }),
+      columnHelper.accessor("created_at", {
+        header: "Created At",
+        cell: (info) => new Date(info.getValue()).toLocaleString(),
+      }),
+      columnHelper.accessor("card_count", {
+        header: "Cards",
+        cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor("task_count", {
+        header: "Tasks",
+        cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor("file_count", {
+        header: "Files",
+        cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor("chat_message_count", {
+        header: "Chats",
+        cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor("revenue", {
+        header: "Revenue",
+        cell: (info) => `$${Number(info.getValue() || 0).toFixed(2)}`,
+      }),
+      columnHelper.accessor("llm_cost", {
+        header: "Cost",
+        cell: (info) => `$${Number(info.getValue() || 0).toFixed(4)}`,
+      }),
+    ],
+    []
+  );
+
+  const table = useReactTable({
+    data: users,
+    columns,
+    state: {
+      sorting,
+      globalFilter,
+    },
+    onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: fuzzyFilter,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+  });
+
+  return (
+    <div className="container mx-auto px-4">
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
+        <p className="text-slate-600">
+          Showing top {TOP_N} most recently active users of {totalCount} total
+        </p>
+      </div>
+
+      {error && (
         <AdminErrorDisplay
           message={error.message}
           details={error.details}
@@ -101,151 +186,19 @@ export function AdminDashboard() {
           onRetry={() => window.location.reload()}
           onDismiss={() => setError(null)}
         />
-      </div>
-    );
-  }
-
-  if (!stats) {
-    return (
-      <div className="container mx-auto px-4">
-        <div className="text-center py-12 text-gray-500">
-          No statistics available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="container mx-auto px-4">
-      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6">
-        Admin Dashboard
-      </h1>
-
-      {/* User Statistics */}
-      <StatSection title="Users" icon="👥">
-        <StatCard
-          title="Total Users"
-          value={stats.users.total}
-          icon="👤"
-        />
-        <StatCard
-          title="Active This Week"
-          value={stats.users.active_this_week}
-          subtitle={`${Math.round((stats.users.active_this_week / stats.users.total) * 100)}% of total`}
-          icon="🟢"
-        />
-        <StatCard
-          title="Active This Month"
-          value={stats.users.active_this_month}
-          subtitle={`${Math.round((stats.users.active_this_month / stats.users.total) * 100)}% of total`}
-          icon="📅"
-        />
-        <StatCard
-          title="New This Week"
-          value={stats.users.new_this_week}
-          subtitle={`+${stats.users.new_this_month} this month`}
-          icon="✨"
-        />
-      </StatSection>
-
-      {/* Subscription Statistics */}
-      <StatSection title="Subscriptions" icon="💳">
-        <StatCard
-          title="Active & Trialing"
-          value={stats.subscriptions.active}
-          subtitle="Paying users"
-          icon="✅"
-        />
-        <StatCard
-          title="Free Users"
-          value={stats.subscriptions.free}
-          subtitle={`${Math.round((stats.subscriptions.free / stats.subscriptions.total) * 100)}% of total`}
-          icon="🆓"
-        />
-        <StatCard
-          title="Past Due"
-          value={stats.subscriptions.past_due}
-          subtitle="Need attention"
-          icon="⚠️"
-        />
-        <StatCard
-          title="Total Subscriptions"
-          value={stats.subscriptions.total}
-          icon="📊"
-        />
-      </StatSection>
-
-      {/* Revenue Statistics */}
-      <StatSection title="Revenue" icon="💰">
-        <StatCard
-          title="Total Revenue"
-          value={`$${stats.revenue.total_revenue.toFixed(2)}`}
-          icon="💵"
-        />
-        <StatCard
-          title="This Month"
-          value={`$${stats.revenue.revenue_this_month.toFixed(2)}`}
-          icon="📈"
-        />
-        <StatCard
-          title="Monthly Recurring"
-          value={`$${stats.revenue.monthly_recurring_revenue.toFixed(2)}`}
-          subtitle="MRR"
-          icon="🔄"
-        />
-        <StatCard
-          title="Avg Revenue/User"
-          value={`$${stats.revenue.total_revenue > 0 ? (stats.revenue.monthly_recurring_revenue / stats.subscriptions.active).toFixed(2) : '0.00'}`}
-          subtitle="Per paying user"
-          icon="📊"
-        />
-      </StatSection>
-
-      {/* Content Statistics */}
-      <StatSection title="Content" icon="📝">
-        <StatCard
-          title="Total Cards"
-          value={stats.content.total_cards}
-          subtitle="Zettelkasten notes"
-          icon="📇"
-        />
-        <StatCard
-          title="Total Tasks"
-          value={stats.content.total_tasks}
-          subtitle="Active tasks"
-          icon="✅"
-        />
-        <StatCard
-          title="Total Files"
-          value={stats.content.total_files}
-          subtitle="Uploaded files"
-          icon="📎"
-        />
-        <StatCard
-          title="Chat Messages"
-          value={stats.content.total_chat_messages}
-          subtitle="AI conversations"
-          icon="💬"
-        />
-      </StatSection>
-
-      {/* Entities and Facts (PRO features) */}
-      {(stats.content.total_entities > 0 || stats.content.total_facts > 0) && (
-        <StatSection title="PRO Features" icon="⭐">
-          <StatCard
-            title="Total Entities"
-            value={stats.content.total_entities}
-            subtitle="Named entities"
-            icon="🏷️"
-          />
-          <StatCard
-            title="Total Facts"
-            value={stats.content.total_facts}
-            subtitle="Structured data"
-            icon="🧠"
-          />
-        </StatSection>
       )}
+
+      <AdminTableContainer
+        title="Recent Users"
+        table={table}
+        searchValue={globalFilter ?? ""}
+        onSearchChange={setGlobalFilter}
+        searchPlaceholder="Search all columns..."
+        isLoading={isLoading}
+        hideOnMobile={["revenue", "llm_cost", "file_count", "task_count", "chat_message_count"]}
+        sorting={sorting}
+        onSortingChange={setSorting}
+      />
     </div>
   );
 }
