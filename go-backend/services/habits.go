@@ -8,7 +8,7 @@ import (
 	"go-backend/models"
 )
 
-func CreateHabit(db *sql.DB, userID int, params models.CreateHabitParams) (int, error) {
+func CreateHabit(db models.Database, userID int, params models.CreateHabitParams) (int, error) {
 	var position int
 	if params.Position != nil {
 		position = *params.Position
@@ -31,7 +31,7 @@ func CreateHabit(db *sql.DB, userID int, params models.CreateHabitParams) (int, 
 	return id, nil
 }
 
-func GetHabit(db *sql.DB, userID int, habitID int) (models.Habit, error) {
+func GetHabit(db models.Database, userID int, habitID int) (models.Habit, error) {
 	var habit models.Habit
 	var description, customDays, icon, color sql.NullString
 	var linkedTaskID sql.NullInt64
@@ -69,7 +69,7 @@ func GetHabit(db *sql.DB, userID int, habitID int) (models.Habit, error) {
 	return habit, nil
 }
 
-func GetHabits(db *sql.DB, userID int) ([]models.Habit, error) {
+func GetHabits(db models.Database, userID int) ([]models.Habit, error) {
 	query := `SELECT id, user_id, title, description, frequency, custom_days, icon, color, position, linked_task_id, created_at, updated_at
               FROM habits WHERE user_id = $1 ORDER BY position ASC`
 	rows, err := db.Query(query, userID)
@@ -112,7 +112,7 @@ func GetHabits(db *sql.DB, userID int) ([]models.Habit, error) {
 	return habits, nil
 }
 
-func DeleteHabit(db *sql.DB, userID int, habitID int) error {
+func DeleteHabit(db models.Database, userID int, habitID int) error {
 	result, err := db.Exec("DELETE FROM habits WHERE id = $1 AND user_id = $2", habitID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to delete habit: %w", err)
@@ -124,7 +124,7 @@ func DeleteHabit(db *sql.DB, userID int, habitID int) error {
 	return nil
 }
 
-func CheckinHabit(db *sql.DB, userID int, habitID int, params models.CheckinHabitParams, timezone string) (int, error) {
+func CheckinHabit(db models.Database, userID int, habitID int, params models.CheckinHabitParams, timezone string) (int, error) {
 	// Verify habit exists and belongs to user
 	_, err := GetHabit(db, userID, habitID)
 	if err != nil {
@@ -152,7 +152,7 @@ func CheckinHabit(db *sql.DB, userID int, habitID int, params models.CheckinHabi
 	return logID, nil
 }
 
-func DeleteHabitLog(db *sql.DB, userID int, habitID int, logID int) error {
+func DeleteHabitLog(db models.Database, userID int, habitID int, logID int) error {
 	result, err := db.Exec(`DELETE FROM habit_logs WHERE id = $1 AND habit_id = $2 AND user_id = $3`, logID, habitID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to delete habit log: %w", err)
@@ -164,7 +164,7 @@ func DeleteHabitLog(db *sql.DB, userID int, habitID int, logID int) error {
 	return nil
 }
 
-func GetHabitLogs(db *sql.DB, userID int, habitID int, limit, offset int) ([]models.HabitLog, int, error) {
+func GetHabitLogs(db models.Database, userID int, habitID int, limit, offset int) ([]models.HabitLog, int, error) {
 	var total int
 	err := db.QueryRow("SELECT COUNT(*) FROM habit_logs WHERE habit_id = $1 AND user_id = $2", habitID, userID).Scan(&total)
 	if err != nil {
@@ -195,7 +195,7 @@ func GetHabitLogs(db *sql.DB, userID int, habitID int, limit, offset int) ([]mod
 	return logs, total, nil
 }
 
-func CalculateHabitStats(db *sql.DB, userID int, habitID int, timezone string) (models.HabitStats, error) {
+func CalculateHabitStats(db models.Database, userID int, habitID int, timezone string) (models.HabitStats, error) {
 	var stats models.HabitStats
 
 	// Total completions
@@ -216,7 +216,7 @@ func CalculateHabitStats(db *sql.DB, userID int, habitID int, timezone string) (
 	return stats, nil
 }
 
-func calculateStreak(db *sql.DB, userID int, habitID int, timezone string) int {
+func calculateStreak(db models.Database, userID int, habitID int, timezone string) int {
 	query := `SELECT DISTINCT DATE(completed_at AT TIME ZONE $1) as date FROM habit_logs
               WHERE habit_id = $2 AND user_id = $3 ORDER BY date DESC`
 	rows, err := db.Query(query, timezone, habitID, userID)
@@ -249,7 +249,7 @@ func calculateStreak(db *sql.DB, userID int, habitID int, timezone string) int {
 	return streak
 }
 
-func calculateLongestStreak(db *sql.DB, userID int, habitID int, timezone string) int {
+func calculateLongestStreak(db models.Database, userID int, habitID int, timezone string) int {
 	query := `SELECT DISTINCT DATE(completed_at AT TIME ZONE $1) as date FROM habit_logs
               WHERE habit_id = $2 AND user_id = $3 ORDER BY date ASC`
 	rows, err := db.Query(query, timezone, habitID, userID)
@@ -286,7 +286,7 @@ func calculateLongestStreak(db *sql.DB, userID int, habitID int, timezone string
 	return longest
 }
 
-func calculateCompletionRate(db *sql.DB, userID int, habitID int, days int, timezone string) float64 {
+func calculateCompletionRate(db models.Database, userID int, habitID int, days int, timezone string) float64 {
 	query := `SELECT COUNT(DISTINCT DATE(completed_at AT TIME ZONE $1)) FROM habit_logs
               WHERE habit_id = $2 AND user_id = $3 AND completed_at >= NOW() - INTERVAL '1 day' * $4`
 	var completedDays int
@@ -301,7 +301,7 @@ type HabitWithCheckin struct {
 	TodayLogID     *int  `json:"today_log_id,omitempty"`
 }
 
-func GetTodaysHabits(db *sql.DB, userID int, timezone string) ([]HabitWithCheckin, error) {
+func GetTodaysHabits(db models.Database, userID int, timezone string) ([]HabitWithCheckin, error) {
 	habits, err := GetHabits(db, userID)
 	if err != nil {
 		return nil, err
