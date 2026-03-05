@@ -2,6 +2,7 @@ package services
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 	"go-backend/models"
@@ -291,4 +292,65 @@ func calculateCompletionRate(db *sql.DB, userID int, habitID int, days int, time
 	var completedDays int
 	db.QueryRow(query, timezone, habitID, userID, days).Scan(&completedDays)
 	return float64(completedDays) / float64(days)
+}
+
+type HabitWithCheckin struct {
+	models.Habit
+	IsDueToday     bool  `json:"is_due_today"`
+	CheckedInToday bool  `json:"checked_in_today"`
+	TodayLogID     *int  `json:"today_log_id,omitempty"`
+}
+
+func GetTodaysHabits(db *sql.DB, userID int, timezone string) ([]HabitWithCheckin, error) {
+	habits, err := GetHabits(db, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []HabitWithCheckin
+	today := time.Now().UTC().Format("2006-01-02")
+	currentWeekday := int(time.Now().UTC().Weekday())
+	if currentWeekday == 0 {
+		currentWeekday = 7 // Sunday is 0, convert to 7
+	}
+
+	for _, habit := range habits {
+		var hc HabitWithCheckin
+		hc.Habit = habit
+		hc.IsDueToday = isHabitDueToday(&habit, currentWeekday)
+
+		if hc.IsDueToday {
+			var logID sql.NullInt64
+			checkQuery := `SELECT id FROM habit_logs WHERE habit_id = $1 AND user_id = $2
+                           AND DATE(completed_at AT TIME ZONE $3) = $4 LIMIT 1`
+			err := db.QueryRow(checkQuery, habit.ID, userID, timezone, today).Scan(&logID)
+			hc.CheckedInToday = (err == nil)
+			if logID.Valid {
+				id := int(logID.Int64)
+				hc.TodayLogID = &id
+			}
+			result = append(result, hc)
+		}
+	}
+	return result, nil
+}
+
+func isHabitDueToday(habit *models.Habit, currentWeekday int) bool {
+	switch habit.Frequency {
+	case models.FrequencyDaily:
+		return true
+	case models.FrequencyWeekly, models.FrequencyCustom:
+		if habit.CustomDays != nil {
+			var customDays []int
+			json.Unmarshal([]byte(*habit.CustomDays), &customDays)
+			for _, day := range customDays {
+				if day == currentWeekday {
+					return true
+				}
+			}
+		}
+		return false
+	default:
+		return true
+	}
 }

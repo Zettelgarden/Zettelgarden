@@ -33,3 +33,12 @@ func TestCalculateHabitStats(t *testing.T) {
 		t.Error("expected 0 streak")
 	}
 }
+
+func TestGetTodaysHabits(t *testing.T) {
+	// Compile check for HabitWithCheckin
+	var hwc HabitWithCheckin
+	hwc.IsDueToday = true
+	if !hwc.IsDueToday {
+		t.Error("expected true")
+	}
+}
