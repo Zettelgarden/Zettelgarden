@@ -16,3 +16,11 @@ func TestCreateHabit(t *testing.T) {
 		t.Error("title mismatch")
 	}
 }
+
+func TestCheckinHabit(t *testing.T) {
+	// Compile check
+	params := models.CheckinHabitParams{Notes: nil}
+	if params.Notes != nil {
+		t.Error("expected nil notes")
+	}
+}

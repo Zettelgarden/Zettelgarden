@@ -3,6 +3,7 @@ package services
 import (
 	"database/sql"
 	"fmt"
+	"time"
 	"go-backend/models"
 )
 
@@ -120,4 +121,75 @@ func DeleteHabit(db *sql.DB, userID int, habitID int) error {
 		return fmt.Errorf("habit not found")
 	}
 	return nil
+}
+
+func CheckinHabit(db *sql.DB, userID int, habitID int, params models.CheckinHabitParams, timezone string) (int, error) {
+	// Verify habit exists and belongs to user
+	_, err := GetHabit(db, userID, habitID)
+	if err != nil {
+		return 0, fmt.Errorf("habit not found: %w", err)
+	}
+
+	// Check for duplicate today
+	today := time.Now().UTC().Format("2006-01-02")
+	var existingLogID int
+	checkQuery := `SELECT id FROM habit_logs WHERE habit_id = $1 AND user_id = $2
+                   AND DATE(completed_at AT TIME ZONE $3) = $4`
+	err = db.QueryRow(checkQuery, habitID, userID, timezone, today).Scan(&existingLogID)
+	if err == nil {
+		return 0, fmt.Errorf("already checked in today")
+	}
+
+	// Create log entry
+	query := `INSERT INTO habit_logs (habit_id, user_id, completed_at, notes) VALUES ($1, $2, $3, $4) RETURNING id`
+	var logID int
+	completedAt := time.Now().UTC()
+	err = db.QueryRow(query, habitID, userID, completedAt, params.Notes).Scan(&logID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create habit log: %w", err)
+	}
+	return logID, nil
+}
+
+func DeleteHabitLog(db *sql.DB, userID int, habitID int, logID int) error {
+	result, err := db.Exec(`DELETE FROM habit_logs WHERE id = $1 AND habit_id = $2 AND user_id = $3`, logID, habitID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete habit log: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("habit log not found")
+	}
+	return nil
+}
+
+func GetHabitLogs(db *sql.DB, userID int, habitID int, limit, offset int) ([]models.HabitLog, int, error) {
+	var total int
+	err := db.QueryRow("SELECT COUNT(*) FROM habit_logs WHERE habit_id = $1 AND user_id = $2", habitID, userID).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count habit logs: %w", err)
+	}
+
+	query := `SELECT id, habit_id, user_id, completed_at, notes, created_at FROM habit_logs
+              WHERE habit_id = $1 AND user_id = $2 ORDER BY completed_at DESC LIMIT $3 OFFSET $4`
+	rows, err := db.Query(query, habitID, userID, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get habit logs: %w", err)
+	}
+	defer rows.Close()
+
+	var logs []models.HabitLog
+	for rows.Next() {
+		var log models.HabitLog
+		var notes sql.NullString
+		err := rows.Scan(&log.ID, &log.HabitID, &log.UserID, &log.CompletedAt, &notes, &log.CreatedAt)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan habit log: %w", err)
+		}
+		if notes.Valid {
+			log.Notes = &notes.String
+		}
+		logs = append(logs, log)
+	}
+	return logs, total, nil
 }
