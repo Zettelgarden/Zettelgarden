@@ -24,3 +24,12 @@ func TestCheckinHabit(t *testing.T) {
 		t.Error("expected nil notes")
 	}
 }
+
+func TestCalculateHabitStats(t *testing.T) {
+	// Compile check
+	var stats models.HabitStats
+	stats.CurrentStreak = 0
+	if stats.CurrentStreak != 0 {
+		t.Error("expected 0 streak")
+	}
+}

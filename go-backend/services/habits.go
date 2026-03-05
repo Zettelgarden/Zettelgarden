@@ -193,3 +193,102 @@ func GetHabitLogs(db *sql.DB, userID int, habitID int, limit, offset int) ([]mod
 	}
 	return logs, total, nil
 }
+
+func CalculateHabitStats(db *sql.DB, userID int, habitID int, timezone string) (models.HabitStats, error) {
+	var stats models.HabitStats
+
+	// Total completions
+	db.QueryRow("SELECT COUNT(*) FROM habit_logs WHERE habit_id = $1 AND user_id = $2", habitID, userID).Scan(&stats.TotalCompletions)
+
+	// Last completion
+	var lastCompleted sql.NullTime
+	db.QueryRow("SELECT MAX(completed_at) FROM habit_logs WHERE habit_id = $1 AND user_id = $2", habitID, userID).Scan(&lastCompleted)
+	if lastCompleted.Valid {
+		stats.LastCompletedAt = &lastCompleted.Time
+	}
+
+	stats.CurrentStreak = calculateStreak(db, userID, habitID, timezone)
+	stats.LongestStreak = calculateLongestStreak(db, userID, habitID, timezone)
+	stats.CompletionRate7d = calculateCompletionRate(db, userID, habitID, 7, timezone)
+	stats.CompletionRate30d = calculateCompletionRate(db, userID, habitID, 30, timezone)
+
+	return stats, nil
+}
+
+func calculateStreak(db *sql.DB, userID int, habitID int, timezone string) int {
+	query := `SELECT DISTINCT DATE(completed_at AT TIME ZONE $1) as date FROM habit_logs
+              WHERE habit_id = $2 AND user_id = $3 ORDER BY date DESC`
+	rows, err := db.Query(query, timezone, habitID, userID)
+	if err != nil {
+		return 0
+	}
+	defer rows.Close()
+
+	var dates []time.Time
+	for rows.Next() {
+		var date time.Time
+		if rows.Scan(&date) == nil {
+			dates = append(dates, date)
+		}
+	}
+
+	if len(dates) == 0 {
+		return 0
+	}
+
+	streak := 1
+	for i := 0; i < len(dates)-1; i++ {
+		diff := dates[i].Sub(dates[i+1]).Hours() / 24
+		if diff <= 1.0 {
+			streak++
+		} else {
+			break
+		}
+	}
+	return streak
+}
+
+func calculateLongestStreak(db *sql.DB, userID int, habitID int, timezone string) int {
+	query := `SELECT DISTINCT DATE(completed_at AT TIME ZONE $1) as date FROM habit_logs
+              WHERE habit_id = $2 AND user_id = $3 ORDER BY date ASC`
+	rows, err := db.Query(query, timezone, habitID, userID)
+	if err != nil {
+		return 0
+	}
+	defer rows.Close()
+
+	var dates []time.Time
+	for rows.Next() {
+		var date time.Time
+		if rows.Scan(&date) == nil {
+			dates = append(dates, date)
+		}
+	}
+
+	if len(dates) == 0 {
+		return 0
+	}
+
+	longest := 1
+	current := 1
+	for i := 1; i < len(dates); i++ {
+		diff := dates[i].Sub(dates[i-1]).Hours() / 24
+		if diff <= 1.0 {
+			current++
+			if current > longest {
+				longest = current
+			}
+		} else {
+			current = 1
+		}
+	}
+	return longest
+}
+
+func calculateCompletionRate(db *sql.DB, userID int, habitID int, days int, timezone string) float64 {
+	query := `SELECT COUNT(DISTINCT DATE(completed_at AT TIME ZONE $1)) FROM habit_logs
+              WHERE habit_id = $2 AND user_id = $3 AND completed_at >= NOW() - INTERVAL '1 day' * $4`
+	var completedDays int
+	db.QueryRow(query, timezone, habitID, userID, days).Scan(&completedDays)
+	return float64(completedDays) / float64(days)
+}
