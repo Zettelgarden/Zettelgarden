@@ -25,6 +25,7 @@ import { SidebarModals } from "./sidebar/SidebarModals";
 import { MobileBottomNav } from "./mobile/MobileBottomNav";
 import { RssAddFeedDialog } from "./rss/RssAddFeedDialog";
 import { SidebarSearchBar } from "./sidebar/SidebarSearchBar";
+import { TodaysHabitsWidget } from "./habits/TodaysHabitsWidget";
 
 export function Sidebar() {
   const navigate = useNavigate();
@@ -244,6 +245,7 @@ export function Sidebar() {
           {!isSidebarCollapsed && (
             <>
               <hr />
+              <TodaysHabitsWidget />
               <StarredSearchesSection />
               <StarredCardsSection
                 onShowStarCardDialog={() => setShowStarCardDialog(true)}
