@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 	"go-backend/models"
 )
@@ -131,8 +132,13 @@ func CheckinHabit(db models.Database, userID int, habitID int, params models.Che
 		return 0, fmt.Errorf("habit not found: %w", err)
 	}
 
-	// Check for duplicate today
-	today := time.Now().UTC().Format("2006-01-02")
+	// Check for duplicate today - use user's local date for comparison
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		log.Printf("Failed to load timezone %s, falling back to UTC: %v", timezone, err)
+		loc = time.UTC
+	}
+	today := time.Now().In(loc).Format("2006-01-02")
 	var existingLogID int
 	checkQuery := `SELECT id FROM habit_logs WHERE habit_id = $1 AND user_id = $2
                    AND DATE(completed_at AT TIME ZONE $3) = $4`
@@ -307,9 +313,17 @@ func GetTodaysHabits(db models.Database, userID int, timezone string) ([]HabitWi
 		return nil, err
 	}
 
+	// Use user's local time for determining "today" and weekday
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		log.Printf("Failed to load timezone %s, falling back to UTC: %v", timezone, err)
+		loc = time.UTC
+	}
+	nowInTimezone := time.Now().In(loc)
+
 	var result []HabitWithCheckin
-	today := time.Now().UTC().Format("2006-01-02")
-	currentWeekday := int(time.Now().UTC().Weekday())
+	today := nowInTimezone.Format("2006-01-02")
+	currentWeekday := int(nowInTimezone.Weekday())
 	if currentWeekday == 0 {
 		currentWeekday = 7 // Sunday is 0, convert to 7
 	}
