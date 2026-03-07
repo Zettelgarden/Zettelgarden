@@ -42,6 +42,7 @@ func main() {
 	rootCmd.AddCommand(cmd.GetCardCmd())
 	rootCmd.AddCommand(cmd.GetTaskCmd())
 	rootCmd.AddCommand(cmd.GetTemplateCmd())
+	rootCmd.AddCommand(cmd.GetHabitCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
