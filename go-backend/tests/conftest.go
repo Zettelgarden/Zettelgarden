@@ -253,10 +253,6 @@ func Teardown() {
 	if S.Tx != nil {
 		S.Tx.Rollback()
 	}
-
-	// Always truncate test data to ensure clean state
-	// This handles both transaction-based tests and cleans up any old data
-	truncateTestData()
 }
 
 // truncateTestData clears all test data but keeps the schema.
