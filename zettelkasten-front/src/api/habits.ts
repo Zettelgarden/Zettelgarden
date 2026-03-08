@@ -41,8 +41,8 @@ export async function getHabitLogs(id: number, limit?: number, offset?: number):
   if (limit !== undefined) params.limit = limit;
   if (offset !== undefined) params.offset = offset;
 
-  const { data } = await apiClient.get<HabitLog[]>(`/habits/${id}/logs`, { params });
-  return data;
+  const { data } = await apiClient.get<{ logs: HabitLog[]; total: number }>(`/habits/${id}/logs`, { params });
+  return data.logs ?? [];
 }
 
 /**

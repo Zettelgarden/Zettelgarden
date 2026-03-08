@@ -125,8 +125,52 @@ func (s *Handler) GetTodaysHabitsRoute(w http.ResponseWriter, r *http.Request) {
 // GetHabitLogsRoute retrieves the check-in history for a specific habit
 // GET /api/habits/{id}/logs
 func (s *Handler) GetHabitLogsRoute(w http.ResponseWriter, r *http.Request) {
-	// TODO: Implement this handler
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
+	userID := r.Context().Value("current_user").(int)
+	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil {
+		log.Printf("Invalid habit id param: %v", err)
+		http.Error(w, "Invalid id", http.StatusBadRequest)
+		return
+	}
+
+	// Parse query parameters
+	limit := 30
+	offset := 0
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+	if o := r.URL.Query().Get("offset"); o != "" {
+		if parsed, err := strconv.Atoi(o); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
+
+	// Verify habit exists and belongs to user
+	_, err = services.GetHabit(s.GetDB(), userID, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	logs, total, err := services.GetHabitLogs(s.GetDB(), userID, id, limit, offset)
+	if err != nil {
+		log.Printf("Error getting habit logs: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := struct {
+		Logs  []models.HabitLog `json:"logs"`
+		Total int               `json:"total"`
+	}{
+		Logs:  logs,
+		Total: total,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 // GetHabitStatsRoute retrieves statistics for a specific habit
