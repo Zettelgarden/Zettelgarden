@@ -7,14 +7,17 @@ interface HabitContextType {
   todaysHabits: HabitWithCheckin[];
   selectedHabit: Habit | null;
   habitStats: Record<number, HabitStats>;
+  habitLogs: Record<number, HabitLog[]>;
   loading: boolean;
   error: string | null;
   fetchHabits: () => Promise<void>;
   fetchTodaysHabits: () => Promise<void>;
   fetchHabitStats: (id: number) => Promise<HabitStats>;
+  fetchHabitLogs: (id: number, limit?: number) => Promise<HabitLog[]>;
   createHabit: (params: CreateHabitParams) => Promise<number>;
   deleteHabit: (id: number) => Promise<void>;
   checkinHabit: (id: number, params?: CheckinHabitParams) => Promise<number>;
+  undoCheckin: (habitId: number, logId: number) => Promise<void>;
   setSelectedHabit: (habit: Habit | null) => void;
 }
 
@@ -25,6 +28,7 @@ export const HabitProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [todaysHabits, setTodaysHabits] = useState<HabitWithCheckin[]>([]);
   const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
   const [habitStats, setHabitStats] = useState<Record<number, HabitStats>>({});
+  const [habitLogs, setHabitLogs] = useState<Record<number, HabitLog[]>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,6 +66,16 @@ export const HabitProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, []);
 
+  const fetchHabitLogs = useCallback(async (id: number, limit: number = 30): Promise<HabitLog[]> => {
+    try {
+      const logs = await habitApi.getHabitLogs(id, limit);
+      setHabitLogs(prev => ({ ...prev, [id]: logs }));
+      return logs;
+    } catch (err) {
+      throw err;
+    }
+  }, []);
+
   const createHabit = useCallback(async (params: CreateHabitParams): Promise<number> => {
     setLoading(true);
     try {
@@ -94,19 +108,35 @@ export const HabitProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     try {
       const logId = await habitApi.checkinHabit(id, params);
       await fetchTodaysHabits();
-      // Refresh stats after check-in
+      // Refresh stats and logs after check-in
       await fetchHabitStats(id);
+      await fetchHabitLogs(id);
       return logId;
     } catch (err) {
       throw err;
     } finally {
       setLoading(false);
     }
-  }, [fetchTodaysHabits, fetchHabitStats]);
+  }, [fetchTodaysHabits, fetchHabitStats, fetchHabitLogs]);
+
+  const undoCheckin = useCallback(async (habitId: number, logId: number): Promise<void> => {
+    setLoading(true);
+    try {
+      await habitApi.undoCheckin(habitId, logId);
+      await fetchTodaysHabits();
+      // Refresh stats and logs after undo
+      await fetchHabitStats(habitId);
+      await fetchHabitLogs(habitId);
+    } catch (err) {
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchTodaysHabits, fetchHabitStats, fetchHabitLogs]);
 
   const value: HabitContextType = {
-    habits, todaysHabits, selectedHabit, habitStats, loading, error,
-    fetchHabits, fetchTodaysHabits, fetchHabitStats, createHabit, deleteHabit, checkinHabit, setSelectedHabit,
+    habits, todaysHabits, selectedHabit, habitStats, habitLogs, loading, error,
+    fetchHabits, fetchTodaysHabits, fetchHabitStats, fetchHabitLogs, createHabit, deleteHabit, checkinHabit, undoCheckin, setSelectedHabit,
   };
 
   return <HabitContext.Provider value={value}>{children}</HabitContext.Provider>;

@@ -158,3 +158,36 @@ func (s *Handler) GetHabitStatsRoute(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
 }
+
+// UndoCheckinRoute deletes a habit check-in log
+// DELETE /api/habits/{id}/checkin/{logId}
+func (s *Handler) UndoCheckinRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	vars := mux.Vars(r)
+
+	habitID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		log.Printf("Invalid habit id param: %v", err)
+		http.Error(w, "Invalid habit id", http.StatusBadRequest)
+		return
+	}
+
+	logID, err := strconv.Atoi(vars["logId"])
+	if err != nil {
+		log.Printf("Invalid log id param: %v", err)
+		http.Error(w, "Invalid log id", http.StatusBadRequest)
+		return
+	}
+
+	err = services.DeleteHabitLog(s.GetDB(), userID, habitID, logID)
+	if err != nil {
+		if err.Error() == "habit log not found" {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
