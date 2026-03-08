@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useHabits } from '../../contexts/HabitContext';
 import { CreateHabitDialog } from './CreateHabitDialog';
 
 export const HabitList: React.FC = () => {
-  const { habits, selectedHabit, setSelectedHabit, deleteHabit } = useHabits();
+  const { habits, selectedHabit, setSelectedHabit, deleteHabit, habitStats, fetchHabitStats } = useHabits();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+
+  // Fetch stats for all habits on mount
+  useEffect(() => {
+    habits.forEach(h => {
+      if (!habitStats[h.id]) {
+        fetchHabitStats(h.id).catch(console.error);
+      }
+    });
+  }, [habits, habitStats, fetchHabitStats]);
 
   const handleDelete = async (id: number) => {
     if (confirm('Delete this habit?')) {
@@ -28,28 +37,38 @@ export const HabitList: React.FC = () => {
         <p className="text-gray-500 text-center py-8">No habits yet. Create one to start tracking!</p>
       ) : (
         <div className="space-y-2">
-          {habits.map((h) => (
-            <div
-              key={h.id}
-              className={`p-3 rounded cursor-pointer ${
-                selectedHabit?.id === h.id ? 'bg-blue-100' : 'hover:bg-gray-100'
-              }`}
-              onClick={() => setSelectedHabit(h)}
-            >
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  {h.icon && <span className="text-xl">{h.icon}</span>}
-                  <span className="font-medium">{h.title}</span>
+          {habits.map((h) => {
+            const stats = habitStats[h.id];
+            const streak = stats?.current_streak ?? 0;
+
+            return (
+              <div
+                key={h.id}
+                className={`p-3 rounded cursor-pointer ${
+                  selectedHabit?.id === h.id ? 'bg-blue-100' : 'hover:bg-gray-100'
+                }`}
+                onClick={() => setSelectedHabit(h)}
+              >
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    {h.icon && <span className="text-xl">{h.icon}</span>}
+                    <span className="font-medium">{h.title}</span>
+                    {streak > 0 && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                        🔥 {streak}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    className="text-red-500 hover:text-red-700 px-2"
+                    onClick={(e) => { e.stopPropagation(); handleDelete(h.id); }}
+                  >
+                    ×
+                  </button>
                 </div>
-                <button
-                  className="text-red-500 hover:text-red-700 px-2"
-                  onClick={(e) => { e.stopPropagation(); handleDelete(h.id); }}
-                >
-                  ×
-                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {showCreateDialog && <CreateHabitDialog onClose={() => setShowCreateDialog(false)} />}
