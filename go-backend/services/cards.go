@@ -19,6 +19,19 @@ import (
 	"github.com/typesense/typesense-go/typesense/api/pointer"
 )
 
+// getSchemaByID fetches a schema definition by ID. Returns nil if not found or on error.
+func getSchemaByID(db models.Database, userID int, schemaID int) *models.SchemaDefinition {
+	query := `SELECT id, name, slug, owner_id, fields, created_at, updated_at, is_deleted FROM schema_definitions WHERE id = $1 AND owner_id = $2 AND is_deleted = FALSE`
+	schema, err := models.ScanSchemaDefinition(db.QueryRow(query, schemaID, userID))
+	if err != nil {
+		if err != sql.ErrNoRows {
+			log.Printf("Error fetching schema %d: %v", schemaID, err)
+		}
+		return nil
+	}
+	return schema
+}
+
 // Helper function to check if a match is part of a markdown link
 func isMarkdownLink(text, match string) bool {
 	// Find the position of the match in the text
@@ -54,9 +67,10 @@ func ExtractBacklinks(text string) []string {
 }
 
 // ExtractBacklinksFromStructuredData extracts card IDs (as human-readable card_id strings) from structured_data JSONB
-// It finds all link_to_card field values and converts them from internal IDs to card_id strings
-func ExtractBacklinksFromStructuredData(db models.Database, userID int, structuredData *json.RawMessage) []string {
-	if structuredData == nil || len(*structuredData) == 0 {
+// It only extracts values from fields that are defined as link_to_card type in the schema.
+// If schema is nil, returns empty slice since we cannot determine which fields are links.
+func ExtractBacklinksFromStructuredData(db models.Database, userID int, structuredData *json.RawMessage, schema *models.SchemaDefinition) []string {
+	if structuredData == nil || len(*structuredData) == 0 || schema == nil {
 		return []string{}
 	}
 
@@ -67,10 +81,26 @@ func ExtractBacklinksFromStructuredData(db models.Database, userID int, structur
 		return []string{}
 	}
 
-	var backlinks []string
+	// Build a map of link_to_card field names for O(1) lookup
+	linkFields := make(map[string]bool)
+	for _, field := range schema.Fields {
+		if field.Type == "link_to_card" {
+			linkFields[field.Name] = true
+		}
+	}
 
-	// Check each field value - if it's a number, it might be a link_to_card reference
-	for _, value := range data {
+	if len(linkFields) == 0 {
+		return []string{}
+	}
+
+	// Collect all internal IDs from link_to_card fields for batch lookup
+	var internalIDs []int
+	for fieldName, value := range data {
+		// Only process fields that are link_to_card type
+		if !linkFields[fieldName] {
+			continue
+		}
+
 		if value == nil {
 			continue
 		}
@@ -95,20 +125,31 @@ func ExtractBacklinksFromStructuredData(db models.Database, userID int, structur
 			continue
 		}
 
-		// Look up the human-readable card_id for this internal ID
+		internalIDs = append(internalIDs, internalID)
+	}
+
+	if len(internalIDs) == 0 {
+		return []string{}
+	}
+
+	// Batch lookup all card_ids at once
+	rows, err := db.Query(`
+		SELECT card_id FROM cards
+		WHERE id = ANY($1) AND user_id = $2 AND is_deleted = FALSE
+	`, pq.Array(internalIDs), userID)
+	if err != nil {
+		log.Printf("Error batch looking up card_ids: %v", err)
+		return []string{}
+	}
+	defer rows.Close()
+
+	var backlinks []string
+	for rows.Next() {
 		var cardID string
-		err := db.QueryRow(`
-			SELECT card_id FROM cards
-			WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE
-		`, internalID, userID).Scan(&cardID)
-		if err != nil {
-			if err != sql.ErrNoRows {
-				log.Printf("Error looking up card_id for internal ID %d: %v", internalID, err)
-			}
-			// Card doesn't exist or was deleted, skip it
+		if err := rows.Scan(&cardID); err != nil {
+			log.Printf("Error scanning card_id: %v", err)
 			continue
 		}
-
 		backlinks = append(backlinks, cardID)
 	}
 
@@ -1488,4 +1529,97 @@ func GetCardsBySharedTags(db models.Database, userID int, sourceCardID int) (map
 	}
 
 	return scores, nil
+}
+
+// UpdateCardStructuredData updates only the schema_id and structured_data fields of a card
+// This is a focused update that doesn't touch title, body, or other card fields
+func UpdateCardStructuredData(db models.Database, userID int, cardPK int, schemaID *int, structuredData *json.RawMessage) (models.Card, error) {
+	// Get the current card state for audit
+	oldCard, err := GetFullCard(db, userID, cardPK)
+	if err != nil {
+		return models.Card{}, err
+	}
+
+	// Update only the structured data fields
+	query := `
+	UPDATE cards SET card_schema_id = $1, structured_data = $2, updated_at = NOW()
+	WHERE id = $3 AND user_id = $4
+	`
+	result, err := db.Exec(query, schemaID, structuredData, cardPK, userID)
+	if err != nil {
+		log.Printf("UpdateCardStructuredData err: %v", err)
+		return models.Card{}, err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return models.Card{}, err
+	}
+	if rowsAffected == 0 {
+		return models.Card{}, fmt.Errorf("card not found or not owned by user")
+	}
+
+	// Get the new state
+	newCard, err := GetFullCard(db, userID, cardPK)
+	if err != nil {
+		return models.Card{}, err
+	}
+
+	// Create audit event
+	CreateAuditEvent(db, userID, cardPK, "card", "update_structured_data", oldCard, newCard)
+
+	// Update backlinks from structured data
+	structuredDataBacklinks := ExtractBacklinksFromStructuredData(db, userID, newCard.StructuredData)
+	// Also include backlinks from body
+	bodyBacklinks := ExtractBacklinks(newCard.Body)
+	allBacklinks := append(bodyBacklinks, structuredDataBacklinks...)
+	UpdateBacklinks(db, newCard.ID, allBacklinks)
+
+	// Update search index
+	UpsertCardToTypesense(db, newCard)
+
+	return newCard, nil
+}
+
+// MergeStructuredData merges new data into existing structured data
+// Both existing and new data must conform to the provided schema
+func MergeStructuredData(db models.Database, userID int, existingData *json.RawMessage, newData json.RawMessage, schema *models.SchemaDefinition) (json.RawMessage, error) {
+	// Parse existing data
+	existing := make(map[string]interface{})
+	if existingData != nil && len(*existingData) > 0 {
+		if err := json.Unmarshal(*existingData, &existing); err != nil {
+			return nil, fmt.Errorf("failed to parse existing structured data: %w", err)
+		}
+	}
+
+	// Parse new data
+	newVals := make(map[string]interface{})
+	if len(newData) > 0 {
+		if err := json.Unmarshal(newData, &newVals); err != nil {
+			return nil, fmt.Errorf("failed to parse new structured data: %w", err)
+		}
+	}
+
+	// Build a map of field definitions for quick lookup
+	fieldMap := make(map[string]models.FieldDefinition)
+	for _, field := range schema.Fields {
+		fieldMap[field.Name] = field
+	}
+
+	// Merge new values into existing
+	for fieldName, value := range newVals {
+		// Only merge fields that are defined in the schema
+		if _, exists := fieldMap[fieldName]; exists {
+			existing[fieldName] = value
+		}
+		// Fields not in schema are silently ignored (will be cleaned by validation)
+	}
+
+	// Marshal merged data
+	mergedJSON, err := json.Marshal(existing)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal merged data: %w", err)
+	}
+
+	return mergedJSON, nil
 }
