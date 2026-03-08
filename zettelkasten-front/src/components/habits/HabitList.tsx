@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useHabits } from '../../contexts/HabitContext';
-import { CreateHabitDialog } from './CreateHabitDialog';
+import { HabitFormDialog } from './HabitFormDialog';
 
 export const HabitList: React.FC = () => {
   const { habits, selectedHabit, setSelectedHabit, deleteHabit, habitStats, fetchHabitStats } = useHabits();
@@ -71,7 +71,7 @@ export const HabitList: React.FC = () => {
           })}
         </div>
       )}
-      {showCreateDialog && <CreateHabitDialog onClose={() => setShowCreateDialog(false)} />}
+      {showCreateDialog && <HabitFormDialog onClose={() => setShowCreateDialog(false)} />}
     </div>
   );
 };

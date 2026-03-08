@@ -3,6 +3,7 @@ import { useHabits } from '../../contexts/HabitContext';
 import { useToast } from '../toast/ToastContext';
 import { HabitCalendar } from './HabitCalendar';
 import { HabitHistory } from './HabitHistory';
+import { HabitFormDialog } from './HabitFormDialog';
 
 type TabType = 'checkin' | 'history';
 
@@ -10,6 +11,7 @@ export const HabitDetail: React.FC = () => {
   const { selectedHabit, checkinHabit, habitLogs, fetchHabitLogs, undoCheckin, habitStats } = useHabits();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<TabType>('checkin');
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   // Fetch logs when habit is selected
   useEffect(() => {
@@ -51,14 +53,22 @@ export const HabitDetail: React.FC = () => {
   return (
     <div className="p-4">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-4">
-        {selectedHabit.icon && <span className="text-3xl">{selectedHabit.icon}</span>}
-        <div>
-          <h2 className="text-2xl font-bold">{selectedHabit.title}</h2>
-          {stats && stats.current_streak > 0 && (
-            <p className="text-sm text-amber-600">🔥 {stats.current_streak} day streak</p>
-          )}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          {selectedHabit.icon && <span className="text-3xl">{selectedHabit.icon}</span>}
+          <div>
+            <h2 className="text-2xl font-bold">{selectedHabit.title}</h2>
+            {stats && stats.current_streak > 0 && (
+              <p className="text-sm text-amber-600">🔥 {stats.current_streak} day streak</p>
+            )}
+          </div>
         </div>
+        <button
+          onClick={() => setShowEditDialog(true)}
+          className="px-3 py-1 text-sm border rounded hover:bg-gray-100"
+        >
+          Edit
+        </button>
       </div>
 
       {selectedHabit.description && (
@@ -112,6 +122,14 @@ export const HabitDetail: React.FC = () => {
           <h3 className="text-sm font-medium text-gray-700 mb-2">Recent Check-ins</h3>
           <HabitHistory logs={logs} onUndoCheckin={handleUndoCheckin} maxItems={15} />
         </div>
+      )}
+
+      {/* Edit Dialog */}
+      {showEditDialog && (
+        <HabitFormDialog
+          habit={selectedHabit}
+          onClose={() => setShowEditDialog(false)}
+        />
       )}
     </div>
   );

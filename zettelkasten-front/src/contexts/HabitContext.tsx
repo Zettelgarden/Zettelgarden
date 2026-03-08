@@ -15,6 +15,7 @@ interface HabitContextType {
   fetchHabitStats: (id: number) => Promise<HabitStats>;
   fetchHabitLogs: (id: number, limit?: number) => Promise<HabitLog[]>;
   createHabit: (params: CreateHabitParams) => Promise<number>;
+  updateHabit: (id: number, params: UpdateHabitParams) => Promise<Habit>;
   deleteHabit: (id: number) => Promise<void>;
   checkinHabit: (id: number, params?: CheckinHabitParams) => Promise<number>;
   undoCheckin: (habitId: number, logId: number) => Promise<void>;
@@ -103,6 +104,24 @@ export const HabitProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, [fetchHabits, fetchTodaysHabits]);
 
+  const updateHabit = useCallback(async (id: number, params: UpdateHabitParams): Promise<Habit> => {
+    setLoading(true);
+    try {
+      const updated = await habitApi.updateHabit(id, params);
+      await fetchHabits();
+      await fetchTodaysHabits();
+      // Update selectedHabit if it's the one we edited
+      if (selectedHabit?.id === id) {
+        setSelectedHabit(updated);
+      }
+      return updated;
+    } catch (err) {
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchHabits, fetchTodaysHabits, selectedHabit]);
+
   const checkinHabit = useCallback(async (id: number, params?: CheckinHabitParams): Promise<number> => {
     setLoading(true);
     try {
@@ -136,7 +155,7 @@ export const HabitProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const value: HabitContextType = {
     habits, todaysHabits, selectedHabit, habitStats, habitLogs, loading, error,
-    fetchHabits, fetchTodaysHabits, fetchHabitStats, fetchHabitLogs, createHabit, deleteHabit, checkinHabit, undoCheckin, setSelectedHabit,
+    fetchHabits, fetchTodaysHabits, fetchHabitStats, fetchHabitLogs, createHabit, updateHabit, deleteHabit, checkinHabit, undoCheckin, setSelectedHabit,
   };
 
   return <HabitContext.Provider value={value}>{children}</HabitContext.Provider>;
