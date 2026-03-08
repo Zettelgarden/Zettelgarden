@@ -17,9 +17,9 @@ const features: HelpFeature[] = [
   },
   {
     name: "Schema Tables",
-    description: "Display a table from a schema definition",
+    description: "Display a table from a schema definition. Field names are case-sensitive.",
     syntax: "{{schema: <ref>}}",
-    example: "{{schema: book-review}}\n{{schema: 1|columns:title,status}}\n{{schema: 1|filter:status=active}}\n{{schema: 1|columns:title,status|filter:priority=high}}"
+    example: "{{schema: book-review}}\n{{schema: 1|columns:Title,Status}}\n{{schema: 1|filter:Type=ne:Running}}\n{{schema: 1|columns:Title,Status|filter:Priority=high}}\n\nFilter operators: eq:, ne:, gt:, gte:, lt:, lte:"
   },
   {
     name: "Spreadsheets",
