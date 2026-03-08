@@ -65,6 +65,17 @@ func (c *Client) Put(path string, body []byte) (*http.Response, error) {
 	return c.httpClient.Do(req)
 }
 
+func (c *Client) Patch(path string, body []byte) (*http.Response, error) {
+	url := c.buildURL(path)
+	req, err := http.NewRequest("PATCH", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+
+	c.addAuth(req)
+	return c.httpClient.Do(req)
+}
+
 func (c *Client) Delete(path string) (*http.Response, error) {
 	url := c.buildURL(path)
 	req, err := http.NewRequest("DELETE", url, nil)

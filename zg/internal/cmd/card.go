@@ -102,6 +102,35 @@ var cardNextChildIDCmd = &cobra.Command{
 	RunE:  runCardNextChildID,
 }
 
+// Structured data commands
+var cardGetStructuredDataCmd = &cobra.Command{
+	Use:   "get-structured-data <id>",
+	Short: "Get structured data for a card",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runCardGetStructuredData,
+}
+
+var cardSetStructuredDataCmd = &cobra.Command{
+	Use:   "set-structured-data <id>",
+	Short: "Set (replace) structured data for a card",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runCardSetStructuredData,
+}
+
+var cardPatchStructuredDataCmd = &cobra.Command{
+	Use:   "patch-structured-data <id>",
+	Short: "Patch (merge) structured data for a card",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runCardPatchStructuredData,
+}
+
+var cardClearStructuredDataCmd = &cobra.Command{
+	Use:   "clear-structured-data <id>",
+	Short: "Clear structured data from a card",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runCardClearStructuredData,
+}
+
 var (
 	listLimit   int
 	listOffset  int
@@ -117,6 +146,10 @@ var (
 
 	searchFullText bool
 	searchLimit    int
+
+	// Structured data flags
+	structuredDataSchemaID int
+	structuredDataJSON     string
 )
 
 func init() {
@@ -145,6 +178,20 @@ func init() {
 
 	cardCmd.AddCommand(cardNextIDCmd)
 	cardCmd.AddCommand(cardNextChildIDCmd)
+
+	// Structured data commands
+	cardCmd.AddCommand(cardGetStructuredDataCmd)
+
+	cardSetStructuredDataCmd.Flags().IntVarP(&structuredDataSchemaID, "schema-id", "s", 0, "Schema ID (required)")
+	cardSetStructuredDataCmd.Flags().StringVarP(&structuredDataJSON, "data", "d", "", "JSON structured data")
+	cardSetStructuredDataCmd.MarkFlagRequired("schema-id")
+	cardCmd.AddCommand(cardSetStructuredDataCmd)
+
+	cardPatchStructuredDataCmd.Flags().StringVarP(&structuredDataJSON, "data", "d", "", "JSON structured data (required)")
+	cardPatchStructuredDataCmd.MarkFlagRequired("data")
+	cardCmd.AddCommand(cardPatchStructuredDataCmd)
+
+	cardCmd.AddCommand(cardClearStructuredDataCmd)
 }
 
 func runCardGet(cmd *cobra.Command, args []string) error {
@@ -448,6 +495,164 @@ func runCardNextChildID(cmd *cobra.Command, args []string) error {
 	}
 
 	return output.WriteSuccess(os.Stdout, result)
+}
+
+// StructuredDataResponse represents the response for getting structured data
+type StructuredDataResponse struct {
+	SchemaID       int              `json:"schema_id,omitempty"`
+	SchemaName     string           `json:"schema_name,omitempty"`
+	SchemaSlug     string           `json:"schema_slug,omitempty"`
+	StructuredData *json.RawMessage `json:"structured_data,omitempty"`
+}
+
+func runCardGetStructuredData(cmd *cobra.Command, args []string) error {
+	cardID, err := strconv.Atoi(args[0])
+	if err != nil {
+		return output.WriteError(os.Stdout, "Invalid card ID", "ID must be a number")
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Get(fmt.Sprintf("/api/cards/%d/structured-data", cardID))
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	body, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
+	}
+
+	var result StructuredDataResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+
+	return output.WriteSuccess(os.Stdout, result)
+}
+
+func runCardSetStructuredData(cmd *cobra.Command, args []string) error {
+	cardID, err := strconv.Atoi(args[0])
+	if err != nil {
+		return output.WriteError(os.Stdout, "Invalid card ID", "ID must be a number")
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	requestBody := map[string]any{
+		"schema_id": structuredDataSchemaID,
+	}
+
+	// Parse and include structured data if provided
+	if structuredDataJSON != "" {
+		var data json.RawMessage
+		if err := json.Unmarshal([]byte(structuredDataJSON), &data); err != nil {
+			return output.WriteError(os.Stdout, "Invalid JSON", err.Error())
+		}
+		requestBody["structured_data"] = data
+	}
+
+	bodyBytes, err := json.Marshal(requestBody)
+	if err != nil {
+		return output.WriteError(os.Stdout, "JSON encode error", err.Error())
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Put(fmt.Sprintf("/api/cards/%d/structured-data", cardID), bodyBytes)
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	respBody, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(respBody))
+	}
+
+	return output.WriteMessage(os.Stdout, "Structured data set successfully")
+}
+
+func runCardPatchStructuredData(cmd *cobra.Command, args []string) error {
+	cardID, err := strconv.Atoi(args[0])
+	if err != nil {
+		return output.WriteError(os.Stdout, "Invalid card ID", "ID must be a number")
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	// Parse the JSON data
+	var data json.RawMessage
+	if err := json.Unmarshal([]byte(structuredDataJSON), &data); err != nil {
+		return output.WriteError(os.Stdout, "Invalid JSON", err.Error())
+	}
+
+	requestBody := map[string]any{
+		"structured_data": data,
+	}
+
+	bodyBytes, err := json.Marshal(requestBody)
+	if err != nil {
+		return output.WriteError(os.Stdout, "JSON encode error", err.Error())
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Patch(fmt.Sprintf("/api/cards/%d/structured-data", cardID), bodyBytes)
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	respBody, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(respBody))
+	}
+
+	return output.WriteMessage(os.Stdout, "Structured data patched successfully")
+}
+
+func runCardClearStructuredData(cmd *cobra.Command, args []string) error {
+	cardID, err := strconv.Atoi(args[0])
+	if err != nil {
+		return output.WriteError(os.Stdout, "Invalid card ID", "ID must be a number")
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Delete(fmt.Sprintf("/api/cards/%d/structured-data", cardID))
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		body, _ := api.GetBodyString(resp)
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), body)
+	}
+
+	return output.WriteMessage(os.Stdout, "Structured data cleared")
 }
 
 func loadConfig() (*config.Config, error) {

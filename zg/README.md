@@ -47,6 +47,30 @@ zg card delete <id>           # Delete card
 zg card search "query"        # Search cards
 ```
 
+### Structured Data
+
+```bash
+zg card get-structured-data <id>                           # Get structured data for a card
+zg card set-structured-data <id> -s <schema-id> -d '{...}' # Set (replace) structured data
+zg card patch-structured-data <id> -d '{...}'              # Patch (merge) into existing data
+zg card clear-structured-data <id>                         # Clear structured data
+```
+
+Examples:
+```bash
+# Get structured data
+zg card get-structured-data 42
+
+# Set structured data with schema
+zg card set-structured-data 42 -s 1 -d '{"title":"My Item","count":5}'
+
+# Patch (merge) new values
+zg card patch-structured-data 42 -d '{"count":10}'
+
+# Clear structured data
+zg card clear-structured-data 42
+```
+
 ### Tasks
 
 ```bash
