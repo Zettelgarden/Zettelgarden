@@ -88,6 +88,10 @@ func ResetDatabase(S *Server) error {
 			DROP TABLE IF EXISTS rss_feeds CASCADE;
 			DROP TABLE IF EXISTS rss_articles CASCADE;
 			DROP TABLE IF EXISTS rss_folders CASCADE;
+			DROP TABLE IF EXISTS emails CASCADE;
+			DROP TABLE IF EXISTS email_accounts CASCADE;
+			DROP TABLE IF EXISTS email_triage_dwecisions CASCADE;
+			DROP TABLE IF EXISTS email_card_links CASCADE;
 
 			DROP INDEX IF EXISTS idx_task_statuses_user;
 			DROP INDEX IF EXISTS idx_task_statuses_position;
