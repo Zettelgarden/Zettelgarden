@@ -19,7 +19,7 @@ const features: HelpFeature[] = [
     name: "Schema Tables",
     description: "Display a table from a schema definition",
     syntax: "{{schema: <ref>}}",
-    example: "{{schema: book-review}}\n{{schema: 1|columns:title,status}}"
+    example: "{{schema: book-review}}\n{{schema: 1|columns:title,status}}\n{{schema: 1|filter:status=active}}\n{{schema: 1|columns:title,status|filter:priority=high}}"
   },
   {
     name: "Spreadsheets",
