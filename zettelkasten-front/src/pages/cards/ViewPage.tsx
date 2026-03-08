@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { MobileTopBar } from "../../components/layout/MobileTopBar";
 import { ViewPageHeader } from "../../components/cards/ViewPageHeader";
@@ -8,6 +8,7 @@ import { CardIdDiscoveryDialog } from "../../components/cards/CardIdDiscoveryDia
 import { CardTreeView } from "../../components/cards/CardTreeView/CardTreeView";
 import { ViewSummaryView } from "../../components/cards/ViewSummaryView";
 import { ViewAnalysisView } from "../../components/cards/ViewAnalysisView";
+import { ViewMobileLayout } from "../../components/cards/ViewMobileLayout";
 import { useViewPageContainer } from "./ViewPageContainer";
 import { useTagContext } from "../../contexts/TagContext";
 import { useUIState } from "../../contexts/UIStateContext";
@@ -31,6 +32,23 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
   const fileUploadRef = useRef<HTMLInputElement>(null);
   type ViewMode = 'normal' | 'tree' | 'summary' | 'analysis';
   const [viewMode, setViewMode] = useState<ViewMode>('normal');
+
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const {
     data,
@@ -94,6 +112,46 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
     }
   };
 
+  // Mobile layout
+  if (isMobile && viewingCard) {
+    return (
+      <ViewMobileLayout
+        viewingCard={viewingCard}
+        parentCard={parentCard}
+        prevSibling={prevSibling}
+        nextSibling={nextSibling}
+        linkedEntities={linkedEntities}
+        categorizedReferences={categorizedReferences}
+        summaries={summaries || []}
+        latestSummary={latestSummary}
+        analysis={analysis}
+        relatedCards={relatedCards}
+        tags={tags}
+        sourceArticle={viewingCard.source_article}
+        onEditCard={onEditCard}
+        onCreateChildCard={onCreateChildCard}
+        onToggleStar={onToggleStar}
+        onTogglePin={onTogglePin}
+        onOpenChatSidebar={onOpenChatSidebar}
+        toggleCreateTaskWindow={toggleCreateTaskWindow}
+        onTagClick={onTagClick}
+        onRemoveTag={onRemoveTag}
+        onAddBacklink={onAddBacklink}
+        handleOpenEntity={handleOpenEntity}
+        onResummarize={onResummarize}
+        onRecategorize={onRecategorize}
+        refreshCard={refreshCard}
+        setViewCard={setViewCard}
+        setError={setError}
+        setSelectedFact={setSelectedFact}
+        setShowFactDialog={setShowFactDialog}
+        fileUploadRef={fileUploadRef}
+        onSaveCard={handleSaveCard}
+      />
+    );
+  }
+
+  // Desktop layout
   return (
     <div className="overflow-x-hidden">
       {viewingCard && (
