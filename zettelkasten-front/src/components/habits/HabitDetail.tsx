@@ -108,15 +108,9 @@ export const HabitDetail: React.FC = () => {
       )}
 
       {activeTab === 'history' && (
-        <div className="space-y-4">
-          {/* Full-size Calendar */}
-          <HabitCalendar logs={logs} />
-
-          {/* History List */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Recent Check-ins</h3>
-            <HabitHistory logs={logs} onUndoCheckin={handleUndoCheckin} maxItems={15} />
-          </div>
+        <div>
+          <h3 className="text-sm font-medium text-gray-700 mb-2">Recent Check-ins</h3>
+          <HabitHistory logs={logs} onUndoCheckin={handleUndoCheckin} maxItems={15} />
         </div>
       )}
     </div>
