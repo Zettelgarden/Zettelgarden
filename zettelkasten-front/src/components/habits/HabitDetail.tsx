@@ -1,16 +1,19 @@
 import React, { useEffect } from 'react';
 import { useHabits } from '../../contexts/HabitContext';
+import { useToast } from '../toast/ToastContext';
 
 export const HabitDetail: React.FC = () => {
   const { selectedHabit, checkinHabit } = useHabits();
+  const { showToast } = useToast();
 
   const handleCheckin = async () => {
     if (!selectedHabit) return;
     try {
       await checkinHabit(selectedHabit.id);
+      showToast('success', 'Check-in complete!', `Great work on ${selectedHabit.title}`);
     } catch (e) {
       if (e instanceof Error && e.message.includes('already')) {
-        alert('Already checked in today!');
+        showToast('warning', 'Already checked in', "You've already checked in today!");
       }
     }
   };
