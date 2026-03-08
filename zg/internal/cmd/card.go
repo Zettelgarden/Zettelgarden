@@ -318,7 +318,7 @@ func runCardUpdate(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(respBody))
 	}
 
-	return output.WriteSuccess(os.Stdout, map[string]any{"message": "Card updated"})
+	return output.WriteMessage(os.Stdout, "Card updated")
 }
 
 func runCardDelete(cmd *cobra.Command, args []string) error {
@@ -343,7 +343,7 @@ func runCardDelete(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), body)
 	}
 
-	return output.WriteSuccess(os.Stdout, map[string]any{"message": "Card deleted"})
+	return output.WriteMessage(os.Stdout, "Card deleted")
 }
 
 func runCardSearch(cmd *cobra.Command, args []string) error {

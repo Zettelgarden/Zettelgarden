@@ -377,7 +377,7 @@ func runHabitUpdate(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(respBody))
 	}
 
-	return output.WriteSuccess(os.Stdout, map[string]any{"message": "Habit updated"})
+	return output.WriteMessage(os.Stdout, "Habit updated")
 }
 
 func runHabitDelete(cmd *cobra.Command, args []string) error {
@@ -402,7 +402,7 @@ func runHabitDelete(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), body)
 	}
 
-	return output.WriteSuccess(os.Stdout, map[string]any{"message": "Habit deleted"})
+	return output.WriteMessage(os.Stdout, "Habit deleted")
 }
 
 func runHabitCheckin(cmd *cobra.Command, args []string) error {
@@ -476,7 +476,7 @@ func runHabitUndo(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), body)
 	}
 
-	return output.WriteSuccess(os.Stdout, map[string]any{"message": "Check-in undone"})
+	return output.WriteMessage(os.Stdout, "Check-in undone")
 }
 
 func runHabitStats(cmd *cobra.Command, args []string) error {

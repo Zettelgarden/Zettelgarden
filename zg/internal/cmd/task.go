@@ -319,7 +319,7 @@ func runTaskUpdate(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(respBody))
 	}
 
-	return output.WriteSuccess(os.Stdout, map[string]any{"message": "Task updated"})
+	return output.WriteMessage(os.Stdout, "Task updated")
 }
 
 func runTaskDelete(cmd *cobra.Command, args []string) error {
@@ -344,7 +344,7 @@ func runTaskDelete(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), body)
 	}
 
-	return output.WriteSuccess(os.Stdout, map[string]any{"message": "Task deleted"})
+	return output.WriteMessage(os.Stdout, "Task deleted")
 }
 
 func runTaskComplete(cmd *cobra.Command, args []string) error {

@@ -54,3 +54,7 @@ browser-extension/chrome/background.js
 
 # Git worktrees for feature branches
 .worktrees/
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db

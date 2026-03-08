@@ -35,7 +35,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "Config file path")
 	rootCmd.PersistentFlags().StringVar(&apiURL, "url", "", "Override API URL")
 	rootCmd.PersistentFlags().StringVar(&apiToken, "token", "", "Override auth token")
-	rootCmd.PersistentFlags().BoolVar(&pretty, "pretty", false, "Pretty-print JSON output")
+	rootCmd.PersistentFlags().BoolVar(&pretty, "pretty", false, "Human-readable output (default: compact JSON for AI agents)")
 }
 
 func main() {
