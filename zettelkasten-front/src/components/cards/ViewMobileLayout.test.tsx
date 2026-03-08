@@ -63,7 +63,7 @@ const mockViewingCard: Card = {
   files: [],
   children: [],
   references: [],
-  tags: [{ name: "test-tag", id: 1 }],
+  tags: [{ name: "test-tag", id: 1, color: "#3b82f6", user_id: 1 }],
   tasks: [],
   external_events: [],
   entities: [],

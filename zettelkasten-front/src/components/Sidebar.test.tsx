@@ -40,6 +40,10 @@ vi.mock('./sidebar/SidebarModals', () => ({
   SidebarModals: () => <div data-testid="sidebar-modals">Modals</div>,
 }));
 
+vi.mock('./habits/TodaysHabitsWidget', () => ({
+  TodaysHabitsWidget: () => <div data-testid="todays-habits-widget">Habits</div>,
+}));
+
 function SidebarWrapper() {
   return (
     <BrowserRouter>
