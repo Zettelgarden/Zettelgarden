@@ -78,6 +78,37 @@ func (s *Handler) DeleteHabitRoute(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (s *Handler) UpdateHabitRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil {
+		log.Printf("Invalid habit id param: %v", err)
+		http.Error(w, "Invalid id", http.StatusBadRequest)
+		return
+	}
+
+	var params models.UpdateHabitParams
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		log.Printf("Error decoding update habit request: %v", err)
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	habit, err := services.UpdateHabit(s.GetDB(), userID, id, params)
+	if err != nil {
+		if err.Error() == "habit not found" {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else {
+			log.Printf("Error updating habit: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(habit)
+}
+
 func (s *Handler) CheckinHabitRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 	id, err := strconv.Atoi(mux.Vars(r)["id"])

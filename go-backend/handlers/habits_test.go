@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"go-backend/models"
 	"go-backend/tests"
 	"net/http"
@@ -497,4 +496,227 @@ func TestGetHabitStatsRouteWrongUser(t *testing.T) {
 	if status := rr.Code; status != http.StatusNotFound {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNotFound)
 	}
+}
+
+// TestUpdateHabitRoute tests the PUT /api/habits/{id} endpoint
+func TestUpdateHabitRoute(t *testing.T) {
+	testCases := []struct {
+		name           string
+		habitID        string
+		requestBody    interface{}
+		expectedStatus int
+		setupFunc      func(*Handler) (int, error)
+		validateFunc   func(*testing.T, *httptest.ResponseRecorder)
+	}{
+		{
+			name:    "updates habit title",
+			habitID: "1",
+			requestBody: models.UpdateHabitParams{
+				Title: ptr("Updated Habit Title"),
+			},
+			expectedStatus: http.StatusOK,
+			setupFunc: func(s *Handler) (int, error) {
+				params := models.CreateHabitParams{
+					Title:     "Original Title",
+					Frequency: models.FrequencyDaily,
+				}
+				return tests.CreateTestHabit(s.GetDB(), 1, params)
+			},
+			validateFunc: func(t *testing.T, rr *httptest.ResponseRecorder) {
+				var habit models.Habit
+				tests.ParseJsonResponse(t, rr.Body.Bytes(), &habit)
+
+				if habit.Title != "Updated Habit Title" {
+					t.Errorf("expected title 'Updated Habit Title', got %v", habit.Title)
+				}
+			},
+		},
+		{
+			name:    "updates multiple fields",
+			habitID: "1",
+			requestBody: models.UpdateHabitParams{
+				Title:       ptr("New Title"),
+				Description: ptr("New description"),
+				Frequency:   ptr(models.FrequencyWeekly),
+				Color:       ptr("#FF5500"),
+				Icon:        ptr("star"),
+			},
+			expectedStatus: http.StatusOK,
+			setupFunc: func(s *Handler) (int, error) {
+				params := models.CreateHabitParams{
+					Title:       "Original",
+					Description: ptr("Original description"),
+					Frequency:   models.FrequencyDaily,
+				}
+				return tests.CreateTestHabit(s.GetDB(), 1, params)
+			},
+			validateFunc: func(t *testing.T, rr *httptest.ResponseRecorder) {
+				var habit models.Habit
+				tests.ParseJsonResponse(t, rr.Body.Bytes(), &habit)
+
+				if habit.Title != "New Title" {
+					t.Errorf("expected title 'New Title', got %v", habit.Title)
+				}
+				if habit.Description == nil || *habit.Description != "New description" {
+					t.Errorf("expected description 'New description', got %v", habit.Description)
+				}
+				if habit.Frequency != models.FrequencyWeekly {
+					t.Errorf("expected frequency 'weekly', got %v", habit.Frequency)
+				}
+				if habit.Color == nil || *habit.Color != "#FF5500" {
+					t.Errorf("expected color '#FF5500', got %v", habit.Color)
+				}
+				if habit.Icon == nil || *habit.Icon != "star" {
+					t.Errorf("expected icon 'star', got %v", habit.Icon)
+				}
+			},
+		},
+		{
+			name:    "clears optional fields with nil",
+			habitID: "1",
+			requestBody: models.UpdateHabitParams{
+				Description: nil, // This won't clear - only non-nil fields are updated
+			},
+			expectedStatus: http.StatusOK,
+			setupFunc: func(s *Handler) (int, error) {
+				params := models.CreateHabitParams{
+					Title:       "Test",
+					Description: ptr("Original description"),
+					Frequency:   models.FrequencyDaily,
+				}
+				return tests.CreateTestHabit(s.GetDB(), 1, params)
+			},
+			validateFunc: func(t *testing.T, rr *httptest.ResponseRecorder) {
+				var habit models.Habit
+				tests.ParseJsonResponse(t, rr.Body.Bytes(), &habit)
+
+				// Description should remain unchanged since we didn't send it
+				if habit.Description == nil || *habit.Description != "Original description" {
+					t.Errorf("expected description to remain 'Original description', got %v", habit.Description)
+				}
+			},
+		},
+		{
+			name:           "returns 404 for non-existent habit",
+			habitID:        "999",
+			requestBody:    models.UpdateHabitParams{Title: ptr("Updated")},
+			expectedStatus: http.StatusNotFound,
+			setupFunc: func(s *Handler) (int, error) {
+				return 999, nil
+			},
+			validateFunc: nil,
+		},
+		{
+			name:           "returns 400 for invalid habit ID",
+			habitID:        "invalid",
+			requestBody:    models.UpdateHabitParams{Title: ptr("Updated")},
+			expectedStatus: http.StatusBadRequest,
+			setupFunc: func(s *Handler) (int, error) {
+				return 0, nil
+			},
+			validateFunc: nil,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewHandler()
+			defer tests.Teardown()
+
+			habitID, err := tt.setupFunc(s)
+			if err != nil {
+				t.Fatalf("failed to setup test: %v", err)
+			}
+
+			testHabitID := tt.habitID
+			if tt.habitID == "1" && habitID != 1 {
+				testHabitID = strconv.Itoa(habitID)
+			}
+
+			body := tests.CreateJsonBody(t, tt.requestBody)
+			token, _ := tests.GenerateTestJWT(1)
+			req, err := http.NewRequest("PUT", "/api/habits/"+testHabitID, body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("Authorization", "Bearer "+token)
+			req.Header.Set("Content-Type", "application/json")
+			req = mux.SetURLVars(req, map[string]string{"id": testHabitID})
+
+			rr := httptest.NewRecorder()
+			router := mux.NewRouter()
+			router.HandleFunc("/api/habits/{id}", s.JwtMiddleware(s.UpdateHabitRoute))
+			router.ServeHTTP(rr, req)
+
+			if status := rr.Code; status != tt.expectedStatus {
+				t.Errorf("handler returned wrong status code: got %v want %v, body: %s",
+					status, tt.expectedStatus, rr.Body.String())
+			}
+
+			if tt.validateFunc != nil && tt.expectedStatus == http.StatusOK {
+				tt.validateFunc(t, rr)
+			}
+		})
+	}
+}
+
+// TestUpdateHabitRouteUnauthorized tests that unauthorized requests are rejected
+func TestUpdateHabitRouteUnauthorized(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	body := tests.CreateJsonBody(t, models.UpdateHabitParams{Title: ptr("Updated")})
+	req, err := http.NewRequest("PUT", "/api/habits/1", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/habits/{id}", s.JwtMiddleware(s.UpdateHabitRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusUnauthorized {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusUnauthorized)
+	}
+}
+
+// TestUpdateHabitRouteWrongUser tests that users can't update other users' habits
+func TestUpdateHabitRouteWrongUser(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	params := models.CreateHabitParams{
+		Title:     "User 1 Habit",
+		Frequency: models.FrequencyDaily,
+	}
+	habitID, err := tests.CreateTestHabit(s.GetDB(), 1, params)
+	if err != nil {
+		t.Fatalf("failed to create habit: %v", err)
+	}
+
+	body := tests.CreateJsonBody(t, models.UpdateHabitParams{Title: ptr("Hacked")})
+	token, _ := tests.GenerateTestJWT(2)
+	req, err := http.NewRequest("PUT", "/api/habits/"+strconv.Itoa(habitID), body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req = mux.SetURLVars(req, map[string]string{"id": strconv.Itoa(habitID)})
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/habits/{id}", s.JwtMiddleware(s.UpdateHabitRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNotFound {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNotFound)
+	}
+}
+
+// ptr is a helper function to create pointers for test values
+func ptr[T any](v T) *T {
+	return &v
 }

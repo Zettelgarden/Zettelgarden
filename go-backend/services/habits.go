@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"go-backend/models"
 	"log"
 	"time"
-	"go-backend/models"
 )
 
 func CreateHabit(db models.Database, userID int, params models.CreateHabitParams) (int, error) {
@@ -123,6 +123,71 @@ func DeleteHabit(db models.Database, userID int, habitID int) error {
 		return fmt.Errorf("habit not found")
 	}
 	return nil
+}
+
+func UpdateHabit(db models.Database, userID int, habitID int, params models.UpdateHabitParams) (models.Habit, error) {
+	// First verify the habit exists and belongs to the user
+	habit, err := GetHabit(db, userID, habitID)
+	if err != nil {
+		return habit, err
+	}
+
+	// Build dynamic update query based on provided fields
+	query := "UPDATE habits SET updated_at = NOW()"
+	args := []interface{}{}
+	argIndex := 1
+
+	if params.Title != nil {
+		query += fmt.Sprintf(", title = $%d", argIndex)
+		args = append(args, *params.Title)
+		argIndex++
+	}
+	if params.Description != nil {
+		query += fmt.Sprintf(", description = $%d", argIndex)
+		args = append(args, *params.Description)
+		argIndex++
+	}
+	if params.Frequency != nil {
+		query += fmt.Sprintf(", frequency = $%d", argIndex)
+		args = append(args, *params.Frequency)
+		argIndex++
+	}
+	if params.CustomDays != nil {
+		query += fmt.Sprintf(", custom_days = $%d", argIndex)
+		args = append(args, *params.CustomDays)
+		argIndex++
+	}
+	if params.Icon != nil {
+		query += fmt.Sprintf(", icon = $%d", argIndex)
+		args = append(args, *params.Icon)
+		argIndex++
+	}
+	if params.Color != nil {
+		query += fmt.Sprintf(", color = $%d", argIndex)
+		args = append(args, *params.Color)
+		argIndex++
+	}
+	if params.Position != nil {
+		query += fmt.Sprintf(", position = $%d", argIndex)
+		args = append(args, *params.Position)
+		argIndex++
+	}
+	if params.LinkedTaskID != nil {
+		query += fmt.Sprintf(", linked_task_id = $%d", argIndex)
+		args = append(args, *params.LinkedTaskID)
+		argIndex++
+	}
+
+	query += fmt.Sprintf(" WHERE id = $%d AND user_id = $%d", argIndex, argIndex+1)
+	args = append(args, habitID, userID)
+
+	_, err = db.Exec(query, args...)
+	if err != nil {
+		return habit, fmt.Errorf("failed to update habit: %w", err)
+	}
+
+	// Return the updated habit
+	return GetHabit(db, userID, habitID)
 }
 
 func CheckinHabit(db models.Database, userID int, habitID int, params models.CheckinHabitParams, timezone string) (int, error) {
@@ -302,9 +367,9 @@ func calculateCompletionRate(db models.Database, userID int, habitID int, days i
 
 type HabitWithCheckin struct {
 	models.Habit
-	IsDueToday     bool  `json:"is_due_today"`
-	CheckedInToday bool  `json:"checked_in_today"`
-	TodayLogID     *int  `json:"today_log_id,omitempty"`
+	IsDueToday     bool `json:"is_due_today"`
+	CheckedInToday bool `json:"checked_in_today"`
+	TodayLogID     *int `json:"today_log_id,omitempty"`
 }
 
 func GetTodaysHabits(db models.Database, userID int, timezone string) ([]HabitWithCheckin, error) {

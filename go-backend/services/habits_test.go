@@ -1,8 +1,8 @@
 package services
 
 import (
-	"testing"
 	"go-backend/models"
+	"testing"
 )
 
 func TestCreateHabit(t *testing.T) {
@@ -40,5 +40,21 @@ func TestGetTodaysHabits(t *testing.T) {
 	hwc.IsDueToday = true
 	if !hwc.IsDueToday {
 		t.Error("expected true")
+	}
+}
+
+func TestUpdateHabitParams(t *testing.T) {
+	// Compile check for UpdateHabitParams
+	title := "Updated Title"
+	freq := models.FrequencyWeekly
+	params := models.UpdateHabitParams{
+		Title:     &title,
+		Frequency: &freq,
+	}
+	if params.Title == nil || *params.Title != "Updated Title" {
+		t.Error("title mismatch")
+	}
+	if params.Frequency == nil || *params.Frequency != models.FrequencyWeekly {
+		t.Error("frequency mismatch")
 	}
 }

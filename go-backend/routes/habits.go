@@ -1,8 +1,8 @@
 package routes
 
 import (
-	"go-backend/handlers"
 	"github.com/gorilla/mux"
+	"go-backend/handlers"
 )
 
 func RegisterHabitRoutes(r *mux.Router, h *handlers.Handler) {
@@ -10,6 +10,7 @@ func RegisterHabitRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/habits", h.CreateHabitRoute, "POST")
 	addProtectedRoute(r, h, "/api/habits/today", h.GetTodaysHabitsRoute, "GET")
 	addProtectedRoute(r, h, "/api/habits/{id}", h.GetHabitRoute, "GET")
+	addProtectedRoute(r, h, "/api/habits/{id}", h.UpdateHabitRoute, "PUT")
 	addProtectedRoute(r, h, "/api/habits/{id}", h.DeleteHabitRoute, "DELETE")
 	addProtectedRoute(r, h, "/api/habits/{id}/checkin", h.CheckinHabitRoute, "POST")
 	addProtectedRoute(r, h, "/api/habits/{id}/checkin/{logId}", h.UndoCheckinRoute, "DELETE")
