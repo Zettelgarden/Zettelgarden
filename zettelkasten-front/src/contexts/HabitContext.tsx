@@ -111,16 +111,14 @@ export const HabitProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       await fetchHabits();
       await fetchTodaysHabits();
       // Update selectedHabit if it's the one we edited
-      if (selectedHabit?.id === id) {
-        setSelectedHabit(updated);
-      }
+      setSelectedHabit(prev => prev?.id === id ? updated : prev);
       return updated;
     } catch (err) {
       throw err;
     } finally {
       setLoading(false);
     }
-  }, [fetchHabits, fetchTodaysHabits, selectedHabit]);
+  }, [fetchHabits, fetchTodaysHabits]);
 
   const checkinHabit = useCallback(async (id: number, params?: CheckinHabitParams): Promise<number> => {
     setLoading(true);

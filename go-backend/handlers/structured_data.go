@@ -94,7 +94,7 @@ func (s *Handler) UpdateCardStructuredDataRoute(w http.ResponseWriter, r *http.R
 
 	// Validate: must provide schema_id if structured_data is provided
 	if params.StructuredData != nil && params.SchemaID == nil {
-		http.Error(w, "schema_id is required when providing structured_data", http.StatusBadRequest)
+		http.Error(w, "Schema_id is required when providing structured_data", http.StatusBadRequest)
 		return
 	}
 
@@ -192,7 +192,7 @@ func (s *Handler) PatchCardStructuredDataRoute(w http.ResponseWriter, r *http.Re
 	}
 
 	if params.StructuredData == nil {
-		http.Error(w, "structured_data is required", http.StatusBadRequest)
+		http.Error(w, "Structured_data is required", http.StatusBadRequest)
 		return
 	}
 
