@@ -909,7 +909,11 @@ func UpdateCard(db models.Database, userID int, cardPK int, params models.EditCa
 	CreateAuditEvent(db, userID, cardPK, "card", "update", oldCard, newCard)
 
 	backlinks := ExtractBacklinks(newCard.Body)
-	structuredDataBacklinks := ExtractBacklinksFromStructuredData(db, userID, newCard.StructuredData)
+	var schema *models.SchemaDefinition
+	if newCard.SchemaID != nil {
+		schema = getSchemaByID(db, userID, *newCard.SchemaID)
+	}
+	structuredDataBacklinks := ExtractBacklinksFromStructuredData(db, userID, newCard.StructuredData, schema)
 	allBacklinks := append(backlinks, structuredDataBacklinks...)
 	UpdateBacklinks(db, newCard.ID, allBacklinks)
 
@@ -1036,7 +1040,11 @@ func CreateCard(db models.Database, userID int, params models.EditCardParams) (m
 	}
 
 	backlinks := ExtractBacklinks(newCard.Body)
-	structuredDataBacklinks := ExtractBacklinksFromStructuredData(db, userID, newCard.StructuredData)
+	var schema *models.SchemaDefinition
+	if newCard.SchemaID != nil {
+		schema = getSchemaByID(db, userID, *newCard.SchemaID)
+	}
+	structuredDataBacklinks := ExtractBacklinksFromStructuredData(db, userID, newCard.StructuredData, schema)
 	allBacklinks := append(backlinks, structuredDataBacklinks...)
 	UpdateBacklinks(db, newCard.ID, allBacklinks)
 
@@ -1569,7 +1577,11 @@ func UpdateCardStructuredData(db models.Database, userID int, cardPK int, schema
 	CreateAuditEvent(db, userID, cardPK, "card", "update_structured_data", oldCard, newCard)
 
 	// Update backlinks from structured data
-	structuredDataBacklinks := ExtractBacklinksFromStructuredData(db, userID, newCard.StructuredData)
+	var schema *models.SchemaDefinition
+	if newCard.SchemaID != nil {
+		schema = getSchemaByID(db, userID, *newCard.SchemaID)
+	}
+	structuredDataBacklinks := ExtractBacklinksFromStructuredData(db, userID, newCard.StructuredData, schema)
 	// Also include backlinks from body
 	bodyBacklinks := ExtractBacklinks(newCard.Body)
 	allBacklinks := append(bodyBacklinks, structuredDataBacklinks...)

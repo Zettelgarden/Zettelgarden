@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useHabits } from '../../contexts/HabitContext';
 import { HabitFormDialog } from './HabitFormDialog';
+import { useToast } from '../toast/ToastContext';
 
 export const HabitList: React.FC = () => {
   const { habits, selectedHabit, setSelectedHabit, deleteHabit, habitStats, fetchHabitStats } = useHabits();
+  const { showToast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   // Fetch stats for all habits on mount
@@ -21,6 +23,7 @@ export const HabitList: React.FC = () => {
         await deleteHabit(id);
       } catch (e) {
         console.error(e);
+        showToast('error', 'Delete Failed', 'Could not delete habit');
       }
     }
   };
