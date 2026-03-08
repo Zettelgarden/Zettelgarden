@@ -411,3 +411,115 @@ func TestPatchCardStructuredDataRoute_NoExistingSchema(t *testing.T) {
 		t.Errorf("Expected status 400, got %d: %s", rr.Code, rr.Body.String())
 	}
 }
+
+// TestUpdateCardStructuredDataRoute_SchemaChangeWithoutData tests changing schema without providing new data
+func TestUpdateCardStructuredDataRoute_SchemaChangeWithoutData(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Create first schema with field "title"
+	schema1Fields := []models.FieldDefinition{
+		{Name: "title", Type: "text", Required: true},
+	}
+	schema1ID := createTestSchemaForStructuredData(s, t, 1, "Schema One", schema1Fields)
+
+	// Create second schema with different field "name"
+	schema2Fields := []models.FieldDefinition{
+		{Name: "name", Type: "text", Required: true},
+	}
+	schema2ID := createTestSchemaForStructuredData(s, t, 1, "Schema Two", schema2Fields)
+
+	// Create a card with schema1 and data that validates against schema1
+	initialDataJSON := `{"title":"Test Title"}`
+	var initialData json.RawMessage
+	_ = json.Unmarshal([]byte(initialDataJSON), &initialData)
+
+	card, err := services.CreateCard(s.GetDB(), 1, models.EditCardParams{
+		CardID:         "test-schema-change",
+		Title:          "Card with Schema",
+		Body:           "Body content",
+		SchemaID:       &schema1ID,
+		StructuredData: &initialData,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create test card: %v", err)
+	}
+
+	// Try to change to schema2 without providing new data
+	// The existing data {"title":"Test Title"} doesn't have "name" field which is required in schema2
+	updateReq := UpdateStructuredDataRequest{
+		SchemaID: &schema2ID,
+		// StructuredData is nil - keep existing
+	}
+	reqBody, _ := json.Marshal(updateReq)
+
+	token, _ := tests.GenerateTestJWT(1)
+	req := httptest.NewRequest("PUT", "/api/cards/"+strconv.Itoa(card.ID)+"/structured-data", strings.NewReader(string(reqBody)))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", strconv.Itoa(card.ID))
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}/structured-data", s.JwtMiddleware(s.UpdateCardStructuredDataRoute))
+	router.ServeHTTP(rr, req)
+
+	// Should fail because existing data doesn't validate against new schema
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400 (data doesn't validate against new schema), got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestPatchCardStructuredDataRoute_InvalidLinkToCard tests that patch validates link_to_card references
+func TestPatchCardStructuredDataRoute_InvalidLinkToCard(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Create a schema with link_to_card field
+	schemaFields := []models.FieldDefinition{
+		{Name: "related_card", Type: "link_to_card", Required: false},
+	}
+	schemaID := createTestSchemaForStructuredData(s, t, 1, "Test Schema Link", schemaFields)
+
+	// Create a card with schema
+	initialDataJSON := `{}`
+	var initialData json.RawMessage
+	_ = json.Unmarshal([]byte(initialDataJSON), &initialData)
+
+	card, err := services.CreateCard(s.GetDB(), 1, models.EditCardParams{
+		CardID:         "test-invalid-link",
+		Title:          "Card with Schema",
+		Body:           "Body content",
+		SchemaID:       &schemaID,
+		StructuredData: &initialData,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create test card: %v", err)
+	}
+
+	// Patch with invalid link_to_card reference (non-existent card ID)
+	patchDataJSON := `{"related_card":99999}`
+	var patchData json.RawMessage
+	_ = json.Unmarshal([]byte(patchDataJSON), &patchData)
+
+	patchReq := PatchStructuredDataRequest{
+		StructuredData: &patchData,
+	}
+	reqBody, _ := json.Marshal(patchReq)
+
+	token, _ := tests.GenerateTestJWT(1)
+	req := httptest.NewRequest("PATCH", "/api/cards/"+strconv.Itoa(card.ID)+"/structured-data", strings.NewReader(string(reqBody)))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", strconv.Itoa(card.ID))
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}/structured-data", s.JwtMiddleware(s.PatchCardStructuredDataRoute))
+	router.ServeHTTP(rr, req)
+
+	// Should fail because link_to_card references non-existent card
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400 (invalid link_to_card reference), got %d: %s", rr.Code, rr.Body.String())
+	}
+}

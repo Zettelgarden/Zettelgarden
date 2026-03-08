@@ -11,11 +11,10 @@ export const HabitList: React.FC = () => {
   // Fetch stats for all habits on mount
   useEffect(() => {
     habits.forEach(h => {
-      if (!habitStats[h.id]) {
-        fetchHabitStats(h.id).catch(console.error);
-      }
+      fetchHabitStats(h.id).catch(() => {}); // Silently ignore if already fetched
     });
-  }, [habits, habitStats, fetchHabitStats]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [habits]);
 
   const handleDelete = async (id: number) => {
     if (confirm('Delete this habit?')) {
