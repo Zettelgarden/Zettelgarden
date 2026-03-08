@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"go-backend/models"
 	"go-backend/tests"
 	"net/http"
@@ -223,7 +224,7 @@ func TestGetHabitLogsRoute(t *testing.T) {
 				t.Fatal(err)
 			}
 			req.Header.Set("Authorization", "Bearer "+token)
-			req.SetPathValue("id", testHabitID)
+			req = mux.SetURLVars(req, map[string]string{"id": testHabitID})
 
 			// Create response recorder and execute request
 			rr := httptest.NewRecorder()
@@ -294,11 +295,203 @@ func TestGetHabitLogsRouteWrongUser(t *testing.T) {
 		t.Fatal(err)
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.SetPathValue("id", strconv.Itoa(habitID))
+	req = mux.SetURLVars(req, map[string]string{"id": strconv.Itoa(habitID)})
 
 	rr := httptest.NewRecorder()
 	router := mux.NewRouter()
 	router.HandleFunc("/api/habits/{id}/logs", s.JwtMiddleware(s.GetHabitLogsRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNotFound {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNotFound)
+	}
+}
+
+// TestGetHabitStatsRoute tests the GET /api/habits/{id}/stats endpoint
+func TestGetHabitStatsRoute(t *testing.T) {
+	testCases := []struct {
+		name           string
+		habitID        string
+		expectedStatus int
+		setupFunc      func(*Handler) (int, error) // Returns habitID and error
+		validateFunc   func(*testing.T, *httptest.ResponseRecorder)
+	}{
+		{
+			name:           "returns stats for habit with no check-ins",
+			habitID:        "1",
+			expectedStatus: http.StatusOK,
+			setupFunc: func(s *Handler) (int, error) {
+				params := models.CreateHabitParams{
+					Title:     "Test Habit",
+					Frequency: models.FrequencyDaily,
+				}
+				id, err := tests.CreateTestHabit(s.GetDB(), 1, params)
+				return id, err
+			},
+			validateFunc: func(t *testing.T, rr *httptest.ResponseRecorder) {
+				var stats models.HabitStats
+				tests.ParseJsonResponse(t, rr.Body.Bytes(), &stats)
+
+				if stats.TotalCompletions != 0 {
+					t.Errorf("expected total completions 0, got %d", stats.TotalCompletions)
+				}
+				if stats.CurrentStreak != 0 {
+					t.Errorf("expected current streak 0, got %d", stats.CurrentStreak)
+				}
+				if stats.LongestStreak != 0 {
+					t.Errorf("expected longest streak 0, got %d", stats.LongestStreak)
+				}
+			},
+		},
+		{
+			name:           "returns stats with completions",
+			habitID:        "1",
+			expectedStatus: http.StatusOK,
+			setupFunc: func(s *Handler) (int, error) {
+				params := models.CreateHabitParams{
+					Title:     "Test Habit",
+					Frequency: models.FrequencyDaily,
+				}
+				habitID, err := tests.CreateTestHabit(s.GetDB(), 1, params)
+				if err != nil {
+					return 0, err
+				}
+
+				// Create multiple log entries (3 consecutive days)
+				baseTime := time.Date(2026, 3, 8, 14, 30, 0, 0, time.UTC)
+				for i := 0; i < 3; i++ {
+					offset := time.Duration(-i * 24)
+					completedAt := baseTime.Add(offset * time.Hour)
+					_, err = tests.CreateTestHabitLogWithTime(s.GetDB(), 1, habitID, nil, completedAt)
+					if err != nil {
+						return 0, err
+					}
+				}
+				return habitID, nil
+			},
+			validateFunc: func(t *testing.T, rr *httptest.ResponseRecorder) {
+				var stats models.HabitStats
+				tests.ParseJsonResponse(t, rr.Body.Bytes(), &stats)
+
+				if stats.TotalCompletions != 3 {
+					t.Errorf("expected total completions 3, got %d", stats.TotalCompletions)
+				}
+				if stats.CurrentStreak != 3 {
+					t.Errorf("expected current streak 3, got %d", stats.CurrentStreak)
+				}
+				if stats.LongestStreak != 3 {
+					t.Errorf("expected longest streak 3, got %d", stats.LongestStreak)
+				}
+				if stats.LastCompletedAt == nil {
+					t.Error("expected last_completed_at to be set")
+				}
+			},
+		},
+		{
+			name:           "returns 404 for non-existent habit",
+			habitID:        "999",
+			expectedStatus: http.StatusNotFound,
+			setupFunc: func(s *Handler) (int, error) {
+				return 999, nil
+			},
+			validateFunc: nil,
+		},
+		{
+			name:           "returns 400 for invalid habit ID",
+			habitID:        "invalid",
+			expectedStatus: http.StatusBadRequest,
+			setupFunc: func(s *Handler) (int, error) {
+				return 0, nil
+			},
+			validateFunc: nil,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewHandler()
+			defer tests.Teardown()
+
+			habitID, err := tt.setupFunc(s)
+			if err != nil {
+				t.Fatalf("failed to setup test: %v", err)
+			}
+
+			testHabitID := tt.habitID
+			if tt.habitID == "1" && habitID != 1 {
+				testHabitID = strconv.Itoa(habitID)
+			}
+
+			token, _ := tests.GenerateTestJWT(1)
+			req, err := http.NewRequest("GET", "/api/habits/"+testHabitID+"/stats", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("Authorization", "Bearer "+token)
+			req = mux.SetURLVars(req, map[string]string{"id": testHabitID})
+
+			rr := httptest.NewRecorder()
+			router := mux.NewRouter()
+			router.HandleFunc("/api/habits/{id}/stats", s.JwtMiddleware(s.GetHabitStatsRoute))
+			router.ServeHTTP(rr, req)
+
+			if status := rr.Code; status != tt.expectedStatus {
+				t.Errorf("handler returned wrong status code: got %v want %v, body: %s",
+					status, tt.expectedStatus, rr.Body.String())
+			}
+
+			if tt.validateFunc != nil && tt.expectedStatus == http.StatusOK {
+				tt.validateFunc(t, rr)
+			}
+		})
+	}
+}
+
+// TestGetHabitStatsRouteUnauthorized tests that unauthorized requests are rejected
+func TestGetHabitStatsRouteUnauthorized(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	req, err := http.NewRequest("GET", "/api/habits/1/stats", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/habits/{id}/stats", s.JwtMiddleware(s.GetHabitStatsRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusUnauthorized {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusUnauthorized)
+	}
+}
+
+// TestGetHabitStatsRouteWrongUser tests that users can't access other users' habit stats
+func TestGetHabitStatsRouteWrongUser(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	params := models.CreateHabitParams{
+		Title:     "User 1 Habit",
+		Frequency: models.FrequencyDaily,
+	}
+	habitID, err := tests.CreateTestHabit(s.GetDB(), 1, params)
+	if err != nil {
+		t.Fatalf("failed to create habit: %v", err)
+	}
+
+	token, _ := tests.GenerateTestJWT(2)
+	req, err := http.NewRequest("GET", "/api/habits/"+strconv.Itoa(habitID)+"/stats", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req = mux.SetURLVars(req, map[string]string{"id": strconv.Itoa(habitID)})
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/habits/{id}/stats", s.JwtMiddleware(s.GetHabitStatsRoute))
 	router.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusNotFound {

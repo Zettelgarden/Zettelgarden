@@ -286,8 +286,6 @@ func truncateTestData() {
 		"fact_card_junction",
 		"facts",
 		"files",
-		"habit_logs",
-		"habits",
 		"keywords",
 		"llm_jobs",
 		"llm_models",

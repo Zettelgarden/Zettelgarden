@@ -125,6 +125,36 @@ func (s *Handler) GetTodaysHabitsRoute(w http.ResponseWriter, r *http.Request) {
 // GetHabitLogsRoute retrieves the check-in history for a specific habit
 // GET /api/habits/{id}/logs
 func (s *Handler) GetHabitLogsRoute(w http.ResponseWriter, r *http.Request) {
-	// TODO: Implement this handler in Task 2
+	// TODO: Implement this handler
 	http.Error(w, "Not implemented", http.StatusNotImplemented)
+}
+
+// GetHabitStatsRoute retrieves statistics for a specific habit
+// GET /api/habits/{id}/stats
+func (s *Handler) GetHabitStatsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil {
+		log.Printf("Invalid habit id param: %v", err)
+		http.Error(w, "Invalid id", http.StatusBadRequest)
+		return
+	}
+
+	// Verify habit exists and belongs to user
+	_, err = services.GetHabit(s.GetDB(), userID, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	timezone, _ := s.GetUserTimezone(userID)
+	stats, err := services.CalculateHabitStats(s.GetDB(), userID, id, timezone)
+	if err != nil {
+		log.Printf("Error calculating habit stats: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
 }

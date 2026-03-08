@@ -12,4 +12,5 @@ func RegisterHabitRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/habits/{id}", h.GetHabitRoute, "GET")
 	addProtectedRoute(r, h, "/api/habits/{id}", h.DeleteHabitRoute, "DELETE")
 	addProtectedRoute(r, h, "/api/habits/{id}/checkin", h.CheckinHabitRoute, "POST")
+	addProtectedRoute(r, h, "/api/habits/{id}/stats", h.GetHabitStatsRoute, "GET")
 }
