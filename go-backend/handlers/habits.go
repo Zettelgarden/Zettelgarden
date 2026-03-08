@@ -121,3 +121,10 @@ func (s *Handler) GetTodaysHabitsRoute(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(habits)
 }
+
+// GetHabitLogsRoute retrieves the check-in history for a specific habit
+// GET /api/habits/{id}/logs
+func (s *Handler) GetHabitLogsRoute(w http.ResponseWriter, r *http.Request) {
+	// TODO: Implement this handler in Task 2
+	http.Error(w, "Not implemented", http.StatusNotImplemented)
+}
