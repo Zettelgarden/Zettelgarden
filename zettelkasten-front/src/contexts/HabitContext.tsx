@@ -124,15 +124,15 @@ export const HabitProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setLoading(true);
     try {
       const logId = await habitApi.checkinHabit(id, params);
-      await fetchTodaysHabits();
-      // Refresh stats and logs after check-in
-      await fetchHabitStats(id);
-      await fetchHabitLogs(id);
       return logId;
     } catch (err) {
       throw err;
     } finally {
+      // Always refresh data after check-in attempt (success or failure)
       setLoading(false);
+      await fetchTodaysHabits();
+      await fetchHabitStats(id);
+      await fetchHabitLogs(id);
     }
   }, [fetchTodaysHabits, fetchHabitStats, fetchHabitLogs]);
 

@@ -26,7 +26,8 @@ export const TodaysHabitsWidget: React.FC = () => {
     try {
       await checkinHabit(habitId);
     } catch (e) {
-      // Ignore "already checked in" errors
+      // Even on error (e.g., "already checked in"), refresh to get current state
+      await fetchTodaysHabits();
     } finally {
       setCheckingIn(null);
     }
