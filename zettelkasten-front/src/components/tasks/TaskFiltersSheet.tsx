@@ -91,6 +91,9 @@ export function TaskFiltersSheet({
           >
             <option value="today">Today</option>
             <option value="tomorrow">Tomorrow</option>
+            <option value="this_week">This Week</option>
+            <option value="overdue">Overdue</option>
+            <option value="no_date">No Date</option>
             <option value="all">All</option>
           </select>
         </section>

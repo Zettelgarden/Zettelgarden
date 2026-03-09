@@ -429,7 +429,13 @@ export function TaskMobileLayout({
                 ? " today"
                 : dateView === "tomorrow"
                   ? " tomorrow"
-                  : ""} tasks
+                  : dateView === "overdue"
+                    ? " overdue"
+                    : dateView === "this_week"
+                      ? " this week"
+                      : dateView === "no_date"
+                        ? " no date"
+                        : ""} {totalTasksForDateView === 1 ? "task" : "tasks"}
             </span>
             {selectMode && (
               <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs whitespace-nowrap">

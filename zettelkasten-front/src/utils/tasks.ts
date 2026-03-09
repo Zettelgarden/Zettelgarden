@@ -1,10 +1,10 @@
 import { Task, TaskAuditEvent } from "../models/Task";
 import { format } from "date-fns-tz";
-import { compareDates, compareDatesInTimezone, getToday, getTomorrow, isTodayOrPast } from "./dates";
+import { compareDates, compareDatesInTimezone, getToday, getTomorrow, isTodayOrPast, isPast } from "./dates";
 
 export interface TaskFilterParams {
   searchTerms: string[];
-  dateView: "all" | "today" | "tomorrow";
+  dateView: "all" | "today" | "tomorrow" | "overdue" | "this_week" | "no_date";
   showCompleted: boolean;
   specificDate: Date | null;
 }
@@ -259,6 +259,42 @@ export function filterTasksByDateView(
     } else {
       return false;
     }
+  }
+
+  // Handle "overdue" view - tasks with due_date in the past that are not complete
+  if (dateView === "overdue") {
+    // Overdue tasks are never completed
+    if (task.is_complete) {
+      return false;
+    }
+    // Must have a due date that is in the past
+    return task.due_date !== null && isPast(task.due_date, timezone);
+  }
+
+  // Handle "this_week" view - tasks scheduled or due this week
+  if (dateView === "this_week") {
+    if (task.is_complete) {
+      return showCompleted;
+    }
+    const today = getToday(timezone);
+    const endOfWeek = new Date(today);
+    endOfWeek.setDate(endOfWeek.getDate() + 6); // Next 7 days including today
+
+    const taskDate = task.scheduled_date || task.due_date;
+    if (!taskDate) {
+      return false;
+    }
+
+    const taskDateObj = new Date(taskDate);
+    return taskDateObj >= today && taskDateObj <= endOfWeek;
+  }
+
+  // Handle "no_date" view - tasks without scheduled or due date
+  if (dateView === "no_date") {
+    if (task.is_complete) {
+      return showCompleted;
+    }
+    return !task.scheduled_date && !task.due_date;
   }
 
   // Fallback for other dateView values

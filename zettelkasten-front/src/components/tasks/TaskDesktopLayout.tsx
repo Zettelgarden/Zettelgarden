@@ -303,7 +303,13 @@ export function TaskDesktopLayout({
                   ? " today"
                   : dateView === "tomorrow"
                     ? " tomorrow"
-                    : ""} tasks
+                    : dateView === "overdue"
+                      ? " overdue"
+                      : dateView === "this_week"
+                        ? " this week"
+                        : dateView === "no_date"
+                          ? " no date"
+                          : ""} {totalTasksForDateView === 1 ? "task" : "tasks"}
               </span>
               {selectMode && (
                 <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs whitespace-nowrap">
@@ -329,6 +335,9 @@ export function TaskDesktopLayout({
                       >
                         <option value="today">Today</option>
                         <option value="tomorrow">Tomorrow</option>
+                        <option value="this_week">This Week</option>
+                        <option value="overdue">Overdue</option>
+                        <option value="no_date">No Date</option>
                         <option value="all">All</option>
                       </select>
                     </div>
@@ -505,7 +514,7 @@ export function TaskDesktopLayout({
               {tasksToDisplay.length > 0 && totalPages > 1 && (
                 <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t pt-4">
                   <div className="text-sm text-slate-600">
-                    Showing {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, tasksToDisplay.length)} of {tasksToDisplay.length} tasks
+                    Showing {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, tasksToDisplay.length)} of {tasksToDisplay.length} {tasksToDisplay.length === 1 ? "task" : "tasks"}
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
