@@ -32,12 +32,16 @@ export const HabitFormDialog: React.FC<HabitFormDialogProps> = ({ onClose, habit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const customDaysStr = frequency === 'custom_days' && customDays.length > 0
+      ? JSON.stringify(customDays)
+      : undefined;
+
     if (isEditing && habit) {
       const params: UpdateHabitParams = {
         title,
         description: description || undefined,
         frequency,
-        custom_days: frequency === 'custom_days' ? customDays : undefined,
+        custom_days: customDaysStr,
         icon: icon || undefined,
         color,
       };
@@ -52,7 +56,7 @@ export const HabitFormDialog: React.FC<HabitFormDialogProps> = ({ onClose, habit
         title,
         description: description || undefined,
         frequency,
-        custom_days: frequency === 'custom_days' ? customDays : undefined,
+        custom_days: customDaysStr,
         icon: icon || undefined,
         color,
       };

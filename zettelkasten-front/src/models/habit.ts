@@ -43,7 +43,7 @@ export interface CreateHabitParams {
   title: string;
   description?: string;
   frequency: 'daily' | 'weekly' | 'custom_days';
-  custom_days?: number[];
+  custom_days?: string;
   icon?: string;
   color?: string;
   linked_task_id?: number;
@@ -53,7 +53,7 @@ export interface UpdateHabitParams {
   title?: string;
   description?: string;
   frequency?: 'daily' | 'weekly' | 'custom_days';
-  custom_days?: number[];
+  custom_days?: string;
   icon?: string;
   color?: string;
   linked_task_id?: number;
