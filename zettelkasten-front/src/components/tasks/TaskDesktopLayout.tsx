@@ -5,6 +5,7 @@ import { ExternalEvent } from "../../models/ExternalEvent";
 import { EisenhowerMatrix } from "./EisenhowerMatrix";
 import { KanbanBoard } from "./KanbanBoard";
 import { TaskList } from "./TaskList";
+import { TaskEmptyState, getEmptyStateType } from "./TaskEmptyState";
 import { TaskSelectionOverlay } from "./TaskSelectionOverlay";
 import { CreateTaskWindow } from "./CreateTaskWindow";
 import { TaskDialog } from "./TaskDialog";
@@ -475,8 +476,8 @@ export function TaskDesktopLayout({
             </ErrorBoundary>
           ) : viewMode === "list" ? (
             <>
-              <ul>
-                {paginatedTasks.length > 0 ? (
+              {paginatedTasks.length > 0 ? (
+                <ul>
                   <TaskList
                     onTagClick={onTagClick}
                     tasks={paginatedTasks}
@@ -484,12 +485,24 @@ export function TaskDesktopLayout({
                     selectedTaskIds={selectedTaskIds}
                     onTaskSelect={toggleTaskSelection}
                   />
-                ) : (
-                  <div className="flex justify-center items-center">
-                    No tasks, you're done for the day!
-                  </div>
-                )}
-              </ul>
+                </ul>
+              ) : (
+                <TaskEmptyState
+                  type={getEmptyStateType({
+                    totalTasks: tasks.length,
+                    filteredTasks: tasksToDisplay.length,
+                    hasActiveFilter: filterString.trim().length > 0,
+                    showCompleted,
+                  }) || "no-tasks"}
+                  onAddTask={() => {
+                    setCreateTaskStatus(undefined);
+                    setCalendarSelectedDate(null);
+                    setShowCreateTaskWindow(true);
+                  }}
+                  onClearFilters={() => setFilterString("")}
+                  onShowCompleted={() => setShowCompleted(true)}
+                />
+              )}
               {/* Pagination controls - only show if there are tasks and multiple pages */}
               {tasksToDisplay.length > 0 && totalPages > 1 && (
                 <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t pt-4">

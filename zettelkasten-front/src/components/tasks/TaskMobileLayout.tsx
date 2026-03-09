@@ -8,6 +8,7 @@ import { TaskFiltersSheet } from "./TaskFiltersSheet";
 import { QuickTagPopover, type QuickTagTrigger, getQuickTagTrigger, applyQuickTagSelection } from "./QuickTagPopover";
 import { SearchTagDropdown } from "../tags/SearchTagDropdown";
 import { TaskList } from "./TaskList";
+import { TaskEmptyState, getEmptyStateType } from "./TaskEmptyState";
 import { EisenhowerMatrix } from "./EisenhowerMatrix";
 import { KanbanBoard } from "./KanbanBoard";
 import { CalendarViewWrapper } from "../../components/calendar/CalendarView";
@@ -164,6 +165,7 @@ export function TaskMobileLayout({
   setSelectedTaskIds,
   setCalendarViewMode,
   setCalendarCurrentDate,
+  setFilterString,
   setShowCreateTaskWindow,
   setSelectedTaskId,
   setIsTaskDialogOpen,
@@ -262,6 +264,25 @@ export function TaskMobileLayout({
           />
         );
       case "list":
+        if (paginatedTasks.length === 0) {
+          return (
+            <TaskEmptyState
+              type={getEmptyStateType({
+                totalTasks: tasks.length,
+                filteredTasks: tasksToDisplay.length,
+                hasActiveFilter: filterString.trim().length > 0,
+                showCompleted,
+              }) || "no-tasks"}
+              onAddTask={() => {
+                setCreateTaskStatus(undefined);
+                setCalendarSelectedDate(null);
+                setShowCreateTaskWindow(true);
+              }}
+              onClearFilters={() => setFilterString("")}
+              onShowCompleted={() => setShowCompleted(true)}
+            />
+          );
+        }
         return (
           <TaskList
             tasks={paginatedTasks}
