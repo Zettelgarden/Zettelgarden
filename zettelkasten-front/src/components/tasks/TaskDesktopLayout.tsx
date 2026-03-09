@@ -73,9 +73,6 @@ interface TaskDesktopLayoutProps {
   createTaskStatus: string | undefined;
   calendarSelectedDate: Date | null;
 
-  // Quick lists panel (optional)
-  showQuickListsPanel?: boolean;
-
   // Setters
   setShowCompleted: (show: boolean) => void;
   setRefreshTasks: (refresh: boolean) => void;
@@ -156,7 +153,6 @@ export function TaskDesktopLayout({
   isTaskDialogOpen,
   createTaskStatus,
   calendarSelectedDate,
-  showQuickListsPanel = false,
   setShowCompleted,
   setRefreshTasks,
   setDateView,
@@ -594,18 +590,6 @@ export function TaskDesktopLayout({
           )}
         </div>
       </div>
-
-      {/* Quick Lists Panel (optional) */}
-      {showQuickListsPanel && (
-        <div className="w-80 border-l border-slate-300 bg-white overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-slate-200 bg-slate-50">
-            <h3 className="font-semibold text-slate-700">Quick Lists</h3>
-          </div>
-          <div className="flex-1 overflow-auto p-4">
-            <p className="text-sm text-slate-500">Quick lists coming soon...</p>
-          </div>
-        </div>
-      )}
 
       {/* Dialogs and Overlays */}
       {showCreateTaskWindow && (

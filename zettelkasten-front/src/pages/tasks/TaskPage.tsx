@@ -54,7 +54,6 @@ export function TaskPage({ }: TaskListProps) {
   // Responsive layout state
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const [mobileView, setMobileView] = useState<TaskMobileView>('list');
-  const [showQuickListsPanel, setShowQuickListsPanel] = useState(false);
   const [isFilterFocused, setIsFilterFocused] = useState(false);
 
   // State for task dialog
@@ -409,7 +408,6 @@ export function TaskPage({ }: TaskListProps) {
         />
       ) : (
         <TaskDesktopLayout
-          showQuickListsPanel={showQuickListsPanel}
           // Task data
           tasks={tasks}
           tags={tags}
