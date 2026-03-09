@@ -9,6 +9,7 @@ import { QuickTagPopover, type QuickTagTrigger, getQuickTagTrigger, applyQuickTa
 import { SearchTagDropdown } from "../tags/SearchTagDropdown";
 import { TaskList } from "./TaskList";
 import { TaskEmptyState, getEmptyStateType } from "./TaskEmptyState";
+import { FilterHelpButton, FilterHelpPopover } from "./FilterHelpButton";
 import { EisenhowerMatrix } from "./EisenhowerMatrix";
 import { KanbanBoard } from "./KanbanBoard";
 import { CalendarViewWrapper } from "../../components/calendar/CalendarView";
@@ -384,31 +385,17 @@ export function TaskMobileLayout({
                   refreshFilterTriggerFromInput(e.currentTarget);
                 }}
                 onBlur={() => setIsFilterFocused(false)}
-                placeholder="Filter tasks..."
+                placeholder="Filter... try #tag or status:todo"
                 className="h-9 w-full pl-3 pr-8 border border-slate-300 rounded-md text-sm"
               />
-              <span
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 cursor-help"
-                onMouseEnter={() => setShowFilterHelp(true)}
-                onMouseLeave={() => setShowFilterHelp(false)}
-              >
-                ?
-              </span>
-              {showFilterHelp && (
-                <div className="absolute top-full mt-2 left-0 bg-white p-3 border border-slate-300 rounded shadow-lg z-20 w-auto min-w-[280px]">
-                  <h4 className="font-semibold mb-2 text-slate-700">Filter Options:</h4>
-                  <ul className="list-none space-y-1 text-sm text-slate-600">
-                    <li><strong>Text:</strong> e.g., <code>meeting</code></li>
-                    <li><strong>Tag:</strong> <code>#tagName</code></li>
-                    <li><strong>Priority:</strong> <code>priority:A</code></li>
-                    <li><strong>Status:</strong> <code>status:todo</code>, <code>status:in_progress</code>, <code>status:blocked</code>, <code>status:done</code></li>
-                    <li><strong>Date:</strong> <code>date:today</code>, <code>date:tomorrow</code>, <code>date:2026-01-05</code></li>
-                    <li><strong>Show Completed:</strong> <code>show:completed</code></li>
-                    <li><strong>Reminder:</strong> <code>has:reminder</code></li>
-                    <li><strong>Negate:</strong> prepend <code>!</code></li>
-                  </ul>
-                </div>
-              )}
+              <FilterHelpButton
+                showHelp={showFilterHelp}
+                onToggle={() => setShowFilterHelp(!showFilterHelp)}
+              />
+              <FilterHelpPopover
+                visible={showFilterHelp}
+                onClose={() => setShowFilterHelp(false)}
+              />
             </div>
 
             <QuickTagPopover
