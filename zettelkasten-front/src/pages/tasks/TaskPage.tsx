@@ -292,6 +292,9 @@ export function TaskPage({ }: TaskListProps) {
     onEscape: () => {
       setShowCreateTaskWindow(false);
     },
+    onFocusFilter: () => {
+      filterInputRef.current?.focus();
+    },
   });
 
   useEffect(() => {
@@ -413,6 +416,7 @@ export function TaskPage({ }: TaskListProps) {
           tags={tags}
           userTimezone={userTimezone}
           isLoading={isLoading}
+          filterInputRef={filterInputRef}
           // Filtered tasks
           tasksToDisplay={tasksToDisplay}
           paginatedTasks={paginatedTasks}

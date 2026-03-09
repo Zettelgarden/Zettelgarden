@@ -40,6 +40,7 @@ interface TaskDesktopLayoutProps {
   showCompleted: boolean;
   userTimezone: string;
   isLoading?: boolean;
+  filterInputRef?: React.RefObject<HTMLInputElement>;
 
   // Filtered and paginated tasks
   tasksToDisplay: Task[];
@@ -129,6 +130,7 @@ export function TaskDesktopLayout({
   showCompleted,
   userTimezone,
   isLoading = false,
+  filterInputRef: externalFilterInputRef,
   tasksToDisplay,
   paginatedTasks,
   totalTasksForDateView,
@@ -191,8 +193,9 @@ export function TaskDesktopLayout({
   onSelectQuickTag,
   onRefreshFilterTriggerFromInput,
 }: TaskDesktopLayoutProps) {
-  // Refs for quick tag autocomplete
-  const filterInputRef = React.useRef<HTMLInputElement>(null);
+  // Refs for quick tag autocomplete - use external ref if provided, otherwise internal
+  const internalFilterInputRef = React.useRef<HTMLInputElement>(null);
+  const filterInputRef = externalFilterInputRef || internalFilterInputRef;
   const [cursorPosition, setCursorPosition] = React.useState(0);
   const [filterTrigger, setFilterTrigger] = React.useState<QuickTagTrigger | null>(null);
   const [isFilterFocused, setIsFilterFocused] = React.useState(false);
