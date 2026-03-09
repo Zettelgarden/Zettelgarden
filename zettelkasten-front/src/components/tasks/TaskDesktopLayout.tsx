@@ -5,6 +5,7 @@ import { ExternalEvent } from "../../models/ExternalEvent";
 import { EisenhowerMatrix } from "./EisenhowerMatrix";
 import { KanbanBoard } from "./KanbanBoard";
 import { TaskList } from "./TaskList";
+import { TaskListSkeleton } from "./TaskListSkeleton";
 import { TaskEmptyState, getEmptyStateType } from "./TaskEmptyState";
 import { FilterHelpButton, FilterHelpPopover } from "./FilterHelpButton";
 import { TaskSelectionOverlay } from "./TaskSelectionOverlay";
@@ -37,6 +38,7 @@ interface TaskDesktopLayoutProps {
   tags: Tag[];
   showCompleted: boolean;
   userTimezone: string;
+  isLoading?: boolean;
 
   // Filtered and paginated tasks
   tasksToDisplay: Task[];
@@ -128,6 +130,7 @@ export function TaskDesktopLayout({
   tags,
   showCompleted,
   userTimezone,
+  isLoading = false,
   tasksToDisplay,
   paginatedTasks,
   totalTasksForDateView,
@@ -463,7 +466,9 @@ export function TaskDesktopLayout({
             </ErrorBoundary>
           ) : viewMode === "list" ? (
             <>
-              {paginatedTasks.length > 0 ? (
+              {isLoading ? (
+                <TaskListSkeleton count={8} />
+              ) : paginatedTasks.length > 0 ? (
                 <ul>
                   <TaskList
                     onTagClick={onTagClick}

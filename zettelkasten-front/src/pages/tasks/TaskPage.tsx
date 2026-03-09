@@ -42,7 +42,7 @@ import {
 interface TaskListProps { }
 
 export function TaskPage({ }: TaskListProps) {
-  const { tasks, showCompleted, setShowCompleted, setRefreshTasks } = useTaskContext();
+  const { tasks, isLoading, showCompleted, setShowCompleted, setRefreshTasks } = useTaskContext();
   const { tags } = useTagContext();
   const { user } = useAuth();
   const { showCreateTaskWindow, setShowCreateTaskWindow } = useDialogState();
@@ -330,6 +330,7 @@ export function TaskPage({ }: TaskListProps) {
           totalPages={totalPages}
           tags={tags}
           userTimezone={userTimezone}
+          isLoading={isLoading}
           // Settings
           dateView={settings.dateView}
           filterString={settings.filterString}
@@ -410,6 +411,7 @@ export function TaskPage({ }: TaskListProps) {
           tasks={tasks}
           tags={tags}
           userTimezone={userTimezone}
+          isLoading={isLoading}
           // Filtered tasks
           tasksToDisplay={tasksToDisplay}
           paginatedTasks={paginatedTasks}

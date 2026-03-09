@@ -8,6 +8,7 @@ import { TaskFiltersSheet } from "./TaskFiltersSheet";
 import { QuickTagPopover, type QuickTagTrigger, getQuickTagTrigger, applyQuickTagSelection } from "./QuickTagPopover";
 import { SearchTagDropdown } from "../tags/SearchTagDropdown";
 import { TaskList } from "./TaskList";
+import { TaskListSkeleton } from "./TaskListSkeleton";
 import { TaskEmptyState, getEmptyStateType } from "./TaskEmptyState";
 import { FilterHelpButton, FilterHelpPopover } from "./FilterHelpButton";
 import { EisenhowerMatrix } from "./EisenhowerMatrix";
@@ -35,6 +36,7 @@ interface TaskMobileLayoutProps {
   totalPages: number;
   tags: Tag[];
   userTimezone: string;
+  isLoading?: boolean;
 
   // Filter and settings state
   dateView: string;
@@ -134,6 +136,7 @@ export function TaskMobileLayout({
   totalTasksForDateView,
   tags,
   userTimezone,
+  isLoading = false,
   dateView,
   viewMode,
   showCompleted,
@@ -265,6 +268,9 @@ export function TaskMobileLayout({
           />
         );
       case "list":
+        if (isLoading) {
+          return <TaskListSkeleton count={6} />;
+        }
         if (paginatedTasks.length === 0) {
           return (
             <TaskEmptyState

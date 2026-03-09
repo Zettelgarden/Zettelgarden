@@ -7,6 +7,7 @@ const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
 interface TaskContextType {
   tasks: Task[];
+  isLoading: boolean;
   refreshTasks: boolean;
   setRefreshTasks: (refresh: boolean) => void;
   getTasks: () => Promise<void>;
@@ -27,6 +28,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({
   testTasks = [],
 }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [refreshTasks, setRefreshTasks] = useState(false);
   const [existingTags, setExistingTags] = useState<string[]>([]);
   const [showCompleted, setShowCompleted] = useState<boolean>(false);
@@ -46,11 +48,15 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({
     setExistingTags(sortedTags);
   };
   const getTasks = async () => {
-    await fetchTasks({ showCompleted }).then((data) => {
+    setIsLoading(true);
+    try {
+      const data = await fetchTasks({ showCompleted });
       setTasks(data);
       extractTags(data);
+    } finally {
+      setIsLoading(false);
       setRefreshTasks(false);
-    });
+    }
   };
 
   const updateTask = (updatedTask: Task) => {
@@ -82,6 +88,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({
     <TaskContext.Provider
       value={{
         tasks,
+        isLoading,
         refreshTasks,
         setRefreshTasks,
         getTasks,
