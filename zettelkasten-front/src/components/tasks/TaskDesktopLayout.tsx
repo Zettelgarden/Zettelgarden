@@ -8,6 +8,7 @@ import { TaskList } from "./TaskList";
 import { TaskListSkeleton } from "./TaskListSkeleton";
 import { TaskEmptyState, getEmptyStateType } from "./TaskEmptyState";
 import { FilterHelpButton, FilterHelpPopover } from "./FilterHelpButton";
+import { ViewModeToggle } from "./ViewModeToggle";
 import { TaskSelectionOverlay } from "./TaskSelectionOverlay";
 import { CreateTaskWindow } from "./CreateTaskWindow";
 import { TaskDialog } from "./TaskDialog";
@@ -294,6 +295,13 @@ export function TaskDesktopLayout({
                   handleTagClick={onTagClick}
                 />
               </div>
+            </div>
+            {/* Center section: View mode toggle */}
+            <div className="flex items-center gap-2">
+              <ViewModeToggle
+                value={viewMode}
+                onChange={(mode) => setViewMode(mode)}
+              />
             </div>
             {/* Right section: Count, Display menu, Actions */}
             <div className="flex items-center gap-3 flex-shrink-0">
