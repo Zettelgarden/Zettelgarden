@@ -134,6 +134,24 @@ export function ViewMobileLayout({
                 <hr className="my-1" />
                 <button
                   onClick={() => {
+                    onEditCard();
+                    setShowMenu(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => {
+                    onToggleStar();
+                    setShowMenu(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  {viewingCard.is_starred ? 'Unstar' : 'Star'}
+                </button>
+                <button
+                  onClick={() => {
                     setShowNavSheet(true);
                     setShowMenu(false);
                   }}
