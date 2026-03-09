@@ -453,35 +453,44 @@ export function TaskDesktopLayout({
                 </div>
               }
             >
-              <>
-                {isLoadingEvents && (
-                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" aria-hidden="true"></div>
-                    <span className="text-sm text-blue-700">Loading calendar events...</span>
+              {isLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-sm text-slate-500">Loading calendar...</span>
                   </div>
-                )}
-                <CalendarViewWrapper
-                  tasks={tasksToDisplay}
-                  externalEvents={externalEvents}
-                  currentDate={calendarCurrentDate}
-                  viewMode={calendarViewMode}
-                  onNavigate={navigateCalendar}
-                  onViewModeChange={setCalendarViewMode}
-                  onTaskClick={(taskId) => {
-                    setSelectedTaskId(taskId);
-                    setIsTaskDialogOpen(true);
-                  }}
-                  onCreateTask={(date) => {
-                    setCalendarSelectedDate(date);
-                    setCreateTaskStatus(undefined);
-                    setShowCreateTaskWindow(true);
-                  }}
-                  onTaskMoved={() => {
-                    setRefreshTasks(true);
-                  }}
-                  timezone={userTimezone}
-                />
-              </>
+                </div>
+              ) : (
+                <>
+                  {isLoadingEvents && (
+                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" aria-hidden="true"></div>
+                      <span className="text-sm text-blue-700">Loading external events...</span>
+                    </div>
+                  )}
+                  <CalendarViewWrapper
+                    tasks={tasksToDisplay}
+                    externalEvents={externalEvents}
+                    currentDate={calendarCurrentDate}
+                    viewMode={calendarViewMode}
+                    onNavigate={navigateCalendar}
+                    onViewModeChange={setCalendarViewMode}
+                    onTaskClick={(taskId) => {
+                      setSelectedTaskId(taskId);
+                      setIsTaskDialogOpen(true);
+                    }}
+                    onCreateTask={(date) => {
+                      setCalendarSelectedDate(date);
+                      setCreateTaskStatus(undefined);
+                      setShowCreateTaskWindow(true);
+                    }}
+                    onTaskMoved={() => {
+                      setRefreshTasks(true);
+                    }}
+                    timezone={userTimezone}
+                  />
+                </>
+              )}
             </ErrorBoundary>
           ) : viewMode === "list" ? (
             <>
