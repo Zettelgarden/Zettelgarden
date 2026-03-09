@@ -4,14 +4,21 @@ import { useToast } from '../toast/ToastContext';
 import { HabitCalendar } from './HabitCalendar';
 import { HabitHistory } from './HabitHistory';
 import { HabitFormDialog } from './HabitFormDialog';
+import { ConfirmDialog } from '../tasks/ConfirmDialog';
 
 type TabType = 'checkin' | 'history';
 
+interface UndoConfirmState {
+  logId: number;
+  date: string;
+}
+
 export const HabitDetail: React.FC = () => {
-  const { selectedHabit, checkinHabit, habitLogs, fetchHabitLogs, undoCheckin, habitStats } = useHabits();
+  const { selectedHabit, checkinHabit, habitLogs, fetchHabitLogs, undoCheckin, habitStats, loading } = useHabits();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<TabType>('checkin');
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [undoConfirm, setUndoConfirm] = useState<UndoConfirmState | null>(null);
 
   // Fetch logs when habit is selected
   useEffect(() => {
@@ -32,19 +39,49 @@ export const HabitDetail: React.FC = () => {
     }
   };
 
-  const handleUndoCheckin = async (logId: number) => {
+  const handleUndoCheckin = async (logId: number, date: string) => {
     if (!selectedHabit) return;
-    if (!confirm('Undo this check-in?')) return;
+    setUndoConfirm({ logId, date });
+  };
+
+  const confirmUndoCheckin = async () => {
+    if (!selectedHabit || !undoConfirm) return;
     try {
-      await undoCheckin(selectedHabit.id, logId);
+      await undoCheckin(selectedHabit.id, undoConfirm.logId);
       showToast('success', 'Check-in undone', 'The check-in has been removed');
+      setUndoConfirm(null);
     } catch (e) {
       showToast('error', 'Failed to undo', 'Could not undo the check-in');
     }
   };
 
   if (!selectedHabit) {
-    return <div className="p-4 text-center text-gray-500">Select a habit to view details</div>;
+    return (
+      <div className="p-8 text-center">
+        <div className="text-4xl mb-3">👈</div>
+        <h3 className="text-lg font-medium text-gray-700 mb-2">Select a Habit</h3>
+        <p className="text-gray-500 max-w-xs mx-auto">
+          Choose a habit from the list to view details, check in, and see your progress.
+        </p>
+      </div>
+    );
+  }
+
+  // Show loading state when fetching habit data
+  const logsLoading = selectedHabit && !habitLogs[selectedHabit.id] && loading;
+  if (logsLoading) {
+    return (
+      <div className="p-4">
+        <div className="animate-pulse">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-gray-200 rounded" />
+            <div className="h-6 bg-gray-200 rounded w-40" />
+          </div>
+          <div className="h-4 bg-gray-200 rounded w-full mb-4" />
+          <div className="h-32 bg-gray-200 rounded" />
+        </div>
+      </div>
+    );
   }
 
   const logs = habitLogs[selectedHabit.id] || [];
@@ -55,6 +92,11 @@ export const HabitDetail: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
+          {/* Color indicator */}
+          <div
+            className="w-1 h-10 rounded-full"
+            style={{ backgroundColor: selectedHabit.color || '#10b981' }}
+          />
           {selectedHabit.icon && <span className="text-3xl">{selectedHabit.icon}</span>}
           <div>
             <h2 className="text-2xl font-bold">{selectedHabit.title}</h2>
@@ -103,7 +145,8 @@ export const HabitDetail: React.FC = () => {
       {activeTab === 'checkin' && (
         <div className="space-y-4">
           <button
-            className="w-full py-3 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition-colors"
+            className="w-full py-3 text-white rounded-lg font-medium transition-colors"
+            style={{ backgroundColor: selectedHabit.color || '#10b981' }}
             onClick={handleCheckin}
           >
             Check In Today
@@ -131,6 +174,18 @@ export const HabitDetail: React.FC = () => {
           onClose={() => setShowEditDialog(false)}
         />
       )}
+
+      {/* Undo Check-in Confirmation */}
+      <ConfirmDialog
+        isOpen={!!undoConfirm}
+        onClose={() => setUndoConfirm(null)}
+        onConfirm={confirmUndoCheckin}
+        title="Undo Check-in"
+        message={`Are you sure you want to undo the check-in from ${undoConfirm?.date}? This will affect your streak.`}
+        confirmText="Undo"
+        cancelText="Keep It"
+        variant="warning"
+      />
     </div>
   );
 };

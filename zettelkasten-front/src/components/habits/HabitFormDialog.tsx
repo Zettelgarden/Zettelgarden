@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useHabits } from '../../contexts/HabitContext';
 import { CreateHabitParams, UpdateHabitParams, Habit } from '../../models/habit';
+import { HABIT_ICONS, HABIT_COLORS } from './constants';
+import { ConfirmDialog } from '../tasks/ConfirmDialog';
 
 interface HabitFormDialogProps {
   onClose: () => void;
@@ -10,6 +12,7 @@ interface HabitFormDialogProps {
 export const HabitFormDialog: React.FC<HabitFormDialogProps> = ({ onClose, habit }) => {
   const { createHabit, updateHabit } = useHabits();
   const isEditing = !!habit;
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   const [title, setTitle] = useState(habit?.title || '');
   const [description, setDescription] = useState(habit?.description || '');
@@ -28,6 +31,42 @@ export const HabitFormDialog: React.FC<HabitFormDialogProps> = ({ onClose, habit
   });
   const [icon, setIcon] = useState(habit?.icon || '');
   const [color, setColor] = useState(habit?.color || '#10b981');
+
+  // Check if form has unsaved changes
+  const hasChanges = useMemo(() => {
+    if (isEditing && habit) {
+      return (
+        title !== (habit.title || '') ||
+        description !== (habit.description || '') ||
+        frequency !== habit.frequency ||
+        JSON.stringify(customDays) !== (habit.custom_days || '[]') ||
+        icon !== (habit.icon || '') ||
+        color !== (habit.color || '#10b981')
+      );
+    }
+    // For new habit, check if any field has been modified from defaults
+    return (
+      title !== '' ||
+      description !== '' ||
+      frequency !== 'daily' ||
+      customDays.length > 0 ||
+      icon !== '' ||
+      color !== '#10b981'
+    );
+  }, [isEditing, habit, title, description, frequency, customDays, icon, color]);
+
+  const handleClose = () => {
+    if (hasChanges) {
+      setShowCloseConfirm(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const confirmClose = () => {
+    setShowCloseConfirm(false);
+    onClose();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,11 +116,8 @@ export const HabitFormDialog: React.FC<HabitFormDialogProps> = ({ onClose, habit
     }
   };
 
-  const ICONS = ['💊', '🏃', '📚', '💧', '🧘', '💪', '🎯', '✅'];
-  const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={handleClose}>
       <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-bold mb-4">
           {isEditing ? 'Edit Habit' : 'Create New Habit'}
@@ -144,7 +180,7 @@ export const HabitFormDialog: React.FC<HabitFormDialogProps> = ({ onClose, habit
           <div className="mb-4">
             <label className="block text-sm font-medium mb-1">Icon</label>
             <div className="flex gap-2 flex-wrap">
-              {ICONS.map((i) => (
+              {HABIT_ICONS.map((i) => (
                 <button
                   key={i}
                   type="button"
@@ -160,7 +196,7 @@ export const HabitFormDialog: React.FC<HabitFormDialogProps> = ({ onClose, habit
           <div className="mb-4">
             <label className="block text-sm font-medium mb-1">Color</label>
             <div className="flex gap-2">
-              {COLORS.map((c) => (
+              {HABIT_COLORS.map((c) => (
                 <button
                   key={c}
                   type="button"
@@ -173,7 +209,7 @@ export const HabitFormDialog: React.FC<HabitFormDialogProps> = ({ onClose, habit
           </div>
 
           <div className="flex justify-end gap-2">
-            <button type="button" className="px-4 py-2 border rounded" onClick={onClose}>
+            <button type="button" className="px-4 py-2 border rounded" onClick={handleClose}>
               Cancel
             </button>
             <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">
@@ -182,6 +218,17 @@ export const HabitFormDialog: React.FC<HabitFormDialogProps> = ({ onClose, habit
           </div>
         </form>
       </div>
+
+      <ConfirmDialog
+        isOpen={showCloseConfirm}
+        onClose={() => setShowCloseConfirm(false)}
+        onConfirm={confirmClose}
+        title="Discard Changes?"
+        message="You have unsaved changes. Are you sure you want to close without saving?"
+        confirmText="Discard"
+        cancelText="Keep Editing"
+        variant="warning"
+      />
     </div>
   );
 };

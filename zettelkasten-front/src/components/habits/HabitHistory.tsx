@@ -4,7 +4,7 @@ import { HabitLog } from '../../models/habit';
 
 interface HabitHistoryProps {
   logs: HabitLog[];
-  onUndoCheckin?: (logId: number) => void;
+  onUndoCheckin?: (logId: number, date: string) => void;
   maxItems?: number;
 }
 
@@ -63,7 +63,7 @@ export const HabitHistory: React.FC<HabitHistoryProps> = ({ logs, onUndoCheckin,
             </div>
             {canUndo && onUndoCheckin && (
               <button
-                onClick={() => onUndoCheckin(log.id)}
+                onClick={() => onUndoCheckin(log.id, formatDateLabel(completedAt))}
                 className="text-xs text-red-500 hover:text-red-700 px-2 py-1 hover:bg-red-50 rounded"
                 title="Undo this check-in"
               >
