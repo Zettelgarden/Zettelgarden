@@ -21,6 +21,7 @@ import { ExternalEvent } from "../../models/ExternalEvent";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { TaskDesktopLayout } from "../../components/tasks/TaskDesktopLayout";
 import { TaskMobileLayout } from "../../components/tasks/TaskMobileLayout";
+import { KeyboardShortcutsHelp, useKeyboardShortcuts } from "../../components/tasks/KeyboardShortcutsHelp";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useUIState } from "../../contexts/UIStateContext";
 
@@ -279,17 +280,20 @@ export function TaskPage({ }: TaskListProps) {
     setIsTaskDialogOpen(true);
   }
 
-  const handleKeyPress = (event: KeyboardEvent) => {
-    // if this is true, the user is using a system shortcut, don't do anything with it
-    if (event.metaKey) {
-      return;
-    }
-    if (event.key === "Escape") {
-      event.preventDefault();
+  // Keyboard shortcuts
+  const { showHelp, setShowHelp } = useKeyboardShortcuts({
+    onNewTask: () => {
+      setCreateTaskStatus(undefined);
+      setCalendarSelectedDate(null);
+      setShowCreateTaskWindow(true);
+    },
+    onSwitchView: (view) => {
+      settings.setViewMode(view);
+    },
+    onEscape: () => {
       setShowCreateTaskWindow(false);
-      return;
-    }
-  };
+    },
+  });
 
   useEffect(() => {
     setDocumentTitle("Tasks");
@@ -309,15 +313,14 @@ export function TaskPage({ }: TaskListProps) {
         setIsTaskDialogOpen(true);
       }
     }
-
-    document.addEventListener("keydown", handleKeyPress);
-    return () => {
-      document.removeEventListener("keydown", handleKeyPress);
-    };
-  }, [setShowCreateTaskWindow, settings.setFilterString]);
+  }, [settings.setFilterString]);
 
   return (
     <div className="h-screen flex flex-col md:overflow-hidden">
+      <KeyboardShortcutsHelp
+        visible={showHelp}
+        onClose={() => setShowHelp(false)}
+      />
       {isMobile ? (
         <TaskMobileLayout
           mobileView={mobileView}

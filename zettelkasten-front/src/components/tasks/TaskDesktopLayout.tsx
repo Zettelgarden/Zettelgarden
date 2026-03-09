@@ -399,10 +399,16 @@ export function TaskDesktopLayout({
                   setShowCreateTaskWindow(!showCreateTaskWindow);
                 }}
                 className="h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 text-lg font-bold flex items-center justify-center pb-2"
-                title="Add Task"
+                title="Add Task (N)"
               >
                 +
               </Button>
+              <span
+                className="text-slate-400 text-xs cursor-help"
+                title="Press ? for keyboard shortcuts"
+              >
+                ⌨️
+              </span>
             </div>
           </div>
         </div>
