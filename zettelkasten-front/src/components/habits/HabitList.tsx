@@ -68,7 +68,6 @@ export const HabitList: React.FC = () => {
           {habits.map((h) => {
             const stats = habitStats[h.id];
             const streak = stats?.current_streak ?? 0;
-            const isCheckedIn = h.today_checked_in;
 
             return (
               <div
@@ -90,16 +89,6 @@ export const HabitList: React.FC = () => {
                       <div className="flex flex-col">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{h.title}</span>
-                          {/* Today's check-in status */}
-                          {isCheckedIn ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              ✓ Today
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                              Due
-                            </span>
-                          )}
                           {streak > 0 && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                               🔥 {streak}
