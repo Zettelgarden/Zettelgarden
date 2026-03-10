@@ -638,3 +638,167 @@ func (s *Handler) RegenerateCalDAVTokenRoute(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
+
+// ===== Subtask Handlers =====
+
+// CreateSubtaskRoute handles POST /api/tasks/:id/subtasks
+// Creates a new task as a subtask of the specified parent
+func (s *Handler) CreateSubtaskRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Get parent task ID from URL
+	vars := mux.Vars(r)
+	parentID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid parent task ID", http.StatusBadRequest)
+		return
+	}
+
+	// Parse request body
+	var input models.Task
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		log.Printf("Error decoding create subtask request: %v", err)
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	// Normalize empty priority to nil
+	if input.Priority != nil && *input.Priority == "" {
+		input.Priority = nil
+	}
+
+	// Get parent task
+	parent, err := s.QueryTask(userID, parentID)
+	if err != nil {
+		http.Error(w, "Parent task not found", http.StatusNotFound)
+		return
+	}
+
+	// Prepare subtask with inheritance
+	subtask := services.PrepareSubtask(&parent, input)
+
+	// Create the subtask
+	taskID, err := s.CreateTask(subtask)
+	if err != nil {
+		log.Printf("Error creating subtask: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]int{"id": taskID})
+}
+
+// SetTaskParentRoute handles PATCH /api/tasks/:id/parent
+// Sets or clears the parent of a task
+func (s *Handler) SetTaskParentRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	// Get task ID from URL
+	vars := mux.Vars(r)
+	taskID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid task ID", http.StatusBadRequest)
+		return
+	}
+
+	// Parse request body
+	var input struct {
+		ParentTaskID *int `json:"parent_task_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	// Get the task
+	task, err := s.QueryTask(userID, taskID)
+	if err != nil {
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	}
+
+	// Load subtasks for validation (if task is a parent)
+	task.Subtasks, _ = services.GetSubtasks(s.GetDB(), userID, taskID)
+
+	// If setting a parent (not clearing)
+	if input.ParentTaskID != nil {
+		// Get parent task
+		parent, err := s.QueryTask(userID, *input.ParentTaskID)
+		if err != nil {
+			http.Error(w, "Parent task not found", http.StatusNotFound)
+			return
+		}
+
+		// Validate the assignment
+		if err := services.ValidateParentAssignment(&task, &parent); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Update the task's parent
+	if err := services.UpdateTaskParent(s.GetDB(), userID, taskID, input.ParentTaskID); err != nil {
+		log.Printf("Error updating task parent: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return updated task
+	updatedTask, _ := s.QueryTask(userID, taskID)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updatedTask)
+}
+
+// GetSubtasksRoute handles GET /api/tasks/:id/subtasks
+// Returns all subtasks for a parent task
+func (s *Handler) GetSubtasksRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	vars := mux.Vars(r)
+	parentID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid task ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify parent task exists and belongs to user
+	_, err = s.QueryTask(userID, parentID)
+	if err != nil {
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	}
+
+	subtasks, err := services.GetSubtasks(s.GetDB(), userID, parentID)
+	if err != nil {
+		log.Printf("Error getting subtasks: %v", err)
+		http.Error(w, "Failed to get subtasks", http.StatusInternalServerError)
+		return
+	}
+
+	// Count complete
+	completeCount := 0
+	for _, s := range subtasks {
+		if s.IsComplete {
+			completeCount++
+		}
+	}
+
+	// Load tags for each subtask
+	for i := range subtasks {
+		tags, err := s.QueryTagsForTask(userID, subtasks[i].ID)
+		if err == nil {
+			subtasks[i].Tags = tags
+		}
+	}
+
+	response := map[string]interface{}{
+		"subtasks":       subtasks,
+		"total":          len(subtasks),
+		"complete_count": completeCount,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}

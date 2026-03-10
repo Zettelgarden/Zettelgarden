@@ -800,3 +800,69 @@ func ValidateTaskCompletion(task *models.Task, force bool) error {
 
 	return nil
 }
+
+// GetSubtasks retrieves all subtasks for a parent task
+func GetSubtasks(db models.Database, userID int, parentTaskID int) ([]models.Task, error) {
+	query := `
+		SELECT id, title, is_complete, status, priority, scheduled_date, due_date, 
+		       description, created_at, updated_at, completed_at, user_id, card_pk
+		FROM tasks
+		WHERE user_id = $1 AND parent_task_id = $2 AND is_deleted = FALSE
+		ORDER BY created_at
+	`
+
+	rows, err := db.Query(query, userID, parentTaskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var subtasks []models.Task
+	for rows.Next() {
+		var t models.Task
+		var scheduledDate, dueDate, completedAt *time.Time
+		var priority, description *string
+
+		err := rows.Scan(
+			&t.ID, &t.Title, &t.IsComplete, &t.Status, &priority,
+			&scheduledDate, &dueDate, &description,
+			&t.CreatedAt, &t.UpdatedAt, &completedAt, &t.UserID, &t.CardPK,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		t.Priority = priority
+		t.ScheduledDate = scheduledDate
+		t.DueDate = dueDate
+		t.Description = description
+		t.CompletedAt = completedAt
+
+		subtasks = append(subtasks, t)
+	}
+
+	if subtasks == nil {
+		subtasks = []models.Task{}
+	}
+
+	return subtasks, nil
+}
+
+// UpdateTaskParent updates the parent_task_id of a task
+func UpdateTaskParent(db models.Database, userID int, taskID int, parentTaskID *int) error {
+	query := `UPDATE tasks SET parent_task_id = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3`
+	result, err := db.Exec(query, parentTaskID, taskID, userID)
+	if err != nil {
+		return err
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("task not found")
+	}
+
+	return nil
+}
+
+// PrepareSubtask creates a subtask task model with inherited properties
+// This is the exported version for use by handlers
