@@ -38,6 +38,7 @@ export function FileVault() {
   // Drag and drop state
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, filename: "" });
   const dragCounterRef = useRef(0);
 
   // Sort state
@@ -51,6 +52,59 @@ export function FileVault() {
     { value: "size", label: "File size" },
     { value: "type", label: "File type" },
   ];
+
+  // Keyboard navigation state
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  // Keyboard navigation helpers
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    // Ignore if user is typing in an input
+    if (document.activeElement?.tagName.match(/^INPUT|TEXTAREA$/i)) {
+      return;
+    }
+
+    // Only handle if files are loaded and not dragging/uploading
+    if (loading || isDraggingOver || isUploading) return;
+
+    if (event.key === "ArrowDown" || event.key === "j") {
+      event.preventDefault();
+      if (selectedIndex === null) {
+        setSelectedIndex(0);
+      } else {
+        const newIndex = Math.min(selectedIndex + 1, files.length - 1);
+        setSelectedIndex(newIndex);
+      }
+    } else if (event.key === "ArrowUp" || event.key === "k") {
+      event.preventDefault();
+      if (selectedIndex === null) {
+        setSelectedIndex(files.length - 1);
+      } else {
+        const newIndex = Math.max(selectedIndex - 1, 0);
+        setSelectedIndex(newIndex);
+      }
+    } else if (event.key === "Enter" && selectedIndex !== null) {
+      event.preventDefault();
+      const file = files[selectedIndex];
+      // Trigger the file preview
+      const fileInput = document.querySelector(`[data-file-id="${file.id}"]`) as HTMLElement;
+      if (fileInput) {
+        fileInput.click();
+      }
+    } else if (event.key === "Delete" && selectedIndex !== null) {
+      event.preventDefault();
+      const file = files[selectedIndex];
+      handleBulkDelete();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setSelectedIndex(null);
+      setSelectedFiles(new Set());
+    }
+  }, [files, loading, isDraggingOver, isUploading, selectedIndex]);
+
+  // Effect to reset selection when files change
+  useEffect(() => {
+    setSelectedIndex(null);
+  }, [files]);
 
   // File type filter options
   const fileTypeOptions = [
@@ -243,10 +297,13 @@ export function FileVault() {
     if (droppedFiles.length === 0) return;
 
     setIsUploading(true);
+    setUploadProgress({ current: 0, total: droppedFiles.length, filename: "" });
     let successCount = 0;
     let failCount = 0;
 
-    for (const file of droppedFiles) {
+    for (let i = 0; i < droppedFiles.length; i++) {
+      const file = droppedFiles[i];
+      setUploadProgress({ current: i + 1, total: droppedFiles.length, filename: file.name });
       try {
         const response = await uploadFile(file, -1); // Upload without linking to a card
         if ("error" in response) {
@@ -261,6 +318,7 @@ export function FileVault() {
     }
 
     setIsUploading(false);
+    setUploadProgress({ current: 0, total: 0, filename: "" });
 
     if (successCount > 0) {
       showToast("success", "Upload Complete", `${successCount} file(s) uploaded successfully`);
@@ -370,6 +428,14 @@ export function FileVault() {
     fetchFiles(1, searchTerm, filetypeFilter, unlinkedOnly, sortBy, sortOrder);
   }, [searchTerm]);
 
+  // Keyboard navigation effect
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleKeyDown]);
+
   return (
     <div
       onDragEnter={handleDragEnter}
@@ -396,14 +462,28 @@ export function FileVault() {
       {/* Upload in progress indicator */}
       {isUploading && (
         <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 shadow-xl">
-            <div className="flex items-center gap-3">
+          <div className="bg-white rounded-lg p-6 shadow-xl min-w-[300px]">
+            <div className="flex items-center gap-3 mb-3">
               <svg className="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
               <span className="text-gray-700 font-medium">Uploading files...</span>
             </div>
+            {uploadProgress.total > 0 && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span className="truncate max-w-[200px]">{uploadProgress.filename}</span>
+                  <span>{uploadProgress.current} / {uploadProgress.total}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -655,8 +735,16 @@ export function FileVault() {
                 </div>
 
                 <ul className="divide-y divide-gray-200">
-                  {files.map((file) => (
-                    <li key={file.id} className={`hover:bg-gray-50 ${selectedFiles.has(file.id) ? 'bg-blue-50' : ''}`}>
+                  {files.map((file, index) => (
+                    <li
+                      key={file.id}
+                      data-file-id={file.id}
+                      className={`hover:bg-gray-50 ${
+                        selectedFiles.has(file.id) ? 'bg-blue-50' : ''
+                      } ${
+                        selectedIndex === index ? 'ring-2 ring-blue-500 bg-blue-100' : ''
+                      }`}
+                    >
                       <div className="flex items-center">
                         <input
                           type="checkbox"
@@ -704,22 +792,44 @@ export function FileVault() {
               )}
             </>
           ) : (
-            <div className="text-center py-12">
-              <div className="text-gray-500 text-lg mb-2">No files found</div>
+            <div className="text-center py-16">
               {hasActiveFilters ? (
-                <div className="text-gray-400 text-sm">
-                  Try adjusting your filters or{" "}
+                <>
+                  <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                  </svg>
+                  <div className="text-gray-500 text-lg mb-2">No files match your filters</div>
+                  <div className="text-gray-400 text-sm mb-4">
+                    Try adjusting your search or filters
+                  </div>
                   <button
                     onClick={clearAllFilters}
-                    className="text-blue-600 hover:text-blue-700 underline"
+                    className="text-blue-600 hover:text-blue-700 font-medium"
                   >
-                    clear all filters
+                    Clear all filters
                   </button>
-                </div>
+                </>
               ) : (
-                <div className="text-gray-400 text-sm">
-                  Upload your first file to get started
-                </div>
+                <>
+                  <svg className="mx-auto h-16 w-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+                  </svg>
+                  <div className="text-gray-600 text-xl font-medium mb-2">No files yet</div>
+                  <div className="text-gray-400 text-sm mb-6 max-w-md mx-auto">
+                    Upload files to attach them to your cards. You can drag and drop files anywhere on this page, or use the button below.
+                  </div>
+                  <FileUpload card={defaultCard}>
+                    <button className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-md px-4 py-2 text-sm font-medium">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Upload your first file
+                    </button>
+                  </FileUpload>
+                  <div className="mt-4 text-xs text-gray-400">
+                    💡 Tip: You can also drag and drop files anywhere on this page
+                  </div>
+                </>
               )}
             </div>
           )}

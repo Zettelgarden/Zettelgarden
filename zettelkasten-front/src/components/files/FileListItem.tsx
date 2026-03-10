@@ -46,7 +46,15 @@ export function FileListItem({
   }
   const handleFileDownload = (file: File, e: React.MouseEvent) => {
     e.preventDefault();
-    if (file.filetype === "image/png" || file.filetype === "image/jpeg") {
+    // Show preview for images and PDFs
+    if (
+      file.filetype === "image/png" ||
+      file.filetype === "image/jpeg" ||
+      file.filetype === "image/jpg" ||
+      file.filetype === "image/gif" ||
+      file.filetype === "image/webp" ||
+      file.filetype === "application/pdf"
+    ) {
       setRenderImage(true);
       return;
     }
