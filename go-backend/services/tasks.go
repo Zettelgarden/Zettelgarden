@@ -482,10 +482,10 @@ func CreateTask(db models.Database, task models.Task) (int, error) {
 	}
 
 	err := db.QueryRow(`
-	INSERT INTO tasks (card_pk, user_id, scheduled_date, due_date, created_at, updated_at, completed_at, title, description, priority, status, is_complete, is_deleted, reminder_time, reminder_sent)
-	VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, $7, $8, $9, $10, FALSE, $11, FALSE)
+	INSERT INTO tasks (card_pk, user_id, scheduled_date, due_date, created_at, updated_at, completed_at, title, description, priority, status, is_complete, is_deleted, reminder_time, reminder_sent, parent_task_id)
+	VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, $7, $8, $9, $10, FALSE, $11, FALSE, $12)
 	RETURNING id
-	`, task.CardPK, task.UserID, task.ScheduledDate, task.DueDate, task.CompletedAt, task.Title, task.Description, task.Priority, task.Status, task.IsComplete, task.ReminderTime).Scan(&taskID)
+	`, task.CardPK, task.UserID, task.ScheduledDate, task.DueDate, task.CompletedAt, task.Title, task.Description, task.Priority, task.Status, task.IsComplete, task.ReminderTime, task.ParentTaskID).Scan(&taskID)
 
 	if err != nil {
 		log.Printf("err %v", err)
@@ -747,6 +747,7 @@ func PrepareSubtask(parent *models.Task, input models.Task) models.Task {
 		Priority:     input.Priority,
 		Status:       input.Status,
 		UserID:       parent.UserID,
+		CardPK:       parent.CardPK,
 	}
 
 	// Inherit priority from parent if not provided in input

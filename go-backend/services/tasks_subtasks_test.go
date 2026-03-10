@@ -122,6 +122,26 @@ func TestPrepareSubtask_DoesNotInheritDates(t *testing.T) {
 	}
 }
 
+func TestPrepareSubtask_InheritsCardPK(t *testing.T) {
+	// Setup: Parent has a card association
+	parent := &models.Task{
+		ID:     1,
+		Title:  "Parent Task",
+		CardPK: 42,
+	}
+
+	input := models.Task{
+		Title: "Child Task",
+	}
+
+	subtask := PrepareSubtask(parent, input)
+
+	// Assert: CardPK should be inherited
+	if subtask.CardPK != 42 {
+		t.Errorf("Expected CardPK 42, got %d", subtask.CardPK)
+	}
+}
+
 // ===== Nesting Validation Tests =====
 
 func TestValidateParentAssignment_SingleLevelOnly(t *testing.T) {
