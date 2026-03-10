@@ -7,6 +7,7 @@ import { useTaskContext } from "../../contexts/TaskContext";
 import { useStatus } from "../../contexts/StatusContext";
 import { StatusManagement } from "../settings/StatusManagement";
 import { useDialogState } from "../../contexts/DialogStateContext";
+import { TaskHoverCard } from "./TaskHoverCard";
 
 interface FocusedCard {
   columnIndex: number;
@@ -422,27 +423,29 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
                             index={index}
                           >
                             {(dragProvided, dragSnapshot) => (
-                              <div
-                                ref={dragProvided.innerRef}
-                                {...dragProvided.draggableProps}
-                                {...dragProvided.dragHandleProps}
-                                className={`bg-white rounded border shadow-sm transition-all ${
-                                  dragSnapshot.isDragging
-                                    ? "border-blue-400 shadow-lg"
-                                    : isFocused
-                                    ? "border-blue-500 shadow-md ring-2 ring-blue-200"
-                                    : "border-gray-200 hover:shadow-md"
-                                }`}
-                              >
-                                <TaskListItem
-                                  task={task}
-                                  onTagClick={onTagClick}
-                                  hideMatrixTags={false}
-                                  selectMode={selectMode}
-                                  isSelected={selectedTaskIds.has(task.id)}
-                                  onSelect={() => onTaskSelect?.(task.id)}
-                                />
-                              </div>
+                              <TaskHoverCard task={task}>
+                                <div
+                                  ref={dragProvided.innerRef}
+                                  {...dragProvided.draggableProps}
+                                  {...dragProvided.dragHandleProps}
+                                  className={`bg-white rounded border shadow-sm transition-all ${
+                                    dragSnapshot.isDragging
+                                      ? "border-blue-400 shadow-lg"
+                                      : isFocused
+                                      ? "border-blue-500 shadow-md ring-2 ring-blue-200"
+                                      : "border-gray-200 hover:shadow-md"
+                                  }`}
+                                >
+                                  <TaskListItem
+                                    task={task}
+                                    onTagClick={onTagClick}
+                                    hideMatrixTags={false}
+                                    selectMode={selectMode}
+                                    isSelected={selectedTaskIds.has(task.id)}
+                                    onSelect={() => onTaskSelect?.(task.id)}
+                                  />
+                                </div>
+                              </TaskHoverCard>
                             )}
                           </Draggable>
                         );
