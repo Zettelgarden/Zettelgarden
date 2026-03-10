@@ -3,7 +3,7 @@ import { Dialog } from "@headlessui/react";
 import { Task, TaskAuditEvent } from "../../models/Task";
 import { PartialCard } from "../../models/Card";
 import { Link } from "react-router-dom";
-import { saveExistingTask, deleteTask, fetchTaskAuditEvents, fetchTask } from "../../api/tasks";
+import { saveExistingTask, deleteTask, fetchTaskAuditEvents, fetchTask, createSubtask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
 import { useStatus } from "../../contexts/StatusContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -15,6 +15,8 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { TaskClosedIcon } from "../../assets/icons/TaskClosedIcon";
 import { TaskOpenIcon } from "../../assets/icons/TaskOpenIcon";
 import { getToday, getTomorrow } from "../../utils/dates";
+import { TaskSubtasksSection } from "./TaskSubtasksSection";
+import { TaskCompletionWarningDialog } from "./TaskCompletionWarningDialog";
 
 interface TaskDialogProps {
   taskId: number | null;
@@ -37,6 +39,8 @@ export function TaskDialog({ taskId, isOpen, onClose }: TaskDialogProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showCompletionWarning, setShowCompletionWarning] = useState(false);
+  const [completionError, setCompletionError] = useState<{ incomplete_count: number } | null>(null);
   const { setRefreshTasks } = useTaskContext();
   const { getDefaultStatus, getCompleteStatus } = useStatus();
   const { user } = useAuth();
@@ -83,6 +87,16 @@ export function TaskDialog({ taskId, isOpen, onClose }: TaskDialogProps) {
   const handleToggleComplete = useCallback(async () => {
     if (!editedTask) return;
 
+    // If trying to complete, check for incomplete subtasks
+    if (!editedTask.is_complete) {
+      const incompleteSubtasks = (editedTask.subtasks || []).filter(s => !s.is_complete);
+      if (incompleteSubtasks.length > 0) {
+        setCompletionError({ incomplete_count: incompleteSubtasks.length });
+        setShowCompletionWarning(true);
+        return;
+      }
+    }
+
     const targetStatus = editedTask.is_complete ? getDefaultStatus() : getCompleteStatus();
 
     if (!targetStatus) {
@@ -102,6 +116,77 @@ export function TaskDialog({ taskId, isOpen, onClose }: TaskDialogProps) {
       setRefreshTasks(true);
     }
   }, [editedTask, getDefaultStatus, getCompleteStatus, setRefreshTasks]);
+
+  const handleForceComplete = useCallback(async () => {
+    if (!editedTask) return;
+
+    const completeStatus = getCompleteStatus();
+    if (!completeStatus) return;
+
+    const updatedTask = {
+      ...editedTask,
+      status: completeStatus.name,
+      is_complete: true,
+    };
+
+    try {
+      const response = await saveExistingTask(updatedTask);
+      if (!("error" in response)) {
+        setEditedTask(updatedTask);
+        setRefreshTasks(true);
+        setShowCompletionWarning(false);
+        setCompletionError(null);
+      }
+    } catch (error) {
+      console.error("Failed to force complete:", error);
+    }
+  }, [editedTask, getCompleteStatus, setRefreshTasks]);
+
+  // Subtask handlers
+  const handleCreateSubtask = useCallback(async (title: string) => {
+    if (!editedTask) return;
+    
+    await createSubtask(editedTask.id, { title, user_id: editedTask.user_id });
+    // Refresh task to get updated subtasks
+    const updated = await fetchTask(editedTask.id.toString());
+    setEditedTask(updated);
+    setRefreshTasks(true);
+  }, [editedTask, setRefreshTasks]);
+
+  const handleToggleSubtask = useCallback(async (subtaskId: number, isComplete: boolean) => {
+    if (!editedTask) return;
+
+    const subtask = editedTask.subtasks?.find((s) => s.id === subtaskId);
+    if (!subtask) return;
+
+    const completeStatus = getCompleteStatus();
+    const defaultStatus = getDefaultStatus();
+    const newStatus = isComplete 
+      ? (completeStatus?.name || 'done') 
+      : (defaultStatus?.name || 'todo');
+
+    await saveExistingTask({
+      ...subtask,
+      is_complete: isComplete,
+      status: newStatus,
+    });
+
+    // Refresh task
+    const updated = await fetchTask(editedTask.id.toString());
+    setEditedTask(updated);
+    setRefreshTasks(true);
+  }, [editedTask, getCompleteStatus, getDefaultStatus, setRefreshTasks]);
+
+  const handleDeleteSubtask = useCallback(async (subtaskId: number) => {
+    if (!editedTask) return;
+
+    await deleteTask(subtaskId);
+
+    // Refresh task
+    const updated = await fetchTask(editedTask.id.toString());
+    setEditedTask(updated);
+    setRefreshTasks(true);
+  }, [editedTask, setRefreshTasks]);
 
   if (!editedTask || isLoading) {
     return (
@@ -178,6 +263,19 @@ export function TaskDialog({ taskId, isOpen, onClose }: TaskDialogProps) {
                 onBacklink={handleBacklink}
               />
 
+              {/* Subtasks Section */}
+              {editedTask.id > 0 && (
+                <div className="border-t border-gray-200 pt-4">
+                  <TaskSubtasksSection
+                    task={editedTask}
+                    onCreateSubtask={handleCreateSubtask}
+                    onToggleSubtask={handleToggleSubtask}
+                    onDeleteSubtask={handleDeleteSubtask}
+                    disabled={editedTask.is_complete}
+                  />
+                </div>
+              )}
+
               {showHistory && <TaskAuditHistory events={auditEvents} />}
             </div>
           </div>
@@ -200,6 +298,20 @@ export function TaskDialog({ taskId, isOpen, onClose }: TaskDialogProps) {
       cancelText="Cancel"
       variant="danger"
     />
+
+    {/* Completion Warning Dialog */}
+    {editedTask && (
+      <TaskCompletionWarningDialog
+        visible={showCompletionWarning}
+        task={editedTask}
+        incompleteCount={completionError?.incomplete_count || 0}
+        onForceComplete={handleForceComplete}
+        onCancel={() => {
+          setShowCompletionWarning(false);
+          setCompletionError(null);
+        }}
+      />
+    )}
     </>
   );
 }
