@@ -121,3 +121,73 @@ func TestPrepareSubtask_DoesNotInheritDates(t *testing.T) {
 		t.Errorf("Expected due_date to be nil, got %v", subtask.DueDate)
 	}
 }
+
+// ===== Nesting Validation Tests =====
+
+func TestValidateParentAssignment_SingleLevelOnly(t *testing.T) {
+	// Setup: grandparent -> parent -> child (should fail)
+	grandparentID := 1
+	parent := &models.Task{
+		ID:           2,
+		Title:        "Parent",
+		ParentTaskID: &grandparentID,
+	}
+	child := &models.Task{ID: 3, Title: "Child"}
+
+	// Execute: Try to make child a subtask of parent (which is already a subtask)
+	err := ValidateParentAssignment(child, parent)
+
+	// Assert: Should fail
+	if err == nil {
+		t.Error("Expected error for nested subtask, got nil")
+	}
+	if err != nil && err.Error() != "cannot nest more than one level deep" {
+		t.Errorf("Expected nesting error, got: %v", err)
+	}
+}
+
+func TestValidateParentAssignment_NoSelfReference(t *testing.T) {
+	task := &models.Task{ID: 1, Title: "Task"}
+
+	err := ValidateParentAssignment(task, task)
+
+	if err == nil {
+		t.Error("Expected error for self-reference, got nil")
+	}
+	if err != nil && err.Error() != "task cannot be its own parent" {
+		t.Errorf("Expected self-reference error, got: %v", err)
+	}
+}
+
+func TestValidateParentAssignment_CannotNestParentWithChildren(t *testing.T) {
+	// Setup: Parent has children
+	parent := &models.Task{
+		ID:    1,
+		Title: "Parent",
+		Subtasks: []models.Task{
+			{ID: 2, Title: "Child"},
+		},
+	}
+	newParent := &models.Task{ID: 3, Title: "New Parent"}
+
+	err := ValidateParentAssignment(parent, newParent)
+
+	if err == nil {
+		t.Error("Expected error for nesting a parent, got nil")
+	}
+	if err != nil && err.Error() != "cannot make a parent task into a subtask" {
+		t.Errorf("Expected parent-has-children error, got: %v", err)
+	}
+}
+
+func TestValidateParentAssignment_ValidAssignment(t *testing.T) {
+	// Valid case: root task becoming child of another root task
+	parent := &models.Task{ID: 1, Title: "Parent"}
+	child := &models.Task{ID: 2, Title: "Child"}
+
+	err := ValidateParentAssignment(child, parent)
+
+	if err != nil {
+		t.Errorf("Expected no error for valid assignment, got: %v", err)
+	}
+}
