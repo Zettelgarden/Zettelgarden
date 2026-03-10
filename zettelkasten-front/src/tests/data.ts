@@ -48,6 +48,7 @@ export const sampleTaskData: Task[] = [
     reminder_sent: false,
     blocked_by: [],
     blocks: [],
+    parent_task_id: null,
   },
   {
     id: 2,
@@ -70,6 +71,7 @@ export const sampleTaskData: Task[] = [
     reminder_sent: false,
     blocked_by: [],
     blocks: [],
+    parent_task_id: null,
   },
   {
     id: 3,
@@ -92,6 +94,7 @@ export const sampleTaskData: Task[] = [
     reminder_sent: false,
     blocked_by: [],
     blocks: [],
+    parent_task_id: null,
   },
   {
     id: 4,
@@ -127,6 +130,7 @@ export const sampleTaskData: Task[] = [
     ],
     blocked_by: [],
     blocks: [],
+    parent_task_id: null,
   },
   {
     id: 5,
@@ -162,6 +166,7 @@ export const sampleTaskData: Task[] = [
     ],
     blocked_by: [],
     blocks: [],
+    parent_task_id: null,
   },
 ];
 export const sampleEntityData: Entity[] = [

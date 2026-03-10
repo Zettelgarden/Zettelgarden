@@ -51,6 +51,9 @@ export interface Task {
   tags: Tag[];
   blocked_by: PartialTask[];
   blocks: PartialTask[];
+  parent_task_id: number | null;
+  subtasks?: Task[];
+  parent_title?: string;
 }
 
 export interface TasksResponse {
@@ -81,4 +84,7 @@ export const emptyTask: Task = {
   tags: [],
   blocked_by: [],
   blocks: [],
+  parent_task_id: null,
+  subtasks: [],
+  parent_title: undefined,
 };

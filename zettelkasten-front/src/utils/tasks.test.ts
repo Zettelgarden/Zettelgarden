@@ -80,7 +80,8 @@ test("filter tasks by negated tags", () => {
       reminder_time: null,
       reminder_sent: false,
       blocked_by: [],
-      blocks: []
+      blocks: [],
+      parent_task_id: null,
     },
     {
       id: 2,
@@ -102,7 +103,8 @@ test("filter tasks by negated tags", () => {
       reminder_time: null,
       reminder_sent: false,
       blocked_by: [],
-      blocks: []
+      blocks: [],
+      parent_task_id: null,
     },
     {
       id: 3,
@@ -127,7 +129,8 @@ test("filter tasks by negated tags", () => {
       reminder_time: null,
       reminder_sent: false,
       blocked_by: [],
-      blocks: []
+      blocks: [],
+      parent_task_id: null,
     }
   ];
 
@@ -162,7 +165,8 @@ test("filter tasks by negated text", () => {
       reminder_time: null,
       reminder_sent: false,
       blocked_by: [],
-      blocks: []
+      blocks: [],
+      parent_task_id: null,
     },
     {
       id: 2,
@@ -184,7 +188,8 @@ test("filter tasks by negated text", () => {
       reminder_time: null,
       reminder_sent: false,
       blocked_by: [],
-      blocks: []
+      blocks: [],
+      parent_task_id: null,
     },
     {
       id: 3,
@@ -206,7 +211,8 @@ test("filter tasks by negated text", () => {
       reminder_time: null,
       reminder_sent: false,
       blocked_by: [],
-      blocks: []
+      blocks: [],
+      parent_task_id: null,
     }
   ];
 
