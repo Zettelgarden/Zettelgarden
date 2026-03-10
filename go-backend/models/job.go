@@ -30,6 +30,7 @@ const (
 	JobTypeChat                 JobType = "chat"
 	JobTypeMemory               JobType = "memory"
 	JobTypeEmail                JobType = "email"
+	JobTypeFileTextExtraction   JobType = "file_text_extraction"
 )
 
 // LLMJob represents an asynchronous LLM operation in the job queue

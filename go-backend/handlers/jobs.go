@@ -315,6 +315,7 @@ func isValidJobType(jobType string) bool {
 		"chat":                   true,
 		"memory":                 true,
 		"email":                  true,
+		"file_text_extraction":   true,
 	}
 	return validTypes[jobType]
 }
