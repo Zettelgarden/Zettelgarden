@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Task } from "../../models/Task";
 import { TaskListItem } from "./TaskListItem";
@@ -6,6 +6,247 @@ import { saveExistingTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
 import { useStatus } from "../../contexts/StatusContext";
 import { StatusManagement } from "../settings/StatusManagement";
+import { useDialogState } from "../../contexts/DialogStateContext";
+
+interface FocusedCard {
+  columnIndex: number;
+  cardIndex: number;
+}
+
+/**
+ * Hook for keyboard navigation within a kanban board
+ */
+function useKanbanKeyboardNavigation(
+  columnCount: number,
+  getCardCount: (columnIndex: number) => number,
+  getTaskId: (columnIndex: number, cardIndex: number) => number | null,
+  enabled: boolean = true
+) {
+  const [focusedCard, setFocusedCard] = useState<FocusedCard | null>(null);
+  const { setSelectedTaskId, setShowTaskDialog } = useDialogState();
+  const boardRef = useRef<HTMLDivElement>(null);
+
+  // Get the current card count for a column, memoized
+  const getCardCountMemo = useCallback(getCardCount, [columnCount, getCardCount]);
+
+  // Focus the board container when a card is focused
+  useEffect(() => {
+    if (focusedCard && boardRef.current) {
+      boardRef.current.focus();
+    }
+  }, [focusedCard]);
+
+  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+    if (!enabled) return;
+
+    // Ignore if we're inside an input field
+    const target = event.target as HTMLElement;
+    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+      return;
+    }
+
+    switch (event.key) {
+      case "ArrowUp":
+        event.preventDefault();
+        setFocusedCard((prev) => {
+          if (!prev) {
+            // Start at first card of first column
+            const firstCardCount = getCardCountMemo(0);
+            if (firstCardCount > 0) {
+              return { columnIndex: 0, cardIndex: 0 };
+            }
+            return null;
+          }
+          // Move up within column, wrap to bottom
+          const upCardCount = getCardCountMemo(prev.columnIndex);
+          if (upCardCount === 0) return prev;
+          return {
+            ...prev,
+            cardIndex: prev.cardIndex > 0 ? prev.cardIndex - 1 : upCardCount - 1,
+          };
+        });
+        break;
+
+      case "ArrowDown":
+        event.preventDefault();
+        setFocusedCard((prev) => {
+          if (!prev) {
+            // Start at first card of first column
+            const firstCardCount = getCardCountMemo(0);
+            if (firstCardCount > 0) {
+              return { columnIndex: 0, cardIndex: 0 };
+            }
+            return null;
+          }
+          // Move down within column, wrap to top
+          const downCardCount = getCardCountMemo(prev.columnIndex);
+          if (downCardCount === 0) return prev;
+          return {
+            ...prev,
+            cardIndex: prev.cardIndex < downCardCount - 1 ? prev.cardIndex + 1 : 0,
+          };
+        });
+        break;
+
+      case "ArrowLeft":
+        event.preventDefault();
+        setFocusedCard((prev) => {
+          if (!prev) {
+            // Start at first card of first column
+            const firstCardCount = getCardCountMemo(0);
+            if (firstCardCount > 0) {
+              return { columnIndex: 0, cardIndex: 0 };
+            }
+            return null;
+          }
+          // Move to previous column, keep same index if possible
+          const newLeftCol = prev.columnIndex > 0 ? prev.columnIndex - 1 : columnCount - 1;
+          const leftCardCount = getCardCountMemo(newLeftCol);
+          if (leftCardCount === 0) {
+            // Skip empty columns
+            for (let i = 1; i < columnCount; i++) {
+              const checkCol = (newLeftCol - i + columnCount) % columnCount;
+              const checkCount = getCardCountMemo(checkCol);
+              if (checkCount > 0) {
+                return { columnIndex: checkCol, cardIndex: Math.min(prev.cardIndex, checkCount - 1) };
+              }
+            }
+            return prev;
+          }
+          return {
+            columnIndex: newLeftCol,
+            cardIndex: Math.min(prev.cardIndex, leftCardCount - 1),
+          };
+        });
+        break;
+
+      case "ArrowRight":
+        event.preventDefault();
+        setFocusedCard((prev) => {
+          if (!prev) {
+            // Start at first card of first column
+            const firstCardCount = getCardCountMemo(0);
+            if (firstCardCount > 0) {
+              return { columnIndex: 0, cardIndex: 0 };
+            }
+            return null;
+          }
+          // Move to next column, keep same index if possible
+          const newRightCol = prev.columnIndex < columnCount - 1 ? prev.columnIndex + 1 : 0;
+          const rightCardCount = getCardCountMemo(newRightCol);
+          if (rightCardCount === 0) {
+            // Skip empty columns
+            for (let i = 1; i < columnCount; i++) {
+              const checkCol = (newRightCol + i) % columnCount;
+              const checkCount = getCardCountMemo(checkCol);
+              if (checkCount > 0) {
+                return { columnIndex: checkCol, cardIndex: Math.min(prev.cardIndex, checkCount - 1) };
+              }
+            }
+            return prev;
+          }
+          return {
+            columnIndex: newRightCol,
+            cardIndex: Math.min(prev.cardIndex, rightCardCount - 1),
+          };
+        });
+        break;
+
+      case "Enter":
+        event.preventDefault();
+        if (focusedCard) {
+          const taskId = getTaskId(focusedCard.columnIndex, focusedCard.cardIndex);
+          if (taskId !== null) {
+            setSelectedTaskId(taskId);
+            setShowTaskDialog(true);
+          }
+        }
+        break;
+
+      case "Escape":
+        event.preventDefault();
+        setFocusedCard(null);
+        break;
+
+      case "j":
+      case "J":
+        // Vim-style down
+        event.preventDefault();
+        setFocusedCard((prev) => {
+          if (!prev) {
+            const firstCardCount = getCardCountMemo(0);
+            if (firstCardCount > 0) {
+              return { columnIndex: 0, cardIndex: 0 };
+            }
+            return null;
+          }
+          const jCardCount = getCardCountMemo(prev.columnIndex);
+          if (jCardCount === 0) return prev;
+          return {
+            ...prev,
+            cardIndex: prev.cardIndex < jCardCount - 1 ? prev.cardIndex + 1 : 0,
+          };
+        });
+        break;
+
+      case "k":
+      case "K":
+        // Vim-style up
+        event.preventDefault();
+        setFocusedCard((prev) => {
+          if (!prev) {
+            const firstCardCount = getCardCountMemo(0);
+            if (firstCardCount > 0) {
+              return { columnIndex: 0, cardIndex: 0 };
+            }
+            return null;
+          }
+          const kCardCount = getCardCountMemo(prev.columnIndex);
+          if (kCardCount === 0) return prev;
+          return {
+            ...prev,
+            cardIndex: prev.cardIndex > 0 ? prev.cardIndex - 1 : kCardCount - 1,
+          };
+        });
+        break;
+
+      case "h":
+      case "H":
+        // Vim-style left (when not in input)
+        event.preventDefault();
+        setFocusedCard((prev) => {
+          if (!prev) return null;
+          const newCol = prev.columnIndex > 0 ? prev.columnIndex - 1 : columnCount - 1;
+          const hCardCount = getCardCountMemo(newCol);
+          if (hCardCount === 0) return prev;
+          return { columnIndex: newCol, cardIndex: Math.min(prev.cardIndex, hCardCount - 1) };
+        });
+        break;
+
+      case "l":
+      case "L":
+        // Vim-style right (when not in input)
+        event.preventDefault();
+        setFocusedCard((prev) => {
+          if (!prev) return null;
+          const newCol = prev.columnIndex < columnCount - 1 ? prev.columnIndex + 1 : 0;
+          const lCardCount = getCardCountMemo(newCol);
+          if (lCardCount === 0) return prev;
+          return { columnIndex: newCol, cardIndex: Math.min(prev.cardIndex, lCardCount - 1) };
+        });
+        break;
+    }
+  }, [enabled, columnCount, getCardCountMemo, getTaskId, focusedCard, setSelectedTaskId, setShowTaskDialog]);
+
+  const clearFocus = useCallback(() => setFocusedCard(null), []);
+
+  return {
+    focusedCard,
+    handleKeyDown,
+    clearFocus,
+    boardRef,
+  };
+}
 
 interface KanbanBoardProps {
   tasks: Task[];
@@ -30,6 +271,27 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
     acc[status].push(task);
     return acc;
   }, {} as Record<string, Task[]>);
+
+  // Create a stable array of tasks per column for keyboard navigation
+  const columnTasksArrays = statuses.map((status) => tasksByStatus[status.name] || []);
+
+  // Helper functions for keyboard navigation
+  const getCardCount = useCallback((columnIndex: number) => {
+    return columnTasksArrays[columnIndex]?.length || 0;
+  }, [columnTasksArrays]);
+
+  const getTaskId = useCallback((columnIndex: number, cardIndex: number) => {
+    const tasks = columnTasksArrays[columnIndex];
+    return tasks?.[cardIndex]?.id ?? null;
+  }, [columnTasksArrays]);
+
+  // Keyboard navigation hook
+  const { focusedCard, handleKeyDown, clearFocus, boardRef } = useKanbanKeyboardNavigation(
+    statuses.length,
+    getCardCount,
+    getTaskId,
+    !selectMode // Disable keyboard nav in select mode
+  );
 
   const onDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
@@ -82,8 +344,14 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4 min-h-[calc(100vh-200px)]">
-          {statuses.map((column) => {
+        <div
+          ref={boardRef}
+          className="flex gap-4 overflow-x-auto pb-4 min-h-[calc(100vh-200px)] outline-none"
+          tabIndex={0}
+          onKeyDown={handleKeyDown}
+          onClick={clearFocus}
+        >
+          {statuses.map((column, columnIndex) => {
           const columnTasks = tasksByStatus[column.name] || [];
 
           return (
@@ -145,35 +413,40 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
                     }`}
                   >
                     {columnTasks.length > 0 ? (
-                      columnTasks.map((task, index) => (
-                        <Draggable
-                          key={task.id.toString()}
-                          draggableId={task.id.toString()}
-                          index={index}
-                        >
-                          {(dragProvided, dragSnapshot) => (
-                            <div
-                              ref={dragProvided.innerRef}
-                              {...dragProvided.draggableProps}
-                              {...dragProvided.dragHandleProps}
-                              className={`bg-white rounded border shadow-sm transition-shadow ${
-                                dragSnapshot.isDragging
-                                  ? "border-blue-400 shadow-lg"
-                                  : "border-gray-200 hover:shadow-md"
-                              }`}
-                            >
-                              <TaskListItem
-                                task={task}
-                                onTagClick={onTagClick}
-                                hideMatrixTags={false}
-                                selectMode={selectMode}
-                                isSelected={selectedTaskIds.has(task.id)}
-                                onSelect={() => onTaskSelect?.(task.id)}
-                              />
-                            </div>
-                          )}
-                        </Draggable>
-                      ))
+                      columnTasks.map((task, index) => {
+                        const isFocused = focusedCard?.columnIndex === columnIndex && focusedCard?.cardIndex === index;
+                        return (
+                          <Draggable
+                            key={task.id.toString()}
+                            draggableId={task.id.toString()}
+                            index={index}
+                          >
+                            {(dragProvided, dragSnapshot) => (
+                              <div
+                                ref={dragProvided.innerRef}
+                                {...dragProvided.draggableProps}
+                                {...dragProvided.dragHandleProps}
+                                className={`bg-white rounded border shadow-sm transition-all ${
+                                  dragSnapshot.isDragging
+                                    ? "border-blue-400 shadow-lg"
+                                    : isFocused
+                                    ? "border-blue-500 shadow-md ring-2 ring-blue-200"
+                                    : "border-gray-200 hover:shadow-md"
+                                }`}
+                              >
+                                <TaskListItem
+                                  task={task}
+                                  onTagClick={onTagClick}
+                                  hideMatrixTags={false}
+                                  selectMode={selectMode}
+                                  isSelected={selectedTaskIds.has(task.id)}
+                                  onSelect={() => onTaskSelect?.(task.id)}
+                                />
+                              </div>
+                            )}
+                          </Draggable>
+                        );
+                      })
                     ) : (
                       <div className="text-center text-gray-400 text-sm py-8">
                         No tasks

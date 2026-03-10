@@ -34,6 +34,21 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { key: "4", description: "Switch to Calendar view" },
     ],
   },
+  {
+    title: "Kanban Board",
+    shortcuts: [
+      { key: "↑", description: "Move to previous card" },
+      { key: "↓", description: "Move to next card" },
+      { key: "←", description: "Move to previous column" },
+      { key: "→", description: "Move to next column" },
+      { key: "j", description: "Move to next card (vim)" },
+      { key: "k", description: "Move to previous card (vim)" },
+      { key: "h", description: "Move to previous column (vim)" },
+      { key: "l", description: "Move to next column (vim)" },
+      { key: "Enter", description: "Open focused task" },
+      { key: "Esc", description: "Clear selection" },
+    ],
+  },
 ];
 
 export function KeyboardShortcutsHelp({ visible, onClose }: KeyboardShortcutsHelpProps) {
