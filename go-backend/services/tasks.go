@@ -17,7 +17,7 @@ func GetTask(db models.Database, userID int, id int) (models.Task, error) {
 	err := db.QueryRow(`
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
 	created_at, updated_at, completed_at, title, description, priority, status, is_complete,
-	reminder_time, reminder_sent
+	reminder_time, reminder_sent, parent_task_id
 	FROM
 	tasks
 	WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE
@@ -37,6 +37,7 @@ func GetTask(db models.Database, userID int, id int) (models.Task, error) {
 		&task.IsComplete,
 		&task.ReminderTime,
 		&task.ReminderSent,
+		&task.ParentTaskID,
 	)
 	if err != nil {
 		log.Printf("err %v", err)
@@ -54,6 +55,21 @@ func GetTask(db models.Database, userID int, id int) (models.Task, error) {
 		log.Printf("Error loading task dependencies: %v", err)
 	}
 
+	// Load subtasks
+	subtasks, err := GetSubtasks(db, userID, id)
+	if err == nil {
+		task.Subtasks = subtasks
+	}
+
+	// Load parent title if has parent
+	if task.ParentTaskID != nil {
+		var parentTitle string
+		err := db.QueryRow(`SELECT title FROM tasks WHERE id = $1`, *task.ParentTaskID).Scan(&parentTitle)
+		if err == nil {
+			task.ParentTitle = parentTitle
+		}
+	}
+
 	return task, nil
 }
 
@@ -67,7 +83,7 @@ func GetTasksPaginated(db models.Database, userID int, limit, offset int, includ
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
 	created_at, updated_at, completed_at, title, description, priority, status, is_complete,
-	reminder_time, reminder_sent
+	reminder_time, reminder_sent, parent_task_id
 	FROM tasks
 	WHERE user_id = $` + fmt.Sprintf("%d", argIndex) + ` AND is_deleted = FALSE`
 	args = append(args, userID)
@@ -135,6 +151,7 @@ func GetTasksPaginated(db models.Database, userID int, limit, offset int, includ
 			&task.IsComplete,
 			&task.ReminderTime,
 			&task.ReminderSent,
+			&task.ParentTaskID,
 		); err != nil{
 			log.Printf("err %v", err)
 			return []models.Task{}, 0, fmt.Errorf("unable to access task")
@@ -212,7 +229,7 @@ func GetTasksByCard(db models.Database, userID int, cardPK int) ([]models.Task, 
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
 	created_at, updated_at, completed_at, title, description, priority, status, is_complete,
-	reminder_time, reminder_sent
+	reminder_time, reminder_sent, parent_task_id
 	FROM
 	tasks
 	WHERE user_id = $1 AND is_deleted = FALSE AND card_pk = $2
@@ -244,6 +261,7 @@ func GetTasksByCard(db models.Database, userID int, cardPK int) ([]models.Task, 
 			&task.IsComplete,
 			&task.ReminderTime,
 			&task.ReminderSent,
+			&task.ParentTaskID,
 		); err != nil {
 			log.Printf("err %v", err)
 			return []models.Task{}, fmt.Errorf("unable to access task")
