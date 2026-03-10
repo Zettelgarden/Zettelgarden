@@ -258,10 +258,98 @@ interface KanbanBoardProps {
   onTaskSelect?: (taskId: number) => void;
 }
 
+type KanbanSortField = 'priority' | 'due_date' | 'scheduled_date' | 'title' | 'created_at';
+type KanbanSortDirection = 'asc' | 'desc';
+
+interface KanbanSortSettings {
+  field: KanbanSortField;
+  direction: KanbanSortDirection;
+}
+
+const KANBAN_SORT_KEY = 'kanbanSortSettings';
+
+const DEFAULT_SORT: KanbanSortSettings = {
+  field: 'priority',
+  direction: 'desc', // High priority first
+};
+
+const PRIORITY_ORDER = { A: 3, B: 2, C: 1 };
+
+function sortTasks(tasks: Task[], settings: KanbanSortSettings): Task[] {
+  return [...tasks].sort((a, b) => {
+    let comparison = 0;
+
+    switch (settings.field) {
+      case 'priority':
+        const aPriority = a.priority ? PRIORITY_ORDER[a.priority as keyof typeof PRIORITY_ORDER] || 0 : 0;
+        const bPriority = b.priority ? PRIORITY_ORDER[b.priority as keyof typeof PRIORITY_ORDER] || 0 : 0;
+        comparison = aPriority - bPriority;
+        break;
+
+      case 'due_date':
+        const aDue = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+        const bDue = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+        comparison = aDue - bDue;
+        break;
+
+      case 'scheduled_date':
+        const aScheduled = a.scheduled_date ? new Date(a.scheduled_date).getTime() : Infinity;
+        const bScheduled = b.scheduled_date ? new Date(b.scheduled_date).getTime() : Infinity;
+        comparison = aScheduled - bScheduled;
+        break;
+
+      case 'title':
+        comparison = a.title.localeCompare(b.title);
+        break;
+
+      case 'created_at':
+        comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        break;
+    }
+
+    return settings.direction === 'asc' ? comparison : -comparison;
+  });
+}
+
 export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode = false, selectedTaskIds = new Set(), onTaskSelect }: KanbanBoardProps) {
   const { setRefreshTasks } = useTaskContext();
   const { statuses, getStatusByName } = useStatus();
   const [showStatusManagement, setShowStatusManagement] = useState(false);
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
+
+  // Load sort settings from localStorage
+  const [sortSettings, setSortSettings] = useState<KanbanSortSettings>(() => {
+    try {
+      const saved = localStorage.getItem(KANBAN_SORT_KEY);
+      if (saved) {
+        return JSON.parse(saved) as KanbanSortSettings;
+      }
+    } catch (e) {
+      console.error('Failed to load kanban sort settings:', e);
+    }
+    return DEFAULT_SORT;
+  });
+
+  // Persist sort settings to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(KANBAN_SORT_KEY, JSON.stringify(sortSettings));
+    } catch (e) {
+      console.error('Failed to save kanban sort settings:', e);
+    }
+  }, [sortSettings]);
+
+  // Close sort menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
+        setShowSortMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Group tasks by status
   const tasksByStatus = tasks.reduce((acc, task) => {
@@ -273,8 +361,17 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
     return acc;
   }, {} as Record<string, Task[]>);
 
+  // Sort tasks within each column
+  const sortedTasksByStatus = React.useMemo(() => {
+    const sorted: Record<string, Task[]> = {};
+    for (const [status, statusTasks] of Object.entries(tasksByStatus)) {
+      sorted[status] = sortTasks(statusTasks, sortSettings);
+    }
+    return sorted;
+  }, [tasksByStatus, sortSettings]);
+
   // Create a stable array of tasks per column for keyboard navigation
-  const columnTasksArrays = statuses.map((status) => tasksByStatus[status.name] || []);
+  const columnTasksArrays = statuses.map((status) => sortedTasksByStatus[status.name] || []);
 
   // Helper functions for keyboard navigation
   const getCardCount = useCallback((columnIndex: number) => {
@@ -332,16 +429,77 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
       {/* Header with Manage Statuses Button */}
       <div className="mb-4 flex justify-between items-center">
         <h2 className="text-xl font-semibold text-gray-900">Task Board</h2>
-        <button
-          onClick={() => setShowStatusManagement(true)}
-          className="flex items-center gap-2 px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          Manage Statuses
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Sort Dropdown */}
+          <div className="relative" ref={sortMenuRef}>
+            <button
+              onClick={() => setShowSortMenu(!showSortMenu)}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+              </svg>
+              <span className="hidden sm:inline">Sort</span>
+            </button>
+            {showSortMenu && (
+              <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                <div className="p-2">
+                  <div className="text-xs font-medium text-gray-500 uppercase mb-1">Sort by</div>
+                  {[
+                    { field: 'priority' as KanbanSortField, label: 'Priority' },
+                    { field: 'due_date' as KanbanSortField, label: 'Due Date' },
+                    { field: 'scheduled_date' as KanbanSortField, label: 'Scheduled Date' },
+                    { field: 'title' as KanbanSortField, label: 'Title' },
+                    { field: 'created_at' as KanbanSortField, label: 'Created Date' },
+                  ].map((option) => (
+                    <button
+                      key={option.field}
+                      onClick={() => {
+                        if (sortSettings.field === option.field) {
+                          // Toggle direction if same field
+                          setSortSettings({
+                            ...sortSettings,
+                            direction: sortSettings.direction === 'asc' ? 'desc' : 'asc',
+                          });
+                        } else {
+                          // Reset to default direction for new field
+                          setSortSettings({
+                            field: option.field,
+                            direction: option.field === 'priority' ? 'desc' : 'asc',
+                          });
+                        }
+                        setShowSortMenu(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-sm rounded flex items-center justify-between ${
+                        sortSettings.field === option.field
+                          ? 'bg-blue-50 text-blue-700'
+                          : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <span>{option.label}</span>
+                      {sortSettings.field === option.field && (
+                        <span className="text-xs">
+                          {sortSettings.direction === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => setShowStatusManagement(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Manage Statuses
+          </button>
+        </div>
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
@@ -353,7 +511,7 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
           onClick={clearFocus}
         >
           {statuses.map((column, columnIndex) => {
-          const columnTasks = tasksByStatus[column.name] || [];
+          const columnTasks = sortedTasksByStatus[column.name] || [];
 
           return (
             <div
