@@ -742,3 +742,27 @@ func PrepareSubtask(parent *models.Task, input models.Task) models.Task {
 
 	return subtask
 }
+
+// ValidateParentAssignment checks if a task can be assigned to a parent
+// Returns an error if:
+// - Task is being assigned to itself
+// - Parent already has a parent (would create multi-level nesting)
+// - Task has children (can't make a parent into a child)
+func ValidateParentAssignment(task *models.Task, parent *models.Task) error {
+	// No self-reference
+	if task.ID == parent.ID {
+		return fmt.Errorf("task cannot be its own parent")
+	}
+
+	// Single level only: parent cannot have a parent
+	if parent.ParentTaskID != nil {
+		return fmt.Errorf("cannot nest more than one level deep")
+	}
+
+	// Task with children cannot become a subtask
+	if len(task.Subtasks) > 0 {
+		return fmt.Errorf("cannot make a parent task into a subtask")
+	}
+
+	return nil
+}
