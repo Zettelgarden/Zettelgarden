@@ -266,7 +266,12 @@ interface KanbanSortSettings {
   direction: KanbanSortDirection;
 }
 
+interface WipLimits {
+  [statusName: string]: number; // 0 means no limit
+}
+
 const KANBAN_SORT_KEY = 'kanbanSortSettings';
+const KANBAN_WIP_LIMITS_KEY = 'kanbanWipLimits';
 
 const DEFAULT_SORT: KanbanSortSettings = {
   field: 'priority',
@@ -316,6 +321,9 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
   const { statuses, getStatusByName } = useStatus();
   const [showStatusManagement, setShowStatusManagement] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showWipModal, setShowWipModal] = useState(false);
+  const [editingWipStatus, setEditingWipStatus] = useState<string | null>(null);
+  const [tempWipValue, setTempWipValue] = useState<string>('');
   const sortMenuRef = useRef<HTMLDivElement>(null);
 
   // Load sort settings from localStorage
@@ -331,6 +339,19 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
     return DEFAULT_SORT;
   });
 
+  // Load WIP limits from localStorage
+  const [wipLimits, setWipLimits] = useState<WipLimits>(() => {
+    try {
+      const saved = localStorage.getItem(KANBAN_WIP_LIMITS_KEY);
+      if (saved) {
+        return JSON.parse(saved) as WipLimits;
+      }
+    } catch (e) {
+      console.error('Failed to load kanban WIP limits:', e);
+    }
+    return {};
+  });
+
   // Persist sort settings to localStorage
   useEffect(() => {
     try {
@@ -339,6 +360,15 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
       console.error('Failed to save kanban sort settings:', e);
     }
   }, [sortSettings]);
+
+  // Persist WIP limits to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(KANBAN_WIP_LIMITS_KEY, JSON.stringify(wipLimits));
+    } catch (e) {
+      console.error('Failed to save kanban WIP limits:', e);
+    }
+  }, [wipLimits]);
 
   // Close sort menu when clicking outside
   useEffect(() => {
@@ -350,6 +380,25 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // WIP limit handlers
+  const handleSetWipLimit = (statusName: string, limit: number) => {
+    setWipLimits(prev => {
+      if (limit <= 0) {
+        const { [statusName]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [statusName]: limit };
+    });
+    setEditingWipStatus(null);
+    setShowWipModal(false);
+  };
+
+  const openWipEditor = (statusName: string) => {
+    setEditingWipStatus(statusName);
+    setTempWipValue(String(wipLimits[statusName] || 0));
+    setShowWipModal(true);
+  };
 
   // Group tasks by status
   const tasksByStatus = tasks.reduce((acc, task) => {
@@ -546,15 +595,29 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
                     >
                       <span className="text-lg font-bold leading-none pb-1">+</span>
                     </button>
-                    <span
-                      className="text-xs font-medium px-2 py-0.5 rounded-full"
-                      style={{
-                        backgroundColor: column.color + "20",
-                        color: column.color,
-                      }}
+                    <button
+                      onClick={() => openWipEditor(column.name)}
+                      className={`text-xs font-medium px-2 py-0.5 rounded-full cursor-pointer transition-colors ${
+                        wipLimits[column.name] && columnTasks.length > wipLimits[column.name]
+                          ? 'bg-red-100 text-red-700 ring-2 ring-red-300'
+                          : wipLimits[column.name] && columnTasks.length === wipLimits[column.name]
+                          ? 'bg-amber-100 text-amber-700'
+                          : ''
+                      }`}
+                      style={
+                        !wipLimits[column.name]
+                          ? {
+                              backgroundColor: column.color + "20",
+                              color: column.color,
+                            }
+                          : undefined
+                      }
+                      title={wipLimits[column.name] ? `WIP limit: ${wipLimits[column.name]}. Click to edit.` : 'Click to set WIP limit'}
                     >
                       {columnTasks.length}
-                    </span>
+                      {wipLimits[column.name] && `/${wipLimits[column.name]}`}
+                      {wipLimits[column.name] && columnTasks.length > wipLimits[column.name] && ' ⚠️'}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -640,6 +703,50 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
             {/* StatusManagement component */}
             <div className="p-6">
               <StatusManagement />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WIP Limit Modal */}
+      {showWipModal && editingWipStatus && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-sm p-6">
+            <h3 className="text-lg font-semibold mb-4">Set WIP Limit</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Set the maximum number of tasks allowed in the <strong>{statuses.find(s => s.name === editingWipStatus)?.display_name}</strong> column.
+              Tasks exceeding this limit will show a warning.
+            </p>
+            <input
+              type="number"
+              min="0"
+              value={tempWipValue}
+              onChange={(e) => setTempWipValue(e.target.value)}
+              placeholder="Enter limit (0 for no limit)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setEditingWipStatus(null);
+                  setShowWipModal(false);
+                }}
+                className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const limit = parseInt(tempWipValue, 10);
+                  if (!isNaN(limit)) {
+                    handleSetWipLimit(editingWipStatus, limit);
+                  }
+                }}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Save
+              </button>
             </div>
           </div>
         </div>
