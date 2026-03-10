@@ -8,6 +8,7 @@ import { useStatus } from "../../contexts/StatusContext";
 import { StatusManagement } from "../settings/StatusManagement";
 import { useDialogState } from "../../contexts/DialogStateContext";
 import { TaskHoverCard } from "./TaskHoverCard";
+import { KanbanQuickActions } from "./KanbanQuickActions";
 
 interface FocusedCard {
   columnIndex: number;
@@ -649,7 +650,7 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
                                   ref={dragProvided.innerRef}
                                   {...dragProvided.draggableProps}
                                   {...dragProvided.dragHandleProps}
-                                  className={`bg-white rounded border shadow-sm transition-all ${
+                                  className={`group bg-white rounded border shadow-sm transition-all ${
                                     dragSnapshot.isDragging
                                       ? "border-blue-400 shadow-lg"
                                       : isFocused
@@ -665,6 +666,15 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
                                     isSelected={selectedTaskIds.has(task.id)}
                                     onSelect={() => onTaskSelect?.(task.id)}
                                   />
+                                  {/* Quick Actions Toolbar */}
+                                  <div className="px-2 pb-2 flex justify-end">
+                                    <KanbanQuickActions
+                                      task={task}
+                                      onUpdate={(updatedTask) => {
+                                        // Task is already updated via updateTask in the component
+                                      }}
+                                    />
+                                  </div>
                                 </div>
                               </TaskHoverCard>
                             )}
