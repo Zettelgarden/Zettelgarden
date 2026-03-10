@@ -113,7 +113,7 @@ export function TaskHoverCard({ task, children }: TaskHoverCardProps) {
       {isVisible && createPortal(
         <div
           ref={hoverCardRef}
-          className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-3 w-70"
+          className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-3 w-72"
           style={{
             top: position.top,
             left: position.left,

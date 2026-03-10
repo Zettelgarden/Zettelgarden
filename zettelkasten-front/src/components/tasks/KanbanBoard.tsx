@@ -668,12 +668,7 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
                                   />
                                   {/* Quick Actions Toolbar */}
                                   <div className="px-2 pb-2 flex justify-end">
-                                    <KanbanQuickActions
-                                      task={task}
-                                      onUpdate={(updatedTask) => {
-                                        // Task is already updated via updateTask in the component
-                                      }}
-                                    />
+                                    <KanbanQuickActions task={task} />
                                   </div>
                                 </div>
                               </TaskHoverCard>

@@ -9,7 +9,6 @@ import { format } from "date-fns-tz";
 
 interface KanbanQuickActionsProps {
   task: Task;
-  onUpdate: (task: Task) => void;
 }
 
 const PRIORITY_OPTIONS = [
@@ -19,7 +18,7 @@ const PRIORITY_OPTIONS = [
   { value: null, label: "None", icon: "○" },
 ];
 
-export function KanbanQuickActions({ task, onUpdate }: KanbanQuickActionsProps) {
+export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
   const [showPriorityMenu, setShowPriorityMenu] = useState(false);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -51,7 +50,6 @@ export function KanbanQuickActions({ task, onUpdate }: KanbanQuickActionsProps) 
   const handlePriorityChange = async (priority: string | null) => {
     const updatedTask = { ...task, priority };
     updateTask(updatedTask);
-    onUpdate(updatedTask);
     setShowPriorityMenu(false);
 
     try {
@@ -70,7 +68,6 @@ export function KanbanQuickActions({ task, onUpdate }: KanbanQuickActionsProps) 
       is_complete: statusConfig?.is_complete_state || false,
     };
     updateTask(updatedTask);
-    onUpdate(updatedTask);
     setShowStatusMenu(false);
 
     try {
@@ -86,7 +83,6 @@ export function KanbanQuickActions({ task, onUpdate }: KanbanQuickActionsProps) 
     if (!inputValue) {
       const updatedTask = { ...task, due_date: null };
       updateTask(updatedTask);
-      onUpdate(updatedTask);
       setShowDatePicker(false);
 
       try {
@@ -102,7 +98,6 @@ export function KanbanQuickActions({ task, onUpdate }: KanbanQuickActionsProps) 
     const newDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
     const updatedTask = { ...task, due_date: newDate };
     updateTask(updatedTask);
-    onUpdate(updatedTask);
     setShowDatePicker(false);
 
     try {
@@ -113,13 +108,25 @@ export function KanbanQuickActions({ task, onUpdate }: KanbanQuickActionsProps) 
     }
   };
 
+  const clearDueDate = async () => {
+    const updatedTask = { ...task, due_date: null };
+    updateTask(updatedTask);
+    setShowDatePicker(false);
+
+    try {
+      await saveExistingTask(updatedTask);
+    } catch (error) {
+      console.error("Failed to clear due date:", error);
+      updateTask(task);
+    }
+  };
+
   const handleToggleComplete = async () => {
     const updatedTask = {
       ...task,
       is_complete: !task.is_complete,
     };
     updateTask(updatedTask);
-    onUpdate(updatedTask);
 
     try {
       await saveExistingTask(updatedTask);
@@ -242,7 +249,7 @@ export function KanbanQuickActions({ task, onUpdate }: KanbanQuickActionsProps) 
             />
             {task.due_date && (
               <button
-                onClick={() => handleDateChange({ target: { value: "" } } as any)}
+                onClick={clearDueDate}
                 className="w-full mt-1 text-xs text-gray-500 hover:text-gray-700"
               >
                 Clear date
