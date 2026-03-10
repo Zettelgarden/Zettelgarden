@@ -719,3 +719,26 @@ func CompleteAndScheduleTask(db models.Database, userID int, id int, days int, c
 
 	return newTaskID, nil
 }
+// PrepareSubtask creates a subtask from a parent task, inheriting priority and tags
+// Dates are NOT inherited - subtasks get their own scheduling
+func PrepareSubtask(parent *models.Task, input models.Task) models.Task {
+	subtask := models.Task{
+		ParentTaskID: &parent.ID,
+		Title:        input.Title,
+		Description:  input.Description,
+		Priority:     input.Priority,
+		Status:       input.Status,
+		UserID:       parent.UserID,
+	}
+
+	// Inherit priority from parent if not provided in input
+	if subtask.Priority == nil && parent.Priority != nil {
+		subtask.Priority = parent.Priority
+	}
+
+	// Inherit tags from parent
+	subtask.Tags = make([]models.Tag, len(parent.Tags))
+	copy(subtask.Tags, parent.Tags)
+
+	return subtask
+}
