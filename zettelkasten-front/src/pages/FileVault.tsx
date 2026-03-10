@@ -1,17 +1,20 @@
-import React, { useState, ChangeEvent, useEffect } from "react";
-import { getAllFiles, FilesResponse } from "../api/files";
+import React, { useState, ChangeEvent, useEffect, useCallback, useRef } from "react";
+import { getAllFiles, FilesResponse, deleteFile, editFile, uploadFile } from "../api/files";
 import { FileListItem } from "../components/files/FileListItem";
 import { FileUpload } from "../components/files/FileUpload";
 import { useUIState } from "../contexts/UIStateContext";
 import { MobileTopBar } from "../components/layout/MobileTopBar";
+import { useToast } from "../components/toast/ToastContext";
 
 import { File } from "../models/File";
-import { defaultCard } from "../models/Card";
+import { defaultCard, PartialCard } from "../models/Card";
 import { HeaderSection } from "../components/Header";
 import { setDocumentTitle } from "../utils/title";
+import { BacklinkInput } from "../components/cards/BacklinkInput";
 
 export function FileVault() {
   const { toggleMobileSidebar, refreshFiles, setRefreshFiles } = useUIState();
+  const { showToast } = useToast();
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +29,28 @@ export function FileVault() {
   const [showFilterHelp, setShowFilterHelp] = useState<boolean>(false);
   const [storageUsed, setStorageUsed] = useState(0);
   const [maxStorage, setMaxStorage] = useState(0);
+
+  // Bulk selection state
+  const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
+  const [showBulkLinkInput, setShowBulkLinkInput] = useState(false);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+
+  // Drag and drop state
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const dragCounterRef = useRef(0);
+
+  // Sort state
+  const [sortBy, setSortBy] = useState<string>("date");
+  const [sortOrder, setSortOrder] = useState<string>("desc");
+
+  // Sort options
+  const sortOptions = [
+    { value: "date", label: "Date uploaded" },
+    { value: "name", label: "Name" },
+    { value: "size", label: "File size" },
+    { value: "type", label: "File type" },
+  ];
 
   // File type filter options
   const fileTypeOptions = [
@@ -51,10 +76,205 @@ export function FileVault() {
   // Check if any filters are active
   const hasActiveFilters = searchTerm || filetypeFilter || unlinkedOnly;
 
+  // Bulk selection helpers
+  const isAllSelected = files.length > 0 && selectedFiles.size === files.length;
+  const isSomeSelected = selectedFiles.size > 0;
+
+  const toggleFileSelection = (fileId: number) => {
+    setSelectedFiles((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(fileId)) {
+        newSet.delete(fileId);
+      } else {
+        newSet.add(fileId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedFiles(new Set());
+    } else {
+      setSelectedFiles(new Set(files.map((f) => f.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedFiles(new Set());
+    setShowBulkLinkInput(false);
+  };
+
+  // Bulk operations
+  const handleBulkDelete = async () => {
+    if (selectedFiles.size === 0) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${selectedFiles.size} file(s)? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setIsBulkProcessing(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const fileId of selectedFiles) {
+      try {
+        await deleteFile(fileId);
+        successCount++;
+      } catch (err) {
+        failCount++;
+        console.error(`Failed to delete file ${fileId}:`, err);
+      }
+    }
+
+    setIsBulkProcessing(false);
+    clearSelection();
+
+    if (successCount > 0) {
+      showToast("success", "Files Deleted", `${successCount} file(s) deleted successfully`);
+    }
+    if (failCount > 0) {
+      showToast("error", "Delete Failed", `${failCount} file(s) could not be deleted`);
+    }
+
+    // Refresh the list
+    fetchFiles(currentPage, searchTerm, filetypeFilter, unlinkedOnly, sortBy, sortOrder);
+  };
+
+  const handleBulkLink = async (card: PartialCard) => {
+    if (selectedFiles.size === 0) return;
+
+    setIsBulkProcessing(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const fileId of selectedFiles) {
+      const file = files.find((f) => f.id === fileId);
+      if (!file) continue;
+
+      try {
+        await editFile(fileId.toString(), { name: file.name, card_pk: card.id });
+        successCount++;
+      } catch (err) {
+        failCount++;
+        console.error(`Failed to link file ${fileId}:`, err);
+      }
+    }
+
+    setIsBulkProcessing(false);
+    setShowBulkLinkInput(false);
+    clearSelection();
+
+    if (successCount > 0) {
+      showToast("success", "Files Linked", `${successCount} file(s) linked to card`);
+    }
+    if (failCount > 0) {
+      showToast("error", "Link Failed", `${failCount} file(s) could not be linked`);
+    }
+
+    fetchFiles(currentPage, searchTerm, filetypeFilter, unlinkedOnly, sortBy, sortOrder);
+  };
+
+  const handleBulkUnlink = async () => {
+    if (selectedFiles.size === 0) return;
+
+    setIsBulkProcessing(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const fileId of selectedFiles) {
+      const file = files.find((f) => f.id === fileId);
+      if (!file) continue;
+
+      try {
+        await editFile(fileId.toString(), { name: file.name, card_pk: -1 });
+        successCount++;
+      } catch (err) {
+        failCount++;
+        console.error(`Failed to unlink file ${fileId}:`, err);
+      }
+    }
+
+    setIsBulkProcessing(false);
+    clearSelection();
+
+    if (successCount > 0) {
+      showToast("success", "Files Unlinked", `${successCount} file(s) unlinked`);
+    }
+    if (failCount > 0) {
+      showToast("error", "Unlink Failed", `${failCount} file(s) could not be unlinked`);
+    }
+
+    fetchFiles(currentPage, searchTerm, filetypeFilter, unlinkedOnly, sortBy, sortOrder);
+  };
+
+  // Drag and drop handlers
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDraggingOver(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDraggingOver(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    dragCounterRef.current = 0;
+
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    if (droppedFiles.length === 0) return;
+
+    setIsUploading(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const file of droppedFiles) {
+      try {
+        const response = await uploadFile(file, -1); // Upload without linking to a card
+        if ("error" in response) {
+          failCount++;
+        } else {
+          successCount++;
+        }
+      } catch (err) {
+        failCount++;
+        console.error(`Failed to upload ${file.name}:`, err);
+      }
+    }
+
+    setIsUploading(false);
+
+    if (successCount > 0) {
+      showToast("success", "Upload Complete", `${successCount} file(s) uploaded successfully`);
+      setRefreshFiles(true);
+    }
+    if (failCount > 0) {
+      showToast("error", "Upload Failed", `${failCount} file(s) could not be uploaded`);
+    }
+  }, [showToast, setRefreshFiles]);
+
   function onDelete(file_id: number) {
     setFiles(files.filter((file) => file.id !== file_id));
     // Refresh the current page to get updated counts
-    fetchFiles(currentPage, searchTerm, filetypeFilter, unlinkedOnly);
+    fetchFiles(currentPage, searchTerm, filetypeFilter, unlinkedOnly, sortBy, sortOrder);
   }
 
   function handleFilter(
@@ -67,11 +287,13 @@ export function FileVault() {
     page: number = currentPage,
     search: string = searchTerm,
     filetype: string = filetypeFilter,
-    unlinked: boolean = unlinkedOnly
+    unlinked: boolean = unlinkedOnly,
+    sort: string = sortBy,
+    order: string = sortOrder
   ) => {
     setLoading(true);
     try {
-      const data = await getAllFiles(page, itemsPerPage, search, filetype, unlinked);
+      const data = await getAllFiles(page, itemsPerPage, search, filetype, unlinked, sort, order);
       setFiles(data.files);
       setCurrentPage(data.page);
       setTotalPages(data.total_pages);
@@ -87,17 +309,6 @@ export function FileVault() {
     }
   };
 
-  const handleSearch = () => {
-    setSearchTerm(filterString);
-    setCurrentPage(1);
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
-
   const handleFiletypeChange = (filetype: string) => {
     setFiletypeFilter(filetype);
     setCurrentPage(1);
@@ -105,6 +316,17 @@ export function FileVault() {
 
   const handleUnlinkedToggle = () => {
     setUnlinkedOnly(!unlinkedOnly);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (newSortBy: string) => {
+    if (sortBy === newSortBy) {
+      // Toggle order if clicking same sort field
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(newSortBy);
+      setSortOrder("desc"); // Default to descending for new sort field
+    }
     setCurrentPage(1);
   };
 
@@ -116,30 +338,76 @@ export function FileVault() {
     setCurrentPage(1);
   };
 
+  // Debounced search effect - triggers 300ms after user stops typing
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      setSearchTerm(filterString);
+      setCurrentPage(1);
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [filterString]);
+
   useEffect(() => {
     if (refreshFiles) {
-      fetchFiles(1, "", "", false);
+      fetchFiles(1, "", "", false, sortBy, sortOrder);
       setRefreshFiles(false);
     }
   }, [refreshFiles]);
 
   useEffect(() => {
     setDocumentTitle("Files");
-    fetchFiles(1, "", "", false);
+    fetchFiles(1, "", "", false, sortBy, sortOrder);
   }, []);
 
   useEffect(() => {
-    fetchFiles(currentPage, searchTerm, filetypeFilter, unlinkedOnly);
-  }, [currentPage, filetypeFilter, unlinkedOnly]);
+    fetchFiles(currentPage, searchTerm, filetypeFilter, unlinkedOnly, sortBy, sortOrder);
+  }, [currentPage, filetypeFilter, unlinkedOnly, sortBy, sortOrder]);
 
   useEffect(() => {
-    // Fetch when searchTerm changes (triggered by Enter press)
+    // Fetch when searchTerm changes (triggered by debounce)
     setCurrentPage(1);
-    fetchFiles(1, searchTerm, filetypeFilter, unlinkedOnly);
+    fetchFiles(1, searchTerm, filetypeFilter, unlinkedOnly, sortBy, sortOrder);
   }, [searchTerm]);
 
   return (
-    <div>
+    <div
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      className="relative"
+    >
+      {/* Drag and Drop Overlay */}
+      {isDraggingOver && (
+        <div className="fixed inset-0 bg-blue-500 bg-opacity-10 z-50 pointer-events-none">
+          <div className="absolute inset-4 border-4 border-dashed border-blue-500 rounded-lg flex items-center justify-center bg-white bg-opacity-90">
+            <div className="text-center">
+              <svg className="w-16 h-16 mx-auto text-blue-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <p className="text-xl font-semibold text-blue-600">Drop files here to upload</p>
+              <p className="text-sm text-gray-500 mt-1">Files will be uploaded without linking to a card</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload in progress indicator */}
+      {isUploading && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 shadow-xl">
+            <div className="flex items-center gap-3">
+              <svg className="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span className="text-gray-700 font-medium">Uploading files...</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <MobileTopBar
         title="Files"
         onMenuClick={toggleMobileSidebar}
@@ -185,16 +453,9 @@ export function FileVault() {
               type="text"
               value={filterString}
               onChange={handleFilter}
-              onKeyPress={handleKeyPress}
-              placeholder="Search files... (Press Enter to search)"
+              placeholder="Search files..."
               className="flex-grow h-9 px-3 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
-            <button
-              onClick={handleSearch}
-              className="h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-md px-4 text-sm flex-shrink-0"
-            >
-              Search
-            </button>
             <div className="relative">
               <span
                 className="h-9 flex items-center justify-center w-8 cursor-pointer text-slate-500 hover:text-slate-700 rounded-md hover:bg-slate-200"
@@ -268,6 +529,29 @@ export function FileVault() {
             Clear all
           </button>
         )}
+
+        {/* Sort dropdown */}
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-sm text-gray-500">Sort by:</span>
+          <select
+            value={sortBy}
+            onChange={(e) => handleSortChange(e.target.value)}
+            className="h-8 px-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            {sortOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label} {sortBy === option.value && (sortOrder === 'asc' ? '↑' : '↓')}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            className="h-8 w-8 flex items-center justify-center text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+            title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+          >
+            {sortOrder === 'asc' ? '↑' : '↓'}
+          </button>
+        </div>
       </div>
 
       {/* Loading State */}
@@ -290,22 +574,107 @@ export function FileVault() {
           {files && files.length > 0 ? (
             <>
               {/* Results Info */}
-              <div className="text-sm text-gray-600 mb-4 px-4">
-                Showing {files.length} files (Page {currentPage} of {totalPages}, {totalItems} total)
+              <div className="flex items-center justify-between mb-4 px-4">
+                <div className="text-sm text-gray-600">
+                  Showing {files.length} files (Page {currentPage} of {totalPages}, {totalItems} total)
+                </div>
+                {isSomeSelected && (
+                  <div className="text-sm text-blue-600 font-medium">
+                    {selectedFiles.size} selected
+                  </div>
+                )}
               </div>
+
+              {/* Bulk Actions Toolbar */}
+              {isSomeSelected && (
+                <div className="mb-4 bg-blue-50 border border-blue-200 rounded-md p-3 flex items-center gap-3 flex-wrap">
+                  <span className="text-sm font-medium text-blue-800">
+                    {selectedFiles.size} file(s) selected
+                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {showBulkLinkInput ? (
+                      <div className="flex items-center gap-2">
+                        <BacklinkInput addBacklink={handleBulkLink} />
+                        <button
+                          onClick={() => setShowBulkLinkInput(false)}
+                          className="text-sm text-gray-500 hover:text-gray-700"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => setShowBulkLinkInput(true)}
+                          disabled={isBulkProcessing}
+                          className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Link to Card
+                        </button>
+                        <button
+                          onClick={handleBulkUnlink}
+                          disabled={isBulkProcessing}
+                          className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Unlink
+                        </button>
+                        <button
+                          onClick={handleBulkDelete}
+                          disabled={isBulkProcessing}
+                          className="px-3 py-1.5 text-sm bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={clearSelection}
+                      disabled={isBulkProcessing}
+                      className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      Clear selection
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Files List */}
               <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
+                {/* Select All Header */}
+                <div className="flex items-center px-3 py-2 bg-gray-50 border-b border-gray-200">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    aria-label="Select all files"
+                  />
+                  <span className="ml-3 text-xs text-gray-500">
+                    {isAllSelected ? "Deselect all" : "Select all"}
+                  </span>
+                </div>
+
                 <ul className="divide-y divide-gray-200">
-                  {files.map((file, index) => (
-                    <li key={file.id} className="hover:bg-gray-50">
-                      <FileListItem
-                        file={file}
-                        onDelete={onDelete}
-                        setRefreshFiles={setRefreshFiles}
-                        filterString={filterString}
-                        setFilterString={setFilterString}
-                      />
+                  {files.map((file) => (
+                    <li key={file.id} className={`hover:bg-gray-50 ${selectedFiles.has(file.id) ? 'bg-blue-50' : ''}`}>
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedFiles.has(file.id)}
+                          onChange={() => toggleFileSelection(file.id)}
+                          className="ml-3 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          aria-label={`Select ${file.name}`}
+                        />
+                        <div className="flex-1">
+                          <FileListItem
+                            file={file}
+                            onDelete={onDelete}
+                            setRefreshFiles={setRefreshFiles}
+                            filterString={filterString}
+                            setFilterString={setFilterString}
+                          />
+                        </div>
+                      </div>
                     </li>
                   ))}
                 </ul>

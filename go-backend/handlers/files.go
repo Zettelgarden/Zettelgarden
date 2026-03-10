@@ -132,6 +132,47 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 	searchTerm := r.URL.Query().Get("search")
 	filetypeFilter := r.URL.Query().Get("filetype")
 	unlinkedOnly := r.URL.Query().Get("unlinked") == "true"
+	sortBy := r.URL.Query().Get("sort")       // name, date, size, type, card
+	sortOrder := r.URL.Query().Get("order")   // asc, desc
+
+	// Default sort
+	if sortBy == "" {
+		sortBy = "date"
+	}
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+
+	// Build ORDER BY clause based on sort parameters
+	var orderByClause string
+	switch sortBy {
+	case "name":
+		orderByClause = "f.name"
+	case "size":
+		orderByClause = "f.size"
+	case "type":
+		orderByClause = "f.type"
+	case "card":
+		orderByClause = "f.card_pk"
+	default: // "date"
+		orderByClause = "f.created_at"
+	}
+
+	// Apply sort order
+	if sortOrder == "asc" {
+		orderByClause += " ASC"
+	} else {
+		orderByClause += " DESC"
+	}
+
+	// For name and type, add secondary sort by created_at for consistent ordering
+	if sortBy == "name" || sortBy == "type" || sortBy == "card" {
+		if sortOrder == "asc" {
+			orderByClause += ", f.created_at ASC"
+		} else {
+			orderByClause += ", f.created_at DESC"
+		}
+	}
 
 	offset := (page - 1) * perPage
 
@@ -179,7 +220,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 		f.created_by, f.updated_by, f.card_pk, f.is_deleted,
 		f.created_at, f.updated_at, f.thumbnail_path
 		FROM files as f
-		` + whereClause + ` ORDER BY f.created_at DESC LIMIT $` + strconv.Itoa(argNum) + ` OFFSET $` + strconv.Itoa(argNum+1)
+		` + whereClause + ` ORDER BY ` + orderByClause + ` LIMIT $` + strconv.Itoa(argNum) + ` OFFSET $` + strconv.Itoa(argNum+1)
 
 	countQuery := `SELECT COUNT(*) FROM files f` + whereClause
 
