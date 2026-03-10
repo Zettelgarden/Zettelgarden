@@ -174,3 +174,7 @@
 {"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T18:07:04Z","event_type":"closed","id":174,"issue_id":"Zettelgarden-hlt","new_value":"Migration file created and committed","old_value":""}
 {"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T18:07:05Z","event_type":"closed","id":175,"issue_id":"Zettelgarden-qd4","new_value":"Task model updated with parent_task_id, Subtasks, ParentTitle","old_value":""}
 {"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T18:07:05Z","event_type":"closed","id":176,"issue_id":"Zettelgarden-k15","new_value":"API endpoints implemented: CreateSubtask, SetParent, GetSubtasks","old_value":""}
+{"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T18:24:34Z","event_type":"closed","id":177,"issue_id":"Zettelgarden-7rt","new_value":"Completion validation implemented in services and handlers","old_value":""}
+{"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T18:24:34Z","event_type":"closed","id":178,"issue_id":"Zettelgarden-boz","new_value":"API client functions added for createSubtask, setTaskParent, getSubtasks","old_value":""}
+{"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T18:24:34Z","event_type":"closed","id":179,"issue_id":"Zettelgarden-cjt","new_value":"13 backend tests passing for subtask logic","old_value":""}
+{"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T18:42:01Z","event_type":"closed","id":180,"issue_id":"Zettelgarden-ddd","new_value":"TaskSubtasksSection component created with add/toggle/delete functionality","old_value":""}
