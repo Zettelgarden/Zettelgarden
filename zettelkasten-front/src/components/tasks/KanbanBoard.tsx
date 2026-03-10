@@ -401,8 +401,29 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
     setShowWipModal(true);
   };
 
-  // Group tasks by status
-  const tasksByStatus = tasks.reduce((acc, task) => {
+  // Separate root tasks from subtasks
+  const { rootTasks, subtasksByParent } = React.useMemo(() => {
+    const rootTasks: Task[] = [];
+    const subtasksByParent: Record<number, Task[]> = {};
+
+    tasks.forEach((task) => {
+      if (task.parent_task_id) {
+        // This is a subtask
+        if (!subtasksByParent[task.parent_task_id]) {
+          subtasksByParent[task.parent_task_id] = [];
+        }
+        subtasksByParent[task.parent_task_id].push(task);
+      } else {
+        // This is a root task
+        rootTasks.push(task);
+      }
+    });
+
+    return { rootTasks, subtasksByParent };
+  }, [tasks]);
+
+  // Group root tasks by status (subtasks handled separately)
+  const tasksByStatus = rootTasks.reduce((acc, task) => {
     const status = task.status || (statuses.find(s => s.is_default)?.name || "todo");
     if (!acc[status]) {
       acc[status] = [];
@@ -666,6 +687,14 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
                                     isSelected={selectedTaskIds.has(task.id)}
                                     onSelect={() => onTaskSelect?.(task.id)}
                                   />
+                                  
+                                  {/* Subtask count indicator */}
+                                  {subtasksByParent[task.id] && subtasksByParent[task.id].length > 0 && (
+                                    <div className="px-3 pb-1 text-xs text-gray-500">
+                                      {subtasksByParent[task.id].filter(s => s.is_complete).length}/{subtasksByParent[task.id].length} subtasks
+                                    </div>
+                                  )}
+                                  
                                   {/* Quick Actions Toolbar */}
                                   <div className="px-2 pb-2 flex justify-end">
                                     <KanbanQuickActions task={task} />
