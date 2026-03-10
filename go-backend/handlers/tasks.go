@@ -260,6 +260,39 @@ func (s *Handler) UpdateTaskRoute(w http.ResponseWriter, r *http.Request) {
 		task.Priority = nil
 	}
 
+	// If marking task as complete, validate subtasks first
+	if task.IsComplete {
+		// Check for force parameter
+		force := r.URL.Query().Get("force") == "true"
+
+		// Load existing task to get subtasks
+		existingTask, err := s.QueryTask(userID, id)
+		if err != nil {
+			log.Printf("Error getting task for subtask validation: %v", err)
+			// Continue without validation if we can't load the task
+		} else {
+			// Load subtasks
+			existingTask.Subtasks, _ = services.GetSubtasks(s.GetDB(), userID, id)
+
+			// Validate completion
+			if validationErr := services.ValidateTaskCompletion(&existingTask, force); validationErr != nil {
+				if incompleteErr, ok := validationErr.(*services.IncompleteSubtaskError); ok {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					json.NewEncoder(w).Encode(map[string]interface{}{
+						"error":            "incomplete_subtasks",
+						"message":          validationErr.Error(),
+						"incomplete_count": incompleteErr.IncompleteCount,
+						"total_subtasks":   incompleteErr.TotalSubtasks,
+					})
+					return
+				}
+				http.Error(w, validationErr.Error(), http.StatusBadRequest)
+				return
+			}
+		}
+	}
+
 	// Note: Frontend sends times as ISO 8601 UTC strings (toISOString()),
 	// so JSON parsing already correctly sets them as UTC. No conversion needed.
 
