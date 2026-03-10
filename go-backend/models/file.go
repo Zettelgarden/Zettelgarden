@@ -18,11 +18,21 @@ type File struct {
 	UpdatedAt     time.Time   `json:"updated_at"`
 	ThumbnailPath *string     `json:"thumbnail_path"`
 	Card          PartialCard `json:"card"`
+	Description   *string     `json:"description,omitempty"`
+	ExtractedText *string     `json:"extracted_text,omitempty"`
+	Tags          []string    `json:"tags,omitempty"` // Populated on read
 }
 
 type EditFileMetadataParams struct {
-	Name   string `json:"name"`
-	CardPK *int   `json:"card_pk,omitempty"`
+	Name        string `json:"name"`
+	CardPK      *int   `json:"card_pk,omitempty"`
+	Description *string `json:"description,omitempty"`
+}
+
+type FileUpdateParams struct {
+	Name        *string `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
+	CardPK      *int    `json:"card_pk,omitempty"`
 }
 
 type UploadFileResponse struct {
