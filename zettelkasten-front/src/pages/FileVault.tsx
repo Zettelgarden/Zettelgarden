@@ -1,10 +1,7 @@
 import React, { useState, ChangeEvent, useEffect } from "react";
 import { getAllFiles, FilesResponse } from "../api/files";
-import { sortCards } from "../utils/cards";
-import { FileRenameModal } from "../components/files/FileRenameModal";
 import { FileListItem } from "../components/files/FileListItem";
 import { FileUpload } from "../components/files/FileUpload";
-import { Button } from "../components/Button";
 import { useUIState } from "../contexts/UIStateContext";
 import { MobileTopBar } from "../components/layout/MobileTopBar";
 
@@ -18,20 +15,46 @@ export function FileVault() {
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
-  const [fileToRename, setFileToRename] = useState<File | null>(null);
   const [filterString, setFilterString] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>(""); // Actual search term sent to API
+  const [filetypeFilter, setFiletypeFilter] = useState<string>("");
+  const [unlinkedOnly, setUnlinkedOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [showFilterHelp, setShowFilterHelp] = useState<boolean>(false);
+  const [storageUsed, setStorageUsed] = useState(0);
+  const [maxStorage, setMaxStorage] = useState(0);
+
+  // File type filter options
+  const fileTypeOptions = [
+    { label: "All", value: "" },
+    { label: "PDF", value: "pdf" },
+    { label: "Images", value: "image/" },
+    { label: "Documents", value: "document" },
+    { label: "Spreadsheets", value: "spreadsheet" },
+  ];
+
+  // Helper to format bytes to human readable
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  // Calculate storage percentage for progress bar
+  const storagePercentage = maxStorage > 0 ? Math.min((storageUsed / maxStorage) * 100, 100) : 0;
+
+  // Check if any filters are active
+  const hasActiveFilters = searchTerm || filetypeFilter || unlinkedOnly;
 
   function onDelete(file_id: number) {
     setFiles(files.filter((file) => file.id !== file_id));
     // Refresh the current page to get updated counts
-    fetchFiles(currentPage, searchTerm);
+    fetchFiles(currentPage, searchTerm, filetypeFilter, unlinkedOnly);
   }
 
   function handleFilter(
@@ -40,21 +63,21 @@ export function FileVault() {
     setFilterString(e.target.value);
   }
 
-  function onRename(fileId: number, updatedFile: File) {
-    setFiles((prevFiles) =>
-      prevFiles.map((f) => (f.id === updatedFile.id ? updatedFile : f)),
-    );
-    setIsRenameModalOpen(false);
-  }
-
-  const fetchFiles = async (page: number = currentPage, search: string = searchTerm) => {
+  const fetchFiles = async (
+    page: number = currentPage,
+    search: string = searchTerm,
+    filetype: string = filetypeFilter,
+    unlinked: boolean = unlinkedOnly
+  ) => {
     setLoading(true);
     try {
-      const data = await getAllFiles(page, itemsPerPage, search);
+      const data = await getAllFiles(page, itemsPerPage, search, filetype, unlinked);
       setFiles(data.files);
       setCurrentPage(data.page);
       setTotalPages(data.total_pages);
       setTotalItems(data.total);
+      setStorageUsed(data.storage_used || 0);
+      setMaxStorage(data.max_storage || 0);
       setError(null);
     } catch (err) {
       setError("Failed to load files");
@@ -75,26 +98,44 @@ export function FileVault() {
     }
   };
 
+  const handleFiletypeChange = (filetype: string) => {
+    setFiletypeFilter(filetype);
+    setCurrentPage(1);
+  };
+
+  const handleUnlinkedToggle = () => {
+    setUnlinkedOnly(!unlinkedOnly);
+    setCurrentPage(1);
+  };
+
+  const clearAllFilters = () => {
+    setFilterString("");
+    setSearchTerm("");
+    setFiletypeFilter("");
+    setUnlinkedOnly(false);
+    setCurrentPage(1);
+  };
+
   useEffect(() => {
     if (refreshFiles) {
-      fetchFiles(1, "");
+      fetchFiles(1, "", "", false);
       setRefreshFiles(false);
     }
   }, [refreshFiles]);
 
   useEffect(() => {
     setDocumentTitle("Files");
-    fetchFiles(1, "");
+    fetchFiles(1, "", "", false);
   }, []);
 
   useEffect(() => {
-    fetchFiles(currentPage, searchTerm);
-  }, [currentPage]);
+    fetchFiles(currentPage, searchTerm, filetypeFilter, unlinkedOnly);
+  }, [currentPage, filetypeFilter, unlinkedOnly]);
 
   useEffect(() => {
     // Fetch when searchTerm changes (triggered by Enter press)
     setCurrentPage(1);
-    fetchFiles(1, searchTerm);
+    fetchFiles(1, searchTerm, filetypeFilter, unlinkedOnly);
   }, [searchTerm]);
 
   return (
@@ -105,6 +146,35 @@ export function FileVault() {
       />
       <div className="p-4">
         <HeaderSection text="Files" />
+
+      {/* Storage Quota Indicator */}
+      {maxStorage > 0 && (
+        <div className="mb-4 bg-white border border-gray-200 rounded-md p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-700">Storage</span>
+            <span className="text-sm text-gray-600">
+              {formatBytes(storageUsed)} / {formatBytes(maxStorage)}
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className={`h-2 rounded-full transition-all duration-300 ${
+                storagePercentage >= 90
+                  ? 'bg-red-500'
+                  : storagePercentage >= 70
+                  ? 'bg-yellow-500'
+                  : 'bg-blue-500'
+              }`}
+              style={{ width: `${storagePercentage}%` }}
+            />
+          </div>
+          {storagePercentage >= 90 && (
+            <p className="mt-2 text-xs text-red-600">
+              Storage almost full. Consider deleting unused files.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Search and Upload Section */}
       <div className="bg-slate-100 p-4 border-b border-slate-300 mb-4">
@@ -159,12 +229,47 @@ export function FileVault() {
           </div>
         </div>
       </div>
-      <FileRenameModal
-        isOpen={isRenameModalOpen}
-        onClose={() => setIsRenameModalOpen(false)}
-        onRename={onRename}
-        file={fileToRename}
-      />
+
+      {/* Filter Chips */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {/* File type filter chips */}
+        {fileTypeOptions.map((option) => (
+          <button
+            key={option.value}
+            onClick={() => handleFiletypeChange(option.value)}
+            className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+              filetypeFilter === option.value
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:text-blue-600'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+
+        {/* Unlinked filter toggle */}
+        <button
+          onClick={handleUnlinkedToggle}
+          className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+            unlinkedOnly
+              ? 'bg-orange-500 text-white border-orange-500'
+              : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400 hover:text-orange-600'
+          }`}
+        >
+          Unlinked Only
+        </button>
+
+        {/* Clear filters button */}
+        {hasActiveFilters && (
+          <button
+            onClick={clearAllFilters}
+            className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 underline"
+          >
+            Clear all
+          </button>
+        )}
+      </div>
+
       {/* Loading State */}
       {loading && (
         <div className="flex justify-center w-full py-20">
@@ -232,18 +337,19 @@ export function FileVault() {
           ) : (
             <div className="text-center py-12">
               <div className="text-gray-500 text-lg mb-2">No files found</div>
-              {searchTerm && (
+              {hasActiveFilters ? (
                 <div className="text-gray-400 text-sm">
-                  Try adjusting your search criteria or{" "}
+                  Try adjusting your filters or{" "}
                   <button
-                    onClick={() => {
-                      setFilterString("");
-                      setSearchTerm("");
-                    }}
+                    onClick={clearAllFilters}
                     className="text-blue-600 hover:text-blue-700 underline"
                   >
-                    clear search
+                    clear all filters
                   </button>
+                </div>
+              ) : (
+                <div className="text-gray-400 text-sm">
+                  Upload your first file to get started
                 </div>
               )}
             </div>

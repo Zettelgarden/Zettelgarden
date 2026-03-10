@@ -9,6 +9,7 @@ import { EmailIcon } from "../../assets/icons/EmailIcon";
 import { EntityIcon } from "../../assets/icons/EntityIcon";
 import { FactsIcon } from "../../assets/icons/FactsIcon";
 import { HabitsIcon } from "../../assets/icons/HabitsIcon";
+import { FileIcon } from "../../assets/icons/FileIcon";
 
 interface NavigationLinksProps {
   todayTasksCount: number;
@@ -202,6 +203,12 @@ export function NavigationLinks({ todayTasksCount, unreadRssCount, unreadEmailCo
           to="/app/habits"
           icon={<HabitsIcon />}
           label="Habits"
+          isCollapsed={isCollapsed}
+        />
+        <CollapsibleLink
+          to="/app/files"
+          icon={<FileIcon />}
+          label="Files"
           isCollapsed={isCollapsed}
         />
 

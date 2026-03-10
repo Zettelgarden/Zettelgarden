@@ -139,9 +139,19 @@ export interface FilesResponse {
   total: number;
   total_pages: number;
   search?: string;
+  storage_used: number;
+  max_storage: number;
 }
 
-export function getAllFiles(page: number = 1, perPage: number = 20, search: string = ""): Promise<FilesResponse> {
+export interface GetAllFilesParams {
+  page?: number;
+  perPage?: number;
+  search?: string;
+  filetype?: string;
+  unlinked?: boolean;
+}
+
+export function getAllFiles(page: number = 1, perPage: number = 20, search: string = "", filetype?: string, unlinked?: boolean): Promise<FilesResponse> {
   const params: Record<string, string | number | undefined> = {
     page: page,
     per_page: perPage,
@@ -149,6 +159,14 @@ export function getAllFiles(page: number = 1, perPage: number = 20, search: stri
 
   if (search.trim()) {
     params.search = search.trim();
+  }
+
+  if (filetype && filetype.trim()) {
+    params.filetype = filetype.trim();
+  }
+
+  if (unlinked) {
+    params.unlinked = "true";
   }
 
   return getData(apiClient.get<FilesResponse>("/files", { params }));

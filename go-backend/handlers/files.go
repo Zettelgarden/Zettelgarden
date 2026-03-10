@@ -128,53 +128,62 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Parse search/filter parameter
+	// Parse search/filter parameters
 	searchTerm := r.URL.Query().Get("search")
+	filetypeFilter := r.URL.Query().Get("filetype")
+	unlinkedOnly := r.URL.Query().Get("unlinked") == "true"
 
 	offset := (page - 1) * perPage
 
-	// Build query with optional search filter
-	var query string
-	var countQuery string
+	// Build query with optional filters using a cleaner approach
+	var whereConditions []string
 	var queryArgs []interface{}
 	var countArgs []interface{}
+	argNum := 1
 
+	// Always filter by user and not deleted
+	whereConditions = append(whereConditions, "f.is_deleted = FALSE", "f.user_id = $"+strconv.Itoa(argNum))
+	queryArgs = append(queryArgs, userID)
+	countArgs = append(countArgs, userID)
+	argNum++
+
+	// Add search filter (searches in filename and type)
 	if searchTerm != "" {
-		// Filter by filename or filetype
-		query = `
-			SELECT
-			f.id, f.user_id, f.name, f.type, f.path, f.filename, f.size,
-			f.created_by, f.updated_by, f.card_pk, f.is_deleted,
-			f.created_at, f.updated_at, f.thumbnail_path
-			FROM files as f
-			WHERE f.is_deleted = FALSE AND f.user_id = $1 AND (f.name ILIKE $2 OR f.type ILIKE $2)
-			ORDER BY f.created_at DESC
-			LIMIT $3 OFFSET $4
-		`
-		countQuery = `
-			SELECT COUNT(*)
-			FROM files f
-			WHERE f.is_deleted = FALSE AND f.user_id = $1 AND (f.name ILIKE $2 OR f.type ILIKE $2)
-		`
+		whereConditions = append(whereConditions, "(f.name ILIKE $"+strconv.Itoa(argNum)+" OR f.type ILIKE $"+strconv.Itoa(argNum)+")")
 		searchPattern := "%" + searchTerm + "%"
-		queryArgs = []interface{}{userID, searchPattern, perPage, offset}
-		countArgs = []interface{}{userID, searchPattern}
-	} else {
-		// No search filter, get all files
-		query = `
-			SELECT
-			f.id, f.user_id, f.name, f.type, f.path, f.filename, f.size,
-			f.created_by, f.updated_by, f.card_pk, f.is_deleted,
-			f.created_at, f.updated_at, f.thumbnail_path
-			FROM files as f
-			WHERE f.is_deleted = FALSE AND f.user_id = $1
-			ORDER BY f.created_at DESC
-			LIMIT $2 OFFSET $3
-		`
-		countQuery = `SELECT COUNT(*) FROM files WHERE is_deleted = FALSE AND user_id = $1`
-		queryArgs = []interface{}{userID, perPage, offset}
-		countArgs = []interface{}{userID}
+		queryArgs = append(queryArgs, searchPattern)
+		countArgs = append(countArgs, searchPattern)
+		argNum++
 	}
+
+	// Add filetype filter (searches in MIME type)
+	if filetypeFilter != "" {
+		whereConditions = append(whereConditions, "f.type ILIKE $"+strconv.Itoa(argNum))
+		filetypePattern := "%" + filetypeFilter + "%"
+		queryArgs = append(queryArgs, filetypePattern)
+		countArgs = append(countArgs, filetypePattern)
+		argNum++
+	}
+
+	// Add unlinked filter (files not attached to any card)
+	if unlinkedOnly {
+		whereConditions = append(whereConditions, "(f.card_pk IS NULL OR f.card_pk <= 0)")
+	}
+
+	// Build the full queries
+	whereClause := " WHERE " + strings.Join(whereConditions, " AND ")
+
+	query := `
+		SELECT
+		f.id, f.user_id, f.name, f.type, f.path, f.filename, f.size,
+		f.created_by, f.updated_by, f.card_pk, f.is_deleted,
+		f.created_at, f.updated_at, f.thumbnail_path
+		FROM files as f
+		` + whereClause + ` ORDER BY f.created_at DESC LIMIT $` + strconv.Itoa(argNum) + ` OFFSET $` + strconv.Itoa(argNum+1)
+
+	countQuery := `SELECT COUNT(*) FROM files f` + whereClause
+
+	queryArgs = append(queryArgs, perPage, offset)
 
 	rows, err := s.GetDB().Query(query, queryArgs...)
 	if err != nil {
@@ -247,14 +256,34 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get storage usage info
+	var storageUsed int
+	err = s.GetDB().QueryRow(`SELECT COALESCE(SUM(size), 0) FROM files WHERE is_deleted = FALSE AND created_by = $1`, userID).Scan(&storageUsed)
+	if err != nil {
+		log.Printf("Error calculating storage used: %v", err)
+		// Don't fail the request, just set to 0
+		storageUsed = 0
+	}
+
+	// Get user's max storage
+	var maxStorage int
+	err = s.GetDB().QueryRow(`SELECT max_file_storage FROM users WHERE id = $1`, userID).Scan(&maxStorage)
+	if err != nil {
+		log.Printf("Error getting max storage: %v", err)
+		// Don't fail the request, just set to 0
+		maxStorage = 0
+	}
+
 	// Prepare response
 	response := map[string]interface{}{
-		"files":       files,
-		"page":        page,
-		"per_page":    perPage,
-		"total":       total,
-		"total_pages": (total + perPage - 1) / perPage,
-		"search":      searchTerm,
+		"files":        files,
+		"page":         page,
+		"per_page":     perPage,
+		"total":        total,
+		"total_pages":  (total + perPage - 1) / perPage,
+		"search":       searchTerm,
+		"storage_used": storageUsed,
+		"max_storage":  maxStorage,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
