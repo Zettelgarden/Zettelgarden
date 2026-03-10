@@ -766,3 +766,37 @@ func ValidateParentAssignment(task *models.Task, parent *models.Task) error {
 
 	return nil
 }
+
+// IncompleteSubtaskError is returned when trying to complete a task with incomplete subtasks
+type IncompleteSubtaskError struct {
+	IncompleteCount int
+	TotalSubtasks   int
+}
+
+func (e *IncompleteSubtaskError) Error() string {
+	return "complete all subtasks first"
+}
+
+// ValidateTaskCompletion checks if a task can be completed
+// Returns an error if the task has incomplete subtasks and force is false
+func ValidateTaskCompletion(task *models.Task, force bool) error {
+	if force {
+		return nil
+	}
+
+	incompleteCount := 0
+	for _, subtask := range task.Subtasks {
+		if !subtask.IsComplete {
+			incompleteCount++
+		}
+	}
+
+	if incompleteCount > 0 {
+		return &IncompleteSubtaskError{
+			IncompleteCount: incompleteCount,
+			TotalSubtasks:   len(task.Subtasks),
+		}
+	}
+
+	return nil
+}
