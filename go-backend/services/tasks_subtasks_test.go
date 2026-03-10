@@ -191,3 +191,72 @@ func TestValidateParentAssignment_ValidAssignment(t *testing.T) {
 		t.Errorf("Expected no error for valid assignment, got: %v", err)
 	}
 }
+
+// ===== Completion Validation Tests =====
+
+func TestValidateTaskCompletion_BlockedByIncompleteSubtasks(t *testing.T) {
+	parent := &models.Task{
+		ID: 1,
+		Subtasks: []models.Task{
+			{ID: 2, IsComplete: false},
+			{ID: 3, IsComplete: false},
+		},
+	}
+
+	err := ValidateTaskCompletion(parent, false)
+
+	if err == nil {
+		t.Error("Expected error for incomplete subtasks, got nil")
+	}
+	if incompleteErr, ok := err.(*IncompleteSubtaskError); !ok {
+		t.Errorf("Expected IncompleteSubtaskError, got %T", err)
+	} else {
+		if incompleteErr.IncompleteCount != 2 {
+			t.Errorf("Expected 2 incomplete, got %d", incompleteErr.IncompleteCount)
+		}
+	}
+}
+
+func TestValidateTaskCompletion_AllowedWhenSubtasksComplete(t *testing.T) {
+	parent := &models.Task{
+		ID: 1,
+		Subtasks: []models.Task{
+			{ID: 2, IsComplete: true},
+			{ID: 3, IsComplete: true},
+		},
+	}
+
+	err := ValidateTaskCompletion(parent, false)
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+}
+
+func TestValidateTaskCompletion_ForceBypassesValidation(t *testing.T) {
+	parent := &models.Task{
+		ID: 1,
+		Subtasks: []models.Task{
+			{ID: 2, IsComplete: false},
+		},
+	}
+
+	err := ValidateTaskCompletion(parent, true) // force=true
+
+	if err != nil {
+		t.Errorf("Expected no error with force, got: %v", err)
+	}
+}
+
+func TestValidateTaskCompletion_NoSubtasks(t *testing.T) {
+	parent := &models.Task{
+		ID:       1,
+		Subtasks: []models.Task{},
+	}
+
+	err := ValidateTaskCompletion(parent, false)
+
+	if err != nil {
+		t.Errorf("Expected no error for task with no subtasks, got: %v", err)
+	}
+}
