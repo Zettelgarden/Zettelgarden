@@ -138,3 +138,46 @@ export async function removeTaskDependency(taskId: number, blockingTaskId: numbe
 export async function completeAndScheduleTask(taskId: number, days: number): Promise<void> {
   await apiClient.post(`/tasks/${taskId}/complete-and-schedule`, { days });
 }
+
+// ===== Subtask API Functions =====
+
+/**
+ * Create a subtask under a parent task
+ */
+export async function createSubtask(parentId: number, task: Partial<Task>): Promise<Task> {
+  const { data } = await apiClient.post<Task>(`/tasks/${parentId}/subtasks`, task);
+  return processTaskFromAPI(data);
+}
+
+/**
+ * Set or clear the parent of a task
+ * @param taskId The task to update
+ * @param parentId The new parent ID, or null to clear
+ */
+export async function setTaskParent(taskId: number, parentId: number | null): Promise<Task> {
+  const { data } = await apiClient.patch<Task>(`/tasks/${taskId}/parent`, {
+    parent_task_id: parentId,
+  });
+  return processTaskFromAPI(data);
+}
+
+/**
+ * Get all subtasks for a parent task
+ */
+export async function getSubtasks(parentId: number): Promise<{
+  subtasks: Task[];
+  total: number;
+  complete_count: number;
+}> {
+  const { data } = await apiClient.get<{
+    subtasks: Task[];
+    total: number;
+    complete_count: number;
+  }>(`/tasks/${parentId}/subtasks`);
+  
+  return {
+    subtasks: data.subtasks.map(task => processTaskFromAPI(task)),
+    total: data.total,
+    complete_count: data.complete_count,
+  };
+}
