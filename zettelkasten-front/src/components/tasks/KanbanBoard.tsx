@@ -707,10 +707,24 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
                                     parentTask={task.parent_task_id ? parentTaskMap[task.parent_task_id] : undefined}
                                   />
                                   
-                                  {/* Subtask count indicator - only shown in nested mode */}
+                                  {/* Nested subtasks - only shown in nested mode */}
                                   {subtaskMode === 'nested' && subtasksByParent[task.id] && subtasksByParent[task.id].length > 0 && (
-                                    <div className="px-3 pb-1 text-xs text-gray-500">
-                                      {subtasksByParent[task.id].filter(s => s.is_complete).length}/{subtasksByParent[task.id].length} subtasks
+                                    <div className="px-3 pb-2 space-y-1 border-t border-gray-100 mt-1 pt-2">
+                                      <div className="text-xs text-gray-500 mb-2">
+                                        {subtasksByParent[task.id].filter(s => s.is_complete).length}/{subtasksByParent[task.id].length} subtasks
+                                      </div>
+                                      {subtasksByParent[task.id].map((subtask) => (
+                                        <div key={subtask.id} className="ml-2 pl-2 border-l-2 border-gray-200">
+                                          <TaskListItem
+                                            task={subtask}
+                                            onTagClick={onTagClick}
+                                            hideMatrixTags={false}
+                                            selectMode={selectMode}
+                                            isSelected={selectedTaskIds.has(subtask.id)}
+                                            onSelect={() => onTaskSelect?.(subtask.id)}
+                                          />
+                                        </div>
+                                      ))}
                                     </div>
                                   )}
                                   
