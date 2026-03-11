@@ -17,17 +17,25 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
   const [tags, setTags] = useState<string[]>(file.tags || []);
   const [saving, setSaving] = useState(false);
   const [cardPk, setCardPk] = useState(file.card_pk);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const handleSaveDescription = async () => {
+    if (!hasUnsavedChanges) return;
     setSaving(true);
     try {
       await editFile(file.id.toString(), { name: file.name, card_pk: cardPk, description });
+      setHasUnsavedChanges(false);
       onUpdate();
     } catch (error) {
       console.error('Failed to save description:', error);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDescriptionChange = (value: string) => {
+    setDescription(value);
+    setHasUnsavedChanges(true);
   };
 
   const handleAddTag = async (tagName: string) => {
@@ -70,6 +78,15 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
     }
   };
 
+  const handleClose = () => {
+    if (hasUnsavedChanges) {
+      if (!window.confirm('You have unsaved changes. Discard them?')) {
+        return;
+      }
+    }
+    onClose();
+  };
+
   const isLinked = cardPk && cardPk > 0 && file.card;
 
   return (
@@ -79,7 +96,7 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
           <h3 className="text-lg font-semibold">Edit File Details</h3>
           <p className="text-sm text-gray-500 truncate max-w-[400px]">{file.name}</p>
         </div>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">
+        <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">
           ×
         </button>
       </div>
@@ -89,12 +106,20 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
         <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
         <textarea
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          onBlur={handleSaveDescription}
+          onChange={(e) => handleDescriptionChange(e.target.value)}
           placeholder="Add notes about this file..."
           className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           rows={3}
         />
+        {hasUnsavedChanges && (
+          <button
+            onClick={handleSaveDescription}
+            disabled={saving}
+            className="mt-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save Description'}
+          </button>
+        )}
       </div>
 
       {/* Tags */}
@@ -129,10 +154,12 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
 
       {/* Footer */}
       <div className="flex justify-between items-center pt-3 border-t">
-        {saving && <span className="text-sm text-gray-500">Saving...</span>}
+        <span className="text-sm text-gray-500">
+          {hasUnsavedChanges ? 'Unsaved changes' : ''}
+        </span>
         <button
-          onClick={onClose}
-          className="ml-auto px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+          onClick={handleClose}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
         >
           Done
         </button>
