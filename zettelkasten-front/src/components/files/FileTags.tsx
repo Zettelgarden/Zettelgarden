@@ -10,7 +10,7 @@ interface FileTagsProps {
 export function FileTags({ tags, onAddTag, onRemoveTag, editable = true }: FileTagsProps) {
   const [inputValue, setInputValue] = useState('');
 
-  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && inputValue.trim()) {
       e.preventDefault();
       onAddTag(inputValue.trim());
@@ -42,7 +42,7 @@ export function FileTags({ tags, onAddTag, onRemoveTag, editable = true }: FileT
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          onKeyPress={handleKeyPress}
+          onKeyDown={handleKeyDown}
           placeholder="Add tag..."
           className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         />

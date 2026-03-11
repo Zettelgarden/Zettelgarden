@@ -17,7 +17,7 @@ describe('FileTags', () => {
 
     const input = screen.getByPlaceholderText('Add tag...');
     fireEvent.change(input, { target: { value: 'mortgage' } });
-    fireEvent.keyPress(input, { key: 'Enter', charCode: 13 });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
 
     expect(onAddTag).toHaveBeenCalledWith('mortgage');
   });

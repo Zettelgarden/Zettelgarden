@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { File } from '../../models/File';
 import { editFile, tagFile, untagFile } from '../../api/files';
 import { FileTags } from './FileTags';
 import { BacklinkInput } from '../cards/BacklinkInput';
-import { defaultCard, PartialCard } from '../../models/Card';
+import { PartialCard } from '../../models/Card';
 
 interface FileMetadataEditorProps {
   file: File;
@@ -15,11 +16,12 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
   const [description, setDescription] = useState(file.description || '');
   const [tags, setTags] = useState<string[]>(file.tags || []);
   const [saving, setSaving] = useState(false);
+  const [cardPk, setCardPk] = useState(file.card_pk);
 
   const handleSaveDescription = async () => {
     setSaving(true);
     try {
-      await editFile(file.id.toString(), { name: file.name, card_pk: file.card_pk, description });
+      await editFile(file.id.toString(), { name: file.name, card_pk: cardPk, description });
       onUpdate();
     } catch (error) {
       console.error('Failed to save description:', error);
@@ -51,17 +53,33 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
   const handleLinkCard = async (card: PartialCard) => {
     try {
       await editFile(file.id.toString(), { name: file.name, card_pk: card.id });
+      setCardPk(card.id);
       onUpdate();
     } catch (error) {
       console.error('Failed to link card:', error);
     }
   };
 
+  const handleUnlinkCard = async () => {
+    try {
+      await editFile(file.id.toString(), { name: file.name, card_pk: -1 });
+      setCardPk(-1);
+      onUpdate();
+    } catch (error) {
+      console.error('Failed to unlink card:', error);
+    }
+  };
+
+  const isLinked = cardPk && cardPk > 0 && file.card;
+
   return (
-    <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-lg">
+    <div className="p-4">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Edit File Details</h3>
-        <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">
+        <div>
+          <h3 className="text-lg font-semibold">Edit File Details</h3>
+          <p className="text-sm text-gray-500 truncate max-w-[400px]">{file.name}</p>
+        </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">
           ×
         </button>
       </div>
@@ -88,14 +106,37 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
       {/* Card Link */}
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">Linked Card</label>
-        {file.card_pk && file.card_pk > 0 ? (
-          <div className="text-sm text-gray-600">Linked to card #{file.card_pk}</div>
+        {isLinked ? (
+          <div className="flex items-center gap-2">
+            <Link
+              to={`/app/card/${file.card.id}`}
+              className="text-sm text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded"
+              onClick={onClose}
+            >
+              [{file.card.card_id}] {file.card.title || 'Untitled'}
+            </Link>
+            <button
+              onClick={handleUnlinkCard}
+              className="text-xs text-gray-500 hover:text-red-600 underline"
+            >
+              Unlink
+            </button>
+          </div>
         ) : (
           <BacklinkInput addBacklink={handleLinkCard} />
         )}
       </div>
 
-      {saving && <div className="text-sm text-gray-500">Saving...</div>}
+      {/* Footer */}
+      <div className="flex justify-between items-center pt-3 border-t">
+        {saving && <span className="text-sm text-gray-500">Saving...</span>}
+        <button
+          onClick={onClose}
+          className="ml-auto px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+        >
+          Done
+        </button>
+      </div>
     </div>
   );
 }

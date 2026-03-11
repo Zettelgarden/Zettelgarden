@@ -1,10 +1,11 @@
 import { File } from "../../models/File";
 import { PartialCard } from "../../models/Card";
-import { renderFile, deleteFile, editFile, downloadThumbnail } from "../../api/files";
+import { renderFile, deleteFile, editFile, downloadThumbnail, downloadFile } from "../../api/files";
 import { Link } from "react-router-dom";
 import React, { useState, KeyboardEvent, useEffect } from "react";
 import { FileIcon } from "../../assets/icons/FileIcon";
 import { FileRender } from "./FileRender";
+import { FilePreview } from "./FilePreview";
 import { Menu } from "@headlessui/react";
 
 import { BacklinkInput } from "../cards/BacklinkInput";
@@ -16,6 +17,7 @@ interface FileListItemProps {
   displayFileOnCard?: (file: File) => void;
   filterString: string;
   setFilterString: (text: string) => void;
+  onEditDetails?: (file: File) => void;
 }
 
 export function FileListItem({
@@ -25,12 +27,15 @@ export function FileListItem({
   displayFileOnCard,
   filterString,
   setFilterString,
+  onEditDetails,
 }: FileListItemProps) {
   const [newName, setNewName] = useState<string>("");
   const [showEditName, setShowEditName] = useState<boolean>(false);
   const [renderImage, setRenderImage] = useState<boolean>(false);
   const [showCardLink, setShowCardLink] = useState<boolean>(false);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [showPdfPreview, setShowPdfPreview] = useState<boolean>(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   function toggleEditName() {
     setNewName(file.name);
@@ -46,18 +51,34 @@ export function FileListItem({
   }
   const handleFileDownload = (file: File, e: React.MouseEvent) => {
     e.preventDefault();
-    // Show preview for images and PDFs
-    if (
-      file.filetype === "image/png" ||
+    const isImage = file.filetype === "image/png" ||
       file.filetype === "image/jpeg" ||
       file.filetype === "image/jpg" ||
       file.filetype === "image/gif" ||
-      file.filetype === "image/webp" ||
-      file.filetype === "application/pdf"
-    ) {
+      file.filetype === "image/webp";
+    const isPDF = file.filetype === "application/pdf";
+
+    if (isImage) {
       setRenderImage(true);
       return;
     }
+
+    if (isPDF) {
+      // Load PDF and show preview
+      downloadFile(file.id.toString())
+        .then((blobUrl) => {
+          if (blobUrl) {
+            setPdfUrl(blobUrl);
+            setShowPdfPreview(true);
+          }
+        })
+        .catch((error) => {
+          console.error("Error loading PDF:", error);
+        });
+      return;
+    }
+
+    // For other file types, trigger download
     renderFile(file.id, file.name).catch((error) => {
       console.error("Error downloading file:", error);
     });
@@ -178,6 +199,17 @@ export function FileListItem({
                     <FileRender file={file} />
                   </div>
                 )}
+                {showPdfPreview && pdfUrl && (
+                  <FilePreview
+                    fileUrl={pdfUrl}
+                    filename={file.name}
+                    onClose={() => {
+                      setShowPdfPreview(false);
+                      URL.revokeObjectURL(pdfUrl);
+                      setPdfUrl(null);
+                    }}
+                  />
+                )}
               </div>
             )}
           </div>
@@ -235,6 +267,21 @@ export function FileListItem({
                   </button>
                 )}
               </Menu.Item>
+
+              {onEditDetails && (
+                <Menu.Item>
+                  {({ active }) => (
+                    <button
+                      onClick={() => onEditDetails(file)}
+                      className={`block w-full px-3 py-1.5 text-left text-sm ${
+                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                      }`}
+                    >
+                      Edit Details
+                    </button>
+                  )}
+                </Menu.Item>
+              )}
 
               {file.card_pk <= 1 ? (
                 <Menu.Item>

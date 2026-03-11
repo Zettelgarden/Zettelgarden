@@ -2,6 +2,7 @@ import React, { useState, ChangeEvent, useEffect, useCallback, useRef } from "re
 import { getAllFiles, FilesResponse, deleteFile, editFile, uploadFile } from "../api/files";
 import { FileListItem } from "../components/files/FileListItem";
 import { FileUpload } from "../components/files/FileUpload";
+import { FileMetadataEditor } from "../components/files/FileMetadataEditor";
 import { useUIState } from "../contexts/UIStateContext";
 import { MobileTopBar } from "../components/layout/MobileTopBar";
 import { useToast } from "../components/toast/ToastContext";
@@ -34,6 +35,9 @@ export function FileVault() {
   const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
   const [showBulkLinkInput, setShowBulkLinkInput] = useState(false);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+
+  // File metadata editor state
+  const [editingFile, setEditingFile] = useState<File | null>(null);
 
   // Drag and drop state
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -157,6 +161,19 @@ export function FileVault() {
   const clearSelection = () => {
     setSelectedFiles(new Set());
     setShowBulkLinkInput(false);
+  };
+
+  // File metadata editor handlers
+  const handleEditDetails = (file: File) => {
+    setEditingFile(file);
+  };
+
+  const handleCloseEditor = () => {
+    setEditingFile(null);
+  };
+
+  const handleEditorUpdate = () => {
+    fetchFiles(currentPage, searchTerm, filetypeFilter, unlinkedOnly, sortBy, sortOrder);
   };
 
   // Bulk operations
@@ -488,6 +505,19 @@ export function FileVault() {
         </div>
       )}
 
+      {/* File Metadata Editor Modal */}
+      {editingFile && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-auto">
+            <FileMetadataEditor
+              file={editingFile}
+              onUpdate={handleEditorUpdate}
+              onClose={handleCloseEditor}
+            />
+          </div>
+        </div>
+      )}
+
       <MobileTopBar
         title="Files"
         onMenuClick={toggleMobileSidebar}
@@ -760,6 +790,7 @@ export function FileVault() {
                             setRefreshFiles={setRefreshFiles}
                             filterString={filterString}
                             setFilterString={setFilterString}
+                            onEditDetails={handleEditDetails}
                           />
                         </div>
                       </div>
