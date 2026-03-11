@@ -376,17 +376,6 @@ export function TaskDesktopLayout({
                       </label>
                     </div>
                     <div className="mb-2">
-                      <label className="flex items-center gap-2 text-xs font-semibold">
-                        <input
-                          type="checkbox"
-                          checked={selectMode}
-                          onChange={toggleSelectMode}
-                          className="rounded"
-                        />
-                        Select Mode
-                      </label>
-                    </div>
-                    <div className="mb-2">
                       <label className="block text-xs font-semibold mb-1">Subtask Display</label>
                       <div className="space-y-1">
                         <label className="flex items-center gap-2 text-xs cursor-pointer">
@@ -420,6 +409,17 @@ export function TaskDesktopLayout({
                           <span>Hidden</span>
                         </label>
                       </div>
+                    </div>
+                    <div className="mb-2">
+                      <label className="flex items-center gap-2 text-xs font-semibold">
+                        <input
+                          type="checkbox"
+                          checked={selectMode}
+                          onChange={toggleSelectMode}
+                          className="rounded"
+                        />
+                        Select Mode
+                      </label>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold mb-1">Sort By</label>
