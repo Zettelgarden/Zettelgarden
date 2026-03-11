@@ -2,7 +2,6 @@ import React, { useMemo } from "react";
 import { Task } from "../../models/Task";
 import { TaskNestedGroup } from "./TaskNestedGroup";
 import { TaskListItem } from "./TaskListItem";
-import { useTaskContext } from "../../contexts/TaskContext";
 import { SubtaskDisplayMode } from "../../hooks/useSubtaskDisplayMode";
 
 interface TaskListProps {
@@ -26,8 +25,6 @@ export function TaskList({
   onTaskClick,
   subtaskMode = 'nested',
 }: TaskListProps) {
-  const { setRefreshTasks } = useTaskContext();
-
   // Separate root tasks from subtasks and build parent lookup
   const { rootTasks, subtasksByParent, taskById } = useMemo(() => {
     const rootTasks: Task[] = [];
