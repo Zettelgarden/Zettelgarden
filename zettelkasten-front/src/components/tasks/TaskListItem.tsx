@@ -31,6 +31,7 @@ interface TaskListItemProps {
   selectMode?: boolean;
   isSelected?: boolean;
   onSelect?: () => void;
+  parentTask?: Task;
 }
 
 export function TaskListItem({
@@ -40,6 +41,7 @@ export function TaskListItem({
   selectMode = false,
   isSelected = false,
   onSelect,
+  parentTask,
 }: TaskListItemProps) {
   const [editTitle, setEditTitle] = useState<boolean>(false);
   const [newTitle, setNewTitle] = useState<string>("");
@@ -200,6 +202,23 @@ export function TaskListItem({
         )}
       </div>
       <div className="flex-grow min-w-0">
+        {/* Parent task badge */}
+        {parentTask && (
+          <div className="mb-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedTaskId(parentTask.id);
+                setShowTaskDialog(true);
+              }}
+              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+              title={`Parent: ${parentTask.title}`}
+            >
+              <span>↳</span>
+              <span className="max-w-[150px] truncate">{parentTask.title}</span>
+            </button>
+          </div>
+        )}
         <div className="whitespace-nowrap overflow-hidden text-ellipsis">
           <span
             onClick={handleTitleClick}
