@@ -43,6 +43,8 @@ func (p *LLMJobProcessor) ProcessJob(ctx context.Context, job *models.LLMJob) (m
 		return p.processChatJob(ctx, job)
 	case models.JobTypeEmail:
 		return p.processEmailJob(ctx, job)
+	case models.JobTypeFileTextExtraction:
+		return p.processFileTextExtractionJob(ctx, job)
 	default:
 		return nil, fmt.Errorf("unknown job type: %s", job.JobType)
 	}
@@ -648,4 +650,49 @@ Assistant: %s
 	}
 
 	return content, nil
+}
+
+// processFileTextExtractionJob extracts text from an uploaded file
+// TODO: This requires S3 client integration to download files from storage
+// For now, this is a placeholder that will be enhanced when integrated into main.go
+func (p *LLMJobProcessor) processFileTextExtractionJob(ctx context.Context, job *models.LLMJob) (map[string]interface{}, error) {
+	// Extract file_id from payload
+	fileIDFloat, ok := job.Payload["file_id"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid file_id in payload")
+	}
+	fileID := int(fileIDFloat)
+
+	p.logger.Printf("[Processor] Processing file text extraction for file %d (user: %d)", fileID, job.UserID)
+
+	// Get file metadata
+	var contentType string
+	var s3Key string
+	err := p.db.QueryRowContext(ctx,
+		"SELECT type, path FROM files WHERE id = $1 AND user_id = $2",
+		fileID, job.UserID).Scan(&contentType, &s3Key)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("file not found")
+		}
+		return nil, fmt.Errorf("failed to get file metadata: %w", err)
+	}
+
+	// TODO: Download file from S3 using s3Key
+	// For now, we'll mark this as needing manual implementation
+	// When integrated into main.go, we should pass S3 client to the processor
+
+	// Placeholder: Extract text would happen here after S3 download
+	// extractedText, err := ExtractText(contentType, fileReader)
+
+	// For now, just mark as processed
+	p.logger.Printf("[Processor] File text extraction job for file %d - S3 integration pending", fileID)
+
+	return map[string]interface{}{
+		"file_id":     fileID,
+		"status":      "pending_s3_integration",
+		"content_type": contentType,
+		"s3_key":      s3Key,
+		"note":        "S3 download integration required in main.go",
+	}, nil
 }
