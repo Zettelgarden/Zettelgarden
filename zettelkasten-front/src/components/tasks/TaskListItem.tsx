@@ -211,11 +211,14 @@ export function TaskListItem({
                 setSelectedTaskId(parentTask.id);
                 setShowTaskDialog(true);
               }}
-              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
               title={`Parent: ${parentTask.title}`}
+              aria-label={`View parent task: ${parentTask.title}`}
             >
               <span>↳</span>
-              <span className="max-w-[150px] truncate">{parentTask.title}</span>
+              <span className="max-w-[150px] truncate">
+                {parentTask.title || 'Untitled'}
+              </span>
             </button>
           </div>
         )}
