@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"go-backend/models"
+	"go-backend/services"
 	"image"
 	"image/jpeg"
 	_ "image/gif"
@@ -597,6 +598,25 @@ func (s *Handler) UploadFileRoute(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Unable to execute query", http.StatusInternalServerError)
 		return
+	}
+
+	// Enqueue text extraction job
+	jobQueue := services.NewJobQueue(s.DB)
+	jobParams := models.CreateJobParams{
+		UserID:     userID,
+		JobType:    models.JobTypeFileTextExtraction,
+		Priority:   5, // Normal priority
+		Payload:    map[string]interface{}{"file_id": lastInsertId, "s3_key": s3Key},
+		MaxRetries: 3,
+		TimeoutSecs: 300, // 5 minutes
+	}
+
+	_, err = jobQueue.Enqueue(r.Context(), jobParams)
+	if err != nil {
+		log.Printf("Failed to enqueue text extraction job for file %d: %v", lastInsertId, err)
+		// Don't fail the upload - extraction can be retried later
+	} else {
+		log.Printf("Enqueued text extraction job for file %d", lastInsertId)
 	}
 
 	// Generate thumbnail asynchronously for images (skip during testing)
