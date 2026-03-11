@@ -2,22 +2,31 @@ import { useState, useEffect } from 'react';
 
 export type SubtaskDisplayMode = 'nested' | 'flat' | 'hidden';
 
-const STORAGE_KEY = 'subtaskDisplayMode';
+const VALID_MODES: SubtaskDisplayMode[] = ['nested', 'flat', 'hidden'];
+const DEFAULT_MODE: SubtaskDisplayMode = 'nested';
 
-export function useSubtaskDisplayMode() {
+export const STORAGE_KEY = 'subtaskDisplayMode';
+
+export function useSubtaskDisplayMode(): {
+  subtaskMode: SubtaskDisplayMode;
+  setSubtaskMode: (mode: SubtaskDisplayMode) => void;
+} {
   const [subtaskMode, setSubtaskModeState] = useState<SubtaskDisplayMode>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved) as SubtaskDisplayMode;
+        const parsed = JSON.parse(saved);
+        if (VALID_MODES.includes(parsed)) {
+          return parsed as SubtaskDisplayMode;
+        }
       }
     } catch (e) {
       console.error('Failed to load subtask display mode:', e);
     }
-    return 'nested';
+    return DEFAULT_MODE;
   });
 
-  const setSubtaskMode = (mode: SubtaskDisplayMode) => {
+  const setSubtaskMode = (mode: SubtaskDisplayMode): void => {
     setSubtaskModeState(mode);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(mode));

@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { useSubtaskDisplayMode } from './useSubtaskDisplayMode';
+import { useSubtaskDisplayMode, STORAGE_KEY } from './useSubtaskDisplayMode';
 
 describe('useSubtaskDisplayMode', () => {
   beforeEach(() => {
@@ -19,13 +19,19 @@ describe('useSubtaskDisplayMode', () => {
     });
 
     expect(result.current.subtaskMode).toBe('flat');
-    expect(localStorage.getItem('subtaskDisplayMode')).toBe('"flat"');
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('"flat"');
   });
 
   it('should load saved mode from localStorage', () => {
-    localStorage.setItem('subtaskDisplayMode', '"hidden"');
+    localStorage.setItem(STORAGE_KEY, '"hidden"');
 
     const { result } = renderHook(() => useSubtaskDisplayMode());
     expect(result.current.subtaskMode).toBe('hidden');
+  });
+
+  it('should default to nested when localStorage contains invalid mode', () => {
+    localStorage.setItem(STORAGE_KEY, '"invalid"');
+    const { result } = renderHook(() => useSubtaskDisplayMode());
+    expect(result.current.subtaskMode).toBe('nested');
   });
 });
