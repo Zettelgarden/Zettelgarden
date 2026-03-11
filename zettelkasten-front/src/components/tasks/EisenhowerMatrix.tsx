@@ -2,6 +2,7 @@ import React from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Task } from "../../models/Task";
 import { TaskList } from "./TaskList";
+import { SubtaskDisplayMode } from "../../hooks/useSubtaskDisplayMode";
 
 interface EisenhowerMatrixProps {
     tasks: Task[];
@@ -10,6 +11,7 @@ interface EisenhowerMatrixProps {
     selectMode?: boolean;
     selectedTaskIds?: Set<number>;
     onTaskSelect?: (taskId: number) => void;
+    subtaskMode?: SubtaskDisplayMode;
 }
 
 function normalizeTag(tag: string) {
@@ -32,12 +34,18 @@ function getQuadrant(task: Task): 1 | 2 | 3 | 4 {
 import { saveExistingTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
 
-export function EisenhowerMatrix({ tasks, onTagClick, onAddTaskWithTags, selectMode = false, selectedTaskIds = new Set(), onTaskSelect }: EisenhowerMatrixProps) {
+export function EisenhowerMatrix({ tasks, onTagClick, onAddTaskWithTags, selectMode = false, selectedTaskIds = new Set(), onTaskSelect, subtaskMode = 'nested' }: EisenhowerMatrixProps) {
     const { setRefreshTasks } = useTaskContext();
-    const q1 = tasks.filter(t => getQuadrant(t) === 1);
-    const q2 = tasks.filter(t => getQuadrant(t) === 2);
-    const q3 = tasks.filter(t => getQuadrant(t) === 3);
-    const q4 = tasks.filter(t => getQuadrant(t) === 4);
+
+    // Filter tasks based on display mode
+    const displayTasks = subtaskMode === 'hidden'
+      ? tasks.filter(t => !t.parent_task_id)
+      : tasks;
+
+    const q1 = displayTasks.filter(t => getQuadrant(t) === 1);
+    const q2 = displayTasks.filter(t => getQuadrant(t) === 2);
+    const q3 = displayTasks.filter(t => getQuadrant(t) === 3);
+    const q4 = displayTasks.filter(t => getQuadrant(t) === 4);
 
     const quadrantTitles: Record<number, string> = {
         1: "Do First (Important and Urgent)",
@@ -140,6 +148,7 @@ export function EisenhowerMatrix({ tasks, onTagClick, onAddTaskWithTags, selectM
                                           selectMode={selectMode}
                                           selectedTaskIds={selectedTaskIds}
                                           onTaskSelect={onTaskSelect}
+                                          subtaskMode={subtaskMode}
                                         />
                                     </div>
                                 )}
