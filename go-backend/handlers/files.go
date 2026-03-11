@@ -687,3 +687,227 @@ func (s *Handler) DeleteFileRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+// Tag management endpoints
+
+// CreateFileTagRequest represents a request to create a tag
+type CreateFileTagRequest struct {
+	Name string `json:"name"`
+}
+
+// CreateFileTagRoute creates a new file tag
+func (s *Handler) CreateFileTagRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	var req CreateFileTagRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Sanitize tag name
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		http.Error(w, "Tag name cannot be empty", http.StatusBadRequest)
+		return
+	}
+	if len(name) > 50 {
+		name = name[:50]
+	}
+
+	// Insert tag
+	var tagID int
+	err := s.GetDB().QueryRow(
+		"INSERT INTO file_tags (user_id, name) VALUES ($1, $2) ON CONFLICT (user_id, name) DO NOTHING RETURNING id",
+		userID, name,
+	).Scan(&tagID)
+
+	if err == sql.ErrNoRows {
+		// Tag already exists, get its ID
+		err = s.GetDB().QueryRow("SELECT id FROM file_tags WHERE user_id = $1 AND name = $2", userID, name).Scan(&tagID)
+	}
+
+	if err != nil {
+		log.Printf("Error creating tag: %v", err)
+		http.Error(w, "Failed to create tag", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"id":   tagID,
+		"name": name,
+	})
+}
+
+// GetUserFileTagsRoute returns all tags for a user
+func (s *Handler) GetUserFileTagsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	rows, err := s.GetDB().Query(`
+		SELECT t.id, t.name, COUNT(ft.file_id) as file_count
+		FROM file_tags t
+		LEFT JOIN files_tags ft ON t.id = ft.tag_id
+		WHERE t.user_id = $1
+		GROUP BY t.id, t.name
+		ORDER BY t.name
+	`, userID)
+
+	if err != nil {
+		log.Printf("Error fetching tags: %v", err)
+		http.Error(w, "Failed to fetch tags", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var tags []models.FileTagWithCount
+	for rows.Next() {
+		var tag models.FileTagWithCount
+		if err := rows.Scan(&tag.ID, &tag.Name, &tag.FileCount); err != nil {
+			log.Printf("Error scanning tag: %v", err)
+			continue
+		}
+		tags = append(tags, tag)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tags)
+}
+
+// TagFileRequest represents a request to tag a file
+type TagFileRequest struct {
+	TagNames []string `json:"tag_names"`
+}
+
+// TagFileRoute adds tags to a file
+func (s *Handler) TagFileRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	fileIDStr := mux.Vars(r)["file_id"]
+
+	fileID, err := strconv.Atoi(fileIDStr)
+	if err != nil {
+		http.Error(w, "Invalid file ID", http.StatusBadRequest)
+		return
+	}
+
+	var req TagFileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Verify file belongs to user
+	var ownerID int
+	err = s.GetDB().QueryRow("SELECT user_id FROM files WHERE id = $1", fileID).Scan(&ownerID)
+	if err == sql.ErrNoRows {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+	if ownerID != userID {
+		http.Error(w, "Unauthorized", http.StatusForbidden)
+		return
+	}
+
+	// Process tags
+	tx, err := s.BeginTx()
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	for _, tagName := range req.TagNames {
+		// Sanitize
+		tagName = strings.TrimSpace(tagName)
+		if tagName == "" {
+			continue
+		}
+
+		// Get or create tag
+		var tagID int
+		err := tx.QueryRow(
+			"INSERT INTO file_tags (user_id, name) VALUES ($1, $2) ON CONFLICT (user_id, name) DO UPDATE SET name = EXCLUDED.name RETURNING id",
+			userID, tagName,
+		).Scan(&tagID)
+
+		if err != nil {
+			err = tx.QueryRow("SELECT id FROM file_tags WHERE user_id = $1 AND name = $2", userID, tagName).Scan(&tagID)
+			if err != nil {
+				log.Printf("Error getting tag ID: %v", err)
+				continue
+			}
+		}
+
+		// Link tag to file
+		_, err = tx.Exec(
+			"INSERT INTO files_tags (file_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+			fileID, tagID,
+		)
+		if err != nil {
+			log.Printf("Error linking tag to file: %v", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		http.Error(w, "Failed to save tags", http.StatusInternalServerError)
+		return
+	}
+
+	// Reindex file in Typesense (placeholder - will be implemented in Task 9)
+	// go s.reindexFile(fileID)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// UntagFileRoute removes a tag from a file
+func (s *Handler) UntagFileRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	vars := mux.Vars(r)
+	fileIDStr := vars["file_id"]
+	tagName := vars["tag_name"]
+
+	fileID, err := strconv.Atoi(fileIDStr)
+	if err != nil {
+		http.Error(w, "Invalid file ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify file belongs to user
+	var ownerID int
+	err = s.GetDB().QueryRow("SELECT user_id FROM files WHERE id = $1", fileID).Scan(&ownerID)
+	if err != nil || ownerID != userID {
+		http.Error(w, "Unauthorized", http.StatusNotFound)
+		return
+	}
+
+	// Remove tag association
+	result, err := s.GetDB().Exec(`
+		DELETE FROM files_tags
+		WHERE file_id = $1 AND tag_id = (
+			SELECT id FROM file_tags WHERE user_id = $2 AND name = $3
+		)
+	`, fileID, userID, tagName)
+
+	if err != nil {
+		http.Error(w, "Failed to remove tag", http.StatusInternalServerError)
+		return
+	}
+
+	// Check if any rows were affected
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		http.Error(w, "Tag not found on file", http.StatusNotFound)
+		return
+	}
+
+	// Reindex file (placeholder - will be implemented in Task 9)
+	// go s.reindexFile(fileID)
+
+	w.WriteHeader(http.StatusOK)
+}
