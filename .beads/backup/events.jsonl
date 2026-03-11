@@ -178,3 +178,9 @@
 {"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T18:24:34Z","event_type":"closed","id":178,"issue_id":"Zettelgarden-boz","new_value":"API client functions added for createSubtask, setTaskParent, getSubtasks","old_value":""}
 {"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T18:24:34Z","event_type":"closed","id":179,"issue_id":"Zettelgarden-cjt","new_value":"13 backend tests passing for subtask logic","old_value":""}
 {"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T18:42:01Z","event_type":"closed","id":180,"issue_id":"Zettelgarden-ddd","new_value":"TaskSubtasksSection component created with add/toggle/delete functionality","old_value":""}
+{"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T18:42:02Z","event_type":"closed","id":181,"issue_id":"Zettelgarden-0qm","new_value":"TaskNestedGroup component created for nested display","old_value":""}
+{"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T18:42:02Z","event_type":"closed","id":182,"issue_id":"Zettelgarden-3kd","new_value":"TaskCompletionWarningDialog component created","old_value":""}
+{"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T18:42:02Z","event_type":"closed","id":183,"issue_id":"Zettelgarden-j1u","new_value":"TaskList updated to group subtasks under parents","old_value":""}
+{"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T18:42:02Z","event_type":"closed","id":184,"issue_id":"Zettelgarden-5p6","new_value":"TaskDialog updated with subtask section and handlers","old_value":""}
+{"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T18:42:02Z","event_type":"closed","id":185,"issue_id":"Zettelgarden-4h4","new_value":"KanbanBoard updated to show subtask count","old_value":""}
+{"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T20:18:40Z","event_type":"created","id":186,"issue_id":"Zettelgarden-4g1","new_value":"","old_value":""}
