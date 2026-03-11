@@ -191,6 +191,19 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 
 	// Add search filter (searches in filename and type)
 	if searchTerm != "" {
+		// Try Typesense search first if available
+		if s.Server.TypesenseClient != nil {
+			files, err := s.searchFilesInTypesense(r.Context(), userID, searchTerm, page, perPage)
+			if err == nil && files != nil {
+				// Typesense search successful, return results
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(files)
+				return
+			}
+			log.Printf("Typesense search failed, falling back to PostgreSQL: %v", err)
+		}
+
+		// Fallback to PostgreSQL search
 		whereConditions = append(whereConditions, "(f.name ILIKE $"+strconv.Itoa(argNum)+" OR f.type ILIKE $"+strconv.Itoa(argNum)+")")
 		searchPattern := "%" + searchTerm + "%"
 		queryArgs = append(queryArgs, searchPattern)
