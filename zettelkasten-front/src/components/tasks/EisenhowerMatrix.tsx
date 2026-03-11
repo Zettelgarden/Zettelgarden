@@ -104,7 +104,20 @@ export function EisenhowerMatrix({ tasks, onTagClick, onAddTaskWithTags, selectM
         }
     };
 
-    const quadrantBox = (quadrant: number) => (
+    // For nested mode, group subtasks with their parents within each quadrant
+    const getNestedTaskGroups = (quadrantTasks: Task[]) => {
+        if (subtaskMode !== 'nested') {
+            return quadrantTasks;
+        }
+        
+        // In nested mode, only show root tasks (subtasks will be nested under them)
+        return quadrantTasks.filter(t => !t.parent_task_id);
+    };
+
+    const quadrantBox = (quadrant: number) => {
+        const nestedTasks = getNestedTaskGroups(quadrantData[quadrant]);
+        
+        return (
         <Droppable droppableId={quadrant.toString()}>
             {(dropProvided, snapshot) => (
                 <div
@@ -126,8 +139,8 @@ export function EisenhowerMatrix({ tasks, onTagClick, onAddTaskWithTags, selectM
                             </button>
                         )}
                     </div>
-                    {quadrantData[quadrant].length > 0 ? (
-                        quadrantData[quadrant].map((task, idx) => (
+                    {nestedTasks.length > 0 ? (
+                        nestedTasks.map((task, idx) => (
                             <Draggable key={task.id.toString()} draggableId={task.id.toString()} index={idx}>
                                 {(dragProvided) => (
                                     <div
@@ -141,7 +154,7 @@ export function EisenhowerMatrix({ tasks, onTagClick, onAddTaskWithTags, selectM
                                     >
                                         <TaskList
                                           onTagClick={onTagClick}
-                                          tasks={[task]}
+                                          tasks={subtaskMode === 'nested' ? quadrantData[quadrant].filter(t => t.id === task.id || t.parent_task_id === task.id) : [task]}
                                           hideMatrixTags={true}
                                           selectMode={selectMode}
                                           selectedTaskIds={selectedTaskIds}
@@ -159,7 +172,8 @@ export function EisenhowerMatrix({ tasks, onTagClick, onAddTaskWithTags, selectM
                 </div>
             )}
         </Droppable>
-    );
+        );
+    };
 
     return (
         <DragDropContext onDragEnd={onDragEnd}>
