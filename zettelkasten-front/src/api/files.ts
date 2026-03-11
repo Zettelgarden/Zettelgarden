@@ -1,5 +1,6 @@
 import {
   type File,
+  type FileTag,
   EditFileMetadataParams,
   UploadFileResponse,
 } from "../models/File";
@@ -199,4 +200,27 @@ export function editFile(
   updateData: EditFileMetadataParams,
 ): Promise<File> {
   return getData(apiClient.patch<File>(`/files/${fileId}`, updateData));
+}
+
+// File tag management functions
+
+export interface CreateFileTagResponse {
+  id: number;
+  name: string;
+}
+
+export function createFileTag(name: string): Promise<CreateFileTagResponse> {
+  return getData(apiClient.post<CreateFileTagResponse>("/files/tags", { name }));
+}
+
+export function getFileTags(): Promise<FileTag[]> {
+  return getData(apiClient.get<FileTag[]>("/files/tags"));
+}
+
+export function tagFile(fileId: number, tagNames: string[]): Promise<void> {
+  return getData(apiClient.post(`/files/${fileId}/tags`, { tag_names: tagNames }));
+}
+
+export function untagFile(fileId: number, tagName: string): Promise<void> {
+  return getData(apiClient.delete(`/files/${fileId}/tags/${encodeURIComponent(tagName)}`));
 }

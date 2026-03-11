@@ -16,6 +16,16 @@ export interface File {
   updated_at: string;
   thumbnail_path: string | null;
   card: PartialCard;
+  description?: string;
+  extracted_text?: string;
+  tags?: string[];
+}
+
+export interface FileTag {
+  id: number;
+  user_id: number;
+  name: string;
+  file_count?: number;
 }
 
 export interface UploadFileResponse {
@@ -26,4 +36,10 @@ export interface UploadFileResponse {
 export interface EditFileMetadataParams {
   name: string;
   card_pk: number;
+}
+
+export interface FileUpdateParams {
+  name?: string;
+  description?: string;
+  card_pk?: number;
 }
