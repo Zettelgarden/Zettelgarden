@@ -25,6 +25,7 @@ const createTask = (overrides: Partial<Task>): Task => ({
   reminder_sent: false,
   blocked_by: [],
   blocks: [],
+    parent_task_id: null,
   ...overrides
 });
 
