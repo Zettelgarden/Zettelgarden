@@ -28,6 +28,7 @@ import {
   getStartOfWeekInTimezone,
   getEndOfWeekInTimezone,
 } from "../../utils/dates";
+import { useSubtaskDisplayMode } from "../../hooks/useSubtaskDisplayMode";
 
 type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "due_date";
 type SortDirection = "asc" | "desc";
@@ -199,6 +200,8 @@ export function TaskDesktopLayout({
   const [cursorPosition, setCursorPosition] = React.useState(0);
   const [filterTrigger, setFilterTrigger] = React.useState<QuickTagTrigger | null>(null);
   const [isFilterFocused, setIsFilterFocused] = React.useState(false);
+
+  const { subtaskMode, setSubtaskMode } = useSubtaskDisplayMode();
 
   const handleSelectQuickTag = (selectedTagName: string) => {
     if (!filterTrigger) return;
@@ -383,6 +386,41 @@ export function TaskDesktopLayout({
                         Select Mode
                       </label>
                     </div>
+                    <div className="mb-2">
+                      <label className="block text-xs font-semibold mb-1">Subtask Display</label>
+                      <div className="space-y-1">
+                        <label className="flex items-center gap-2 text-xs cursor-pointer">
+                          <input
+                            type="radio"
+                            name="subtaskMode"
+                            checked={subtaskMode === 'nested'}
+                            onChange={() => setSubtaskMode('nested')}
+                            className="rounded"
+                          />
+                          <span>Nested</span>
+                        </label>
+                        <label className="flex items-center gap-2 text-xs cursor-pointer">
+                          <input
+                            type="radio"
+                            name="subtaskMode"
+                            checked={subtaskMode === 'flat'}
+                            onChange={() => setSubtaskMode('flat')}
+                            className="rounded"
+                          />
+                          <span>Flat</span>
+                        </label>
+                        <label className="flex items-center gap-2 text-xs cursor-pointer">
+                          <input
+                            type="radio"
+                            name="subtaskMode"
+                            checked={subtaskMode === 'hidden'}
+                            onChange={() => setSubtaskMode('hidden')}
+                            className="rounded"
+                          />
+                          <span>Hidden</span>
+                        </label>
+                      </div>
+                    </div>
                     <div>
                       <label className="block text-xs font-semibold mb-1">Sort By</label>
                       <div className="flex items-center gap-1">
@@ -507,6 +545,7 @@ export function TaskDesktopLayout({
                     selectMode={selectMode}
                     selectedTaskIds={selectedTaskIds}
                     onTaskSelect={toggleTaskSelection}
+                    subtaskMode={subtaskMode}
                   />
                 </ul>
               ) : (
@@ -586,6 +625,7 @@ export function TaskDesktopLayout({
               selectMode={selectMode}
               selectedTaskIds={selectedTaskIds}
               onTaskSelect={toggleTaskSelection}
+              subtaskMode={subtaskMode}
             />
           ) : (
             <EisenhowerMatrix
@@ -598,6 +638,7 @@ export function TaskDesktopLayout({
               selectMode={selectMode}
               selectedTaskIds={selectedTaskIds}
               onTaskSelect={toggleTaskSelection}
+              subtaskMode={subtaskMode}
             />
           )}
         </div>
