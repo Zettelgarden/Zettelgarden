@@ -9,6 +9,7 @@ import { StatusManagement } from "../settings/StatusManagement";
 import { useDialogState } from "../../contexts/DialogStateContext";
 import { TaskHoverCard } from "./TaskHoverCard";
 import { KanbanQuickActions } from "./KanbanQuickActions";
+import { SubtaskDisplayMode } from "../../hooks/useSubtaskDisplayMode";
 
 interface FocusedCard {
   columnIndex: number;
@@ -257,6 +258,7 @@ interface KanbanBoardProps {
   selectMode?: boolean;
   selectedTaskIds?: Set<number>;
   onTaskSelect?: (taskId: number) => void;
+  subtaskMode?: SubtaskDisplayMode;
 }
 
 type KanbanSortField = 'priority' | 'due_date' | 'scheduled_date' | 'title' | 'created_at';
@@ -317,7 +319,7 @@ function sortTasks(tasks: Task[], settings: KanbanSortSettings): Task[] {
   });
 }
 
-export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode = false, selectedTaskIds = new Set(), onTaskSelect }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode = false, selectedTaskIds = new Set(), onTaskSelect, subtaskMode = 'nested' }: KanbanBoardProps) {
   const { setRefreshTasks } = useTaskContext();
   const { statuses, getStatusByName } = useStatus();
   const [showStatusManagement, setShowStatusManagement] = useState(false);
@@ -402,9 +404,10 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
   };
 
   // Separate root tasks from subtasks
-  const { rootTasks, subtasksByParent } = React.useMemo(() => {
+  const { rootTasks, subtasksByParent, allTasksIncludingSubtasks } = React.useMemo(() => {
     const rootTasks: Task[] = [];
     const subtasksByParent: Record<number, Task[]> = {};
+    const allTasksIncludingSubtasks: Task[] = [];
 
     tasks.forEach((task) => {
       if (task.parent_task_id) {
@@ -417,13 +420,28 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
         // This is a root task
         rootTasks.push(task);
       }
+      allTasksIncludingSubtasks.push(task);
     });
 
-    return { rootTasks, subtasksByParent };
+    return { rootTasks, subtasksByParent, allTasksIncludingSubtasks };
   }, [tasks]);
 
-  // Group root tasks by status (subtasks handled separately)
-  const tasksByStatus = rootTasks.reduce((acc, task) => {
+  // Determine which tasks to display based on subtask mode
+  // - nested/hidden: only show root tasks
+  // - flat: show all tasks including subtasks (each in their own status column)
+  const tasksToDisplay = subtaskMode === 'flat' ? allTasksIncludingSubtasks : rootTasks;
+
+  // Create a map of parent tasks for subtasks (used in flat mode)
+  const parentTaskMap = React.useMemo(() => {
+    const map: Record<number, Task> = {};
+    tasks.forEach((task) => {
+      map[task.id] = task;
+    });
+    return map;
+  }, [tasks]);
+
+  // Group tasks by status based on display mode
+  const tasksByStatus = tasksToDisplay.reduce((acc, task) => {
     const status = task.status || (statuses.find(s => s.is_default)?.name || "todo");
     if (!acc[status]) {
       acc[status] = [];
@@ -686,10 +704,11 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
                                     selectMode={selectMode}
                                     isSelected={selectedTaskIds.has(task.id)}
                                     onSelect={() => onTaskSelect?.(task.id)}
+                                    parentTask={task.parent_task_id ? parentTaskMap[task.parent_task_id] : undefined}
                                   />
                                   
-                                  {/* Subtask count indicator */}
-                                  {subtasksByParent[task.id] && subtasksByParent[task.id].length > 0 && (
+                                  {/* Subtask count indicator - only shown in nested mode */}
+                                  {subtaskMode === 'nested' && subtasksByParent[task.id] && subtasksByParent[task.id].length > 0 && (
                                     <div className="px-3 pb-1 text-xs text-gray-500">
                                       {subtasksByParent[task.id].filter(s => s.is_complete).length}/{subtasksByParent[task.id].length} subtasks
                                     </div>
