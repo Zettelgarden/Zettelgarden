@@ -153,6 +153,8 @@ export async function createSubtask(parentId: number, task: Partial<Task>): Prom
  * Set or clear the parent of a task
  * @param taskId The task to update
  * @param parentId The new parent ID, or null to clear
+ * @remarks This API function is available for future drag-and-drop reordering of subtasks.
+ *          Currently unused in the UI but the backend endpoint is fully implemented.
  */
 export async function setTaskParent(taskId: number, parentId: number | null): Promise<Task> {
   const { data } = await apiClient.patch<Task>(`/tasks/${taskId}/parent`, {

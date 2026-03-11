@@ -5,11 +5,13 @@ import { TaskListItem } from "./TaskListItem";
 interface TaskNestedGroupProps {
   task: Task;
   onTagClick: (tag: string) => void;
+  /** @deprecated TaskListItem handles clicks internally via useDialogState. Reserved for future use. */
   onTaskClick: (taskId: number) => void;
   collapsed?: boolean;
   selectMode?: boolean;
   selectedTaskIds?: Set<number>;
   onTaskSelect?: (taskId: number) => void;
+  hideMatrixTags?: boolean;
 }
 
 export function TaskNestedGroup({
@@ -20,6 +22,7 @@ export function TaskNestedGroup({
   selectMode = false,
   selectedTaskIds = new Set(),
   onTaskSelect,
+  hideMatrixTags = false,
 }: TaskNestedGroupProps) {
   const [isCollapsed, setIsCollapsed] = useState(collapsed);
 
@@ -34,7 +37,7 @@ export function TaskNestedGroup({
         <TaskListItem
           task={task}
           onTagClick={onTagClick}
-          hideMatrixTags={false}
+          hideMatrixTags={hideMatrixTags}
           selectMode={selectMode}
           isSelected={selectedTaskIds.has(task.id)}
           onSelect={() => onTaskSelect?.(task.id)}
@@ -49,6 +52,8 @@ export function TaskNestedGroup({
             }}
             className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-6 w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 z-10"
             title={isCollapsed ? "Expand subtasks" : "Collapse subtasks"}
+            aria-expanded={!isCollapsed}
+            aria-label={isCollapsed ? "Expand subtasks" : "Collapse subtasks"}
           >
             <span className="text-xs">{isCollapsed ? "▶" : "▼"}</span>
           </button>
@@ -73,7 +78,7 @@ export function TaskNestedGroup({
               <TaskListItem
                 task={subtask}
                 onTagClick={onTagClick}
-                hideMatrixTags={false}
+                hideMatrixTags={hideMatrixTags}
                 selectMode={selectMode}
                 isSelected={selectedTaskIds.has(subtask.id)}
                 onSelect={() => onTaskSelect?.(subtask.id)}

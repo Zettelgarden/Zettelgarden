@@ -10,3 +10,9 @@ CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON tasks(parent_task_id);
 
 -- Add column comment for documentation
 COMMENT ON COLUMN tasks.parent_task_id IS 'References parent task for subtask hierarchy. NULL for root tasks. Single level nesting only.';
+
+-- ============================================================================
+-- DOWN MIGRATION (to reverse these changes)
+-- ============================================================================
+-- DROP INDEX IF EXISTS idx_tasks_parent_id;
+-- ALTER TABLE tasks DROP COLUMN IF EXISTS parent_task_id;

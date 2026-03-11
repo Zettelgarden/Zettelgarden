@@ -62,6 +62,7 @@ export function TaskList({
                 selectMode={selectMode}
                 selectedTaskIds={selectedTaskIds}
                 onTaskSelect={onTaskSelect}
+                hideMatrixTags={hideMatrixTags}
               />
             </li>
           );
