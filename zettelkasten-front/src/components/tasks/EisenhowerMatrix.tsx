@@ -83,9 +83,7 @@ export function EisenhowerMatrix({ tasks, onTagClick, onAddTaskWithTags, selectM
     }
 
     const onDragEnd = async (result: DropResult) => {
-        console.log("?")
         if (!result.destination) return;
-        console.log("done")
         const sourceQ = parseInt(result.source.droppableId);
         const destQ = parseInt(result.destination.droppableId);
         if (sourceQ === destQ) return;
