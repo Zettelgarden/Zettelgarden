@@ -19,6 +19,7 @@ export interface File {
   description?: string;
   extracted_text?: string;
   tags?: string[];
+  mimetype?: string;
 }
 
 export interface FileTag {
@@ -43,4 +44,16 @@ export interface FileUpdateParams {
   name?: string;
   description?: string;
   card_pk?: number;
+}
+
+export interface ImportEpubResponse {
+  parent_card_id: number;
+  child_card_ids: number[];
+  metadata: {
+    title: string;
+    author: string;
+    publisher: string;
+    year: string;
+    description: string;
+  };
 }

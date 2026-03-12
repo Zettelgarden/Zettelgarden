@@ -3,6 +3,7 @@ import {
   type FileTag,
   EditFileMetadataParams,
   UploadFileResponse,
+  ImportEpubResponse,
 } from "../models/File";
 import { GenericResponse } from "../models/common";
 import { apiClient, getData } from "./client";
@@ -223,4 +224,9 @@ export function tagFile(fileId: number, tagNames: string[]): Promise<void> {
 
 export function untagFile(fileId: number, tagName: string): Promise<void> {
   return getData(apiClient.delete(`/files/${fileId}/tags/${encodeURIComponent(tagName)}`));
+}
+
+// Epub import function
+export function importEpub(fileId: number): Promise<ImportEpubResponse> {
+  return getData(apiClient.post<ImportEpubResponse>(`/files/${fileId}/import-epub`));
 }
