@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"go-backend/models"
 	"go-backend/services"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -30,12 +32,12 @@ func (h *Handler) ImportEpubRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get file from database
-	var filePath, fileName, mimetype string
+	var s3Key, fileName, mimetype string
 	err = h.DB.QueryRow(`
 		SELECT path, name, type
 		FROM files
 		WHERE id = $1 AND user_id = $2
-	`, fileID, userID).Scan(&filePath, &fileName, &mimetype)
+	`, fileID, userID).Scan(&s3Key, &fileName, &mimetype)
 
 	if err == sql.ErrNoRows {
 		http.Error(w, "File not found", http.StatusNotFound)
@@ -52,8 +54,36 @@ func (h *Handler) ImportEpubRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Download epub from S3 to temp file
+	s3Output, err := h.downloadObject(h.Server.S3, s3Key, "")
+	if err != nil {
+		log.Printf("Failed to download epub from S3: %v", err)
+		http.Error(w, "Failed to retrieve epub file", http.StatusInternalServerError)
+		return
+	}
+	defer s3Output.Body.Close()
+
+	// Create temp file for epub
+	tempFile, err := os.CreateTemp("", "epub-*.epub")
+	if err != nil {
+		log.Printf("Failed to create temp file: %v", err)
+		http.Error(w, "Failed to process epub", http.StatusInternalServerError)
+		return
+	}
+	tempPath := tempFile.Name()
+	defer os.Remove(tempPath) // Clean up temp file
+
+	// Write epub content to temp file
+	_, err = io.Copy(tempFile, s3Output.Body)
+	tempFile.Close()
+	if err != nil {
+		log.Printf("Failed to write epub to temp file: %v", err)
+		http.Error(w, "Failed to process epub", http.StatusInternalServerError)
+		return
+	}
+
 	// Parse the epub
-	metadata, chapters, err := services.ParseEpub(filePath)
+	metadata, chapters, err := services.ParseEpub(tempPath)
 	if err != nil {
 		log.Printf("Failed to parse epub: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to parse epub: %v", err), http.StatusInternalServerError)
