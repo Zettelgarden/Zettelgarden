@@ -344,7 +344,7 @@ export function FileListItem({
                 </Menu.Item>
               )}
 
-              {file.mimetype === "application/epub+zip" && (
+              {file.filetype === "application/epub+zip" && (
                 <Menu.Item>
                   {({ active }) => (
                     <button

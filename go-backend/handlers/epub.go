@@ -32,7 +32,7 @@ func (h *Handler) ImportEpubRoute(w http.ResponseWriter, r *http.Request) {
 	// Get file from database
 	var filePath, fileName, mimetype string
 	err = h.DB.QueryRow(`
-		SELECT path, name, mimetype
+		SELECT path, name, type
 		FROM files
 		WHERE id = $1 AND user_id = $2
 	`, fileID, userID).Scan(&filePath, &fileName, &mimetype)

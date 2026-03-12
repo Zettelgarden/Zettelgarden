@@ -19,7 +19,6 @@ export interface File {
   description?: string;
   extracted_text?: string;
   tags?: string[];
-  mimetype?: string;
 }
 
 export interface FileTag {
