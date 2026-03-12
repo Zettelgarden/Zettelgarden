@@ -942,7 +942,7 @@ func checkIsCardIDUnique(db models.Database, userID int, cardID string) bool {
 }
 
 // getNextRootCardID generates the next root card ID for a user
-func getNextRootCardID(db models.Database, userID int) (string, error) {
+func GetNextRootCardID(db models.Database, userID int) (string, error) {
 	var result string
 
 	// Query to get the highest numeric card_id

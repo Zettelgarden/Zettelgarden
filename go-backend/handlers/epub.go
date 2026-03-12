@@ -16,10 +16,22 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// ImportEpubRequest represents the request body for epub import
+type ImportEpubRequest struct {
+	CardID string `json:"card_id"` // User-specified card ID for the book
+}
+
 // ImportEpubRoute handles POST /files/{id}/import-epub
 func (h *Handler) ImportEpubRoute(w http.ResponseWriter, r *http.Request) {
 	userID, ok := getUserIDFromContext(w, r)
 	if !ok {
+		return
+	}
+
+	// Parse request body
+	var req ImportEpubRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
@@ -91,7 +103,7 @@ func (h *Handler) ImportEpubRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create cards in a transaction
-	response, err := h.createEpubCards(userID, metadata, chapters, fileName)
+	response, err := h.createEpubCards(userID, fileID, req.CardID, metadata, chapters, fileName)
 	if err != nil {
 		log.Printf("Failed to create cards: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to create cards: %v", err), http.StatusInternalServerError)
@@ -103,7 +115,7 @@ func (h *Handler) ImportEpubRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 // createEpubCards creates the parent book card and child chapter cards
-func (h *Handler) createEpubCards(userID int, metadata models.EpubMetadata, chapters []models.EpubChapter, filename string) (models.ImportEpubResponse, error) {
+func (h *Handler) createEpubCards(userID int, fileID int, cardID string, metadata models.EpubMetadata, chapters []models.EpubChapter, filename string) (models.ImportEpubResponse, error) {
 	var response models.ImportEpubResponse
 
 	tx, err := h.DB.Begin()
@@ -118,43 +130,55 @@ func (h *Handler) createEpubCards(userID int, metadata models.EpubMetadata, chap
 		title = strings.TrimSuffix(filename, ".epub")
 	}
 
-	// Create parent book card
-	bookBody := formatBookCardBody(metadata, chapters)
-	var parentCardID int
-	err = tx.QueryRow(`
-		INSERT INTO cards (user_id, title, body, created_at, updated_at)
-		VALUES ($1, $2, $3, NOW(), NOW())
-		RETURNING id
-	`, userID, title, bookBody).Scan(&parentCardID)
+	// Generate card_id from title if not provided
+	if cardID == "" {
+		var err error
+		cardID, err = services.GetNextRootCardID(h.DB, userID)
+		if err != nil {
+			return response, fmt.Errorf("failed to generate card ID: %w", err)
+		}
+	}
 
+	// Create parent book card using CreateCard
+	bookBody := formatBookCardBody(metadata, chapters)
+	parentCard, err := services.CreateCard(h.DB, userID, models.EditCardParams{
+		CardID: cardID,
+		Title:  title,
+		Body:  bookBody,
+	})
 	if err != nil {
 		return response, fmt.Errorf("failed to create book card: %w", err)
 	}
 
-	response.ParentCardID = parentCardID
+	response.ParentCardID = parentCard.ID
+
+	// Update file record to link to parent card
+	_, err = tx.Exec(`
+		UPDATE files SET card_pk = $1 WHERE id = $2
+	`, parentCard.ID, fileID)
+	if err != nil {
+		log.Printf("Warning: Failed to link file to parent card: %v", err)
+		// Continue anyway, cards were created
+	}
 
 	// Create child chapter cards
 	childCards := make([]models.Card, 0, len(chapters))
 	for i, chapter := range chapters {
-		var childCardID int
-		err = tx.QueryRow(`
-			INSERT INTO cards (user_id, title, body, parent_id, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, NOW(), NOW())
-			RETURNING id
-		`, userID, chapter.Title, chapter.Body, parentCardID).Scan(&childCardID)
+		// Generate card_id for chapter (parent.cardID + incrementing number)
+		chapterCardID := fmt.Sprintf("%s.%d", cardID, i+1)
 
+		childCard, err := services.CreateCard(h.DB, userID, models.EditCardParams{
+			CardID: chapterCardID,
+			Title:  chapter.Title,
+			Body:   chapter.Body,
+		})
 		if err != nil {
 			log.Printf("Failed to create chapter card %d: %v", i, err)
 			continue
 		}
 
-		response.ChildCardIDs = append(response.ChildCardIDs, childCardID)
-		childCards = append(childCards, models.Card{
-			ID:     childCardID,
-			Title:  chapter.Title,
-			Body:   chapter.Body,
-			UserID: userID,
-		})
+		response.ChildCardIDs = append(response.ChildCardIDs, childCard.ID)
+		childCards = append(childCards, childCard)
 	}
 
 	if err := tx.Commit(); err != nil {

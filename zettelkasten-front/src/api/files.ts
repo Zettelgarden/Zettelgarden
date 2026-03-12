@@ -227,6 +227,6 @@ export function untagFile(fileId: number, tagName: string): Promise<void> {
 }
 
 // Epub import function
-export function importEpub(fileId: number): Promise<ImportEpubResponse> {
-  return getData(apiClient.post<ImportEpubResponse>(`/files/${fileId}/import-epub`));
+export function importEpub(fileId: number, cardId?: string): Promise<ImportEpubResponse> {
+  return getData(apiClient.post<ImportEpubResponse>(`/files/${fileId}/import-epub`, { card_id: cardId || "" }));
 }
