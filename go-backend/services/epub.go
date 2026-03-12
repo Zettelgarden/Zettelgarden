@@ -15,6 +15,10 @@ import (
 const (
 	// MinChapterContent is the minimum character count for a chapter to be included
 	MinChapterContent = 200
+
+	// MaxChapterHTMLSize is the maximum size of a chapter HTML file (1MB)
+	// This prevents memory exhaustion from malformed or malicious EPUBs
+	MaxChapterHTMLSize = 1 * 1024 * 1024
 )
 
 // Error definitions
@@ -22,11 +26,38 @@ var (
 	// ErrNoValidChapters is returned when an epub contains no chapters with sufficient content
 	ErrNoValidChapters = fmt.Errorf("no valid chapters found in epub")
 
+	// ErrChapterTooLarge is returned when a chapter exceeds the size limit
+	ErrChapterTooLarge = fmt.Errorf("chapter file exceeds maximum size")
+
+	// ErrInvalidChapterPath is returned when a chapter path is invalid or potentially malicious
+	ErrInvalidChapterPath = fmt.Errorf("invalid chapter path")
+)
+
+// Pre-compiled regex patterns for performance and security
+var (
 	// yearRegex extracts 4-digit years (1900-2099) from date strings
 	yearRegex = regexp.MustCompile(`\b(19|20)\d{2}\b`)
 
 	// brRegex matches <br> tags (with optional attributes and whitespace)
 	brRegex = regexp.MustCompile(`(?i)<br\s*/?>`)
+
+	// pathTraversalRegex matches path traversal sequences
+	pathTraversalRegex = regexp.MustCompile(`\.\.`)
+
+	// paragraphCloseRegex matches closing paragraph tags
+	paragraphCloseRegex = regexp.MustCompile(`(?i)</p>`)
+
+	// divCloseRegex matches closing div tags
+	divCloseRegex = regexp.MustCompile(`(?i)</div>`)
+
+	// htmlTagRegex matches any HTML tag
+	htmlTagRegex = regexp.MustCompile(`<[^>]*>`)
+
+	// whitespaceRegex matches multiple spaces/tabs
+	whitespaceRegex = regexp.MustCompile(`[ \t]+`)
+
+	// multiNewlineRegex matches 3+ consecutive newlines
+	multiNewlineRegex = regexp.MustCompile(`\n{3,}`)
 )
 
 // ParseEpub reads an epub file and extracts metadata and chapters
@@ -103,18 +134,6 @@ func extractYear(date string) string {
 func extractChaptersWithLineBreaks(book *epublib.Book, epubZip *zip.ReadCloser) ([]models.EpubChapter, error) {
 	var chapters []models.EpubChapter
 
-	// Build a map of chapter paths for quick lookup
-	chapterMap := make(map[string]*epublib.Chapter)
-	for i := 0; i < book.ChapterCount(); i++ {
-		chapter, err := book.ChapterByIndex(i)
-		if err != nil {
-			continue
-		}
-		// Normalize the path (remove leading slash if present)
-		path := strings.TrimPrefix(chapter.Path, "/")
-		chapterMap[path] = chapter
-	}
-
 	// Process each chapter
 	for i := 0; i < book.ChapterCount(); i++ {
 		chapter, err := book.ChapterByIndex(i)
@@ -127,13 +146,17 @@ func extractChaptersWithLineBreaks(book *epublib.Book, epubZip *zip.ReadCloser) 
 
 		// Try to read the chapter HTML directly for better line break handling
 		body := ""
-		normalizedPath := strings.TrimPrefix(chapter.Path, "/")
 
-		if htmlContent, err := readChapterHTML(epubZip, normalizedPath); err == nil {
-			// Parse HTML with proper <br> handling
-			body = htmlToMarkdown(htmlContent)
-		} else {
-			// Fall back to library's paragraph extraction
+		// Validate and sanitize the chapter path before reading
+		if err := validateChapterPath(chapter.Path); err == nil {
+			if htmlContent, err := readChapterHTML(epubZip, chapter.Path); err == nil {
+				// Parse HTML with proper <br> handling
+				body = htmlToMarkdown(htmlContent)
+			}
+		}
+
+		// Fall back to library's paragraph extraction if direct read fails
+		if body == "" {
 			body = paragraphsToMarkdown(chapter.Paragraphs)
 		}
 
@@ -156,26 +179,72 @@ func extractChaptersWithLineBreaks(book *epublib.Book, epubZip *zip.ReadCloser) 
 	return chapters, nil
 }
 
+// validateChapterPath checks that a chapter path is safe to read
+// It prevents path traversal attacks and validates the path format
+func validateChapterPath(path string) error {
+	if path == "" {
+		return ErrInvalidChapterPath
+	}
+
+	// Normalize the path
+	normalized := strings.TrimPrefix(path, "/")
+
+	// Check for path traversal attempts
+	if pathTraversalRegex.MatchString(normalized) {
+		return ErrInvalidChapterPath
+	}
+
+	// Check for absolute paths (shouldn't happen but be safe)
+	if strings.HasPrefix(path, "/") && strings.Contains(path[1:], ":") {
+		return ErrInvalidChapterPath
+	}
+
+	return nil
+}
+
 // readChapterHTML reads the raw HTML content of a chapter from the EPUB ZIP
+// with security constraints to prevent memory exhaustion and path traversal
 func readChapterHTML(epubZip *zip.ReadCloser, chapterPath string) (string, error) {
+	// Normalize paths for comparison
+	normalizedPath := strings.TrimPrefix(chapterPath, "/")
+
 	// Try to find the file in the ZIP
 	for _, file := range epubZip.File {
-		// Normalize paths for comparison
+		// Normalize ZIP path for comparison
 		zipPath := strings.TrimPrefix(file.Name, "/")
-		if zipPath == chapterPath {
-			rc, err := file.Open()
-			if err != nil {
-				return "", err
-			}
-			defer rc.Close()
 
-			content, err := io.ReadAll(rc)
-			if err != nil {
-				return "", err
-			}
-			return string(content), nil
+		if zipPath != normalizedPath {
+			continue
 		}
+
+		// Check file size before opening (prevent ZIP bombs)
+		if file.UncompressedSize64 > MaxChapterHTMLSize {
+			return "", ErrChapterTooLarge
+		}
+
+		rc, err := file.Open()
+		if err != nil {
+			return "", err
+		}
+		defer rc.Close()
+
+		// Use LimitReader to prevent reading more than expected
+		// This is a defense-in-depth measure even though we checked UncompressedSize64
+		limitedReader := io.LimitReader(rc, MaxChapterHTMLSize+1)
+
+		content, err := io.ReadAll(limitedReader)
+		if err != nil {
+			return "", err
+		}
+
+		// Double-check we didn't exceed the limit
+		if len(content) > MaxChapterHTMLSize {
+			return "", ErrChapterTooLarge
+		}
+
+		return string(content), nil
 	}
+
 	return "", fmt.Errorf("chapter file not found in zip: %s", chapterPath)
 }
 
@@ -185,11 +254,11 @@ func htmlToMarkdown(htmlContent string) string {
 	htmlContent = brRegex.ReplaceAllString(htmlContent, "\n")
 
 	// Replace closing </p> and </div> tags with double newlines
-	htmlContent = regexp.MustCompile(`(?i)</p>`).ReplaceAllString(htmlContent, "\n\n")
-	htmlContent = regexp.MustCompile(`(?i)</div>`).ReplaceAllString(htmlContent, "\n\n")
+	htmlContent = paragraphCloseRegex.ReplaceAllString(htmlContent, "\n\n")
+	htmlContent = divCloseRegex.ReplaceAllString(htmlContent, "\n\n")
 
 	// Strip all remaining HTML tags
-	htmlContent = regexp.MustCompile(`<[^>]*>`).ReplaceAllString(htmlContent, "")
+	htmlContent = htmlTagRegex.ReplaceAllString(htmlContent, "")
 
 	// Decode common HTML entities
 	htmlContent = strings.ReplaceAll(htmlContent, "&nbsp;", " ")
@@ -202,9 +271,9 @@ func htmlToMarkdown(htmlContent string) string {
 
 	// Clean up whitespace
 	// First normalize all whitespace sequences
-	htmlContent = regexp.MustCompile(`[ \t]+`).ReplaceAllString(htmlContent, " ")
+	htmlContent = whitespaceRegex.ReplaceAllString(htmlContent, " ")
 	// Then normalize multiple newlines to at most two
-	htmlContent = regexp.MustCompile(`\n{3,}`).ReplaceAllString(htmlContent, "\n\n")
+	htmlContent = multiNewlineRegex.ReplaceAllString(htmlContent, "\n\n")
 	// Remove leading/trailing whitespace from each line
 	lines := strings.Split(htmlContent, "\n")
 	for i, line := range lines {

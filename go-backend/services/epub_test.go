@@ -185,3 +185,40 @@ func TestErrNoValidChapters(t *testing.T) {
 		t.Errorf("ErrNoValidChapters message = %q, want %q", ErrNoValidChapters.Error(), "no valid chapters found in epub")
 	}
 }
+
+func TestValidateChapterPath(t *testing.T) {
+	tests := []struct {
+		name      string
+		path      string
+		shouldErr bool
+	}{
+		{"valid path", "OEBPS/chapter1.html", false},
+		{"valid path with slash", "/OEBPS/chapter1.html", false},
+		{"path traversal", "../etc/passwd", true},
+		{"nested path traversal", "OEBPS/../etc/passwd", true},
+		{"double traversal", "../../etc/passwd", true},
+		{"empty path", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateChapterPath(tt.path)
+			if tt.shouldErr && err == nil {
+				t.Errorf("validateChapterPath(%q) expected error, got nil", tt.path)
+			}
+			if !tt.shouldErr && err != nil {
+				t.Errorf("validateChapterPath(%q) unexpected error: %v", tt.path, err)
+			}
+		})
+	}
+}
+
+func TestSecurityConstants(t *testing.T) {
+	// Verify security constants are reasonable
+	if MaxChapterHTMLSize <= 0 {
+		t.Error("MaxChapterHTMLSize should be positive")
+	}
+	if MaxChapterHTMLSize > 10*1024*1024 {
+		t.Error("MaxChapterHTMLSize seems too large (>10MB)")
+	}
+}
