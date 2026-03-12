@@ -1,6 +1,6 @@
 import { File } from "../../models/File";
 import { PartialCard } from "../../models/Card";
-import { renderFile, deleteFile, editFile, downloadThumbnail, downloadFile } from "../../api/files";
+import { renderFile, deleteFile, editFile, downloadThumbnail, downloadFile, importEpub } from "../../api/files";
 import { Link } from "react-router-dom";
 import React, { useState, KeyboardEvent, useEffect } from "react";
 import { FileIcon } from "../../assets/icons/FileIcon";
@@ -9,6 +9,7 @@ import { FilePreview } from "./FilePreview";
 import { Menu } from "@headlessui/react";
 
 import { BacklinkInput } from "../cards/BacklinkInput";
+import { useToast } from "../toast/ToastContext";
 
 interface FileListItemProps {
   file: File;
@@ -36,6 +37,8 @@ export function FileListItem({
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [showPdfPreview, setShowPdfPreview] = useState<boolean>(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState<boolean>(false);
+  const { showToast } = useToast();
 
   function toggleEditName() {
     setNewName(file.name);
@@ -127,6 +130,21 @@ export function FileListItem({
     }
     displayFileOnCard(file)
     setRefreshFiles(true);
+  }
+
+  async function handleImportEpub() {
+    setIsImporting(true);
+    try {
+      const result = await importEpub(file.id);
+      const totalCards = result.child_card_ids.length + 1;
+      const title = result.metadata.title || file.name;
+      showToast("success", "Epub Imported", `Created ${totalCards} cards from "${title}"`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to import epub";
+      showToast("error", "Import Failed", message);
+    } finally {
+      setIsImporting(false);
+    }
   }
 
   useEffect(() => {
@@ -321,6 +339,22 @@ export function FileListItem({
                       }`}
                     >
                       Display on Card
+                    </button>
+                  )}
+                </Menu.Item>
+              )}
+
+              {file.mimetype === "application/epub+zip" && (
+                <Menu.Item>
+                  {({ active }) => (
+                    <button
+                      onClick={() => handleImportEpub()}
+                      disabled={isImporting}
+                      className={`block w-full px-3 py-1.5 text-left text-sm ${
+                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                      } ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {isImporting ? "Importing..." : "Import as Cards"}
                     </button>
                   )}
                 </Menu.Item>
