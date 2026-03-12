@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go-backend/models"
 	"go-backend/services"
@@ -12,9 +13,22 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/gorilla/mux"
 )
+
+// Error definitions for epub import
+var (
+	ErrFileNotFound   = errors.New("file not found")
+	ErrNotEpub        = errors.New("file is not an epub")
+	ErrEpubParse      = errors.New("unable to parse epub file")
+	ErrEpubImport     = errors.New("failed to import epub")
+	ErrEpubNoChapters = errors.New("no valid chapters found in epub")
+)
+
+// maxConcurrentEntityProcessing limits how many chapters can be processed simultaneously
+const maxConcurrentEntityProcessing = 5
 
 // ImportEpubRequest represents the request body for epub import
 type ImportEpubRequest struct {
@@ -56,6 +70,7 @@ func (h *Handler) ImportEpubRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
+		log.Printf("Failed to retrieve file %d for user %d: %v", fileID, userID, err)
 		http.Error(w, "Failed to retrieve file", http.StatusInternalServerError)
 		return
 	}
@@ -69,7 +84,7 @@ func (h *Handler) ImportEpubRoute(w http.ResponseWriter, r *http.Request) {
 	// Download epub from S3 to temp file
 	s3Output, err := h.downloadObject(h.Server.S3, s3Key, "")
 	if err != nil {
-		log.Printf("Failed to download epub from S3: %v", err)
+		log.Printf("Failed to download epub from S3 for file %d: %v", fileID, err)
 		http.Error(w, "Failed to retrieve epub file", http.StatusInternalServerError)
 		return
 	}
@@ -78,7 +93,7 @@ func (h *Handler) ImportEpubRoute(w http.ResponseWriter, r *http.Request) {
 	// Create temp file for epub
 	tempFile, err := os.CreateTemp("", "epub-*.epub")
 	if err != nil {
-		log.Printf("Failed to create temp file: %v", err)
+		log.Printf("Failed to create temp file for file %d: %v", fileID, err)
 		http.Error(w, "Failed to process epub", http.StatusInternalServerError)
 		return
 	}
@@ -89,7 +104,7 @@ func (h *Handler) ImportEpubRoute(w http.ResponseWriter, r *http.Request) {
 	_, err = io.Copy(tempFile, s3Output.Body)
 	tempFile.Close()
 	if err != nil {
-		log.Printf("Failed to write epub to temp file: %v", err)
+		log.Printf("Failed to write epub to temp file for file %d: %v", fileID, err)
 		http.Error(w, "Failed to process epub", http.StatusInternalServerError)
 		return
 	}
@@ -97,16 +112,21 @@ func (h *Handler) ImportEpubRoute(w http.ResponseWriter, r *http.Request) {
 	// Parse the epub
 	metadata, chapters, err := services.ParseEpub(tempPath)
 	if err != nil {
-		log.Printf("Failed to parse epub: %v", err)
-		http.Error(w, fmt.Sprintf("Failed to parse epub: %v", err), http.StatusInternalServerError)
+		log.Printf("Failed to parse epub for file %d, user %d: %v", fileID, userID, err)
+		// Return generic error to client, log details server-side
+		if errors.Is(err, services.ErrNoValidChapters) {
+			http.Error(w, "No valid chapters found in epub", http.StatusUnprocessableEntity)
+		} else {
+			http.Error(w, "Unable to parse epub file", http.StatusUnprocessableEntity)
+		}
 		return
 	}
 
 	// Create cards in a transaction
 	response, err := h.createEpubCards(userID, fileID, req.CardID, metadata, chapters, fileName)
 	if err != nil {
-		log.Printf("Failed to create cards: %v", err)
-		http.Error(w, fmt.Sprintf("Failed to create cards: %v", err), http.StatusInternalServerError)
+		log.Printf("Failed to create cards for file %d, user %d: %v", fileID, userID, err)
+		http.Error(w, "Failed to import epub", http.StatusInternalServerError)
 		return
 	}
 
@@ -133,18 +153,19 @@ func (h *Handler) createEpubCards(userID int, fileID int, cardID string, metadat
 	// Generate card_id from title if not provided
 	if cardID == "" {
 		var err error
-		cardID, err = services.GetNextRootCardID(h.DB, userID)
+		// Use transaction for consistency
+		cardID, err = services.GetNextRootCardID(tx, userID)
 		if err != nil {
 			return response, fmt.Errorf("failed to generate card ID: %w", err)
 		}
 	}
 
-	// Create parent book card using CreateCard
+	// Create parent book card using CreateCard - pass transaction for atomicity
 	bookBody := formatBookCardBody(metadata, chapters)
-	parentCard, err := services.CreateCard(h.DB, userID, models.EditCardParams{
+	parentCard, err := services.CreateCard(tx, userID, models.EditCardParams{
 		CardID: cardID,
 		Title:  title,
-		Body:  bookBody,
+		Body:   bookBody,
 	})
 	if err != nil {
 		return response, fmt.Errorf("failed to create book card: %w", err)
@@ -157,23 +178,28 @@ func (h *Handler) createEpubCards(userID int, fileID int, cardID string, metadat
 		UPDATE files SET card_pk = $1 WHERE id = $2
 	`, parentCard.ID, fileID)
 	if err != nil {
-		log.Printf("Warning: Failed to link file to parent card: %v", err)
-		// Continue anyway, cards were created
+		return response, fmt.Errorf("failed to link file to parent card: %w", err)
 	}
 
-	// Create child chapter cards
+	// Create child chapter cards - all within the same transaction
 	childCards := make([]models.Card, 0, len(chapters))
 	for i, chapter := range chapters {
 		// Generate card_id for chapter (parent.cardID + incrementing number)
 		chapterCardID := fmt.Sprintf("%s.%d", cardID, i+1)
 
-		childCard, err := services.CreateCard(h.DB, userID, models.EditCardParams{
+		childCard, err := services.CreateCard(tx, userID, models.EditCardParams{
 			CardID: chapterCardID,
 			Title:  chapter.Title,
 			Body:   chapter.Body,
 		})
 		if err != nil {
-			log.Printf("Failed to create chapter card %d: %v", i, err)
+			// Track failed chapters instead of silently skipping
+			response.FailedChapters = append(response.FailedChapters, models.FailedChapter{
+				Index: i,
+				Title: chapter.Title,
+				Error: err.Error(),
+			})
+			log.Printf("Failed to create chapter card %d (%s) for user %d: %v", i, chapter.Title, userID, err)
 			continue
 		}
 
@@ -185,10 +211,34 @@ func (h *Handler) createEpubCards(userID int, fileID int, cardID string, metadat
 		return response, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	// Trigger summarization for each child card (async)
+	// Trigger summarization for each child card (async) with rate limiting and panic recovery
+	// Use a semaphore to limit concurrent processing
+	semaphore := make(chan struct{}, maxConcurrentEntityProcessing)
+	var wg sync.WaitGroup
+
 	for _, card := range childCards {
-		go h.ProcessEntitiesAndFacts(userID, card)
+		wg.Add(1)
+		go func(c models.Card) {
+			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("Panic recovered in ProcessEntitiesAndFacts for card %d, user %d: %v", c.ID, userID, r)
+				}
+			}()
+
+			// Acquire semaphore
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+
+			h.ProcessEntitiesAndFacts(userID, c)
+		}(card)
 	}
+
+	// Wait for all goroutines to complete (or at least acquire semaphore)
+	// Note: We don't block the response on this, but we limit concurrency
+	go func() {
+		wg.Wait()
+	}()
 
 	response.Metadata = metadata
 	return response, nil

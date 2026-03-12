@@ -52,6 +52,7 @@ func TestExtractYear(t *testing.T) {
 		{"invalid", ""},
 		{"", ""},
 		{"1800", ""}, // Should not match years before 1900
+		{"2100", ""}, // Should not match years after 2099
 	}
 
 	for _, tt := range tests {
@@ -122,5 +123,12 @@ func TestGetChapterTitle(t *testing.T) {
 		if result != tt.expected {
 			t.Errorf("getChapterTitle(%q, %d) = %q, want %q", tt.title, tt.index, result, tt.expected)
 		}
+	}
+}
+
+func TestConstants(t *testing.T) {
+	// Verify constants are reasonable values
+	if MinChapterContent <= 0 {
+		t.Error("MinChapterContent should be positive")
 	}
 }

@@ -9,6 +9,21 @@ import (
 	"go-backend/models"
 )
 
+// Constants for epub processing configuration
+const (
+	// MinChapterContent is the minimum character count for a chapter to be included
+	MinChapterContent = 200
+)
+
+// Error definitions
+var (
+	// ErrNoValidChapters is returned when an epub contains no chapters with sufficient content
+	ErrNoValidChapters = fmt.Errorf("no valid chapters found in epub")
+
+	// yearRegex extracts 4-digit years (1900-2099) from date strings
+	yearRegex = regexp.MustCompile(`\b(19|20)\d{2}\b`)
+)
+
 // ParseEpub reads an epub file and extracts metadata and chapters
 func ParseEpub(filePath string) (models.EpubMetadata, []models.EpubChapter, error) {
 	var metadata models.EpubMetadata
@@ -26,7 +41,7 @@ func ParseEpub(filePath string) (models.EpubMetadata, []models.EpubChapter, erro
 	// Extract chapters
 	chapters, err = extractChapters(book)
 	if err != nil {
-		return metadata, chapters, fmt.Errorf("failed to extract chapters: %w", err)
+		return metadata, chapters, err
 	}
 
 	return metadata, chapters, nil
@@ -64,14 +79,12 @@ func extractMetadata(book *epublib.Book) models.EpubMetadata {
 	return metadata
 }
 
-// extractYear parses year from date string
+// extractYear parses year from date string using pre-compiled regex
 func extractYear(date string) string {
 	if date == "" {
 		return ""
 	}
-	// Try to extract 4-digit year
-	re := regexp.MustCompile(`\b(19|20)\d{2}\b`)
-	return re.FindString(date)
+	return yearRegex.FindString(date)
 }
 
 // extractChapters gets all chapters from the epub
@@ -88,7 +101,7 @@ func extractChapters(book *epublib.Book) ([]models.EpubChapter, error) {
 
 		// Skip chapters with very little content (likely front matter)
 		text := chapter.Text()
-		if len(strings.TrimSpace(text)) < 200 {
+		if len(strings.TrimSpace(text)) < MinChapterContent {
 			continue
 		}
 
@@ -103,7 +116,7 @@ func extractChapters(book *epublib.Book) ([]models.EpubChapter, error) {
 
 	// If no chapters found, return error
 	if len(chapters) == 0 {
-		return nil, fmt.Errorf("no valid chapters found in epub")
+		return nil, ErrNoValidChapters
 	}
 
 	return chapters, nil
