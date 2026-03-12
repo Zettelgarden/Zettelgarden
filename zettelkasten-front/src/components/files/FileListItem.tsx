@@ -193,8 +193,8 @@ export function FileListItem({
           </div>
         )}
 
-        <div className="flex-grow min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+        <div className="flex-grow min-w-0 overflow-hidden">
+          <div className="flex items-center gap-2 mb-1 min-w-0">
             {showEditName ? (
               <input
                 className="flex-grow px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -208,7 +208,7 @@ export function FileListItem({
                 autoFocus
               />
             ) : (
-              <div className="flex-grow min-w-0">
+              <div className="min-w-0 flex-1">
                 <a
                   href="#"
                   onClick={(e) => handleFileDownload(file, e)}
@@ -256,24 +256,24 @@ export function FileListItem({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 ml-3">
+        <div className="flex items-center gap-2 ml-3 flex-shrink-0">
           {file.card_pk > 0 && (
             <Link
               to={`/app/card/${file.card.id}`}
-              className="text-blue-600 hover:text-blue-700 text-xs font-medium bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded"
+              className="text-blue-600 hover:text-blue-700 text-xs font-medium bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded flex-shrink-0"
             >
               [{file.card.card_id}]
             </Link>
           )}
 
           {(!file.card || file.card.id == 0) && showCardLink && (
-            <div className="min-w-0">
+            <div className="min-w-0 flex-shrink-0">
               <BacklinkInput addBacklink={handleBacklink} />
             </div>
           )}
 
           {/* Menu Dropdown */}
-          <Menu as="div" className="relative">
+          <Menu as="div" className="relative flex-shrink-0">
             <Menu.Button className="p-1 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-100">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />

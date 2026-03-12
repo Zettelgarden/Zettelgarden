@@ -776,15 +776,15 @@ export function FileVault() {
                         selectedIndex === index ? 'ring-2 ring-blue-500 bg-blue-100' : ''
                       }`}
                     >
-                      <div className="flex items-center">
+                      <div className="flex items-center min-w-0">
                         <input
                           type="checkbox"
                           checked={selectedFiles.has(file.id)}
                           onChange={() => toggleFileSelection(file.id)}
-                          className="ml-3 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          className="ml-3 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0"
                           aria-label={`Select ${file.name}`}
                         />
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <FileListItem
                             file={file}
                             onDelete={onDelete}

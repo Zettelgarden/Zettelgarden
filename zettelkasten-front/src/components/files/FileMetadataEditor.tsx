@@ -137,11 +137,11 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
-        <div>
+        <div className="min-w-0 flex-1 mr-2">
           <h3 className="text-lg font-semibold">Edit File Details</h3>
-          <p className="text-sm text-gray-500 truncate max-w-[400px]">{file.name}</p>
+          <p className="text-sm text-gray-500 truncate" title={file.name}>{file.name}</p>
         </div>
-        <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">
+        <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none flex-shrink-0">
           ×
         </button>
       </div>
