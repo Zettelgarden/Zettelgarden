@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { File } from '../../models/File';
 import { editFile, tagFile, untagFile } from '../../api/files';
 import { FileTags } from './FileTags';
 import { BacklinkInput } from '../cards/BacklinkInput';
 import { PartialCard } from '../../models/Card';
+import { useToast } from '../toast/ToastContext';
+
+const UNLINKED_CARD_PK = -1;
+const SAVE_DEBOUNCE_MS = 500;
 
 interface FileMetadataEditorProps {
   file: File;
@@ -13,81 +17,122 @@ interface FileMetadataEditorProps {
 }
 
 export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEditorProps) {
+  const { showToast } = useToast();
   const [description, setDescription] = useState(file.description || '');
   const [tags, setTags] = useState<string[]>(file.tags || []);
   const [saving, setSaving] = useState(false);
-  const [cardPk, setCardPk] = useState(file.card_pk);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [cardPk, setCardPk] = useState(file.card_pk ?? UNLINKED_CARD_PK);
+  const [linkingCard, setLinkingCard] = useState(false);
+  const [tagOperation, setTagOperation] = useState<string | null>(null);
 
-  const handleSaveDescription = async () => {
-    if (!hasUnsavedChanges) return;
+  // Sync state when file prop changes (e.g., after parent re-fetches)
+  useEffect(() => {
+    setDescription(file.description || '');
+    setTags(file.tags || []);
+    setCardPk(file.card_pk ?? UNLINKED_CARD_PK);
+  }, [file.id, file.description, file.tags, file.card_pk]);
+
+  // Auto-save description with debounce
+  const saveDescription = useCallback(async (newDescription: string) => {
     setSaving(true);
     try {
-      await editFile(file.id.toString(), { name: file.name, card_pk: cardPk, description });
-      setHasUnsavedChanges(false);
+      await editFile(file.id.toString(), { 
+        name: file.name, 
+        card_pk: cardPk, 
+        description: newDescription || undefined 
+      });
       onUpdate();
     } catch (error) {
       console.error('Failed to save description:', error);
+      showToast('error', 'Save Failed', 'Could not save description');
     } finally {
       setSaving(false);
     }
-  };
+  }, [file.id, file.name, cardPk, onUpdate, showToast]);
+
+  // Debounce description changes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      // Only save if description differs from original
+      const originalDescription = file.description || '';
+      if (description !== originalDescription) {
+        saveDescription(description);
+      }
+    }, SAVE_DEBOUNCE_MS);
+
+    return () => clearTimeout(timeoutId);
+  }, [description, file.description, saveDescription]);
 
   const handleDescriptionChange = (value: string) => {
     setDescription(value);
-    setHasUnsavedChanges(true);
   };
 
   const handleAddTag = async (tagName: string) => {
+    setTagOperation(`adding:${tagName}`);
     try {
       await tagFile(file.id, [tagName]);
       setTags([...tags, tagName]);
+      showToast('success', 'Tag Added', `Added tag: ${tagName}`);
       onUpdate();
     } catch (error) {
       console.error('Failed to add tag:', error);
+      showToast('error', 'Tag Failed', `Could not add tag: ${tagName}`);
+    } finally {
+      setTagOperation(null);
     }
   };
 
   const handleRemoveTag = async (tagName: string) => {
+    setTagOperation(`removing:${tagName}`);
     try {
       await untagFile(file.id, tagName);
       setTags(tags.filter((t) => t !== tagName));
+      showToast('success', 'Tag Removed', `Removed tag: ${tagName}`);
       onUpdate();
     } catch (error) {
       console.error('Failed to remove tag:', error);
+      showToast('error', 'Tag Failed', `Could not remove tag: ${tagName}`);
+    } finally {
+      setTagOperation(null);
     }
   };
 
   const handleLinkCard = async (card: PartialCard) => {
+    setLinkingCard(true);
     try {
       await editFile(file.id.toString(), { name: file.name, card_pk: card.id });
       setCardPk(card.id);
+      showToast('success', 'Card Linked', `Linked to card ${card.card_id}`);
       onUpdate();
     } catch (error) {
       console.error('Failed to link card:', error);
+      showToast('error', 'Link Failed', 'Could not link card');
+    } finally {
+      setLinkingCard(false);
     }
   };
 
   const handleUnlinkCard = async () => {
+    setLinkingCard(true);
     try {
-      await editFile(file.id.toString(), { name: file.name, card_pk: -1 });
-      setCardPk(-1);
+      await editFile(file.id.toString(), { name: file.name, card_pk: UNLINKED_CARD_PK });
+      setCardPk(UNLINKED_CARD_PK);
+      showToast('success', 'Card Unlinked', 'File unlinked from card');
       onUpdate();
     } catch (error) {
       console.error('Failed to unlink card:', error);
+      showToast('error', 'Unlink Failed', 'Could not unlink card');
+    } finally {
+      setLinkingCard(false);
     }
   };
 
   const handleClose = () => {
-    if (hasUnsavedChanges) {
-      if (!window.confirm('You have unsaved changes. Discard them?')) {
-        return;
-      }
-    }
     onClose();
   };
 
-  const isLinked = cardPk && cardPk > 0 && file.card;
+  // Derive linked state from local cardPk (which syncs with props via useEffect)
+  const isLinked = cardPk > 0 && file.card;
 
   return (
     <div className="p-4">
@@ -103,7 +148,10 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
 
       {/* Description */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Description
+          {saving && <span className="ml-2 text-xs text-gray-400">Saving...</span>}
+        </label>
         <textarea
           value={description}
           onChange={(e) => handleDescriptionChange(e.target.value)}
@@ -111,21 +159,24 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
           className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           rows={3}
         />
-        {hasUnsavedChanges && (
-          <button
-            onClick={handleSaveDescription}
-            disabled={saving}
-            className="mt-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : 'Save Description'}
-          </button>
-        )}
       </div>
 
       {/* Tags */}
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-        <FileTags tags={tags} onAddTag={handleAddTag} onRemoveTag={handleRemoveTag} />
+        <div className="relative">
+          {tagOperation && (
+            <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded">
+              <span className="text-sm text-gray-500">Updating...</span>
+            </div>
+          )}
+          <FileTags
+            tags={tags}
+            onAddTag={handleAddTag}
+            onRemoveTag={handleRemoveTag}
+            editable={!tagOperation}
+          />
+        </div>
       </div>
 
       {/* Card Link */}
@@ -141,23 +192,30 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
               [{file.card.card_id}] {file.card.title || 'Untitled'}
             </Link>
             <button
+              type="button"
               onClick={handleUnlinkCard}
-              className="text-xs text-gray-500 hover:text-red-600 underline"
+              disabled={linkingCard}
+              className="text-xs text-gray-500 hover:text-red-600 underline disabled:opacity-50"
             >
-              Unlink
+              {linkingCard ? 'Unlinking...' : 'Unlink'}
             </button>
           </div>
         ) : (
-          <BacklinkInput addBacklink={handleLinkCard} />
+          <div className="relative">
+            {linkingCard && (
+              <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded">
+                <span className="text-sm text-gray-500">Linking...</span>
+              </div>
+            )}
+            <BacklinkInput addBacklink={handleLinkCard} />
+          </div>
         )}
       </div>
 
       {/* Footer */}
-      <div className="flex justify-between items-center pt-3 border-t">
-        <span className="text-sm text-gray-500">
-          {hasUnsavedChanges ? 'Unsaved changes' : ''}
-        </span>
+      <div className="flex justify-end items-center pt-3 border-t">
         <button
+          type="button"
           onClick={handleClose}
           className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
         >
