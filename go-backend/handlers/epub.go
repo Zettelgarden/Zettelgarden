@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -14,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -25,14 +27,35 @@ var (
 	ErrEpubParse      = errors.New("unable to parse epub file")
 	ErrEpubImport     = errors.New("failed to import epub")
 	ErrEpubNoChapters = errors.New("no valid chapters found in epub")
+	ErrEpubInvalid    = errors.New("invalid epub file format")
+	ErrDownloadTimeout = errors.New("download timed out")
 )
 
 // maxConcurrentEntityProcessing limits how many chapters can be processed simultaneously
 const maxConcurrentEntityProcessing = 5
 
+// epubDownloadTimeout is the maximum time allowed for downloading an epub from S3
+const epubDownloadTimeout = 5 * time.Minute
+
+// epubMagicBytes are the first 4 bytes of a valid EPUB (ZIP file header)
+var epubMagicBytes = []byte{0x50, 0x4B, 0x03, 0x04} // "PK\x03\x04"
+
 // ImportEpubRequest represents the request body for epub import
 type ImportEpubRequest struct {
 	CardID string `json:"card_id"` // User-specified card ID for the book
+}
+
+// validateEpubHeader checks if the file starts with ZIP magic bytes (EPUB is a ZIP)
+func validateEpubHeader(header []byte) error {
+	if len(header) < 4 {
+		return ErrEpubInvalid
+	}
+	for i := 0; i < 4; i++ {
+		if header[i] != epubMagicBytes[i] {
+			return ErrEpubInvalid
+		}
+	}
+	return nil
 }
 
 // ImportEpubRoute handles POST /files/{id}/import-epub
@@ -41,6 +64,10 @@ func (h *Handler) ImportEpubRoute(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+
+	// Create context with timeout for the entire operation
+	ctx, cancel := context.WithTimeout(r.Context(), epubDownloadTimeout)
+	defer cancel()
 
 	// Parse request body
 	var req ImportEpubRequest
@@ -81,32 +108,33 @@ func (h *Handler) ImportEpubRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Download epub from S3 to temp file
-	s3Output, err := h.downloadObject(h.Server.S3, s3Key, "")
+	// Download epub from S3 to temp file with context
+	tempPath, err := h.downloadEpubToTemp(ctx, s3Key, fileID)
 	if err != nil {
-		log.Printf("Failed to download epub from S3 for file %d: %v", fileID, err)
-		http.Error(w, "Failed to retrieve epub file", http.StatusInternalServerError)
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrDownloadTimeout) {
+			log.Printf("Epub download timed out for file %d, user %d", fileID, userID)
+			http.Error(w, "Download timed out", http.StatusGatewayTimeout)
+		} else {
+			log.Printf("Failed to download epub from S3 for file %d: %v", fileID, err)
+			http.Error(w, "Failed to retrieve epub file", http.StatusInternalServerError)
+		}
 		return
 	}
-	defer s3Output.Body.Close()
-
-	// Create temp file for epub
-	tempFile, err := os.CreateTemp("", "epub-*.epub")
-	if err != nil {
-		log.Printf("Failed to create temp file for file %d: %v", fileID, err)
-		http.Error(w, "Failed to process epub", http.StatusInternalServerError)
-		return
-	}
-	tempPath := tempFile.Name()
 	defer os.Remove(tempPath) // Clean up temp file
 
-	// Write epub content to temp file
-	_, err = io.Copy(tempFile, s3Output.Body)
-	tempFile.Close()
-	if err != nil {
-		log.Printf("Failed to write epub to temp file for file %d: %v", fileID, err)
-		http.Error(w, "Failed to process epub", http.StatusInternalServerError)
+	// Validate epub structure before parsing
+	if err := h.validateEpubFile(tempPath); err != nil {
+		log.Printf("Invalid epub file %d for user %d: %v", fileID, userID, err)
+		http.Error(w, "Invalid epub file format", http.StatusUnprocessableEntity)
 		return
+	}
+
+	// Check if context is still valid before expensive parsing
+	select {
+	case <-ctx.Done():
+		http.Error(w, "Request cancelled", http.StatusRequestTimeout)
+		return
+	default:
 	}
 
 	// Parse the epub
@@ -123,7 +151,7 @@ func (h *Handler) ImportEpubRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create cards in a transaction
-	response, err := h.createEpubCards(userID, fileID, req.CardID, metadata, chapters, fileName)
+	response, err := h.createEpubCards(ctx, userID, fileID, req.CardID, metadata, chapters, fileName)
 	if err != nil {
 		log.Printf("Failed to create cards for file %d, user %d: %v", fileID, userID, err)
 		http.Error(w, "Failed to import epub", http.StatusInternalServerError)
@@ -134,9 +162,83 @@ func (h *Handler) ImportEpubRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// downloadEpubToTemp downloads an epub from S3 to a temporary file with context support
+func (h *Handler) downloadEpubToTemp(ctx context.Context, s3Key string, fileID int) (string, error) {
+	// Download epub from S3
+	s3Output, err := h.downloadObject(h.Server.S3, s3Key, "")
+	if err != nil {
+		return "", fmt.Errorf("failed to download from S3: %w", err)
+	}
+	defer s3Output.Body.Close()
+
+	// Create temp file for epub
+	tempFile, err := os.CreateTemp("", "epub-*.epub")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tempPath := tempFile.Name()
+
+	// Write epub content to temp file with context awareness
+	// Use a goroutine to allow context cancellation
+	done := make(chan error, 1)
+	go func() {
+		_, err := io.Copy(tempFile, s3Output.Body)
+		tempFile.Close()
+		done <- err
+	}()
+
+	select {
+	case <-ctx.Done():
+		// Context cancelled - clean up and return
+		os.Remove(tempPath)
+		return "", ctx.Err()
+	case err := <-done:
+		if err != nil {
+			os.Remove(tempPath)
+			return "", fmt.Errorf("failed to write epub to temp file: %w", err)
+		}
+	}
+
+	return tempPath, nil
+}
+
+// validateEpubFile performs basic validation on the epub file structure
+func (h *Handler) validateEpubFile(tempPath string) error {
+	file, err := os.Open(tempPath)
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	// Check ZIP magic bytes (first 4 bytes)
+	header := make([]byte, 4)
+	n, err := file.Read(header)
+	if err != nil || n < 4 {
+		return ErrEpubInvalid
+	}
+
+	if err := validateEpubHeader(header); err != nil {
+		return err
+	}
+
+	// Additional validation: check for mimetype file (EPUB requirement)
+	// The mimetype file should be the first file in the ZIP and uncompressed
+	// For simplicity, we just check magic bytes. Full validation would require
+	// parsing the ZIP structure to find META-INF/container.xml
+
+	return nil
+}
+
 // createEpubCards creates the parent book card and child chapter cards
-func (h *Handler) createEpubCards(userID int, fileID int, cardID string, metadata models.EpubMetadata, chapters []models.EpubChapter, filename string) (models.ImportEpubResponse, error) {
+func (h *Handler) createEpubCards(ctx context.Context, userID int, fileID int, cardID string, metadata models.EpubMetadata, chapters []models.EpubChapter, filename string) (models.ImportEpubResponse, error) {
 	var response models.ImportEpubResponse
+
+	// Check for context cancellation before starting
+	select {
+	case <-ctx.Done():
+		return response, ctx.Err()
+	default:
+	}
 
 	tx, err := h.DB.Begin()
 	if err != nil {
@@ -158,6 +260,13 @@ func (h *Handler) createEpubCards(userID int, fileID int, cardID string, metadat
 		if err != nil {
 			return response, fmt.Errorf("failed to generate card ID: %w", err)
 		}
+	}
+
+	// Check for cancellation before creating cards
+	select {
+	case <-ctx.Done():
+		return response, ctx.Err()
+	default:
 	}
 
 	// Create parent book card using CreateCard - pass transaction for atomicity
@@ -184,6 +293,15 @@ func (h *Handler) createEpubCards(userID int, fileID int, cardID string, metadat
 	// Create child chapter cards - all within the same transaction
 	childCards := make([]models.Card, 0, len(chapters))
 	for i, chapter := range chapters {
+		// Check for cancellation periodically
+		if i%10 == 0 {
+			select {
+			case <-ctx.Done():
+				return response, ctx.Err()
+			default:
+			}
+		}
+
 		// Generate card_id for chapter (parent.cardID + incrementing number)
 		chapterCardID := fmt.Sprintf("%s.%d", cardID, i+1)
 

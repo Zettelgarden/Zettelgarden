@@ -132,3 +132,13 @@ func TestConstants(t *testing.T) {
 		t.Error("MinChapterContent should be positive")
 	}
 }
+
+func TestErrNoValidChapters(t *testing.T) {
+	// Verify the error is defined correctly
+	if ErrNoValidChapters == nil {
+		t.Error("ErrNoValidChapters should not be nil")
+	}
+	if ErrNoValidChapters.Error() != "no valid chapters found in epub" {
+		t.Errorf("ErrNoValidChapters message = %q, want %q", ErrNoValidChapters.Error(), "no valid chapters found in epub")
+	}
+}
