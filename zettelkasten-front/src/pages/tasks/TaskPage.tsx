@@ -14,6 +14,7 @@ import { EisenhowerMatrix } from "../../components/tasks/EisenhowerMatrix";
 import { KanbanBoard } from "../../components/tasks/KanbanBoard";
 import { useTaskPageSettings } from "../../hooks/useTaskPageSettings";
 import { useTaskFiltering } from "../../hooks/useTaskFiltering";
+import { useFilterInput } from "../../hooks/useFilterInput";
 import { CalendarViewWrapper } from "../../components/calendar/CalendarView";
 import { useNavigate } from "react-router-dom";
 import { getExternalEvents } from "../../api/externalEvents";
@@ -33,12 +34,7 @@ import {
   getEndOfWeekInTimezone,
 } from "../../utils/dates";
 import { parseTaskQuery, updateQueryDateView, updateQueryShowCompleted } from "../../utils/tasks";
-import {
-  QuickTagPopover,
-  type QuickTagTrigger,
-  getQuickTagTrigger,
-  applyQuickTagSelection,
-} from "../../components/tasks/QuickTagPopover";
+import { QuickTagPopover } from "../../components/tasks/QuickTagPopover";
 
 interface TaskListProps { }
 
@@ -54,7 +50,6 @@ export function TaskPage({ }: TaskListProps) {
   // Responsive layout state
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const [mobileView, setMobileView] = useState<TaskMobileView>('list');
-  const [isFilterFocused, setIsFilterFocused] = useState(false);
 
   // State for task dialog
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
@@ -72,13 +67,24 @@ export function TaskPage({ }: TaskListProps) {
   // Ref for abort controller to cancel pending external events requests
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Filter input quick tag autocomplete state
-  const filterInputRef = useRef<HTMLInputElement>(null);
-  const [cursorPosition, setCursorPosition] = useState(0);
-  const [filterTrigger, setFilterTrigger] = useState<QuickTagTrigger | null>(null);
-
   // Use custom hooks for settings and filtering
   const settings = useTaskPageSettings();
+
+  // Filter input quick tag autocomplete state - using custom hook
+  const {
+    filterInputRef,
+    cursorPosition,
+    filterTrigger,
+    isFilterFocused,
+    setIsFilterFocused,
+    handleFilterChange,
+    handleSelectQuickTag,
+    refreshFilterTriggerFromInput,
+    setFilterTrigger,
+  } = useFilterInput({
+    filterString: settings.filterString,
+    setFilterString: settings.setFilterString,
+  });
   const {
     tasksToDisplay,
     paginatedTasks,
@@ -182,52 +188,6 @@ export function TaskPage({ }: TaskListProps) {
       }
     };
   }, [settings.viewMode, settings.calendarViewMode, settings.calendarCurrentDate, userTimezone]);
-
-  function handleFilterChange(
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) {
-    const nextValue = e.target.value;
-    const nextCursor = (e.target as HTMLInputElement).selectionStart ?? nextValue.length;
-
-    setCursorPosition(nextCursor);
-    setFilterTrigger(getQuickTagTrigger(nextValue, nextCursor));
-
-    settings.setFilterString(nextValue);
-  }
-
-  function refreshFilterTriggerFromInput(input: HTMLInputElement) {
-    const cursor = input.selectionStart ?? 0;
-    setCursorPosition(cursor);
-    setFilterTrigger(getQuickTagTrigger(input.value, cursor));
-  }
-
-  function handleSelectQuickTag(selectedTagName: string) {
-    if (!filterTrigger) return;
-
-    const res = applyQuickTagSelection({
-      title: settings.filterString,
-      trigger: filterTrigger,
-      selectedTagName,
-    });
-
-    setCursorPosition(res.nextCursor);
-
-    if (!res.didInsert) {
-      setFilterTrigger(null);
-      return;
-    }
-
-    settings.setFilterString(res.nextTitle);
-    setFilterTrigger(null);
-
-    // Restore focus + cursor after React updates the controlled input.
-    requestAnimationFrame(() => {
-      const input = filterInputRef.current;
-      if (!input) return;
-      input.focus();
-      input.setSelectionRange(res.nextCursor, res.nextCursor);
-    });
-  }
 
   function handleDateChange(e: ChangeEvent<HTMLSelectElement>) {
     isInternalUpdate.current = true;
@@ -411,82 +371,110 @@ export function TaskPage({ }: TaskListProps) {
         />
       ) : (
         <TaskDesktopLayout
-          // Task data
-          tasks={tasks}
-          tags={tags}
-          userTimezone={userTimezone}
-          isLoading={isLoading}
-          filterInputRef={filterInputRef}
-          // Filtered tasks
-          tasksToDisplay={tasksToDisplay}
-          paginatedTasks={paginatedTasks}
-          totalTasksForDateView={totalTasksForDateView}
-          totalPages={totalPages}
-          // Settings
-          dateView={settings.dateView}
-          filterString={settings.filterString}
-          sortField={settings.sortField}
-          sortDirection={settings.sortDirection}
-          viewMode={settings.viewMode}
-          currentPage={settings.currentPage}
-          itemsPerPage={settings.itemsPerPage}
-          calendarViewMode={settings.calendarViewMode}
-          calendarCurrentDate={settings.calendarCurrentDate}
-          showCompleted={showCompleted}
-          // UI state
-          showFilterHelp={settings.showFilterHelp}
-          showDisplayMenu={settings.showDisplayMenu}
-          selectMode={settings.selectMode}
-          selectedTaskIds={settings.selectedTaskIds}
-          // External events
-          externalEvents={externalEvents}
-          isLoadingEvents={isLoadingEvents}
-          // Dialog states
-          showCreateTaskWindow={showCreateTaskWindow}
-          selectedTaskId={selectedTaskId}
-          isTaskDialogOpen={isTaskDialogOpen}
-          createTaskStatus={createTaskStatus}
-          calendarSelectedDate={calendarSelectedDate}
-          // Setters
-          setRefreshTasks={setRefreshTasks}
-          setShowCreateTaskWindow={setShowCreateTaskWindow}
-          setSelectedTaskId={setSelectedTaskId}
-          setIsTaskDialogOpen={setIsTaskDialogOpen}
-          setCreateTaskStatus={setCreateTaskStatus}
-          setCalendarSelectedDate={setCalendarSelectedDate}
-          setExternalEvents={setExternalEvents}
-          setIsLoadingEvents={setIsLoadingEvents}
-          // Settings setters
-          setDateView={settings.setDateView}
-          setFilterString={settings.setFilterString}
-          setSortField={settings.setSortField}
-          setSortDirection={settings.setSortDirection}
-          setViewMode={settings.setViewMode}
-          setCurrentPage={settings.setCurrentPage}
-          setItemsPerPage={settings.setItemsPerPage}
-          setCalendarViewMode={settings.setCalendarViewMode}
-          setCalendarCurrentDate={settings.setCalendarCurrentDate}
-          setShowFilterHelp={settings.setShowFilterHelp}
-          setShowDisplayMenu={settings.setShowDisplayMenu}
-          setSelectMode={settings.setSelectMode}
-          setSelectedTaskIds={settings.setSelectedTaskIds}
-          toggleSelectMode={settings.toggleSelectMode}
-          toggleTaskSelection={settings.toggleTaskSelection}
-          selectAllTasks={settings.selectAllTasks}
-          clearSelection={settings.clearSelection}
-          toggleSortDirection={settings.toggleSortDirection}
-          setShowCompleted={setShowCompleted}
-          navigateCalendar={settings.navigateCalendar}
-          // Handlers
-          onTagClick={handleTagClick}
-          onAddTaskWithStatus={handleAddTaskWithStatus}
-          onCloseTaskDialog={handleCloseTaskDialog}
-          onDateChange={handleDateChange}
-          onSortFieldChange={handleSortFieldChange}
-          onShowCompletedChange={handleShowCompletedChange}
-          onFilterChange={handleFilterChange}
-          onSelectQuickTag={handleSelectQuickTag}
-          onRefreshFilterTriggerFromInput={refreshFilterTriggerFromInput}
+          taskData={{
+            tasks,
+            tags,
+            userTimezone,
+            isLoading,
+            tasksToDisplay,
+            paginatedTasks,
+            totalTasksForDateView,
+            totalPages,
+          }}
+          externalEventsState={{
+            externalEvents,
+            isLoadingEvents,
+          }}
+          viewSettings={{
+            dateView: settings.dateView,
+            viewMode: settings.viewMode,
+            sortField: settings.sortField,
+            sortDirection: settings.sortDirection,
+            calendarViewMode: settings.calendarViewMode,
+            calendarCurrentDate: settings.calendarCurrentDate,
+            currentPage: settings.currentPage,
+            itemsPerPage: settings.itemsPerPage,
+            showDisplayMenu: settings.showDisplayMenu,
+          }}
+          viewSettingsSetters={{
+            setDateView: settings.setDateView,
+            setViewMode: settings.setViewMode,
+            setSortField: settings.setSortField,
+            setSortDirection: settings.setSortDirection,
+            setCalendarViewMode: settings.setCalendarViewMode,
+            setCalendarCurrentDate: settings.setCalendarCurrentDate,
+            setCurrentPage: settings.setCurrentPage,
+            setItemsPerPage: settings.setItemsPerPage,
+            setShowDisplayMenu: settings.setShowDisplayMenu,
+          }}
+          dialogState={{
+            showCreateTaskWindow,
+            selectedTaskId,
+            isTaskDialogOpen,
+            createTaskStatus,
+            calendarSelectedDate,
+          }}
+          dialogSetters={{
+            setShowCreateTaskWindow,
+            setSelectedTaskId,
+            setIsTaskDialogOpen,
+            setCreateTaskStatus,
+            setCalendarSelectedDate,
+          }}
+          selectionState={{
+            selectMode: settings.selectMode,
+            selectedTaskIds: settings.selectedTaskIds,
+          }}
+          selectionActions={{
+            setSelectMode: settings.setSelectMode,
+            setSelectedTaskIds: settings.setSelectedTaskIds,
+            toggleSelectMode: settings.toggleSelectMode,
+            toggleTaskSelection: settings.toggleTaskSelection,
+            selectAllTasks: settings.selectAllTasks,
+            clearSelection: settings.clearSelection,
+          }}
+          filterState={{
+            filterString: settings.filterString,
+            showFilterHelp: settings.showFilterHelp,
+            showCompleted,
+          }}
+          filterSetters={{
+            setFilterString: settings.setFilterString,
+            setShowFilterHelp: settings.setShowFilterHelp,
+            setShowCompleted,
+          }}
+          filterInputState={{
+            filterInputRef,
+            cursorPosition,
+            filterTrigger,
+            isFilterFocused,
+          }}
+          filterInputSetters={{
+            setFilterTrigger,
+            setIsFilterFocused,
+          }}
+          filterInputHandlers={{
+            onFilterChange: handleFilterChange,
+            onSelectQuickTag: handleSelectQuickTag,
+            onRefreshFilterTriggerFromInput: refreshFilterTriggerFromInput,
+          }}
+          navigationActions={{
+            navigateCalendar: settings.navigateCalendar,
+            toggleSortDirection: settings.toggleSortDirection,
+          }}
+          externalEventsSetters={{
+            setExternalEvents,
+            setIsLoadingEvents,
+            setRefreshTasks,
+          }}
+          handlers={{
+            onTagClick: handleTagClick,
+            onAddTaskWithStatus: handleAddTaskWithStatus,
+            onCloseTaskDialog: handleCloseTaskDialog,
+            onDateChange: handleDateChange,
+            onSortFieldChange: handleSortFieldChange,
+            onShowCompletedChange: handleShowCompletedChange,
+          }}
         />
       )}
     </div>

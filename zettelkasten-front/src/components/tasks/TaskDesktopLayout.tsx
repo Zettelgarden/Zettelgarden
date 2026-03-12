@@ -18,107 +18,76 @@ import { Button } from "../../components/Button";
 import { SearchTagDropdown } from "../../components/tags/SearchTagDropdown";
 import {
   QuickTagPopover,
-  type QuickTagTrigger,
-  getQuickTagTrigger,
-  applyQuickTagSelection,
 } from "./QuickTagPopover";
-import {
-  getStartOfMonthInTimezone,
-  getEndOfMonthInTimezone,
-  getStartOfWeekInTimezone,
-  getEndOfWeekInTimezone,
-} from "../../utils/dates";
 import { useSubtaskDisplayMode } from "../../hooks/useSubtaskDisplayMode";
-
-type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "due_date";
-type SortDirection = "asc" | "desc";
-type ViewMode = "list" | "matrix" | "kanban" | "calendar";
+import type {
+  TaskData,
+  ExternalEventsState,
+  ViewSettings,
+  ViewSettingsSetters,
+  DialogState,
+  DialogSetters,
+  SelectionState,
+  SelectionActions,
+  FilterState,
+  FilterSetters,
+  FilterInputState,
+  FilterInputSetters,
+  FilterInputHandlers,
+  NavigationActions,
+  ExternalEventsSetters,
+  DesktopHandlers,
+  ViewMode,
+} from "../../types/taskPage";
 
 interface TaskDesktopLayoutProps {
-  // Task data
-  tasks: Task[];
-  tags: Tag[];
-  showCompleted: boolean;
-  userTimezone: string;
-  isLoading?: boolean;
-  filterInputRef?: React.RefObject<HTMLInputElement>;
+  // Grouped: Task data
+  taskData: TaskData;
 
-  // Filtered and paginated tasks
-  tasksToDisplay: Task[];
-  paginatedTasks: Task[];
-  totalTasksForDateView: number;
-  totalPages: number;
+  // Grouped: External events
+  externalEventsState: ExternalEventsState;
 
-  // View settings
-  dateView: string;
-  filterString: string;
-  sortField: SortField;
-  sortDirection: SortDirection;
-  viewMode: ViewMode;
-  calendarViewMode: "month" | "week";
-  calendarCurrentDate: Date;
-  currentPage: number;
-  itemsPerPage: number;
-  showFilterHelp: boolean;
-  showDisplayMenu: boolean;
-  selectMode: boolean;
-  selectedTaskIds: Set<number>;
+  // Grouped: View settings
+  viewSettings: ViewSettings;
 
-  // External calendar events
-  externalEvents: ExternalEvent[];
-  isLoadingEvents: boolean;
+  // Grouped: View settings setters
+  viewSettingsSetters: ViewSettingsSetters;
 
-  // Dialog states
-  showCreateTaskWindow: boolean;
-  selectedTaskId: number | null;
-  isTaskDialogOpen: boolean;
-  createTaskStatus: string | undefined;
-  calendarSelectedDate: Date | null;
+  // Grouped: Dialog state
+  dialogState: DialogState;
 
-  // Setters
-  setShowCompleted: (show: boolean) => void;
-  setRefreshTasks: (refresh: boolean) => void;
+  // Grouped: Dialog setters
+  dialogSetters: DialogSetters;
 
-  // Settings methods (from useTaskPageSettings hook)
-  setDateView: (dateView: string | ((prev: string) => string)) => void;
-  setFilterString: (filterString: string | ((prev: string) => string)) => void;
-  setSortField: (sortField: SortField | ((prev: SortField) => SortField)) => void;
-  setSortDirection: (sortDirection: SortDirection | ((prev: SortDirection) => SortDirection)) => void;
-  setViewMode: (viewMode: ViewMode | ((prev: ViewMode) => ViewMode)) => void;
-  setCalendarViewMode: (viewMode: "month" | "week" | ((prev: "month" | "week") => "month" | "week")) => void;
-  setCalendarCurrentDate: (date: Date | ((prev: Date) => Date)) => void;
-  setCurrentPage: (page: number | ((prev: number) => number)) => void;
-  setItemsPerPage: (itemsPerPage: number | ((prev: number) => number)) => void;
-  setShowFilterHelp: (show: boolean | ((prev: boolean) => boolean)) => void;
-  setShowDisplayMenu: (show: boolean | ((prev: boolean) => boolean)) => void;
-  setSelectMode: (selectMode: boolean | ((prev: boolean) => boolean)) => void;
-  setSelectedTaskIds: (taskIds: Set<number> | ((prev: Set<number>) => Set<number>)) => void;
-  setShowCreateTaskWindow: (show: boolean | ((prev: boolean) => boolean)) => void;
-  setSelectedTaskId: (taskId: number | null) => void;
-  setIsTaskDialogOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
-  setCreateTaskStatus: (status: string | undefined) => void;
-  setCalendarSelectedDate: (date: Date | null) => void;
-  setExternalEvents: (events: ExternalEvent[] | ((prev: ExternalEvent[]) => ExternalEvent[])) => void;
-  setIsLoadingEvents: (loading: boolean | ((prev: boolean) => boolean)) => void;
+  // Grouped: Selection state
+  selectionState: SelectionState;
 
-  // Actions
-  toggleSortDirection: () => void;
-  toggleSelectMode: () => void;
-  toggleTaskSelection: (taskId: number) => void;
-  selectAllTasks: (taskIds: number[]) => void;
-  clearSelection: () => void;
-  navigateCalendar: (direction: "prev" | "next" | "today") => void;
+  // Grouped: Selection actions
+  selectionActions: SelectionActions;
 
-  // Event handlers
-  onTagClick: (tag: string) => void;
-  onAddTaskWithStatus: (status: string) => void;
-  onCloseTaskDialog: () => void;
-  onDateChange: (e: ChangeEvent<HTMLSelectElement>) => void;
-  onSortFieldChange: (e: ChangeEvent<HTMLSelectElement>) => void;
-  onShowCompletedChange: () => void;
-  onFilterChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  onSelectQuickTag: (tagName: string) => void;
-  onRefreshFilterTriggerFromInput: (input: HTMLInputElement) => void;
+  // Grouped: Filter state
+  filterState: FilterState;
+
+  // Grouped: Filter setters
+  filterSetters: FilterSetters;
+
+  // Grouped: Filter input state
+  filterInputState: FilterInputState;
+
+  // Grouped: Filter input setters
+  filterInputSetters: FilterInputSetters;
+
+  // Grouped: Filter input handlers
+  filterInputHandlers: FilterInputHandlers;
+
+  // Grouped: Navigation actions
+  navigationActions: NavigationActions;
+
+  // Grouped: External events setters
+  externalEventsSetters: ExternalEventsSetters;
+
+  // Grouped: Desktop handlers
+  handlers: DesktopHandlers;
 }
 
 /**
@@ -126,126 +95,37 @@ interface TaskDesktopLayoutProps {
  * Layout: Main content (toolbar + view) | Quick lists sidebar (optional)
  */
 export function TaskDesktopLayout({
-  tasks,
-  tags,
-  showCompleted,
-  userTimezone,
-  isLoading = false,
-  filterInputRef: externalFilterInputRef,
-  tasksToDisplay,
-  paginatedTasks,
-  totalTasksForDateView,
-  totalPages,
-  dateView,
-  filterString,
-  sortField,
-  sortDirection,
-  viewMode,
-  calendarViewMode,
-  calendarCurrentDate,
-  currentPage,
-  itemsPerPage,
-  showFilterHelp,
-  showDisplayMenu,
-  selectMode,
-  selectedTaskIds,
-  externalEvents,
-  isLoadingEvents,
-  showCreateTaskWindow,
-  selectedTaskId,
-  isTaskDialogOpen,
-  createTaskStatus,
-  calendarSelectedDate,
-  setShowCompleted,
-  setRefreshTasks,
-  setDateView,
-  setFilterString,
-  setSortField,
-  setSortDirection,
-  setViewMode,
-  setCalendarViewMode,
-  setCalendarCurrentDate,
-  setCurrentPage,
-  setItemsPerPage,
-  setShowFilterHelp,
-  setShowDisplayMenu,
-  setSelectMode,
-  setSelectedTaskIds,
-  setShowCreateTaskWindow,
-  setSelectedTaskId,
-  setIsTaskDialogOpen,
-  setCreateTaskStatus,
-  setCalendarSelectedDate,
-  setExternalEvents,
-  setIsLoadingEvents,
-  toggleSortDirection,
-  toggleSelectMode,
-  toggleTaskSelection,
-  selectAllTasks,
-  clearSelection,
-  navigateCalendar,
-  onTagClick,
-  onAddTaskWithStatus,
-  onCloseTaskDialog,
-  onDateChange,
-  onSortFieldChange,
-  onShowCompletedChange,
-  onFilterChange,
-  onSelectQuickTag,
-  onRefreshFilterTriggerFromInput,
+  taskData,
+  externalEventsState,
+  viewSettings,
+  viewSettingsSetters,
+  dialogState,
+  dialogSetters,
+  selectionState,
+  selectionActions,
+  filterState,
+  filterSetters,
+  filterInputState,
+  filterInputSetters,
+  filterInputHandlers,
+  navigationActions,
+  externalEventsSetters,
+  handlers,
 }: TaskDesktopLayoutProps) {
-  // Refs for quick tag autocomplete - use external ref if provided, otherwise internal
-  const internalFilterInputRef = React.useRef<HTMLInputElement>(null);
-  const filterInputRef = externalFilterInputRef || internalFilterInputRef;
-  const [cursorPosition, setCursorPosition] = React.useState(0);
-  const [filterTrigger, setFilterTrigger] = React.useState<QuickTagTrigger | null>(null);
-  const [isFilterFocused, setIsFilterFocused] = React.useState(false);
-
   const { subtaskMode, setSubtaskMode } = useSubtaskDisplayMode();
 
-  const handleSelectQuickTag = (selectedTagName: string) => {
-    if (!filterTrigger) return;
-
-    const res = applyQuickTagSelection({
-      title: filterString,
-      trigger: filterTrigger,
-      selectedTagName,
-    });
-
-    setCursorPosition(res.nextCursor);
-
-    if (!res.didInsert) {
-      setFilterTrigger(null);
-      return;
-    }
-
-    setFilterString(res.nextTitle);
-    setFilterTrigger(null);
-
-    // Restore focus + cursor after React updates the controlled input.
-    requestAnimationFrame(() => {
-      const input = filterInputRef.current;
-      if (!input) return;
-      input.focus();
-      input.setSelectionRange(res.nextCursor, res.nextCursor);
-    });
-  };
-
-  const handleFilterChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const nextValue = e.target.value;
-    const nextCursor = (e.target as HTMLInputElement).selectionStart ?? nextValue.length;
-
-    setCursorPosition(nextCursor);
-    setFilterTrigger(getQuickTagTrigger(nextValue, nextCursor));
-
-    setFilterString(nextValue);
-  };
-
-  const refreshFilterTriggerFromInput = (input: HTMLInputElement) => {
-    const cursor = input.selectionStart ?? 0;
-    setCursorPosition(cursor);
-    setFilterTrigger(getQuickTagTrigger(input.value, cursor));
-  };
+  // Destructure for easier access
+  const { tasks, tags, userTimezone, isLoading, tasksToDisplay, paginatedTasks, totalTasksForDateView, totalPages } = taskData;
+  const { externalEvents, isLoadingEvents } = externalEventsState;
+  const { dateView, viewMode, sortField, sortDirection, calendarViewMode, calendarCurrentDate, currentPage, itemsPerPage } = viewSettings;
+  const { showCreateTaskWindow, selectedTaskId, isTaskDialogOpen, createTaskStatus, calendarSelectedDate } = dialogState;
+  const { selectMode, selectedTaskIds } = selectionState;
+  const { filterString, showFilterHelp, showCompleted } = filterState;
+  const { filterInputRef, cursorPosition, filterTrigger, isFilterFocused } = filterInputState;
+  const { setFilterTrigger, setIsFilterFocused } = filterInputSetters;
+  const { onFilterChange, onSelectQuickTag, onRefreshFilterTriggerFromInput } = filterInputHandlers;
+  const { navigateCalendar, toggleSortDirection } = navigationActions;
+  const { setRefreshTasks } = externalEventsSetters;
 
   return (
     <div className="hidden md:flex flex-row h-screen overflow-hidden">
@@ -261,12 +141,12 @@ export function TaskDesktopLayout({
                   ref={filterInputRef}
                   type="text"
                   value={filterString}
-                  onChange={handleFilterChange}
-                  onKeyUp={(e) => refreshFilterTriggerFromInput(e.currentTarget)}
-                  onClick={(e) => refreshFilterTriggerFromInput(e.currentTarget)}
+                  onChange={onFilterChange}
+                  onKeyUp={(e) => onRefreshFilterTriggerFromInput(e.currentTarget)}
+                  onClick={(e) => onRefreshFilterTriggerFromInput(e.currentTarget)}
                   onFocus={(e) => {
                     setIsFilterFocused(true);
-                    refreshFilterTriggerFromInput(e.currentTarget);
+                    onRefreshFilterTriggerFromInput(e.currentTarget);
                   }}
                   onBlur={() => setIsFilterFocused(false)}
                   placeholder="Filter... try #tag or status:todo"
@@ -274,11 +154,11 @@ export function TaskDesktopLayout({
                 />
                 <FilterHelpButton
                   showHelp={showFilterHelp}
-                  onToggle={() => setShowFilterHelp(!showFilterHelp)}
+                  onToggle={() => filterSetters.setShowFilterHelp(!showFilterHelp)}
                 />
                 <FilterHelpPopover
                   visible={showFilterHelp}
-                  onClose={() => setShowFilterHelp(false)}
+                  onClose={() => filterSetters.setShowFilterHelp(false)}
                 />
               </div>
 
@@ -288,13 +168,13 @@ export function TaskDesktopLayout({
                 titleValue={filterString}
                 cursorPosition={cursorPosition}
                 trigger={filterTrigger}
-                onSelectTag={handleSelectQuickTag}
+                onSelectTag={onSelectQuickTag}
                 onRequestClose={() => setFilterTrigger(null)}
               />
               <div className="h-9 flex items-center">
                 <SearchTagDropdown
                   tags={tags}
-                  handleTagClick={onTagClick}
+                  handleTagClick={handlers.onTagClick}
                 />
               </div>
             </div>
@@ -302,7 +182,7 @@ export function TaskDesktopLayout({
             <div className="flex items-center gap-2">
               <ViewModeToggle
                 value={viewMode}
-                onChange={(mode) => setViewMode(mode)}
+                onChange={(mode) => viewSettingsSetters.setViewMode(mode)}
               />
             </div>
             {/* Right section: Count, Display menu, Actions */}
@@ -330,18 +210,18 @@ export function TaskDesktopLayout({
               <div className="relative">
                 <Button
                   className="h-9 px-3 text-sm bg-slate-300 rounded-md"
-                  onClick={() => setShowDisplayMenu(!showDisplayMenu)}
+                  onClick={() => viewSettingsSetters.setShowDisplayMenu(!viewSettings.showDisplayMenu)}
                 >
                   Display ▾
                 </Button>
-                {showDisplayMenu && (
+                {viewSettings.showDisplayMenu && (
                   <div className="absolute right-0 mt-1 w-64 bg-white border border-slate-300 rounded shadow-lg p-3 z-20">
                     <div className="mb-2">
                       <label className="block text-xs font-semibold mb-1">Date Range</label>
                       <select
                         className="w-full p-1 border border-slate-300 rounded-md text-sm"
                         value={dateView}
-                        onChange={onDateChange}
+                        onChange={handlers.onDateChange}
                       >
                         <option value="today">Today</option>
                         <option value="tomorrow">Tomorrow</option>
@@ -356,7 +236,7 @@ export function TaskDesktopLayout({
                       <select
                         className="w-full p-1 border border-slate-300 rounded-md text-sm"
                         value={viewMode}
-                        onChange={(e) => setViewMode(e.target.value as ViewMode)}
+                        onChange={(e) => viewSettingsSetters.setViewMode(e.target.value as ViewMode)}
                       >
                         <option value="list">List View</option>
                         <option value="matrix">Eisenhower Matrix</option>
@@ -369,7 +249,7 @@ export function TaskDesktopLayout({
                         <input
                           type="checkbox"
                           checked={showCompleted}
-                          onChange={onShowCompletedChange}
+                          onChange={handlers.onShowCompletedChange}
                           className="rounded"
                         />
                         Show Completed Tasks
@@ -415,7 +295,7 @@ export function TaskDesktopLayout({
                         <input
                           type="checkbox"
                           checked={selectMode}
-                          onChange={toggleSelectMode}
+                          onChange={selectionActions.toggleSelectMode}
                           className="rounded"
                         />
                         Select Mode
@@ -428,7 +308,7 @@ export function TaskDesktopLayout({
                           id="sort-select"
                           className="flex-grow p-1 border border-slate-300 rounded-md text-sm"
                           value={sortField}
-                          onChange={onSortFieldChange}
+                          onChange={handlers.onSortFieldChange}
                         >
                           <option value="updated_at">Updated</option>
                           <option value="title">Name</option>
@@ -448,9 +328,9 @@ export function TaskDesktopLayout({
               </div>
               <Button
                 onClick={() => {
-                  setCreateTaskStatus(undefined);
-                  setCalendarSelectedDate(null);
-                  setShowCreateTaskWindow(!showCreateTaskWindow);
+                  dialogSetters.setCreateTaskStatus(undefined);
+                  dialogSetters.setCalendarSelectedDate(null);
+                  dialogSetters.setShowCreateTaskWindow(!showCreateTaskWindow);
                 }}
                 className="h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 text-lg font-bold flex items-center justify-center pb-2"
                 title="Add Task (N)"
@@ -486,7 +366,7 @@ export function TaskDesktopLayout({
                     </button>
                     <button
                       className="px-4 py-2 border border-slate-300 text-slate-700 rounded hover:bg-slate-50 transition-colors"
-                      onClick={() => setViewMode("list")}
+                      onClick={() => viewSettingsSetters.setViewMode("list")}
                     >
                       Switch to List View
                     </button>
@@ -515,15 +395,15 @@ export function TaskDesktopLayout({
                     currentDate={calendarCurrentDate}
                     viewMode={calendarViewMode}
                     onNavigate={navigateCalendar}
-                    onViewModeChange={setCalendarViewMode}
+                    onViewModeChange={viewSettingsSetters.setCalendarViewMode}
                     onTaskClick={(taskId) => {
-                      setSelectedTaskId(taskId);
-                      setIsTaskDialogOpen(true);
+                      dialogSetters.setSelectedTaskId(taskId);
+                      dialogSetters.setIsTaskDialogOpen(true);
                     }}
                     onCreateTask={(date) => {
-                      setCalendarSelectedDate(date);
-                      setCreateTaskStatus(undefined);
-                      setShowCreateTaskWindow(true);
+                      dialogSetters.setCalendarSelectedDate(date);
+                      dialogSetters.setCreateTaskStatus(undefined);
+                      dialogSetters.setShowCreateTaskWindow(true);
                     }}
                     onTaskMoved={() => {
                       setRefreshTasks(true);
@@ -540,11 +420,11 @@ export function TaskDesktopLayout({
               ) : paginatedTasks.length > 0 ? (
                 <ul>
                   <TaskList
-                    onTagClick={onTagClick}
+                    onTagClick={handlers.onTagClick}
                     tasks={paginatedTasks}
                     selectMode={selectMode}
                     selectedTaskIds={selectedTaskIds}
-                    onTaskSelect={toggleTaskSelection}
+                    onTaskSelect={selectionActions.toggleTaskSelection}
                     subtaskMode={subtaskMode}
                   />
                 </ul>
@@ -557,12 +437,12 @@ export function TaskDesktopLayout({
                     showCompleted,
                   }) || "no-tasks"}
                   onAddTask={() => {
-                    setCreateTaskStatus(undefined);
-                    setCalendarSelectedDate(null);
-                    setShowCreateTaskWindow(true);
+                    dialogSetters.setCreateTaskStatus(undefined);
+                    dialogSetters.setCalendarSelectedDate(null);
+                    dialogSetters.setShowCreateTaskWindow(true);
                   }}
-                  onClearFilters={() => setFilterString("")}
-                  onShowCompleted={() => setShowCompleted(true)}
+                  onClearFilters={() => filterSetters.setFilterString("")}
+                  onShowCompleted={() => filterSetters.setShowCompleted(true)}
                 />
               )}
               {/* Pagination controls - only show if there are tasks and multiple pages */}
@@ -573,14 +453,14 @@ export function TaskDesktopLayout({
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
-                      onClick={() => setCurrentPage(1)}
+                      onClick={() => viewSettingsSetters.setCurrentPage(1)}
                       disabled={currentPage === 1}
                       className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       First
                     </Button>
                     <Button
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      onClick={() => viewSettingsSetters.setCurrentPage(Math.max(1, currentPage - 1))}
                       disabled={currentPage === 1}
                       className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -590,14 +470,14 @@ export function TaskDesktopLayout({
                       Page {currentPage} of {totalPages}
                     </span>
                     <Button
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      onClick={() => viewSettingsSetters.setCurrentPage(Math.min(totalPages, currentPage + 1))}
                       disabled={currentPage === totalPages}
                       className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Next
                     </Button>
                     <Button
-                      onClick={() => setCurrentPage(totalPages)}
+                      onClick={() => viewSettingsSetters.setCurrentPage(totalPages)}
                       disabled={currentPage === totalPages}
                       className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -605,7 +485,7 @@ export function TaskDesktopLayout({
                     </Button>
                     <select
                       value={itemsPerPage}
-                      onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                      onChange={(e) => viewSettingsSetters.setItemsPerPage(Number(e.target.value))}
                       className="ml-2 px-2 py-1 text-sm border border-slate-300 rounded"
                     >
                       <option value={25}>25 per page</option>
@@ -619,25 +499,25 @@ export function TaskDesktopLayout({
             </>
           ) : viewMode === "kanban" ? (
             <KanbanBoard
-              onTagClick={onTagClick}
+              onTagClick={handlers.onTagClick}
               tasks={tasksToDisplay}
-              onAddTaskWithStatus={onAddTaskWithStatus}
+              onAddTaskWithStatus={handlers.onAddTaskWithStatus}
               selectMode={selectMode}
               selectedTaskIds={selectedTaskIds}
-              onTaskSelect={toggleTaskSelection}
+              onTaskSelect={selectionActions.toggleTaskSelection}
               subtaskMode={subtaskMode}
             />
           ) : (
             <EisenhowerMatrix
-              onTagClick={onTagClick}
+              onTagClick={handlers.onTagClick}
               tasks={tasksToDisplay}
               onAddTaskWithTags={(tags: string[]) => {
-                setFilterString(tags.join(" "));
-                setShowCreateTaskWindow(true);
+                filterSetters.setFilterString(tags.join(" "));
+                dialogSetters.setShowCreateTaskWindow(true);
               }}
               selectMode={selectMode}
               selectedTaskIds={selectedTaskIds}
-              onTaskSelect={toggleTaskSelection}
+              onTaskSelect={selectionActions.toggleTaskSelection}
               subtaskMode={subtaskMode}
             />
           )}
@@ -648,7 +528,7 @@ export function TaskDesktopLayout({
       {showCreateTaskWindow && (
         <CreateTaskWindow
           currentCard={null}
-          setShowTaskWindow={setShowCreateTaskWindow}
+          setShowTaskWindow={dialogSetters.setShowCreateTaskWindow}
           currentFilter={filterString}
           initialStatus={createTaskStatus}
           initialDate={calendarSelectedDate || undefined}
@@ -658,16 +538,16 @@ export function TaskDesktopLayout({
       <TaskDialog
         taskId={selectedTaskId}
         isOpen={isTaskDialogOpen}
-        onClose={onCloseTaskDialog}
+        onClose={handlers.onCloseTaskDialog}
       />
 
       <TaskSelectionOverlay
         tasks={tasksToDisplay}
         selectMode={selectMode}
         selectedTaskIds={selectedTaskIds}
-        onSelectAll={() => selectAllTasks(paginatedTasks.map(t => t.id))}
-        onClearSelection={clearSelection}
-        onToggleSelectMode={toggleSelectMode}
+        onSelectAll={() => selectionActions.selectAllTasks(paginatedTasks.map(t => t.id))}
+        onClearSelection={selectionActions.clearSelection}
+        onToggleSelectMode={selectionActions.toggleSelectMode}
       />
     </div>
   );

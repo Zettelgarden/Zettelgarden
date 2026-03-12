@@ -6,17 +6,11 @@ import { useTaskContext } from "../../contexts/TaskContext";
 import { useStatus } from "../../contexts/StatusContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { format } from "date-fns-tz";
+import { PRIORITY_OPTIONS, PRIORITY_CONFIG } from "../../constants/taskPriority";
 
 interface KanbanQuickActionsProps {
   task: Task;
 }
-
-const PRIORITY_OPTIONS = [
-  { value: "A", label: "High", icon: "🔴" },
-  { value: "B", label: "Medium", icon: "🟠" },
-  { value: "C", label: "Low", icon: "🔵" },
-  { value: null, label: "None", icon: "○" },
-];
 
 export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
   const [showPriorityMenu, setShowPriorityMenu] = useState(false);
@@ -194,7 +188,7 @@ export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
           className="p-1.5 rounded text-xs text-gray-400 hover:bg-gray-100 transition-colors"
           title="Change priority"
         >
-          {task.priority === "A" ? "🔴" : task.priority === "B" ? "🟠" : task.priority === "C" ? "🔵" : "○"}
+          {task.priority ? PRIORITY_CONFIG[task.priority as keyof typeof PRIORITY_CONFIG]?.icon : "○"}
         </button>
         {showPriorityMenu && createPortal(
           <div

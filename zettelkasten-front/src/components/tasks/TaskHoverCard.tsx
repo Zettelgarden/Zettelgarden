@@ -3,17 +3,12 @@ import { createPortal } from "react-dom";
 import { Task } from "../../models/Task";
 import { format } from "date-fns-tz";
 import { useAuth } from "../../contexts/AuthContext";
+import { PRIORITY_CONFIG } from "../../constants/taskPriority";
 
 interface TaskHoverCardProps {
   task: Task;
   children: React.ReactNode;
 }
-
-const PRIORITY_CONFIG = {
-  A: { color: "#EF4444", icon: "🔴", label: "High" },
-  B: { color: "#F59E0B", icon: "🟠", label: "Medium" },
-  C: { color: "#3B82F6", icon: "🔵", label: "Low" },
-} as const;
 
 export function TaskHoverCard({ task, children }: TaskHoverCardProps) {
   const [isVisible, setIsVisible] = useState(false);
