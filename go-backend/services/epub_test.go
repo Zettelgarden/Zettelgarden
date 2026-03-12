@@ -63,6 +63,49 @@ func TestExtractYear(t *testing.T) {
 	}
 }
 
+func TestHtmlToMarkdown(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "br tags preserved",
+			input:    "<p>Line one<br>Line two<br>Line three</p>",
+			expected: "Line one\nLine two\nLine three",
+		},
+		{
+			name:     "paragraph breaks",
+			input:    "<p>First paragraph</p><p>Second paragraph</p>",
+			expected: "First paragraph\n\nSecond paragraph",
+		},
+		{
+			name:     "html entities",
+			input:    "<p>Quote: &quot;Hello&quot; &amp; goodbye</p>",
+			expected: "Quote: \"Hello\" & goodbye",
+		},
+		{
+			name:     "strips tags",
+			input:    "<p><b>Bold</b> and <i>italic</i></p>",
+			expected: "Bold and italic",
+		},
+		{
+			name:     "multiple br tags",
+			input:    "<p>Line 1<br/>Line 2<BR>Line 3<br />Line 4</p>",
+			expected: "Line 1\nLine 2\nLine 3\nLine 4",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := htmlToMarkdown(tt.input)
+			if result != tt.expected {
+				t.Errorf("htmlToMarkdown() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestParagraphsToMarkdown(t *testing.T) {
 	tests := []struct {
 		name     string

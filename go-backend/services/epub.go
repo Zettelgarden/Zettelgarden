@@ -1,7 +1,9 @@
 package services
 
 import (
+	"archive/zip"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 
@@ -22,6 +24,9 @@ var (
 
 	// yearRegex extracts 4-digit years (1900-2099) from date strings
 	yearRegex = regexp.MustCompile(`\b(19|20)\d{2}\b`)
+
+	// brRegex matches <br> tags (with optional attributes and whitespace)
+	brRegex = regexp.MustCompile(`(?i)<br\s*/?>`)
 )
 
 // ParseEpub reads an epub file and extracts metadata and chapters
@@ -38,8 +43,15 @@ func ParseEpub(filePath string) (models.EpubMetadata, []models.EpubChapter, erro
 	// Extract metadata
 	metadata = extractMetadata(book)
 
-	// Extract chapters
-	chapters, err = extractChapters(book)
+	// Open the EPUB as a ZIP to read chapter HTML directly
+	epubZip, err := zip.OpenReader(filePath)
+	if err != nil {
+		return metadata, chapters, fmt.Errorf("failed to open epub as zip: %w", err)
+	}
+	defer epubZip.Close()
+
+	// Extract chapters with proper line break handling
+	chapters, err = extractChaptersWithLineBreaks(book, epubZip)
 	if err != nil {
 		return metadata, chapters, err
 	}
@@ -87,31 +99,53 @@ func extractYear(date string) string {
 	return yearRegex.FindString(date)
 }
 
-// extractChapters gets all chapters from the epub
-func extractChapters(book *epublib.Book) ([]models.EpubChapter, error) {
+// extractChaptersWithLineBreaks extracts chapters with proper <br> handling
+func extractChaptersWithLineBreaks(book *epublib.Book, epubZip *zip.ReadCloser) ([]models.EpubChapter, error) {
 	var chapters []models.EpubChapter
 
-	// Get all chapters from the book
+	// Build a map of chapter paths for quick lookup
+	chapterMap := make(map[string]*epublib.Chapter)
 	for i := 0; i < book.ChapterCount(); i++ {
 		chapter, err := book.ChapterByIndex(i)
 		if err != nil {
-			// Log error but continue with other chapters
 			continue
+		}
+		// Normalize the path (remove leading slash if present)
+		path := strings.TrimPrefix(chapter.Path, "/")
+		chapterMap[path] = chapter
+	}
+
+	// Process each chapter
+	for i := 0; i < book.ChapterCount(); i++ {
+		chapter, err := book.ChapterByIndex(i)
+		if err != nil {
+			continue
+		}
+
+		// Get chapter title
+		title := getChapterTitle(chapter, i+1)
+
+		// Try to read the chapter HTML directly for better line break handling
+		body := ""
+		normalizedPath := strings.TrimPrefix(chapter.Path, "/")
+
+		if htmlContent, err := readChapterHTML(epubZip, normalizedPath); err == nil {
+			// Parse HTML with proper <br> handling
+			body = htmlToMarkdown(htmlContent)
+		} else {
+			// Fall back to library's paragraph extraction
+			body = paragraphsToMarkdown(chapter.Paragraphs)
 		}
 
 		// Skip chapters with very little content (likely front matter)
-		text := chapter.Text()
-		if len(strings.TrimSpace(text)) < MinChapterContent {
+		if len(strings.TrimSpace(body)) < MinChapterContent {
 			continue
 		}
 
-		// Create chapter with markdown-formatted body
-		epubChapter := models.EpubChapter{
-			Title: getChapterTitle(chapter, i+1),
-			Body:  paragraphsToMarkdown(chapter.Paragraphs),
-		}
-
-		chapters = append(chapters, epubChapter)
+		chapters = append(chapters, models.EpubChapter{
+			Title: title,
+			Body:  body,
+		})
 	}
 
 	// If no chapters found, return error
@@ -122,6 +156,66 @@ func extractChapters(book *epublib.Book) ([]models.EpubChapter, error) {
 	return chapters, nil
 }
 
+// readChapterHTML reads the raw HTML content of a chapter from the EPUB ZIP
+func readChapterHTML(epubZip *zip.ReadCloser, chapterPath string) (string, error) {
+	// Try to find the file in the ZIP
+	for _, file := range epubZip.File {
+		// Normalize paths for comparison
+		zipPath := strings.TrimPrefix(file.Name, "/")
+		if zipPath == chapterPath {
+			rc, err := file.Open()
+			if err != nil {
+				return "", err
+			}
+			defer rc.Close()
+
+			content, err := io.ReadAll(rc)
+			if err != nil {
+				return "", err
+			}
+			return string(content), nil
+		}
+	}
+	return "", fmt.Errorf("chapter file not found in zip: %s", chapterPath)
+}
+
+// htmlToMarkdown converts HTML content to markdown with proper line breaks
+func htmlToMarkdown(htmlContent string) string {
+	// Replace <br> tags with newlines (before stripping other tags)
+	htmlContent = brRegex.ReplaceAllString(htmlContent, "\n")
+
+	// Replace closing </p> and </div> tags with double newlines
+	htmlContent = regexp.MustCompile(`(?i)</p>`).ReplaceAllString(htmlContent, "\n\n")
+	htmlContent = regexp.MustCompile(`(?i)</div>`).ReplaceAllString(htmlContent, "\n\n")
+
+	// Strip all remaining HTML tags
+	htmlContent = regexp.MustCompile(`<[^>]*>`).ReplaceAllString(htmlContent, "")
+
+	// Decode common HTML entities
+	htmlContent = strings.ReplaceAll(htmlContent, "&nbsp;", " ")
+	htmlContent = strings.ReplaceAll(htmlContent, "&amp;", "&")
+	htmlContent = strings.ReplaceAll(htmlContent, "&lt;", "<")
+	htmlContent = strings.ReplaceAll(htmlContent, "&gt;", ">")
+	htmlContent = strings.ReplaceAll(htmlContent, "&quot;", "\"")
+	htmlContent = strings.ReplaceAll(htmlContent, "&#39;", "'")
+	htmlContent = strings.ReplaceAll(htmlContent, "&apos;", "'")
+
+	// Clean up whitespace
+	// First normalize all whitespace sequences
+	htmlContent = regexp.MustCompile(`[ \t]+`).ReplaceAllString(htmlContent, " ")
+	// Then normalize multiple newlines to at most two
+	htmlContent = regexp.MustCompile(`\n{3,}`).ReplaceAllString(htmlContent, "\n\n")
+	// Remove leading/trailing whitespace from each line
+	lines := strings.Split(htmlContent, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimSpace(line)
+	}
+	htmlContent = strings.Join(lines, "\n")
+
+	// Final trim
+	return strings.TrimSpace(htmlContent)
+}
+
 // getChapterTitle returns the chapter title or generates a default one
 func getChapterTitle(chapter *epublib.Chapter, index int) string {
 	if chapter.Title != "" {
@@ -130,7 +224,7 @@ func getChapterTitle(chapter *epublib.Chapter, index int) string {
 	return fmt.Sprintf("Chapter %d", index)
 }
 
-// paragraphsToMarkdown converts a slice of paragraphs to markdown format
+// paragraphsToMarkdown converts a slice of paragraphs to markdown format (fallback)
 func paragraphsToMarkdown(paragraphs []string) string {
 	if len(paragraphs) == 0 {
 		return ""
