@@ -12,6 +12,7 @@ func RegisterFileRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/files/{id}", h.EditFileMetadataRoute, "PATCH")
 	addProtectedRoute(r, h, "/api/files/{id}", h.DeleteFileRoute, "DELETE")
 	addProtectedRoute(r, h, "/api/files/download/{id}", h.DownloadFileRoute, "GET")
+	addProtectedRoute(r, h, "/api/files/{id}/import-epub", h.ImportEpubRoute, "POST")
 
 	// File tag management routes
 	addProtectedRoute(r, h, "/api/files/tags", h.CreateFileTagRoute, "POST")
