@@ -185,3 +185,4 @@
 {"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T18:42:02Z","event_type":"closed","id":185,"issue_id":"Zettelgarden-4h4","new_value":"KanbanBoard updated to show subtask count","old_value":""}
 {"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T20:18:40Z","event_type":"created","id":186,"issue_id":"Zettelgarden-4g1","new_value":"","old_value":""}
 {"actor":"Nick Savage","comment":null,"created_at":"2026-03-10T22:52:46Z","event_type":"closed","id":187,"issue_id":"Zettelgarden-4g1","new_value":"Completed implementation of subtask display mode toggle with nested/flat/hidden modes","old_value":""}
+{"actor":"Nick Savage","comment":null,"created_at":"2026-03-12T10:48:10Z","event_type":"closed","id":188,"issue_id":"Zettelgarden-0s7","new_value":"Closed","old_value":""}
