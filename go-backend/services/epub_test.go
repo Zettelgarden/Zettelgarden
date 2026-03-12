@@ -1,0 +1,126 @@
+package services
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	epublib "github.com/ArcadiaLin/go-epub"
+)
+
+func TestParseEpub(t *testing.T) {
+	// Create a minimal test epub file
+	testEpubPath := filepath.Join("testdata", "test.epub")
+
+	// Skip if test file doesn't exist (will be created separately)
+	if _, err := os.Stat(testEpubPath); os.IsNotExist(err) {
+		t.Skip("Test epub file not found, skipping")
+	}
+
+	metadata, chapters, err := ParseEpub(testEpubPath)
+	if err != nil {
+		t.Fatalf("ParseEpub failed: %v", err)
+	}
+
+	if metadata.Title == "" {
+		t.Error("Expected non-empty title")
+	}
+
+	if len(chapters) == 0 {
+		t.Error("Expected at least one chapter")
+	}
+
+	for i, chapter := range chapters {
+		if chapter.Title == "" {
+			t.Errorf("Chapter %d has empty title", i)
+		}
+		if chapter.Body == "" {
+			t.Errorf("Chapter %d has empty body", i)
+		}
+	}
+}
+
+func TestExtractYear(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"2024", "2024"},
+		{"2024-01-15", "2024"},
+		{"Published: 2023", "2023"},
+		{"1999-12-31T23:59:59Z", "1999"},
+		{"invalid", ""},
+		{"", ""},
+		{"1800", ""}, // Should not match years before 1900
+	}
+
+	for _, tt := range tests {
+		result := extractYear(tt.input)
+		if result != tt.expected {
+			t.Errorf("extractYear(%q) = %q, want %q", tt.input, result, tt.expected)
+		}
+	}
+}
+
+func TestParagraphsToMarkdown(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected string
+	}{
+		{
+			name:     "empty",
+			input:    []string{},
+			expected: "",
+		},
+		{
+			name:     "single paragraph",
+			input:    []string{"Hello world"},
+			expected: "Hello world",
+		},
+		{
+			name:     "multiple paragraphs",
+			input:    []string{"First paragraph", "Second paragraph"},
+			expected: "First paragraph\n\nSecond paragraph",
+		},
+		{
+			name:     "with whitespace",
+			input:    []string{"  Trimmed  ", "  Another  "},
+			expected: "Trimmed\n\nAnother",
+		},
+		{
+			name:     "with empty strings",
+			input:    []string{"First", "", "Second"},
+			expected: "First\n\nSecond",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := paragraphsToMarkdown(tt.input)
+			if result != tt.expected {
+				t.Errorf("paragraphsToMarkdown() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetChapterTitle(t *testing.T) {
+	tests := []struct {
+		title    string
+		index    int
+		expected string
+	}{
+		{"Introduction", 1, "Introduction"},
+		{"", 1, "Chapter 1"},
+		{"", 5, "Chapter 5"},
+	}
+
+	for _, tt := range tests {
+		chapter := &epublib.Chapter{Title: tt.title}
+		result := getChapterTitle(chapter, tt.index)
+		if result != tt.expected {
+			t.Errorf("getChapterTitle(%q, %d) = %q, want %q", tt.title, tt.index, result, tt.expected)
+		}
+	}
+}
