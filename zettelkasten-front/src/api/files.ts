@@ -16,10 +16,10 @@ export function uploadFile(
   card_pk: number,
   customFilename?: string
 ): Promise<UploadFileResponse> {
-  const maxSize = 10 * 1024 * 1024; // 10 MB in bytes
+  const maxSize = 50 * 1024 * 1024; // 50 MB in bytes
   if (file.size > maxSize) {
     return Promise.reject(
-      new Error("File size exceeds the maximum limit of 10 MB."),
+      new Error("File size exceeds the maximum limit of 50 MB."),
     );
   }
 

@@ -534,7 +534,7 @@ func (s *Handler) UploadFileRoute(w http.ResponseWriter, r *http.Request) {
 
 	userID := r.Context().Value("current_user").(int)
 
-	err := r.ParseMultipartForm(10 << 20)
+	err := r.ParseMultipartForm(50 << 20)
 	if err != nil {
 		log.Printf("1")
 		http.Error(w, "Unable to parse form", http.StatusBadRequest)
