@@ -147,6 +147,7 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
         setShowFactDialog={setShowFactDialog}
         fileUploadRef={fileUploadRef}
         onSaveCard={handleSaveCard}
+        onMenuClick={toggleMobileSidebar}
       />
     );
   }

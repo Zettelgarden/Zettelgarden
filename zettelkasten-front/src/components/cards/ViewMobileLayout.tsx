@@ -46,6 +46,7 @@ interface ViewMobileLayoutProps {
   setShowFactDialog: (show: boolean) => void;
   fileUploadRef: React.RefObject<HTMLInputElement>;
   onSaveCard: (card: Card) => void;
+  onMenuClick?: () => void;
 }
 
 type ViewMode = 'normal' | 'tree' | 'summary' | 'analysis';
@@ -82,6 +83,7 @@ export function ViewMobileLayout({
   setShowFactDialog,
   fileUploadRef,
   onSaveCard,
+  onMenuClick,
 }: ViewMobileLayoutProps) {
   const navigate = useNavigate();
   const [showNavSheet, setShowNavSheet] = useState(false);
@@ -101,9 +103,22 @@ export function ViewMobileLayout({
       {/* Top Bar */}
       <div className="sticky top-0 bg-white border-b border-gray-200 z-20">
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-lg font-semibold text-gray-900 truncate">
-            {viewingCard.title || "Card"}
-          </h1>
+          <div className="flex items-center">
+            {onMenuClick && (
+              <button
+                onClick={onMenuClick}
+                className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Open menu"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            )}
+            <h1 className="text-lg font-semibold text-gray-900 truncate ml-2">
+              {viewingCard.title || "Card"}
+            </h1>
+          </div>
           <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}
