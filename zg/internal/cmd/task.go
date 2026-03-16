@@ -5,11 +5,41 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/nick-zettelgarden/zg/internal/api"
 	"github.com/nick-zettelgarden/zg/internal/output"
 )
+
+// parseScheduledDate converts a date string to ISO 8601 format for the API
+// Supports: "today", "tomorrow", "YYYY-MM-DD", or ISO 8601 format (passed through)
+func parseScheduledDate(dateStr string) (string, error) {
+	if dateStr == "" {
+		return "", nil
+	}
+
+	// Handle special keywords
+	switch strings.ToLower(dateStr) {
+	case "today":
+		return time.Now().Format("2006-01-02T15:04:05Z07:00"), nil
+	case "tomorrow":
+		return time.Now().AddDate(0, 0, 1).Format("2006-01-02T15:04:05Z07:00"), nil
+	}
+
+	// Try parsing as YYYY-MM-DD
+	if len(dateStr) == 10 && dateStr[4] == '-' && dateStr[7] == '-' {
+		t, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			return "", fmt.Errorf("invalid date format: %s (use YYYY-MM-DD)", dateStr)
+		}
+		return t.Format("2006-01-02T15:04:05Z07:00"), nil
+	}
+
+	// Already in ISO 8601 format or another format - pass through
+	return dateStr, nil
+}
 
 // Task represents a Zettelgarden task
 type Task struct {
@@ -106,7 +136,7 @@ func init() {
 	// Task create command with flags
 	taskCreateCmd.Flags().StringVarP(&taskCreateTitle, "title", "t", "", "Task title (required)")
 	taskCreateCmd.Flags().StringVarP(&taskCreateDescription, "description", "d", "", "Task description")
-	taskCreateCmd.Flags().StringVar(&taskCreateScheduled, "scheduled-date", "", "Scheduled date (YYYY-MM-DD or 'today')")
+	taskCreateCmd.Flags().StringVar(&taskCreateScheduled, "scheduled-date", "", "Scheduled date (YYYY-MM-DD, 'today', or 'tomorrow')")
 	taskCreateCmd.Flags().StringVarP(&taskCreatePriority, "priority", "p", "", "Priority (high/medium/low)")
 	taskCreateCmd.MarkFlagRequired("title")
 	taskCmd.AddCommand(taskCreateCmd)
@@ -119,7 +149,7 @@ func init() {
 	taskUpdateCmd.Flags().BoolVar(taskUpdateIsComplete, "complete", false, "Mark as complete")
 	taskUpdateCmd.Flags().BoolVar(taskUpdateIsComplete, "incomplete", false, "Mark as incomplete")
 	taskUpdateCmd.Flags().StringVarP(&taskUpdatePriority, "priority", "p", "", "New priority")
-	taskUpdateCmd.Flags().StringVar(&taskUpdateScheduled, "scheduled-date", "", "New scheduled date")
+	taskUpdateCmd.Flags().StringVar(&taskUpdateScheduled, "scheduled-date", "", "New scheduled date (YYYY-MM-DD, 'today', or 'tomorrow')")
 	taskUpdateCmd.Flags().StringVar(&taskUpdateStatus, "status", "", "New status")
 	taskCmd.AddCommand(taskUpdateCmd)
 
@@ -230,7 +260,11 @@ func runTaskCreate(cmd *cobra.Command, args []string) error {
 		requestBody["description"] = taskCreateDescription
 	}
 	if taskCreateScheduled != "" {
-		requestBody["scheduled_date"] = taskCreateScheduled
+		scheduledDate, err := parseScheduledDate(taskCreateScheduled)
+		if err != nil {
+			return output.WriteError(os.Stdout, "Invalid scheduled date", err.Error())
+		}
+		requestBody["scheduled_date"] = scheduledDate
 	}
 	if taskCreatePriority != "" {
 		requestBody["priority"] = taskCreatePriority
@@ -289,7 +323,11 @@ func runTaskUpdate(cmd *cobra.Command, args []string) error {
 		requestBody["priority"] = taskUpdatePriority
 	}
 	if taskUpdateScheduled != "" {
-		requestBody["scheduled_date"] = taskUpdateScheduled
+		scheduledDate, err := parseScheduledDate(taskUpdateScheduled)
+		if err != nil {
+			return output.WriteError(os.Stdout, "Invalid scheduled date", err.Error())
+		}
+		requestBody["scheduled_date"] = scheduledDate
 	}
 	if taskUpdateStatus != "" {
 		requestBody["status"] = taskUpdateStatus
