@@ -139,10 +139,12 @@ var (
 	createTitle string
 	createBody  string
 	createLink  string
+	createCardID string
 
 	updateTitle string
 	updateBody  string
 	updateLink  string
+	updateCardID string
 
 	searchFullText bool
 	searchLimit    int
@@ -162,12 +164,14 @@ func init() {
 	cardCreateCmd.Flags().StringVarP(&createTitle, "title", "t", "", "Card title (required)")
 	cardCreateCmd.Flags().StringVarP(&createBody, "body", "b", "", "Card body content")
 	cardCreateCmd.Flags().StringVarP(&createLink, "link", "l", "", "URL link")
+	cardCreateCmd.Flags().StringVarP(&createCardID, "card-id", "c", "", "Card ID (e.g., '4' or '4.2')")
 	cardCreateCmd.MarkFlagRequired("title")
 	cardCmd.AddCommand(cardCreateCmd)
 
 	cardUpdateCmd.Flags().StringVarP(&updateTitle, "title", "t", "", "New title")
 	cardUpdateCmd.Flags().StringVarP(&updateBody, "body", "b", "", "New body")
 	cardUpdateCmd.Flags().StringVarP(&updateLink, "link", "l", "", "New link")
+	cardUpdateCmd.Flags().StringVarP(&updateCardID, "card-id", "c", "", "New card ID (e.g., '4' or '4.2')")
 	cardCmd.AddCommand(cardUpdateCmd)
 
 	cardCmd.AddCommand(cardDeleteCmd)
@@ -290,6 +294,9 @@ func runCardCreate(cmd *cobra.Command, args []string) error {
 	if createLink != "" {
 		requestBody["link"] = createLink
 	}
+	if createCardID != "" {
+		requestBody["card_id"] = createCardID
+	}
 
 	bodyBytes, err := json.Marshal(requestBody)
 	if err != nil {
@@ -339,6 +346,9 @@ func runCardUpdate(cmd *cobra.Command, args []string) error {
 	}
 	if updateLink != "" {
 		requestBody["link"] = updateLink
+	}
+	if updateCardID != "" {
+		requestBody["card_id"] = updateCardID
 	}
 
 	if len(requestBody) == 0 {
