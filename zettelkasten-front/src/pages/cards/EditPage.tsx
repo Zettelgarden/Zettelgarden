@@ -17,7 +17,6 @@ import { Button } from "../../components/Button";
 import { CardBodyTextArea, CardBodyTextAreaHandle } from "../../components/cards/CardBodyTextArea";
 import { processTemplateVariables } from "../../utils/templateVariables";
 import { HeaderSubSection } from "../../components/Header";
-import { BacklinkInputDropdownList } from "../../components/cards/BacklinkInputDropdownList";
 
 
 
@@ -340,17 +339,6 @@ function EditPageContent({ newCard }: EditPageProps) {
                 />
                 <hr className="my-4" />
 
-                <div className="py-2">
-                  <HeaderSubSection text="References" />
-
-                  <BacklinkInputDropdownList
-                    onSelect={addBacklink}
-                    onSearch={() => { }}
-                    placeholder="Add Backlink"
-                    className="max-w-md"
-                    excludeCardId={editingCard.id}
-                  />
-                </div>
                 <hr className="my-4" />
                 <div className="space-y-2">
 
@@ -412,7 +400,6 @@ function EditPageContent({ newCard }: EditPageProps) {
                   handleTagClick={handleTagClick}
                   handleRemoveTag={handleRemoveTag}
                   addBacklink={addBacklink}
-                  setMessage={() => {}}
                 />
 
                 <div className="bg-white rounded-lg p-4 shadow-sm">

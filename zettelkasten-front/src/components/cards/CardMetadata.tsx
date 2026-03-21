@@ -18,7 +18,6 @@ interface CardMetadataProps {
   handleTagClick: (tagName: string) => void;
   handleRemoveTag: (tagName: string) => void;
   addBacklink: (selectedCard: PartialCard) => void;
-  setMessage: (message: string) => void;
 }
 
 export function CardMetadata({
@@ -32,7 +31,6 @@ export function CardMetadata({
   handleTagClick,
   handleRemoveTag,
   addBacklink,
-  setMessage,
 }: CardMetadataProps) {
   const navigate = useNavigate();
 
@@ -146,6 +144,15 @@ export function CardMetadata({
         ))}
       </div>
       <hr className="my-4" />
+
+      {/* References Section */}
+      <HeaderSubSection text="References" />
+      <BacklinkInputDropdownList
+        onSelect={addBacklink}
+        onSearch={() => { }}
+        placeholder="Add Backlink"
+        excludeCardId={editingCard.id}
+      />
 
       {/* Details Section */}
       {!newCard && (
