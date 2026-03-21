@@ -491,7 +491,7 @@ func runCardSummaries(cmd *cobra.Command, args []string) error {
 	// If --latest flag, return only the most recent completed summary
 	if summariesLatest {
 		for _, s := range summaries {
-			if s.Status == "completed" {
+			if s.Status == "complete" {
 				return output.WriteSuccess(os.Stdout, s)
 			}
 		}
