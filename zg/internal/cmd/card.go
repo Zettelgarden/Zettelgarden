@@ -143,10 +143,11 @@ var (
 	listOffset  int
 	listStarred bool
 
-	createTitle string
-	createBody  string
-	createLink  string
-	createCardID string
+	createTitle   string
+	createBody    string
+	createLink    string
+	createCardID  string
+	createAutoID  bool
 
 	updateTitle string
 	updateBody  string
@@ -175,6 +176,7 @@ func init() {
 	cardCreateCmd.Flags().StringVarP(&createBody, "body", "b", "", "Card body content")
 	cardCreateCmd.Flags().StringVarP(&createLink, "link", "l", "", "URL link")
 	cardCreateCmd.Flags().StringVarP(&createCardID, "card-id", "c", "", "Card ID (e.g., '4' or '4.2')")
+	cardCreateCmd.Flags().BoolVar(&createAutoID, "auto-id", false, "Automatically assign next root card ID")
 	cardCreateCmd.MarkFlagRequired("title")
 	cardCmd.AddCommand(cardCreateCmd)
 
@@ -297,6 +299,38 @@ func runCardCreate(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, "Config error", err.Error())
 	}
 
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+
+	// Handle --auto-id flag
+	cardID := createCardID
+	if createAutoID {
+		if createCardID != "" {
+			return output.WriteError(os.Stdout, "Conflict", "Cannot use --auto-id with --card-id")
+		}
+		resp, err := client.Get("/api/cards/next-root-id")
+		if err != nil {
+			return output.WriteError(os.Stdout, "Failed to get next ID", err.Error())
+		}
+		body, err := api.GetBodyBytes(resp)
+		if err != nil {
+			return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+		}
+		if resp.StatusCode != 200 {
+			return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
+		}
+		var result struct {
+			NextID string `json:"new_id"`
+			Error  bool   `json:"error"`
+		}
+		if err := json.Unmarshal(body, &result); err != nil {
+			return output.WriteError(os.Stdout, "Parse error", err.Error())
+		}
+		if result.Error || result.NextID == "" {
+			return output.WriteError(os.Stdout, "Failed to get next ID", "API returned empty ID")
+		}
+		cardID = result.NextID
+	}
+
 	requestBody := map[string]any{
 		"title": createTitle,
 	}
@@ -306,8 +340,8 @@ func runCardCreate(cmd *cobra.Command, args []string) error {
 	if createLink != "" {
 		requestBody["link"] = createLink
 	}
-	if createCardID != "" {
-		requestBody["card_id"] = createCardID
+	if cardID != "" {
+		requestBody["card_id"] = cardID
 	}
 
 	bodyBytes, err := json.Marshal(requestBody)
@@ -315,7 +349,6 @@ func runCardCreate(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, "JSON encode error", err.Error())
 	}
 
-	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
 	resp, err := client.Post("/api/cards", bodyBytes)
 	if err != nil {
 		return output.WriteError(os.Stdout, "API request failed", err.Error())
