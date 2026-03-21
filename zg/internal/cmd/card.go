@@ -337,7 +337,42 @@ func runCardUpdate(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, "Config error", err.Error())
 	}
 
-	requestBody := map[string]any{}
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+
+	// First, fetch the current card to get existing values
+	getResp, err := client.Get(fmt.Sprintf("/api/cards/%d", cardID))
+	if err != nil {
+		return output.WriteError(os.Stdout, "Failed to fetch current card", err.Error())
+	}
+
+	getBody, err := api.GetBodyBytes(getResp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+
+	if getResp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", getResp.StatusCode), string(getBody))
+	}
+
+	var currentCard Card
+	if err := json.Unmarshal(getBody, &currentCard); err != nil {
+		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+
+	// Check if any updates were specified
+	if updateTitle == "" && updateBody == "" && updateLink == "" && updateCardID == "" {
+		return output.WriteError(os.Stdout, "No updates", "Specify at least one field to update")
+	}
+
+	// Build request body with current values, overriding with updates
+	requestBody := map[string]any{
+		"title":   currentCard.Title,
+		"body":    currentCard.Body,
+		"link":    currentCard.Link,
+		"card_id": currentCard.CardID,
+	}
+
+	// Apply updates
 	if updateTitle != "" {
 		requestBody["title"] = updateTitle
 	}
@@ -351,16 +386,11 @@ func runCardUpdate(cmd *cobra.Command, args []string) error {
 		requestBody["card_id"] = updateCardID
 	}
 
-	if len(requestBody) == 0 {
-		return output.WriteError(os.Stdout, "No updates", "Specify at least one field")
-	}
-
 	bodyBytes, err := json.Marshal(requestBody)
 	if err != nil {
 		return output.WriteError(os.Stdout, "JSON encode error", err.Error())
 	}
 
-	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
 	resp, err := client.Put(fmt.Sprintf("/api/cards/%d", cardID), bodyBytes)
 	if err != nil {
 		return output.WriteError(os.Stdout, "API request failed", err.Error())
