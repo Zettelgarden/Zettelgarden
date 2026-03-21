@@ -403,6 +403,40 @@ func runCardDelete(cmd *cobra.Command, args []string) error {
 	return output.WriteMessage(os.Stdout, "Card deleted")
 }
 
+// SearchResult represents a search result from the API
+type SearchResult struct {
+	ID        string                 `json:"id"`
+	Title     string                 `json:"title"`
+	Type      string                 `json:"type"`
+	Preview   string                 `json:"preview"`
+	Score     float64                `json:"score"`
+	CreatedAt string                 `json:"created_at"`
+	UpdatedAt string                 `json:"updated_at"`
+	Metadata  map[string]interface{} `json:"metadata"`
+}
+
+// PaginatedSearchResponse is the API response for search
+type PaginatedSearchResponse struct {
+	Results    []SearchResult `json:"results"`
+	Page       int            `json:"page"`
+	PerPage    int            `json:"per_page"`
+	Total      int            `json:"total"`
+	TotalPages int            `json:"total_pages"`
+}
+
+// SearchRequestParams is the API request body for search
+type SearchRequestParams struct {
+	SearchTerm      string `json:"search_term"`
+	FullText        bool   `json:"full_text"`
+	ShowEntities    bool   `json:"show_entities"`
+	ShowFacts       bool   `json:"show_facts"`
+	ShowCards       bool   `json:"show_cards"`
+	ShowEmails      bool   `json:"show_emails"`
+	OnlyEmptyCardId bool   `json:"only_empty_card_id"`
+	Page            int    `json:"page"`
+	PerPage         int    `json:"per_page"`
+}
+
 func runCardSearch(cmd *cobra.Command, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
@@ -410,13 +444,23 @@ func runCardSearch(cmd *cobra.Command, args []string) error {
 	}
 
 	query := args[0]
-	url := fmt.Sprintf("/api/search?query=%s&limit=%d", query, searchLimit)
-	if searchFullText {
-		url += "&full_text=true"
+
+	// Build the request body - API expects POST with JSON body
+	searchParams := SearchRequestParams{
+		SearchTerm: query,
+		FullText:   searchFullText,
+		ShowCards:  true,
+		Page:       1,
+		PerPage:    searchLimit,
+	}
+
+	reqBody, err := json.Marshal(searchParams)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Failed to build request", err.Error())
 	}
 
 	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
-	resp, err := client.Get(url)
+	resp, err := client.Post("/api/search", reqBody)
 	if err != nil {
 		return output.WriteError(os.Stdout, "API request failed", err.Error())
 	}
@@ -430,12 +474,12 @@ func runCardSearch(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
 	}
 
-	var cards []Card
-	if err := json.Unmarshal(body, &cards); err != nil {
+	var searchResp PaginatedSearchResponse
+	if err := json.Unmarshal(body, &searchResp); err != nil {
 		return output.WriteError(os.Stdout, "Parse error", err.Error())
 	}
 
-	return output.WriteSuccess(os.Stdout, cards)
+	return output.WriteSuccess(os.Stdout, searchResp.Results)
 }
 
 func runCardNextID(cmd *cobra.Command, args []string) error {
