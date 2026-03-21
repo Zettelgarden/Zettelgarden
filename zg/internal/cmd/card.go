@@ -156,6 +156,9 @@ var (
 	searchFullText bool
 	searchLimit    int
 
+	// Summaries flags
+	summariesLatest bool
+
 	// Structured data flags
 	structuredDataSchemaID int
 	structuredDataJSON     string
@@ -190,6 +193,7 @@ func init() {
 	cardCmd.AddCommand(cardNextIDCmd)
 	cardCmd.AddCommand(cardNextChildIDCmd)
 	cardCmd.AddCommand(cardSummariesCmd)
+	cardSummariesCmd.Flags().BoolVarP(&summariesLatest, "latest", "l", false, "Show only the most recent completed summary")
 
 	// Structured data commands
 	cardCmd.AddCommand(cardGetStructuredDataCmd)
@@ -482,6 +486,16 @@ func runCardSummaries(cmd *cobra.Command, args []string) error {
 	var summaries []Summary
 	if err := json.Unmarshal(body, &summaries); err != nil {
 		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+
+	// If --latest flag, return only the most recent completed summary
+	if summariesLatest {
+		for _, s := range summaries {
+			if s.Status == "completed" {
+				return output.WriteSuccess(os.Stdout, s)
+			}
+		}
+		return output.WriteError(os.Stdout, "No completed summaries", "No completed summaries found for this card")
 	}
 
 	return output.WriteSuccess(os.Stdout, summaries)
