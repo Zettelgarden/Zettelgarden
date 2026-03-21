@@ -102,6 +102,13 @@ var cardNextChildIDCmd = &cobra.Command{
 	RunE:  runCardNextChildID,
 }
 
+var cardSummariesCmd = &cobra.Command{
+	Use:   "summaries <id>",
+	Short: "Get summaries for a card",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runCardSummaries,
+}
+
 // Structured data commands
 var cardGetStructuredDataCmd = &cobra.Command{
 	Use:   "get-structured-data <id>",
@@ -182,6 +189,7 @@ func init() {
 
 	cardCmd.AddCommand(cardNextIDCmd)
 	cardCmd.AddCommand(cardNextChildIDCmd)
+	cardCmd.AddCommand(cardSummariesCmd)
 
 	// Structured data commands
 	cardCmd.AddCommand(cardGetStructuredDataCmd)
@@ -431,6 +439,52 @@ func runCardDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	return output.WriteMessage(os.Stdout, "Card deleted")
+}
+
+// Summary represents a card summary from the API
+type Summary struct {
+	ID               int     `json:"id"`
+	Status           string  `json:"status"`
+	Result           string  `json:"result,omitempty"`
+	PromptTokens     int     `json:"prompt_tokens,omitempty"`
+	CompletionTokens int     `json:"completion_tokens,omitempty"`
+	TotalTokens      int     `json:"total_tokens,omitempty"`
+	Cost             float64 `json:"cost,omitempty"`
+	Model            string  `json:"model,omitempty"`
+}
+
+func runCardSummaries(cmd *cobra.Command, args []string) error {
+	cardID, err := strconv.Atoi(args[0])
+	if err != nil {
+		return output.WriteError(os.Stdout, "Invalid card ID", "ID must be a number")
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Get(fmt.Sprintf("/api/cards/%d/summaries", cardID))
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	body, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
+	}
+
+	var summaries []Summary
+	if err := json.Unmarshal(body, &summaries); err != nil {
+		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+
+	return output.WriteSuccess(os.Stdout, summaries)
 }
 
 // SearchResult represents a search result from the API
