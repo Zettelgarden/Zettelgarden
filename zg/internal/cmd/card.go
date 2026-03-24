@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/nick-zettelgarden/zg/internal/api"
@@ -142,6 +143,7 @@ var (
 	listLimit   int
 	listOffset  int
 	listStarred bool
+	listFull    bool
 
 	createTitle   string
 	createBody    string
@@ -156,6 +158,7 @@ var (
 
 	searchFullText bool
 	searchLimit    int
+	searchFull     bool
 
 	// Summaries flags
 	summariesLatest bool
@@ -170,6 +173,7 @@ func init() {
 	cardListCmd.Flags().IntVarP(&listLimit, "limit", "l", 20, "Limit results")
 	cardListCmd.Flags().IntVarP(&listOffset, "offset", "o", 0, "Offset results")
 	cardListCmd.Flags().BoolVar(&listStarred, "starred", false, "Show only starred cards")
+	cardListCmd.Flags().BoolVar(&listFull, "full", false, "Show full body content (default: truncated to 300 chars)")
 	cardCmd.AddCommand(cardListCmd)
 
 	cardCreateCmd.Flags().StringVarP(&createTitle, "title", "t", "", "Card title (required)")
@@ -190,6 +194,7 @@ func init() {
 
 	cardSearchCmd.Flags().BoolVarP(&searchFullText, "full-text", "f", false, "Search in body too")
 	cardSearchCmd.Flags().IntVarP(&searchLimit, "limit", "l", 20, "Limit results")
+	cardSearchCmd.Flags().BoolVar(&searchFull, "full", false, "Show full preview content (default: truncated to 300 chars)")
 	cardCmd.AddCommand(cardSearchCmd)
 
 	cardCmd.AddCommand(cardNextIDCmd)
@@ -285,9 +290,16 @@ func runCardList(cmd *cobra.Command, args []string) error {
 		// Try direct array parse
 		var cards []Card
 		if err2 := json.Unmarshal(body, &cards); err2 == nil {
+			for i := range cards {
+				truncateCardBody(&cards[i], listFull)
+			}
 			return output.WriteSuccess(os.Stdout, cards)
 		}
 		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+
+	for i := range result.Cards {
+		truncateCardBody(&result.Cards[i], listFull)
 	}
 
 	return output.WriteList(os.Stdout, result.Cards, result.Total, result.Limit, result.Offset)
@@ -610,6 +622,10 @@ func runCardSearch(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, "Parse error", err.Error())
 	}
 
+	for i := range searchResp.Results {
+		truncateSearchPreview(&searchResp.Results[i], searchFull)
+	}
+
 	return output.WriteSuccess(os.Stdout, searchResp.Results)
 }
 
@@ -838,6 +854,35 @@ func runCardClearStructuredData(cmd *cobra.Command, args []string) error {
 	}
 
 	return output.WriteMessage(os.Stdout, "Structured data cleared")
+}
+
+const maxPreviewLen = 300
+
+// truncatePreview truncates a string to maxPreviewLen chars, adding "..." if truncated
+func truncatePreview(s string) string {
+	if len(s) <= maxPreviewLen {
+		return s
+	}
+	// Try to truncate at a word boundary
+	truncated := s[:maxPreviewLen]
+	if lastSpace := strings.LastIndex(truncated, " "); lastSpace > maxPreviewLen/2 {
+		truncated = truncated[:lastSpace]
+	}
+	return strings.TrimSpace(truncated) + "..."
+}
+
+// truncateCardBody truncates the body field of a card if not in full mode
+func truncateCardBody(card *Card, fullMode bool) {
+	if !fullMode && len(card.Body) > maxPreviewLen {
+		card.Body = truncatePreview(card.Body)
+	}
+}
+
+// truncateSearchPreview truncates the preview field of a search result if not in full mode
+func truncateSearchPreview(result *SearchResult, fullMode bool) {
+	if !fullMode && len(result.Preview) > maxPreviewLen {
+		result.Preview = truncatePreview(result.Preview)
+	}
 }
 
 func loadConfig() (*config.Config, error) {
