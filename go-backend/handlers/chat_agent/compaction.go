@@ -44,6 +44,7 @@ func getModelContextLimit(model string) int {
 		"google/gemini-2.5-flash-lite":  1000000,
 		"google/gemini-3-flash-preview": 1000000,
 		"google/gemini-3-pro-preview":   1000000,
+		"google/gemini-3.1-pro-preview":   1000000,
 		"openai/gpt-5-chat":             128000,
 		"openai/gpt-5.1-chat":           128000,
 		"openai/gpt-5.2-chat":           128000,

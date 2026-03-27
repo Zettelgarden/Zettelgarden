@@ -109,6 +109,14 @@ models:
     supports_streaming: true
     description: "Gemini 3 Pro preview with advanced capabilities"
 
+  google/gemini-3.1-pro-preview:
+    provider: google
+    prompt_per_1k: 0.002
+    completion_per_1k: 0.012
+    context_window: 1000000
+    supports_tools: true
+    supports_streaming: true
+    description: "Gemini 3.1 Pro preview with advanced capabilities"
   google/gemini-3-flash-preview:
     provider: google
     prompt_per_1k: 0.0005

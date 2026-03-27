@@ -212,6 +212,15 @@ func initDefaultConfig() error {
 				SupportsStreaming: true,
 				Description:       "Gemini 3 Pro preview with advanced capabilities",
 			},
+			"google/gemini-3.1-pro-preview": {
+				Provider:          "google",
+				PromptPer1K:       0.002,
+				CompletionPer1K:   0.012,
+				ContextWindow:     1000000,
+				SupportsTools:     true,
+				SupportsStreaming: true,
+				Description:       "Gemini 3.1 Pro preview with advanced capabilities",
+			},
 			"google/gemini-3-flash-preview": {
 				Provider:          "google",
 				PromptPer1K:       0.0005,
