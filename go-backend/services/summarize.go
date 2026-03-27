@@ -20,7 +20,7 @@ const (
 	MaxChunkSize = 15000
 
 	// DefaultSummarizeModel is the default model used for summarization
-	DefaultSummarizeModel = "google/gemini-3-pro-preview"
+	DefaultSummarizeModel = "google/gemini-3.1-pro-preview"
 
 	// EnvSummarizeModel is the environment variable name for the summarize model
 	EnvSummarizeModel = "ZETTEL_LLM_SUMMARIZE_MODEL"
