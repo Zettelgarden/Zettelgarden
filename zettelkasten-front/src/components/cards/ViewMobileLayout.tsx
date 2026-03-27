@@ -103,11 +103,11 @@ export function ViewMobileLayout({
       {/* Top Bar */}
       <div className="sticky top-0 bg-white border-b border-gray-200 z-20">
         <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center">
+          <div className="flex items-center flex-1 min-w-0">
             {onMenuClick && (
               <button
                 onClick={onMenuClick}
-                className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
                 aria-label="Open menu"
               >
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -119,7 +119,7 @@ export function ViewMobileLayout({
               {viewingCard.title || "Card"}
             </h1>
           </div>
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
               onClick={() => setShowMenu(!showMenu)}
               className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
