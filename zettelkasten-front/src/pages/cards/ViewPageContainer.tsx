@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, PartialCard, Entity, RelatedCard } from "../../models/Card";
 import { isErrorResponse } from "../../models/common";
 import { TaskListItem } from "../../components/tasks/TaskListItem";
@@ -86,6 +86,9 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   const { refreshFiles, refreshTrigger } = useUIState();
   const { id: urlId } = useParams<{ id: string }>();
   const id = cardId || urlId; // Use prop cardId if provided, otherwise use URL param
+
+  // Track last processed refreshTrigger to prevent infinite loops
+  const lastProcessedTriggerRef = useRef<string | null>(null);
 
   // Use the card data hook for data fetching and state management
   const cardData = useCardData(id);
@@ -242,10 +245,12 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
 
   useEffect(() => {
     // Listen for refreshTrigger changes and fetch card when triggered
-    if (refreshTrigger && id === refreshTrigger) {
+    // Use ref to prevent infinite loops from cardData changing on every render
+    if (refreshTrigger && id === refreshTrigger && lastProcessedTriggerRef.current !== refreshTrigger) {
+      lastProcessedTriggerRef.current = refreshTrigger;
       cardData.fetchCard(id);
     }
-  }, [refreshTrigger, id, cardData]);
+  }, [refreshTrigger, id]);
 
   useEffect(() => {
     // Fetch related cards when viewingCard loads and relatedCards is null
