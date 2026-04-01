@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { removeTagsFromTitle, parseTags, filterTasks } from "./tasks";
+import { removeTagsFromTitle, parseTags, filterTasks, parseTaskQuery } from "./tasks";
 import { sampleTaskData } from "../tests/data";
 import { Task } from "../models/Task";
 
@@ -223,4 +223,46 @@ test("filter tasks by negated text", () => {
   const results2 = filterTasks(tasks, "team !lunch");
   expect(results2.length).toEqual(1);
   expect(results2[0].id).toEqual(1);
+});
+
+test("parseTaskQuery extracts date:none", () => {
+  const result = parseTaskQuery("date:none");
+  expect(result.dateView).toEqual("no_date");
+  expect(result.searchTerms).toEqual([]);
+});
+
+test("parseTaskQuery extracts date:no_date", () => {
+  const result = parseTaskQuery("date:no_date");
+  expect(result.dateView).toEqual("no_date");
+  expect(result.searchTerms).toEqual([]);
+});
+
+test("parseTaskQuery extracts date:today", () => {
+  const result = parseTaskQuery("date:today");
+  expect(result.dateView).toEqual("today");
+  expect(result.searchTerms).toEqual([]);
+});
+
+test("parseTaskQuery extracts date:overdue", () => {
+  const result = parseTaskQuery("date:overdue");
+  expect(result.dateView).toEqual("overdue");
+  expect(result.searchTerms).toEqual([]);
+});
+
+test("parseTaskQuery extracts date:this_week", () => {
+  const result = parseTaskQuery("date:this_week");
+  expect(result.dateView).toEqual("this_week");
+  expect(result.searchTerms).toEqual([]);
+});
+
+test("parseTaskQuery extracts date:all", () => {
+  const result = parseTaskQuery("date:all");
+  expect(result.dateView).toEqual("all");
+  expect(result.searchTerms).toEqual([]);
+});
+
+test("parseTaskQuery handles date filter with search terms", () => {
+  const result = parseTaskQuery("date:none #work urgent");
+  expect(result.dateView).toEqual("no_date");
+  expect(result.searchTerms).toEqual(["#work", "urgent"]);
 });

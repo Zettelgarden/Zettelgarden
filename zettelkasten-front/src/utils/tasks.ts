@@ -27,12 +27,24 @@ export function parseTaskQuery(query: string): TaskFilterParams {
     const dateToken = tokens[dateTokenIndex];
     const dateString = dateToken.substring('date:'.length);
 
-    // Check for date:today or date:tomorrow
+    // Check for named date views
     if (dateString === 'today') {
       params.dateView = 'today';
       tokens.splice(dateTokenIndex, 1);
     } else if (dateString === 'tomorrow') {
       params.dateView = 'tomorrow';
+      tokens.splice(dateTokenIndex, 1);
+    } else if (dateString === 'overdue') {
+      params.dateView = 'overdue';
+      tokens.splice(dateTokenIndex, 1);
+    } else if (dateString === 'this_week') {
+      params.dateView = 'this_week';
+      tokens.splice(dateTokenIndex, 1);
+    } else if (dateString === 'none' || dateString === 'no_date') {
+      params.dateView = 'no_date';
+      tokens.splice(dateTokenIndex, 1);
+    } else if (dateString === 'all') {
+      params.dateView = 'all';
       tokens.splice(dateTokenIndex, 1);
     } else {
       // Try to parse as ISO date format (YYYY-MM-DD)
