@@ -346,6 +346,10 @@ export function ViewMobileLayout({
           {/* Details */}
           <ViewMobileAccordion title="Details">
             <div className="text-xs text-gray-600 space-y-1">
+              <div className="flex items-start">
+                <span className="font-medium w-20">ID:</span>
+                <span className="flex-1 text-blue-600 font-mono">[{viewingCard.card_id}]</span>
+              </div>
               {viewingCard.link && (
                 <div className="flex items-start">
                   <span className="font-medium w-20">Link:</span>
