@@ -278,6 +278,7 @@ func run() error {
 	scheduler.Register(jobs.NewTaskRemindersJob(s.DB, s.Mail))
 	scheduler.Register(jobs.NewUptimeKumaPingJob())
 	scheduler.Register(jobs.NewRSSFetchJob(s.DB))
+	scheduler.Register(jobs.NewRSSArticleCleanupJob(s.DB))
 
 	// Configure email sync job with S3 uploader for attachment processing
 	emailSyncJob := jobs.NewEmailSyncJob(s.DB)
