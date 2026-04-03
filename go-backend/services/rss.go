@@ -573,15 +573,16 @@ func FetchRSSFeedArticles(db models.Database, feedID int) error {
 	// Process each item
 	newArticles := 0
 	for _, item := range parsedFeed.Items {
-		// Check if article already exists
-		var exists bool
-		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM rss_articles WHERE user_id = $1 AND url = $2)",
-			feed.UserID, item.Link).Scan(&exists)
+		// Check if article URL has been seen before (in rss_seen_articles)
+		// This prevents re-syncing articles that were cleaned up
+		var seen bool
+		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM rss_seen_articles WHERE feed_id = $1 AND url = $2)",
+			feed.ID, item.Link).Scan(&seen)
 		if err != nil {
-			log.Printf("[rss-feed:%d] failed to check article existence: %v", feedID, err)
+			log.Printf("[rss-feed:%d] failed to check article seen status: %v", feedID, err)
 			continue
 		}
-		if exists {
+		if seen {
 			continue
 		}
 
@@ -620,6 +621,17 @@ func FetchRSSFeedArticles(db models.Database, feedID int) error {
 		var author *string
 		if item.Author != nil && item.Author.Name != "" {
 			author = &item.Author.Name
+		}
+
+		// Insert into seen articles first (to track URL even if article insert fails)
+		_, err = db.Exec(`
+			INSERT INTO rss_seen_articles (feed_id, url)
+			VALUES ($1, $2)
+			ON CONFLICT (feed_id, url) DO NOTHING
+		`, feed.ID, item.Link)
+		if err != nil {
+			log.Printf("[rss-feed:%d] failed to mark article as seen: %v", feedID, err)
+			// Continue anyway - this is not critical
 		}
 
 		// Insert article
