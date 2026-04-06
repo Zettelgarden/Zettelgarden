@@ -14,7 +14,6 @@ require (
 	github.com/emersion/go-message v0.18.2
 	github.com/emersion/go-webdav v0.7.0
 	github.com/go-shiori/go-readability v0.0.0-20241012063810-92284fa8a71f
-	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/gomarkdown/markdown v0.0.0-20241205020045-f7e15b2f3e62
 	github.com/google/uuid v1.6.0

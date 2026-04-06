@@ -13,7 +13,7 @@ import (
 	"go-backend/server"
 	"go-backend/services"
 	"go-backend/services/jobs"
-	"go-backend/telegram"
+
 	"log"
 	"net/http"
 	"os"
@@ -289,31 +289,6 @@ func run() error {
 	defer scheduler.Stop()
 	log.Printf("[main] scheduled job runner started")
 
-	// Initialize Telegram bot if enabled
-	var telegramBot *telegram.Bot
-	if cfg.Services.Telegram.Enabled {
-		log.Printf("Initializing Telegram bot (allowed_user_id=%d, zettelgarden_user_id=%d)",
-			cfg.Services.Telegram.AllowedUserID, cfg.Services.Telegram.ZettelgardenUserID)
-
-		var err error
-		telegramBot, err = telegram.NewBot(
-			cfg.Services.Telegram.BotToken,
-			cfg.Services.Telegram.AllowedUserID,
-			cfg.Services.Telegram.ZettelgardenUserID,
-			h,
-		)
-		if err != nil {
-			log.Printf("WARNING: Failed to initialize Telegram bot: %v", err)
-			log.Printf("INFO: Telegram bot functionality is disabled")
-		} else {
-			// Start bot in background goroutine
-			safeGoroutine(func() {
-				telegramBot.Start(context.Background())
-			})
-			log.Printf("Telegram bot started successfully")
-		}
-	}
-
 	if cfg.Services.LLM.ChunkingEnabled {
 		go func() {
 			start := time.Now()
@@ -367,12 +342,6 @@ func run() error {
 			if err := llmWorkerPool.Stop(); err != nil {
 				log.Printf("LLM worker pool shutdown error: %v", err)
 			}
-		}
-
-		// Shutdown Telegram bot
-		if telegramBot != nil {
-			log.Printf("Shutting down Telegram bot...")
-			telegramBot.Stop()
 		}
 
 		// Shutdown scheduler

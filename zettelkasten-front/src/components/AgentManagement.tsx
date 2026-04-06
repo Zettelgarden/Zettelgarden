@@ -39,7 +39,7 @@ export const AgentManagement: React.FC = () => {
     try {
       await revokeAgent(agentId);
       await fetchAgents();
-    } catch (err: {
+    } catch (err: any) {
       console.error('Failed to revoke agent:', err);
       alert('Failed to revoke agent');
     } finally {
