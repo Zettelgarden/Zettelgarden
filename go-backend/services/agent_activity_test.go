@@ -8,7 +8,14 @@ import (
 	"time"
 )
 
-// TestLogAgentActivity inserts a record asynchronously
+// TestLogAgentActivity tests the async logging of agent activity.
+// It verifies that:
+// - Activity is logged asynchronously without blocking
+// - All fields are correctly stored in the database
+// - The async goroutine completes within the timeout period
+//
+// Note: The agent_activity_log table is created via migration 0140-create-agent-activity-log.sql
+// and is automatically applied by tests.Setup() through server.RunMigrations().
 func TestLogAgentActivity(t *testing.T) {
 	s := tests.Setup()
 	defer tests.Teardown()
@@ -33,8 +40,8 @@ func TestLogAgentActivity(t *testing.T) {
 	// Log activity asynchronously
 	LogAgentActivity(s.DB, agentID, "create_card", "card", &targetID, details)
 
-	// Wait for async goroutine to complete (increased timeout for reliability)
-	time.Sleep(200 * time.Millisecond)
+	// Wait for async goroutine to complete (50ms simulates real-world scenario where agents update quickly)
+	time.Sleep(50 * time.Millisecond)
 
 	// Verify the record was inserted
 	var count int
@@ -72,7 +79,12 @@ func TestLogAgentActivity(t *testing.T) {
 	}
 }
 
-// TestLogAgentActivity_NilTargetID tests logging with nil target ID
+// TestLogAgentActivity_NilTargetID tests logging with nil target ID and nil details.
+// It verifies that:
+// - NULL values for target_id are handled correctly and stored as NULL in database
+// - NULL values for details are handled correctly and stored as NULL in database
+// - The activity log record is created successfully with NULL fields
+// - Query returns proper NULL values (not zero values or empty strings)
 func TestLogAgentActivity_NilTargetID(t *testing.T) {
 	s := tests.Setup()
 	defer tests.Teardown()
@@ -91,40 +103,58 @@ func TestLogAgentActivity_NilTargetID(t *testing.T) {
 	// Log activity with nil target ID and nil details
 	LogAgentActivity(s.DB, agentID, "sync_started", "system", nil, nil)
 
-	// Wait for async goroutine to complete (increased timeout for reliability)
-	time.Sleep(200 * time.Millisecond)
+	// Wait for async goroutine to complete (50ms simulates real-world scenario)
+	time.Sleep(50 * time.Millisecond)
 
 	// Verify the record was inserted with NULL target_id and NULL details
 	var count int
-	var targetIDValue interface{}
-	var detailsValue interface{}
 	err = s.DB.QueryRow(`
-		SELECT COUNT(*), target_id, details 
+		SELECT COUNT(*) 
 		FROM agent_activity_log 
 		WHERE agent_id = $1
-		GROUP BY target_id, details
-	`, agentID).Scan(&count, &targetIDValue, &detailsValue)
+	`, agentID).Scan(&count)
 	if err != nil {
-		t.Fatalf("failed to query activity logs: %v", err)
+		t.Fatalf("failed to count activity logs: %v", err)
 	}
 
 	// Assert we got exactly one record
 	if count != 1 {
-		t.Errorf("expected 1 activity log, got %d", count)
+		t.Fatalf("expected 1 activity log, got %d", count)
 	}
 
-	// Assert target_id is NULL
+	// Query the specific record to verify NULL values
+	var targetIDValue interface{}
+	var detailsValue interface{}
+	var action, targetType string
+	err = s.DB.QueryRow(`
+		SELECT action, target_type, target_id, details 
+		FROM agent_activity_log 
+		WHERE agent_id = $1
+	`, agentID).Scan(&action, &targetType, &targetIDValue, &detailsValue)
+	if err != nil {
+		t.Fatalf("failed to query activity log details: %v", err)
+	}
+
+	// Verify action and target_type are set correctly
+	if action != "sync_started" {
+		t.Errorf("expected action 'sync_started', got '%s'", action)
+	}
+	if targetType != "system" {
+		t.Errorf("expected target_type 'system', got '%s'", targetType)
+	}
+
+	// Assert target_id is NULL (not 0, not empty, but actual NULL)
 	if targetIDValue != nil {
-		t.Errorf("expected target_id to be NULL, got %v", targetIDValue)
+		t.Errorf("expected target_id to be NULL, got %v (type: %T)", targetIDValue, targetIDValue)
 	}
 
-	// Assert details is NULL
+	// Assert details is NULL (not empty JSON, but actual NULL)
 	if detailsValue != nil {
-		t.Errorf("expected details to be NULL, got %v", detailsValue)
+		t.Errorf("expected details to be NULL, got %v (type: %T)", detailsValue, detailsValue)
 	}
 }
 
-// TestGetAgentActivity returns paginated results
+// TestGetAgentActivity returns paginated results using table-driven tests
 func TestGetAgentActivity(t *testing.T) {
 	s := tests.Setup()
 	defer tests.Teardown()
@@ -152,47 +182,71 @@ func TestGetAgentActivity(t *testing.T) {
 		}
 	}
 
-	// Test first page
-	logs, total, err := GetAgentActivity(s.DB, agentID, 1, 10)
-	if err != nil {
-		t.Fatalf("GetAgentActivity failed: %v", err)
+	// Table-driven tests for pagination scenarios
+	tests := []struct {
+		name          string
+		page          int
+		pageSize      int
+		expectedCount int
+		expectedTotal int
+	}{
+		{
+			name:          "first page",
+			page:          1,
+			pageSize:      10,
+			expectedCount: 10,
+			expectedTotal: 15,
+		},
+		{
+			name:          "second page",
+			page:          2,
+			pageSize:      10,
+			expectedCount: 5,
+			expectedTotal: 15,
+		},
+		{
+			name:          "third page (empty)",
+			page:          3,
+			pageSize:      10,
+			expectedCount: 0,
+			expectedTotal: 15,
+		},
+		{
+			name:          "page size larger than total",
+			page:          1,
+			pageSize:      20,
+			expectedCount: 15,
+			expectedTotal: 15,
+		},
 	}
 
-	if total != 15 {
-		t.Errorf("expected total 15, got %d", total)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logs, total, err := GetAgentActivity(s.DB, agentID, tt.page, tt.pageSize)
+			if err != nil {
+				t.Fatalf("GetAgentActivity failed: %v", err)
+			}
 
-	if len(logs) != 10 {
-		t.Errorf("expected 10 logs on first page, got %d", len(logs))
-	}
+			if total != tt.expectedTotal {
+				t.Errorf("expected total %d, got %d", tt.expectedTotal, total)
+			}
 
-	// Verify ordering (newest first)
-	if logs[0].Action != "update_card" {
-		t.Errorf("expected action 'update_card', got '%s'", logs[0].Action)
-	}
+			if len(logs) != tt.expectedCount {
+				t.Errorf("expected %d logs, got %d", tt.expectedCount, len(logs))
+			}
 
-	// Test second page
-	logs2, _, err := GetAgentActivity(s.DB, agentID, 2, 10)
-	if err != nil {
-		t.Fatalf("GetAgentActivity page 2 failed: %v", err)
-	}
-
-	if len(logs2) != 5 {
-		t.Errorf("expected 5 logs on second page, got %d", len(logs2))
-	}
-
-	// Test third page (empty)
-	logs3, _, err := GetAgentActivity(s.DB, agentID, 3, 10)
-	if err != nil {
-		t.Fatalf("GetAgentActivity page 3 failed: %v", err)
-	}
-
-	if len(logs3) != 0 {
-		t.Errorf("expected 0 logs on third page, got %d", len(logs3))
+			// Verify ordering (newest first) for non-empty results
+			if len(logs) > 0 && logs[0].Action != "update_card" {
+				t.Errorf("expected action 'update_card', got '%s'", logs[0].Action)
+			}
+		})
 	}
 }
 
-// TestGetAgentActivity_EmptyResults handles empty results
+// TestGetAgentActivity_EmptyResults handles empty results.
+// It verifies that:
+// - An empty slice (not nil) is returned when no activity exists
+// - Total count is 0 for agents with no activity
 func TestGetAgentActivity_EmptyResults(t *testing.T) {
 	s := tests.Setup()
 	defer tests.Teardown()
@@ -227,7 +281,10 @@ func TestGetAgentActivity_EmptyResults(t *testing.T) {
 	}
 }
 
-// TestGetAgentActivity_NonExistentAgent tests querying for a non-existent agent
+// TestGetAgentActivity_NonExistentAgent tests querying for a non-existent agent.
+// It verifies that:
+// - Non-existent agent IDs return empty results (not an error)
+// - Total count is 0 for non-existent agents
 func TestGetAgentActivity_NonExistentAgent(t *testing.T) {
 	s := tests.Setup()
 	defer tests.Teardown()
@@ -247,7 +304,11 @@ func TestGetAgentActivity_NonExistentAgent(t *testing.T) {
 	}
 }
 
-// TestLogAgentActivity_Concurrent tests concurrent logging
+// TestLogAgentActivity_Concurrent tests concurrent logging.
+// It verifies that:
+// - Multiple goroutines can log activity concurrently without race conditions
+// - All activity records are successfully inserted
+// - The async logging mechanism is thread-safe
 func TestLogAgentActivity_Concurrent(t *testing.T) {
 	s := tests.Setup()
 	defer tests.Teardown()
@@ -276,8 +337,8 @@ func TestLogAgentActivity_Concurrent(t *testing.T) {
 
 	wg.Wait()
 
-	// Wait for all async goroutines to complete
-	time.Sleep(200 * time.Millisecond)
+	// Wait for all async goroutines to complete (50ms simulates real-world scenario)
+	time.Sleep(50 * time.Millisecond)
 
 	// Verify all records were inserted
 	var count int
