@@ -260,6 +260,7 @@ func Teardown() {
 func truncateTestData() {
 	tables := []string{
 		"admin_audit_log",
+		"agent_activity_log",
 		"api_keys",
 		"audit_events",
 		"backlinks",
