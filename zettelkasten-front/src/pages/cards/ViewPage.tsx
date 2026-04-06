@@ -96,8 +96,6 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
 
   // We need to get these from dialog state context
   const {
-    setSelectedFact,
-    setShowFactDialog,
   } = useDialogState();
 
   // Handle saving card when spreadsheet is edited
@@ -143,8 +141,6 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
         refreshCard={refreshCard}
         setViewCard={setViewCard}
         setError={setError}
-        setSelectedFact={setSelectedFact}
-        setShowFactDialog={setShowFactDialog}
         fileUploadRef={fileUploadRef}
         onSaveCard={handleSaveCard}
         onMenuClick={toggleMobileSidebar}
@@ -273,8 +269,6 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
                   setError={setError}
                   handleOpenEntity={handleOpenEntity}
                   summaries={summaries}
-                  setSelectedFact={setSelectedFact}
-                  setShowFactDialog={setShowFactDialog}
                   fileUploadRef={fileUploadRef}
                   onSaveCard={handleSaveCard}
                 />

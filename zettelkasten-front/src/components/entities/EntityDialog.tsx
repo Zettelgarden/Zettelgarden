@@ -2,13 +2,11 @@ import React, { useState } from "react";
 import { Dialog } from "@headlessui/react";
 import { useNavigate } from "react-router-dom";
 import { Entity } from "../../models/Card";
-import { FactWithCard } from "../../models/Fact";
 import { mergeEntities, updateEntity, UpdateEntityRequest, addEntityToCard } from "../../api/entities";
 import { useDialogState } from "../../contexts/DialogStateContext";
 import { CreateCardDialog } from "../cards/CreateCardDialog";
 import { useEntityData } from "../../hooks/useEntityData";
 import { EntityHeader } from "./EntityHeader";
-import { EntityFactsSection } from "./EntityFactsSection";
 import { EntityCardsSection } from "./EntityCardsSection";
 import { EntitySimilarSection } from "./EntitySimilarSection";
 import { EntityMergeDialog } from "./EntityMergeDialog";
@@ -35,19 +33,9 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
         setShowEntityDialog,
         selectedEntity,
         setSelectedEntity,
-        showFactDialog,
-        setShowFactDialog,
-        selectedFact,
-        setSelectedFact,
     } = useDialogState();
 
     const entityData = useEntityData(showEntityDialog, selectedEntity);
-
-    function handleFactClick(fact: FactWithCard) {
-        setSelectedFact(fact);
-        setShowFactDialog(true);
-        setShowEntityDialog(false);
-    }
 
     function handleEntityClick(entity: Entity) {
         setSelectedEntity(entity);
@@ -158,13 +146,6 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
                                     onClose={onClose}
                                     onEdit={onEdit ? handleEditClick : undefined}
                                     onTurnIntoCard={handleTurnIntoCard}
-                                />
-
-                                <EntityFactsSection
-                                    facts={entityData.facts}
-                                    isLoading={entityData.factsLoading}
-                                    error={entityData.factsError}
-                                    onFactClick={handleFactClick}
                                 />
 
                                 <EntityCardsSection

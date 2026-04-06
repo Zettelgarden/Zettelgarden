@@ -28,8 +28,6 @@ interface ViewCardContentSectionProps {
   setError: (error: string) => void;
   handleOpenEntity: (entity: any) => void;
   summaries: any;
-  setSelectedFact: (fact: any) => void;
-  setShowFactDialog: (show: boolean) => void;
   fileUploadRef: React.RefObject<HTMLInputElement>;
   onSaveCard?: (updatedCard: Card) => void | Promise<void>;
 }
@@ -47,8 +45,6 @@ export function ViewCardContentSection({
   setError,
   handleOpenEntity,
   summaries,
-  setSelectedFact,
-  setShowFactDialog,
   fileUploadRef,
   onSaveCard
 }: ViewCardContentSectionProps) {
@@ -241,8 +237,6 @@ export function ViewCardContentSection({
           setError={setError}
           handleOpenEntity={handleOpenEntity}
           summaries={summaries}
-          setSelectedFact={setSelectedFact}
-          setShowFactDialog={setShowFactDialog}
           fileUploadRef={fileUploadRef}
         />
       </div>

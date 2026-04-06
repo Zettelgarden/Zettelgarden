@@ -42,8 +42,6 @@ interface ViewMobileLayoutProps {
   refreshCard: () => void;
   setViewCard: (card: Card) => void;
   setError: (error: string) => void;
-  setSelectedFact: (fact: any) => void;
-  setShowFactDialog: (show: boolean) => void;
   fileUploadRef: React.RefObject<HTMLInputElement>;
   onSaveCard: (card: Card) => void;
   onMenuClick?: () => void;
@@ -79,8 +77,6 @@ export function ViewMobileLayout({
   refreshCard,
   setViewCard,
   setError,
-  setSelectedFact,
-  setShowFactDialog,
   fileUploadRef,
   onSaveCard,
   onMenuClick,
@@ -197,8 +193,6 @@ export function ViewMobileLayout({
             setError={setError}
             handleOpenEntity={handleOpenEntity}
             summaries={summaries}
-            setSelectedFact={setSelectedFact}
-            setShowFactDialog={setShowFactDialog}
             fileUploadRef={fileUploadRef}
             onSaveCard={onSaveCard}
           />
