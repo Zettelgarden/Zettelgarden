@@ -135,6 +135,12 @@ export function NavigationLinks({ todayTasksCount, unreadRssCount, unreadEmailCo
           isCollapsed={isCollapsed}
         />
         <CollapsibleLink
+          to="/app/entities"
+          icon={<EntityIcon />}
+          label="Entities"
+          isCollapsed={isCollapsed}
+        />
+        <CollapsibleLink
           to="/app/chat"
           icon={<ChatIcon />}
           label="Chat"
@@ -211,23 +217,7 @@ export function NavigationLinks({ todayTasksCount, unreadRssCount, unreadEmailCo
           isCollapsed={isCollapsed}
         />
 
-        {/* Group 3: Entities, Facts */}
-        <SectionHeader>PRO</SectionHeader>
-        <CollapsibleLink
-          to="/app/entities"
-          icon={<EntityIcon />}
-          label="Entities"
-          isCollapsed={isCollapsed}
-          isPro={true}
-          hasSubscription={hasSubscription}
-          badge={
-            !hasSubscription && (
-              <span className="ml-2 bg-purple-500 text-white text-xs font-semibold px-3 py-1.5 md:px-2 md:py-0.5 rounded-full min-h-[32px] md:min-h-0 flex items-center">
-                PRO
-              </span>
-            )
-          }
-        />
+
       </ul>
     </div>
   );
