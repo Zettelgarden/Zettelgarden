@@ -58,3 +58,7 @@ browser-extension/chrome/background.js
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+# Ignore compiled binaries in routes directory
+go-backend/routes/deduplication
+go-backend/routes/reminders

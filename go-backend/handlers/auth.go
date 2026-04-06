@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"go-backend/models"
@@ -376,9 +377,9 @@ func (s *Handler) validateJWTToken(tokenStr string) (int, error) {
 }
 
 // validateAPIKey validates an API key and returns user ID and API key ID if valid
+// For agents, the API key ID will be negative to distinguish from regular API keys
 func (s *Handler) validateAPIKey(apiKey string) (int, int, error) {
-	// We can't query by hash directly, so we need to compare all active keys
-	// In production, you might want to use a different approach for performance
+	// First check regular API keys from api_keys table
 	rows, err := s.DB.Query(`
 		SELECT id, user_id, key_hash
 		FROM api_keys
@@ -405,6 +406,38 @@ func (s *Handler) validateAPIKey(apiKey string) (int, int, error) {
 	}
 
 	if err := rows.Err(); err != nil {
+		return 0, 0, err
+	}
+
+	// If not found in regular API keys, check agent API keys from users table
+	agentRows, err := s.DB.Query(`
+		SELECT id, api_key_hash, owner_user_id
+		FROM users
+		WHERE is_agent = TRUE AND api_key_hash IS NOT NULL
+	`)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer agentRows.Close()
+
+	for agentRows.Next() {
+		var agentID int
+		var keyHash string
+		var ownerUserID sql.NullInt64
+
+		err := agentRows.Scan(&agentID, &keyHash, &ownerUserID)
+		if err != nil {
+			continue
+		}
+
+		// Compare the provided key against the stored hash
+		if checkPasswordHash(apiKey, keyHash) {
+			// For agents, return agent ID as userID and negative API key ID
+			return agentID, -agentID, nil
+		}
+	}
+
+	if err := agentRows.Err(); err != nil {
 		return 0, 0, err
 	}
 
@@ -437,7 +470,11 @@ func generateAPIKey() (string, error) {
 	return string(bytes), nil
 }
 
-// hashAPIKey hashes an API key using bcrypt for secure storage
-func hashAPIKey(apiKey string) (string, error) {
-	return hashPassword(apiKey) // Reuse existing hashPassword function
+// updateAgentLastSeen updates the last_seen timestamp for an agent
+func (s *Handler) updateAgentLastSeen(agentID int) {
+	_, err := s.DB.Exec("UPDATE users SET last_seen = NOW() WHERE id = $1", agentID)
+	if err != nil {
+		log.Printf("Error updating agent last_seen: %v", err)
+	}
 }
+

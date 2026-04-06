@@ -10,6 +10,7 @@ import PasswordReset from "./pages/PasswordReset";
 import EmailValidation from "./pages/EmailValidation";
 import { useAuth } from "./contexts/AuthContext";
 import { RssManagePage } from "./pages/RssManagePage";
+import { AgentManagement } from "./components/AgentManagement";
 
 import { useNavigate } from "react-router-dom";
 
@@ -34,6 +35,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/reset" element={<PasswordReset />} />
         <Route path="/validate" element={<EmailValidation />} />
+        <Route path="/settings/agents" element={<AgentManagement />} />
       </Routes>
     </div>
   );

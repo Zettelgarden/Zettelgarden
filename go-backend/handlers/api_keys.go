@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"go-backend/models"
+	"go-backend/utils"
 	"log"
 	"net/http"
 	"strconv"
@@ -37,14 +38,14 @@ func (s *Handler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate a new API key
-	apiKey, err := generateAPIKey()
+	apiKey, err := utils.GenerateAPIKey()
 	if err != nil {
 		http.Error(w, "Failed to generate API key", http.StatusInternalServerError)
 		return
 	}
 
 	// Hash the API key for storage
-	hashedKey, err := hashAPIKey(apiKey)
+	hashedKey, err := utils.HashAPIKey(apiKey)
 	if err != nil {
 		http.Error(w, "Failed to hash API key", http.StatusInternalServerError)
 		return
