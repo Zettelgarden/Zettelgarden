@@ -1,7 +1,6 @@
 package services
 
 import (
-	"database/sql"
 	"encoding/json"
 	"go-backend/models"
 	"log"
@@ -20,7 +19,7 @@ import (
 //
 // The function includes panic recovery and error logging, making it safe
 // for production use. Errors are logged but do not propagate to the caller.
-func LogAgentActivity(db *sql.DB, agentID int, action, targetType string, targetID *int, details map[string]interface{}) {
+func LogAgentActivity(db models.Database, agentID int, action, targetType string, targetID *int, details map[string]interface{}) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -69,7 +68,7 @@ func LogAgentActivity(db *sql.DB, agentID int, action, targetType string, target
 //	if err != nil {
 //	    // handle error
 //	}
-func GetAgentActivity(db *sql.DB, agentID, page, perPage int) ([]models.AgentActivityLog, int, error) {
+func GetAgentActivity(db models.Database, agentID, page, perPage int) ([]models.AgentActivityLog, int, error) {
 	// Validate and sanitize pagination parameters
 	if page < 1 {
 		page = 1

@@ -508,7 +508,7 @@ func TestDeleteCardSuccess(t *testing.T) {
 	rr := makeCardDeleteRequestSuccess(s, t, id)
 
 	if status := rr.Code; status != http.StatusNoContent {
-		log.Printf(rr.Body.String())
+		log.Printf("Response body: %s", rr.Body.String())
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNoContent)
 	}
 
@@ -519,7 +519,7 @@ func TestDeleteCardSuccess(t *testing.T) {
 	rr = makeCardDeleteRequestSuccess(s, t, id)
 
 	if status := rr.Code; status != http.StatusNotFound {
-		log.Printf(rr.Body.String())
+		log.Printf("Response body: %s", rr.Body.String())
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNotFound)
 	}
 }

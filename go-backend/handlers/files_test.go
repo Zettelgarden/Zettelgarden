@@ -323,7 +323,7 @@ func TestUploadFileSuccess(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusCreated {
-		log.Printf(rr.Body.String())
+		log.Printf("Response body: %s", rr.Body.String())
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
 	}
 
