@@ -20,6 +20,7 @@ func (s *Handler) GetUserAdminRoute(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("err %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	if user.IsAdmin {
@@ -210,6 +211,7 @@ func (s *Handler) GetCurrentUserRoute(w http.ResponseWriter, r *http.Request) {
 		log.Printf("user %v", userID)
 		log.Printf("err %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -677,15 +679,20 @@ func (s *Handler) CreateUser(params models.CreateUserParams) (int, error) {
 	`
 
 	err = s.GetDB().QueryRow(query, params.Username, params.Email, hashedPassword).Scan(&newID)
+	if err != nil {
+		return -1, fmt.Errorf("failed to create user: %w", err)
+	}
 
 	err = s.createDefaultCards(newID)
 	if err != nil {
 		log.Printf("error creating default cards %v", err)
+		// Continue anyway - not critical
 	}
 
 	err = s.createDefaultTags(newID)
 	if err != nil {
 		log.Printf("error creating default tags %v", err)
+		// Continue anyway - not critical
 	}
 
 	user, _ := s.QueryUser(newID)
