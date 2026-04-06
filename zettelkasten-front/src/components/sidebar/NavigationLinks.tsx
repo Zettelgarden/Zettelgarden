@@ -7,7 +7,6 @@ import { ChatIcon } from "../../assets/icons/ChatIcon";
 import { RssIcon } from "../../assets/icons/RssIcon";
 import { EmailIcon } from "../../assets/icons/EmailIcon";
 import { EntityIcon } from "../../assets/icons/EntityIcon";
-import { FactsIcon } from "../../assets/icons/FactsIcon";
 import { HabitsIcon } from "../../assets/icons/HabitsIcon";
 import { FileIcon } from "../../assets/icons/FileIcon";
 
@@ -218,21 +217,6 @@ export function NavigationLinks({ todayTasksCount, unreadRssCount, unreadEmailCo
           to="/app/entities"
           icon={<EntityIcon />}
           label="Entities"
-          isCollapsed={isCollapsed}
-          isPro={true}
-          hasSubscription={hasSubscription}
-          badge={
-            !hasSubscription && (
-              <span className="ml-2 bg-purple-500 text-white text-xs font-semibold px-3 py-1.5 md:px-2 md:py-0.5 rounded-full min-h-[32px] md:min-h-0 flex items-center">
-                PRO
-              </span>
-            )
-          }
-        />
-        <CollapsibleLink
-          to="/app/facts"
-          icon={<FactsIcon />}
-          label="Facts"
           isCollapsed={isCollapsed}
           isPro={true}
           hasSubscription={hasSubscription}
