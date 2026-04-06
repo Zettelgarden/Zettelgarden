@@ -202,15 +202,15 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 	client := services.NewDefaultClient(h.DB, userID, isTesting)
 	client.RequestType = "analysis"
 	processedText := prepareTextForAnalysis(req.Title, req.Text)
-	analyses, facts, usage, err := services.ExtractThesesAndArguments(client, processedText)
+	analyses, _, usage, err := services.ExtractThesesAndArguments(client, processedText)
 	if err != nil {
 		log.Printf("Failed to extract theses: %v", err)
 		http.Error(w, "Failed to analyze text", http.StatusInternalServerError)
 		return
 	}
 
-	// Enqueue the summarization job
-	summarizationID, err := h.runSummarizationJobViaQueue(userID, analyses, facts, usage, nil, jobID)
+	// Enqueue the summarization job (facts disabled)
+	summarizationID, err := h.runSummarizationJobViaQueue(userID, analyses, nil, usage, nil, jobID)
 	if err != nil {
 		log.Printf("err %v", err)
 		http.Error(w, "Failed to create summarization job", http.StatusInternalServerError)
@@ -267,7 +267,7 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 		client := services.NewDefaultClient(h.DB, userID, isTesting)
 		client.RequestType = "analysis"
 		processedText := prepareTextForAnalysis(card.Title, card.Body)
-		analyses, facts, usage, err := services.ExtractThesesAndArguments(client, processedText)
+		analyses, _, usage, err := services.ExtractThesesAndArguments(client, processedText)
 		if err != nil {
 			log.Printf("Fact extraction failed: %v", err)
 			return
@@ -278,24 +278,25 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 			log.Printf("Failed to save analysis: %v", err)
 		}
 
-		// Enqueue the summarization job
-		_, err = h.runSummarizationJobViaQueue(userID, analyses, facts, usage, &card.ID, jobID)
+		// Enqueue the summarization job (facts disabled)
+		_, err = h.runSummarizationJobViaQueue(userID, analyses, nil, usage, &card.ID, jobID)
 		if err != nil {
 			log.Printf("Failed to run summarization job: %v", err)
 			return
 		}
 
-		log.Printf("facts %v", facts)
-		if len(facts) > 0 {
-			factObjs, err := h.ExtractSaveCardFacts(userID, card.ID, facts)
-			if err != nil {
-				log.Printf("Failed to save card facts: %v", err)
-			} else {
-				if err := h.ExtractSaveFactEntities(userID, card, factObjs); err != nil {
-					log.Printf("Failed to extract/save fact entities: %v", err)
-				}
-			}
-		}
+		// Facts processing disabled
+		// log.Printf("facts %v", facts)
+		// if len(facts) > 0 {
+		// 	factObjs, err := h.ExtractSaveCardFacts(userID, card.ID, facts)
+		// 	if err != nil {
+		// 		log.Printf("Failed to save card facts: %v", err)
+		// 	} else {
+		// 		if err := h.ExtractSaveFactEntities(userID, card, factObjs); err != nil {
+		// 			log.Printf("Failed to extract/save fact entities: %v", err)
+		// 		}
+		// 	}
+		// }
 	}()
 }
 
@@ -460,7 +461,7 @@ func (h *Handler) runSummarizationJobViaQueue(userID int, analyses []models.Sect
 		"summarization_id": summarizationID,
 		"card_pk":          cardPK,
 		"analyses":         analysesPayload,
-		"facts":            facts,
+		// "facts":            facts, // Facts disabled
 		"usage": map[string]interface{}{
 			"prompt_tokens":     usage.PromptTokens,
 			"completion_tokens": usage.CompletionTokens,

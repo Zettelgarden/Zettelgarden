@@ -148,7 +148,7 @@ func (s *Handler) InitSearchCollection() {
 			var factText string
 			var createdAtTime, updatedAtTime time.Time
 			var cardPK int
-			var cardCardID string
+			var cardCardID sql.NullString
 			var userID int
 			var parentID sql.NullInt64
 			var cardTitle string
@@ -168,6 +168,12 @@ func (s *Handler) InitSearchCollection() {
 				parentIDValue = int(parentID.Int64)
 			}
 
+			// Convert cardCardID to string or empty for NULL
+			linkedCardID := ""
+			if cardCardID.Valid {
+				linkedCardID = cardCardID.String
+			}
+
 			doc := map[string]interface{}{
 				"id":                    "fact-" + strconv.Itoa(factID),
 				"fact_pk":               factID,
@@ -182,7 +188,7 @@ func (s *Handler) InitSearchCollection() {
 				"parent_id":             -1,
 				"created_at":            createdAtTime.Unix(),
 				"updated_at":            updatedAtTime.Unix(),
-				"linked_card_id":        cardCardID,
+				"linked_card_id":        linkedCardID,
 				"linked_card_pk":        cardPK,
 				"linked_card_title":     cardTitle,
 				"linked_card_parent_id": parentIDValue,
