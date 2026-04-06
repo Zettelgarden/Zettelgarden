@@ -695,6 +695,7 @@ func (s *Handler) GetFact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var fact FactWithCard
+	var cardCardID sql.NullString
 	err = s.GetDB().QueryRow(`
 		SELECT f.id, f.fact, f.created_at, f.updated_at,
 		       c.id, c.card_id, c.user_id, c.title, c.parent_id,
@@ -708,7 +709,7 @@ func (s *Handler) GetFact(w http.ResponseWriter, r *http.Request) {
 		&fact.CreatedAt,
 		&fact.UpdatedAt,
 		&fact.Card.ID,
-		&fact.Card.CardID,
+		&cardCardID,
 		&fact.Card.UserID,
 		&fact.Card.Title,
 		&fact.Card.ParentID,
@@ -718,6 +719,9 @@ func (s *Handler) GetFact(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Fact not found", http.StatusNotFound)
 		return
+	}
+	if cardCardID.Valid {
+		fact.Card.CardID = cardCardID.String
 	}
 
 	w.Header().Set("Content-Type", "application/json")
