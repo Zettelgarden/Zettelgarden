@@ -3,14 +3,19 @@
 -- Created: 2026-04-06
 
 -- Add agent support columns to users table
-ALTER TABLE users ADD COLUMN IF NOT EXISTS is_agent BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_agent BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS owner_user_id INT NULL REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS api_key_hash VARCHAR(255) NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS api_key_hash CHAR(60) NULL;
 
 -- Add constraint: agents cannot be admins
 ALTER TABLE users DROP CONSTRAINT IF EXISTS check_agent_not_admin;
 ALTER TABLE users ADD CONSTRAINT check_agent_not_admin 
     CHECK (NOT (is_agent = TRUE AND is_admin = TRUE));
+
+-- Add constraint: agents must have API keys
+ALTER TABLE users DROP CONSTRAINT IF EXISTS check_agent_has_api_key;
+ALTER TABLE users ADD CONSTRAINT check_agent_has_api_key
+    CHECK (NOT is_agent OR api_key_hash IS NOT NULL);
 
 -- Indexes for faster lookups of agents by owner
 CREATE INDEX IF NOT EXISTS idx_users_owner ON users(owner_user_id) WHERE is_agent = TRUE;
