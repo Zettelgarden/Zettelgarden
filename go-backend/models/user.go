@@ -33,6 +33,11 @@ type User struct {
 	Timezone                    string     `json:"timezone"`
 	CaldavURL                   *string    `json:"caldav_url"`
 	CaldavToken                 *string    `json:"caldav_token,omitempty"`
+
+	// Agent-specific fields
+	IsAgent     bool       `json:"is_agent"`
+	OwnerUserID *int       `json:"owner_user_id,omitempty"`
+	LastUsed    *time.Time `json:"last_used,omitempty"`
 }
 
 type UserSubscription struct {
