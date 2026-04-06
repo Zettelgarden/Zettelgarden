@@ -7,7 +7,19 @@ import (
 	"log"
 )
 
-// LogAgentActivity logs an agent action asynchronously
+// LogAgentActivity logs an agent action asynchronously to the database.
+// The function runs in a goroutine and will not block the caller.
+//
+// Parameters:
+//   - db: Database connection for inserting the log entry
+//   - agentID: ID of the agent performing the action
+//   - action: Type of action (e.g., "create_card", "update_card")
+//   - targetType: Entity type being acted upon (e.g., "card", "task")
+//   - targetID: Optional ID of the target entity (nil if not applicable)
+//   - details: Optional additional information about the action
+//
+// The function includes panic recovery and error logging, making it safe
+// for production use. Errors are logged but do not propagate to the caller.
 func LogAgentActivity(db *sql.DB, agentID int, action, targetType string, targetID *int, details map[string]interface{}) {
 	go func() {
 		defer func() {
@@ -37,8 +49,38 @@ func LogAgentActivity(db *sql.DB, agentID int, action, targetType string, target
 	}()
 }
 
-// GetAgentActivity retrieves paginated activity logs for an agent
+// GetAgentActivity retrieves paginated activity logs for a specific agent.
+// Results are ordered by created_at DESC (newest first).
+//
+// Parameters:
+//   - db: Database connection for querying logs
+//   - agentID: ID of the agent to retrieve logs for
+//   - page: Page number (1-indexed, values < 1 are treated as 1)
+//   - perPage: Number of results per page (values < 1 are treated as 10, max 100)
+//
+// Returns:
+//   - []models.AgentActivityLog: Slice of activity logs (empty slice if no results, never nil)
+//   - int: Total count of logs for the agent
+//   - error: Database error if query fails
+//
+// Example:
+//
+//	logs, total, err := GetAgentActivity(db, 42, 1, 10)
+//	if err != nil {
+//	    // handle error
+//	}
 func GetAgentActivity(db *sql.DB, agentID, page, perPage int) ([]models.AgentActivityLog, int, error) {
+	// Validate and sanitize pagination parameters
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 10
+	}
+	if perPage > 100 {
+		perPage = 100 // Prevent unbounded queries
+	}
+
 	offset := (page - 1) * perPage
 
 	// Get total count
