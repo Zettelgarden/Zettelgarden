@@ -44,7 +44,7 @@ describe('AgentManagement', () => {
       name: 'Test Agent 2',
       description: 'Description 2',
       created_at: '2024-01-01T00:00:00Z',
-      last_used: null,
+      last_used: undefined,
       is_active: false,
     },
   ];

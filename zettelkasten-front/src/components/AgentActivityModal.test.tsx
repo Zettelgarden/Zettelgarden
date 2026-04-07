@@ -12,6 +12,7 @@ vi.mock('../api/agents', () => ({
 describe('AgentActivityModal', () => {
   const mockOnClose = vi.fn();
   const mockAgentId = 1;
+  const mockAgentName = 'Test Agent';
 
   const mockActivityLogs = [
     {
@@ -50,7 +51,7 @@ describe('AgentActivityModal', () => {
 
   it('renders nothing when isOpen is false', () => {
     const { container } = render(
-      <AgentActivityModal isOpen={false} onClose={mockOnClose} agentId={mockAgentId} />
+      <AgentActivityModal isOpen={false} onClose={mockOnClose} agentId={mockAgentId} agentName={mockAgentName} />
     );
     expect(container.querySelector('.fixed')).not.toBeInTheDocument();
   });
@@ -59,7 +60,7 @@ describe('AgentActivityModal', () => {
     const mockGetAgentActivity = vi.mocked(agentsApi.getAgentActivity);
     mockGetAgentActivity.mockResolvedValueOnce(mockActivityResponse);
 
-    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} />);
+    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} agentName={mockAgentName} />);
 
     await waitFor(() => {
       expect(screen.getByText('Agent Activity')).toBeInTheDocument();
@@ -70,7 +71,7 @@ describe('AgentActivityModal', () => {
     const mockGetAgentActivity = vi.mocked(agentsApi.getAgentActivity);
     mockGetAgentActivity.mockResolvedValueOnce(mockActivityResponse);
 
-    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} />);
+    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} agentName={mockAgentName} />);
 
     await waitFor(() => {
       expect(mockGetAgentActivity).toHaveBeenCalledWith(mockAgentId, 1, 50);
@@ -81,7 +82,7 @@ describe('AgentActivityModal', () => {
     const mockGetAgentActivity = vi.mocked(agentsApi.getAgentActivity);
     mockGetAgentActivity.mockResolvedValueOnce(mockActivityResponse);
 
-    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} />);
+    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} agentName={mockAgentName} />);
 
     await waitFor(() => {
       expect(screen.getByText('read_card')).toBeInTheDocument();
@@ -95,7 +96,7 @@ describe('AgentActivityModal', () => {
     const mockGetAgentActivity = vi.mocked(agentsApi.getAgentActivity);
     mockGetAgentActivity.mockImplementation(() => new Promise(() => {})); // Never resolves
 
-    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} />);
+    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} agentName={mockAgentName} />);
 
     expect(screen.getByText(/loading/i)).toBeInTheDocument();
   });
@@ -104,7 +105,7 @@ describe('AgentActivityModal', () => {
     const mockGetAgentActivity = vi.mocked(agentsApi.getAgentActivity);
     mockGetAgentActivity.mockRejectedValueOnce(new Error('Failed to load'));
 
-    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} />);
+    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} agentName={mockAgentName} />);
 
     await waitFor(() => {
       expect(screen.getByText(/failed to load activity/i)).toBeInTheDocument();
@@ -115,7 +116,7 @@ describe('AgentActivityModal', () => {
     const mockGetAgentActivity = vi.mocked(agentsApi.getAgentActivity);
     mockGetAgentActivity.mockResolvedValueOnce(mockActivityResponse);
 
-    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} />);
+    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} agentName={mockAgentName} />);
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /previous/i })).toBeInTheDocument();
@@ -127,7 +128,7 @@ describe('AgentActivityModal', () => {
     const mockGetAgentActivity = vi.mocked(agentsApi.getAgentActivity);
     mockGetAgentActivity.mockResolvedValueOnce(mockActivityResponse);
 
-    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} />);
+    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} agentName={mockAgentName} />);
 
     await waitFor(() => {
       const prevButton = screen.getByRole('button', { name: /previous/i });
@@ -142,7 +143,7 @@ describe('AgentActivityModal', () => {
       pagination: { ...mockActivityResponse.pagination, page: 2, total_pages: 2 },
     });
 
-    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} />);
+    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} agentName={mockAgentName} />);
 
     await waitFor(() => {
       const nextButton = screen.getByRole('button', { name: /next/i });
@@ -154,7 +155,7 @@ describe('AgentActivityModal', () => {
     const mockGetAgentActivity = vi.mocked(agentsApi.getAgentActivity);
     mockGetAgentActivity.mockResolvedValueOnce(mockActivityResponse);
 
-    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} />);
+    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} agentName={mockAgentName} />);
 
     await waitFor(() => {
       expect(mockGetAgentActivity).toHaveBeenCalledWith(mockAgentId, 1, 50);
@@ -181,7 +182,7 @@ describe('AgentActivityModal', () => {
       pagination: { ...mockActivityResponse.pagination, page: 2 },
     });
 
-    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} />);
+    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} agentName={mockAgentName} />);
 
     await waitFor(() => {
       expect(mockGetAgentActivity).toHaveBeenCalledWith(mockAgentId, 2, 50);
@@ -201,7 +202,7 @@ describe('AgentActivityModal', () => {
     const mockGetAgentActivity = vi.mocked(agentsApi.getAgentActivity);
     mockGetAgentActivity.mockResolvedValueOnce(mockActivityResponse);
 
-    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} />);
+    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} agentName={mockAgentName} />);
 
     await waitFor(() => {
       expect(screen.getByText(/page 1 of 2/i)).toBeInTheDocument();
@@ -212,7 +213,7 @@ describe('AgentActivityModal', () => {
     const mockGetAgentActivity = vi.mocked(agentsApi.getAgentActivity);
     mockGetAgentActivity.mockResolvedValueOnce(mockActivityResponse);
 
-    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} />);
+    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} agentName={mockAgentName} />);
 
     await waitFor(() => {
       expect(screen.getByText('Agent Activity')).toBeInTheDocument();
@@ -230,7 +231,7 @@ describe('AgentActivityModal', () => {
       pagination: { page: 1, per_page: 50, total: 0, total_pages: 0 },
     });
 
-    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} />);
+    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} agentName={mockAgentName} />);
 
     await waitFor(() => {
       expect(screen.getByText(/no activity logs/i)).toBeInTheDocument();
@@ -241,7 +242,7 @@ describe('AgentActivityModal', () => {
     const mockGetAgentActivity = vi.mocked(agentsApi.getAgentActivity);
     mockGetAgentActivity.mockResolvedValueOnce(mockActivityResponse);
 
-    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} />);
+    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} agentName={mockAgentName} />);
 
     await waitFor(() => {
       // The exact format will depend on the locale, but we can check it's formatted
@@ -253,7 +254,7 @@ describe('AgentActivityModal', () => {
     const mockGetAgentActivity = vi.mocked(agentsApi.getAgentActivity);
     mockGetAgentActivity.mockResolvedValueOnce(mockActivityResponse);
 
-    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} />);
+    render(<AgentActivityModal isOpen={true} onClose={mockOnClose} agentId={mockAgentId} agentName={mockAgentName} />);
 
     await waitFor(() => {
       expect(screen.getByText('Action')).toBeInTheDocument();
