@@ -48,9 +48,9 @@ export const AgentManagement: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="bg-white rounded-lg shadow p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">AI Agents</h1>
+        <h2 className="text-xl font-semibold">AI Agents</h2>
         <button
           onClick={() => setShowCreateModal(true)}
           className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
