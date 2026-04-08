@@ -285,6 +285,11 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 			return
 		}
 
+		// Extract and save entities directly from card (independent of facts)
+		if err := h.ExtractSaveCardEntities(userID, card); err != nil {
+			log.Printf("Failed to extract/save card entities: %v", err)
+		}
+
 		// Facts processing disabled
 		// log.Printf("facts %v", facts)
 		// if len(facts) > 0 {
@@ -298,6 +303,87 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 		// 	}
 		// }
 	}()
+}
+
+// ExtractSaveCardEntities extracts entities directly from a card's title and body,
+// saves them to the database, and links them to the card.
+// This is independent of fact extraction.
+func (h *Handler) ExtractSaveCardEntities(userID int, card models.Card) error {
+	// Skip during testing to avoid external LLM calls
+	if h.Server.Testing {
+		return nil
+	}
+
+	isTesting := h.Server != nil && h.Server.Testing
+	client := services.NewDefaultClient(h.DB, userID, isTesting)
+	client.RequestType = "analysis"
+
+	// Extract entities from card title and body
+	entities, err := services.FindEntities(client, card.Title, card.Body)
+	if err != nil {
+		return fmt.Errorf("failed to extract entities: %w", err)
+	}
+
+	log.Printf("[EntityExtraction] Extracted %d entities from card %d", len(entities), card.ID)
+
+	// Save each entity and link to card
+	for _, entity := range entities {
+		// Validate entity name and description
+		if err := validateEntityName(entity.Name); err != nil {
+			log.Printf("[EntityExtraction] Invalid entity name '%s': %v", entity.Name, err)
+			continue
+		}
+		if err := validateEntityDescription(entity.Description); err != nil {
+			log.Printf("[EntityExtraction] Invalid entity description for '%s': %v", entity.Name, err)
+			continue
+		}
+
+		var entityID int
+
+		// Check if entity already exists
+		err := h.DB.QueryRow(`
+			SELECT id FROM entities WHERE user_id = $1 AND name = $2
+		`, userID, entity.Name).Scan(&entityID)
+
+		if err == sql.ErrNoRows {
+			// Entity doesn't exist, create new one
+			err = h.DB.QueryRow(`
+				INSERT INTO entities (user_id, name, description, type, card_pk)
+				VALUES ($1, $2, $3, $4, $5)
+				RETURNING id
+			`, userID, entity.Name, entity.Description, entity.Type, card.ID).Scan(&entityID)
+			if err != nil {
+				log.Printf("[EntityExtraction] Error inserting entity '%s': %v", entity.Name, err)
+				continue
+			}
+			log.Printf("[EntityExtraction] Created new entity: %s (ID: %d)", entity.Name, entityID)
+		} else if err != nil {
+			log.Printf("[EntityExtraction] Error checking entity existence: %v", err)
+			continue
+		} else {
+			// Entity exists, update it
+			_, err = h.DB.Exec(`
+				UPDATE entities SET description=$1, type=$2, updated_at=NOW() WHERE id=$3
+			`, entity.Description, entity.Type, entityID)
+			if err != nil {
+				log.Printf("[EntityExtraction] Error updating entity '%s': %v", entity.Name, err)
+				continue
+			}
+		}
+
+		// Link entity to card
+		_, err = h.DB.Exec(`
+			INSERT INTO entity_card_junction (user_id, entity_id, card_pk, chunk_id)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (entity_id, card_pk) DO UPDATE SET updated_at = NOW()
+		`, userID, entityID, card.ID, 0)
+		if err != nil {
+			log.Printf("[EntityExtraction] Error linking entity '%s' to card: %v", entity.Name, err)
+			continue
+		}
+	}
+
+	return nil
 }
 
 // extractSectionOrder attempts to extract a section number from the section title.
