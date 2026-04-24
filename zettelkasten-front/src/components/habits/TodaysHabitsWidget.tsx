@@ -38,16 +38,18 @@ export const TodaysHabitsWidget: React.FC = () => {
   if (!todaysHabits || todaysHabits.length === 0) return null;
 
   return (
-    <div className="mb-4 px-3">
-      <h3 className="text-sm font-semibold mb-2 flex items-center justify-between">
-        <span>Today's Habits</span>
+    <div className="p-2">
+      <div className="flex items-center justify-between mb-2 px-2">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          Today's Habits
+        </h3>
         <button
           onClick={() => navigate('/app/habits')}
-          className="text-xs font-normal text-blue-600 hover:text-blue-800"
+          className="text-xs text-gray-400 hover:text-blue-600"
         >
           View All →
         </button>
-      </h3>
+      </div>
       <div className="space-y-1">
         {todaysHabits.map((h) => {
           const stats = habitStats[h.id];
