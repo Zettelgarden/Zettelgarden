@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useHabits } from '../../contexts/HabitContext';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 
 export const TodaysHabitsWidget: React.FC = () => {
   const { todaysHabits, fetchTodaysHabits, checkinHabit, habitStats, fetchHabitStats } = useHabits();
   const [checkingIn, setCheckingIn] = useState<number | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchTodaysHabits();
@@ -37,7 +39,15 @@ export const TodaysHabitsWidget: React.FC = () => {
 
   return (
     <div className="mb-4 px-3">
-      <h3 className="text-sm font-semibold mb-2">Today's Habits</h3>
+      <h3 className="text-sm font-semibold mb-2 flex items-center justify-between">
+        <span>Today's Habits</span>
+        <button
+          onClick={() => navigate('/app/habits')}
+          className="text-xs font-normal text-blue-600 hover:text-blue-800"
+        >
+          View All →
+        </button>
+      </h3>
       <div className="space-y-1">
         {todaysHabits.map((h) => {
           const stats = habitStats[h.id];

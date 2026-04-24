@@ -5,7 +5,6 @@ import { TasksIcon } from "../../assets/icons/TasksIcon";
 import { ChatIcon } from "../../assets/icons/ChatIcon";
 import { RssIcon } from "../../assets/icons/RssIcon";
 import { EntityIcon } from "../../assets/icons/EntityIcon";
-import { HabitsIcon } from "../../assets/icons/HabitsIcon";
 import { FileIcon } from "../../assets/icons/FileIcon";
 
 interface NavigationLinksProps {
@@ -181,12 +180,7 @@ export function NavigationLinks({ todayTasksCount, unreadRssCount, hasSubscripti
             </span>
           }
         />
-        <CollapsibleLink
-          to="/app/habits"
-          icon={<HabitsIcon />}
-          label="Habits"
-          isCollapsed={isCollapsed}
-        />
+
         <CollapsibleLink
           to="/app/files"
           icon={<FileIcon />}
