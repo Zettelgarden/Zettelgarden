@@ -120,8 +120,6 @@ export function NavigationLinks({ todayTasksCount, unreadRssCount, isCollapsed }
   return (
     <div className={`p-2 ${isCollapsed ? "px-1" : ""}`}>
       <ul className="space-y-1">
-        {/* Group 1: Search, Chat, RSS */}
-        <SectionHeader>Knowledge</SectionHeader>
         <CollapsibleLink
           to="/app/search?recent=true"
           icon={<SearchIcon />}
@@ -149,8 +147,6 @@ export function NavigationLinks({ todayTasksCount, unreadRssCount, isCollapsed }
           }
         />
 
-        {/* Group 2: Tasks, Habits */}
-        <SectionHeader>Organization</SectionHeader>
         <CollapsibleLink
           to="/app/tasks"
           icon={<TasksIcon />}
