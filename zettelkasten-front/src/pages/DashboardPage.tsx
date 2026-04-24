@@ -2,11 +2,9 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CardList } from "../components/cards/CardList";
 import { setDocumentTitle } from "../utils/title";
-import { useAuth } from "../contexts/AuthContext";
 import { useUIState } from "../contexts/UIStateContext";
 import { semanticSearchCardsPaginated, getUnsortedCards } from "../api/cards";
 import { PartialCard } from "../models/Card";
-import { ChatInput } from "../components/chat/ChatInput";
 import { AddArticleDialog } from "../components/cards/AddArticleDialog";
 import { useDialogState } from "../contexts/DialogStateContext";
 import { MobileTopBar } from "../components/layout/MobileTopBar";
@@ -16,18 +14,19 @@ export function DashboardPage() {
   const { toggleMobileSidebar } = useUIState();
   const [recentCards, setRecentCards] = useState<PartialCard[]>([]);
   const [unsortedCards, setUnsortedCards] = useState<PartialCard[]>([]);
-  const [chatInput, setChatInput] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [isLoadingCards, setIsLoadingCards] = useState<boolean>(true);
-  const { hasSubscription, isLoading } = useAuth();
   const [showAddArticleDialog, setShowAddArticleDialog] = useState(false);
   const { setShowCreateTaskWindow } = useDialogState();
 
-  const setMessage = (message: string) => {
-    console.log("Message:", message);
-    // TODO: Could integrate with a toast notification system here
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      const trimmed = searchInput.trim();
+      if (trimmed) {
+        navigate(`/app/search?term=${encodeURIComponent(trimmed)}`);
+      }
+    }
   };
-  const subscriptionEnabled =
-    import.meta.env.VITE_FEATURE_SUBSCRIPTION === "true";
 
   const fetchDashboardData = async () => {
     setIsLoadingCards(true);
@@ -84,31 +83,8 @@ export function DashboardPage() {
     fetchDashboardData();
   }, []);
 
-  const handleChatSubmit = async (referencedCards?: string[]) => {
-    if (!chatInput.trim()) return;
-
-    const messageToSend = chatInput.trim();
-
-    // Navigate to chat page with message and referenced cards as URL params
-    const params = new URLSearchParams();
-    params.set('message', messageToSend);
-    if (referencedCards && referencedCards.length > 0) {
-      params.set('cards', referencedCards.join(','));
-    }
-
-    navigate(`/app/chat?${params.toString()}`);
-  };
-
-  const handleCardReference = (cardIds: string[]) => {
-    // Cards are handled directly by ChatInput component
-  };
-
   const handleNewStandardCard = () => {
     navigate("/app/card/new", { state: { cardType: "standard" } });
-  };
-
-  const handleNewChat = () => {
-    navigate("/app/chat?new=true");
   };
 
   const handleNewTask = () => {
@@ -176,99 +152,39 @@ export function DashboardPage() {
                 <span className="text-xs font-medium text-gray-700">Task</span>
               </button>
 
-              {hasSubscription && (
-                <button
-                  onClick={handleNewChat}
-                  className="flex flex-col items-center p-3 bg-white rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 border border-gray-200 transition-all duration-200"
-                >
-                  <svg className="w-6 h-6 text-purple-600 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
-                  </svg>
-                  <span className="text-xs font-medium text-gray-700">Chat</span>
-                </button>
-              )}
-
-              {!hasSubscription && (
-                <button
-                  onClick={() => window.location.href = "/app/subscription"}
-                  className="flex flex-col items-center p-3 bg-gray-100 rounded-lg shadow-sm hover:shadow-md cursor-not-allowed border border-gray-200 transition-all duration-200"
-                  disabled
-                >
-                  <svg className="w-6 h-6 text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  <span className="text-xs font-medium text-gray-400">Chat</span>
-                </button>
-              )}
+              <button
+                onClick={() => navigate('/app/search')}
+                className="flex flex-col items-center p-3 bg-white rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 border border-gray-200 transition-all duration-200"
+              >
+                <svg className="w-6 h-6 text-purple-600 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span className="text-xs font-medium text-gray-700">Search</span>
+              </button>
             </div>
           </div>
-            {/* Quick Chat Box - only show for subscribers */}
-            {hasSubscription && (
-              <div className="max-w-4xl mx-auto mb-8">
-                <div className="relative">
-                  {/* Unified Input Container */}
-                  <div className="relative border border-gray-300 rounded-2xl bg-white shadow-sm hover:shadow-md transition-all duration-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
-                    {/* Input Area with Controls */}
-                    <div className="flex items-center gap-3 p-4">
-                      {/* Main Input */}
-                      <div className="flex-1 relative">
-                        <ChatInput
-                          value={chatInput}
-                          onChange={setChatInput}
-                          onSubmit={handleChatSubmit}
-                          onCardReference={handleCardReference}
-                          placeholder="Ask your knowledge base anything..."
-                          disabled={false}
-                          isLoading={false}
-                          submitButtonText=""
-                          multiline={false}
-                          className="border-0 rounded-none p-0"
-                        />
-                      </div>
-
-                      {/* Send Button */}
-                      <button
-                        onClick={() => handleChatSubmit()}
-                        disabled={!chatInput.trim()}
-                        className="p-2.5 bg-black hover:bg-gray-800 text-white rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black flex items-center justify-center min-w-[44px]"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                        </svg>
-                      </button>
-                    </div>
-
-                    {/* Helper text at bottom */}
-                    <div className="px-4 pb-3">
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                          <span>Ask anything about your knowledge base</span>
-                        </div>
-                        <div className="text-gray-400">
-                          Press Enter to search
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            {/* Search Box */}
+            <div className="max-w-4xl mx-auto mb-8">
+              <div className="relative">
+                <svg
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="Search cards..."
+                  className="w-full pl-12 pr-4 py-3 text-sm border border-gray-300 rounded-xl bg-white shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
-            )}
-          </div>
-          {!isLoading && !hasSubscription && subscriptionEnabled && (
-            <div className="bg-blue-50 border-t border-b border-blue-200 text-blue-800 px-4 py-3 text-center">
-              <p>
-                <strong>Unlock powerful AI features!</strong> Subscribe now to
-                enable summarization, entity extraction, and fact analysis.
-                <a
-                  href="/app/subscription"
-                  className="ml-2 bg-blue-500 text-white font-bold py-1 px-3 rounded hover:bg-blue-600"
-                >
-                  Upgrade
-                </a>
-              </p>
             </div>
-          )}
+          </div>
         </div>
       </div>
       <div className="flex flex-col md:flex-row border-t">
