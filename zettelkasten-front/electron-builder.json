@@ -6,6 +6,7 @@
   },
   "files": [
     "dist/**/*",
+    "dist-electron/**/*",
     "electron/**/*"
   ],
   "mac": {
