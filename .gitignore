@@ -62,3 +62,10 @@ browser-extension/chrome/background.js
 # Ignore compiled binaries in routes directory
 go-backend/routes/deduplication
 go-backend/routes/reminders
+
+# Electron build artifacts
+zettelkasten-front/dist-electron/
+zettelkasten-front/release/
+
+# Beads / Dolt files (added by bd init)
+.beads-credential-key

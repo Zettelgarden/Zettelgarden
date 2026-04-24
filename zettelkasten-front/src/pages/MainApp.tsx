@@ -21,6 +21,7 @@ import { ToastProvider } from "../components/toast/ToastContext";
 import { AppRoutes } from "./AppRoutes";
 import { SearchConfig } from "../models/StarredSearch";
 import { useUIState } from "../contexts/UIStateContext";
+import { LinuxTitlebar, useLinuxTitlebarOffset } from "../components/LinuxTitlebar";
 
 function MainAppContent() {
   const navigate = useNavigate();
@@ -68,6 +69,8 @@ function MainAppContent() {
     setRefreshTasks(true);
   }, []);
 
+  const titlebarOffset = useLinuxTitlebarOffset();
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
@@ -78,7 +81,8 @@ function MainAppContent() {
   return (
     <div>
 
-      <div className="flex h-screen overflow-hidden">
+      <LinuxTitlebar />
+      <div className="flex h-screen overflow-hidden" style={{ paddingTop: titlebarOffset }}>
         <Sidebar />
         <div className="flex-grow overflow-y-auto pb-16 md:pb-0 safe-bottom">
           {isPinMode && pinnedCard ? (
