@@ -268,22 +268,13 @@ func run() error {
 	// Create memory compressor adapter for the user memory maintenance job
 	memoryCompressor := handlers.NewMemoryCompressorAdapter(h)
 
-	// Create external event service for calendar sync job
-	externalEventService := services.NewExternalEventService(s.DB, encryptionService)
-
 	// Register scheduled jobs with their required dependencies
 	scheduler.Register(jobs.NewCleanupJob(s.DB))
-	scheduler.Register(jobs.NewCalendarSyncJob(s.DB, externalEventService))
 	scheduler.Register(jobs.NewUserMemoryMaintenanceJob(s.DB, s.LLMClient, memoryCompressor))
 	scheduler.Register(jobs.NewTaskRemindersJob(s.DB, s.Mail))
 	scheduler.Register(jobs.NewUptimeKumaPingJob())
 	scheduler.Register(jobs.NewRSSFetchJob(s.DB))
 	scheduler.Register(jobs.NewRSSArticleCleanupJob(s.DB))
-
-	// Configure email sync job with S3 uploader for attachment processing
-	emailSyncJob := jobs.NewEmailSyncJob(s.DB)
-	emailSyncJob.SetS3Uploader(&handlerS3Uploader{handler: h})
-	scheduler.Register(emailSyncJob)
 
 	scheduler.Start()
 	defer scheduler.Stop()

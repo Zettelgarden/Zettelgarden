@@ -2,10 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { SearchIcon } from "../../assets/icons/SearchIcon";
 import { TasksIcon } from "../../assets/icons/TasksIcon";
-import { CalendarIcon } from "../../assets/icons/CalendarIcon";
 import { ChatIcon } from "../../assets/icons/ChatIcon";
 import { RssIcon } from "../../assets/icons/RssIcon";
-import { EmailIcon } from "../../assets/icons/EmailIcon";
 import { EntityIcon } from "../../assets/icons/EntityIcon";
 import { HabitsIcon } from "../../assets/icons/HabitsIcon";
 import { FileIcon } from "../../assets/icons/FileIcon";
@@ -13,7 +11,6 @@ import { FileIcon } from "../../assets/icons/FileIcon";
 interface NavigationLinksProps {
   todayTasksCount: number;
   unreadRssCount: number;
-  unreadEmailCount: number;
   hasSubscription: boolean;
   isCollapsed: boolean;
 }
@@ -113,7 +110,7 @@ function CollapsibleLink({
   );
 }
 
-export function NavigationLinks({ todayTasksCount, unreadRssCount, unreadEmailCount, hasSubscription, isCollapsed }: NavigationLinksProps) {
+export function NavigationLinks({ todayTasksCount, unreadRssCount, hasSubscription, isCollapsed }: NavigationLinksProps) {
   const SectionHeader = ({ children }: { children: React.ReactNode }) => {
     if (isCollapsed) return null;
     return (
@@ -170,22 +167,8 @@ export function NavigationLinks({ todayTasksCount, unreadRssCount, unreadEmailCo
           }
         />
 
-        {/* Group 2: Email, Tasks, Calendar, Habits */}
+        {/* Group 2: Tasks, Habits */}
         <SectionHeader>Organization</SectionHeader>
-        <CollapsibleLink
-          to="/app/emails"
-          icon={<EmailIcon />}
-          label="Email"
-          isCollapsed={isCollapsed}
-          badgeCount={unreadEmailCount}
-          badge={
-            unreadEmailCount > 0 && (
-              <span className="px-3 py-1.5 md:px-2 md:py-1 text-xs bg-blue-100 rounded-full min-h-[32px] md:min-h-0 flex items-center">
-                {unreadEmailCount}
-              </span>
-            )
-          }
-        />
         <CollapsibleLink
           to="/app/tasks"
           icon={<TasksIcon />}
@@ -197,12 +180,6 @@ export function NavigationLinks({ todayTasksCount, unreadRssCount, unreadEmailCo
               {todayTasksCount}
             </span>
           }
-        />
-        <CollapsibleLink
-          to="/app/calendar"
-          icon={<CalendarIcon />}
-          label="Calendar"
-          isCollapsed={isCollapsed}
         />
         <CollapsibleLink
           to="/app/habits"

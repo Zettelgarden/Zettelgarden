@@ -10,7 +10,6 @@ import { useAuth } from "../contexts/AuthContext";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useToast } from "./toast/ToastContext";
 import { getUnreadCount } from "../api/notifications";
-import { listEmails } from "../api/email";
 import { listFolders } from "../api/rss";
 import { RSSFolder, RSSFeed } from "../api/rss";
 
@@ -35,7 +34,6 @@ export function Sidebar() {
   const { tasks } = useTaskContext();
   const { unreadCount: unreadRssCount } = useRSS();
   const [unreadInboxCount, setUnreadInboxCount] = useState(0);
-  const [unreadEmailCount, setUnreadEmailCount] = useState(0);
   const [showAddArticleDialog, setShowAddArticleDialog] = useState(false);
   const [showAddFeedDialog, setShowAddFeedDialog] = useState(false);
   const [rssFolders, setRssFolders] = useState<RSSFolder[]>([]);
@@ -147,18 +145,6 @@ export function Sidebar() {
     fetchUnreadCount();
   }, []);
 
-  useEffect(() => {
-    async function fetchUnreadEmailCount() {
-      try {
-        const response = await listEmails({ status: "unprocessed", is_read: false, limit: 1 });
-        setUnreadEmailCount(response.total ?? 0);
-      } catch (error) {
-        console.error("Failed to fetch unread email count:", error);
-      }
-    }
-    fetchUnreadEmailCount();
-  }, []);
-
   const handleCreateTask = useCallback(() => {
     setShowQuickSearchWindow(false);
     setShowCreateTaskWindow(true);
@@ -169,17 +155,10 @@ export function Sidebar() {
     setShowQuickSearchWindow(true);
   }, []);
 
-  const handleNavigateToEmails = useCallback(() => {
-    setShowQuickSearchWindow(false);
-    setShowCreateTaskWindow(false);
-    navigate('/app/emails');
-  }, [navigate]);
-
   // Use custom hook for keyboard shortcuts
   useKeyboardShortcuts({
     onCreateTask: handleCreateTask,
     onQuickSearch: handleQuickSearch,
-    onNavigateToEmails: handleNavigateToEmails,
   });
 
   return (
@@ -237,7 +216,6 @@ export function Sidebar() {
           <NavigationLinks
             todayTasksCount={todayTasks.length}
             unreadRssCount={unreadRssCount}
-            unreadEmailCount={unreadEmailCount}
             hasSubscription={hasSubscription}
             isCollapsed={isSidebarCollapsed}
           />

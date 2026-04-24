@@ -3,7 +3,6 @@ import { useEffect, useCallback } from 'react';
 interface KeyboardShortcutCallbacks {
   onCreateTask: () => void;
   onQuickSearch: () => void;
-  onNavigateToEmails: () => void;
 }
 
 /**
@@ -11,7 +10,6 @@ interface KeyboardShortcutCallbacks {
  * Supports:
  * - 't' key: create task
  * - 's' key: quick search
- * - 'e' key: navigate to emails
  *
  * The hook prevents shortcuts from triggering when input/textarea elements are focused.
  * Meta key combinations are ignored (system shortcuts).
@@ -19,7 +17,6 @@ interface KeyboardShortcutCallbacks {
 export function useKeyboardShortcuts({
   onCreateTask,
   onQuickSearch,
-  onNavigateToEmails,
 }: KeyboardShortcutCallbacks): void {
   const handleKeyPress = useCallback(
     (event: KeyboardEvent) => {
@@ -39,13 +36,9 @@ export function useKeyboardShortcuts({
           event.preventDefault();
           onQuickSearch();
         }
-        if (event.key === 'e') {
-          event.preventDefault();
-          onNavigateToEmails();
-        }
       }
     },
-    [onCreateTask, onQuickSearch, onNavigateToEmails],
+    [onCreateTask, onQuickSearch],
   );
 
   useEffect(() => {
