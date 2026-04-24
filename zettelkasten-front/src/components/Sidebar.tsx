@@ -29,7 +29,7 @@ import { TodaysHabitsWidget } from "./habits/TodaysHabitsWidget";
 export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { lastCard, conversationId, setConversationId, isSidebarCollapsed, toggleSidebarCollapsed, isMobileSidebarOpen, setIsMobileSidebarOpen, toggleChatOpen } = useUIState();
+  const { lastCard, conversationId, setConversationId, isSidebarCollapsed, toggleSidebarCollapsed, isMobileSidebarOpen, setIsMobileSidebarOpen } = useUIState();
   const { showToast } = useToast();
   const { tasks } = useTaskContext();
   const { unreadCount: unreadRssCount } = useRSS();
@@ -38,7 +38,7 @@ export function Sidebar() {
   const [showAddFeedDialog, setShowAddFeedDialog] = useState(false);
   const [rssFolders, setRssFolders] = useState<RSSFolder[]>([]);
   const [showStarCardDialog, setShowStarCardDialog] = useState(false);
-  const { hasSubscription, user, updateUser } = useAuth();
+  const { user, updateUser } = useAuth();
 
   const userTimezone = user?.timezone || "UTC";
 
@@ -83,10 +83,6 @@ export function Sidebar() {
 
   function handleNewStandardCard() {
     navigate("/app/card/new", { state: { cardType: "standard" } });
-  }
-
-  function handleNewChat() {
-    toggleChatOpen();
   }
 
   function handleNewTask() {
@@ -202,7 +198,6 @@ export function Sidebar() {
           onNewStandardCard={handleNewStandardCard}
           onNewArticle={handleAddArticle}
           onNewTask={handleNewTask}
-          onNewChat={handleNewChat}
           onAddFeed={handleAddFeed}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={toggleSidebarCollapsed}
@@ -216,7 +211,6 @@ export function Sidebar() {
           <NavigationLinks
             todayTasksCount={todayTasks.length}
             unreadRssCount={unreadRssCount}
-            hasSubscription={hasSubscription}
             isCollapsed={isSidebarCollapsed}
           />
 

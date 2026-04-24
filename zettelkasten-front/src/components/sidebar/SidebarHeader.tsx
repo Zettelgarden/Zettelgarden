@@ -9,7 +9,6 @@ interface SidebarHeaderProps {
   onNewStandardCard: () => void;
   onNewArticle: () => void;
   onNewTask: () => void;
-  onNewChat: () => void;
   onAddFeed: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
@@ -20,7 +19,6 @@ export function SidebarHeader({
   onNewStandardCard,
   onNewArticle,
   onNewTask,
-  onNewChat,
   onAddFeed,
   isCollapsed,
   onToggleCollapse,
@@ -139,15 +137,6 @@ export function SidebarHeader({
               >
                 Create Task
               </button>
-              {hasSubscription && (
-                <button
-                  onClick={onNewChat}
-                  className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100"
-                  role="menuitem"
-                >
-                  New Chat
-                </button>
-              )}
               <button
                 onClick={onAddFeed}
                 className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 flex items-center gap-2"
