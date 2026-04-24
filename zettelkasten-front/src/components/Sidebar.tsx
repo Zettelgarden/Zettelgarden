@@ -9,7 +9,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useToast } from "./toast/ToastContext";
-import { getUnreadCount } from "../api/notifications";
 import { listFolders } from "../api/rss";
 import { RSSFolder, RSSFeed } from "../api/rss";
 
@@ -33,7 +32,6 @@ export function Sidebar() {
   const { showToast } = useToast();
   const { tasks } = useTaskContext();
   const { unreadCount: unreadRssCount } = useRSS();
-  const [unreadInboxCount, setUnreadInboxCount] = useState(0);
   const [showAddArticleDialog, setShowAddArticleDialog] = useState(false);
   const [showAddFeedDialog, setShowAddFeedDialog] = useState(false);
   const [rssFolders, setRssFolders] = useState<RSSFolder[]>([]);
@@ -129,18 +127,6 @@ export function Sidebar() {
     fetchFolders();
   }, []);
 
-  useEffect(() => {
-    async function fetchUnreadCount() {
-      try {
-        const response = await getUnreadCount();
-        setUnreadInboxCount(response.unread_count);
-      } catch (error) {
-        console.error("Failed to fetch unread inbox count:", error);
-      }
-    }
-    fetchUnreadCount();
-  }, []);
-
   const handleCreateTask = useCallback(() => {
     setShowQuickSearchWindow(false);
     setShowCreateTaskWindow(true);
@@ -201,7 +187,6 @@ export function Sidebar() {
           onAddFeed={handleAddFeed}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={toggleSidebarCollapsed}
-          unreadInboxCount={unreadInboxCount}
         />
 
         <SidebarSearchBar isCollapsed={isSidebarCollapsed} />

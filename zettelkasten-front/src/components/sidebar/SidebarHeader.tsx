@@ -2,8 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import logo from "../../assets/logo.png";
 import { useAuth } from "../../contexts/AuthContext";
-import { Plus, Rss, Inbox } from "lucide-react";
-import { InboxIcon } from "../../assets/icons/InboxIcon";
+import { Plus, Rss } from "lucide-react";
 
 interface SidebarHeaderProps {
   onNewStandardCard: () => void;
@@ -12,7 +11,6 @@ interface SidebarHeaderProps {
   onAddFeed: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
-  unreadInboxCount: number;
 }
 
 export function SidebarHeader({
@@ -22,7 +20,6 @@ export function SidebarHeader({
   onAddFeed,
   isCollapsed,
   onToggleCollapse,
-  unreadInboxCount,
 }: SidebarHeaderProps) {
   const username = localStorage.getItem("username");
   const [isNewDropdownOpen, setIsNewDropdownOpen] = useState(false);
@@ -81,22 +78,6 @@ export function SidebarHeader({
         </div>
       )}
       <div className={`flex items-center ${isCollapsed ? "justify-center gap-2" : ""} flex-shrink-0`}>
-        <Link
-          to="/app/inbox"
-          className={`relative flex items-center justify-center rounded-full transition-colors ${isCollapsed ? "" : "mr-2"} ${
-            isCollapsed
-              ? "w-10 h-10 text-gray-700 hover:bg-gray-100"
-              : "w-11 h-11 min-h-[44px] bg-gray-100 text-gray-700 hover:bg-gray-200"
-          }`}
-          aria-label="Inbox"
-        >
-          <Inbox size={isCollapsed ? 18 : 20} strokeWidth={2.5} />
-          {unreadInboxCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
-              {unreadInboxCount > 9 ? "9+" : unreadInboxCount}
-            </span>
-          )}
-        </Link>
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={toggleNewDropdown}
