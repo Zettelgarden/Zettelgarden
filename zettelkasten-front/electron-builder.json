@@ -7,7 +7,10 @@
   "files": [
     "dist/**/*",
     "dist-electron/**/*",
-    "electron/**/*"
+    "electron/**/*",
+    "!node_modules/@esbuild/**",
+    "!node_modules/@rollup/**",
+    "!node_modules/vite/**"
   ],
   "mac": {
     "category": "public.app-category.productivity",
