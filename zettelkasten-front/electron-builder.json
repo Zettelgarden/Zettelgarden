@@ -8,9 +8,7 @@
     "dist/**/*",
     "dist-electron/**/*",
     "electron/**/*",
-    "!node_modules/@esbuild/**",
-    "!node_modules/@rollup/**",
-    "!node_modules/vite/**"
+    "!node_modules/**"
   ],
   "mac": {
     "category": "public.app-category.productivity",
