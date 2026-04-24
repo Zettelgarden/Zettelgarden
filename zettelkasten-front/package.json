@@ -63,8 +63,8 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "electron:dev": "vite",
-    "electron:build": "vite build && electron-builder --config electron-builder.json",
-    "electron:build:mac": "vite build && electron-builder --config electron-builder.json --mac"
+    "electron:build": "npx vite build && electron-builder --config electron-builder.json",
+    "electron:build:mac": "npx vite build && electron-builder --config electron-builder.json --mac"
   },
   "eslintConfig": {
     "extends": [
