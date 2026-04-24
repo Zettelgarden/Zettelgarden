@@ -3,7 +3,7 @@ import { Task } from "../models/Task";
 import { filterTasks, filterTasksByDateView, removeTagsFromTitle } from "../utils/tasks";
 import { toMidnightInTimezone } from "../utils/dates";
 
-type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "due_date";
+type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date";
 type SortDirection = "asc" | "desc";
 type ViewMode = "list" | "matrix" | "kanban" | "calendar";
 
@@ -87,19 +87,6 @@ export function useTaskFiltering({
             return -1; // Always put nulls last, regardless of sort direction
           } else {
             comparison = toMidnightInTimezone(scheduledA, timezone).getTime() - toMidnightInTimezone(scheduledB, timezone).getTime();
-          }
-          break;
-        case "due_date":
-          const dueDateA = a.due_date;
-          const dueDateB = b.due_date;
-          if (dueDateA === null && dueDateB === null) {
-            comparison = 0;
-          } else if (dueDateA === null) {
-            return 1; // Always put nulls last, regardless of sort direction
-          } else if (dueDateB === null) {
-            return -1; // Always put nulls last, regardless of sort direction
-          } else {
-            comparison = toMidnightInTimezone(dueDateA, timezone).getTime() - toMidnightInTimezone(dueDateB, timezone).getTime();
           }
           break;
         case "id":

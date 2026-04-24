@@ -80,7 +80,6 @@ export function TaskHoverCard({ task, children }: TaskHoverCardProps) {
   };
 
   const scheduledDate = formatDate(task.scheduled_date);
-  const dueDate = formatDate(task.due_date);
 
   // Get priority display
   const priorityDisplay = task.priority
@@ -88,7 +87,7 @@ export function TaskHoverCard({ task, children }: TaskHoverCardProps) {
     : null;
 
   // Don't show hover card if there's nothing to preview
-  const hasPreview = descriptionPreview || scheduledDate || dueDate || priorityDisplay || task.tags.length > 0;
+  const hasPreview = descriptionPreview || scheduledDate || priorityDisplay || task.tags.length > 0;
 
   if (!hasPreview) {
     return <>{children}</>;
@@ -134,13 +133,6 @@ export function TaskHoverCard({ task, children }: TaskHoverCardProps) {
             {scheduledDate && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
                 📅 {scheduledDate}
-              </span>
-            )}
-
-            {/* Due Date */}
-            {dueDate && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-50 text-orange-700 rounded">
-                ⏰ {dueDate}
               </span>
             )}
 

@@ -315,7 +315,6 @@ export function TaskDesktopLayout({
                           <option value="priority">Priority</option>
                           <option value="status">Status</option>
                           <option value="scheduled_date">Scheduled Date</option>
-                          <option value="due_date">Due Date</option>
                           <option value="id">ID</option>
                         </select>
                         <Button onClick={toggleSortDirection} className="p-1 text-xs border border-slate-300 rounded-md">

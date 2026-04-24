@@ -273,14 +273,14 @@ export function filterTasksByDateView(
     }
   }
 
-  // Handle "overdue" view - tasks with due_date in the past that are not complete
+  // Handle "overdue" view - tasks with scheduled_date in the past that are not complete
   if (dateView === "overdue") {
     // Overdue tasks are never completed
     if (task.is_complete) {
       return false;
     }
-    // Must have a due date that is in the past
-    return task.due_date !== null && isPast(task.due_date, timezone);
+    // Must have a scheduled date that is in the past
+    return task.scheduled_date !== null && isPast(task.scheduled_date, timezone);
   }
 
   // Handle "this_week" view - tasks scheduled or due this week
@@ -292,7 +292,7 @@ export function filterTasksByDateView(
     const endOfWeek = new Date(today);
     endOfWeek.setDate(endOfWeek.getDate() + 6); // Next 7 days including today
 
-    const taskDate = task.scheduled_date || task.due_date;
+    const taskDate = task.scheduled_date;
     if (!taskDate) {
       return false;
     }
@@ -306,7 +306,7 @@ export function filterTasksByDateView(
     if (task.is_complete) {
       return showCompleted;
     }
-    return !task.scheduled_date && !task.due_date;
+    return !task.scheduled_date;
   }
 
   // Fallback for other dateView values

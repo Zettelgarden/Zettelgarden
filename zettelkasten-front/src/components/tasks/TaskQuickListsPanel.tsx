@@ -55,11 +55,11 @@ export function TaskQuickListsPanel({
       return taskDate >= today && taskDate < nextWeek;
     };
 
-    // Helper to check if a task is overdue
+    // Helper to check if a task is overdue (has scheduled_date in the past)
     const isOverdue = (task: Task): boolean => {
       if (task.is_complete || task.is_deleted) return false;
-      if (!task.due_date) return false;
-      return isPast(task.due_date, userTimezone);
+      if (!task.scheduled_date) return false;
+      return isPast(task.scheduled_date, userTimezone);
     };
 
     // Helper to check if task is high priority
@@ -72,15 +72,14 @@ export function TaskQuickListsPanel({
       (task) =>
         !task.is_complete &&
         !task.is_deleted &&
-        (isToday(task.due_date) || isToday(task.scheduled_date))
+        isToday(task.scheduled_date)
     );
 
     const thisWeekTasks = tasks.filter(
       (task) =>
         !task.is_complete &&
         !task.is_deleted &&
-        (isThisWeek(task.due_date) || isThisWeek(task.scheduled_date)) &&
-        !isToday(task.due_date) &&
+        isThisWeek(task.scheduled_date) &&
         !isToday(task.scheduled_date)
     );
 
@@ -106,7 +105,7 @@ export function TaskQuickListsPanel({
       {
         id: "overdue",
         title: "Overdue",
-        description: "Past due date",
+        description: "Past scheduled date",
         tasks: overdueTasks,
         icon: "⚠️",
       },
@@ -264,11 +263,6 @@ export function TaskQuickListsPanel({
                           >
                             {task.title.replace(/#[\w-]+/g, "")}
                           </p>
-                          {task.due_date && (
-                            <p className="text-xs text-slate-500">
-                              Due: {new Date(task.due_date).toLocaleDateString()}
-                            </p>
-                          )}
                         </div>
                       </div>
                     </div>

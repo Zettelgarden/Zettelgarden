@@ -261,7 +261,7 @@ interface KanbanBoardProps {
   subtaskMode?: SubtaskDisplayMode;
 }
 
-type KanbanSortField = 'priority' | 'due_date' | 'scheduled_date' | 'title' | 'created_at';
+type KanbanSortField = 'priority' | 'scheduled_date' | 'title' | 'created_at';
 type KanbanSortDirection = 'asc' | 'desc';
 
 interface KanbanSortSettings {
@@ -292,12 +292,6 @@ function sortTasks(tasks: Task[], settings: KanbanSortSettings): Task[] {
         const aPriority = a.priority ? PRIORITY_ORDER[a.priority as keyof typeof PRIORITY_ORDER] || 0 : 0;
         const bPriority = b.priority ? PRIORITY_ORDER[b.priority as keyof typeof PRIORITY_ORDER] || 0 : 0;
         comparison = aPriority - bPriority;
-        break;
-
-      case 'due_date':
-        const aDue = a.due_date ? new Date(a.due_date).getTime() : Infinity;
-        const bDue = b.due_date ? new Date(b.due_date).getTime() : Infinity;
-        comparison = aDue - bDue;
         break;
 
       case 'scheduled_date':
@@ -536,7 +530,6 @@ export function KanbanBoard({ tasks, onTagClick, onAddTaskWithStatus, selectMode
                   <div className="text-xs font-medium text-gray-500 uppercase mb-1">Sort by</div>
                   {[
                     { field: 'priority' as KanbanSortField, label: 'Priority' },
-                    { field: 'due_date' as KanbanSortField, label: 'Due Date' },
                     { field: 'scheduled_date' as KanbanSortField, label: 'Scheduled Date' },
                     { field: 'title' as KanbanSortField, label: 'Title' },
                     { field: 'created_at' as KanbanSortField, label: 'Created Date' },

@@ -88,41 +88,6 @@ export function taskToCalendarEvents(task: Task, timezone: string = "UTC"): Cale
     });
   }
 
-  // Add due date event if different from scheduled
-  if (task.due_date && task.scheduled_date) {
-    const dueDate = new Date(task.due_date);
-    const scheduledDate = new Date(task.scheduled_date);
-    if (dueDate.getTime() !== scheduledDate.getTime()) {
-      events.push({
-        id: task.id * 1000 + 1,
-        taskId: task.id,
-        title: task.title,
-        date: dueDate,
-        allDay: true,
-        priority: task.priority,
-        status: task.status,
-        isComplete: task.is_complete,
-        task,
-        eventType: "due",
-        source: "task",
-      });
-    }
-  } else if (task.due_date && !task.scheduled_date) {
-    events.push({
-      id: task.id * 1000 + 1,
-      taskId: task.id,
-      title: task.title,
-      date: new Date(task.due_date),
-      allDay: true,
-      priority: task.priority,
-      status: task.status,
-      isComplete: task.is_complete,
-      task,
-      eventType: "due",
-      source: "task",
-    });
-  }
-
   // Add completed date event
   if (task.completed_at) {
     events.push({

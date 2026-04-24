@@ -1,7 +1,6 @@
 import React from "react";
 import { Task } from "../../models/Task";
 import { TaskDateDisplay } from "./TaskDateDisplay";
-import { TaskDueDateDisplay } from "./TaskDueDateDisplay";
 import { TaskPriorityDisplay } from "./TaskPriorityDisplay";
 import { TaskReminderDisplay } from "./TaskReminderDisplay";
 import { TaskStatusDisplay } from "./TaskStatusDisplay";
@@ -32,11 +31,6 @@ export function TaskScheduleSection({
         saveOnChange={saveOnChange}
       />
       <TaskDateDisplay
-        task={task}
-        setTask={setTask}
-        saveOnChange={saveOnChange}
-      />
-      <TaskDueDateDisplay
         task={task}
         setTask={setTask}
         saveOnChange={saveOnChange}

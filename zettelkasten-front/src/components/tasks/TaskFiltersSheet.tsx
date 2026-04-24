@@ -9,14 +9,14 @@ interface TaskFiltersSheetProps {
   dateView: string;
   viewMode: "list" | "matrix" | "kanban" | "calendar";
   showCompleted: boolean;
-  sortField: "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "due_date";
+  sortField: "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date";
   sortDirection: "asc" | "desc";
   selectMode: boolean;
   // Handlers
   onDateViewChange: (value: string) => void;
   onViewModeChange: (value: "list" | "matrix" | "kanban" | "calendar") => void;
   onShowCompletedChange: () => void;
-  onSortFieldChange: (value: "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "due_date") => void;
+  onSortFieldChange: (value: "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date") => void;
   onSortDirectionToggle: () => void;
   onSelectModeToggle: () => void;
   onApply?: () => void;
@@ -48,7 +48,7 @@ export function TaskFiltersSheet({
   };
 
   const handleSortFieldChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    onSortFieldChange(e.target.value as "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "due_date");
+    onSortFieldChange(e.target.value as "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date");
   };
 
   const handleApply = () => {
@@ -162,7 +162,6 @@ export function TaskFiltersSheet({
               <option value="priority">Priority</option>
               <option value="status">Status</option>
               <option value="scheduled_date">Scheduled Date</option>
-              <option value="due_date">Due Date</option>
               <option value="id">ID</option>
             </select>
             <button

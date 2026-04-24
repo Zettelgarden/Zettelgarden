@@ -5,7 +5,7 @@ import type { ExternalEvent } from "../models/ExternalEvent";
 import type { QuickTagTrigger } from "../components/tasks/QuickTagPopover";
 
 // Type aliases for clarity
-export type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "due_date";
+export type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date";
 export type SortDirection = "asc" | "desc";
 export type ViewMode = "list" | "matrix" | "kanban" | "calendar";
 export type CalendarViewMode = "month" | "week";

@@ -198,7 +198,7 @@ export function TaskPage({ }: TaskListProps) {
   }
 
   function handleSortFieldChange(e: ChangeEvent<HTMLSelectElement>) {
-    settings.setSortField(e.target.value as "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "due_date");
+    settings.setSortField(e.target.value as "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date");
   }
 
   function handleShowCompletedChange() {

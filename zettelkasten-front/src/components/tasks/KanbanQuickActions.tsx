@@ -5,7 +5,6 @@ import { saveExistingTask } from "../../api/tasks";
 import { useTaskContext } from "../../contexts/TaskContext";
 import { useStatus } from "../../contexts/StatusContext";
 import { useAuth } from "../../contexts/AuthContext";
-import { format } from "date-fns-tz";
 import { PRIORITY_OPTIONS, PRIORITY_CONFIG } from "../../constants/taskPriority";
 
 interface KanbanQuickActionsProps {
@@ -15,10 +14,8 @@ interface KanbanQuickActionsProps {
 export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
   const [showPriorityMenu, setShowPriorityMenu] = useState(false);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const priorityRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
-  const dateRef = useRef<HTMLDivElement>(null);
   const { statuses } = useStatus();
   const { updateTask } = useTaskContext();
   const { user } = useAuth();
@@ -32,9 +29,6 @@ export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
       }
       if (statusRef.current && !statusRef.current.contains(event.target as Node)) {
         setShowStatusMenu(false);
-      }
-      if (dateRef.current && !dateRef.current.contains(event.target as Node)) {
-        setShowDatePicker(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -72,49 +66,6 @@ export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
     }
   };
 
-  const handleDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const inputValue = e.target.value;
-    if (!inputValue) {
-      const updatedTask = { ...task, due_date: null };
-      updateTask(updatedTask);
-      setShowDatePicker(false);
-
-      try {
-        await saveExistingTask(updatedTask);
-      } catch (error) {
-        console.error("Failed to clear due date:", error);
-        updateTask(task);
-      }
-      return;
-    }
-
-    const [year, month, day] = inputValue.split("-").map(Number);
-    const newDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-    const updatedTask = { ...task, due_date: newDate };
-    updateTask(updatedTask);
-    setShowDatePicker(false);
-
-    try {
-      await saveExistingTask(updatedTask);
-    } catch (error) {
-      console.error("Failed to update due date:", error);
-      updateTask(task);
-    }
-  };
-
-  const clearDueDate = async () => {
-    const updatedTask = { ...task, due_date: null };
-    updateTask(updatedTask);
-    setShowDatePicker(false);
-
-    try {
-      await saveExistingTask(updatedTask);
-    } catch (error) {
-      console.error("Failed to clear due date:", error);
-      updateTask(task);
-    }
-  };
-
   const handleToggleComplete = async () => {
     const updatedTask = {
       ...task,
@@ -129,10 +80,6 @@ export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
       updateTask(task);
     }
   };
-
-  const currentDate = task.due_date
-    ? format(new Date(task.due_date), "yyyy-MM-dd", { timeZone: userTimezone })
-    : "";
 
   return (
     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -210,45 +157,6 @@ export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
                 <span>{option.label}</span>
               </button>
             ))}
-          </div>,
-          document.body
-        )}
-      </div>
-
-      {/* Date Picker */}
-      <div className="relative" ref={dateRef}>
-        <button
-          onClick={() => setShowDatePicker(!showDatePicker)}
-          className={`p-1.5 rounded text-xs hover:bg-gray-100 transition-colors ${
-            task.due_date ? "text-blue-500" : "text-gray-400"
-          }`}
-          title="Set due date"
-        >
-          📅
-        </button>
-        {showDatePicker && createPortal(
-          <div
-            className="fixed bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-2"
-            style={{
-              top: dateRef.current?.getBoundingClientRect().bottom || 0,
-              left: dateRef.current?.getBoundingClientRect().left || 0,
-            }}
-          >
-            <input
-              type="date"
-              value={currentDate}
-              onChange={handleDateChange}
-              className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              autoFocus
-            />
-            {task.due_date && (
-              <button
-                onClick={clearDueDate}
-                className="w-full mt-1 text-xs text-gray-500 hover:text-gray-700"
-              >
-                Clear date
-              </button>
-            )}
           </div>,
           document.body
         )}

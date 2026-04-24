@@ -18,7 +18,7 @@ import { TaskSelectionOverlay } from "./TaskSelectionOverlay";
 import { TaskDialog } from "./TaskDialog";
 import { CreateTaskWindow } from "./CreateTaskWindow";
 
-type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "due_date";
+type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date";
 type SortDirection = "asc" | "desc";
 type ViewMode = "list" | "matrix" | "kanban" | "calendar";
 type TaskMobileView = 'list' | 'filters';

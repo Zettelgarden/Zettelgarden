@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, Dispatch, SetStateAction } f
 
 const STORAGE_KEY = "taskPageSettings";
 
-type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "due_date";
+type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date";
 type SortDirection = "asc" | "desc";
 type ViewMode = "list" | "matrix" | "kanban" | "calendar";
 

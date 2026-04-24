@@ -3,7 +3,6 @@ import { deleteTask, saveExistingTask } from "../../api/tasks";
 import { getTomorrow } from "../../utils/dates";
 
 import { TaskDateDisplay } from "./TaskDateDisplay";
-import { TaskDueDateDisplay } from "./TaskDueDateDisplay";
 import { TaskPriorityDisplay } from "./TaskPriorityDisplay";
 import { TaskStatusDisplay } from "./TaskStatusDisplay";
 import { TaskListOptionsMenu } from "./TaskListOptionsMenu";
@@ -244,13 +243,6 @@ export function TaskListItem({
             setTask={(task: Task) => { }}
             saveOnChange={true}
           />
-          {task.due_date && (
-            <TaskDueDateDisplay
-              task={task}
-              setTask={(task: Task) => { }}
-              saveOnChange={true}
-            />
-          )}
           <TaskPriorityDisplay
             task={task}
             setTask={(task: Task) => { }}
