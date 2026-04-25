@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useHabits } from '../../contexts/HabitContext';
 import { formatDistanceToNow, parseISO } from 'date-fns';
@@ -6,7 +6,13 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 export const TodaysHabitsWidget: React.FC = () => {
   const { todaysHabits, fetchTodaysHabits, checkinHabit, habitStats, fetchHabitStats } = useHabits();
   const [checkingIn, setCheckingIn] = useState<number | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const navigate = useNavigate();
+
+  const outstandingCount = useMemo(
+    () => todaysHabits.filter(h => !h.checked_in_today).length,
+    [todaysHabits],
+  );
 
   useEffect(() => {
     fetchTodaysHabits();
@@ -39,17 +45,40 @@ export const TodaysHabitsWidget: React.FC = () => {
 
   return (
     <div className="p-2">
-      <div className="flex items-center justify-between mb-2 px-2">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-          Today's Habits
-        </h3>
-        <button
-          onClick={() => navigate('/app/habits')}
-          className="text-xs text-gray-400 hover:text-blue-600"
-        >
-          View All →
-        </button>
-      </div>
+      <button
+        className="flex items-center justify-between w-full mb-2 px-2 group"
+        onClick={() => setIsCollapsed(!isCollapsed)}
+      >
+        <div className="flex items-center gap-2">
+          <svg
+            className={`w-3 h-3 text-gray-400 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+          </svg>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            Today's Habits
+          </h3>
+        </div>
+        <div className="flex items-center gap-2">
+          {outstandingCount > 0 && (
+            <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-amber-500 rounded-full">
+              {outstandingCount}
+            </span>
+          )}
+          {outstandingCount === 0 && todaysHabits.length > 0 && (
+            <span className="text-xs text-green-500">✓</span>
+          )}
+          <span
+            onClick={(e) => { e.stopPropagation(); navigate('/app/habits'); }}
+            className="text-xs text-gray-400 hover:text-blue-600"
+          >
+            View All →
+          </span>
+        </div>
+      </button>
+      {!isCollapsed && (
       <div className="space-y-1">
         {todaysHabits.map((h) => {
           const stats = habitStats[h.id];
@@ -87,6 +116,7 @@ export const TodaysHabitsWidget: React.FC = () => {
           );
         })}
       </div>
+      )}
     </div>
   );
 };
