@@ -12,16 +12,17 @@ import { useAuth } from "./contexts/AuthContext";
 import { RssManagePage } from "./pages/RssManagePage";
 import { AgentManagement } from "./components/AgentManagement";
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 function App() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated } = useAuth();
   useEffect(() => {
     if (isAuthenticated && location.pathname !== "/blog" && location.pathname === "/") {
       navigate("/app");
     }
-  }, [isAuthenticated, navigate]); // Add dependencies
+  }, [isAuthenticated, navigate, location.pathname]);
 
   return (
     <div>
