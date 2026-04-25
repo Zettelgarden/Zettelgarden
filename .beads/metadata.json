@@ -1,6 +1,7 @@
 {
   "database": "dolt",
   "backend": "dolt",
-  "dolt_mode": "server",
-  "dolt_database": "beads_Zettelgarden"
+  "dolt_mode": "embedded",
+  "dolt_database": "Zettelgarden",
+  "project_id": "1640587f-6f84-4063-a378-b5834b99ff5c"
 }

@@ -93,17 +93,3 @@ func deleteCardTypesense(cardPK int) {
 		log.Printf("failed to delete card ID %d: %v", cardPK, err)
 	}
 }
-
-// UpsertEmailToTypesense adds or updates an email document in Typesense
-// NOTE: Email search now uses SQL-based search instead of Typesense
-// This function is kept for backward compatibility but does nothing
-func UpsertEmailToTypesense(db models.Database, email models.Email) {
-	// No-op - emails are now searched via SQL
-}
-
-// DeleteEmailFromTypesense removes an email document from Typesense
-// NOTE: Email search now uses SQL-based search instead of Typesense
-// This function is kept for backward compatibility but does nothing
-func DeleteEmailFromTypesense(emailPK int) {
-	// No-op - emails are now searched via SQL
-}

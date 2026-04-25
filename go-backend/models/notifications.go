@@ -10,16 +10,15 @@ import (
 
 // Source type constants
 const (
-	SourceTypeEmail = "email"
-	SourceTypeRSS   = "rss"
-	SourceTypeTask  = "task"
+	SourceTypeRSS  = "rss"
+	SourceTypeTask = "task"
 )
 
 // Notification represents a unified notification from email, RSS, or tasks
 type Notification struct {
 	ID               int        `json:"id"`
 	UserID           int        `json:"user_id"`
-	SourceType       string     `json:"source_type"`       // "email", "rss", "task"
+	SourceType       string     `json:"source_type"`       // "rss", "task"
 	SourceID         int        `json:"source_id"`         // ID of the source record
 	Title            string     `json:"title"`             // Email subject, article title, or task title
 	Preview          *string    `json:"preview,omitempty"` // Preview text (email body, article content, task notes)
@@ -56,16 +55,11 @@ type NotificationListFilters struct {
 // CalculateImportanceScore computes the importance score for a notification
 // Higher scores indicate more important items
 // Scores:
-// - 10: Unprocessed emails, Starred articles
-// - 5: Triaged emails, Priority feed articles, Priority tasks
+// - 10: Starred articles
+// - 5: Priority feed articles, Priority tasks
 // - 0: Everything else
-func CalculateImportanceScore(sourceType string, isUnprocessed, isStarred, isPriorityFeed bool) int {
+func CalculateImportanceScore(sourceType string, isStarred, isPriorityFeed bool) int {
 	switch sourceType {
-	case SourceTypeEmail:
-		if isUnprocessed {
-			return 10
-		}
-		return 5
 	case SourceTypeRSS:
 		if isStarred {
 			return 10
@@ -75,8 +69,6 @@ func CalculateImportanceScore(sourceType string, isUnprocessed, isStarred, isPri
 		}
 		return 0
 	case SourceTypeTask:
-		// Priority tasks get score 5
-		// This would be passed as isPriorityFeed in the unified function signature
 		if isPriorityFeed {
 			return 5
 		}
@@ -84,25 +76,6 @@ func CalculateImportanceScore(sourceType string, isUnprocessed, isStarred, isPri
 	default:
 		return 0
 	}
-}
-
-// GetFilterTagsForEmail generates filter tags for email notifications
-func GetFilterTagsForEmail(status, fromAddress string) pq.StringArray {
-	tags := pq.StringArray{}
-
-	// Add status tag
-	if status != "" {
-		tags = append(tags, status)
-	}
-
-	// Add sender domain tag for potential filtering
-	if fromAddress != "" {
-		// Could extract domain here for more advanced filtering
-		// For now, just add a generic "email" tag
-		tags = append(tags, "email")
-	}
-
-	return tags
 }
 
 // GetFilterTagsForRSS generates filter tags for RSS article notifications

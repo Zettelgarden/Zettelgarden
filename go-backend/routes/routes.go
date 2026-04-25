@@ -76,9 +76,6 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.Sc
 	// RSS feed routes
 	RegisterRSSRoutes(r, h)
 
-	// Email sync routes
-	RegisterEmailRoutes(r, h)
-
 	// Entity routes
 	RegisterEntityRoutes(r, h)
 
@@ -99,9 +96,6 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.Sc
 
 	// Job queue routes
 	RegisterJobRoutes(r, h)
-
-	// Admin email management routes
-	RegisterAdminEmailRoutes(r, h)
 
 	// Admin-specific routes (dashboard, audit logs, etc.)
 	admin.RegisterAllAdminRoutes(r, h, scheduler)

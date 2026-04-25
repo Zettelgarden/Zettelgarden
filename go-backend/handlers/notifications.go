@@ -14,7 +14,7 @@ import (
 // ListNotifications handles GET /api/notifications
 // Retrieves notifications for the authenticated user with optional filters
 // Query parameters:
-// - source_type: Filter by source type ("email", "rss", "task")
+// - source_type: Filter by source type ("rss", "task")
 // - unreadOnly: If "true", only return unread notifications
 // - limit: Maximum number of results to return
 // - offset: Number of results to skip for pagination
@@ -190,12 +190,11 @@ func (h *Handler) GetPreferences(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(err.Error(), "no rows") {
 			// Return default preferences
 			defaultPrefs := models.NotificationPreferences{
-				UserID:                userID,
-				ShowUnprocessedEmails: true,
-				ShowStarredArticles:   true,
-				ShowPriorityTasks:     true,
-				ShowPriorityFeeds:     true,
-				ItemsPerPage:          20,
+				UserID:              userID,
+				ShowStarredArticles: true,
+				ShowPriorityTasks:   true,
+				ShowPriorityFeeds:   true,
+				ItemsPerPage:        20,
 			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)

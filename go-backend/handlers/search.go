@@ -677,7 +677,6 @@ type SearchRequestParams struct {
 	ShowEntities    bool   `json:"show_entities"`
 	ShowFacts       bool   `json:"show_facts"`
 	ShowCards       bool   `json:"show_cards"`
-	ShowEmails      bool   `json:"show_emails"`
 	OnlyEmptyCardId bool   `json:"only_empty_card_id"`
 	SchemaID        *int   `json:"schema_id,omitempty"`
 	SortBy          string `json:"sort"`
@@ -763,9 +762,6 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 	}
 	if !searchParams.ShowCards {
 		typeFilters = append(typeFilters, "type:!=card")
-	}
-	if !searchParams.ShowEmails {
-		typeFilters = append(typeFilters, "type:!=email")
 	}
 	if len(typeFilters) > 0 {
 		filter += " && " + strings.Join(typeFilters, " && ")

@@ -8,28 +8,25 @@ import {
   Notification,
 } from "../api/notifications";
 import { fetchTask, saveExistingTask } from "../api/tasks";
-import { updateEmailStatus } from "../api/email";
 import { RSSArticle, getArticle } from "../api/rss";
 import { CreateTaskWindow } from "../components/tasks/CreateTaskWindow";
 import { RssConvertDialog } from "../components/rss/RssConvertDialog";
 import { useAuth } from "../contexts/AuthContext";
 
-type SourceTab = "all" | "email" | "rss" | "task";
+type SourceTab = "all" | "rss" | "task";
 
 /**
  * Notification Inbox Page
  *
  * Displays a unified inbox of unread notifications from multiple sources:
- * - Email notifications
  * - RSS article notifications
  * - Task notifications
  *
  * Features:
- * - Filter by source type (All, Email, RSS, Tasks)
+ * - Filter by source type (All, RSS, Tasks)
  * - Mark as read removes notification from list (hides read notifications)
- * - Archive button (emails only) archives source email and removes notification
  * - Navigate to source content by clicking notification
- * - Context-aware actions: Task (emails), Card (RSS), Done (tasks)
+ * - Context-aware actions: Card (RSS), Done (tasks)
  * - Pagination with "Load more" button
  * - Unread count display
  */
@@ -48,7 +45,6 @@ export function NotificationInboxPage() {
   const [offset, setOffset] = useState<number>(0);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [markingRead, setMarkingRead] = useState<Set<number>>(new Set());
-  const [archivingEmail, setArchivingEmail] = useState<Set<number>>(new Set());
   const [togglingTaskComplete, setTogglingTaskComplete] = useState<Set<number>>(new Set());
   const [showCreateTaskWindow, setShowCreateTaskWindow] = useState(false);
   const [notificationForTask, setNotificationForTask] = useState<Notification | null>(null);
@@ -113,6 +109,9 @@ export function NotificationInboxPage() {
     fetchUnreadCount();
   }, [activeTab, fetchNotifications, fetchUnreadCount]);
 
+  // Suppress unused variable warning
+  void userTimezone;
+
   // Update document title
   useEffect(() => {
     if (unreadCount > 0) {
@@ -143,9 +142,6 @@ export function NotificationInboxPage() {
 
     // Navigate to source based on type
     switch (notification.source_type) {
-      case "email":
-        navigate(`/app/emails/${notification.source_id}`);
-        break;
       case "rss":
         navigate(`/app/rss?article=${notification.source_id}`);
         break;
@@ -187,39 +183,6 @@ export function NotificationInboxPage() {
   };
 
   /**
-   * Handle archive email (archives source email and removes notification)
-   */
-  const handleArchiveEmail = async (notification: Notification, event: React.MouseEvent) => {
-    event.stopPropagation();
-
-    if (notification.source_type !== "email") return;
-
-    setArchivingEmail((prev) => new Set(prev).add(notification.id));
-
-    try {
-      // Archive the source email
-      await updateEmailStatus(notification.source_id, "archived");
-
-      // Remove notification from list
-      setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
-      setTotal((prev) => prev - 1);
-
-      // Update unread count if it was unread
-      if (!notification.is_read) {
-        setUnreadCount((prev) => Math.max(0, prev - 1));
-      }
-    } catch (error) {
-      console.error("Failed to archive email:", error);
-    } finally {
-      setArchivingEmail((prev) => {
-        const next = new Set(prev);
-        next.delete(notification.id);
-        return next;
-      });
-    }
-  };
-
-  /**
    * Handle load more notifications
    */
   const handleLoadMore = () => {
@@ -228,7 +191,7 @@ export function NotificationInboxPage() {
   };
 
   /**
-   * Handle create task from email notification
+   * Handle create task from notification
    */
   const handleCreateTaskFromNotification = (notification: Notification, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -335,8 +298,6 @@ export function NotificationInboxPage() {
    */
   const getSourceIcon = (sourceType: string): string => {
     switch (sourceType) {
-      case "email":
-        return "📧";
       case "rss":
         return "📰";
       case "task":
@@ -402,22 +363,12 @@ export function NotificationInboxPage() {
             }}
           >
             {unreadCount > 0 && (
-              <div
-                style={{
-                  fontSize: "14px",
-                  color: "#6b7280",
-                }}
-              >
+              <div style={{ fontSize: "14px", color: "#6b7280" }}>
                 {unreadCount} unread
               </div>
             )}
             {total > 0 && (
-              <div
-                style={{
-                  fontSize: "14px",
-                  color: "#6b7280",
-                }}
-              >
+              <div style={{ fontSize: "14px", color: "#6b7280" }}>
                 {total} total
               </div>
             )}
@@ -425,36 +376,15 @@ export function NotificationInboxPage() {
         </div>
 
         {/* Tab buttons */}
-        <div
-          style={{
-            display: "flex",
-            gap: "8px",
-          }}
-        >
-          <TabButton
-            active={activeTab === "all"}
-            onClick={() => setActiveTab("all")}
-          >
+        <div style={{ display: "flex", gap: "8px" }}>
+          <TabButton active={activeTab === "all"} onClick={() => setActiveTab("all")}>
             All
           </TabButton>
-          <TabButton
-            active={activeTab === "email"}
-            onClick={() => setActiveTab("email")}
-          >
-            <span style={{ marginRight: "4px" }}>📧</span>
-            Email
-          </TabButton>
-          <TabButton
-            active={activeTab === "rss"}
-            onClick={() => setActiveTab("rss")}
-          >
+          <TabButton active={activeTab === "rss"} onClick={() => setActiveTab("rss")}>
             <span style={{ marginRight: "4px" }}>📰</span>
             RSS
           </TabButton>
-          <TabButton
-            active={activeTab === "task"}
-            onClick={() => setActiveTab("task")}
-          >
+          <TabButton active={activeTab === "task"} onClick={() => setActiveTab("task")}>
             <span style={{ marginRight: "4px" }}>✓</span>
             Tasks
           </TabButton>
@@ -510,12 +440,10 @@ export function NotificationInboxPage() {
                 notification={notification}
                 onClick={() => handleNotificationClick(notification)}
                 onMarkRead={(e) => handleMarkRead(notification, e)}
-                onArchiveEmail={notification.source_type === "email" ? (e) => handleArchiveEmail(notification, e) : undefined}
-                onCreateTask={notification.source_type === "email" ? (e) => handleCreateTaskFromNotification(notification, e) : undefined}
+                onCreateTask={(e) => handleCreateTaskFromNotification(notification, e)}
                 onConvertToCard={notification.source_type === "rss" ? (e) => handleConvertToCard(notification, e) : undefined}
                 onToggleComplete={notification.source_type === "task" ? (e) => handleToggleTaskComplete(notification, e) : undefined}
                 isMarkingRead={markingRead.has(notification.id)}
-                isArchivingEmail={archivingEmail.has(notification.id)}
                 isTogglingComplete={togglingTaskComplete.has(notification.id)}
                 getSourceIcon={getSourceIcon}
                 formatTimestamp={formatTimestamp}
@@ -524,13 +452,7 @@ export function NotificationInboxPage() {
 
             {/* Load more button */}
             {hasMore && !loading && (
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  padding: "16px",
-                }}
-              >
+              <div style={{ display: "flex", justifyContent: "center", padding: "16px" }}>
                 <button
                   onClick={handleLoadMore}
                   disabled={loadingMore}
@@ -572,7 +494,7 @@ export function NotificationInboxPage() {
         <CreateTaskWindow
           currentCard={null}
           setShowTaskWindow={handleCloseTaskWindow}
-          currentFilter={notificationForTask?.title ? `Email: ${notificationForTask.title}` : undefined}
+          currentFilter={notificationForTask?.title ? `Notification: ${notificationForTask.title}` : undefined}
         />
       )}
 
@@ -634,12 +556,10 @@ interface NotificationItemProps {
   notification: Notification;
   onClick: () => void;
   onMarkRead: (event: React.MouseEvent) => void;
-  onArchiveEmail?: (event: React.MouseEvent) => void;
   onCreateTask?: (event: React.MouseEvent) => void;
   onConvertToCard?: (event: React.MouseEvent) => void;
   onToggleComplete?: (event: React.MouseEvent) => void;
   isMarkingRead: boolean;
-  isArchivingEmail?: boolean;
   isTogglingComplete?: boolean;
   getSourceIcon: (sourceType: string) => string;
   formatTimestamp: (timestamp: string) => string;
@@ -649,12 +569,10 @@ function NotificationItem({
   notification,
   onClick,
   onMarkRead,
-  onArchiveEmail,
   onCreateTask,
   onConvertToCard,
   onToggleComplete,
   isMarkingRead,
-  isArchivingEmail,
   isTogglingComplete,
   getSourceIcon,
   formatTimestamp,
@@ -692,12 +610,7 @@ function NotificationItem({
       </div>
 
       {/* Content */}
-      <div
-        style={{
-          flex: 1,
-          minWidth: 0,
-        }}
-      >
+      <div style={{ flex: 1, minWidth: 0 }}>
         {/* Title row */}
         <div
           style={{
@@ -761,12 +674,7 @@ function NotificationItem({
           {notification.filter_tags.length > 0 && (
             <>
               <span style={{ color: "#d1d5db" }}>•</span>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "4px",
-                }}
-              >
+              <div style={{ display: "flex", gap: "4px" }}>
                 {notification.filter_tags.slice(0, 2).map((tag) => (
                   <span
                     key={tag}
@@ -800,8 +708,8 @@ function NotificationItem({
           flexShrink: 0,
         }}
       >
-        {/* Create Task button (for email notifications) */}
-        {notification.source_type === "email" && onCreateTask && (
+        {/* Create Task button */}
+        {onCreateTask && (
           <button
             onClick={onCreateTask}
             style={{
@@ -824,7 +732,7 @@ function NotificationItem({
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = "#eff6ff";
             }}
-            title="Create task from this email"
+            title="Create task from this notification"
           >
             <span>✓</span>
             <span>Task</span>
@@ -896,43 +804,6 @@ function NotificationItem({
           >
             <span>✓</span>
             <span>{isTogglingComplete ? "..." : "Done"}</span>
-          </button>
-        )}
-
-        {/* Archive Email button (for email notifications only) */}
-        {notification.source_type === "email" && onArchiveEmail && (
-          <button
-            onClick={onArchiveEmail}
-            disabled={isArchivingEmail}
-            style={{
-              padding: "6px 10px",
-              fontSize: "13px",
-              fontWeight: "500",
-              borderRadius: "6px",
-              border: "none",
-              backgroundColor: isArchivingEmail ? "#f3f4f6" : "#fef3c7",
-              color: isArchivingEmail ? "#9ca3af" : "#92400e",
-              cursor: isArchivingEmail ? "not-allowed" : "pointer",
-              opacity: isArchivingEmail ? 0.6 : 1,
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              transition: "all 0.15s ease",
-            }}
-            onMouseEnter={(e) => {
-              if (!isArchivingEmail) {
-                e.currentTarget.style.backgroundColor = "#fde68a";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isArchivingEmail) {
-                e.currentTarget.style.backgroundColor = "#fef3c7";
-              }
-            }}
-            title="Archive source email"
-          >
-            <span>📁</span>
-            <span>{isArchivingEmail ? "..." : "Archive"}</span>
           </button>
         )}
 

@@ -41,8 +41,6 @@ func (p *LLMJobProcessor) ProcessJob(ctx context.Context, job *models.LLMJob) (m
 		return p.processSummarizationJob(ctx, job)
 	case models.JobTypeChat:
 		return p.processChatJob(ctx, job)
-	case models.JobTypeEmail:
-		return p.processEmailJob(ctx, job)
 	case models.JobTypeFileTextExtraction:
 		return p.processFileTextExtractionJob(ctx, job)
 	default:
@@ -486,37 +484,6 @@ func (p *LLMJobProcessor) processChatJob(ctx context.Context, job *models.LLMJob
 		"message_length":  len(message),
 		"status":          "completed",
 		"note":            "Chat processing to be implemented in chat migration phase",
-	}, nil
-}
-
-// processEmailJob processes an email job
-func (p *LLMJobProcessor) processEmailJob(ctx context.Context, job *models.LLMJob) (map[string]interface{}, error) {
-	// Extract email details from payload
-	toEmail, ok1 := job.Payload["to"].(string)
-	subject, ok2 := job.Payload["subject"].(string)
-	body, ok3 := job.Payload["body"].(string)
-	if !ok1 || !ok2 || !ok3 {
-		return nil, fmt.Errorf("missing to, subject, or body in payload")
-	}
-
-	// This would integrate with the mail service
-	// For now, we'll log the email details
-	p.logger.Printf("[Processor] Email job: to=%s, subject=%s", toEmail, subject)
-
-	// Store sent email record
-	_, err := p.db.ExecContext(ctx,
-		`INSERT INTO sent_emails (user_id, to_email, subject, body, sent_at, created_at)
-		 VALUES ($1, $2, $3, $4, NOW(), NOW())`,
-		job.UserID, toEmail, subject, body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to record sent email: %w", err)
-	}
-
-	return map[string]interface{}{
-		"user_id": job.UserID,
-		"to":      toEmail,
-		"subject": subject,
-		"status":  "sent",
 	}, nil
 }
 

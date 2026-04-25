@@ -4,7 +4,7 @@ import { apiClient, getData } from "./client";
 export interface Notification {
   id: number;
   user_id: number;
-  source_type: 'email' | 'rss' | 'task';
+  source_type: 'rss' | 'task';
   source_id: number;
   title: string;
   preview: string;
@@ -17,7 +17,6 @@ export interface Notification {
 
 export interface NotificationPreferences {
   user_id: number;
-  show_unprocessed_emails: boolean;
   show_starred_articles: boolean;
   show_priority_tasks: boolean;
   show_priority_feeds: boolean;

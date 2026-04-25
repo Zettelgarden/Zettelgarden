@@ -19,7 +19,7 @@ func createTestNotification(s *Handler, t *testing.T, userID int, sourceType str
 	preview := "Test preview content"
 	timestamp := time.Now()
 	importanceScore := 5
-	filterTags := models.GetFilterTagsForEmail("unprocessed", "test@example.com")
+	filterTags := models.GetFilterTagsForRSS(false, false, "", "")
 
 	notification, err := models.CreateNotification(s.Server.Tx, userID, sourceType, sourceID, title, &preview, timestamp, importanceScore, filterTags)
 	if err != nil {
@@ -153,7 +153,7 @@ func TestListNotificationsSuccess(t *testing.T) {
 	userID := 1
 
 	// Create test notifications
-	createTestNotification(s, t, userID, models.SourceTypeEmail, 1, "Test Email 1", false)
+	createTestNotification(s, t, userID, "email", 1, "Test Email 1", false)
 	createTestNotification(s, t, userID, models.SourceTypeRSS, 1, "Test Article 1", false)
 	createTestNotification(s, t, userID, models.SourceTypeTask, 1, "Test Task 1", true)
 
@@ -182,7 +182,7 @@ func TestListNotificationsWithFilters(t *testing.T) {
 	userID := 1
 
 	// Create test notifications
-	createTestNotification(s, t, userID, models.SourceTypeEmail, 1, "Test Email 1", false)
+	createTestNotification(s, t, userID, "email", 1, "Test Email 1", false)
 	createTestNotification(s, t, userID, models.SourceTypeRSS, 1, "Test Article 1", false)
 	createTestNotification(s, t, userID, models.SourceTypeTask, 1, "Test Task 1", true)
 
@@ -225,7 +225,7 @@ func TestGetUnreadCountSuccess(t *testing.T) {
 	userID := 1
 
 	// Create test notifications - 2 unread, 1 read
-	createTestNotification(s, t, userID, models.SourceTypeEmail, 1, "Test Email 1", false)
+	createTestNotification(s, t, userID, "email", 1, "Test Email 1", false)
 	createTestNotification(s, t, userID, models.SourceTypeRSS, 1, "Test Article 1", false)
 	createTestNotification(s, t, userID, models.SourceTypeTask, 1, "Test Task 1", true)
 
@@ -250,7 +250,7 @@ func TestMarkAsReadSuccess(t *testing.T) {
 	userID := 1
 
 	// Create a test notification
-	notification := createTestNotification(s, t, userID, models.SourceTypeEmail, 1, "Test Email 1", false)
+	notification := createTestNotification(s, t, userID, "email", 1, "Test Email 1", false)
 
 	// Mark it as read
 	rr := makeMarkAsReadRequest(s, t, userID, notification.ID)
@@ -289,7 +289,7 @@ func TestArchiveNotificationSuccess(t *testing.T) {
 	userID := 1
 
 	// Create a test notification
-	notification := createTestNotification(s, t, userID, models.SourceTypeEmail, 1, "Test Email 1", false)
+	notification := createTestNotification(s, t, userID, "email", 1, "Test Email 1", false)
 
 	// Archive it
 	rr := makeArchiveNotificationRequest(s, t, userID, notification.ID)
@@ -382,10 +382,10 @@ func TestNotificationsUserIsolation(t *testing.T) {
 	userID2 := 2
 
 	// Create notifications for user 1
-	createTestNotification(s, t, userID1, models.SourceTypeEmail, 1, "User 1 Email", false)
+	createTestNotification(s, t, userID1, "email", 1, "User 1 Email", false)
 
 	// Create notifications for user 2
-	createTestNotification(s, t, userID2, models.SourceTypeEmail, 2, "User 2 Email", false)
+	createTestNotification(s, t, userID2, "email", 2, "User 2 Email", false)
 
 	// User 1 should only see their own notifications
 	rr := makeListNotificationsRequest(s, t, userID1, "")

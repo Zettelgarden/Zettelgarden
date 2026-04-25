@@ -24,7 +24,6 @@ interface SearchRequestParams {
   show_entities?: boolean;
   show_facts?: boolean;
   show_cards?: boolean;
-  show_emails?: boolean;
   only_empty_card_id?: boolean;
   schema_id?: number;
   search_type?: string; // classic or typesense
@@ -77,7 +76,6 @@ export async function semanticSearchCardsPaginated(
     show_entities: showEntities,
     show_facts: showFacts,
     show_cards: showCards,
-    show_emails: showEmails,
     only_empty_card_id: onlyEmptyCardId,
     schema_id: schemaId,
     sort: sortBy,

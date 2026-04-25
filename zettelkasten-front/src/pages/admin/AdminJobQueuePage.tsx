@@ -112,8 +112,6 @@ const getJobTypeIcon = (jobType: string) => {
       return "💬";
     case "memory":
       return "🧠";
-    case "email":
-      return "📧";
     default:
       return "⚙️";
   }

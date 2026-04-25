@@ -11,10 +11,10 @@
 # Use no-db mode: load from JSONL, write back after each command
 # When true, bd will use .beads/issues.jsonl as the source of truth
 # instead of the Dolt database
-# no-db: false
+no-db: true
 
 # Enable JSON output by default
-# json: false
+json: true
 
 # Default actor for audit trails (overridden by BD_ACTOR or --actor)
 # actor: ""
@@ -40,3 +40,5 @@
 # - linear.api-key
 # - github.org
 # - github.repo
+
+sync.remote: "git+https://git.thesavages.ca/nick/Zettelgarden.git"
