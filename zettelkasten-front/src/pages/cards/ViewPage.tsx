@@ -194,7 +194,6 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
               references: [],
               tags: viewingCard.parent!.tags || [],
               tasks: [], // Parent data doesn't include tasks
-              external_events: [],
               entities: [], // Parent data doesn't include entities
               is_starred: false
             }) : undefined}
@@ -237,7 +236,6 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
                       references: [],
                       tags: [],
                       tasks: [], // Tree data doesn't include tasks
-                      external_events: [],
                       entities: [], // Tree data doesn't include entities
                       is_starred: false
                     });

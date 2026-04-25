@@ -36,7 +36,6 @@ describe('useCardNavigation', () => {
     references: [],
     tags: [],
     tasks: [],
-    external_events: [],
     entities: [],
     user_id: 1,
     is_starred: false,

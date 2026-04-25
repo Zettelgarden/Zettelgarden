@@ -47,9 +47,6 @@ type Handler struct {
 
 	// LLM worker pool for job processing
 	LLMWorkerPool *services.WorkerPool
-
-	// Encryption service for sensitive data
-	EncryptionService *services.EncryptionService
 }
 
 // GetDB returns the appropriate database connection for database operations.

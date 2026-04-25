@@ -26,8 +26,6 @@ export interface User {
   revenue: number;
   has_seen_getting_started: boolean;
   timezone: string;
-  caldav_url: string | null;
-  caldav_token: string | null;
 }
 export const defaultUser: User = {
   id: 0,
@@ -57,8 +55,6 @@ export const defaultUser: User = {
   revenue: 0,
   has_seen_getting_started: false,
   timezone: "UTC",
-  caldav_url: null,
-  caldav_token: null,
 };
 
 export interface UserSubscription {
@@ -78,7 +74,6 @@ export interface EditUserParams {
   dashboard_card_pk: number;
   has_seen_getting_started: boolean;
   timezone: string;
-  caldav_url: string | null;
 }
 
 export interface CreateUserParams {

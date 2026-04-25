@@ -1,7 +1,6 @@
 import { File } from "./File";
 import { Tag } from "./Tags";
 import { Task } from "./Task";
-import { ExternalEvent } from "./ExternalEvent";
 import { RSSArticle } from "../api/rss";
 
 export interface PartialCard {
@@ -56,7 +55,6 @@ export interface Card {
   references: PartialCard[];
   tags: Tag[];
   tasks: Task[];
-  external_events: ExternalEvent[];
   entities: Entity[];
   is_starred?: boolean; // Whether the current user has starred this card
   process_entities_and_facts?: boolean; // Whether to process entities and facts on save
@@ -129,7 +127,6 @@ export const defaultCard: Card = {
   references: [],
   tags: [],
   tasks: [],
-  external_events: [],
   entities: [],
   is_starred: false,
   process_entities_and_facts: false,

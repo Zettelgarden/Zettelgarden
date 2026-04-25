@@ -12,7 +12,6 @@
 // - entity_tools.go: Entity management and linking
 // - fact_tools.go: Fact extraction and retrieval
 // - template_tools.go: Card template management
-// - calendar_tools.go: Calendar integration
 // - article_tools.go: Article parsing and creation
 // - memory_tools.go: User memory operations
 package services

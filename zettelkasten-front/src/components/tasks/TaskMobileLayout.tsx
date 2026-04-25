@@ -2,7 +2,6 @@ import React, { ChangeEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Task } from "../../models/Task";
 import { Tag } from "../../models/Tags";
-import { ExternalEvent } from "../../models/ExternalEvent";
 import { MobileTopBar } from "../layout/MobileTopBar";
 import { TaskFiltersSheet } from "./TaskFiltersSheet";
 import { QuickTagPopover, type QuickTagTrigger, getQuickTagTrigger, applyQuickTagSelection } from "./QuickTagPopover";
@@ -13,14 +12,13 @@ import { TaskEmptyState, getEmptyStateType } from "./TaskEmptyState";
 import { FilterHelpButton, FilterHelpPopover } from "./FilterHelpButton";
 import { EisenhowerMatrix } from "./EisenhowerMatrix";
 import { KanbanBoard } from "./KanbanBoard";
-import { CalendarViewWrapper } from "../../components/calendar/CalendarView";
 import { TaskSelectionOverlay } from "./TaskSelectionOverlay";
 import { TaskDialog } from "./TaskDialog";
 import { CreateTaskWindow } from "./CreateTaskWindow";
 
 type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date";
 type SortDirection = "asc" | "desc";
-type ViewMode = "list" | "matrix" | "kanban" | "calendar";
+type ViewMode = "list" | "matrix" | "kanban";
 type TaskMobileView = 'list' | 'filters';
 
 interface TaskMobileLayoutProps {
@@ -45,8 +43,6 @@ interface TaskMobileLayoutProps {
   filterString: string;
   sortField: SortField;
   sortDirection: SortDirection;
-  calendarViewMode: "month" | "week";
-  calendarCurrentDate: Date;
   currentPage: number;
   itemsPerPage: number;
   showFilterHelp: boolean;
@@ -54,16 +50,11 @@ interface TaskMobileLayoutProps {
   selectMode: boolean;
   selectedTaskIds: Set<number>;
 
-  // Calendar events
-  externalEvents: ExternalEvent[];
-  isLoadingEvents: boolean;
-
   // Dialog states
   showCreateTaskWindow: boolean;
   selectedTaskId: number | null;
   isTaskDialogOpen: boolean;
   createTaskStatus: string | undefined;
-  calendarSelectedDate: Date | null;
 
   // Setters
   setDateView: (view: string) => void;
@@ -77,15 +68,10 @@ interface TaskMobileLayoutProps {
   setShowFilterHelp: (show: boolean) => void;
   setSelectMode: (mode: boolean) => void;
   setSelectedTaskIds: (ids: Set<number>) => void;
-  setCalendarViewMode: (mode: "month" | "week") => void;
-  setCalendarCurrentDate: (date: Date) => void;
   setShowCreateTaskWindow: (show: boolean) => void;
   setSelectedTaskId: (taskId: number | null) => void;
   setIsTaskDialogOpen: (open: boolean) => void;
   setCreateTaskStatus: (status: string | undefined) => void;
-  setCalendarSelectedDate: (date: Date | null) => void;
-  setExternalEvents: (events: ExternalEvent[]) => void;
-  setIsLoadingEvents: (loading: boolean) => void;
   setRefreshTasks: (refresh: boolean) => void;
   setShowDisplayMenu?: (show: boolean) => void;
 
@@ -95,7 +81,6 @@ interface TaskMobileLayoutProps {
   toggleTaskSelection: (taskId: number) => void;
   selectAllTasks: (taskIds: number[]) => void;
   clearSelection: () => void;
-  navigateCalendar: (direction: "prev" | "next" | "today") => void;
 
   // Handlers
   onMenuClick: () => void;
@@ -143,20 +128,15 @@ export function TaskMobileLayout({
   filterString,
   sortField,
   sortDirection,
-  calendarViewMode,
-  calendarCurrentDate,
   currentPage,
   itemsPerPage,
   showFilterHelp,
   selectMode,
   selectedTaskIds,
-  externalEvents,
-  isLoadingEvents,
   showCreateTaskWindow,
   selectedTaskId,
   isTaskDialogOpen,
   createTaskStatus,
-  calendarSelectedDate,
   setDateView,
   setViewMode,
   setShowCompleted,
@@ -167,23 +147,17 @@ export function TaskMobileLayout({
   setShowFilterHelp,
   setSelectMode,
   setSelectedTaskIds,
-  setCalendarViewMode,
-  setCalendarCurrentDate,
   setFilterString,
   setShowCreateTaskWindow,
   setSelectedTaskId,
   setIsTaskDialogOpen,
   setCreateTaskStatus,
-  setCalendarSelectedDate,
-  setExternalEvents,
-  setIsLoadingEvents,
   setRefreshTasks,
   toggleSortDirection,
   toggleSelectMode,
   toggleTaskSelection,
   selectAllTasks,
   clearSelection,
-  navigateCalendar,
   onMenuClick,
   onTagClick,
   onAddTaskWithStatus,
@@ -222,7 +196,6 @@ export function TaskMobileLayout({
   // Handle add task click
   const handleAddTaskClick = () => {
     setCreateTaskStatus(undefined);
-    setCalendarSelectedDate(null);
     setShowCreateTaskWindow(true);
   };
 
@@ -232,41 +205,14 @@ export function TaskMobileLayout({
     setIsTaskDialogOpen(true);
   };
 
-  // Handle create task from calendar date
-  const handleCreateTaskFromDate = (date: Date) => {
-    setCalendarSelectedDate(date);
-    setShowCreateTaskWindow(true);
-  };
-
-  // Handle task moved (for calendar drag and drop)
+  // Handle task moved
   const handleTaskMoved = () => {
-    setRefreshTasks(true);
-  };
-
-  // Handle external event change
-  const handleExternalEventChange = () => {
     setRefreshTasks(true);
   };
 
   // Render current view based on viewMode
   const renderCurrentView = () => {
     switch (viewMode) {
-      case "calendar":
-        return (
-          <CalendarViewWrapper
-            tasks={tasksToDisplay}
-            externalEvents={externalEvents}
-            currentDate={calendarCurrentDate}
-            viewMode={calendarViewMode}
-            onNavigate={navigateCalendar}
-            onViewModeChange={setCalendarViewMode}
-            onTaskClick={handleTaskClick}
-            onCreateTask={handleCreateTaskFromDate}
-            onTaskMoved={handleTaskMoved}
-            onExternalEventChange={handleExternalEventChange}
-            timezone={userTimezone}
-          />
-        );
       case "list":
         if (isLoading) {
           return <TaskListSkeleton count={6} />;
@@ -282,7 +228,6 @@ export function TaskMobileLayout({
               }) || "no-tasks"}
               onAddTask={() => {
                 setCreateTaskStatus(undefined);
-                setCalendarSelectedDate(null);
                 setShowCreateTaskWindow(true);
               }}
               onClearFilters={() => setFilterString("")}
@@ -470,7 +415,7 @@ export function TaskMobileLayout({
             setShowTaskWindow={setShowCreateTaskWindow}
             currentFilter={filterString}
             initialStatus={createTaskStatus}
-            initialDate={calendarSelectedDate || undefined}
+            initialDate={undefined}
           />
         )}
       </div>

@@ -5,7 +5,7 @@ import { toMidnightInTimezone } from "../utils/dates";
 
 type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date";
 type SortDirection = "asc" | "desc";
-type ViewMode = "list" | "matrix" | "kanban" | "calendar";
+type ViewMode = "list" | "matrix" | "kanban";
 
 interface UseTaskFilteringParams {
   tasks: Task[];
@@ -110,8 +110,8 @@ export function useTaskFiltering({
 
   // Paginate tasks (only for list view)
   const paginatedTasks = useMemo(() => {
-    if (viewMode === "matrix" || viewMode === "kanban" || viewMode === "calendar") {
-      return tasksToDisplay; // Don't paginate matrix, kanban, or calendar views
+    if (viewMode === "matrix" || viewMode === "kanban") {
+      return tasksToDisplay; // Don't paginate matrix or kanban views
     }
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
@@ -120,7 +120,7 @@ export function useTaskFiltering({
 
   // Calculate total pages
   const totalPages = useMemo(() => {
-    if (viewMode === "matrix" || viewMode === "kanban" || viewMode === "calendar") return 1;
+    if (viewMode === "matrix" || viewMode === "kanban") return 1;
     return Math.ceil(tasksToDisplay.length / itemsPerPage);
   }, [tasksToDisplay.length, itemsPerPage, viewMode]);
 

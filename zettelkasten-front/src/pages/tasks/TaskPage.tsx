@@ -15,10 +15,7 @@ import { KanbanBoard } from "../../components/tasks/KanbanBoard";
 import { useTaskPageSettings } from "../../hooks/useTaskPageSettings";
 import { useTaskFiltering } from "../../hooks/useTaskFiltering";
 import { useFilterInput } from "../../hooks/useFilterInput";
-import { CalendarViewWrapper } from "../../components/calendar/CalendarView";
 import { useNavigate } from "react-router-dom";
-import { getExternalEvents } from "../../api/externalEvents";
-import { ExternalEvent } from "../../models/ExternalEvent";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { TaskDesktopLayout } from "../../components/tasks/TaskDesktopLayout";
 import { TaskMobileLayout } from "../../components/tasks/TaskMobileLayout";
@@ -27,12 +24,6 @@ import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useUIState } from "../../contexts/UIStateContext";
 
 type TaskMobileView = 'list' | 'filters';
-import {
-  getStartOfMonthInTimezone,
-  getEndOfMonthInTimezone,
-  getStartOfWeekInTimezone,
-  getEndOfWeekInTimezone,
-} from "../../utils/dates";
 import { parseTaskQuery, updateQueryDateView, updateQueryShowCompleted } from "../../utils/tasks";
 import { QuickTagPopover } from "../../components/tasks/QuickTagPopover";
 
@@ -55,17 +46,9 @@ export function TaskPage({ }: TaskListProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [createTaskStatus, setCreateTaskStatus] = useState<string | undefined>(undefined);
-  const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | null>(null);
-
-  // External calendar events state
-  const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
-  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
 
   // Ref to prevent infinite loops when syncing query and UI
   const isInternalUpdate = useRef(false);
-
-  // Ref for abort controller to cancel pending external events requests
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Use custom hooks for settings and filtering
   const settings = useTaskPageSettings();
@@ -125,70 +108,6 @@ export function TaskPage({ }: TaskListProps) {
     }
   }, [settings.filterString]);
 
-  // Load external calendar events when in calendar view
-  useEffect(() => {
-    async function loadExternalEvents() {
-      if (settings.viewMode !== "calendar") {
-        setExternalEvents([]);
-        setIsLoadingEvents(false);
-        return;
-      }
-
-      // Cancel any pending request
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-
-      // Create new abort controller for this request
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
-
-      setIsLoadingEvents(true);
-
-      try {
-        // Calculate date range based on view mode and current date
-        const currentDate = settings.calendarCurrentDate;
-        let start: Date;
-        let end: Date;
-
-        if (settings.calendarViewMode === "month") {
-          start = getStartOfMonthInTimezone(currentDate, userTimezone);
-          end = getEndOfMonthInTimezone(currentDate, userTimezone);
-        } else {
-          // Week view
-          start = getStartOfWeekInTimezone(currentDate, userTimezone, 0);
-          end = getEndOfWeekInTimezone(currentDate, userTimezone, 0);
-        }
-
-        const events = await getExternalEvents(start, end, abortController.signal);
-        // Only update state if this request wasn't aborted
-        if (!abortController.signal.aborted) {
-          setExternalEvents(events);
-        }
-      } catch (err) {
-        // Only handle error if not due to abort
-        if (!abortController.signal.aborted) {
-          console.error("Failed to load external events:", err);
-          setExternalEvents([]);
-        }
-      } finally {
-        // Only clear loading state if this request wasn't aborted
-        if (!abortController.signal.aborted) {
-          setIsLoadingEvents(false);
-        }
-      }
-    }
-
-    loadExternalEvents();
-
-    // Cleanup function to abort pending requests on unmount
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, [settings.viewMode, settings.calendarViewMode, settings.calendarCurrentDate, userTimezone]);
-
   function handleDateChange(e: ChangeEvent<HTMLSelectElement>) {
     isInternalUpdate.current = true;
     const newDateView = e.target.value;
@@ -211,7 +130,6 @@ export function TaskPage({ }: TaskListProps) {
 
   function toggleShowTaskWindow() {
     setCreateTaskStatus(undefined);
-    setCalendarSelectedDate(null); // Reset calendar date when opening from toolbar
     setShowCreateTaskWindow(!showCreateTaskWindow);
   }
 
@@ -243,7 +161,6 @@ export function TaskPage({ }: TaskListProps) {
   const { showHelp, setShowHelp } = useKeyboardShortcuts({
     onNewTask: () => {
       setCreateTaskStatus(undefined);
-      setCalendarSelectedDate(null);
       setShowCreateTaskWindow(true);
     },
     onSwitchView: (view) => {
@@ -304,32 +221,23 @@ export function TaskPage({ }: TaskListProps) {
           viewMode={settings.viewMode}
           currentPage={settings.currentPage}
           itemsPerPage={settings.itemsPerPage}
-          calendarViewMode={settings.calendarViewMode}
-          calendarCurrentDate={settings.calendarCurrentDate}
           showCompleted={showCompleted}
           // UI state
           showFilterHelp={settings.showFilterHelp}
           showDisplayMenu={settings.showDisplayMenu}
           selectMode={settings.selectMode}
           selectedTaskIds={settings.selectedTaskIds}
-          // External events
-          externalEvents={externalEvents}
-          isLoadingEvents={isLoadingEvents}
           // Dialog states
           showCreateTaskWindow={showCreateTaskWindow}
           selectedTaskId={selectedTaskId}
           isTaskDialogOpen={isTaskDialogOpen}
           createTaskStatus={createTaskStatus}
-          calendarSelectedDate={calendarSelectedDate}
           // Setters
           setRefreshTasks={setRefreshTasks}
           setShowCreateTaskWindow={setShowCreateTaskWindow}
           setSelectedTaskId={setSelectedTaskId}
           setIsTaskDialogOpen={setIsTaskDialogOpen}
           setCreateTaskStatus={setCreateTaskStatus}
-          setCalendarSelectedDate={setCalendarSelectedDate}
-          setExternalEvents={setExternalEvents}
-          setIsLoadingEvents={setIsLoadingEvents}
           // Settings setters
           setDateView={settings.setDateView}
           setFilterString={settings.setFilterString}
@@ -338,8 +246,6 @@ export function TaskPage({ }: TaskListProps) {
           setViewMode={settings.setViewMode}
           setCurrentPage={settings.setCurrentPage}
           setItemsPerPage={settings.setItemsPerPage}
-          setCalendarViewMode={settings.setCalendarViewMode}
-          setCalendarCurrentDate={settings.setCalendarCurrentDate}
           setShowFilterHelp={settings.setShowFilterHelp}
           setShowDisplayMenu={settings.setShowDisplayMenu}
           setSelectMode={settings.setSelectMode}
@@ -350,7 +256,6 @@ export function TaskPage({ }: TaskListProps) {
           selectAllTasks={settings.selectAllTasks}
           clearSelection={settings.clearSelection}
           toggleSortDirection={settings.toggleSortDirection}
-          navigateCalendar={settings.navigateCalendar}
           setShowCompleted={setShowCompleted}
           // Handlers
           onMenuClick={toggleMobileSidebar}
@@ -381,17 +286,11 @@ export function TaskPage({ }: TaskListProps) {
             totalTasksForDateView,
             totalPages,
           }}
-          externalEventsState={{
-            externalEvents,
-            isLoadingEvents,
-          }}
           viewSettings={{
             dateView: settings.dateView,
             viewMode: settings.viewMode,
             sortField: settings.sortField,
             sortDirection: settings.sortDirection,
-            calendarViewMode: settings.calendarViewMode,
-            calendarCurrentDate: settings.calendarCurrentDate,
             currentPage: settings.currentPage,
             itemsPerPage: settings.itemsPerPage,
             showDisplayMenu: settings.showDisplayMenu,
@@ -401,8 +300,6 @@ export function TaskPage({ }: TaskListProps) {
             setViewMode: settings.setViewMode,
             setSortField: settings.setSortField,
             setSortDirection: settings.setSortDirection,
-            setCalendarViewMode: settings.setCalendarViewMode,
-            setCalendarCurrentDate: settings.setCalendarCurrentDate,
             setCurrentPage: settings.setCurrentPage,
             setItemsPerPage: settings.setItemsPerPage,
             setShowDisplayMenu: settings.setShowDisplayMenu,
@@ -412,14 +309,12 @@ export function TaskPage({ }: TaskListProps) {
             selectedTaskId,
             isTaskDialogOpen,
             createTaskStatus,
-            calendarSelectedDate,
           }}
           dialogSetters={{
             setShowCreateTaskWindow,
             setSelectedTaskId,
             setIsTaskDialogOpen,
             setCreateTaskStatus,
-            setCalendarSelectedDate,
           }}
           selectionState={{
             selectMode: settings.selectMode,
@@ -459,12 +354,9 @@ export function TaskPage({ }: TaskListProps) {
             onRefreshFilterTriggerFromInput: refreshFilterTriggerFromInput,
           }}
           navigationActions={{
-            navigateCalendar: settings.navigateCalendar,
             toggleSortDirection: settings.toggleSortDirection,
           }}
           externalEventsSetters={{
-            setExternalEvents,
-            setIsLoadingEvents,
             setRefreshTasks,
           }}
           handlers={{

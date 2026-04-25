@@ -1,6 +1,6 @@
 import React from "react";
 
-type ViewMode = "list" | "matrix" | "kanban" | "calendar";
+type ViewMode = "list" | "matrix" | "kanban";
 
 interface ViewModeToggleProps {
   value: ViewMode;
@@ -11,7 +11,6 @@ const VIEW_MODES: { value: ViewMode; label: string; icon: string; shortcut: stri
   { value: "list", label: "List", icon: "☰", shortcut: "1" },
   { value: "matrix", label: "Matrix", icon: "⊞", shortcut: "2" },
   { value: "kanban", label: "Kanban", icon: "▦", shortcut: "3" },
-  { value: "calendar", label: "Calendar", icon: "📅", shortcut: "4" },
 ];
 
 export function ViewModeToggle({ value, onChange }: ViewModeToggleProps) {

@@ -91,7 +91,6 @@ describe('Spreadsheet Integration', () => {
     references: [],
     tags: [],
     tasks: [],
-    external_events: [],
     entities: []
   };
 

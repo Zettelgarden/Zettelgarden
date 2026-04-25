@@ -1,7 +1,6 @@
 import React, { ChangeEvent } from "react";
 import { Task } from "../../models/Task";
 import { Tag } from "../../models/Tags";
-import { ExternalEvent } from "../../models/ExternalEvent";
 import { EisenhowerMatrix } from "./EisenhowerMatrix";
 import { KanbanBoard } from "./KanbanBoard";
 import { TaskList } from "./TaskList";
@@ -12,7 +11,6 @@ import { ViewModeToggle } from "./ViewModeToggle";
 import { TaskSelectionOverlay } from "./TaskSelectionOverlay";
 import { CreateTaskWindow } from "./CreateTaskWindow";
 import { TaskDialog } from "./TaskDialog";
-import { CalendarViewWrapper } from "../../components/calendar/CalendarView";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { Button } from "../../components/Button";
 import { SearchTagDropdown } from "../../components/tags/SearchTagDropdown";
@@ -22,7 +20,6 @@ import {
 import { useSubtaskDisplayMode } from "../../hooks/useSubtaskDisplayMode";
 import type {
   TaskData,
-  ExternalEventsState,
   ViewSettings,
   ViewSettingsSetters,
   DialogState,
@@ -45,7 +42,7 @@ interface TaskDesktopLayoutProps {
   taskData: TaskData;
 
   // Grouped: External events
-  externalEventsState: ExternalEventsState;
+  
 
   // Grouped: View settings
   viewSettings: ViewSettings;
@@ -96,7 +93,6 @@ interface TaskDesktopLayoutProps {
  */
 export function TaskDesktopLayout({
   taskData,
-  externalEventsState,
   viewSettings,
   viewSettingsSetters,
   dialogState,
@@ -116,15 +112,14 @@ export function TaskDesktopLayout({
 
   // Destructure for easier access
   const { tasks, tags, userTimezone, isLoading, tasksToDisplay, paginatedTasks, totalTasksForDateView, totalPages } = taskData;
-  const { externalEvents, isLoadingEvents } = externalEventsState;
-  const { dateView, viewMode, sortField, sortDirection, calendarViewMode, calendarCurrentDate, currentPage, itemsPerPage } = viewSettings;
-  const { showCreateTaskWindow, selectedTaskId, isTaskDialogOpen, createTaskStatus, calendarSelectedDate } = dialogState;
+  const { dateView, viewMode, sortField, sortDirection, currentPage, itemsPerPage } = viewSettings;
+  const { showCreateTaskWindow, selectedTaskId, isTaskDialogOpen, createTaskStatus } = dialogState;
   const { selectMode, selectedTaskIds } = selectionState;
   const { filterString, showFilterHelp, showCompleted } = filterState;
   const { filterInputRef, cursorPosition, filterTrigger, isFilterFocused } = filterInputState;
   const { setFilterTrigger, setIsFilterFocused } = filterInputSetters;
   const { onFilterChange, onSelectQuickTag, onRefreshFilterTriggerFromInput } = filterInputHandlers;
-  const { navigateCalendar, toggleSortDirection } = navigationActions;
+  const { toggleSortDirection } = navigationActions;
   const { setRefreshTasks } = externalEventsSetters;
 
   return (
@@ -241,7 +236,6 @@ export function TaskDesktopLayout({
                         <option value="list">List View</option>
                         <option value="matrix">Eisenhower Matrix</option>
                         <option value="kanban">Kanban Board</option>
-                        <option value="calendar">Calendar View</option>
                       </select>
                     </div>
                     <div className="mb-2">
@@ -328,7 +322,6 @@ export function TaskDesktopLayout({
               <Button
                 onClick={() => {
                   dialogSetters.setCreateTaskStatus(undefined);
-                  dialogSetters.setCalendarSelectedDate(null);
                   dialogSetters.setShowCreateTaskWindow(!showCreateTaskWindow);
                 }}
                 className="h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 text-lg font-bold flex items-center justify-center pb-2"
@@ -348,71 +341,7 @@ export function TaskDesktopLayout({
 
         {/* Task Content Area */}
         <div className="flex-1 overflow-auto p-4">
-          {viewMode === "calendar" ? (
-            <ErrorBoundary
-              fallback={
-                <div className="p-4 m-4 border border-red-300 rounded bg-red-50">
-                  <h2 className="text-lg font-semibold text-red-800 mb-2">Calendar Error</h2>
-                  <p className="text-red-600 mb-3">
-                    We encountered an error while displaying the calendar. Please try refreshing the page or switching to a different view.
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                      onClick={() => window.location.reload()}
-                    >
-                      Refresh Page
-                    </button>
-                    <button
-                      className="px-4 py-2 border border-slate-300 text-slate-700 rounded hover:bg-slate-50 transition-colors"
-                      onClick={() => viewSettingsSetters.setViewMode("list")}
-                    >
-                      Switch to List View
-                    </button>
-                  </div>
-                </div>
-              }
-            >
-              {isLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-sm text-slate-500">Loading calendar...</span>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {isLoadingEvents && (
-                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" aria-hidden="true"></div>
-                      <span className="text-sm text-blue-700">Loading external events...</span>
-                    </div>
-                  )}
-                  <CalendarViewWrapper
-                    tasks={tasksToDisplay}
-                    externalEvents={externalEvents}
-                    currentDate={calendarCurrentDate}
-                    viewMode={calendarViewMode}
-                    onNavigate={navigateCalendar}
-                    onViewModeChange={viewSettingsSetters.setCalendarViewMode}
-                    onTaskClick={(taskId) => {
-                      dialogSetters.setSelectedTaskId(taskId);
-                      dialogSetters.setIsTaskDialogOpen(true);
-                    }}
-                    onCreateTask={(date) => {
-                      dialogSetters.setCalendarSelectedDate(date);
-                      dialogSetters.setCreateTaskStatus(undefined);
-                      dialogSetters.setShowCreateTaskWindow(true);
-                    }}
-                    onTaskMoved={() => {
-                      setRefreshTasks(true);
-                    }}
-                    timezone={userTimezone}
-                  />
-                </>
-              )}
-            </ErrorBoundary>
-          ) : viewMode === "list" ? (
+          {viewMode === "list" ? (
             <>
               {isLoading ? (
                 <TaskListSkeleton count={8} />
@@ -437,7 +366,6 @@ export function TaskDesktopLayout({
                   }) || "no-tasks"}
                   onAddTask={() => {
                     dialogSetters.setCreateTaskStatus(undefined);
-                    dialogSetters.setCalendarSelectedDate(null);
                     dialogSetters.setShowCreateTaskWindow(true);
                   }}
                   onClearFilters={() => filterSetters.setFilterString("")}
@@ -530,7 +458,7 @@ export function TaskDesktopLayout({
           setShowTaskWindow={dialogSetters.setShowCreateTaskWindow}
           currentFilter={filterString}
           initialStatus={createTaskStatus}
-          initialDate={calendarSelectedDate || undefined}
+          initialDate={undefined}
         />
       )}
 

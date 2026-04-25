@@ -12,7 +12,6 @@
 // - entity_tools.go: Entity management and linking
 // - fact_tools.go: Fact extraction and retrieval
 // - template_tools.go: Card template management
-// - calendar_tools.go: Calendar integration
 // - article_tools.go: Article parsing and creation
 // - memory_tools.go: User memory operations
 package services
@@ -58,10 +57,6 @@ const (
 	ToolGetTemplate      = "get_template"
 	ToolListTemplates    = "list_templates"
 	ToolGetNextChildID   = "get_next_child_id"
-	// Calendar tools
-	ToolListExternalCalendars = "list_external_calendars"
-	ToolListExternalEvents    = "list_external_events"
-	ToolLinkEventToCard       = "link_event_to_card"
 	// Article tools
 	ToolParseURL      = "parse_url"
 	ToolCreateArticle = "create_article"

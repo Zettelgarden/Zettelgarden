@@ -11,7 +11,6 @@ package services
 // - services/tools/entity_tools.go - Entity-related tools
 // - services/tools/fact_tools.go - Fact-related tools
 // - services/tools/template_tools.go - Template tools
-// - services/tools/calendar_tools.go - Calendar integration tools
 // - services/tools/article_tools.go - Article/URL tools
 // - services/tools/memory_tools.go - Memory tools
 //
@@ -32,7 +31,6 @@ package services
 // - entity_tools.go (~400 lines) - Entity-related tools
 // - fact_tools.go (~200 lines) - Fact-related tools
 // - template_tools.go (~250 lines) - Template and helper functions
-// - calendar_tools.go (~150 lines) - Calendar integration tools
 // - article_tools.go (~100 lines) - Article/URL tools
 // - memory_tools.go (~50 lines) - Memory tools
 //

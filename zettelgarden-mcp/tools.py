@@ -457,52 +457,7 @@ def list_tools() -> list[Tool]:
                 "required": ["url"]
             }
         ),
-        # Calendar tools
-        Tool(
-            name="list_external_calendars",
-            description="List all external calendar subscriptions for the current user.",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
-        ),
-        Tool(
-            name="list_external_events",
-            description="List external calendar events within a date range.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "start": {
-                        "type": "string",
-                        "description": "Start date in ISO 8601 format (e.g., '2026-01-01T00:00:00Z')"
-                    },
-                    "end": {
-                        "type": "string",
-                        "description": "End date in ISO 8601 format (e.g., '2026-12-31T23:59:59Z')"
-                    }
-                },
-                "required": ["start", "end"]
-            }
-        ),
-        Tool(
-            name="link_event_to_card",
-            description="Link an external calendar event to a card.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "event_id": {
-                        "type": "integer",
-                        "description": "External event ID"
-                    },
-                    "card_pk": {
-                        "type": "integer",
-                        "description": "Card primary key to link to"
-                    }
-                },
-                "required": ["event_id", "card_pk"]
-            }
-        ),
-    ]
+]
 
 
 async def handle_tool(client: httpx.AsyncClient, name: str, args: dict) -> str:
@@ -561,14 +516,6 @@ async def handle_tool(client: httpx.AsyncClient, name: str, args: dict) -> str:
         return await handlers.parse_url(client, args)
     elif name == "create_article":
         return await handlers.create_article(client, args)
-
-    # Calendar tools
-    elif name == "list_external_calendars":
-        return await handlers.list_external_calendars(client)
-    elif name == "list_external_events":
-        return await handlers.list_external_events(client, args)
-    elif name == "link_event_to_card":
-        return await handlers.link_event_to_card(client, args)
 
     else:
         return f"Unknown tool: {name}"

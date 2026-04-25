@@ -1,10 +1,7 @@
 package handlers
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"go-backend/models"
 	"go-backend/services"
 	"log"
@@ -583,92 +580,6 @@ func (s *Handler) CompleteAndScheduleTaskRoute(w http.ResponseWriter, r *http.Re
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-}
-
-// CalendarICSRoute handles GET /api/user/calendar.ics
-// Returns iCal feed of user's tasks for external calendar subscription
-// Authentication via JWT (for logged-in users) or token query param (for external apps)
-func (s *Handler) CalendarICSRoute(w http.ResponseWriter, r *http.Request) {
-	var userID int
-	var err error
-
-	// Try to get userID from JWT token first (for logged-in users)
-	if ctxUserID, ok := r.Context().Value("current_user").(int); ok {
-		userID = ctxUserID
-	} else {
-		// If no JWT auth, check for token query parameter (for external calendar apps)
-		token := r.URL.Query().Get("token")
-		if token == "" {
-			http.Error(w, "Authentication required: provide JWT token or use ?token=XYZ", http.StatusUnauthorized)
-			return
-		}
-
-		// Look up user by caldav_token
-		err = s.GetDB().QueryRow("SELECT id FROM users WHERE caldav_token = $1", token).Scan(&userID)
-		if err != nil {
-			log.Printf("Calendar iCal access with invalid token: %v", err)
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
-			return
-		}
-	}
-
-	// Get all tasks for the user (including completed)
-	tasks, err := s.QueryTasks(userID, true)
-	if err != nil {
-		log.Printf("Error fetching tasks for calendar: %v", err)
-		http.Error(w, "Error fetching tasks", http.StatusInternalServerError)
-		return
-	}
-
-	// Generate iCal content using CalDAV service
-	caldavService := services.NewCalDAVService(s.DB)
-	icalContent, err := caldavService.ExportTasksToICalendar(tasks)
-	if err != nil {
-		log.Printf("Error generating iCal: %v", err)
-		http.Error(w, "Error generating calendar", http.StatusInternalServerError)
-		return
-	}
-
-	// Set headers for iCal content
-	w.Header().Set("Content-Type", "text/calendar; charset=utf-8")
-	w.Header().Set("Content-Disposition", "attachment; filename=\"calendar.ics\"")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(icalContent))
-}
-
-// GenerateCalDAVToken generates or regenerates a CalDAV token for the user
-func (s *Handler) GenerateCalDAVToken(userID int) (string, error) {
-	// Generate a random token (32 bytes = 64 hex chars)
-	tokenBytes := make([]byte, 32)
-	if _, err := rand.Read(tokenBytes); err != nil {
-		return "", fmt.Errorf("failed to generate token: %w", err)
-	}
-	token := hex.EncodeToString(tokenBytes)
-
-	// Store the token in the database
-	_, err := s.DB.Exec("UPDATE users SET caldav_token = $1 WHERE id = $2", token, userID)
-	if err != nil {
-		return "", fmt.Errorf("failed to store token: %w", err)
-	}
-
-	return token, nil
-}
-
-// RegenerateCalDAVTokenRoute handles POST /api/user/regenerate-caldav-token
-// Generates a new CalDAV token for the current user
-func (s *Handler) RegenerateCalDAVTokenRoute(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("current_user").(int)
-
-	token, err := s.GenerateCalDAVToken(userID)
-	if err != nil {
-		log.Printf("Error generating CalDAV token: %v", err)
-		http.Error(w, "Error generating token", http.StatusInternalServerError)
-		return
-	}
-
-	response := map[string]string{"token": token}
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 

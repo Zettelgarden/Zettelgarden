@@ -335,27 +335,6 @@ export async function getCardTasks(cardId: string | number): Promise<any[]> {
   }));
 }
 
-/**
- * Get external events for a card
- */
-export async function getCardExternalEvents(cardId: string | number): Promise<any[]> {
-  const { data: events } = await apiClient.get<any[]>(
-    `/cards/${encodeURIComponent(cardId)}/external-events`
-  );
-
-  if (!events) {
-    return [];
-  }
-
-  return events.map((event) => ({
-    ...event,
-    start_time: new Date(event.start_time),
-    end_time: new Date(event.end_time),
-    created_at: new Date(event.created_at),
-    updated_at: new Date(event.updated_at),
-  }));
-}
-
 export interface CategorizedReferences {
   bidirectional: PartialCard[]; // Two-way links (mutual references)
   outgoing: PartialCard[];      // One-way links (this card references them)

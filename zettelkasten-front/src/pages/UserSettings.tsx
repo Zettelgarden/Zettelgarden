@@ -1,6 +1,6 @@
 import React, { useState, useEffect, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { getUserMemory, regenerateCalDAVToken } from "../api/users";
+import { getUserMemory } from "../api/users";
 import { getBillingPortalUrl } from "../api/billing";
 import { requestPasswordReset } from "../api/auth";
 import { User, EditUserParams } from "../models/User";
@@ -12,13 +12,12 @@ import { TagList } from "../components/tags/TagList";
 import { StatusManagement } from "../components/settings/StatusManagement";
 import { TimezoneSelector } from "../components/settings/TimezoneSelector";
 import APIKeysManagement from "../components/settings/APIKeysManagement";
-import { CalendarSubscriptions } from "../components/settings/CalendarSubscriptions";
 import { MemoryPage } from "./MemoryPage";
 import { SchemaPage } from "./SchemaPage";
 import { StatsPage } from "./StatsPage";
 import { AgentManagement } from "../components/AgentManagement";
 
-type Tab = "profile" | "templates" | "tags" | "statuses" | "apiKeys" | "calendars" | "memory" | "schemas" | "stats" | "agents";
+type Tab = "profile" | "templates" | "tags" | "statuses" | "apiKeys" | "memory" | "schemas" | "stats" | "agents";
 
 export function UserSettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
@@ -28,20 +27,6 @@ export function UserSettingsPage() {
   const [userMemory, setUserMemory] = useState<string | null>(null);
   const [billingUrl, setBillingUrl] = useState<string | null>(null);
   const [timezone, setTimezone] = useState<string>("UTC");
-  const [caldavUrl, setCaldavUrl] = useState<string>("");
-  const [copiedToClipboard, setCopiedToClipboard] = useState(false);
-
-  // Get the base URL for API calls
-  const getApiBaseUrl = () => {
-    return import.meta.env.VITE_API_URL || window.location.origin;
-  };
-
-  // Get the calendar feed URL
-  const getCalendarFeedUrl = () => {
-    const token = user?.caldav_token;
-    if (!token) return null;
-    return `${getApiBaseUrl()}/api/user/calendar.ics?token=${token}`;
-  };
 
   const navigate = useNavigate();
   const { user, hasSubscription, updateUser, logoutUser } = useAuth();
@@ -65,7 +50,6 @@ export function UserSettingsPage() {
       username: updatedUsername,
       email: updatedEmail,
       timezone: timezone,
-      caldav_url: caldavUrl || null,
     };
 
     try {
@@ -93,41 +77,6 @@ export function UserSettingsPage() {
       setError("Failed to initiate password reset.");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleRegenerateToken = async () => {
-    if (!confirm("Are you sure? This will invalidate your existing calendar feed URL and any subscribed calendars will need to be updated.")) {
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const response = await regenerateCalDAVToken();
-      // Update the user object with the new token
-      if (user) {
-        const updatedUser = { ...user, caldav_token: response.token };
-        // Force a user refresh by calling the auth context update
-        await updateUser(updatedUser as User);
-      }
-      setSuccess("Calendar feed token regenerated successfully");
-    } catch (error: any) {
-      setError(error.message || "Failed to regenerate token");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCopyToClipboard = async () => {
-    const url = getCalendarFeedUrl();
-    if (!url) return;
-
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopiedToClipboard(true);
-      setTimeout(() => setCopiedToClipboard(false), 2000);
-    } catch (error) {
-      console.error("Failed to copy to clipboard:", error);
     }
   };
 
@@ -163,11 +112,6 @@ export function UserSettingsPage() {
   useEffect(() => {
     if (user?.timezone) {
       setTimezone(user.timezone);
-    }
-    if (user?.caldav_url) {
-      setCaldavUrl(user.caldav_url);
-    } else {
-      setCaldavUrl("");
     }
   }, [user]);
 
@@ -207,22 +151,6 @@ export function UserSettingsPage() {
                     onChange={setTimezone}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    CalDAV URL:
-                    <input
-                      type="url"
-                      name="caldav_url"
-                      value={caldavUrl}
-                      onChange={(e) => setCaldavUrl(e.target.value)}
-                      placeholder="https://calendar.google.com/dav/user@example.com/user"
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">
-                      Optional: Enter your CalDAV server URL to sync tasks with external calendars (Google Calendar, Outlook, etc.)
-                    </p>
-                  </label>
-                </div>
                 <button
                   type="submit"
                   className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50"
@@ -230,91 +158,6 @@ export function UserSettingsPage() {
                   Save Changes
                 </button>
               </form>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold mb-4">Calendar Feed (iCal)</h2>
-              <p className="text-gray-600 mb-4">
-                Subscribe to your tasks in external calendar apps like Google Calendar, Apple Calendar, Outlook, or any other calendar app that supports iCal feeds.
-              </p>
-
-              {user?.caldav_token ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Your Calendar Feed URL:
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        readOnly
-                        value={getCalendarFeedUrl() || ""}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm font-mono"
-                      />
-                      <button
-                        onClick={handleCopyToClipboard}
-                        className="px-4 py-2 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 text-sm font-medium"
-                      >
-                        {copiedToClipboard ? "Copied!" : "Copy"}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <button
-                      onClick={handleRegenerateToken}
-                      disabled={isLoading}
-                      className="text-sm text-red-600 hover:text-red-700 underline"
-                    >
-                      Regenerate Feed Token
-                    </button>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Regenerating will invalidate your existing feed URL. You'll need to resubscribe in your calendar app.
-                    </p>
-                  </div>
-
-                  <div className="mt-6 pt-6 border-t">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Setup Instructions:</h3>
-                    <div className="space-y-3 text-sm text-gray-600">
-                      <div>
-                        <strong className="text-gray-700">Google Calendar:</strong>
-                        <ol className="ml-4 mt-1 list-decimal space-y-1">
-                          <li>Go to Settings → Add calendar → From URL</li>
-                          <li>Paste the feed URL above</li>
-                          <li>Click "Add calendar"</li>
-                        </ol>
-                      </div>
-                      <div>
-                        <strong className="text-gray-700">Apple Calendar (macOS/iOS):</strong>
-                        <ol className="ml-4 mt-1 list-decimal space-y-1">
-                          <li>File → New Calendar Subscription… (or "Add Calendar" on iOS)</li>
-                          <li>Paste the feed URL above</li>
-                          <li>Choose your refresh frequency and click OK</li>
-                        </ol>
-                      </div>
-                      <div>
-                        <strong className="text-gray-700">Outlook:</strong>
-                        <ol className="ml-4 mt-1 list-decimal space-y-1">
-                          <li>Go to Calendar → Add calendar → Subscribe from web</li>
-                          <li>Paste the feed URL above</li>
-                          <li>Enter a name and click Import</li>
-                        </ol>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-gray-500">
-                  <p className="mb-4">Generate a calendar feed token to enable external calendar subscriptions.</p>
-                  <button
-                    onClick={handleRegenerateToken}
-                    disabled={isLoading}
-                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50"
-                  >
-                    {isLoading ? "Generating..." : "Generate Feed Token"}
-                  </button>
-                </div>
-              )}
             </div>
 
             <div className="bg-white rounded-lg shadow p-6">
@@ -351,7 +194,7 @@ export function UserSettingsPage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <p>You don’t have a subscription yet.</p>
+                    <p>You don't have a subscription yet.</p>
                     <button
                       onClick={() => navigate("/app/subscription")}
                       className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
@@ -419,8 +262,6 @@ export function UserSettingsPage() {
         return <StatusManagement />;
       case "apiKeys":
         return <APIKeysManagement />;
-      case "calendars":
-        return <CalendarSubscriptions />;
       case "memory":
         return <MemoryPage />;
       case "schemas":
@@ -466,12 +307,6 @@ export function UserSettingsPage() {
           onClick={() => setActiveTab("apiKeys")}
         >
           API Keys
-        </button>
-        <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === "calendars" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-          onClick={() => setActiveTab("calendars")}
-        >
-          Calendars
         </button>
         <button
           className={`px-4 py-2 text-sm font-medium ${activeTab === "memory" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}

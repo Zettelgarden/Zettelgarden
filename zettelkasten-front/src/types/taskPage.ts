@@ -1,14 +1,12 @@
 import type { RefObject, ChangeEvent } from "react";
 import type { Task } from "../models/Task";
 import type { Tag } from "../models/Tags";
-import type { ExternalEvent } from "../models/ExternalEvent";
 import type { QuickTagTrigger } from "../components/tasks/QuickTagPopover";
 
 // Type aliases for clarity
 export type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date";
 export type SortDirection = "asc" | "desc";
-export type ViewMode = "list" | "matrix" | "kanban" | "calendar";
-export type CalendarViewMode = "month" | "week";
+export type ViewMode = "list" | "matrix" | "kanban";
 export type TaskMobileView = "list" | "filters";
 
 /**
@@ -26,23 +24,13 @@ export interface TaskData {
 }
 
 /**
- * External calendar events state
- */
-export interface ExternalEventsState {
-  externalEvents: ExternalEvent[];
-  isLoadingEvents: boolean;
-}
-
-/**
- * View settings (sorting, pagination, calendar, etc.)
+ * View settings (sorting, pagination, etc.)
  */
 export interface ViewSettings {
   dateView: string;
   viewMode: ViewMode;
   sortField: SortField;
   sortDirection: SortDirection;
-  calendarViewMode: CalendarViewMode;
-  calendarCurrentDate: Date;
   currentPage: number;
   itemsPerPage: number;
   showDisplayMenu: boolean;
@@ -56,8 +44,6 @@ export interface ViewSettingsSetters {
   setViewMode: (mode: ViewMode | ((prev: ViewMode) => ViewMode)) => void;
   setSortField: (field: SortField | ((prev: SortField) => SortField)) => void;
   setSortDirection: (direction: SortDirection | ((prev: SortDirection) => SortDirection)) => void;
-  setCalendarViewMode: (mode: CalendarViewMode | ((prev: CalendarViewMode) => CalendarViewMode)) => void;
-  setCalendarCurrentDate: (date: Date | ((prev: Date) => Date)) => void;
   setCurrentPage: (page: number | ((prev: number) => number)) => void;
   setItemsPerPage: (items: number | ((prev: number) => number)) => void;
   setShowDisplayMenu: (show: boolean | ((prev: boolean) => boolean)) => void;
@@ -71,7 +57,6 @@ export interface DialogState {
   selectedTaskId: number | null;
   isTaskDialogOpen: boolean;
   createTaskStatus: string | undefined;
-  calendarSelectedDate: Date | null;
 }
 
 /**
@@ -82,7 +67,6 @@ export interface DialogSetters {
   setSelectedTaskId: (taskId: number | null) => void;
   setIsTaskDialogOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
   setCreateTaskStatus: (status: string | undefined) => void;
-  setCalendarSelectedDate: (date: Date | null) => void;
 }
 
 /**
@@ -154,7 +138,6 @@ export interface FilterInputHandlers {
  * Navigation actions
  */
 export interface NavigationActions {
-  navigateCalendar: (direction: "prev" | "next" | "today") => void;
   toggleSortDirection: () => void;
 }
 
@@ -162,8 +145,6 @@ export interface NavigationActions {
  * External events setters
  */
 export interface ExternalEventsSetters {
-  setExternalEvents: (events: ExternalEvent[] | ((prev: ExternalEvent[]) => ExternalEvent[])) => void;
-  setIsLoadingEvents: (loading: boolean | ((prev: boolean) => boolean)) => void;
   setRefreshTasks: (refresh: boolean) => void;
 }
 

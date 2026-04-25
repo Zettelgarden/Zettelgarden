@@ -21,10 +21,4 @@ func RegisterTaskRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/tasks/{id}/subtasks", h.GetSubtasksRoute, "GET")
 	addProtectedRoute(r, h, "/api/tasks/{id}/parent", h.SetTaskParentRoute, "PATCH")
 
-	// Calendar iCal feed - public route with token-based auth in handler
-	// This allows external calendar apps to subscribe via ?token=XYZ
-	addRoute(r, "/api/user/calendar.ics", h.CalendarICSRoute, "GET")
-
-	// Regenerate CalDAV token - protected route
-	addProtectedRoute(r, h, "/api/user/regenerate-caldav-token", h.RegenerateCalDAVTokenRoute, "POST")
 }

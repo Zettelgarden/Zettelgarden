@@ -15,7 +15,6 @@ import { Summarizer } from "./Summarizer";
 import { FactPage } from "./FactPage";
 import { MemoryPage } from "./MemoryPage";
 import { HelpPage } from "./HelpPage";
-import { CalendarPage } from "./calendar/CalendarPage";
 import { ChatPage } from "./ChatPage";
 import { StatsPage } from "./StatsPage";
 import { SchemaPage } from "./SchemaPage";
@@ -81,7 +80,6 @@ export function AppRoutes({
           <Route path="help" element={<HelpPage />} />
           <Route path="files" element={<FileVault />} />
           <Route path="tasks" element={<TaskPage />} />
-          <Route path="calendar" element={<CalendarPage />} />
           <Route path="entities" element={<EntityPage />} />
           <Route path="summarizer" element={<Summarizer />} />
           <Route path="facts" element={<FactPage />} />

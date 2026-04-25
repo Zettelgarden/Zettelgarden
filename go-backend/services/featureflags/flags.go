@@ -18,8 +18,6 @@ const (
 	FeatureFlagMemoryTools = "memory_tools_v2"
 	// FeatureFlagTemplateTools enables the new template_tools domain package
 	FeatureFlagTemplateTools = "template_tools_v2"
-	// FeatureFlagCalendarTools enables the new calendar_tools domain package
-	FeatureFlagCalendarTools = "calendar_tools_v2"
 	// FeatureFlagArticleTools enables the new article_tools domain package
 	FeatureFlagArticleTools = "article_tools_v2"
 	// FeatureFlagFactTools enables the new fact_tools domain package

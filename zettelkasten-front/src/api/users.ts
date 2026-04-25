@@ -87,7 +87,6 @@ export async function updateUser(user: User): Promise<User> {
     dashboard_card_pk: user.dashboard_card_pk,
     has_seen_getting_started: user.has_seen_getting_started,
     timezone: user.timezone,
-    caldav_url: user.caldav_url,
   });
 }
 
@@ -187,9 +186,3 @@ export async function updateUserMemory(memory: string): Promise<{ message: strin
   );
 }
 
-/**
- * Regenerate CalDAV token for calendar feed access
- */
-export async function regenerateCalDAVToken(): Promise<{ token: string }> {
-  return getData(apiClient.post<{ token: string }>("/user/regenerate-caldav-token", {}));
-}

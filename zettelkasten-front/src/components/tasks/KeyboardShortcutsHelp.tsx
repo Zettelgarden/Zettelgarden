@@ -31,7 +31,6 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { key: "1", description: "Switch to List view" },
       { key: "2", description: "Switch to Matrix view" },
       { key: "3", description: "Switch to Kanban view" },
-      { key: "4", description: "Switch to Calendar view" },
     ],
   },
   {
@@ -132,7 +131,7 @@ export function useKeyboardShortcuts(handlers: {
   onCloseHelp?: () => void;
   onNewTask?: () => void;
   onFocusFilter?: () => void;
-  onSwitchView?: (view: "list" | "matrix" | "kanban" | "calendar") => void;
+  onSwitchView?: (view: "list" | "matrix" | "kanban") => void;
   onEscape?: () => void;
 }) {
   const [showHelp, setShowHelp] = React.useState(false);
@@ -200,7 +199,6 @@ export function useKeyboardShortcuts(handlers: {
           break;
         case "4":
           event.preventDefault();
-          handlers.onSwitchView?.("calendar");
           break;
       }
     };

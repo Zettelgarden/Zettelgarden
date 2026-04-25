@@ -21,7 +21,6 @@ const mockParentCard: Card = {
   references: [],
   tags: [],
   tasks: [],
-  external_events: [],
   entities: [],
   is_starred: false,
 };
