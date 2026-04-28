@@ -52,6 +52,7 @@ export interface Task {
   blocked_by: PartialTask[];
   blocks: PartialTask[];
   parent_task_id: number | null;
+  sort_order: number | null;
   subtasks?: Task[];
   parent_title?: string;
 }
@@ -85,6 +86,7 @@ export const emptyTask: Task = {
   blocked_by: [],
   blocks: [],
   parent_task_id: null,
+  sort_order: null,
   subtasks: [],
   parent_title: undefined,
 };

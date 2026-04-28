@@ -746,3 +746,39 @@ func (s *Handler) GetSubtasksRoute(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
+
+// ReorderTasksRoute handles PUT /api/tasks/reorder
+// Accepts a batch of { id, sort_order } updates
+func (s *Handler) ReorderTasksRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	var payload struct {
+		Orders []struct {
+			ID        int `json:"id"`
+			SortOrder int `json:"sort_order"`
+		} `json:"orders"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		log.Printf("Error decoding reorder request: %v", err)
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	if len(payload.Orders) == 0 {
+		http.Error(w, "No orders provided", http.StatusBadRequest)
+		return
+	}
+
+	if err := services.ReorderTasks(s.GetDB(), userID, payload.Orders); err != nil {
+		log.Printf("Error reordering tasks: %v", err)
+		http.Error(w, "Failed to reorder tasks", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "success",
+		"error":   false,
+	})
+}

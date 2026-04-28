@@ -71,6 +71,7 @@ type Task struct {
 	Tags          []Tag         `json:"tags"`
 	BlockedBy     []PartialTask `json:"blocked_by"`
 	Blocks        []PartialTask `json:"blocks"`
+	SortOrder     *int          `json:"sort_order,omitempty"`
 	ParentTaskID  *int          `json:"parent_task_id,omitempty"`
 	Subtasks      []Task        `json:"subtasks,omitempty"`
 	ParentTitle   string        `json:"parent_title,omitempty"`

@@ -80,6 +80,7 @@ describe('useTasks', () => {
       blocked_by: [],
       blocks: [],
     parent_task_id: null,
+    sort_order: null,
     },
     {
       id: 2,
@@ -103,6 +104,7 @@ describe('useTasks', () => {
       blocked_by: [],
       blocks: [],
     parent_task_id: null,
+    sort_order: null,
     },
   ];
 
@@ -228,6 +230,7 @@ describe('useUpdateTask', () => {
     blocked_by: [],
     blocks: [],
     parent_task_id: null,
+    sort_order: null,
   };
 
   beforeEach(() => {
@@ -338,6 +341,7 @@ describe('useCreateTask', () => {
     blocked_by: [],
     blocks: [],
     parent_task_id: null,
+    sort_order: null,
   };
 
   beforeEach(() => {

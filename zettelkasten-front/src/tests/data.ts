@@ -49,6 +49,7 @@ export const sampleTaskData: Task[] = [
     blocked_by: [],
     blocks: [],
     parent_task_id: null,
+    sort_order: null,
   },
   {
     id: 2,
@@ -72,6 +73,7 @@ export const sampleTaskData: Task[] = [
     blocked_by: [],
     blocks: [],
     parent_task_id: null,
+    sort_order: null,
   },
   {
     id: 3,
@@ -95,6 +97,7 @@ export const sampleTaskData: Task[] = [
     blocked_by: [],
     blocks: [],
     parent_task_id: null,
+    sort_order: null,
   },
   {
     id: 4,
@@ -131,6 +134,7 @@ export const sampleTaskData: Task[] = [
     blocked_by: [],
     blocks: [],
     parent_task_id: null,
+    sort_order: null,
   },
   {
     id: 5,
@@ -167,6 +171,7 @@ export const sampleTaskData: Task[] = [
     blocked_by: [],
     blocks: [],
     parent_task_id: null,
+    sort_order: null,
   },
 ];
 export const sampleEntityData: Entity[] = [

@@ -16,7 +16,7 @@ import { TaskSelectionOverlay } from "./TaskSelectionOverlay";
 import { TaskDialog } from "./TaskDialog";
 import { CreateTaskWindow } from "./CreateTaskWindow";
 
-type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date";
+type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "manual";
 type SortDirection = "asc" | "desc";
 type ViewMode = "list" | "matrix" | "kanban";
 type TaskMobileView = 'list' | 'filters';
@@ -243,6 +243,8 @@ export function TaskMobileLayout({
             selectMode={selectMode}
             selectedTaskIds={selectedTaskIds}
             onTaskSelect={toggleTaskSelection}
+            manualSort={sortField === "manual"}
+            onReorder={() => setRefreshTasks(true)}
           />
         );
       case "kanban":
@@ -280,6 +282,8 @@ export function TaskMobileLayout({
             selectMode={selectMode}
             selectedTaskIds={selectedTaskIds}
             onTaskSelect={toggleTaskSelection}
+            manualSort={sortField === "manual"}
+            onReorder={() => setRefreshTasks(true)}
           />
         );
     }

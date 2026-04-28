@@ -21,4 +21,7 @@ func RegisterTaskRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/tasks/{id}/subtasks", h.GetSubtasksRoute, "GET")
 	addProtectedRoute(r, h, "/api/tasks/{id}/parent", h.SetTaskParentRoute, "PATCH")
 
+	// Reorder route
+	addProtectedRoute(r, h, "/api/tasks/reorder", h.ReorderTasksRoute, "PUT")
+
 }

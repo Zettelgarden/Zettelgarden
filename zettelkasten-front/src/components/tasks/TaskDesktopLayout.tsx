@@ -310,10 +310,13 @@ export function TaskDesktopLayout({
                           <option value="status">Status</option>
                           <option value="scheduled_date">Scheduled Date</option>
                           <option value="id">ID</option>
+                          <option value="manual">Manual</option>
                         </select>
-                        <Button onClick={toggleSortDirection} className="p-1 text-xs border border-slate-300 rounded-md">
-                          {sortDirection === "asc" ? "↑" : "↓"}
-                        </Button>
+                        {sortField !== "manual" && (
+                          <Button onClick={toggleSortDirection} className="p-1 text-xs border border-slate-300 rounded-md">
+                            {sortDirection === "asc" ? "↑" : "↓"}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -354,6 +357,8 @@ export function TaskDesktopLayout({
                     selectedTaskIds={selectedTaskIds}
                     onTaskSelect={selectionActions.toggleTaskSelection}
                     subtaskMode={subtaskMode}
+                    manualSort={sortField === "manual"}
+                    onReorder={() => externalEventsSetters.setRefreshTasks(true)}
                   />
                 </ul>
               ) : (

@@ -163,8 +163,7 @@ export async function setTaskParent(taskId: number, parentId: number | null): Pr
   return processTaskFromAPI(data);
 }
 
-/**
- * Get all subtasks for a parent task
+/** * Get all subtasks for a parent task
  */
 export async function getSubtasks(parentId: number): Promise<{
   subtasks: Task[];
@@ -182,4 +181,11 @@ export async function getSubtasks(parentId: number): Promise<{
     total: data.total,
     complete_count: data.complete_count,
   };
+}
+
+/**
+ * Batch update sort_order for multiple tasks
+ */
+export async function reorderTasks(orders: { id: number; sort_order: number }[]): Promise<void> {
+  await apiClient.put('/tasks/reorder', { orders });
 }

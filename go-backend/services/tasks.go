@@ -17,7 +17,7 @@ func GetTask(db models.Database, userID int, id int) (models.Task, error) {
 	err := db.QueryRow(`
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
 	created_at, updated_at, completed_at, title, description, priority, status, is_complete,
-	reminder_time, reminder_sent, parent_task_id
+	reminder_time, reminder_sent, parent_task_id, sort_order
 	FROM
 	tasks
 	WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE
@@ -38,6 +38,7 @@ func GetTask(db models.Database, userID int, id int) (models.Task, error) {
 		&task.ReminderTime,
 		&task.ReminderSent,
 		&task.ParentTaskID,
+		&task.SortOrder,
 	)
 	if err != nil {
 		log.Printf("err %v", err)
@@ -83,7 +84,7 @@ func GetTasksPaginated(db models.Database, userID int, limit, offset int, includ
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
 	created_at, updated_at, completed_at, title, description, priority, status, is_complete,
-	reminder_time, reminder_sent, parent_task_id
+	reminder_time, reminder_sent, parent_task_id, sort_order
 	FROM tasks
 	WHERE user_id = $` + fmt.Sprintf("%d", argIndex) + ` AND is_deleted = FALSE`
 	args = append(args, userID)
@@ -152,6 +153,7 @@ func GetTasksPaginated(db models.Database, userID int, limit, offset int, includ
 			&task.ReminderTime,
 			&task.ReminderSent,
 			&task.ParentTaskID,
+			&task.SortOrder,
 		); err != nil{
 			log.Printf("err %v", err)
 			return []models.Task{}, 0, fmt.Errorf("unable to access task")
@@ -229,7 +231,7 @@ func GetTasksByCard(db models.Database, userID int, cardPK int) ([]models.Task, 
 	query := `
 	SELECT id, card_pk, user_id, scheduled_date, due_date,
 	created_at, updated_at, completed_at, title, description, priority, status, is_complete,
-	reminder_time, reminder_sent, parent_task_id
+	reminder_time, reminder_sent, parent_task_id, sort_order
 	FROM
 	tasks
 	WHERE user_id = $1 AND is_deleted = FALSE AND card_pk = $2
@@ -262,6 +264,7 @@ func GetTasksByCard(db models.Database, userID int, cardPK int) ([]models.Task, 
 			&task.ReminderTime,
 			&task.ReminderSent,
 			&task.ParentTaskID,
+			&task.SortOrder,
 		); err != nil {
 			log.Printf("err %v", err)
 			return []models.Task{}, fmt.Errorf("unable to access task")
@@ -422,9 +425,10 @@ func UpdateTaskWithRecurring(db models.Database, userID int, id int, task models
 			status = $8,
 			is_complete = $9,
 			reminder_time = $10,
-			reminder_sent = $11
-		WHERE id = $12 AND user_id = $13 AND is_deleted = FALSE
-	`, task.CardPK, task.ScheduledDate, task.DueDate, completedAt, task.Title, task.Description, task.Priority, task.Status, task.IsComplete, task.ReminderTime, reminderSent, id, userID)
+			reminder_sent = $11,
+			sort_order = $12
+		WHERE id = $13 AND user_id = $14 AND is_deleted = FALSE
+	`, task.CardPK, task.ScheduledDate, task.DueDate, completedAt, task.Title, task.Description, task.Priority, task.Status, task.IsComplete, task.ReminderTime, reminderSent, task.SortOrder, id, userID)
 
 	if err != nil {
 		log.Printf("error: %v", err)
@@ -482,10 +486,10 @@ func CreateTask(db models.Database, task models.Task) (int, error) {
 	}
 
 	err := db.QueryRow(`
-	INSERT INTO tasks (card_pk, user_id, scheduled_date, due_date, created_at, updated_at, completed_at, title, description, priority, status, is_complete, is_deleted, reminder_time, reminder_sent, parent_task_id)
-	VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, $7, $8, $9, $10, FALSE, $11, FALSE, $12)
+	INSERT INTO tasks (card_pk, user_id, scheduled_date, due_date, created_at, updated_at, completed_at, title, description, priority, status, is_complete, is_deleted, reminder_time, reminder_sent, parent_task_id, sort_order)
+	VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, $7, $8, $9, $10, FALSE, $11, FALSE, $12, $13)
 	RETURNING id
-	`, task.CardPK, task.UserID, task.ScheduledDate, task.DueDate, task.CompletedAt, task.Title, task.Description, task.Priority, task.Status, task.IsComplete, task.ReminderTime, task.ParentTaskID).Scan(&taskID)
+	`, task.CardPK, task.UserID, task.ScheduledDate, task.DueDate, task.CompletedAt, task.Title, task.Description, task.Priority, task.Status, task.IsComplete, task.ReminderTime, task.ParentTaskID, task.SortOrder).Scan(&taskID)
 
 	if err != nil {
 		log.Printf("err %v", err)
@@ -885,3 +889,17 @@ func UpdateTaskParent(db models.Database, userID int, taskID int, parentTaskID *
 
 // PrepareSubtask creates a subtask task model with inherited properties
 // This is the exported version for use by handlers
+
+// ReorderTasks updates the sort_order for multiple tasks in a single transaction
+func ReorderTasks(db models.Database, userID int, orders []struct {
+	ID        int `json:"id"`
+	SortOrder int `json:"sort_order"`
+}) error {
+	for _, item := range orders {
+		_, err := db.Exec(`UPDATE tasks SET sort_order = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3 AND is_deleted = FALSE`, item.SortOrder, item.ID, userID)
+		if err != nil {
+			return fmt.Errorf("failed to update sort_order for task %d: %w", item.ID, err)
+		}
+	}
+	return nil
+}

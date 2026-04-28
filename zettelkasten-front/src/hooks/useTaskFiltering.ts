@@ -3,7 +3,7 @@ import { Task } from "../models/Task";
 import { filterTasks, filterTasksByDateView, removeTagsFromTitle } from "../utils/tasks";
 import { toMidnightInTimezone } from "../utils/dates";
 
-type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date";
+type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "manual";
 type SortDirection = "asc" | "desc";
 type ViewMode = "list" | "matrix" | "kanban";
 
@@ -92,9 +92,22 @@ export function useTaskFiltering({
         case "id":
           comparison = a.id - b.id;
           break;
+        case "manual":
+          // Sort by sort_order, tasks without sort_order go to the bottom
+          const orderA = a.sort_order ?? Number.MAX_SAFE_INTEGER;
+          const orderB = b.sort_order ?? Number.MAX_SAFE_INTEGER;
+          if (orderA !== orderB) {
+            comparison = orderA - orderB;
+          } else {
+            // Tiebreaker: fall back to id
+            comparison = a.id - b.id;
+          }
+          break;
         default:
           comparison = a.id - b.id; // Fallback to id
       }
+      // Manual sort is always ascending (smaller sort_order = higher position)
+      if (sortField === "manual") return comparison;
       return sortDirection === "asc" ? comparison : -comparison;
     });
 

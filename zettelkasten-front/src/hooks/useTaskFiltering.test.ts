@@ -26,6 +26,7 @@ const createTask = (overrides: Partial<Task>): Task => ({
   blocked_by: [],
   blocks: [],
     parent_task_id: null,
+      sort_order: null,
   ...overrides
 });
 

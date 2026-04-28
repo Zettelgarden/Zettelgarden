@@ -9,14 +9,14 @@ interface TaskFiltersSheetProps {
   dateView: string;
   viewMode: "list" | "matrix" | "kanban";
   showCompleted: boolean;
-  sortField: "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date";
+  sortField: "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "manual";
   sortDirection: "asc" | "desc";
   selectMode: boolean;
   // Handlers
   onDateViewChange: (value: string) => void;
   onViewModeChange: (value: "list" | "matrix" | "kanban") => void;
   onShowCompletedChange: () => void;
-  onSortFieldChange: (value: "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date") => void;
+  onSortFieldChange: (value: "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "manual") => void;
   onSortDirectionToggle: () => void;
   onSelectModeToggle: () => void;
   onApply?: () => void;
@@ -48,7 +48,7 @@ export function TaskFiltersSheet({
   };
 
   const handleSortFieldChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    onSortFieldChange(e.target.value as "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date");
+    onSortFieldChange(e.target.value as "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "manual");
   };
 
   const handleApply = () => {
@@ -162,17 +162,20 @@ export function TaskFiltersSheet({
               <option value="status">Status</option>
               <option value="scheduled_date">Scheduled Date</option>
               <option value="id">ID</option>
+              <option value="manual">Manual</option>
             </select>
-            <button
-              type="button"
-              onClick={handleSortDirectionClick}
-              className="p-3 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 active:bg-gray-100 min-h-[48px] min-w-[48px] flex items-center justify-center transition-colors"
-              aria-label={`Sort ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
-            >
-              <span className="text-xl font-semibold text-gray-700">
-                {sortDirection === "asc" ? "↑" : "↓"}
-              </span>
-            </button>
+            {sortField !== "manual" && (
+              <button
+                type="button"
+                onClick={handleSortDirectionClick}
+                className="p-3 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 active:bg-gray-100 min-h-[48px] min-w-[48px] flex items-center justify-center transition-colors"
+                aria-label={`Sort ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
+              >
+                <span className="text-xl font-semibold text-gray-700">
+                  {sortDirection === "asc" ? "↑" : "↓"}
+                </span>
+              </button>
+            )}
           </div>
         </section>
 

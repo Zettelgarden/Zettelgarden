@@ -4,7 +4,7 @@ import type { Tag } from "../models/Tags";
 import type { QuickTagTrigger } from "../components/tasks/QuickTagPopover";
 
 // Type aliases for clarity
-export type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date";
+export type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "manual";
 export type SortDirection = "asc" | "desc";
 export type ViewMode = "list" | "matrix" | "kanban";
 export type TaskMobileView = "list" | "filters";
