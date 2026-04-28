@@ -6,6 +6,9 @@ import (
 )
 
 func RegisterTaskRoutes(r *mux.Router, h *handlers.Handler) {
+	// Static routes must be registered BEFORE {id} routes to avoid matching
+	addProtectedRoute(r, h, "/api/tasks/reorder", h.ReorderTasksRoute, "PUT")
+
 	addProtectedRoute(r, h, "/api/tasks/{id}", h.GetTaskRoute, "GET")
 	addProtectedRoute(r, h, "/api/tasks", h.GetTasksRoute, "GET")
 	addProtectedRoute(r, h, "/api/tasks", h.CreateTaskRoute, "POST")
@@ -20,8 +23,4 @@ func RegisterTaskRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/tasks/{id}/subtasks", h.CreateSubtaskRoute, "POST")
 	addProtectedRoute(r, h, "/api/tasks/{id}/subtasks", h.GetSubtasksRoute, "GET")
 	addProtectedRoute(r, h, "/api/tasks/{id}/parent", h.SetTaskParentRoute, "PATCH")
-
-	// Reorder route
-	addProtectedRoute(r, h, "/api/tasks/reorder", h.ReorderTasksRoute, "PUT")
-
 }
