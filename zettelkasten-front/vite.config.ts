@@ -7,7 +7,7 @@ export default defineConfig({
   base: '/',
   plugins: [
     react(),
-    electron([
+    ...(process.env.ELECTRON ? [electron([
       {
         entry: 'electron/main.ts',
       },
@@ -19,7 +19,7 @@ export default defineConfig({
           args.reload()
         },
       },
-    ]),
+    ])] : []),
   ],
   test: {
     globals: true,

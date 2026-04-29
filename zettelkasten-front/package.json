@@ -62,7 +62,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
-    "electron:dev": "vite",
+    "electron:dev": "ELECTRON=1 vite",
     "electron:build": "vite build && electron-builder --config electron-builder.json",
     "electron:build:mac": "vite build && electron-builder --config electron-builder.json --mac"
   },
