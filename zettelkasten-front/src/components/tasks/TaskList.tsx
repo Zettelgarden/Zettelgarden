@@ -104,11 +104,10 @@ export function TaskList({
 
     setLocalOrder(newFullOrder);
 
-    // Persist to server
+    // Persist to server (no full refresh needed — optimistic update already applied)
     const orders = newFullOrder.map((id, index) => ({ id, sort_order: index }));
     try {
       await reorderTasks(orders);
-      onReorder?.();
     } catch (err) {
       console.error("Failed to persist task reorder:", err);
       // Revert on error
