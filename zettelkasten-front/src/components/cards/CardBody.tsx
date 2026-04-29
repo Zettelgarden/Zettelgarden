@@ -2,12 +2,9 @@ import Markdown from "react-markdown";
 import React, { useState, useEffect, useMemo } from "react";
 import { downloadFile } from "../../api/files";
 import { Card, Entity } from "../../models/Card";
-import { fetchSpreadsheets } from "../../api/spreadsheets";
-import { SpreadsheetData } from "../../models/Spreadsheet";
 import remarkEntity from "../../remark-entity";
 import remarkTaskQuery from "../../remark-task-query";
 import remarkSchemaTable from "../../remark-schema-table";
-import remarkSpreadsheet from "../../remark-spreadsheet";
 import { useNavigate } from "react-router-dom";
 import remarkGfm from "remark-gfm";
 
@@ -17,7 +14,6 @@ import { CardEditorContext } from "../../contexts/editor";
 import { CardLinkWithPreview } from "./CardLinkWithPreview";
 import { DynamicTaskList } from "./DynamicTaskList";
 import { DynamicSchemaTable } from "./DynamicSchemaTable";
-import { DynamicSpreadsheet } from "../spreadsheets/DynamicSpreadsheet";
 import { H1, H2, H3, H4, H5, H6 } from "../Header";
 import {
   Table,
@@ -237,14 +233,12 @@ function CardMarkdownWithDialog({
   handleViewBacklink,
   entities,
   onCardBodyChange,
-  spreadsheets,
 }: {
   card: Card;
   activeCard: Card;
   handleViewBacklink: (card_id: number) => void;
   entities?: Entity[];
   onCardBodyChange?: (newBody: string) => void;
-  spreadsheets?: Record<number, SpreadsheetData>;
 }) {
   const {
     setShowEntityDialog,
@@ -273,7 +267,7 @@ function CardMarkdownWithDialog({
     setShowEntityDialog(true);
   }, [setSelectedEntity, setShowEntityDialog]);
 
-  return useCardMarkdown(card, activeCard, handleViewBacklink, entities, handleEntityClickById, onCardBodyChange, spreadsheets);
+  return useCardMarkdown(card, activeCard, handleViewBacklink, entities, handleEntityClickById, onCardBodyChange);
 }
 
 // Custom component for inline code only
@@ -298,7 +292,7 @@ const CustomPre = ({ children, ...props }: any) => {
   );
 };
 
-const remarkPlugins = [remarkGfm, remarkTaskQuery, remarkEntity, remarkSchemaTable, remarkSpreadsheet];
+const remarkPlugins = [remarkGfm, remarkTaskQuery, remarkEntity, remarkSchemaTable];
 
 function useCardMarkdown(
   card: Card,
@@ -306,8 +300,7 @@ function useCardMarkdown(
   handleViewBacklink: (card_id: number) => void,
   entities?: Entity[],
   onEntityClick?: (id: string, name: string) => void,
-  onCardBodyChange?: (newBody: string) => void,
-  spreadsheets?: Record<number, SpreadsheetData>
+  onCardBodyChange?: (newBody: string) => void
 ) {
   // Preprocess task queries first, then card links, then schema tables, then entities
   const processedBody = useMemo(() => {
@@ -387,18 +380,9 @@ function useCardMarkdown(
         return <DynamicSchemaTable schemaRef={schemaRef} columns={columns} filters={filters} />;
       }
 
-      if (propsData.className === "spreadsheet-container" || propsData["data-spreadsheet-id"] !== undefined) {
-        const spreadsheetId = parseInt(propsData["data-spreadsheet-id"] || "0", 10);
-        const initialData = spreadsheets?.[spreadsheetId];
-        if (!initialData) {
-          return <div className="p-4 text-gray-500">Loading spreadsheet...</div>;
-        }
-        return <DynamicSpreadsheet id={spreadsheetId} initialData={initialData} />;
-      }
-
       return <div {...props}>{children}</div>;
     },
-  }), [card, handleViewBacklink, onEntityClick, spreadsheets]);
+  }), [card, handleViewBacklink, onEntityClick]);
 
   return (
     <Markdown
@@ -415,30 +399,10 @@ export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities, onSav
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [shouldShowToggle, setShouldShowToggle] = useState(false);
   const contentRef = React.useRef<HTMLDivElement>(null);
-  const [spreadsheets, setSpreadsheets] = useState<Record<number, SpreadsheetData>>({});
-
   // Use the context's editingCard if it's the same card (by id), otherwise use viewingCard
-  // This ensures spreadsheet edits update the rendered body
   const activeCard = cardEditorContext?.editingCard?.id === viewingCard.id
     ? cardEditorContext.editingCard
     : viewingCard;
-
-  // Load spreadsheets when card changes
-  useEffect(() => {
-    async function loadSpreadsheets() {
-      try {
-        const data = await fetchSpreadsheets(activeCard.id);
-        const dataMap: Record<number, SpreadsheetData> = {};
-        data.forEach(s => {
-          dataMap[s.id] = s.data;
-        });
-        setSpreadsheets(dataMap);
-      } catch (error) {
-        console.error('Failed to load spreadsheets:', error);
-      }
-    }
-    loadSpreadsheets();
-  }, [activeCard.id]);
 
   // Height threshold for showing the collapse toggle (in pixels)
   const HEIGHT_THRESHOLD = 600;
@@ -488,7 +452,6 @@ export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities, onSav
               onSave(updatedCard);
             }
           }}
-          spreadsheets={spreadsheets}
         />
       </div>
 

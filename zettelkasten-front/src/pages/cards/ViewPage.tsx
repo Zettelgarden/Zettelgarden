@@ -98,7 +98,7 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
   const {
   } = useDialogState();
 
-  // Handle saving card when spreadsheet is edited
+  // Handle saving card
   const handleSaveCard = async (updatedCard: Card) => {
     try {
       await saveExistingCard(updatedCard);

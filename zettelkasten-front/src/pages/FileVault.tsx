@@ -116,7 +116,6 @@ export function FileVault() {
     { label: "PDF", value: "pdf" },
     { label: "Images", value: "image/" },
     { label: "Documents", value: "document" },
-    { label: "Spreadsheets", value: "spreadsheet" },
   ];
 
   // Helper to format bytes to human readable

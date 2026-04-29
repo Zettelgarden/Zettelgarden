@@ -22,12 +22,6 @@ const features: HelpFeature[] = [
     example: "{{schema: book-review}}\n{{schema: 1|columns:Title,Status}}\n{{schema: 1|filter:Type=ne:Running}}\n{{schema: 1|columns:Title,Status|filter:Priority=high}}\n\nFilter operators: eq:, ne:, gt:, gte:, lt:, lte:"
   },
   {
-    name: "Spreadsheets",
-    description: "Embed an editable spreadsheet in the card",
-    syntax: "{{spreadsheet: <name>}}",
-    example: "{{spreadsheet: project-tracking}}"
-  },
-  {
     name: "Card Links",
     description: "Link to other cards by their ID",
     syntax: "[<CardID>]",

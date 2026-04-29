@@ -13,7 +13,6 @@ import { EntitiesTab } from "../tabs/EntitiesTab";
 import { HistoryTab } from "../tabs/HistoryTab";
 import { SummariesTab } from "../tabs/SummariesTab";
 import { FilesTab } from "../tabs/FilesTab";
-import { SpreadsheetsTab } from "../tabs/SpreadsheetsTab";
 import { RollbackConfirmDialog } from "../tabs/RollbackConfirmDialog";
 
 // Props interface
@@ -51,7 +50,6 @@ export function ViewCardTabbedDisplay({
     { label: "History" },
     { label: "Summaries" },
     { label: "Files" },
-    { label: "Spreadsheets" },
   ];
 
 
@@ -192,13 +190,6 @@ export function ViewCardTabbedDisplay({
       )}
       {activeTab === "Summaries" && (
         <SummariesTab summaries={summaries} />
-      )}
-      {activeTab === "Spreadsheets" && (
-        <SpreadsheetsTab
-          viewingCard={viewingCard}
-          setViewCard={setViewCard}
-          setError={setError}
-        />
       )}
 
       {/* Rollback Confirmation Dialog */}

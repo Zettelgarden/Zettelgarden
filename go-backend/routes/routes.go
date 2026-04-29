@@ -79,9 +79,6 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.Sc
 	// Fact routes
 	RegisterFactRoutes(r, h)
 
-	// Spreadsheet routes
-	RegisterSpreadsheetRoutes(r, h)
-
 	// Summarize routes
 	RegisterSummarizeRoutes(r, h)
 
