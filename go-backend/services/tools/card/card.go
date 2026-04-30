@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"go-backend/models"
+	"go-backend/services/backlink"
 	"log"
 	"os"
 	"reflect"
@@ -423,10 +424,14 @@ func CreateCard(db models.Database, userID int, params models.EditCardParams) (m
 		}
 	}
 
-	backlinks := extractBacklinks(newCard.Body)
-	structuredDataBacklinks := extractBacklinksFromStructuredData(db, userID, newCard.StructuredData)
+	backlinks := backlink.ExtractBacklinks(newCard.Body)
+	var schema *models.SchemaDefinition
+	if newCard.SchemaID != nil {
+		schema = backlink.GetSchemaByID(db, userID, *newCard.SchemaID)
+	}
+	structuredDataBacklinks := backlink.ExtractBacklinksFromStructuredData(db, userID, newCard.StructuredData, schema)
 	allBacklinks := append(backlinks, structuredDataBacklinks...)
-	updateBacklinks(db, newCard.ID, allBacklinks)
+	backlink.UpdateBacklinks(db, newCard.ID, allBacklinks)
 
 	return GetFullCard(db, userID, id)
 }
@@ -519,10 +524,14 @@ func UpdateCard(db models.Database, userID int, cardPK int, params models.EditCa
 	// Create audit event
 	createAuditEvent(db, userID, cardPK, "card", "update", oldCard, newCard)
 
-	backlinks := extractBacklinks(newCard.Body)
-	structuredDataBacklinks := extractBacklinksFromStructuredData(db, userID, newCard.StructuredData)
+	backlinks := backlink.ExtractBacklinks(newCard.Body)
+	var schema *models.SchemaDefinition
+	if newCard.SchemaID != nil {
+		schema = backlink.GetSchemaByID(db, userID, *newCard.SchemaID)
+	}
+	structuredDataBacklinks := backlink.ExtractBacklinksFromStructuredData(db, userID, newCard.StructuredData, schema)
 	allBacklinks := append(backlinks, structuredDataBacklinks...)
-	updateBacklinks(db, newCard.ID, allBacklinks)
+	backlink.UpdateBacklinks(db, newCard.ID, allBacklinks)
 
 	// Note: AddTagsFromCard and UpsertCardToTypesense would be called by the handler
 
@@ -658,132 +667,6 @@ func getParentIdAlternating(cardID string) string {
 	}
 
 	return parentID
-}
-
-// extractBacklinks extracts card references from markdown text
-func extractBacklinks(text string) []string {
-	// Match all text within square brackets
-	re := regexp.MustCompile(`\[([^\]]+)\]`)
-
-	// Find all matches
-	matches := re.FindAllStringSubmatch(text, -1)
-
-	// Extract the first capturing group from each match
-	var backlinks []string
-	for _, match := range matches {
-		if len(match) > 1 {
-			// Check if the match is not followed by a parenthesis
-			if !isMarkdownLink(text, match[0]) {
-				backlinks = append(backlinks, match[1])
-			}
-		}
-	}
-
-	return backlinks
-}
-
-// isMarkdownLink checks if a match is part of a markdown link
-func isMarkdownLink(text, match string) bool {
-	// Find the position of the match in the text
-	pos := strings.Index(text, match)
-	if pos == -1 {
-		return false
-	}
-	// Check if the match is followed by an opening parenthesis
-	if pos+len(match) < len(text) && text[pos+len(match)] == '(' {
-		return true
-	}
-	return false
-}
-
-// extractBacklinksFromStructuredData extracts card IDs (as human-readable card_id strings) from structured_data JSONB
-// It finds all link_to_card field values and converts them from internal IDs to card_id strings
-func extractBacklinksFromStructuredData(db models.Database, userID int, structuredData *json.RawMessage) []string {
-	if structuredData == nil || len(*structuredData) == 0 {
-		return []string{}
-	}
-
-	// Parse the structured data
-	var data map[string]interface{}
-	if err := json.Unmarshal(*structuredData, &data); err != nil {
-		log.Printf("Error unmarshaling structured data for backlink extraction: %v", err)
-		return []string{}
-	}
-
-	var backlinks []string
-
-	// Check each field value - if it's a number, it might be a link_to_card reference
-	for _, value := range data {
-		if value == nil {
-			continue
-		}
-
-		var internalID int
-		switch v := value.(type) {
-		case float64:
-			internalID = int(v)
-		case int:
-			internalID = v
-		case int64:
-			internalID = int(v)
-		case string:
-			// Try to parse as int
-			if parsedID, err := strconv.Atoi(v); err == nil {
-				internalID = parsedID
-			} else {
-				continue
-			}
-		default:
-			// Not a number type, skip
-			continue
-		}
-
-		// Look up the human-readable card_id for this internal ID
-		var cardID string
-		err := db.QueryRow(`
-			SELECT card_id FROM cards
-			WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE
-		`, internalID, userID).Scan(&cardID)
-		if err != nil {
-			if err != sql.ErrNoRows {
-				log.Printf("Error looking up card_id for internal ID %d: %v", internalID, err)
-			}
-			// Card doesn't exist or was deleted, skip it
-			continue
-		}
-
-		backlinks = append(backlinks, cardID)
-	}
-
-	return backlinks
-}
-
-// updateBacklinks updates the backlinks table for a card
-func updateBacklinks(db models.Database, cardPK int, backlinks []string) error {
-	_, err := db.Exec("DELETE FROM backlinks WHERE source_id_int = $1", cardPK)
-	if err != nil {
-		log.Printf("UpdateBacklinks: failed to delete backlinks: %v", err)
-		return err
-	}
-	for _, targetID := range backlinks {
-		_, err = db.Exec(`
-	WITH target_id AS (
-    SELECT id
-    FROM cards
-    WHERE card_id = $2
-)
-INSERT INTO backlinks (source_id_int, target_id_int, created_at, updated_at)
-SELECT $1, target_id.id, NOW(), NOW()
-FROM target_id;
-		`,
-			cardPK, targetID,
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // queryTagsForCard queries tags for a specific card

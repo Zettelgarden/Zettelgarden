@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"go-backend/models"
+	"go-backend/services/backlink"
 	"log"
 	"os"
 	"regexp"
@@ -19,141 +20,17 @@ import (
 	"github.com/typesense/typesense-go/typesense/api/pointer"
 )
 
-// getSchemaByID fetches a schema definition by ID. Returns nil if not found or on error.
-func getSchemaByID(db models.Database, userID int, schemaID int) *models.SchemaDefinition {
-	query := `SELECT id, name, slug, owner_id, fields, created_at, updated_at, is_deleted FROM schema_definitions WHERE id = $1 AND owner_id = $2 AND is_deleted = FALSE`
-	schema, err := models.ScanSchemaDefinition(db.QueryRow(query, schemaID, userID))
-	if err != nil {
-		if err != sql.ErrNoRows {
-			log.Printf("Error fetching schema %d: %v", schemaID, err)
-		}
-		return nil
-	}
-	return schema
-}
-
-// Helper function to check if a match is part of a markdown link
-func isMarkdownLink(text, match string) bool {
-	// Find the position of the match in the text
-	pos := strings.Index(text, match)
-	if pos == -1 {
-		return false
-	}
-	// Check if the match is followed by an opening parenthesis
-	if pos+len(match) < len(text) && text[pos+len(match)] == '(' {
-		return true
-	}
-	return false
-}
+// Delegate to shared backlink package
 func ExtractBacklinks(text string) []string {
-	// Match all text within square brackets
-	re := regexp.MustCompile(`\[([^\]]+)\]`)
-
-	// Find all matches
-	matches := re.FindAllStringSubmatch(text, -1)
-
-	// Extract the first capturing group from each match
-	var backlinks []string
-	for _, match := range matches {
-		if len(match) > 1 {
-			// Check if the match is not followed by a parenthesis
-			if !isMarkdownLink(text, match[0]) {
-				backlinks = append(backlinks, match[1])
-			}
-		}
-	}
-
-	return backlinks
+	return backlink.ExtractBacklinks(text)
 }
 
 // ExtractBacklinksFromStructuredData extracts card IDs (as human-readable card_id strings) from structured_data JSONB
 // It only extracts values from fields that are defined as link_to_card type in the schema.
 // If schema is nil, returns empty slice since we cannot determine which fields are links.
+// Delegate to shared backlink package
 func ExtractBacklinksFromStructuredData(db models.Database, userID int, structuredData *json.RawMessage, schema *models.SchemaDefinition) []string {
-	if structuredData == nil || len(*structuredData) == 0 || schema == nil {
-		return []string{}
-	}
-
-	// Parse the structured data
-	var data map[string]interface{}
-	if err := json.Unmarshal(*structuredData, &data); err != nil {
-		log.Printf("Error unmarshaling structured data for backlink extraction: %v", err)
-		return []string{}
-	}
-
-	// Build a map of link_to_card field names for O(1) lookup
-	linkFields := make(map[string]bool)
-	for _, field := range schema.Fields {
-		if field.Type == "link_to_card" {
-			linkFields[field.Name] = true
-		}
-	}
-
-	if len(linkFields) == 0 {
-		return []string{}
-	}
-
-	// Collect all internal IDs from link_to_card fields for batch lookup
-	var internalIDs []int
-	for fieldName, value := range data {
-		// Only process fields that are link_to_card type
-		if !linkFields[fieldName] {
-			continue
-		}
-
-		if value == nil {
-			continue
-		}
-
-		var internalID int
-		switch v := value.(type) {
-		case float64:
-			internalID = int(v)
-		case int:
-			internalID = v
-		case int64:
-			internalID = int(v)
-		case string:
-			// Try to parse as int
-			if parsedID, err := strconv.Atoi(v); err == nil {
-				internalID = parsedID
-			} else {
-				continue
-			}
-		default:
-			// Not a number type, skip
-			continue
-		}
-
-		internalIDs = append(internalIDs, internalID)
-	}
-
-	if len(internalIDs) == 0 {
-		return []string{}
-	}
-
-	// Batch lookup all card_ids at once
-	rows, err := db.Query(`
-		SELECT card_id FROM cards
-		WHERE id = ANY($1) AND user_id = $2 AND is_deleted = FALSE
-	`, pq.Array(internalIDs), userID)
-	if err != nil {
-		log.Printf("Error batch looking up card_ids: %v", err)
-		return []string{}
-	}
-	defer rows.Close()
-
-	var backlinks []string
-	for rows.Next() {
-		var cardID string
-		if err := rows.Scan(&cardID); err != nil {
-			log.Printf("Error scanning card_id: %v", err)
-			continue
-		}
-		backlinks = append(backlinks, cardID)
-	}
-
-	return backlinks
+	return backlink.ExtractBacklinksFromStructuredData(db, userID, structuredData, schema)
 }
 
 func GetChildCards(db models.Database, userID int, cardID int) ([]models.PartialCard, error) {
@@ -794,32 +671,9 @@ func DeleteCard(db models.Database, userID int, id int) error {
 	return nil
 }
 
+// Delegate to shared backlink package
 func UpdateBacklinks(db models.Database, cardPK int, backlinks []string) error {
-	_, err := db.Exec("DELETE FROM backlinks WHERE source_id_int = $1", cardPK)
-	if err != nil {
-		log.Printf("UpdateBacklinks: failed to delete backlinks: %v", err)
-		return err
-	}
-	for _, targetID := range backlinks {
-		_, err = db.Exec(`
-	WITH target_id AS (
-    SELECT id 
-    FROM cards 
-    WHERE card_id = $2
-)
-INSERT INTO backlinks (source_id_int, target_id_int, created_at, updated_at)
-SELECT $1, target_id.id, NOW(), NOW()
-FROM target_id;	
-		`,
-			cardPK, targetID,
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-
+	return backlink.UpdateBacklinks(db, cardPK, backlinks)
 }
 func UpdateCard(db models.Database, userID int, cardPK int, params models.EditCardParams) (models.Card, error) {
 	// Get the old state first
@@ -911,7 +765,7 @@ func UpdateCard(db models.Database, userID int, cardPK int, params models.EditCa
 	backlinks := ExtractBacklinks(newCard.Body)
 	var schema *models.SchemaDefinition
 	if newCard.SchemaID != nil {
-		schema = getSchemaByID(db, userID, *newCard.SchemaID)
+		schema = backlink.GetSchemaByID(db, userID, *newCard.SchemaID)
 	}
 	structuredDataBacklinks := ExtractBacklinksFromStructuredData(db, userID, newCard.StructuredData, schema)
 	allBacklinks := append(backlinks, structuredDataBacklinks...)
@@ -1042,7 +896,7 @@ func CreateCard(db models.Database, userID int, params models.EditCardParams) (m
 	backlinks := ExtractBacklinks(newCard.Body)
 	var schema *models.SchemaDefinition
 	if newCard.SchemaID != nil {
-		schema = getSchemaByID(db, userID, *newCard.SchemaID)
+		schema = backlink.GetSchemaByID(db, userID, *newCard.SchemaID)
 	}
 	structuredDataBacklinks := ExtractBacklinksFromStructuredData(db, userID, newCard.StructuredData, schema)
 	allBacklinks := append(backlinks, structuredDataBacklinks...)
@@ -1579,7 +1433,7 @@ func UpdateCardStructuredData(db models.Database, userID int, cardPK int, schema
 	// Update backlinks from structured data
 	var schema *models.SchemaDefinition
 	if newCard.SchemaID != nil {
-		schema = getSchemaByID(db, userID, *newCard.SchemaID)
+		schema = backlink.GetSchemaByID(db, userID, *newCard.SchemaID)
 	}
 	structuredDataBacklinks := ExtractBacklinksFromStructuredData(db, userID, newCard.StructuredData, schema)
 	// Also include backlinks from body
