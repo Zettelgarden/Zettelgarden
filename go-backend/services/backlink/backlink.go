@@ -28,17 +28,31 @@ func IsMarkdownLink(text, match string) bool {
 }
 
 // ExtractBacklinks extracts card references from markdown text.
-// It matches [card_id] patterns that are NOT markdown links.
+// Supports both wiki-link syntax [[card_id]] and [[card_id|display text]],
+// as well as the legacy [card_id] syntax (excluding markdown links).
+// Both syntaxes work simultaneously for backwards compatibility.
 func ExtractBacklinks(text string) []string {
-	re := regexp.MustCompile(`\[([^\]]+)\]`)
-
-	matches := re.FindAllStringSubmatch(text, -1)
-
 	var backlinks []string
-	for _, match := range matches {
+
+	// 1. Extract wiki-links: [[card_id]] or [[card_id|display text]]
+	wikiRe := regexp.MustCompile(`\[\[([^\]|]+?)(?:\|[^\]]*)?\]\]`)
+	for _, match := range wikiRe.FindAllStringSubmatch(text, -1) {
+		if len(match) > 1 && strings.TrimSpace(match[1]) != "" {
+			backlinks = append(backlinks, strings.TrimSpace(match[1]))
+		}
+	}
+
+	// 2. Extract legacy-style: [card_id] excluding markdown links and wiki-links
+	oldRe := regexp.MustCompile(`\[([^\]]+)\]`)
+	for _, match := range oldRe.FindAllStringSubmatch(text, -1) {
 		if len(match) > 1 {
+			captured := match[1]
+			// Skip wiki-links: old regex on [[x]] captures "[x" with leading bracket
+			if strings.HasPrefix(captured, "[") {
+				continue
+			}
 			if !IsMarkdownLink(text, match[0]) {
-				backlinks = append(backlinks, match[1])
+				backlinks = append(backlinks, captured)
 			}
 		}
 	}
