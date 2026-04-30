@@ -49,8 +49,8 @@ export const CardBodyTextArea = forwardRef<CardBodyTextAreaHandle, CardBodyTextA
       return;
     }
 
-    // TODO: Re-enable when wiki-link reference popup is updated for [[ syntax
-    // handleBracketKey(event);
+    // Handle wiki-link card reference popup (triggers on [[)
+    handleBracketKey(event);
 
     // Handle list editing (Tab/Enter for bullet lists)
     handleListKeyDown(event);

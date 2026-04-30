@@ -22,25 +22,27 @@ export function useCardReference({
 }: UseCardReferenceOptions) {
   const [showReferenceDialog, setShowReferenceDialog] = useState(false);
   const [dialogPosition, setDialogPosition] = useState<DialogPosition>({ top: 0, left: 0, height: 0 });
+  // The position of the FIRST [ in the [[ trigger sequence
   const [triggerIndex, setTriggerIndex] = useState<number | null>(null);
 
   const handleReferenceSelect = (card: PartialCard) => {
     const textarea = textareaRef.current;
     if (!textarea || triggerIndex === null || !card) return;
 
-    // Use textarea.value instead of editingCard.body because editingCard.body might be stale
-    // (React state update from the '[' insertion might not have propagated yet to this callback closure)
     const value = textarea.value;
-    const newText = "[" + card.card_id + "]";
+    // Replace the [[ with [[card_id]] — the [[ is already in the textarea
+    const newText = "[[" + card.card_id + "]]";
 
-    // Insert at triggerIndex
-    const newBody = value.substring(0, triggerIndex) + newText + value.substring(triggerIndex);
+    // triggerIndex points to the first [, so replace from there through the second ]
+    const before = value.substring(0, triggerIndex);
+    const after = value.substring(triggerIndex + 2); // skip the two [ characters
+    const newBody = before + newText + after;
 
     setEditingCard({ ...editingCard, body: newBody });
     setShowReferenceDialog(false);
     setTriggerIndex(null);
 
-    // Restore focus and cursor
+    // Restore focus and cursor after the closing ]]
     setTimeout(() => {
       textarea.focus();
       const newCursorPos = triggerIndex + newText.length;
@@ -49,14 +51,20 @@ export function useCardReference({
   };
 
   const handleBracketKey = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    const { selectionStart } = event.currentTarget;
+    if (event.key !== '[') return;
 
-    if (event.key === '[') {
-      const caret = getCaretCoordinates(event.currentTarget, selectionStart);
-      const textareaRect = event.currentTarget.getBoundingClientRect();
+    const textarea = event.currentTarget;
+    const { selectionStart } = textarea;
 
-      // Convert container-relative coordinates to viewport-relative coordinates
-      // The dialog uses position: fixed, which expects viewport coordinates
+    // Check if the character before the cursor (before this newly-typed [) is also [
+    // The [ hasn't been inserted into the value yet at keydown time
+    const charBefore = selectionStart > 0 ? textarea.value[selectionStart - 1] : '';
+
+    if (charBefore === '[') {
+      // This is the second [, forming [[ — show the reference dialog
+      const caret = getCaretCoordinates(textarea, selectionStart);
+      const textareaRect = textarea.getBoundingClientRect();
+
       const viewportCaret = {
         top: caret.top + textareaRect.top + window.scrollY,
         left: caret.left + textareaRect.left + window.scrollX,
@@ -64,17 +72,32 @@ export function useCardReference({
       };
 
       setDialogPosition(viewportCaret);
-      setTriggerIndex(selectionStart); // +1 because [ will be inserted
+      // triggerIndex is the position of the first [, which is selectionStart - 1
+      setTriggerIndex(selectionStart - 1);
       setShowReferenceDialog(true);
-      // We do NOT prevent default, allowing [ to be typed
+      // We do NOT prevent default, allowing the second [ to be typed
     }
   };
 
   const handleCloseReferenceDialog = () => {
     setShowReferenceDialog(false);
-    setTriggerIndex(null);
-    // Don't modify the textarea value - let the [ character stay
-    textareaRef.current?.focus();
+    // Remove the second [ that was typed, leaving just the first one
+    if (triggerIndex !== null && textareaRef.current) {
+      const value = textareaRef.current.value;
+      // Remove the character at triggerIndex + 1 (the second [)
+      const newBody = value.substring(0, triggerIndex + 1) + value.substring(triggerIndex + 2);
+      setEditingCard({ ...editingCard, body: newBody });
+      setTriggerIndex(null);
+
+      setTimeout(() => {
+        textareaRef.current?.focus();
+        const pos = triggerIndex + 1;
+        textareaRef.current?.setSelectionRange(pos, pos);
+      }, 0);
+    } else {
+      setTriggerIndex(null);
+      textareaRef.current?.focus();
+    }
   };
 
   return {
