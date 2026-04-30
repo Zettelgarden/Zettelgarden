@@ -96,13 +96,13 @@ describe("preprocessWikiLinks", () => {
   it("should convert basic wiki-link to markdown link", () => {
     const input = "See [[42]] for details";
     const output = preprocessWikiLinks(input);
-    expect(output).toBe("See [42](zg://card/42) for details");
+    expect(output).toBe("See [42](#card:42) for details");
   });
 
   it("should convert wiki-link with display text", () => {
     const input = "See [[42|Meeting Notes]] for details";
     const output = preprocessWikiLinks(input);
-    expect(output).toBe("See [Meeting Notes](zg://card/42) for details");
+    expect(output).toBe("See [Meeting Notes](#card:42) for details");
   });
 
   it("should not touch markdown links", () => {
@@ -120,24 +120,24 @@ describe("preprocessWikiLinks", () => {
   it("should handle child card IDs with dots", () => {
     const input = "Related to [[1.3]]";
     const output = preprocessWikiLinks(input);
-    expect(output).toBe("Related to [1.3](zg://card/1.3)");
+    expect(output).toBe("Related to [1.3](#card:1.3)");
   });
 
   it("should handle multiple wiki-links in one body", () => {
     const input = "See [[a]] and [[b|Second]] and [[c]]";
     const output = preprocessWikiLinks(input);
-    expect(output).toBe("See [a](zg://card/a) and [Second](zg://card/b) and [c](zg://card/c)");
+    expect(output).toBe("See [a](#card:a) and [Second](#card:b) and [c](#card:c)");
   });
 
   it("should handle wiki-link with hyphens and underscores", () => {
     const input = "See [[my-note_v2]]";
     const output = preprocessWikiLinks(input);
-    expect(output).toBe("See [my-note_v2](zg://card/my-note_v2)");
+    expect(output).toBe("See [my-note_v2](#card:my-note_v2)");
   });
 
   it("should handle mixed wiki-links and markdown", () => {
     const input = "[[42]] and [click](https://example.com)";
     const output = preprocessWikiLinks(input);
-    expect(output).toBe("[42](zg://card/42) and [click](https://example.com)");
+    expect(output).toBe("[42](#card:42) and [click](https://example.com)");
   });
 });

@@ -48,11 +48,12 @@ function preprocessTaskQueries(body: string): string {
 
 export function preprocessWikiLinks(body: string): string {
   // Convert [[card_id]] and [[card_id|display text]] to markdown links
-  // [[42]] → [42](zg://card/42)
-  // [[42|Meeting Notes]] → [Meeting Notes](zg://card/42)
+  // [[42]] → [42](#card:42)
+  // [[42|Meeting Notes]] → [Meeting Notes](#card:42)
+  // Uses #card: prefix so the <a> component can distinguish from regular anchor links
   const wikiLinked = body.replace(/\[\[([^\]|]+?)(?:\|([^\]]*))?\]\]/g, (_match, cardId: string, displayText: string) => {
     const label = displayText || cardId;
-    return `[${label}](zg://card/${cardId})`;
+    return `[${label}](#card:${cardId})`;
   });
   return wikiLinked;
 }
@@ -329,8 +330,8 @@ function useCardMarkdown(
     code: CustomCode,
     pre: CustomPre,
     a({ children, href, ...props }: any) {
-      if (href?.startsWith("zg://card/")) {
-        const cardId = href.replace("zg://card/", "");
+      if (href?.startsWith("#card:")) {
+        const cardId = href.replace("#card:", "");
         return (
           <CardLinkWithPreview
             currentCard={card}
