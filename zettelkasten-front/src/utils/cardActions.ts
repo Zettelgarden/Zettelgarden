@@ -36,7 +36,7 @@ export function removeTagFromBody(card: Card, tagName: string): Card {
  * @returns The modified card with the backlink added to the body
  */
 export function addBacklinkToBody(card: Card, selectedCard: PartialCard): Card {
-  const backlinkText = "\n\n[" + selectedCard.card_id + "] - " + selectedCard.title;
+  const backlinkText = "\n\n[[" + selectedCard.card_id + "|" + selectedCard.title + "]]";
   return {
     ...card,
     body: card.body + backlinkText,

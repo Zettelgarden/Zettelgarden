@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { preprocessSchemaTables } from "./CardBody";
+import { preprocessSchemaTables, preprocessWikiLinks } from "./CardBody";
 
 describe("preprocessSchemaTables", () => {
   it("should convert basic schema reference to placeholder", () => {
@@ -89,5 +89,55 @@ describe("preprocessSchemaTables", () => {
     const input = "{{schema:1}} and {{SCHEMA:2}} and {{Schema:3}}";
     const output = preprocessSchemaTables(input);
     expect(output).toBe("&SCHEMATABLE:1& and &SCHEMATABLE:2& and &SCHEMATABLE:3&");
+  });
+});
+
+describe("preprocessWikiLinks", () => {
+  it("should convert basic wiki-link to markdown link", () => {
+    const input = "See [[42]] for details";
+    const output = preprocessWikiLinks(input);
+    expect(output).toBe("See [42](zg://card/42) for details");
+  });
+
+  it("should convert wiki-link with display text", () => {
+    const input = "See [[42|Meeting Notes]] for details";
+    const output = preprocessWikiLinks(input);
+    expect(output).toBe("See [Meeting Notes](zg://card/42) for details");
+  });
+
+  it("should not touch markdown links", () => {
+    const input = "[click here](https://example.com)";
+    const output = preprocessWikiLinks(input);
+    expect(output).toBe(input);
+  });
+
+  it("should not touch single brackets", () => {
+    const input = "[some regular text]";
+    const output = preprocessWikiLinks(input);
+    expect(output).toBe(input);
+  });
+
+  it("should handle child card IDs with dots", () => {
+    const input = "Related to [[1.3]]";
+    const output = preprocessWikiLinks(input);
+    expect(output).toBe("Related to [1.3](zg://card/1.3)");
+  });
+
+  it("should handle multiple wiki-links in one body", () => {
+    const input = "See [[a]] and [[b|Second]] and [[c]]";
+    const output = preprocessWikiLinks(input);
+    expect(output).toBe("See [a](zg://card/a) and [Second](zg://card/b) and [c](zg://card/c)");
+  });
+
+  it("should handle wiki-link with hyphens and underscores", () => {
+    const input = "See [[my-note_v2]]";
+    const output = preprocessWikiLinks(input);
+    expect(output).toBe("See [my-note_v2](zg://card/my-note_v2)");
+  });
+
+  it("should handle mixed wiki-links and markdown", () => {
+    const input = "[[42]] and [click](https://example.com)";
+    const output = preprocessWikiLinks(input);
+    expect(output).toBe("[42](zg://card/42) and [click](https://example.com)");
   });
 });

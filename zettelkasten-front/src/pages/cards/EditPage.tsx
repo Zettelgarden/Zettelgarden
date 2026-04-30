@@ -216,7 +216,7 @@ function EditPageContent({ newCard }: EditPageProps) {
   function addBacklink(selectedCard: PartialCard) {
     let text = "";
     if (selectedCard) {
-      text = "\n\n[" + selectedCard.card_id + "] - " + selectedCard.title;
+      text = "\n\n[[" + selectedCard.card_id + "|" + selectedCard.title + "]]";
     } else {
       text = "";
     }

@@ -46,8 +46,20 @@ function preprocessTaskQueries(body: string): string {
   });
 }
 
+export function preprocessWikiLinks(body: string): string {
+  // Convert [[card_id]] and [[card_id|display text]] to markdown links
+  // [[42]] → [42](zg://card/42)
+  // [[42|Meeting Notes]] → [Meeting Notes](zg://card/42)
+  const wikiLinked = body.replace(/\[\[([^\]|]+?)(?:\|([^\]]*))?\]\]/g, (_match, cardId: string, displayText: string) => {
+    const label = displayText || cardId;
+    return `[${label}](zg://card/${cardId})`;
+  });
+  return wikiLinked;
+}
+
 function preprocessCardLinks(body: string): string {
-  // Only match IDs without parentheses after - this preserves standard markdown links
+  // Legacy: match [card_id] without parentheses after, convert to clickable link
+  // Only match IDs that look like card IDs (alphanumeric, dots, hyphens, underscores, slashes)
   return body.replace(/\[([A-Za-z0-9_.-/]+)\](?!\()/g, "[$1](#)");
 }
 
@@ -305,6 +317,7 @@ function useCardMarkdown(
   // Preprocess task queries first, then card links, then schema tables, then entities
   const processedBody = useMemo(() => {
     let body = preprocessTaskQueries(activeCard.body);
+    body = preprocessWikiLinks(body);
     body = preprocessCardLinks(body);
     body = preprocessSchemaTables(body);
     body = preprocessEntities(body, entities);
@@ -316,7 +329,18 @@ function useCardMarkdown(
     code: CustomCode,
     pre: CustomPre,
     a({ children, href, ...props }: any) {
+      if (href?.startsWith("zg://card/")) {
+        const cardId = href.replace("zg://card/", "");
+        return (
+          <CardLinkWithPreview
+            currentCard={card}
+            card_id={cardId}
+            handleViewBacklink={handleViewBacklink}
+          />
+        );
+      }
       if (href === "#") {
+        // Legacy: [card_id](#) links from old-style [card_id] syntax
         const cardId = children as string;
         return (
           <CardLinkWithPreview
