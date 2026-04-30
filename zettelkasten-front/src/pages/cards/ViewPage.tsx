@@ -288,13 +288,17 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
               relatedCards={relatedCards || undefined}
               onRelatedCardClick={async (cardId) => {
                 if (isPinnedView) {
-                  // In pinned view, update the pinned card instead of navigating
                   const card = await getCard(cardId.toString());
                   if (card && !isErrorResponse(card)) {
                     setPinnedCard(card);
                   }
                 } else {
                   navigate(`/app/card/${cardId}`);
+                }
+              }}
+              onRelatedCardAddReference={(rc) => {
+                if (viewingCard) {
+                  onAddBacklink(rc.card);
                 }
               }}
             />

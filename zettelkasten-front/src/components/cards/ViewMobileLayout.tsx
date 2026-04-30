@@ -301,6 +301,7 @@ export function ViewMobileLayout({
               <RelatedCards
                 relatedCards={relatedCards!}
                 onCardClick={handleNavigate}
+                onAddReference={(rc) => onAddBacklink(rc.card)}
               />
             </ViewMobileAccordion>
           )}

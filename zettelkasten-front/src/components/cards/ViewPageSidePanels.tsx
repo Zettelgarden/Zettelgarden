@@ -25,6 +25,7 @@ interface ViewPageSidePanelsProps {
   sourceArticle?: RSSArticle;
   relatedCards?: RelatedCard[];
   onRelatedCardClick?: (cardId: number) => void;
+  onRelatedCardAddReference?: (card: RelatedCard) => void;
 }
 
 export function ViewPageSidePanels({
@@ -39,7 +40,8 @@ export function ViewPageSidePanels({
   onRemoveTag,
   sourceArticle,
   relatedCards,
-  onRelatedCardClick
+  onRelatedCardClick,
+  onRelatedCardAddReference
 }: ViewPageSidePanelsProps) {
   const navigate = useNavigate();
 
@@ -148,6 +150,7 @@ export function ViewPageSidePanels({
         <RelatedCards
           relatedCards={relatedCards}
           onCardClick={onRelatedCardClick}
+          onAddReference={onRelatedCardAddReference}
         />
       )}
 
