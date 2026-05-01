@@ -9,6 +9,11 @@ export const TodaysHabitsWidget: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const navigate = useNavigate();
 
+  const overdueCount = useMemo(
+    () => todaysHabits.filter(h => h.is_overdue).length,
+    [todaysHabits],
+  );
+
   const outstandingCount = useMemo(
     () => todaysHabits.filter(h => !h.checked_in_today).length,
     [todaysHabits],
@@ -63,7 +68,7 @@ export const TodaysHabitsWidget: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           {outstandingCount > 0 && (
-            <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-amber-500 rounded-full">
+            <span className={`inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white rounded-full ${overdueCount > 0 ? 'bg-red-500' : 'bg-amber-500'}`}>
               {outstandingCount}
             </span>
           )}
@@ -86,15 +91,18 @@ export const TodaysHabitsWidget: React.FC = () => {
           const habitColor = h.color || '#10b981';
           
           return (
-            <div key={h.id} className="flex items-center justify-between text-sm">
+            <div key={h.id} className={`flex items-center justify-between text-sm ${h.is_overdue ? 'bg-red-50 rounded px-1 -mx-1' : ''}`}>
               <div className="flex items-center gap-2 overflow-hidden">
                 <div
                   className="w-1 h-4 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: habitColor }}
+                  style={{ backgroundColor: h.is_overdue ? '#ef4444' : habitColor }}
                 />
                 {h.icon && <span>{h.icon}</span>}
                 <div className="flex flex-col">
-                  <span className="truncate">{h.title}</span>
+                  <span className="truncate">
+                    {h.title}
+                    {h.is_overdue && <span className="text-xs text-red-500 ml-1">overdue</span>}
+                  </span>
                   {showLastCompleted && (
                     <span className="text-xs text-gray-400 truncate">
                       Last: {formatDistanceToNow(parseISO(stats.last_completed_at!), { addSuffix: true })}

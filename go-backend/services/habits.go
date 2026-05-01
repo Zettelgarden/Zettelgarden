@@ -368,6 +368,7 @@ func calculateCompletionRate(db models.Database, userID int, habitID int, days i
 type HabitWithCheckin struct {
 	models.Habit
 	IsDueToday     bool `json:"is_due_today"`
+	IsOverdue      bool `json:"is_overdue"`
 	CheckedInToday bool `json:"checked_in_today"`
 	TodayLogID     *int `json:"today_log_id,omitempty"`
 }
@@ -394,24 +395,75 @@ func GetTodaysHabits(db models.Database, userID int, timezone string) ([]HabitWi
 	}
 
 	for _, habit := range habits {
-		var hc HabitWithCheckin
-		hc.Habit = habit
-		hc.IsDueToday = isHabitDueToday(&habit, currentWeekday)
+		isDueToday := isHabitDueToday(&habit, currentWeekday)
 
-		if hc.IsDueToday {
-			var logID sql.NullInt64
-			checkQuery := `SELECT id FROM habit_logs WHERE habit_id = $1 AND user_id = $2
-                           AND DATE(completed_at AT TIME ZONE $3) = $4 LIMIT 1`
-			err := db.QueryRow(checkQuery, habit.ID, userID, timezone, today).Scan(&logID)
-			hc.CheckedInToday = (err == nil)
-			if logID.Valid {
-				id := int(logID.Int64)
+		// Find the most recent due date (today or earlier, up to 7 days back)
+		mostRecentDue := findMostRecentDueDate(&habit, currentWeekday, nowInTimezone)
+		if mostRecentDue == "" {
+			continue
+		}
+
+		// Check if there's a check-in on or after the most recent due date.
+		// Using >= so that checking in today for a habit due yesterday counts as fulfilled.
+		var logID sql.NullInt64
+		checkQuery := `SELECT id FROM habit_logs WHERE habit_id = $1 AND user_id = $2
+                       AND DATE(completed_at AT TIME ZONE $3) >= $4
+                       ORDER BY completed_at DESC LIMIT 1`
+		err := db.QueryRow(checkQuery, habit.ID, userID, timezone, mostRecentDue).Scan(&logID)
+		fulfilledSinceDue := (err == nil)
+
+		// Show habit if it's due today, OR if it has an unfulfilled past due date
+		if isDueToday || !fulfilledSinceDue {
+			var hc HabitWithCheckin
+			hc.Habit = habit
+			hc.IsDueToday = isDueToday
+			hc.IsOverdue = !isDueToday && !fulfilledSinceDue
+
+			// Check specifically if checked in today (for the check-in button state)
+			var todayLogID sql.NullInt64
+			todayCheckQuery := `SELECT id FROM habit_logs WHERE habit_id = $1 AND user_id = $2
+                               AND DATE(completed_at AT TIME ZONE $3) = $4 LIMIT 1`
+			db.QueryRow(todayCheckQuery, habit.ID, userID, timezone, today).Scan(&todayLogID)
+			hc.CheckedInToday = (todayLogID.Valid)
+			if todayLogID.Valid {
+				id := int(todayLogID.Int64)
 				hc.TodayLogID = &id
 			}
+
 			result = append(result, hc)
 		}
 	}
 	return result, nil
+}
+
+// findMostRecentDueDate returns the date string of the most recent day this habit was due,
+// looking back from today up to 7 days. Returns "" if no due date is found.
+func findMostRecentDueDate(habit *models.Habit, currentWeekday int, today time.Time) string {
+	switch habit.Frequency {
+	case models.FrequencyDaily:
+		return today.Format("2006-01-02")
+	case models.FrequencyWeekly, models.FrequencyCustom:
+		if habit.CustomDays != nil {
+			var customDays []int
+			json.Unmarshal([]byte(*habit.CustomDays), &customDays)
+			// Check today, then go back up to 6 more days
+			for offset := 0; offset <= 6; offset++ {
+				checkDate := today.AddDate(0, 0, -offset)
+				checkWeekday := int(checkDate.Weekday())
+				if checkWeekday == 0 {
+					checkWeekday = 7
+				}
+				for _, day := range customDays {
+					if day == checkWeekday {
+						return checkDate.Format("2006-01-02")
+					}
+				}
+			}
+		}
+		return ""
+	default:
+		return today.Format("2006-01-02")
+	}
 }
 
 func isHabitDueToday(habit *models.Habit, currentWeekday int) bool {

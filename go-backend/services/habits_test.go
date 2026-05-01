@@ -38,8 +38,12 @@ func TestGetTodaysHabits(t *testing.T) {
 	// Compile check for HabitWithCheckin
 	var hwc HabitWithCheckin
 	hwc.IsDueToday = true
+	hwc.IsOverdue = false
 	if !hwc.IsDueToday {
 		t.Error("expected true")
+	}
+	if hwc.IsOverdue {
+		t.Error("expected false")
 	}
 }
 

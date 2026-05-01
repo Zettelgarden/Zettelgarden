@@ -17,6 +17,7 @@ export interface Habit {
 
 export interface HabitWithCheckin extends Habit {
   is_due_today: boolean;
+  is_overdue: boolean;
   checked_in_today: boolean;
   today_log_id?: number;
 }
