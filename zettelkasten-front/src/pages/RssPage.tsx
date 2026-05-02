@@ -470,6 +470,76 @@ export function RssPage() {
     });
   }, []);
 
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore events from input/textarea/contentEditable elements and when dialogs are open
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable ||
+        dialogState.type !== 'none'
+      ) {
+        return;
+      }
+
+      // Don't interfere with browser shortcuts (ctrl/meta/alt)
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        return;
+      }
+
+      const currentIndex = articles.findIndex((a) => a.id === selectedArticle?.id);
+
+      switch (e.key) {
+        case 'j':
+        case 'ArrowDown': {
+          e.preventDefault();
+          if (articles.length === 0) return;
+          const nextIndex = currentIndex < articles.length - 1 ? currentIndex + 1 : currentIndex;
+          handleArticleClick(articles[nextIndex]);
+          break;
+        }
+        case 'k':
+        case 'ArrowUp': {
+          e.preventDefault();
+          if (articles.length === 0) return;
+          const prevIndex = currentIndex > 0 ? currentIndex - 1 : 0;
+          handleArticleClick(articles[prevIndex]);
+          break;
+        }
+        case 's': {
+          if (!selectedArticle) return;
+          e.preventDefault();
+          if (selectedArticle.is_starred) {
+            handleUnstarArticle(selectedArticle.id);
+          } else {
+            handleStarArticle(selectedArticle.id);
+          }
+          break;
+        }
+        case 'r': {
+          if (!selectedArticle) return;
+          e.preventDefault();
+          if (selectedArticle.read) {
+            handleMarkAsUnread();
+          } else {
+            markAsRead(selectedArticle.id, true).then(() => {
+              updateArticle(selectedArticle.id, { read: true });
+              refreshUnreadCounts().catch(() => {});
+            });
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [articles, selectedArticle, dialogState.type, handleArticleClick, handleStarArticle, handleUnstarArticle, handleMarkAsUnread, updateArticle, refreshUnreadCounts]);
+
   // Mobile handlers
   const handleFeedSelectMobile = useCallback((feedId: number) => {
     setIsSmartFeedActive(false);

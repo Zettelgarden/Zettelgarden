@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { RSSArticle, RSSArticleWithScore, RSSFeed } from "../../api/rss";
 import { RSS_CONFIG } from "../../constants/rss";
 
@@ -44,6 +44,16 @@ export function RssArticlesPanel({
   };
 
   const totalPages = Math.ceil(totalArticles / RSS_CONFIG.ARTICLES_PER_PAGE);
+
+  // Scroll selected article into view
+  useEffect(() => {
+    if (selectedArticle) {
+      const el = document.getElementById(`article-${selectedArticle.id}`);
+      if (el) {
+        el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+  }, [selectedArticle?.id]);
 
   return (
     <div className="hidden md:flex w-80 border-r border-gray-200 bg-white flex-shrink-0 flex-col">
@@ -112,6 +122,7 @@ export function RssArticlesPanel({
               const hasSmartScore = 'smart_score' in article && articleWithScore.smart_score;
               return (
                 <div
+                  id={`article-${article.id}`}
                   key={article.id}
                   onClick={() => onArticleClick(article)}
                   className={`p-3 rounded-md cursor-pointer transition-colors ${
