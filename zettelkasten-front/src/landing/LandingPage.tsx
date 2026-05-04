@@ -39,31 +39,6 @@ function LandingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
-  const [scrollY, setScrollY] = useState(0);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setPrefersReducedMotion(mediaQuery.matches);
-    const handleChange = () => setPrefersReducedMotion(mediaQuery.matches);
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
-  }, []);
-
-  useEffect(() => {
-    let ticking = false;
-    const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          setScrollY(window.scrollY);
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   function handleSignUp() {
     navigate("/app");
@@ -103,9 +78,7 @@ function LandingPage() {
           <HeroSection
             hero={heroSection}
             onSignUp={handleSignUp}
-            scrollY={scrollY}
             landingImage={landingImage}
-            prefersReducedMotion={prefersReducedMotion}
           />
 
           {/* 2. Personas — compact strip, no heading */}
