@@ -4,76 +4,43 @@ import type { Persona } from "../../types/landing";
 
 interface PersonasSectionProps {
   personas: Persona[];
-  sectionTitle: string;
-  sectionDescription: string;
 }
 
-function PersonaCard({ persona }: { persona: Persona }) {
-  const IconComponent = persona.icon;
+export function PersonasSection({ personas }: PersonasSectionProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.6 }}
-      whileHover={{ y: -4 }}
-      className="bg-white/50 backdrop-blur-sm rounded-xl p-6 border border-modern-slate-200/50 hover:border-modern-emerald-300/50 transition-all duration-300"
-    >
-      <div className="flex items-center gap-3 mb-4">
-        <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-modern-emerald-50 text-modern-emerald-600" aria-hidden="true">
-          <IconComponent className="w-5 h-5" />
-        </span>
-        <h3 className="text-xl font-display font-semibold text-modern-slate-900">
-          {persona.title}
-        </h3>
-      </div>
-      <p className="font-body text-modern-slate-700 leading-relaxed">
-        {persona.description}
-      </p>
-    </motion.div>
-  );
-}
-
-export function PersonasSection({
-  personas,
-  sectionTitle,
-  sectionDescription,
-}: PersonasSectionProps) {
-  return (
-    <div className="py-24 space-y-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6 }}
-        className="text-center mb-12"
-      >
-        <h2 className="text-4xl font-display font-bold text-modern-slate-900 mb-4">
-          {sectionTitle}
-        </h2>
-        <p className="text-xl font-body text-modern-slate-600 max-w-3xl mx-auto">
-          {sectionDescription}
-        </p>
-      </motion.div>
-
+    <div className="py-12">
       <motion.div
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
-        transition={{ duration: 0.8 }}
-        className="grid md:grid-cols-2 lg:grid-cols-4 gap-6"
+        transition={{ duration: 0.6 }}
+        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
       >
-        {personas.map((persona, index) => (
-          <motion.div
-            key={persona.id}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: index * 0.1 }}
-          >
-            <PersonaCard persona={persona} />
-          </motion.div>
-        ))}
+        {personas.map((persona, index) => {
+          const IconComponent = persona.icon;
+          return (
+            <motion.div
+              key={persona.id}
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: index * 0.08 }}
+              className="flex items-center gap-3 rounded-lg bg-white/60 border border-modern-slate-200/50 px-4 py-3"
+            >
+              <span className="flex items-center justify-center w-8 h-8 rounded-md bg-modern-emerald-50 text-modern-emerald-600 flex-shrink-0" aria-hidden="true">
+                <IconComponent className="w-4 h-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-modern-slate-900 leading-tight truncate">
+                  {persona.title}
+                </p>
+                <p className="text-xs text-modern-slate-500 leading-snug line-clamp-2">
+                  {persona.description}
+                </p>
+              </div>
+            </motion.div>
+          );
+        })}
       </motion.div>
     </div>
   );

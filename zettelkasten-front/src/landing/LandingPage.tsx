@@ -4,7 +4,6 @@ import landingImage from "../assets/landing.png";
 import { Footer } from "./Footer";
 import { setDocumentTitle } from "../utils/title";
 import { LandingHeader } from "./LandingHeader";
-import { RecentBlogPosts } from "./RecentBlogPosts";
 import { addToMailingList } from "../api/users";
 
 // Data imports
@@ -17,7 +16,6 @@ import {
   featuresSection,
   pricingSection,
   personas,
-  personasSection,
   faqs,
   faqSection,
   builtByContent,
@@ -29,7 +27,6 @@ import { HeroSection } from "./components/HeroSection";
 import { FeaturesSection } from "./components/FeaturesSection";
 import { PricingSection } from "./components/PricingSection";
 import { VideoSection } from "./components/VideoSection";
-import { NewsletterSection } from "./components/NewsletterSection";
 import { PersonasSection } from "./components/PersonasSection";
 import { FAQSection } from "./components/FAQSection";
 import { BuiltBySection } from "./components/BuiltBySection";
@@ -46,10 +43,8 @@ function LandingPage() {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
   useEffect(() => {
-    // Check for reduced motion preference
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     setPrefersReducedMotion(mediaQuery.matches);
-
     const handleChange = () => setPrefersReducedMotion(mediaQuery.matches);
     mediaQuery.addEventListener("change", handleChange);
     return () => mediaQuery.removeEventListener("change", handleChange);
@@ -75,7 +70,6 @@ function LandingPage() {
   }
 
   async function handleSubmit() {
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || !emailRegex.test(email)) {
       setError("Please enter a valid email address");
@@ -105,6 +99,7 @@ function LandingPage() {
         <div className="w-full">
           <LandingHeader />
 
+          {/* 1. Hero */}
           <HeroSection
             hero={heroSection}
             onSignUp={handleSignUp}
@@ -113,12 +108,13 @@ function LandingPage() {
             prefersReducedMotion={prefersReducedMotion}
           />
 
-          <PersonasSection
-            personas={personas}
-            sectionTitle={personasSection.title}
-            sectionDescription={personasSection.description}
-          />
+          {/* 2. Personas — compact strip, no heading */}
+          <PersonasSection personas={personas} />
 
+          {/* 3. Video — show the product early */}
+          <VideoSection video={videoSection} onCtaClick={handleSignUp} />
+
+          {/* 4. Features */}
           <FeaturesSection
             features={features}
             expandedFeature={expandedFeature}
@@ -130,14 +126,7 @@ function LandingPage() {
             onCtaClick={handleSignUp}
           />
 
-          <VideoSection video={videoSection} onCtaClick={handleSignUp} />
-
-          <TestimonialsSection
-            testimonials={[]}
-            sectionTitle={testimonialsSection.title}
-            sectionDescription={testimonialsSection.description}
-          />
-
+          {/* 5. Pricing — right after features, while intent is high */}
           <PricingSection
             tiers={pricingTiers}
             onNavigate={(route) => navigate(route)}
@@ -145,29 +134,35 @@ function LandingPage() {
             sectionDescription={pricingSection.description}
           />
 
-          <RecentBlogPosts />
+          {/* 6. Community / Open Source */}
+          <TestimonialsSection
+            testimonials={[]}
+            sectionTitle={testimonialsSection.title}
+            sectionDescription={testimonialsSection.description}
+          />
 
+          {/* 7. FAQ */}
           <FAQSection
             faqs={faqs}
             sectionTitle={faqSection.title}
             sectionDescription={faqSection.description}
           />
 
-          <NewsletterSection
-            newsletter={newsletterSection}
-            email={email}
-            onEmailChange={(value) => {
-              setEmail(value);
-              setError(null);
-            }}
-            submitted={submitted}
-            onSubmit={handleSubmit}
-            loading={loading}
-            error={error}
-          />
-
+          {/* 8. Built By + Newsletter combined */}
           <div className="mt-12">
-            <BuiltBySection content={builtByContent} />
+            <BuiltBySection
+              content={builtByContent}
+              newsletter={newsletterSection}
+              email={email}
+              onEmailChange={(value) => {
+                setEmail(value);
+                setError(null);
+              }}
+              submitted={submitted}
+              onSubmit={handleSubmit}
+              loading={loading}
+              error={error}
+            />
           </div>
 
           <Footer />
