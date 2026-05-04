@@ -5,19 +5,21 @@ export interface SectionContent {
   ctaSubtext?: string;
 }
 
+import type { LucideIcon } from "lucide-react";
+
 export interface Feature {
   id: string;
   title: string;
   summary: string;
   details: string;
-  icon: string;
+  icon: LucideIcon;
 }
 
 export interface Persona {
   id: string;
   title: string;
   description: string;
-  icon: string;
+  icon: LucideIcon;
 }
 
 export interface FAQ {

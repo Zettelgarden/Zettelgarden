@@ -9,6 +9,7 @@ interface PersonasSectionProps {
 }
 
 function PersonaCard({ persona }: { persona: Persona }) {
+  const IconComponent = persona.icon;
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -19,8 +20,8 @@ function PersonaCard({ persona }: { persona: Persona }) {
       className="bg-white/50 backdrop-blur-sm rounded-xl p-6 border border-modern-slate-200/50 hover:border-modern-emerald-300/50 transition-all duration-300"
     >
       <div className="flex items-center gap-3 mb-4">
-        <span className="text-3xl" aria-hidden="true">
-          {persona.icon}
+        <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-modern-emerald-50 text-modern-emerald-600" aria-hidden="true">
+          <IconComponent className="w-5 h-5" />
         </span>
         <h3 className="text-xl font-display font-semibold text-modern-slate-900">
           {persona.title}

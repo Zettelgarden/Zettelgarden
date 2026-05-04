@@ -41,8 +41,8 @@ export function FeatureCard({
       aria-controls={`feature-details-${feature.id}`}
     >
       <div className="flex items-center gap-3">
-        <span className="text-2xl" aria-hidden="true">
-          {feature.icon}
+        <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-modern-emerald-50 text-modern-emerald-600" aria-hidden="true">
+          {React.createElement(feature.icon, { className: "w-5 h-5" })}
         </span>
         <h2 className="text-2xl font-display font-bold text-modern-slate-900">
           {feature.title}

@@ -21,7 +21,6 @@ import {
   faqs,
   faqSection,
   builtByContent,
-  testimonials,
   testimonialsSection,
 } from "../data/landingContent";
 
@@ -134,7 +133,7 @@ function LandingPage() {
           <VideoSection video={videoSection} onCtaClick={handleSignUp} />
 
           <TestimonialsSection
-            testimonials={testimonials}
+            testimonials={[]}
             sectionTitle={testimonialsSection.title}
             sectionDescription={testimonialsSection.description}
           />

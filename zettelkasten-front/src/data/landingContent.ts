@@ -1,3 +1,14 @@
+import {
+  Brain,
+  Sprout,
+  Link2,
+  Bot,
+  ClipboardList,
+  Unlock,
+  Rss,
+  CheckSquare,
+  FolderOpen,
+} from "lucide-react";
 import type {
   Feature,
   PricingTier,
@@ -9,14 +20,16 @@ import type {
   Persona,
   FAQ,
   BuiltByContent,
-  Testimonial,
 } from "../types/landing";
 
-// Shared feature arrays for pricing tiers (eliminates duplication)
+// Shared feature arrays for pricing tiers
 const freeFeatures: PricingFeature[] = [
   { text: "Atomic Notes & Cards" },
   { text: "Bidirectional Linking" },
   { text: "Task Management" },
+  { text: "RSS Reader" },
+  { text: "Habit Tracker" },
+  { text: "File Uploads & Management" },
   { text: "Basic Search" },
 ];
 
@@ -26,6 +39,7 @@ const proFeatures: PricingFeature[] = [
   { text: "Vector/Semantic Search", highlight: true },
   { text: "Entity Recognition & Linking", highlight: true },
   { text: "Content Analysis & Summaries", highlight: true },
+  { text: "Custom AI Agents", highlight: true },
   { text: "Early Access to New Features" },
 ];
 
@@ -51,7 +65,7 @@ export const features: Feature[] = [
       "Discover connections and patterns you'd miss manually—without losing control to AI.",
     details:
       "Unlike tools that replace your thinking with automated summaries, Zettelgarden helps you develop genuine insights. AI acts as a research assistant that surfaces relevant connections and patterns in your knowledge, while you remain the decision-maker. Every connection you make strengthens your personal understanding.",
-    icon: "🧠",
+    icon: Brain,
   },
   {
     id: "zettelkasten-method",
@@ -60,7 +74,7 @@ export const features: Feature[] = [
       "The same method used by history's most productive thinkers—now enhanced with AI.",
     details:
       "Darwin, Luhmann, and countless others used the zettelkasten method to produce breakthrough work. Instead of filing notes in folders, you link ideas together like your brain does—creating a web of knowledge that grows smarter over time. This isn't just note-taking; it's a thinking methodology that compounds.",
-    icon: "🌱",
+    icon: Sprout,
   },
   {
     id: "connected-knowledge",
@@ -69,7 +83,7 @@ export const features: Feature[] = [
       "Link any note to any other and watch connections emerge across your entire knowledge base.",
     details:
       "When you connect Card A to Card B, the link works both ways—automatically. Over time, you'll see unexpected connections: that research note from three years ago relates to today's project. Your knowledge compounds instead of collecting dust, with visual representations showing how ideas interrelate.",
-    icon: "🔗",
+    icon: Link2,
   },
   {
     id: "ai-chat",
@@ -78,7 +92,7 @@ export const features: Feature[] = [
       "Search, analyze, and synthesize information across all your notes with an AI research assistant.",
     details:
       "Our AI doesn't just chat—it actively works with your knowledge. Ask 'What did I learn about topic X?' and it searches through every card, finds connections, creates new notes if needed, and provides insights by combining information from multiple sources. It's like having a research assistant who has read everything you've written.",
-    icon: "🤖",
+    icon: Bot,
   },
   {
     id: "summaries",
@@ -87,7 +101,34 @@ export const features: Feature[] = [
       "Paste any article, paper, or transcript—get a structured summary with theses, arguments, and facts.",
     details:
       "Save hours of reading time. Drop in a dense research paper, podcast transcript, or long article and get a clear summary with the main thesis, ranked arguments, and verifiable facts extracted for you. Each summary preserves the original context while making information immediately usable for your work.",
-    icon: "📋",
+    icon: ClipboardList,
+  },
+  {
+    id: "rss-reader",
+    title: "RSS Reader Built for Knowledge Workers",
+    summary:
+      "Follow your favorite sources, read articles, and convert them into linked notes in one click.",
+    details:
+      "Stay on top of your information diet without context-switching. Zettelgarden's built-in RSS reader lets you subscribe to blogs, journals, and news sources. Read articles inline, tag and organize them into folders, then convert anything worth remembering into a card with a single click. Your reading becomes part of your knowledge graph.",
+    icon: Rss,
+  },
+  {
+    id: "task-management",
+    title: "Tasks & Habits in One Place",
+    summary:
+      "Manage your to-dos, track daily habits, and keep your action items connected to your notes.",
+    details:
+      "Your tasks live alongside your knowledge—not in a separate app. Schedule tasks with due dates, track daily habits with a visual calendar, and link action items to the notes and research that inform them. When you complete a project, the context is already there.",
+    icon: CheckSquare,
+  },
+  {
+    id: "files",
+    title: "Files & Documents, Organized",
+    summary:
+      "Upload PDFs, images, and documents. Tag them, search their contents, and link them to your notes.",
+    details:
+      "Drop files into Zettelgarden and they become first-class citizens in your knowledge base. Upload PDFs, images, epubs, and more—then tag them, search their contents, and connect them to relevant cards. No more digging through folders to find that one document you saved months ago.",
+    icon: FolderOpen,
   },
   {
     id: "open-source",
@@ -95,8 +136,8 @@ export const features: Feature[] = [
     summary:
       "Self-host for complete privacy, export anytime, or use our secure cloud. No vendor lock-in.",
     details:
-      "Your knowledge belongs to you, not a platform. Export your entire database in standard formats anytime. Self-host for complete data privacy, or trust our secure cloud. Full source code is available on GitHub with 1,000+ stars—you can inspect, modify, and run it yourself. Join our community of contributors building the future of knowledge management together. No data mining, no walled gardens.",
-    icon: "🔓",
+      "Your knowledge belongs to you, not a platform. Export your entire database in standard formats anytime. Self-host for complete data privacy, or trust our secure cloud. Full source code is available on GitHub—you can inspect, modify, and run it yourself. Join our community of contributors building the future of knowledge management together. No data mining, no walled gardens.",
+    icon: Unlock,
   },
 ];
 
@@ -114,7 +155,7 @@ export const pricingTiers: PricingTier[] = [
     id: "monthly",
     name: "PRO Monthly",
     price: "$10 / month",
-    subtitle: "🎯 30-day free trial - Try all AI features",
+    subtitle: "30-day free trial — Try all AI features",
     features: proFeatures,
     buttonText: "Choose Monthly",
     buttonColor: "indigo",
@@ -124,7 +165,7 @@ export const pricingTiers: PricingTier[] = [
     id: "annual",
     name: "PRO Annual",
     price: "$100 / year (Save 20%)",
-    subtitle: "🎯 30-day free trial - Try all AI features",
+    subtitle: "30-day free trial — Try all AI features",
     features: proFeatures,
     buttonText: "Choose Annual",
     buttonColor: "indigo",
@@ -155,7 +196,7 @@ export const featuresSection: SectionContent = {
   description:
     "Click on any feature to learn more about how Zettelgarden can enhance your knowledge management workflow.",
   ctaText: "Ready to Start Connecting Ideas?",
-  ctaSubtext: "Get started with Zettelgarden Free - no credit card required.",
+  ctaSubtext: "Get started with Zettelgarden Free — no credit card required.",
 };
 
 export const pricingSection: SectionContent = {
@@ -166,19 +207,14 @@ export const pricingSection: SectionContent = {
 
 export const faqs: FAQ[] = [
   {
-    id: "import",
-    question: "Can I import my existing notes from other apps?",
-    answer: "Yes! You can import notes from Notion, Obsidian, Roam Research, and plain text files. We're continually adding more import options—let us know if you need a specific format.",
-  },
-  {
     id: "different-from-others",
     question: "How is this different from Obsidian, Notion, or Roam?",
-    answer: "Zettelgarden is built around AI-assisted knowledge discovery from the start. Unlike other tools where AI is an add-on, our AI agents can search, analyze, and synthesize across your entire knowledge base automatically. Plus, we're fully open-source and self-hostable.",
+    answer: "Zettelgarden is built around AI-assisted knowledge discovery from the start. Unlike other tools where AI is an add-on, our AI agents can search, analyze, and synthesize across your entire knowledge base automatically. It also includes a built-in RSS reader, habit tracker, and file management—so you don't need five separate apps. Plus, we're fully open-source and self-hostable.",
   },
   {
     id: "free-vs-pro",
     question: "What's the difference between Free and PRO?",
-    answer: "Free gives you the core zettelkasten experience: atomic notes, bidirectional linking, task management, and basic search. PRO unlocks AI features: chat with your knowledge base, semantic search that finds related ideas even without exact keywords, entity recognition, and automated content analysis.",
+    answer: "Free gives you the full knowledge management experience: atomic notes, bidirectional linking, task management, RSS reader, habit tracker, file uploads, and basic search. PRO unlocks AI features: chat with your knowledge base, semantic search that finds related ideas even without exact keywords, entity recognition, content analysis, custom AI agents, and automated summaries.",
   },
   {
     id: "privacy",
@@ -188,12 +224,17 @@ export const faqs: FAQ[] = [
   {
     id: "offline",
     question: "Does it work offline?",
-    answer: "Zettelgarden requires an internet connection to access your notes and use AI features. Your data is stored securely in the cloud, with the option to self-host for complete control.",
+    answer: "Zettelgarden requires an internet connection to sync your notes and use AI features. Your data is stored securely in the cloud, with the option to self-host for complete control.",
   },
   {
     id: "getting-started",
     question: "How do I get started?",
     answer: "Just click 'Get Started Free' and create your account. No credit card required. You can create your first note immediately, and we'll show you how to link ideas as you go. Most users are comfortable within 10 minutes.",
+  },
+  {
+    id: "rss-habits",
+    question: "Tell me more about the RSS reader and habit tracker.",
+    answer: "The RSS reader lets you subscribe to any blog, journal, or feed. Read articles inline, organize them into folders, and convert anything into a linked note with one click. The habit tracker lets you define daily habits and track them on a visual calendar—both live alongside your notes so your knowledge and routines stay connected.",
   },
 ];
 
@@ -209,30 +250,13 @@ export const builtByContent: BuiltByContent = {
   githubUrl: "https://github.com/NickSavage/Zettelgarden",
 };
 
-export const testimonials: Testimonial[] = [
-  {
-    id: "phd-student",
-    quote: "Zettelgarden transformed how I organize my dissertation research. I can finally see connections between papers I read months apart. The AI chat feature alone has saved me dozens of hours.",
-    author: "Sarah Chen",
-    role: "PhD Candidate, Computer Science",
-  },
-  {
-    id: "author",
-    quote: "I replaced Notion with Zettelgarden for my book research and never looked back. The bidirectional linking reveals connections I would have missed. Plus, self-hosting means my research stays private.",
-    author: "Marcus Rivera",
-    role: "Non-fiction Author",
-  },
-  {
-    id: "researcher",
-    quote: "As a researcher, I need to track hundreds of sources and insights. Zettelgarden's entity recognition automatically surfaces every mention of a topic across my entire knowledge base. It's like having a research assistant.",
-    author: "Dr. Emily Watson",
-    role: "Senior Researcher",
-  },
-];
+// Testimonials replaced with open-source community section
+export const testimonials: SectionContent[] = [];
 
 export const testimonialsSection: SectionContent = {
-  title: "Trusted by Thinkers",
-  description: "Join researchers, writers, and knowledge workers who have transformed how they work with Zettelgarden.",
+  title: "Open Source & Community Driven",
+  description:
+    "Zettelgarden is open source on GitHub. Join our community of contributors building the future of knowledge management.",
 };
 
 export const personas: Persona[] = [
@@ -241,28 +265,28 @@ export const personas: Persona[] = [
     title: "Academic Researchers",
     description:
       "Manage hundreds of papers and find connections across disciplines. Never lose track of a source or insight again.",
-    icon: "🎓",
+    icon: Brain,
   },
   {
     id: "writers",
     title: "Writers & Authors",
     description:
       "Never lose a research thread or brilliant idea. Connect thoughts across projects and watch your work evolve.",
-    icon: "✍️",
+    icon: ClipboardList,
   },
   {
     id: "students",
     title: "Students & Learners",
     description:
       "Turn lecture notes into long-term understanding. Build a knowledge base that grows with you throughout your education.",
-    icon: "📚",
+    icon: Sprout,
   },
   {
     id: "professionals",
     title: "Knowledge Workers",
     description:
       "Break information silos and see the big picture. Connect insights from meetings, documents, and research in one place.",
-    icon: "💼",
+    icon: FolderOpen,
   },
 ];
 
