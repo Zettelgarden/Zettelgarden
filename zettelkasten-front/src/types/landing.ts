@@ -58,6 +58,7 @@ export interface PricingTier {
   buttonText: string;
   buttonColor: 'green' | 'indigo';
   route: string;
+  recommended?: boolean;
 }
 
 export interface HeroContent {

@@ -170,6 +170,7 @@ export const pricingTiers: PricingTier[] = [
     buttonText: "Choose Annual",
     buttonColor: "indigo",
     route: "/subscribe",
+    recommended: true,
   },
 ];
 
