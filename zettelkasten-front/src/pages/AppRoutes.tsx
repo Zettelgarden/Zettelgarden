@@ -25,6 +25,7 @@ import { RssPage } from "./RssPage";
 import { RssManagePage } from "./RssManagePage";
 import { Habits } from "./Habits";
 import { NotificationInboxPage } from "./NotificationInboxPage";
+import { Paywall } from "../components/Paywall";
 import { SearchConfig } from "../models/StarredSearch";
 import { SearchResult } from "../models/Card";
 
@@ -42,6 +43,9 @@ interface AppRoutesProps {
 /**
  * Consolidated route configuration for MainApp.
  * Eliminates duplication of the same route tree across different layout modes.
+ *
+ * Free-tier users can access: dashboard, search, cards, tasks, settings, help.
+ * Pro features (AI, entities, summarizer, etc.) show a paywall.
  */
 export function AppRoutes({
   hasSubscription,
@@ -53,52 +57,57 @@ export function AppRoutes({
   setSearchConfig,
   includeStats = false,
 }: AppRoutesProps) {
+  /** Wrap a pro-only element with a paywall for free-tier users. */
+  const proOnly = (element: React.ReactNode, feature: string) =>
+    hasSubscription ? element : <Paywall feature={feature} />;
+
   return (
     <Routes>
+      {/* Always accessible */}
       <Route path="subscription" element={<SubscribePage />} />
       <Route path="settings/billing/success" element={<Success />} />
       <Route path="settings/billing/cancel" element={<Cancel />} />
-      {hasSubscription ? (
-        <>
-          <Route
-            path="search"
-            element={
-              <SearchPage
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                searchResults={searchResults}
-                setSearchResults={setSearchResults}
-                searchConfig={searchConfig}
-                setSearchConfig={setSearchConfig}
-              />
-            }
+
+      {/* Free-tier routes */}
+      <Route
+        path="search"
+        element={
+          <SearchPage
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            searchResults={searchResults}
+            setSearchResults={setSearchResults}
+            searchConfig={searchConfig}
+            setSearchConfig={setSearchConfig}
           />
-          <Route path="card/:id" element={<ViewPage />} />
-          <Route path="card/:id/edit" element={<EditPage newCard={false} />} />
-          <Route path="card/new" element={<EditPage newCard={true} />} />
-          <Route path="settings" element={<UserSettingsPage />} />
-          <Route path="help" element={<HelpPage />} />
-          <Route path="files" element={<FileVault />} />
-          <Route path="tasks" element={<TaskPage />} />
-          <Route path="entities" element={<EntityPage />} />
-          <Route path="summarizer" element={<Summarizer />} />
-          <Route path="facts" element={<FactPage />} />
-          <Route path="memory" element={<MemoryPage />} />
-          {includeStats && <Route path="stats" element={<StatsPage />} />}
-          <Route path="schemas" element={<SchemaPage />} />
-          <Route path="schemas/new" element={<SchemaCreatePage />} />
-          <Route path="schemas/:id/edit" element={<SchemaEditPage />} />
-          <Route path="schemas/:id/table" element={<SchemaTableWrapper />} />
-          <Route path="chat" element={<ChatPage />} />
-          <Route path="habits" element={<Habits />} />
-          <Route path="rss" element={<RssPage />} />
-          <Route path="rss/manage" element={<RssManagePage />} />
-          <Route path="inbox" element={<NotificationInboxPage />} />
-          <Route path="*" element={<DashboardPage />} />
-        </>
-      ) : (
-        <Route path="*" element={<Navigate to="/app/subscription" replace />} />
-      )}
+        }
+      />
+      <Route path="card/:id" element={<ViewPage />} />
+      <Route path="card/:id/edit" element={<EditPage newCard={false} />} />
+      <Route path="card/new" element={<EditPage newCard={true} />} />
+      <Route path="settings" element={<UserSettingsPage />} />
+      <Route path="help" element={<HelpPage />} />
+      <Route path="tasks" element={<TaskPage />} />
+
+      {/* Pro-only routes */}
+      <Route path="files" element={proOnly(<FileVault />, "File Vault")} />
+      <Route path="entities" element={proOnly(<EntityPage />, "Entities")} />
+      <Route path="summarizer" element={proOnly(<Summarizer />, "Summarizer")} />
+      <Route path="facts" element={proOnly(<FactPage />, "Facts")} />
+      <Route path="memory" element={proOnly(<MemoryPage />, "Memory")} />
+      {includeStats && <Route path="stats" element={proOnly(<StatsPage />, "Stats")} />}
+      <Route path="schemas" element={proOnly(<SchemaPage />, "Schemas")} />
+      <Route path="schemas/new" element={proOnly(<SchemaCreatePage />, "Schemas")} />
+      <Route path="schemas/:id/edit" element={proOnly(<SchemaEditPage />, "Schemas")} />
+      <Route path="schemas/:id/table" element={proOnly(<SchemaTableWrapper />, "Schemas")} />
+      <Route path="chat" element={proOnly(<ChatPage />, "Chat")} />
+      <Route path="habits" element={proOnly(<Habits />, "Habits")} />
+      <Route path="rss" element={proOnly(<RssPage />, "RSS")} />
+      <Route path="rss/manage" element={proOnly(<RssManagePage />, "RSS")} />
+      <Route path="inbox" element={proOnly(<NotificationInboxPage />, "Inbox")} />
+
+      {/* Default route */}
+      <Route path="*" element={<DashboardPage />} />
     </Routes>
   );
 }

@@ -25,6 +25,7 @@ interface AuthContextType {
   currentUser: User | null;
   user: User | null;
   updateUser: (user: User) => void;
+  refreshSubscription: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -84,7 +85,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     localStorage.setItem("token", data["access_token"]);
     localStorage.setItem("username", data["user"]["username"]);
     setHasSubscription(
-      data["user"].stripe_subscription_status === "active",
+      data["user"].stripe_subscription_status === "active" ||
+      data["user"].stripe_subscription_status === "trialing",
     );
     setIsAuthenticated(true);
   };
@@ -123,6 +125,25 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  const refreshSubscription = async (): Promise<boolean> => {
+    try {
+      const currentUser = await getCurrentUser();
+      if (currentUser && currentUser.id) {
+        const subscription = await getUserSubscription(currentUser.id);
+        const isActive =
+          subscription &&
+          (subscription.stripe_subscription_status === "active" ||
+            subscription.stripe_subscription_status === "trialing");
+        setHasSubscription(isActive);
+        return isActive;
+      }
+    } catch (error) {
+      console.error("Failed to refresh subscription:", error);
+    }
+    setHasSubscription(false);
+    return false;
+  };
+
   const logoutUser = () => {
     localStorage.removeItem("token");
     setIsAuthenticated(false);
@@ -142,6 +163,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         currentUser,
         user,
         updateUser,
+        refreshSubscription,
       }}
     >
       {children}

@@ -2,8 +2,7 @@ import React, { useState, useEffect } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { useNavigate } from "react-router-dom";
 import { getStripePublicKey } from "../api/billing";
-import { getCurrentUser, getUserSubscription } from "../api/users";
-import { User, UserSubscription } from "../models/User";
+import { useAuth } from "../contexts/AuthContext";
 
 const base_url = import.meta.env.VITE_URL;
 
@@ -12,8 +11,7 @@ export default function SubscribePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
+  const { refreshSubscription } = useAuth();
 
   useEffect(() => {
     async function fetchStripeKey() {
@@ -24,24 +22,19 @@ export default function SubscribePage() {
         console.error("Failed to fetch Stripe public key:", error);
       }
     }
-    async function fetchUserAndSubscription() {
-      try {
-        const userResponse = await getCurrentUser();
-        setUser(userResponse);
-        if (userResponse && userResponse.id) {
-          const subscriptionResponse = await getUserSubscription(userResponse.id);
-          setSubscription(subscriptionResponse);
-          if (subscriptionResponse && subscriptionResponse.stripe_subscription_status === 'active') {
-            navigate('/app/settings');
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch user and subscription:", error);
+    fetchStripeKey();
+  }, []);
+
+  // If user arrives here but already has an active subscription, redirect to dashboard
+  useEffect(() => {
+    async function checkSubscription() {
+      const isActive = await refreshSubscription();
+      if (isActive) {
+        navigate("/app", { replace: true });
       }
     }
-    fetchStripeKey();
-    fetchUserAndSubscription();
-  }, [navigate]);
+    checkSubscription();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startSubscription = async (plan: "monthly" | "annual") => {
     setLoading(true);
@@ -92,10 +85,10 @@ export default function SubscribePage() {
             <li className="flex items-center"><span className="text-green-600 mr-2">✓</span> Manage your Todos With Your Cards</li>
           </ul>
           <button
-            disabled
-            className="mt-auto w-full bg-gray-300 text-gray-600 px-4 py-3 rounded-lg font-medium cursor-not-allowed"
+            onClick={() => navigate("/app", { replace: true })}
+            className="mt-auto w-full bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-medium hover:bg-gray-300 transition-colors"
           >
-            Current Plan
+            Continue with Free
           </button>
         </div>
 
