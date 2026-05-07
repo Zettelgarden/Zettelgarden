@@ -17,7 +17,7 @@ export function CardLink({ card, showTitle, displayText, showTags = false, onRem
   return (
     <Link to={`/app/card/${card.id}`} className="flex items-center gap-2 min-w-0 overflow-hidden">
       <span className="inline-flex items-center flex-shrink min-w-0">
-        <CardTag card={card} showTitle={false} displayText={displayText} />
+        <CardTag card={card} showTitle={showTitle} displayText={displayText} />
       </span>
       {/* Display tags */}
       {showTags && card.tags && card.tags.length > 0 && (
