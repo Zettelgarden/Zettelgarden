@@ -338,12 +338,13 @@ function useCardMarkdown(
       if (href?.startsWith("#card:")) {
         const cardId = href.replace("#card:", "");
         // Extract display text from children if it differs from the card ID
-        const displayText = typeof children === 'string' && children !== cardId ? children : undefined;
+        let displayText = typeof children === 'string' && children !== cardId ? children : undefined;
         return (
           <CardLinkWithPreview
             currentCard={card}
             card_id={cardId}
             displayText={displayText}
+            resolveTitle={displayText === '*'}
             handleViewBacklink={handleViewBacklink}
           />
         );

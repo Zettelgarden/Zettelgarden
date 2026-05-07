@@ -152,4 +152,10 @@ describe("preprocessWikiLinks", () => {
     const output = preprocessWikiLinks(input);
     expect(output).toBe("See [42](#card:42)");
   });
+
+  it("should preserve * as display text for dynamic title resolution", () => {
+    const input = "See [[42|*|]] for details";
+    const output = preprocessWikiLinks(input);
+    expect(output).toBe("See [*](#card:42) for details");
+  });
 });

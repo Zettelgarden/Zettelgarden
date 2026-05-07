@@ -8,6 +8,7 @@ interface CardLinkWithPreviewProps {
   currentCard: Card;
   card_id: string;
   displayText?: string;
+  resolveTitle?: boolean;
   handleViewBacklink: (card_id: number) => void;
 }
 
@@ -15,6 +16,7 @@ export function CardLinkWithPreview({
   currentCard,
   card_id,
   displayText,
+  resolveTitle,
   handleViewBacklink,
 }: CardLinkWithPreviewProps) {
   const [showHover, setShowHover] = useState(false);
@@ -39,7 +41,7 @@ export function CardLinkWithPreview({
           card={linkedCard}
           handleViewBacklink={handleViewBacklink}
           showTitle={false}
-          displayText={displayText}
+          displayText={resolveTitle && linkedCard?.title ? linkedCard.title : displayText}
         />
       )}
       {showHover && linkedCard && (
