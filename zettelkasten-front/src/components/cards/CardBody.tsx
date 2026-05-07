@@ -47,15 +47,20 @@ function preprocessTaskQueries(body: string): string {
 }
 
 export function preprocessWikiLinks(body: string): string {
-  // Convert [[card_id]] and [[card_id|display text]] to markdown links
+  // Convert [[card_id]] and [[card_id|display text]] and [[card_id|display text|]] to markdown links
   // [[42]] → [42](#card:42)
   // [[42|Meeting Notes]] → [Meeting Notes](#card:42)
+  // [[42|Meeting Notes|]] → [Meeting Notes](#card:42)  (trailing pipe is stripped)
   // Uses #card: prefix so the <a> component can distinguish from regular anchor links
-  const wikiLinked = body.replace(/\[\[([^\]|]+?)(?:\|([^\]]*))?\]\]/g, (_match, cardId: string, displayText: string) => {
+  const wikiLinked = body.replace(/\[\[([^\]|]+?)\|([^\]|]*?)(?:\|)?\]\]/g, (_match, cardId: string, displayText: string) => {
     const label = displayText || cardId;
     return `[${label}](#card:${cardId})`;
   });
-  return wikiLinked;
+  // Also handle [[card_id]] without display text (no pipe at all)
+  const result2 = wikiLinked.replace(/\[\[([^\]|]+?)\]\]/g, (_match, cardId: string) => {
+    return `[${cardId}](#card:${cardId})`;
+  });
+  return result2;
 }
 
 function preprocessCardLinks(body: string): string {
@@ -332,10 +337,13 @@ function useCardMarkdown(
     a({ children, href, ...props }: any) {
       if (href?.startsWith("#card:")) {
         const cardId = href.replace("#card:", "");
+        // Extract display text from children if it differs from the card ID
+        const displayText = typeof children === 'string' && children !== cardId ? children : undefined;
         return (
           <CardLinkWithPreview
             currentCard={card}
             card_id={cardId}
+            displayText={displayText}
             handleViewBacklink={handleViewBacklink}
           />
         );

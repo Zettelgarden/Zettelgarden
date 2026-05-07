@@ -140,4 +140,16 @@ describe("preprocessWikiLinks", () => {
     const output = preprocessWikiLinks(input);
     expect(output).toBe("[42](#card:42) and [click](https://example.com)");
   });
+
+  it("should handle wiki-link with trailing pipe [[card|title|]]", () => {
+    const input = "See [[42|Meeting Notes|]] for details";
+    const output = preprocessWikiLinks(input);
+    expect(output).toBe("See [Meeting Notes](#card:42) for details");
+  });
+
+  it("should handle wiki-link with empty display text and trailing pipe", () => {
+    const input = "See [[42||]]";
+    const output = preprocessWikiLinks(input);
+    expect(output).toBe("See [42](#card:42)");
+  });
 });

@@ -7,17 +7,18 @@ interface CardLinkProps {
   card: PartialCard;
   handleViewBacklink: (id: number) => void;
   showTitle: boolean;
+  displayText?: string;
   showTags?: boolean;
   onRemoveTag?: (tagName: string) => void;
   showTagRemoval?: boolean;
 }
 
-export function CardLink({ card, showTitle, showTags = false, onRemoveTag, showTagRemoval = false }: CardLinkProps) {
+export function CardLink({ card, showTitle, displayText, showTags = false, onRemoveTag, showTagRemoval = false }: CardLinkProps) {
   return (
     <Link to={`/app/card/${card.id}`} className="flex items-center gap-2 min-w-0 overflow-hidden">
-      <div className="flex-shrink min-w-0">
-        <CardTag card={card} showTitle={showTitle} />
-      </div>
+      <span className="inline-flex items-center flex-shrink min-w-0">
+        <CardTag card={card} showTitle={false} displayText={displayText} />
+      </span>
       {/* Display tags */}
       {showTags && card.tags && card.tags.length > 0 && (
         <div className="flex flex-wrap gap-1 flex-shrink min-w-0">
