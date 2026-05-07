@@ -8,6 +8,7 @@ import { BacklinkDialog } from "./BacklinkDialog";
 import { SaveAsTemplateDialog } from "./SaveAsTemplateDialog";
 import { CardIdDiscoveryDialog } from "./CardIdDiscoveryDialog";
 import { CardBodyHelpPopover } from "./CardBodyHelpPopover";
+import { InsertSchemaTableButton } from "./InsertSchemaTableButton";
 import { Button } from "../Button";
 import { useCardEditorContext } from "../../contexts/editor";
 import { useEditorUIContext } from "../../contexts/editor";
@@ -158,6 +159,11 @@ export function CardEditor({
             setPreviewModeActive(!previewModeActive);
           }}
           isPreviewActive={previewModeActive}
+        />
+        <InsertSchemaTableButton
+          onInsert={(syntax) => {
+            setEditingCard({ ...editingCard, body: editingCard.body + syntax });
+          }}
         />
         <CardBodyTextArea
           ref={cardBodyRef}
