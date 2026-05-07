@@ -14,18 +14,24 @@ export function InsertSchemaTableButton({ onInsert }: InsertSchemaTableButtonPro
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<Array<{ field: string; value: string }>>([]);
 
-  // Fetch schemas when popover opens
-  const loadSchemas = async () => {
+  // Fetch schemas on mount
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    try {
-      const result = await fetchSchemas();
-      setSchemas(result.filter(s => !s.is_deleted));
-    } catch (err) {
-      console.error("Failed to load schemas:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchSchemas()
+      .then(result => {
+        if (!cancelled) {
+          setSchemas(result.filter(s => !s.is_deleted));
+        }
+      })
+      .catch(err => {
+        console.error("Failed to load schemas:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSelectSchema = (schema: SchemaDefinition) => {
     setSelectedSchema(schema);
