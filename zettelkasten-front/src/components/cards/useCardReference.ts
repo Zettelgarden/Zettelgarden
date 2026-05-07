@@ -31,7 +31,7 @@ export function useCardReference({
 
     const value = textarea.value;
     // Replace the [[ with [[card_id]] — the [[ is already in the textarea
-    const newText = "[[" + card.card_id + "]]";
+    const newText = "[[" + card.card_id + "|*|]]";
 
     // triggerIndex points to the first [, so replace from there through the second ]
     const before = value.substring(0, triggerIndex);

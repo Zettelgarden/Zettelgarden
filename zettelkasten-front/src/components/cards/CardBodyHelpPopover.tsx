@@ -23,9 +23,9 @@ const features: HelpFeature[] = [
   },
   {
     name: "Card Links",
-    description: "Link to other cards by their ID, optionally with display text",
-    syntax: "[[<CardID>]] or [[<CardID>|display text]]",
-    example: "[[my-note]]\n[[20250201-reading-list|January Reading]]"
+    description: "Link to other cards by their ID, optionally with display text or dynamic title",
+    syntax: "[[<CardID>]] or [[<CardID>|display text|]] or [[<CardID>|*|]]",
+    example: "[[my-note]]\n[[20250201-reading-list|January Reading|]]\n[[42|*|]] (resolves to card title)"
   }
 ];
 
