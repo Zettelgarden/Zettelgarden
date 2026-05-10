@@ -22,12 +22,12 @@ export function Admin() {
 
   useEffect(() => {
     if (!isLoading && !isAdmin) {
-      // Use window.location to redirect to the root page, since this is a
-      // HashRouter app and navigate("/app") would produce /admin#/app instead
-      // of /#/app when the user visits /admin directly.
-      window.location.href = "/#/app";
+      // Navigate to /app using React Router. Since this page is only
+      // reached via hash routes (/#/admin), navigate() correctly
+      // changes the hash to #/app.
+      navigate("/app", { replace: true });
     }
-  }, [isAdmin, isLoading]);
+  }, [isAdmin, isLoading, navigate]);
 
   if (isLoading) {
     return (

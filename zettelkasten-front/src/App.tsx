@@ -10,7 +10,6 @@ import PasswordReset from "./pages/PasswordReset";
 import EmailValidation from "./pages/EmailValidation";
 import { useAuth } from "./contexts/AuthContext";
 import { RssManagePage } from "./pages/RssManagePage";
-import { AgentManagement } from "./components/AgentManagement";
 
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -18,6 +17,21 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated } = useAuth();
+
+  // When the SPA is served on a real path like /admin (not a hash route),
+  // HashRouter sees the hash as empty (route = "/"). Redirect to the
+  // corresponding hash route so React Router can match it properly.
+  useEffect(() => {
+    const realPath = window.location.pathname;
+    const hash = window.location.hash;
+    if (
+      (hash === "" || hash === "#" || hash === "#/") &&
+      realPath !== "/"
+    ) {
+      navigate(realPath + window.location.search, { replace: true });
+    }
+  }, [navigate]);
+
   useEffect(() => {
     if (isAuthenticated && location.pathname !== "/blog" && location.pathname === "/") {
       navigate("/app");
@@ -36,7 +50,6 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/reset" element={<PasswordReset />} />
         <Route path="/validate" element={<EmailValidation />} />
-        <Route path="/settings/agents" element={<AgentManagement />} />
       </Routes>
     </div>
   );

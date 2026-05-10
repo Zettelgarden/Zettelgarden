@@ -96,8 +96,5 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.Sc
 
 	// Notification routes
 	RegisterNotificationRoutes(r, h)
-
-	// Agent management routes
-	RegisterAgentRoutes(r, h)
 }
 

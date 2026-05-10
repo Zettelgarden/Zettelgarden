@@ -43,7 +43,6 @@ func main() {
 	rootCmd.AddCommand(cmd.GetTaskCmd())
 	rootCmd.AddCommand(cmd.GetTemplateCmd())
 	rootCmd.AddCommand(cmd.GetHabitCmd())
-	rootCmd.AddCommand(cmd.GetFactCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

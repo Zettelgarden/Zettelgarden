@@ -15,9 +15,8 @@ import APIKeysManagement from "../components/settings/APIKeysManagement";
 import { MemoryPage } from "./MemoryPage";
 import { SchemaPage } from "./SchemaPage";
 import { StatsPage } from "./StatsPage";
-import { AgentManagement } from "../components/AgentManagement";
 
-type Tab = "profile" | "templates" | "tags" | "statuses" | "apiKeys" | "memory" | "schemas" | "stats" | "agents";
+type Tab = "profile" | "templates" | "tags" | "statuses" | "apiKeys" | "memory" | "schemas" | "stats";
 
 export function UserSettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
@@ -268,8 +267,6 @@ export function UserSettingsPage() {
         return <SchemaPage />;
       case "stats":
         return <StatsPage />;
-      case "agents":
-        return <AgentManagement />;
     }
   };
 
@@ -325,12 +322,6 @@ export function UserSettingsPage() {
           onClick={() => setActiveTab("stats")}
         >
           Stats
-        </button>
-        <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === "agents" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-          onClick={() => setActiveTab("agents")}
-        >
-          AI Agents
         </button>
       </div>
       <div className="mt-4">
