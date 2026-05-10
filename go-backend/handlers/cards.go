@@ -440,6 +440,7 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 	shouldProcess := params.ProcessEntitiesAndFacts == nil || *params.ProcessEntitiesAndFacts
 	s.ProcessCardAfterCreation(userID, card, shouldProcess)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(card)
 }
 
@@ -1250,6 +1251,7 @@ func (s *Handler) CreateArticleRoute(w http.ResponseWriter, r *http.Request) {
 	s.ProcessCardAfterCreation(userID, card, true)
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(card)
 }
 

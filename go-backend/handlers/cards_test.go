@@ -443,8 +443,8 @@ func TestCreateCardSuccess(t *testing.T) {
 	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute))
 	handler.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
 	}
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &card)
 
@@ -479,8 +479,8 @@ func TestCreateCardDuplicateCardID(t *testing.T) {
 	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute))
 	handler.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
 	}
 	req, err = http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
 	if err != nil {
@@ -552,8 +552,8 @@ func TestCreateCardLinkedParentId(t *testing.T) {
 	defer tests.Teardown()
 
 	rr := makeCardRequestSuccess(s, t, 4)
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
 		log.Printf("err %v", rr.Body.String())
 	}
 	var parentCard models.Card
@@ -583,8 +583,8 @@ func TestCreateCardLinkedParentId(t *testing.T) {
 	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute))
 	handler.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
 	}
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &card)
 
@@ -1109,8 +1109,8 @@ func TestCreateCardWithSchema_Success(t *testing.T) {
 	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute))
 	handler.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v\nbody: %v", status, http.StatusOK, rr.Body.String())
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v\nbody: %v", status, http.StatusCreated, rr.Body.String())
 	}
 
 	var card models.Card
@@ -1270,7 +1270,7 @@ func TestCreateCardWithSchema_MissingRequiredField(t *testing.T) {
 	// Note: This test documents current behavior
 	// The card is created successfully but structured_data is missing required field
 	// Validation should be added to enforce required fields at the handler level
-	if status := rr.Code; status != http.StatusOK {
+	if status := rr.Code; status != http.StatusCreated {
 		t.Logf("Card creation failed with status %v: %v", status, rr.Body.String())
 	}
 }
@@ -1315,7 +1315,7 @@ func TestCreateCardWithSchema_InvalidFieldType(t *testing.T) {
 
 	// Note: This test documents current behavior
 	// The card is created successfully but type validation should be added
-	if status := rr.Code; status != http.StatusOK {
+	if status := rr.Code; status != http.StatusCreated {
 		t.Logf("Card creation failed with status %v: %v", status, rr.Body.String())
 	}
 }
@@ -1360,7 +1360,7 @@ func TestCreateCardWithSchema_InvalidSelectValue(t *testing.T) {
 
 	// Note: This test documents current behavior
 	// The card is created successfully but option validation should be added
-	if status := rr.Code; status != http.StatusOK {
+	if status := rr.Code; status != http.StatusCreated {
 		t.Logf("Card creation failed with status %v: %v", status, rr.Body.String())
 	}
 }
@@ -1405,8 +1405,8 @@ func TestCreateCardWithSchema_AllOptionalFieldsEmpty(t *testing.T) {
 	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute))
 	handler.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
 	}
 
 	var card models.Card
@@ -1912,8 +1912,8 @@ func TestCreateCardWithSchema_WithLinkToCardField(t *testing.T) {
 	handler = http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute))
 	handler.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v\nbody: %v", status, http.StatusOK, rr.Body.String())
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v\nbody: %v", status, http.StatusCreated, rr.Body.String())
 	}
 
 	var card models.Card
@@ -2059,8 +2059,8 @@ func TestCreateCardWithSchema_AllFieldTypes(t *testing.T) {
 	handler = http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute))
 	handler.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v\nbody: %v", status, http.StatusOK, rr.Body.String())
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v\nbody: %v", status, http.StatusCreated, rr.Body.String())
 	}
 
 	var card models.Card
