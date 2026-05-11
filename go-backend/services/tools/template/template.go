@@ -79,6 +79,14 @@ func GetTemplates(db *sql.DB, userID int) ([]models.CardTemplate, error) {
 
 // GetNextChildCardID returns the next available child card ID for a parent card
 // (e.g., '1a2.3'). This is useful for creating structured card hierarchies.
+//
+// It handles two naming schemes:
+//  1. Children whose card_id starts with the parent's card_id (e.g., parent "999",
+//     children "999.1", "999.2")
+//  2. Children whose card_id uses a different prefix than the parent's card_id
+//     (e.g., parent card_id is "SP24/B.8" but children use "2483.1", "2483.82").
+//     In this case, the function detects the common prefix among existing children
+//     and increments the trailing number.
 func GetNextChildCardID(db *sql.DB, userID int, parentID int) (string, error) {
 	// 1. Get parent card's card_id (human readable ID)
 	var parentCardID string
@@ -95,22 +103,20 @@ func GetNextChildCardID(db *sql.DB, userID int, parentID int) (string, error) {
 		return parentCardID + ".1", nil // Default to .1 if there's an error
 	}
 
-	// 3. Extract numeric suffixes from children's card_ids
+	if len(children) == 0 {
+		return parentCardID + ".1", nil // No existing children, start with .1
+	}
+
+	// 3. Try to match children using parent's card_id as prefix
 	childNumbers := make([]int, 0)
 	parentIDLength := len(parentCardID)
 
 	for _, child := range children {
 		childID := child.CardID
-
-		// Verify this is actually a direct child by checking it starts with parent ID
 		if !strings.HasPrefix(childID, parentCardID) || len(childID) <= parentIDLength {
 			continue
 		}
-
-		// Get the part after the parent ID
 		suffix := childID[parentIDLength:]
-
-		// Extract the first number after any separator using regex
 		re := regexp.MustCompile(`^[.\\/-]+(\d+)`)
 		match := re.FindStringSubmatch(suffix)
 		if len(match) == 2 {
@@ -121,20 +127,81 @@ func GetNextChildCardID(db *sql.DB, userID int, parentID int) (string, error) {
 		}
 	}
 
-	// 4. Find the highest number and increment
-	if len(childNumbers) == 0 {
-		return parentCardID + ".1", nil // No existing children, start with 1
+	// If children matched the parent's card_id prefix, use the standard approach
+	if len(childNumbers) > 0 {
+		maxNumber := 0
+		for _, num := range childNumbers {
+			if num > maxNumber {
+				maxNumber = num
+			}
+		}
+		return fmt.Sprintf("%s.%d", parentCardID, maxNumber+1), nil
 	}
 
-	maxNumber := 0
-	for _, num := range childNumbers {
-		if num > maxNumber {
-			maxNumber = num
+	// 4. Children don't use the parent's card_id as prefix.
+	//    Detect the common prefix scheme among existing children and increment.
+	//    We look for a pattern like "PREFIX.NUMBER" among children and find
+	//    the common prefix, then increment the max trailing number.
+	type prefixEntry struct {
+		prefix string
+		sep    string // separator character used ('.', '/', or '-')
+		num    int
+	}
+
+	re := regexp.MustCompile(`^(.+?)([./\-])(\d+)$`)
+	var entries []prefixEntry
+
+	for _, child := range children {
+		match := re.FindStringSubmatch(child.CardID)
+		if len(match) == 4 {
+			num, err := strconv.Atoi(match[3])
+			if err == nil {
+				entries = append(entries, prefixEntry{
+					prefix: match[1],
+					sep:    match[2],
+					num:    num,
+				})
+			}
 		}
 	}
 
-	nextNumber := maxNumber + 1
-	return fmt.Sprintf("%s.%d", parentCardID, nextNumber), nil
+	if len(entries) == 0 {
+		// No children matched any PREFIX.SEP.NUMBER pattern; fall back to parent-based default
+		return parentCardID + ".1", nil
+	}
+
+	// Find the most common prefix among entries (the dominant naming scheme)
+	prefixCounts := make(map[string]int)
+	for _, e := range entries {
+		prefixCounts[e.prefix]++
+	}
+	var bestPrefix string
+	bestCount := 0
+	for p, c := range prefixCounts {
+		if c > bestCount {
+			bestCount = c
+			bestPrefix = p
+		}
+	}
+
+	// Use the separator from the first entry with the best prefix
+	var bestSep string
+	for _, e := range entries {
+		if e.prefix == bestPrefix {
+			bestSep = e.sep
+			break
+		}
+	}
+
+	// Find the max number among entries using the best prefix
+	maxNumber := 0
+	for _, e := range entries {
+		if e.prefix == bestPrefix && e.num > maxNumber {
+			maxNumber = e.num
+		}
+	}
+
+	return fmt.Sprintf("%s%s%d", bestPrefix, bestSep, maxNumber+1), nil
 }
 
 // getChildCards retrieves child cards for a given parent card.
