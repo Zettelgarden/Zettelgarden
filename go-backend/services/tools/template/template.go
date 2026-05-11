@@ -77,16 +77,16 @@ func GetTemplates(db *sql.DB, userID int) ([]models.CardTemplate, error) {
 	return templates, nil
 }
 
-// GetNextChildCardID returns the next available child card ID for a parent card
-// (e.g., '1a2.3'). This is useful for creating structured card hierarchies.
+// GetNextChildCardID returns the next available child card ID for a parent card.
 //
-// It handles two naming schemes:
-//  1. Children whose card_id starts with the parent's card_id (e.g., parent "999",
-//     children "999.1", "999.2")
-//  2. Children whose card_id uses a different prefix than the parent's card_id
-//     (e.g., parent card_id is "SP24/B.8" but children use "2483.1", "2483.82").
-//     In this case, the function detects the common prefix among existing children
-//     and increments the trailing number.
+// It analyses the existing children's card_ids to detect the naming scheme
+// and returns the next ID in the same scheme. It handles:
+//
+//   - Numeric suffixes: parent "999", children "999.1", "999.2" → "999.3"
+//   - Alphabetic suffixes: parent "SP24/B.8", children "SP24/B.8/A", "SP24/B.8/B" → "SP24/B.8/C"
+//   - Mismatched prefixes: parent card_id "SP24/B.8" but children use "2483.1",
+//     "2483.82" → detects dominant prefix and increments to "2483.83"
+//   - No children: returns parentCardID + ".1"
 func GetNextChildCardID(db *sql.DB, userID int, parentID int) (string, error) {
 	// 1. Get parent card's card_id (human readable ID)
 	var parentCardID string
@@ -100,16 +100,30 @@ func GetNextChildCardID(db *sql.DB, userID int, parentID int) (string, error) {
 	children, err := getChildCards(db, userID, parentID)
 	if err != nil {
 		log.Printf("Error getting child cards for parentID %d: %v", parentID, err)
-		return parentCardID + ".1", nil // Default to .1 if there's an error
+		return parentCardID + ".1", nil
 	}
 
 	if len(children) == 0 {
-		return parentCardID + ".1", nil // No existing children, start with .1
+		return parentCardID + ".1", nil
 	}
 
-	// 3. Try to match children using parent's card_id as prefix
-	childNumbers := make([]int, 0)
+	// 3. Classify children by their suffix type relative to the parent's card_id.
+	//    We look for children that start with the parent's card_id followed by
+	//    a separator and a suffix (numeric or single uppercase letter).
 	parentIDLength := len(parentCardID)
+
+	type suffixEntry struct {
+		sep      string // separator character ('.', '/', or '-')
+		suffix   string // the suffix part ("1", "82", "A", "B")
+		isAlpha  bool   // true if suffix is a single uppercase letter
+	}
+
+	var matchedEntries []suffixEntry
+
+	// Regex for numeric suffix: separator + digits
+	numRe := regexp.MustCompile(`^[.\\/-]+(\d+)$`)
+	// Regex for alphabetic suffix: separator + single uppercase letter
+	alphaRe := regexp.MustCompile(`^[.\\/-]+([A-Z])$`)
 
 	for _, child := range children {
 		childID := child.CardID
@@ -117,34 +131,64 @@ func GetNextChildCardID(db *sql.DB, userID int, parentID int) (string, error) {
 			continue
 		}
 		suffix := childID[parentIDLength:]
-		re := regexp.MustCompile(`^[.\\/-]+(\d+)`)
-		match := re.FindStringSubmatch(suffix)
-		if len(match) == 2 {
-			num, err := strconv.Atoi(match[1])
-			if err == nil {
-				childNumbers = append(childNumbers, num)
-			}
+
+		if match := numRe.FindStringSubmatch(suffix); len(match) == 2 {
+			matchedEntries = append(matchedEntries, suffixEntry{sep: string(suffix[0]), suffix: match[1], isAlpha: false})
+		} else if match := alphaRe.FindStringSubmatch(suffix); len(match) == 2 {
+			matchedEntries = append(matchedEntries, suffixEntry{sep: string(suffix[0]), suffix: match[1], isAlpha: true})
 		}
 	}
 
-	// If children matched the parent's card_id prefix, use the standard approach
-	if len(childNumbers) > 0 {
+	// 4. If children matched the parent's card_id prefix, determine next suffix
+	if len(matchedEntries) > 0 {
+		// Determine the dominant separator and suffix type
+		type schemeKey struct {
+			sep     string
+			isAlpha bool
+		}
+		schemeCounts := make(map[schemeKey]int)
+		for _, e := range matchedEntries {
+			schemeCounts[schemeKey{e.sep, e.isAlpha}]++
+		}
+		var bestScheme schemeKey
+		bestCount := 0
+		for s, c := range schemeCounts {
+			if c > bestCount {
+				bestCount = c
+				bestScheme = s
+			}
+		}
+
+		if bestScheme.isAlpha {
+			// Alphabetic suffix: find the highest letter and increment
+			maxLetter := byte('A')
+			for _, e := range matchedEntries {
+				if e.isAlpha && e.sep == bestScheme.sep && e.suffix[0] > maxLetter {
+					maxLetter = e.suffix[0]
+				}
+			}
+			nextLetter := string(rune(maxLetter) + 1)
+			return parentCardID + bestScheme.sep + nextLetter, nil
+		}
+
+		// Numeric suffix: find the highest number and increment
 		maxNumber := 0
-		for _, num := range childNumbers {
-			if num > maxNumber {
-				maxNumber = num
+		for _, e := range matchedEntries {
+			if !e.isAlpha && e.sep == bestScheme.sep {
+				num, _ := strconv.Atoi(e.suffix)
+				if num > maxNumber {
+					maxNumber = num
+				}
 			}
 		}
-		return fmt.Sprintf("%s.%d", parentCardID, maxNumber+1), nil
+		return fmt.Sprintf("%s%s%d", parentCardID, bestScheme.sep, maxNumber+1), nil
 	}
 
-	// 4. Children don't use the parent's card_id as prefix.
+	// 5. Children don't use the parent's card_id as prefix.
 	//    Detect the common prefix scheme among existing children and increment.
-	//    We look for a pattern like "PREFIX.NUMBER" among children and find
-	//    the common prefix, then increment the max trailing number.
 	type prefixEntry struct {
 		prefix string
-		sep    string // separator character used ('.', '/', or '-')
+		sep    string
 		num    int
 	}
 
@@ -166,11 +210,9 @@ func GetNextChildCardID(db *sql.DB, userID int, parentID int) (string, error) {
 	}
 
 	if len(entries) == 0 {
-		// No children matched any PREFIX.SEP.NUMBER pattern; fall back to parent-based default
 		return parentCardID + ".1", nil
 	}
 
-	// Find the most common prefix among entries (the dominant naming scheme)
 	prefixCounts := make(map[string]int)
 	for _, e := range entries {
 		prefixCounts[e.prefix]++
@@ -184,7 +226,6 @@ func GetNextChildCardID(db *sql.DB, userID int, parentID int) (string, error) {
 		}
 	}
 
-	// Use the separator from the first entry with the best prefix
 	var bestSep string
 	for _, e := range entries {
 		if e.prefix == bestPrefix {
@@ -193,7 +234,6 @@ func GetNextChildCardID(db *sql.DB, userID int, parentID int) (string, error) {
 		}
 	}
 
-	// Find the max number among entries using the best prefix
 	maxNumber := 0
 	for _, e := range entries {
 		if e.prefix == bestPrefix && e.num > maxNumber {

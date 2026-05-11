@@ -556,9 +556,19 @@ func (s *Handler) getNextChildCardID(userID int, parentID int) string {
 		return parentCardID + ".1" // No existing children, start with .1
 	}
 
-	// 3. Try to match children using parent's card_id as prefix
-	childNumbers := make([]int, 0)
+	// 3. Classify children by their suffix type relative to the parent's card_id.
 	parentIDLength := len(parentCardID)
+
+	type suffixEntry struct {
+		sep     string
+		suffix  string
+		isAlpha bool
+	}
+
+	var matchedEntries []suffixEntry
+
+	numRe := regexp.MustCompile(`^[.\\/-]+(\d+)$`)
+	alphaRe := regexp.MustCompile(`^[.\\/-]+([A-Z])$`)
 
 	for _, child := range children {
 		childID := child.CardID
@@ -566,28 +576,57 @@ func (s *Handler) getNextChildCardID(userID int, parentID int) string {
 			continue
 		}
 		suffix := childID[parentIDLength:]
-		re := regexp.MustCompile(`^[.\\/-]+(\d+)`)
-		match := re.FindStringSubmatch(suffix)
-		if len(match) == 2 {
-			num, err := strconv.Atoi(match[1])
-			if err == nil {
-				childNumbers = append(childNumbers, num)
-			}
+
+		if match := numRe.FindStringSubmatch(suffix); len(match) == 2 {
+			matchedEntries = append(matchedEntries, suffixEntry{sep: string(suffix[0]), suffix: match[1], isAlpha: false})
+		} else if match := alphaRe.FindStringSubmatch(suffix); len(match) == 2 {
+			matchedEntries = append(matchedEntries, suffixEntry{sep: string(suffix[0]), suffix: match[1], isAlpha: true})
 		}
 	}
 
-	// If children matched the parent's card_id prefix, use the standard approach
-	if len(childNumbers) > 0 {
+	// 4. If children matched the parent's card_id prefix, determine next suffix
+	if len(matchedEntries) > 0 {
+		type schemeKey struct {
+			sep     string
+			isAlpha bool
+		}
+		schemeCounts := make(map[schemeKey]int)
+		for _, e := range matchedEntries {
+			schemeCounts[schemeKey{e.sep, e.isAlpha}]++
+		}
+		var bestScheme schemeKey
+		bestCount := 0
+		for s, c := range schemeCounts {
+			if c > bestCount {
+				bestCount = c
+				bestScheme = s
+			}
+		}
+
+		if bestScheme.isAlpha {
+			maxLetter := byte('A')
+			for _, e := range matchedEntries {
+				if e.isAlpha && e.sep == bestScheme.sep && e.suffix[0] > maxLetter {
+					maxLetter = e.suffix[0]
+				}
+			}
+			nextLetter := string(rune(maxLetter) + 1)
+			return parentCardID + bestScheme.sep + nextLetter
+		}
+
 		maxNumber := 0
-		for _, num := range childNumbers {
-			if num > maxNumber {
-				maxNumber = num
+		for _, e := range matchedEntries {
+			if !e.isAlpha && e.sep == bestScheme.sep {
+				num, _ := strconv.Atoi(e.suffix)
+				if num > maxNumber {
+					maxNumber = num
+				}
 			}
 		}
-		return fmt.Sprintf("%s.%d", parentCardID, maxNumber+1)
+		return fmt.Sprintf("%s%s%d", parentCardID, bestScheme.sep, maxNumber+1)
 	}
 
-	// 4. Children don't use the parent's card_id as prefix.
+	// 5. Children don't use the parent's card_id as prefix.
 	//    Detect the common prefix scheme among existing children and increment.
 	type prefixEntry struct {
 		prefix string
@@ -613,11 +652,9 @@ func (s *Handler) getNextChildCardID(userID int, parentID int) string {
 	}
 
 	if len(entries) == 0 {
-		// No children matched any PREFIX.SEP.NUMBER pattern; fall back to parent-based default
 		return parentCardID + ".1"
 	}
 
-	// Find the most common prefix among entries (the dominant naming scheme)
 	prefixCounts := make(map[string]int)
 	for _, e := range entries {
 		prefixCounts[e.prefix]++
@@ -631,7 +668,6 @@ func (s *Handler) getNextChildCardID(userID int, parentID int) string {
 		}
 	}
 
-	// Use the separator from the first entry with the best prefix
 	var bestSep string
 	for _, e := range entries {
 		if e.prefix == bestPrefix {
@@ -640,7 +676,6 @@ func (s *Handler) getNextChildCardID(userID int, parentID int) string {
 		}
 	}
 
-	// Find the max number among entries using the best prefix
 	maxNumber := 0
 	for _, e := range entries {
 		if e.prefix == bestPrefix && e.num > maxNumber {

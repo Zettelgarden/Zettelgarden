@@ -25,7 +25,7 @@ func TestNextChildIDRegex(t *testing.T) {
 		{"999.42", true, "999", ".", 42},
 
 		// Slash-separated IDs
-		{"SP24/B.8", true, "SP24/B", ".", 8},
+		{"SP24/B", false, "", "", 0}, // no trailing number
 		{"2483/5", true, "2483", "/", 5},
 
 		// Hyphen-separated IDs
@@ -62,6 +62,76 @@ func TestNextChildIDRegex(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestNextChildIDSuffixRegex tests both numeric and alphabetic suffix matching.
+func TestNextChildIDSuffixRegex(t *testing.T) {
+	numRe := regexp.MustCompile(`^[.\\/-]+(\d+)$`)
+	alphaRe := regexp.MustCompile(`^[.\\/-]+([A-Z])$`)
+
+	t.Run("numeric suffixes", func(t *testing.T) {
+		cases := []struct {
+			suffix string
+			match  bool
+			num    string
+		}{
+			{".1", true, "1"},
+			{".82", true, "82"},
+			{"/5", true, "5"},
+			{"-3", true, "3"},
+			{".10", true, "10"},
+			{"/A", false, ""}, // alphabetic should not match numeric regex
+			{"", false, ""},
+		}
+		for _, tt := range cases {
+			t.Run(tt.suffix, func(t *testing.T) {
+				match := numRe.FindStringSubmatch(tt.suffix)
+				if tt.match {
+					if len(match) != 2 {
+						t.Fatalf("expected match for %q, got none", tt.suffix)
+					}
+					if match[1] != tt.num {
+						t.Errorf("got %q, want %q", match[1], tt.num)
+					}
+				} else if len(match) == 2 {
+					t.Errorf("expected no match for %q", tt.suffix)
+				}
+			})
+		}
+	})
+
+	t.Run("alphabetic suffixes", func(t *testing.T) {
+		cases := []struct {
+			suffix string
+			match  bool
+			letter string
+		}{
+			{"/A", true, "A"},
+			{"/B", true, "B"},
+			{"/Z", true, "Z"},
+			{".A", true, "A"},
+			{"-C", true, "C"},
+			{"/a", false, ""}, // lowercase should not match
+			{"/AA", false, ""}, // two letters should not match
+			{"/1", false, ""}, // numeric should not match alpha regex
+			{"", false, ""},
+		}
+		for _, tt := range cases {
+			t.Run(tt.suffix, func(t *testing.T) {
+				match := alphaRe.FindStringSubmatch(tt.suffix)
+				if tt.match {
+					if len(match) != 2 {
+						t.Fatalf("expected match for %q, got none", tt.suffix)
+					}
+					if match[1] != tt.letter {
+						t.Errorf("got %q, want %q", match[1], tt.letter)
+					}
+				} else if len(match) == 2 {
+					t.Errorf("expected no match for %q", tt.suffix)
+				}
+			})
+		}
+	})
 }
 
 // TestNextChildIDPrefixMatching validates the parent-prefix-matching regex
