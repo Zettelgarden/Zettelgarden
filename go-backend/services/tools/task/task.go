@@ -352,12 +352,23 @@ func UpdateTaskWithRecurring(db models.Database, userID int, id int, task models
 		}
 	}
 
-	// Sync is_complete with status based on user's configured statuses
-	// Check if the status is marked as a complete state
+	// Bidirectional sync between is_complete and status
+	// If they disagree, update the status to match is_complete
 	statusConfig, err := GetTaskStatusByName(db, userID, task.Status)
 	if err == nil {
-		// Sync is_complete with the status's is_complete_state
-		task.IsComplete = statusConfig.IsCompleteState
+		if task.IsComplete != statusConfig.IsCompleteState {
+			if task.IsComplete {
+				// Caller wants to mark complete; update status to the complete status
+				if completeStatus, csErr := GetCompleteTaskStatus(db, userID); csErr == nil {
+					task.Status = completeStatus.Name
+				}
+			} else {
+				// Caller wants to mark incomplete; update status to the default status
+				if defaultStatus, dsErr := GetDefaultTaskStatus(db, userID); dsErr == nil {
+					task.Status = defaultStatus.Name
+				}
+			}
+		}
 	} else {
 		// Fallback to old behavior if status not found
 		if task.Status == "done" {

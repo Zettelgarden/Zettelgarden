@@ -16,7 +16,7 @@ export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const priorityRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
-  const { statuses } = useStatus();
+  const { statuses, getDefaultStatus, getCompleteStatus } = useStatus();
   const { updateTask } = useTaskContext();
   const { user } = useAuth();
   const userTimezone = user?.timezone || "UTC";
@@ -67,9 +67,15 @@ export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
   };
 
   const handleToggleComplete = async () => {
+    const targetStatus = task.is_complete ? getDefaultStatus() : getCompleteStatus();
+    if (!targetStatus) {
+      console.error("Could not find appropriate status for toggle");
+      return;
+    }
     const updatedTask = {
       ...task,
-      is_complete: !task.is_complete,
+      status: targetStatus.name,
+      is_complete: targetStatus.is_complete_state,
     };
     updateTask(updatedTask);
 
