@@ -135,7 +135,11 @@ export function SearchConfig({
                   <Menu.Item key={option.value}>
                     {({ active }) => (
                       <button
-                        onClick={() => setSearchConfig({ ...searchConfig, sortBy: option.value })}
+                        onClick={() => {
+                          const newConfig = { ...searchConfig, sortBy: option.value };
+                          setSearchConfig(newConfig);
+                          onSearchTrigger?.(newConfig, true);
+                        }}
                         className={`${
                           searchConfig.sortBy === option.value
                             ? 'bg-blue-50 text-blue-700 border-blue-200'
