@@ -627,6 +627,25 @@ func (s *Handler) ClassicCardSearch(userID int, params SearchRequestParams) ([]m
 		return nil, 0, err
 	}
 
+	// Map frontend sort values to SQL ORDER BY clauses
+	var orderBy string
+	switch params.SortBy {
+	case "sortCreatedOldNew":
+		orderBy = "c.created_at ASC"
+	case "sortNewOld":
+		orderBy = "c.updated_at DESC"
+	case "sortOldNew":
+		orderBy = "c.updated_at ASC"
+	case "sortBigSmall":
+		orderBy = "c.title ASC"
+	case "sortSmallBig":
+		orderBy = "c.title DESC"
+	case "sortCreatedNewOld":
+		orderBy = "c.created_at DESC"
+	default:
+		orderBy = "c.created_at DESC"
+	}
+
 	// Then get the paginated results
 	query := `
 	SELECT
@@ -654,30 +673,11 @@ GROUP BY
     c.parent_id,
     c.created_at,
     c.updated_at
-ORDER BY %s
+ORDER BY ` + orderBy + `
 LIMIT $2 OFFSET $3
 	`
-	// Map frontend sort values to SQL ORDER BY clauses
-	var orderBy string
-	switch params.SortBy {
-	case "sortCreatedOldNew":
-		orderBy = "c.created_at ASC"
-	case "sortNewOld":
-		orderBy = "c.updated_at DESC"
-	case "sortOldNew":
-		orderBy = "c.updated_at ASC"
-	case "sortBigSmall":
-		orderBy = "c.title ASC"
-	case "sortSmallBig":
-		orderBy = "c.title DESC"
-	case "sortCreatedNewOld":
-		orderBy = "c.created_at DESC"
-	default:
-		orderBy = "c.created_at DESC"
-	}
 
-	formattedQuery := fmt.Sprintf(query, orderBy)
-	rows, err := s.DB.Query(formattedQuery, userID, perPage, offset)
+	rows, err := s.DB.Query(query, userID, perPage, offset)
 	if err != nil {
 		return nil, 0, err
 	}
