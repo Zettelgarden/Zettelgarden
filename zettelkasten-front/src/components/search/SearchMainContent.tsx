@@ -72,8 +72,8 @@ export function SearchMainContent({
     setShowFilters(!showFilters);
   };
 
-  const handleApplyFilters = () => {
-    onSearch(searchTerm, searchConfig);
+  const handleApplyFilters = (newConfig?: SearchConfig) => {
+    onSearch(searchTerm, newConfig ?? searchConfig);
   };
 
   return (

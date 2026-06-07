@@ -6,7 +6,7 @@ import { fetchSchemas } from "../../api/schemas";
 interface AdvancedFiltersPanelProps {
   searchConfig: SearchConfig;
   setSearchConfig: (config: SearchConfig) => void;
-  onApply: () => void;
+  onApply: (config?: SearchConfig) => void;
   isOpen: boolean;
 }
 
@@ -43,22 +43,25 @@ export function AdvancedFiltersPanel({
     const schemaId = value === "" ? null : parseInt(value);
     const newConfig = { ...searchConfig, schemaId };
     setSearchConfig(newConfig);
-    onApply();
+    onApply(newConfig);
   };
 
   const handleFullTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchConfig({ ...searchConfig, useFullText: event.target.checked });
-    onApply();
+    const newConfig = { ...searchConfig, useFullText: event.target.checked };
+    setSearchConfig(newConfig);
+    onApply(newConfig);
   };
 
   const handleOnlyParentCardsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchConfig({ ...searchConfig, onlyParentCards: event.target.checked });
-    onApply();
+    const newConfig = { ...searchConfig, onlyParentCards: event.target.checked };
+    setSearchConfig(newConfig);
+    onApply(newConfig);
   };
 
   const handleOnlyEmptyCardIdChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchConfig({ ...searchConfig, onlyEmptyCardId: event.target.checked });
-    onApply();
+    const newConfig = { ...searchConfig, onlyEmptyCardId: event.target.checked };
+    setSearchConfig(newConfig);
+    onApply(newConfig);
   };
 
   const handleShowPreviewChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,23 +69,27 @@ export function AdvancedFiltersPanel({
   };
 
   const handleShowEntitiesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchConfig({ ...searchConfig, showEntities: event.target.checked });
-    onApply();
+    const newConfig = { ...searchConfig, showEntities: event.target.checked };
+    setSearchConfig(newConfig);
+    onApply(newConfig);
   };
 
   const handleShowFactsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchConfig({ ...searchConfig, showFacts: event.target.checked });
-    onApply();
+    const newConfig = { ...searchConfig, showFacts: event.target.checked };
+    setSearchConfig(newConfig);
+    onApply(newConfig);
   };
 
   const handleShowCardsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchConfig({ ...searchConfig, showCards: event.target.checked });
-    onApply();
+    const newConfig = { ...searchConfig, showCards: event.target.checked };
+    setSearchConfig(newConfig);
+    onApply(newConfig);
   };
 
   const handleSortByChange = (sortBy: string) => {
-    setSearchConfig({ ...searchConfig, sortBy });
-    onApply();
+    const newConfig = { ...searchConfig, sortBy };
+    setSearchConfig(newConfig);
+    onApply(newConfig);
   };
 
   if (!isOpen) {
