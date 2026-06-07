@@ -729,25 +729,29 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 		perPage = 100 // Maximum page size
 	}
 	var sortBy string
-	if searchParams.SearchTerm == "" {
-		sortBy = "created_at:desc"
-	} else {
-		switch searchParams.SortBy {
-		case "sortByRanking":
-			sortBy = "_text_match:desc"
-		case "sortCreatedNewOld":
+	switch searchParams.SortBy {
+	case "sortByRanking":
+		if searchParams.SearchTerm == "" {
 			sortBy = "created_at:desc"
-		case "sortCreatedOldNew":
-			sortBy = "created_at:asc"
-		case "sortNewOld":
-			sortBy = "updated_at:desc"
-		case "sortOldNew":
-			sortBy = "updated_at:asc"
-		case "sortBigSmall":
-			sortBy = "title:asc"
-		case "sortSmallBig":
-			sortBy = "title:desc"
-		default:
+		} else {
+			sortBy = "_text_match:desc"
+		}
+	case "sortCreatedNewOld":
+		sortBy = "created_at:desc"
+	case "sortCreatedOldNew":
+		sortBy = "created_at:asc"
+	case "sortNewOld":
+		sortBy = "updated_at:desc"
+	case "sortOldNew":
+		sortBy = "updated_at:asc"
+	case "sortBigSmall":
+		sortBy = "title:asc"
+	case "sortSmallBig":
+		sortBy = "title:desc"
+	default:
+		if searchParams.SearchTerm == "" {
+			sortBy = "created_at:desc"
+		} else {
 			sortBy = "_text_match:desc"
 		}
 	}

@@ -28,7 +28,7 @@ function MainAppContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchConfig, setSearchConfig] = useState<SearchConfig>({
-    sortBy: "sortRanking",
+    sortBy: "sortByRanking",
     currentPage: 1,
     useClassicSearch: false,
     useFullText: false,
