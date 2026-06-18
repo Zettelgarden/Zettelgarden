@@ -252,26 +252,44 @@ export function SavedSearchesMenu({
               )}
 
               {saving ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={nameInputRef}
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") confirmSave();
-                      if (e.key === "Escape") setSaving(false);
-                    }}
-                    placeholder="Search name"
-                    className="flex-grow h-8 px-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  />
-                  <button
-                    onClick={confirmSave}
-                    disabled={busy}
-                    className="h-8 px-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    Save
-                  </button>
+                <div className="space-y-2">
+                  {/* Preview exactly what will be saved, so the name can't be
+                      confused with the filter (a common mistake). */}
+                  <div className="bg-slate-50 rounded p-2 text-xs text-slate-600 space-y-0.5">
+                    <div className="flex gap-1">
+                      <span className="text-slate-400 shrink-0">Filter:</span>
+                      <span className="font-mono break-all">
+                        {filterString.trim() || <span className="text-slate-400 italic">(no filter — saves all tasks)</span>}
+                      </span>
+                    </div>
+                    <div className="flex gap-1">
+                      <span className="text-slate-400 shrink-0">Sort:</span>
+                      <span>{sortField} ({sortDirection})</span>
+                      <span className="text-slate-400 ml-2">View:</span>
+                      <span>{viewMode}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={nameInputRef}
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") confirmSave();
+                        if (e.key === "Escape") setSaving(false);
+                      }}
+                      placeholder="Search name"
+                      className="flex-grow h-8 px-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    />
+                    <button
+                      onClick={confirmSave}
+                      disabled={busy}
+                      className="h-8 px-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      Save
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button
