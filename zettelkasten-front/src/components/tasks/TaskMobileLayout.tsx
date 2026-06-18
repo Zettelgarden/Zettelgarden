@@ -6,6 +6,8 @@ import { MobileTopBar } from "../layout/MobileTopBar";
 import { TaskFiltersSheet } from "./TaskFiltersSheet";
 import { QuickTagPopover, type QuickTagTrigger, getQuickTagTrigger, applyQuickTagSelection } from "./QuickTagPopover";
 import { SearchTagDropdown } from "../tags/SearchTagDropdown";
+import { SavedSearchesMenu } from "./SavedSearchesMenu";
+import type { TaskSavedSearch } from "../../models/TaskSavedSearch";
 import { TaskList } from "./TaskList";
 import { TaskListSkeleton } from "./TaskListSkeleton";
 import { TaskEmptyState, getEmptyStateType } from "./TaskEmptyState";
@@ -368,6 +370,18 @@ export function TaskMobileLayout({
                 handleTagClick={onTagClick}
               />
             </div>
+            <SavedSearchesMenu
+              filterString={filterString}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              viewMode={viewMode}
+              onApply={(search: TaskSavedSearch) => {
+                setFilterString(search.filter_string);
+                setSortField(search.sort_field);
+                setSortDirection(search.sort_direction);
+                setViewMode(search.view_mode);
+              }}
+            />
           </div>
 
           {/* Task count badge */}

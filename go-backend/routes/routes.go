@@ -58,6 +58,9 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.Sc
 	// Task status routes
 	RegisterTaskStatusRoutes(r, h)
 
+	// Task saved search routes
+	RegisterTaskSavedSearchRoutes(r, h)
+
 	// Statistics routes
 	RegisterStatsRoutes(r, h)
 
@@ -97,4 +100,3 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.Sc
 	// Notification routes
 	RegisterNotificationRoutes(r, h)
 }
-

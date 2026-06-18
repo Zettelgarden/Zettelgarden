@@ -14,6 +14,8 @@ import { TaskDialog } from "./TaskDialog";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { Button } from "../../components/Button";
 import { SearchTagDropdown } from "../../components/tags/SearchTagDropdown";
+import { SavedSearchesMenu } from "./SavedSearchesMenu";
+import type { TaskSavedSearch } from "../../models/TaskSavedSearch";
 import {
   QuickTagPopover,
 } from "./QuickTagPopover";
@@ -172,6 +174,18 @@ export function TaskDesktopLayout({
                   handleTagClick={handlers.onTagClick}
                 />
               </div>
+              <SavedSearchesMenu
+                filterString={filterString}
+                sortField={sortField}
+                sortDirection={sortDirection}
+                viewMode={viewMode}
+                onApply={(search: TaskSavedSearch) => {
+                  filterSetters.setFilterString(search.filter_string);
+                  viewSettingsSetters.setSortField(search.sort_field);
+                  viewSettingsSetters.setSortDirection(search.sort_direction);
+                  viewSettingsSetters.setViewMode(search.view_mode);
+                }}
+              />
             </div>
             {/* Center section: View mode toggle */}
             <div className="flex items-center gap-2">
