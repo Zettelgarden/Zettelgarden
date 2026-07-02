@@ -14,8 +14,6 @@ import { DialogStateProvider } from "../contexts/DialogStateContext";
 import { RSSProvider } from "../contexts/RSSContext";
 import { HabitProvider } from "../contexts/HabitContext";
 import { SplitViewLayout } from "../components/cards/SplitViewLayout";
-import { ChatSidebarLayout } from "../components/chat/ChatSidebarLayout";
-import { ChatPanelLayout } from "../components/chat/ChatPanelLayout";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { ToastProvider } from "../components/toast/ToastContext";
 import { AppRoutes } from "./AppRoutes";
@@ -51,7 +49,7 @@ function MainAppContent() {
     updateUser,
   } = useAuth();
   const { setRefreshTasks } = useTaskContext();
-  const { pinnedCard, isPinMode, chatSidebarCard, isChatSidebarMode, isChatOpen } = useUIState();
+  const { pinnedCard, isPinMode } = useUIState();
 
   // changing pages
 
@@ -101,40 +99,6 @@ function MainAppContent() {
                   />
                 </div>
               </SplitViewLayout>
-            </ErrorBoundary>
-          ) : isChatSidebarMode && chatSidebarCard ? (
-            <ErrorBoundary>
-              <ChatSidebarLayout chatSidebarCard={chatSidebarCard}>
-                <div className="">
-                  <EmailValidationBanner />
-                  <AppRoutes
-                    hasSubscription={hasSubscription}
-                    searchTerm={searchTerm}
-                    setSearchTerm={setSearchTerm}
-                    searchResults={searchResults}
-                    setSearchResults={setSearchResults}
-                    searchConfig={searchConfig}
-                    setSearchConfig={setSearchConfig}
-                  />
-                </div>
-              </ChatSidebarLayout>
-            </ErrorBoundary>
-          ) : isChatOpen ? (
-            <ErrorBoundary>
-              <ChatPanelLayout>
-                <div className="">
-                  <EmailValidationBanner />
-                  <AppRoutes
-                    hasSubscription={hasSubscription}
-                    searchTerm={searchTerm}
-                    setSearchTerm={setSearchTerm}
-                    searchResults={searchResults}
-                    setSearchResults={setSearchResults}
-                    searchConfig={searchConfig}
-                    setSearchConfig={setSearchConfig}
-                  />
-                </div>
-              </ChatPanelLayout>
             </ErrorBoundary>
           ) : (
             <div className="">

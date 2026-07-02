@@ -10,7 +10,6 @@ interface ViewPageHeaderProps {
   viewingCard: Card;
   isPinned: boolean;
   onTogglePin: () => void;
-  onOpenChatSidebar: () => void;
   onEditCard: () => void;
   onToggleStar: () => void;
   toggleCreateTaskWindow: () => void;
@@ -26,7 +25,6 @@ export function ViewPageHeader({
   viewingCard,
   isPinned,
   onTogglePin,
-  onOpenChatSidebar,
   onEditCard,
   onToggleStar,
   toggleCreateTaskWindow,
@@ -58,12 +56,6 @@ export function ViewPageHeader({
           isPinned={isPinned}
           onTogglePin={onTogglePin}
         />
-        <Button
-          onClick={onOpenChatSidebar}
-          className="bg-green-500 hover:bg-green-600 text-white"
-        >
-          💬 Chat
-        </Button>
         <Button onClick={onEditCard}>Edit</Button>
         <Menu as="div" className="relative inline-block text-right">
           <div>

@@ -3,22 +3,13 @@ import { Card, PartialCard } from "../models/Card";
 
 /**
  * UIStateContext - Consolidates simple UI state from multiple providers:
- * - ChatProvider (conversationId, showChat)
  * - PinProvider (pinnedCard) - isPinMode is derived: pinnedCard !== null
- * - ChatSidebarProvider (chatSidebarCard, isChatSidebarMode)
- * - ChatPanel (isChatOpen) - for sidebar chat without card context
  * - PartialCardProvider (lastCard, nextCardId)
  * - CardRefreshProvider (refreshTrigger)
  * - FileProvider (refreshFiles)
  */
 
 interface UIStateContextType {
-  // Chat state
-  conversationId: string;
-  setConversationId: (id: string) => void;
-  showChat: boolean;
-  setShowChat: (show: boolean) => void;
-
   // Sidebar state
   isSidebarCollapsed: boolean;
   setIsSidebarCollapsed: (collapsed: boolean) => void;
@@ -31,16 +22,6 @@ interface UIStateContextType {
   pinnedCard: Card | null;
   setPinnedCard: (card: Card | null) => void;
   isPinMode: boolean; // Derived: pinnedCard !== null
-
-  // Chat sidebar state (with card context)
-  chatSidebarCard: Card | null;
-  setChatSidebarCard: (card: Card | null) => void;
-  isChatSidebarMode: boolean; // Derived: chatSidebarCard !== null
-
-  // Chat panel state (without card context - from sidebar button)
-  isChatOpen: boolean;
-  setIsChatOpen: (open: boolean) => void;
-  toggleChatOpen: () => void;
 
   // Partial card state
   lastCard: PartialCard | null;
@@ -61,8 +42,6 @@ const UIStateContext = createContext<UIStateContextType | undefined>(undefined);
 
 const SIDEBAR_COLLAPSED_KEY = 'zettelgarden-sidebar-collapsed';
 const PINNED_CARD_KEY = 'zettelgarden-pinned-card';
-const CHAT_SIDEBAR_CARD_KEY = 'zettelgarden-chat-sidebar-card';
-const CHAT_OPEN_KEY = 'zettelgarden-chat-open';
 
 const getInitialSidebarState = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -80,19 +59,9 @@ const getStoredCard = (key: string): Card | null => {
   }
 };
 
-const getInitialChatOpenState = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  const stored = localStorage.getItem(CHAT_OPEN_KEY);
-  return stored === 'true';
-};
-
 export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  // Chat state
-  const [conversationId, setConversationId] = useState<string>("");
-  const [showChat, setShowChat] = useState<boolean>(false);
-
   // Sidebar state
   const [isSidebarCollapsed, setIsSidebarCollapsedState] = useState<boolean>(getInitialSidebarState);
   const [isMobileSidebarOpen, setIsMobileSidebarOpenState] = useState<boolean>(false);
@@ -121,29 +90,6 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
   // Pin state
   const [pinnedCard, setPinnedCard] = useState<Card | null>(() => getStoredCard(PINNED_CARD_KEY));
 
-  // Chat sidebar state
-  const [chatSidebarCard, setChatSidebarCard] = useState<Card | null>(() => getStoredCard(CHAT_SIDEBAR_CARD_KEY));
-
-  // Chat panel state (without card context)
-  const [isChatOpen, setIsChatOpenState] = useState<boolean>(getInitialChatOpenState);
-
-  const setIsChatOpen = (open: boolean) => {
-    setIsChatOpenState(open);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(CHAT_OPEN_KEY, String(open));
-    }
-  };
-
-  const toggleChatOpen = () => {
-    setIsChatOpenState(prev => {
-      const newValue = !prev;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(CHAT_OPEN_KEY, String(newValue));
-      }
-      return newValue;
-    });
-  };
-
   // Partial card state
   const [lastCard, setLastCard] = useState<PartialCard | null>(null);
   const [nextCardId, setNextCardId] = useState<string | null>(null);
@@ -169,26 +115,9 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [pinnedCard]);
 
-  // Sync chat sidebar card changes to localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if (chatSidebarCard) {
-        localStorage.setItem(CHAT_SIDEBAR_CARD_KEY, JSON.stringify(chatSidebarCard));
-      } else {
-        localStorage.removeItem(CHAT_SIDEBAR_CARD_KEY);
-      }
-    }
-  }, [chatSidebarCard]);
-
   return (
     <UIStateContext.Provider
       value={{
-        // Chat
-        conversationId,
-        setConversationId,
-        showChat,
-        setShowChat,
-
         // Sidebar
         isSidebarCollapsed,
         setIsSidebarCollapsed,
@@ -201,16 +130,6 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
         pinnedCard,
         setPinnedCard,
         isPinMode: pinnedCard !== null,
-
-        // Chat sidebar
-        chatSidebarCard,
-        setChatSidebarCard,
-        isChatSidebarMode: chatSidebarCard !== null,
-
-        // Chat panel (without card)
-        isChatOpen,
-        setIsChatOpen,
-        toggleChatOpen,
 
         // Partial card
         lastCard,
@@ -242,7 +161,5 @@ export const useUIState = () => {
 
 // Backwards compatibility exports - these can be removed after migrating all consumers
 export const usePinContext = useUIState;
-export const useChatSidebarContext = useUIState;
-export const useChatContext = useUIState;
 export const useCardRefresh = useUIState;
 export const useFileContext = useUIState;

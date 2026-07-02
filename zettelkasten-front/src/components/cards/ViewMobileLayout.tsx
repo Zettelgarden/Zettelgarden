@@ -31,7 +31,6 @@ interface ViewMobileLayoutProps {
   onCreateChildCard: () => void;
   onToggleStar: () => void;
   onTogglePin: () => void;
-  onOpenChatSidebar: () => void;
   toggleCreateTaskWindow: () => void;
   onTagClick: (tagName: string) => void;
   onRemoveTag: (tagName: string) => void;
@@ -66,7 +65,6 @@ export function ViewMobileLayout({
   onCreateChildCard,
   onToggleStar,
   onTogglePin,
-  onOpenChatSidebar,
   toggleCreateTaskWindow,
   onTagClick,
   onRemoveTag,

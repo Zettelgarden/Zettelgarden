@@ -64,7 +64,6 @@ interface ViewPageContainerActions {
   onCreateChildCard: () => void;
   onToggleStar: () => void;
   onTogglePin: () => void;
-  onOpenChatSidebar: () => void;
   toggleCreateTaskWindow: () => void;
   onTagClick: (tagName: string) => void;
   onRemoveTag: (tagName: string) => void;
@@ -108,7 +107,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   } = useDialogState();
 
   const { tags } = useTagContext();
-  const { pinnedCard, setPinnedCard, setChatSidebarCard } = useUIState();
+  const { pinnedCard, setPinnedCard } = useUIState();
 
   const [showingSummary, setShowingSummary] = useState(false);
   const [showingAnalysis, setShowingAnalysis] = useState(false);
@@ -210,11 +209,6 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
     }
   };
 
-  const handleOpenChatSidebar = () => {
-    if (!cardData.viewingCard) return;
-    setChatSidebarCard(cardData.viewingCard);
-  };
-
   const isPinned = !!(pinnedCard && cardData.viewingCard && pinnedCard.id === cardData.viewingCard.id);
 
   const onResummarize = async () => {
@@ -291,7 +285,6 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
       onCreateChildCard: handleCreateChildCard,
       onToggleStar: handleToggleStar,
       onTogglePin: handleTogglePin,
-      onOpenChatSidebar: handleOpenChatSidebar,
       toggleCreateTaskWindow,
       onTagClick: handleTagClick,
       onRemoveTag: handleRemoveTag,

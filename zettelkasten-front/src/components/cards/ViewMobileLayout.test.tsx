@@ -86,7 +86,6 @@ describe("ViewMobileLayout", () => {
     onCreateChildCard: vi.fn(),
     onToggleStar: vi.fn(),
     onTogglePin: vi.fn(),
-    onOpenChatSidebar: vi.fn(),
     toggleCreateTaskWindow: vi.fn(),
     onTagClick: vi.fn(),
     onRemoveTag: vi.fn(),

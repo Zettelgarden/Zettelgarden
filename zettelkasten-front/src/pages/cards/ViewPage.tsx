@@ -82,7 +82,6 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
     onCreateChildCard,
     onToggleStar,
     onTogglePin,
-    onOpenChatSidebar,
     toggleCreateTaskWindow,
     onTagClick,
     onRemoveTag,
@@ -130,7 +129,6 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
         onCreateChildCard={onCreateChildCard}
         onToggleStar={onToggleStar}
         onTogglePin={onTogglePin}
-        onOpenChatSidebar={onOpenChatSidebar}
         toggleCreateTaskWindow={toggleCreateTaskWindow}
         onTagClick={onTagClick}
         onRemoveTag={onRemoveTag}
@@ -168,7 +166,6 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
             viewingCard={viewingCard}
             isPinned={!!isPinned}
             onTogglePin={onTogglePin}
-            onOpenChatSidebar={onOpenChatSidebar}
             onEditCard={onEditCard}
             onToggleStar={onToggleStar}
             toggleCreateTaskWindow={toggleCreateTaskWindow}

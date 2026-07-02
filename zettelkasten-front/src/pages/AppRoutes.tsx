@@ -15,7 +15,6 @@ import { Summarizer } from "./Summarizer";
 import { FactPage } from "./FactPage";
 import { MemoryPage } from "./MemoryPage";
 import { HelpPage } from "./HelpPage";
-import { ChatPage } from "./ChatPage";
 import { StatsPage } from "./StatsPage";
 import { SchemaPage } from "./SchemaPage";
 import { SchemaCreatePage } from "./SchemaCreatePage";
@@ -100,7 +99,6 @@ export function AppRoutes({
       <Route path="schemas/new" element={proOnly(<SchemaCreatePage />, "Schemas")} />
       <Route path="schemas/:id/edit" element={proOnly(<SchemaEditPage />, "Schemas")} />
       <Route path="schemas/:id/table" element={proOnly(<SchemaTableWrapper />, "Schemas")} />
-      <Route path="chat" element={proOnly(<ChatPage />, "Chat")} />
       <Route path="habits" element={proOnly(<Habits />, "Habits")} />
       <Route path="rss" element={proOnly(<RssPage />, "RSS")} />
       <Route path="rss/manage" element={proOnly(<RssManagePage />, "RSS")} />

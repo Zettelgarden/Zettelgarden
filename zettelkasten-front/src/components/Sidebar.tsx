@@ -28,7 +28,7 @@ import { TodaysHabitsWidget } from "./habits/TodaysHabitsWidget";
 export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { lastCard, conversationId, setConversationId, isSidebarCollapsed, toggleSidebarCollapsed, isMobileSidebarOpen, setIsMobileSidebarOpen } = useUIState();
+  const { lastCard, isSidebarCollapsed, toggleSidebarCollapsed, isMobileSidebarOpen, setIsMobileSidebarOpen } = useUIState();
   const { showToast } = useToast();
   const { tasks } = useTaskContext();
   const { unreadCount: unreadRssCount } = useRSS();
