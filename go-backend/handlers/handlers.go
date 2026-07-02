@@ -6,7 +6,6 @@ import (
 	"go-backend/models"
 	"go-backend/server"
 	"go-backend/services"
-	"go-backend/handlers/chat_agent"
 	"log"
 	"net/http"
 	"net/url"
@@ -32,9 +31,6 @@ type Handler struct {
 	DB             *sql.DB
 	Server         *server.Server
 	messageMutexes sync.Map // map[string]*sync.Mutex - per-message mutexes
-
-	// Chat service for AI/agent operations
-	ChatService *chat_agent.ChatService
 
 	// Rate limiting and concurrency control for summarization
 	summarizationRateLimits   sync.Map // map[int][]time.Time - request timestamps per user

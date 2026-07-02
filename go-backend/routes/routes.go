@@ -85,9 +85,6 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.Sc
 	// Summarize routes
 	RegisterSummarizeRoutes(r, h)
 
-	// Chat routes
-	RegisterChatRoutes(r, h)
-
 	// Schema routes
 	RegisterSchemaRoutes(r, h)
 

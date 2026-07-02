@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"go-backend/bootstrap"
 	"go-backend/handlers"
-	"go-backend/handlers/chat_agent"
 	"go-backend/mail"
 	"go-backend/models"
 	"go-backend/pkg/config"
@@ -121,14 +120,6 @@ func run() error {
 		Server: s,
 		DB:     s.DB,
 	}
-
-	// Initialize ChatService for AI/agent operations
-	log.Printf("Initializing ChatService")
-	h.ChatService = chat_agent.NewChatService(s.DB, s)
-	if h.ChatService == nil {
-		log.Fatal("ERROR: Failed to initialize ChatService")
-	}
-	log.Printf("ChatService initialized successfully")
 
 	// Initialize job rate limiter
 	log.Printf("Initializing job rate limiter (max_per_user=%d, max_global=%d)",

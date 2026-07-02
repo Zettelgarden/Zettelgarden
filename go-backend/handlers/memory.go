@@ -46,39 +46,6 @@ func (s *Handler) GenerateMemory(userID uint, cardContent string) {
 	}
 }
 
-// GenerateChatMemory generates user memory based on chat via job queue
-func (s *Handler) GenerateChatMemory(userID uint, userMessage, assistantMessage string) {
-	if s.Server.Testing {
-		return
-	}
-
-	// Enqueue memory generation job to the job queue
-	jobQueue := services.NewJobQueue(s.DB)
-	payload := map[string]interface{}{
-		"memory_type":       "chat",
-		"user_message":      userMessage,
-		"assistant_message": assistantMessage,
-	}
-
-	job, err := jobQueue.Enqueue(context.Background(), models.CreateJobParams{
-		UserID:      int(userID),
-		JobType:     models.JobTypeMemory,
-		Payload:     payload,
-		MaxRetries:  2,
-		TimeoutSecs: 120,
-	})
-	if err != nil {
-		log.Printf("Failed to enqueue chat memory job for user %d: %v", userID, err)
-		return
-	}
-
-	// Update user's last_memory_job_id
-	_, err = s.DB.Exec("UPDATE users SET last_memory_job_id = $1 WHERE id = $2", job.ID, userID)
-	if err != nil {
-		log.Printf("Failed to update last_memory_job_id for user %d: %v", userID, err)
-	}
-}
-
 // GetUserMemory is a wrapper for services.GetUserMemory for backward compatibility
 func GetUserMemory(db *sql.DB, userID int) (string, error) {
 	return services.GetUserMemory(db, userID)

@@ -254,27 +254,6 @@ func (p *LLMJobProcessor) processMemoryJob(ctx context.Context, job *models.LLMJ
 			p.logger.Printf("[Processor] Failed to update memory_has_changed flag: %v", err)
 		}
 
-	case "chat":
-		// Extract user_message and assistant_message from payload
-		userMessage, ok1 := job.Payload["user_message"].(string)
-		assistantMessage, ok2 := job.Payload["assistant_message"].(string)
-		if !ok1 || !ok2 {
-			return nil, fmt.Errorf("missing user_message or assistant_message in payload")
-		}
-
-		_, err := GenerateUserChatMemory(ctx, p.db, client, uint(job.UserID), userMessage, assistantMessage)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate chat memory: %w", err)
-		}
-
-		// Update memory_has_changed flag
-		_, err = p.db.ExecContext(ctx,
-			"UPDATE users SET memory_has_changed = true WHERE id = $1",
-			job.UserID)
-		if err != nil {
-			p.logger.Printf("[Processor] Failed to update memory_has_changed flag: %v", err)
-		}
-
 	default:
 		return nil, fmt.Errorf("unknown memory type: %s", memoryType)
 	}
@@ -538,58 +517,6 @@ func GenerateUserMemory(ctx context.Context, db *sql.DB, client *models.LLMClien
 	}
 
 	prompt := fmt.Sprintf(promptTemplate, userMemory, cardContent)
-
-	messages := []openai.ChatCompletionMessage{
-		{
-			Role:    openai.ChatMessageRoleUser,
-			Content: prompt,
-		},
-	}
-
-	response, err := ExecuteLLMRequest(ctx, client, messages)
-	if err != nil {
-		return "", err
-	}
-
-	if len(response.Choices) == 0 {
-		return "", fmt.Errorf("no response from AI")
-	}
-
-	content := response.Choices[0].Message.Content
-	content = strings.TrimPrefix(content, "```json")
-	content = strings.TrimSuffix(content, "```")
-
-	err = UpdateUserMemory(db, int(userID), content)
-	if err != nil {
-		return "", err
-	}
-
-	return content, nil
-}
-
-// Helper: GenerateUserChatMemory for chat-based memory generation
-func GenerateUserChatMemory(ctx context.Context, db *sql.DB, client *models.LLMClient, userID uint, userMessage, assistantMessage string) (string, error) {
-	userMemory, err := GetUserMemory(db, int(userID))
-	if err != nil {
-		return "", err
-	}
-
-	promptTemplate, err := prompts.GetChatMemoryAssistantPrompt()
-	if err != nil {
-		// Fallback prompt
-		promptTemplate = `You are analyzing a chat conversation to update user memory.
-
-**Existing Memory:**
-%s
-
-**Chat Exchange:**
-User: %s
-Assistant: %s
-
-**Please update the memory with observations about the user based on this conversation:**`
-	}
-
-	prompt := fmt.Sprintf(promptTemplate, userMemory, userMessage, assistantMessage)
 
 	messages := []openai.ChatCompletionMessage{
 		{
