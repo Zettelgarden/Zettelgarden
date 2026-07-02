@@ -43,7 +43,6 @@ You can also try Zettelgarden directly at [zettelgarden.com](https://zettelgarde
 - **Hierarchical Organization**: Parent-child card relationships with multiple view modes
 
 ### AI-Powered Intelligence (PRO Features)
-- **AI Chat Agents**: Converse with your knowledge base using context-aware AI that can search, analyze, and synthesize information
 - **Vector Search**: Semantic similarity search using pgvector embeddings for content discovery beyond keywords
 - **Entity Recognition**: Automatic extraction and linking of people, places, organizations, and concepts using LLM-powered NLP
 - **Content Analysis**: AI-generated summaries, theme extraction, and insight generation with citation integrity

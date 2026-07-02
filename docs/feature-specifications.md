@@ -101,22 +101,6 @@
 
 ## PRO Features
 
-### AI Chat Integration
-**Description**: Converse with your knowledge base using AI
-**Technical Implementation**: OpenAI-compatible API with context injection
-**User Experience**:
-- Chat interface with knowledge context
-- Natural language queries
-- AI responses with source citations
-- Conversation history
-
-**Features**:
-- Chat with AI about your content
-- Context-aware responses
-- Source citation and linking
-- Conversation threading
-- Export chat transcripts
-
 ### Entity Recognition
 **Description**: Automatic extraction and management of people, places, concepts
 **Technical Implementation**: LLM-powered NLP pipeline with entity database

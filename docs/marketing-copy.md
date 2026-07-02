@@ -194,27 +194,6 @@ Try this: Create a note about something you're working on, then link it to 2-3 r
 Happy linking,
 The Team"
 
-### Feature Announcement
-**Subject**: "New: AI Chat With Your Knowledge Base"
-
-"Hi [Name],
-
-Big news: You can now chat with your entire knowledge base using AI.
-
-Instead of searching through notes, just ask:
-- "What did I learn about productivity this month?"
-- "How do my projects connect to my research?"
-- "What patterns do you see in my thinking?"
-
-Your AI assistant has read all your cards and can surface insights you might miss. It's like having a conversation with your second brain.
-
-PRO users get this feature now. Try it in your dashboard.
-
-[Start Chatting]
-
-Best,
-The Zettelgarden Team"
-
 ## Website Copy
 
 ### About Page

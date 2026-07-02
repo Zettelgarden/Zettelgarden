@@ -53,7 +53,6 @@ Zettelgarden is a human-centric, open-source personal knowledge management syste
 - **Templates**: Reusable card templates with variables
 
 ### PRO Features ($10/month, $100/year)
-- **AI Chat Integration**: Converse with your knowledge base
 - **Vector Search**: Semantic search using embeddings
 - **Entity Recognition**: Automatic extraction and linking of people, places, concepts
 - **Content Analysis**: AI-powered summaries and insights
