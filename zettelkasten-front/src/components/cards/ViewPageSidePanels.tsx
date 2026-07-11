@@ -10,10 +10,12 @@ import { PersonIcon } from "../../assets/icons/PersonIcon";
 import { CardStructuredDataDisplay } from "../schemas/CardStructuredDataDisplay";
 import { RSSArticle } from "../../api/rss";
 import { CategorizedReferences } from "../../api/cards";
+import { SummarizeJobResponse } from "../../api/summarizer";
 import { RelatedCards } from "./RelatedCards";
 import { ChildrenCards } from "./ChildrenCards";
 import { CardList } from "./CardList";
 import { BacklinkInput } from "./BacklinkInput";
+import { ViewCardTabbedDisplay } from "./ViewCardTabbedDisplay";
 import { Collapsible } from "../Collapsible";
 import { SortMethod, sortPartialCards } from "../../utils/cards";
 import { SortControl as SortControlComponent } from "./SortControl";
@@ -38,6 +40,10 @@ interface ViewPageSidePanelsProps {
   onCreateChildCard: () => void;
   categorizedReferences: CategorizedReferences;
   onAddBacklink: (selectedCard: PartialCard) => void;
+  setViewCard: (card: Card) => void;
+  setError: (error: string) => void;
+  summaries: SummarizeJobResponse[] | null;
+  fileUploadRef: React.RefObject<HTMLInputElement>;
 }
 
 const TABS: { id: RightPaneTab; label: string }[] = [
@@ -64,6 +70,10 @@ export function ViewPageSidePanels({
   onCreateChildCard,
   categorizedReferences,
   onAddBacklink,
+  setViewCard,
+  setError,
+  summaries,
+  fileUploadRef,
 }: ViewPageSidePanelsProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -365,6 +375,19 @@ export function ViewPageSidePanels({
                 <span className="font-medium w-20">Updated:</span>
                 <span className="flex-1">{viewingCard.updated_at.toISOString()}</span>
               </div>
+            </div>
+
+            {/* Entities / Files / History / Summaries — moved here from the
+                main column so the reading surface is pure prose + tasks. */}
+            <div className="pt-2">
+              <ViewCardTabbedDisplay
+                viewingCard={viewingCard}
+                setViewCard={setViewCard}
+                setError={setError}
+                handleOpenEntity={onOpenEntity}
+                summaries={summaries}
+                fileUploadRef={fileUploadRef}
+              />
             </div>
           </>
         )}

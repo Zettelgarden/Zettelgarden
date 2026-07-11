@@ -22,11 +22,6 @@ interface ViewCardContentSectionProps {
   latestSummary: SummarizeJobResponse | null;
   analysis: SectionAnalysis[] | null;
   onCreateChildCard: () => void;
-  setViewCard: (card: Card) => void;
-  setError: (error: string) => void;
-  handleOpenEntity: (entity: any) => void;
-  summaries: any;
-  fileUploadRef: React.RefObject<HTMLInputElement>;
   onSaveCard?: (updatedCard: Card) => void | Promise<void>;
   /**
    * When true (mobile), render Children + Linked references inline as before.
@@ -36,6 +31,17 @@ interface ViewCardContentSectionProps {
   showRelationships?: boolean;
   categorizedReferences?: CategorizedReferences;
   onAddBacklink?: (selectedCard: PartialCard) => void;
+  /**
+   * When true (mobile), render the entities/files/history/summaries tabbed
+   * display inline. When false/absent (desktop), it lives in the rail's
+   * Metadata tab, so the props below are only needed on the mobile path.
+   */
+  showTabbedDisplay?: boolean;
+  setViewCard?: (card: Card) => void;
+  setError?: (error: string) => void;
+  handleOpenEntity?: (entity: any) => void;
+  summaries?: any;
+  fileUploadRef?: React.RefObject<HTMLInputElement>;
 }
 
 export function ViewCardContentSection({
@@ -45,15 +51,16 @@ export function ViewCardContentSection({
   latestSummary,
   analysis,
   onCreateChildCard,
+  onSaveCard,
+  showRelationships = false,
+  showTabbedDisplay = false,
+  categorizedReferences,
+  onAddBacklink,
   setViewCard,
   setError,
   handleOpenEntity,
   summaries,
   fileUploadRef,
-  onSaveCard,
-  showRelationships = false,
-  categorizedReferences,
-  onAddBacklink,
 }: ViewCardContentSectionProps) {
   const { setRightPaneOpen, setRightPaneTab } = useUIState();
   const [childrenSortMethod, setChildrenSortMethod] = useState<SortMethod>("cardId");
@@ -255,17 +262,21 @@ export function ViewCardContentSection({
         </div>
       )}
 
-      {/* Tabbed Display (entities, facts, etc.) */}
-      <div className="pt-2">
-        <ViewCardTabbedDisplay
-          viewingCard={viewingCard}
-          setViewCard={setViewCard}
-          setError={setError}
-          handleOpenEntity={handleOpenEntity}
-          summaries={summaries}
-          fileUploadRef={fileUploadRef}
-        />
-      </div>
+      {/* Tabbed Display (entities, files, history, summaries).
+           Desktop renders this in the rail's Metadata tab; mobile keeps it
+           inline behind the showTabbedDisplay flag. */}
+      {showTabbedDisplay && (
+        <div className="pt-2">
+          <ViewCardTabbedDisplay
+            viewingCard={viewingCard}
+            setViewCard={setViewCard ?? (() => undefined)}
+            setError={setError ?? (() => undefined)}
+            handleOpenEntity={handleOpenEntity ?? (() => undefined)}
+            summaries={summaries ?? null}
+            fileUploadRef={fileUploadRef ?? { current: null }}
+          />
+        </div>
+      )}
     </div>
   );
 }

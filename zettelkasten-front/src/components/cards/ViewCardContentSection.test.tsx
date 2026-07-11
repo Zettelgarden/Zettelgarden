@@ -59,6 +59,9 @@ describe('ViewCardContentSection — desktop (footer affordance)', () => {
     // Inline relationship sections are gone on desktop.
     expect(screen.queryByText('Children')).not.toBeInTheDocument();
     expect(screen.queryByText('Linked references')).not.toBeInTheDocument();
+    // The tabbed display (entities/files/history/summaries) lives in the
+    // rail's Metadata tab on desktop, not inline here.
+    expect(screen.queryByTestId('tabbed-display')).not.toBeInTheDocument();
   });
 
   it('opens the rail to the Links tab when +Link is clicked', () => {
@@ -124,5 +127,16 @@ describe('ViewCardContentSection — mobile (showRelationships)', () => {
     // Footer affordance is desktop-only.
     expect(screen.queryByText('＋ Child')).not.toBeInTheDocument();
     expect(screen.queryByText('＋ Link')).not.toBeInTheDocument();
+  });
+
+  it('renders the tabbed display inline when showTabbedDisplay is set', () => {
+    renderSection({
+      showRelationships: true,
+      showTabbedDisplay: true,
+      categorizedReferences: { bidirectional: [], incoming: [], outgoing: [] },
+      summaries: [],
+    });
+    // Mobile keeps entities/files/history/summaries inline.
+    expect(screen.getByTestId('tabbed-display')).toBeInTheDocument();
   });
 });

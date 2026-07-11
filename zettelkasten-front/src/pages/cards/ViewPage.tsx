@@ -176,11 +176,6 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
                   latestSummary={latestSummary}
                   analysis={analysis}
                   onCreateChildCard={onCreateChildCard}
-                  setViewCard={setViewCard}
-                  setError={setError}
-                  handleOpenEntity={handleOpenEntity}
-                  summaries={summaries}
-                  fileUploadRef={fileUploadRef}
                   onSaveCard={handleSaveCard}
                 />
               )}
@@ -218,6 +213,10 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
               onCreateChildCard={onCreateChildCard}
               categorizedReferences={categorizedReferences}
               onAddBacklink={onAddBacklink}
+              setViewCard={setViewCard}
+              setError={setError}
+              summaries={summaries}
+              fileUploadRef={fileUploadRef}
             />
             )}
           </div>

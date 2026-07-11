@@ -16,6 +16,9 @@ vi.mock('./ChildrenCards', () => ({
 vi.mock('./BacklinkInput', () => ({
   BacklinkInput: () => <div data-testid="backlink-input">Add Backlink</div>,
 }));
+vi.mock('./ViewCardTabbedDisplay', () => ({
+  ViewCardTabbedDisplay: () => <div data-testid="tabbed-display">tabs</div>,
+}));;
 
 type PanelProps = React.ComponentProps<typeof ViewPageSidePanels>;
 const [viewingCard, parentCard] = sampleCards();
@@ -34,6 +37,10 @@ function baseProps(overrides: Partial<PanelProps> = {}): PanelProps {
     onCreateChildCard: vi.fn(),
     categorizedReferences: { bidirectional: [], incoming: [], outgoing: [] },
     onAddBacklink: vi.fn(),
+    setViewCard: vi.fn(),
+    setError: vi.fn(),
+    summaries: null,
+    fileUploadRef: { current: null } as React.RefObject<HTMLInputElement>,
     ...overrides,
   };
 }
@@ -57,6 +64,8 @@ describe('ViewPageSidePanels — tabs', () => {
     renderPanel();
     // No children/references → Metadata is the smart default.
     expect(screen.getByText('Tags')).toBeInTheDocument();
+    // The entities/files/history/summaries tabbed display lives here now.
+    expect(screen.getByTestId('tabbed-display')).toBeInTheDocument();
     // Links-only content is absent on the default tab.
     expect(screen.queryByText('Children')).not.toBeInTheDocument();
   });
