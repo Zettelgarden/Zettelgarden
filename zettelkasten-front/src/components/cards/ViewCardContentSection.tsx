@@ -10,6 +10,7 @@ import { CardList } from "./CardList";
 import { BacklinkInput } from "./BacklinkInput";
 import { CardBody } from "./CardBody";
 import { ViewCardTabbedDisplay } from "./ViewCardTabbedDisplay";
+import { Collapsible } from "../Collapsible";
 import { SortMethod, sortPartialCards } from "../../utils/cards";
 import { CardStructuredDataDisplay } from "../schemas/CardStructuredDataDisplay";
 import { SortControl as SortControlComponent } from "./SortControl";
@@ -54,6 +55,8 @@ export function ViewCardContentSection({
   const sortedBidirectional = sortPartialCards(categorizedReferences.bidirectional, referencesSortMethod);
   const sortedIncoming = sortPartialCards(categorizedReferences.incoming, referencesSortMethod);
   const sortedOutgoing = sortPartialCards(categorizedReferences.outgoing, referencesSortMethod);
+  const totalReferences =
+    sortedBidirectional.length + sortedIncoming.length + sortedOutgoing.length;
 
   return (
     <div className="space-y-8">
@@ -138,17 +141,17 @@ export function ViewCardContentSection({
         )}
       </div>
 
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <HeaderSubSection text="References" />
-            <SortControlComponent
-              sortMethod={referencesSortMethod}
-              onSortChange={setReferencesSortMethod}
-            />
-          </div>
-        </div>
-
+      <Collapsible
+        title="Linked references"
+        count={totalReferences}
+        defaultOpen={totalReferences > 0}
+        rightElement={
+          <SortControlComponent
+            sortMethod={referencesSortMethod}
+            onSortChange={setReferencesSortMethod}
+          />
+        }
+      >
         {/* Bidirectional Links */}
         {sortedBidirectional.length > 0 && (
           <div className="mb-3">
@@ -181,15 +184,17 @@ export function ViewCardContentSection({
 
         {/* Show message if no references at all */}
         {sortedBidirectional.length === 0 &&
-         sortedIncoming.length === 0 &&
-         sortedOutgoing.length === 0 && (
-          <div className="text-gray-500 text-sm mt-2">No references yet.</div>
-        )}
+          sortedIncoming.length === 0 &&
+          sortedOutgoing.length === 0 && (
+            <div className="text-gray-500 text-sm">
+              No references yet.
+            </div>
+          )}
 
         <div className="mt-4">
           <BacklinkInput addBacklink={onAddBacklink} excludeCardId={viewingCard.id} />
         </div>
-      </div>
+      </Collapsible>
 
       {/* Tasks Section */}
       {viewingCard.tasks.length > 0 && (
