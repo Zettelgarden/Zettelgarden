@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Card, PartialCard, RelatedCard } from "../../models/Card";
 import { Entity } from "../../models/Card";
 import { HeaderSubSection } from "../Header";
-import { Button } from "../Button";
 import { CardItem } from "./CardItem";
 import { SearchTagDropdown } from "../tags/SearchTagDropdown";
 import { linkifyWithDefaultOptions } from "../../utils/strings";
@@ -46,7 +45,7 @@ export function ViewPageSidePanels({
   const navigate = useNavigate();
 
   return (
-    <div className="md:w-1/3 bg-white rounded-lg p-4 shadow-sm space-y-4">
+    <div className="md:w-1/3 space-y-6">
       {/* Parent Card Section */}
       {parentCard && (
         <div>
@@ -55,31 +54,35 @@ export function ViewPageSidePanels({
             <CardItem card={parentCard} />
           </div>
 
-          {prevSibling && (
-            <Button
-              onClick={() => navigate(`/app/card/${prevSibling.id}`)}
-              variant="secondary"
-            >
-              ← Prev
-            </Button>
-          )}
-          {parentCard && (
-            <Button
-              onClick={() => navigate(`/app/card/${parentCard.id}`)}
-              variant="secondary"
-            >
-              ↑ Up
-            </Button>
-          )}
-          {nextSibling && (
-            <Button
-              onClick={() => navigate(`/app/card/${nextSibling.id}`)}
-              variant="secondary"
-            >
-              Next →
-            </Button>
-          )}
-          <hr className="my-4" />
+          <div className="mt-2 flex flex-wrap items-center gap-1 text-sm">
+            {prevSibling && (
+              <button
+                onClick={() => navigate(`/app/card/${prevSibling.id}`)}
+                className="px-2 py-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                title="Previous sibling"
+              >
+                ‹ Prev
+              </button>
+            )}
+            {parentCard && (
+              <button
+                onClick={() => navigate(`/app/card/${parentCard.id}`)}
+                className="px-2 py-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                title="Go to parent"
+              >
+                ↑ Up
+              </button>
+            )}
+            {nextSibling && (
+              <button
+                onClick={() => navigate(`/app/card/${nextSibling.id}`)}
+                className="px-2 py-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                title="Next sibling"
+              >
+                Next ›
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -107,7 +110,6 @@ export function ViewPageSidePanels({
               </div>
             </button>
           </div>
-          <hr className="my-4" />
         </div>
       )}
 
@@ -141,7 +143,6 @@ export function ViewPageSidePanels({
               </li>
             ))}
           </ul>
-          <hr className="my-4" />
         </div>
       )}
 
@@ -154,8 +155,7 @@ export function ViewPageSidePanels({
         />
       )}
 
-      <div>
-
+      <div className="py-1">
         <CardStructuredDataDisplay
           schemaId={viewingCard.schema_id}
           structuredData={viewingCard.structured_data}
@@ -194,7 +194,6 @@ export function ViewPageSidePanels({
             </span>
           ))}
         </div>
-        <hr className="my-4" />
       </div>
 
       {/* Details Section */}

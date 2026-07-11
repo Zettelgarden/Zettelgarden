@@ -56,10 +56,15 @@ export function ViewCardContentSection({
   const sortedOutgoing = sortPartialCards(categorizedReferences.outgoing, referencesSortMethod);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
       <div
-        className={`rounded-lg py-3 prose prose-sm shadow-sm max-w-none px-3 ${showingSummary ? "bg-yellow-50 border border-yellow-200" : showingAnalysis ? "bg-blue-50 border border-blue-200" : "bg-white"
-          }`}
+        className={`prose prose-sm max-w-none ${
+          showingSummary
+            ? "bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3"
+            : showingAnalysis
+            ? "bg-blue-50 border border-blue-200 rounded-lg px-4 py-3"
+            : ""
+        }`}
       >
         {showingSummary && latestSummary?.result ? (
           <div>
@@ -131,7 +136,6 @@ export function ViewCardContentSection({
         ) : (
           <div className="text-gray-500 text-sm mt-2">No children yet.</div>
         )}
-        <hr className="my-4" />
       </div>
 
       <div>
@@ -185,12 +189,11 @@ export function ViewCardContentSection({
         <div className="mt-4">
           <BacklinkInput addBacklink={onAddBacklink} excludeCardId={viewingCard.id} />
         </div>
-        <hr className="my-4" />
       </div>
 
       {/* Tasks Section */}
       {viewingCard.tasks.length > 0 && (
-        <div className="bg-white rounded-lg p-4 shadow-sm">
+        <div>
           <HeaderSubSection text="Tasks" />
           <div className="mt-2 space-y-2">
             {viewingCard.tasks.map((task, index) => (
@@ -205,7 +208,7 @@ export function ViewCardContentSection({
       )}
 
       {/* Tabbed Display (entities, facts, etc.) */}
-      <div className="bg-white rounded-lg shadow-sm">
+      <div className="pt-2">
         <ViewCardTabbedDisplay
           viewingCard={viewingCard}
           setViewCard={setViewCard}
