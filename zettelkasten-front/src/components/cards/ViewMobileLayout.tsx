@@ -187,6 +187,7 @@ export function ViewMobileLayout({
             latestSummary={latestSummary}
             analysis={analysis}
             onCreateChildCard={onCreateChildCard}
+            showRelationships
             categorizedReferences={categorizedReferences}
             onAddBacklink={onAddBacklink}
             setViewCard={setViewCard}

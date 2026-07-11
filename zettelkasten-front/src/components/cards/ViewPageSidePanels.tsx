@@ -9,8 +9,15 @@ import { linkifyWithDefaultOptions } from "../../utils/strings";
 import { PersonIcon } from "../../assets/icons/PersonIcon";
 import { CardStructuredDataDisplay } from "../schemas/CardStructuredDataDisplay";
 import { RSSArticle } from "../../api/rss";
+import { CategorizedReferences } from "../../api/cards";
 import { RelatedCards } from "./RelatedCards";
-import { useUIState } from "../../contexts/UIStateContext";
+import { ChildrenCards } from "./ChildrenCards";
+import { CardList } from "./CardList";
+import { BacklinkInput } from "./BacklinkInput";
+import { Collapsible } from "../Collapsible";
+import { SortMethod, sortPartialCards } from "../../utils/cards";
+import { SortControl as SortControlComponent } from "./SortControl";
+import { useUIState, RightPaneTab } from "../../contexts/UIStateContext";
 
 type SidePanelTab = "links" | "metadata" | "entities";
 
@@ -28,9 +35,12 @@ interface ViewPageSidePanelsProps {
   relatedCards?: RelatedCard[];
   onRelatedCardClick?: (cardId: number) => void;
   onRelatedCardAddReference?: (card: RelatedCard) => void;
+  onCreateChildCard: () => void;
+  categorizedReferences: CategorizedReferences;
+  onAddBacklink: (selectedCard: PartialCard) => void;
 }
 
-const TABS: { id: SidePanelTab; label: string }[] = [
+const TABS: { id: RightPaneTab; label: string }[] = [
   { id: "links", label: "Links" },
   { id: "metadata", label: "Metadata" },
   { id: "entities", label: "Entities" },
@@ -49,13 +59,23 @@ export function ViewPageSidePanels({
   sourceArticle,
   relatedCards,
   onRelatedCardClick,
-  onRelatedCardAddReference
+  onRelatedCardAddReference,
+  onCreateChildCard,
+  categorizedReferences,
+  onAddBacklink,
 }: ViewPageSidePanelsProps) {
   const navigate = useNavigate();
-  const { toggleRightPane } = useUIState();
-  // Metadata is the densest tab today; Links fills out in PR 3 when
-  // Children + Linked references move in.
-  const [activeTab, setActiveTab] = useState<SidePanelTab>("metadata");
+  const { toggleRightPane, rightPaneTab, setRightPaneTab } = useUIState();
+
+  const [childrenSortMethod, setChildrenSortMethod] = useState<SortMethod>("cardId");
+  const [referencesSortMethod, setReferencesSortMethod] = useState<SortMethod>("cardId");
+
+  const sortedChildren = sortPartialCards(viewingCard.children, childrenSortMethod);
+  const sortedBidirectional = sortPartialCards(categorizedReferences.bidirectional, referencesSortMethod);
+  const sortedIncoming = sortPartialCards(categorizedReferences.incoming, referencesSortMethod);
+  const sortedOutgoing = sortPartialCards(categorizedReferences.outgoing, referencesSortMethod);
+  const totalReferences =
+    sortedBidirectional.length + sortedIncoming.length + sortedOutgoing.length;
 
   return (
     <div className="md:w-1/3">
@@ -65,10 +85,10 @@ export function ViewPageSidePanels({
           {TABS.map((tab) => (
             <span
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => setRightPaneTab(tab.id)}
               className={`
                 cursor-pointer font-medium py-1 px-2 flex items-center text-sm
-                ${activeTab === tab.id
+                ${rightPaneTab === tab.id
                   ? "text-blue-600 border-b-2 border-blue-600"
                   : "text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md"
                 }
@@ -92,10 +112,10 @@ export function ViewPageSidePanels({
       </div>
 
       <div className="space-y-6">
-        {activeTab === "links" && (
+        {rightPaneTab === "links" && (
           <>
             {/* Parent Card + sibling nav */}
-            {parentCard ? (
+            {parentCard && (
               <div>
                 <HeaderSubSection text="Parent" />
                 <div className="mt-2">
@@ -132,13 +152,98 @@ export function ViewPageSidePanels({
                   )}
                 </div>
               </div>
-            ) : (
-              <p className="text-sm text-gray-400">No links for this card yet.</p>
+            )}
+
+            {/* Children */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <HeaderSubSection text="Children" />
+                  <SortControlComponent
+                    sortMethod={childrenSortMethod}
+                    onSortChange={setChildrenSortMethod}
+                  />
+                </div>
+                <button
+                  onClick={onCreateChildCard}
+                  className="text-blue-500 hover:text-blue-700"
+                  title="Add child"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+              {sortedChildren.length > 0 ? (
+                <ChildrenCards
+                  allChildren={sortedChildren}
+                  card={viewingCard}
+                />
+              ) : (
+                <div className="text-gray-500 text-sm">No children yet.</div>
+              )}
+            </div>
+
+            {/* Linked references */}
+            <Collapsible
+              title="Linked references"
+              count={totalReferences}
+              defaultOpen={totalReferences > 0}
+              rightElement={
+                <SortControlComponent
+                  sortMethod={referencesSortMethod}
+                  onSortChange={setReferencesSortMethod}
+                />
+              }
+            >
+              {sortedBidirectional.length > 0 && (
+                <div className="mb-3">
+                  <h3 className="text-xs font-medium text-gray-600 mb-1.5">
+                    Two-way Links ({sortedBidirectional.length})
+                  </h3>
+                  <CardList cards={sortedBidirectional} />
+                </div>
+              )}
+
+              {sortedIncoming.length > 0 && (
+                <div className="mb-3">
+                  <h3 className="text-xs font-medium text-gray-600 mb-1.5">
+                    Incoming Links ({sortedIncoming.length})
+                  </h3>
+                  <CardList cards={sortedIncoming} />
+                </div>
+              )}
+
+              {sortedOutgoing.length > 0 && (
+                <div className="mb-3">
+                  <h3 className="text-xs font-medium text-gray-600 mb-1.5">
+                    Outgoing Links ({sortedOutgoing.length})
+                  </h3>
+                  <CardList cards={sortedOutgoing} />
+                </div>
+              )}
+
+              {totalReferences === 0 && (
+                <div className="text-gray-500 text-sm">No references yet.</div>
+              )}
+
+              <div className="mt-4">
+                <BacklinkInput addBacklink={onAddBacklink} excludeCardId={viewingCard.id} />
+              </div>
+            </Collapsible>
+
+            {/* Related cards */}
+            {relatedCards && onRelatedCardClick && (
+              <RelatedCards
+                relatedCards={relatedCards}
+                onCardClick={onRelatedCardClick}
+                onAddReference={onRelatedCardAddReference}
+              />
             )}
           </>
         )}
 
-        {activeTab === "metadata" && (
+        {rightPaneTab === "metadata" && (
           <>
             {/* Source Article Section */}
             {sourceArticle && (
@@ -167,14 +272,7 @@ export function ViewPageSidePanels({
               </div>
             )}
 
-            {/* Related Cards Section */}
-            {relatedCards && onRelatedCardClick && (
-              <RelatedCards
-                relatedCards={relatedCards}
-                onCardClick={onRelatedCardClick}
-                onAddReference={onRelatedCardAddReference}
-              />
-            )}
+            {/* Related cards live in the Links tab now. */}
 
             <div className="py-1">
               <CardStructuredDataDisplay
@@ -240,7 +338,7 @@ export function ViewPageSidePanels({
           </>
         )}
 
-        {activeTab === "entities" && (
+        {rightPaneTab === "entities" && (
           <>
             {linkedEntities && linkedEntities.length > 0 ? (
               <div>

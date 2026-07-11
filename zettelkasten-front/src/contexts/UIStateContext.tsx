@@ -9,6 +9,9 @@ import { Card, PartialCard } from "../models/Card";
  * - FileProvider (refreshFiles)
  */
 
+/** Which tab is active in the card view's right info rail. */
+export type RightPaneTab = 'links' | 'metadata' | 'entities';
+
 interface UIStateContextType {
   // Sidebar state
   isSidebarCollapsed: boolean;
@@ -22,6 +25,8 @@ interface UIStateContextType {
   rightPaneOpen: boolean;
   setRightPaneOpen: (open: boolean) => void;
   toggleRightPane: () => void;
+  rightPaneTab: RightPaneTab;
+  setRightPaneTab: (tab: RightPaneTab) => void;
 
   // Pin state
   pinnedCard: Card | null;
@@ -81,6 +86,7 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Right pane state
   const [rightPaneOpen, setRightPaneOpenState] = useState<boolean>(getInitialRightPaneState);
+  const [rightPaneTab, setRightPaneTab] = useState<RightPaneTab>('links');
 
   const setIsSidebarCollapsed = (collapsed: boolean) => {
     setIsSidebarCollapsedState(collapsed);
@@ -178,6 +184,8 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
         rightPaneOpen,
         setRightPaneOpen,
         toggleRightPane,
+        rightPaneTab,
+        setRightPaneTab,
 
         // Pin
         pinnedCard,

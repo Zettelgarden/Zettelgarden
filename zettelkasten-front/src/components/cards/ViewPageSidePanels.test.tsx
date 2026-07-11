@@ -3,7 +3,19 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { ViewPageSidePanels } from './ViewPageSidePanels';
 import { UIStateProvider, useUIState } from '../../contexts/UIStateContext';
-import { sampleCards, sampleEntityData } from '../../tests/data';
+import { sampleCards, sampleEntityData, samplePartialCards } from '../../tests/data';
+
+// Heavy children are mocked to keep this a focused unit test and avoid
+// pulling TagContext / react-pdf transitively.
+vi.mock('./CardList', () => ({
+  CardList: ({ cards }: any) => <div data-testid="card-list">{cards.length}</div>,
+}));
+vi.mock('./ChildrenCards', () => ({
+  ChildrenCards: ({ allChildren }: any) => <div data-testid="children-cards">{allChildren.length}</div>,
+}));
+vi.mock('./BacklinkInput', () => ({
+  BacklinkInput: () => <div data-testid="backlink-input">Add Backlink</div>,
+}));
 
 type PanelProps = React.ComponentProps<typeof ViewPageSidePanels>;
 const [viewingCard, parentCard] = sampleCards();
@@ -19,6 +31,9 @@ function baseProps(overrides: Partial<PanelProps> = {}): PanelProps {
     tags: [],
     onTagClick: vi.fn(),
     onRemoveTag: vi.fn(),
+    onCreateChildCard: vi.fn(),
+    categorizedReferences: { bidirectional: [], incoming: [], outgoing: [] },
+    onAddBacklink: vi.fn(),
     ...overrides,
   };
 }
@@ -34,12 +49,12 @@ function renderPanel(overrides: Partial<PanelProps> = {}) {
 }
 
 describe('ViewPageSidePanels — tabs', () => {
-  it('defaults to the Metadata tab and shows Tags + Details', () => {
+  it('defaults to the Links tab and shows the Children section', () => {
     renderPanel();
-    expect(screen.getByText('Tags')).toBeInTheDocument();
-    expect(screen.getByText('Created:')).toBeInTheDocument();
-    // Links-only content (Parent) is absent on the default tab
-    expect(screen.queryByText('Parent')).not.toBeInTheDocument();
+    // Links is the default; its Children header is visible.
+    expect(screen.getByText('Children')).toBeInTheDocument();
+    // Metadata-only content is absent on the default tab.
+    expect(screen.queryByText('Tags')).not.toBeInTheDocument();
   });
 
   it('switches to the Links tab and shows the Parent section', () => {
@@ -50,10 +65,13 @@ describe('ViewPageSidePanels — tabs', () => {
     expect(screen.queryByText('Tags')).not.toBeInTheDocument();
   });
 
-  it('shows a calm hint on the Links tab when there is no parent', () => {
+  it('renders the Children + References structure on the Links tab without a parent', () => {
     renderPanel({ parentCard: null });
-    fireEvent.click(screen.getByText('Links'));
-    expect(screen.getByText('No links for this card yet.')).toBeInTheDocument();
+    // No parent, but the Links tab still offers Children + references.
+    expect(screen.getByText('Children')).toBeInTheDocument();
+    expect(screen.getByText('Linked references')).toBeInTheDocument();
+    // Parent header is absent when there is no parent.
+    expect(screen.queryByText('Parent')).not.toBeInTheDocument();
   });
 
   it('switches to the Entities tab and shows linked entities', () => {
@@ -68,6 +86,25 @@ describe('ViewPageSidePanels — tabs', () => {
     renderPanel({ linkedEntities: [] });
     fireEvent.click(screen.getByText('Entities'));
     expect(screen.getByText('No linked entities.')).toBeInTheDocument();
+  });
+
+  it('shows Children, Linked references, and the backlink input on the Links tab', () => {
+    const [ref] = samplePartialCards();
+    renderPanel({
+      categorizedReferences: { bidirectional: [ref], incoming: [], outgoing: [] },
+    });
+    // Default tab is Links.
+    expect(screen.getByText('Children')).toBeInTheDocument();
+    expect(screen.getByText('Linked references')).toBeInTheDocument();
+    // With a reference present the collapsible is open, revealing the input.
+    expect(screen.getByTestId('backlink-input')).toBeInTheDocument();
+  });
+
+  it('calls onCreateChildCard from the Links tab add-child button', () => {
+    const onCreateChildCard = vi.fn();
+    renderPanel({ onCreateChildCard });
+    fireEvent.click(screen.getByTitle('Add child'));
+    expect(onCreateChildCard).toHaveBeenCalledTimes(1);
   });
 
   it('renders a close button that collapses the rail via context', () => {

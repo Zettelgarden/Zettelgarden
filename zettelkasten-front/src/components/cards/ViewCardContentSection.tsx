@@ -12,8 +12,8 @@ import { CardBody } from "./CardBody";
 import { ViewCardTabbedDisplay } from "./ViewCardTabbedDisplay";
 import { Collapsible } from "../Collapsible";
 import { SortMethod, sortPartialCards } from "../../utils/cards";
-import { CardStructuredDataDisplay } from "../schemas/CardStructuredDataDisplay";
 import { SortControl as SortControlComponent } from "./SortControl";
+import { useUIState } from "../../contexts/UIStateContext";
 
 interface ViewCardContentSectionProps {
   viewingCard: Card;
@@ -22,14 +22,20 @@ interface ViewCardContentSectionProps {
   latestSummary: SummarizeJobResponse | null;
   analysis: SectionAnalysis[] | null;
   onCreateChildCard: () => void;
-  categorizedReferences: CategorizedReferences;
-  onAddBacklink: (selectedCard: PartialCard) => void;
   setViewCard: (card: Card) => void;
   setError: (error: string) => void;
   handleOpenEntity: (entity: any) => void;
   summaries: any;
   fileUploadRef: React.RefObject<HTMLInputElement>;
   onSaveCard?: (updatedCard: Card) => void | Promise<void>;
+  /**
+   * When true (mobile), render Children + Linked references inline as before.
+   * When false/absent (desktop), those live in the right rail's Links tab and
+   * this section shows a footer affordance to open it instead.
+   */
+  showRelationships?: boolean;
+  categorizedReferences?: CategorizedReferences;
+  onAddBacklink?: (selectedCard: PartialCard) => void;
 }
 
 export function ViewCardContentSection({
@@ -39,22 +45,38 @@ export function ViewCardContentSection({
   latestSummary,
   analysis,
   onCreateChildCard,
-  categorizedReferences,
-  onAddBacklink,
   setViewCard,
   setError,
   handleOpenEntity,
   summaries,
   fileUploadRef,
-  onSaveCard
+  onSaveCard,
+  showRelationships = false,
+  categorizedReferences,
+  onAddBacklink,
 }: ViewCardContentSectionProps) {
+  const { setRightPaneOpen, setRightPaneTab } = useUIState();
   const [childrenSortMethod, setChildrenSortMethod] = useState<SortMethod>("cardId");
   const [referencesSortMethod, setReferencesSortMethod] = useState<SortMethod>("cardId");
 
-  const sortedChildren = sortPartialCards(viewingCard.children, childrenSortMethod);
-  const sortedBidirectional = sortPartialCards(categorizedReferences.bidirectional, referencesSortMethod);
-  const sortedIncoming = sortPartialCards(categorizedReferences.incoming, referencesSortMethod);
-  const sortedOutgoing = sortPartialCards(categorizedReferences.outgoing, referencesSortMethod);
+  const openLinksTab = () => {
+    setRightPaneOpen(true);
+    setRightPaneTab('links');
+  };
+
+  // Relationship data only computed for the mobile inline path.
+  const sortedChildren = showRelationships
+    ? sortPartialCards(viewingCard.children, childrenSortMethod)
+    : [];
+  const sortedBidirectional = showRelationships && categorizedReferences
+    ? sortPartialCards(categorizedReferences.bidirectional, referencesSortMethod)
+    : [];
+  const sortedIncoming = showRelationships && categorizedReferences
+    ? sortPartialCards(categorizedReferences.incoming, referencesSortMethod)
+    : [];
+  const sortedOutgoing = showRelationships && categorizedReferences
+    ? sortPartialCards(categorizedReferences.outgoing, referencesSortMethod)
+    : [];
   const totalReferences =
     sortedBidirectional.length + sortedIncoming.length + sortedOutgoing.length;
 
@@ -113,88 +135,109 @@ export function ViewCardContentSection({
         )}
       </div>
 
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <HeaderSubSection text="Children" />
-            <SortControlComponent
-              sortMethod={childrenSortMethod}
-              onSortChange={setChildrenSortMethod}
-            />
+      {showRelationships ? (
+        <>
+          {/* Children — inline (mobile path). Desktop shows these in the rail. */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <HeaderSubSection text="Children" />
+                <SortControlComponent
+                  sortMethod={childrenSortMethod}
+                  onSortChange={setChildrenSortMethod}
+                />
+              </div>
+              <button
+                onClick={onCreateChildCard}
+                className="text-blue-500 hover:text-blue-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+            {sortedChildren.length > 0 ? (
+              <ChildrenCards
+                allChildren={sortedChildren}
+                card={viewingCard}
+              />
+            ) : (
+              <div className="text-gray-500 text-sm mt-2">No children yet.</div>
+            )}
           </div>
-          <button
-            onClick={onCreateChildCard}
-            className="text-blue-500 hover:text-blue-700"
+
+          <Collapsible
+            title="Linked references"
+            count={totalReferences}
+            defaultOpen={totalReferences > 0}
+            rightElement={
+              <SortControlComponent
+                sortMethod={referencesSortMethod}
+                onSortChange={setReferencesSortMethod}
+              />
+            }
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-            </svg>
+            {sortedBidirectional.length > 0 && (
+              <div className="mb-3">
+                <h3 className="text-xs font-medium text-gray-600 mb-1.5">
+                  Two-way Links ({sortedBidirectional.length})
+                </h3>
+                <CardList cards={sortedBidirectional} />
+              </div>
+            )}
+
+            {sortedIncoming.length > 0 && (
+              <div className="mb-3">
+                <h3 className="text-xs font-medium text-gray-600 mb-1.5">
+                  Incoming Links ({sortedIncoming.length})
+                </h3>
+                <CardList cards={sortedIncoming} />
+              </div>
+            )}
+
+            {sortedOutgoing.length > 0 && (
+              <div className="mb-3">
+                <h3 className="text-xs font-medium text-gray-600 mb-1.5">
+                  Outgoing Links ({sortedOutgoing.length})
+                </h3>
+                <CardList cards={sortedOutgoing} />
+              </div>
+            )}
+
+            {totalReferences === 0 && (
+              <div className="text-gray-500 text-sm">
+                No references yet.
+              </div>
+            )}
+
+            {onAddBacklink && (
+              <div className="mt-4">
+                <BacklinkInput addBacklink={onAddBacklink} excludeCardId={viewingCard.id} />
+              </div>
+            )}
+          </Collapsible>
+        </>
+      ) : (
+        /* Footer affordance — always-visible entry points to the Links tab.
+           Children + Linked references live in the rail; these muted buttons
+           open the rail (and, for Child, kick off creation). Desktop only. */
+        <div className="flex items-center gap-4 -mt-4 text-xs text-gray-400">
+          <button
+            type="button"
+            onClick={() => { openLinksTab(); onCreateChildCard(); }}
+            className="hover:text-blue-600 transition-colors"
+          >
+            ＋ Child
+          </button>
+          <button
+            type="button"
+            onClick={openLinksTab}
+            className="hover:text-blue-600 transition-colors"
+          >
+            ＋ Link
           </button>
         </div>
-        {sortedChildren.length > 0 ? (
-          <ChildrenCards
-            allChildren={sortedChildren}
-            card={viewingCard}
-          />
-        ) : (
-          <div className="text-gray-500 text-sm mt-2">No children yet.</div>
-        )}
-      </div>
-
-      <Collapsible
-        title="Linked references"
-        count={totalReferences}
-        defaultOpen={totalReferences > 0}
-        rightElement={
-          <SortControlComponent
-            sortMethod={referencesSortMethod}
-            onSortChange={setReferencesSortMethod}
-          />
-        }
-      >
-        {/* Bidirectional Links */}
-        {sortedBidirectional.length > 0 && (
-          <div className="mb-3">
-            <h3 className="text-xs font-medium text-gray-600 mb-1.5">
-              Two-way Links ({sortedBidirectional.length})
-            </h3>
-            <CardList cards={sortedBidirectional} />
-          </div>
-        )}
-
-        {/* Incoming Links */}
-        {sortedIncoming.length > 0 && (
-          <div className="mb-3">
-            <h3 className="text-xs font-medium text-gray-600 mb-1.5">
-              Incoming Links ({sortedIncoming.length})
-            </h3>
-            <CardList cards={sortedIncoming} />
-          </div>
-        )}
-
-        {/* Outgoing Links */}
-        {sortedOutgoing.length > 0 && (
-          <div className="mb-3">
-            <h3 className="text-xs font-medium text-gray-600 mb-1.5">
-              Outgoing Links ({sortedOutgoing.length})
-            </h3>
-            <CardList cards={sortedOutgoing} />
-          </div>
-        )}
-
-        {/* Show message if no references at all */}
-        {sortedBidirectional.length === 0 &&
-          sortedIncoming.length === 0 &&
-          sortedOutgoing.length === 0 && (
-            <div className="text-gray-500 text-sm">
-              No references yet.
-            </div>
-          )}
-
-        <div className="mt-4">
-          <BacklinkInput addBacklink={onAddBacklink} excludeCardId={viewingCard.id} />
-        </div>
-      </Collapsible>
+      )}
 
       {/* Tasks Section */}
       {viewingCard.tasks.length > 0 && (
