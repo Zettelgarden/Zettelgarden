@@ -27,12 +27,10 @@ import {
   unstarCard,
   getStarredCards,
   getUnsortedCards,
-  getCardWithDescendants,
-  getCardWithDescendantsLimited,
   restoreCardToAuditEvent,
   createArticle,
 } from '../../api/cards';
-import { Card, PartialCard, Entity, SearchResult, CardWithDescendants } from '../../models/Card';
+import { Card, PartialCard, Entity, SearchResult } from '../../models/Card';
 import { CategorizedReferences, PaginatedSearchResponse } from '../../api/cards';
 
 /**
@@ -157,31 +155,6 @@ export function useLinkedEntities(cardId: string): UseQueryResult<Entity[], Erro
   return useQuery({
     queryKey: queryKeys.cards.linkedEntities(cardId),
     queryFn: () => getLinkedEntitiesByCardPK(cardId),
-    enabled: !!cardId,
-  });
-}
-
-/**
- * Hook to fetch card tree (card with descendants)
- *
- * @param cardId - Card ID
- * @param maxDepth - Optional maximum depth limit
- * @returns Query result with card tree
- */
-export function useCardTree(
-  cardId: string | number,
-  maxDepth?: number
-): UseQueryResult<CardWithDescendants, Error> {
-  const queryKey = maxDepth
-    ? queryKeys.cards.treeLimited(String(cardId), maxDepth)
-    : queryKeys.cards.tree(String(cardId));
-
-  return useQuery({
-    queryKey,
-    queryFn: () =>
-      maxDepth
-        ? getCardWithDescendantsLimited(String(cardId), maxDepth)
-        : getCardWithDescendants(String(cardId)),
     enabled: !!cardId,
   });
 }

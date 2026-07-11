@@ -4,8 +4,6 @@ import {
   NextIdResponse,
   Entity,
   SearchResult,
-  CardWithDescendants,
-  processCardWithDescendants,
   defaultCard,
   RelatedCard,
 } from "../models/Card";
@@ -443,31 +441,6 @@ export async function suggestCardTitle(body: string): Promise<string> {
     { body }
   );
   return data.suggested_title;
-}
-
-/**
- * Get the hierarchical card structure with depth information for CardTreeView component
- */
-export async function getCardWithDescendants(cardId: string | number): Promise<CardWithDescendants> {
-  const { data: card } = await apiClient.get<CardWithDescendants>(
-    `/cards/${encodeURIComponent(cardId)}/tree`
-  );
-  // Recursively process dates and prepare for frontend use
-  return processCardWithDescendants(card);
-}
-
-/**
- * Get card tree with limited depth
- */
-export async function getCardWithDescendantsLimited(
-  cardId: string | number,
-  maxDepth: number
-): Promise<CardWithDescendants> {
-  const { data: card } = await apiClient.get<CardWithDescendants>(
-    `/cards/${encodeURIComponent(cardId)}/tree/depth/${maxDepth}`
-  );
-  // Recursively process dates and prepare for frontend use
-  return processCardWithDescendants(card);
 }
 
 interface UnsortedCardsResponse {

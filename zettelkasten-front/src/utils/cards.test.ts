@@ -7,13 +7,8 @@ import {
   sortCardIds,
   findNextChildId,
   buildCardFromParent,
-  buildCardFromTreeNode,
 } from "./cards";
-import {
-  Card,
-  defaultPartialCard,
-  ProcessedCardWithDescendants,
-} from "../models/Card";
+import { Card, defaultPartialCard } from "../models/Card";
 
 test("convert card to partial card", () => {
   let card = sampleCards()[0];
@@ -171,76 +166,5 @@ describe("buildCardFromParent", () => {
 
     expect(card.title).toBe("");
     expect(card.tags).toEqual([]);
-  });
-});
-
-describe("buildCardFromTreeNode", () => {
-  const parent = {
-    id: 1,
-    card_id: "1",
-    user_id: 1,
-    title: "Root",
-    parent_id: -1,
-    created_at: new Date(0),
-    updated_at: new Date(0),
-    tags: [],
-  } as any;
-
-  it("maps descendant nodes to minimal PartialCards", () => {
-    const node: ProcessedCardWithDescendants = {
-      id: 10,
-      card_id: "1.1",
-      user_id: 1,
-      title: "Child",
-      body: "b",
-      link: "l",
-      parent_id: 1,
-      created_at: new Date(0),
-      updated_at: new Date(0),
-      depth: 1,
-      descendants: [
-        {
-          id: 11,
-          card_id: "1.1.1",
-          user_id: 1,
-          title: "Grandchild",
-          parent_id: 10,
-          created_at: new Date(0),
-          updated_at: new Date(0),
-          depth: 2,
-          descendants: [],
-        } as any,
-      ],
-    } as any;
-
-    const card = buildCardFromTreeNode(node, parent);
-
-    expect(card.id).toBe(10);
-    expect(card.body).toBe("b");
-    expect(card.parent).toBe(parent);
-    expect(card.children).toHaveLength(1);
-    expect(card.children[0].id).toBe(11);
-    expect(card.children[0].tags).toEqual([]);
-    expect(card.entities).toEqual([]);
-  });
-
-  it("handles a node without descendants", () => {
-    const node = {
-      id: 10,
-      card_id: "1.1",
-      user_id: 1,
-      title: "Leaf",
-      body: "",
-      link: "",
-      parent_id: 1,
-      created_at: new Date(0),
-      updated_at: new Date(0),
-      depth: 1,
-      descendants: [],
-    } as any;
-
-    const card = buildCardFromTreeNode(node, parent);
-
-    expect(card.children).toEqual([]);
   });
 });

@@ -82,8 +82,6 @@ export const queryKeys = {
     tasks: (id: string) => ['cards', id, 'tasks'] as const,
     entities: (id: string) => ['cards', id, 'entities'] as const,
     linkedEntities: (id: string) => ['cards', id, 'linked-entities'] as const,
-    tree: (id: string) => ['cards', id, 'tree'] as const,
-    treeLimited: (id: string, maxDepth: number) => ['cards', id, 'tree', maxDepth] as const,
     auditEvents: (id: string) => ['cards', id, 'audit'] as const,
   },
 

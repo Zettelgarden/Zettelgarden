@@ -6,7 +6,7 @@ import { PinIcon } from "../../assets/icons/PinIcon";
 import { StarIcon } from "../../assets/icons/StarIcon";
 import { ViewMode } from "../../pages/cards/ViewPageContainer";
 
-const VIEW_MODES: ViewMode[] = ['normal', 'tree', 'summary', 'analysis'];
+const VIEW_MODES: ViewMode[] = ['normal', 'summary', 'analysis'];
 
 interface ViewPageHeaderProps {
   viewingCard: Card;

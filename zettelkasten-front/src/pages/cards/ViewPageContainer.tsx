@@ -34,7 +34,7 @@ interface ViewPageProps {
 }
 
 /** Active rendering mode for the card view. */
-export type ViewMode = 'normal' | 'tree' | 'summary' | 'analysis';
+export type ViewMode = 'normal' | 'summary' | 'analysis';
 
 interface ViewPageContainerData {
   viewingCard: Card | null;

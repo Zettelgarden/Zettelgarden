@@ -5,7 +5,6 @@ import { ViewPageHeader } from "../../components/cards/ViewPageHeader";
 import { ViewCardContentSection } from "../../components/cards/ViewCardContentSection";
 import { ViewPageSidePanels } from "../../components/cards/ViewPageSidePanels";
 import { CardIdDiscoveryDialog } from "../../components/cards/CardIdDiscoveryDialog";
-import { CardTreeView } from "../../components/cards/CardTreeView/CardTreeView";
 import { ViewSummaryView } from "../../components/cards/ViewSummaryView";
 import { ViewAnalysisView } from "../../components/cards/ViewAnalysisView";
 import { ViewMobileLayout } from "../../components/cards/ViewMobileLayout";
@@ -16,7 +15,7 @@ import { Card } from "../../models/Card";
 import { saveExistingCard, getCard } from "../../api/cards";
 import { isErrorResponse } from "../../models/common";
 import { useIsMobile } from "../../hooks/useIsMobile";
-import { buildCardFromParent, buildCardFromTreeNode } from "../../utils/cards";
+import { buildCardFromParent } from "../../utils/cards";
 
 interface ViewPageProps {
   cardId?: string; // Optional card ID prop for pinned cards
@@ -162,19 +161,6 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
           <div className="flex flex-col md:flex-row gap-4">
             {/* Main Content Area - varies by view mode */}
             <div className="flex-1 md:w-2/3 space-y-4 overflow-y-auto">
-              {viewMode === 'tree' && (
-                <CardTreeView
-                  rootCardId={viewingCard.id}
-                  displayMode="full"
-                  height="600px"
-                  onCardSelect={(selectedCard) => {
-                    setViewCard(buildCardFromTreeNode(selectedCard, viewingCard.parent));
-                    // Note: We could trigger a fetch of the full card data here if needed
-                    refreshCard();
-                  }}
-                />
-              )}
-
               {viewMode === 'summary' && (
                 <ViewSummaryView summary={latestSummary} />
               )}

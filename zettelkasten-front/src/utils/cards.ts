@@ -3,7 +3,6 @@ import {
   Card,
   CardChunk,
   SearchResult,
-  ProcessedCardWithDescendants,
   defaultPartialCard,
 } from "../models/Card";
 
@@ -211,46 +210,6 @@ export function buildCardFromParent(parent: PartialCard): Card {
     tags: parent.tags || [],
     tasks: [], // Parent data doesn't include tasks
     entities: [], // Parent data doesn't include entities
-    is_starred: false,
-  };
-}
-
-/**
- * Build a minimal Card from a tree node selection, reusing the current card's
- * parent data. A full fetch is triggered by the caller afterwards.
- */
-export function buildCardFromTreeNode(
-  node: ProcessedCardWithDescendants,
-  parent: PartialCard,
-): Card {
-  return {
-    id: node.id,
-    card_id: node.card_id,
-    user_id: node.user_id,
-    title: node.title || "",
-    body: node.body || "",
-    link: node.link || "",
-    is_deleted: false,
-    created_at: node.created_at,
-    updated_at: node.updated_at,
-    parent_id: node.parent_id,
-    parent, // Reuse existing parent data
-    files: [], // Tree data doesn't include files
-    children:
-      node.descendants?.map((d) => ({
-        id: d.id,
-        card_id: d.card_id,
-        user_id: d.user_id,
-        title: d.title || "",
-        parent_id: d.parent_id,
-        created_at: d.created_at,
-        updated_at: d.updated_at,
-        tags: [], // Tree data doesn't include tags
-      })) || [],
-    references: [],
-    tags: [],
-    tasks: [], // Tree data doesn't include tasks
-    entities: [], // Tree data doesn't include entities
     is_starred: false,
   };
 }
