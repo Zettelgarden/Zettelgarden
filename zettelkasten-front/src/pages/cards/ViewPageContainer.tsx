@@ -26,7 +26,6 @@ import { useTagContext } from "../../contexts/TagContext";
 import { useCardData } from "../../hooks/useCardData";
 import { useCardNavigation } from "../../hooks/useCardNavigation";
 
-import { PinButton } from "../../components/cards/PinButton";
 import { fetchSummariesForCard, fetchAnalysisForCard, SectionAnalysis, SummarizeJobResponse } from "../../api/summarizer";
 import { FactWithCard } from "../../models/Fact";
 

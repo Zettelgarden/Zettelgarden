@@ -150,7 +150,6 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
             toggleCreateTaskWindow={toggleCreateTaskWindow}
             onResummarize={onResummarize}
             onRecategorize={onRecategorize}
-            showIdDiscovery={showIdDiscovery}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             onNavigateParent={viewingCard.parent ? () => setViewCard(

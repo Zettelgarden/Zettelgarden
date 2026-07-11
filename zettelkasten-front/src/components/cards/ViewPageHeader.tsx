@@ -2,8 +2,11 @@ import React from "react";
 import { Menu } from "@headlessui/react";
 import { Card } from "../../models/Card";
 import { Button } from "../Button";
-import { PinButton } from "./PinButton";
+import { PinIcon } from "../../assets/icons/PinIcon";
+import { StarIcon } from "../../assets/icons/StarIcon";
 import { ViewMode } from "../../pages/cards/ViewPageContainer";
+
+const VIEW_MODES: ViewMode[] = ['normal', 'tree', 'summary', 'analysis'];
 
 interface ViewPageHeaderProps {
   viewingCard: Card;
@@ -14,7 +17,6 @@ interface ViewPageHeaderProps {
   toggleCreateTaskWindow: () => void;
   onResummarize: () => void;
   onRecategorize: () => void;
-  showIdDiscovery: boolean;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   onNavigateParent?: () => void;
@@ -29,145 +31,133 @@ export function ViewPageHeader({
   toggleCreateTaskWindow,
   onResummarize,
   onRecategorize,
-  showIdDiscovery,
   viewMode,
   onViewModeChange,
+  onNavigateParent,
 }: ViewPageHeaderProps) {
-  return (
-    <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white rounded-lg p-3 shadow-sm">
-      <div className="flex-grow">
-        <div className="flex items-center flex-wrap md:flex-nowrap gap-2">
-          <span className="font-bold text-gray-600 text-sm">
-            Viewing:
-          </span>
+  const hasParent = !!(onNavigateParent && viewingCard.parent);
 
-          <span className="text-blue-600 text-sm">
-            [{viewingCard.card_id}]
-          </span>
-          <span className="text-gray-600 md:truncate text-sm">{" - "}
-            {viewingCard.title}
-          </span>
+  return (
+    <header className="pb-2">
+      <div className="flex items-start justify-between gap-3">
+        {/* Title block: breadcrumb + large title */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-1">
+            {hasParent && (
+              <>
+                <button
+                  type="button"
+                  onClick={onNavigateParent}
+                  className="font-mono hover:text-blue-600 transition-colors"
+                  title={viewingCard.parent?.title || `Go to parent [${viewingCard.parent?.card_id}]`}
+                >
+                  [{viewingCard.parent!.card_id}]
+                </button>
+                <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </>
+            )}
+            <span className="font-mono">[{viewingCard.card_id}]</span>
+          </div>
+          <h1 className="text-2xl font-semibold text-gray-900 truncate">
+            {viewingCard.title || "Untitled"}
+          </h1>
         </div>
-      </div>
-      <div className="mt-2 md:mt-0 flex justify-end gap-2 flex-shrink">
-        <PinButton
-          card={viewingCard}
-          isPinned={isPinned}
-          onTogglePin={onTogglePin}
-        />
-        <Button onClick={onEditCard}>Edit</Button>
-        <Menu as="div" className="relative inline-block text-right">
-          <div>
-            <Menu.Button className="inline-flex justify-center items-center w-full rounded-md border border-gray-300 shadow-sm px-2 py-2 min-w-[44px] min-h-[44px] bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-indigo-500">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+
+        {/* Actions */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={onToggleStar}
+            title={viewingCard.is_starred ? "Unstar card" : "Star card"}
+            className={`p-2 rounded-md transition-colors ${
+              viewingCard.is_starred
+                ? 'text-yellow-500 hover:bg-yellow-50'
+                : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <StarIcon className="h-5 w-5" filled={!!viewingCard.is_starred} />
+          </button>
+          <button
+            type="button"
+            onClick={onTogglePin}
+            title={isPinned ? "Unpin card" : "Pin card"}
+            className={`p-2 rounded-md transition-colors ${
+              isPinned
+                ? 'text-blue-600 hover:bg-blue-50'
+                : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <PinIcon className="h-5 w-5" filled={isPinned} />
+          </button>
+          <Button onClick={onEditCard} variant="outline" size="small">Edit</Button>
+          <Menu as="div" className="relative inline-block">
+            <Menu.Button
+              className="p-2 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              title="More actions"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
               </svg>
             </Menu.Button>
-          </div>
-          <Menu.Items className="origin-top-left md:origin-top-right absolute right-0 md:right-0 left-0 md:left-auto mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
-            <div className="py-1">
-              {/* View Mode Selector Section */}
-              <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase">View Mode</div>
-              <Menu.Item>
-                {({ active }) => (
-                  <button
-                    onClick={() => onViewModeChange('normal')}
-                    className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                      } ${viewMode === 'normal' ? 'bg-blue-50 font-medium' : ''
-                      } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
-                  >
-                    📄 Normal View
-                  </button>
-                )}
-              </Menu.Item>
-              <Menu.Item>
-                {({ active }) => (
-                  <button
-                    onClick={() => onViewModeChange('tree')}
-                    className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                      } ${viewMode === 'tree' ? 'bg-blue-50 font-medium' : ''
-                      } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
-                  >
-                    📂 Tree View
-                  </button>
-                )}
-              </Menu.Item>
-              <Menu.Item>
-                {({ active }) => (
-                  <button
-                    onClick={() => onViewModeChange('summary')}
-                    className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                      } ${viewMode === 'summary' ? 'bg-blue-50 font-medium' : ''
-                      } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
-                  >
-                    📝 Summary View
-                  </button>
-                )}
-              </Menu.Item>
-              <Menu.Item>
-                {({ active }) => (
-                  <button
-                    onClick={() => onViewModeChange('analysis')}
-                    className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                      } ${viewMode === 'analysis' ? 'bg-blue-50 font-medium' : ''
-                      } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
-                  >
-                    🔍 Analysis View
-                  </button>
-                )}
-              </Menu.Item>
-              <div className="border-t border-gray-100 my-1"></div>
-              <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase">Actions</div>
-              <Menu.Item>
-                {({ active }) => (
-                  <button
-                    onClick={toggleCreateTaskWindow}
-                    className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                      } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
-                  >
-                    Add Task
-                  </button>
-                )}
-              </Menu.Item>
-              <Menu.Item>
-                {({ active }) => (
-                  <button
-                    onClick={onToggleStar}
-                    className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                      } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
-                  >
-                    {viewingCard.is_starred ? 'Unstar Card' : 'Star Card'}
-                  </button>
-                )}
-              </Menu.Item>
-              <Menu.Item>
-                {({ active }) => (
-                  <button
-                    onClick={onResummarize}
-                    className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                      } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
-                  >
-                    Resummarize Card
-                  </button>
-                )}
-              </Menu.Item>
-              {viewingCard.card_id === "" && (
+            <Menu.Items className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+              <div className="py-1">
                 <Menu.Item>
                   {({ active }) => (
                     <button
-                      onClick={onRecategorize}
-                      className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                        } group flex rounded-md items-center w-full px-4 py-3 min-h-[44px] text-sm`}
+                      onClick={toggleCreateTaskWindow}
+                      className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'} group flex items-center w-full px-4 py-2 text-sm`}
                     >
-                      Recategorize
+                      Add Task
                     </button>
                   )}
                 </Menu.Item>
-              )}
-            </div>
-          </Menu.Items>
-        </Menu>
+                <Menu.Item>
+                  {({ active }) => (
+                    <button
+                      onClick={onResummarize}
+                      className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'} group flex items-center w-full px-4 py-2 text-sm`}
+                    >
+                      Resummarize
+                    </button>
+                  )}
+                </Menu.Item>
+                {viewingCard.card_id === "" && (
+                  <Menu.Item>
+                    {({ active }) => (
+                      <button
+                        onClick={onRecategorize}
+                        className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'} group flex items-center w-full px-4 py-2 text-sm`}
+                      >
+                        Recategorize
+                      </button>
+                    )}
+                  </Menu.Item>
+                )}
+              </div>
+            </Menu.Items>
+          </Menu>
+        </div>
       </div>
-    </div>
+
+      {/* View mode segmented control */}
+      <div className="mt-4 inline-flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+        {VIEW_MODES.map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => onViewModeChange(mode)}
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors capitalize ${
+              viewMode === mode
+                ? 'bg-white shadow-sm text-gray-900 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {mode}
+          </button>
+        ))}
+      </div>
+    </header>
   );
 }
