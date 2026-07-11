@@ -239,4 +239,84 @@ describe('useKeyboardShortcuts', () => {
     expect(onCreateTask1).not.toHaveBeenCalled();
     expect(onCreateTask2).toHaveBeenCalled();
   });
+
+  describe('Cmd/Ctrl-\\ rail toggle', () => {
+    it('calls onToggleRightPane on Cmd-\\ (metaKey)', () => {
+      const onToggleRightPane = vi.fn();
+      renderHook(() =>
+        useKeyboardShortcuts({
+          onCreateTask: vi.fn(),
+          onQuickSearch: vi.fn(),
+          onToggleRightPane,
+        }),
+      );
+
+      const event = new KeyboardEvent('keydown', { key: '\\', metaKey: true });
+      document.dispatchEvent(event);
+
+      expect(onToggleRightPane).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls onToggleRightPane on Ctrl-\\ (ctrlKey)', () => {
+      const onToggleRightPane = vi.fn();
+      renderHook(() =>
+        useKeyboardShortcuts({
+          onCreateTask: vi.fn(),
+          onQuickSearch: vi.fn(),
+          onToggleRightPane,
+        }),
+      );
+
+      const event = new KeyboardEvent('keydown', { key: '\\', ctrlKey: true });
+      document.dispatchEvent(event);
+
+      expect(onToggleRightPane).toHaveBeenCalledTimes(1);
+    });
+
+    it('prevents default on Cmd-\\', () => {
+      renderHook(() =>
+        useKeyboardShortcuts({
+          onCreateTask: vi.fn(),
+          onQuickSearch: vi.fn(),
+          onToggleRightPane: vi.fn(),
+        }),
+      );
+
+      const event = new KeyboardEvent('keydown', { key: '\\', metaKey: true });
+      const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
+      document.dispatchEvent(event);
+
+      expect(preventDefaultSpy).toHaveBeenCalled();
+    });
+
+    it('does not fire plain-key shortcuts when Cmd-\\ is pressed', () => {
+      const onCreateTask = vi.fn();
+      renderHook(() =>
+        useKeyboardShortcuts({
+          onCreateTask,
+          onQuickSearch: vi.fn(),
+          onToggleRightPane: vi.fn(),
+        }),
+      );
+
+      // metaKey + backslash should not also trigger 's'/'t' handlers.
+      const event = new KeyboardEvent('keydown', { key: '\\', metaKey: true });
+      document.dispatchEvent(event);
+
+      expect(onCreateTask).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when onToggleRightPane is omitted', () => {
+      renderHook(() =>
+        useKeyboardShortcuts({
+          onCreateTask: vi.fn(),
+          onQuickSearch: vi.fn(),
+        }),
+      );
+
+      // Should not throw and should be a no-op.
+      const event = new KeyboardEvent('keydown', { key: '\\', metaKey: true });
+      expect(() => document.dispatchEvent(event)).not.toThrow();
+    });
+  });
 });

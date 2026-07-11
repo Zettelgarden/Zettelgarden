@@ -3,6 +3,8 @@ import { useEffect, useCallback } from 'react';
 interface KeyboardShortcutCallbacks {
   onCreateTask: () => void;
   onQuickSearch: () => void;
+  /** Optional: toggle the card view's right info rail. Fired on Cmd/Ctrl-\. */
+  onToggleRightPane?: () => void;
 }
 
 /**
@@ -17,9 +19,18 @@ interface KeyboardShortcutCallbacks {
 export function useKeyboardShortcuts({
   onCreateTask,
   onQuickSearch,
+  onToggleRightPane,
 }: KeyboardShortcutCallbacks): void {
   const handleKeyPress = useCallback(
     (event: KeyboardEvent) => {
+      // Cmd/Ctrl-\ toggles the card view's right info rail (Obsidian-style).
+      // Handled before the meta-ignore below since it requires a modifier.
+      if ((event.metaKey || event.ctrlKey) && event.key === '\\') {
+        event.preventDefault();
+        onToggleRightPane?.();
+        return;
+      }
+
       // Ignore if user is holding meta key (system shortcuts)
       if (event.metaKey) {
         return;
@@ -38,7 +49,7 @@ export function useKeyboardShortcuts({
         }
       }
     },
-    [onCreateTask, onQuickSearch],
+    [onCreateTask, onQuickSearch, onToggleRightPane],
   );
 
   useEffect(() => {

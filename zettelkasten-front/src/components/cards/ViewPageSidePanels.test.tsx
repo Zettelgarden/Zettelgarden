@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { ViewPageSidePanels } from './ViewPageSidePanels';
@@ -49,11 +49,25 @@ function renderPanel(overrides: Partial<PanelProps> = {}) {
 }
 
 describe('ViewPageSidePanels — tabs', () => {
-  it('defaults to the Links tab and shows the Children section', () => {
+  beforeEach(() => {
+    // URL-param tests mutate the location; reset between tests.
+    window.history.replaceState({}, '', '/');
+  });
+  it('defaults to the Metadata tab when the card has no relationships', () => {
     renderPanel();
-    // Links is the default; its Children header is visible.
+    // No children/references → Metadata is the smart default.
+    expect(screen.getByText('Tags')).toBeInTheDocument();
+    // Links-only content is absent on the default tab.
+    expect(screen.queryByText('Children')).not.toBeInTheDocument();
+  });
+
+  it('defaults to the Links tab when the card has references', () => {
+    const [ref] = samplePartialCards();
+    renderPanel({
+      categorizedReferences: { bidirectional: [ref], incoming: [], outgoing: [] },
+    });
+    // Smart default picks Links because there's relationship data.
     expect(screen.getByText('Children')).toBeInTheDocument();
-    // Metadata-only content is absent on the default tab.
     expect(screen.queryByText('Tags')).not.toBeInTheDocument();
   });
 
@@ -66,8 +80,12 @@ describe('ViewPageSidePanels — tabs', () => {
   });
 
   it('renders the Children + References structure on the Links tab without a parent', () => {
-    renderPanel({ parentCard: null });
-    // No parent, but the Links tab still offers Children + references.
+    const [ref] = samplePartialCards();
+    renderPanel({
+      parentCard: null,
+      categorizedReferences: { bidirectional: [ref], incoming: [], outgoing: [] },
+    });
+    // Smart default is Links (has references); Children + references show.
     expect(screen.getByText('Children')).toBeInTheDocument();
     expect(screen.getByText('Linked references')).toBeInTheDocument();
     // Parent header is absent when there is no parent.
@@ -102,9 +120,40 @@ describe('ViewPageSidePanels — tabs', () => {
 
   it('calls onCreateChildCard from the Links tab add-child button', () => {
     const onCreateChildCard = vi.fn();
-    renderPanel({ onCreateChildCard });
+    const [ref] = samplePartialCards();
+    renderPanel({
+      onCreateChildCard,
+      categorizedReferences: { bidirectional: [ref], incoming: [], outgoing: [] },
+    });
+    // Smart default lands on Links because of the reference.
     fireEvent.click(screen.getByTitle('Add child'));
     expect(onCreateChildCard).toHaveBeenCalledTimes(1);
+  });
+
+  it('reflects the active tab in the ?pane= query param', () => {
+    renderPanel({
+      categorizedReferences: { bidirectional: [], incoming: [], outgoing: [] },
+    });
+    // Smart default → metadata for a relationship-less card.
+    expect(window.location.search).toContain('pane=metadata');
+
+    fireEvent.click(screen.getByText('Entities'));
+    expect(window.location.search).toContain('pane=entities');
+  });
+
+  it('honors a valid ?pane= param on mount instead of the smart default', () => {
+    window.history.replaceState({}, '', '/?pane=entities');
+    renderPanel({ linkedEntities: sampleEntityData });
+    // URL wins over the smart default (would otherwise be metadata).
+    expect(screen.getByText('Entity One')).toBeInTheDocument();
+    expect(screen.queryByText('Tags')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the smart default for an invalid ?pane= value', () => {
+    window.history.replaceState({}, '', '/?pane=bogus');
+    renderPanel();
+    // Invalid param ignored → smart default (metadata) applies.
+    expect(screen.getByText('Tags')).toBeInTheDocument();
   });
 
   it('renders a close button that collapses the rail via context', () => {

@@ -27,7 +27,7 @@ import { SidebarSearchBar } from "./sidebar/SidebarSearchBar";
 export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { lastCard, isSidebarCollapsed, toggleSidebarCollapsed, isMobileSidebarOpen, setIsMobileSidebarOpen } = useUIState();
+  const { lastCard, isSidebarCollapsed, toggleSidebarCollapsed, toggleRightPane, isMobileSidebarOpen, setIsMobileSidebarOpen } = useUIState();
   const { showToast } = useToast();
   const { tasks } = useTaskContext();
   const { unreadCount: unreadRssCount } = useRSS();
@@ -140,6 +140,7 @@ export function Sidebar() {
   useKeyboardShortcuts({
     onCreateTask: handleCreateTask,
     onQuickSearch: handleQuickSearch,
+    onToggleRightPane: toggleRightPane,
   });
 
   return (
