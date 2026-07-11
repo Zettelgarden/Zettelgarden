@@ -1,4 +1,11 @@
-import { PartialCard, Card, CardChunk, SearchResult } from "../models/Card";
+import {
+  PartialCard,
+  Card,
+  CardChunk,
+  SearchResult,
+  ProcessedCardWithDescendants,
+  defaultPartialCard,
+} from "../models/Card";
 
 // filter the card_id and title by searchText, return top 5 matches
 export function quickFilterCards(
@@ -48,20 +55,31 @@ export function isCardIdUnique(
   return !cards.some((card) => card.card_id === id);
 }
 
-export function sortCards(cards: SearchResult[], sortMethod: string): SearchResult[] {
+export function sortCards(
+  cards: SearchResult[],
+  sortMethod: string,
+): SearchResult[] {
   const sortedCards = [...cards];
   switch (sortMethod) {
     case "sortCreatedNewOld":
-      sortedCards.sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
+      sortedCards.sort(
+        (a, b) => b.created_at.getTime() - a.created_at.getTime(),
+      );
       break;
     case "sortCreatedOldNew":
-      sortedCards.sort((a, b) => a.created_at.getTime() - b.created_at.getTime());
+      sortedCards.sort(
+        (a, b) => a.created_at.getTime() - b.created_at.getTime(),
+      );
       break;
     case "sortNewOld":
-      sortedCards.sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
+      sortedCards.sort(
+        (a, b) => b.updated_at.getTime() - a.updated_at.getTime(),
+      );
       break;
     case "sortOldNew":
-      sortedCards.sort((a, b) => a.updated_at.getTime() - b.updated_at.getTime());
+      sortedCards.sort(
+        (a, b) => a.updated_at.getTime() - b.updated_at.getTime(),
+      );
       break;
     case "sortBigSmall":
       sortedCards.sort((a, b) => a.title.localeCompare(b.title));
@@ -122,14 +140,17 @@ export function sortCardIds(input: string[]): string[] {
   return results;
 }
 
-export function findNextChildId(parentId: string, existingChildren: PartialCard[]): string {
+export function findNextChildId(
+  parentId: string,
+  existingChildren: PartialCard[],
+): string {
   if (existingChildren.length === 0) {
     return `${parentId}.1`;
   }
 
   const childIds = existingChildren
-    .map(child => child.card_id)
-    .filter(childId => {
+    .map((child) => child.card_id)
+    .filter((childId) => {
       const childPrefix = childId.substring(0, parentId.length);
       return childPrefix === parentId && childId.length > parentId.length;
     });
@@ -167,23 +188,101 @@ export const SORT_METHOD_LABELS: Record<SortMethod, string> = {
   titleZA: "Title (Z-A)",
 };
 
-export function sortPartialCards(cards: PartialCard[], sortMethod: SortMethod): PartialCard[] {
+/**
+ * Build a minimal Card from a parent PartialCard, used when navigating to a
+ * parent whose full data isn't loaded yet. The full card is fetched on mount.
+ */
+export function buildCardFromParent(parent: PartialCard): Card {
+  return {
+    id: parent.id,
+    card_id: parent.card_id,
+    user_id: parent.user_id,
+    title: parent.title || "",
+    body: "", // Parent data doesn't include body
+    link: "", // Parent data doesn't include link
+    is_deleted: false,
+    created_at: parent.created_at,
+    updated_at: parent.updated_at,
+    parent_id: parent.parent_id,
+    parent: defaultPartialCard, // Use default for missing nested parent data
+    files: [], // Parent data doesn't include files
+    children: [], // We'll repopulate when full card loads
+    references: [],
+    tags: parent.tags || [],
+    tasks: [], // Parent data doesn't include tasks
+    entities: [], // Parent data doesn't include entities
+    is_starred: false,
+  };
+}
+
+/**
+ * Build a minimal Card from a tree node selection, reusing the current card's
+ * parent data. A full fetch is triggered by the caller afterwards.
+ */
+export function buildCardFromTreeNode(
+  node: ProcessedCardWithDescendants,
+  parent: PartialCard,
+): Card {
+  return {
+    id: node.id,
+    card_id: node.card_id,
+    user_id: node.user_id,
+    title: node.title || "",
+    body: node.body || "",
+    link: node.link || "",
+    is_deleted: false,
+    created_at: node.created_at,
+    updated_at: node.updated_at,
+    parent_id: node.parent_id,
+    parent, // Reuse existing parent data
+    files: [], // Tree data doesn't include files
+    children:
+      node.descendants?.map((d) => ({
+        id: d.id,
+        card_id: d.card_id,
+        user_id: d.user_id,
+        title: d.title || "",
+        parent_id: d.parent_id,
+        created_at: d.created_at,
+        updated_at: d.updated_at,
+        tags: [], // Tree data doesn't include tags
+      })) || [],
+    references: [],
+    tags: [],
+    tasks: [], // Tree data doesn't include tasks
+    entities: [], // Tree data doesn't include entities
+    is_starred: false,
+  };
+}
+
+export function sortPartialCards(
+  cards: PartialCard[],
+  sortMethod: SortMethod,
+): PartialCard[] {
   const sortedCards = [...cards];
   switch (sortMethod) {
     case "cardId":
       sortedCards.sort((a, b) => compareCardIds(a.card_id, b.card_id));
       break;
     case "createdNewOld":
-      sortedCards.sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
+      sortedCards.sort(
+        (a, b) => b.created_at.getTime() - a.created_at.getTime(),
+      );
       break;
     case "createdOldNew":
-      sortedCards.sort((a, b) => a.created_at.getTime() - b.created_at.getTime());
+      sortedCards.sort(
+        (a, b) => a.created_at.getTime() - b.created_at.getTime(),
+      );
       break;
     case "updatedNewOld":
-      sortedCards.sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
+      sortedCards.sort(
+        (a, b) => b.updated_at.getTime() - a.updated_at.getTime(),
+      );
       break;
     case "updatedOldNew":
-      sortedCards.sort((a, b) => a.updated_at.getTime() - b.updated_at.getTime());
+      sortedCards.sort(
+        (a, b) => a.updated_at.getTime() - b.updated_at.getTime(),
+      );
       break;
     case "titleAZ":
       sortedCards.sort((a, b) => a.title.localeCompare(b.title));

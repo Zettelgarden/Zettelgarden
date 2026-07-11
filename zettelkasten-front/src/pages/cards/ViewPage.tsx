@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { MobileTopBar } from "../../components/layout/MobileTopBar";
 import { ViewPageHeader } from "../../components/cards/ViewPageHeader";
@@ -12,12 +12,11 @@ import { ViewMobileLayout } from "../../components/cards/ViewMobileLayout";
 import { useViewPageContainer } from "./ViewPageContainer";
 import { useTagContext } from "../../contexts/TagContext";
 import { useUIState } from "../../contexts/UIStateContext";
-import { useDialogState } from "../../contexts/DialogStateContext";
-import { defaultPartialCard } from "../../models/Card";
-import { Card, PartialCard } from "../../models/Card";
-import { saveExistingCard } from "../../api/cards";
-import { getCard } from "../../api/cards";
+import { Card } from "../../models/Card";
+import { saveExistingCard, getCard } from "../../api/cards";
 import { isErrorResponse } from "../../models/common";
+import { useIsMobile } from "../../hooks/useIsMobile";
+import { buildCardFromParent, buildCardFromTreeNode } from "../../utils/cards";
 
 interface ViewPageProps {
   cardId?: string; // Optional card ID prop for pinned cards
@@ -28,27 +27,9 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
   const { tags } = useTagContext();
   const { toggleMobileSidebar, setPinnedCard } = useUIState();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const fileUploadRef = useRef<HTMLInputElement>(null);
-  type ViewMode = 'normal' | 'tree' | 'summary' | 'analysis';
-  const [viewMode, setViewMode] = useState<ViewMode>('normal');
-
-  // Mobile detection
-  const [isMobile, setIsMobile] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < 768;
-    }
-    return false;
-  });
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   const {
     data,
@@ -70,11 +51,13 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
     showIdDiscovery,
     isPinned,
     error,
+    viewMode,
   } = data;
 
   const {
     setViewCard,
     setError,
+    setViewMode,
   } = setters;
 
   const {
@@ -92,10 +75,6 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
     onCloseIdDiscovery,
     refreshCard,
   } = actions;
-
-  // We need to get these from dialog state context
-  const {
-  } = useDialogState();
 
   // Handle saving card
   const handleSaveCard = async (updatedCard: Card) => {
@@ -173,27 +152,10 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
             onRecategorize={onRecategorize}
             showIdDiscovery={showIdDiscovery}
             viewMode={viewMode}
-            onViewModeChange={(mode) => setViewMode(mode)}
-            onNavigateParent={viewingCard.parent ? () => setViewCard({
-              id: viewingCard.parent!.id,
-              card_id: viewingCard.parent!.card_id,
-              user_id: viewingCard.parent!.user_id,
-              title: viewingCard.parent!.title || "",
-              body: "", // Parent data doesn't include body
-              link: "", // Parent data doesn't include link
-              is_deleted: false,
-              created_at: viewingCard.parent!.created_at,
-              updated_at: viewingCard.parent!.updated_at,
-              parent_id: viewingCard.parent!.parent_id,
-              parent: defaultPartialCard, // Use default for missing nested parent data
-              files: [], // Parent data doesn't include files
-              children: [], // We'll repopulate when full card loads
-              references: [],
-              tags: viewingCard.parent!.tags || [],
-              tasks: [], // Parent data doesn't include tasks
-              entities: [], // Parent data doesn't include entities
-              is_starred: false
-            }) : undefined}
+            onViewModeChange={setViewMode}
+            onNavigateParent={viewingCard.parent ? () => setViewCard(
+              buildCardFromParent(viewingCard.parent)
+            ) : undefined}
           />
 
           <div className="flex flex-col md:flex-row gap-4">
@@ -205,37 +167,7 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
                   displayMode="full"
                   height="600px"
                   onCardSelect={(selectedCard) => {
-                    // Navigate to the selected card in tree view
-                    // Convert ProcessedCardWithDescendants to Card format
-                    setViewCard({
-                      id: selectedCard.id,
-                      card_id: selectedCard.card_id,
-                      user_id: selectedCard.user_id,
-                      title: selectedCard.title || "",
-                      body: selectedCard.body || "",
-                      link: selectedCard.link || "",
-                      is_deleted: false,
-                      created_at: selectedCard.created_at,
-                      updated_at: selectedCard.updated_at,
-                      parent_id: selectedCard.parent_id,
-                      parent: viewingCard.parent, // Reuse existing parent data
-                      files: [], // Tree data doesn't include files
-                      children: selectedCard.descendants?.map(d => ({
-                        id: d.id,
-                        card_id: d.card_id,
-                        user_id: d.user_id,
-                        title: d.title || "",
-                        parent_id: d.parent_id,
-                        created_at: d.created_at,
-                        updated_at: d.updated_at,
-                        tags: [] // Tree data doesn't include tags
-                      })) || [],
-                      references: [],
-                      tags: [],
-                      tasks: [], // Tree data doesn't include tasks
-                      entities: [], // Tree data doesn't include entities
-                      is_starred: false
-                    });
+                    setViewCard(buildCardFromTreeNode(selectedCard, viewingCard.parent));
                     // Note: We could trigger a fetch of the full card data here if needed
                     refreshCard();
                   }}
@@ -253,8 +185,6 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
               {viewMode === 'normal' && (
                 <ViewCardContentSection
                   viewingCard={viewingCard}
-                  showingSummary={false}
-                  showingAnalysis={false}
                   latestSummary={latestSummary}
                   analysis={analysis}
                   onCreateChildCard={onCreateChildCard}

@@ -34,6 +34,9 @@ interface ViewPageProps {
   cardId?: string; // Optional card ID prop for pinned cards
 }
 
+/** Active rendering mode for the card view. */
+export type ViewMode = 'normal' | 'tree' | 'summary' | 'analysis';
+
 interface ViewPageContainerData {
   viewingCard: Card | null;
   parentCard: Card | null;
@@ -50,6 +53,7 @@ interface ViewPageContainerData {
   showIdDiscovery: boolean;
   isPinned: boolean;
   error: string;
+  viewMode: ViewMode;
 }
 
 interface ViewPageContainerStateSetters {
@@ -57,6 +61,7 @@ interface ViewPageContainerStateSetters {
   setError: (error: string) => void;
   setShowingSummary: (showing: boolean) => void;
   setShowingAnalysis: (showing: boolean) => void;
+  setViewMode: (mode: ViewMode) => void;
 }
 
 interface ViewPageContainerActions {
@@ -113,6 +118,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   const [showingAnalysis, setShowingAnalysis] = useState(false);
   const [showIdDiscovery, setShowIdDiscovery] = useState(false);
   const [relatedCards, setRelatedCards] = useState<RelatedCard[] | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('normal');
 
   const navigate = useNavigate();
 
@@ -273,12 +279,14 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
       showIdDiscovery,
       isPinned,
       error,
+      viewMode,
     },
     setters: {
       setViewCard: cardData.setViewingCard,
       setError,
       setShowingSummary,
       setShowingAnalysis,
+      setViewMode,
     },
     actions: {
       onEditCard,

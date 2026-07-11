@@ -16,8 +16,8 @@ import { SortControl as SortControlComponent } from "./SortControl";
 
 interface ViewCardContentSectionProps {
   viewingCard: Card;
-  showingSummary: boolean;
-  showingAnalysis: boolean;
+  showingSummary?: boolean;
+  showingAnalysis?: boolean;
   latestSummary: SummarizeJobResponse | null;
   analysis: SectionAnalysis[] | null;
   onCreateChildCard: () => void;
@@ -33,8 +33,8 @@ interface ViewCardContentSectionProps {
 
 export function ViewCardContentSection({
   viewingCard,
-  showingSummary,
-  showingAnalysis,
+  showingSummary = false,
+  showingAnalysis = false,
   latestSummary,
   analysis,
   onCreateChildCard,

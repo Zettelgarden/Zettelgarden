@@ -3,8 +3,7 @@ import { Menu } from "@headlessui/react";
 import { Card } from "../../models/Card";
 import { Button } from "../Button";
 import { PinButton } from "./PinButton";
-
-type ViewMode = 'normal' | 'tree' | 'summary' | 'analysis';
+import { ViewMode } from "../../pages/cards/ViewPageContainer";
 
 interface ViewPageHeaderProps {
   viewingCard: Card;
