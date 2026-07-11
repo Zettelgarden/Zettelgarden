@@ -100,6 +100,8 @@ describe("ViewMobileLayout", () => {
     setShowFactDialog: vi.fn(),
     fileUploadRef: { current: null },
     onSaveCard: vi.fn(),
+    viewMode: 'normal' as const,
+    onViewModeChange: vi.fn(),
   };
 
   it("renders card title in top bar", () => {

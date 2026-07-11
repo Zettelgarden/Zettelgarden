@@ -13,6 +13,7 @@ import { linkifyWithDefaultOptions } from "../../utils/strings";
 import { PersonIcon } from "../../assets/icons/PersonIcon";
 import { CardStructuredDataDisplay } from "../schemas/CardStructuredDataDisplay";
 import { RSSArticle } from "../../api/rss";
+import { ViewMode } from "../../pages/cards/ViewPageContainer";
 
 interface ViewMobileLayoutProps {
   viewingCard: Card;
@@ -44,9 +45,9 @@ interface ViewMobileLayoutProps {
   fileUploadRef: React.RefObject<HTMLInputElement>;
   onSaveCard: (card: Card) => void;
   onMenuClick?: () => void;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
 }
-
-type ViewMode = 'normal' | 'tree' | 'summary' | 'analysis';
 
 export function ViewMobileLayout({
   viewingCard,
@@ -78,11 +79,12 @@ export function ViewMobileLayout({
   fileUploadRef,
   onSaveCard,
   onMenuClick,
+  viewMode,
+  onViewModeChange,
 }: ViewMobileLayoutProps) {
   const navigate = useNavigate();
   const [showNavSheet, setShowNavSheet] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('normal');
 
   const handleNavigate = (cardId: number) => {
     navigate(`/app/card/${cardId}`);
@@ -130,7 +132,7 @@ export function ViewMobileLayout({
                   <button
                     key={mode}
                     onClick={() => {
-                      setViewMode(mode);
+                      onViewModeChange(mode);
                       setShowMenu(false);
                     }}
                     className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${

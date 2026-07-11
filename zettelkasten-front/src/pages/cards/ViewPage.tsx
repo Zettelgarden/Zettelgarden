@@ -121,6 +121,8 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
         fileUploadRef={fileUploadRef}
         onSaveCard={handleSaveCard}
         onMenuClick={toggleMobileSidebar}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
     );
   }
