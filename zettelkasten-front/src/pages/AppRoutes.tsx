@@ -22,7 +22,6 @@ import { SchemaEditPage } from "./SchemaEditPage";
 import { SchemaTableWrapper } from "./SchemaTableWrapper";
 import { RssPage } from "./RssPage";
 import { RssManagePage } from "./RssManagePage";
-import { Habits } from "./Habits";
 import { NotificationInboxPage } from "./NotificationInboxPage";
 import { Paywall } from "../components/Paywall";
 import { SearchConfig } from "../models/StarredSearch";
@@ -99,7 +98,6 @@ export function AppRoutes({
       <Route path="schemas/new" element={proOnly(<SchemaCreatePage />, "Schemas")} />
       <Route path="schemas/:id/edit" element={proOnly(<SchemaEditPage />, "Schemas")} />
       <Route path="schemas/:id/table" element={proOnly(<SchemaTableWrapper />, "Schemas")} />
-      <Route path="habits" element={proOnly(<Habits />, "Habits")} />
       <Route path="rss" element={proOnly(<RssPage />, "RSS")} />
       <Route path="rss/manage" element={proOnly(<RssManagePage />, "RSS")} />
       <Route path="inbox" element={proOnly(<NotificationInboxPage />, "Inbox")} />

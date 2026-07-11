@@ -897,42 +897,4 @@ func getIntPtr(i int) *int {
 	return &i
 }
 
-// CreateTestHabit creates a test habit for the given user
-func CreateTestHabit(db models.Database, userID int, params models.CreateHabitParams) (int, error) {
-	var position int
-	if params.Position != nil {
-		position = *params.Position
-	} else {
-		err := db.QueryRow("SELECT COALESCE(MAX(position), 0) + 1 FROM habits WHERE user_id = $1", userID).Scan(&position)
-		if err != nil {
-			position = 0
-		}
-	}
 
-	query := `INSERT INTO habits (user_id, title, description, frequency, custom_days, icon, color, position, linked_task_id)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`
-
-	var id int
-	err := db.QueryRow(query, userID, params.Title, params.Description, params.Frequency,
-		params.CustomDays, params.Icon, params.Color, position, params.LinkedTaskID).Scan(&id)
-	if err != nil {
-		return 0, fmt.Errorf("failed to create test habit: %w", err)
-	}
-	return id, nil
-}
-
-// CreateTestHabitLog creates a test habit log entry
-func CreateTestHabitLog(db models.Database, userID int, habitID int, notes *string) (int, error) {
-	return CreateTestHabitLogWithTime(db, userID, habitID, notes, time.Now().UTC())
-}
-
-// CreateTestHabitLogWithTime creates a test habit log entry with a specific completion time
-func CreateTestHabitLogWithTime(db models.Database, userID int, habitID int, notes *string, completedAt time.Time) (int, error) {
-	query := `INSERT INTO habit_logs (habit_id, user_id, completed_at, notes) VALUES ($1, $2, $3, $4) RETURNING id`
-	var logID int
-	err := db.QueryRow(query, habitID, userID, completedAt, notes).Scan(&logID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to create test habit log: %w", err)
-	}
-	return logID, nil
-}

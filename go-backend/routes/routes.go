@@ -52,9 +52,6 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.Sc
 	// Task management routes
 	RegisterTaskRoutes(r, h)
 
-	// Habit tracking routes
-	RegisterHabitRoutes(r, h)
-
 	// Task status routes
 	RegisterTaskStatusRoutes(r, h)
 

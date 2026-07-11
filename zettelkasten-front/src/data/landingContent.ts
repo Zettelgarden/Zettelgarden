@@ -28,7 +28,6 @@ const freeFeatures: PricingFeature[] = [
   { text: "Bidirectional Linking" },
   { text: "Task Management" },
   { text: "RSS Reader" },
-  { text: "Habit Tracker" },
   { text: "File Uploads & Management" },
   { text: "Basic Search" },
 ];
@@ -114,11 +113,11 @@ export const features: Feature[] = [
   },
   {
     id: "task-management",
-    title: "Tasks & Habits in One Place",
+    title: "Tasks in One Place",
     summary:
-      "Manage your to-dos, track daily habits, and keep your action items connected to your notes.",
+      "Manage your to-dos and keep your action items connected to your notes.",
     details:
-      "Your tasks live alongside your knowledge—not in a separate app. Schedule tasks with due dates, track daily habits with a visual calendar, and link action items to the notes and research that inform them. When you complete a project, the context is already there.",
+      "Your tasks live alongside your knowledge—not in a separate app. Schedule tasks with due dates and link action items to the notes and research that inform them. When you complete a project, the context is already there.",
     icon: CheckSquare,
   },
   {
@@ -210,12 +209,12 @@ export const faqs: FAQ[] = [
   {
     id: "different-from-others",
     question: "How is this different from Obsidian, Notion, or Roam?",
-    answer: "Zettelgarden is built around AI-assisted knowledge discovery from the start. Unlike other tools where AI is an add-on, our AI agents can search, analyze, and synthesize across your entire knowledge base automatically. It also includes a built-in RSS reader, habit tracker, and file management—so you don't need five separate apps. Plus, we're fully open-source and self-hostable.",
+    answer: "Zettelgarden is built around AI-assisted knowledge discovery from the start. Unlike other tools where AI is an add-on, our AI agents can search, analyze, and synthesize across your entire knowledge base automatically. It also includes a built-in RSS reader and file management—so you don't need several separate apps. Plus, we're fully open-source and self-hostable.",
   },
   {
     id: "free-vs-pro",
     question: "What's the difference between Free and PRO?",
-    answer: "Free gives you the full knowledge management experience: atomic notes, bidirectional linking, task management, RSS reader, habit tracker, file uploads, and basic search. PRO unlocks AI features: chat with your knowledge base, semantic search that finds related ideas even without exact keywords, entity recognition, content analysis, custom AI agents, and automated summaries.",
+    answer: "Free gives you the full knowledge management experience: atomic notes, bidirectional linking, task management, RSS reader, file uploads, and basic search. PRO unlocks AI features: chat with your knowledge base, semantic search that finds related ideas even without exact keywords, entity recognition, content analysis, custom AI agents, and automated summaries.",
   },
   {
     id: "privacy",
@@ -233,9 +232,9 @@ export const faqs: FAQ[] = [
     answer: "Just click 'Get Started Free' and create your account. No credit card required. You can create your first note immediately, and we'll show you how to link ideas as you go. Most users are comfortable within 10 minutes.",
   },
   {
-    id: "rss-habits",
-    question: "Tell me more about the RSS reader and habit tracker.",
-    answer: "The RSS reader lets you subscribe to any blog, journal, or feed. Read articles inline, organize them into folders, and convert anything into a linked note with one click. The habit tracker lets you define daily habits and track them on a visual calendar—both live alongside your notes so your knowledge and routines stay connected.",
+    id: "rss-reader",
+    question: "Tell me more about the RSS reader.",
+    answer: "The RSS reader lets you subscribe to any blog, journal, or feed. Read articles inline, organize them into folders, and convert anything into a linked note with one click. It lives alongside your notes so your knowledge and reading stay connected.",
   },
 ];
 

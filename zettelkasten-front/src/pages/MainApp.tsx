@@ -12,7 +12,6 @@ import { TagProvider } from "../contexts/TagContext";
 import { UIStateProvider } from "../contexts/UIStateContext";
 import { DialogStateProvider } from "../contexts/DialogStateContext";
 import { RSSProvider } from "../contexts/RSSContext";
-import { HabitProvider } from "../contexts/HabitContext";
 import { SplitViewLayout } from "../components/cards/SplitViewLayout";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { ToastProvider } from "../components/toast/ToastContext";
@@ -130,9 +129,7 @@ function MainApp() {
             <UIStateProvider>
               <DialogStateProvider>
                 <RSSProvider>
-                  <HabitProvider>
-                    <MainAppContent />
-                  </HabitProvider>
+                  <MainAppContent />
                 </RSSProvider>
               </DialogStateProvider>
             </UIStateProvider>
