@@ -24,7 +24,7 @@ interface ViewPageProps {
 
 export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
   const { tags } = useTagContext();
-  const { toggleMobileSidebar, setPinnedCard } = useUIState();
+  const { toggleMobileSidebar, setPinnedCard, rightPaneOpen } = useUIState();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -156,11 +156,12 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
             onNavigateParent={viewingCard.parent ? () => setViewCard(
               buildCardFromParent(viewingCard.parent)
             ) : undefined}
+            hideRailToggle={isPinnedView}
           />
 
           <div className="flex flex-col md:flex-row gap-4">
             {/* Main Content Area - varies by view mode */}
-            <div className="flex-1 md:w-2/3 space-y-4 overflow-y-auto">
+            <div className={`${rightPaneOpen ? 'flex-1 md:w-2/3' : 'w-full'} space-y-4 overflow-y-auto`}>
               {viewMode === 'summary' && (
                 <ViewSummaryView summary={latestSummary} />
               )}
@@ -187,8 +188,9 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
               )}
             </div>
 
-            {/* Side Panels - always visible */}
-            <ViewPageSidePanels
+            {/* Side Panels - closable info rail */}
+            {rightPaneOpen && (
+              <ViewPageSidePanels
               parentCard={parentCard}
               prevSibling={prevSibling}
               nextSibling={nextSibling}
@@ -216,6 +218,7 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
                 }
               }}
             />
+            )}
           </div>
         </div>
       )}

@@ -4,6 +4,7 @@ import { Card } from "../../models/Card";
 import { Button } from "../Button";
 import { PinIcon } from "../../assets/icons/PinIcon";
 import { StarIcon } from "../../assets/icons/StarIcon";
+import { useUIState } from "../../contexts/UIStateContext";
 import { ViewMode } from "../../pages/cards/ViewPageContainer";
 
 const VIEW_MODES: ViewMode[] = ['normal', 'summary', 'analysis'];
@@ -20,6 +21,8 @@ interface ViewPageHeaderProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   onNavigateParent?: () => void;
+  /** Hide the rail toggle when this header lives in the pinned pane (no rail). */
+  hideRailToggle?: boolean;
 }
 
 export function ViewPageHeader({
@@ -34,7 +37,9 @@ export function ViewPageHeader({
   viewMode,
   onViewModeChange,
   onNavigateParent,
+  hideRailToggle = false,
 }: ViewPageHeaderProps) {
+  const { rightPaneOpen, toggleRightPane } = useUIState();
   const hasParent = !!(onNavigateParent && viewingCard.parent);
 
   return (
@@ -91,6 +96,25 @@ export function ViewPageHeader({
           >
             <PinIcon className="h-5 w-5" filled={isPinned} />
           </button>
+          {!hideRailToggle && (
+            <button
+              type="button"
+              onClick={toggleRightPane}
+              title="Toggle info pane"
+              aria-label="Toggle info pane"
+              aria-pressed={rightPaneOpen}
+              className={`hidden md:inline-flex p-2 rounded-md transition-colors ${
+                rightPaneOpen
+                  ? 'text-gray-700 hover:bg-gray-100'
+                  : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 4h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v14" />
+              </svg>
+            </button>
+          )}
           <Button onClick={onEditCard} variant="outline" size="small">Edit</Button>
           <Menu as="div" className="relative inline-block">
             <Menu.Button

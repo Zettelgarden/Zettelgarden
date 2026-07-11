@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from "react";
+import React, { createContext, useState, useEffect, useRef, useContext } from "react";
 import { Card, PartialCard } from "../models/Card";
 
 /**
@@ -17,6 +17,11 @@ interface UIStateContextType {
   isMobileSidebarOpen: boolean;
   setIsMobileSidebarOpen: (open: boolean) => void;
   toggleMobileSidebar: () => void;
+
+  // Right pane (card view info rail) state
+  rightPaneOpen: boolean;
+  setRightPaneOpen: (open: boolean) => void;
+  toggleRightPane: () => void;
 
   // Pin state
   pinnedCard: Card | null;
@@ -41,12 +46,20 @@ interface UIStateContextType {
 const UIStateContext = createContext<UIStateContextType | undefined>(undefined);
 
 const SIDEBAR_COLLAPSED_KEY = 'zettelgarden-sidebar-collapsed';
+const RIGHT_PANE_OPEN_KEY = 'zettelgarden-right-pane-open';
 const PINNED_CARD_KEY = 'zettelgarden-pinned-card';
 
 const getInitialSidebarState = (): boolean => {
   if (typeof window === 'undefined') return false;
   const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
   return stored === 'true';
+};
+
+const getInitialRightPaneState = (): boolean => {
+  if (typeof window === 'undefined') return true;
+  const stored = localStorage.getItem(RIGHT_PANE_OPEN_KEY);
+  // Defaults to open (true) unless explicitly closed.
+  return stored !== 'false';
 };
 
 const getStoredCard = (key: string): Card | null => {
@@ -65,6 +78,9 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
   // Sidebar state
   const [isSidebarCollapsed, setIsSidebarCollapsedState] = useState<boolean>(getInitialSidebarState);
   const [isMobileSidebarOpen, setIsMobileSidebarOpenState] = useState<boolean>(false);
+
+  // Right pane state
+  const [rightPaneOpen, setRightPaneOpenState] = useState<boolean>(getInitialRightPaneState);
 
   const setIsSidebarCollapsed = (collapsed: boolean) => {
     setIsSidebarCollapsedState(collapsed);
@@ -85,6 +101,19 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const toggleMobileSidebar = () => {
     setIsMobileSidebarOpenState(prev => !prev);
+  };
+
+  const setRightPaneOpen = (open: boolean) => {
+    setRightPaneOpenState(open);
+    localStorage.setItem(RIGHT_PANE_OPEN_KEY, String(open));
+  };
+
+  const toggleRightPane = () => {
+    setRightPaneOpenState(prev => {
+      const newValue = !prev;
+      localStorage.setItem(RIGHT_PANE_OPEN_KEY, String(newValue));
+      return newValue;
+    });
   };
 
   // Pin state
@@ -115,6 +144,25 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [pinnedCard]);
 
+  // Decision #2: opening a pinned card collapses the right rail so the
+  // desktop layout doesn't balloon to four columns; closing the pinned card
+  // restores the rail to its prior state. The forced close uses the raw
+  // setter (not the persisting one) so a reload-while-pinned never silently
+  // overwrites the user's saved rail preference.
+  const priorRightPaneOpen = useRef(rightPaneOpen);
+  const prevPinnedCard = useRef(pinnedCard);
+  useEffect(() => {
+    const wasPinned = prevPinnedCard.current !== null;
+    const isPinned = pinnedCard !== null;
+    if (!wasPinned && isPinned) {
+      priorRightPaneOpen.current = rightPaneOpen;
+      setRightPaneOpenState(false);
+    } else if (wasPinned && !isPinned) {
+      setRightPaneOpenState(priorRightPaneOpen.current);
+    }
+    prevPinnedCard.current = pinnedCard;
+  }, [pinnedCard, rightPaneOpen]);
+
   return (
     <UIStateContext.Provider
       value={{
@@ -125,6 +173,11 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
         isMobileSidebarOpen,
         setIsMobileSidebarOpen,
         toggleMobileSidebar,
+
+        // Right pane
+        rightPaneOpen,
+        setRightPaneOpen,
+        toggleRightPane,
 
         // Pin
         pinnedCard,
