@@ -6,3 +6,4 @@
 {"id":"int-494feb5c","kind":"field_change","created_at":"2026-07-12T12:02:57.34137161Z","actor":"Nick Savage","issue_id":"Zettelgarden-8lt","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
 {"id":"int-c5c71f6f","kind":"field_change","created_at":"2026-07-12T12:25:33.282269909Z","actor":"Nick Savage","issue_id":"Zettelgarden-1ui","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
 {"id":"int-65fb1300","kind":"field_change","created_at":"2026-07-12T12:45:00.725009822Z","actor":"Nick Savage","issue_id":"Zettelgarden-pw4","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
+{"id":"int-41ab0d33","kind":"field_change","created_at":"2026-07-12T12:52:29.492384611Z","actor":"Nick Savage","issue_id":"Zettelgarden-tax","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
