@@ -13,7 +13,6 @@ import { ViewCardTabbedDisplay } from "./ViewCardTabbedDisplay";
 import { Collapsible } from "../Collapsible";
 import { SortMethod, sortPartialCards } from "../../utils/cards";
 import { SortControl as SortControlComponent } from "./SortControl";
-import { useUIState } from "../../contexts/UIStateContext";
 
 interface ViewCardContentSectionProps {
   viewingCard: Card;
@@ -60,14 +59,8 @@ export function ViewCardContentSection({
   summaries,
   fileUploadRef,
 }: ViewCardContentSectionProps) {
-  const { setRightPaneOpen, setRightPaneTab } = useUIState();
   const [childrenSortMethod, setChildrenSortMethod] = useState<SortMethod>("cardId");
   const [referencesSortMethod, setReferencesSortMethod] = useState<SortMethod>("cardId");
-
-  const openLinksTab = () => {
-    setRightPaneOpen(true);
-    setRightPaneTab('links');
-  };
 
   // Relationship data only computed for the mobile inline path.
   const sortedChildren = showRelationships
@@ -140,7 +133,7 @@ export function ViewCardContentSection({
         )}
       </div>
 
-      {showRelationships ? (
+      {showRelationships && (
         <>
           {/* Children — inline (mobile path). Desktop shows these in the rail. */}
           <div>
@@ -222,26 +215,6 @@ export function ViewCardContentSection({
             )}
           </Collapsible>
         </>
-      ) : (
-        /* Footer affordance — always-visible entry points to the Links tab.
-           Children + Linked references live in the rail; these muted buttons
-           open the rail (and, for Child, kick off creation). Desktop only. */
-        <div className="flex items-center gap-4 -mt-4 text-xs text-gray-400">
-          <button
-            type="button"
-            onClick={() => { openLinksTab(); onCreateChildCard(); }}
-            className="hover:text-blue-600 transition-colors"
-          >
-            ＋ Child
-          </button>
-          <button
-            type="button"
-            onClick={openLinksTab}
-            className="hover:text-blue-600 transition-colors"
-          >
-            ＋ Link
-          </button>
-        </div>
       )}
 
       {/* Tasks Section */}

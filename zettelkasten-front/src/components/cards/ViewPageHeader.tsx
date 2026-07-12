@@ -18,6 +18,7 @@ interface ViewPageHeaderProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   onNavigateParent?: () => void;
+  onCreateChildCard: () => void;
 }
 
 export function ViewPageHeader({
@@ -30,9 +31,17 @@ export function ViewPageHeader({
   viewMode,
   onViewModeChange,
   onNavigateParent,
+  onCreateChildCard,
 }: ViewPageHeaderProps) {
-  const { rightPaneOpen, toggleRightPane } = useUIState();
+  const { rightPaneOpen, toggleRightPane, setRightPaneOpen, setRightPaneTab } = useUIState();
   const hasParent = !!(onNavigateParent && viewingCard.parent);
+
+  // Open the rail's Links tab — shared entry point for both ＋ Child and
+  // ＋ Link (Children + Linked references + BacklinkInput live there).
+  const openLinksTab = () => {
+    setRightPaneOpen(true);
+    setRightPaneTab('links');
+  };
 
   return (
     <header className="pb-2">
@@ -189,22 +198,42 @@ export function ViewPageHeader({
         </div>
       </div>
 
-      {/* View mode segmented control */}
-      <div className="mt-4 inline-flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-        {VIEW_MODES.map((mode) => (
+      {/* View mode segmented control + card creation actions */}
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          {VIEW_MODES.map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => onViewModeChange(mode)}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors capitalize ${
+                viewMode === mode
+                  ? "bg-white shadow-sm text-gray-900 font-medium"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1">
           <button
-            key={mode}
             type="button"
-            onClick={() => onViewModeChange(mode)}
-            className={`px-3 py-1.5 text-sm rounded-md transition-colors capitalize ${
-              viewMode === mode
-                ? "bg-white shadow-sm text-gray-900 font-medium"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
+            onClick={() => { openLinksTab(); onCreateChildCard(); }}
+            title="Create a child card"
+            className="px-2.5 py-1 text-xs text-gray-500 hover:text-blue-600 rounded-md transition-colors"
           >
-            {mode}
+            ＋ Child
           </button>
-        ))}
+          <button
+            type="button"
+            onClick={openLinksTab}
+            title="Add a backlink"
+            className="px-2.5 py-1 text-xs text-gray-500 hover:text-blue-600 rounded-md transition-colors"
+          >
+            ＋ Link
+          </button>
+        </div>
       </div>
     </header>
   );

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { ViewCardContentSection } from './ViewCardContentSection';
-import { UIStateProvider, useUIState } from '../../contexts/UIStateContext';
+import { UIStateProvider } from '../../contexts/UIStateContext';
 import { sampleCards, samplePartialCards } from '../../tests/data';
 
 // Heavy children are mocked to keep this a focused unit test and avoid
@@ -50,66 +50,18 @@ function renderSection(overrides: Partial<Props> = {}) {
   );
 }
 
-describe('ViewCardContentSection — desktop (footer affordance)', () => {
-  it('shows the +Child and +Link footer buttons and no inline relationships', () => {
+describe('ViewCardContentSection — desktop (no inline relationships)', () => {
+  it('renders just the body and no inline relationships or footer buttons', () => {
     renderSection();
-    expect(screen.getByText('＋ Child')).toBeInTheDocument();
-    expect(screen.getByText('＋ Link')).toBeInTheDocument();
-    // Inline relationship sections are gone on desktop.
+    // Inline relationship sections are absent on desktop (they live in the
+    // rail; the ＋ Child / ＋ Link affordances live in the header now).
     expect(screen.queryByText('Children')).not.toBeInTheDocument();
     expect(screen.queryByText('Linked references')).not.toBeInTheDocument();
+    expect(screen.queryByText('＋ Child')).not.toBeInTheDocument();
+    expect(screen.queryByText('＋ Link')).not.toBeInTheDocument();
     // The tabbed display (entities/files/history/summaries) lives in the
     // rail's Metadata tab on desktop, not inline here.
     expect(screen.queryByTestId('tabbed-display')).not.toBeInTheDocument();
-  });
-
-  it('opens the rail to the Links tab when +Link is clicked', () => {
-    function Harness() {
-      const { rightPaneOpen, rightPaneTab } = useUIState();
-      return (
-        <>
-          <ViewCardContentSection {...baseProps()} />
-          <div data-testid="rail-open">{rightPaneOpen ? 'open' : 'closed'}</div>
-          <div data-testid="rail-tab">{rightPaneTab}</div>
-        </>
-      );
-    }
-    render(
-      <BrowserRouter>
-        <UIStateProvider>
-          <Harness />
-        </UIStateProvider>
-      </BrowserRouter>,
-    );
-    // Default state: rail may be open already; the tab should flip to links.
-    fireEvent.click(screen.getByText('＋ Link'));
-    expect(screen.getByTestId('rail-open').textContent).toBe('open');
-    expect(screen.getByTestId('rail-tab').textContent).toBe('links');
-  });
-
-  it('triggers child creation and opens the rail when +Child is clicked', () => {
-    const onCreateChildCard = vi.fn();
-    function Harness() {
-      const { rightPaneOpen, rightPaneTab } = useUIState();
-      return (
-        <>
-          <ViewCardContentSection {...baseProps({ onCreateChildCard })} />
-          <div data-testid="rail-open">{rightPaneOpen ? 'open' : 'closed'}</div>
-          <div data-testid="rail-tab">{rightPaneTab}</div>
-        </>
-      );
-    }
-    render(
-      <BrowserRouter>
-        <UIStateProvider>
-          <Harness />
-        </UIStateProvider>
-      </BrowserRouter>,
-    );
-    fireEvent.click(screen.getByText('＋ Child'));
-    expect(onCreateChildCard).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('rail-open').textContent).toBe('open');
-    expect(screen.getByTestId('rail-tab').textContent).toBe('links');
   });
 });
 

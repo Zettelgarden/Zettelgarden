@@ -138,6 +138,7 @@ export function ViewPage({ cardId }: { cardId?: string }) {
                 ? () => navigate(`/app/card/${viewingCard.parent!.id}`)
                 : undefined
             }
+            onCreateChildCard={onCreateChildCard}
           />
 
           <div className="flex flex-col md:flex-row gap-4">
