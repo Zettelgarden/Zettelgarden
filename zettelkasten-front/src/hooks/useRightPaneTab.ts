@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useUIState, RightPaneTab } from "../contexts/UIStateContext";
 
-const VALID_TAB_IDS: RightPaneTab[] = ["links", "metadata", "entities"];
+const VALID_TAB_IDS: RightPaneTab[] = ["links", "metadata", "entities", "files"];
 
 /**
  * Keeps `rightPaneTab` (from `UIStateContext`) in sync with the `?pane=`

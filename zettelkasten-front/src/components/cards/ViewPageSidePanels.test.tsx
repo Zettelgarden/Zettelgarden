@@ -16,9 +16,6 @@ vi.mock('./ChildrenCards', () => ({
 vi.mock('./BacklinkInput', () => ({
   BacklinkInput: () => <div data-testid="backlink-input">Add Backlink</div>,
 }));
-vi.mock('./ViewCardTabbedDisplay', () => ({
-  ViewCardTabbedDisplay: () => <div data-testid="tabbed-display">tabs</div>,
-}));
 vi.mock('../tabs/EntitiesTab', () => ({
   EntitiesTab: ({ viewingCard }: any) => (
     <div data-testid="entities-tab">
@@ -30,6 +27,19 @@ vi.mock('../tabs/EntitiesTab', () => ({
       )}
     </div>
   ),
+}));
+vi.mock('../tabs/FilesTab', () => ({
+  FilesTab: ({ viewingCard }: any) => (
+    <div data-testid="files-tab">{viewingCard.files.length} files</div>
+  ),
+}));
+vi.mock('../tabs/HistoryTab', () => ({
+  HistoryTab: ({ auditEvents }: any) => (
+    <div data-testid="history-tab">{auditEvents.length} events</div>
+  ),
+}));
+vi.mock('../tabs/RollbackConfirmDialog', () => ({
+  RollbackConfirmDialog: () => null,
 }));
 
 type PanelProps = React.ComponentProps<typeof ViewPageSidePanels>;
@@ -50,7 +60,6 @@ function baseProps(overrides: Partial<PanelProps> = {}): PanelProps {
     onAddBacklink: vi.fn(),
     setViewCard: vi.fn(),
     setError: vi.fn(),
-    summaries: null,
     fileUploadRef: { current: null } as React.RefObject<HTMLInputElement>,
     ...overrides,
   };
@@ -75,8 +84,9 @@ describe('ViewPageSidePanels — tabs', () => {
     renderPanel();
     // No children/references → Metadata is the smart default.
     expect(screen.getByText('Tags')).toBeInTheDocument();
-    // The entities/files/history/summaries tabbed display lives here now.
-    expect(screen.getByTestId('tabbed-display')).toBeInTheDocument();
+    // The nested tabbed display is gone; History lives in a collapsible.
+    expect(screen.queryByTestId('tabbed-display')).not.toBeInTheDocument();
+    expect(screen.getByText('History')).toBeInTheDocument();
     // Links-only content is absent on the default tab.
     expect(screen.queryByText('Children')).not.toBeInTheDocument();
   });
@@ -126,6 +136,14 @@ describe('ViewPageSidePanels — tabs', () => {
     expect(screen.getByText('No entities available')).toBeInTheDocument();
   });
 
+  it('switches to the Files tab and shows the files list', () => {
+    renderPanel();
+    fireEvent.click(screen.getByText('Files'));
+    expect(screen.getByTestId('files-tab')).toBeInTheDocument();
+    // Metadata content is hidden
+    expect(screen.queryByText('Tags')).not.toBeInTheDocument();
+  });
+
   it('shows Children, Linked references, and the backlink input on the Links tab', () => {
     const [ref] = samplePartialCards();
     renderPanel({
@@ -157,8 +175,8 @@ describe('ViewPageSidePanels — tabs', () => {
     // Smart default → metadata for a relationship-less card.
     expect(window.location.search).toContain('pane=metadata');
 
-    fireEvent.click(screen.getByText('Entities'));
-    expect(window.location.search).toContain('pane=entities');
+    fireEvent.click(screen.getByText('Files'));
+    expect(window.location.search).toContain('pane=files');
   });
 
   it('honors a valid ?pane= param on mount instead of the smart default', () => {

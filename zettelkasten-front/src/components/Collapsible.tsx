@@ -10,6 +10,8 @@ interface CollapsibleProps {
   rightElement?: React.ReactNode;
   /** Optional id suffix to keep aria attributes unique. */
   idSuffix?: string;
+  /** Notified on every open/close toggle (e.g. to lazy-load children). */
+  onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
 }
 
@@ -25,17 +27,24 @@ export function Collapsible({
   defaultOpen = true,
   rightElement,
   idSuffix,
+  onOpenChange,
   children,
 }: CollapsibleProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const panelId = idSuffix ? `collapsible-${idSuffix}` : undefined;
+
+  const toggle = () => {
+    const next = !isOpen;
+    setIsOpen(next);
+    onOpenChange?.(next);
+  };
 
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={toggle}
           aria-expanded={isOpen}
           aria-controls={panelId}
           className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors py-1"

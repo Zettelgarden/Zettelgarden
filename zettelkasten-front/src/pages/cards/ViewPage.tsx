@@ -148,7 +148,7 @@ export function ViewPage({ cardId }: { cardId?: string }) {
               } space-y-4 overflow-y-auto`}
             >
               {viewMode === "summary" && (
-                <ViewSummaryView summary={latestSummary} />
+                <ViewSummaryView summary={latestSummary} summaries={summaries} />
               )}
 
               {viewMode === "analysis" && (
@@ -192,7 +192,6 @@ export function ViewPage({ cardId }: { cardId?: string }) {
                 onAddBacklink={onAddBacklink}
                 setViewCard={setViewCard}
                 setError={setError}
-                summaries={summaries}
                 fileUploadRef={fileUploadRef}
               />
             )}

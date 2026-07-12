@@ -9,7 +9,7 @@ import { PartialCard } from "../models/Card";
  */
 
 /** Which tab is active in the card view's right info rail. */
-export type RightPaneTab = "links" | "metadata" | "entities";
+export type RightPaneTab = "links" | "metadata" | "entities" | "files";
 
 interface UIStateContextType {
   // Sidebar state

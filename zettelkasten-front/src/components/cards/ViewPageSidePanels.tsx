@@ -7,16 +7,23 @@ import { CardItem } from "./CardItem";
 import { SearchTagDropdown } from "../tags/SearchTagDropdown";
 import { linkifyWithDefaultOptions } from "../../utils/strings";
 import { EntitiesTab } from "../tabs/EntitiesTab";
+import { FilesTab } from "../tabs/FilesTab";
+import { HistoryTab } from "../tabs/HistoryTab";
+import { RollbackConfirmDialog } from "../tabs/RollbackConfirmDialog";
 import { removeEntityFromCard } from "../../api/entities";
+import {
+  saveExistingCard,
+  getCardAuditEvents,
+  restoreCardToAuditEvent,
+} from "../../api/cards";
+import { File } from "../../models/File";
 import { CardStructuredDataDisplay } from "../schemas/CardStructuredDataDisplay";
 import { RSSArticle } from "../../api/rss";
 import { CategorizedReferences } from "../../api/cards";
-import { SummarizeJobResponse } from "../../api/summarizer";
 import { RelatedCards } from "./RelatedCards";
 import { ChildrenCards } from "./ChildrenCards";
 import { CardList } from "./CardList";
 import { BacklinkInput } from "./BacklinkInput";
-import { ViewCardTabbedDisplay } from "./ViewCardTabbedDisplay";
 import { Collapsible } from "../Collapsible";
 import { SortMethod, sortPartialCards } from "../../utils/cards";
 import { SortControl as SortControlComponent } from "./SortControl";
@@ -41,7 +48,6 @@ interface ViewPageSidePanelsProps {
   onAddBacklink: (selectedCard: PartialCard) => void;
   setViewCard: (card: Card) => void;
   setError: (error: string) => void;
-  summaries: SummarizeJobResponse[] | null;
   fileUploadRef: React.RefObject<HTMLInputElement>;
 }
 
@@ -49,6 +55,7 @@ const TABS: { id: RightPaneTab; label: string }[] = [
   { id: "links", label: "Links" },
   { id: "metadata", label: "Metadata" },
   { id: "entities", label: "Entities" },
+  { id: "files", label: "Files" },
 ];
 
 export function ViewPageSidePanels({
@@ -69,7 +76,6 @@ export function ViewPageSidePanels({
   onAddBacklink,
   setViewCard,
   setError,
-  summaries,
   fileUploadRef,
 }: ViewPageSidePanelsProps) {
   const navigate = useNavigate();
@@ -79,6 +85,11 @@ export function ViewPageSidePanels({
   const [referencesSortMethod, setReferencesSortMethod] = useState<SortMethod>("cardId");
   const [entityFilterString, setEntityFilterString] = useState<string>("");
   const [showAddEntityDialog, setShowAddEntityDialog] = useState<boolean>(false);
+  const [fileFilterString, setFileFilterString] = useState<string>("");
+  const [auditEvents, setAuditEvents] = useState<any[]>([]);
+  const [showRollbackDialog, setShowRollbackDialog] = useState<boolean>(false);
+  const [pendingRestoreEvent, setPendingRestoreEvent] = useState<any>(null);
+  const [isRestoring, setIsRestoring] = useState<boolean>(false);
 
   const sortedChildren = sortPartialCards(viewingCard.children, childrenSortMethod);
   const sortedBidirectional = sortPartialCards(categorizedReferences.bidirectional, referencesSortMethod);
@@ -110,6 +121,57 @@ export function ViewPageSidePanels({
       entities: [...(viewingCard.entities || []), entity]
     });
   }
+
+  async function handleDisplayFileOnCardClick(file: File) {
+    if (viewingCard === null) {
+      return;
+    }
+
+    const editedCard = {
+      ...viewingCard,
+      body: viewingCard.body + "\n\n![](" + file.id + ")",
+    };
+    await saveExistingCard(editedCard);
+    setViewCard(editedCard);
+  }
+
+  // Lazy-load audit events whenever the History collapsible is opened.
+  function loadAuditEvents() {
+    getCardAuditEvents(viewingCard.id.toString())
+      .then(events => setAuditEvents(events))
+      .catch(() => setError("Failed to load audit events"));
+  }
+
+  const handleRestoreClick = (event: any) => {
+    setPendingRestoreEvent(event);
+    setShowRollbackDialog(true);
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!pendingRestoreEvent) return;
+
+    setIsRestoring(true);
+    try {
+      const restoredCard = await restoreCardToAuditEvent(
+        viewingCard.id.toString(),
+        pendingRestoreEvent.id
+      );
+      setViewCard(restoredCard);
+      const events = await getCardAuditEvents(viewingCard.id.toString());
+      setAuditEvents(events);
+      setShowRollbackDialog(false);
+      setPendingRestoreEvent(null);
+    } catch (error) {
+      setError("Failed to restore card");
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const handleCancelRestore = () => {
+    setShowRollbackDialog(false);
+    setPendingRestoreEvent(null);
+  };
 
   return (
     <div className="md:w-1/3">
@@ -370,17 +432,17 @@ export function ViewPageSidePanels({
               </div>
             </div>
 
-            {/* Files / History / Summaries — moved here from the
-                main column so the reading surface is pure prose + tasks. */}
-            <div className="pt-2">
-              <ViewCardTabbedDisplay
-                viewingCard={viewingCard}
-                setViewCard={setViewCard}
-                setError={setError}
-                summaries={summaries}
-                fileUploadRef={fileUploadRef}
-              />
-            </div>
+            {/* History — collapsed by default; loads on expand. */}
+            <Collapsible
+              title="History"
+              count={auditEvents.length}
+              defaultOpen={false}
+              onOpenChange={(open) => {
+                if (open) loadAuditEvents();
+              }}
+            >
+              <HistoryTab auditEvents={auditEvents} onRestore={handleRestoreClick} />
+            </Collapsible>
           </>
         )}
 
@@ -397,6 +459,26 @@ export function ViewPageSidePanels({
             setError={setError}
           />
         )}
+
+        {rightPaneTab === "files" && (
+          <FilesTab
+            viewingCard={viewingCard}
+            fileUploadRef={fileUploadRef}
+            handleDisplayFileOnCardClick={handleDisplayFileOnCardClick}
+            fileFilterString={fileFilterString}
+            setFileFilterString={setFileFilterString}
+            setError={setError}
+          />
+        )}
+
+        <RollbackConfirmDialog
+          isOpen={showRollbackDialog}
+          onClose={handleCancelRestore}
+          onConfirm={handleConfirmRestore}
+          cardTitle={viewingCard.title || viewingCard.card_id || 'Untitled Card'}
+          auditEvent={pendingRestoreEvent}
+          isLoading={isRestoring}
+        />
       </div>
     </div>
   );
