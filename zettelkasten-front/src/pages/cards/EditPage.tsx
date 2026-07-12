@@ -16,7 +16,6 @@ import { useUIState, RightPaneTab } from "../../contexts/UIStateContext";
 import { Button } from "../../components/Button";
 import { CardBodyTextArea, CardBodyTextAreaHandle } from "../../components/cards/CardBodyTextArea";
 import { processTemplateVariables } from "../../utils/templateVariables";
-import { HeaderSubSection } from "../../components/Header";
 import { useRightPaneTab } from "../../hooks/useRightPaneTab";
 
 
@@ -49,6 +48,7 @@ interface EditPageProps {
 // backlink input) arrives in PR 3.
 const EDIT_TABS: { id: RightPaneTab; label: string }[] = [
   { id: "metadata", label: "Metadata" },
+  { id: "links", label: "Links" },
 ];
 
 function onFileDelete(file_id: number) { }
@@ -348,35 +348,6 @@ function EditPageContent({ newCard }: EditPageProps) {
                   setFilesToUpdate={setFilesToUpdate}
                   addBacklink={addBacklink}
                 />
-                <hr className="my-4" />
-
-                <hr className="my-4" />
-                <div className="space-y-2">
-
-                  <HeaderSubSection text="Link" />
-                  <div className="relative">
-                    <input
-                      type="text"
-                      id="link"
-                      value={editingCard.link}
-                      onChange={(e) =>
-                        setEditingCard({ ...editingCard, link: e.target.value })
-                      }
-                      placeholder="Source"
-                      className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-10"
-                    />
-                    <button
-                      onClick={handleClickFillCard}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
-                      type="button"
-                      title="Fill card from URL"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
 
                 {!newCard && (
                   <div className="mt-8">
@@ -434,31 +405,52 @@ function EditPageContent({ newCard }: EditPageProps) {
                   </div>
 
                   <div className="space-y-4">
-                    <CardMetadata
-                      newCard={newCard}
-                      originalCard={originalCard}
-                      editingCard={editingCard}
-                      setEditingCard={setEditingCard}
-                      setShowCardIdDiscovery={setShowCardIdDiscovery}
-                      handleClickFillCard={handleClickFillCard}
-                      tags={tags}
-                      handleTagClick={handleTagClick}
-                      handleRemoveTag={handleRemoveTag}
-                      addBacklink={addBacklink}
-                    />
-
-                    <div className="bg-white rounded-lg p-4 shadow-sm">
-                      <CardSchemaSection
-                        schemaId={editingCard.schema_id}
-                        structuredData={editingCard.structured_data}
-                        onSchemaChange={(schemaId) =>
-                          setEditingCard({ ...editingCard, schema_id: schemaId, structured_data: {} })
-                        }
-                        onDataChange={(data) =>
-                          setEditingCard({ ...editingCard, structured_data: data })
-                        }
+                    {rightPaneTab === "links" && (
+                      <CardMetadata
+                        newCard={newCard}
+                        originalCard={originalCard}
+                        editingCard={editingCard}
+                        setEditingCard={setEditingCard}
+                        setShowCardIdDiscovery={setShowCardIdDiscovery}
+                        handleClickFillCard={handleClickFillCard}
+                        tags={tags}
+                        handleTagClick={handleTagClick}
+                        handleRemoveTag={handleRemoveTag}
+                        addBacklink={addBacklink}
+                        tab="links"
                       />
-                    </div>
+                    )}
+
+                    {rightPaneTab !== "links" && (
+                      <>
+                        <CardMetadata
+                          newCard={newCard}
+                          originalCard={originalCard}
+                          editingCard={editingCard}
+                          setEditingCard={setEditingCard}
+                          setShowCardIdDiscovery={setShowCardIdDiscovery}
+                          handleClickFillCard={handleClickFillCard}
+                          tags={tags}
+                          handleTagClick={handleTagClick}
+                          handleRemoveTag={handleRemoveTag}
+                          addBacklink={addBacklink}
+                          tab="metadata"
+                        />
+
+                        <div className="bg-white rounded-lg p-4 shadow-sm">
+                          <CardSchemaSection
+                            schemaId={editingCard.schema_id}
+                            structuredData={editingCard.structured_data}
+                            onSchemaChange={(schemaId) =>
+                              setEditingCard({ ...editingCard, schema_id: schemaId, structured_data: {} })
+                            }
+                            onDataChange={(data) =>
+                              setEditingCard({ ...editingCard, structured_data: data })
+                            }
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}

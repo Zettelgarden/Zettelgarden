@@ -169,8 +169,9 @@ describe('CardMetadata', () => {
       render(<CardMetadata {...defaultProps} newCard={false} editingCard={{ ...defaultEditingCard, card_id: '1' }} />);
 
       const buttons = screen.getAllByRole('button');
-      // Should have menu button (1), tag dropdown button (1), and 2 tag remove buttons = 4
-      expect(buttons.length).toBe(4);
+      // Should have menu button (1), tag dropdown button (1), 2 tag remove
+      // buttons, and the fill-from-URL button (1) = 5
+      expect(buttons.length).toBe(5);
     });
 
     it('should show action buttons for existing cards with empty card_id', () => {
@@ -399,8 +400,9 @@ describe('CardMetadata', () => {
       );
 
       const buttons = screen.getAllByRole('button');
-      // Should have menu, tag dropdown, and 2 tag remove buttons = 4, no + or discovery buttons
-      expect(buttons.length).toBe(4);
+      // Should have menu, tag dropdown, 2 tag remove buttons, and the
+      // fill-from-URL button = 5, no + or discovery buttons
+      expect(buttons.length).toBe(5);
 
       // Verify no + or discovery buttons
       const addButton = buttons.find(btn => btn.querySelector('svg')?.innerHTML.includes('M10 3a1 1 0 011 1v5h5'));
@@ -480,6 +482,55 @@ describe('CardMetadata', () => {
       // Should render all tags
       expect(screen.getByText('#tag0')).toBeInTheDocument();
       expect(screen.getByText('#tag19')).toBeInTheDocument();
+    });
+  });
+
+  describe('Rail tab branching', () => {
+    it('defaults to the metadata tab', () => {
+      render(<CardMetadata {...defaultProps} />);
+      // Metadata-only content is present by default.
+      expect(screen.getByText('Card ID')).toBeInTheDocument();
+      expect(screen.getByText('Link')).toBeInTheDocument();
+      // References (links tab) is absent.
+      expect(screen.queryByText('References')).not.toBeInTheDocument();
+    });
+
+    it('renders Card ID, Tags, Source/Link, and Details on the metadata tab', () => {
+      render(<CardMetadata {...defaultProps} tab="metadata" />);
+      expect(screen.getByText('Card ID')).toBeInTheDocument();
+      expect(screen.getByText('Tags')).toBeInTheDocument();
+      expect(screen.getByText('Link')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Source')).toBeInTheDocument();
+      expect(screen.getByText('Created:')).toBeInTheDocument();
+      // The backlink input lives on the links tab, not here.
+      expect(screen.queryByText('References')).not.toBeInTheDocument();
+    });
+
+    it('renders only the References backlink input on the links tab', () => {
+      render(<CardMetadata {...defaultProps} tab="links" />);
+      expect(screen.getByText('References')).toBeInTheDocument();
+      expect(screen.getByTestId('backlink-dropdown')).toBeInTheDocument();
+      // Metadata content is hidden on the links tab.
+      expect(screen.queryByText('Card ID')).not.toBeInTheDocument();
+      expect(screen.queryByText('Tags')).not.toBeInTheDocument();
+      expect(screen.queryByText('Link')).not.toBeInTheDocument();
+      expect(screen.queryByText('Created:')).not.toBeInTheDocument();
+    });
+
+    it('lets the Source/Link input update editingCard.link', () => {
+      render(<CardMetadata {...defaultProps} tab="metadata" />);
+      const linkInput = screen.getByPlaceholderText('Source');
+      fireEvent.change(linkInput, { target: { value: 'https://example.com' } });
+      expect(mockSetEditingCard).toHaveBeenCalledWith({
+        ...defaultEditingCard,
+        link: 'https://example.com',
+      });
+    });
+
+    it('calls handleClickFillCard from the fill-from-URL button', () => {
+      render(<CardMetadata {...defaultProps} tab="metadata" />);
+      fireEvent.click(screen.getByTitle('Fill card from URL'));
+      expect(mockHandleClickFillCard).toHaveBeenCalledTimes(1);
     });
   });
 });
