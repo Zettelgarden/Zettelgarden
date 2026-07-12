@@ -43,13 +43,10 @@ vi.mock('../tabs/RollbackConfirmDialog', () => ({
 }));
 
 type PanelProps = React.ComponentProps<typeof ViewPageSidePanels>;
-const [viewingCard, parentCard] = sampleCards();
+const [viewingCard] = sampleCards();
 
 function baseProps(overrides: Partial<PanelProps> = {}): PanelProps {
   return {
-    parentCard: null,
-    prevSibling: null,
-    nextSibling: null,
     onOpenEntity: vi.fn(),
     viewingCard,
     tags: [],
@@ -101,24 +98,26 @@ describe('ViewPageSidePanels — tabs', () => {
     expect(screen.queryByText('Tags')).not.toBeInTheDocument();
   });
 
-  it('switches to the Links tab and shows the Parent section', () => {
-    renderPanel({ parentCard });
+  it('switches to the Links tab and shows the Children section', () => {
+    renderPanel();
     fireEvent.click(screen.getByText('Links'));
-    expect(screen.getByText('Parent')).toBeInTheDocument();
-    // Metadata content is now hidden
+    // The Parent section moved to the header; the Links tab starts with
+    // Children now.
+    expect(screen.getByText('Children')).toBeInTheDocument();
+    expect(screen.queryByText('Parent')).not.toBeInTheDocument();
+    // Metadata content is hidden
     expect(screen.queryByText('Tags')).not.toBeInTheDocument();
   });
 
-  it('renders the Children + References structure on the Links tab without a parent', () => {
+  it('renders the Children + References structure on the Links tab', () => {
     const [ref] = samplePartialCards();
     renderPanel({
-      parentCard: null,
       categorizedReferences: { bidirectional: [ref], incoming: [], outgoing: [] },
     });
     // Smart default is Links (has references); Children + references show.
     expect(screen.getByText('Children')).toBeInTheDocument();
     expect(screen.getByText('Linked references')).toBeInTheDocument();
-    // Parent header is absent when there is no parent.
+    // Parent section moved to the header.
     expect(screen.queryByText('Parent')).not.toBeInTheDocument();
   });
 

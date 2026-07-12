@@ -18,6 +18,8 @@ interface ViewPageHeaderProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   onNavigateParent?: () => void;
+  onNavigatePrev?: () => void;
+  onNavigateNext?: () => void;
   onCreateChildCard: () => void;
 }
 
@@ -31,13 +33,19 @@ export function ViewPageHeader({
   viewMode,
   onViewModeChange,
   onNavigateParent,
+  onNavigatePrev,
+  onNavigateNext,
   onCreateChildCard,
 }: ViewPageHeaderProps) {
   const { rightPaneOpen, toggleRightPane, setRightPaneOpen, setRightPaneTab } = useUIState();
   const hasParent = !!(onNavigateParent && viewingCard.parent);
+  // Lateral/up tree navigation cluster — shown only when there's somewhere
+  // to go. Promoted out of the buried Links-tab Parent section so navigating
+  // between siblings is always reachable at the top of the page.
+  const showSiblingNav = hasParent || !!onNavigatePrev || !!onNavigateNext;
 
-  // Open the rail's Links tab — shared entry point for both ＋ Child and
-  // ＋ Link (Children + Linked references + BacklinkInput live there).
+  // Opens the rail's Links tab — used by ＋ Child (Children + Linked
+  // references + BacklinkInput live there).
   const openLinksTab = () => {
     setRightPaneOpen(true);
     setRightPaneTab('links');
@@ -198,8 +206,44 @@ export function ViewPageHeader({
         </div>
       </div>
 
-      {/* View mode segmented control + card creation actions */}
+      {/* Sibling/parent navigation + view mode + card creation actions */}
       <div className="mt-4 flex items-center justify-between gap-3">
+        {showSiblingNav ? (
+          <div className="flex items-center gap-1 text-sm">
+            {onNavigatePrev && (
+              <button
+                type="button"
+                onClick={onNavigatePrev}
+                title="Previous sibling"
+                className="px-2 py-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+              >
+                ‹ Prev
+              </button>
+            )}
+            {hasParent && (
+              <button
+                type="button"
+                onClick={onNavigateParent}
+                title="Go to parent"
+                className="px-2 py-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+              >
+                ↑ Up
+              </button>
+            )}
+            {onNavigateNext && (
+              <button
+                type="button"
+                onClick={onNavigateNext}
+                title="Next sibling"
+                className="px-2 py-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+              >
+                Next ›
+              </button>
+            )}
+          </div>
+        ) : (
+          <div />
+        )}
         <div className="inline-flex items-center gap-1 bg-gray-100 rounded-lg p-1">
           {VIEW_MODES.map((mode) => (
             <button
@@ -224,14 +268,6 @@ export function ViewPageHeader({
             className="px-2.5 py-1 text-xs text-gray-500 hover:text-blue-600 rounded-md transition-colors"
           >
             ＋ Child
-          </button>
-          <button
-            type="button"
-            onClick={openLinksTab}
-            title="Add a backlink"
-            className="px-2.5 py-1 text-xs text-gray-500 hover:text-blue-600 rounded-md transition-colors"
-          >
-            ＋ Link
           </button>
         </div>
       </div>

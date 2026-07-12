@@ -138,6 +138,12 @@ export function ViewPage({ cardId }: { cardId?: string }) {
                 ? () => navigate(`/app/card/${viewingCard.parent!.id}`)
                 : undefined
             }
+            onNavigatePrev={
+              prevSibling ? () => navigate(`/app/card/${prevSibling.id}`) : undefined
+            }
+            onNavigateNext={
+              nextSibling ? () => navigate(`/app/card/${nextSibling.id}`) : undefined
+            }
             onCreateChildCard={onCreateChildCard}
           />
 
@@ -170,9 +176,6 @@ export function ViewPage({ cardId }: { cardId?: string }) {
             {/* Side Panels - closable info rail */}
             {rightPaneOpen && (
               <ViewPageSidePanels
-                parentCard={parentCard}
-                prevSibling={prevSibling}
-                nextSibling={nextSibling}
                 onOpenEntity={handleOpenEntity}
                 viewingCard={viewingCard}
                 tags={tags}

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Card, PartialCard, RelatedCard } from "../../models/Card";
 import { Entity } from "../../models/Card";
 import { HeaderSubSection } from "../Header";
-import { CardItem } from "./CardItem";
 import { SearchTagDropdown } from "../tags/SearchTagDropdown";
 import { linkifyWithDefaultOptions } from "../../utils/strings";
 import { EntitiesTab } from "../tabs/EntitiesTab";
@@ -31,9 +30,6 @@ import { useUIState, RightPaneTab } from "../../contexts/UIStateContext";
 import { useRightPaneTab } from "../../hooks/useRightPaneTab";
 
 interface ViewPageSidePanelsProps {
-  parentCard: Card | null;
-  prevSibling: PartialCard | null;
-  nextSibling: PartialCard | null;
   onOpenEntity: (entity: Entity) => void;
   viewingCard: Card;
   tags: any[];
@@ -59,9 +55,6 @@ const TABS: { id: RightPaneTab; label: string }[] = [
 ];
 
 export function ViewPageSidePanels({
-  parentCard,
-  prevSibling,
-  nextSibling,
   onOpenEntity,
   viewingCard,
   tags,
@@ -210,46 +203,6 @@ export function ViewPageSidePanels({
       <div className="space-y-6">
         {rightPaneTab === "links" && (
           <>
-            {/* Parent Card + sibling nav */}
-            {parentCard && (
-              <div>
-                <HeaderSubSection text="Parent" />
-                <div className="mt-2">
-                  <CardItem card={parentCard} />
-                </div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-1 text-sm">
-                  {prevSibling && (
-                    <button
-                      onClick={() => navigate(`/app/card/${prevSibling.id}`)}
-                      className="px-2 py-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
-                      title="Previous sibling"
-                    >
-                      ‹ Prev
-                    </button>
-                  )}
-                  {parentCard && (
-                    <button
-                      onClick={() => navigate(`/app/card/${parentCard.id}`)}
-                      className="px-2 py-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
-                      title="Go to parent"
-                    >
-                      ↑ Up
-                    </button>
-                  )}
-                  {nextSibling && (
-                    <button
-                      onClick={() => navigate(`/app/card/${nextSibling.id}`)}
-                      className="px-2 py-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
-                      title="Next sibling"
-                    >
-                      Next ›
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Children */}
             <div>
               <div className="flex items-center justify-between mb-2">

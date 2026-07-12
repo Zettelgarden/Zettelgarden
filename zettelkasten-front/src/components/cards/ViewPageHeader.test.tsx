@@ -42,42 +42,13 @@ describe("ViewPageHeader — info pane toggle", () => {
   });
 });
 
-describe("ViewPageHeader — ＋ Child / ＋ Link affordances", () => {
-  it("renders both creation buttons on the view-mode row", () => {
+describe("ViewPageHeader — ＋ Child affordance", () => {
+  it("renders the ＋ Child button and not the removed ＋ Link button", () => {
     renderHeader();
     expect(screen.getByText("＋ Child")).toBeInTheDocument();
-    expect(screen.getByText("＋ Link")).toBeInTheDocument();
-  });
-
-  it("opens the rail to the Links tab when ＋ Link is clicked", () => {
-    function Harness() {
-      const { rightPaneOpen, rightPaneTab } = useUIState();
-      return (
-        <>
-          <ViewPageHeader
-            viewingCard={card}
-            onEditCard={() => {}}
-            onToggleStar={() => {}}
-            toggleCreateTaskWindow={() => {}}
-            onResummarize={() => {}}
-            onRecategorize={() => {}}
-            viewMode={"normal" as ViewMode}
-            onViewModeChange={() => {}}
-            onCreateChildCard={() => {}}
-          />
-          <div data-testid="rail-open">{rightPaneOpen ? "open" : "closed"}</div>
-          <div data-testid="rail-tab">{rightPaneTab}</div>
-        </>
-      );
-    }
-    render(
-      <UIStateProvider>
-        <Harness />
-      </UIStateProvider>,
-    );
-    fireEvent.click(screen.getByText("＋ Link"));
-    expect(screen.getByTestId("rail-open").textContent).toBe("open");
-    expect(screen.getByTestId("rail-tab").textContent).toBe("links");
+    // The ＋ Link button was navigation-only and is removed; the Links tab is
+    // reachable from the rail tab strip.
+    expect(screen.queryByText("＋ Link")).not.toBeInTheDocument();
   });
 
   it("triggers child creation and opens the rail when ＋ Child is clicked", () => {
@@ -111,5 +82,36 @@ describe("ViewPageHeader — ＋ Child / ＋ Link affordances", () => {
     expect(onCreateChildCard).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("rail-open").textContent).toBe("open");
     expect(screen.getByTestId("rail-tab").textContent).toBe("links");
+  });
+});
+
+describe("ViewPageHeader — sibling/parent navigation", () => {
+  it("hides the sibling nav cluster when there is no parent or siblings", () => {
+    renderHeader();
+    expect(screen.queryByText("‹ Prev")).not.toBeInTheDocument();
+    expect(screen.queryByText("↑ Up")).not.toBeInTheDocument();
+    expect(screen.queryByText("Next ›")).not.toBeInTheDocument();
+  });
+
+  it("renders Prev/Up/Next and wires them to the callbacks", () => {
+    const onNavigateParent = vi.fn();
+    const onNavigatePrev = vi.fn();
+    const onNavigateNext = vi.fn();
+    // A parent is required for ↑ Up to show (hasParent = parent data present).
+    renderHeader({
+      onNavigateParent,
+      onNavigatePrev,
+      onNavigateNext,
+      viewingCard: { ...card, parent: { id: 1, card_id: "parent" } as any },
+    });
+    const prev = screen.getByText("‹ Prev");
+    const up = screen.getByText("↑ Up");
+    const next = screen.getByText("Next ›");
+    fireEvent.click(prev);
+    fireEvent.click(up);
+    fireEvent.click(next);
+    expect(onNavigatePrev).toHaveBeenCalledTimes(1);
+    expect(onNavigateParent).toHaveBeenCalledTimes(1);
+    expect(onNavigateNext).toHaveBeenCalledTimes(1);
   });
 });
