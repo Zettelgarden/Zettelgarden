@@ -172,7 +172,6 @@ export function ViewPage({ cardId }: { cardId?: string }) {
                 parentCard={parentCard}
                 prevSibling={prevSibling}
                 nextSibling={nextSibling}
-                linkedEntities={linkedEntities}
                 onOpenEntity={handleOpenEntity}
                 viewingCard={viewingCard}
                 tags={tags}

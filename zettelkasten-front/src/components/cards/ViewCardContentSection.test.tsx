@@ -34,7 +34,6 @@ function baseProps(overrides: Partial<Props> = {}): Props {
     onCreateChildCard: vi.fn(),
     setViewCard: vi.fn(),
     setError: vi.fn(),
-    handleOpenEntity: vi.fn(),
     summaries: null,
     fileUploadRef: { current: null } as React.RefObject<HTMLInputElement>,
     ...overrides,

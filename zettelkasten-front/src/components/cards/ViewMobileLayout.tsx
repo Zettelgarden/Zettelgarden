@@ -217,7 +217,6 @@ export function ViewMobileLayout({
             onAddBacklink={onAddBacklink}
             setViewCard={setViewCard}
             setError={setError}
-            handleOpenEntity={handleOpenEntity}
             summaries={summaries}
             fileUploadRef={fileUploadRef}
             onSaveCard={onSaveCard}

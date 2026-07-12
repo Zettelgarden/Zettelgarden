@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { ViewPageSidePanels } from './ViewPageSidePanels';
 import { UIStateProvider, useUIState } from '../../contexts/UIStateContext';
-import { sampleCards, sampleEntityData, samplePartialCards } from '../../tests/data';
+import { sampleCards, samplePartialCards } from '../../tests/data';
 
 // Heavy children are mocked to keep this a focused unit test and avoid
 // pulling TagContext / react-pdf transitively.
@@ -18,7 +18,19 @@ vi.mock('./BacklinkInput', () => ({
 }));
 vi.mock('./ViewCardTabbedDisplay', () => ({
   ViewCardTabbedDisplay: () => <div data-testid="tabbed-display">tabs</div>,
-}));;
+}));
+vi.mock('../tabs/EntitiesTab', () => ({
+  EntitiesTab: ({ viewingCard }: any) => (
+    <div data-testid="entities-tab">
+      {viewingCard.entities?.map((e: any) => (
+        <span key={e.id}>{e.name}</span>
+      ))}
+      {(!viewingCard.entities || viewingCard.entities.length === 0) && (
+        <span>No entities available</span>
+      )}
+    </div>
+  ),
+}));
 
 type PanelProps = React.ComponentProps<typeof ViewPageSidePanels>;
 const [viewingCard, parentCard] = sampleCards();
@@ -28,7 +40,6 @@ function baseProps(overrides: Partial<PanelProps> = {}): PanelProps {
     parentCard: null,
     prevSibling: null,
     nextSibling: null,
-    linkedEntities: [],
     onOpenEntity: vi.fn(),
     viewingCard,
     tags: [],
@@ -101,18 +112,18 @@ describe('ViewPageSidePanels — tabs', () => {
     expect(screen.queryByText('Parent')).not.toBeInTheDocument();
   });
 
-  it('switches to the Entities tab and shows linked entities', () => {
-    renderPanel({ linkedEntities: sampleEntityData });
+  it('switches to the Entities tab and shows the card entities', () => {
+    renderPanel();
     fireEvent.click(screen.getByText('Entities'));
     expect(screen.getByText('Entity One')).toBeInTheDocument();
     // Metadata content is hidden
     expect(screen.queryByText('Tags')).not.toBeInTheDocument();
   });
 
-  it('shows a calm hint on the Entities tab when empty', () => {
-    renderPanel({ linkedEntities: [] });
+  it('shows the empty hint on the Entities tab when the card has no entities', () => {
+    renderPanel({ viewingCard: { ...viewingCard, entities: [] } });
     fireEvent.click(screen.getByText('Entities'));
-    expect(screen.getByText('No linked entities.')).toBeInTheDocument();
+    expect(screen.getByText('No entities available')).toBeInTheDocument();
   });
 
   it('shows Children, Linked references, and the backlink input on the Links tab', () => {
@@ -152,7 +163,7 @@ describe('ViewPageSidePanels — tabs', () => {
 
   it('honors a valid ?pane= param on mount instead of the smart default', () => {
     window.history.replaceState({}, '', '/?pane=entities');
-    renderPanel({ linkedEntities: sampleEntityData });
+    renderPanel();
     // URL wins over the smart default (would otherwise be metadata).
     expect(screen.getByText('Entity One')).toBeInTheDocument();
     expect(screen.queryByText('Tags')).not.toBeInTheDocument();

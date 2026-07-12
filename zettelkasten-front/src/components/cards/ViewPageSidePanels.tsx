@@ -6,7 +6,8 @@ import { HeaderSubSection } from "../Header";
 import { CardItem } from "./CardItem";
 import { SearchTagDropdown } from "../tags/SearchTagDropdown";
 import { linkifyWithDefaultOptions } from "../../utils/strings";
-import { PersonIcon } from "../../assets/icons/PersonIcon";
+import { EntitiesTab } from "../tabs/EntitiesTab";
+import { removeEntityFromCard } from "../../api/entities";
 import { CardStructuredDataDisplay } from "../schemas/CardStructuredDataDisplay";
 import { RSSArticle } from "../../api/rss";
 import { CategorizedReferences } from "../../api/cards";
@@ -26,7 +27,6 @@ interface ViewPageSidePanelsProps {
   parentCard: Card | null;
   prevSibling: PartialCard | null;
   nextSibling: PartialCard | null;
-  linkedEntities: Entity[];
   onOpenEntity: (entity: Entity) => void;
   viewingCard: Card;
   tags: any[];
@@ -55,7 +55,6 @@ export function ViewPageSidePanels({
   parentCard,
   prevSibling,
   nextSibling,
-  linkedEntities,
   onOpenEntity,
   viewingCard,
   tags,
@@ -78,6 +77,8 @@ export function ViewPageSidePanels({
 
   const [childrenSortMethod, setChildrenSortMethod] = useState<SortMethod>("cardId");
   const [referencesSortMethod, setReferencesSortMethod] = useState<SortMethod>("cardId");
+  const [entityFilterString, setEntityFilterString] = useState<string>("");
+  const [showAddEntityDialog, setShowAddEntityDialog] = useState<boolean>(false);
 
   const sortedChildren = sortPartialCards(viewingCard.children, childrenSortMethod);
   const sortedBidirectional = sortPartialCards(categorizedReferences.bidirectional, referencesSortMethod);
@@ -90,6 +91,25 @@ export function ViewPageSidePanels({
   useRightPaneTab({
     hasRelationships: sortedChildren.length > 0 || totalReferences > 0,
   });
+
+  async function handleRemoveEntity(entityId: number) {
+    try {
+      await removeEntityFromCard(entityId, viewingCard.id);
+      setViewCard({
+        ...viewingCard,
+        entities: viewingCard.entities?.filter(entity => entity.id !== entityId) || []
+      });
+    } catch (error) {
+      setError("Failed to remove entity from card");
+    }
+  }
+
+  function handleEntityAdded(entity: Entity) {
+    setViewCard({
+      ...viewingCard,
+      entities: [...(viewingCard.entities || []), entity]
+    });
+  }
 
   return (
     <div className="md:w-1/3">
@@ -350,14 +370,13 @@ export function ViewPageSidePanels({
               </div>
             </div>
 
-            {/* Entities / Files / History / Summaries — moved here from the
+            {/* Files / History / Summaries — moved here from the
                 main column so the reading surface is pure prose + tasks. */}
             <div className="pt-2">
               <ViewCardTabbedDisplay
                 viewingCard={viewingCard}
                 setViewCard={setViewCard}
                 setError={setError}
-                handleOpenEntity={onOpenEntity}
                 summaries={summaries}
                 fileUploadRef={fileUploadRef}
               />
@@ -366,41 +385,17 @@ export function ViewPageSidePanels({
         )}
 
         {rightPaneTab === "entities" && (
-          <>
-            {linkedEntities && linkedEntities.length > 0 ? (
-              <div>
-                <HeaderSubSection text="Linked Entities" />
-                <ul className="mt-2 space-y-1">
-                  {linkedEntities.map(entity => (
-                    <li
-                      key={entity.id}
-                      className="py-1 px-2 hover:bg-gray-50 rounded cursor-pointer"
-                      onClick={() => onOpenEntity(entity)}
-                    >
-                      <div className="flex items-center gap-2 text-xs">
-                        <div className="text-gray-400 shrink-0">
-                          <PersonIcon />
-                        </div>
-                        <span className="text-blue-600 hover:text-blue-800 shrink-0">
-                          {entity.name}
-                        </span>
-                        <span className="text-gray-300">-</span>
-                        <span className="text-gray-500 shrink-0">
-                          {entity.type}
-                        </span>
-                        <span className="text-gray-300">-</span>
-                        <span className="text-gray-600 truncate">
-                          {entity.description || '(no description)'}
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400">No linked entities.</p>
-            )}
-          </>
+          <EntitiesTab
+            viewingCard={viewingCard}
+            entityFilterString={entityFilterString}
+            setEntityFilterString={setEntityFilterString}
+            showAddEntityDialog={showAddEntityDialog}
+            setShowAddEntityDialog={setShowAddEntityDialog}
+            handleOpenEntity={onOpenEntity}
+            handleRemoveEntity={handleRemoveEntity}
+            handleEntityAdded={handleEntityAdded}
+            setError={setError}
+          />
         )}
       </div>
     </div>

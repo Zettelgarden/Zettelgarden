@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Card, Entity } from "../../models/Card";
+import { Card } from "../../models/Card";
 import { File } from "../../models/File";
-import { removeEntityFromCard } from "../../api/entities";
 import {
   saveExistingCard,
   getCardAuditEvents,
@@ -9,7 +8,6 @@ import {
 } from "../../api/cards";
 
 // Import tab components
-import { EntitiesTab } from "../tabs/EntitiesTab";
 import { HistoryTab } from "../tabs/HistoryTab";
 import { SummariesTab } from "../tabs/SummariesTab";
 import { FilesTab } from "../tabs/FilesTab";
@@ -22,7 +20,6 @@ interface ViewCardTabbedDisplayProps {
   viewingCard: Card;
   setViewCard: (card: Card) => void;
   setError: (error: string) => void;
-  handleOpenEntity: (entity: Entity) => void;
   summaries: SummarizeJobResponse[] | null;
   fileUploadRef: React.RefObject<HTMLInputElement>;
 }
@@ -32,24 +29,20 @@ export function ViewCardTabbedDisplay({
   viewingCard,
   setViewCard,
   setError,
-  handleOpenEntity,
   summaries,
   fileUploadRef,
 }: ViewCardTabbedDisplayProps) {
-  const [activeTab, setActiveTab] = useState<string>("Entities");
+  const [activeTab, setActiveTab] = useState<string>("Files");
   const [auditEvents, setAuditEvents] = useState<any[]>([]);
   const [fileFilterString, setFileFilterString] = useState<string>("");
-  const [entityFilterString, setEntityFilterString] = useState<string>("");
-  const [showAddEntityDialog, setShowAddEntityDialog] = useState<boolean>(false);
   const [showRollbackDialog, setShowRollbackDialog] = useState<boolean>(false);
   const [pendingRestoreEvent, setPendingRestoreEvent] = useState<any>(null);
   const [isRestoring, setIsRestoring] = useState<boolean>(false);
 
   const tabs = [
-    { label: "Entities" },
-    { label: "History" },
-    { label: "Summaries" },
     { label: "Files" },
+    { label: "Summaries" },
+    { label: "History" },
   ];
 
 
@@ -68,27 +61,6 @@ export function ViewCardTabbedDisplay({
     };
     let response = await saveExistingCard(editedCard);
     setViewCard(editedCard);
-  }
-
-  async function handleRemoveEntity(entityId: number) {
-    try {
-      await removeEntityFromCard(entityId, viewingCard.id);
-      // Update the viewingCard by removing the entity
-      setViewCard({
-        ...viewingCard,
-        entities: viewingCard.entities?.filter(entity => entity.id !== entityId) || []
-      });
-    } catch (error) {
-      setError("Failed to remove entity from card");
-    }
-  }
-
-  function handleEntityAdded(entity: Entity) {
-    // Update the viewingCard by adding the entity
-    setViewCard({
-      ...viewingCard,
-      entities: [...(viewingCard.entities || []), entity]
-    });
   }
 
   useEffect(() => {
@@ -154,7 +126,6 @@ export function ViewCardTabbedDisplay({
             {tab.label !== "History" &&
               <span className="ml-1 text-xs font-semibold bg-gray-200 rounded-full px-1.5 py-0.5 text-gray-700">
                 {tab.label === "Files" && viewingCard.files.length}
-                {tab.label === "Entities" && viewingCard.entities && viewingCard.entities.length}
                 {tab.label === "Summaries" && summaries && summaries.length}
               </span>
             }
@@ -169,19 +140,6 @@ export function ViewCardTabbedDisplay({
           handleDisplayFileOnCardClick={handleDisplayFileOnCardClick}
           fileFilterString={fileFilterString}
           setFileFilterString={setFileFilterString}
-          setError={setError}
-        />
-      )}
-      {activeTab === "Entities" && (
-        <EntitiesTab
-          viewingCard={viewingCard}
-          entityFilterString={entityFilterString}
-          setEntityFilterString={setEntityFilterString}
-          showAddEntityDialog={showAddEntityDialog}
-          setShowAddEntityDialog={setShowAddEntityDialog}
-          handleOpenEntity={handleOpenEntity}
-          handleRemoveEntity={handleRemoveEntity}
-          handleEntityAdded={handleEntityAdded}
           setError={setError}
         />
       )}

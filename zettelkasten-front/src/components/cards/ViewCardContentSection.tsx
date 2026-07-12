@@ -39,7 +39,6 @@ interface ViewCardContentSectionProps {
   showTabbedDisplay?: boolean;
   setViewCard?: (card: Card) => void;
   setError?: (error: string) => void;
-  handleOpenEntity?: (entity: any) => void;
   summaries?: any;
   fileUploadRef?: React.RefObject<HTMLInputElement>;
 }
@@ -58,7 +57,6 @@ export function ViewCardContentSection({
   onAddBacklink,
   setViewCard,
   setError,
-  handleOpenEntity,
   summaries,
   fileUploadRef,
 }: ViewCardContentSectionProps) {
@@ -271,7 +269,6 @@ export function ViewCardContentSection({
             viewingCard={viewingCard}
             setViewCard={setViewCard ?? (() => undefined)}
             setError={setError ?? (() => undefined)}
-            handleOpenEntity={handleOpenEntity ?? (() => undefined)}
             summaries={summaries ?? null}
             fileUploadRef={fileUploadRef ?? { current: null }}
           />
