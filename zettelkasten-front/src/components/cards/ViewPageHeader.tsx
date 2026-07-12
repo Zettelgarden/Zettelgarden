@@ -2,17 +2,14 @@ import React from "react";
 import { Menu } from "@headlessui/react";
 import { Card } from "../../models/Card";
 import { Button } from "../Button";
-import { PinIcon } from "../../assets/icons/PinIcon";
 import { StarIcon } from "../../assets/icons/StarIcon";
 import { useUIState } from "../../contexts/UIStateContext";
 import { ViewMode } from "../../pages/cards/ViewPageContainer";
 
-const VIEW_MODES: ViewMode[] = ['normal', 'summary', 'analysis'];
+const VIEW_MODES: ViewMode[] = ["normal", "summary", "analysis"];
 
 interface ViewPageHeaderProps {
   viewingCard: Card;
-  isPinned: boolean;
-  onTogglePin: () => void;
   onEditCard: () => void;
   onToggleStar: () => void;
   toggleCreateTaskWindow: () => void;
@@ -21,14 +18,10 @@ interface ViewPageHeaderProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   onNavigateParent?: () => void;
-  /** Hide the rail toggle when this header lives in the pinned pane (no rail). */
-  hideRailToggle?: boolean;
 }
 
 export function ViewPageHeader({
   viewingCard,
-  isPinned,
-  onTogglePin,
   onEditCard,
   onToggleStar,
   toggleCreateTaskWindow,
@@ -37,7 +30,6 @@ export function ViewPageHeader({
   viewMode,
   onViewModeChange,
   onNavigateParent,
-  hideRailToggle = false,
 }: ViewPageHeaderProps) {
   const { rightPaneOpen, toggleRightPane } = useUIState();
   const hasParent = !!(onNavigateParent && viewingCard.parent);
@@ -54,12 +46,25 @@ export function ViewPageHeader({
                   type="button"
                   onClick={onNavigateParent}
                   className="font-mono hover:text-blue-600 transition-colors"
-                  title={viewingCard.parent?.title || `Go to parent [${viewingCard.parent?.card_id}]`}
+                  title={
+                    viewingCard.parent?.title ||
+                    `Go to parent [${viewingCard.parent?.card_id}]`
+                  }
                 >
                   [{viewingCard.parent!.card_id}]
                 </button>
-                <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                <svg
+                  className="h-3 w-3 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
                 </svg>
               </>
             )}
@@ -78,51 +83,64 @@ export function ViewPageHeader({
             title={viewingCard.is_starred ? "Unstar card" : "Star card"}
             className={`p-2 rounded-md transition-colors ${
               viewingCard.is_starred
-                ? 'text-yellow-500 hover:bg-yellow-50'
-                : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                ? "text-yellow-500 hover:bg-yellow-50"
+                : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
             }`}
           >
             <StarIcon className="h-5 w-5" filled={!!viewingCard.is_starred} />
           </button>
           <button
             type="button"
-            onClick={onTogglePin}
-            title={isPinned ? "Unpin card" : "Pin card"}
-            className={`p-2 rounded-md transition-colors ${
-              isPinned
-                ? 'text-blue-600 hover:bg-blue-50'
-                : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+            onClick={toggleRightPane}
+            title="Toggle info pane"
+            aria-label="Toggle info pane"
+            aria-pressed={rightPaneOpen}
+            className={`hidden md:inline-flex p-2 rounded-md transition-colors ${
+              rightPaneOpen
+                ? "text-gray-700 hover:bg-gray-100"
+                : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
             }`}
           >
-            <PinIcon className="h-5 w-5" filled={isPinned} />
-          </button>
-          {!hideRailToggle && (
-            <button
-              type="button"
-              onClick={toggleRightPane}
-              title="Toggle info pane"
-              aria-label="Toggle info pane"
-              aria-pressed={rightPaneOpen}
-              className={`hidden md:inline-flex p-2 rounded-md transition-colors ${
-                rightPaneOpen
-                  ? 'text-gray-700 hover:bg-gray-100'
-                  : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
-              }`}
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 4h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v14" />
-              </svg>
-            </button>
-          )}
-          <Button onClick={onEditCard} variant="outline" size="small">Edit</Button>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 4h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 5v14"
+              />
+            </svg>
+          </button>
+          <Button onClick={onEditCard} variant="outline" size="small">
+            Edit
+          </Button>
           <Menu as="div" className="relative inline-block">
             <Menu.Button
               className="p-2 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               title="More actions"
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                />
               </svg>
             </Menu.Button>
             <Menu.Items className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
@@ -131,7 +149,9 @@ export function ViewPageHeader({
                   {({ active }) => (
                     <button
                       onClick={toggleCreateTaskWindow}
-                      className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'} group flex items-center w-full px-4 py-2 text-sm`}
+                      className={`${
+                        active ? "bg-gray-100 text-gray-900" : "text-gray-700"
+                      } group flex items-center w-full px-4 py-2 text-sm`}
                     >
                       Add Task
                     </button>
@@ -141,7 +161,9 @@ export function ViewPageHeader({
                   {({ active }) => (
                     <button
                       onClick={onResummarize}
-                      className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'} group flex items-center w-full px-4 py-2 text-sm`}
+                      className={`${
+                        active ? "bg-gray-100 text-gray-900" : "text-gray-700"
+                      } group flex items-center w-full px-4 py-2 text-sm`}
                     >
                       Resummarize
                     </button>
@@ -152,7 +174,9 @@ export function ViewPageHeader({
                     {({ active }) => (
                       <button
                         onClick={onRecategorize}
-                        className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'} group flex items-center w-full px-4 py-2 text-sm`}
+                        className={`${
+                          active ? "bg-gray-100 text-gray-900" : "text-gray-700"
+                        } group flex items-center w-full px-4 py-2 text-sm`}
                       >
                         Recategorize
                       </button>
@@ -174,8 +198,8 @@ export function ViewPageHeader({
             onClick={() => onViewModeChange(mode)}
             className={`px-3 py-1.5 text-sm rounded-md transition-colors capitalize ${
               viewMode === mode
-                ? 'bg-white shadow-sm text-gray-900 font-medium'
-                : 'text-gray-500 hover:text-gray-700'
+                ? "bg-white shadow-sm text-gray-900 font-medium"
+                : "text-gray-500 hover:text-gray-700"
             }`}
           >
             {mode}

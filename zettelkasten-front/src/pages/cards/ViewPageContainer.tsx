@@ -9,7 +9,11 @@ import { useParams, useNavigate } from "react-router-dom";
 
 import { CardItem } from "../../components/cards/CardItem";
 import { BacklinkInput } from "../../components/cards/BacklinkInput";
-import { getCard, CategorizedReferences, getRelatedCards } from "../../api/cards";
+import {
+  getCard,
+  CategorizedReferences,
+  getRelatedCards,
+} from "../../api/cards";
 import { Menu } from "@headlessui/react";
 
 import { convertCardToPartialCard } from "../../utils/cards";
@@ -19,22 +23,27 @@ import {
   removeTagFromCard,
   addBacklinkToCard,
   toggleCardStar,
-  resummarizeCard
+  resummarizeCard,
 } from "../../utils/cardActions";
 
 import { useTagContext } from "../../contexts/TagContext";
 import { useCardData } from "../../hooks/useCardData";
 import { useCardNavigation } from "../../hooks/useCardNavigation";
 
-import { fetchSummariesForCard, fetchAnalysisForCard, SectionAnalysis, SummarizeJobResponse } from "../../api/summarizer";
+import {
+  fetchSummariesForCard,
+  fetchAnalysisForCard,
+  SectionAnalysis,
+  SummarizeJobResponse,
+} from "../../api/summarizer";
 import { FactWithCard } from "../../models/Fact";
 
 interface ViewPageProps {
-  cardId?: string; // Optional card ID prop for pinned cards
+  cardId?: string; // Optional card ID prop
 }
 
 /** Active rendering mode for the card view. */
-export type ViewMode = 'normal' | 'summary' | 'analysis';
+export type ViewMode = "normal" | "summary" | "analysis";
 
 interface ViewPageContainerData {
   viewingCard: Card | null;
@@ -50,7 +59,6 @@ interface ViewPageContainerData {
   showingSummary: boolean;
   showingAnalysis: boolean;
   showIdDiscovery: boolean;
-  isPinned: boolean;
   error: string;
   viewMode: ViewMode;
 }
@@ -67,7 +75,6 @@ interface ViewPageContainerActions {
   onEditCard: () => void;
   onCreateChildCard: () => void;
   onToggleStar: () => void;
-  onTogglePin: () => void;
   toggleCreateTaskWindow: () => void;
   onTagClick: (tagName: string) => void;
   onRemoveTag: (tagName: string) => void;
@@ -97,7 +104,10 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   const cardData = useCardData(id);
 
   // Use the card navigation hook for sibling navigation logic
-  const { prevSibling, nextSibling } = useCardNavigation(cardData.parentCard, cardData.viewingCard);
+  const { prevSibling, nextSibling } = useCardNavigation(
+    cardData.parentCard,
+    cardData.viewingCard,
+  );
 
   const fileUploadRef = React.useRef<HTMLInputElement>(null);
 
@@ -111,13 +121,12 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   } = useDialogState();
 
   const { tags } = useTagContext();
-  const { pinnedCard, setPinnedCard } = useUIState();
 
   const [showingSummary, setShowingSummary] = useState(false);
   const [showingAnalysis, setShowingAnalysis] = useState(false);
   const [showIdDiscovery, setShowIdDiscovery] = useState(false);
   const [relatedCards, setRelatedCards] = useState<RelatedCard[] | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('normal');
+  const [viewMode, setViewMode] = useState<ViewMode>("normal");
 
   const navigate = useNavigate();
 
@@ -174,12 +183,14 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
 
   function handleCreateChildCard() {
     if (cardData.viewingCard === null) return;
-    const nextId = calculateNextChildId(cardData.viewingCard.card_id, cardData.viewingCard.children);
-    console.log("next id", nextId)
+    const nextId = calculateNextChildId(
+      cardData.viewingCard.card_id,
+      cardData.viewingCard.children,
+    );
+    console.log("next id", nextId);
     setNextCardId(nextId);
-    navigate('/app/card/new');
+    navigate("/app/card/new");
   }
-
 
   const handleToggleStar = async () => {
     if (cardData.viewingCard === null) {
@@ -201,20 +212,6 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   function toggleCreateTaskWindow() {
     setShowCreateTaskWindow(!showCreateTaskWindow);
   }
-
-  const handleTogglePin = () => {
-    if (!cardData.viewingCard) return;
-
-    if (pinnedCard && pinnedCard.id === cardData.viewingCard.id) {
-      // Unpin if this card is currently pinned
-      setPinnedCard(null);
-    } else {
-      // Pin this card
-      setPinnedCard(cardData.viewingCard);
-    }
-  };
-
-  const isPinned = !!(pinnedCard && cardData.viewingCard && pinnedCard.id === cardData.viewingCard.id);
 
   const onResummarize = async () => {
     if (cardData.viewingCard) {
@@ -245,7 +242,11 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   useEffect(() => {
     // Listen for refreshTrigger changes and fetch card when triggered
     // Use ref to prevent infinite loops from cardData changing on every render
-    if (refreshTrigger && id === refreshTrigger && lastProcessedTriggerRef.current !== refreshTrigger) {
+    if (
+      refreshTrigger &&
+      id === refreshTrigger &&
+      lastProcessedTriggerRef.current !== refreshTrigger
+    ) {
       lastProcessedTriggerRef.current = refreshTrigger;
       cardData.fetchCard(id);
     }
@@ -256,7 +257,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
     if (cardData.viewingCard && relatedCards === null) {
       getRelatedCards(cardData.viewingCard.id.toString())
         .then(setRelatedCards)
-        .catch(err => console.error("Failed to fetch related cards:", err));
+        .catch((err) => console.error("Failed to fetch related cards:", err));
     }
   }, [cardData.viewingCard]);
 
@@ -276,7 +277,6 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
       showingSummary,
       showingAnalysis,
       showIdDiscovery,
-      isPinned,
       error,
       viewMode,
     },
@@ -291,7 +291,6 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
       onEditCard,
       onCreateChildCard: handleCreateChildCard,
       onToggleStar: handleToggleStar,
-      onTogglePin: handleTogglePin,
       toggleCreateTaskWindow,
       onTagClick: handleTagClick,
       onRemoveTag: handleRemoveTag,
@@ -301,6 +300,6 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
       onRecategorize,
       onCloseIdDiscovery,
       refreshCard,
-    }
+    },
   };
 }

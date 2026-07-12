@@ -12,14 +12,13 @@ import { TagProvider } from "../contexts/TagContext";
 import { UIStateProvider } from "../contexts/UIStateContext";
 import { DialogStateProvider } from "../contexts/DialogStateContext";
 import { RSSProvider } from "../contexts/RSSContext";
-import { SplitViewLayout } from "../components/cards/SplitViewLayout";
-import { ErrorBoundary } from "../components/ErrorBoundary";
 import { ToastProvider } from "../components/toast/ToastContext";
 import { AppRoutes } from "./AppRoutes";
 import { SearchConfig } from "../models/StarredSearch";
-import { useUIState } from "../contexts/UIStateContext";
-import { LinuxTitlebar, useLinuxTitlebarOffset } from "../components/LinuxTitlebar";
-
+import {
+  LinuxTitlebar,
+  useLinuxTitlebarOffset,
+} from "../components/LinuxTitlebar";
 function MainAppContent() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
@@ -48,7 +47,6 @@ function MainAppContent() {
     updateUser,
   } = useAuth();
   const { setRefreshTasks } = useTaskContext();
-  const { pinnedCard, isPinMode } = useUIState();
 
   // changing pages
 
@@ -77,43 +75,26 @@ function MainAppContent() {
   }
   return (
     <div>
-
       <LinuxTitlebar />
-      <div className="flex h-screen overflow-hidden" style={{ paddingTop: titlebarOffset }}>
+      <div
+        className="flex h-screen overflow-hidden"
+        style={{ paddingTop: titlebarOffset }}
+      >
         <Sidebar />
         <div className="flex-grow overflow-y-auto pb-16 md:pb-0 safe-bottom">
-          {isPinMode && pinnedCard ? (
-            <ErrorBoundary>
-              <SplitViewLayout pinnedCard={pinnedCard}>
-                <div className="">
-                  <EmailValidationBanner />
-                  <AppRoutes
-                    hasSubscription={hasSubscription}
-                    searchTerm={searchTerm}
-                    setSearchTerm={setSearchTerm}
-                    searchResults={searchResults}
-                    setSearchResults={setSearchResults}
-                    searchConfig={searchConfig}
-                    setSearchConfig={setSearchConfig}
-                  />
-                </div>
-              </SplitViewLayout>
-            </ErrorBoundary>
-          ) : (
-            <div className="">
-              <EmailValidationBanner />
-              <AppRoutes
-                hasSubscription={hasSubscription}
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                searchResults={searchResults}
-                setSearchResults={setSearchResults}
-                searchConfig={searchConfig}
-                setSearchConfig={setSearchConfig}
-                includeStats
-              />
-            </div>
-          )}
+          <div className="">
+            <EmailValidationBanner />
+            <AppRoutes
+              hasSubscription={hasSubscription}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              searchResults={searchResults}
+              setSearchResults={setSearchResults}
+              searchConfig={searchConfig}
+              setSearchConfig={setSearchConfig}
+              includeStats
+            />
+          </div>
         </div>
       </div>
     </div>

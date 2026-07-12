@@ -12,28 +12,18 @@ import { useViewPageContainer } from "./ViewPageContainer";
 import { useTagContext } from "../../contexts/TagContext";
 import { useUIState } from "../../contexts/UIStateContext";
 import { Card } from "../../models/Card";
-import { saveExistingCard, getCard } from "../../api/cards";
-import { isErrorResponse } from "../../models/common";
+import { saveExistingCard } from "../../api/cards";
 import { useIsMobile } from "../../hooks/useIsMobile";
 
-interface ViewPageProps {
-  cardId?: string; // Optional card ID prop for pinned cards
-  isPinnedView?: boolean; // Whether this ViewPage is in the pinned pane
-}
-
-export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
+export function ViewPage({ cardId }: { cardId?: string }) {
   const { tags } = useTagContext();
-  const { toggleMobileSidebar, setPinnedCard, rightPaneOpen } = useUIState();
+  const { toggleMobileSidebar, rightPaneOpen } = useUIState();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
   const fileUploadRef = useRef<HTMLInputElement>(null);
 
-  const {
-    data,
-    setters,
-    actions
-  } = useViewPageContainer({ cardId });
+  const { data, setters, actions } = useViewPageContainer({ cardId });
 
   const {
     viewingCard,
@@ -47,22 +37,16 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
     analysis,
     relatedCards,
     showIdDiscovery,
-    isPinned,
     error,
     viewMode,
   } = data;
 
-  const {
-    setViewCard,
-    setError,
-    setViewMode,
-  } = setters;
+  const { setViewCard, setError, setViewMode } = setters;
 
   const {
     onEditCard,
     onCreateChildCard,
     onToggleStar,
-    onTogglePin,
     toggleCreateTaskWindow,
     onTagClick,
     onRemoveTag,
@@ -105,7 +89,6 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
         onEditCard={onEditCard}
         onCreateChildCard={onCreateChildCard}
         onToggleStar={onToggleStar}
-        onTogglePin={onTogglePin}
         toggleCreateTaskWindow={toggleCreateTaskWindow}
         onTagClick={onTagClick}
         onRemoveTag={onRemoveTag}
@@ -143,8 +126,6 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
         <div className="space-y-6">
           <ViewPageHeader
             viewingCard={viewingCard}
-            isPinned={!!isPinned}
-            onTogglePin={onTogglePin}
             onEditCard={onEditCard}
             onToggleStar={onToggleStar}
             toggleCreateTaskWindow={toggleCreateTaskWindow}
@@ -154,34 +135,27 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
             onViewModeChange={setViewMode}
             onNavigateParent={
               viewingCard.parent
-                ? async () => {
-                    const parentId = viewingCard.parent!.id;
-                    if (isPinnedView) {
-                      const card = await getCard(parentId.toString());
-                      if (card && !isErrorResponse(card)) {
-                        setPinnedCard(card);
-                      }
-                    } else {
-                      navigate(`/app/card/${parentId}`);
-                    }
-                  }
+                ? () => navigate(`/app/card/${viewingCard.parent!.id}`)
                 : undefined
             }
-            hideRailToggle={isPinnedView}
           />
 
           <div className="flex flex-col md:flex-row gap-4">
             {/* Main Content Area - varies by view mode */}
-            <div className={`${rightPaneOpen ? 'flex-1 md:w-2/3' : 'w-full'} space-y-4 overflow-y-auto`}>
-              {viewMode === 'summary' && (
+            <div
+              className={`${
+                rightPaneOpen ? "flex-1 md:w-2/3" : "w-full"
+              } space-y-4 overflow-y-auto`}
+            >
+              {viewMode === "summary" && (
                 <ViewSummaryView summary={latestSummary} />
               )}
 
-              {viewMode === 'analysis' && (
+              {viewMode === "analysis" && (
                 <ViewAnalysisView analysis={analysis} />
               )}
 
-              {viewMode === 'normal' && (
+              {viewMode === "normal" && (
                 <ViewCardContentSection
                   viewingCard={viewingCard}
                   latestSummary={latestSummary}
@@ -195,40 +169,33 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
             {/* Side Panels - closable info rail */}
             {rightPaneOpen && (
               <ViewPageSidePanels
-              parentCard={parentCard}
-              prevSibling={prevSibling}
-              nextSibling={nextSibling}
-              linkedEntities={linkedEntities}
-              onOpenEntity={handleOpenEntity}
-              viewingCard={viewingCard}
-              tags={tags}
-              onTagClick={onTagClick}
-              onRemoveTag={onRemoveTag}
-              sourceArticle={viewingCard.source_article}
-              relatedCards={relatedCards || undefined}
-              onRelatedCardClick={async (cardId) => {
-                if (isPinnedView) {
-                  const card = await getCard(cardId.toString());
-                  if (card && !isErrorResponse(card)) {
-                    setPinnedCard(card);
-                  }
-                } else {
+                parentCard={parentCard}
+                prevSibling={prevSibling}
+                nextSibling={nextSibling}
+                linkedEntities={linkedEntities}
+                onOpenEntity={handleOpenEntity}
+                viewingCard={viewingCard}
+                tags={tags}
+                onTagClick={onTagClick}
+                onRemoveTag={onRemoveTag}
+                sourceArticle={viewingCard.source_article}
+                relatedCards={relatedCards || undefined}
+                onRelatedCardClick={(cardId) => {
                   navigate(`/app/card/${cardId}`);
-                }
-              }}
-              onRelatedCardAddReference={(rc) => {
-                if (viewingCard) {
-                  onAddBacklink(rc.card);
-                }
-              }}
-              onCreateChildCard={onCreateChildCard}
-              categorizedReferences={categorizedReferences}
-              onAddBacklink={onAddBacklink}
-              setViewCard={setViewCard}
-              setError={setError}
-              summaries={summaries}
-              fileUploadRef={fileUploadRef}
-            />
+                }}
+                onRelatedCardAddReference={(rc) => {
+                  if (viewingCard) {
+                    onAddBacklink(rc.card);
+                  }
+                }}
+                onCreateChildCard={onCreateChildCard}
+                categorizedReferences={categorizedReferences}
+                onAddBacklink={onAddBacklink}
+                setViewCard={setViewCard}
+                setError={setError}
+                summaries={summaries}
+                fileUploadRef={fileUploadRef}
+              />
             )}
           </div>
         </div>

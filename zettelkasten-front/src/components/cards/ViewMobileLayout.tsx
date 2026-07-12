@@ -31,7 +31,6 @@ interface ViewMobileLayoutProps {
   onEditCard: () => void;
   onCreateChildCard: () => void;
   onToggleStar: () => void;
-  onTogglePin: () => void;
   toggleCreateTaskWindow: () => void;
   onTagClick: (tagName: string) => void;
   onRemoveTag: (tagName: string) => void;
@@ -65,7 +64,6 @@ export function ViewMobileLayout({
   onEditCard,
   onCreateChildCard,
   onToggleStar,
-  onTogglePin,
   toggleCreateTaskWindow,
   onTagClick,
   onRemoveTag,
@@ -106,8 +104,18 @@ export function ViewMobileLayout({
                 className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
                 aria-label="Open menu"
               >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
                 </svg>
               </button>
             )}
@@ -121,27 +129,43 @@ export function ViewMobileLayout({
               className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
               aria-label="More options"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                />
               </svg>
             </button>
             {showMenu && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                <div className="px-3 py-2 text-xs text-gray-500 font-medium">View Mode</div>
-                {(['normal', 'summary', 'analysis'] as ViewMode[]).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => {
-                      onViewModeChange(mode);
-                      setShowMenu(false);
-                    }}
-                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                      viewMode === mode ? 'text-blue-600 font-medium' : 'text-gray-700'
-                    }`}
-                  >
-                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                  </button>
-                ))}
+                <div className="px-3 py-2 text-xs text-gray-500 font-medium">
+                  View Mode
+                </div>
+                {(["normal", "summary", "analysis"] as ViewMode[]).map(
+                  (mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => {
+                        onViewModeChange(mode);
+                        setShowMenu(false);
+                      }}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                        viewMode === mode
+                          ? "text-blue-600 font-medium"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    </button>
+                  ),
+                )}
                 <hr className="my-1" />
                 <button
                   onClick={() => {
@@ -159,7 +183,7 @@ export function ViewMobileLayout({
                   }}
                   className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                 >
-                  {viewingCard.is_starred ? 'Unstar' : 'Star'}
+                  {viewingCard.is_starred ? "Unstar" : "Star"}
                 </button>
                 <button
                   onClick={() => {
@@ -182,8 +206,8 @@ export function ViewMobileLayout({
         <div className="p-4">
           <ViewCardContentSection
             viewingCard={viewingCard}
-            showingSummary={viewMode === 'summary'}
-            showingAnalysis={viewMode === 'analysis'}
+            showingSummary={viewMode === "summary"}
+            showingAnalysis={viewMode === "analysis"}
             latestSummary={latestSummary}
             analysis={analysis}
             onCreateChildCard={onCreateChildCard}
@@ -207,10 +231,7 @@ export function ViewMobileLayout({
             title="Tags"
             defaultExpanded={true}
             rightElement={
-              <SearchTagDropdown
-                tags={tags}
-                handleTagClick={onTagClick}
-              />
+              <SearchTagDropdown tags={tags} handleTagClick={onTagClick} />
             }
           >
             <div className="flex flex-wrap gap-1.5">
@@ -221,7 +242,13 @@ export function ViewMobileLayout({
                 >
                   <span
                     className="cursor-pointer hover:bg-purple-100"
-                    onClick={() => navigate(`/app/search?term=${encodeURIComponent('#' + tag.name)}`)}
+                    onClick={() =>
+                      navigate(
+                        `/app/search?term=${encodeURIComponent(
+                          "#" + tag.name,
+                        )}`,
+                      )
+                    }
                   >
                     #{tag.name}
                   </span>
@@ -277,7 +304,7 @@ export function ViewMobileLayout({
           {hasEntities && (
             <ViewMobileAccordion title="Linked Entities">
               <ul className="space-y-1">
-                {linkedEntities.map(entity => (
+                {linkedEntities.map((entity) => (
                   <li
                     key={entity.id}
                     className="py-1 px-2 hover:bg-gray-50 rounded cursor-pointer"
@@ -312,17 +339,28 @@ export function ViewMobileLayout({
           {sourceArticle && (
             <ViewMobileAccordion title="Source Article">
               <button
-                onClick={() => navigate('/app/rss', { state: { selectedArticleId: sourceArticle.id } })}
+                onClick={() =>
+                  navigate("/app/rss", {
+                    state: { selectedArticleId: sourceArticle.id },
+                  })
+                }
                 className="w-full text-left p-2 rounded hover:bg-gray-50"
               >
                 <div className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <svg
+                    className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
                     <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
                   </svg>
                   <div>
-                    <p className="text-sm font-medium text-blue-600">{sourceArticle.title}</p>
+                    <p className="text-sm font-medium text-blue-600">
+                      {sourceArticle.title}
+                    </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      RSS Feed - {new Date(sourceArticle.fetched_at).toLocaleDateString()}
+                      RSS Feed -{" "}
+                      {new Date(sourceArticle.fetched_at).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
@@ -345,24 +383,32 @@ export function ViewMobileLayout({
             <div className="text-xs text-gray-600 space-y-1">
               <div className="flex items-start">
                 <span className="font-medium w-20">ID:</span>
-                <span className="flex-1 text-blue-600 font-mono">[{viewingCard.card_id}]</span>
+                <span className="flex-1 text-blue-600 font-mono">
+                  [{viewingCard.card_id}]
+                </span>
               </div>
               {viewingCard.link && (
                 <div className="flex items-start">
                   <span className="font-medium w-20">Link:</span>
                   <div
                     className="flex-1 break-all"
-                    dangerouslySetInnerHTML={{ __html: linkifyWithDefaultOptions(viewingCard.link) }}
+                    dangerouslySetInnerHTML={{
+                      __html: linkifyWithDefaultOptions(viewingCard.link),
+                    }}
                   />
                 </div>
               )}
               <div className="flex items-start">
                 <span className="font-medium w-20">Created:</span>
-                <span className="flex-1">{viewingCard.created_at.toLocaleDateString()}</span>
+                <span className="flex-1">
+                  {viewingCard.created_at.toLocaleDateString()}
+                </span>
               </div>
               <div className="flex items-start">
                 <span className="font-medium w-20">Updated:</span>
-                <span className="flex-1">{viewingCard.updated_at.toLocaleDateString()}</span>
+                <span className="flex-1">
+                  {viewingCard.updated_at.toLocaleDateString()}
+                </span>
               </div>
             </div>
           </ViewMobileAccordion>

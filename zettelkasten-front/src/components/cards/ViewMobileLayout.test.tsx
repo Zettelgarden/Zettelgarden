@@ -5,47 +5,46 @@ import { ViewMobileLayout } from "./ViewMobileLayout";
 import { Card, defaultPartialCard } from "../../models/Card";
 
 // Mock react-router-dom
-vi.mock('react-router-dom', () => ({
+vi.mock("react-router-dom", () => ({
   useNavigate: () => vi.fn(),
 }));
 
 // Mock child components
-vi.mock('./ViewCardContentSection', () => ({
+vi.mock("./ViewCardContentSection", () => ({
   ViewCardContentSection: ({ viewingCard }: any) => (
     <div data-testid="view-card-content-section">Content Section</div>
   ),
 }));
 
-vi.mock('../tags/SearchTagDropdown', () => ({
+vi.mock("../tags/SearchTagDropdown", () => ({
   SearchTagDropdown: ({ tags, handleTagClick }: any) => (
     <div data-testid="search-tag-dropdown">Add Tag</div>
   ),
 }));
 
-vi.mock('./RelatedCards', () => ({
+vi.mock("./RelatedCards", () => ({
   RelatedCards: ({ relatedCards, onCardClick }: any) => (
     <div data-testid="related-cards">Related Cards ({relatedCards.length})</div>
   ),
 }));
 
-vi.mock('../schemas/CardStructuredDataDisplay', () => ({
+vi.mock("../schemas/CardStructuredDataDisplay", () => ({
   CardStructuredDataDisplay: () => (
     <div data-testid="structured-data-display">Structured Data</div>
   ),
 }));
 
-vi.mock('../../utils/strings', () => ({
+vi.mock("../../utils/strings", () => ({
   linkifyWithDefaultOptions: (str: string) => str,
 }));
 
-vi.mock('../../assets/icons/PersonIcon', () => ({
+vi.mock("../../assets/icons/PersonIcon", () => ({
   PersonIcon: () => <span data-testid="person-icon">P</span>,
 }));
 
-vi.mock('./ViewNavigationSheet', () => ({
-  ViewNavigationSheet: ({ isOpen, onClose, title }: any) => (
-    isOpen ? <div data-testid="view-navigation-sheet">Navigate</div> : null
-  ),
+vi.mock("./ViewNavigationSheet", () => ({
+  ViewNavigationSheet: ({ isOpen, onClose, title }: any) =>
+    isOpen ? <div data-testid="view-navigation-sheet">Navigate</div> : null,
 }));
 
 const mockViewingCard: Card = {
@@ -85,7 +84,6 @@ describe("ViewMobileLayout", () => {
     onEditCard: vi.fn(),
     onCreateChildCard: vi.fn(),
     onToggleStar: vi.fn(),
-    onTogglePin: vi.fn(),
     toggleCreateTaskWindow: vi.fn(),
     onTagClick: vi.fn(),
     onRemoveTag: vi.fn(),
@@ -100,14 +98,16 @@ describe("ViewMobileLayout", () => {
     setShowFactDialog: vi.fn(),
     fileUploadRef: { current: null },
     onSaveCard: vi.fn(),
-    viewMode: 'normal' as const,
+    viewMode: "normal" as const,
     onViewModeChange: vi.fn(),
   };
 
   it("renders card title in top bar", () => {
     render(<ViewMobileLayout {...defaultProps} />);
     // The title appears in the h1 element in the top bar
-    expect(screen.getByRole("heading", { name: "Test Card" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Test Card" }),
+    ).toBeInTheDocument();
   });
 
   it("renders tags section expanded by default", () => {
