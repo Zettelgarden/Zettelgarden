@@ -25,7 +25,7 @@ import { setDocumentTitle } from "../../utils/title";
 import { isErrorResponse } from "../../models/common";
 
 // New component imports
-import { EditorToolbar } from "../../components/cards/EditorToolbar";
+import { EditPageHeader } from "../../components/cards/EditPageHeader";
 import { CardEditor } from "../../components/cards/CardEditor";
 import { CardMetadata } from "../../components/cards/CardMetadata";
 import { CardSchemaSection } from "../../components/schemas/CardSchemaSection";
@@ -308,9 +308,13 @@ function EditPageContent({ newCard }: EditPageProps) {
       )}
       <div className="space-y-6">
 
-        <EditorToolbar
+        <EditPageHeader
           newCard={newCard}
           originalCard={originalCard}
+          suggestingTitle={suggestingTitle}
+          handleSuggestTitle={handleSuggestTitle}
+          handleSaveCard={handleSaveCard}
+          handleCancelButtonClick={handleCancelButtonClick}
           onDeleteSuccess={() => {
             if (lastCard && lastCard.id !== editingCard.id) {
               navigate(`/app/card/${lastCard.id}`);
@@ -329,10 +333,6 @@ function EditPageContent({ newCard }: EditPageProps) {
                   previewModeActive={previewModeActive}
                   setPreviewModeActive={setPreviewModeActive}
                   cardBodyRef={cardBodyRef}
-                  handleSaveCard={handleSaveCard}
-                  handleCancelButtonClick={handleCancelButtonClick}
-                  suggestingTitle={suggestingTitle}
-                  handleSuggestTitle={handleSuggestTitle}
                   filesToUpdate={filesToUpdate}
                   setFilesToUpdate={setFilesToUpdate}
                   addBacklink={addBacklink}

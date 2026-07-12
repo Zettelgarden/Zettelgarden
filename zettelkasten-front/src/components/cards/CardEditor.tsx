@@ -9,7 +9,6 @@ import { SaveAsTemplateDialog } from "./SaveAsTemplateDialog";
 import { CardIdDiscoveryDialog } from "./CardIdDiscoveryDialog";
 import { CardBodyHelpPopover } from "./CardBodyHelpPopover";
 import { InsertSchemaTableButton } from "./InsertSchemaTableButton";
-import { Button } from "../Button";
 import { useCardEditorContext } from "../../contexts/editor";
 import { useEditorUIContext } from "../../contexts/editor";
 import { useEditorMessagesContext } from "../../contexts/editor";
@@ -19,10 +18,6 @@ interface CardEditorProps {
   previewModeActive: boolean;
   setPreviewModeActive: (active: boolean) => void;
   cardBodyRef: React.RefObject<CardBodyTextAreaHandle>;
-  handleSaveCard: () => void;
-  handleCancelButtonClick: () => void;
-  suggestingTitle: boolean;
-  handleSuggestTitle: () => void;
   filesToUpdate: File[];
   setFilesToUpdate: (files: File[]) => void;
   addBacklink: (selectedCard: PartialCard) => void;
@@ -33,10 +28,6 @@ export function CardEditor({
   previewModeActive,
   setPreviewModeActive,
   cardBodyRef,
-  handleSaveCard,
-  handleCancelButtonClick,
-  suggestingTitle,
-  handleSuggestTitle,
   filesToUpdate,
   setFilesToUpdate,
   addBacklink,
@@ -108,42 +99,6 @@ export function CardEditor({
         </div>
       )}
 
-      <div className="">
-        <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-          Title:
-        </label>
-        <div className="relative">
-          <input
-            type="text"
-            id="title"
-            value={editingCard.title}
-            onChange={(e) =>
-              setEditingCard({ ...editingCard, title: e.target.value })
-            }
-            placeholder="Title"
-            className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-10"
-          />
-          <button
-            onClick={handleSuggestTitle}
-            disabled={suggestingTitle || !editingCard.body.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-            type="button"
-            title={suggestingTitle ? "Suggesting title..." : "Suggest title from content"}
-          >
-            {suggestingTitle ? (
-              <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-              </svg>
-            )}
-          </button>
-        </div>
-      </div>
-
       <div className="space-y-2">
         <label htmlFor="body" className="block text-sm font-medium text-gray-700">
           Body:
@@ -180,11 +135,6 @@ export function CardEditor({
           filesToUpdate={filesToUpdate}
           setFilesToUpdate={setFilesToUpdate}
         />
-      </div>
-
-      <div className="flex flex-wrap gap-3 pt-4">
-        <Button onClick={handleSaveCard} variant="primary">Save</Button>
-        <Button onClick={handleCancelButtonClick} variant="outline">Cancel</Button>
       </div>
 
       {showBacklinkDialog && (

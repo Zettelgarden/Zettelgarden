@@ -59,10 +59,6 @@ describe('CardEditor', () => {
     previewModeActive: false,
     setPreviewModeActive: vi.fn(),
     cardBodyRef: mockCardBodyRef,
-    handleSaveCard: vi.fn(),
-    handleCancelButtonClick: vi.fn(),
-    suggestingTitle: false,
-    handleSuggestTitle: vi.fn(),
     filesToUpdate: [],
     setFilesToUpdate: vi.fn(),
     addBacklink: vi.fn(),
@@ -130,48 +126,21 @@ describe('CardEditor', () => {
       expect(screen.getByText('Failed to load templates')).toBeInTheDocument();
     });
 
-    it('should render title input with current value', () => {
+    it('should not render a title input (moved to EditPageHeader)', () => {
       renderWithProviders(<CardEditor {...defaultProps} />);
-      const titleInput = screen.getByLabelText('Title:');
-      expect(titleInput).toHaveValue('Test Title');
-      expect(titleInput).toHaveAttribute('placeholder', 'Title');
+      expect(screen.queryByLabelText('Title:')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Title')).not.toBeInTheDocument();
     });
 
-    it('should render Save and Cancel buttons', () => {
+    it('should not render Save/Cancel buttons (moved to EditPageHeader)', () => {
       renderWithProviders(<CardEditor {...defaultProps} />);
-      expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
     });
 
   });
 
   describe('User interactions', () => {
-    it('should call handleSaveCard when Save button is clicked', () => {
-      const handleSaveCard = vi.fn();
-
-      renderWithProviders(
-        <CardEditor {...defaultProps} handleSaveCard={handleSaveCard} />
-      );
-
-      const saveButton = screen.getByRole('button', { name: 'Save' });
-      fireEvent.click(saveButton);
-
-      expect(handleSaveCard).toHaveBeenCalled();
-    });
-
-    it('should call handleCancelButtonClick when Cancel button is clicked', () => {
-      const handleCancelButtonClick = vi.fn();
-
-      renderWithProviders(
-        <CardEditor {...defaultProps} handleCancelButtonClick={handleCancelButtonClick} />
-      );
-
-      const cancelButton = screen.getByRole('button', { name: 'Cancel' });
-      fireEvent.click(cancelButton);
-
-      expect(handleCancelButtonClick).toHaveBeenCalled();
-    });
-
     it('should show and hide template dropdown when Use Template button is clicked', () => {
       const templates = [{ ...defaultCardTemplate, id: 1, name: 'Test Template' }];
       const setShowTemplateDropdown = vi.fn();
@@ -186,51 +155,6 @@ describe('CardEditor', () => {
 
       // Note: The actual dropdown state management would depend on the Menu component
       // In a real implementation, this would toggle showTemplateDropdown
-    });
-
-    it('should show loading state and call handleSuggestTitle when suggest title button is clicked', async () => {
-      const handleSuggestTitle = vi.fn();
-
-      renderWithProviders(
-        <CardEditor
-          {...defaultProps}
-          handleSuggestTitle={handleSuggestTitle}
-          suggestingTitle={true}
-        />
-      );
-
-      const suggestButton = screen.getByTitle('Suggesting title...');
-      expect(suggestButton).toBeDisabled();
-
-      // Test clicking when not loading
-      renderWithProviders(
-        <CardEditor
-          {...defaultProps}
-          handleSuggestTitle={handleSuggestTitle}
-          suggestingTitle={false}
-        />,
-        {
-          editingCard: { ...defaultCard, id: 1, title: 'Test Title', body: 'Some content' }
-        }
-      );
-
-      const enabledButton = screen.getByTitle('Suggest title from content');
-      expect(enabledButton).not.toBeDisabled();
-
-      fireEvent.click(enabledButton);
-      expect(handleSuggestTitle).toHaveBeenCalled();
-    });
-
-    it('should disable title suggestion when body is empty', () => {
-      renderWithProviders(
-        <CardEditor {...defaultProps} />,
-        {
-          editingCard: { ...defaultCard, id: 1, title: 'Test Title', body: '' }
-        }
-      );
-
-      const suggestButton = screen.getByTitle('Suggest title from content');
-      expect(suggestButton).toBeDisabled();
     });
 
     it('should call template handlers when templates are selected', () => {
