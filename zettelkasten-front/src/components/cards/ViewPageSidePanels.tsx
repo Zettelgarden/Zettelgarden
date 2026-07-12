@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, PartialCard, RelatedCard } from "../../models/Card";
 import { Entity } from "../../models/Card";
 import { HeaderSubSection } from "../Header";
@@ -20,8 +20,7 @@ import { Collapsible } from "../Collapsible";
 import { SortMethod, sortPartialCards } from "../../utils/cards";
 import { SortControl as SortControlComponent } from "./SortControl";
 import { useUIState, RightPaneTab } from "../../contexts/UIStateContext";
-
-type SidePanelTab = "links" | "metadata" | "entities";
+import { useRightPaneTab } from "../../hooks/useRightPaneTab";
 
 interface ViewPageSidePanelsProps {
   parentCard: Card | null;
@@ -51,7 +50,6 @@ const TABS: { id: RightPaneTab; label: string }[] = [
   { id: "metadata", label: "Metadata" },
   { id: "entities", label: "Entities" },
 ];
-const VALID_TAB_IDS = TABS.map((t) => t.id);
 
 export function ViewPageSidePanels({
   parentCard,
@@ -76,7 +74,6 @@ export function ViewPageSidePanels({
   fileUploadRef,
 }: ViewPageSidePanelsProps) {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { toggleRightPane, rightPaneTab, setRightPaneTab } = useUIState();
 
   const [childrenSortMethod, setChildrenSortMethod] = useState<SortMethod>("cardId");
@@ -89,34 +86,10 @@ export function ViewPageSidePanels({
   const totalReferences =
     sortedBidirectional.length + sortedIncoming.length + sortedOutgoing.length;
 
-  // On mount: pick the initial tab from ?pane= if present and valid, otherwise
-  // fall back to a smart default — Links when there's relationship data to
-  // show, Metadata when there isn't. Runs once; explicit tab clicks (and the
-  // URL sync below) take over afterwards.
-  useEffect(() => {
-    const pane = searchParams.get("pane");
-    if (pane && VALID_TAB_IDS.includes(pane as RightPaneTab)) {
-      setRightPaneTab(pane as RightPaneTab);
-      return;
-    }
-    const hasRelationships = sortedChildren.length > 0 || totalReferences > 0;
-    setRightPaneTab(hasRelationships ? "links" : "metadata");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Reflect the active tab in ?pane= so a view is shareable/bookmarkable.
-  // Uses replace to avoid polluting browser history on every tab switch.
-  useEffect(() => {
-    setSearchParams(
-      (prev) => {
-        if (prev.get("pane") === rightPaneTab) return prev;
-        const next = new URLSearchParams(prev);
-        next.set("pane", rightPaneTab);
-        return next;
-      },
-      { replace: true },
-    );
-  }, [rightPaneTab, setSearchParams]);
+  // Sync the active rail tab with ?pane=, picking a smart default on mount.
+  useRightPaneTab({
+    hasRelationships: sortedChildren.length > 0 || totalReferences > 0,
+  });
 
   return (
     <div className="md:w-1/3">

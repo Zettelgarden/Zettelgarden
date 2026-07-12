@@ -12,11 +12,12 @@ import { CardIdDiscoveryDialog } from "../../components/cards/CardIdDiscoveryDia
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, PartialCard, defaultCard, CardTemplate } from "../../models/Card";
 import { File } from "../../models/File";
-import { useUIState } from "../../contexts/UIStateContext";
+import { useUIState, RightPaneTab } from "../../contexts/UIStateContext";
 import { Button } from "../../components/Button";
 import { CardBodyTextArea, CardBodyTextAreaHandle } from "../../components/cards/CardBodyTextArea";
 import { processTemplateVariables } from "../../utils/templateVariables";
 import { HeaderSubSection } from "../../components/Header";
+import { useRightPaneTab } from "../../hooks/useRightPaneTab";
 
 
 
@@ -44,6 +45,12 @@ interface EditPageProps {
   newCard: boolean;
 }
 
+// Edit rail tabs. Metadata holds Card ID/Tags/Schema/Details; Links (the
+// backlink input) arrives in PR 3.
+const EDIT_TABS: { id: RightPaneTab; label: string }[] = [
+  { id: "metadata", label: "Metadata" },
+];
+
 function onFileDelete(file_id: number) { }
 
 function renderWarningLabel(cards: PartialCard[], editingCard: Card) {
@@ -57,7 +64,7 @@ function renderWarningLabel(cards: PartialCard[], editingCard: Card) {
 function EditPageContent({ newCard }: EditPageProps) {
   const [originalCard, setOriginalCard] = useState<Card>(defaultCard);
   const [previewModeActive, setPreviewModeActive] = useState(false);
-  const { lastCard, nextCardId, setNextCardId, toggleMobileSidebar } = useUIState();
+  const { lastCard, nextCardId, setNextCardId, toggleMobileSidebar, rightPaneOpen, toggleRightPane, rightPaneTab, setRightPaneTab } = useUIState();
   const [filesToUpdate, setFilesToUpdate] = useState<File[]>([]);
   const cardBodyRef = useRef<CardBodyTextAreaHandle>(null);
   const [suggestingTitle, setSuggestingTitle] = useState(false);
@@ -77,6 +84,10 @@ function EditPageContent({ newCard }: EditPageProps) {
 
   const [fileFilterString, setFileFilterString] = useState<string>("");
   const { tags } = useTagContext();
+
+  // Edit rail defaults to Metadata (an editor almost always wants Card ID/Tags
+  // first); the hook shares ?pane= sync with the view page.
+  useRightPaneTab({ hasRelationships: false });
 
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -327,7 +338,7 @@ function EditPageContent({ newCard }: EditPageProps) {
         <div className="">
           {editingCard && (
             <div className="flex flex-col md:flex-row gap-4 px-4">
-              <div className="md:w-2/3 space-y-6">
+              <div className={`${rightPaneOpen ? "md:w-2/3" : "w-full"} space-y-6`}>
                 <CardEditor
                   newCard={newCard}
                   previewModeActive={previewModeActive}
@@ -388,33 +399,69 @@ function EditPageContent({ newCard }: EditPageProps) {
                   </div>
                 )}
               </div>
-              <div className="md:w-1/3 space-y-4">
-                <CardMetadata
-                  newCard={newCard}
-                  originalCard={originalCard}
-                  editingCard={editingCard}
-                  setEditingCard={setEditingCard}
-                  setShowCardIdDiscovery={setShowCardIdDiscovery}
-                  handleClickFillCard={handleClickFillCard}
-                  tags={tags}
-                  handleTagClick={handleTagClick}
-                  handleRemoveTag={handleRemoveTag}
-                  addBacklink={addBacklink}
-                />
+              {rightPaneOpen && (
+                <div className="md:w-1/3">
+                  {/* Tab strip + close affordance */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex flex-wrap">
+                      {EDIT_TABS.map((tab) => (
+                        <span
+                          key={tab.id}
+                          onClick={() => setRightPaneTab(tab.id)}
+                          className={`
+                            cursor-pointer font-medium py-1 px-2 flex items-center text-sm
+                            ${rightPaneTab === tab.id
+                              ? "text-blue-600 border-b-2 border-blue-600"
+                              : "text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md"
+                            }
+                          `}
+                        >
+                          {tab.label}
+                        </span>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={toggleRightPane}
+                      title="Close info pane"
+                      aria-label="Close info pane"
+                      className="p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
 
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <CardSchemaSection
-                    schemaId={editingCard.schema_id}
-                    structuredData={editingCard.structured_data}
-                    onSchemaChange={(schemaId) =>
-                      setEditingCard({ ...editingCard, schema_id: schemaId, structured_data: {} })
-                    }
-                    onDataChange={(data) =>
-                      setEditingCard({ ...editingCard, structured_data: data })
-                    }
-                  />
+                  <div className="space-y-4">
+                    <CardMetadata
+                      newCard={newCard}
+                      originalCard={originalCard}
+                      editingCard={editingCard}
+                      setEditingCard={setEditingCard}
+                      setShowCardIdDiscovery={setShowCardIdDiscovery}
+                      handleClickFillCard={handleClickFillCard}
+                      tags={tags}
+                      handleTagClick={handleTagClick}
+                      handleRemoveTag={handleRemoveTag}
+                      addBacklink={addBacklink}
+                    />
+
+                    <div className="bg-white rounded-lg p-4 shadow-sm">
+                      <CardSchemaSection
+                        schemaId={editingCard.schema_id}
+                        structuredData={editingCard.structured_data}
+                        onSchemaChange={(schemaId) =>
+                          setEditingCard({ ...editingCard, schema_id: schemaId, structured_data: {} })
+                        }
+                        onDataChange={(data) =>
+                          setEditingCard({ ...editingCard, structured_data: data })
+                        }
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>
