@@ -15,7 +15,6 @@ import { Card } from "../../models/Card";
 import { saveExistingCard, getCard } from "../../api/cards";
 import { isErrorResponse } from "../../models/common";
 import { useIsMobile } from "../../hooks/useIsMobile";
-import { buildCardFromParent } from "../../utils/cards";
 
 interface ViewPageProps {
   cardId?: string; // Optional card ID prop for pinned cards
@@ -153,9 +152,21 @@ export function ViewPage({ cardId, isPinnedView = false }: ViewPageProps) {
             onRecategorize={onRecategorize}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
-            onNavigateParent={viewingCard.parent ? () => setViewCard(
-              buildCardFromParent(viewingCard.parent)
-            ) : undefined}
+            onNavigateParent={
+              viewingCard.parent
+                ? async () => {
+                    const parentId = viewingCard.parent!.id;
+                    if (isPinnedView) {
+                      const card = await getCard(parentId.toString());
+                      if (card && !isErrorResponse(card)) {
+                        setPinnedCard(card);
+                      }
+                    } else {
+                      navigate(`/app/card/${parentId}`);
+                    }
+                  }
+                : undefined
+            }
             hideRailToggle={isPinnedView}
           />
 
