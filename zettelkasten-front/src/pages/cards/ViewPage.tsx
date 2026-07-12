@@ -6,7 +6,6 @@ import { ViewCardContentSection } from "../../components/cards/ViewCardContentSe
 import { ViewPageSidePanels } from "../../components/cards/ViewPageSidePanels";
 import { CardIdDiscoveryDialog } from "../../components/cards/CardIdDiscoveryDialog";
 import { ViewSummaryView } from "../../components/cards/ViewSummaryView";
-import { ViewAnalysisView } from "../../components/cards/ViewAnalysisView";
 import { ViewMobileLayout } from "../../components/cards/ViewMobileLayout";
 import { useViewPageContainer } from "./ViewPageContainer";
 import { useTagContext } from "../../contexts/TagContext";
@@ -34,7 +33,6 @@ export function ViewPage({ cardId }: { cardId?: string }) {
     categorizedReferences,
     summaries,
     latestSummary,
-    analysis,
     relatedCards,
     showIdDiscovery,
     error,
@@ -82,7 +80,6 @@ export function ViewPage({ cardId }: { cardId?: string }) {
         categorizedReferences={categorizedReferences}
         summaries={summaries || []}
         latestSummary={latestSummary}
-        analysis={analysis}
         relatedCards={relatedCards}
         tags={tags}
         sourceArticle={viewingCard.source_article}
@@ -158,15 +155,10 @@ export function ViewPage({ cardId }: { cardId?: string }) {
                 <ViewSummaryView summary={latestSummary} summaries={summaries} />
               )}
 
-              {viewMode === "analysis" && (
-                <ViewAnalysisView analysis={analysis} />
-              )}
-
               {viewMode === "normal" && (
                 <ViewCardContentSection
                   viewingCard={viewingCard}
                   latestSummary={latestSummary}
-                  analysis={analysis}
                   onCreateChildCard={onCreateChildCard}
                   onSaveCard={handleSaveCard}
                 />

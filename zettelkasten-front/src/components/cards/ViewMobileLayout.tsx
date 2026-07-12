@@ -3,7 +3,7 @@ import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, PartialCard, Entity, RelatedCard } from "../../models/Card";
 import { CategorizedReferences } from "../../api/cards";
-import { SummarizeJobResponse, SectionAnalysis } from "../../api/summarizer";
+import { SummarizeJobResponse } from "../../api/summarizer";
 import { ViewMobileAccordion } from "./ViewMobileAccordion";
 import { ViewNavigationSheet } from "./ViewNavigationSheet";
 import { ViewCardContentSection } from "./ViewCardContentSection";
@@ -24,7 +24,6 @@ interface ViewMobileLayoutProps {
   categorizedReferences: CategorizedReferences;
   summaries: SummarizeJobResponse[];
   latestSummary: SummarizeJobResponse | null;
-  analysis: SectionAnalysis[] | null;
   relatedCards: RelatedCard[] | null;
   tags: any[];
   sourceArticle?: RSSArticle;
@@ -57,7 +56,6 @@ export function ViewMobileLayout({
   categorizedReferences,
   summaries,
   latestSummary,
-  analysis,
   relatedCards,
   tags,
   sourceArticle,
@@ -148,7 +146,7 @@ export function ViewMobileLayout({
                 <div className="px-3 py-2 text-xs text-gray-500 font-medium">
                   View Mode
                 </div>
-                {(["normal", "summary", "analysis"] as ViewMode[]).map(
+                {(["normal", "summary"] as ViewMode[]).map(
                   (mode) => (
                     <button
                       key={mode}
@@ -207,9 +205,7 @@ export function ViewMobileLayout({
           <ViewCardContentSection
             viewingCard={viewingCard}
             showingSummary={viewMode === "summary"}
-            showingAnalysis={viewMode === "analysis"}
             latestSummary={latestSummary}
-            analysis={analysis}
             onCreateChildCard={onCreateChildCard}
             showRelationships
             showTabbedDisplay

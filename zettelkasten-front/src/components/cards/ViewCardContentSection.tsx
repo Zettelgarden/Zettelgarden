@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { TaskListItem } from "../tasks/TaskListItem";
 import { Card, PartialCard } from "../../models/Card";
-import { SectionAnalysis, SummarizeJobResponse } from "../../api/summarizer";
+import { SummarizeJobResponse } from "../../api/summarizer";
 import { CategorizedReferences } from "../../api/cards";
 import { HeaderSubSection } from "../Header";
 import { ChildrenCards } from "./ChildrenCards";
@@ -17,9 +17,7 @@ import { SortControl as SortControlComponent } from "./SortControl";
 interface ViewCardContentSectionProps {
   viewingCard: Card;
   showingSummary?: boolean;
-  showingAnalysis?: boolean;
   latestSummary: SummarizeJobResponse | null;
-  analysis: SectionAnalysis[] | null;
   onCreateChildCard: () => void;
   onSaveCard?: (updatedCard: Card) => void | Promise<void>;
   /**
@@ -45,9 +43,7 @@ interface ViewCardContentSectionProps {
 export function ViewCardContentSection({
   viewingCard,
   showingSummary = false,
-  showingAnalysis = false,
   latestSummary,
-  analysis,
   onCreateChildCard,
   onSaveCard,
   showRelationships = false,
@@ -84,8 +80,6 @@ export function ViewCardContentSection({
         className={`prose prose-sm max-w-none ${
           showingSummary
             ? "bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3"
-            : showingAnalysis
-            ? "bg-blue-50 border border-blue-200 rounded-lg px-4 py-3"
             : ""
         }`}
       >
@@ -97,32 +91,6 @@ export function ViewCardContentSection({
             <div className="prose prose-sm">
               <ReactMarkdown>{latestSummary.result}</ReactMarkdown>
             </div>
-          </div>
-        ) : showingAnalysis && analysis ? (
-          <div>
-            <div className="bg-blue-100 text-blue-800 font-semibold text-sm px-3 py-2 rounded-md mb-4">
-              Analysis View
-            </div>
-            {analysis.map((section, index) => (
-              <div key={index} className="mb-4">
-                <h2 className="font-bold text-base">{section.section}</h2>
-                {section.theses && section.theses.map((thesis, thesisIndex) => (
-                  <div key={thesisIndex} className="ml-4 mt-2">
-                    <span className="text-sm">{thesis.thesis}</span>
-                    {thesis.arguments && thesis.arguments.length > 0 && (
-                      <div className="ml-4">
-                        <ul className="list-disc ml-5 text-sm">
-                          {thesis.arguments.map((arg, argIndex) => (
-                            <li key={argIndex}>{arg.argument}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    <hr />
-                  </div>
-                ))}
-              </div>
-            ))}
           </div>
         ) : (
           <CardBody

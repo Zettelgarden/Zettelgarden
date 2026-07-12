@@ -6,7 +6,7 @@ import { StarIcon } from "../../assets/icons/StarIcon";
 import { useUIState } from "../../contexts/UIStateContext";
 import { ViewMode } from "../../pages/cards/ViewPageContainer";
 
-const VIEW_MODES: ViewMode[] = ["normal", "summary", "analysis"];
+const VIEW_MODES: ViewMode[] = ["normal", "summary"];
 
 interface ViewPageHeaderProps {
   viewingCard: Card;

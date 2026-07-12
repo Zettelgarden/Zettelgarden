@@ -6,26 +6,6 @@ export interface SummarizeJobResponse {
   result?: string;
 }
 
-export interface Argument {
-  argument: string;
-  importance: number;
-}
-
-export interface ThesisEntry {
-  thesis: string;
-  facts: string[];
-  arguments: Argument[];
-}
-
-export interface SectionAnalysis {
-  section: string;
-  theses: ThesisEntry[];
-}
-
-export function fetchAnalysisForCard(cardId: number): Promise<SectionAnalysis[]> {
-  return getData(apiClient.get<SectionAnalysis[]>(`/cards/${cardId}/analysis`));
-}
-
 export function fetchSummariesForCard(cardId: number): Promise<SummarizeJobResponse[]> {
   return getData(apiClient.get<SummarizeJobResponse[]>(`/cards/${cardId}/summaries`));
 }

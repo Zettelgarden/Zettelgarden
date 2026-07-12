@@ -78,7 +78,6 @@ describe("ViewMobileLayout", () => {
     categorizedReferences: { bidirectional: [], outgoing: [], incoming: [] },
     summaries: [],
     latestSummary: null,
-    analysis: null,
     relatedCards: null,
     tags: [],
     onEditCard: vi.fn(),

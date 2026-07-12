@@ -4,7 +4,7 @@ import { Card, PartialCard, Entity } from "../models/Card";
 import { isErrorResponse } from "../models/common";
 import { convertCardToPartialCard } from "../utils/cards";
 import { useUIState } from "../contexts/UIStateContext";
-import { fetchSummariesForCard, fetchAnalysisForCard, SectionAnalysis, SummarizeJobResponse } from "../api/summarizer";
+import { fetchSummariesForCard, SummarizeJobResponse } from "../api/summarizer";
 import { getCard, getCardReferences, getCardChildren, getCardFiles, getCardTags, getCardTasks, getCardEntities, getLinkedEntitiesByCardPK, CategorizedReferences } from "../api/cards";
 
 export interface UseCardDataResult {
@@ -15,12 +15,10 @@ export interface UseCardDataResult {
   categorizedReferences: CategorizedReferences;
   summaries: SummarizeJobResponse[] | null;
   latestSummary: SummarizeJobResponse | null;
-  analysis: SectionAnalysis[] | null;
 
   // Loading/fetching functions
   fetchCard: (id: string) => Promise<void>;
   loadSummaries: (id: number) => Promise<void>;
-  loadAnalysis: (id: number) => Promise<void>;
 
   // State setters (for optimistic updates)
   setViewingCard: (card: Card | null) => void;
@@ -36,7 +34,6 @@ export function useCardData(cardId?: string): UseCardDataResult {
     incoming: [],
   });
   const [summaries, setSummaries] = useState<SummarizeJobResponse[] | null>(null);
-  const [analysis, setAnalysis] = useState<SectionAnalysis[] | null>(null);
 
   const { setLastCard } = useUIState();
 
@@ -67,22 +64,6 @@ export function useCardData(cardId?: string): UseCardDataResult {
         setSummaries(null);
       } else {
         console.error("Failed to fetch summaries", err);
-      }
-    }
-  }
-
-  async function loadAnalysis(id: number) {
-    try {
-      const analysisData = await fetchAnalysisForCard(id);
-      setAnalysis(analysisData);
-    } catch (err: any) {
-      // Silently handle case where card has no analysis - this is expected
-      const errorMessage = err?.message || String(err);
-      if (errorMessage.includes("no rows in result set") || errorMessage.includes("failed to find summarization")) {
-        // No analysis exists for this card, which is expected
-        setAnalysis(null);
-      } else {
-        console.error("Failed to fetch analysis", err);
       }
     }
   }
@@ -148,7 +129,6 @@ export function useCardData(cardId?: string): UseCardDataResult {
     if (cardId) {
       fetchCard(cardId);
       loadSummaries(parseInt(cardId));
-      loadAnalysis(parseInt(cardId));
     }
   }, [cardId]);
 
@@ -159,10 +139,8 @@ export function useCardData(cardId?: string): UseCardDataResult {
     categorizedReferences,
     summaries,
     latestSummary,
-    analysis,
     fetchCard,
     loadSummaries,
-    loadAnalysis,
     setViewingCard: setViewCard,
   };
 }

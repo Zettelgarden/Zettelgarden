@@ -30,7 +30,6 @@ function baseProps(overrides: Partial<Props> = {}): Props {
   return {
     viewingCard,
     latestSummary: null,
-    analysis: null,
     onCreateChildCard: vi.fn(),
     setViewCard: vi.fn(),
     setError: vi.fn(),

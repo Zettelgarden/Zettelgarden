@@ -32,8 +32,6 @@ import { useCardNavigation } from "../../hooks/useCardNavigation";
 
 import {
   fetchSummariesForCard,
-  fetchAnalysisForCard,
-  SectionAnalysis,
   SummarizeJobResponse,
 } from "../../api/summarizer";
 import { FactWithCard } from "../../models/Fact";
@@ -43,7 +41,7 @@ interface ViewPageProps {
 }
 
 /** Active rendering mode for the card view. */
-export type ViewMode = "normal" | "summary" | "analysis";
+export type ViewMode = "normal" | "summary";
 
 interface ViewPageContainerData {
   viewingCard: Card | null;
@@ -54,10 +52,8 @@ interface ViewPageContainerData {
   categorizedReferences: CategorizedReferences;
   summaries: SummarizeJobResponse[] | null;
   latestSummary: SummarizeJobResponse | null;
-  analysis: SectionAnalysis[] | null;
   relatedCards: RelatedCard[] | null;
   showingSummary: boolean;
-  showingAnalysis: boolean;
   showIdDiscovery: boolean;
   error: string;
   viewMode: ViewMode;
@@ -67,7 +63,6 @@ interface ViewPageContainerStateSetters {
   setViewCard: (card: Card | null) => void;
   setError: (error: string) => void;
   setShowingSummary: (showing: boolean) => void;
-  setShowingAnalysis: (showing: boolean) => void;
   setViewMode: (mode: ViewMode) => void;
 }
 
@@ -123,7 +118,6 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   const { tags } = useTagContext();
 
   const [showingSummary, setShowingSummary] = useState(false);
-  const [showingAnalysis, setShowingAnalysis] = useState(false);
   const [showIdDiscovery, setShowIdDiscovery] = useState(false);
   const [relatedCards, setRelatedCards] = useState<RelatedCard[] | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("normal");
@@ -235,7 +229,6 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   useEffect(() => {
     // Reset view states when card changes
     setShowingSummary(false);
-    setShowingAnalysis(false);
     setRelatedCards(null);
   }, [id]);
 
@@ -272,10 +265,8 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
       categorizedReferences: cardData.categorizedReferences,
       summaries: cardData.summaries,
       latestSummary: cardData.latestSummary,
-      analysis: cardData.analysis,
       relatedCards,
       showingSummary,
-      showingAnalysis,
       showIdDiscovery,
       error,
       viewMode,
@@ -284,7 +275,6 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
       setViewCard: cardData.setViewingCard,
       setError,
       setShowingSummary,
-      setShowingAnalysis,
       setViewMode,
     },
     actions: {
