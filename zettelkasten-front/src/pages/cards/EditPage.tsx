@@ -49,6 +49,7 @@ interface EditPageProps {
 const EDIT_TABS: { id: RightPaneTab; label: string }[] = [
   { id: "metadata", label: "Metadata" },
   { id: "links", label: "Links" },
+  { id: "files", label: "Files" },
 ];
 
 function onFileDelete(file_id: number) { }
@@ -348,27 +349,6 @@ function EditPageContent({ newCard }: EditPageProps) {
                   setFilesToUpdate={setFilesToUpdate}
                   addBacklink={addBacklink}
                 />
-
-                {!newCard && (
-                  <div className="mt-8">
-                    <h4 className="text-lg font-medium text-gray-900 mb-4">Files:</h4>
-                    <ul className="divide-y divide-gray-200 border border-gray-200 rounded-md overflow-hidden">
-                      {editingCard.files.map((file, index) => (
-                        <FileListItem
-                          key={index}
-                          file={file}
-                          onDelete={onFileDelete}
-                          setRefreshFiles={(refresh: boolean) => { }}
-                          displayFileOnCard={(file: File) =>
-                            handleDisplayFileOnCardClick(file)
-                          }
-                          filterString={fileFilterString}
-                          setFilterString={setFileFilterString}
-                        />
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
               {rightPaneOpen && (
                 <div className="md:w-1/3">
@@ -421,7 +401,7 @@ function EditPageContent({ newCard }: EditPageProps) {
                       />
                     )}
 
-                    {rightPaneTab !== "links" && (
+                    {rightPaneTab === "metadata" && (
                       <>
                         <CardMetadata
                           newCard={newCard}
@@ -450,6 +430,33 @@ function EditPageContent({ newCard }: EditPageProps) {
                           />
                         </div>
                       </>
+                    )}
+
+                    {rightPaneTab === "files" && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900 mb-3">
+                          Files ({editingCard.files.length})
+                        </h4>
+                        {editingCard.files.length > 0 ? (
+                          <ul className="divide-y divide-gray-200 border border-gray-200 rounded-md overflow-hidden">
+                            {editingCard.files.map((file, index) => (
+                              <FileListItem
+                                key={index}
+                                file={file}
+                                onDelete={onFileDelete}
+                                setRefreshFiles={(refresh: boolean) => { }}
+                                displayFileOnCard={(file: File) =>
+                                  handleDisplayFileOnCardClick(file)
+                                }
+                                filterString={fileFilterString}
+                                setFilterString={setFileFilterString}
+                              />
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-gray-400">No files attached.</p>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

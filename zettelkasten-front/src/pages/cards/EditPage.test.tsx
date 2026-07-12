@@ -43,10 +43,11 @@ describe('EditPage — closable rail', () => {
     localStorage.setItem('zettelgarden-right-pane-open', 'true');
   });
 
-  it('renders the Metadata and Links rail tabs by default', () => {
+  it('renders the Metadata, Links, and Files rail tabs by default', () => {
     renderEditPage();
     expect(screen.getByText('Metadata')).toBeInTheDocument();
     expect(screen.getByText('Links')).toBeInTheDocument();
+    expect(screen.getByText('Files')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close info pane' })).toBeInTheDocument();
   });
 
