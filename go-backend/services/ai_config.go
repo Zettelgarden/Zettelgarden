@@ -293,52 +293,6 @@ func GetModelConfig(model string) (ModelConfig, error) {
 	return modelConfig, nil
 }
 
-// ValidateChatModel checks if a model ID is valid
-// Returns an error if the model is not in the configuration
-func ValidateChatModel(model string) error {
-	// Ensure config is loaded first
-	EnsureConfigLoaded()
-
-	configMutex.RLock()
-	defer configMutex.RUnlock()
-
-	if _, ok := globalConfig.Models[model]; !ok {
-		return fmt.Errorf("invalid model: %s", model)
-	}
-
-	return nil
-}
-
-// GetAllModels returns a map of all configured models
-func GetAllModels() map[string]ModelConfig {
-	// Ensure config is loaded first
-	EnsureConfigLoaded()
-
-	configMutex.RLock()
-	defer configMutex.RUnlock()
-
-	result := make(map[string]ModelConfig, len(globalConfig.Models))
-	for k, v := range globalConfig.Models {
-		result[k] = v
-	}
-	return result
-}
-
-// GetDefaultChatModel returns the default chat model ID
-func GetDefaultChatModel() string {
-	// Ensure config is loaded first
-	EnsureConfigLoaded()
-
-	configMutex.RLock()
-	defer configMutex.RUnlock()
-
-	if globalConfig.Defaults.ChatModel != "" {
-		return globalConfig.Defaults.ChatModel
-	}
-
-	return "google/gemini-2.5-flash"
-}
-
 // GetConfigPath returns the default config file path
 func GetConfigPath() string {
 	// Check for environment variable first
