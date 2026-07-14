@@ -28,6 +28,26 @@ vi.mock("./RelatedCards", () => ({
   ),
 }));
 
+vi.mock("./ChildrenCards", () => ({
+  ChildrenCards: ({ allChildren }: any) => (
+    <div data-testid="children-cards">{allChildren.length}</div>
+  ),
+}));
+
+vi.mock("./CardList", () => ({
+  CardList: ({ cards }: any) => (
+    <div data-testid="card-list">{cards.length}</div>
+  ),
+}));
+
+vi.mock("./BacklinkInput", () => ({
+  BacklinkInput: () => <div data-testid="backlink-input">Add Backlink</div>,
+}));
+
+vi.mock("./SortControl", () => ({
+  SortControl: () => <div data-testid="sort-control">Sort</div>,
+}));
+
 vi.mock("../schemas/CardStructuredDataDisplay", () => ({
   CardStructuredDataDisplay: () => (
     <div data-testid="structured-data-display">Structured Data</div>
@@ -130,5 +150,49 @@ describe("ViewMobileLayout", () => {
     const parentCard = { ...mockViewingCard, id: 2, title: "Parent" };
     render(<ViewMobileLayout {...defaultProps} parentCard={parentCard} />);
     expect(screen.getByText("Navigation")).toBeInTheDocument();
+  });
+
+  it("renders Children and Linked references accordions", () => {
+    render(<ViewMobileLayout {...defaultProps} />);
+    // Both accordions are always present (parity with the desktop Links tab);
+    // the add-child affordance lives in the Children header.
+    expect(screen.getByText("Children")).toBeInTheDocument();
+    expect(screen.getByText("Linked references")).toBeInTheDocument();
+    expect(screen.getByLabelText("Add child")).toBeInTheDocument();
+  });
+
+  it("expands Children + Linked references content when data is present", () => {
+    const child = {
+      ...defaultPartialCard,
+      id: 99,
+      card_id: "1/A",
+      title: "Child",
+    };
+    render(
+      <ViewMobileLayout
+        {...defaultProps}
+        viewingCard={{ ...mockViewingCard, children: [child] }}
+        categorizedReferences={{
+          bidirectional: [child],
+          incoming: [],
+          outgoing: [],
+        }}
+      />,
+    );
+    // defaultExpanded is true when there's data, so bodies render at once.
+    expect(screen.getByTestId("children-cards")).toBeInTheDocument();
+    expect(screen.getByTestId("card-list")).toBeInTheDocument();
+    expect(screen.getByText(/Two-way Links/)).toBeInTheDocument();
+    // The backlink input lives inside the Linked references accordion.
+    expect(screen.getByTestId("backlink-input")).toBeInTheDocument();
+  });
+
+  it("shows empty states when Children + Linked references are expanded with no data", () => {
+    render(<ViewMobileLayout {...defaultProps} />);
+    // Collapsed by default (no data); expand each to reveal its empty state.
+    fireEvent.click(screen.getByText("Children"));
+    expect(screen.getByText("No children yet.")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Linked references"));
+    expect(screen.getByText("No references yet.")).toBeInTheDocument();
   });
 });

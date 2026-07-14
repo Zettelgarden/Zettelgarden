@@ -159,7 +159,6 @@ export function ViewPage({ cardId }: { cardId?: string }) {
                 <ViewCardContentSection
                   viewingCard={viewingCard}
                   latestSummary={latestSummary}
-                  onCreateChildCard={onCreateChildCard}
                   onSaveCard={handleSaveCard}
                 />
               )}

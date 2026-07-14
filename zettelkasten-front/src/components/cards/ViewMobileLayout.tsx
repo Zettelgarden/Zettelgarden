@@ -9,6 +9,11 @@ import { ViewNavigationSheet } from "./ViewNavigationSheet";
 import { ViewCardContentSection } from "./ViewCardContentSection";
 import { SearchTagDropdown } from "../tags/SearchTagDropdown";
 import { RelatedCards } from "./RelatedCards";
+import { ChildrenCards } from "./ChildrenCards";
+import { CardList } from "./CardList";
+import { BacklinkInput } from "./BacklinkInput";
+import { SortControl as SortControlComponent } from "./SortControl";
+import { SortMethod, sortPartialCards } from "../../utils/cards";
 import {
   TagsList,
   DetailsList,
@@ -85,10 +90,32 @@ export function ViewMobileLayout({
   const navigate = useNavigate();
   const [showNavSheet, setShowNavSheet] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [childrenSortMethod, setChildrenSortMethod] = useState<SortMethod>("cardId");
+  const [referencesSortMethod, setReferencesSortMethod] =
+    useState<SortMethod>("cardId");
 
   const handleNavigate = (cardId: number) => {
     navigate(`/app/card/${cardId}`);
   };
+
+  const sortedChildren = sortPartialCards(
+    viewingCard.children,
+    childrenSortMethod,
+  );
+  const sortedBidirectional = sortPartialCards(
+    categorizedReferences.bidirectional,
+    referencesSortMethod,
+  );
+  const sortedIncoming = sortPartialCards(
+    categorizedReferences.incoming,
+    referencesSortMethod,
+  );
+  const sortedOutgoing = sortPartialCards(
+    categorizedReferences.outgoing,
+    referencesSortMethod,
+  );
+  const totalReferences =
+    sortedBidirectional.length + sortedIncoming.length + sortedOutgoing.length;
 
   const hasNavigation = parentCard || prevSibling || nextSibling;
   const hasEntities = linkedEntities && linkedEntities.length > 0;
@@ -210,11 +237,7 @@ export function ViewMobileLayout({
             viewingCard={viewingCard}
             showingSummary={viewMode === "summary"}
             latestSummary={latestSummary}
-            onCreateChildCard={onCreateChildCard}
-            showRelationships
             showTabbedDisplay
-            categorizedReferences={categorizedReferences}
-            onAddBacklink={onAddBacklink}
             setViewCard={setViewCard}
             setError={setError}
             summaries={summaries}
@@ -234,6 +257,93 @@ export function ViewMobileLayout({
             }
           >
             <TagsList card={viewingCard} onRemoveTag={onRemoveTag} />
+          </ViewMobileAccordion>
+
+          {/* Children */}
+          <ViewMobileAccordion
+            title="Children"
+            defaultExpanded={sortedChildren.length > 0}
+            rightElement={
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={onCreateChildCard}
+                className="text-blue-500 hover:text-blue-700 cursor-pointer"
+                title="Add child"
+                aria-label="Add child"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </span>
+            }
+          >
+            <div className="flex justify-end mb-2">
+              <SortControlComponent
+                sortMethod={childrenSortMethod}
+                onSortChange={setChildrenSortMethod}
+              />
+            </div>
+            {sortedChildren.length > 0 ? (
+              <ChildrenCards allChildren={sortedChildren} card={viewingCard} />
+            ) : (
+              <div className="text-gray-400 text-sm">No children yet.</div>
+            )}
+          </ViewMobileAccordion>
+
+          {/* Linked references */}
+          <ViewMobileAccordion
+            title="Linked references"
+            defaultExpanded={totalReferences > 0}
+          >
+            <div className="flex justify-end mb-2">
+              <SortControlComponent
+                sortMethod={referencesSortMethod}
+                onSortChange={setReferencesSortMethod}
+              />
+            </div>
+            {sortedBidirectional.length > 0 && (
+              <div className="mb-3">
+                <h3 className="text-xs font-medium text-gray-600 mb-1.5">
+                  Two-way Links ({sortedBidirectional.length})
+                </h3>
+                <CardList cards={sortedBidirectional} />
+              </div>
+            )}
+            {sortedIncoming.length > 0 && (
+              <div className="mb-3">
+                <h3 className="text-xs font-medium text-gray-600 mb-1.5">
+                  Incoming Links ({sortedIncoming.length})
+                </h3>
+                <CardList cards={sortedIncoming} />
+              </div>
+            )}
+            {sortedOutgoing.length > 0 && (
+              <div className="mb-3">
+                <h3 className="text-xs font-medium text-gray-600 mb-1.5">
+                  Outgoing Links ({sortedOutgoing.length})
+                </h3>
+                <CardList cards={sortedOutgoing} />
+              </div>
+            )}
+            {totalReferences === 0 && (
+              <div className="text-gray-400 text-sm">No references yet.</div>
+            )}
+            <div className="mt-4">
+              <BacklinkInput
+                addBacklink={onAddBacklink}
+                excludeCardId={viewingCard.id}
+              />
+            </div>
           </ViewMobileAccordion>
 
           {/* Navigation */}

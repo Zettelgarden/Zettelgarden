@@ -1,33 +1,17 @@
-import React, { useState } from "react";
+import React from "react";
 import ReactMarkdown from "react-markdown";
 import { TaskListItem } from "../tasks/TaskListItem";
-import { Card, PartialCard } from "../../models/Card";
+import { Card } from "../../models/Card";
 import { SummarizeJobResponse } from "../../api/summarizer";
-import { CategorizedReferences } from "../../api/cards";
 import { HeaderSubSection } from "../Header";
-import { ChildrenCards } from "./ChildrenCards";
-import { CardList } from "./CardList";
-import { BacklinkInput } from "./BacklinkInput";
 import { CardBody } from "./CardBody";
 import { ViewCardTabbedDisplay } from "./ViewCardTabbedDisplay";
-import { Collapsible } from "../Collapsible";
-import { SortMethod, sortPartialCards } from "../../utils/cards";
-import { SortControl as SortControlComponent } from "./SortControl";
 
 interface ViewCardContentSectionProps {
   viewingCard: Card;
   showingSummary?: boolean;
   latestSummary: SummarizeJobResponse | null;
-  onCreateChildCard: () => void;
   onSaveCard?: (updatedCard: Card) => void | Promise<void>;
-  /**
-   * When true (mobile), render Children + Linked references inline as before.
-   * When false/absent (desktop), those live in the right rail's Links tab and
-   * this section shows a footer affordance to open it instead.
-   */
-  showRelationships?: boolean;
-  categorizedReferences?: CategorizedReferences;
-  onAddBacklink?: (selectedCard: PartialCard) => void;
   /**
    * When true (mobile), render the entities/files/history/summaries tabbed
    * display inline. When false/absent (desktop), it lives in the rail's
@@ -44,36 +28,13 @@ export function ViewCardContentSection({
   viewingCard,
   showingSummary = false,
   latestSummary,
-  onCreateChildCard,
   onSaveCard,
-  showRelationships = false,
   showTabbedDisplay = false,
-  categorizedReferences,
-  onAddBacklink,
   setViewCard,
   setError,
   summaries,
   fileUploadRef,
 }: ViewCardContentSectionProps) {
-  const [childrenSortMethod, setChildrenSortMethod] = useState<SortMethod>("cardId");
-  const [referencesSortMethod, setReferencesSortMethod] = useState<SortMethod>("cardId");
-
-  // Relationship data only computed for the mobile inline path.
-  const sortedChildren = showRelationships
-    ? sortPartialCards(viewingCard.children, childrenSortMethod)
-    : [];
-  const sortedBidirectional = showRelationships && categorizedReferences
-    ? sortPartialCards(categorizedReferences.bidirectional, referencesSortMethod)
-    : [];
-  const sortedIncoming = showRelationships && categorizedReferences
-    ? sortPartialCards(categorizedReferences.incoming, referencesSortMethod)
-    : [];
-  const sortedOutgoing = showRelationships && categorizedReferences
-    ? sortPartialCards(categorizedReferences.outgoing, referencesSortMethod)
-    : [];
-  const totalReferences =
-    sortedBidirectional.length + sortedIncoming.length + sortedOutgoing.length;
-
   return (
     <div className="space-y-8">
       <div
@@ -100,90 +61,6 @@ export function ViewCardContentSection({
           />
         )}
       </div>
-
-      {showRelationships && (
-        <>
-          {/* Children — inline (mobile path). Desktop shows these in the rail. */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-3">
-                <HeaderSubSection text="Children" />
-                <SortControlComponent
-                  sortMethod={childrenSortMethod}
-                  onSortChange={setChildrenSortMethod}
-                />
-              </div>
-              <button
-                onClick={onCreateChildCard}
-                className="text-blue-500 hover:text-blue-700"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-            {sortedChildren.length > 0 ? (
-              <ChildrenCards
-                allChildren={sortedChildren}
-                card={viewingCard}
-              />
-            ) : (
-              <div className="text-gray-500 text-sm mt-2">No children yet.</div>
-            )}
-          </div>
-
-          <Collapsible
-            title="Linked references"
-            count={totalReferences}
-            defaultOpen={totalReferences > 0}
-            rightElement={
-              <SortControlComponent
-                sortMethod={referencesSortMethod}
-                onSortChange={setReferencesSortMethod}
-              />
-            }
-          >
-            {sortedBidirectional.length > 0 && (
-              <div className="mb-3">
-                <h3 className="text-xs font-medium text-gray-600 mb-1.5">
-                  Two-way Links ({sortedBidirectional.length})
-                </h3>
-                <CardList cards={sortedBidirectional} />
-              </div>
-            )}
-
-            {sortedIncoming.length > 0 && (
-              <div className="mb-3">
-                <h3 className="text-xs font-medium text-gray-600 mb-1.5">
-                  Incoming Links ({sortedIncoming.length})
-                </h3>
-                <CardList cards={sortedIncoming} />
-              </div>
-            )}
-
-            {sortedOutgoing.length > 0 && (
-              <div className="mb-3">
-                <h3 className="text-xs font-medium text-gray-600 mb-1.5">
-                  Outgoing Links ({sortedOutgoing.length})
-                </h3>
-                <CardList cards={sortedOutgoing} />
-              </div>
-            )}
-
-            {totalReferences === 0 && (
-              <div className="text-gray-500 text-sm">
-                No references yet.
-              </div>
-            )}
-
-            {onAddBacklink && (
-              <div className="mt-4">
-                <BacklinkInput addBacklink={onAddBacklink} excludeCardId={viewingCard.id} />
-              </div>
-            )}
-          </Collapsible>
-        </>
-      )}
 
       {/* Tasks Section */}
       {viewingCard.tasks.length > 0 && (
