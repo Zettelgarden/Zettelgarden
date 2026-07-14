@@ -9,7 +9,11 @@ import { ViewNavigationSheet } from "./ViewNavigationSheet";
 import { ViewCardContentSection } from "./ViewCardContentSection";
 import { SearchTagDropdown } from "../tags/SearchTagDropdown";
 import { RelatedCards } from "./RelatedCards";
-import { linkifyWithDefaultOptions } from "../../utils/strings";
+import {
+  TagsList,
+  DetailsList,
+  SourceArticleLink,
+} from "./SideMetadataSections";
 import { PersonIcon } from "../../assets/icons/PersonIcon";
 import { CardStructuredDataDisplay } from "../schemas/CardStructuredDataDisplay";
 import { RSSArticle } from "../../api/rss";
@@ -229,35 +233,7 @@ export function ViewMobileLayout({
               <SearchTagDropdown tags={tags} handleTagClick={onTagClick} />
             }
           >
-            <div className="flex flex-wrap gap-1.5">
-              {viewingCard.tags.map((tag) => (
-                <span
-                  key={tag.name}
-                  className="inline-flex items-center px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full"
-                >
-                  <span
-                    className="cursor-pointer hover:bg-purple-100"
-                    onClick={() =>
-                      navigate(
-                        `/app/search?term=${encodeURIComponent(
-                          "#" + tag.name,
-                        )}`,
-                      )
-                    }
-                  >
-                    #{tag.name}
-                  </span>
-                  {viewingCard.body.includes(`#${tag.name}`) && (
-                    <button
-                      onClick={() => onRemoveTag(tag.name)}
-                      className="ml-1.5 text-purple-400 hover:text-purple-600"
-                    >
-                      x
-                    </button>
-                  )}
-                </span>
-              ))}
-            </div>
+            <TagsList card={viewingCard} onRemoveTag={onRemoveTag} />
           </ViewMobileAccordion>
 
           {/* Navigation */}
@@ -333,33 +309,7 @@ export function ViewMobileLayout({
           {/* Source Article */}
           {sourceArticle && (
             <ViewMobileAccordion title="Source Article">
-              <button
-                onClick={() =>
-                  navigate("/app/rss", {
-                    state: { selectedArticleId: sourceArticle.id },
-                  })
-                }
-                className="w-full text-left p-2 rounded hover:bg-gray-50"
-              >
-                <div className="flex items-start gap-2">
-                  <svg
-                    className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
-                  </svg>
-                  <div>
-                    <p className="text-sm font-medium text-blue-600">
-                      {sourceArticle.title}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      RSS Feed -{" "}
-                      {new Date(sourceArticle.fetched_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              </button>
+              <SourceArticleLink sourceArticle={sourceArticle} />
             </ViewMobileAccordion>
           )}
 
@@ -375,37 +325,7 @@ export function ViewMobileLayout({
 
           {/* Details */}
           <ViewMobileAccordion title="Details">
-            <div className="text-xs text-gray-600 space-y-1">
-              <div className="flex items-start">
-                <span className="font-medium w-20">ID:</span>
-                <span className="flex-1 text-blue-600 font-mono">
-                  [{viewingCard.card_id}]
-                </span>
-              </div>
-              {viewingCard.link && (
-                <div className="flex items-start">
-                  <span className="font-medium w-20">Link:</span>
-                  <div
-                    className="flex-1 break-all"
-                    dangerouslySetInnerHTML={{
-                      __html: linkifyWithDefaultOptions(viewingCard.link),
-                    }}
-                  />
-                </div>
-              )}
-              <div className="flex items-start">
-                <span className="font-medium w-20">Created:</span>
-                <span className="flex-1">
-                  {viewingCard.created_at.toLocaleDateString()}
-                </span>
-              </div>
-              <div className="flex items-start">
-                <span className="font-medium w-20">Updated:</span>
-                <span className="flex-1">
-                  {viewingCard.updated_at.toLocaleDateString()}
-                </span>
-              </div>
-            </div>
+            <DetailsList card={viewingCard} />
           </ViewMobileAccordion>
         </div>
       </div>

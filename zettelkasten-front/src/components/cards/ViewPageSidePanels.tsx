@@ -1,10 +1,8 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Card, PartialCard, RelatedCard } from "../../models/Card";
 import { Entity } from "../../models/Card";
 import { HeaderSubSection } from "../Header";
 import { SearchTagDropdown } from "../tags/SearchTagDropdown";
-import { linkifyWithDefaultOptions } from "../../utils/strings";
 import { EntitiesTab } from "../tabs/EntitiesTab";
 import { FilesTab } from "../tabs/FilesTab";
 import { HistoryTab } from "../tabs/HistoryTab";
@@ -28,6 +26,11 @@ import { SortMethod, sortPartialCards } from "../../utils/cards";
 import { SortControl as SortControlComponent } from "./SortControl";
 import { useUIState, RightPaneTab } from "../../contexts/UIStateContext";
 import { useRightPaneTab } from "../../hooks/useRightPaneTab";
+import {
+  TagsList,
+  DetailsList,
+  SourceArticleLink,
+} from "./SideMetadataSections";
 
 interface ViewPageSidePanelsProps {
   onOpenEntity: (entity: Entity) => void;
@@ -71,7 +74,6 @@ export function ViewPageSidePanels({
   setError,
   fileUploadRef,
 }: ViewPageSidePanelsProps) {
-  const navigate = useNavigate();
   const { toggleRightPane, rightPaneTab, setRightPaneTab } = useUIState();
 
   const [childrenSortMethod, setChildrenSortMethod] = useState<SortMethod>("cardId");
@@ -299,24 +301,7 @@ export function ViewPageSidePanels({
               <div>
                 <HeaderSubSection text="Source Article" />
                 <div className="mt-2">
-                  <button
-                    onClick={() => navigate('/app/rss', { state: { selectedArticleId: sourceArticle.id } })}
-                    className="w-full text-left p-2 rounded-md hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-start gap-2">
-                      <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
-                      </svg>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-blue-600 hover:text-blue-800 line-clamp-2">
-                          {sourceArticle.title}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          RSS Feed • {new Date(sourceArticle.fetched_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
+                  <SourceArticleLink sourceArticle={sourceArticle} />
                 </div>
               </div>
             )}
@@ -339,51 +324,15 @@ export function ViewPageSidePanels({
                   handleTagClick={onTagClick}
                 />
               </div>
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {viewingCard.tags.map((tag) => (
-                  <span
-                    key={tag.name}
-                    className="inline-flex items-center px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full"
-                  >
-                    <span
-                      className="cursor-pointer hover:bg-purple-100"
-                      onClick={() => navigate(`/app/search?term=${encodeURIComponent('#' + tag.name)}`)}
-                    >
-                      #{tag.name}
-                    </span>
-                    {viewingCard.body.includes(`#${tag.name}`) && (
-                      <button
-                        onClick={() => onRemoveTag(tag.name)}
-                        className="ml-1.5 text-purple-400 hover:text-purple-600"
-                      >
-                        &times;
-                      </button>
-                    )}
-                  </span>
-                ))}
-              </div>
+              <TagsList
+                card={viewingCard}
+                onRemoveTag={onRemoveTag}
+                className="mt-2"
+              />
             </div>
 
             {/* Details Section */}
-            <div className="text-xs text-gray-600 space-y-1 pt-4 border-t">
-              {viewingCard.link && (
-                <div className="flex items-start">
-                  <span className="font-medium w-20">Link:</span>
-                  <div
-                    className="flex-1 break-all"
-                    dangerouslySetInnerHTML={{ __html: linkifyWithDefaultOptions(viewingCard.link) }}
-                  />
-                </div>
-              )}
-              <div className="flex items-start">
-                <span className="font-medium w-20">Created:</span>
-                <span className="flex-1">{viewingCard.created_at.toISOString()}</span>
-              </div>
-              <div className="flex items-start">
-                <span className="font-medium w-20">Updated:</span>
-                <span className="flex-1">{viewingCard.updated_at.toISOString()}</span>
-              </div>
-            </div>
+            <DetailsList card={viewingCard} className="pt-4 border-t" />
 
             {/* History — collapsed by default; loads on expand. */}
             <Collapsible
