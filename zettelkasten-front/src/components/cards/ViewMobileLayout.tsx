@@ -2,8 +2,18 @@
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, PartialCard, Entity, RelatedCard } from "../../models/Card";
-import { CategorizedReferences } from "../../api/cards";
+import { File } from "../../models/File";
+import {
+  CategorizedReferences,
+  saveExistingCard,
+  getCardAuditEvents,
+  restoreCardToAuditEvent,
+} from "../../api/cards";
 import { SummarizeJobResponse } from "../../api/summarizer";
+import { FilesTab } from "../tabs/FilesTab";
+import { SummariesTab } from "../tabs/SummariesTab";
+import { HistoryTab } from "../tabs/HistoryTab";
+import { RollbackConfirmDialog } from "../tabs/RollbackConfirmDialog";
 import { ViewMobileAccordion } from "./ViewMobileAccordion";
 import { ViewNavigationSheet } from "./ViewNavigationSheet";
 import { ViewCardContentSection } from "./ViewCardContentSection";
@@ -94,6 +104,14 @@ export function ViewMobileLayout({
   const [referencesSortMethod, setReferencesSortMethod] =
     useState<SortMethod>("cardId");
 
+  // Files + History (audit/restore) state, previously owned by the now-deleted
+  // ViewCardTabbedDisplay. Mirrors the desktop rail's handling.
+  const [fileFilterString, setFileFilterString] = useState<string>("");
+  const [auditEvents, setAuditEvents] = useState<any[]>([]);
+  const [showRollbackDialog, setShowRollbackDialog] = useState<boolean>(false);
+  const [pendingRestoreEvent, setPendingRestoreEvent] = useState<any>(null);
+  const [isRestoring, setIsRestoring] = useState<boolean>(false);
+
   const handleNavigate = (cardId: number) => {
     navigate(`/app/card/${cardId}`);
   };
@@ -120,6 +138,56 @@ export function ViewMobileLayout({
   const hasNavigation = parentCard || prevSibling || nextSibling;
   const hasEntities = linkedEntities && linkedEntities.length > 0;
   const hasRelatedCards = relatedCards && relatedCards.length > 0;
+
+  // Append a file reference to the card body and save (mirrors the desktop rail).
+  async function handleDisplayFileOnCardClick(file: File) {
+    if (viewingCard === null) {
+      return;
+    }
+    const editedCard = {
+      ...viewingCard,
+      body: viewingCard.body + "\n\n![](" + file.id + ")",
+    };
+    await saveExistingCard(editedCard);
+    setViewCard(editedCard);
+  }
+
+  // Lazy-load audit events when the History accordion is first opened.
+  function loadAuditEvents() {
+    getCardAuditEvents(viewingCard.id.toString())
+      .then((events) => setAuditEvents(events))
+      .catch(() => setError("Failed to load audit events"));
+  }
+
+  const handleRestoreClick = (event: any) => {
+    setPendingRestoreEvent(event);
+    setShowRollbackDialog(true);
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!pendingRestoreEvent) return;
+    setIsRestoring(true);
+    try {
+      const restoredCard = await restoreCardToAuditEvent(
+        viewingCard.id.toString(),
+        pendingRestoreEvent.id,
+      );
+      setViewCard(restoredCard);
+      const events = await getCardAuditEvents(viewingCard.id.toString());
+      setAuditEvents(events);
+      setShowRollbackDialog(false);
+      setPendingRestoreEvent(null);
+    } catch (error) {
+      setError("Failed to restore card");
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const handleCancelRestore = () => {
+    setShowRollbackDialog(false);
+    setPendingRestoreEvent(null);
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden md:hidden">
@@ -237,11 +305,6 @@ export function ViewMobileLayout({
             viewingCard={viewingCard}
             showingSummary={viewMode === "summary"}
             latestSummary={latestSummary}
-            showTabbedDisplay
-            setViewCard={setViewCard}
-            setError={setError}
-            summaries={summaries}
-            fileUploadRef={fileUploadRef}
             onSaveCard={onSaveCard}
           />
         </div>
@@ -423,6 +486,36 @@ export function ViewMobileLayout({
             </ViewMobileAccordion>
           )}
 
+          {/* Files */}
+          <ViewMobileAccordion title="Files">
+            <FilesTab
+              viewingCard={viewingCard}
+              fileUploadRef={fileUploadRef}
+              handleDisplayFileOnCardClick={handleDisplayFileOnCardClick}
+              fileFilterString={fileFilterString}
+              setFileFilterString={setFileFilterString}
+              setError={setError}
+            />
+          </ViewMobileAccordion>
+
+          {/* Summaries */}
+          <ViewMobileAccordion title="Summaries">
+            <SummariesTab summaries={summaries} />
+          </ViewMobileAccordion>
+
+          {/* History — lazy-loads audit events on first open. */}
+          <ViewMobileAccordion
+            title="History"
+            onOpenChange={(open) => {
+              if (open) loadAuditEvents();
+            }}
+          >
+            <HistoryTab
+              auditEvents={auditEvents}
+              onRestore={handleRestoreClick}
+            />
+          </ViewMobileAccordion>
+
           {/* Structured Data */}
           {viewingCard.schema_id && viewingCard.structured_data && (
             <ViewMobileAccordion title="Data">
@@ -439,6 +532,15 @@ export function ViewMobileLayout({
           </ViewMobileAccordion>
         </div>
       </div>
+
+      <RollbackConfirmDialog
+        isOpen={showRollbackDialog}
+        onClose={handleCancelRestore}
+        onConfirm={handleConfirmRestore}
+        cardTitle={viewingCard.title || viewingCard.card_id || "Untitled Card"}
+        auditEvent={pendingRestoreEvent}
+        isLoading={isRestoring}
+      />
 
       {/* Navigation Bottom Sheet */}
       <ViewNavigationSheet

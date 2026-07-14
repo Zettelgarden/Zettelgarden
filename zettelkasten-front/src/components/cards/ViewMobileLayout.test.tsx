@@ -48,6 +48,32 @@ vi.mock("./SortControl", () => ({
   SortControl: () => <div data-testid="sort-control">Sort</div>,
 }));
 
+// FilesTab pulls in react-pdf transitively (DOMMatrix); mock the tabs to keep
+// this a focused layout test, mirroring ViewPageSidePanels.test.tsx.
+vi.mock("../tabs/FilesTab", () => ({
+  FilesTab: ({ viewingCard }: any) => (
+    <div data-testid="files-tab">{viewingCard.files.length} files</div>
+  ),
+}));
+
+vi.mock("../tabs/SummariesTab", () => ({
+  SummariesTab: ({ summaries }: any) => (
+    <div data-testid="summaries-tab">
+      {summaries ? summaries.length : 0} summaries
+    </div>
+  ),
+}));
+
+vi.mock("../tabs/HistoryTab", () => ({
+  HistoryTab: ({ auditEvents }: any) => (
+    <div data-testid="history-tab">{auditEvents.length} events</div>
+  ),
+}));
+
+vi.mock("../tabs/RollbackConfirmDialog", () => ({
+  RollbackConfirmDialog: () => null,
+}));
+
 vi.mock("../schemas/CardStructuredDataDisplay", () => ({
   CardStructuredDataDisplay: () => (
     <div data-testid="structured-data-display">Structured Data</div>
@@ -194,5 +220,19 @@ describe("ViewMobileLayout", () => {
     expect(screen.getByText("No children yet.")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Linked references"));
     expect(screen.getByText("No references yet.")).toBeInTheDocument();
+  });
+
+  it("renders Files, Summaries, and History accordions", () => {
+    render(<ViewMobileLayout {...defaultProps} />);
+    // The three accordions that previously lived in ViewCardTabbedDisplay.
+    expect(screen.getByText("Files")).toBeInTheDocument();
+    expect(screen.getByText("Summaries")).toBeInTheDocument();
+    expect(screen.getByText("History")).toBeInTheDocument();
+  });
+
+  it("expands Files content on click", () => {
+    render(<ViewMobileLayout {...defaultProps} />);
+    fireEvent.click(screen.getByText("Files"));
+    expect(screen.getByTestId("files-tab")).toBeInTheDocument();
   });
 });

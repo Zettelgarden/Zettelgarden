@@ -5,23 +5,12 @@ import { Card } from "../../models/Card";
 import { SummarizeJobResponse } from "../../api/summarizer";
 import { HeaderSubSection } from "../Header";
 import { CardBody } from "./CardBody";
-import { ViewCardTabbedDisplay } from "./ViewCardTabbedDisplay";
 
 interface ViewCardContentSectionProps {
   viewingCard: Card;
   showingSummary?: boolean;
   latestSummary: SummarizeJobResponse | null;
   onSaveCard?: (updatedCard: Card) => void | Promise<void>;
-  /**
-   * When true (mobile), render the entities/files/history/summaries tabbed
-   * display inline. When false/absent (desktop), it lives in the rail's
-   * Metadata tab, so the props below are only needed on the mobile path.
-   */
-  showTabbedDisplay?: boolean;
-  setViewCard?: (card: Card) => void;
-  setError?: (error: string) => void;
-  summaries?: any;
-  fileUploadRef?: React.RefObject<HTMLInputElement>;
 }
 
 export function ViewCardContentSection({
@@ -29,11 +18,6 @@ export function ViewCardContentSection({
   showingSummary = false,
   latestSummary,
   onSaveCard,
-  showTabbedDisplay = false,
-  setViewCard,
-  setError,
-  summaries,
-  fileUploadRef,
 }: ViewCardContentSectionProps) {
   return (
     <div className="space-y-8">
@@ -71,25 +55,10 @@ export function ViewCardContentSection({
               <TaskListItem
                 key={task.id}
                 task={task}
-                onTagClick={(tag: string) => { }}
+                onTagClick={(tag: string) => {}}
               />
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Tabbed Display (entities, files, history, summaries).
-           Desktop renders this in the rail's Metadata tab; mobile keeps it
-           inline behind the showTabbedDisplay flag. */}
-      {showTabbedDisplay && (
-        <div className="pt-2">
-          <ViewCardTabbedDisplay
-            viewingCard={viewingCard}
-            setViewCard={setViewCard ?? (() => undefined)}
-            setError={setError ?? (() => undefined)}
-            summaries={summaries ?? null}
-            fileUploadRef={fileUploadRef ?? { current: null }}
-          />
         </div>
       )}
     </div>
