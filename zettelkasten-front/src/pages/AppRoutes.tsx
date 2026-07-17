@@ -13,7 +13,6 @@ import { TaskPage } from "./tasks/TaskPage";
 import { EntityPage } from "./EntityPage";
 import { Summarizer } from "./Summarizer";
 import { FactPage } from "./FactPage";
-import { MemoryPage } from "./MemoryPage";
 import { HelpPage } from "./HelpPage";
 import { StatsPage } from "./StatsPage";
 import { SchemaPage } from "./SchemaPage";
@@ -92,7 +91,6 @@ export function AppRoutes({
       <Route path="entities" element={proOnly(<EntityPage />, "Entities")} />
       <Route path="summarizer" element={proOnly(<Summarizer />, "Summarizer")} />
       <Route path="facts" element={proOnly(<FactPage />, "Facts")} />
-      <Route path="memory" element={proOnly(<MemoryPage />, "Memory")} />
       {includeStats && <Route path="stats" element={proOnly(<StatsPage />, "Stats")} />}
       <Route path="schemas" element={proOnly(<SchemaPage />, "Schemas")} />
       <Route path="schemas/new" element={proOnly(<SchemaCreatePage />, "Schemas")} />

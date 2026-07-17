@@ -210,12 +210,8 @@ func run() error {
 	log.Printf("Initializing scheduled job runner")
 	scheduler := services.NewScheduler(s.DB)
 
-	// Create memory compressor adapter for the user memory maintenance job
-	memoryCompressor := handlers.NewMemoryCompressorAdapter(h)
-
 	// Register scheduled jobs with their required dependencies
 	scheduler.Register(jobs.NewCleanupJob(s.DB))
-	scheduler.Register(jobs.NewUserMemoryMaintenanceJob(s.DB, s.LLMClient, memoryCompressor))
 	scheduler.Register(jobs.NewTaskRemindersJob(s.DB, s.Mail))
 	scheduler.Register(jobs.NewUptimeKumaPingJob())
 	scheduler.Register(jobs.NewRSSFetchJob(s.DB))

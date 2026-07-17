@@ -1,6 +1,5 @@
 import React, { useState, useEffect, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { getUserMemory } from "../api/users";
 import { getBillingPortalUrl } from "../api/billing";
 import { requestPasswordReset } from "../api/auth";
 import { User, EditUserParams } from "../models/User";
@@ -12,18 +11,16 @@ import { TagList } from "../components/tags/TagList";
 import { StatusManagement } from "../components/settings/StatusManagement";
 import { TimezoneSelector } from "../components/settings/TimezoneSelector";
 import APIKeysManagement from "../components/settings/APIKeysManagement";
-import { MemoryPage } from "./MemoryPage";
 import { SchemaPage } from "./SchemaPage";
 import { StatsPage } from "./StatsPage";
 
-type Tab = "profile" | "templates" | "tags" | "statuses" | "apiKeys" | "memory" | "schemas" | "stats";
+type Tab = "profile" | "templates" | "tags" | "statuses" | "apiKeys" | "schemas" | "stats";
 
 export function UserSettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [userMemory, setUserMemory] = useState<string | null>(null);
   const [billingUrl, setBillingUrl] = useState<string | null>(null);
   const [timezone, setTimezone] = useState<string>("UTC");
 
@@ -92,20 +89,10 @@ export function UserSettingsPage() {
       }
     }
 
-    async function fetchUserMemory() {
-      try {
-        const memory = await getUserMemory();
-        setUserMemory(memory.memory);
-      } catch (error) {
-        console.error("Failed to fetch LLM providers:", error);
-      }
-    }
-
     setDocumentTitle("Settings");
     if (subscriptionEnabled) {
       fetchBillingUrl();
     }
-    fetchUserMemory();
   }, [subscriptionEnabled]);
 
   useEffect(() => {
@@ -261,8 +248,6 @@ export function UserSettingsPage() {
         return <StatusManagement />;
       case "apiKeys":
         return <APIKeysManagement />;
-      case "memory":
-        return <MemoryPage />;
       case "schemas":
         return <SchemaPage />;
       case "stats":
@@ -304,12 +289,6 @@ export function UserSettingsPage() {
           onClick={() => setActiveTab("apiKeys")}
         >
           API Keys
-        </button>
-        <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === "memory" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-          onClick={() => setActiveTab("memory")}
-        >
-          Memory
         </button>
         <button
           className={`px-4 py-2 text-sm font-medium ${activeTab === "schemas" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}

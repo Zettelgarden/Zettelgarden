@@ -1348,14 +1348,13 @@ func (s *Handler) CreateArticleRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 // ProcessCardAfterCreation handles post-creation processing for a card
-// This includes memory generation and summarization for PRO users
+// This includes entity/fact extraction for PRO users
 // Call this after any card creation to ensure consistent processing
 func (s *Handler) ProcessCardAfterCreation(userID int, card models.Card, shouldProcess bool) {
 	if !shouldProcess {
 		return
 	}
 	if s.UserHasSubscription(userID) {
-		s.GenerateMemory(uint(userID), card.Body)
 		s.ProcessEntitiesAndFacts(userID, card)
 	}
 }
