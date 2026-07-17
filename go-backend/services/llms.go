@@ -32,7 +32,7 @@ func NewDefaultClient(db *sql.DB, userID int, testing bool) *models.LLMClient {
 
 func NewClient(db *sql.DB, config openai.ClientConfig, userID int, testing bool) *models.LLMClient {
 	config.HTTPClient = &http.Client{
-		Transport: headerTransport{http.DefaultTransport},
+		Transport: http.DefaultTransport,
 		Timeout:   120 * time.Second,
 	}
 
@@ -43,17 +43,6 @@ func NewClient(db *sql.DB, config openai.ClientConfig, userID int, testing bool)
 		DB:          db,
 		RequestType: "other", // default to chat, can be overridden
 	}
-}
-
-type headerTransport struct {
-	http.RoundTripper
-}
-
-func (t headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Header.Set("HTTP-Referer", "http://zettelgarden.com")
-	req.Header.Set("X-Title", "Zettelgarden")
-
-	return t.RoundTripper.RoundTrip(req)
 }
 
 // mockLLMResponse creates a mock response for testing mode
@@ -148,5 +137,3 @@ func logLLMRequest(c *models.LLMClient, resp openai.ChatCompletionResponse, requ
 		}
 	}()
 }
-
-

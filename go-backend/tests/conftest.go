@@ -125,10 +125,10 @@ func setTestEnvironmentVariables() {
 	setEnvIfNotSet("ZETTEL_BACKEND_LOG_LOCATION", "")
 
 	// LLM service config - test defaults
-	setEnvIfNotSet("ZETTEL_LLM_KEY", "test-openai-api-key")
-	setEnvIfNotSet("ZETTEL_LLM_ENDPOINT", "https://api.openai.com/v1")
-	setEnvIfNotSet("ZETTEL_LLM_DEFAULT_MODEL", "gpt-3.5-turbo")
-	setEnvIfNotSet("ZETTEL_LLM_SUMMARIZE_MODEL", "gpt-3.5-turbo")
+	setEnvIfNotSet("ZETTEL_LLM_KEY", "test-zai-api-key")
+	setEnvIfNotSet("ZETTEL_LLM_ENDPOINT", "https://api.z.ai/api/coding/paas/v4")
+	setEnvIfNotSet("ZETTEL_LLM_DEFAULT_MODEL", "glm-5.1")
+	setEnvIfNotSet("ZETTEL_LLM_SUMMARIZE_MODEL", "glm-5.1")
 
 	// Mail service config - test defaults
 	setEnvIfNotSet("MAIL_HOST", "smtp.gmail.com")
@@ -896,5 +896,3 @@ func CreateJsonBody(t *testing.T, v interface{}) *bytes.Reader {
 func getIntPtr(i int) *int {
 	return &i
 }
-
-

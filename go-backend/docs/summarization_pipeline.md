@@ -185,11 +185,11 @@ Creates the final markdown summary:
 ## Constants and Configuration
 
 **Environment Variables**:
-- `ZETTEL_LLM_SUMMARIZE_MODEL`: Model for final summarization (default: "google/gemini-3-pro-preview")
+- `ZETTEL_LLM_SUMMARIZE_MODEL`: Model for final summarization (default: "glm-5.2")
 
 **Constants** (`services/summarize.go:18`):
 - `MaxChunkSize`: 15000 characters
-- `DefaultSummarizeModel`: "google/gemini-3-pro-preview"
+- `DefaultSummarizeModel`: "glm-5.2"
 - `EnvSummarizeModel`: "ZETTEL_LLM_SUMMARIZE_MODEL"
 - `PromptCostPerMillion`: 1.25
 - `CompletionCostPerMillion`: 10.0

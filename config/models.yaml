@@ -1,127 +1,106 @@
 # Model configuration for Zettelgarden LLM integration
-# This file contains pricing and capability information for all supported models
+# This file contains pricing and capability information for all supported models.
+#
+# Provider: Z.AI (https://z.ai) - OpenAI-compatible API
+# Default endpoint (Coding Plan / subscription):
+#   https://api.z.ai/api/coding/paas/v4
+# Pay-as-you-go endpoint (requires account balance):
+#   https://api.z.ai/api/paas/v4
+# Docs:    https://docs.z.ai
+# Pricing: per 1M tokens, see https://docs.z.ai/guides/overview/pricing
+#          (values below are per 1K tokens)
+#
+# Note: With the Coding Plan (subscription), the 5.x models deduct quota at
+# 2x (off-peak) / 3x (peak); glm-4.7 and below deduct at 1x. glm-5.1/5.2 are
+# great for user-facing work, glm-4.7 is the cost-efficient default for
+# high-volume background jobs (summarization, entity recognition, memory).
 
 defaults:
   # Default model used when no model is specified
-  chat_model: "google/gemini-2.5-flash"
+  chat_model: "glm-5.1"
   # Maximum tokens for model responses
   max_tokens: 4096
   # Default temperature for responses
   temperature: 0.7
 
 models:
-  google/gemini-2.5-flash:
-    provider: google
-    prompt_per_1k: 0.0003
-    completion_per_1k: 0.0025
+  glm-5.2:
+    provider: zai
+    prompt_per_1k: 0.0014
+    completion_per_1k: 0.0044
     context_window: 1000000
     supports_tools: true
     supports_streaming: true
-    description: "Fast, efficient model for quick responses"
+    description: "Flagship model with truly usable 1M-token context; best for long-horizon tasks and large summarization"
 
-  google/gemini-2.5-pro:
-    provider: google
-    prompt_per_1k: 0.00125
-    completion_per_1k: 0.010
-    context_window: 1000000
-    supports_tools: true
-    supports_streaming: true
-    description: "High-quality model for complex reasoning"
-
-  google/gemini-2.5-flash-lite:
-    provider: google
-    prompt_per_1k: 0.0001
-    completion_per_1k: 0.0004
-    context_window: 1000000
-    supports_tools: true
-    supports_streaming: true
-    description: "Ultra-fast, lightweight model for simple tasks"
-
-  openai/gpt-5-chat:
-    provider: openai
-    prompt_per_1k: 0.00125
-    completion_per_1k: 0.010
-    context_window: 128000
-    supports_tools: true
-    supports_streaming: true
-    description: "OpenAI's flagship reasoning model"
-
-  openai/gpt-5.1-chat:
-    provider: openai
-    prompt_per_1k: 0.00125
-    completion_per_1k: 0.010
-    context_window: 128000
-    supports_tools: true
-    supports_streaming: true
-    description: "OpenAI GPT-5.1 with improved reasoning"
-
-  openai/gpt-5.2-chat:
-    provider: openai
-    prompt_per_1k: 0.00175
-    completion_per_1k: 0.014
-    context_window: 128000
-    supports_tools: true
-    supports_streaming: true
-    description: "OpenAI GPT-5.2 with enhanced capabilities"
-
-  openai/gpt-4o-mini:
-    provider: openai
-    prompt_per_1k: 0.00015
-    completion_per_1k: 0.0006
-    context_window: 128000
-    supports_tools: true
-    supports_streaming: true
-    description: "Fast and cost-effective small model"
-
-  anthropic/claude-sonnet-4.5:
-    provider: anthropic
-    prompt_per_1k: 0.003
-    completion_per_1k: 0.015
+  glm-5.1:
+    provider: zai
+    prompt_per_1k: 0.0014
+    completion_per_1k: 0.0044
     context_window: 200000
     supports_tools: true
     supports_streaming: true
-    description: "Anthropic's balanced performance model"
+    description: "High-intelligence reasoning and agent model; maintains goal alignment over long tasks"
 
-  anthropic/claude-sonnet-4.6:
-    provider: anthropic
-    prompt_per_1k: 0.003
-    completion_per_1k: 0.015
+  glm-5:
+    provider: zai
+    prompt_per_1k: 0.0010
+    completion_per_1k: 0.0032
     context_window: 200000
     supports_tools: true
     supports_streaming: true
-    description: "Anthropic's balanced performance model"
+    description: "Strong general-purpose model at a lower price point than 5.1/5.2"
 
-  anthropic/claude-opus-4.6:
-    provider: anthropic
-    prompt_per_1k: 0.005
-    completion_per_1k: 0.025
+  glm-5-turbo:
+    provider: zai
+    prompt_per_1k: 0.0012
+    completion_per_1k: 0.0040
     context_window: 200000
     supports_tools: true
     supports_streaming: true
-    description: "Anthropic's best model"
+    description: "Optimized for tool invocation, instruction following, and long-chain agent tasks"
 
-  google/gemini-3-pro-preview:
-    provider: google
-    prompt_per_1k: 0.002
-    completion_per_1k: 0.012
-    context_window: 1000000
+  glm-4.7:
+    provider: zai
+    prompt_per_1k: 0.0006
+    completion_per_1k: 0.0022
+    context_window: 200000
     supports_tools: true
     supports_streaming: true
-    description: "Gemini 3 Pro preview with advanced capabilities"
+    description: "Strong reasoning and coding at 1x quota; best value for high-volume background jobs"
 
-  google/gemini-3.1-pro-preview:
-    provider: google
-    prompt_per_1k: 0.002
-    completion_per_1k: 0.012
-    context_window: 1000000
+  glm-4.6:
+    provider: zai
+    prompt_per_1k: 0.0006
+    completion_per_1k: 0.0022
+    context_window: 200000
     supports_tools: true
     supports_streaming: true
-    description: "Gemini 3.1 Pro preview with advanced capabilities"
-  google/gemini-3-flash-preview:
-    provider: google
-    prompt_per_1k: 0.0005
-    completion_per_1k: 0.003
-    context_window: 1000000
+    description: "Balanced workhorse for coding, reasoning, search, and writing"
+
+  glm-4.5-air:
+    provider: zai
+    prompt_per_1k: 0.0002
+    completion_per_1k: 0.0011
+    context_window: 128000
     supports_tools: true
     supports_streaming: true
-    description: "Gemini 3 Flash preview for fast responses"
+    description: "Efficient MoE model for cost-sensitive, high-volume tasks"
+
+  glm-4.7-flash:
+    provider: zai
+    prompt_per_1k: 0.0
+    completion_per_1k: 0.0
+    context_window: 200000
+    supports_tools: true
+    supports_streaming: true
+    description: "Free tier of the GLM-4.7 family for quick, low-volume tasks"
+
+  glm-4.5-flash:
+    provider: zai
+    prompt_per_1k: 0.0
+    completion_per_1k: 0.0
+    context_window: 128000
+    supports_tools: true
+    supports_streaming: true
+    description: "Free tier for fast, simple tasks"
