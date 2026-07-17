@@ -52,10 +52,10 @@ type ScheduledJobsResponse struct {
 
 // JobSummary represents summary statistics for a scheduled job
 type JobSummary struct {
-	JobName       string         `json:"job_name"`
-	LastRunStatus string         `json:"last_run_status"`
-	LastRunAt     *string        `json:"last_run_at,omitempty"`
-	RecentStats   JobStats       `json:"recent_stats"`
+	JobName       string   `json:"job_name"`
+	LastRunStatus string   `json:"last_run_status"`
+	LastRunAt     *string  `json:"last_run_at,omitempty"`
+	RecentStats   JobStats `json:"recent_stats"`
 }
 
 // JobStats represents statistics for job runs

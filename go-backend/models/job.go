@@ -1,7 +1,6 @@
 package models
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -65,26 +64,20 @@ type CreateJobParams struct {
 
 // JobListParams represents parameters for listing jobs
 type JobListParams struct {
-	UserID  int      `json:"user_id"`
-	Status  JobStatus `json:"status,omitempty"`
-	Limit   int       `json:"limit,omitempty"`
-	Offset  int       `json:"offset,omitempty"`
+	UserID int       `json:"user_id"`
+	Status JobStatus `json:"status,omitempty"`
+	Limit  int       `json:"limit,omitempty"`
+	Offset int       `json:"offset,omitempty"`
 }
 
 // JobStats represents statistics about jobs
 type JobStats struct {
-	Total      int            `json:"total"`
-	Pending    int            `json:"pending"`
-	Running    int            `json:"running"`
-	Completed  int            `json:"completed"`
-	Failed     int            `json:"failed"`
-	ByType     map[JobType]int `json:"by_type"`
-}
-
-// JobProcessor defines the interface for processing jobs
-type JobProcessor interface {
-	// ProcessJob executes a job and returns the result or error
-	ProcessJob(ctx context.Context, job *LLMJob) (map[string]interface{}, error)
+	Total     int             `json:"total"`
+	Pending   int             `json:"pending"`
+	Running   int             `json:"running"`
+	Completed int             `json:"completed"`
+	Failed    int             `json:"failed"`
+	ByType    map[JobType]int `json:"by_type"`
 }
 
 // ScanLLMJob scans a single LLMJob from a sql.Row
@@ -290,19 +283,6 @@ func GetJob(db *sql.DB, jobID int) (*LLMJob, error) {
 	return ScanLLMJob(db.QueryRow(query, jobID))
 }
 
-// GetJobForUpdate retrieves a job by ID with a row-level lock for updating
-// This is used by workers to claim jobs
-func GetJobForUpdate(db *sql.DB, jobID int) (*LLMJob, error) {
-	query := `
-		SELECT id, user_id, job_type, status, priority, payload, result, error_message,
-			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds, correlation_id
-		FROM llm_jobs
-		WHERE id = $1
-		FOR UPDATE
-	`
-	return ScanLLMJob(db.QueryRow(query, jobID))
-}
-
 // ListJobs retrieves jobs for a user with optional filtering and pagination
 func ListJobs(db *sql.DB, params JobListParams) ([]LLMJob, error) {
 	query := `
@@ -375,27 +355,11 @@ func UpdateJobStatusWithError(db *sql.DB, jobID int, status JobStatus, errorMsg 
 	return err
 }
 
-// MarkJobRunning marks a job as running and sets the started_at timestamp
-func MarkJobRunning(db *sql.DB, jobID int) error {
-	query := `
-		UPDATE llm_jobs
-		SET status = 'running', started_at = NOW(), updated_at = NOW()
-		WHERE id = $1
-	`
-	_, err := db.Exec(query, jobID)
-	return err
-}
+// MarkJobRunning removed: jobs are marked running directly by JobRunner via
+// UpdateJobStatus.
 
-// IncrementJobRetry increments the retry count for a failed job
-func IncrementJobRetry(db *sql.DB, jobID int) error {
-	query := `
-		UPDATE llm_jobs
-		SET retry_count = retry_count + 1, status = 'pending', updated_at = NOW()
-		WHERE id = $1
-	`
-	_, err := db.Exec(query, jobID)
-	return err
-}
+// IncrementJobRetry removed: inline jobs do not auto-retry.
+// (Manual re-runs are handled by services.JobRunner.Retry.)
 
 // GetJobStats retrieves statistics about jobs for a user
 func GetJobStats(db *sql.DB, userID int) (*JobStats, error) {
@@ -460,44 +424,10 @@ func GetJobStats(db *sql.DB, userID int) (*JobStats, error) {
 	return stats, nil
 }
 
-// DequeueJob attempts to claim a pending job for processing
-// Uses FOR UPDATE SKIP LOCKED to allow multiple workers to run concurrently
-func DequeueJob(db *sql.DB) (*LLMJob, error) {
-	query := `
-		SELECT id, user_id, job_type, status, priority, payload, result, error_message,
-			created_at, started_at, completed_at, retry_count, max_retries, timeout_seconds, correlation_id
-		FROM llm_jobs
-		WHERE status = 'pending'
-		ORDER BY priority ASC, created_at ASC
-		LIMIT 1
-		FOR UPDATE SKIP LOCKED
-	`
-	return ScanLLMJob(db.QueryRow(query))
-}
-
-// CancelJob marks a job as cancelled if it's still pending
-func CancelJob(db *sql.DB, jobID, userID int) error {
-	query := `
-		UPDATE llm_jobs
-		SET status = 'cancelled', completed_at = NOW(), updated_at = NOW()
-		WHERE id = $1 AND user_id = $2 AND status = 'pending'
-	`
-	result, err := db.Exec(query, jobID, userID)
-	if err != nil {
-		return err
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return sql.ErrNoRows
-	}
-
-	return nil
-}
+// DequeueJob, GetJobForUpdate, MarkJobRunning, IncrementJobRetry, and CancelJob
+// have been removed: with inline processing (services.JobRunner) there is no
+// claim/dequeue step, no retry counter that needs incrementing, and no
+// pending job to cancel.
 
 // CleanupOldJobs deletes jobs that have been completed/failed for longer than the retention period
 // Returns the number of jobs deleted

@@ -55,22 +55,13 @@ func RegisterAllAdminRoutes(r *mux.Router, h *handlers.Handler, scheduler handle
 				h.UpdateLastSeenMiddleware(
 					handlers.LogRoute(h.UnsubscribeMailingListRoute))))).Methods("POST")
 
-	// Job queue management (admin-only)
+	// Job audit log (admin-only)
+	// Jobs are now executed inline (see services.JobRunner); there is no
+	// queue to pause/resume or worker pool to inspect. These endpoints
+	// surface the audit log and allow re-running failed jobs.
 	adminAPI.HandleFunc("/jobs", func(w http.ResponseWriter, r *http.Request) {
 		GetAllJobsRoute(h, w, r)
 	}).Methods("GET")
-	adminAPI.HandleFunc("/jobs/health", func(w http.ResponseWriter, r *http.Request) {
-		GetJobQueueHealthRoute(h, w, r)
-	}).Methods("GET")
-	adminAPI.HandleFunc("/jobs/workers", func(w http.ResponseWriter, r *http.Request) {
-		GetJobWorkersStatsRoute(h, w, r)
-	}).Methods("GET")
-	adminAPI.HandleFunc("/jobs/pause", func(w http.ResponseWriter, r *http.Request) {
-		PauseJobQueueRoute(h, w, r)
-	}).Methods("POST")
-	adminAPI.HandleFunc("/jobs/resume", func(w http.ResponseWriter, r *http.Request) {
-		ResumeJobQueueRoute(h, w, r)
-	}).Methods("POST")
 	adminAPI.HandleFunc("/jobs/{id}/retry", func(w http.ResponseWriter, r *http.Request) {
 		RetryJobRoute(h, w, r)
 	}).Methods("POST")

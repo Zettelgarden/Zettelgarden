@@ -236,4 +236,3 @@ func (s *Handler) AdminOrSelfMiddleware(idParam string) func(http.HandlerFunc) h
 		}
 	}
 }
-

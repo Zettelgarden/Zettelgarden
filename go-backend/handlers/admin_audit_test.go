@@ -34,10 +34,10 @@ func TestLogAdminAction_Success(t *testing.T) {
 
 	// Log admin action
 	details := map[string]interface{}{
-		"action":    "test_action",
-		"test_key":  "test_value",
-		"before":    map[string]string{"status": "active"},
-		"after":     map[string]string{"status": "inactive"},
+		"action":   "test_action",
+		"test_key": "test_value",
+		"before":   map[string]string{"status": "active"},
+		"after":    map[string]string{"status": "inactive"},
 	}
 	s.LogAdminAction(req, "user.update", "user", 2, details)
 

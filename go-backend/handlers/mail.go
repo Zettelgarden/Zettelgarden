@@ -91,11 +91,11 @@ func (s *Handler) SendMailingListMessageRoute(w http.ResponseWriter, r *http.Req
 
 	// Log admin action
 	s.LogAdminActionAsync(r, "mailing_list.send_message", "mailing_list_message", messageID, map[string]interface{}{
-		"subject":          req.Subject,
-		"to_count":         len(req.ToRecipients),
-		"bcc_count":        len(req.BccRecipients),
-		"to_recipients":    req.ToRecipients,
-		"bcc_recipients":   req.BccRecipients,
+		"subject":        req.Subject,
+		"to_count":       len(req.ToRecipients),
+		"bcc_count":      len(req.BccRecipients),
+		"to_recipients":  req.ToRecipients,
+		"bcc_recipients": req.BccRecipients,
 	})
 
 	w.WriteHeader(http.StatusOK)

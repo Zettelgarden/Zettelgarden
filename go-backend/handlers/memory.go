@@ -14,20 +14,19 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-// GenerateMemory generates user memory based on card content via job queue
+// GenerateMemory generates user memory based on card content, run inline
+// via the job runner (audited in llm_jobs).
 func (s *Handler) GenerateMemory(userID uint, cardContent string) {
 	if s.Server.Testing {
 		return
 	}
 
-	// Enqueue memory generation job to the job queue
-	jobQueue := services.NewJobQueue(s.DB)
 	payload := map[string]interface{}{
 		"memory_type":  "card",
 		"card_content": cardContent,
 	}
 
-	job, err := jobQueue.Enqueue(context.Background(), models.CreateJobParams{
+	job, err := s.JobRunner.Run(context.Background(), models.CreateJobParams{
 		UserID:      int(userID),
 		JobType:     models.JobTypeMemory,
 		Payload:     payload,
@@ -35,7 +34,7 @@ func (s *Handler) GenerateMemory(userID uint, cardContent string) {
 		TimeoutSecs: 120,
 	})
 	if err != nil {
-		log.Printf("Failed to enqueue memory job for user %d: %v", userID, err)
+		log.Printf("Failed to start memory job for user %d: %v", userID, err)
 		return
 	}
 

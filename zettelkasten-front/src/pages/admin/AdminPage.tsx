@@ -120,7 +120,7 @@ export function Admin() {
                     className="block py-3 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors min-h-[44px] flex items-center"
                     onClick={() => setIsSidebarOpen(false)}
                   >
-                    ⚙️ Job Queue
+                    📋 Job Log
                   </Link>
                 </li>
                 <li>

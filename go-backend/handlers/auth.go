@@ -477,4 +477,3 @@ func (s *Handler) updateAgentLastSeen(agentID int) {
 		log.Printf("Error updating agent last_seen: %v", err)
 	}
 }
-

@@ -246,36 +246,36 @@ func (s *Handler) MergeEntities(userID int, entity1ID int, entity2ID int) error 
 	// Skip during testing since the transaction isn't committed
 	if s.ShouldCommitTx() {
 		go func() {
-		// Fetch the updated entity1 data after merge
-		var updatedEntity models.Entity
-		err := s.DB.QueryRow(`
+			// Fetch the updated entity1 data after merge
+			var updatedEntity models.Entity
+			err := s.DB.QueryRow(`
 			SELECT id, user_id, name, description, type, created_at, updated_at, card_pk
 			FROM entities
 			WHERE id = $1 AND user_id = $2
 		`, entity1.ID, userID).Scan(
-			&updatedEntity.ID,
-			&updatedEntity.UserID,
-			&updatedEntity.Name,
-			&updatedEntity.Description,
-			&updatedEntity.Type,
-			&updatedEntity.CreatedAt,
-			&updatedEntity.UpdatedAt,
-			&updatedEntity.CardPK,
-		)
-		if err != nil {
-			log.Printf("Error fetching updated entity after merge: %v", err)
-			return
-		}
-
-		var partialCard *models.PartialCard
-		if updatedEntity.CardPK != nil {
-			card, err := s.QueryPartialCardByID(userID, *updatedEntity.CardPK)
-			if err == nil {
-				partialCard = &card
+				&updatedEntity.ID,
+				&updatedEntity.UserID,
+				&updatedEntity.Name,
+				&updatedEntity.Description,
+				&updatedEntity.Type,
+				&updatedEntity.CreatedAt,
+				&updatedEntity.UpdatedAt,
+				&updatedEntity.CardPK,
+			)
+			if err != nil {
+				log.Printf("Error fetching updated entity after merge: %v", err)
+				return
 			}
-		}
-		s.upsertEntityToTypesense(updatedEntity, partialCard)
-		s.deleteEntityTypesense(entity2.ID)
+
+			var partialCard *models.PartialCard
+			if updatedEntity.CardPK != nil {
+				card, err := s.QueryPartialCardByID(userID, *updatedEntity.CardPK)
+				if err == nil {
+					partialCard = &card
+				}
+			}
+			s.upsertEntityToTypesense(updatedEntity, partialCard)
+			s.deleteEntityTypesense(entity2.ID)
 		}()
 	}
 

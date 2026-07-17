@@ -22,12 +22,12 @@ import (
 
 // Error definitions for epub import
 var (
-	ErrFileNotFound   = errors.New("file not found")
-	ErrNotEpub        = errors.New("file is not an epub")
-	ErrEpubParse      = errors.New("unable to parse epub file")
-	ErrEpubImport     = errors.New("failed to import epub")
-	ErrEpubNoChapters = errors.New("no valid chapters found in epub")
-	ErrEpubInvalid    = errors.New("invalid epub file format")
+	ErrFileNotFound    = errors.New("file not found")
+	ErrNotEpub         = errors.New("file is not an epub")
+	ErrEpubParse       = errors.New("unable to parse epub file")
+	ErrEpubImport      = errors.New("failed to import epub")
+	ErrEpubNoChapters  = errors.New("no valid chapters found in epub")
+	ErrEpubInvalid     = errors.New("invalid epub file format")
 	ErrDownloadTimeout = errors.New("download timed out")
 )
 

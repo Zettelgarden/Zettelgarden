@@ -18,8 +18,8 @@ import (
 
 // Pre-compiled regex patterns for removeReferences
 var (
-	referencePattern         = regexp.MustCompile(`\[[^\]]+\] - [^\n]*\n?`)
-	doubleNewlinePattern     = regexp.MustCompile(`\n\n+`)
+	referencePattern          = regexp.MustCompile(`\[[^\]]+\] - [^\n]*\n?`)
+	doubleNewlinePattern      = regexp.MustCompile(`\n\n+`)
 	trailingWhitespacePattern = regexp.MustCompile(`\s+$`)
 )
 
@@ -538,8 +538,8 @@ func (h *Handler) runSummarizationJobViaQueue(userID int, analyses []models.Sect
 			}
 		}
 		analysesPayload[i] = map[string]interface{}{
-			"section":  a.Section,
-			"theses":   thesesPayload,
+			"section": a.Section,
+			"theses":  thesesPayload,
 		}
 	}
 
@@ -556,8 +556,8 @@ func (h *Handler) runSummarizationJobViaQueue(userID int, analyses []models.Sect
 		},
 	}
 
-	jobQueue := services.NewJobQueue(h.DB)
-	job, err := jobQueue.Enqueue(context.Background(), models.CreateJobParams{
+	jobQueue := h.JobRunner
+	job, err := jobQueue.Run(context.Background(), models.CreateJobParams{
 		UserID:      userID,
 		JobType:     models.JobTypeSummarization,
 		Payload:     payload,
@@ -670,15 +670,10 @@ func (h *Handler) CancelSummarizationRoute(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Cancel via job queue if linked
-	if llmJobID.Valid {
-		jobQueue := services.NewJobQueue(h.DB)
-		err = jobQueue.Cancel(context.Background(), int(llmJobID.Int64), userID)
-		if err != nil {
-			// Job may have already started processing - still update summarization status
-			log.Printf("Failed to cancel LLM job %d: %v", llmJobID.Int64, err)
-		}
-	}
+	// Note: with inline processing (services.JobRunner) we cannot forcibly
+	// cancel an in-flight goroutine. The user-visible effect is achieved by
+	// marking the summarization itself as failed below; the linked audit row
+	// will reflect whatever state the work reached.
 
 	// Update summarization status
 	_, err = h.DB.Exec(`UPDATE summarizations SET status='failed', updated_at=NOW() WHERE id=$1`, summarizationID)

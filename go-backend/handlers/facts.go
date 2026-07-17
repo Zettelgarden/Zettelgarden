@@ -444,9 +444,7 @@ func (s *Handler) ExtractSaveFactEntities(userID int, card models.Card, factObjs
 		return s.extractSaveFactEntitiesSync(userID, card, factObjs)
 	}
 
-	// For larger batches, enqueue a job
-	jobQueue := services.NewJobQueue(s.DB)
-
+	// For larger batches, run inline via the job runner (audited)
 	// Convert facts to payload format
 	factsPayload := make([]map[string]interface{}, len(factObjs))
 	for i, fact := range factObjs {
@@ -461,7 +459,7 @@ func (s *Handler) ExtractSaveFactEntities(userID int, card models.Card, factObjs
 		"facts":   factsPayload,
 	}
 
-	job, err := jobQueue.Enqueue(context.Background(), models.CreateJobParams{
+	job, err := s.JobRunner.Run(context.Background(), models.CreateJobParams{
 		UserID:      userID,
 		JobType:     models.JobTypeFactEntityExtraction,
 		Payload:     payload,
@@ -469,12 +467,12 @@ func (s *Handler) ExtractSaveFactEntities(userID int, card models.Card, factObjs
 		TimeoutSecs: 300,
 	})
 	if err != nil {
-		log.Printf("Failed to enqueue fact entity extraction job for user %d: %v", userID, err)
-		// Fall back to sync processing if job enqueue fails
+		log.Printf("Failed to start fact entity extraction job for user %d: %v", userID, err)
+		// Fall back to sync processing if job start fails
 		return s.extractSaveFactEntitiesSync(userID, card, factObjs)
 	}
 
-	log.Printf("Enqueued fact entity extraction job %d for card %d (user %d, %d facts)", job.ID, card.ID, userID, len(factObjs))
+	log.Printf("Started fact entity extraction job %d for card %d (user %d, %d facts)", job.ID, card.ID, userID, len(factObjs))
 	return nil
 }
 

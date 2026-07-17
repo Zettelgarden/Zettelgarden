@@ -193,41 +193,6 @@ export async function getMailingListRecipients(
 }
 
 /**
- * Job queue health statistics
- */
-export interface JobQueueHealth {
-  running: boolean;
-  paused: boolean;
-  worker_count: number;
-  queue_depth: number;
-  stats: WorkerStats;
-}
-
-/**
- * Worker statistics
- */
-export interface WorkerStats {
-  jobs_processed: number;
-  jobs_succeeded: number;
-  jobs_failed: number;
-  jobs_retried: number;
-}
-
-/**
- * Worker pool statistics response
- */
-export interface WorkerPoolStats {
-  workers: Array<{
-    worker_id: string;
-    jobs_processed: number;
-    jobs_succeeded: number;
-    jobs_failed: number;
-    jobs_retried: number;
-  }>;
-  total: WorkerStats;
-}
-
-/**
  * Job retry response
  */
 export interface JobRetryResponse {
@@ -236,52 +201,9 @@ export interface JobRetryResponse {
 }
 
 /**
- * Pause/Resume response
- */
-export interface JobQueueControlResponse {
-  message: string;
-}
-
-/**
- * Get job queue health status
- */
-export async function getJobQueueHealth(): Promise<JobQueueHealth> {
-  const base_url = import.meta.env.VITE_URL;
-  const token = localStorage.getItem("token");
-  const url = `${base_url}/admin/jobs/health`;
-
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch job queue health: ${response.statusText}`);
-  }
-
-  return response.json() as Promise<JobQueueHealth>;
-}
-
-/**
- * Get worker pool statistics
- */
-export async function getWorkerPoolStats(): Promise<WorkerPoolStats> {
-  const base_url = import.meta.env.VITE_URL;
-  const token = localStorage.getItem("token");
-  const url = `${base_url}/admin/jobs/workers`;
-
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch worker stats: ${response.statusText}`);
-  }
-
-  return response.json() as Promise<WorkerPoolStats>;
-}
-
-/**
- * Job information for admin view
+ * Job information for admin view. Jobs are now an audit log of inline-
+ * processed LLM work (see services.JobRunner), so there is no worker pool,
+ * queue depth, or pause/resume state to surface.
  */
 export interface AdminJob {
   id: number;
@@ -358,46 +280,6 @@ export async function retryJob(jobId: number): Promise<JobRetryResponse> {
   }
 
   return response.json() as Promise<JobRetryResponse>;
-}
-
-/**
- * Pause job queue processing
- */
-export async function pauseJobQueue(): Promise<JobQueueControlResponse> {
-  const base_url = import.meta.env.VITE_URL;
-  const token = localStorage.getItem("token");
-  const url = `${base_url}/admin/jobs/pause`;
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to pause job queue: ${response.statusText}`);
-  }
-
-  return response.json() as Promise<JobQueueControlResponse>;
-}
-
-/**
- * Resume job queue processing
- */
-export async function resumeJobQueue(): Promise<JobQueueControlResponse> {
-  const base_url = import.meta.env.VITE_URL;
-  const token = localStorage.getItem("token");
-  const url = `${base_url}/admin/jobs/resume`;
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to resume job queue: ${response.statusText}`);
-  }
-
-  return response.json() as Promise<JobQueueControlResponse>;
 }
 
 /**

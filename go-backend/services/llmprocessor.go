@@ -12,7 +12,8 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
-// LLMJobProcessor implements JobProcessor interface for LLM operations
+// LLMJobProcessor executes LLM operations for each job type. It is invoked
+// directly by services.JobRunner (no longer via a JobProcessor interface).
 type LLMJobProcessor struct {
 	db     *sql.DB
 	logger *log.Logger
@@ -259,9 +260,9 @@ func (p *LLMJobProcessor) processMemoryJob(ctx context.Context, job *models.LLMJ
 	}
 
 	return map[string]interface{}{
-		"user_id":    job.UserID,
+		"user_id":     job.UserID,
 		"memory_type": memoryType,
-		"status":     "completed",
+		"status":      "completed",
 	}, nil
 }
 
@@ -583,10 +584,10 @@ func (p *LLMJobProcessor) processFileTextExtractionJob(ctx context.Context, job 
 	p.logger.Printf("[Processor] File text extraction job for file %d - S3 integration pending", fileID)
 
 	return map[string]interface{}{
-		"file_id":     fileID,
-		"status":      "pending_s3_integration",
+		"file_id":      fileID,
+		"status":       "pending_s3_integration",
 		"content_type": contentType,
-		"s3_key":      s3Key,
-		"note":        "S3 download integration required in main.go",
+		"s3_key":       s3Key,
+		"note":         "S3 download integration required in main.go",
 	}, nil
 }

@@ -121,12 +121,6 @@ func run() error {
 		DB:     s.DB,
 	}
 
-	// Initialize job rate limiter
-	log.Printf("Initializing job rate limiter (max_per_user=%d, max_global=%d)",
-		getEnvInt("MAX_JOBS_PER_USER", 10), getEnvInt("MAX_GLOBAL_JOBS", 50))
-	h.JobRateLimiter = services.NewJobRateLimiter(s.DB)
-	log.Printf("Job rate limiter initialized successfully")
-
 	// Initialize Stripe
 	log.Printf("Initializing Stripe payment processing")
 	stripe.Key = cfg.Services.Stripe.SecretKey
@@ -178,33 +172,20 @@ func run() error {
 	s.LLMClient = llmClient
 	log.Printf("LLM client initialized successfully")
 
-	// Initialize LLM job queue and worker pool
-	log.Printf("Initializing LLM job queue and worker pool")
-	llmJobQueue := services.NewJobQueue(s.DB)
+	// Initialize LLM job runner (inline processing + audit log)
+	log.Printf("Initializing LLM job runner")
 	llmJobProcessor := services.NewLLMJobProcessor(s.DB)
-	llmWorkerConfig := services.DefaultWorkerConfig()
-	llmWorkerPool := services.NewWorkerPool(llmJobQueue, llmJobProcessor, llmWorkerConfig)
+	h.JobRunner = services.NewJobRunner(s.DB, llmJobProcessor)
 
-	// Set the worker pool on the handler for admin access
-	h.LLMWorkerPool = llmWorkerPool
-
-	// Clean up orphaned jobs from previous run
-	count, err := llmJobQueue.CleanupOrphanedJobs(context.Background())
+	// Clean up jobs orphaned by a previous run (process crashed/restarted
+	// mid-job). Anything still marked "running" is now stale.
+	count, err := h.JobRunner.CleanupStale(context.Background())
 	if err != nil {
-		log.Printf("Failed to cleanup orphaned jobs: %v", err)
+		log.Printf("Failed to cleanup stale jobs: %v", err)
 	} else if count > 0 {
-		log.Printf("Cleaned up %d orphaned jobs", count)
+		log.Printf("Cleaned up %d stale jobs", count)
 	}
-
-	// Start the LLM worker pool in background goroutine with panic recovery
-	safeGoroutine(func() {
-		if err := llmWorkerPool.Start(); err != nil {
-			log.Printf("Failed to start LLM worker pool: %v", err)
-		} else {
-			log.Printf("LLM worker pool started with %d workers", llmWorkerConfig.WorkerCount)
-		}
-	})
-	log.Printf("LLM job queue and worker pool initialized successfully")
+	log.Printf("LLM job runner initialized successfully")
 
 	// Initialize and start the scheduled job runner
 	log.Printf("Initializing scheduled job runner")
@@ -267,14 +248,6 @@ func run() error {
 
 		// Cancel shutdown context to signal all goroutines to stop
 		shutdownCancel()
-
-		// Shutdown LLM worker pool
-		if llmWorkerPool != nil && llmWorkerPool.IsRunning() {
-			log.Printf("Shutting down LLM worker pool...")
-			if err := llmWorkerPool.Stop(); err != nil {
-				log.Printf("LLM worker pool shutdown error: %v", err)
-			}
-		}
 
 		// Shutdown scheduler
 		log.Printf("[main] shutting down scheduler...")

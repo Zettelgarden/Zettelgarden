@@ -38,11 +38,9 @@ type Handler struct {
 	summarizationActiveJobs   sync.Map // map[int]int - active job count per user
 	summarizationActiveJobsMu sync.Map // map[int]*sync.Mutex - per-user active jobs mutex
 
-	// Job queue rate limiting
-	JobRateLimiter *services.JobRateLimiter
-
-	// LLM worker pool for job processing
-	LLMWorkerPool *services.WorkerPool
+	// JobRunner executes LLM jobs inline and records each run in the
+	// llm_jobs audit table. See services.JobRunner.
+	JobRunner *services.JobRunner
 }
 
 // GetDB returns the appropriate database connection for database operations.
