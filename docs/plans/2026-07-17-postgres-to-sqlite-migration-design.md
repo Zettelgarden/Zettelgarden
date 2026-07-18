@@ -154,10 +154,19 @@ parameters rather than a hand-rolled Connector — modernc applies each one on
 every new connection it opens, achieving the same per-connection effect with
 less code; verified by `TestSQLiteForeignKeysEnforcedAcrossPool`.
 
-### D5 — Time values stored as ISO-8601 TEXT
-SQLite has no native timestamp type. Store as TEXT (ISO-8601, UTC). Both Go
-drivers scan these into `time.Time` transparently. `timestamptz` semantics are
-preserved because the app normalizes to UTC in most places (verify in Phase 3).
+### D5 — Time values stored as ISO-8601 in `DATETIME`-declared columns
+SQLite has no native timestamp type, but `modernc.org/sqlite` returns
+`time.Time` for columns whose **declared type** is `DATETIME`/`TIMESTAMP`/`DATE`
+(it consults the declared type to pick the Go return value). So: store ISO-8601
+(UTC) values, but **declare timestamp columns `DATETIME`, not `TEXT`**. A
+`TEXT`-declared column comes back as `string` and `Scan` into `*time.Time`
+fails (`unsupported Scan, storing driver.Value type string into type
+*time.Time`). With `DATETIME` columns, both RFC3339 strings (app-side
+`time.Now().UTC()`) and `datetime('now')` defaults (the "YYYY-MM-DD HH:MM:SS"
+space format) read back into `time.Time` cleanly — so the existing scan sites
+need **no changes**. Verified by `spike/sqlite_scan_probe_test.go` and
+`spike/sqlite_columntype_probe_test.go`. `timestamptz` semantics are preserved
+because the app normalizes to UTC (audit remaining sites in Phase 3).
 
 ### D6 — `lib/pq` is retained through the cutover window
 The ETL tool (`cmd/migrate-pg-to-sqlite/`) reads from Postgres, so `lib/pq`
@@ -225,6 +234,10 @@ dependency immediately and can ship before the SQLite work begins.
       × 50 writes, zero lock errors). The full handler+scheduler+jobrunner mix
       is deferred to the cards-wiring step / Phase 6a test suite (needs the
       consolidated schema first).
+- [x] **Compatibility probes** (extra de-risk, `spike/`): `RETURNING` ✓,
+      JSONB→`[]byte` scan ✓, and timestamp→`time.Time` scan ✓ **iff** columns
+      are declared `DATETIME` (→ D5 correction + Phase 2 schema rule). These
+      confirm large query classes run unchanged.
 - [ ] **Bulk-import timing check:** load a ~1k-card slice (with its
       entity/fact/tag sub-graph) through the ETL path and measure wall-clock.
       `modernc.org/sqlite` is materially slower than the CGO driver on bulk
@@ -243,7 +256,9 @@ adaptation** before committing to the full sweep.
 - [ ] `pg_dump --schema-only` the current dev DB.
 - [ ] Translate to `schema/sqlite/schema.sqlite.sql`:
   - `SERIAL`/`BIGSERIAL` → `INTEGER PRIMARY KEY AUTOINCREMENT`
-  - `TIMESTAMP[TZ]`/`VARCHAR`/`TEXT` → `TEXT` (timestamps) / `TEXT`/`BLOB`
+  - `TIMESTAMP[TZ]` → **`DATETIME`** (NOT `TEXT` — see D5; modernc needs the
+    declared type to return `time.Time`; SQLite's loose affinity still stores
+    the value as text). `VARCHAR`/`TEXT` → `TEXT`/`BLOB`.
   - `JSONB` → `TEXT`; the 2 array columns (`filter_tags`, `referenced_cards`)
     → `TEXT` (JSON)
   - **Timestamp column defaults → `DEFAULT (datetime('now'))`** — **97
@@ -273,6 +288,13 @@ The mechanical bulk. Smaller than the original estimate (EXTRACT/ARRAY are
 schema-only; INTERVAL/NOW counts revised down). **Phase 1 confirmed modernc
 accepts `$1` natively, so the placeholder sweep is OFF the table** — this phase
 is just the `NOW()`/`INTERVAL`/`ILIKE`/cast/operator fixes.
+
+**Also verified compatible (no change needed):** `$N` placeholders, `RETURNING`
+(INSERT + UPDATE), JSONB→`[]byte` scanning (TEXT-stored JSON), and — provided
+Phase 2 declares timestamp columns `DATETIME` (D5) — every `Scan(&time.Time)`
+site. So the remaining translation is narrow: `NOW()`→app-side time, `INTERVAL`
+→`datetime(...)`, `ILIKE`→`LIKE`, `::` casts, and any array/containment ops
+(none found in Go).
 
 - [x] ~~`$N` → `?` across all 74 files~~ — **NOT NEEDED.** Phase 1 proved
       modernc binds `$1` to positional args. Existing queries run unchanged.
@@ -462,7 +484,7 @@ production.** Nick is the only user, so a short maintenance window is fine.
 | Non-ASCII `ILIKE` case-folding differs | Low | Low | Use `COLLATE NOCASE` or `LOWER(x) LIKE LOWER(?)`; verify with tests |
 | Cross-process write contention (standalone cmd binaries vs. main server) | **Low** (single user) | Low | WAL + `busy_timeout=5000`; optionally fold binaries into scheduler (Phase 4) |
 | `BEGIN`/DDL interaction in migration runner | Low | Med | Statement splitter respects SQLite rules; consolidated schema is mostly DDL run outside tx |
-| Timestamp precision/timezone regressions | Med | Med | Store UTC ISO-8601 everywhere; audit in Phase 3 |
+| Timestamp scanning breaks (`TEXT` column returns `string`, won't scan into `time.Time`) + precision/timezone | Med | High | **Resolved:** declare timestamp columns `DATETIME` (not `TEXT`) in the consolidated schema (D5); modernc then returns `time.Time` for both RFC3339 and `datetime('now')` values. Verified by spike probes; no scan-site code changes. Still audit UTC normalization in Phase 3. |
 | modernc driver edge cases (e.g. large `[]byte` JSON) | Low | Low | Spike in Phase 1; well-trodden driver |
 
 Note: the original "write contention under concurrent workers (heartbeats)"
