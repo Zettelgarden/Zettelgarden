@@ -37,7 +37,7 @@ services:
       - /var/log/zettel:/app/logs
 
   db:
-    image: pgvector/pgvector:pg16
+    image: postgres:16-alpine
     restart: always
     env_file:
       - zettel.env
