@@ -652,9 +652,9 @@ func DeleteCard(db models.Database, userID int, id int) error {
 
 	// Delete the card (soft delete)
 	_, err = db.Exec(`
-		UPDATE cards SET is_deleted = TRUE, updated_at = NOW()
+		UPDATE cards SET is_deleted = TRUE, updated_at = $3
 		WHERE id = $1 AND user_id = $2
-	`, id, userID)
+	`, id, userID, time.Now().UTC())
 	if err != nil {
 		return err
 	}
@@ -743,11 +743,11 @@ func UpdateCard(db models.Database, userID int, cardPK int, params models.EditCa
 	}
 
 	query := `
-	UPDATE cards SET title = $1, body = $2, link = $3, parent_id = $4, updated_at = NOW(), card_id = $5, card_schema_id = $6, structured_data = $7
+	UPDATE cards SET title = $1, body = $2, link = $3, parent_id = $4, updated_at = $9, card_id = $5, card_schema_id = $6, structured_data = $7
 	WHERE
 	id = $8
 	`
-	_, err = db.Exec(query, params.Title, params.Body, params.Link, parent_id, params.CardID, schemaID, structuredData, cardPK)
+	_, err = db.Exec(query, params.Title, params.Body, params.Link, parent_id, params.CardID, schemaID, structuredData, cardPK, time.Now().UTC())
 	if err != nil {
 		log.Printf("updatecard err %v", err)
 		return models.Card{}, err
@@ -861,14 +861,18 @@ func CreateCard(db models.Database, userID int, params models.EditCardParams) (m
 		}
 	}
 
+	// App-side timestamps (not NOW()): SQLite has no NOW(), and binding
+	// time.Now().UTC() explicitly works on both drivers and makes tests
+	// deterministic. See migration design doc Phase 3 / D5.
+	now := time.Now().UTC()
 	query := `
 	INSERT INTO cards
 	(title, body, link, user_id, card_id, parent_id, card_schema_id, structured_data, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	RETURNING id;
 	`
 	var id int
-	err := db.QueryRow(query, params.Title, params.Body, params.Link, userID, params.CardID, parentID, params.SchemaID, params.StructuredData).Scan(&id)
+	err := db.QueryRow(query, params.Title, params.Body, params.Link, userID, params.CardID, parentID, params.SchemaID, params.StructuredData, now, now).Scan(&id)
 	if err != nil {
 		log.Printf("updatecard err %v", err)
 		return models.Card{}, err
@@ -1404,10 +1408,10 @@ func UpdateCardStructuredData(db models.Database, userID int, cardPK int, schema
 
 	// Update only the structured data fields
 	query := `
-	UPDATE cards SET card_schema_id = $1, structured_data = $2, updated_at = NOW()
+	UPDATE cards SET card_schema_id = $1, structured_data = $2, updated_at = $5
 	WHERE id = $3 AND user_id = $4
 	`
-	result, err := db.Exec(query, schemaID, structuredData, cardPK, userID)
+	result, err := db.Exec(query, schemaID, structuredData, cardPK, userID, time.Now().UTC())
 	if err != nil {
 		log.Printf("UpdateCardStructuredData err: %v", err)
 		return models.Card{}, err

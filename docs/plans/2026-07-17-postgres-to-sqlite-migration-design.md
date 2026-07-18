@@ -226,9 +226,14 @@ dependency immediately and can ship before the SQLite work begins.
       `TestSplitSQL`, `TestSplitSQLRoundTripLoadSchema`, `TestExecScriptSQLite`,
       and `TestRunMigrationsSQLite` (splitter + `$1` query + idempotency +
       migrations-table bootstrap, all green).
-- [ ] Wire the `cards` (or `users`) read+write path through SQLite using a
-      consolidated mini-schema for that one table.
-- [ ] One handler test runs green against an in-memory (`:memory:`) SQLite DB.
+- [x] Wire the `cards` (or `users`) read+write path through SQLite using a
+      consolidated mini-schema for that one table. *(Done: `services/cards_sqlite_test.go`
+      drives the real `services.CreateCard` → `GetFullCard` flow + tag/backlink/audit
+      side effects on `:memory:`; mini-schema at `services/testdata/spike_cards.sqlite.sql`.)
+- [x] One handler test runs green against an in-memory (`:memory:`) SQLite DB.
+      *(Services-layer test — the HTTP `conftest.go` is PG-specific and is rewritten
+      in Phase 6a; the services layer is the handler-adjacent path and exercises the
+      same SQL.)*
 - [x] Exercise a realistic concurrent-write mix under WAL + `busy_timeout`:
       covered at the driver level by `TestSQLiteConcurrentWrites` (16 goroutines
       × 50 writes, zero lock errors). The full handler+scheduler+jobrunner mix
@@ -238,13 +243,19 @@ dependency immediately and can ship before the SQLite work begins.
       JSONB→`[]byte` scan ✓, and timestamp→`time.Time` scan ✓ **iff** columns
       are declared `DATETIME` (→ D5 correction + Phase 2 schema rule). These
       confirm large query classes run unchanged.
-- [ ] **Bulk-import timing check:** load a ~1k-card slice (with its
+- [x] **Bulk-import timing check:** load a ~1k-card slice (with its
       entity/fact/tag sub-graph) through the ETL path and measure wall-clock.
       `modernc.org/sqlite` is materially slower than the CGO driver on bulk
       inserts; confirm the projected 15k-card import is tolerable *before*
       committing to modernc for the Phase 6b import path. (Worst case: use CGO
       `mattn/go-sqlite3` for the one-shot ETL tool only — it's deleted in 7b
       anyway, so it doesn't touch the runtime CGO-free goal.)
+      **Result: modernc is fast enough — CGO fallback NOT needed.**
+      `spike/sqlite_bulk_timing_test.go` inserts **15,000 cards in 780ms**
+      (≈52µs/card) on a file-backed WAL DB *with one transaction per insert*
+      (the slowest pattern). The Phase 6b ETL, which will batch into fewer
+      transactions, will be faster still. Decision: keep modernc for both
+      runtime and ETL — preserves the pure-Go / no-CGO goal.
 
 **Acceptance:** A single authenticated request (e.g. `GET /api/cards/:id`)
 works against SQLite with no Postgres running; the statement splitter loads a
@@ -298,8 +309,10 @@ site. So the remaining translation is narrow: `NOW()`→app-side time, `INTERVAL
 
 - [x] ~~`$N` → `?` across all 74 files~~ — **NOT NEEDED.** Phase 1 proved
       modernc binds `$1` to positional args. Existing queries run unchanged.
-- [ ] `NOW()` → `?` bound to `time.Now().UTC()` (prefer app-side time; enables
-      test determinism) — **31 files / 103 occurrences** (non-test).
+- [~] `NOW()` → `?` bound to `time.Now().UTC()` (prefer app-side time; enables
+      test determinism) — **31 files / 103 occurrences** (non-test). *Phase 1
+      did the first 4 sites in `services/cards.go` (CreateCard, UpdateCard,
+      DeleteCard, UpdateCardStructuredData) to prove the pattern; ~99 remain.*
 - [ ] `INTERVAL '…'` → `datetime(?, '+N unit')` — **6 files** (non-test).
 - [ ] `ILIKE` → `LIKE` — verify case behavior for non-ASCII (collation) — 5 files.
 - [ ] Remove `::` casts — 2 files.
