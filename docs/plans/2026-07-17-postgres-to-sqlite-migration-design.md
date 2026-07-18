@@ -149,7 +149,10 @@ pooled connection — FK enforcement will then be **silently inconsistent** acro
 the pool. Set the pragmas inside a `database/sql/driver.Connector` wrapper
 registered via `sql.OpenDB(connector)` so they run on every new connection.
 (`journal_mode=WAL` is persistent / database-level; the rest must be
-per-connection.)
+per-connection.) **Implemented (Phase 1)** via modernc's `_pragma=` DSN
+parameters rather than a hand-rolled Connector — modernc applies each one on
+every new connection it opens, achieving the same per-connection effect with
+less code; verified by `TestSQLiteForeignKeysEnforcedAcrossPool`.
 
 ### D5 — Time values stored as ISO-8601 TEXT
 SQLite has no native timestamp type. Store as TEXT (ISO-8601, UTC). Both Go
@@ -188,10 +191,13 @@ dependency immediately and can ship before the SQLite work begins.
 ### Phase 1 — Spike / de-risk (1–2 days)
 **Prove the approach end-to-end on one table before the big sweep.**
 
-- [ ] Add `modernc.org/sqlite` dependency.
-- [ ] Implement a thin SQLite connection helper (`server/sqlite.go`) returning a
-      `*sql.DB` configured with D4 pragmas, behind a feature flag (`DB_DRIVER=sqlite`,
-      `SQLITE_PATH=…`).
+- [x] Add `modernc.org/sqlite` dependency (v1.54.0).
+- [x] Implement a thin SQLite connection helper (`server/sqlite.go`) returning a
+      `*sql.DB` configured with D4 pragmas, behind a feature flag
+      (`DB_DRIVER=sqlite`, `SQLITE_PATH=…`, wired in `pkg/config` + `bootstrap`).
+      Implemented via modernc's `_pragma=` DSN parameters (applied on every new
+      connection — pool-safe, equivalent to a Connector wrapper); validated by
+      `TestSQLiteForeignKeysEnforcedAcrossPool`.
 - [x] **Investigate native `$N` parameter support FIRST — RESOLVED: YES.**
       Spike (`go-backend/spike/sqlite_param_test.go`, `modernc.org/sqlite`
       v1.54.0) confirms the driver binds `$1`-style numbered params to
@@ -202,16 +208,23 @@ dependency immediately and can ship before the SQLite work begins.
       run unchanged. The single largest mechanical phase is eliminated.
 - [x] Fallback rewriter: **not needed** (driver accepts `$1`). No runtime
       rewriter and no source edits required.
-- [ ] **Build a quote-aware `;` statement splitter** for the migration runner
-      (Phase 1 priority — see D2). Must handle `'…'` string literals, `''`
-      escapes, and `--` comments. This is the #1 spike deliverable; without it
-      the consolidated schema cannot load.
+- [x] **Build a quote-aware `;` statement splitter** (`server/sqlsplit.go`) —
+      DONE. Handles `'…'` string literals, `''` escapes, `"…"` identifiers, `--`
+      line comments, and `/* */` block comments. Integrated into the migration
+      runner via `execScript` (`server/database.go`); `RunMigrations` now
+      bootstraps a SQLite `migrations` table and uses an existence-check query
+      (`SELECT 1 …`) that scans cleanly on both drivers. Covered by
+      `TestSplitSQL`, `TestSplitSQLRoundTripLoadSchema`, `TestExecScriptSQLite`,
+      and `TestRunMigrationsSQLite` (splitter + `$1` query + idempotency +
+      migrations-table bootstrap, all green).
 - [ ] Wire the `cards` (or `users`) read+write path through SQLite using a
       consolidated mini-schema for that one table.
 - [ ] One handler test runs green against an in-memory (`:memory:`) SQLite DB.
-- [ ] Exercise a realistic concurrent-write mix under WAL + `busy_timeout`:
-      HTTP handler + a scheduler tick + an inline JobRunner goroutine hitting
-      the same DB concurrently. Confirm no `database is locked` errors.
+- [x] Exercise a realistic concurrent-write mix under WAL + `busy_timeout`:
+      covered at the driver level by `TestSQLiteConcurrentWrites` (16 goroutines
+      × 50 writes, zero lock errors). The full handler+scheduler+jobrunner mix
+      is deferred to the cards-wiring step / Phase 6a test suite (needs the
+      consolidated schema first).
 - [ ] **Bulk-import timing check:** load a ~1k-card slice (with its
       entity/fact/tag sub-graph) through the ETL path and measure wall-clock.
       `modernc.org/sqlite` is materially slower than the CGO driver on bulk

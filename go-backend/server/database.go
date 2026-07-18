@@ -136,7 +136,23 @@ func ResetDatabase(S *Server) error {
 }
 
 func RunMigrations(S *Server) {
-	queryString := "SELECT applied_at FROM migrations WHERE migration_name = $1"
+	// SQLite has no pre-existing migrations table (Postgres gets one from
+	// ResetDatabase). Bootstrap it here so the runner is self-contained on the
+	// sqlite path.
+	if S.Driver == "sqlite" {
+		if _, err := S.DB.Exec(`CREATE TABLE IF NOT EXISTS migrations (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			migration_name TEXT NOT NULL,
+			applied_at TEXT DEFAULT (datetime('now'))
+		)`); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	// Existence check only (the applied_at value is never read). SELECT 1 scans
+	// cleanly on both drivers — selecting a timestamp into time.Time would fail
+	// on SQLite, which stores applied_at as an ISO-8601 TEXT.
+	queryString := "SELECT 1 FROM migrations WHERE migration_name = $1"
 	insertString := "INSERT INTO migrations (migration_name) VALUES ($1)"
 
 	files, err := ioutil.ReadDir(S.SchemaDir)
@@ -151,8 +167,8 @@ func RunMigrations(S *Server) {
 	sort.Strings(fileNames)
 
 	for _, fileName := range fileNames {
-		var result time.Time
-		err = S.DB.QueryRow(queryString, fileName).Scan(&result)
+		var applied int
+		err = S.DB.QueryRow(queryString, fileName).Scan(&applied)
 
 		if err == sql.ErrNoRows {
 			content, err := ioutil.ReadFile(S.SchemaDir + "/" + fileName)
@@ -165,8 +181,7 @@ func RunMigrations(S *Server) {
 				log.Fatal(err)
 			}
 
-			_, err = tx.Exec(string(content))
-			if err != nil {
+			if err = execScript(tx, S.Driver, string(content)); err != nil {
 				tx.Rollback()
 				log.Fatal(err)
 			}
@@ -187,4 +202,21 @@ func RunMigrations(S *Server) {
 			log.Fatal(err)
 		}
 	}
+}
+
+// execScript executes a multi-statement SQL script within tx. lib/pq parses
+// multiple statements in a single Exec; modernc.org/sqlite does not, so for the
+// sqlite driver the script is split into individual statements first (via
+// SplitSQL) before execution.
+func execScript(tx *sql.Tx, driver, script string) error {
+	if driver == "sqlite" {
+		for _, stmt := range SplitSQL(script) {
+			if _, err := tx.Exec(stmt); err != nil {
+				return fmt.Errorf("migration statement failed: %w\n  statement: %s", err, stmt)
+			}
+		}
+		return nil
+	}
+	_, err := tx.Exec(script)
+	return err
 }

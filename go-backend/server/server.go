@@ -19,6 +19,7 @@ type Server struct {
 	Mail            *mail.MailClient
 	TestInspector   *TestInspector
 	SchemaDir       string
+	Driver          string // "postgres" (default/empty) or "sqlite"
 	LLMClient       *models.LLMClient
 	TypesenseClient *typesense.Client
 }
