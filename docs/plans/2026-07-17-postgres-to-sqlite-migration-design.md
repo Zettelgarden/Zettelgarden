@@ -192,19 +192,16 @@ dependency immediately and can ship before the SQLite work begins.
 - [ ] Implement a thin SQLite connection helper (`server/sqlite.go`) returning a
       `*sql.DB` configured with D4 pragmas, behind a feature flag (`DB_DRIVER=sqlite`,
       `SQLITE_PATH=…`).
-- [ ] **Investigate native `$N` parameter support FIRST (highest-leverage
-      spike question):** SQLite's native SQL parameter syntax supports `$1` /
-      `$NNN` (and `?NNN`, `:name`, `@name`), and `modernc.org/sqlite` is a
-      transpile of SQLite C. Determine whether the driver accepts `$1`-style
-      numbered params with plain `[]any` args via the standard `database/sql`
-      interface. **If yes, the entire 1373-edit placeholder sweep (Phase 3)
-      evaporates** — the single largest mechanical phase becomes ~0 work. This
-      must be answered before any sweep.
-- [ ] Fallback (only if the driver rejects `$1`): build a `$N`→`?` rewriter in
-      the **driver/connection wrapper**, not by editing 74 source files. Reuse
-      the same quote-aware lexer as the statement splitter so that `$1`-shaped
-      text inside string literals is left alone. A runtime rewriter touches
-      every query in one place; 1373 source edits each carry independent risk.
+- [x] **Investigate native `$N` parameter support FIRST — RESOLVED: YES.**
+      Spike (`go-backend/spike/sqlite_param_test.go`, `modernc.org/sqlite`
+      v1.54.0) confirms the driver binds `$1`-style numbered params to
+      positional `[]any` args through the standard `database/sql` interface
+      (`Query`/`QueryRow`/`Exec`). Also accepts `?`, `?NNN`, and named `:id` /
+      `@id` / `$id` (via `sql.Named`). **Consequence: the entire 1373-edit
+      `$N → ?` placeholder sweep (Phase 3) is unnecessary** — existing queries
+      run unchanged. The single largest mechanical phase is eliminated.
+- [x] Fallback rewriter: **not needed** (driver accepts `$1`). No runtime
+      rewriter and no source edits required.
 - [ ] **Build a quote-aware `;` statement splitter** for the migration runner
       (Phase 1 priority — see D2). Must handle `'…'` string literals, `''`
       escapes, and `--` comments. This is the #1 spike deliverable; without it
@@ -260,13 +257,12 @@ schema with zero errors, and `PRAGMA foreign_key_check` passes.
 
 ### Phase 3 — Query translation sweep (2–3 days)
 The mechanical bulk. Smaller than the original estimate (EXTRACT/ARRAY are
-schema-only; INTERVAL/NOW counts revised down). **Conditional on Phase 1's
-`$N` investigation:** if `modernc.org/sqlite` accepts numbered params natively,
-the placeholder line below is a no-op and this phase shrinks to just the
-`NOW()`/`INTERVAL`/`ILIKE`/cast fixes.
+schema-only; INTERVAL/NOW counts revised down). **Phase 1 confirmed modernc
+accepts `$1` natively, so the placeholder sweep is OFF the table** — this phase
+is just the `NOW()`/`INTERVAL`/`ILIKE`/cast/operator fixes.
 
-- [ ] `$N` → `?` across all 74 files (**1373** occurrences) — **only if Phase 1
-      finds the driver does NOT accept `$1` natively.** Otherwise skip.
+- [x] ~~`$N` → `?` across all 74 files~~ — **NOT NEEDED.** Phase 1 proved
+      modernc binds `$1` to positional args. Existing queries run unchanged.
 - [ ] `NOW()` → `?` bound to `time.Now().UTC()` (prefer app-side time; enables
       test determinism) — **31 files / 103 occurrences** (non-test).
 - [ ] `INTERVAL '…'` → `datetime(?, '+N unit')` — **6 files** (non-test).
@@ -492,12 +488,12 @@ input. Remaining:
 | 0 — pgvector swap | ~30 min | New quick win |
 | 1 — Spike | 1–2 days | + statement splitter as headline deliverable |
 | 2 — Consolidated schema | 2–3 days | — |
-| 3 — Query translation | 1–3 days | **Conditional:** if Phase 1 confirms `modernc` accepts `$1` natively, the 1373-placeholder sweep is ~0 and this phase is mostly `NOW()`/`INTERVAL`/`ILIKE` fixes (1 day). Otherwise the full sweep applies (2–3 days). |
+| 3 — Query translation | ~1 day | **Confirmed small:** Phase 1 proved modernc accepts `$1` natively, so the 1373-placeholder sweep is gone. Remaining work is just `NOW()`/`INTERVAL`/`ILIKE`/cast/operator fixes. |
 | 4 — Consolidate cmd binaries | 1 day (optional) | **Replaces** deleted job-queue phase; can defer |
 | 5 — Triggers → Go | 2–3 days | — |
 | 6 — Tests + ETL + cutover | 3–4 days | **Up** from 2–3; verification gates + runbook added |
 | 7a/7b — Cleanup & rollout | 1–2 days | Split per D6 |
-| **Total** | **~9–14 focused days (~2–3 weeks)** | **Down from ~12–19** |
+| **Total** | **~8–13 focused days (~2 weeks)** | **Down from ~12–19** |
 
 The principal blocker (job-queue locking) is already removed. The principal
 remaining risk (multi-statement migration runner parsing) is a Phase 1 spike
