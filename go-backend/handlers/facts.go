@@ -62,7 +62,7 @@ func (s *Handler) ExtractSaveCardFacts(userID int, cardPK int, facts []string) (
 		var factID int
 		err = tx.QueryRow(`
 			INSERT INTO facts (card_pk, user_id, fact, created_at, updated_at)
-			VALUES ($1, $2, $3, NOW(), NOW())
+			VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 			RETURNING id
 		`, cardPK, userID, fact).Scan(&factID)
 		if err != nil {
@@ -73,8 +73,8 @@ func (s *Handler) ExtractSaveCardFacts(userID int, cardPK int, facts []string) (
 
 		_, err = tx.Exec(`
 			INSERT INTO fact_card_junction (fact_id, card_pk, user_id, is_origin, created_at, updated_at)
-			VALUES ($1, $2, $3, TRUE, NOW(), NOW())
-			ON CONFLICT (fact_id, card_pk) DO UPDATE SET updated_at = NOW()
+			VALUES ($1, $2, $3, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			ON CONFLICT (fact_id, card_pk) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
 		`, factID, cardPK, userID)
 		if err != nil {
 			log.Printf("error inserting fact_card_junction: %v", err)
@@ -343,7 +343,7 @@ func (s *Handler) GetAllFacts(w http.ResponseWriter, r *http.Request) {
 			       c.created_at, c.updated_at
 			FROM facts f
 			JOIN cards c ON f.card_pk = c.id
-			WHERE f.user_id = $1 AND (f.fact ILIKE $2 OR c.title ILIKE $2)
+			WHERE f.user_id = $1 AND (f.fact LIKE $2 OR c.title LIKE $2)
 			ORDER BY f.created_at DESC
 			LIMIT $3 OFFSET $4
 		`
@@ -351,7 +351,7 @@ func (s *Handler) GetAllFacts(w http.ResponseWriter, r *http.Request) {
 			SELECT COUNT(*)
 			FROM facts f
 			JOIN cards c ON f.card_pk = c.id
-			WHERE f.user_id = $1 AND (f.fact ILIKE $2 OR c.title ILIKE $2)
+			WHERE f.user_id = $1 AND (f.fact LIKE $2 OR c.title LIKE $2)
 		`
 		searchPattern := "%" + searchTerm + "%"
 		queryArgs = []interface{}{userID, searchPattern, perPage, offset}
@@ -522,7 +522,7 @@ func (s *Handler) extractSaveFactEntitiesSync(userID int, card models.Card, fact
 			} else {
 				// entity exists, update
 				_, err = s.GetDB().Exec(`
-					UPDATE entities SET description=$1, type=$2, updated_at=NOW() WHERE id=$3
+					UPDATE entities SET description=$1, type=$2, updated_at=CURRENT_TIMESTAMP WHERE id=$3
 				`, entity.Description, entity.Type, entityID)
 				if err != nil {
 					log.Printf("error updating entity (from fact): %v", err)
@@ -533,8 +533,8 @@ func (s *Handler) extractSaveFactEntitiesSync(userID int, card models.Card, fact
 			// link entity to fact
 			_, err = s.GetDB().Exec(`
 				INSERT INTO entity_fact_junction (user_id, entity_id, fact_id, created_at, updated_at)
-				VALUES ($1, $2, $3, NOW(), NOW())
-				ON CONFLICT (entity_id, fact_id) DO UPDATE SET updated_at = NOW()
+				VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+				ON CONFLICT (entity_id, fact_id) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
 			`, userID, entityID, fact.ID)
 			if err != nil {
 				log.Printf("error linking entity to fact: %v", err)
@@ -545,7 +545,7 @@ func (s *Handler) extractSaveFactEntitiesSync(userID int, card models.Card, fact
 			_, err = s.GetDB().Exec(`
 				INSERT INTO entity_card_junction (user_id, entity_id, card_pk, chunk_id)
 				VALUES ($1, $2, $3, $4)
-				ON CONFLICT (entity_id, card_pk) DO UPDATE SET updated_at = NOW()
+				ON CONFLICT (entity_id, card_pk) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
 			`, userID, entityID, card.ID, 0)
 			if err != nil {
 				log.Printf("error linking entity to card: %v", err)
@@ -938,7 +938,7 @@ func (s *Handler) UpdateFact(w http.ResponseWriter, r *http.Request) {
 
 	_, err = tx.Exec(`
 		UPDATE facts
-		SET fact = $1, updated_at = NOW()
+		SET fact = $1, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $2 AND user_id = $4
 	`, req.Fact, factID, userID)
 	if err != nil {

@@ -180,7 +180,7 @@ func UpdateTaskStatus(db models.Database, userID int, statusID int, params model
 	}
 
 	// Build dynamic update query
-	query := `UPDATE task_statuses SET updated_at = NOW()`
+	query := `UPDATE task_statuses SET updated_at = CURRENT_TIMESTAMP`
 	args := []interface{}{}
 	argCount := 1
 
@@ -384,7 +384,7 @@ func ReorderTaskStatuses(db *sql.DB, userID int, statusIDs []int) error {
 	for i, statusID := range statusIDs {
 		_, err := tx.Exec(`
 			UPDATE task_statuses
-			SET position = $1, updated_at = NOW()
+			SET position = $1, updated_at = CURRENT_TIMESTAMP
 			WHERE id = $2 AND user_id = $3
 		`, i, statusID, userID)
 		if err != nil {

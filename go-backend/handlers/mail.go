@@ -158,7 +158,7 @@ func (s *Handler) UnsubscribeMailingListRoute(w http.ResponseWriter, r *http.Req
 	// Update the subscriber's status in the database
 	query := `
 		UPDATE mailing_list
-		SET subscribed = false, updated_at = NOW()
+		SET subscribed = false, updated_at = CURRENT_TIMESTAMP
 		WHERE email = $1 AND subscribed = true
 		RETURNING id
 	`

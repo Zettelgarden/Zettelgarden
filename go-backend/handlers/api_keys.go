@@ -142,7 +142,7 @@ func (s *Handler) RevokeAPIKey(w http.ResponseWriter, r *http.Request) {
 	// Verify the API key belongs to the user and revoke it
 	result, err := s.DB.Exec(`
 		UPDATE api_keys
-		SET is_active = false, revoked_at = NOW()
+		SET is_active = false, revoked_at = CURRENT_TIMESTAMP
 		WHERE id = $1 AND user_id = $2 AND is_active = true
 	`, apiKeyID, userID)
 

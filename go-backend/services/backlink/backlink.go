@@ -171,7 +171,7 @@ func UpdateBacklinks(db models.Database, cardPK int, backlinks []string) error {
     WHERE card_id = $2
 )
 INSERT INTO backlinks (source_id_int, target_id_int, created_at, updated_at)
-SELECT $1, target_id.id, NOW(), NOW()
+SELECT $1, target_id.id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM target_id;
 		`,
 			cardPK, targetID,

@@ -883,7 +883,7 @@ func UpdateEntity(db *sql.DB, userID int, entityID int, params UpdateEntityParam
 		    description = $2,
 		    type = $3,
 		    card_pk = $4,
-		    updated_at = NOW()
+		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = $5 AND user_id = $6`,
 		params.Name, params.Description, params.Type, params.CardPK, entityID, userID)
 	if err != nil {

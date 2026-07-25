@@ -305,7 +305,7 @@ func (s *Server) MergeEntities(ctx context.Context, userID int, entity1ID int, e
 		cardPK = entity2.CardPK
 	}
 
-	_, err = tx.Exec(`UPDATE entities SET description = $1, card_pk = $2, updated_at = NOW() WHERE id = $3`,
+	_, err = tx.Exec(`UPDATE entities SET description = $1, card_pk = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
 		newDescription, cardPK, entity1.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update entity: %w", err)

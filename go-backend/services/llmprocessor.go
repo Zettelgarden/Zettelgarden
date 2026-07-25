@@ -167,7 +167,7 @@ func (p *LLMJobProcessor) processFactEntityExtractionJob(ctx context.Context, jo
 				// Entity doesn't exist, insert it
 				err = p.db.QueryRowContext(ctx,
 					`INSERT INTO entities (user_id, name, description, type, card_pk, created_at, updated_at)
-					 VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+					 VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 					 RETURNING id`,
 					job.UserID, entity.Name, entity.Description, entity.Type, entity.CardPK).Scan(&entityID)
 				if err != nil {
@@ -181,7 +181,7 @@ func (p *LLMJobProcessor) processFactEntityExtractionJob(ctx context.Context, jo
 			} else {
 				// Entity exists, update it
 				_, err = p.db.ExecContext(ctx,
-					"UPDATE entities SET description=$1, type=$2, updated_at=NOW() WHERE id=$3",
+					"UPDATE entities SET description=$1, type=$2, updated_at=CURRENT_TIMESTAMP WHERE id=$3",
 					entity.Description, entity.Type, entityID)
 				if err != nil {
 					p.logger.Printf("[Processor] Failed to update entity '%s': %v", entity.Name, err)
@@ -192,8 +192,8 @@ func (p *LLMJobProcessor) processFactEntityExtractionJob(ctx context.Context, jo
 			// Link entity to fact
 			_, err = p.db.ExecContext(ctx,
 				`INSERT INTO entity_fact_junction (user_id, entity_id, fact_id, created_at, updated_at)
-				 VALUES ($1, $2, $3, NOW(), NOW())
-				 ON CONFLICT (entity_id, fact_id) DO UPDATE SET updated_at = NOW()`,
+				 VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+				 ON CONFLICT (entity_id, fact_id) DO UPDATE SET updated_at = CURRENT_TIMESTAMP`,
 				job.UserID, entityID, fact.ID)
 			if err != nil {
 				p.logger.Printf("[Processor] Failed to link entity to fact: %v", err)
@@ -205,7 +205,7 @@ func (p *LLMJobProcessor) processFactEntityExtractionJob(ctx context.Context, jo
 			_, err = p.db.ExecContext(ctx,
 				`INSERT INTO entity_card_junction (user_id, entity_id, card_pk, chunk_id)
 				 VALUES ($1, $2, $3, $4)
-				 ON CONFLICT (entity_id, card_pk) DO UPDATE SET updated_at = NOW()`,
+				 ON CONFLICT (entity_id, card_pk) DO UPDATE SET updated_at = CURRENT_TIMESTAMP`,
 				job.UserID, entityID, cardPK, 0)
 			if err != nil {
 				p.logger.Printf("[Processor] Failed to link entity to card: %v", err)
@@ -434,7 +434,7 @@ func (p *LLMJobProcessor) updateSummarizationResult(ctx context.Context, summari
 	_, err := p.db.ExecContext(ctx,
 		`UPDATE summarizations
 		 SET status = 'complete', result = $1, prompt_tokens = $2, completion_tokens = $3,
-		     total_tokens = $4, cost = $5, model = $6, updated_at = NOW()
+		     total_tokens = $4, cost = $5, model = $6, updated_at = CURRENT_TIMESTAMP
 		 WHERE id = $7`,
 		result, usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens,
 		usage.TotalCost, model, summarizationID)
@@ -472,11 +472,11 @@ func (p *LLMJobProcessor) saveEntity(ctx context.Context, userID int, entity mod
 	var entityID int
 	err := p.db.QueryRowContext(ctx,
 		`INSERT INTO entities (user_id, name, description, type, card_pk, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		 VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		 ON CONFLICT (user_id, name) DO UPDATE
 		 SET description = COALESCE(EXCLUDED.description, entities.description),
 		     type = COALESCE(EXCLUDED.type, entities.type),
-		     updated_at = NOW()
+		     updated_at = CURRENT_TIMESTAMP
 		 RETURNING id`,
 		userID, entity.Name, entity.Description, entity.Type, cardPK).Scan(&entityID)
 	if err != nil {
@@ -486,7 +486,7 @@ func (p *LLMJobProcessor) saveEntity(ctx context.Context, userID int, entity mod
 	// Link entity to card
 	_, err = p.db.ExecContext(ctx,
 		`INSERT INTO entity_card_junction (entity_id, card_pk, created_at)
-		 VALUES ($1, $2, NOW())
+		 VALUES ($1, $2, CURRENT_TIMESTAMP)
 		 ON CONFLICT DO NOTHING`,
 		entityID, cardPK)
 	if err != nil {

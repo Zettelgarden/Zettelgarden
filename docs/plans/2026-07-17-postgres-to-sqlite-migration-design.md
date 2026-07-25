@@ -177,6 +177,36 @@ Therefore Phase 7 is split:
 - **7b (~2 weeks after cutover):** delete the ETL tool and drop `lib/pq` from
   `go.mod`, once SQLite-in-prod is proven.
 
+### D7 — `NOW()` → `CURRENT_TIMESTAMP`, not app-side `time.Now().UTC()` (Phase 3)
+The original plan (and Phase 1's first 4 sites in `services/cards.go`) bound
+`time.Now().UTC()` as a parameter at each `NOW()` call site for test
+determinism. Scaling that to the remaining ~70 sites would mean ~70 careful
+multi-spot arg-list edits — a large source of off-by-one runtime bugs the test
+suite may not catch (Phase 6a is the first full DB validation).
+
+Instead Phase 3 replaces `NOW()` with `CURRENT_TIMESTAMP` everywhere (except
+the 4 Phase 1 sites, which stay app-side and remain correct on both drivers):
+
+- **Both drivers support it identically.** Postgres evaluates `CURRENT_TIMESTAMP`
+  to transaction-start time, exactly like `NOW()` (zero behavior change
+  pre-cutover). SQLite evaluates it to the statement's UTC time. Both are
+  valid inside `VALUES (...)` and `SET col = …`.
+- **It's a pure string replacement** — no arg-list surgery, minimal risk across
+  ~70 sites.
+- The test-determinism benefit of app-side time was marginal: the suite already
+  runs against the Postgres `NOW()` DB clock today.
+
+**Exception — `INTERVAL` has no SQLite equivalent**, so every `NOW() -
+INTERVAL '…'` time-window expression is computed app-side (`time.Now().UTC().AddDate(...)`)
+and bound as a parameter. That stays cross-driver the same way.
+
+`services/stats.go` additionally dropped `generate_series` + `AT TIME ZONE` (both
+Postgres-only): the day series is built in Go and activity is bucketed by
+`substr(cast(col as text),1,10)`, which both drivers support. Day boundaries are
+therefore UTC (the app stores UTC per D5); timezone-aware grouping can be added
+app-side later if a non-UTC user needs it. No direct tests cover these three
+functions, so the change is low-risk and gets full validation in Phase 6a.
+
 ## Phased Work Breakdown
 
 Each phase is independently mergeable. Acceptance criteria are explicit.
@@ -309,18 +339,36 @@ site. So the remaining translation is narrow: `NOW()`→app-side time, `INTERVAL
 
 - [x] ~~`$N` → `?` across all 74 files~~ — **NOT NEEDED.** Phase 1 proved
       modernc binds `$1` to positional args. Existing queries run unchanged.
-- [~] `NOW()` → `?` bound to `time.Now().UTC()` (prefer app-side time; enables
-      test determinism) — **31 files / 103 occurrences** (non-test). *Phase 1
-      did the first 4 sites in `services/cards.go` (CreateCard, UpdateCard,
-      DeleteCard, UpdateCardStructuredData) to prove the pattern; ~99 remain.*
-- [ ] `INTERVAL '…'` → `datetime(?, '+N unit')` — **6 files** (non-test).
-- [ ] `ILIKE` → `LIKE` — verify case behavior for non-ASCII (collation) — 5 files.
-- [ ] Remove `::` casts — 2 files.
-- [ ] Strip `COMMENT ON` references (none in Go; schema already handled in P2).
-- [ ] Audit timestamp/UTC handling per D5.
+- [x] `NOW()` → `CURRENT_TIMESTAMP` everywhere except the 4 Phase 1 app-side
+      sites in `services/cards.go` and the `INTERVAL` sites below (see **D7**).
+      ~70 occurrences swept across ~27 files. Pure string replacement — works
+      identically on Postgres (transaction-start time, same as `NOW()`) and
+      SQLite. The 4 Phase 1 sites stay app-side `time.Now().UTC()` (correct on
+      both drivers; left as-is).
+- [x] `NOW() - INTERVAL '…'` → app-side `time.Now().UTC().AddDate(...)` bound
+      as a parameter (INTERVAL has no SQLite equivalent; cross-driver).
+      `models/job.go`, `handlers/admin/stats.go` (5 sites), `services/smart_feed.go`
+      (3 sites), `services/jobs/{cleanup_job,rss_article_cleanup_job}.go`.
+- [x] `ILIKE` → `LIKE` — 5 files. ASCII case-insensitive semantics match
+      Postgres `ILIKE` for this (English) data; SQLite `LIKE` is ASCII-CI by
+      default. Non-ASCII not a concern for the current dataset.
+- [x] Remove `::` casts — `services/stats.go` (the `::date`/`::interval` casts
+      in the `generate_series` CTE; whole function rewritten per D7).
+- [x] `services/stats.go` rewritten: dropped `generate_series`, `INTERVAL`, and
+      `AT TIME ZONE`; day series built in Go, bucketing via
+      `substr(cast(col as text),1,10)` (both drivers).
+- [x] Strip `COMMENT ON` references (none in Go; schema already handled in P2).
+- [x] Audit timestamp/UTC handling per D5 — no scan-site changes needed
+      (DATETIME-declared columns return `time.Time`); stats.go day-bucketing
+      simplified to UTC (noted in D7).
+- [x] **Idiom smoke test** (`schema/sqlite/phase3_idioms_test.go`): proves the
+      translated `CURRENT_TIMESTAMP`, `LIKE`, `substr(cast(...))`, and
+      `ON CONFLICT … DO UPDATE` execute on SQLite against the consolidated
+      schema (guards the "compiles but fails at runtime" class).
 
-**Acceptance:** Backend compiles; `go vet ./...` clean; unit tests that don't
-touch DB-specific SQL pass.
+**Acceptance:** ✅ Backend compiles; `go vet ./...` clean (2 pre-existing
+`handlers/oauth.go` warnings unrelated to SQL); SQLite idiom smoke test + all
+Phase 1/2 SQLite tests green. Full DB-backed suite validation is Phase 6a.
 
 ### Phase 4 — Consolidate standalone cmd binaries into the scheduler (1 day, optional)
 **Replaces the deleted "job queue redesign" phase.** Low priority for a

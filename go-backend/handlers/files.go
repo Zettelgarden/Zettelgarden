@@ -203,7 +203,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Fallback to PostgreSQL search
-		whereConditions = append(whereConditions, "(f.name ILIKE $"+strconv.Itoa(argNum)+" OR f.type ILIKE $"+strconv.Itoa(argNum)+")")
+		whereConditions = append(whereConditions, "(f.name LIKE $"+strconv.Itoa(argNum)+" OR f.type LIKE $"+strconv.Itoa(argNum)+")")
 		searchPattern := "%" + searchTerm + "%"
 		queryArgs = append(queryArgs, searchPattern)
 		countArgs = append(countArgs, searchPattern)
@@ -212,7 +212,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 
 	// Add filetype filter (searches in MIME type)
 	if filetypeFilter != "" {
-		whereConditions = append(whereConditions, "f.type ILIKE $"+strconv.Itoa(argNum))
+		whereConditions = append(whereConditions, "f.type LIKE $"+strconv.Itoa(argNum))
 		filetypePattern := "%" + filetypeFilter + "%"
 		queryArgs = append(queryArgs, filetypePattern)
 		countArgs = append(countArgs, filetypePattern)
@@ -595,7 +595,7 @@ func (s *Handler) UploadFileRoute(w http.ResponseWriter, r *http.Request) {
 	var lastInsertId int
 	query := `INSERT INTO files (name, user_id, type, path, filename,
 		size, card_pk, created_by, updated_by, updated_at) VALUES
-		($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING id;`
+		($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP) RETURNING id;`
 	contentType := handler.Header.Get("Content-Type")
 	err = s.GetDB().QueryRow(query,
 		handler.Filename,

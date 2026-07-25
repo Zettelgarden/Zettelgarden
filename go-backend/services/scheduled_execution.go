@@ -21,7 +21,7 @@ func NewScheduledExecutionTracker(db *sql.DB) *ScheduledExecutionTracker {
 func (t *ScheduledExecutionTracker) RecordStart(ctx context.Context, jobName string) (int64, error) {
 	query := `
 		INSERT INTO scheduled_job_runs (job_name, status, started_at)
-		VALUES ($1, 'running', NOW())
+		VALUES ($1, 'running', CURRENT_TIMESTAMP)
 		RETURNING id
 	`
 
@@ -38,7 +38,7 @@ func (t *ScheduledExecutionTracker) RecordStart(ctx context.Context, jobName str
 func (t *ScheduledExecutionTracker) RecordCompletion(ctx context.Context, runID int64, err error) error {
 	query := `
 		UPDATE scheduled_job_runs
-		SET status = 'completed', completed_at = NOW()
+		SET status = 'completed', completed_at = CURRENT_TIMESTAMP
 		WHERE id = $1
 	`
 
@@ -55,7 +55,7 @@ func (t *ScheduledExecutionTracker) RecordFailure(ctx context.Context, runID int
 	query := `
 		UPDATE scheduled_job_runs
 		SET status = 'failed',
-		    completed_at = NOW(),
+		    completed_at = CURRENT_TIMESTAMP,
 		    error_message = $1,
 		    retry_count = $2
 		WHERE id = $3

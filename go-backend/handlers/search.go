@@ -253,29 +253,29 @@ func (s *Handler) InitSearchCollection() {
 				linkedCardPK = -1 // or 0, depending on how you want to indicate "no value"
 			}
 			doc := map[string]interface{}{
-				"id":                    "entity-" + strconv.Itoa(entityID),
-				"entity_pk":             entityID,
-				"card_id":               "",
-				"card_pk":               -1,
-				"fact_pk":               -1,
-				"type":                  "entity",
-				"user_id":               userID,
-				"title":                 name,
-				"parent_id":             -1,
-				"preview":               description,
-				"score":                 0.0,
-				"created_at":            createdAtTime.Unix(),
-				"updated_at":            updatedAtTime.Unix(),
-				"linked_card_id":        linkedCardID,
-				"linked_card_pk":        linkedCardPK,
-				"linked_card_title":     linkedCardTitle,
+				"id":                "entity-" + strconv.Itoa(entityID),
+				"entity_pk":         entityID,
+				"card_id":           "",
+				"card_pk":           -1,
+				"fact_pk":           -1,
+				"type":              "entity",
+				"user_id":           userID,
+				"title":             name,
+				"parent_id":         -1,
+				"preview":           description,
+				"score":             0.0,
+				"created_at":        createdAtTime.Unix(),
+				"updated_at":        updatedAtTime.Unix(),
+				"linked_card_id":    linkedCardID,
+				"linked_card_pk":    linkedCardPK,
+				"linked_card_title": linkedCardTitle,
 				"linked_card_parent_id": func() int {
 					if cardParentID.Valid {
 						return int(cardParentID.Int64)
 					}
 					return -1
 				}(),
-				"tags":                  []string{},
+				"tags": []string{},
 			}
 			_, err = s.Server.TypesenseClient.Collection(collectionName).Documents().Upsert(context.Background(), doc)
 			if err != nil {
@@ -427,13 +427,13 @@ func BuildPartialCardSqlSearchTermString(searchString string, fullText bool, sch
 	for _, term := range searchParams.Terms {
 		// Escape single quotes to prevent SQL injection
 		escapedTerm := strings.ReplaceAll(term, "'", "''")
-		// Use ILIKE for case-insensitive pattern matching
+		// Use LIKE for case-insensitive pattern matching
 		var termCondition string
 		if fullText {
-			termCondition = fmt.Sprintf("(card_id ILIKE '%%%s%%' OR title ILIKE '%%%s%%' OR body ILIKE '%%%s%%')", escapedTerm, escapedTerm, escapedTerm)
+			termCondition = fmt.Sprintf("(card_id LIKE '%%%s%%' OR title LIKE '%%%s%%' OR body LIKE '%%%s%%')", escapedTerm, escapedTerm, escapedTerm)
 
 		} else {
-			termCondition = fmt.Sprintf("(card_id ILIKE '%%%s%%' OR title ILIKE '%%%s%%')", escapedTerm, escapedTerm)
+			termCondition = fmt.Sprintf("(card_id LIKE '%%%s%%' OR title LIKE '%%%s%%')", escapedTerm, escapedTerm)
 
 		}
 		termConditions = append(termConditions, termCondition)
@@ -444,9 +444,9 @@ func BuildPartialCardSqlSearchTermString(searchString string, fullText bool, sch
 		escapedTerm := strings.ReplaceAll(term, "'", "''")
 		var excludeCondition string
 		if fullText {
-			excludeCondition = fmt.Sprintf("NOT (card_id ILIKE '%%%s%%' OR title ILIKE '%%%s%%' OR body ILIKE '%%%s%%')", escapedTerm, escapedTerm, escapedTerm)
+			excludeCondition = fmt.Sprintf("NOT (card_id LIKE '%%%s%%' OR title LIKE '%%%s%%' OR body LIKE '%%%s%%')", escapedTerm, escapedTerm, escapedTerm)
 		} else {
-			excludeCondition = fmt.Sprintf("NOT (card_id ILIKE '%%%s%%' OR title ILIKE '%%%s%%')", escapedTerm, escapedTerm)
+			excludeCondition = fmt.Sprintf("NOT (card_id LIKE '%%%s%%' OR title LIKE '%%%s%%')", escapedTerm, escapedTerm)
 		}
 		excludeTerms = append(excludeTerms, excludeCondition)
 	}
@@ -538,7 +538,7 @@ func BuildPartialEntitySqlSearchTermString(searchString string) string {
 	for _, term := range searchParams.Terms {
 		// Escape single quotes to prevent SQL injection
 		escapedTerm := strings.ReplaceAll(term, "'", "''")
-		termCondition := fmt.Sprintf("(name ILIKE '%%%s%%' OR description ILIKE '%%%s%%' OR type ILIKE '%%%s%%')", escapedTerm, escapedTerm, escapedTerm)
+		termCondition := fmt.Sprintf("(name LIKE '%%%s%%' OR description LIKE '%%%s%%' OR type LIKE '%%%s%%')", escapedTerm, escapedTerm, escapedTerm)
 		termConditions = append(termConditions, termCondition)
 	}
 
@@ -546,7 +546,7 @@ func BuildPartialEntitySqlSearchTermString(searchString string) string {
 	for _, term := range searchParams.NegateTerms {
 		// Escape single quotes to prevent SQL injection
 		escapedTerm := strings.ReplaceAll(term, "'", "''")
-		excludeCondition := fmt.Sprintf("NOT (name ILIKE '%%%s%%' OR description ILIKE '%%%s%%' OR type ILIKE '%%%s%%')", escapedTerm, escapedTerm, escapedTerm)
+		excludeCondition := fmt.Sprintf("NOT (name LIKE '%%%s%%' OR description LIKE '%%%s%%' OR type LIKE '%%%s%%')", escapedTerm, escapedTerm, escapedTerm)
 		excludeTerms = append(excludeTerms, excludeCondition)
 	}
 
@@ -912,7 +912,7 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 				item.Metadata = metadata
 				// fact_pk
 
-			} 
+			}
 			results = append(results, item)
 		} else {
 			log.Printf("[%d] unexpected document format: %v", i, hit.Document)

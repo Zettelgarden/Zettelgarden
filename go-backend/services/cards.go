@@ -235,12 +235,12 @@ func executeTextSearchFallback(db models.Database, userID int, query string, lim
 		SELECT id, title, body, created_at, updated_at, card_id
 		FROM cards
 		WHERE user_id = $1 AND (
-			title ILIKE $2 OR
-			body ILIKE $2 OR
-			card_id ILIKE $2
+			title LIKE $2 OR
+			body LIKE $2 OR
+			card_id LIKE $2
 		)
 		ORDER BY
-			CASE WHEN title ILIKE $2 THEN 1 ELSE 2 END,
+			CASE WHEN title LIKE $2 THEN 1 ELSE 2 END,
 			updated_at DESC
 		LIMIT $3
 	`

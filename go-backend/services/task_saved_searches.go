@@ -130,7 +130,7 @@ func UpdateTaskSavedSearch(db models.Database, userID int, searchID int, params 
 		return fmt.Errorf("invalid view_mode: %q", *params.ViewMode)
 	}
 
-	query := `UPDATE task_saved_searches SET updated_at = NOW()`
+	query := `UPDATE task_saved_searches SET updated_at = CURRENT_TIMESTAMP`
 	args := []interface{}{}
 	argCount := 1
 

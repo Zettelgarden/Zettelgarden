@@ -187,7 +187,7 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 	var status string
 	err := h.DB.QueryRow(`
 			INSERT INTO summarizations (user_id, input_text, status, created_at, updated_at)
-			VALUES ($1, $2, 'pending', NOW(), NOW())
+			VALUES ($1, $2, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 			RETURNING id, status
 		`, userID, req.Text).Scan(&jobID, &status)
 
@@ -244,7 +244,7 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 
 	err := h.DB.QueryRow(`
 			INSERT INTO summarizations (user_id, card_pk, input_text, status, created_at, updated_at)
-			VALUES ($1, $2, $3, 'pending', NOW(), NOW())
+			VALUES ($1, $2, $3, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 			RETURNING id
 		`, userID, card.ID, "").Scan(&jobID)
 
@@ -363,7 +363,7 @@ func (h *Handler) ExtractSaveCardEntities(userID int, card models.Card) error {
 		} else {
 			// Entity exists, update it
 			_, err = h.DB.Exec(`
-				UPDATE entities SET description=$1, type=$2, updated_at=NOW() WHERE id=$3
+				UPDATE entities SET description=$1, type=$2, updated_at=CURRENT_TIMESTAMP WHERE id=$3
 			`, entity.Description, entity.Type, entityID)
 			if err != nil {
 				log.Printf("[EntityExtraction] Error updating entity '%s': %v", entity.Name, err)
@@ -375,7 +375,7 @@ func (h *Handler) ExtractSaveCardEntities(userID int, card models.Card) error {
 		_, err = h.DB.Exec(`
 			INSERT INTO entity_card_junction (user_id, entity_id, card_pk, chunk_id)
 			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (entity_id, card_pk) DO UPDATE SET updated_at = NOW()
+			ON CONFLICT (entity_id, card_pk) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
 		`, userID, entityID, card.ID, 0)
 		if err != nil {
 			log.Printf("[EntityExtraction] Error linking entity '%s' to card: %v", entity.Name, err)
@@ -676,7 +676,7 @@ func (h *Handler) CancelSummarizationRoute(w http.ResponseWriter, r *http.Reques
 	// will reflect whatever state the work reached.
 
 	// Update summarization status
-	_, err = h.DB.Exec(`UPDATE summarizations SET status='failed', updated_at=NOW() WHERE id=$1`, summarizationID)
+	_, err = h.DB.Exec(`UPDATE summarizations SET status='failed', updated_at=CURRENT_TIMESTAMP WHERE id=$1`, summarizationID)
 	if err != nil {
 		http.Error(w, "Failed to update status", http.StatusInternalServerError)
 		return

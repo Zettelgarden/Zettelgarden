@@ -544,7 +544,7 @@ func (s *Handler) UpdateUser(id int, user models.User, params models.EditUserPar
 	oldEmail := user.Email
 
 	query := `
-	UPDATE users SET username = $1, email = $2, is_admin = $3, updated_at = NOW(),
+	UPDATE users SET username = $1, email = $2, is_admin = $3, updated_at = CURRENT_TIMESTAMP,
         dashboard_card_pk = $4, has_seen_getting_started = $5, timezone = $6
 	WHERE
 	id = $7
@@ -660,7 +660,7 @@ func (s *Handler) CreateUser(params models.CreateUserParams) (int, error) {
 	stripe_customer_id, stripe_subscription_id, stripe_subscription_status, 
 	stripe_subscription_frequency, stripe_current_plan, dashboard_card_pk
 	)
-	VALUES ($1, $2, $3, NOW(), NOW(), '', '', 'free', '', '', 0) RETURNING id
+	VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '', '', 'free', '', '', 0) RETURNING id
 	`
 
 	err = s.GetDB().QueryRow(query, params.Username, params.Email, hashedPassword).Scan(&newID)
@@ -722,7 +722,7 @@ func (s *Handler) UserHasSubscription(userID int) bool {
 func (s *Handler) UpdateLastSeen(userID int) error {
 	query := `
 		UPDATE users 
-		SET last_seen = NOW() 
+		SET last_seen = CURRENT_TIMESTAMP 
 		WHERE id = $1
 	`
 	_, err := s.GetDB().Exec(query, userID)

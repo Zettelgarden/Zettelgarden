@@ -481,7 +481,7 @@ func (s *Handler) UpdateEntity(userID int, entityID int, params UpdateEntityRequ
 			description = $2,
 			type = $3,
 			card_pk = $4,
-			updated_at = NOW()
+			updated_at = CURRENT_TIMESTAMP
 		WHERE id = $5 AND user_id = $6`,
 		params.Name, params.Description, params.Type, params.CardPK, entityID, userID)
 	if err != nil {
@@ -897,7 +897,7 @@ func (s *Handler) LinkCardToEntityIfPossible(userID int, card models.Card) error
 
 	_, err = s.DB.Exec(`
         UPDATE entities
-        SET card_pk = $1, updated_at = NOW()
+        SET card_pk = $1, updated_at = CURRENT_TIMESTAMP
         WHERE id = $2
     `, card.ID, entityID)
 	if err != nil {

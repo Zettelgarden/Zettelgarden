@@ -894,7 +894,7 @@ func (s *Handler) CreateTemplate(userID int, params models.CreateTemplateParams)
 
 	query := `
 	INSERT INTO card_templates (user_id, name, title, body, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, NOW(), NOW())
+	VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	RETURNING id, user_id, name, title, body, created_at, updated_at
 	`
 
@@ -920,7 +920,7 @@ func (s *Handler) UpdateTemplate(userID, id int, params models.UpdateTemplatePar
 
 	query := `
 	UPDATE card_templates
-	SET name = $1, title = $2, body = $3, updated_at = NOW()
+	SET name = $1, title = $2, body = $3, updated_at = CURRENT_TIMESTAMP
 	WHERE id = $4 AND user_id = $5
 	RETURNING id, user_id, name, title, body, created_at, updated_at
 	`

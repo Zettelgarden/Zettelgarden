@@ -192,7 +192,7 @@ func CreateTag(db models.Database, userID int, tagData models.EditTagParams) (mo
 		return EditTag(db, userID, tagData.Name, tagData)
 	}
 
-	query := `INSERT INTO tags (name, color, user_id, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW())`
+	query := `INSERT INTO tags (name, color, user_id, created_at, updated_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
 	_, err = db.Exec(query, tagData.Name, tagData.Color, userID)
 	if err != nil {
 		log.Printf("create tag err %v", err)
@@ -383,7 +383,7 @@ func RemoveAllTagsFromTask(db models.Database, userID, taskPK int) error {
 // DeleteTag soft-deletes a tag
 func DeleteTag(db models.Database, userID, id int) error {
 	_, err := db.Exec(`
-UPDATE tags SET is_deleted = TRUE, updated_at = NOW() WHERE id =  $1 AND user_id = $2
+UPDATE tags SET is_deleted = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id =  $1 AND user_id = $2
 `, id, userID)
 	return err
 }

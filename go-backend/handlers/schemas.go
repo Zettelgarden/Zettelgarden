@@ -214,7 +214,7 @@ func (s *Handler) CreateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 	// Create schema
 	query := `
 		INSERT INTO schema_definitions (name, slug, owner_id, fields, created_at, updated_at, is_deleted)
-		VALUES ($1, $2, $3, $4, NOW(), NOW(), FALSE)
+		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, FALSE)
 		RETURNING id, name, slug, owner_id, fields, created_at, updated_at, is_deleted
 	`
 
@@ -418,7 +418,7 @@ func (s *Handler) UpdateSchemaRoute(w http.ResponseWriter, r *http.Request) {
 	// Update schema
 	updateQuery := `
 		UPDATE schema_definitions
-		SET name = $1, slug = $2, fields = $3, updated_at = NOW()
+		SET name = $1, slug = $2, fields = $3, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $4 AND owner_id = $5
 		RETURNING id, name, slug, owner_id, fields, created_at, updated_at, is_deleted
 	`
@@ -498,7 +498,7 @@ func (s *Handler) DeleteSchemaRoute(w http.ResponseWriter, r *http.Request) {
 	// Soft delete by setting is_deleted = true
 	deleteQuery := `
 		UPDATE schema_definitions
-		SET is_deleted = TRUE, updated_at = NOW()
+		SET is_deleted = TRUE, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $1 AND owner_id = $2
 	`
 

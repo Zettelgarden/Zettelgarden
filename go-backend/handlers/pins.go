@@ -30,7 +30,7 @@ func (s *Handler) StarCardRoute(w http.ResponseWriter, r *http.Request) {
 
 	// Star the card
 	_, err = s.DB.Exec(
-		"INSERT INTO starred_cards (card_pk, user_id, created_at) VALUES ($1, $2, NOW()) ON CONFLICT (card_pk, user_id) DO NOTHING",
+		"INSERT INTO starred_cards (card_pk, user_id, created_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (card_pk, user_id) DO NOTHING",
 		cardID, userID,
 	)
 	if err != nil {
@@ -184,7 +184,7 @@ func (s *Handler) StarSearchRoute(w http.ResponseWriter, r *http.Request) {
 	// Insert the starred search
 	var id int
 	err = s.DB.QueryRow(
-		"INSERT INTO starred_searches (user_id, title, search_term, search_config, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING id",
+		"INSERT INTO starred_searches (user_id, title, search_term, search_config, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) RETURNING id",
 		userID, req.Title, req.SearchTerm, req.SearchConfig,
 	).Scan(&id)
 	if err != nil {

@@ -70,13 +70,15 @@ func (j *RSSArticleCleanupJob) Handler(ctx context.Context) error {
 		return nil
 	}
 
-	// Delete old articles that are not starred and not converted to cards
+	// Delete old articles that are not starred and not converted to cards.
+	// App-side cutoff because SQLite has no INTERVAL. See migration design P3.
+	articleCutoff := time.Now().UTC().AddDate(0, 0, -j.retentionDays)
 	result, err := j.db.ExecContext(ctx, `
 		DELETE FROM rss_articles
-		WHERE fetched_at < NOW() - INTERVAL '1 day' * $1
+		WHERE fetched_at < $1
 		  AND is_starred = false
 		  AND card_id IS NULL
-	`, j.retentionDays)
+	`, articleCutoff)
 	if err != nil {
 		log.Printf("[rss-article-cleanup] failed to delete old articles: %v", err)
 		return err

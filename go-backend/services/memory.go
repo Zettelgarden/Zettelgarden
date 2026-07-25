@@ -19,8 +19,8 @@ func GetUserMemory(db *sql.DB, userID int) (string, error) {
 func UpdateUserMemory(db *sql.DB, userID int, memory string) error {
 	_, err := db.Exec(`
 		INSERT INTO user_memories (user_id, memory, created_at, updated_at)
-		VALUES ($1, $2, NOW(), NOW())
-		ON CONFLICT (user_id) DO UPDATE SET memory = $2, updated_at = NOW()
+		VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		ON CONFLICT (user_id) DO UPDATE SET memory = $2, updated_at = CURRENT_TIMESTAMP
 	`, userID, memory)
 	return err
 }

@@ -12,8 +12,8 @@ type FactCardJunction struct {
 func LinkFactToCard(db *sql.DB, factID, cardID int64, userID int) error {
 	_, err := db.Exec(`
 		INSERT INTO fact_card_junction(fact_id, card_pk, user_id, is_origin, created_at, updated_at)
-		VALUES ($1, $2, $3, FALSE, NOW(), NOW())
-		ON CONFLICT (fact_id, card_pk) DO UPDATE SET updated_at = NOW()
+		VALUES ($1, $2, $3, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		ON CONFLICT (fact_id, card_pk) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
 	`, factID, cardID, userID)
 	return err
 }

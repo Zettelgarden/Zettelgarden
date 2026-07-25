@@ -132,7 +132,7 @@ func CreateNotification(db Database, userID int, sourceType string, sourceID int
 			timestamp = EXCLUDED.timestamp,
 			importance_score = EXCLUDED.importance_score,
 			filter_tags = EXCLUDED.filter_tags,
-			updated_at = NOW()
+			updated_at = CURRENT_TIMESTAMP
 		RETURNING id, user_id, source_type, source_id, title, preview, timestamp,
 			importance_score, is_read, is_archived, filter_tags, created_at, updated_at
 	`
@@ -269,7 +269,7 @@ func GetUnreadCount(db Database, userID int) (int, error) {
 func MarkNotificationAsRead(db Database, notificationID, userID int) error {
 	query := `
 		UPDATE notifications
-		SET is_read = TRUE, updated_at = NOW()
+		SET is_read = TRUE, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $1 AND user_id = $2
 	`
 
@@ -281,7 +281,7 @@ func MarkNotificationAsRead(db Database, notificationID, userID int) error {
 func MarkNotificationAsArchived(db Database, notificationID, userID int) error {
 	query := `
 		UPDATE notifications
-		SET is_archived = TRUE, updated_at = NOW()
+		SET is_archived = TRUE, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $1 AND user_id = $2
 	`
 
@@ -293,7 +293,7 @@ func MarkNotificationAsArchived(db Database, notificationID, userID int) error {
 func MarkAllAsRead(db Database, userID int) error {
 	query := `
 		UPDATE notifications
-		SET is_read = TRUE, updated_at = NOW()
+		SET is_read = TRUE, updated_at = CURRENT_TIMESTAMP
 		WHERE user_id = $1 AND is_read = FALSE
 	`
 
@@ -339,7 +339,7 @@ func UpdateNotificationPreferences(db Database, userID int, prefs NotificationPr
 			show_priority_tasks = $4,
 			show_priority_feeds = $5,
 			items_per_page = $6,
-			updated_at = NOW()
+			updated_at = CURRENT_TIMESTAMP
 		WHERE user_id = $1
 	`
 

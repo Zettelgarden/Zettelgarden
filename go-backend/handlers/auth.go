@@ -446,7 +446,7 @@ func (s *Handler) validateAPIKey(apiKey string) (int, int, error) {
 
 // updateAPIKeyLastUsed updates the last_used_at timestamp for an API key
 func (s *Handler) updateAPIKeyLastUsed(apiKeyID int) {
-	_, err := s.DB.Exec("UPDATE api_keys SET last_used_at = NOW() WHERE id = $1", apiKeyID)
+	_, err := s.DB.Exec("UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = $1", apiKeyID)
 	if err != nil {
 		log.Printf("Error updating api key last_used_at: %v", err)
 	}
@@ -472,7 +472,7 @@ func generateAPIKey() (string, error) {
 
 // updateAgentLastSeen updates the last_seen timestamp for an agent
 func (s *Handler) updateAgentLastSeen(agentID int) {
-	_, err := s.DB.Exec("UPDATE users SET last_seen = NOW() WHERE id = $1", agentID)
+	_, err := s.DB.Exec("UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE id = $1", agentID)
 	if err != nil {
 		log.Printf("Error updating agent last_seen: %v", err)
 	}

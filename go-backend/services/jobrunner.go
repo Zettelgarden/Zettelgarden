@@ -123,7 +123,7 @@ func (r *JobRunner) CleanupStale(ctx context.Context) (int, error) {
 		`UPDATE llm_jobs
 		 SET status = 'failed',
 		     error_message = COALESCE(error_message, '') || 'Job orphaned by process restart',
-		     completed_at = NOW()
+		     completed_at = CURRENT_TIMESTAMP
 		 WHERE status = 'running'`)
 	if err != nil {
 		return 0, fmt.Errorf("failed to clean up stale jobs: %w", err)

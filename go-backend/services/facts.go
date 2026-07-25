@@ -143,7 +143,7 @@ func executeFactTextSearchFallback(db *sql.DB, userID int, query string, limit i
 		       c.id, c.card_id, c.title, c.parent_id
 		FROM facts f
 		JOIN cards c ON f.card_pk = c.id
-		WHERE f.user_id = $1 AND f.fact ILIKE $2
+		WHERE f.user_id = $1 AND f.fact LIKE $2
 		ORDER BY f.updated_at DESC
 		LIMIT $3
 	`

@@ -16,8 +16,8 @@ import (
 
 // CleanupJob performs daily cleanup of old data
 type CleanupJob struct {
-	db             *sql.DB
-	schedule       string
+	db               *sql.DB
+	schedule         string
 	llmRetentionDays int
 }
 
@@ -33,7 +33,7 @@ func NewCleanupJob(db *sql.DB) *CleanupJob {
 	}
 
 	return &CleanupJob{
-		db: db,
+		db:               db,
 		llmRetentionDays: retentionDays,
 	}
 }
@@ -72,9 +72,11 @@ func (j *CleanupJob) Handler(ctx context.Context) error {
 		return nil
 	}
 
-	// Clean up old scheduled_job_runs (keep last 90 days)
+	// Clean up old scheduled_job_runs (keep last 90 days). App-side cutoff
+	// because SQLite has no INTERVAL. See migration design P3.
+	scheduledCutoff := time.Now().UTC().AddDate(0, 0, -90)
 	scheduledRunsResult, err := j.db.ExecContext(ctx,
-		"DELETE FROM scheduled_job_runs WHERE created_at < NOW() - INTERVAL '90 days'")
+		"DELETE FROM scheduled_job_runs WHERE created_at < $1", scheduledCutoff)
 	if err != nil {
 		log.Printf("[cleanup-job] failed to clean old scheduled job runs: %v", err)
 		return err

@@ -323,7 +323,7 @@ func ListJobs(db *sql.DB, params JobListParams) ([]LLMJob, error) {
 
 // UpdateJobStatus updates the status of a job
 func UpdateJobStatus(db *sql.DB, jobID int, status JobStatus) error {
-	query := `UPDATE llm_jobs SET status = $1, updated_at = NOW() WHERE id = $2`
+	query := `UPDATE llm_jobs SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
 	_, err := db.Exec(query, status, jobID)
 	return err
 }
@@ -337,7 +337,7 @@ func UpdateJobStatusWithResult(db *sql.DB, jobID int, status JobStatus, result m
 
 	query := `
 		UPDATE llm_jobs
-		SET status = $1, result = $2, completed_at = NOW(), updated_at = NOW()
+		SET status = $1, result = $2, completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $3
 	`
 	_, err = db.Exec(query, status, resultJSON, jobID)
@@ -348,7 +348,7 @@ func UpdateJobStatusWithResult(db *sql.DB, jobID int, status JobStatus, result m
 func UpdateJobStatusWithError(db *sql.DB, jobID int, status JobStatus, errorMsg string) error {
 	query := `
 		UPDATE llm_jobs
-		SET status = $1, error_message = $2, completed_at = NOW(), updated_at = NOW()
+		SET status = $1, error_message = $2, completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $3
 	`
 	_, err := db.Exec(query, status, errorMsg, jobID)
@@ -436,12 +436,15 @@ func CleanupOldJobs(db *sql.DB, retentionDays int) (int, error) {
 		retentionDays = 30 // Default to 30 days
 	}
 
+	// App-side time window (SQLite has no INTERVAL): compute the cutoff in Go so
+	// the query runs identically on Postgres and SQLite. See migration design P3.
+	cutoff := time.Now().UTC().AddDate(0, 0, -retentionDays)
 	query := `
 		DELETE FROM llm_jobs
 		WHERE status IN ('completed', 'failed', 'cancelled')
-		  AND completed_at < NOW() - INTERVAL '1 day' * $1
+		  AND completed_at < $1
 	`
-	result, err := db.Exec(query, retentionDays)
+	result, err := db.Exec(query, cutoff)
 	if err != nil {
 		return 0, fmt.Errorf("failed to cleanup old jobs: %w", err)
 	}

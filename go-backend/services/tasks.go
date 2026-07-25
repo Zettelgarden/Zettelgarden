@@ -300,7 +300,7 @@ func GetTasksNeedingReminders(db models.Database) ([]models.Task, error) {
 	created_at, updated_at, completed_at, title, description, priority, status, is_complete,
 	reminder_time, reminder_sent
 	FROM tasks
-	WHERE reminder_time <= NOW()
+	WHERE reminder_time <= CURRENT_TIMESTAMP
 		AND reminder_sent = FALSE
 		AND is_complete = FALSE
 		AND is_deleted = FALSE
@@ -428,7 +428,7 @@ func UpdateTaskWithRecurring(db models.Database, userID int, id int, task models
 			card_pk = $1,
 			scheduled_date = $2,
 			due_date = $3,
-			updated_at = NOW(),
+			updated_at = CURRENT_TIMESTAMP,
 			completed_at = $4,
 			title = $5,
 			description = $6,
@@ -498,7 +498,7 @@ func CreateTask(db models.Database, task models.Task) (int, error) {
 
 	err := db.QueryRow(`
 	INSERT INTO tasks (card_pk, user_id, scheduled_date, due_date, created_at, updated_at, completed_at, title, description, priority, status, is_complete, is_deleted, reminder_time, reminder_sent, parent_task_id, sort_order)
-	VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, $7, $8, $9, $10, FALSE, $11, FALSE, $12, $13)
+	VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $5, $6, $7, $8, $9, $10, FALSE, $11, FALSE, $12, $13)
 	RETURNING id
 	`, task.CardPK, task.UserID, task.ScheduledDate, task.DueDate, task.CompletedAt, task.Title, task.Description, task.Priority, task.Status, task.IsComplete, task.ReminderTime, task.ParentTaskID, task.SortOrder).Scan(&taskID)
 
@@ -884,7 +884,7 @@ func GetSubtasks(db models.Database, userID int, parentTaskID int) ([]models.Tas
 
 // UpdateTaskParent updates the parent_task_id of a task
 func UpdateTaskParent(db models.Database, userID int, taskID int, parentTaskID *int) error {
-	query := `UPDATE tasks SET parent_task_id = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3`
+	query := `UPDATE tasks SET parent_task_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3`
 	result, err := db.Exec(query, parentTaskID, taskID, userID)
 	if err != nil {
 		return err
@@ -907,7 +907,7 @@ func ReorderTasks(db models.Database, userID int, orders []struct {
 	SortOrder int `json:"sort_order"`
 }) error {
 	for _, item := range orders {
-		_, err := db.Exec(`UPDATE tasks SET sort_order = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3 AND is_deleted = FALSE`, item.SortOrder, item.ID, userID)
+		_, err := db.Exec(`UPDATE tasks SET sort_order = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3 AND is_deleted = FALSE`, item.SortOrder, item.ID, userID)
 		if err != nil {
 			return fmt.Errorf("failed to update sort_order for task %d: %w", item.ID, err)
 		}

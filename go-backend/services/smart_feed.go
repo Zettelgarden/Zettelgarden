@@ -41,13 +41,15 @@ func calculateVolumeScore(articleCount int) float64 {
 
 // calculateFeedVolumeScores gets article counts for each feed in the last VolumeDays
 func calculateFeedVolumeScores(db models.Database, userID int) (map[int]float64, error) {
+	// App-side cutoff (SQLite has no INTERVAL). See migration design P3.
+	volumeCutoff := time.Now().UTC().AddDate(0, 0, -VolumeDays)
 	query := `
 		SELECT feed_id, COUNT(*) as article_count
 		FROM rss_articles
-		WHERE user_id = $1 AND published_at > NOW() - INTERVAL '` + fmt.Sprintf("%d days", VolumeDays) + `'
+		WHERE user_id = $1 AND published_at > $2
 		GROUP BY feed_id
 	`
-	rows, err := db.Query(query, userID)
+	rows, err := db.Query(query, userID, volumeCutoff)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get feed volume scores: %w", err)
 	}
@@ -86,10 +88,11 @@ func calculateInteractionBonuses(db models.Database, userID int) (map[int]float6
         FROM rss_feeds f
         JOIN rss_articles a ON f.id = a.feed_id
         WHERE f.user_id = $1 AND a.card_id IS NOT NULL
-          AND a.published_at > NOW() - INTERVAL '` + fmt.Sprintf("%d days", InteractionDays) + `'
+          AND a.published_at > $2
         GROUP BY f.id
     `
-	rows, err := db.Query(query, userID)
+	interactionCutoff := time.Now().UTC().AddDate(0, 0, -InteractionDays)
+	rows, err := db.Query(query, userID, interactionCutoff)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get interaction bonuses: %w", err)
 	}
@@ -216,8 +219,11 @@ func queryArticlesWithScoring(db models.Database, userID int, filters map[string
 		whereClause += " AND read = false"
 	}
 
-	// Apply 14-day age cutoff for smart feed
-	whereClause += fmt.Sprintf(" AND published_at > NOW() - INTERVAL '%d days'", SmartFeedMaxAgeDays)
+	// Apply 14-day age cutoff for smart feed. App-side cutoff (SQLite has no
+	// INTERVAL). See migration design P3.
+	whereClause += fmt.Sprintf(" AND published_at > $%d", argPos)
+	args = append(args, time.Now().UTC().AddDate(0, 0, -SmartFeedMaxAgeDays))
+	argPos++
 
 	// Get count first
 	countQuery := "SELECT COUNT(*) FROM rss_articles WHERE " + whereClause

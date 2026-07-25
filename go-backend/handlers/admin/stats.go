@@ -6,6 +6,7 @@ import (
 	"go-backend/handlers"
 	"log"
 	"net/http"
+	"time"
 )
 
 // GetAdminStatsRoute returns summary statistics for the admin dashboard
@@ -68,11 +69,12 @@ func getUserStats(h *handlers.Handler) (map[string]interface{}, error) {
 	stats["total"] = totalUsers
 
 	// Active users (last 7 days)
+	// App-side cutoff (SQLite has no INTERVAL). See migration design P3.
 	var activeWeek int
 	err = h.DB.QueryRow(`
 		SELECT COUNT(*) FROM users
-		WHERE last_seen > NOW() - INTERVAL '7 days'
-	`).Scan(&activeWeek)
+		WHERE last_seen > $1
+	`, time.Now().UTC().AddDate(0, 0, -7)).Scan(&activeWeek)
 	if err != nil {
 		return nil, err
 	}
@@ -82,8 +84,8 @@ func getUserStats(h *handlers.Handler) (map[string]interface{}, error) {
 	var activeMonth int
 	err = h.DB.QueryRow(`
 		SELECT COUNT(*) FROM users
-		WHERE last_seen > NOW() - INTERVAL '30 days'
-	`).Scan(&activeMonth)
+		WHERE last_seen > $1
+	`, time.Now().UTC().AddDate(0, 0, -30)).Scan(&activeMonth)
 	if err != nil {
 		return nil, err
 	}
@@ -101,8 +103,8 @@ func getUserStats(h *handlers.Handler) (map[string]interface{}, error) {
 	var newUsersWeek int
 	err = h.DB.QueryRow(`
 		SELECT COUNT(*) FROM users
-		WHERE created_at > NOW() - INTERVAL '7 days'
-	`).Scan(&newUsersWeek)
+		WHERE created_at > $1
+	`, time.Now().UTC().AddDate(0, 0, -7)).Scan(&newUsersWeek)
 	if err != nil {
 		return nil, err
 	}
@@ -112,8 +114,8 @@ func getUserStats(h *handlers.Handler) (map[string]interface{}, error) {
 	var newUsersMonth int
 	err = h.DB.QueryRow(`
 		SELECT COUNT(*) FROM users
-		WHERE created_at > NOW() - INTERVAL '30 days'
-	`).Scan(&newUsersMonth)
+		WHERE created_at > $1
+	`, time.Now().UTC().AddDate(0, 0, -30)).Scan(&newUsersMonth)
 	if err != nil {
 		return nil, err
 	}
@@ -187,8 +189,8 @@ func getRevenueStats(h *handlers.Handler) (map[string]interface{}, error) {
 	err = h.DB.QueryRow(`
 		SELECT COALESCE(SUM(amount_cents), 0) / 100.0
 		FROM revenue
-		WHERE created_at > NOW() - INTERVAL '30 days'
-	`).Scan(&revenueThisMonth)
+		WHERE created_at > $1
+	`, time.Now().UTC().AddDate(0, 0, -30)).Scan(&revenueThisMonth)
 	if err != nil {
 		return nil, err
 	}
