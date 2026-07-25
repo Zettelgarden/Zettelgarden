@@ -97,6 +97,28 @@ These changed the shape of the plan. All verified by passing tests in
     UPDATE` all execute on SQLite against the consolidated schema — catching
     the "compiles but fails at runtime" class before Phase 6a.
 
+## Hotfix — migration runner boot-fatal (2026-07-25, commit `9f601fa2`)
+
+Phase 2 added `schema/sqlite/` under the **postgres** migration scan root
+(`./schema`). `RunMigrations` iterated `ioutil.ReadDir` and treated that
+**subdirectory** as a migration file, so `ioutil.ReadFile("./schema/sqlite")`
+failed with `read ./schema/sqlite: is a directory` → `log.Fatal` at startup.
+This silently broke booting on Postgres (surfaced when running
+`ZETTEL_DEV=true go run .`).
+
+Fix: `RunMigrations` now skips directory entries (`file.IsDir()`);
+extensionless migration files (e.g. `0025-add-chunk-text`) are still applied.
+Regression guard: `TestRunMigrationsSkipsSubdirectories`. Also relocated
+`schema/sqlite/{dev_schema.sql,translate.py}` → `schema/sqlite/source/` so the
+SQLite scan root contains only loadable schema (the raw `pg_dump` would fail to
+load on SQLite when `DB_DRIVER=sqlite` is exercised).
+
+**Remaining SQLite-boot wiring (not yet done, out of scope for this hotfix):**
+`OpenSQLite` does not yet create the `SQLITE_PATH` parent dir (the default
+`./data/zettelgarden.db` needs `./data/` to exist), and there is no test
+exercising the real `RunMigrations` against `./schema/sqlite`. Do this before
+the first real `DB_DRIVER=sqlite` run.
+
 ## What's been built
 
 Code (all tested, all on `master`):
@@ -105,17 +127,17 @@ Code (all tested, all on `master`):
 |---|---|
 | `server/sqlsplit.go` (+test) | Quote-aware `;` statement splitter for SQLite migration loading |
 | `server/sqlite.go` (+test) | `OpenSQLite` — D4 pragmas via DSN, pool config |
-| `server/database.go` | `execScript` helper; `RunMigrations` SQLite path (migrations-table bootstrap, `SELECT 1` existence check, splitter integration) |
+| `server/database.go` | `execScript` helper; `RunMigrations` SQLite path (migrations-table bootstrap, `SELECT 1` existence check, splitter integration); **skips subdirectory entries** under `SchemaDir` (fixes the Phase-2 boot-fatal regression — see Hotfix below). |
 | `server/server.go` | `Driver` field on `Server` |
 | `bootstrap/bootstrap.go` | Branches on `DB_DRIVER` (postgres vs sqlite) |
 | `pkg/config/database.go` | `Driver`/`SQLitePath` config; PG fields now optional in sqlite mode |
-| `server/database_sqlite_test.go` | Migration-runner integration test (splitter + `$1` + idempotency) |
+| `server/database_sqlite_test.go` | Migration-runner integration tests: `TestExecScriptSQLite`, `TestRunMigrationsSQLite` (splitter + `$1` + idempotency), `TestRunMigrationsSkipsSubdirectories` (boot-fatal regression guard). |
 | `spike/*` | Throwaway probes documenting driver behavior (kept as evidence), incl. the bulk-insert timing probe |
 | `services/testdata/spike_cards.sqlite.sql` | Phase 1 spike mini-schema (users + cards + tags + card_tags + backlinks + audit_events); demonstrates the Phase 2 translation rules (SERIAL→AUTOINCREMENT, TIMESTAMP→DATETIME, JSONB→TEXT, NOW()/CURRENT_TIMESTAMP→datetime('now')). Superseded by Phase 2's consolidated schema. |
 | `services/cards_sqlite_test.go` | End-to-end cards read+write spike on `:memory:` SQLite (`TestCreateCardSQLite` + structured-data round-trip sub-test) |
 | `services/cards.go` | First 4 `NOW()` sites → app-side `time.Now().UTC()` (CreateCard, UpdateCard, DeleteCard, UpdateCardStructuredData) |
-| `schema/sqlite/dev_schema.sql` | Phase 2 source: `pg_dump --schema-only` snapshot of the live dev DB (the input to `translate.py`). |
-| `schema/sqlite/translate.py` | Phase 2 one-shot translator: Postgres dump → consolidated SQLite schema. Encodes every translation rule (SERIAL→AUTOINCREMENT, TIMESTAMP[TZ]→DATETIME, JSONB/UUID/array→TEXT, `now()`/`CURRENT_TIMESTAMP`→`datetime('now')`, `gen_random_uuid()`→SQLite UUIDv4 expr, CHECK `= ANY(ARRAY[...])`→`IN (...)`, `char_length`→`length`, `TRIM(BOTH FROM …)`→`trim`, drop `::`casts/`COMMENT ON`/sequences/functions/triggers/the 3 GIN indexes). |
+| `schema/sqlite/source/dev_schema.sql` | Phase 2 source: `pg_dump --schema-only` snapshot of the live dev DB (the input to `translate.py`). Moved under `source/` so the SQLite scan root stays loadable (the raw PG dump would not load on SQLite). |
+| `schema/sqlite/source/translate.py` | Phase 2 one-shot translator: Postgres dump → consolidated SQLite schema. Encodes every translation rule (SERIAL→AUTOINCREMENT, TIMESTAMP[TZ]→DATETIME, JSONB/UUID/array→TEXT, `now()`/`CURRENT_TIMESTAMP`→`datetime('now')`, `gen_random_uuid()`→SQLite UUIDv4 expr, CHECK `= ANY(ARRAY[...])`→`IN (...)`, `char_length`→`length`, `TRIM(BOTH FROM …)`→`trim`, drop `::`casts/`COMMENT ON`/sequences/functions/triggers/the 3 GIN indexes). |
 | `schema/sqlite/schema.sqlite.sql` | **Phase 2 consolidated schema** (73 tables, 134 indexes) — the source of truth for new SQLite installs. |
 | `schema/sqlite/schema_test.go` | Phase 2 acceptance gate: `TestConsolidatedSchemaLoads` (split + apply all statements into `:memory:`, assert `foreign_key_check` + `integrity_check` green) and `TestConsolidatedSchemaUUIDDefaultAndBooleanDefaults` (gen_random_uuid default → valid UUID; BOOLEAN default round-trip). |
 | `schema/sqlite/phase3_idioms_test.go` | Phase 3 smoke test: proves the translated `CURRENT_TIMESTAMP`, `LIKE`, `substr(cast(...))`, and `ON CONFLICT … DO UPDATE` idioms execute on SQLite against the consolidated schema. |
