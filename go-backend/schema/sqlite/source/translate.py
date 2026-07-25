@@ -50,11 +50,16 @@ import os
 import re
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))            # .../schema/sqlite
-GOBACKEND = os.path.dirname(os.path.dirname(HERE))           # .../go-backend
-REPO = os.path.dirname(GOBACKEND)                            # .../Zettelgarden
-SRC = os.path.join(HERE, "dev_schema.sql")                  # the pg_dump snapshot
-OUT = os.path.join(HERE, "schema.sqlite.sql")
+HERE = os.path.dirname(os.path.abspath(__file__))            # .../schema/sqlite/source
+OUTDIR = os.path.dirname(HERE)                                # .../schema/sqlite
+SRC = os.path.join(HERE, "dev_schema.sql")                    # the pg_dump snapshot
+OUT = os.path.join(OUTDIR, "schema.sqlite.sql")               # generated artifact
+#
+# NOTE on layout: the runtime migration runner (server.RunMigrations) scans
+# the TOP LEVEL of schema/sqlite/ for loadable .sql files. Only
+# schema.sqlite.sql belongs there; this source/ subdir (the pg_dump input and
+# this translator) is excluded because ReadDir is non-recursive, and because
+# dev_schema.sql is raw Postgres that would not load on SQLite.
 
 with open(SRC, encoding="utf-8") as f:
     dump = f.read()

@@ -6,6 +6,43 @@ import (
 	"testing"
 )
 
+// TestRunMigrationsSkipsSubdirectories guards the regression where a
+// subdirectory under SchemaDir (e.g. schema/sqlite/ under the postgres scan
+// root) was treated as a migration file and ioutil.ReadFile failed with "is a
+// directory", fataling the whole server at boot. The runner must skip dirs.
+func TestRunMigrationsSkipsSubdirectories(t *testing.T) {
+	dir := t.TempDir()
+	// A legitimate migration file.
+	if err := os.WriteFile(filepath.Join(dir, "0001-real.sql"),
+		[]byte(`CREATE TABLE real (id INTEGER PRIMARY KEY AUTOINCREMENT);`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// A subdirectory that must be ignored, not ReadFile'd.
+	if err := os.Mkdir(filepath.Join(dir, "sqlite"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "sqlite", "schema.sqlite.sql"),
+		[]byte(`THIS IS NEVER READ; reading the dir would fatal the server`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	db := openMemSQLite(t)
+	S := &Server{DB: db, Driver: "sqlite", SchemaDir: dir}
+	RunMigrations(S) // must not log.Fatal on the "sqlite" subdir
+
+	var n int
+	if err := db.QueryRow("SELECT COUNT(*) FROM real").Scan(&n); err != nil {
+		t.Fatalf("real table not created (migration skipped?): %v", err)
+	}
+	var migCount int
+	if err := db.QueryRow("SELECT COUNT(*) FROM migrations").Scan(&migCount); err != nil {
+		t.Fatal(err)
+	}
+	if migCount != 1 {
+		t.Fatalf("migrations recorded = %d, want 1 (the subdir must not be recorded)", migCount)
+	}
+}
+
 // TestExecScriptSQLite exercises the SQLite branch of the migration runner's
 // helper: a multi-statement script (including a string literal containing
 // semicolons) is split and applied within a single transaction.

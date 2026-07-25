@@ -162,6 +162,13 @@ func RunMigrations(S *Server) {
 
 	var fileNames []string
 	for _, file := range files {
+		// Skip subdirectories (e.g. schema/sqlite/ under the postgres scan root).
+		// ioutil.ReadFile on a directory fails with "is a directory"; ReadDir
+		// returns both files and dirs, so this guard is required. Extensionless
+		// migration files (e.g. 0025-add-chunk-text) are intentionally kept.
+		if file.IsDir() {
+			continue
+		}
 		fileNames = append(fileNames, file.Name())
 	}
 	sort.Strings(fileNames)
