@@ -3,8 +3,76 @@ package server
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
+
+// findSchemaSqliteDir resolves the real consolidated schema directory
+// (.../go-backend/schema/sqlite) relative to this test file, independent of
+// the process working directory.
+func findSchemaSqliteDir(t *testing.T) string {
+	t.Helper()
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("could not get caller info")
+	}
+	return filepath.Join(filepath.Dir(filename), "..", "schema", "sqlite")
+}
+
+// TestRunMigrationsAppliesConsolidatedSchema exercises the real production
+// boot path for DB_DRIVER=sqlite: SchemaDir points at the consolidated schema
+// directory (schema/sqlite/), and RunMigrations must load the single
+// schema.sqlite.sql file — skipping the co-located .go test files and the
+// source/ subdirectory — to produce a fully-formed, FK-clean database.
+//
+// This guards two things at once: (1) the production schema dir contains only
+// loadable SQL (the hotfix that moved source/ out, plus the .go skip), and
+// (2) the consolidated schema loads cleanly through the actual runner — not
+// just via the schema package's hand-applied SplitSQL path.
+func TestRunMigrationsAppliesConsolidatedSchema(t *testing.T) {
+	schemaDir := findSchemaSqliteDir(t)
+
+	db := openMemSQLite(t)
+	S := &Server{DB: db, Driver: "sqlite", SchemaDir: schemaDir}
+	RunMigrations(S)
+
+	// The consolidated schema must have created the core tables.
+	for _, table := range []string{"users", "cards", "entities", "tasks"} {
+		var got int
+		if err := db.QueryRow(
+			"SELECT 1 FROM sqlite_master WHERE type='table' AND name=$1", table,
+		).Scan(&got); err != nil {
+			t.Errorf("table %q missing after RunMigrations: %v", table, err)
+		}
+	}
+
+	// Exactly the one consolidated schema file should be recorded as applied
+	// (the .go test files and source/ subdir must not be).
+	var migCount int
+	if err := db.QueryRow("SELECT COUNT(*) FROM migrations").Scan(&migCount); err != nil {
+		t.Fatalf("read migrations: %v", err)
+	}
+	if migCount != 1 {
+		t.Fatalf("migrations recorded = %d, want 1 (only schema.sqlite.sql; "+
+			".go files and source/ subdir must be skipped)", migCount)
+	}
+
+	// FK graph must be intact (the real boot-time guarantee).
+	rows, err := db.Query("PRAGMA foreign_key_check")
+	if err != nil {
+		t.Fatalf("foreign_key_check: %v", err)
+	}
+	violations := 0
+	for rows.Next() {
+		violations++
+		var cols []any
+		_ = rows.Scan(&cols)
+	}
+	rows.Close()
+	if violations > 0 {
+		t.Errorf("PRAGMA foreign_key_check reported %d FK violations", violations)
+	}
+}
 
 // TestRunMigrationsSkipsSubdirectories guards the regression where a
 // subdirectory under SchemaDir (e.g. schema/sqlite/ under the postgres scan

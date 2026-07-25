@@ -3,6 +3,8 @@ package server
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	_ "modernc.org/sqlite"
@@ -33,7 +35,16 @@ const SQLitePoolSize = 8
 // OpenSQLite opens a SQLite database file at path with the D4 pragmas applied
 // to every pooled connection. Pass ":memory:" (or "") for an ephemeral
 // in-process database that is shared across the pool (modernc shared-cache).
+//
+// For a file path, the parent directory is created (os.MkdirAll) if it does
+// not already exist: modernc opens the DB file read/write and fails if the
+// directory is missing, so the default SQLITE_PATH ("./data/zettelgarden.db")
+// would otherwise fatal on a fresh checkout. In-memory paths have no parent
+// dir and are left untouched.
 func OpenSQLite(path string) (*sql.DB, error) {
+	if err := ensureSQLiteParentDir(path); err != nil {
+		return nil, fmt.Errorf("sqlite mkdir parent of %q: %w", path, err)
+	}
 	dsn := buildSQLiteDSN(path)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -48,6 +59,16 @@ func OpenSQLite(path string) (*sql.DB, error) {
 		return nil, fmt.Errorf("sqlite ping %q: %w", path, err)
 	}
 	return db, nil
+}
+
+// ensureSQLiteParentDir creates the directory containing the SQLite file path
+// (e.g. "./data" for "./data/zettelgarden.db"). MkdirAll is a no-op for an
+// existing dir or for the current directory ("."), so bare filenames are fine.
+func ensureSQLiteParentDir(path string) error {
+	if path == "" || path == ":memory:" {
+		return nil
+	}
+	return os.MkdirAll(filepath.Dir(path), 0o755)
 }
 
 // buildSQLiteDSN constructs a modernc.org/sqlite DSN with the D4 pragmas.

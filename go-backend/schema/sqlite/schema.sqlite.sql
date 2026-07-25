@@ -624,12 +624,6 @@ CREATE TABLE mailing_list_recipients (
   FOREIGN KEY (message_id) REFERENCES mailing_list_messages(id)
 );
 
-CREATE TABLE migrations (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  migration_name TEXT NOT NULL,
-  applied_at DATETIME DEFAULT (datetime('now'))
-);
-
 CREATE TABLE notification_preferences (
   user_id INTEGER NOT NULL,
   show_unprocessed_emails BOOLEAN DEFAULT true,

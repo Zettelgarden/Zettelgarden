@@ -113,11 +113,27 @@ Regression guard: `TestRunMigrationsSkipsSubdirectories`. Also relocated
 SQLite scan root contains only loadable schema (the raw `pg_dump` would fail to
 load on SQLite when `DB_DRIVER=sqlite` is exercised).
 
-**Remaining SQLite-boot wiring (not yet done, out of scope for this hotfix):**
-`OpenSQLite` does not yet create the `SQLITE_PATH` parent dir (the default
-`./data/zettelgarden.db` needs `./data/` to exist), and there is no test
-exercising the real `RunMigrations` against `./schema/sqlite`. Do this before
-the first real `DB_DRIVER=sqlite` run.
+**Remaining SQLite-boot wiring — DONE 2026-07-25 (commit pending):**
+the two items flagged above are complete.
+1. `OpenSQLite` now `os.MkdirAll`s the parent of `SQLITE_PATH` (the default
+   `./data/zettelgarden.db` no longer fatals on a fresh checkout with no
+   `./data/`). Guarded by `TestOpenSQLiteCreatesParentDir`.
+2. `RunMigrations` now exercises the real `./schema/sqlite` in
+   `TestRunMigrationsAppliesConsolidatedSchema` (asserts core tables created,
+   exactly one migration recorded, `PRAGMA foreign_key_check` clean).
+
+**Bug surfaced & fixed by that integration test (would have broken the first
+real `DB_DRIVER=sqlite` boot):** the consolidated schema declared a `migrations`
+   table identical to the one `RunMigrations` bootstraps itself, so the first
+   application of `schema.sqlite.sql` fatal'd with `table migrations already
+   exists`. The `migrations` table is the runner's own bookkeeping — it is
+   bootstrapped by `RunMigrations`, not domain data — so it was dropped from the
+   generated schema. `translate.py` now carries a `RUNNER_OWNED_TABLES`
+   skip-set (currently `{"migrations"}`); the regeneration diff was a clean
+   6-line removal (73 → 72 tables). Also: `RunMigrations` now skips `.go`
+   files under `SchemaDir` (the `schema/sqlite/` dir co-locates the schema with
+   its Go tests; without this skip the runner tried to interpret `.go` source
+   as SQL on boot).
 
 ## What's been built
 
@@ -142,6 +158,7 @@ Code (all tested, all on `master`):
 | `schema/sqlite/schema_test.go` | Phase 2 acceptance gate: `TestConsolidatedSchemaLoads` (split + apply all statements into `:memory:`, assert `foreign_key_check` + `integrity_check` green) and `TestConsolidatedSchemaUUIDDefaultAndBooleanDefaults` (gen_random_uuid default → valid UUID; BOOLEAN default round-trip). |
 | `schema/sqlite/phase3_idioms_test.go` | Phase 3 smoke test: proves the translated `CURRENT_TIMESTAMP`, `LIKE`, `substr(cast(...))`, and `ON CONFLICT … DO UPDATE` idioms execute on SQLite against the consolidated schema. |
 | **Phase 3** — ~27 files touched | `NOW()`→`CURRENT_TIMESTAMP` sweep; `NOW()-INTERVAL`→app-side `AddDate` (`models/job.go`, `handlers/admin/stats.go`, `services/smart_feed.go`, `services/jobs/*`); `ILIKE`→`LIKE` (`handlers/{search,facts,files}.go`, `services/{cards,facts}.go`); `services/stats.go` rewritten (dropped `generate_series`/`INTERVAL`/`AT TIME ZONE`; UTC day-bucketing). |
+| **Boot-wiring follow-up (2026-07-25)** | `server/sqlite.go` `OpenSQLite` now `MkdirAll`s the `SQLITE_PATH` parent dir; `server/database.go` `RunMigrations` skips `.go` files under `SchemaDir`; `schema/sqlite/source/translate.py` adds `RUNNER_OWNED_TABLES={"migrations"}` (the runner bootstraps that table itself, so emitting it in the schema fatal'd the first boot with "table migrations already exists"); regenerated `schema.sqlite.sql` (73 → 72 tables). Tests: `server/database_sqlite_test.go` `TestRunMigrationsAppliesConsolidatedSchema` (real `./schema/sqlite` end-to-end) + `server/sqlite_test.go` `TestOpenSQLiteCreatesParentDir`. |
 
 Driver added: `modernc.org/sqlite v1.54.0`. Config flags: `DB_DRIVER`
 (default `postgres`), `SQLITE_PATH` (default `./data/zettelgarden.db`).

@@ -383,8 +383,17 @@ PRAGMA foreign_keys = ON;
 
 """
 
+# System tables owned by the runtime migration runner, NOT by the consolidated
+# schema. `migrations` is bootstrapped by server.RunMigrations itself; emitting
+# it here would collide ("table migrations already exists") on the first
+# real DB_DRIVER=sqlite boot. The historical Postgres migrations are loaded
+# only by the one-time ETL (Phase 6b), never by the SQLite runner.
+RUNNER_OWNED_TABLES = {"migrations"}
+
 chunks = [header]
 for tname in table_order:
+    if tname in RUNNER_OWNED_TABLES:
+        continue
     chunks.append(build_table(tname) + "\n\n")
 
 chunks.append("\n-- Ordinary indexes (btree -> SQLite; partial-index predicates translated)\n")
@@ -401,7 +410,9 @@ with open(OUT, "w", encoding="utf-8") as f:
     f.write("".join(chunks))
 
 print(f"wrote {OUT}")
-print(f"tables={len(table_order)}  serial_pks={len(serial_cols)}  "
+print(f"tables={len(table_order) - len([t for t in table_order if t in RUNNER_OWNED_TABLES])} "
+      f"(skipped runner-owned: {sorted(RUNNER_OWNED_TABLES & set(table_order))}) "
+      f"serial_pks={len(serial_cols)}  "
       f"composite_pks={sum(1 for t in table_order if pk_cols.get(t) and t not in serial_cols)}  "
       f"fks={sum(len(v) for v in fks.values())}  btree_indexes={n_idx}  "
       f"unique_indexes={len(uq)}")

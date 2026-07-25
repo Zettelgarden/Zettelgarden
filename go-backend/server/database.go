@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"sort"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -167,6 +168,13 @@ func RunMigrations(S *Server) {
 		// returns both files and dirs, so this guard is required. Extensionless
 		// migration files (e.g. 0025-add-chunk-text) are intentionally kept.
 		if file.IsDir() {
+			continue
+		}
+		// Skip Go source files. The SQLite schema dir (schema/sqlite/) co-locates
+		// the consolidated schema with its Go test files; a migration runner must
+		// never interpret .go source as SQL. The postgres scan root contains only
+		// .sql / extensionless migration files, so this is a no-op there.
+		if strings.HasSuffix(file.Name(), ".go") {
 			continue
 		}
 		fileNames = append(fileNames, file.Name())

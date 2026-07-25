@@ -1,9 +1,10 @@
 package server
 
 import (
-	"database/sql"
 	"context"
+	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -35,6 +36,24 @@ func openTempSQLite(t *testing.T) (*sql.DB, string) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.db")
 	return openSQLiteAt(t, path), path
+}
+
+// TestOpenSQLiteCreatesParentDir locks in that OpenSQLite creates the parent
+// directory of the DB file path. modernc opens the file read/write and errors
+// if the dir is missing, so the default SQLITE_PATH ("./data/zettelgarden.db")
+// would otherwise fatal on a fresh checkout.
+func TestOpenSQLiteCreatesParentDir(t *testing.T) {
+	base := t.TempDir()
+	nested := filepath.Join(base, "a", "b", "c") // does not exist yet
+	path := filepath.Join(nested, "test.db")
+
+	db := openSQLiteAt(t, path)
+	if _, err := db.Exec("CREATE TABLE x (id INTEGER PRIMARY KEY)"); err != nil {
+		t.Fatalf("write to newly-opened db: %v", err)
+	}
+	if fi, err := os.Stat(nested); err != nil || !fi.IsDir() {
+		t.Errorf("parent dir not created: stat err=%v", err)
+	}
 }
 
 func TestSQLitePragmasApplied(t *testing.T) {
