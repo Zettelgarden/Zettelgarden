@@ -124,6 +124,18 @@ func TestCreateCardSQLite(t *testing.T) {
 		t.Fatalf("audit_events for new card = %d, want 1", auditCount)
 	}
 
+	// CreateCard now also bumps user_stats.card_count (Phase 5: trigger logic
+	// ported to Go). Confirms the wiring end-to-end, not just the unit helper.
+	var cardCount int
+	if err := s.DB.QueryRow(
+		`SELECT card_count FROM user_stats WHERE user_id = $1`, userID,
+	).Scan(&cardCount); err != nil {
+		t.Fatalf("read user_stats.card_count: %v", err)
+	}
+	if cardCount != 1 {
+		t.Fatalf("user_stats.card_count = %d, want 1", cardCount)
+	}
+
 	// Re-read via GetFullCard to prove the read path scans cleanly too.
 	fetched, err := GetFullCard(s.DB, userID, created.ID)
 	if err != nil {

@@ -9,6 +9,8 @@ import (
 	"os"
 	"time"
 
+	"go-backend/services"
+
 	"github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/checkout/session"
 	"github.com/stripe/stripe-go/v82/customer"
@@ -251,6 +253,9 @@ func (s *Handler) StripeWebhookRoute(w http.ResponseWriter, r *http.Request) {
 					)
 					if dberr != nil {
 						log.Printf("DB insert revenue error: %v", dberr)
+					} else {
+						// user_stats was trigger-maintained (0093); now maintained in Go (Phase 5).
+						services.AddUserRevenue(s.DB, userID, inv.AmountPaid)
 					}
 				} else {
 					log.Printf("User or subscription not found for customer %s: %v", inv.Customer.ID, err)

@@ -99,3 +99,17 @@ CREATE TABLE IF NOT EXISTS audit_events (
     details TEXT NOT NULL,
     created_at DATETIME NOT NULL DEFAULT (datetime('now'))
 );
+
+-- user_stats mirrors the production table shape (Phase 5: trigger logic ported
+-- to Go; CreateCard now bumps card_count via services.IncrementUserCardCount).
+CREATE TABLE IF NOT EXISTS user_stats (
+    user_id INTEGER NOT NULL PRIMARY KEY,
+    card_count INTEGER NOT NULL DEFAULT 0,
+    task_count INTEGER NOT NULL DEFAULT 0,
+    file_count INTEGER NOT NULL DEFAULT 0,
+    chat_message_count INTEGER NOT NULL DEFAULT 0,
+    llm_cost_usd NUMERIC NOT NULL DEFAULT 0,
+    revenue_cents INTEGER NOT NULL DEFAULT 0,
+    updated_at DATETIME NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

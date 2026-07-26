@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"go-backend/models"
+	"go-backend/services"
 	"image"
 	_ "image/gif"
 	"image/jpeg"
@@ -611,6 +612,9 @@ func (s *Handler) UploadFileRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unable to execute query", http.StatusInternalServerError)
 		return
 	}
+
+	// user_stats was trigger-maintained (0093); now maintained in Go (Phase 5).
+	services.IncrementUserFileCount(s.GetDB(), userID)
 
 	// Start text extraction inline (audited in llm_jobs)
 	_, err = s.JobRunner.Run(r.Context(), models.CreateJobParams{

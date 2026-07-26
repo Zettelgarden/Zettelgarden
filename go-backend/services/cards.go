@@ -661,6 +661,9 @@ func DeleteCard(db models.Database, userID int, id int) error {
 
 	deleteCardTypesense(card.ID)
 
+	// user_stats was trigger-maintained (0093); now maintained in Go (Phase 5).
+	DecrementUserCardCount(db, userID)
+
 	// Create audit event for deletion
 	err = CreateAuditEvent(db, userID, id, "card", "delete", card, nil)
 	if err != nil {
@@ -885,6 +888,8 @@ func CreateCard(db models.Database, userID int, params models.EditCardParams) (m
 	}
 
 	AddTagsFromCard(db, userID, id)
+	// user_stats was trigger-maintained (0093); now maintained in Go (Phase 5).
+	IncrementUserCardCount(db, userID)
 	UpsertCardToTypesense(db, newCard)
 	// Create audit event for creation
 	CreateAuditEvent(db, userID, id, "card", "create", nil, newCard)

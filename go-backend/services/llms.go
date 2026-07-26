@@ -135,5 +135,11 @@ func logLLMRequest(c *models.LLMClient, resp openai.ChatCompletionResponse, requ
 		if err != nil {
 			log.Printf("Error logging llm request: %v", err)
 		}
+		// user_stats was trigger-maintained (0093); now maintained in Go (Phase 5).
+		// Guard cost != nil: the old trigger would NULL-poison the running total
+		// if cost_usd was NULL; skipping the accumulation is more correct.
+		if cost != nil {
+			AddUserLLMCost(c.DB, c.UserID, *cost)
+		}
 	}()
 }

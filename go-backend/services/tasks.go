@@ -154,7 +154,7 @@ func GetTasksPaginated(db models.Database, userID int, limit, offset int, includ
 			&task.ReminderSent,
 			&task.ParentTaskID,
 			&task.SortOrder,
-		); err != nil{
+		); err != nil {
 			log.Printf("err %v", err)
 			return []models.Task{}, 0, fmt.Errorf("unable to access task")
 		}
@@ -507,6 +507,9 @@ func CreateTask(db models.Database, task models.Task) (int, error) {
 		return 0, fmt.Errorf("unable to create task")
 	}
 
+	// user_stats was trigger-maintained (0093); now maintained in Go (Phase 5).
+	IncrementUserTaskCount(db, task.UserID)
+
 	newTask, err := GetTask(db, task.UserID, taskID)
 	if err != nil {
 		log.Printf("Error querying new task for audit: %v", err)
@@ -536,6 +539,9 @@ func DeleteTask(db models.Database, userID int, id int) error {
 		log.Printf("err %v", err)
 		return fmt.Errorf("unable to delete task")
 	}
+
+	// user_stats was trigger-maintained (0093); now maintained in Go (Phase 5).
+	DecrementUserTaskCount(db, userID)
 
 	err = CreateAuditEvent(db, userID, id, "task", "delete", oldTask, nil)
 	if err != nil {
@@ -752,6 +758,7 @@ func CompleteAndScheduleTask(db models.Database, userID int, id int, days int, c
 
 	return newTaskID, nil
 }
+
 // PrepareSubtask creates a subtask from a parent task, inheriting priority and tags
 // Dates are NOT inherited - subtasks get their own scheduling
 func PrepareSubtask(parent *models.Task, input models.Task) models.Task {
