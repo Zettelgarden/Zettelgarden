@@ -30,7 +30,7 @@ func TestGetCardFacts(t *testing.T) {
 	var fact1ID, fact2ID int
 	err = tx.QueryRow(`
 		INSERT INTO facts (card_pk, user_id, fact, created_at, updated_at)
-		VALUES ($1, $2, $3, NOW(), NOW())
+		VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, card.ID, userID, "Test fact 1").Scan(&fact1ID)
 	if err != nil {
@@ -40,7 +40,7 @@ func TestGetCardFacts(t *testing.T) {
 
 	err = tx.QueryRow(`
 		INSERT INTO facts (card_pk, user_id, fact, created_at, updated_at)
-		VALUES ($1, $2, $3, NOW(), NOW())
+		VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, card.ID, userID, "Test fact 2").Scan(&fact2ID)
 	if err != nil {
@@ -50,7 +50,7 @@ func TestGetCardFacts(t *testing.T) {
 
 	_, err = tx.Exec(`
 		INSERT INTO fact_card_junction (fact_id, card_pk, user_id, is_origin, created_at, updated_at)
-		VALUES ($1, $2, $3, TRUE, NOW(), NOW()), ($4, $5, $6, TRUE, NOW(), NOW())
+		VALUES ($1, $2, $3, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), ($4, $5, $6, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`, fact1ID, card.ID, userID, fact2ID, card.ID, userID)
 	if err != nil {
 		tx.Rollback()
@@ -111,7 +111,7 @@ func TestGetEntityFacts(t *testing.T) {
 	var entityID int
 	err = tx.QueryRow(`
 		INSERT INTO entities (user_id, name, description, type, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, "Test Entity Facts", "A test entity for facts", "person").Scan(&entityID)
 	if err != nil {
@@ -122,7 +122,7 @@ func TestGetEntityFacts(t *testing.T) {
 	var fact1ID, fact2ID int
 	err = tx.QueryRow(`
 		INSERT INTO facts (card_pk, user_id, fact, created_at, updated_at)
-		VALUES ($1, $2, $3, NOW(), NOW())
+		VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, card.ID, userID, "Entity fact 1").Scan(&fact1ID)
 	if err != nil {
@@ -132,7 +132,7 @@ func TestGetEntityFacts(t *testing.T) {
 
 	err = tx.QueryRow(`
 		INSERT INTO facts (card_pk, user_id, fact, created_at, updated_at)
-		VALUES ($1, $2, $3, NOW(), NOW())
+		VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, card.ID, userID, "Entity fact 2").Scan(&fact2ID)
 	if err != nil {
@@ -142,7 +142,7 @@ func TestGetEntityFacts(t *testing.T) {
 
 	_, err = tx.Exec(`
 		INSERT INTO fact_card_junction (fact_id, card_pk, user_id, is_origin, created_at, updated_at)
-		VALUES ($1, $2, $3, TRUE, NOW(), NOW()), ($4, $5, $6, TRUE, NOW(), NOW())
+		VALUES ($1, $2, $3, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), ($4, $5, $6, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`, fact1ID, card.ID, userID, fact2ID, card.ID, userID)
 	if err != nil {
 		tx.Rollback()
@@ -151,7 +151,7 @@ func TestGetEntityFacts(t *testing.T) {
 
 	_, err = tx.Exec(`
 		INSERT INTO entity_fact_junction (user_id, entity_id, fact_id, created_at, updated_at)
-		VALUES ($1, $2, $3, NOW(), NOW()), ($4, $5, $6, NOW(), NOW())
+		VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), ($4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`, userID, entityID, fact1ID, userID, entityID, fact2ID)
 	if err != nil {
 		tx.Rollback()
@@ -216,7 +216,7 @@ func TestGetFactCards(t *testing.T) {
 	var factID int
 	err = tx.QueryRow(`
 		INSERT INTO facts (card_pk, user_id, fact, created_at, updated_at)
-		VALUES ($1, $2, $3, NOW(), NOW())
+		VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, card1.ID, userID, "Shared fact").Scan(&factID)
 	if err != nil {
@@ -226,7 +226,7 @@ func TestGetFactCards(t *testing.T) {
 
 	_, err = tx.Exec(`
 		INSERT INTO fact_card_junction (fact_id, card_pk, user_id, is_origin, created_at, updated_at)
-		VALUES ($1, $2, $3, TRUE, NOW(), NOW()), ($4, $5, $6, FALSE, NOW(), NOW())
+		VALUES ($1, $2, $3, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), ($4, $5, $6, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`, factID, card1.ID, userID, factID, card2.ID, userID)
 	if err != nil {
 		tx.Rollback()
@@ -300,7 +300,7 @@ func TestGetEntityFactsEmpty(t *testing.T) {
 	var entityID int
 	err = tx.QueryRow(`
 		INSERT INTO entities (user_id, name, description, type, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, "Entity with no facts test", "A test entity with no facts", "person").Scan(&entityID)
 	if err != nil {
@@ -343,7 +343,7 @@ func TestGetFactCardsEmpty(t *testing.T) {
 	var factID int
 	err = tx.QueryRow(`
 		INSERT INTO facts (card_pk, user_id, fact, created_at, updated_at)
-		VALUES ($1, $2, $3, NOW(), NOW())
+		VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, card.ID, userID, "Orphaned fact").Scan(&factID)
 	if err != nil {

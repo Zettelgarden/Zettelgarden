@@ -162,9 +162,13 @@ func isDuplicateKeyError(err error) bool {
 	if errors.As(err, &pqErr) {
 		return pqErr.Code == "23505"
 	}
-	// Also check error message as fallback
-	return strings.Contains(err.Error(), "duplicate key") ||
-		strings.Contains(err.Error(), "unique constraint")
+	// Also check error message as fallback (case-insensitive so it matches
+	// both lib/pq's "duplicate key" and modernc.org/sqlite's
+	// "UNIQUE constraint failed: ...").
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "duplicate key") ||
+		strings.Contains(msg, "unique constraint") ||
+		strings.Contains(msg, "constraint failed")
 }
 
 // CreateSchemaRoute handles POST /api/schemas - Create a new schema

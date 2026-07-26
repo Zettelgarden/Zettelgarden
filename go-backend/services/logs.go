@@ -83,7 +83,7 @@ func GetAuditEvents(db models.Database, entityType string, entityID int) ([]mode
 		SELECT id, user_id, entity_id, entity_type, action, details, created_at
 		FROM audit_events
 		WHERE entity_type = $1 AND entity_id = $2
-		ORDER BY created_at DESC
+		ORDER BY created_at DESC, id DESC
 	`, entityType, entityID)
 
 	if err != nil {

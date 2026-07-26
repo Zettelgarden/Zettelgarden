@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 // setupTestHandler creates a test handler with admin user
@@ -274,19 +275,22 @@ func TestGetUserStats_ActiveUserWindow(t *testing.T) {
 	// Set all 3 users as recently active (within the week)
 	_, err = s.DB.Exec(`
 		UPDATE users
-		SET last_seen = NOW()
+		SET last_seen = CURRENT_TIMESTAMP
 		WHERE id IN (1, 2, 3)
 	`)
 	if err != nil {
 		t.Fatalf("Failed to update last_seen: %v", err)
 	}
 
-	// User 3 was active 15 days ago (still within the month)
+	// User 3 was active 15 days ago (still within the month). INTERVAL has no
+	// SQLite equivalent, so compute the timestamp app-side (matches the Phase 3
+	// NOW()-INTERVAL -> time.Now().UTC().AddDate(...) treatment in services).
+	fifteenDaysAgo := time.Now().UTC().AddDate(0, 0, -15)
 	_, err = s.DB.Exec(`
 		UPDATE users
-		SET last_seen = NOW() - INTERVAL '15 days'
+		SET last_seen = $1
 		WHERE id = 3
-	`)
+	`, fifteenDaysAgo)
 	if err != nil {
 		t.Fatalf("Failed to update last_seen: %v", err)
 	}
@@ -328,7 +332,7 @@ func TestGetUserStats_NewUsers(t *testing.T) {
 	// Create a new user today
 	_, err = s.DB.Exec(`
 		INSERT INTO users (username, email, password, created_at, updated_at, email_validated)
-		VALUES ('newuser', 'new@test.com', 'hash', NOW(), NOW(), true)
+		VALUES ('newuser', 'new@test.com', 'hash', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, true)
 	`)
 	if err != nil {
 		t.Fatalf("Failed to create new user: %v", err)

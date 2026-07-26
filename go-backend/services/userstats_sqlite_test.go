@@ -11,11 +11,7 @@ import (
 // the user_stats maintenance helpers without the full consolidated schema.
 func openUserStatsSQLite(t *testing.T) (*server.Server, int) {
 	t.Helper()
-	db, err := server.OpenSQLite(":memory:")
-	if err != nil {
-		t.Fatalf("OpenSQLite: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
+	db := freshSQLiteDB(t)
 	for _, stmt := range []string{
 		`CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT)`,
 		`CREATE TABLE user_stats (

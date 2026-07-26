@@ -1,20 +1,21 @@
 # PostgreSQL → SQLite Migration — Status
 
-**Last updated:** 2026-07-25
+**Last updated:** 2026-07-26
 **Plan:** [`2026-07-17-postgres-to-sqlite-migration-design.md`](./2026-07-17-postgres-to-sqlite-migration-design.md)
-**Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2`
+**Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2` (closed) · Phase 6a `Zettelgarden-j89` (in progress)
 
 ## TL;DR
 
-Implementation is underway. **Phases 0, 1, 2, 3, and 5 done.** Every high-risk
+Implementation is underway. **Phases 0, 1, 2, 3, 5 done.** Every high-risk
 *unknown* was resolved empirically in Phase 1 (which shrank the plan), Phase 2
-produced the validated consolidated SQLite schema, and Phase 3 swept the Go
-query code clean of every remaining PG-ism (`NOW()`, `INTERVAL`, `ILIKE`,
-`::` casts) so the backend now runs unchanged on either Postgres or SQLite.
-Backend compiles + vets clean; a new idiom smoke test proves the translated
-SQL executes on SQLite. **Phase 5 (triggers → Go) is the next substantive
-phase** (Phase 4 is optional cmd-binary consolidation; Phase 6 is the
-data-continuity cutover).
+produced the validated consolidated SQLite schema, Phase 3 swept the Go query
+code clean of every remaining PG-ism, and Phase 5 ported the live triggers to
+Go. **Phase 6a (full test suite on SQLite) is in progress** and the bulk of
+the suite is already green: **12 of 14 Go packages pass against SQLite with no
+Postgres running**, including `services`, `handlers/admin`, `server`,
+`server_tests`, `schema/sqlite`, `models`, `routes`, `mail`, `utils`, `spike`,
+`services/backlink`, and `services/jobs`. Only `handlers` remains, with 11
+failing tests (down from an initial 600s deadlock) — see *Phase 6a progress*.
 
 ## Phase status
 
@@ -26,7 +27,8 @@ data-continuity cutover).
 | 3 — Query translation | ✅ **Done** | All remaining non-test PG-isms eliminated. `NOW()`→`CURRENT_TIMESTAMP` (~70 sites, ~27 files; pure replacement, identical on both drivers — see **D7**); `NOW()-INTERVAL`→app-side `time.Now().UTC().AddDate(...)` bound as a param; `ILIKE`→`LIKE` (5 files); `::` casts removed (`services/stats.go` rewritten to drop `generate_series`/`AT TIME ZONE`, bucketing via `substr(cast(col as text),1,10)`). Backend compiles; `go vet` clean (2 pre-existing unrelated `oauth.go` warnings); idiom smoke test (`schema/sqlite/phase3_idioms_test.go`) + all Phase 1/2 SQLite tests green. Full DB-backed suite validation deferred to Phase 6a. |
 | 4 — Consolidate cmd binaries | ⬜ Deferred | Optional; **verified not needed** for Phase 5 — the cmd/* and scripts/* binaries write none of the trigger-affected tables (cards/tasks/files/revenue/llm_query_log/rss), so services-layer wiring reaches every write path |
 | 5 — Triggers → Go | ✅ **Done** | All 7 trigger files handled. **Live:** user_stats counters + llm_jobs.updated_at + rss notifications ported to Go on BOTH drivers (decision 3b); migrations 0145/0146 drop the replaced PG triggers. **Dead (dropped, no port):** chat timestamp (no Go chat writer), llm_jobs pg_notify (no LISTEN), email notification sync (email abandoned). See *Phase 5 progress* below. |
-| 6 — Tests + ETL + cutover | ⬜ Not started | Highest-stakes phase; data-continuity protections in runbook |
+| 6a — Test infra (suite on SQLite) | 🔄 **In progress** | 12/14 packages green vs SQLite (no PG). `tests/conftest.go` branches on driver (`DB_DRIVER=sqlite` default, temp file-backed DB so WAL engages), skips the PG-only `ResetDatabase`, and guards the one `setval`. `handlers` remains: 11 failures (was a 600s deadlock). See *Phase 6a progress*. |
+| 6b/6c — ETL + cutover | ⬜ Not started | Highest-stakes phase; data-continuity protections in runbook |
 | 7a/7b — Cleanup & rollout | ⬜ Not started | Split per D6 |
 
 ## Key findings (resolved this session)
@@ -189,6 +191,95 @@ counters (`IncrementUserCardCount`/`Decrement…`/`IncrementUserFileCount`,
 
 **Phase 5 complete.** All 7 trigger files are handled (3 live → Go, 4 dead →
 dropped). Full handler-suite validation against SQLite is Phase 6a.
+
+## Phase 6a progress (2026-07-26, in progress)
+
+**State:** `Zettelgarden-j89` in progress. **12 of 14 Go packages green
+against SQLite with no Postgres running** (`go-backend`, `mail`, `models`,
+`routes`, `schema/sqlite`, `server`, `server_tests`, `services`,
+`services/backlink`, `services/jobs`, `spike`, `utils`, `handlers/admin`).
+Only `handlers` remains: **11 failing tests**, down from an initial **600s
+deadlock** (the whole package hung).
+
+**Test infra (`tests/conftest.go`):**
+- `DB_DRIVER` now defaults to `sqlite` for the suite (override with
+  `DB_DRIVER=postgres` for the legacy PG path).
+- `Setup()` branches on driver, mirroring `bootstrap.InitServer`: `OpenSQLite`
+vs `ConnectToDatabase`, `SchemaDir=…/schema/sqlite` for SQLite (loads
+`schema.sqlite.sql` via the Phase 1 splitter), `S.Driver` set, and the PG-only
+`ResetDatabase` skipped on SQLite.
+- **Tests use a temp FILE-backed SQLite DB, not `:memory:`.** WAL mode (the D4
+  production setting) is **ignored for in-memory databases** — they run in
+  rollback-journal mode, where an open transaction blocks writers on other
+  connections. Many handlers write via the pool directly (`s.DB`) while the
+  per-test transaction (`S.Tx`) is open, which deadlocked the busy-handler. A
+  file-backed DB lets WAL engage so the pool and the test tx coexist (same
+  isolation semantics as Postgres MVCC).
+- The one live `setval('entities_id_seq', …)` in `importTestData` is guarded on
+  driver (explicit-id inserts auto-advance SQLite's AUTOINCREMENT, so no manual
+  reset is needed).
+
+**PG-isms surfaced & fixed (production code — Phase 3 missed these):**
+- **`col = ANY($1)` array binding** — 7 sites in `handlers/{facts,entity}.go`,
+  `services/{cards,entity}.go`, `services/backlink/backlink.go`. The Phase 3
+  inventory only checked `ARRAY[`; `= ANY($1)` was missed. Translated to
+  `IN (...)` via new `models.InList` / `models.IntArgs` helpers
+  (`models/sql.go`). Convention: fixed scalar args get the low placeholder
+  numbers and the expanding slice gets the high numbers, so growth never
+  renumbers the fixed args. Works identically on both drivers; `lib/pq` dropped
+  from all 5 files. The two `array_position($1, col)` ordering sites (facts /
+  entity handlers) still need an app-side reorder — **deferred** (handlers tests
+  that hit them are among the remaining 11).
+- **`DELETE FROM <table> <alias>`** — SQLite does not support aliases on
+  `DELETE` (Postgres does). 2 sites in `handlers/facts.go` rewritten to drop
+  the alias and reference the table by name in the correlated subquery.
+- **`isDuplicateKeyError` case mismatch** (`handlers/schemas.go`) — the
+  fallback string-match checked lowercase `"unique constraint"`, but modernc
+  emits `"UNIQUE constraint failed"`. Made case-insensitive (matches both
+  drivers). Unblocked all 4 schema-duplicate tests.
+- **Sub-second ordering non-determinism** — SQLite's `datetime('now')` is
+  *second*-precision (Postgres is microsecond), so `ORDER BY <ts> DESC`
+  produced flaky order for same-second rows. Added `, id DESC` tiebreakers to
+  `services/logs.go` (GetAuditEvents) and `services/scheduled_execution.go`
+  (GetRecentRuns). This is a real latent ordering concern post-cutover — other
+  timestamp-`ORDER BY` queries may want the same tiebreaker (noted as
+  follow-up).
+
+**PG-isms surfaced & fixed (test code — Phase 3 was non-test only):**
+- `NOW()` → `CURRENT_TIMESTAMP` across 7 test files (~52 sites); the one
+  `NOW() - INTERVAL '15 days'` site (`handlers/admin/stats_test.go`) →
+  app-side `time.Now().UTC().AddDate(0,0,-15)` bound as a param.
+- `details::text` → `CAST(details AS text)` (`handlers/admin_audit_test.go`).
+
+**Other fixes:**
+- **`:memory:` shared-cache collision** — the bespoke `services/*_sqlite_test.go`
+  spike tests each opened `OpenSQLite(":memory:")`, which is process-wide
+  shared cache; run together in one `go test ./services/` process they hit
+  "table already exists" (the consolidated schema was already applied by
+  `tests.Setup()`). New `freshSQLiteDB(t)` helper
+  (`services/sqlite_test_helpers_test.go`) mints a uniquely-named
+  `file:<name>?mode=memory&cache=shared` DB per test.
+- **`task_saved_searches` table missing** from the consolidated schema — it was
+  created by migration `0143` after the 2026-07-25 `pg_dump` snapshot (the dev
+  DB hadn't applied 0143). Appended the SQLite-translated `CREATE TABLE` to
+  `schema/sqlite/schema.sqlite.sql`. (Only missing table — the other 7
+  recent-migration tables were present.)
+- **Nil `JobRunner` panic** — test `NewHandler` didn't wire `JobRunner`, so
+  `UploadFileRoute`'s `s.JobRunner.Run` panicked. Wired
+  `services.NewJobRunner(S.DB, nil)` (nil processor is safe — `execute()`
+  recovers the panic).
+
+**Remaining 11 `handlers` failures (the continued long tail):**
+- Card-ID generation (3): `TestGetNextRootCardID{,Route}`, `TestGetNextChildCardID`
+  — "expected ID 11, got 1"; sequence / `MAX(id)+1` semantics under test-data
+  reduction.
+- `TestCreateCardLinkedParentId`, `TestGetRelatedCards_Success`,
+  `TestCreateCardSuccessRecursiveTags` (3) — card/fact/relation paths.
+- RSS (3): `Test{Star,Unstar,ListStarred}RSSArticleRoute` — "Failed to create
+  test feed: status 400".
+- `TestAuthResetPasswordAndLoginSuccess` (1) — login returns 401 after reset
+  (pool write visibility across the test tx).
+- `TestUpdatePreferencesSuccess` (1) — "Failed to get preferences".
 
 ## What's been built
 

@@ -767,7 +767,7 @@ func TestDeleteSchemaRoute_WithCards(t *testing.T) {
 	var cardID int
 	err := s.Server.Tx.QueryRow(`
 		INSERT INTO cards (card_id, user_id, title, body, link, created_at, updated_at, parent_id, card_schema_id)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), $6, $7)
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $6, $7)
 		RETURNING id
 	`, "test-card", 1, "Test Card", "Test Body", "test-link", 1, schema.ID).Scan(&cardID)
 	if err != nil {
@@ -1131,7 +1131,7 @@ func TestDeleteSchemaRoute_MultipleCardsWithSchema(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		_, err := s.Server.Tx.Exec(`
 			INSERT INTO cards (card_id, user_id, title, body, link, created_at, updated_at, parent_id, card_schema_id)
-			VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), $6, $7)
+			VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $6, $7)
 		`, "test-card-"+strconv.Itoa(i), 1, "Test Card "+strconv.Itoa(i), "Test Body", "test-link", 1, schema.ID)
 		if err != nil {
 			t.Fatalf("Failed to create test card: %v", err)

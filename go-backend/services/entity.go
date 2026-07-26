@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/typesense/typesense-go/typesense"
 	"github.com/typesense/typesense-go/typesense/api"
 	openai "github.com/sashabaranov/go-openai"
@@ -488,11 +487,12 @@ func getEntitiesTypesense(db *sql.DB, typesenseClient *typesense.Client, collect
 		cardCountQuery := `
 			SELECT entity_id, COUNT(DISTINCT card_pk) as card_count
 			FROM entity_card_junction
-			WHERE entity_id = ANY($1) AND user_id = $2
+			WHERE user_id = $1 AND entity_id IN ` + models.InList(2, len(entityIDs)) + `
 			GROUP BY entity_id
 		`
 
-		rows, err := db.Query(cardCountQuery, pq.Array(entityIDs), userID)
+		cardArgs := append([]any{userID}, models.IntArgs(entityIDs)...)
+		rows, err := db.Query(cardCountQuery, cardArgs...)
 		if err != nil {
 			log.Printf("error querying entity card counts: %v", err)
 			// Continue without card counts rather than failing completely
@@ -713,11 +713,12 @@ func SearchEntities(db *sql.DB, typesenseClient *typesense.Client, userID int, q
 		cardCountQuery := `
 			SELECT entity_id, COUNT(DISTINCT card_pk) as card_count
 			FROM entity_card_junction
-			WHERE entity_id = ANY($1) AND user_id = $2
+			WHERE user_id = $1 AND entity_id IN ` + models.InList(2, len(entityIDs)) + `
 			GROUP BY entity_id
 		`
 
-		rows, err := db.Query(cardCountQuery, pq.Array(entityIDs), userID)
+		cardArgs := append([]any{userID}, models.IntArgs(entityIDs)...)
+		rows, err := db.Query(cardCountQuery, cardArgs...)
 		if err != nil {
 			log.Printf("error querying entity card counts: %v", err)
 			// Continue without card counts rather than failing completely

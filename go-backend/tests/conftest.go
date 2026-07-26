@@ -109,7 +109,14 @@ var db *sql.DB
 
 // setTestEnvironmentVariables sets required environment variables for testing
 func setTestEnvironmentVariables() {
-	// Database config - these will already be set in real test environment
+	// Database driver -- default to SQLite so the suite runs with no Postgres
+	// process running (migration design Phase 6a). Set DB_DRIVER=postgres to
+	// exercise the legacy PG test path against the postgres service instead.
+	// (SQLITE_PATH is intentionally NOT defaulted here: tests use a fresh
+	// file-backed temp DB created in Setup so that WAL mode engages -- see the
+	// comment where it is opened.)
+	setEnvIfNotSet("DB_DRIVER", "sqlite")
+	// Database config (postgres path only) - these will already be set in real test environment
 	setEnvIfNotSet("DB_HOST", "localhost")
 	setEnvIfNotSet("DB_PORT", "5432")
 	setEnvIfNotSet("DB_USER", "postgres")
@@ -183,26 +190,54 @@ func Setup() *server.Server {
 		// Set test environment variables if not already set
 		setTestEnvironmentVariables()
 
-		dbConfig := models.DatabaseConfig{}
-		dbConfig.Host = os.Getenv("DB_HOST")
-		dbConfig.Port = os.Getenv("DB_PORT")
-		dbConfig.User = os.Getenv("DB_USER")
-		dbConfig.Password = os.Getenv("DB_PASS")
-		dbConfig.DatabaseName = "zettelkasten_testing"
+		// Load config (reads DB_DRIVER / SQLITE_PATH / DB_* from env). Default
+		// test driver is sqlite (Phase 6a) -- the suite runs against an
+		// in-memory SQLite DB built from the consolidated schema, with no
+		// Postgres process required. DB_DRIVER=postgres selects the legacy path.
+		cfg := config.LoadConfig()
 
-		config.LoadConfig()
-		db, err = server.ConnectToDatabase(dbConfig)
+		if cfg.Database.Driver == "sqlite" {
+			// Tests use a FILE-backed SQLite DB, not :memory:. WAL mode (the D4
+			// production setting) is ignored for in-memory databases, which run in
+			// rollback-journal mode instead -- and there, an open transaction
+			// blocks writers on other connections. Many handlers write via the
+			// pool directly (s.DB) while the per-test transaction (S.Tx) is open,
+			// which deadlocks the busy-handler under rollback-journal. A
+			// file-backed DB lets WAL engage, so the pool and the test tx coexist
+			// exactly as they do under Postgres MVCC (same isolation semantics:
+			// a read sees prior committed writes).
+			tmpDir, err := os.MkdirTemp("", "zettelgarden_test_*")
+			if err != nil {
+				log.Fatalf("test sqlite temp dir: %v", err)
+			}
+			db, err = server.OpenSQLite(filepath.Join(tmpDir, "test.db"))
+		} else {
+			dbConfig := models.DatabaseConfig{}
+			dbConfig.Host = os.Getenv("DB_HOST")
+			dbConfig.Port = os.Getenv("DB_PORT")
+			dbConfig.User = os.Getenv("DB_USER")
+			dbConfig.Password = os.Getenv("DB_PASS")
+			dbConfig.DatabaseName = "zettelkasten_testing"
+			db, err = server.ConnectToDatabase(dbConfig)
+		}
 		if err != nil {
 			log.Fatalf("Unable to connect to the database: %v\n", err)
 		}
 
 		S = &server.Server{}
 		S.DB = db
+		S.Driver = cfg.Database.Driver
 		S.Testing = true
-		// Use absolute path for schema directory to work from any test directory
+		// Use absolute path for schema directory to work from any test directory.
 		schemaDir, err := getSchemaDir()
 		if err != nil {
 			log.Fatalf("Failed to get schema directory: %v\n", err)
+		}
+		// SQLite loads its consolidated schema from schema/sqlite/ (the PG
+		// migrations in schema/ are lib/pq-only). RunMigrations then applies
+		// schema.sqlite.sql via the Phase 1 statement splitter.
+		if cfg.Database.Driver == "sqlite" {
+			schemaDir = filepath.Join(schemaDir, "sqlite")
 		}
 		S.SchemaDir = schemaDir
 
@@ -214,9 +249,13 @@ func Setup() *server.Server {
 		S.TestInspector = &server.TestInspector{}
 		S.LLMClient = &models.LLMClient{Testing: true}
 
-		// Reset database and run migrations ONLY once at the beginning of the test suite
-		if err := server.ResetDatabase(S); err != nil {
-			log.Fatalf("Failed to reset database: %v\n", err)
+		// ResetDatabase is PG-only (CASCADE / SERIAL / DROP TABLE ... CASCADE).
+		// The SQLite :memory: DB is built fresh from the consolidated schema
+		// each run, so skip the reset there and just apply migrations.
+		if cfg.Database.Driver != "sqlite" {
+			if err := server.ResetDatabase(S); err != nil {
+				log.Fatalf("Failed to reset database: %v\n", err)
+			}
 		}
 		server.RunMigrations(S)
 		err = importTestData(S)
@@ -500,10 +539,17 @@ func importTestData(s *server.Server) error {
 		}
 	}
 
-	_, err = tx.Exec(`SELECT setval('entities_id_seq', (SELECT MAX(id) FROM entities) + 1);`)
-	if err != nil {
-		log.Printf("error resetting entities sequence after inserts: %v", err)
-		return err
+	// Advance the entities id sequence past the explicit IDs inserted above
+	// so the next auto-generated entity does not collide. On Postgres this is
+	// a manual setval; on SQLite, explicit-id inserts into an INTEGER PRIMARY
+	// KEY AUTOINCREMENT column auto-advance sqlite_sequence / the rowid max,
+	// so no manual reset is needed (and setval/sequences do not exist).
+	if s.Driver != "sqlite" {
+		_, err = tx.Exec(`SELECT setval('entities_id_seq', (SELECT MAX(id) FROM entities) + 1);`)
+		if err != nil {
+			log.Printf("error resetting entities sequence after inserts: %v", err)
+			return err
+		}
 	}
 
 	for _, junction := range data["entity_cards"].([]models.EntityCardJunction) {

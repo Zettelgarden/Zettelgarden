@@ -27,11 +27,11 @@ func (s *Handler) ExtractSaveCardFacts(userID int, cardPK int, facts []string) (
 	}
 	// First, delete junction links for this card, but only if the fact is not linked to any other cards
 	_, err = tx.Exec(`
-		DELETE FROM fact_card_junction fcj
-		WHERE fcj.card_pk = $1 AND fcj.user_id = $2
+		DELETE FROM fact_card_junction
+		WHERE card_pk = $1 AND user_id = $2
 		  AND NOT EXISTS (
 		    SELECT 1 FROM fact_card_junction fcj2
-		    WHERE fcj2.fact_id = fcj.fact_id
+		    WHERE fcj2.fact_id = fact_card_junction.fact_id
 		      AND fcj2.card_pk != $1
 		  )
 	`, cardPK, userID)
@@ -43,10 +43,10 @@ func (s *Handler) ExtractSaveCardFacts(userID int, cardPK int, facts []string) (
 
 	// Then, delete orphaned facts whose origin was this card and are not linked elsewhere
 	_, err = tx.Exec(`
-		DELETE FROM facts f
-		WHERE f.card_pk = $1 AND f.user_id = $2
+		DELETE FROM facts
+		WHERE card_pk = $1 AND user_id = $2
 		  AND NOT EXISTS (
-		    SELECT 1 FROM fact_card_junction fcj WHERE fcj.fact_id = f.id
+		    SELECT 1 FROM fact_card_junction fcj WHERE fcj.fact_id = facts.id
 		  )
 	`, cardPK, userID)
 	if err != nil {

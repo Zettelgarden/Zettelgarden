@@ -54,7 +54,7 @@ func TestGetCardsBySharedEntities_NoEntities(t *testing.T) {
 	var newCardID int
 	err := s.DB.QueryRow(`
 		INSERT INTO cards (user_id, title, body, card_id, parent_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, "No Entities Card", "This card has no entities", "NOENT001", 1).Scan(&newCardID)
 	if err != nil {
@@ -85,7 +85,7 @@ func TestGetCardsBySharedEntities_NoMatches(t *testing.T) {
 	var newCardID int
 	err := s.DB.QueryRow(`
 		INSERT INTO cards (user_id, title, body, card_id, parent_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, "Unique Entity Card", "This card has unique entities", "UNIQUE001", 1).Scan(&newCardID)
 	if err != nil {
@@ -96,7 +96,7 @@ func TestGetCardsBySharedEntities_NoMatches(t *testing.T) {
 	var uniqueEntityID int
 	err = s.DB.QueryRow(`
 		INSERT INTO entities (user_id, name, description, type, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, "Unique Entity", "A unique entity only on this card", "concept").Scan(&uniqueEntityID)
 	if err != nil {
@@ -157,7 +157,7 @@ func TestGetCardsBySharedEntities_SingleSharedEntity(t *testing.T) {
 	var cardAID int
 	err := s.DB.QueryRow(`
 		INSERT INTO cards (user_id, title, body, card_id, parent_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, "Card A", "Content A", "TESTA", 1).Scan(&cardAID)
 	if err != nil {
@@ -168,7 +168,7 @@ func TestGetCardsBySharedEntities_SingleSharedEntity(t *testing.T) {
 	var cardBID int
 	err = s.DB.QueryRow(`
 		INSERT INTO cards (user_id, title, body, card_id, parent_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, "Card B", "Content B", "TESTB", 1).Scan(&cardBID)
 	if err != nil {
@@ -179,7 +179,7 @@ func TestGetCardsBySharedEntities_SingleSharedEntity(t *testing.T) {
 	var entity1ID, entity2ID int
 	err = s.DB.QueryRow(`
 		INSERT INTO entities (id, user_id, name, description, type, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, 9999, userID, "Test Entity A", "Entity A description", "concept").Scan(&entity1ID)
 	if err != nil {
@@ -188,7 +188,7 @@ func TestGetCardsBySharedEntities_SingleSharedEntity(t *testing.T) {
 
 	err = s.DB.QueryRow(`
 		INSERT INTO entities (id, user_id, name, description, type, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, 9998, userID, "Test Entity B", "Entity B description", "concept").Scan(&entity2ID)
 	if err != nil {
@@ -260,7 +260,7 @@ func TestGetCardsBySharedEntities_DeletedCard(t *testing.T) {
 	var newCardID int
 	err := s.DB.QueryRow(`
 		INSERT INTO cards (user_id, title, body, card_id, parent_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, "Shared Entity Card", "This card shares entities", "SHARED001", 1).Scan(&newCardID)
 	if err != nil {
@@ -317,7 +317,7 @@ func TestGetCardsBySharedTags(t *testing.T) {
 	var newCardID int
 	err := s.DB.QueryRow(`
 		INSERT INTO cards (user_id, title, body, card_id, parent_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, "Tag Shared Card", "This card shares tags", "TAGSHARED", 1).Scan(&newCardID)
 	if err != nil {
@@ -369,7 +369,7 @@ func TestGetCardsBySharedTags_NoTags(t *testing.T) {
 	var newCardID int
 	err := s.DB.QueryRow(`
 		INSERT INTO cards (user_id, title, body, card_id, parent_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, "No Tags Card", "This card has no tags", "NOTAGS001", 1).Scan(&newCardID)
 	if err != nil {
@@ -400,7 +400,7 @@ func TestGetCardsBySharedTags_MultipleSharedTags(t *testing.T) {
 	var cardAID int
 	err := s.DB.QueryRow(`
 		INSERT INTO cards (user_id, title, body, card_id, parent_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, "Card Tag A", "Content A", "TAGA", 1).Scan(&cardAID)
 	if err != nil {
@@ -411,7 +411,7 @@ func TestGetCardsBySharedTags_MultipleSharedTags(t *testing.T) {
 	var cardBID int
 	err = s.DB.QueryRow(`
 		INSERT INTO cards (user_id, title, body, card_id, parent_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, "Card Tag B", "Content B", "TAGB", 1).Scan(&cardBID)
 	if err != nil {
@@ -422,7 +422,7 @@ func TestGetCardsBySharedTags_MultipleSharedTags(t *testing.T) {
 	var cardCID int
 	err = s.DB.QueryRow(`
 		INSERT INTO cards (user_id, title, body, card_id, parent_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, "Card Tag C", "Content C", "TAGC", 1).Scan(&cardCID)
 	if err != nil {
@@ -512,7 +512,7 @@ func TestGetCardsBySharedTags_DeletedCard(t *testing.T) {
 	var newCardID int
 	err := s.DB.QueryRow(`
 		INSERT INTO cards (user_id, title, body, card_id, parent_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, "Shared Tag Card", "This card shares tags", "SHAREDTAG", 1).Scan(&newCardID)
 	if err != nil {
@@ -567,7 +567,7 @@ func TestGetCardsBySharedTags_DeletedTag(t *testing.T) {
 	var newCardID int
 	err := s.DB.QueryRow(`
 		INSERT INTO cards (user_id, title, body, card_id, parent_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, "Shared Tag Card", "This card shares tags", "SHAREDTAG2", 1).Scan(&newCardID)
 	if err != nil {

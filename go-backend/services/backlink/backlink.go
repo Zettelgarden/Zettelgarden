@@ -11,8 +11,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/lib/pq"
 )
 
 // IsMarkdownLink checks if a bracket match is part of a markdown link [text](url).
@@ -133,10 +131,11 @@ func ExtractBacklinksFromStructuredData(db models.Database, userID int, structur
 		return []string{}
 	}
 
+	args := append([]any{userID}, models.IntArgs(internalIDs)...)
 	rows, err := db.Query(`
 		SELECT card_id FROM cards
-		WHERE id = ANY($1) AND user_id = $2 AND is_deleted = FALSE
-	`, pq.Array(internalIDs), userID)
+		WHERE user_id = $1 AND id IN `+models.InList(2, len(internalIDs))+` AND is_deleted = FALSE
+	`, args...)
 	if err != nil {
 		log.Printf("Error batch looking up card_ids: %v", err)
 		return []string{}

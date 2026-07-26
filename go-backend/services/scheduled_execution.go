@@ -94,7 +94,7 @@ func (t *ScheduledExecutionTracker) GetRecentRunWithOffset(ctx context.Context, 
 		SELECT id, job_name, started_at, completed_at, status, error_message, retry_count
 		FROM scheduled_job_runs
 		WHERE job_name = $1
-		ORDER BY started_at DESC
+		ORDER BY started_at DESC, id DESC
 		LIMIT $2 OFFSET $3
 	`
 

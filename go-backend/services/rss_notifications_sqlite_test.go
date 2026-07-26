@@ -18,11 +18,7 @@ import (
 // CreateNotification's ON CONFLICT.
 func loadConsolidatedSchemaForRSS(t *testing.T) *server.Server {
 	t.Helper()
-	db, err := server.OpenSQLite(":memory:")
-	if err != nil {
-		t.Fatalf("OpenSQLite: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
+	db := freshSQLiteDB(t)
 	// services/rss_notifications_sqlite_test.go -> ../schema/sqlite/schema.sqlite.sql
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {

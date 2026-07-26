@@ -243,7 +243,7 @@ func TestSaveAnalysisSuccess(t *testing.T) {
 	var summarizationID int
 	err := s.Server.Tx.QueryRow(`
 		INSERT INTO summarizations (user_id, card_pk, input_text, status, created_at, updated_at)
-		VALUES ($1, $2, $3, 'complete', NOW(), NOW())
+		VALUES ($1, $2, $3, 'complete', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, cardPK, "").Scan(&summarizationID)
 	if err != nil {
@@ -320,7 +320,7 @@ func TestSaveAnalysisEmptyThesisSkipped(t *testing.T) {
 	var summarizationID int
 	err := s.Server.Tx.QueryRow(`
 		INSERT INTO summarizations (user_id, card_pk, input_text, status, created_at, updated_at)
-		VALUES ($1, $2, $3, 'complete', NOW(), NOW())
+		VALUES ($1, $2, $3, 'complete', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, cardPK, "").Scan(&summarizationID)
 	if err != nil {
@@ -384,7 +384,7 @@ func TestSaveAnalysisEmptySectionSkipped(t *testing.T) {
 	var summarizationID int
 	err := s.Server.Tx.QueryRow(`
 		INSERT INTO summarizations (user_id, card_pk, input_text, status, created_at, updated_at)
-		VALUES ($1, $2, $3, 'complete', NOW(), NOW())
+		VALUES ($1, $2, $3, 'complete', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, cardPK, "").Scan(&summarizationID)
 	if err != nil {
@@ -460,7 +460,7 @@ func TestSaveAnalysisInvalidCardPK(t *testing.T) {
 	var summarizationID int
 	err := s.Server.Tx.QueryRow(`
 		INSERT INTO summarizations (user_id, card_pk, input_text, status, created_at, updated_at)
-		VALUES ($1, $2, $3, 'complete', NOW(), NOW())
+		VALUES ($1, $2, $3, 'complete', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, 1, "").Scan(&summarizationID)
 	if err != nil {
@@ -512,7 +512,7 @@ func TestSaveAnalysisMultipleSections(t *testing.T) {
 	var summarizationID int
 	err := s.Server.Tx.QueryRow(`
 		INSERT INTO summarizations (user_id, card_pk, input_text, status, created_at, updated_at)
-		VALUES ($1, $2, $3, 'complete', NOW(), NOW())
+		VALUES ($1, $2, $3, 'complete', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, cardPK, "").Scan(&summarizationID)
 	if err != nil {
@@ -597,7 +597,7 @@ func TestSaveAnalysisSectionOrder(t *testing.T) {
 	var summarizationID int
 	err := s.Server.Tx.QueryRow(`
 		INSERT INTO summarizations (user_id, card_pk, input_text, status, created_at, updated_at)
-		VALUES ($1, $2, $3, 'complete', NOW(), NOW())
+		VALUES ($1, $2, $3, 'complete', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id
 	`, userID, cardPK, "").Scan(&summarizationID)
 	if err != nil {

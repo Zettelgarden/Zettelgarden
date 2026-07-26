@@ -16,11 +16,7 @@ import (
 // migration-runner code path that will load the Phase 2 consolidated schema.
 func loadSpikeSchema(t *testing.T) *server.Server {
 	t.Helper()
-	db, err := server.OpenSQLite(":memory:")
-	if err != nil {
-		t.Fatalf("OpenSQLite: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
+	db := freshSQLiteDB(t)
 
 	script, err := os.ReadFile("testdata/spike_cards.sqlite.sql")
 	if err != nil {

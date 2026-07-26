@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"go-backend/services"
 	"go-backend/tests"
 )
 
@@ -28,8 +29,9 @@ import (
 func NewHandler() *Handler {
 	S := tests.Setup()
 	s := &Handler{
-		DB:     S.DB,
-		Server: S,
+		DB:        S.DB,
+		Server:    S,
+		JobRunner: services.NewJobRunner(S.DB, nil), // nil processor is safe: execute() recovers the panic, so file-upload tests record the llm_jobs audit row without doing real extraction.
 	}
 
 	S.S3 = s.CreateS3Client()

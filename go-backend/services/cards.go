@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/typesense/typesense-go/typesense"
 	"github.com/typesense/typesense-go/typesense/api"
 	"github.com/typesense/typesense-go/typesense/api/pointer"
@@ -1304,14 +1303,14 @@ func GetCardsBySharedEntities(db models.Database, userID int, sourceCardID int) 
 		SELECT ecj.card_pk, COUNT(DISTINCT ecj.entity_id) as shared_count
 		FROM entity_card_junction ecj
 		JOIN cards c ON ecj.card_pk = c.id
-		WHERE ecj.entity_id = ANY($1)
-		  AND ecj.user_id = $2
-		  AND ecj.card_pk != $3
+		WHERE ecj.user_id = $1
+		  AND ecj.card_pk != $2
+		  AND ecj.entity_id IN ` + models.InList(3, len(entityIDs)) + `
 		  AND c.is_deleted = FALSE
 		GROUP BY ecj.card_pk
 	`
 
-	rows, err = db.Query(query, pq.Array(entityIDs), userID, sourceCardID)
+	rows, err = db.Query(query, append([]any{userID, sourceCardID}, models.IntArgs(entityIDs)...)...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find shared entity cards: %w", err)
 	}
@@ -1371,15 +1370,15 @@ func GetCardsBySharedTags(db models.Database, userID int, sourceCardID int) (map
 		FROM card_tags ct
 		JOIN cards c ON ct.card_pk = c.id
 		JOIN tags t ON ct.tag_id = t.id
-		WHERE ct.tag_id = ANY($1)
-		  AND c.user_id = $2
-		  AND ct.card_pk != $3
+		WHERE c.user_id = $1
+		  AND ct.card_pk != $2
+		  AND ct.tag_id IN ` + models.InList(3, len(tagIDs)) + `
 		  AND c.is_deleted = FALSE
 		  AND t.is_deleted = FALSE
 		GROUP BY ct.card_pk
 	`
 
-	rows, err = db.Query(query, pq.Array(tagIDs), userID, sourceCardID)
+	rows, err = db.Query(query, append([]any{userID, sourceCardID}, models.IntArgs(tagIDs)...)...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find shared tag cards: %w", err)
 	}

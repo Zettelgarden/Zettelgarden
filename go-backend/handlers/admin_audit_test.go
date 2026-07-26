@@ -61,7 +61,7 @@ func TestLogAdminAction_Success(t *testing.T) {
 	// Verify the details were stored correctly
 	var detailsJSON string
 	err = s.Server.Tx.QueryRow(`
-		SELECT details::text FROM admin_audit_log
+		SELECT CAST(details AS text) FROM admin_audit_log
 		WHERE admin_user_id = 1
 		AND action = 'user.update'
 		LIMIT 1

@@ -23,7 +23,7 @@ func TestLinkFactToCardHandler(t *testing.T) {
 	var factID int
 	err := s.Server.Tx.QueryRow(`
         INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
-        VALUES ($1, $2, 'test fact', NOW(), NOW())
+        VALUES ($1, $2, 'test fact', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         RETURNING id
     `, 1, 1).Scan(&factID)
 	if err != nil {
@@ -39,11 +39,11 @@ func TestExtractSaveCardFacts_MultiCardFactPreserved(t *testing.T) {
 	// Insert a fact linked to two cards
 	var factID int
 	_ = s.Server.Tx.QueryRow(`INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
-                        VALUES (1, 1, 'shared fact', NOW(), NOW()) RETURNING id`).Scan(&factID)
+                        VALUES (1, 1, 'shared fact', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id`).Scan(&factID)
 	_, _ = s.Server.Tx.Exec(`INSERT INTO fact_card_junction (fact_id, card_pk, user_id, is_origin, created_at, updated_at)
-                       VALUES ($1, 1, 1, TRUE, NOW(), NOW())`, factID)
+                       VALUES ($1, 1, 1, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, factID)
 	_, _ = s.Server.Tx.Exec(`INSERT INTO fact_card_junction (fact_id, card_pk, user_id, is_origin, created_at, updated_at)
-                       VALUES ($1, 2, 1, FALSE, NOW(), NOW())`, factID)
+                       VALUES ($1, 2, 1, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, factID)
 
 	// Call ExtractSaveCardFacts on card 1
 	_, err := s.ExtractSaveCardFacts(1, 1, []string{})
@@ -75,9 +75,9 @@ func TestExtractSaveCardFacts_SingleCardFactDeleted(t *testing.T) {
 	// Insert a fact linked only to card 1
 	var factID int
 	_ = s.Server.Tx.QueryRow(`INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
-                        VALUES (1, 1, 'orphan fact', NOW(), NOW()) RETURNING id`).Scan(&factID)
+                        VALUES (1, 1, 'orphan fact', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id`).Scan(&factID)
 	_, _ = s.Server.Tx.Exec(`INSERT INTO fact_card_junction (fact_id, card_pk, user_id, is_origin, created_at, updated_at)
-                       VALUES ($1, 1, 1, TRUE, NOW(), NOW())`, factID)
+                       VALUES ($1, 1, 1, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, factID)
 
 	// Call ExtractSaveCardFacts on card 1
 	_, err := s.ExtractSaveCardFacts(1, 1, []string{})
@@ -106,9 +106,9 @@ func TestMergeFactsRoute_Success(t *testing.T) {
 
 	var fact1ID, fact2ID int
 	_ = s.Server.Tx.QueryRow(`INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
-					   VALUES (1, 1, 'fact 1', NOW(), NOW()) RETURNING id`).Scan(&fact1ID)
+					   VALUES (1, 1, 'fact 1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id`).Scan(&fact1ID)
 	_ = s.Server.Tx.QueryRow(`INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
-					   VALUES (1, 1, 'fact 2', NOW(), NOW()) RETURNING id`).Scan(&fact2ID)
+					   VALUES (1, 1, 'fact 2', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id`).Scan(&fact2ID)
 
 	token, _ := tests.GenerateTestJWT(1)
 	payload := fmt.Sprintf(`{"fact1_id": %d, "fact2_id": %d}`, fact1ID, fact2ID)
@@ -140,7 +140,7 @@ func TestMergeFactsRoute_SelfMergeError(t *testing.T) {
 
 	var factID int
 	_ = s.Server.Tx.QueryRow(`INSERT INTO facts (user_id, card_pk, fact, created_at, updated_at)
-					   VALUES (1, 1, 'fact x', NOW(), NOW()) RETURNING id`).Scan(&factID)
+					   VALUES (1, 1, 'fact x', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id`).Scan(&factID)
 
 	token, _ := tests.GenerateTestJWT(1)
 	payload := fmt.Sprintf(`{"fact1_id": %d, "fact2_id": %d}`, factID, factID)

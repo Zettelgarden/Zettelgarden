@@ -1144,3 +1144,23 @@ CREATE UNIQUE INDEX uq_file_tags_user_id_name ON file_tags (user_id, name);
 CREATE UNIQUE INDEX uq_user_llm_configurations_user_id_model_id ON user_llm_configurations (user_id, model_id);
 CREATE UNIQUE INDEX uq_user_memories_user_id ON user_memories (user_id);
 CREATE UNIQUE INDEX uq_users_caldav_token ON users (caldav_token);
+
+-- task_saved_searches: added by migration 0143-add-task-saved-searches.sql.
+-- This table was missing from the 2026-07-25 pg_dump snapshot used to seed the
+-- consolidated schema (the dev DB had not yet applied 0143); appended here in
+-- Phase 6a so the suite sees the expected shape. Translate rules: SERIAL ->
+-- INTEGER PRIMARY KEY AUTOINCREMENT, TIMESTAMPTZ -> DATETIME, NOW() ->
+-- datetime('now'), COMMENT ON dropped.
+CREATE TABLE IF NOT EXISTS task_saved_searches (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users (id),
+  name TEXT NOT NULL,
+  filter_string TEXT NOT NULL DEFAULT '',
+  sort_field TEXT NOT NULL DEFAULT 'priority',
+  sort_direction TEXT NOT NULL DEFAULT 'asc',
+  view_mode TEXT NOT NULL DEFAULT 'list',
+  created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+  updated_at DATETIME NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS task_saved_searches_user_id_idx ON task_saved_searches (user_id);

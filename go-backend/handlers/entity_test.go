@@ -172,7 +172,7 @@ func TestUpdateEntityDuplicateName(t *testing.T) {
 	// First create another entity with a known name, using a high ID to avoid conflicts
 	_, err := s.Server.Tx.Exec(`
 		INSERT INTO entities (id, user_id, name, description, type, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 		9999, 1, "Existing Entity", "Test description", "concept")
 	if err != nil {
 		t.Fatalf("Failed to create test entity: %v", err)
@@ -728,7 +728,7 @@ func TestMergeEntitiesPreservesCardPK(t *testing.T) {
 	// Create an entity with card_pk set
 	_, err = s.Server.Tx.Exec(`
 		INSERT INTO entities (id, user_id, name, description, type, card_pk, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+		VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 		100, 1, "Entity With Card", "Test description", "concept", cardID)
 	if err != nil {
 		t.Fatalf("Failed to create entity with card_pk: %v", err)
@@ -737,7 +737,7 @@ func TestMergeEntitiesPreservesCardPK(t *testing.T) {
 	// Create another entity without card_pk
 	_, err = s.Server.Tx.Exec(`
 		INSERT INTO entities (id, user_id, name, description, type, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 		101, 1, "Entity Without Card", "Test description", "concept")
 	if err != nil {
 		t.Fatalf("Failed to create entity without card_pk: %v", err)
@@ -788,7 +788,7 @@ func TestMergeEntitiesPreservesCardPKFromSecondEntity(t *testing.T) {
 	// Create an entity without card_pk
 	_, err = s.Server.Tx.Exec(`
 		INSERT INTO entities (id, user_id, name, description, type, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 		102, 1, "Entity Without Card", "Test description", "concept")
 	if err != nil {
 		t.Fatalf("Failed to create entity without card_pk: %v", err)
@@ -797,7 +797,7 @@ func TestMergeEntitiesPreservesCardPKFromSecondEntity(t *testing.T) {
 	// Create an entity with card_pk set
 	_, err = s.Server.Tx.Exec(`
 		INSERT INTO entities (id, user_id, name, description, type, card_pk, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+		VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 		103, 1, "Entity With Card", "Test description", "concept", cardID)
 	if err != nil {
 		t.Fatalf("Failed to create entity with card_pk: %v", err)
