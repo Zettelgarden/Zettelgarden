@@ -329,18 +329,28 @@ func GetNotificationPreferences(db Database, userID int) (*NotificationPreferenc
 	return &prefs, nil
 }
 
-// UpdateNotificationPreferences updates notification preferences for a user
+// UpdateNotificationPreferences upserts notification preferences for a user.
+//
+// This is an INSERT ... ON CONFLICT DO UPDATE (not a plain UPDATE) because the
+// row may not exist yet — there is no DB trigger that auto-creates it
+// (migration 0121 only backfills rows once at migration time, so users added
+// later — including all test users — have no prefs row until first write).
+// A plain UPDATE would silently affect 0 rows and the subsequent read would
+// return "no rows". The upsert works identically on Postgres and SQLite.
 func UpdateNotificationPreferences(db Database, userID int, prefs NotificationPreferences) error {
 	query := `
-		UPDATE notification_preferences
-		SET
+		INSERT INTO notification_preferences
+			(user_id, show_unprocessed_emails, show_starred_articles,
+			 show_priority_tasks, show_priority_feeds, items_per_page,
+			 created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		ON CONFLICT (user_id) DO UPDATE SET
 			show_unprocessed_emails = $2,
 			show_starred_articles = $3,
 			show_priority_tasks = $4,
 			show_priority_feeds = $5,
 			items_per_page = $6,
 			updated_at = CURRENT_TIMESTAMP
-		WHERE user_id = $1
 	`
 
 	_, err := db.Exec(query,

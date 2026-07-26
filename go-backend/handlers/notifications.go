@@ -235,21 +235,9 @@ func (h *Handler) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 
 	err := models.UpdateNotificationPreferences(h.GetDB(), userID, prefs)
 	if err != nil {
-		if strings.Contains(err.Error(), "no rows") {
-			// Preferences don't exist yet, create them
-			// This is handled by the trigger in the database
-			// For now, we'll update which will create the row
-			err := models.UpdateNotificationPreferences(h.GetDB(), userID, prefs)
-			if err != nil {
-				log.Printf("[notifications] failed to create preferences: %v", err)
-				http.Error(w, "Failed to create preferences", http.StatusInternalServerError)
-				return
-			}
-		} else {
-			log.Printf("[notifications] failed to update preferences: %v", err)
-			http.Error(w, "Failed to update preferences", http.StatusInternalServerError)
-			return
-		}
+		log.Printf("[notifications] failed to update preferences: %v", err)
+		http.Error(w, "Failed to update preferences", http.StatusInternalServerError)
+		return
 	}
 
 	// Get updated preferences to return

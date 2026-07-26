@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-07-26
 **Plan:** [`2026-07-17-postgres-to-sqlite-migration-design.md`](./2026-07-17-postgres-to-sqlite-migration-design.md)
-**Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2` (closed) · Phase 6a `Zettelgarden-j89` (in progress) · 6a follow-ups `Zettelgarden-qcb` (regex, closed) · `Zettelgarden-ilv` (prefs upsert) · `Zettelgarden-bto` (pool/tx audit) · `Zettelgarden-amt` (= ANY/array_position)
+**Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2` (closed) · Phase 6a `Zettelgarden-j89` (in progress) · 6a follow-ups `Zettelgarden-qcb` (closed) · `Zettelgarden-ilv` (closed) · `Zettelgarden-bto` (pool/tx audit) · `Zettelgarden-amt` (= ANY/array_position)
 
 ## TL;DR
 
@@ -14,10 +14,9 @@ Go. **Phase 6a (full test suite on SQLite) is in progress** and the bulk of
 the suite is already green: **12 of 14 Go packages pass against SQLite with no
 Postgres running**, including `services`, `handlers/admin`, `server`,
 `server_tests`, `schema/sqlite`, `models`, `routes`, `mail`, `utils`, `spike`,
-`services/backlink`, and `services/jobs`. Only `handlers` remains, with **9
-failing tests** (down from 11 this session — `TestGetNextRootCardID` and
-`TestGetNextRootCardIDRoute` fixed by `Zettelgarden-qcb`) — see *Phase 6a
-progress*.
+`services/backlink`, and `services/jobs`. Only `handlers` remains, with **8
+failing tests** (down from 11 — `qcb` fixed the root-card-id regex,
+`ilv` fixed the notification_preferences upsert) — see *Phase 6a progress*.
 
 ## Phase status
 
@@ -295,12 +294,15 @@ session). Mapped to beads issues:
   `TestCreateCardSuccessRecursiveTags`, and causes the `database is locked`
   cleanup in `TestGetNextChildCardID`. Fix = systematic audit routing handler
   writes through `GetDB()`.
-- **`Zettelgarden-ilv` — `notification_preferences` UPDATE is not an upsert.**
-  `UpdatePreferences` (`notifications.go:236`) comment says "handled by the
-  trigger" but no such trigger ever existed (0121 is a one-time backfill).
-  `UpdateNotificationPreferences` is a plain UPDATE → 0 rows on a missing
-  prefs row → post-update GET "no rows" → 500 (`TestUpdatePreferencesSuccess`).
-  Latent on both drivers. Fix = `INSERT ... ON CONFLICT (user_id) DO UPDATE`.
+- **FIXED `Zettelgarden-ilv` — `notification_preferences` UPDATE was not an
+  upsert.** `UpdatePreferences` (`notifications.go`) comment said "handled by
+  the trigger" but no such trigger ever existed (0121 is a one-time backfill).
+  `models.UpdateNotificationPreferences` was a plain UPDATE → 0 rows on a
+  missing prefs row → post-update GET "no rows" → 500
+  (`TestUpdatePreferencesSuccess`). Latent on both drivers. Fixed by making it
+  an `INSERT ... ON CONFLICT (user_id) DO UPDATE` (cross-driver) and dropping
+  the handler's dead "no rows" retry branch + misleading trigger comment.
+  Handlers failures 9 → 8.
 - **`Zettelgarden-amt` (already filed) — `= ANY($1)` + `array_position`**
   still in `handlers/{facts,entity}.go` (2 sites).
 - **NOT SQLite regressions (pre-existing, would fail on PG too):**
@@ -348,6 +350,7 @@ Code (all tested, all on `master`):
 | **Phase 5 (rss notifications, 2026-07-25)** | `services/rss_notifications.go` (`SyncRSSArticleNotification`, replaces `0124`) + wiring at rss_articles insert/star/unstar/read(single+feed+folder)/cleanup-delete; `models.DeleteNotificationBySource` (replaces `0122`); `schema/0146-drop-notification-triggers.sql` drops `0124`/`0123`/`0122`. Tests: `services/rss_notifications_sqlite_test.go` against the consolidated schema. |
 | **Boot-wiring follow-up (2026-07-25)** | `server/sqlite.go` `OpenSQLite` now `MkdirAll`s the `SQLITE_PATH` parent dir; `server/database.go` `RunMigrations` skips `.go` files under `SchemaDir`; `schema/sqlite/source/translate.py` adds `RUNNER_OWNED_TABLES={"migrations"}` (the runner bootstraps that table itself, so emitting it in the schema fatal'd the first boot with "table migrations already exists"); regenerated `schema.sqlite.sql` (73 → 72 tables). Tests: `server/database_sqlite_test.go` `TestRunMigrationsAppliesConsolidatedSchema` (real `./schema/sqlite` end-to-end) + `server/sqlite_test.go` `TestOpenSQLiteCreatesParentDir`. |
 | **Phase 6a fix `Zettelgarden-qcb` (2026-07-26)** | Removed the Postgres `~` regex from `GetNextRootCardID` (missed Phase-3 PG-ism; 2 sites — `services/cards.go` + the duplicate in `handlers/cards.go`). `services.GetNextRootCardID` now filters pure-numeric ids in Go (`regexp`) and is the single implementation; the handler copy delegates to it (dropped the `database/sql` import). Cross-driver; fixes a real post-cutover bug (new root ids would have collided on `"1"`). Unblocked `TestGetNextRootCardID` + `TestGetNextRootCardIDRoute` (handlers failures 11 → 9). |
+| **Phase 6a fix `Zettelgarden-ilv` (2026-07-26)** | `models.UpdateNotificationPreferences` is now an `INSERT ... ON CONFLICT (user_id) DO UPDATE` (was a plain UPDATE that no-op'd on the common no-row case — there is no auto-create trigger; 0121 is a one-time backfill, so any user added later had no prefs row). Cross-driver upsert; dropped the handler's dead `"no rows"` retry branch and the misleading "handled by the trigger" comment. Latent bug on both drivers; unblocked `TestUpdatePreferencesSuccess` (handlers failures 9 → 8). |
 
 Driver added: `modernc.org/sqlite v1.54.0`. Config flags: `DB_DRIVER`
 (default `postgres`), `SQLITE_PATH` (default `./data/zettelgarden.db`).
