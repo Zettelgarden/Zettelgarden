@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-07-26
 **Plan:** [`2026-07-17-postgres-to-sqlite-migration-design.md`](./2026-07-17-postgres-to-sqlite-migration-design.md)
-**Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2` (closed) · Phase 6a `Zettelgarden-j89` (in progress)
+**Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2` (closed) · Phase 6a `Zettelgarden-j89` (in progress) · 6a follow-ups `Zettelgarden-qcb` (regex, closed) · `Zettelgarden-ilv` (prefs upsert) · `Zettelgarden-bto` (pool/tx audit) · `Zettelgarden-amt` (= ANY/array_position)
 
 ## TL;DR
 
@@ -14,8 +14,10 @@ Go. **Phase 6a (full test suite on SQLite) is in progress** and the bulk of
 the suite is already green: **12 of 14 Go packages pass against SQLite with no
 Postgres running**, including `services`, `handlers/admin`, `server`,
 `server_tests`, `schema/sqlite`, `models`, `routes`, `mail`, `utils`, `spike`,
-`services/backlink`, and `services/jobs`. Only `handlers` remains, with 11
-failing tests (down from an initial 600s deadlock) — see *Phase 6a progress*.
+`services/backlink`, and `services/jobs`. Only `handlers` remains, with **9
+failing tests** (down from 11 this session — `TestGetNextRootCardID` and
+`TestGetNextRootCardIDRoute` fixed by `Zettelgarden-qcb`) — see *Phase 6a
+progress*.
 
 ## Phase status
 
@@ -269,17 +271,55 @@ vs `ConnectToDatabase`, `SchemaDir=…/schema/sqlite` for SQLite (loads
   `services.NewJobRunner(S.DB, nil)` (nil processor is safe — `execute()`
   recovers the panic).
 
-**Remaining 11 `handlers` failures (the continued long tail):**
-- Card-ID generation (3): `TestGetNextRootCardID{,Route}`, `TestGetNextChildCardID`
-  — "expected ID 11, got 1"; sequence / `MAX(id)+1` semantics under test-data
-  reduction.
-- `TestCreateCardLinkedParentId`, `TestGetRelatedCards_Success`,
-  `TestCreateCardSuccessRecursiveTags` (3) — card/fact/relation paths.
-- RSS (3): `Test{Star,Unstar,ListStarred}RSSArticleRoute` — "Failed to create
-  test feed: status 400".
-- `TestAuthResetPasswordAndLoginSuccess` (1) — login returns 401 after reset
-  (pool write visibility across the test tx).
-- `TestUpdatePreferencesSuccess` (1) — "Failed to get preferences".
+**Root-cause re-diagnosis (2026-07-26) + remaining 9 `handlers` failures:**
+the original 11 were grouped by symptom; re-running each isolated and
+tracing the code revealed 5 distinct root causes (one already fixed this
+session). Mapped to beads issues:
+
+- **FIXED `Zettelgarden-qcb` — Postgres `~` regex in `GetNextRootCardID`**
+  (missed Phase-3 PG-ism; the inventory checked `ARRAY[`/`= ANY` but not `~`).
+  2 sites (`services/cards.go`, `handlers/cards.go` — duplicate impls).
+  SQLite has no `~`; the query errored → empty → default `"1"` instead of
+  `MAX(numeric)+1`. **Real production bug post-cutover**, not just a test
+  failure. Fixed by pulling the digit filter into Go (`regexp`), deduping the
+  handler copy onto `services.GetNextRootCardID`. Unblocked
+  `TestGetNextRootCardID` + `TestGetNextRootCardIDRoute` (11 → 9).
+- **`Zettelgarden-bto` — handler pool-vs-test-tx write isolation (`s.DB` vs
+  `s.GetDB()`)** — the dominant remaining lever. Handlers are inconsistent
+  about which handle they use; `GetDB()` returns the rolled-back test tx, raw
+  `s.DB` commits for real. Confirmed case: `ResetPasswordRoute`
+  (`auth.go:197`) writes via `s.DB`, then `LoginRoute`→`QueryUserByEmail`
+  reads via `GetDB()` (tx snapshot from before the write) → old password → 401
+  (`TestAuthResetPasswordAndLoginSuccess`). Same leakage pollutes
+  `TestGetRelatedCards_Success`, `TestCreateCardLinkedParentId`,
+  `TestCreateCardSuccessRecursiveTags`, and causes the `database is locked`
+  cleanup in `TestGetNextChildCardID`. Fix = systematic audit routing handler
+  writes through `GetDB()`.
+- **`Zettelgarden-ilv` — `notification_preferences` UPDATE is not an upsert.**
+  `UpdatePreferences` (`notifications.go:236`) comment says "handled by the
+  trigger" but no such trigger ever existed (0121 is a one-time backfill).
+  `UpdateNotificationPreferences` is a plain UPDATE → 0 rows on a missing
+  prefs row → post-update GET "no rows" → 500 (`TestUpdatePreferencesSuccess`).
+  Latent on both drivers. Fix = `INSERT ... ON CONFLICT (user_id) DO UPDATE`.
+- **`Zettelgarden-amt` (already filed) — `= ANY($1)` + `array_position`**
+  still in `handlers/{facts,entity}.go` (2 sites).
+- **NOT SQLite regressions (pre-existing, would fail on PG too):**
+  - RSS (3): `Test{Star,Unstar,ListStarred}RSSArticleRoute` — `CreateRSSFeed`
+    calls `gofparse.ParseURL("https://example.com/feed.xml")` (404, no
+    network). Test needs a parser-interface mock.
+  - `TestCreateCardSuccessRecursiveTags` expects `200` from `CreateCardRoute`
+    but commit `561e51a2` deliberately returns `201` — stale expectation.
+  - `TestCreateCardLinkedParentId` expects `201` from `makeCardRequestSuccess`,
+    which does a GET — expectation is wrong (GET→200); passed on PG by ordering
+    luck.
+  These should be triaged separately so they don't masquerade as SQLite
+  failures.
+
+**Note on `TestGetNextChildCardID`:** a *different* function
+(`getNextChildCardID`) than the root-id one — it already uses Go-side `regexp`,
+so `Zettelgarden-qcb` did not apply. Its remaining failures (empty parent
+lookup, `999.6` vs `999.8`, `database is locked` cleanup) are the pool/tx
+isolation issue (`Zettelgarden-bto`), not a PG-ism.
 
 ## What's been built
 
@@ -307,6 +347,7 @@ Code (all tested, all on `master`):
 | **Phase 5 (user_stats core, 2026-07-25)** | `services/userstats.go` (replaces `0093` triggers) + wiring at cards/tasks/files/llm_query_log/revenue write sites; `services/jobrunner.go` CleanupStale now sets `updated_at`; `schema/0145-port-trigger-logic-to-go.sql` drops PG triggers `0093`/`0096`/`0102`/`0067`. Tests: `services/userstats_sqlite_test.go` + `cards_sqlite_test.go` card_count assertion. |
 | **Phase 5 (rss notifications, 2026-07-25)** | `services/rss_notifications.go` (`SyncRSSArticleNotification`, replaces `0124`) + wiring at rss_articles insert/star/unstar/read(single+feed+folder)/cleanup-delete; `models.DeleteNotificationBySource` (replaces `0122`); `schema/0146-drop-notification-triggers.sql` drops `0124`/`0123`/`0122`. Tests: `services/rss_notifications_sqlite_test.go` against the consolidated schema. |
 | **Boot-wiring follow-up (2026-07-25)** | `server/sqlite.go` `OpenSQLite` now `MkdirAll`s the `SQLITE_PATH` parent dir; `server/database.go` `RunMigrations` skips `.go` files under `SchemaDir`; `schema/sqlite/source/translate.py` adds `RUNNER_OWNED_TABLES={"migrations"}` (the runner bootstraps that table itself, so emitting it in the schema fatal'd the first boot with "table migrations already exists"); regenerated `schema.sqlite.sql` (73 → 72 tables). Tests: `server/database_sqlite_test.go` `TestRunMigrationsAppliesConsolidatedSchema` (real `./schema/sqlite` end-to-end) + `server/sqlite_test.go` `TestOpenSQLiteCreatesParentDir`. |
+| **Phase 6a fix `Zettelgarden-qcb` (2026-07-26)** | Removed the Postgres `~` regex from `GetNextRootCardID` (missed Phase-3 PG-ism; 2 sites — `services/cards.go` + the duplicate in `handlers/cards.go`). `services.GetNextRootCardID` now filters pure-numeric ids in Go (`regexp`) and is the single implementation; the handler copy delegates to it (dropped the `database/sql` import). Cross-driver; fixes a real post-cutover bug (new root ids would have collided on `"1"`). Unblocked `TestGetNextRootCardID` + `TestGetNextRootCardIDRoute` (handlers failures 11 → 9). |
 
 Driver added: `modernc.org/sqlite v1.54.0`. Config flags: `DB_DRIVER`
 (default `postgres`), `SQLITE_PATH` (default `./data/zettelgarden.db`).

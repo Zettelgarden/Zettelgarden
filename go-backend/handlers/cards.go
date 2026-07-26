@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -482,39 +481,19 @@ func (s *Handler) GetNextRootCardIDRoute(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(response)
 }
 
+// getNextRootCardID delegates to services.GetNextRootCardID so the numeric-id
+// logic (now driver-neutral — the Postgres '~' regex was pulled into Go) lives
+// in one place. Returns "1" if the service call fails for any reason.
 func (s *Handler) getNextRootCardID(userID int) string {
-	var result string
-
-	// Query to get the highest numeric card_id
-	query := `
-        SELECT card_id 
-        FROM cards 
-        WHERE user_id = $1 
-        AND is_deleted = FALSE 
-        AND card_id ~ '^[0-9]+$'  -- Only match pure numeric card_ids
-        ORDER BY CAST(card_id AS INTEGER) DESC
-        LIMIT 1
-    `
-
-	err := s.GetDB().QueryRow(query, userID).Scan(&result)
-	if err != nil && err != sql.ErrNoRows {
-		log.Printf("Error finding next root card ID: %v", err)
-		return "1" // Default to 1 if there's an error
-	}
-
-	if result == "" {
-		return "1" // If no cards exist, start with 1
-	}
-
-	// Convert the highest card_id to int and increment
-	highestNumber, err := strconv.Atoi(result)
+	id, err := services.GetNextRootCardID(s.GetDB(), userID)
 	if err != nil {
-		log.Printf("Error converting card_id to number: %v", err)
+		log.Printf("Error finding next root card ID: %v", err)
 		return "1"
 	}
-
-	nextNumber := highestNumber + 1
-	return strconv.Itoa(nextNumber)
+	if id == "" {
+		return "1"
+	}
+	return id
 }
 
 func (s *Handler) GetNextChildCardIDRoute(w http.ResponseWriter, r *http.Request) {

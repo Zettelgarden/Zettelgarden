@@ -797,36 +797,52 @@ func checkIsCardIDUnique(db models.Database, userID int, cardID string) bool {
 	}
 }
 
-// getNextRootCardID generates the next root card ID for a user
-func GetNextRootCardID(db models.Database, userID int) (string, error) {
-	var result string
+// numericCardIDRe matches pure-numeric card_ids (e.g. "1", "42"). Used by
+// GetNextRootCardID to ignore alphanumeric ids like "REF001" or "1/A".
+//
+// The filter is applied in Go rather than SQL because the Postgres '~' regex
+// operator and SQLite's REGEXP function are not portable across drivers.
+var numericCardIDRe = regexp.MustCompile(`^[0-9]+$`)
 
-	// Query to get the highest numeric card_id
-	query := `
+// GetNextRootCardID generates the next root card ID for a user: the highest
+// existing numeric card_id plus one (defaulting to "1" when there are none).
+// Non-numeric card_ids are ignored.
+func GetNextRootCardID(db models.Database, userID int) (string, error) {
+	rows, err := db.Query(`
         SELECT card_id
         FROM cards
         WHERE user_id = $1
         AND is_deleted = FALSE
-        AND card_id ~ '^[0-9]+$'  -- Only match pure numeric card_ids
-        ORDER BY CAST(card_id AS INTEGER) DESC
-        LIMIT 1
-    `
-
-	err := db.QueryRow(query, userID).Scan(&result)
-	if err != nil && err != sql.ErrNoRows {
+    `, userID)
+	if err != nil {
 		log.Printf("Error finding next root card ID: %v", err)
 		return "1", nil // Default to 1 if there's an error
 	}
+	defer rows.Close()
 
-	if result == "" {
-		return "1", nil // If no cards exist, start with 1
+	highestNumber := 0
+	found := false
+	for rows.Next() {
+		var cardID string
+		if err := rows.Scan(&cardID); err != nil {
+			continue
+		}
+		// Ignore non-numeric ids; only pure digits participate in the max.
+		if !numericCardIDRe.MatchString(cardID) {
+			continue
+		}
+		n, err := strconv.Atoi(cardID)
+		if err != nil {
+			continue
+		}
+		if n > highestNumber {
+			highestNumber = n
+			found = true
+		}
 	}
 
-	// Convert the highest card_id to int and increment
-	highestNumber, err := strconv.Atoi(result)
-	if err != nil {
-		log.Printf("Error converting card_id to number: %v", err)
-		return "1", nil
+	if !found {
+		return "1", nil // If no numeric cards exist, start with 1
 	}
 
 	return strconv.Itoa(highestNumber + 1), nil
