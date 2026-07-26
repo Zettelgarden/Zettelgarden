@@ -16,19 +16,19 @@ const (
 
 // Notification represents a unified notification from email, RSS, or tasks
 type Notification struct {
-	ID               int        `json:"id"`
-	UserID           int        `json:"user_id"`
-	SourceType       string     `json:"source_type"`       // "rss", "task"
-	SourceID         int        `json:"source_id"`         // ID of the source record
-	Title            string     `json:"title"`             // Email subject, article title, or task title
-	Preview          *string    `json:"preview,omitempty"` // Preview text (email body, article content, task notes)
-	Timestamp        time.Time  `json:"timestamp"`         // When the source item was created/received
-	ImportanceScore  int        `json:"importance_score"`  // Computed score for sorting
-	IsRead           bool           `json:"is_read"`           // Whether the user has read this notification
-	IsArchived       bool           `json:"is_archived"`       // Whether the user has archived this notification
-	FilterTags       pq.StringArray `json:"filter_tags"`       // Tags for filtering (e.g., ["unprocessed", "starred", "priority"])
-	CreatedAt        time.Time      `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	ID              int            `json:"id"`
+	UserID          int            `json:"user_id"`
+	SourceType      string         `json:"source_type"`       // "rss", "task"
+	SourceID        int            `json:"source_id"`         // ID of the source record
+	Title           string         `json:"title"`             // Email subject, article title, or task title
+	Preview         *string        `json:"preview,omitempty"` // Preview text (email body, article content, task notes)
+	Timestamp       time.Time      `json:"timestamp"`         // When the source item was created/received
+	ImportanceScore int            `json:"importance_score"`  // Computed score for sorting
+	IsRead          bool           `json:"is_read"`           // Whether the user has read this notification
+	IsArchived      bool           `json:"is_archived"`       // Whether the user has archived this notification
+	FilterTags      pq.StringArray `json:"filter_tags"`       // Tags for filtering (e.g., ["unprocessed", "starred", "priority"])
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 }
 
 // NotificationPreferences represents user preferences for the unified inbox
@@ -363,6 +363,18 @@ func DeleteNotification(db Database, notificationID, userID int) error {
 	`
 
 	_, err := db.Exec(query, notificationID, userID)
+	return err
+}
+
+// DeleteNotificationBySource removes the notification for a given source
+// (user_id + source_type + source_id). Mirrors the Postgres delete_notification()
+// trigger helper (schema/0122) used by the rss/email AFTER DELETE triggers,
+// now ported to Go (Phase 5). Runs on both drivers.
+func DeleteNotificationBySource(db Database, userID int, sourceType string, sourceID int) error {
+	_, err := db.Exec(
+		`DELETE FROM notifications WHERE user_id = $1 AND source_type = $2 AND source_id = $3`,
+		userID, sourceType, sourceID,
+	)
 	return err
 }
 

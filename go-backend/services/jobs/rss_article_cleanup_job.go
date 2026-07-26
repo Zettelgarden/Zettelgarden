@@ -73,6 +73,23 @@ func (j *RSSArticleCleanupJob) Handler(ctx context.Context) error {
 	// Delete old articles that are not starred and not converted to cards.
 	// App-side cutoff because SQLite has no INTERVAL. See migration design P3.
 	articleCutoff := time.Now().UTC().AddDate(0, 0, -j.retentionDays)
+
+	// Notifications were trigger-maintained (0122/0124); now maintained in Go
+	// (Phase 5). Remove notifications for the articles about to be deleted —
+	// this MUST run before the article DELETE because the selection is over
+	// rss_articles. Cross-driver: IN (subquery) works on Postgres and SQLite.
+	if _, err := j.db.ExecContext(ctx, `
+		DELETE FROM notifications
+		WHERE source_type = 'rss'
+		  AND source_id IN (
+		    SELECT id FROM rss_articles
+		    WHERE fetched_at < $1 AND is_starred = false AND card_id IS NULL
+		  )
+	`, articleCutoff); err != nil {
+		log.Printf("[rss-article-cleanup] failed to delete notifications: %v", err)
+		// Non-fatal: still delete the articles.
+	}
+
 	result, err := j.db.ExecContext(ctx, `
 		DELETE FROM rss_articles
 		WHERE fetched_at < $1

@@ -416,6 +416,11 @@ func MarkRSSArticleAsRead(db models.Database, userID, articleID int, read bool) 
 		return fmt.Errorf("article not found")
 	}
 
+	// Notification was trigger-maintained (0124); now maintained in Go (Phase 5).
+	if art, err := GetRSSArticleByID(db, userID, articleID); err == nil {
+		SyncRSSArticleNotification(db, art)
+	}
+
 	return nil
 }
 
@@ -434,6 +439,9 @@ func MarkRSSFeedAsRead(db models.Database, userID, feedID int) error {
 		return fmt.Errorf("feed not found or no articles to mark")
 	}
 
+	// Notification was trigger-maintained (0124); now maintained in Go (Phase 5).
+	syncRSSArticleNotificationsByPredicate(db, userID, "feed_id = $2", feedID)
+
 	return nil
 }
 
@@ -451,6 +459,9 @@ func MarkRSSFolderAsRead(db models.Database, userID int, folderName string) erro
 	if rows == 0 {
 		return fmt.Errorf("folder not found or no articles to mark")
 	}
+
+	// Notification was trigger-maintained (0124); now maintained in Go (Phase 5).
+	syncRSSArticleNotificationsByPredicate(db, userID, "feed_id IN (SELECT id FROM rss_feeds WHERE folder = $2 AND user_id = $1)", folderName)
 
 	return nil
 }
@@ -634,14 +645,21 @@ func FetchRSSFeedArticles(db models.Database, feedID int) error {
 			// Continue anyway - this is not critical
 		}
 
-		// Insert article
-		_, err = db.Exec(`
+		// Insert article (RETURNING id so the notification sync can fetch its state).
+		var articleID int
+		err = db.QueryRow(`
 			INSERT INTO rss_articles (user_id, feed_id, title, content, author, url, published_at)
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
-		`, feed.UserID, feed.ID, item.Title, content, author, item.Link, publishedAt)
+			RETURNING id
+		`, feed.UserID, feed.ID, item.Title, content, author, item.Link, publishedAt).Scan(&articleID)
 		if err != nil {
 			log.Printf("[rss-feed:%d] failed to insert article: %v", feedID, err)
 			continue
+		}
+
+		// Notification was trigger-maintained (0124); now maintained in Go (Phase 5).
+		if art, err := GetRSSArticleByID(db, feed.UserID, articleID); err == nil {
+			SyncRSSArticleNotification(db, art)
 		}
 
 		newArticles++
@@ -777,9 +795,9 @@ func DeleteRSSFolder(db models.Database, userID, folderID int) error {
 
 // UnreadCount represents unread count for a feed or folder
 type UnreadCount struct {
-	FeedID  *int    `json:"feed_id,omitempty"`
-	Folder  *string `json:"folder,omitempty"`
-	Count   int     `json:"count"`
+	FeedID *int    `json:"feed_id,omitempty"`
+	Folder *string `json:"folder,omitempty"`
+	Count  int     `json:"count"`
 }
 
 // GetUnreadCounts returns unread article counts grouped by feed and folder

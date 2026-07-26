@@ -664,6 +664,11 @@ func (h *Handler) StarRSSArticleRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Notification was trigger-maintained (0124); now maintained in Go (Phase 5).
+	if art, err := services.GetRSSArticleByID(h.GetDB(), userID, articleID); err == nil {
+		services.SyncRSSArticleNotification(h.GetDB(), art)
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -685,6 +690,11 @@ func (h *Handler) UnstarRSSArticleRoute(w http.ResponseWriter, r *http.Request) 
 		log.Printf("Error unstarring article: %v", err)
 		http.Error(w, "Failed to unstar article", http.StatusInternalServerError)
 		return
+	}
+
+	// Notification was trigger-maintained (0124); now maintained in Go (Phase 5).
+	if art, err := services.GetRSSArticleByID(h.GetDB(), userID, articleID); err == nil {
+		services.SyncRSSArticleNotification(h.GetDB(), art)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
