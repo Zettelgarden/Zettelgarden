@@ -1,7 +1,6 @@
 package services
 
 import (
-	"database/sql"
 	"fmt"
 	"go-backend/models"
 	"log"
@@ -359,18 +358,13 @@ func GetCompleteTaskStatus(db models.Database, userID int) (models.TaskStatus, e
 	return status, nil
 }
 
-// ReorderTaskStatuses updates the position of multiple statuses
-// Note: This function begins its own transaction, so it needs *sql.DB, not models.Database
-func ReorderTaskStatuses(db *sql.DB, userID int, statusIDs []int) error {
-	// Use a transaction to ensure atomicity
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
+// ReorderTaskStatuses updates the position of multiple statuses.
+// It runs on the caller-supplied handle (a *sql.Tx in tests, the pool or a
+// handler-managed transaction in prod) so the writes participate in the
+// caller's transaction and roll back under the test harness.
+func ReorderTaskStatuses(db models.Database, userID int, statusIDs []int) error {
 	// First, set all positions to negative values to avoid conflicts
-	_, err = tx.Exec(`
+	_, err := db.Exec(`
 		UPDATE task_statuses
 		SET position = -position - 1
 		WHERE user_id = $1
@@ -382,7 +376,7 @@ func ReorderTaskStatuses(db *sql.DB, userID int, statusIDs []int) error {
 
 	// Now update each status with its new position
 	for i, statusID := range statusIDs {
-		_, err := tx.Exec(`
+		_, err := db.Exec(`
 			UPDATE task_statuses
 			SET position = $1, updated_at = CURRENT_TIMESTAMP
 			WHERE id = $2 AND user_id = $3
@@ -393,7 +387,7 @@ func ReorderTaskStatuses(db *sql.DB, userID int, statusIDs []int) error {
 		}
 	}
 
-	return tx.Commit()
+	return nil
 }
 
 // ValidateTaskStatus checks if a status name is valid for a user

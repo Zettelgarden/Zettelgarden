@@ -9,7 +9,7 @@ type FactCardJunction struct {
 	CardID int64 `db:"card_pk" json:"card_pk"`
 }
 
-func LinkFactToCard(db *sql.DB, factID, cardID int64, userID int) error {
+func LinkFactToCard(db Database, factID, cardID int64, userID int) error {
 	_, err := db.Exec(`
 		INSERT INTO fact_card_junction(fact_id, card_pk, user_id, is_origin, created_at, updated_at)
 		VALUES ($1, $2, $3, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)

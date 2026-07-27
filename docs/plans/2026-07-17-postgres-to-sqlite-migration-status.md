@@ -1,22 +1,24 @@
 # PostgreSQL → SQLite Migration — Status
 
-**Last updated:** 2026-07-26
+**Last updated:** 2026-07-27
 **Plan:** [`2026-07-17-postgres-to-sqlite-migration-design.md`](./2026-07-17-postgres-to-sqlite-migration-design.md)
-**Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2` (closed) · Phase 6a `Zettelgarden-j89` (in progress) · 6a follow-ups `Zettelgarden-qcb` (closed) · `Zettelgarden-ilv` (closed) · `Zettelgarden-amt` (closed) · `Zettelgarden-bto` (pool/tx audit, remaining)
+**Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2` (closed) · Phase 6a `Zettelgarden-j89` (closed) · 6a follow-ups `Zettelgarden-qcb` (closed) · `Zettelgarden-ilv` (closed) · `Zettelgarden-amt` (closed) · `Zettelgarden-bto` (closed)
 
 ## TL;DR
 
-Implementation is underway. **Phases 0, 1, 2, 3, 5 done.** Every high-risk
+Implementation is underway. **Phases 0, 1, 2, 3, 5, and 6a done.** Every high-risk
 *unknown* was resolved empirically in Phase 1 (which shrank the plan), Phase 2
 produced the validated consolidated SQLite schema, Phase 3 swept the Go query
-code clean of every remaining PG-ism, and Phase 5 ported the live triggers to
-Go. **Phase 6a (full test suite on SQLite) is in progress** and the bulk of
-the suite is already green: **12 of 14 Go packages pass against SQLite with no
-Postgres running**, including `services`, `handlers/admin`, `server`,
-`server_tests`, `schema/sqlite`, `models`, `routes`, `mail`, `utils`, `spike`,
-`services/backlink`, and `services/jobs`. Only `handlers` remains, with **8
-failing tests** (down from 11 — `qcb` fixed the root-card-id regex,
-`ilv` fixed the notification_preferences upsert) — see *Phase 6a progress*.
+code clean of every remaining PG-ism, Phase 5 ported the live triggers to Go,
+and **Phase 6a is complete: `go test ./...` is green against SQLite with no
+Postgres running — all 14 Go packages pass** (`handlers`, `handlers/admin`,
+`mail`, `models`, `routes`, `schema/sqlite`, `server`, `server_tests`,
+`services`, `services/backlink`, `services/jobs`, `spike`, `utils`, plus the
+root package). The last session closed the pool-vs-test-tx audit
+(`Zettelgarden-bto`) and fixed the remaining pre-existing (non-SQLite) test
+expectations. **Next: Phase 6b (ETL tool) + 6c (verification gates) + cutover.**
+
+See *Phase 6a complete (2026-07-27)* for this session's detail.
 
 ## Phase status
 
@@ -28,7 +30,7 @@ failing tests** (down from 11 — `qcb` fixed the root-card-id regex,
 | 3 — Query translation | ✅ **Done** | All remaining non-test PG-isms eliminated. `NOW()`→`CURRENT_TIMESTAMP` (~70 sites, ~27 files; pure replacement, identical on both drivers — see **D7**); `NOW()-INTERVAL`→app-side `time.Now().UTC().AddDate(...)` bound as a param; `ILIKE`→`LIKE` (5 files); `::` casts removed (`services/stats.go` rewritten to drop `generate_series`/`AT TIME ZONE`, bucketing via `substr(cast(col as text),1,10)`). Backend compiles; `go vet` clean (2 pre-existing unrelated `oauth.go` warnings); idiom smoke test (`schema/sqlite/phase3_idioms_test.go`) + all Phase 1/2 SQLite tests green. Full DB-backed suite validation deferred to Phase 6a. |
 | 4 — Consolidate cmd binaries | ⬜ Deferred | Optional; **verified not needed** for Phase 5 — the cmd/* and scripts/* binaries write none of the trigger-affected tables (cards/tasks/files/revenue/llm_query_log/rss), so services-layer wiring reaches every write path |
 | 5 — Triggers → Go | ✅ **Done** | All 7 trigger files handled. **Live:** user_stats counters + llm_jobs.updated_at + rss notifications ported to Go on BOTH drivers (decision 3b); migrations 0145/0146 drop the replaced PG triggers. **Dead (dropped, no port):** chat timestamp (no Go chat writer), llm_jobs pg_notify (no LISTEN), email notification sync (email abandoned). See *Phase 5 progress* below. |
-| 6a — Test infra (suite on SQLite) | 🔄 **In progress** | 12/14 packages green vs SQLite (no PG). `tests/conftest.go` branches on driver (`DB_DRIVER=sqlite` default, temp file-backed DB so WAL engages), skips the PG-only `ResetDatabase`, and guards the one `setval`. `handlers` remains: 11 failures (was a 600s deadlock). See *Phase 6a progress*. |
+| 6a — Test infra (suite on SQLite) | ✅ **Done** | All 14 Go packages green vs SQLite (no PG). `go test ./...` exits clean. `tests/conftest.go` branches on driver (`DB_DRIVER=sqlite` default, temp file-backed DB so WAL engages), skips the PG-only `ResetDatabase`, and guards the one `setval`. Pool-vs-test-tx audit (`bto`) complete: all handler request-scoped reads/writes routed through `GetDB()`, 15 test-layer `services.*(s.DB)` calls moved to the rolled-back tx, `ReorderTaskStatuses` refactored off its own `Begin()` onto a handler-managed tx. Remaining `s.DB` sites are the documented legit-pool-only set (fire-and-forget timestamps, Stripe/OAuth callbacks, LLM-client ctor). Pre-existing non-SQLite test bugs also fixed: stale `201`/`200` expectations, `getNextChildCardID` majority-sep expectation, and RSS tests de-networked via an injectable `services.FeedParser`. |
 | 6b/6c — ETL + cutover | ⬜ Not started | Highest-stakes phase; data-continuity protections in runbook |
 | 7a/7b — Cleanup & rollout | ⬜ Not started | Split per D6 |
 
@@ -347,6 +349,75 @@ so `Zettelgarden-qcb` did not apply. Its remaining failures (empty parent
 lookup, `999.6` vs `999.8`, `database is locked` cleanup) are the pool/tx
 isolation issue (`Zettelgarden-bto`), not a PG-ism.
 
+## Phase 6a complete (2026-07-27)
+
+**`go test ./...` is green against SQLite with no Postgres running — all 14
+Go packages pass.** Phase 6a acceptance criterion met. This session cleared
+the last 7 `handlers` failures (the suite went 12/14 → 14/14 packages).
+
+**`Zettelgarden-bto` Part 2 — the pool-vs-test-tx audit (the dominant lever):**
+the all-or-nothing fix described in the `bto` notes. Done as a single coherent
+change so tx-local writes are visible to tx reads AND nothing leaks across
+tests:
+
+- **Service signature widening (`*sql.DB` → `models.Database`)** so handlers can
+  pass `s.GetDB()` (the interface; satisfied by both `*sql.DB` and `*sql.Tx`):
+  `models.LinkFactToCard`, `services.GetUserMemory` / `UpdateUserMemory`, the
+  `handlers` memory wrappers, and `services.ReorderTaskStatuses` (the last
+  refactored off its own `db.Begin()` onto a handler-managed `BeginTx` /
+  `ShouldCommitTx` for atomicity — calling `Begin()` on a `*sql.Tx` does not
+  compile). Verified none of the interface-typed services call `db.Begin()`
+  internally (only `ReorderTaskStatuses` did).
+- **Handler `s.DB` → `s.GetDB()`** for every request-scoped read/write across
+  `cards`, `api_keys`, `auth` (reads), `facts` (`LinkFactToCard`), `memory`
+  (routes), `pins`, `schemas`, `search`, `stats`, `tasks`, `task_statuses`.
+  Production behavior is unchanged (`GetDB()` returns the pool when not
+  testing); only the test path changes (writes now join the rolled-back tx).
+- **15 test-layer `services.CreateCard/UpdateCard(s.DB, ...)` → `s.GetDB()`**
+  in `cards_test.go` — these were the prime source of `entity_card_junction`
+  pollution that broke `TestGetRelatedCards_Success`. (The bto notes' warning
+  that converting tests alone regressed `TestCheckChunkLinkedOrRelated_Integration`
+  was respected: the handler read sweep landed in the same change, so tx-local
+  creates are visible to tx reads.)
+- **Documented the convention** on `Handler.GetDB()`: request-scoped work uses
+  `GetDB()`; raw `s.DB` is reserved for the legit-pool-only set — fire-and-forget
+  audit timestamps (`last_login` / `last_seen` / `last_used_at` / `last_memory_job_id`),
+  external callbacks with no request tx (Stripe webhooks, GitHub OAuth), and
+  `services.NewDefaultClient` / `services.GetEntities` (typed `*sql.DB`).
+
+**Pre-existing (non-SQLite) test bugs fixed (the "triage separately" bucket):**
+these were never SQLite regressions; they masqueraded as such because the
+suite only became exhaustive once it ran on SQLite.
+
+- **`TestGetRelatedCards_Success`** — unblocked purely by the `bto` pollution
+  fix above (no other change needed; `GetRelatedCardsRoute` already used
+  `GetDB()`).
+- **`TestGetNextChildCardID`** — re-diagnosed. The `bto` notes called
+  `999.6` vs `999.8` "pool/tx pollution"; it is actually a **stale test
+  expectation**. `GetChildCards` is driver-neutral SQL and `getNextChildCardID`
+  is pure Go on the returned slice, so the result is driver-independent.
+  Commit `f513b84b` intentionally changed the function to **majority-separator
+  scheme detection** (3 of 4 children use `.` → the `/7` outlier is a different
+  scheme and must not perturb the `.` max of 5) without updating this test.
+  Fixed the expectation to `999.6` (analogous to the other stale-expectation
+  cases), with a comment explaining the majority-scheme rule.
+- **`TestCreateCardLinkedParentId`** — its first block does a **GET** (fetch
+  card 4 as the parent) but asserted `201 Created`; corrected to `200 OK`.
+- **`TestCreateCardSuccessRecursiveTags`** — POSTs to `CreateCardRoute`, which
+  has deliberately returned `201` since `561e51a2`; updated the stale `200`
+  expectation to `201`.
+- **RSS tests (`Test{Star,Unstar,ListStarred}RSSArticleRoute`)** — two latent
+  bugs, both fixed: (1) `CreateRSSFeed` hit the network via a locally-constructed
+  `gofeed.Parser`; introduced an injectable `services.FeedParser` (`RSSParser`
+  interface + `realFeedParser` default) used by both `CreateRSSFeed` and the
+  fetch job, and a `useFakeRSSParser(t)` test helper that swaps in a
+  network-free fake with `t.Cleanup` restore. (2) the tests built the article
+  URL with `string(rune(articleID))` (→ a control char like `"\x01"`), which
+  `strconv.Atoi` rejects → `400`; corrected to `strconv.Itoa(articleID)`.
+
+**Result:** `handlers` 7 → 0 failures; full suite green. `go vet` clean except
+the 2 pre-existing unrelated `oauth.go` warnings; `go build ./...` clean.
+
 ## What's been built
 
 Code (all tested, all on `master`):
@@ -381,26 +452,30 @@ Code (all tested, all on `master`):
 Driver added: `modernc.org/sqlite v1.54.0`. Config flags: `DB_DRIVER`
 (default `postgres`), `SQLITE_PATH` (default `./data/zettelgarden.db`).
 
-## What's next (Phase 5 / 6)
+## What's next (Phase 6b / 6c / 7)
 
-Phase 3 is **done** — the Go query code is now driver-neutral (runs unchanged
-on Postgres pre-cutover and SQLite post-cutover).
+Phases 0–5 and 6a are **done**. The Go query code is driver-neutral (runs
+unchanged on Postgres pre-cutover and SQLite post-cutover), the triggers are
+ported to Go, and **the full test suite is green on SQLite with no Postgres**.
 
-1. **Phase 4 (cmd-binary consolidation) — optional, can defer.** Folding
+1. **Phase 6b — ETL tool (`cmd/migrate-pg-to-sqlite/`).** Reads live PG tables
+   (via `lib/pq`) → writes SQLite (via modernc), in FK-dependency order,
+   preserving PKs verbatim. Pure-Go — no CGO fallback needed (15k cards in
+   ~0.8s per the Phase 1 bulk probe). Idempotent / re-runnable. Develop against
+   a **copy** of Postgres, never the live DB.
+2. **Phase 6c — verification gates** (the actual "is it safe" checks): per-table
+   row counts, PK stats, graph-integrity spot check (~20 cards diffed API-vs-API
+   between PG and SQLite), frontend smoke.
+3. **Phase 4 (cmd-binary consolidation) — still optional / can defer.** Folding
    `cmd/{reminders,userMemoryMaintenance,deduplication}` into the in-process
-   scheduler is low priority for single-user, but is a correctness
-   prerequisite for Phase 5 (trigger logic must reach all write paths). If
-   deferred, Phase 5's trigger logic must live in a shared `services/` package
-   every writer imports.
-2. **Phase 5 (triggers → Go) — next substantive phase.** Port the 7 Postgres
-   trigger files (`0093` user-stats, `0067`, `0096`/`0102` llm_jobs, `0122`/`0123`
-   email-notify, `0124` rss-notify) into Go. Notification + user-stats behavior
-   must reach every write path.
-3. **Phase 6 (tests + ETL + cutover) — highest-stakes.** (6a) rewrite
-   `tests/conftest.go` for SQLite and run the full suite green; (6b) build the
-   pure-Go ETL (`lib/pq`→modernc; no CGO fallback needed — 15k cards in ~0.8s);
-   (6c) verification gates. Data-continuity protections live in the Cutover
-   Runbook.
+   scheduler is low priority for single-user. Verified not needed for Phase 5
+   (those binaries write none of the trigger-affected tables).
+4. **Phase 7a/7b — cleanup & rollout** (split per D6): at cutover, move the last
+   `sql.Open("postgres", …)` sites behind the driver abstraction, remove PG
+   from docker/env; ~2 weeks later drop `lib/pq` and decommission Postgres.
+
+Data-continuity protections live in the Cutover Runbook (final `pg_dump` as
+insurance, Postgres kept read-only ≥2 weeks as fallback).
 
 ## Open questions for Nick
 

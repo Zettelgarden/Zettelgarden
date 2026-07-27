@@ -46,19 +46,19 @@ func (s *Handler) GenerateMemory(userID uint, cardContent string) {
 }
 
 // GetUserMemory is a wrapper for services.GetUserMemory for backward compatibility
-func GetUserMemory(db *sql.DB, userID int) (string, error) {
+func GetUserMemory(db models.Database, userID int) (string, error) {
 	return services.GetUserMemory(db, userID)
 }
 
 // UpdateUserMemory is a wrapper for services.UpdateUserMemory for backward compatibility
-func UpdateUserMemory(db *sql.DB, userID int, memory string) error {
+func UpdateUserMemory(db models.Database, userID int, memory string) error {
 	return services.UpdateUserMemory(db, userID, memory)
 }
 
 func (s *Handler) GetUserMemoryRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
-	memory, err := GetUserMemory(s.DB, userID)
+	memory, err := GetUserMemory(s.GetDB(), userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -90,7 +90,7 @@ func (s *Handler) UpdateUserMemoryRoute(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Update memory in database
-	err = UpdateUserMemory(s.DB, userID, requestData.Memory)
+	err = UpdateUserMemory(s.GetDB(), userID, requestData.Memory)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

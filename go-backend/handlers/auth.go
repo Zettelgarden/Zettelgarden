@@ -349,7 +349,7 @@ func (s *Handler) APIKeyOrJWTMiddleware(next http.HandlerFunc) http.HandlerFunc 
 		if len(tokenStr) == 32 {
 			// Looks like an API key, check how many keys exist in DB
 			var count int
-			s.DB.QueryRow("SELECT COUNT(*) FROM api_keys WHERE is_active = true").Scan(&count)
+			s.GetDB().QueryRow("SELECT COUNT(*) FROM api_keys WHERE is_active = true").Scan(&count)
 			log.Printf("DEBUG: Found %d active API keys in database", count)
 		}
 
@@ -380,7 +380,7 @@ func (s *Handler) validateJWTToken(tokenStr string) (int, error) {
 // For agents, the API key ID will be negative to distinguish from regular API keys
 func (s *Handler) validateAPIKey(apiKey string) (int, int, error) {
 	// First check regular API keys from api_keys table
-	rows, err := s.DB.Query(`
+	rows, err := s.GetDB().Query(`
 		SELECT id, user_id, key_hash
 		FROM api_keys
 		WHERE is_active = true
@@ -410,7 +410,7 @@ func (s *Handler) validateAPIKey(apiKey string) (int, int, error) {
 	}
 
 	// If not found in regular API keys, check agent API keys from users table
-	agentRows, err := s.DB.Query(`
+	agentRows, err := s.GetDB().Query(`
 		SELECT id, api_key_hash, owner_user_id
 		FROM users
 		WHERE is_agent = TRUE AND api_key_hash IS NOT NULL

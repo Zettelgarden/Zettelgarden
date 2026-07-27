@@ -3,13 +3,34 @@ package handlers
 import (
 	"encoding/json"
 	"go-backend/models"
+	"go-backend/services"
 	"go-backend/tests"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/mmcdole/gofeed"
 )
+
+// fakeFeedParser is a network-free stand-in for services.FeedParser. It returns
+// a minimal valid feed so CreateRSSFeedRoute succeeds without hitting the
+// network in tests.
+type fakeFeedParser struct{}
+
+func (fakeFeedParser) ParseURL(url string) (*gofeed.Feed, error) {
+	return &gofeed.Feed{Title: "Test Feed"}, nil
+}
+
+// useFakeRSSParser swaps in a network-free RSS parser for the duration of the
+// test (restored automatically). Lets CreateRSSFeedRoute succeed offline.
+func useFakeRSSParser(t *testing.T) {
+	t.Helper()
+	orig := services.FeedParser
+	services.FeedParser = fakeFeedParser{}
+	t.Cleanup(func() { services.FeedParser = orig })
+}
 
 func TestListRSSFeedsRoute(t *testing.T) {
 	s := NewHandler()
@@ -105,6 +126,7 @@ func TestListRSSFoldersRoute(t *testing.T) {
 func TestStarRSSArticleRoute(t *testing.T) {
 	s := NewHandler()
 	defer tests.Teardown()
+	useFakeRSSParser(t)
 
 	token, _ := tests.GenerateTestJWT(1)
 
@@ -137,7 +159,7 @@ func TestStarRSSArticleRoute(t *testing.T) {
 	}
 
 	// Test starring the article
-	starReq, _ := http.NewRequest("POST", "/api/rss/articles/"+string(rune(articleID))+"/star", nil)
+	starReq, _ := http.NewRequest("POST", "/api/rss/articles/"+strconv.Itoa(articleID)+"/star", nil)
 	starReq.Header.Set("Authorization", "Bearer "+token)
 
 	starRR := httptest.NewRecorder()
@@ -151,7 +173,7 @@ func TestStarRSSArticleRoute(t *testing.T) {
 
 	// Verify the article is starred
 	var article models.RSSArticle
-	getReq, _ := http.NewRequest("GET", "/api/rss/articles/"+string(rune(articleID)), nil)
+	getReq, _ := http.NewRequest("GET", "/api/rss/articles/"+strconv.Itoa(articleID), nil)
 	getReq.Header.Set("Authorization", "Bearer "+token)
 
 	getRR := httptest.NewRecorder()
@@ -173,6 +195,7 @@ func TestStarRSSArticleRoute(t *testing.T) {
 func TestUnstarRSSArticleRoute(t *testing.T) {
 	s := NewHandler()
 	defer tests.Teardown()
+	useFakeRSSParser(t)
 
 	token, _ := tests.GenerateTestJWT(1)
 
@@ -205,7 +228,7 @@ func TestUnstarRSSArticleRoute(t *testing.T) {
 	}
 
 	// Test unstarring the article
-	unstarReq, _ := http.NewRequest("DELETE", "/api/rss/articles/"+string(rune(articleID))+"/star", nil)
+	unstarReq, _ := http.NewRequest("DELETE", "/api/rss/articles/"+strconv.Itoa(articleID)+"/star", nil)
 	unstarReq.Header.Set("Authorization", "Bearer "+token)
 
 	unstarRR := httptest.NewRecorder()
@@ -219,7 +242,7 @@ func TestUnstarRSSArticleRoute(t *testing.T) {
 
 	// Verify the article is unstarred
 	var article models.RSSArticle
-	getReq, _ := http.NewRequest("GET", "/api/rss/articles/"+string(rune(articleID)), nil)
+	getReq, _ := http.NewRequest("GET", "/api/rss/articles/"+strconv.Itoa(articleID), nil)
 	getReq.Header.Set("Authorization", "Bearer "+token)
 
 	getRR := httptest.NewRecorder()
@@ -241,6 +264,7 @@ func TestUnstarRSSArticleRoute(t *testing.T) {
 func TestListStarredRSSArticlesRoute(t *testing.T) {
 	s := NewHandler()
 	defer tests.Teardown()
+	useFakeRSSParser(t)
 
 	token, _ := tests.GenerateTestJWT(1)
 

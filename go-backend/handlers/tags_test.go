@@ -411,8 +411,8 @@ func TestCreateCardSuccessRecursiveTags(t *testing.T) {
 	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute))
 	handler.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
 	}
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &card)
 

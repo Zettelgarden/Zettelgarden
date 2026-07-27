@@ -164,7 +164,7 @@ func (s *Handler) GetDayCardsRoute(w http.ResponseWriter, r *http.Request) {
 
 	// Load tags for each card (following pattern from handlers/pins.go)
 	for i := range cards {
-		tags, err := services.QueryTagsForCard(s.DB, userID, cards[i].ID)
+		tags, err := services.QueryTagsForCard(s.GetDB(), userID, cards[i].ID)
 		if err == nil {
 			cards[i].Tags = tags
 		}

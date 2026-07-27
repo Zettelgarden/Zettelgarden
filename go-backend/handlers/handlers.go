@@ -50,6 +50,21 @@ type Handler struct {
 // This allows the same code to work in both test and production environments:
 // - Tests use transactions that are rolled back after each test for isolation
 // - Production uses the actual database connection
+//
+// CONVENTION: handler request-scoped reads and writes MUST go through GetDB()
+// so they participate in the (rolled-back) per-test transaction and do not leak
+// across tests. Reserve raw h.DB (the pool) for the few paths that legitimately
+// need to commit independently of the request transaction:
+//   - fire-and-forget audit timestamps (last_login / last_seen / last_used_at);
+//   - external callbacks with no request transaction (Stripe webhooks in
+//     billing.go, GitHub OAuth callbacks in oauth.go);
+//   - constructing an LLM client (services.NewDefaultClient), whose DB field is
+//     typed *sql.DB; and a handful of service helpers that take *sql.DB
+//     (services.GetEntities) — both are reads/AI-logging, never test pollution.
+//
+// Writes that need atomicity should wrap themselves via BeginTx/ShouldCommitTx
+// (see ReorderTaskStatusesRoute), NOT call db.Begin() on a GetDB() handle
+// (which may be an already-open *sql.Tx in tests).
 func (h *Handler) GetDB() models.Database {
 	if h.Server != nil && h.Server.Testing && h.Server.Tx != nil {
 		return h.Server.Tx

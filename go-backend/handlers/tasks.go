@@ -391,7 +391,7 @@ func (s *Handler) GetTaskAuditEventsRoute(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	events, err := services.GetAuditEvents(s.DB, "task", taskID)
+	events, err := services.GetAuditEvents(s.GetDB(), "task", taskID)
 	if err != nil {
 		log.Printf("Error getting audit events: %v", err)
 		http.Error(w, "Error retrieving audit events", http.StatusInternalServerError)
@@ -546,14 +546,14 @@ func (s *Handler) CompleteAndScheduleTaskRoute(w http.ResponseWriter, r *http.Re
 	}
 
 	// Get the complete and default status names
-	completeStatus, err := services.GetCompleteTaskStatus(s.DB, userID)
+	completeStatus, err := services.GetCompleteTaskStatus(s.GetDB(), userID)
 	if err != nil {
 		log.Printf("Error getting complete status: %v", err)
 		http.Error(w, "Error getting complete status", http.StatusInternalServerError)
 		return
 	}
 
-	defaultStatus, err := services.GetDefaultTaskStatus(s.DB, userID)
+	defaultStatus, err := services.GetDefaultTaskStatus(s.GetDB(), userID)
 	if err != nil {
 		log.Printf("Error getting default status: %v", err)
 		http.Error(w, "Error getting default status", http.StatusInternalServerError)
@@ -561,7 +561,7 @@ func (s *Handler) CompleteAndScheduleTaskRoute(w http.ResponseWriter, r *http.Re
 	}
 
 	// Call the service to complete the task and create a new one
-	newTaskID, err := services.CompleteAndScheduleTask(s.DB, userID, id, requestBody.Days, completeStatus.Name, defaultStatus.Name)
+	newTaskID, err := services.CompleteAndScheduleTask(s.GetDB(), userID, id, requestBody.Days, completeStatus.Name, defaultStatus.Name)
 	if err != nil {
 		log.Printf("Error completing and scheduling task %d: %v", id, err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

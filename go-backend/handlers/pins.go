@@ -29,7 +29,7 @@ func (s *Handler) StarCardRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Star the card
-	_, err = s.DB.Exec(
+	_, err = s.GetDB().Exec(
 		"INSERT INTO starred_cards (card_pk, user_id, created_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (card_pk, user_id) DO NOTHING",
 		cardID, userID,
 	)
@@ -52,7 +52,7 @@ func (s *Handler) UnstarCardRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete the star
-	result, err := s.DB.Exec(
+	result, err := s.GetDB().Exec(
 		"DELETE FROM starred_cards WHERE card_pk = $1 AND user_id = $2",
 		cardID, userID,
 	)
@@ -83,7 +83,7 @@ func (s *Handler) GetStarredCardsRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
 	// Query for starred cards with full card data
-	rows, err := s.DB.Query(`
+	rows, err := s.GetDB().Query(`
 		SELECT
 			sc.id, sc.card_pk, sc.user_id, sc.created_at,
 			c.id, c.card_id, c.user_id, c.title, c.body, c.link, c.parent_id, c.created_at, c.updated_at
@@ -127,7 +127,7 @@ func (s *Handler) GetStarredCardsRoute(w http.ResponseWriter, r *http.Request) {
 		card.Parent = parent
 
 		// Get tags for the card
-		tags, err := services.QueryTagsForCard(s.DB, userID, card.ID)
+		tags, err := services.QueryTagsForCard(s.GetDB(), userID, card.ID)
 		if err != nil {
 			log.Printf("Error getting tags: %v", err)
 			// Continue even if tags can't be found
@@ -183,7 +183,7 @@ func (s *Handler) StarSearchRoute(w http.ResponseWriter, r *http.Request) {
 
 	// Insert the starred search
 	var id int
-	err = s.DB.QueryRow(
+	err = s.GetDB().QueryRow(
 		"INSERT INTO starred_searches (user_id, title, search_term, search_config, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) RETURNING id",
 		userID, req.Title, req.SearchTerm, req.SearchConfig,
 	).Scan(&id)
@@ -209,7 +209,7 @@ func (s *Handler) UnstarSearchRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete the star
-	result, err := s.DB.Exec(
+	result, err := s.GetDB().Exec(
 		"DELETE FROM starred_searches WHERE id = $1 AND user_id = $2",
 		searchID, userID,
 	)
@@ -240,7 +240,7 @@ func (s *Handler) GetStarredSearchesRoute(w http.ResponseWriter, r *http.Request
 	userID := r.Context().Value("current_user").(int)
 
 	// Query for starred searches
-	rows, err := s.DB.Query(`
+	rows, err := s.GetDB().Query(`
 		SELECT id, user_id, title, search_term, search_config, created_at
 		FROM starred_searches
 		WHERE user_id = $1

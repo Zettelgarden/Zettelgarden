@@ -669,7 +669,7 @@ func (s *Handler) LinkFactToCardHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	userID := r.Context().Value("current_user").(int)
-	err = models.LinkFactToCard(s.DB, factID, cardID, userID)
+	err = models.LinkFactToCard(s.GetDB(), factID, cardID, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

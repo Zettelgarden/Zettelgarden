@@ -42,7 +42,7 @@ func (s *Handler) checkChunkLinkedOrRelated(
 	if relatedCard.ParentID != nil && *relatedCard.ParentID == mainCard.ID {
 		return true
 	}
-	references, err := services.GetReferences(s.DB, userID, mainCard)
+	references, err := services.GetReferences(s.GetDB(), userID, mainCard)
 	if err != nil {
 		return true
 	}
@@ -94,7 +94,7 @@ func (s *Handler) GetCardTagsRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tags, err := services.QueryTagsForCard(s.DB, userID, card.ID)
+	tags, err := services.QueryTagsForCard(s.GetDB(), userID, card.ID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -163,7 +163,7 @@ func (s *Handler) GetCardChildrenRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	children, err := services.GetChildCards(s.DB, userID, id)
+	children, err := services.GetChildCards(s.GetDB(), userID, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -183,7 +183,7 @@ func (s *Handler) GetCardWithDescendantsRoute(w http.ResponseWriter, r *http.Req
 	}
 
 	// Get card with descendants with depth information
-	result, err := services.GetCardWithDescendants(s.DB, userID, id)
+	result, err := services.GetCardWithDescendants(s.GetDB(), userID, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -210,7 +210,7 @@ func (s *Handler) GetCardWithDescendantsPaginatedRoute(w http.ResponseWriter, r 
 	}
 
 	// Get card with descendants limited by depth
-	result, err := services.GetCardWithDescendantsLimited(s.DB, userID, id, maxDepth)
+	result, err := services.GetCardWithDescendantsLimited(s.GetDB(), userID, id, maxDepth)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -235,7 +235,7 @@ func (s *Handler) GetCardReferencesRoute(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	categorized, err := services.GetCategorizedReferences(s.DB, userID, card)
+	categorized, err := services.GetCategorizedReferences(s.GetDB(), userID, card)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -451,7 +451,7 @@ func (s *Handler) DeleteCardRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = services.DeleteCard(s.DB, userID, id)
+	err = services.DeleteCard(s.GetDB(), userID, id)
 	if err != nil {
 		if err.Error() == "card not found" {
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -525,7 +525,7 @@ func (s *Handler) getNextChildCardID(userID int, parentID int) string {
 	}
 
 	// 2. Get all existing children using service
-	children, err := services.GetChildCards(s.DB, userID, parentID)
+	children, err := services.GetChildCards(s.GetDB(), userID, parentID)
 	if err != nil {
 		log.Printf("Error getting child cards for parentID %d: %v", parentID, err)
 		return parentCardID + ".1" // Default to .1 if there's an error
@@ -694,7 +694,7 @@ func (s *Handler) GetCardAuditEventsRoute(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	events, err := services.GetAuditEvents(s.DB, "card", cardID)
+	events, err := services.GetAuditEvents(s.GetDB(), "card", cardID)
 	if err != nil {
 		log.Printf("Error getting audit events: %v", err)
 		http.Error(w, "Error retrieving audit events", http.StatusInternalServerError)
@@ -1021,7 +1021,7 @@ func (s *Handler) SuggestCardTitleRoute(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Get user memory for context
-	userMemory, err := GetUserMemory(s.DB, int(userID))
+	userMemory, err := GetUserMemory(s.GetDB(), int(userID))
 	if err != nil {
 		log.Printf("Error getting user memory: %v", err)
 		// Continue without memory if there's an error
@@ -1241,7 +1241,7 @@ func (s *Handler) RestoreCardToAuditEventRoute(w http.ResponseWriter, r *http.Re
 	}
 
 	// Restore the card
-	restoredCard, err := services.RestoreCardToAuditEvent(s.DB, userID, cardID, auditEventID)
+	restoredCard, err := services.RestoreCardToAuditEvent(s.GetDB(), userID, cardID, auditEventID)
 	if err != nil {
 		log.Printf("Error restoring card: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -1312,7 +1312,7 @@ func (s *Handler) CreateArticleRoute(w http.ResponseWriter, r *http.Request) {
 		ProcessEntitiesAndFacts: boolPtr(true),
 	}
 
-	card, err := services.CreateCard(s.DB, userID, params)
+	card, err := services.CreateCard(s.GetDB(), userID, params)
 	if err != nil {
 		log.Printf("Error creating card: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to create card: %v", err), http.StatusBadRequest)

@@ -136,7 +136,19 @@ func (s *Handler) ReorderTaskStatusesRoute(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	err := services.ReorderTaskStatuses(s.DB, userID, params.StatusIDs)
+	err := func() error {
+		tx, err := s.BeginTx()
+		if err != nil {
+			return err
+		}
+		if err := services.ReorderTaskStatuses(tx, userID, params.StatusIDs); err != nil {
+			return err
+		}
+		if s.ShouldCommitTx() {
+			return tx.Commit()
+		}
+		return nil
+	}()
 	if err != nil {
 		log.Printf("Error reordering task statuses: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

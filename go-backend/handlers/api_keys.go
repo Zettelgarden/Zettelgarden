@@ -27,7 +27,7 @@ func (s *Handler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	// Check if name is already taken for this user
 	var count int
-	err := s.DB.QueryRow("SELECT COUNT(*) FROM api_keys WHERE user_id = $1 AND name = $2 AND is_active = true", userID, req.Name).Scan(&count)
+	err := s.GetDB().QueryRow("SELECT COUNT(*) FROM api_keys WHERE user_id = $1 AND name = $2 AND is_active = true", userID, req.Name).Scan(&count)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
@@ -53,7 +53,7 @@ func (s *Handler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	// Store in database
 	var apiKeyID int
-	err = s.DB.QueryRow(`
+	err = s.GetDB().QueryRow(`
 		INSERT INTO api_keys (user_id, name, key_hash, description)
 		VALUES ($1, $2, $3, $4)
 		RETURNING id
@@ -84,7 +84,7 @@ func (s *Handler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 func (s *Handler) ListAPIKeys(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 
-	rows, err := s.DB.Query(`
+	rows, err := s.GetDB().Query(`
 		SELECT id, name, created_at, last_used_at, revoked_at, is_active, description
 		FROM api_keys
 		WHERE user_id = $1
@@ -140,7 +140,7 @@ func (s *Handler) RevokeAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify the API key belongs to the user and revoke it
-	result, err := s.DB.Exec(`
+	result, err := s.GetDB().Exec(`
 		UPDATE api_keys
 		SET is_active = false, revoked_at = CURRENT_TIMESTAMP
 		WHERE id = $1 AND user_id = $2 AND is_active = true

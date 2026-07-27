@@ -25,12 +25,28 @@ const (
 	DefaultArticleLimit = 100
 )
 
+// RSSParser abstracts gofeed's URL-based parsing so tests can substitute a
+// network-free fake. Production code uses realFeedParser.
+type RSSParser interface {
+	ParseURL(url string) (*gofeed.Feed, error)
+}
+
+// FeedParser is the RSS feed parser used by CreateRSSFeed and the fetch job.
+// Swap it (e.g. in tests) to avoid hitting the network.
+var FeedParser RSSParser = realFeedParser{}
+
+type realFeedParser struct{}
+
+func (realFeedParser) ParseURL(url string) (*gofeed.Feed, error) {
+	fp := gofeed.NewParser()
+	fp.Client = &http.Client{Timeout: RSSTimeout}
+	return fp.ParseURL(url)
+}
+
 // CreateRSSFeed creates a new RSS feed for a user
 func CreateRSSFeed(db models.Database, userID int, params models.CreateRSSFeedParams) (*models.RSSFeed, error) {
 	// Validate URL by attempting to parse it
-	fp := gofeed.NewParser()
-	fp.Client = &http.Client{Timeout: RSSTimeout}
-	feed, err := fp.ParseURL(params.URL)
+	feed, err := FeedParser.ParseURL(params.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse feed URL: %w", err)
 	}
@@ -572,9 +588,7 @@ func FetchRSSFeedArticles(db models.Database, feedID int) error {
 	}
 
 	// Parse the RSS feed
-	fp := gofeed.NewParser()
-	fp.Client = &http.Client{Timeout: RSSTimeout}
-	parsedFeed, err := fp.ParseURL(feed.URL)
+	parsedFeed, err := FeedParser.ParseURL(feed.URL)
 	if err != nil {
 		// Update last_error
 		_, _ = db.Exec("UPDATE rss_feeds SET last_error = $1 WHERE id = $2", err.Error(), feedID)

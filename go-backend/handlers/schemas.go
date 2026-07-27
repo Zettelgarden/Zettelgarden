@@ -563,7 +563,7 @@ func (s *Handler) GetCardsBySchemaRoute(w http.ResponseWriter, r *http.Request) 
 		ORDER BY updated_at DESC
 	`
 
-	rows, err := s.DB.Query(query, userID, schemaID)
+	rows, err := s.GetDB().Query(query, userID, schemaID)
 	if err != nil {
 		log.Printf("Error querying cards by schema: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

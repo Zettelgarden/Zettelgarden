@@ -37,7 +37,7 @@ func (s *Handler) InitSearchCollection() {
 	collectionName := os.Getenv("TYPESENSE_COLLECTION")
 	log.Printf("lets go")
 
-	rows, err := s.DB.Query(`
+	rows, err := s.GetDB().Query(`
 		SELECT
 	    c.id,
 	    c.card_id,
@@ -131,7 +131,7 @@ func (s *Handler) InitSearchCollection() {
 		}
 	}
 	//Index all facts
-	rows, err = s.DB.Query(`
+	rows, err = s.GetDB().Query(`
 		SELECT f.id, f.fact, f.created_at, f.updated_at, f.user_id,
 		       c.id, c.card_id, c.user_id, c.title, c.parent_id,
 		       c.created_at, c.updated_at
@@ -203,7 +203,7 @@ func (s *Handler) InitSearchCollection() {
 	}
 
 	// // Index all entities
-	rows2, err := s.DB.Query(`
+	rows2, err := s.GetDB().Query(`
 		SELECT e.id, e.name, e.description, e.type, e.created_at, e.updated_at, e.user_id,
 		c.id, c.card_id, c.title, c.parent_id
 		FROM entities e
@@ -622,7 +622,7 @@ func (s *Handler) ClassicCardSearch(userID int, params SearchRequestParams) ([]m
 	` + searchString
 
 	var total int
-	err := s.DB.QueryRow(countQuery, userID).Scan(&total)
+	err := s.GetDB().QueryRow(countQuery, userID).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -677,7 +677,7 @@ ORDER BY ` + orderBy + `
 LIMIT $2 OFFSET $3
 	`
 
-	rows, err := s.DB.Query(query, userID, perPage, offset)
+	rows, err := s.GetDB().Query(query, userID, perPage, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -927,7 +927,7 @@ func (s *Handler) TypesenseSearch(searchParams SearchRequestParams, userID int) 
 	// } else {
 	// 	log.Printf("reranking")
 	// 	if len(results) > 0 {
-	// 		client := services.NewDefaultClient(s.DB, userID)
+	// 		client := services.NewDefaultClient(s.GetDB(), userID)
 	// 		reranked, err = llms.RerankSearchResults(client, searchParams.SearchTerm, results)
 	// 		if err != nil {
 	// 			return results, nil
