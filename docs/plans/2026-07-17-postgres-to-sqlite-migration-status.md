@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-07-26
 **Plan:** [`2026-07-17-postgres-to-sqlite-migration-design.md`](./2026-07-17-postgres-to-sqlite-migration-design.md)
-**Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2` (closed) · Phase 6a `Zettelgarden-j89` (in progress) · 6a follow-ups `Zettelgarden-qcb` (closed) · `Zettelgarden-ilv` (closed) · `Zettelgarden-bto` (pool/tx audit) · `Zettelgarden-amt` (= ANY/array_position)
+**Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2` (closed) · Phase 6a `Zettelgarden-j89` (in progress) · 6a follow-ups `Zettelgarden-qcb` (closed) · `Zettelgarden-ilv` (closed) · `Zettelgarden-amt` (closed) · `Zettelgarden-bto` (pool/tx audit, remaining)
 
 ## TL;DR
 
@@ -303,8 +303,18 @@ session). Mapped to beads issues:
   an `INSERT ... ON CONFLICT (user_id) DO UPDATE` (cross-driver) and dropping
   the handler's dead "no rows" retry branch + misleading trigger comment.
   Handlers failures 9 → 8.
-- **`Zettelgarden-amt` (already filed) — `= ANY($1)` + `array_position`**
-  still in `handlers/{facts,entity}.go` (2 sites).
+- **FIXED `Zettelgarden-amt` — `handlers/{facts,entity}.go` `= ANY($1)` + `ORDER BY
+  BY array_position`** (the last 2 of the 9 `= ANY` sites; the other 7 were done
+  in the main Phase 6a pass). Translated to `IN `+`models.InList(1, len(ids))`
+  bound via `models.IntArgs(ids)...`, dropped the `ORDER BY array_position`, and
+  reordered the scanned rows app-side (map-by-id → emit in input/ranked order) to
+  preserve the similarity ranking `array_position` used to provide. `lib/pq`
+  dropped from both files. This completes the production-code PG-ism sweep —
+  zero `= ANY`/`array_position`/`pq.Array` remain in non-test Go. Guarded by
+  `schema/sqlite/phase3_idioms_test.go` `TestSimilarityInListAndAppSideReorder`
+  (proves the IN-list executes on SQLite + the reorder restores ranked order).
+  No handler-test count change (these handlers aren't unit-tested — they need a
+  Typesense stub).
 - **NOT SQLite regressions (pre-existing, would fail on PG too):**
   - RSS (3): `Test{Star,Unstar,ListStarred}RSSArticleRoute` — `CreateRSSFeed`
     calls `gofparse.ParseURL("https://example.com/feed.xml")` (404, no
@@ -351,6 +361,7 @@ Code (all tested, all on `master`):
 | **Boot-wiring follow-up (2026-07-25)** | `server/sqlite.go` `OpenSQLite` now `MkdirAll`s the `SQLITE_PATH` parent dir; `server/database.go` `RunMigrations` skips `.go` files under `SchemaDir`; `schema/sqlite/source/translate.py` adds `RUNNER_OWNED_TABLES={"migrations"}` (the runner bootstraps that table itself, so emitting it in the schema fatal'd the first boot with "table migrations already exists"); regenerated `schema.sqlite.sql` (73 → 72 tables). Tests: `server/database_sqlite_test.go` `TestRunMigrationsAppliesConsolidatedSchema` (real `./schema/sqlite` end-to-end) + `server/sqlite_test.go` `TestOpenSQLiteCreatesParentDir`. |
 | **Phase 6a fix `Zettelgarden-qcb` (2026-07-26)** | Removed the Postgres `~` regex from `GetNextRootCardID` (missed Phase-3 PG-ism; 2 sites — `services/cards.go` + the duplicate in `handlers/cards.go`). `services.GetNextRootCardID` now filters pure-numeric ids in Go (`regexp`) and is the single implementation; the handler copy delegates to it (dropped the `database/sql` import). Cross-driver; fixes a real post-cutover bug (new root ids would have collided on `"1"`). Unblocked `TestGetNextRootCardID` + `TestGetNextRootCardIDRoute` (handlers failures 11 → 9). |
 | **Phase 6a fix `Zettelgarden-ilv` (2026-07-26)** | `models.UpdateNotificationPreferences` is now an `INSERT ... ON CONFLICT (user_id) DO UPDATE` (was a plain UPDATE that no-op'd on the common no-row case — there is no auto-create trigger; 0121 is a one-time backfill, so any user added later had no prefs row). Cross-driver upsert; dropped the handler's dead `"no rows"` retry branch and the misleading "handled by the trigger" comment. Latent bug on both drivers; unblocked `TestUpdatePreferencesSuccess` (handlers failures 9 → 8). |
+| **Phase 6a fix `Zettelgarden-amt` (2026-07-26)** | Ported the last 2 Postgres array sites — `handlers/{facts,entity}.go` `GetSimilarFacts`/`GetSimilarEntitiesRoute` used `col = ANY($1)` (bound via `pq.Array`) + `ORDER BY array_position($1, col)` to preserve a similarity-ranked order. Now `IN `+`models.InList(1, len(ids))` bound via `models.IntArgs(ids)...`, with the scanned rows reordered app-side (map-by-id → emit in ranked input order) to restore the ordering `array_position` gave. `lib/pq` dropped from both files. Completes the production-code PG-ism sweep: zero `= ANY`/`array_position`/`pq.Array` left in non-test Go. Guarded by `TestSimilarityInListAndAppSideReorder`. |
 
 Driver added: `modernc.org/sqlite v1.54.0`. Config flags: `DB_DRIVER`
 (default `postgres`), `SQLITE_PATH` (default `./data/zettelgarden.db`).

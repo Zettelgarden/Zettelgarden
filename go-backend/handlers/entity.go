@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/lib/pq"
 )
 
 const SIMILARITY_THRESHOLD = 0.15
@@ -1127,6 +1126,11 @@ func (s *Handler) GetSimilarEntitiesRoute(w http.ResponseWriter, r *http.Request
 	}
 
 	// 3. Fetch full entity data from DB
+	// e.id = ANY($1) + ORDER BY array_position($1, e.id) are Postgres array
+	// constructs with no SQLite equivalent. Translate to an IN-list built from
+	// models.InList (binds positionally on both drivers) and reorder the rows
+	// app-side below to preserve the similarity-ranked input order that
+	// array_position used to provide.
 	query := `
         SELECT
             e.id, e.user_id, e.name, e.description, e.type, e.created_at, e.updated_at, e.card_pk,
@@ -1138,12 +1142,10 @@ func (s *Handler) GetSimilarEntitiesRoute(w http.ResponseWriter, r *http.Request
             entities e
             LEFT JOIN cards c ON e.card_pk = c.id AND c.is_deleted = FALSE
         WHERE
-            e.id = ANY($1)
-        ORDER BY
-            array_position($1, e.id)
+            e.id IN ` + models.InList(1, len(entityIDs)) + `
     `
 
-	rows, err := s.DB.Query(query, pq.Array(entityIDs))
+	rows, err := s.DB.Query(query, models.IntArgs(entityIDs)...)
 	if err != nil {
 		log.Printf("error querying similar entities from db: %v", err)
 		http.Error(w, "Failed to query similar entities", http.StatusInternalServerError)
@@ -1151,7 +1153,7 @@ func (s *Handler) GetSimilarEntitiesRoute(w http.ResponseWriter, r *http.Request
 	}
 	defer rows.Close()
 
-	var entities []EntityWithScore
+	byID := make(map[int]EntityWithScore, len(entityIDs))
 	for rows.Next() {
 		var entity EntityWithScore
 		var cardID sql.NullInt64
@@ -1192,7 +1194,17 @@ func (s *Handler) GetSimilarEntitiesRoute(w http.ResponseWriter, r *http.Request
 			}
 		}
 
-		entities = append(entities, entity)
+		byID[entity.ID] = entity
+	}
+
+	// Emit in entityIDs order — restores the similarity-ranked ordering that
+	// ORDER BY array_position provided on Postgres. Entities absent from byID
+	// are skipped (a LEFT JOIN keeps every entity, so this is just a guard).
+	entities := make([]EntityWithScore, 0, len(entityIDs))
+	for _, id := range entityIDs {
+		if e, ok := byID[id]; ok {
+			entities = append(entities, e)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

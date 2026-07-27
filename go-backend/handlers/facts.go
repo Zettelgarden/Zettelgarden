@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/lib/pq"
 )
 
 // ExtractSaveCardFacts deletes and re-inserts facts for a given card.
@@ -799,17 +798,21 @@ func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch full fact data from DB
+	// f.id = ANY($1) + ORDER BY array_position($1, f.id) are Postgres array
+	// constructs with no SQLite equivalent. Translate to an IN-list built from
+	// models.InList (binds positionally on both drivers) and reorder the rows
+	// app-side below to preserve the similarity-ranked input order that
+	// array_position used to provide.
 	query := `
 		SELECT f.id, f.fact, f.created_at, f.updated_at,
 		       c.id, c.card_id, c.user_id, c.title, c.parent_id,
 		       c.created_at, c.updated_at
 		FROM facts f
 		JOIN cards c ON f.card_pk = c.id
-		WHERE f.id = ANY($1)
-		ORDER BY array_position($1, f.id)
+		WHERE f.id IN ` + models.InList(1, len(factIDs)) + `
 	`
 
-	rows, err := s.GetDB().Query(query, pq.Array(factIDs))
+	rows, err := s.GetDB().Query(query, models.IntArgs(factIDs)...)
 	if err != nil {
 		log.Printf("error querying similar facts from db: %v", err)
 		http.Error(w, "Failed to query similar facts", http.StatusInternalServerError)
@@ -817,7 +820,11 @@ func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var facts []FactWithCardAndScore
+	// Collect into a map keyed by fact ID, then emit in factIDs order — this
+	// restores the similarity-ranked ordering that ORDER BY array_position
+	// provided on Postgres. Facts dropped by the JOIN (e.g. missing card) are
+	// simply absent from byID and skipped, matching the prior INNER JOIN behavior.
+	byID := make(map[int]FactWithCardAndScore, len(factIDs))
 	for rows.Next() {
 		var f FactWithCardAndScore
 		if err := rows.Scan(
@@ -839,7 +846,13 @@ func (s *Handler) GetSimilarFacts(w http.ResponseWriter, r *http.Request) {
 		}
 		// Attach the similarity score from the map
 		f.Score = scoreMap[f.ID]
-		facts = append(facts, f)
+		byID[f.ID] = f
+	}
+	facts := make([]FactWithCardAndScore, 0, len(factIDs))
+	for _, id := range factIDs {
+		if f, ok := byID[id]; ok {
+			facts = append(facts, f)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
