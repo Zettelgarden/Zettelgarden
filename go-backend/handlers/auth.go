@@ -194,7 +194,7 @@ func (s *Handler) ResetPasswordRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = s.DB.Exec("UPDATE users SET password = $1 WHERE id = $2", hashedPassword, user.ID)
+	_, err = s.GetDB().Exec("UPDATE users SET password = $1 WHERE id = $2", hashedPassword, user.ID)
 	if err != nil {
 		http.Error(w, "Error updating password", http.StatusInternalServerError)
 		return

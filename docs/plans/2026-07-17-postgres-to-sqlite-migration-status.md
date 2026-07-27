@@ -286,14 +286,28 @@ session). Mapped to beads issues:
 - **`Zettelgarden-bto` — handler pool-vs-test-tx write isolation (`s.DB` vs
   `s.GetDB()`)** — the dominant remaining lever. Handlers are inconsistent
   about which handle they use; `GetDB()` returns the rolled-back test tx, raw
-  `s.DB` commits for real. Confirmed case: `ResetPasswordRoute`
-  (`auth.go:197`) writes via `s.DB`, then `LoginRoute`→`QueryUserByEmail`
-  reads via `GetDB()` (tx snapshot from before the write) → old password → 401
-  (`TestAuthResetPasswordAndLoginSuccess`). Same leakage pollutes
-  `TestGetRelatedCards_Success`, `TestCreateCardLinkedParentId`,
-  `TestCreateCardSuccessRecursiveTags`, and causes the `database is locked`
-  cleanup in `TestGetNextChildCardID`. Fix = systematic audit routing handler
-  writes through `GetDB()`.
+  `s.DB` commits for real. **Part 1 landed:** `auth.go:197` ResetPasswordRoute
+  + all 13 `entity.go` `s.DB` sites routed through `GetDB()` (writes AND
+  reads) — fixed `TestAuthResetPasswordAndLoginSuccess`. **Part 2 remaining
+  (the hard part):** the pollution is NOT just handler writes. The codebase
+  has handle inconsistency in TWO layers that must be fixed together:
+  (a) the TEST layer — `cards_test.go` has 15 sites calling
+  `services.CreateCard/UpdateCard(s.DB, ...)` directly with the pool; those
+  services do all the entity/backlink/fact writes, so they COMMIT and leak
+  (test data is seeded once via `sync.Once`; pool writes accumulate). This is
+  the source of `TestGetRelatedCards_Success` pollution
+  (`entity_card_junction` deletions accumulate until card 1 has no shared
+  entities) and `TestGetNextChildCardID` nondeterminism.
+  (b) the handler READ path — e.g. `getNextChildCardID` mixes handles in one
+  function (parent via `s.GetDB()`, children via `services.GetChildCards(s.DB)`).
+  Converting ONLY (a) breaks: a tx-local create is invisible to pool reads
+  (regression observed: `TestCheckChunkLinkedOrRelated_Integration` broke when
+  only tests were converted — reverted). **Fix = the full ~80-site audit**
+  (handler reads+writes → `GetDB()`, minus legitimately-pool-only paths:
+  Stripe webhooks, OAuth callbacks, fire-and-forget `last_login`/`last_seen`)
+  PLUS the 15 test-layer conversions, done together file-by-file with the full
+  suite as the gate. Clears `TestGetRelatedCards_Success`, `TestGetNextChildCardID`.
+  Detailed notes on the issue.
 - **FIXED `Zettelgarden-ilv` — `notification_preferences` UPDATE was not an
   upsert.** `UpdatePreferences` (`notifications.go`) comment said "handled by
   the trigger" but no such trigger ever existed (0121 is a one-time backfill).
@@ -362,6 +376,7 @@ Code (all tested, all on `master`):
 | **Phase 6a fix `Zettelgarden-qcb` (2026-07-26)** | Removed the Postgres `~` regex from `GetNextRootCardID` (missed Phase-3 PG-ism; 2 sites — `services/cards.go` + the duplicate in `handlers/cards.go`). `services.GetNextRootCardID` now filters pure-numeric ids in Go (`regexp`) and is the single implementation; the handler copy delegates to it (dropped the `database/sql` import). Cross-driver; fixes a real post-cutover bug (new root ids would have collided on `"1"`). Unblocked `TestGetNextRootCardID` + `TestGetNextRootCardIDRoute` (handlers failures 11 → 9). |
 | **Phase 6a fix `Zettelgarden-ilv` (2026-07-26)** | `models.UpdateNotificationPreferences` is now an `INSERT ... ON CONFLICT (user_id) DO UPDATE` (was a plain UPDATE that no-op'd on the common no-row case — there is no auto-create trigger; 0121 is a one-time backfill, so any user added later had no prefs row). Cross-driver upsert; dropped the handler's dead `"no rows"` retry branch and the misleading "handled by the trigger" comment. Latent bug on both drivers; unblocked `TestUpdatePreferencesSuccess` (handlers failures 9 → 8). |
 | **Phase 6a fix `Zettelgarden-amt` (2026-07-26)** | Ported the last 2 Postgres array sites — `handlers/{facts,entity}.go` `GetSimilarFacts`/`GetSimilarEntitiesRoute` used `col = ANY($1)` (bound via `pq.Array`) + `ORDER BY array_position($1, col)` to preserve a similarity-ranked order. Now `IN `+`models.InList(1, len(ids))` bound via `models.IntArgs(ids)...`, with the scanned rows reordered app-side (map-by-id → emit in ranked input order) to restore the ordering `array_position` gave. `lib/pq` dropped from both files. Completes the production-code PG-ism sweep: zero `= ANY`/`array_position`/`pq.Array` left in non-test Go. Guarded by `TestSimilarityInListAndAppSideReorder`. |
+| **Phase 6a `Zettelgarden-bto` part 1 (2026-07-27)** | Routed handler write paths through `GetDB()`: `auth.go:197` `ResetPasswordRoute` (was `s.DB.Exec` UPDATE password — login then read via the test tx and saw the stale hash → 401) and all 13 `entity.go` `s.DB` sites (writes + reads, for consistency). 2 entity.go sites kept as `s.DB` (`GetEntities`, `NewDefaultClient`) because their service signatures take `*sql.DB`. Fixes `TestAuthResetPasswordAndLoginSuccess` (handlers failures 8 → 7). **Part 2 (the full pool/tx audit) documented but not done** — see the bto bullet above; it requires converting handler reads + the 15 test-layer `services.*(s.DB)` calls together (converting tests alone regressed `TestCheckChunkLinkedOrRelated_Integration`, reverted). |
 
 Driver added: `modernc.org/sqlite v1.54.0`. Config flags: `DB_DRIVER`
 (default `postgres`), `SQLITE_PATH` (default `./data/zettelgarden.db`).

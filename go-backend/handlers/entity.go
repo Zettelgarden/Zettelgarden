@@ -101,7 +101,7 @@ func (s *Handler) QueryEntitiesForCard(userID int, cardPK int) ([]models.Entity,
 		e.user_id = $2 
 		AND (ecj.card_pk = $1 OR e.card_pk = $1)`
 
-	rows, err := s.DB.Query(query, cardPK, userID)
+	rows, err := s.GetDB().Query(query, cardPK, userID)
 	if err != nil {
 		log.Printf("err %v", err)
 		return []models.Entity{}, err
@@ -247,7 +247,7 @@ func (s *Handler) MergeEntities(userID int, entity1ID int, entity2ID int) error 
 		go func() {
 			// Fetch the updated entity1 data after merge
 			var updatedEntity models.Entity
-			err := s.DB.QueryRow(`
+			err := s.GetDB().QueryRow(`
 			SELECT id, user_id, name, description, type, created_at, updated_at, card_pk
 			FROM entities
 			WHERE id = $1 AND user_id = $2
@@ -499,7 +499,7 @@ func (s *Handler) UpdateEntity(userID int, entityID int, params UpdateEntityRequ
 		// Launch goroutine to handle embedding update
 		go func() {
 			var entity models.Entity
-			err := s.DB.QueryRow(`
+			err := s.GetDB().QueryRow(`
 				SELECT id, user_id, name, description, type, created_at, updated_at, card_pk
 				FROM entities 
 				WHERE id = $1 AND user_id = $2
@@ -595,7 +595,7 @@ func (s *Handler) AddEntityToCardRoute(w http.ResponseWriter, r *http.Request) {
 
 	// Verify entity exists and belongs to user
 	var exists bool
-	err = s.DB.QueryRow(`
+	err = s.GetDB().QueryRow(`
 		SELECT EXISTS(
 			SELECT 1 
 			FROM entities 
@@ -619,7 +619,7 @@ func (s *Handler) AddEntityToCardRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add the entity-card relationship
-	_, err = s.DB.Exec(`
+	_, err = s.GetDB().Exec(`
 		INSERT INTO entity_card_junction (user_id, entity_id, card_pk)
 		VALUES ($1, $2, $3)
 		ON CONFLICT (entity_id, card_pk) DO NOTHING
@@ -654,7 +654,7 @@ func (s *Handler) RemoveEntityFromCardRoute(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Delete the entity-card relationship
-	_, err = s.DB.Exec(`
+	_, err = s.GetDB().Exec(`
 		DELETE FROM entity_card_junction 
 		WHERE entity_id = $1 AND card_pk = $2 AND user_id = $3
 	`, entityID, cardPK, userID)
@@ -706,7 +706,7 @@ func (s *Handler) GetEntityByID(userID int, entityID int) (models.Entity, error)
 	var cardUserID, cardParentID sql.NullInt64
 	var cardCreatedAt, cardUpdatedAt sql.NullTime
 
-	err := s.DB.QueryRow(query, userID, entityID).Scan(
+	err := s.GetDB().QueryRow(query, userID, entityID).Scan(
 		&entity.ID,
 		&entity.UserID,
 		&entity.Name,
@@ -817,7 +817,7 @@ func (s *Handler) GetEntityByNameRoute(w http.ResponseWriter, r *http.Request) {
 	var cardUserID, cardParentID sql.NullInt64
 	var cardCreatedAt, cardUpdatedAt sql.NullTime
 
-	err := s.DB.QueryRow(query, userID, entityName).Scan(
+	err := s.GetDB().QueryRow(query, userID, entityName).Scan(
 		&entity.ID,
 		&entity.UserID,
 		&entity.Name,
@@ -878,7 +878,7 @@ func (s *Handler) LinkCardToEntityIfPossible(userID int, card models.Card) error
 
 	log.Printf("dwe be linking boys")
 
-	err := s.DB.QueryRow(`
+	err := s.GetDB().QueryRow(`
         SELECT id, card_pk FROM entities
         WHERE user_id = $1 AND name = $2
         LIMIT 1
@@ -894,7 +894,7 @@ func (s *Handler) LinkCardToEntityIfPossible(userID int, card models.Card) error
 		return nil // Already linked
 	}
 
-	_, err = s.DB.Exec(`
+	_, err = s.GetDB().Exec(`
         UPDATE entities
         SET card_pk = $1, updated_at = CURRENT_TIMESTAMP
         WHERE id = $2
@@ -906,7 +906,7 @@ func (s *Handler) LinkCardToEntityIfPossible(userID int, card models.Card) error
 	// Update Typesense index after successful link
 	go func() {
 		var ent models.Entity
-		err := s.DB.QueryRow(`SELECT id, user_id, name, description, type, created_at, updated_at, card_pk
+		err := s.GetDB().QueryRow(`SELECT id, user_id, name, description, type, created_at, updated_at, card_pk
 			FROM entities WHERE id = $1`, entityID).
 			Scan(&ent.ID, &ent.UserID, &ent.Name, &ent.Description, &ent.Type, &ent.CreatedAt, &ent.UpdatedAt, &ent.CardPK)
 		if err != nil {
@@ -968,7 +968,7 @@ func (s *Handler) GetEntityByLinkedCardPKRoute(w http.ResponseWriter, r *http.Re
 	var cardUserID, cardParentID sql.NullInt64
 	var cardCreatedAt, cardUpdatedAt sql.NullTime
 
-	err = s.DB.QueryRow(query, userID, cardPK).Scan(
+	err = s.GetDB().QueryRow(query, userID, cardPK).Scan(
 		&entity.ID,
 		&entity.UserID,
 		&entity.Name,
@@ -1145,7 +1145,7 @@ func (s *Handler) GetSimilarEntitiesRoute(w http.ResponseWriter, r *http.Request
             e.id IN ` + models.InList(1, len(entityIDs)) + `
     `
 
-	rows, err := s.DB.Query(query, models.IntArgs(entityIDs)...)
+	rows, err := s.GetDB().Query(query, models.IntArgs(entityIDs)...)
 	if err != nil {
 		log.Printf("error querying similar entities from db: %v", err)
 		http.Error(w, "Failed to query similar entities", http.StatusInternalServerError)
