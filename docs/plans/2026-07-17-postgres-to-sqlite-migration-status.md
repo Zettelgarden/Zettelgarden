@@ -1,8 +1,8 @@
 # PostgreSQL → SQLite Migration — Status
 
-**Last updated:** 2026-07-27
+**Last updated:** 2026-07-28
 **Plan:** [`2026-07-17-postgres-to-sqlite-migration-design.md`](./2026-07-17-postgres-to-sqlite-migration-design.md)
-**Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2` (closed) · Phase 6a `Zettelgarden-j89` (closed) · 6a follow-ups `Zettelgarden-qcb` (closed) · `Zettelgarden-ilv` (closed) · `Zettelgarden-amt` (closed) · `Zettelgarden-bto` (closed)
+**Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2` (closed) · Phase 6a `Zettelgarden-j89` (closed) · 6a follow-ups `Zettelgarden-qcb` (closed) · `Zettelgarden-ilv` (closed) · `Zettelgarden-amt` (closed) · `Zettelgarden-bto` (closed) · Phase 6b `Zettelgarden-c7j.3` (in progress)
 
 ## TL;DR
 
@@ -14,11 +14,12 @@ and **Phase 6a is complete: `go test ./...` is green against SQLite with no
 Postgres running — all 14 Go packages pass** (`handlers`, `handlers/admin`,
 `mail`, `models`, `routes`, `schema/sqlite`, `server`, `server_tests`,
 `services`, `services/backlink`, `services/jobs`, `spike`, `utils`, plus the
-root package). The last session closed the pool-vs-test-tx audit
-(`Zettelgarden-bto`) and fixed the remaining pre-existing (non-SQLite) test
-expectations. **Next: Phase 6b (ETL tool) + 6c (verification gates) + cutover.**
+root package). The pool-vs-test-tx audit (`Zettelgarden-bto`) closed and the
+remaining pre-existing (non-SQLite) test expectations were fixed. **Phase 6b
+(ETL tool) is built and unit-tested** (`cmd/migrate-pg-to-sqlite/`; the full
+suite is now 15 packages); the live-PG import run is the first gate of Phase 6c.
 
-See *Phase 6a complete (2026-07-27)* for this session's detail.
+See *Phase 6b progress* for this session's detail.
 
 ## Phase status
 
@@ -31,7 +32,7 @@ See *Phase 6a complete (2026-07-27)* for this session's detail.
 | 4 — Consolidate cmd binaries | ⬜ Deferred | Optional; **verified not needed** for Phase 5 — the cmd/* and scripts/* binaries write none of the trigger-affected tables (cards/tasks/files/revenue/llm_query_log/rss), so services-layer wiring reaches every write path |
 | 5 — Triggers → Go | ✅ **Done** | All 7 trigger files handled. **Live:** user_stats counters + llm_jobs.updated_at + rss notifications ported to Go on BOTH drivers (decision 3b); migrations 0145/0146 drop the replaced PG triggers. **Dead (dropped, no port):** chat timestamp (no Go chat writer), llm_jobs pg_notify (no LISTEN), email notification sync (email abandoned). See *Phase 5 progress* below. |
 | 6a — Test infra (suite on SQLite) | ✅ **Done** | All 14 Go packages green vs SQLite (no PG). `go test ./...` exits clean. `tests/conftest.go` branches on driver (`DB_DRIVER=sqlite` default, temp file-backed DB so WAL engages), skips the PG-only `ResetDatabase`, and guards the one `setval`. Pool-vs-test-tx audit (`bto`) complete: all handler request-scoped reads/writes routed through `GetDB()`, 15 test-layer `services.*(s.DB)` calls moved to the rolled-back tx, `ReorderTaskStatuses` refactored off its own `Begin()` onto a handler-managed tx. Remaining `s.DB` sites are the documented legit-pool-only set (fire-and-forget timestamps, Stripe/OAuth callbacks, LLM-client ctor). Pre-existing non-SQLite test bugs also fixed: stale `201`/`200` expectations, `getNextChildCardID` majority-sep expectation, and RSS tests de-networked via an injectable `services.FeedParser`. |
-| 6b/6c — ETL + cutover | ⬜ Not started | Highest-stakes phase; data-continuity protections in runbook |
+| 6b/6c — ETL + cutover | 🔄 **6b built (in progress)** | `cmd/migrate-pg-to-sqlite/` exists, builds, and is unit-tested (PG-array→JSON parsing, type normalization, SQLite→SQLite copy idempotency, FK-off wipe+reload, `foreign_key_check`). Dynamically migrates the PG∩SQLite table intersection (lossless, drift-proof). Loads with `foreign_keys=OFF` on a dedicated conn then runs `PRAGMA foreign_key_check`. Verifies per-table counts + `id` min/max. **Pending: the live-PG import run against a COPY of the dev DB** (env-dependent; is Phase 6c's first gate). See *Phase 6b progress*. |
 | 7a/7b — Cleanup & rollout | ⬜ Not started | Split per D6 |
 
 ## Key findings (resolved this session)
@@ -417,6 +418,60 @@ suite only became exhaustive once it ran on SQLite.
 
 **Result:** `handlers` 7 → 0 failures; full suite green. `go vet` clean except
 the 2 pre-existing unrelated `oauth.go` warnings; `go build ./...` clean.
+
+## Phase 6b progress (2026-07-28, in progress)
+
+**`cmd/migrate-pg-to-sqlite/` is built and unit-tested.** The full Go suite is
+now **15 packages green** (the new cmd package added one). What landed:
+
+- **`main.go`** — CLI (`--sqlite-path`, `--pg-dsn` / `DB_*` env, `--no-schema`,
+  `--verify-only`, `--tables`). Opens PG via `lib/pq` and the SQLite target via
+  `server.OpenSQLite`; optionally loads the consolidated schema via
+  `server.RunMigrations`; discovers the migration set as the **dynamic PG∩SQLite
+  table intersection** (lossless and adapts to schema drift — more robust than
+  the design doc's curated 68-table list, and naturally drops the PG-only
+  `migrations` table which the runner owns); copies; then verifies.
+- **`copy.go`** — `copyTable`: streams `SELECT *` from PG, builds a `$N`-placeholder
+  INSERT (modernc accepts `$1` natively — Phase 1 finding), and writes within a
+  single per-table transaction on a dedicated SQLite connection. Idempotent
+  (per-table `DELETE` + reload). `normalizeValue` converts scanned PG values to
+  SQLite-storable forms: `bool → int64 0/1` (SQLite has no native bool),
+  `[]byte → string` (every `[]byte` here is JSON(B) text — there are **no BLOB
+  columns** in the consolidated schema, verified — so binding as string preserves
+  TEXT affinity / JSON-queryability), `time.Time` passes through (DATETIME
+  columns, D5). `parsePGArray` converts the lone PG array column
+  (`notifications.filter_tags`, detected generically via lib/pq's `_text`
+  database-type-name prefix) from `{a,b}` text form to JSON `["a","b"]`.
+- **`runCopy`** — acquires a dedicated `*sql.Conn`, sets `PRAGMA
+  foreign_keys=OFF` (the design doc's recommended alternative to `INSERT OR
+  REPLACE`; the per-connection-pragma footgun from D4 is why a dedicated conn is
+  used), copies all tables, then restores `foreign_keys=ON`.
+- **`verify.go`** — Phase 6c's first gates: per-table `COUNT(*)` PG-vs-SQLite,
+  plus `id` `MIN/MAX` for tables with an integer PK (catches off-by-one /
+  truncation that a count alone misses), plus `PRAGMA foreign_key_check`
+  (DB-wide, runs regardless of the per-connection enforcement flag).
+
+**Tests** (`copy_test.go`): `parsePGArray` (empty / quoted / escaped commas),
+`normalizeValue` (every type case incl. bool→int, []byte→string, the array
+branch, unsupported-type error), `TestCopyTableSQLiteToSQLite` (end-to-end
+SQLite→SQLite copy across INTEGER/TEXT/BOOLEAN/REAL/DATETIME/JSON-as-TEXT,
+with idempotency re-copy, AUTOINCREMENT `sqlite_sequence` check, and a clean
+`foreign_key_check` after re-enabling FKs), and `TestForeignKeyCheck` (confirms
+the gate catches a real dangling-FK row).
+
+**Deliberately NOT validated yet:** the live-PG import. No Postgres is running
+here, and lib/pq's exact Go-type shapes for this data (numeric / jsonb / arrays)
+are the one thing the SQLite→SQLite test cannot exercise. That validation is
+Phase 6c's first step: run the binary against a **copy** of the dev DB
+(`pg_dump`/restore to a throwaway DB — never the live one) and confirm all
+counts match + FK check clean + the ~20-card API spot-check diff. The
+`normalizeValue` default case errors loudly on any unhandled type, so a
+first-run surprise surfaces immediately rather than silently.
+
+**Scope note (system tables):** `migrations` is runner-owned (not in the
+consolidated schema) and drops out of the intersection automatically.
+`schema_definitions` is in both schemas and WILL be migrated (losslessness > the
+  design doc's "rebuild" note, which predated confidence in the runner).
 
 ## What's been built
 
