@@ -1,8 +1,8 @@
 # PostgreSQL → SQLite Migration — Status
 
-**Last updated:** 2026-07-28 (Phase 6 complete — ready for cutover)
+**Last updated:** 2026-07-28 (Phase 6 complete — ready for cutover; 0k6 closed, 7a issue filed)
 **Plan:** [`2026-07-17-postgres-to-sqlite-migration-design.md`](./2026-07-17-postgres-to-sqlite-migration-design.md)
-**Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2` (closed) · Phase 6a `Zettelgarden-j89` (closed) · 6a follow-ups `Zettelgarden-qcb` (closed) · `Zettelgarden-ilv` (closed) · `Zettelgarden-amt` (closed) · `Zettelgarden-bto` (closed) · Phase 6b `Zettelgarden-c7j.3` (in progress)
+**Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2` (closed) · Phase 6a `Zettelgarden-j89` (closed) · 6a follow-ups `Zettelgarden-qcb` (closed) · `Zettelgarden-ilv` (closed) · `Zettelgarden-amt` (closed) · `Zettelgarden-bto` (closed) · Phase 6b `Zettelgarden-c7j.3` (closed) · Phase 7a `Zettelgarden-c7j.4` (open)
 
 ## TL;DR
 
@@ -513,11 +513,12 @@ Results of `./migrate-pg-to-sqlite --pg-dsn … zg_internal_copy --sqlite-path �
    Regression tests (`verify_test.go`) lock in both the integer-type check and
    the UUID exclusion.
 
-**Schema drift flagged (non-blocking, `Zettelgarden-0k6`):** `habits` /
-`habit_logs` are SQLite-only — the consolidated schema still has them but
-migration `0144-remove-habits-feature.sql` dropped them from PG. The ETL
-correctly skips them (no PG data → no loss); they're unreferenced in Go. Fix =
-mirror 0144 in the SQLite schema (Phase 7a cleanup is also acceptable).
+**Schema drift RESOLVED (`Zettelgarden-0k6`, closed 2026-07-28):** `habits` /
+`habit_logs` were SQLite-only — the consolidated schema still had them but
+migration `0144-remove-habits-feature.sql` dropped them from PG. Removed both
+`CREATE TABLE`s + their 6 indexes from `schema/sqlite/schema.sqlite.sql`
+(72 → 71 tables; mirrors 0144; no Go refs, FK was internal-only). The next
+ETL run reports 0 SQLite-only-skipped tables.
 
 **Gate 3 (read-path A/B diff) GREEN.** Validated the substance of gate 3 at the
 Go read-path layer (strictly stronger than an HTTP diff: byte-exact JSON, no
@@ -623,10 +624,11 @@ The migration is ready to cut over.
 2. **Phase 7b — ~2 weeks after confirmed cutover (½ day):** delete
    `cmd/migrate-pg-to-sqlite/`, drop `lib/pq` from `go.mod`, remove the dead
    `scripts/` PG wiring, archive `schema/*.sql`, decommission Postgres.
-3. **Non-blocking follow-ups** (can fold into 7a): `Zettelgarden-0k6` (drop
+3. **Non-blocking follow-ups** (can fold into 7a): ~~`Zettelgarden-0k6` (drop
    `habits`/`habit_logs` from the consolidated schema — migration 0144 removed
-   them from PG); `Zettelgarden-74c` (drop/gate the PG-only `ResetDatabase`);
-   `Zettelgarden-bn2` (RSS N+1); the timestamp-`ORDER BY` tiebreaker audit.
+   them from PG)~~ ✅ closed 2026-07-28; `Zettelgarden-74c` (drop/gate the
+   PG-only `ResetDatabase`); `Zettelgarden-bn2` (RSS N+1); the timestamp-
+   `ORDER BY` tiebreaker audit. Phase 7a is tracked as `Zettelgarden-c7j.4`.
 4. **Phase 4 (cmd-binary consolidation) — still optional / can defer.** Folding
    `cmd/{reminders,userMemoryMaintenance,deduplication}` into the in-process
    scheduler is low priority for single-user. Verified not needed for Phase 5

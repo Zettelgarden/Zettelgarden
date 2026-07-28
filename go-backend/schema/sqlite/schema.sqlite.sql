@@ -493,35 +493,6 @@ CREATE TABLE flashcard_reviews (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE habit_logs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  habit_id INTEGER NOT NULL,
-  user_id INTEGER NOT NULL,
-  completed_at DATETIME NOT NULL,
-  notes TEXT,
-  created_at DATETIME DEFAULT (datetime('now')),
-  FOREIGN KEY (habit_id) REFERENCES habits(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-CREATE TABLE habits (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  title TEXT NOT NULL,
-  description TEXT,
-  frequency TEXT DEFAULT 'daily' NOT NULL,
-  custom_days TEXT,
-  icon TEXT,
-  color TEXT,
-  "position" INTEGER DEFAULT 0,
-  linked_task_id INTEGER,
-  created_at DATETIME DEFAULT (datetime('now')),
-  updated_at DATETIME DEFAULT (datetime('now')),
-  CONSTRAINT habits_frequency_check CHECK ((frequency IN ('daily', 'weekly', 'monthly', 'custom_days'))),
-  FOREIGN KEY (linked_task_id) REFERENCES tasks(id) ON DELETE SET NULL,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
 CREATE TABLE inactive_cards (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   card_pk INTEGER NOT NULL,
@@ -1060,12 +1031,6 @@ CREATE INDEX idx_external_events_user_time ON external_events (user_id, start_ti
 CREATE INDEX idx_file_tags_user_id ON file_tags (user_id);
 CREATE INDEX idx_files_tags_file_id ON files_tags (file_id);
 CREATE INDEX idx_files_tags_tag_id ON files_tags (tag_id);
-CREATE INDEX idx_habit_logs_habit_completed ON habit_logs (habit_id, completed_at DESC);
-CREATE INDEX idx_habit_logs_habit_date ON habit_logs (habit_id, date((completed_at)));
-CREATE INDEX idx_habit_logs_user_completed ON habit_logs (user_id, completed_at DESC);
-CREATE INDEX idx_habits_linked_task ON habits (linked_task_id);
-CREATE INDEX idx_habits_position ON habits (user_id, "position");
-CREATE INDEX idx_habits_user_id ON habits (user_id);
 CREATE INDEX idx_llm_jobs_correlation_id ON llm_jobs (correlation_id) WHERE (correlation_id IS NOT NULL);
 CREATE INDEX idx_llm_jobs_created_at ON llm_jobs (created_at DESC);
 CREATE INDEX idx_llm_jobs_priority ON llm_jobs (priority) WHERE ((status)= 'pending');
