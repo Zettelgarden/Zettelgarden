@@ -149,9 +149,16 @@ func normalizeValue(v interface{}, dbTypeName, colName string, isArray bool) (in
 		return nil, nil
 	}
 	if isArray {
-		s, ok := v.(string)
-		if !ok {
-			return nil, fmt.Errorf("array column %s: expected string from lib/pq, got %T", colName, v)
+		// lib/pq returns array text as []byte (not string) when scanning into
+		// interface{}, so accept both.
+		var s string
+		switch x := v.(type) {
+		case string:
+			s = x
+		case []byte:
+			s = string(x)
+		default:
+			return nil, fmt.Errorf("array column %s: expected string or []byte from lib/pq, got %T", colName, v)
 		}
 		return parsePGArray(s)
 	}

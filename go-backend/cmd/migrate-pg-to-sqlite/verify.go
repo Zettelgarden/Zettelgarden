@@ -52,9 +52,13 @@ func verifyCounts(ctx context.Context, pg models.Database, sqlite models.Databas
 			return nil, nil, fmt.Errorf("sqlite count %s: %w", t, err)
 		}
 
-		// PK stats only when the table has an `id` column on the SQLite side
-		// (cheap to detect and covers the common integer-PK case).
-		if hasIDColumn(ctx, sqlite, t) {
+		// PK stats only when the table has an integer `id` PK on the SQLite side
+		// (the overwhelmingly common case). Non-integer PKs (e.g. UUID `id`
+		// columns on the chat tables) are excluded: Postgres has no MIN/MAX
+		// aggregate over its uuid type, so such a query errors on PG and leaves
+		// the stat nil while SQLite returns a lexicographic TEXT min/max — a
+		// spurious mismatch. The row-count comparison still covers these tables.
+		if hasIntegerPKID(ctx, sqlite, t) {
 			_ = pg.QueryRowContext(ctx, minMaxSQL(qid)).Scan(&r.PGMin, &r.PGMax)
 			_ = sqlite.QueryRowContext(ctx, minMaxSQL(qid)).Scan(&r.Min, &r.Max)
 		}
@@ -73,10 +77,12 @@ func minMaxSQL(qid string) string {
 	return "SELECT MIN(id), MAX(id) FROM " + qid
 }
 
-// hasIDColumn reports whether the SQLite table has a column literally named
-// "id". PRAGMA table_info is SQLite-specific; that's fine because we only use
-// it against the SQLite side.
-func hasIDColumn(ctx context.Context, sqlite models.Database, table string) bool {
+// hasIntegerPKID reports whether the SQLite table has a single integer
+// primary key column named "id". PRAGMA table_info is SQLite-specific; that's
+// fine because we only use it against the SQLite side. Non-integer `id` PKs
+// (e.g. UUID columns declared TEXT) are intentionally excluded — see the note
+// at the call site.
+func hasIntegerPKID(ctx context.Context, sqlite models.Database, table string) bool {
 	rows, err := sqlite.QueryContext(ctx, "PRAGMA table_info("+quoteIdent(table)+")")
 	if err != nil {
 		return false
@@ -90,11 +96,18 @@ func hasIDColumn(ctx context.Context, sqlite models.Database, table string) bool
 		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
 			return false
 		}
-		if strings.EqualFold(name, "id") {
+		if strings.EqualFold(name, "id") && pk > 0 && isIntegerAffinity(ctype) {
 			return true
 		}
 	}
 	return false
+}
+
+// isIntegerAffinity reports whether a SQLite declared column type has INTEGER
+// affinity. Per SQLite's affinity rules, a type containing "INT" has INTEGER
+// affinity; TEXT-declared columns (including UUIDs) do not.
+func isIntegerAffinity(declType string) bool {
+	return strings.Contains(strings.ToUpper(declType), "INT")
 }
 
 // foreignKeyCheck runs SQLite's PRAGMA foreign_key_check (DB-wide, independent
