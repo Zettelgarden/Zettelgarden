@@ -15,7 +15,8 @@ func QueryTagsForCard(db models.Database, userID int, cardPK int) ([]models.Tag,
         SELECT t.id, t.name, t.user_id, t.color
         FROM tags t
         JOIN card_tags ct ON t.id = ct.tag_id
-        WHERE ct.card_pk = $1 AND t.user_id = $2;
+        WHERE ct.card_pk = $1 AND t.user_id = $2
+        ORDER BY t.name;
         `
 	var rows *sql.Rows
 	var err error
@@ -293,6 +294,7 @@ func QueryTags(db models.Database, userID int) ([]models.Tag, error) {
         FROM tags t
         WHERE t.is_deleted = false AND t.user_id = $1
         GROUP BY t.id, t.name, t.user_id, t.color
+        ORDER BY t.name
     `
 	var rows *sql.Rows
 	var err error
@@ -328,7 +330,8 @@ func QueryTagsForTask(db models.Database, userID int, taskPK int) ([]models.Tag,
         SELECT t.id, t.name, t.user_id, t.color
         FROM tags t
         JOIN task_tags tt ON t.id = tt.tag_id
-        WHERE tt.task_pk = $1 AND t.user_id = $2;
+        WHERE tt.task_pk = $1 AND t.user_id = $2
+        ORDER BY t.name;
         `
 	var rows *sql.Rows
 	var err error
