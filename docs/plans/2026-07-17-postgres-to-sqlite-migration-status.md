@@ -1,6 +1,6 @@
 # PostgreSQL → SQLite Migration — Status
 
-**Last updated:** 2026-07-28
+**Last updated:** 2026-07-28 (Phase 6 complete — ready for cutover)
 **Plan:** [`2026-07-17-postgres-to-sqlite-migration-design.md`](./2026-07-17-postgres-to-sqlite-migration-design.md)
 **Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2` (closed) · Phase 6a `Zettelgarden-j89` (closed) · 6a follow-ups `Zettelgarden-qcb` (closed) · `Zettelgarden-ilv` (closed) · `Zettelgarden-amt` (closed) · `Zettelgarden-bto` (closed) · Phase 6b `Zettelgarden-c7j.3` (in progress)
 
@@ -17,7 +17,7 @@ Postgres running — all 14 Go packages pass** (`handlers`, `handlers/admin`,
 root package). The pool-vs-test-tx audit (`Zettelgarden-bto`) closed and the
 remaining pre-existing (non-SQLite) test expectations were fixed. **Phase 6b
 (ETL tool) is built and unit-tested** (`cmd/migrate-pg-to-sqlite/`; the full
-suite is now 15 packages). **Phase 6c gate 1 is GREEN: the ETL ran end-to-end against a copy of the live dev DB** (`zg_internal`, 14,542 cards / 8,468 tasks / 57,896 entities) — 71 tables, **3,513,290 rows pg==sqlite exact, 0 FK violations, `integrity_check` ok, idempotent**, a 5-card byte-identical spot check (body md5 + structured_data + tag/entity/fact/backlink sub-graphs), and a successful boot of the production binary against the migrated SQLite data. Array→JSON and bool→int transforms verified on real rows. **Gate 3 (read-path A/B diff) GREEN: 560 comparisons (70 cards × 8 endpoints, 2 users) byte-identical PG vs SQLite**, after an `ORDER BY` fix to the tag-list queries (a pre-existing nondeterminism). Remaining: the frontend smoke (a visual check at cutover).
+suite is now 15 packages). **Phase 6c gate 1 is GREEN: the ETL ran end-to-end against a copy of the live dev DB** (`zg_internal`, 14,542 cards / 8,468 tasks / 57,896 entities) — 71 tables, **3,513,290 rows pg==sqlite exact, 0 FK violations, `integrity_check` ok, idempotent**, a 5-card byte-identical spot check (body md5 + structured_data + tag/entity/fact/backlink sub-graphs), and a successful boot of the production binary against the migrated SQLite data. Array→JSON and bool→int transforms verified on real rows. **Gate 3 (read-path A/B diff) GREEN: 560 comparisons (70 cards × 8 endpoints, 2 users) byte-identical PG vs SQLite**, after an `ORDER BY` fix to the tag-list queries (a pre-existing nondeterminism). **Gate 4 (frontend smoke) GREEN: a SQLite-backed frontend instance rendered the dashboard / card detail / task list / chat history with no diffs vs the live PG app.** **All of Phase 6 is complete; the migration is ready for the Phase 7a cutover.**
 
 See *Phase 6c progress* for this session's detail.
 
@@ -32,7 +32,7 @@ See *Phase 6c progress* for this session's detail.
 | 4 — Consolidate cmd binaries | ⬜ Deferred | Optional; **verified not needed** for Phase 5 — the cmd/* and scripts/* binaries write none of the trigger-affected tables (cards/tasks/files/revenue/llm_query_log/rss), so services-layer wiring reaches every write path |
 | 5 — Triggers → Go | ✅ **Done** | All 7 trigger files handled. **Live:** user_stats counters + llm_jobs.updated_at + rss notifications ported to Go on BOTH drivers (decision 3b); migrations 0145/0146 drop the replaced PG triggers. **Dead (dropped, no port):** chat timestamp (no Go chat writer), llm_jobs pg_notify (no LISTEN), email notification sync (email abandoned). See *Phase 5 progress* below. |
 | 6a — Test infra (suite on SQLite) | ✅ **Done** | All 14 Go packages green vs SQLite (no PG). `go test ./...` exits clean. `tests/conftest.go` branches on driver (`DB_DRIVER=sqlite` default, temp file-backed DB so WAL engages), skips the PG-only `ResetDatabase`, and guards the one `setval`. Pool-vs-test-tx audit (`bto`) complete: all handler request-scoped reads/writes routed through `GetDB()`, 15 test-layer `services.*(s.DB)` calls moved to the rolled-back tx, `ReorderTaskStatuses` refactored off its own `Begin()` onto a handler-managed tx. Remaining `s.DB` sites are the documented legit-pool-only set (fire-and-forget timestamps, Stripe/OAuth callbacks, LLM-client ctor). Pre-existing non-SQLite test bugs also fixed: stale `201`/`200` expectations, `getNextChildCardID` majority-sep expectation, and RSS tests de-networked via an injectable `services.FeedParser`. |
-| 6b/6c — ETL + cutover | 🔄 **6b done, 6c gates 1+3 green** | `cmd/migrate-pg-to-sqlite/` exists, builds, and is unit-tested (PG-array→JSON parsing, type normalization, SQLite→SQLite copy idempotency, FK-off wipe+reload, `foreign_key_check`). Dynamically migrates the PG∩SQLite table intersection (lossless, drift-proof). Loads with `foreign_keys=OFF` on a dedicated conn then runs `PRAGMA foreign_key_check`. Verifies per-table counts + `id` min/max. **Gate 1 DONE 2026-07-28: live import of a copy of `zg_internal` — 71 tables, 3,513,290 rows exact, 0 FK violations, idempotent; 5-card byte-identical spot check; production binary boots on the migrated data.** **Gate 3 DONE 2026-07-28: 560 read-path comparisons (70 cards × 8 endpoints, 2 users) byte-identical PG vs SQLite;** `ORDER BY` fix landed for tag-list nondeterminism. Two live-only fixes landed (lib/pq `_text`→`[]byte`; UUID-PK tables excluded from id MIN/MAX). See *Phase 6c progress*. |
+| 6b/6c — ETL + cutover | ✅ **Done (gates 1+3+4 green)** | `cmd/migrate-pg-to-sqlite/` exists, builds, and is unit-tested (PG-array→JSON parsing, type normalization, SQLite→SQLite copy idempotency, FK-off wipe+reload, `foreign_key_check`). Dynamically migrates the PG∩SQLite table intersection (lossless, drift-proof). Loads with `foreign_keys=OFF` on a dedicated conn then runs `PRAGMA foreign_key_check`. Verifies per-table counts + `id` min/max. **Gate 1 DONE:** live import of a copy of `zg_internal` — 71 tables, 3,513,290 rows exact, 0 FK violations, idempotent; 5-card byte-identical spot check; production binary boots on the migrated data. **Gate 3 DONE:** 560 read-path comparisons (70 cards × 8 endpoints, 2 users) byte-identical PG vs SQLite; `ORDER BY` fix landed for tag-list nondeterminism. **Gate 4 DONE:** SQLite-backed frontend rendered dashboard/card/task/chat with no diffs vs PG. Two live-only fixes landed (lib/pq `_text`→`[]byte`; UUID-PK tables excluded from id MIN/MAX). See *Phase 6c progress*. |
 | 7a/7b — Cleanup & rollout | ⬜ Not started | Split per D6 |
 
 ## Key findings (resolved this session)
@@ -556,6 +556,18 @@ around; its data layer is already proven by the test suite + the read-path diff
 above. The migrated SQLite file at
 `go-backend/data/zettelgarden.import.db` (557 MB, gitignored) is staged for it.
 
+**Gate 4 (frontend smoke) GREEN.** Stood up a throwaway SQLite-backed stack on
+the dev box (frontend baked with `VITE_URL` → a SQLite backend on `:8086`, both
+served via the Tailscale IP so they were reachable from anywhere): the migrated
+DB authenticated the real user, and the dashboard / card detail / task list /
+chat history all **rendered with no diffs vs the live PG-backed app.** Search
+degraded to full-text (Typesense not wired) and new-LLM calls no-op'd (dummy
+key) as expected; existing chat history (a read) rendered fine. Stack torn down
+after; the throwaway remote copy DB was dropped (live `zg_internal` untouched;
+the 111 MB insurance `pg_dump` is retained).
+
+**Phase 6 is complete.** All gates green; the migration is ready for cutover.
+
 ## What's been built
 
 Code (all tested, all on `master`):
@@ -590,30 +602,35 @@ Code (all tested, all on `master`):
 Driver added: `modernc.org/sqlite v1.54.0`. Config flags: `DB_DRIVER`
 (default `postgres`), `SQLITE_PATH` (default `./data/zettelgarden.db`).
 
-## What's next (Phase 6c gate 4 + 7)
+## What's next (Phase 7 — cutover & cleanup)
 
-Phases 0–5, 6a, 6b are **done**, and **Phase 6c gates 1 + 3 are green** (live
-ETL import + read-path A/B diff verified). The Go query code is driver-neutral
-(runs unchanged on Postgres pre-cutover and SQLite post-cutover), the triggers
-are ported to Go, the full test suite is green on SQLite with no Postgres, the
-ETL imports the live dev DB with exact counts + clean FKs + byte-identical
-read-path diffs, and the production binary boots on the migrated data.
+**Phase 6 is complete** — every gate green. The Go query code is driver-neutral,
+the triggers are ported to Go, the full test suite is green on SQLite with no
+Postgres, the ETL imports the live dev DB with exact counts + clean FKs +
+byte-identical read-path diffs, and the frontend renders identically on SQLite.
+The migration is ready to cut over.
 
-1. **Phase 6c gate 4 — frontend smoke (the last gate, a visual check):** point
-   the frontend at a SQLite-backed server and click through dashboard counts,
-   one card detail, one task list, one chat history (no diffs vs PG). Its data
-   layer is already proven (test suite + the 560-comparison read-path diff);
-   this is the render confirmation. Best done at cutover. The migrated SQLite
-   file (`go-backend/data/zettelgarden.import.db`) is staged.
-2. **Phase 6b follow-up (`Zettelgarden-0k6`, non-blocking):** mirror migration
-   `0144` in the consolidated SQLite schema (drop `habits` / `habit_logs`).
-3. **Phase 4 (cmd-binary consolidation) — still optional / can defer.** Folding
+1. **Phase 7a — the cutover (your call; involves live downtime).** Follow the
+   Cutover Runbook in the design doc: stop the app, take a final `pg_dump` as
+   insurance, run the ETL one last time against the now-static Postgres, run
+   the Phase 6c verification gates, flip `DB_DRIVER=sqlite` + `SQLITE_PATH`,
+   restart, smoke-test in prod. Then the code/config cleanup: move the 3
+   `sql.Open("postgres", …)` sites (`server/database.go`, `scripts/addParentId.go`,
+   `scripts/computeKeywords.go`) behind the driver abstraction; remove Postgres
+   from docker/env; update `.env.example` / `README` / `AGENTS.md`; archive
+   `schema/*.sql`; document `VACUUM INTO` as the ongoing backup. Keep Postgres
+   read-only ≥2 weeks as fallback.
+2. **Phase 7b — ~2 weeks after confirmed cutover (½ day):** delete
+   `cmd/migrate-pg-to-sqlite/`, drop `lib/pq` from `go.mod`, remove the dead
+   `scripts/` PG wiring, archive `schema/*.sql`, decommission Postgres.
+3. **Non-blocking follow-ups** (can fold into 7a): `Zettelgarden-0k6` (drop
+   `habits`/`habit_logs` from the consolidated schema — migration 0144 removed
+   them from PG); `Zettelgarden-74c` (drop/gate the PG-only `ResetDatabase`);
+   `Zettelgarden-bn2` (RSS N+1); the timestamp-`ORDER BY` tiebreaker audit.
+4. **Phase 4 (cmd-binary consolidation) — still optional / can defer.** Folding
    `cmd/{reminders,userMemoryMaintenance,deduplication}` into the in-process
    scheduler is low priority for single-user. Verified not needed for Phase 5
    (those binaries write none of the trigger-affected tables).
-4. **Phase 7a/7b — cleanup & rollout** (split per D6): at cutover, move the last
-   `sql.Open("postgres", …)` sites behind the driver abstraction, remove PG
-   from docker/env; ~2 weeks later drop `lib/pq` and decommission Postgres.
 
 Data-continuity protections live in the Cutover Runbook (final `pg_dump` as
 insurance, Postgres kept read-only ≥2 weeks as fallback).
