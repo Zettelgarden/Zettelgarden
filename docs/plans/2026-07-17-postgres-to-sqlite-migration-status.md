@@ -1,12 +1,26 @@
 # PostgreSQL → SQLite Migration — Status
 
-**Last updated:** 2026-07-28 (Phase 6 complete — ready for cutover; 0k6 closed, 7a issue filed)
+**Last updated:** 2026-07-28 (Phase 7a CUTOVER DONE — production now running on SQLite)
 **Plan:** [`2026-07-17-postgres-to-sqlite-migration-design.md`](./2026-07-17-postgres-to-sqlite-migration-design.md)
 **Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2` (closed) · Phase 6a `Zettelgarden-j89` (closed) · 6a follow-ups `Zettelgarden-qcb` (closed) · `Zettelgarden-ilv` (closed) · `Zettelgarden-amt` (closed) · `Zettelgarden-bto` (closed) · Phase 6b `Zettelgarden-c7j.3` (closed) · Phase 7a `Zettelgarden-c7j.4` (open)
 
 ## TL;DR
 
-Implementation is underway. **Phases 0, 1, 2, 3, 5, and 6a done.** Every high-risk
+**🎉 CUTOVER COMPLETE (2026-07-28).** Production (`zg-internal` on
+server-3 / 192.168.0.20) is now running on SQLite. The live Postgres on
+192.168.0.93 was imported while static: **71 tables, 3,514,707 rows pg==sqlite
+exact, 0 FK violations, `integrity_check` ok**. The rebuilt backend image
+booted on SQLite (`Database connected and migrations completed successfully`),
+the read path works (scheduler queried tasks), the write path works
+(`scheduled_job_runs` accumulating new rows), and HTTP is serving. Postgres on
+.93 is **untouched and kept as the read-only fallback (≥2 weeks)**; the
+`:pre-sqlite` image tag is retained on the host for instant rollback. Insurance
+`pg_dump` (116 MB) stored on the NAS. Remaining = Phase 7a repo-cleanup
+(README/AGENTS/.env.example, scripts, ResetDatabase) + Phase 7b (~2 weeks).
+
+---
+
+Implementation history follows. **Phases 0, 1, 2, 3, 5, and 6a done.** Every high-risk
 *unknown* was resolved empirically in Phase 1 (which shrank the plan), Phase 2
 produced the validated consolidated SQLite schema, Phase 3 swept the Go query
 code clean of every remaining PG-ism, Phase 5 ported the live triggers to Go,
@@ -605,22 +619,49 @@ Driver added: `modernc.org/sqlite v1.54.0`. Config flags: `DB_DRIVER`
 
 ## What's next (Phase 7 — cutover & cleanup)
 
-**Phase 6 is complete** — every gate green. The Go query code is driver-neutral,
-the triggers are ported to Go, the full test suite is green on SQLite with no
-Postgres, the ETL imports the live dev DB with exact counts + clean FKs +
-byte-identical read-path diffs, and the frontend renders identically on SQLite.
-The migration is ready to cut over.
+**Phase 7a CUTOVER DONE 2026-07-28.** Production on server-3 (192.168.0.20) is
+running on SQLite. Sequence executed against the live deploy:
 
-1. **Phase 7a — the cutover (your call; involves live downtime).** Follow the
-   Cutover Runbook in the design doc: stop the app, take a final `pg_dump` as
-   insurance, run the ETL one last time against the now-static Postgres, run
-   the Phase 6c verification gates, flip `DB_DRIVER=sqlite` + `SQLITE_PATH`,
-   restart, smoke-test in prod. Then the code/config cleanup: move the 3
-   `sql.Open("postgres", …)` sites (`server/database.go`, `scripts/addParentId.go`,
-   `scripts/computeKeywords.go`) behind the driver abstraction; remove Postgres
-   from docker/env; update `.env.example` / `README` / `AGENTS.md`; archive
-   `schema/*.sql`; document `VACUUM INTO` as the ongoing backup. Keep Postgres
-   read-only ≥2 weeks as fallback.
+1. **Pre-staged (app running):** pulled master; rebuilt the backend image as
+   `:sqlite-cutover` (Go 1.25 — go.mod requires `go 1.25.0`; the committed
+   Dockerfile's `golang:1.22` was raised to `golang:1.25`); built the static
+   ETL binary; tagged the running PG image as `:pre-sqlite` (rollback); took an
+   insurance `pg_dump -Fc` (116 MB, 853 TOC entries) to the NAS.
+2. **Rehearsal (app running):** ran the ETL against **live** Postgres on
+   192.168.0.93 (read-only `SELECT *` only) into a throwaway file —
+   `pg=3,514,703 sqlite=3,514,703 EXACT`, 71 tables, **0 SQLite-only-skipped**
+   (0k6 fix confirmed), 0 FK violations. Proved the full pipeline on this infra
+   with zero downtime.
+3. **Downtime (~5 min):** `docker compose stop go_backend` (PG went static) →
+   final ETL into the persistent data dir → `pg=3,514,707 sqlite=3,514,707
+   EXACT`, 71 tables, 0 FK violations.
+4. **Deep verify (Python sqlite3):** `integrity_check` ok, `quick_check` ok,
+   `foreign_key_check` empty; 14,544 cards / 8,468 tasks / 57,896 entities /
+   234 users; bool→int + UUID rows correct; user 1 = nick@nicksavage.ca.
+5. **Switch:** appended `DB_DRIVER=sqlite` + `SQLITE_PATH=/usr/src/app/data/
+   zettelgarden.db` to `.env`; added `./data:/usr/src/app/data` volume to
+   `docker-compose.yml`; promoted `:sqlite-cutover` → `:latest`; `docker
+   compose up -d go_backend`.
+6. **Smoke (live):** `Database connected and migrations completed successfully`;
+   HTTP serving (`/api/tasks` → 401 = auth middleware on a DB-backed route);
+   read path (task-reminders job queried tasks); **write path**
+   (`scheduled_job_runs` accumulating new rows post-boot: 265,720 → 265,728);
+   live WAL mode active (`.db` 584 MB + small `-wal`/`-shm`).
+
+Deploy specifics: the production compose at
+`/mnt/nas-2-fast-data/config/services/zg-internal/` had **no `db` service**
+(PG lives standalone on .93), so nothing to remove there — only the data volume
+was added. Originals backed up as `.env.pre-sqlite` + `docker-compose.yml.pre-
+sqlite` on the host. Postgres on .93 is **untouched → read-only fallback (≥2
+weeks)**; `:pre-sqlite` image retained for instant rollback.
+
+**Remaining (Phase 7a repo cleanup + 7b):**
+1. **Phase 7a repo cleanup (½ day, non-urgent):** update `README.md` (lines
+   62/89/97/100/125 still say "PostgreSQL + pgvector") and `AGENTS.md` (line 4);
+   rewrite `go-backend/.env.example` (`DB_DRIVER`/`SQLITE_PATH`); decide on the
+   2 `//go:build ignore` scripts (`computeKeywords.go` is already obsolete —
+   recommend archive); close `Zettelgarden-74c` (drop/gate PG-only
+   `ResetDatabase`). Document `VACUUM INTO` as the ongoing backup model.
 2. **Phase 7b — ~2 weeks after confirmed cutover (½ day):** delete
    `cmd/migrate-pg-to-sqlite/`, drop `lib/pq` from `go.mod`, remove the dead
    `scripts/` PG wiring, archive `schema/*.sql`, decommission Postgres.

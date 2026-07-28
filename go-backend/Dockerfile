@@ -1,7 +1,7 @@
 # Dockerfile-backend
 
 # Use the official Golang image as a parent image
-FROM golang:1.22
+FROM golang:1.25
 
 # Set the working directory in the container
 WORKDIR /usr/src/app
