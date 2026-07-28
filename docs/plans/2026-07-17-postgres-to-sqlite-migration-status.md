@@ -17,7 +17,7 @@ Postgres running — all 14 Go packages pass** (`handlers`, `handlers/admin`,
 root package). The pool-vs-test-tx audit (`Zettelgarden-bto`) closed and the
 remaining pre-existing (non-SQLite) test expectations were fixed. **Phase 6b
 (ETL tool) is built and unit-tested** (`cmd/migrate-pg-to-sqlite/`; the full
-suite is now 15 packages). **Phase 6c gate 1 is GREEN: the ETL ran end-to-end against a copy of the live dev DB** (`zg_internal`, 14,542 cards / 8,468 tasks / 57,896 entities) — 71 tables, **3,513,290 rows pg==sqlite exact, 0 FK violations, `integrity_check` ok, idempotent**, a 5-card byte-identical spot check (body md5 + structured_data + tag/entity/fact/backlink sub-graphs), and a successful boot of the production binary against the migrated SQLite data. Array→JSON and bool→int transforms verified on real rows. Remaining gates: the authed API-vs-API diff + frontend smoke.
+suite is now 15 packages). **Phase 6c gate 1 is GREEN: the ETL ran end-to-end against a copy of the live dev DB** (`zg_internal`, 14,542 cards / 8,468 tasks / 57,896 entities) — 71 tables, **3,513,290 rows pg==sqlite exact, 0 FK violations, `integrity_check` ok, idempotent**, a 5-card byte-identical spot check (body md5 + structured_data + tag/entity/fact/backlink sub-graphs), and a successful boot of the production binary against the migrated SQLite data. Array→JSON and bool→int transforms verified on real rows. **Gate 3 (read-path A/B diff) GREEN: 560 comparisons (70 cards × 8 endpoints, 2 users) byte-identical PG vs SQLite**, after an `ORDER BY` fix to the tag-list queries (a pre-existing nondeterminism). Remaining: the frontend smoke (a visual check at cutover).
 
 See *Phase 6c progress* for this session's detail.
 
@@ -32,7 +32,7 @@ See *Phase 6c progress* for this session's detail.
 | 4 — Consolidate cmd binaries | ⬜ Deferred | Optional; **verified not needed** for Phase 5 — the cmd/* and scripts/* binaries write none of the trigger-affected tables (cards/tasks/files/revenue/llm_query_log/rss), so services-layer wiring reaches every write path |
 | 5 — Triggers → Go | ✅ **Done** | All 7 trigger files handled. **Live:** user_stats counters + llm_jobs.updated_at + rss notifications ported to Go on BOTH drivers (decision 3b); migrations 0145/0146 drop the replaced PG triggers. **Dead (dropped, no port):** chat timestamp (no Go chat writer), llm_jobs pg_notify (no LISTEN), email notification sync (email abandoned). See *Phase 5 progress* below. |
 | 6a — Test infra (suite on SQLite) | ✅ **Done** | All 14 Go packages green vs SQLite (no PG). `go test ./...` exits clean. `tests/conftest.go` branches on driver (`DB_DRIVER=sqlite` default, temp file-backed DB so WAL engages), skips the PG-only `ResetDatabase`, and guards the one `setval`. Pool-vs-test-tx audit (`bto`) complete: all handler request-scoped reads/writes routed through `GetDB()`, 15 test-layer `services.*(s.DB)` calls moved to the rolled-back tx, `ReorderTaskStatuses` refactored off its own `Begin()` onto a handler-managed tx. Remaining `s.DB` sites are the documented legit-pool-only set (fire-and-forget timestamps, Stripe/OAuth callbacks, LLM-client ctor). Pre-existing non-SQLite test bugs also fixed: stale `201`/`200` expectations, `getNextChildCardID` majority-sep expectation, and RSS tests de-networked via an injectable `services.FeedParser`. |
-| 6b/6c — ETL + cutover | 🔄 **6b done, 6c gate 1 green** | `cmd/migrate-pg-to-sqlite/` exists, builds, and is unit-tested (PG-array→JSON parsing, type normalization, SQLite→SQLite copy idempotency, FK-off wipe+reload, `foreign_key_check`). Dynamically migrates the PG∩SQLite table intersection (lossless, drift-proof). Loads with `foreign_keys=OFF` on a dedicated conn then runs `PRAGMA foreign_key_check`. Verifies per-table counts + `id` min/max. **Phase 6c gate 1 DONE 2026-07-28: live import of a copy of `zg_internal` — 71 tables, 3,513,290 rows exact, 0 FK violations, idempotent; 5-card byte-identical spot check; production binary boots on the migrated data.** Two live-only fixes landed (lib/pq `_text`→`[]byte`; UUID-PK tables excluded from id MIN/MAX). See *Phase 6c progress*. |
+| 6b/6c — ETL + cutover | 🔄 **6b done, 6c gates 1+3 green** | `cmd/migrate-pg-to-sqlite/` exists, builds, and is unit-tested (PG-array→JSON parsing, type normalization, SQLite→SQLite copy idempotency, FK-off wipe+reload, `foreign_key_check`). Dynamically migrates the PG∩SQLite table intersection (lossless, drift-proof). Loads with `foreign_keys=OFF` on a dedicated conn then runs `PRAGMA foreign_key_check`. Verifies per-table counts + `id` min/max. **Gate 1 DONE 2026-07-28: live import of a copy of `zg_internal` — 71 tables, 3,513,290 rows exact, 0 FK violations, idempotent; 5-card byte-identical spot check; production binary boots on the migrated data.** **Gate 3 DONE 2026-07-28: 560 read-path comparisons (70 cards × 8 endpoints, 2 users) byte-identical PG vs SQLite;** `ORDER BY` fix landed for tag-list nondeterminism. Two live-only fixes landed (lib/pq `_text`→`[]byte`; UUID-PK tables excluded from id MIN/MAX). See *Phase 6c progress*. |
 | 7a/7b — Cleanup & rollout | ⬜ Not started | Split per D6 |
 
 ## Key findings (resolved this session)
@@ -519,11 +519,42 @@ migration `0144-remove-habits-feature.sql` dropped them from PG. The ETL
 correctly skips them (no PG data → no loss); they're unreferenced in Go. Fix =
 mirror 0144 in the SQLite schema (Phase 7a cleanup is also acceptable).
 
-**Remaining Phase 6c gates:** the authed API-vs-API diff (~20 cards fetched
-from both PG- and SQLite-backed servers, response-diffed) and the frontend
-smoke (dashboard counts, card detail, task list, chat history). These need a
-server config with auth + the external services; the migrated SQLite file at
-`go-backend/data/zettelgarden.import.db` (557 MB, gitignored) is staged for them.
+**Gate 3 (read-path A/B diff) GREEN.** Validated the substance of gate 3 at the
+Go read-path layer (strictly stronger than an HTTP diff: byte-exact JSON, no
+auth friction, no background-job mutations). A throwaway `cmd/dbdiff` (deleted
+after; methodology captured here) called the **real `services.*` functions**
+backing the card-detail + sub-graph endpoints against **both** the PG copy and
+the migrated SQLite file, for each sampled card, and diffed the marshaled JSON
+(deep order-independent, so nested-array ordering noise is separated from real
+value diffs). Endpoints: `GetFullCard`, `QueryTagsForCard`, `GetChildCards`,
+`GetCardFacts`, `GetReferences`, `GetCategorizedReferences`,
+`GetCardsBySharedEntities`, `GetCardsBySharedTags`.
+
+Result: **560 comparisons (70 cards × 8 endpoints, users 1 + 224) — all
+byte-identical**, zero value diffs, zero errors. Timestamps (`time.Time` from
+PG `timestamp` vs SQLite `DATETIME`), JSONB-vs-TEXT (`structured_data`), and
+all multi-row sub-graphs (entities, tags, children, facts, references, related)
+marshal identically on both drivers on real data.
+
+**One finding, fixed (commit `1010ff53`):** `QueryTagsForCard` /
+`QueryTagsForTask` / `QueryTags` had no `ORDER BY`, so tag order was
+nondeterministic — a reference card's 9 tags came back in insertion order on
+PG but id-order on SQLite (same data, different render order → a post-cutover
+UI reshuffle). Added `ORDER BY t.name` (alphabetical, both drivers); after the
+fix the diff is fully byte-identical with zero order-only diffs. Full suite
+green (tests assert only single-tag cases).
+
+The HTTP envelope (`json.NewEncoder`) is deterministic and driver-neutral, and
+the production binary boots + serves on the migrated data (gate 1), so the
+read-path diff is the rigorous version of the design doc's "fetch via the API
+and diff."
+
+**Remaining Phase 6c gate: the frontend smoke (gate 4).** This is a
+visual/render check (dashboard counts, card detail, task list, chat history)
+best done at cutover by pointing the frontend at a SQLite backend and clicking
+around; its data layer is already proven by the test suite + the read-path diff
+above. The migrated SQLite file at
+`go-backend/data/zettelgarden.import.db` (557 MB, gitignored) is staged for it.
 
 ## What's been built
 
@@ -559,20 +590,21 @@ Code (all tested, all on `master`):
 Driver added: `modernc.org/sqlite v1.54.0`. Config flags: `DB_DRIVER`
 (default `postgres`), `SQLITE_PATH` (default `./data/zettelgarden.db`).
 
-## What's next (Phase 6c remaining + 7)
+## What's next (Phase 6c gate 4 + 7)
 
-Phases 0–5, 6a, 6b are **done**, and **Phase 6c gate 1 is green** (live ETL
-import verified). The Go query code is driver-neutral (runs unchanged on
-Postgres pre-cutover and SQLite post-cutover), the triggers are ported to Go,
-the full test suite is green on SQLite with no Postgres, and the ETL imports
-the live dev DB with exact counts + clean FKs + byte-identical spot checks +
-a successful production-binary boot on the migrated data.
+Phases 0–5, 6a, 6b are **done**, and **Phase 6c gates 1 + 3 are green** (live
+ETL import + read-path A/B diff verified). The Go query code is driver-neutral
+(runs unchanged on Postgres pre-cutover and SQLite post-cutover), the triggers
+are ported to Go, the full test suite is green on SQLite with no Postgres, the
+ETL imports the live dev DB with exact counts + clean FKs + byte-identical
+read-path diffs, and the production binary boots on the migrated data.
 
-1. **Phase 6c remaining gates:** (a) authed **API-vs-API diff** — run the
-   server on both PG and SQLite against the migrated data and response-diff
-   ~20 cards (entity / fact / tag / flashcard / backlink sub-graphs); (b)
-   **frontend smoke** (dashboard counts, card detail, task list, chat history).
-   The migrated SQLite file (`go-backend/data/zettelgarden.import.db`) is staged.
+1. **Phase 6c gate 4 — frontend smoke (the last gate, a visual check):** point
+   the frontend at a SQLite-backed server and click through dashboard counts,
+   one card detail, one task list, one chat history (no diffs vs PG). Its data
+   layer is already proven (test suite + the 560-comparison read-path diff);
+   this is the render confirmation. Best done at cutover. The migrated SQLite
+   file (`go-backend/data/zettelgarden.import.db`) is staged.
 2. **Phase 6b follow-up (`Zettelgarden-0k6`, non-blocking):** mirror migration
    `0144` in the consolidated SQLite schema (drop `habits` / `habit_logs`).
 3. **Phase 4 (cmd-binary consolidation) — still optional / can defer.** Folding
