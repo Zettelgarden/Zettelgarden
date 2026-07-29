@@ -24,6 +24,9 @@ services:
       - "8080:8080"
     env_file:
       - .env
+    volumes:
+      # Persist the SQLite DB (default ./data/zettelgarden.db) on the host.
+      - ./go-backend/data:/usr/src/app/data
 
   mail-service:
     build:

@@ -22,35 +22,21 @@ services:
     depends_on:
       - go_backend
 
+  # Backend runs on SQLite (file-based, WAL mode) — no external database
+  # service. Set DB_DRIVER=sqlite + SQLITE_PATH in zettel.env (see
+  # go-backend/.env.example). The data dir is mounted so the SQLite file
+  # persists across container recreation; back it up with `VACUUM INTO`
+  # (see docs/runbooks/sqlite-backup.md), NOT a raw cp.
   go_backend:
     image: nsavage/zettelgarden_go_backend:latest
     restart: always
-    depends_on:
-      db:
-        condition: service_healthy
-        restart: true
     expose:
       - "8080" 
     env_file:
       - zettel.env
     volumes:
       - /var/log/zettel:/app/logs
-
-  db:
-    image: postgres:16-alpine
-    restart: always
-    env_file:
-      - zettel.env
-    ports:
-      - "5432:5432"
-    volumes:
-      - /opt/postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d zettelkasten"]
-      interval: 10s
-      retries: 5
-      start_period: 30s
-      timeout: 10s
+      - ./data:/usr/src/app/data
 
   mail-service:
     image: nsavage/zettelgarden_python_mail:latest

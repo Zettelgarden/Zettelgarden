@@ -105,7 +105,7 @@ Built with modern, scalable technologies optimized for both performance and AI c
 - **Database Migrations**: SQL migration system with version control
 - **Monitoring**: Structured logging with configurable levels
 - **Security**: TLS/SSL, input validation, SQL injection protection
-- **Backup**: Automated database backups with point-in-time recovery
+- **Backup**: Online SQLite snapshots via `VACUUM INTO` (see the [backup runbook](docs/runbooks/sqlite-backup.md))
 
 ### Mail Service (`python-mail`)
 - **Framework**: Flask for lightweight SMTP service
