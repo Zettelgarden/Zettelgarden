@@ -177,8 +177,8 @@ func TestRunMigrationDryRun(t *testing.T) {
 	}
 }
 
-// TestRunMigrationServerFailure confirms a B2 error is counted as failed (not a
-// crash) so the run can continue and be re-run idempotently.
+// TestRunMigrationServerFailure confirms a B2 404 is classified as not-in-source
+// (an orphaned row), NOT a failure — so the run completes and can be re-run.
 func TestRunMigrationServerFailure(t *testing.T) {
 	const bucket, accessKey, secretKey, region = "b", "a", "s", "us-east-005"
 	// Empty object map → every GET 404s.
@@ -196,7 +196,40 @@ func TestRunMigrationServerFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("runMigration should not return an error for object failures: %v", err)
 	}
-	if sum.primaryFailed != 1 {
-		t.Errorf("primaryFailed = %d, want 1", sum.primaryFailed)
+	if sum.primaryNotInSource != 1 {
+		t.Errorf("primaryNotInSource = %d, want 1 (404 should be not-in-source, not failed)", sum.primaryNotInSource)
+	}
+	if sum.failed() != 0 {
+		t.Errorf("failed = %d, want 0 (a 404 is not a failure)", sum.failed())
+	}
+}
+
+// TestRunMigrationLegacyAbsoluteKey confirms a legacy absolute-path key (the
+// pre-B2 `/usr/src/app/files/<uuid>` scheme found in production) is classified
+// as not-in-source rather than crashing the run.
+func TestRunMigrationLegacyAbsoluteKey(t *testing.T) {
+	const bucket, accessKey, secretKey, region = "b", "a", "s", "us-east-005"
+	srv := newFakeB2(t, bucket, accessKey, secretKey, region, map[string]string{})
+	t.Cleanup(srv.Close)
+
+	db := setupFilesDB(t, [][3]any{
+		{"/usr/src/app/files/legacy-uuid.pdf", "", false}, // legacy absolute path
+		{"7/normal-key", "", false},                       // normal key (not in fake B2 → 404 → not-in-source too)
+	})
+	store, err := storage.NewLocalStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewLocalStore: %v", err)
+	}
+	src := sourceConfig{endpoint: srv.URL, region: region, bucket: bucket, accessKey: accessKey, secretKey: secretKey}
+
+	sum, err := runMigration(context.Background(), db, store, http.DefaultClient, src, migrateOptions{timeout: time.Second})
+	if err != nil {
+		t.Fatalf("runMigration: %v", err)
+	}
+	if sum.primaryNotInSource != 2 {
+		t.Errorf("primaryNotInSource = %d, want 2 (legacy invalid key + 404)", sum.primaryNotInSource)
+	}
+	if sum.failed() != 0 {
+		t.Errorf("failed = %d, want 0", sum.failed())
 	}
 }

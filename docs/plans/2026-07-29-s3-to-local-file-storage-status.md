@@ -1,6 +1,6 @@
 # S3 (Backblaze B2) → Local File Storage Migration — Status
 
-**Last updated:** 2026-07-29 (Phase 4 COMPLETE — SDK-free `cmd/migrate-storage` ETL tool built + tested; `Store.Exists` added for idempotent re-runs. Suite green.)
+**Last updated:** 2026-07-29 (Phase 4 production ETL RUN COMPLETE — 363 objects copied B2→local on `server-3`, byte-verified; 48 orphaned legacy rows classified not-in-source. Tool hardened mid-run with `not-in-source` classification + `ErrInvalidKey`. Suite green.)
 **Plan:** [`2026-07-29-s3-to-local-file-storage-design.md`](./2026-07-29-s3-to-local-file-storage-design.md)
 **Tracking:** epic `Zettelgarden-yar` · Phase 0 `Zettelgarden-yar.1` (closed) · Phase 1 `Zettelgarden-yar.2` (closed) · Phase 2 `Zettelgarden-yar.3` (closed) · Phase 3 `Zettelgarden-yar.5` (closed) · Phase 4 `Zettelgarden-yar.6` (closed, code) · Security follow-up `Zettelgarden-yar.4` (open)
 
@@ -41,7 +41,7 @@ cutover (Phase 5).
 | 1 — Wire the store through | ✅ **Done** | `StorageConfig`/`STORAGE_DIR` (D3); `Server.Store` (D1); 5 call sites repointed; download `Content-Disposition` fix + `Testing` guard removal (D8); `handlers/s3.go` + dead `handlerS3Uploader` + `TestInspector` deleted; `go mod tidy` removed all AWS modules (D4). Full suite green. |
 | 2 — Config & deploy artifacts | ✅ **Done** | `.env.example` S3 block → `STORAGE_DIR` (D3); `.env-bash` `B2_*` → `STORAGE_DIR`; `Dockerfile` `ENV STORAGE_DIR=/usr/src/app/data/files` (D7); `docker-zettel-run.yml` documents the shared data volume carrying `files/` (D7); `.github/workflows/go.yml` dead `B2_*` GitHub-secret lines removed; `conftest.go` stale comment fixed; README File-Storage bullets → local disk. |
 | 3 — Tests green | ✅ **Done** (automated) | Re-ran `go test ./...` — 16/16 packages PASS (Phase 1 already made `TestDownloadFile` assert real bytes). Manual upload→thumb→download→epub→delete smoke folded into the Phase 5 cutover runbook. |
-| 4 — Data migration (B2 → local) | ✅ **Done** (code) | `cmd/migrate-storage/` (D6): SDK-free SigV4 `GET` (`sign.go`, verified against an independent Python oracle — 4 vectors); reads `files.path`/`thumbnail_path` from sqlite or postgres; streams into `LocalStore`; idempotent via new `Store.Exists`; 7 tests green (E2E fake-B2 round-trip, dry-run, server-failure resilience, oracle vectors, path encoding, request round-trip). **Production run is an operator step (Phase 5).** |
+| 4 — Data migration (B2 → local) | ✅ **Done** (code + prod run) | `cmd/migrate-storage/` (D6): SDK-free SigV4 `GET` (`sign.go`, verified against an independent Python oracle — 4 vectors); reads `files.path`/``thumbnail_path` from sqlite or postgres; streams into `LocalStore`; idempotent via `Store.Exists`; classifies invalid-key / B2-404 as `not-in-source` (distinct from failures); 8 tests green. **Prod run on server-3: 363 objects copied (319 primary + 44 thumb, 480 MB), byte-verified vs B2; 48 orphaned rows not-in-source.** |
 | 5 — Cutover & cleanup | ⬜ Not started | Deploy; smoke; keep B2 read-only for rollback window; then delete bucket. |
 
 ---
@@ -330,27 +330,80 @@ $ git diff --stat go-backend/go.mod go-backend/go.sum   # empty — NO new deps 
 - **No new deps.** Reuses `lib/pq` (postgres path), `go-backend/server`
   (`OpenSQLite`), and `go-backend/services/storage`. `go.mod`/`go.sum` untouched.
 
+### Production ETL run (2026-07-29, server-3 / `192.168.0.20`)
+
+Ran for real against the live `zettelgarden-files` B2 bucket + the live SQLite
+DB (`DB_DRIVER=sqlite`, `SQLITE_PATH=/usr/src/app/data/zettelgarden.db`, host
+path `/home/nick/zg/zettelgarden.db`). Destination `STORAGE_DIR=/home/nick/zg/files`
+(host) = the container's `/usr/src/app/data/files` post-cutover (the compose
+mount is `/home/nick/zg:/usr/src/app/data`).
+
+```
+files seen: 367   expected objects: 411
+primary  downloaded: 319   skipped: 0   not-in-source: 48   failed: 0
+thumb    downloaded:  44   skipped: 0   not-in-source:  0   failed: 0
+```
+
+Verification:
+- **363 local files** (319 primary + 44 thumb), 480 MB; dirs mode `0750`,
+  files `0640` (as designed).
+- **Byte-perfect**: SHA-256 of a migrated primary (`1/0499be71-…`, 355415 B)
+  and a thumbnail (`1/0a2f1e58-…_thumb.jpg`, 20355 B) both matched the live
+  B2 object exactly. A throwaway SigV4 probe confirmed the signer returns
+  HTTP 200 against real B2.
+- **Atomic writes clean**: no leftover `.upload-*` / `.storage-probe-*` temps.
+- **One transient `unexpected EOF`** (B2 closed a stream mid-transfer on
+  `id=360`); the atomic write discarded the partial and the idempotent re-run
+  fetched it cleanly on the second pass — exactly the resume design.
+
+**Data discovery (pre-existing, not caused by the migration):** 48 rows are
+orphaned — their files are absent in B2 (HTTP 404 `NoSuchKey`) and were never
+migratable:
+- **46 legacy rows** (ids ≈ 5–53) store `files.path` as a full absolute path
+  `/usr/src/app/files/<uuid>.<ext>` — a pre-B2 scheme that kept files on the
+  container's *ephemeral* disk. Those files were never uploaded to B2 and are
+  long gone. The store's path-traversal guard (correctly) rejects absolute
+  keys; the tool now classifies these as `not-in-source` instead of `failed`.
+- **2 normal-format keys** (`{userID}/{uuid}`) also 404 in B2 — additional
+  orphaned rows from some past data loss.
+
+These 48 rows were **already broken pre-cutover** (a B2 download 404s today);
+the migration doesn't worsen them. Cleanup (mark deleted) is filed as a
+follow-up (`Zettelgarden-yar.7`) and is independent of cutover.
+
+The running backend is still the pre-Phase-1 image (built 2026-07-28, uploads
+still go to B2), so this run was a pure pre-cutover populate — the live app
+was untouched.
+
 ---
 
-## What's next (Phase 5 — production cutover; operator steps)
+## What's next (Phase 5 — production cutover; operator step, Nick's call / downtime)
 
-Both remaining steps run on the live host and are **Nick's call** (downtime):
+The Phase 4 ETL has **already run** — 363 objects are populated in
+`/home/nick/zg/files` on server-3, byte-verified (see "Production ETL run"
+above). What remains is purely the cutover:
 
-- **Run the ETL (Phase 4 production run):** on the production host, build the
-  tool (`go build -o migrate-storage ./cmd/migrate-storage` from `go-backend/`)
-  and run it pointed at the populated `STORAGE_DIR` and the live metadata DB:
-  ```
-  B2_ACCESS_KEY_ID=… B2_SECRET_ACCESS_KEY=… B2_BUCKET_NAME=… \
-    ./migrate-storage --storage-dir <PROD STORAGE_DIR> --db-driver <sqlite|postgres>
-  ```
-  Re-run freely (idempotent). Confirm the summary: `failed: 0` and
-  `expected == downloaded+skipped`. Keep B2 read-only for the rollback window.
-- **Phase 5 cutover:** deploy the new binary pointed at that same `STORAGE_DIR`;
-  smoke-test a real upload→thumb→download→epub→delete (the manual check deferred
-  from Phase 3). After a green window, delete the B2 bucket and revoke keys
-  (`Zettelgarden-yar.4`).
+- ✅ **Phase 4 ETL — DONE.** (The instructions below are kept for reference /
+  re-run only.) On the production host, build the tool
+  (`go build -o migrate-storage ./cmd/migrate-storage` from `go-backend/`) and
+  run it pointed at the populated `STORAGE_DIR` and the live metadata DB. It is
+  idempotent — re-run anytime to pick up objects added to B2 after the first
+  run; confirm `failed: 0` and `expected == downloaded+skipped+not-in-source`.
+- **Phase 5 cutover (NEXT):** re-deploy with the new image so the backend
+  serves from local disk. The running container is still the pre-Phase-1 image
+  (built 2026-07-28, uploads still go to B2). Rebuild
+  `nsavage/zettelgarden_go_backend:latest` from current `main` (Phase 1+ code +
+  the Phase 2 Dockerfile `ENV STORAGE_DIR=/usr/src/app/data/files`), then
+  `docker compose up -d`; the container will read/write `/usr/src/app/data/files`
+  = host `/home/nick/zg/files` (already populated — no `STORAGE_DIR` override
+  needed, the Dockerfile default lands on the mount). Then smoke-test a real
+  upload→thumb→download→epub→delete (the manual check deferred from Phase 3).
+  Keep B2 read-only for the rollback window; after green, delete the bucket +
+  revoke keys (`Zettelgarden-yar.4`). Cleanup of the 48 orphaned rows is
+  `Zettelgarden-yar.7` (independent of cutover).
 
-The local `.env-bash` B2 keys are already gone and the `B2_*` GitHub secrets
-are unreferenced; the only remaining B2 touchpoints are the production host's
-`zettel.env` (operator sets it for the ETL run) and the Backblaze console
-itself (`yar.4`).
+The `migrate-storage` binary is left at `/home/nick/migrate-storage` on
+server-3 for an idempotent re-run. The local `.env-bash` B2 keys are gone and
+the `B2_*` GitHub secrets are unreferenced; the only remaining B2 touchpoints
+are the production host's `.env` (still has `B2_*` for the running old image,
+removed at cutover) and the Backblaze console itself (`yar.4`).

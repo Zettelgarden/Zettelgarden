@@ -36,6 +36,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -73,13 +74,19 @@ type migrateOptions struct {
 }
 
 // summary tallies the outcome of a run. expected counts primary objects plus
-// thumbnail objects that were eligible (non-empty thumbnail_path).
+// thumbnail objects that were eligible (non-empty thumbnail_path). notInSource
+// covers objects that cannot or do not exist upstream — an invalid local key
+// (e.g. a legacy absolute path) or a B2 NoSuchKey — and is NOT a failure; it
+// reflects pre-existing orphaned rows rather than a tool error.
 type summary struct {
-	filesSeen                                  int
-	expected                                   int
-	primaryDownloaded, primarySkipped          int
-	primaryFailed                              int
-	thumbDownloaded, thumbSkipped, thumbFailed int
+	filesSeen                         int
+	expected                          int
+	primaryDownloaded, primarySkipped int
+	primaryNotInSource                int
+	primaryFailed                     int
+	thumbDownloaded, thumbSkipped     int
+	thumbNotInSource                  int
+	thumbFailed                       int
 }
 
 func (s summary) failed() int {
@@ -148,14 +155,20 @@ func main() {
 	log.Printf("────────── migration summary ──────────")
 	log.Printf("files seen:            %d", sum.filesSeen)
 	log.Printf("expected objects:      %d (files + thumbnails)", sum.expected)
-	log.Printf("primary  downloaded:   %d   skipped: %d   failed: %d", sum.primaryDownloaded, sum.primarySkipped, sum.primaryFailed)
-	log.Printf("thumb    downloaded:   %d   skipped: %d   failed: %d", sum.thumbDownloaded, sum.thumbSkipped, sum.thumbFailed)
+	log.Printf("primary  downloaded:   %d   skipped: %d   not-in-source: %d   failed: %d",
+		sum.primaryDownloaded, sum.primarySkipped, sum.primaryNotInSource, sum.primaryFailed)
+	log.Printf("thumb    downloaded:   %d   skipped: %d   not-in-source: %d   failed: %d",
+		sum.thumbDownloaded, sum.thumbSkipped, sum.thumbNotInSource, sum.thumbFailed)
 	log.Printf("destination dir:       %s", store.Dir())
 	if sum.failed() > 0 {
 		log.Printf("FAILED objects:        %d — re-run to resume (idempotent); investigate failures above", sum.failed())
 		os.Exit(1)
 	}
-	log.Printf("done — no failures. Verify expected(%d) == downloaded+skipped, then proceed to Phase 5 cutover.", sum.expected)
+	if sum.primaryNotInSource+sum.thumbNotInSource > 0 {
+		log.Printf("not-in-source:         %d primary + %d thumb (legacy/orphaned rows whose files are absent in B2; not migrated, not a failure)",
+			sum.primaryNotInSource, sum.thumbNotInSource)
+	}
+	log.Printf("done — no failures. Verify expected(%d) == downloaded+skipped+not-in-source, then proceed to Phase 5 cutover.", sum.expected)
 }
 
 // runMigration copies every non-deleted file's primary object (and its
@@ -191,24 +204,28 @@ func runMigration(ctx context.Context, db *sql.DB, store *storage.LocalStore, cl
 		sum.filesSeen++
 		sum.expected++
 
-		switch st, err := downloadObject(ctx, client, store, src, path.String, opts); {
+		switch res, err := downloadObject(ctx, client, store, src, path.String, opts); {
 		case err != nil:
 			sum.primaryFailed++
 			log.Printf("FAIL  file  id=%d key=%q: %v", id, path.String, err)
-		case st == statusSkipped:
+		case res == resSkippedExists:
 			sum.primarySkipped++
+		case res == resNotInSource:
+			sum.primaryNotInSource++
 		default:
 			sum.primaryDownloaded++
 		}
 
 		if !opts.noThumbnails && thumbnailPath.Valid && thumbnailPath.String != "" {
 			sum.expected++
-			switch st, err := downloadObject(ctx, client, store, src, thumbnailPath.String, opts); {
+			switch res, err := downloadObject(ctx, client, store, src, thumbnailPath.String, opts); {
 			case err != nil:
 				sum.thumbFailed++
 				log.Printf("FAIL  thumb id=%d key=%q: %v", id, thumbnailPath.String, err)
-			case st == statusSkipped:
+			case res == resSkippedExists:
 				sum.thumbSkipped++
+			case res == resNotInSource:
+				sum.thumbNotInSource++
 			default:
 				sum.thumbDownloaded++
 			}
@@ -225,25 +242,34 @@ func runMigration(ctx context.Context, db *sql.DB, store *storage.LocalStore, cl
 }
 
 const (
-	statusDownloaded = "downloaded"
-	statusSkipped    = "skipped"
+	resDownloaded    = "downloaded"
+	resSkippedExists = "skipped-exists"
+	resNotInSource   = "not-in-source"
 )
 
-// downloadObject fetches a single object from B2 into the local store. It is
-// idempotent: if the local file already exists it is skipped without fetching.
-// The returned status is one of the status* constants.
+// downloadObject fetches a single object from B2 into the local store. Results:
+//   - resDownloaded: copied now.
+//   - resSkippedExists: a local file already exists (idempotent re-run).
+//   - resNotInSource: the key is not a usable local path (legacy absolute
+//     path) OR B2 reports NoSuchKey — not a failure, just not migratable.
+//
+// A non-nil error signals a genuine failure (network/I/O/unexpected HTTP).
 func downloadObject(ctx context.Context, client *http.Client, store *storage.LocalStore,
 	src sourceConfig, key string, opts migrateOptions) (string, error) {
 	exists, err := store.Exists(ctx, key)
 	if err != nil {
+		if errors.Is(err, storage.ErrInvalidKey) {
+			log.Printf("SKIP  not-in-source key=%q: invalid local key (legacy absolute path?)", key)
+			return resNotInSource, nil
+		}
 		return "", fmt.Errorf("stat local %q: %w", key, err)
 	}
 	if exists {
-		return statusSkipped, nil
+		return resSkippedExists, nil
 	}
 	if opts.dryRun {
 		log.Printf("  would download %q", key)
-		return statusDownloaded, nil
+		return resDownloaded, nil
 	}
 
 	escapedPath := escapeS3Path("/" + src.bucket + "/" + key)
@@ -261,6 +287,10 @@ func downloadObject(ctx context.Context, client *http.Client, store *storage.Loc
 		return "", fmt.Errorf("GET %q: %w", key, err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		log.Printf("SKIP  not-in-source key=%q: B2 NoSuchKey (orphaned row)", key)
+		return resNotInSource, nil
+	}
 	if resp.StatusCode != http.StatusOK {
 		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return "", fmt.Errorf("GET %q: HTTP %d: %s", key, resp.StatusCode, snippet)
@@ -270,7 +300,7 @@ func downloadObject(ctx context.Context, client *http.Client, store *storage.Loc
 	if err := store.Upload(ctx, key, resp.Body); err != nil {
 		return "", fmt.Errorf("store %q: %w", key, err)
 	}
-	return statusDownloaded, nil
+	return resDownloaded, nil
 }
 
 // openDB opens the metadata database (sqlite or postgres) that holds the

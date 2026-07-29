@@ -51,6 +51,11 @@ type Store interface {
 // Compile-time guarantee that LocalStore satisfies Store.
 var _ Store = (*LocalStore)(nil)
 
+// ErrInvalidKey is returned (wrapped) by Store methods when a key is empty,
+// absolute, or escapes the storage root via "..". Callers can detect it with
+// errors.Is to distinguish a genuinely unusable key from other I/O errors.
+var ErrInvalidKey = errors.New("storage: invalid key")
+
 // LocalStore persists file blobs to a directory on local disk.
 //
 // Write invariants (the correctness properties B2 gave us for free and local
@@ -200,19 +205,19 @@ func (s *LocalStore) Exists(ctx context.Context, key string) (bool, error) {
 // root is rejected here.
 func (s *LocalStore) resolve(key string) (string, error) {
 	if key == "" {
-		return "", errors.New("storage: empty key")
+		return "", fmt.Errorf("%w: %q (empty)", ErrInvalidKey, key)
 	}
 	c := path.Clean(key)
 	if c == "." || c == ".." || strings.HasPrefix(c, "../") || strings.HasPrefix(c, "/") {
-		return "", fmt.Errorf("storage: invalid key %q (must be a clean relative path)", key)
+		return "", fmt.Errorf("%w: %q (must be a clean relative path)", ErrInvalidKey, key)
 	}
 	target := filepath.Join(s.dir, filepath.FromSlash(c))
 	rel, err := filepath.Rel(s.dir, target)
 	if err != nil {
-		return "", fmt.Errorf("storage: invalid key %q: %w", key, err)
+		return "", fmt.Errorf("%w: %q: %v", ErrInvalidKey, key, err)
 	}
 	if rel == "." || strings.HasPrefix(rel, "..") {
-		return "", fmt.Errorf("storage: key %q escapes storage root", key)
+		return "", fmt.Errorf("%w: %q (escapes storage root)", ErrInvalidKey, key)
 	}
 	return target, nil
 }

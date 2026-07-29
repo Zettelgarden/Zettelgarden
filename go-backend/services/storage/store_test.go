@@ -235,8 +235,9 @@ func TestExists(t *testing.T) {
 		t.Fatalf("after delete: Exists = (%v, %v), want (false, nil)", ok, err)
 	}
 
-	// A traversal attempt surfaces as an error, not (false, nil).
-	if _, err := store.Exists(ctx, "../escape"); err == nil {
-		t.Errorf("Exists with traversal key returned nil error")
+	// A traversal attempt surfaces as an error wrapping ErrInvalidKey.
+	_, err = store.Exists(ctx, "../escape")
+	if err == nil || !errors.Is(err, ErrInvalidKey) {
+		t.Errorf("Exists with traversal key: err=%v, want ErrInvalidKey", err)
 	}
 }
