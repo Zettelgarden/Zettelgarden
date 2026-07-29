@@ -43,7 +43,7 @@ You can also try Zettelgarden directly at [zettelgarden.com](https://zettelgarde
 - **Hierarchical Organization**: Parent-child card relationships with multiple view modes
 
 ### AI-Powered Intelligence (PRO Features)
-- **Vector Search**: Semantic similarity search using pgvector embeddings for content discovery beyond keywords
+- **Vector Search**: Semantic similarity search using embeddings for content discovery beyond keywords
 - **Entity Recognition**: Automatic extraction and linking of people, places, organizations, and concepts using LLM-powered NLP
 - **Content Analysis**: AI-generated summaries, theme extraction, and insight generation with citation integrity
 - **Smart Discovery**: Related content recommendations and pattern recognition across your knowledge graph
@@ -59,7 +59,7 @@ You can also try Zettelgarden directly at [zettelgarden.com](https://zettelgarde
 - **Backlink Analysis**: Automatic bidirectional relationship tracking
 
 ### Technical Features
-- **Self-Hosting**: Docker-based deployment with PostgreSQL + pgvector for complete data ownership
+- **Self-Hosting**: Docker-based deployment with SQLite — no external database required — for complete data ownership
 - **Web-Native**: Full functionality in browser with Progressive Web App capabilities
 - **API Access**: RESTful API with JWT authentication for programmatic integration
 - **Real-Time Sync**: WebSocket connections with optimistic updates across sessions
@@ -86,7 +86,7 @@ Built with modern, scalable technologies optimized for both performance and AI c
 
 ### Backend (`go-backend`)
 - **Language**: Go with `net/http` for high-performance HTTP server
-- **Database**: PostgreSQL with pgvector extension for vector storage
+- **Database**: SQLite (file-based, WAL mode) for storage — no external database server
 - **Search Engine**: Typesense for full-text search with built-in ML capabilities
 - **Authentication**: JWT-based with middleware pipeline
 - **File Storage**: S3-compatible storage (AWS S3, MinIO, etc.)
@@ -94,10 +94,10 @@ Built with modern, scalable technologies optimized for both performance and AI c
 
 ### AI/ML Stack
 - **Embeddings**: OpenAI-compatible API integration for text embeddings
-- **Vector Search**: pgvector with cosine similarity for semantic search
+- **Vector Search**: Embedding-based cosine similarity for semantic search
 - **Entity Recognition**: LLM-powered Named Entity Recognition pipeline
 - **Content Analysis**: Structured prompting for summaries and insights
-- **Search Integration**: Hybrid search combining full-text (Typesense) and vector (pgvector)
+- **Search Integration**: Hybrid search combining full-text (Typesense) and vector similarity
 - **Model Flexibility**: Configurable LLM endpoints (OpenAI, Anthropic, local models)
 
 ### Infrastructure
@@ -122,7 +122,7 @@ Built with modern, scalable technologies optimized for both performance and AI c
 
 ### Self-Hosting Requirements
 - Docker and Docker Compose
-- PostgreSQL with pgvector extension
+- SQLite database (bundled — no external database server to install)
 - Typesense search server
 - S3-compatible storage (optional)
 - OpenAI-compatible API key for AI features (optional)

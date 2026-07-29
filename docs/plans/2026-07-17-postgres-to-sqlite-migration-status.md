@@ -1,6 +1,6 @@
 # PostgreSQL → SQLite Migration — Status
 
-**Last updated:** 2026-07-28 (Phase 7a CUTOVER DONE — production now running on SQLite)
+**Last updated:** 2026-07-29 (Phase 7a Part 2 repo cleanup in progress — README/AGENTS/.env/CI/ResetDatabase/scripts done; docker manifest + VACUUM INTO docs pending)
 **Plan:** [`2026-07-17-postgres-to-sqlite-migration-design.md`](./2026-07-17-postgres-to-sqlite-migration-design.md)
 **Tracking:** epic `Zettelgarden-c7j` · Phase 0 `Zettelgarden-bw1` (closed) · Phase 1 `Zettelgarden-2u2` (closed) · Phase 2 `Zettelgarden-dek` (closed) · Phase 3 `Zettelgarden-c7j.1` (closed) · Phase 5 `Zettelgarden-c7j.2` (closed) · Phase 6a `Zettelgarden-j89` (closed) · 6a follow-ups `Zettelgarden-qcb` (closed) · `Zettelgarden-ilv` (closed) · `Zettelgarden-amt` (closed) · `Zettelgarden-bto` (closed) · Phase 6b `Zettelgarden-c7j.3` (closed) · Phase 7a `Zettelgarden-c7j.4` (open)
 
@@ -684,12 +684,13 @@ mixed-storage-class only.) Regression test filed as `Zettelgarden-c7j.5`.
 [43 more lines — see "Remaining" below]
 
 **Remaining (Phase 7a repo cleanup + 7b):**
-1. **Phase 7a repo cleanup (½ day, non-urgent):** update `README.md` (lines
-   62/89/97/100/125 still say "PostgreSQL + pgvector") and `AGENTS.md` (line 4);
-   rewrite `go-backend/.env.example` (`DB_DRIVER`/`SQLITE_PATH`); decide on the
-   2 `//go:build ignore` scripts (`computeKeywords.go` is already obsolete —
-   recommend archive); close `Zettelgarden-74c` (drop/gate PG-only
-   `ResetDatabase`). Document `VACUUM INTO` as the ongoing backup model.
+1. **Phase 7a repo cleanup (partly done 2026-07-29):**
+   - ✅ `README.md` ("PostgreSQL + pgvector" → SQLite across the Technical / Backend / AI-ML / self-hosting sections; `pgvector` decoupled from the vector-search feature copy since SQLite has no pgvector) and `AGENTS.md` line 4 (→ "SQLite (file), Typesense, AI keys").
+   - ✅ `go-backend/.env.example` rewritten to `DB_DRIVER=sqlite` + `SQLITE_PATH=./data/zettelgarden.db` (PG vars kept commented as the legacy alternative).
+   - ✅ Archived the 2 `//go:build ignore` PG one-shots (`scripts/{addParentId,computeKeywords}.go` — git-retained; `computeKeywords.go` was already broken). The dir keeps the unrelated `run_summarize.sh` / `typesense_test.py`.
+   - ✅ Dropped the PG-only `ResetDatabase` (`server/database.go`) + its conftest call site — closes `Zettelgarden-74c`. Stale comment that referenced it also fixed. Full suite still green on SQLite.
+   - ✅ CI (`.github/workflows/go.yml`): **Go 1.22 → 1.25** (was broken vs go.mod's `go 1.25.0`), removed the `postgres:16-alpine` service / `pg_isready` wait / `CREATE DATABASE` / `DB_*` env (suite defaults to a temp SQLite file), and now runs `go test ./...` (was only `./handlers/` + `./services/`). Bumped actions to checkout@v4 / setup-go@v5.
+   - ⬜ Remaining under 7a: `docker-zettel-run.yml` (drop the `db` service + `go_backend depends_on: db`, mount the SQLite data dir) — **holding for Nick to confirm** it's the right manifest to touch (it's the repo/cloud compose, not the live internal one, which already had no `db` service); and documenting `VACUUM INTO 'snapshot-$(date).db'` as the ongoing backup model (**not** raw `cp` under WAL).
 2. **Phase 7b — ~2 weeks after confirmed cutover (½ day):** delete
    `cmd/migrate-pg-to-sqlite/`, drop `lib/pq` from `go.mod`, remove the dead
    `scripts/` PG wiring, archive `schema/*.sql`, decommission Postgres.
@@ -711,9 +712,11 @@ insurance, Postgres kept read-only ≥2 weeks as fallback).
 - ~~**Phase 2 input (blocking):** `pg_dump --schema-only` of the live dev DB?~~
   **Resolved 2026-07-25** — dump provided and translated into
   `go-backend/schema/sqlite/schema.sqlite.sql` (Phase 2 done).
-- **`DB_PORT`/`DB_HOST` in CI:** CI sets these via the postgres service; once
+- ~~**`DB_PORT`/`DB_HOST` in CI:** CI sets these via the postgres service; once
   SQLite is the default, the CI workflow's `services: postgres` block can be
-  removed (Phase 6a/7a).
+  removed (Phase 6a/7a).~~ **Resolved 2026-07-29** — the `postgres` service,
+  `pg_isready` wait, `CREATE DATABASE`, and `DB_*` env are removed; CI now runs
+  `go test ./...` on a temp SQLite file (Go bumped 1.22 → 1.25).
 - **Audit-table pruning (carried from design):** migrate `llm_jobs` /
   `llm_query_log` / `audit_events` wholesale (current default) or prune to 90
   days? *Recommend: wholesale.*

@@ -249,14 +249,6 @@ func Setup() *server.Server {
 		S.TestInspector = &server.TestInspector{}
 		S.LLMClient = &models.LLMClient{Testing: true}
 
-		// ResetDatabase is PG-only (CASCADE / SERIAL / DROP TABLE ... CASCADE).
-		// The SQLite :memory: DB is built fresh from the consolidated schema
-		// each run, so skip the reset there and just apply migrations.
-		if cfg.Database.Driver != "sqlite" {
-			if err := server.ResetDatabase(S); err != nil {
-				log.Fatalf("Failed to reset database: %v\n", err)
-			}
-		}
 		server.RunMigrations(S)
 		err = importTestData(S)
 		if err != nil {

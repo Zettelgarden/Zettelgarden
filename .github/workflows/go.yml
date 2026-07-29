@@ -11,41 +11,14 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:16-alpine
-        ports:
-          - 5432:5432
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
-
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v5
       with:
-        go-version: '1.22'  # Adjust this to your Go version
-
-    - name: Wait for PostgreSQL
-      run: |
-        until pg_isready -h localhost -p 5432; do
-          echo "Waiting for PostgreSQL to be ready..."
-          sleep 1
-        done
-
-    - name: Create the database
-      run: |
-        psql postgresql://postgres:postgres@localhost:5432/postgres -c "CREATE DATABASE zettelkasten_testing;"
+        go-version: '1.25'  # go.mod requires go 1.25.0
 
     - name: Install dependencies
       run: |
@@ -54,16 +27,13 @@ jobs:
 
     - name: Run tests
       env:
-        DB_HOST: localhost
-        DB_PORT: 5432
-        DB_USER: postgres
-        DB_PASS: postgres
-        DB_NAME: zettelkasten_testing
+        # The suite defaults to a temp file-backed SQLite DB (no external
+        # database service required). DB_DRIVER is set for explicitness.
+        DB_DRIVER: sqlite
         ZETTEL_IS_TESTING: "true"
         B2_ACCESS_KEY_ID: ${{ secrets.B2_ACCESS_KEY_ID }}
         B2_SECRET_ACCESS_KEY: ${{ secrets.B2_SECRET_ACCESS_KEY }}
         B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
       run: |
         cd go-backend
-        go test ./handlers/
-        go test ./services/
+        go test ./...
