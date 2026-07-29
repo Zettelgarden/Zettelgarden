@@ -38,7 +38,7 @@ You can also try Zettelgarden directly at [zettelgarden.com](https://zettelgarde
 - **Atomic Cards**: Markdown-supported notes with unique identifiers for reliable linking
 - **Bidirectional Linking**: Automatic `[[card-title]]` syntax with backlink detection and display
 - **Task Management**: Integrated todo system with scheduling, priorities, and recurring patterns
-- **File Attachments**: Upload and organize PDFs, images, and documents with S3-compatible storage
+- **File Attachments**: Upload and organize PDFs, images, and documents with local on-disk storage
 - **Templates**: Reusable card templates with variable substitution
 - **Hierarchical Organization**: Parent-child card relationships with multiple view modes
 
@@ -89,7 +89,7 @@ Built with modern, scalable technologies optimized for both performance and AI c
 - **Database**: SQLite (file-based, WAL mode) for storage — no external database server
 - **Search Engine**: Typesense for full-text search with built-in ML capabilities
 - **Authentication**: JWT-based with middleware pipeline
-- **File Storage**: S3-compatible storage (AWS S3, MinIO, etc.)
+- **File Storage**: Local on-disk storage under STORAGE_DIR (no external object store)
 - **API Design**: RESTful endpoints with JSON responses
 
 ### AI/ML Stack
@@ -124,7 +124,7 @@ Built with modern, scalable technologies optimized for both performance and AI c
 - Docker and Docker Compose
 - SQLite database (bundled — no external database server to install)
 - Typesense search server
-- S3-compatible storage (optional)
+- Local disk for file storage (bundled — no external object store)
 - OpenAI-compatible API key for AI features (optional)
 
 See our [getting started guide](https://zettelgarden.com/docs/getting-started/) for detailed setup instructions. (Coming soon!)

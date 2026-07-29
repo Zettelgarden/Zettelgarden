@@ -1,14 +1,15 @@
 # S3 (Backblaze B2) → Local File Storage Migration — Status
 
-**Last updated:** 2026-07-29 (Phase 1 COMPLETE — store wired through all 5 call sites; AWS SDK + `s3.go` + dead code removed; full suite green)
+**Last updated:** 2026-07-29 (Phase 2 COMPLETE — all config/deploy artifacts swapped from S3/B2 to `STORAGE_DIR`; CI dead `B2_*` secrets removed; README updated; suite green. Phase 3 automated gate re-confirmed green.)
 **Plan:** [`2026-07-29-s3-to-local-file-storage-design.md`](./2026-07-29-s3-to-local-file-storage-design.md)
-**Tracking:** epic `Zettelgarden-yar` · Phase 0 `Zettelgarden-yar.1` (closed) · Phase 1 `Zettelgarden-yar.2` (closed)
+**Tracking:** epic `Zettelgarden-yar` · Phase 0 `Zettelgarden-yar.1` (closed) · Phase 1 `Zettelgarden-yar.2` (closed) · Phase 2 `Zettelgarden-yar.3` (closed) · Phase 3 `Zettelgarden-yar.5` (closed, automated) · Security follow-up `Zettelgarden-yar.4` (open)
 
 ## TL;DR
 
-**Phase 0 + Phase 1 are done.** The backend now stores uploads on local disk
-via `services/storage.LocalStore`; the AWS SDK is gone and `handlers/s3.go`
-is deleted.
+**Phase 0 + Phase 1 + Phase 2 are done (Phase 3 automated gate green).** The
+backend stores uploads on local disk via `services/storage.LocalStore`; the
+AWS SDK is gone, `handlers/s3.go` is deleted, and every config/deploy artifact
+now points at `STORAGE_DIR` instead of S3/B2.
 
 - **Phase 0 (spike):** `services/storage/` ships the `Store` interface
   (`Upload`/`Download`/`Delete`) and `LocalStore` with atomic writes, `0750`/
@@ -36,8 +37,8 @@ cutover (Phase 5).
 |---|---|---|
 | 0 — Spike (interface + LocalStore) | ✅ **Done** | `services/storage/store.go` + `store_test.go`. `Store{Upload,Download,Delete}` interface; `LocalStore` with atomic writes + traversal guard. 8 tests green. |
 | 1 — Wire the store through | ✅ **Done** | `StorageConfig`/`STORAGE_DIR` (D3); `Server.Store` (D1); 5 call sites repointed; download `Content-Disposition` fix + `Testing` guard removal (D8); `handlers/s3.go` + dead `handlerS3Uploader` + `TestInspector` deleted; `go mod tidy` removed all AWS modules (D4). Full suite green. |
-| 2 — Config & deploy artifacts | ⬜ Not started | `.env.example`/`.env-bash` (D3); `docker-zettel-run.yml` + `zettel.env` (D7). Secret-rotation follow-up. (conftest `STORAGE_DIR` env default already swapped in Phase 1.) |
-| 3 — Tests green | ⬜ Not started | Re-run `go test ./...`; `TestDownloadFile` asserts real bytes; manual upload→thumb→download→epub→delete. |
+| 2 — Config & deploy artifacts | ✅ **Done** | `.env.example` S3 block → `STORAGE_DIR` (D3); `.env-bash` `B2_*` → `STORAGE_DIR`; `Dockerfile` `ENV STORAGE_DIR=/usr/src/app/data/files` (D7); `docker-zettel-run.yml` documents the shared data volume carrying `files/` (D7); `.github/workflows/go.yml` dead `B2_*` GitHub-secret lines removed; `conftest.go` stale comment fixed; README File-Storage bullets → local disk. |
+| 3 — Tests green | ✅ **Done** (automated) | Re-ran `go test ./...` — 16/16 packages PASS (Phase 1 already made `TestDownloadFile` assert real bytes). Manual upload→thumb→download→epub→delete smoke folded into the Phase 5 cutover runbook. |
 | 4 — Data migration (B2 → local) | ⬜ Not started | SDK-free `cmd/migrate-storage` (D6); runs before cutover. |
 | 5 — Cutover & cleanup | ⬜ Not started | Deploy; smoke; keep B2 read-only for rollback window; then delete bucket. |
 
@@ -194,18 +195,80 @@ $ grep -rn aws go.mod go.sum   # 0
 
 ---
 
-## What's next (Phase 2 — config & deploy artifacts)
+## Phase 2 progress
 
-- `.env.example`: drop the stale `S3_*` block and the `B2_*` block; add
-  `STORAGE_DIR=./data/files`.
-- `.env-bash` + any remaining `B2_*` references: remove / rotate.
-- `docker-zettel-run.yml` + `zettel.env`: reuse the existing
-  `./data:/usr/src/app/data` mount and set `STORAGE_DIR=/usr/src/app/data/files`
-  (**D7** — note the `/usr/src/app/...` prefix matches the existing mount).
-- `Dockerfile`: add a `STORAGE_DIR` default `ENV` only if needed.
-- **Security follow-up (file an issue):** rotate the decommissioned B2 keys
-  and move surviving secrets out of git.
+All config & deploy artifacts swapped from S3/B2 to `STORAGE_DIR`; CI dead
+secrets removed; README updated. Suite still green.
 
-Phase 3 (tests green) is effectively already satisfied — the suite passes and
-`TestDownloadFile` asserts real bytes — so Phase 2 can flow straight into
-Phase 4 (B2→local ETL) and Phase 5 (cutover).
+### Changes (D3 / D7)
+
+- **`go-backend/.env.example`** — stale `S3_*` block replaced by a documented
+  `STORAGE_DIR=./data/files` (default, sits next to `SQLITE_PATH`).
+- **`go-backend/.env-bash`** — decommissioned `B2_ACCESS_KEY_ID` /
+  `B2_SECRET_ACCESS_KEY` / `B2_BUCKET_NAME` lines removed; `STORAGE_DIR` added.
+  *(Confirmed `.env-bash` is **gitignored and never tracked** — `git log --all`
+  empty — so its removal here is local hygiene only, not a history scrub.)*
+- **`go-backend/Dockerfile`** — added `ENV STORAGE_DIR=/usr/src/app/data/files`
+  (D7). This lands on the existing `./data:/usr/src/app/data` mount via the
+  `WORKDIR`, is overridable at runtime by `env_file`/`-e`, and means the
+  container works even with an empty `zettel.env`.
+- **`docker-zettel-run.yml`** — the existing volume is now documented as also
+  carrying the `files/` subtree; one backup target covers DB + uploads (D7).
+  `STORAGE_DIR` is set in the (host-side, untracked) `zettel.env`, inheriting
+  the Dockerfile default otherwise.
+- **`.github/workflows/go.yml`** — removed the 3 dead `B2_*` GitHub-secret env
+  lines. The conftest already defaults `STORAGE_DIR` to a process temp dir, so
+  no replacement secret is needed. *(The matching GitHub repo secrets should
+  now be deleted from Settings → Secrets — see follow-up `yar.4`.)*
+- **`go-backend/tests/conftest.go`** — dropped the stale "Phase 2 swaps this"
+  comment (the `setEnvIfNotSet("STORAGE_DIR", …)` was already correct from
+  Phase 1).
+- **`README.md`** — File-Storage bullets (features, backend stack,
+  self-hosting requirements) updated from "S3-compatible" to local on-disk.
+
+### Out of scope (left as-is, intentionally)
+
+- The DB column / job-payload key `s3_key` and the `pending_s3_integration`
+  status string in `services/llmprocessor.go` — renaming is a schema/contract
+  change; the plan is explicitly **no schema change**. The text-extraction
+  download wiring is its own task (the store now unblocks it).
+- Historical design docs (`docs/plans/2026-03-09-filevault-*.md`) mention
+  `s3_key` — they're immutable records, left untouched.
+- The broad pre-existing `gofmt` drift (47 files) is unchanged by this phase;
+  the one Go file Phase 2 touched (`tests/conftest.go`) is gofmt-clean.
+
+### Verification
+
+```
+$ go build ./...            # clean
+$ go vet ./...              # only the 2 pre-existing oauth.go warnings
+$ go test ./...             # 16/16 packages PASS
+$ git grep -n 'S3_\|B2_\|aws-sdk\|backblaze' -- '*.go' '*.yml' '*.example' 'Dockerfile' 'README.md'
+                            # (no matches in tracked config/deploy artifacts)
+```
+
+### Follow-up filed
+
+- `Zettelgarden-yar.4` (open) — rotate/revoke the decommissioned B2 keys in
+  the Backblaze console, delete the now-unused GitHub repo secrets, and delete
+  the bucket after the Phase 5 rollback window.
+
+---
+
+## What's next (Phase 4 — B2→local ETL, then Phase 5 cutover)
+
+- **Phase 4 (D6):** build & run the SDK-free `cmd/migrate-storage` on the
+  production host, writing into the populated `STORAGE_DIR`. It reads the key
+  list from the DB and raw SigV4-`GET`s each object from B2 (no AWS module), so
+  it builds from `main` at any time — including now, after Phase 1 dropped the
+  SDK. Idempotent (skip if local file exists); verify `count(files) ≈` local
+  file count. Keep B2 read-only for the rollback window.
+- **Phase 5 (cutover):** deploy the new binary pointed at the populated
+  `STORAGE_DIR`; smoke-test a real upload/download (this is where the deferred
+  manual upload→thumb→download→epub→delete check from Phase 3 runs); after a
+  green window, delete the B2 bucket and revoke keys (`yar.4`).
+
+The `.env-bash` B2 keys are already removed locally and the `B2_*` GitHub
+secrets are unreferenced, so the only remaining B2 touchpoints are the
+production host's `zettel.env` (operator) and the Backblaze console itself
+(`yar.4`).

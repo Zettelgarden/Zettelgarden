@@ -26,7 +26,10 @@ services:
   # service. Set DB_DRIVER=sqlite + SQLITE_PATH in zettel.env (see
   # go-backend/.env.example). The data dir is mounted so the SQLite file
   # persists across container recreation; back it up with `VACUUM INTO`
-  # (see docs/runbooks/sqlite-backup.md), NOT a raw cp.
+  # (see docs/runbooks/sqlite-backup.md), NOT a raw cp. The SAME mount also
+  # carries uploaded files under STORAGE_DIR=/usr/src/app/data/files (set in
+  # zettel.env, or inherited from the Dockerfile default); one backup target
+  # covers both the DB and the files/ subtree (design D7).
   go_backend:
     image: nsavage/zettelgarden_go_backend:latest
     restart: always

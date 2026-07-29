@@ -28,12 +28,11 @@ jobs:
     - name: Run tests
       env:
         # The suite defaults to a temp file-backed SQLite DB (no external
-        # database service required). DB_DRIVER is set for explicitness.
+        # database service required). DB_DRIVER is set for explicitness. File
+        # storage defaults to a process temp dir (see tests/conftest.go), so no
+        # STORAGE_DIR secret is needed here.
         DB_DRIVER: sqlite
         ZETTEL_IS_TESTING: "true"
-        B2_ACCESS_KEY_ID: ${{ secrets.B2_ACCESS_KEY_ID }}
-        B2_SECRET_ACCESS_KEY: ${{ secrets.B2_SECRET_ACCESS_KEY }}
-        B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
       run: |
         cd go-backend
         go test ./...

@@ -6,6 +6,11 @@ FROM golang:1.25
 # Set the working directory in the container
 WORKDIR /usr/src/app
 
+# Default local file-storage root. Lands on the ./data:/usr/src/app/data
+# volume mounted in docker-zettel-run.yml. Overridable at runtime via env_file
+# / -e (see docs/plans/2026-07-29-s3-to-local-file-storage-design.md D7).
+ENV STORAGE_DIR=/usr/src/app/data/files
+
 # Copy the Go module files
 COPY go.mod go.sum ./
 

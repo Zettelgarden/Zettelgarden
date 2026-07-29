@@ -152,7 +152,7 @@ func setTestEnvironmentVariables() {
 
 	// File storage config - test default. The suite shares one store dir per
 	// process (see Setup); keys are server-generated UUIDs so tests don't
-	// collide. Phase 2 swaps this for a dedicated setEnvIfNotSet (design D3/D8).
+	// collide. The real LocalStore is wired onto S.Store in Setup (design D8).
 	setEnvIfNotSet("STORAGE_DIR", filepath.Join(os.TempDir(), "zettelgarden-test-storage"))
 
 	// GitHub OAuth config - test defaults
