@@ -1,6 +1,6 @@
 # S3 (Backblaze B2) → Local File Storage Migration — Status
 
-**Last updated:** 2026-07-29 (Phase 4 production ETL RUN COMPLETE — 363 objects copied B2→local on `server-3`, byte-verified; 48 orphaned legacy rows classified not-in-source. Tool hardened mid-run with `not-in-source` classification + `ErrInvalidKey`. Suite green.)
+**Last updated:** 2026-07-29 (Phase 5 CUTOVER DEPLOYED on zg-internal / server-3 — backend re-imaged to local storage, 363 files served from `/home/nick/zg/files`; rollback image tagged; manual smoke + B2 bucket deletion pending.)
 **Plan:** [`2026-07-29-s3-to-local-file-storage-design.md`](./2026-07-29-s3-to-local-file-storage-design.md)
 **Tracking:** epic `Zettelgarden-yar` · Phase 0 `Zettelgarden-yar.1` (closed) · Phase 1 `Zettelgarden-yar.2` (closed) · Phase 2 `Zettelgarden-yar.3` (closed) · Phase 3 `Zettelgarden-yar.5` (closed) · Phase 4 `Zettelgarden-yar.6` (closed, code) · Security follow-up `Zettelgarden-yar.4` (open)
 
@@ -377,33 +377,28 @@ was untouched.
 
 ---
 
-## What's next (Phase 5 — production cutover; operator step, Nick's call / downtime)
+## What's next (Phase 5 — cutover DEPLOYED on zg-internal; smoke + cleanup remain)
 
-The Phase 4 ETL has **already run** — 363 objects are populated in
-`/home/nick/zg/files` on server-3, byte-verified (see "Production ETL run"
-above). What remains is purely the cutover:
+**Cutover is live on `server-3` (192.168.0.20, `zg-internal`) as of 2026-07-29.**
+The backend container was re-imaged from current `main` (Phase 1+ code + Phase 2
+Dockerfile `ENV STORAGE_DIR=/usr/src/app/data/files`) via `docker save | load`
+(scoped to server-3 — no registry mutation, so the public instance on
+192.168.0.93 is unaffected). Verified: container runs the new image
+(`sha256:3927b89c…`), `STORAGE_DIR=/usr/src/app/data/files` set, 363 files
+visible inside the container at that path, `/api/files/download/1` returns 401
+(route alive, auth working, not a 500), container can write new uploads to the
+mount. **Rollback image tagged**
+`nsavage/zettelgarden_go_backend:rollback-pre-local-storage`
+(`sha256:b030f456…`, the pre-cutover B2 image).
 
-- ✅ **Phase 4 ETL — DONE.** (The instructions below are kept for reference /
-  re-run only.) On the production host, build the tool
-  (`go build -o migrate-storage ./cmd/migrate-storage` from `go-backend/`) and
-  run it pointed at the populated `STORAGE_DIR` and the live metadata DB. It is
-  idempotent — re-run anytime to pick up objects added to B2 after the first
-  run; confirm `failed: 0` and `expected == downloaded+skipped+not-in-source`.
-- **Phase 5 cutover (NEXT):** re-deploy with the new image so the backend
-  serves from local disk. The running container is still the pre-Phase-1 image
-  (built 2026-07-28, uploads still go to B2). Rebuild
-  `nsavage/zettelgarden_go_backend:latest` from current `main` (Phase 1+ code +
-  the Phase 2 Dockerfile `ENV STORAGE_DIR=/usr/src/app/data/files`), then
-  `docker compose up -d`; the container will read/write `/usr/src/app/data/files`
-  = host `/home/nick/zg/files` (already populated — no `STORAGE_DIR` override
-  needed, the Dockerfile default lands on the mount). Then smoke-test a real
-  upload→thumb→download→epub→delete (the manual check deferred from Phase 3).
-  Keep B2 read-only for the rollback window; after green, delete the bucket +
-  revoke keys (`Zettelgarden-yar.4`). Cleanup of the 48 orphaned rows is
-  `Zettelgarden-yar.7` (independent of cutover).
+Remaining:
+- **Manual smoke (Nick):** authenticated upload→thumbnail→download→epub-import→delete against the re-deployed backend to confirm end-to-end for real users. (Infra-level checks pass; this needs a logged-in session.)
+- **Rollback if needed:** on server-3, `docker tag nsavage/zettelgarden_go_backend:rollback-pre-local-storage nsavage/zettelgarden_go_backend:latest && cd /mnt/nas-2-fast-data/config/services/zg-internal && docker compose up -d --no-deps go_backend`.
+- **After a green window:** delete the B2 bucket + revoke keys (`Zettelgarden-yar.4`), then remove the now-inert `B2_*` lines from server-3's `.env`. Cleanup of the 48 orphaned rows is `Zettelgarden-yar.7` (independent).
+
+Note: this cutover was scoped to `zg-internal` (server-3). The public instance
+on `192.168.0.93` still runs the old B2 image and would need its own ETL +
+cutover (the `build.sh` flow targets it).
 
 The `migrate-storage` binary is left at `/home/nick/migrate-storage` on
-server-3 for an idempotent re-run. The local `.env-bash` B2 keys are gone and
-the `B2_*` GitHub secrets are unreferenced; the only remaining B2 touchpoints
-are the production host's `.env` (still has `B2_*` for the running old image,
-removed at cutover) and the Backblaze console itself (`yar.4`).
+server-3 for an idempotent re-run.
