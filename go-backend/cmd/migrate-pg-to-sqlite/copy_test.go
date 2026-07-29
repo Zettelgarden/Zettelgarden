@@ -55,9 +55,9 @@ func TestNormalizeValue(t *testing.T) {
 		{"bool true", true, false, int64(1), false},
 		{"bool false", false, false, int64(0), false},
 		{"string", "hello", false, "hello", false},
-		{"bytes json", []byte(`{"a":1}`), false, `{"a":1}`, false}, // []byte -> string (TEXT affinity)
+		{"bytes json", []byte(`{"a":1}`), false, []byte(`{"a":1}`), false}, // []byte stays []byte (BLOB; json.RawMessage-readable)
 		{"time", now, false, now, false},
-		{"pg array", "{a,b}", true, `["a","b"]`, false},
+		{"pg array", "{a,b}", true, `{a,b}`, false}, // array text passed through verbatim (pq.StringArray format)
 		{"array wrong type", int64(1), true, nil, true}, // arrays must arrive as string
 		{"unsupported", uint(1), false, nil, true},
 	}

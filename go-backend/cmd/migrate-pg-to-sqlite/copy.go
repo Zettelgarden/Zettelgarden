@@ -150,7 +150,13 @@ func normalizeValue(v interface{}, dbTypeName, colName string, isArray bool) (in
 	}
 	if isArray {
 		// lib/pq returns array text as []byte (not string) when scanning into
-		// interface{}, so accept both.
+		// interface{}, so accept both. Pass the PG-array text ({a,b}) through
+		// verbatim as a string: the Go app reads/writes the lone array column
+		// (notifications.filter_tags) via lib/pq's pq.StringArray, whose
+		// Value()/Scan() use the {a,b} text format (NOT JSON). Storing {a,b}
+		// here matches how the app writes the column and lets pq.StringArray.Scan
+		// read it back on SQLite. (The earlier JSON conversion produced
+		// ["a","b"], which pq.StringArray could not parse.)
 		var s string
 		switch x := v.(type) {
 		case string:
@@ -160,7 +166,7 @@ func normalizeValue(v interface{}, dbTypeName, colName string, isArray bool) (in
 		default:
 			return nil, fmt.Errorf("array column %s: expected string or []byte from lib/pq, got %T", colName, v)
 		}
-		return parsePGArray(s)
+		return s, nil
 	}
 	switch x := v.(type) {
 	case int64:
@@ -175,7 +181,18 @@ func normalizeValue(v interface{}, dbTypeName, colName string, isArray bool) (in
 	case string:
 		return x, nil
 	case []byte:
-		return string(x), nil
+		// JSON(B) text: keep as []byte. modernc stores it with BLOB storage
+		// class, so reads return []byte — which scans cleanly into both
+		// *[]byte / *json.RawMessage (e.g. cards.structured_data,
+		// starred_searches.search_config) and the []byte+json.Unmarshal pattern
+		// (e.g. llm_jobs.payload, schema_definitions.fields). This also matches
+		// how the app itself writes jsonb (it binds json.RawMessage = []byte).
+		// The earlier string conversion stored TEXT, which modernc returns as a
+		// Go string — and a Go string cannot scan into *json.RawMessage (which
+		// is a named []byte type), breaking every card-detail / starred-search
+		// read on migrated rows. No SQL json_extract/-> is used on these columns
+		// (verified), so BLOB storage is safe.
+		return x, nil
 	case time.Time:
 		return x, nil
 	default:
