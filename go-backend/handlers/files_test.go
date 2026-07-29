@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"go-backend/models"
 	"go-backend/tests"
@@ -24,9 +25,14 @@ func uploadTestFile(s *Handler) {
 		log.Fatal("unable to open test file")
 		return
 	}
+	defer testFile.Close()
 	uuidKey := uuid.New().String()
 
-	s.uploadObject(s.Server.S3, uuidKey, testFile.Name())
+	// Real round-trip through the store (D8): the blob is actually written to
+	// the tempdir-backed LocalStore, so TestDownloadFile can stream it back.
+	if err := s.Server.Store.Upload(context.Background(), uuidKey, testFile); err != nil {
+		log.Fatal("unable to upload test file:", err)
+	}
 
 	query := `UPDATE files SET path = $1, filename = $2 WHERE id = 1`
 	_, err = s.Server.Tx.Exec(query, uuidKey, uuidKey)
@@ -448,6 +454,13 @@ func TestDownloadFile(t *testing.T) {
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// D8: now that the store is real and the Server.Testing short-circuit is
+	// gone, the route streams the actual bytes we uploaded in uploadTestFile
+	// (../tests/test.txt == "hello world").
+	if got := rr.Body.String(); got != "hello world" {
+		t.Errorf("download body = %q, want %q", got, "hello world")
 	}
 }
 

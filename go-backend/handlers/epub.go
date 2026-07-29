@@ -162,14 +162,20 @@ func (h *Handler) ImportEpubRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// downloadEpubToTemp downloads an epub from S3 to a temporary file with context support
+// downloadEpubToTemp downloads an epub from storage to a temporary file with
+// context support.
+//
+// NOTE: post-migration this is a local-file → tempfile copy, since the stored
+// object already lives on disk. A future cleanup can read directly from the
+// stored path instead of copying.
+// TODO: read directly from the stored path
 func (h *Handler) downloadEpubToTemp(ctx context.Context, s3Key string, fileID int) (string, error) {
-	// Download epub from S3
-	s3Output, err := h.downloadObject(h.Server.S3, s3Key, "")
+	// Download the stored object.
+	rc, err := h.Server.Store.Download(ctx, s3Key)
 	if err != nil {
-		return "", fmt.Errorf("failed to download from S3: %w", err)
+		return "", fmt.Errorf("failed to download from storage: %w", err)
 	}
-	defer s3Output.Body.Close()
+	defer rc.Close()
 
 	// Create temp file for epub
 	tempFile, err := os.CreateTemp("", "epub-*.epub")
@@ -182,7 +188,7 @@ func (h *Handler) downloadEpubToTemp(ctx context.Context, s3Key string, fileID i
 	// Use a goroutine to allow context cancellation
 	done := make(chan error, 1)
 	go func() {
-		_, err := io.Copy(tempFile, s3Output.Body)
+		_, err := io.Copy(tempFile, rc)
 		tempFile.Close()
 		done <- err
 	}()

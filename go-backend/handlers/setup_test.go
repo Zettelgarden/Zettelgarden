@@ -20,9 +20,10 @@ import (
 //	rr := makeCardRequestSuccess(s, t, 1)
 //
 // The Handler returned by this function has:
-// - DB: Set to the test database connection
-// - Server: Set to the test Server (with Testing=true and transaction configured)
-// - S3: Configured with a mock S3 client for testing
+//   - DB: Set to the test database connection
+//   - Server: Set to the test Server (with Testing=true and transaction configured)
+//   - Store: A real tempdir-backed storage.LocalStore (set in tests.Setup),
+//     so upload/download routes stream real bytes
 //
 // All database operations through Handler.GetDB() will use the test transaction,
 // which is automatically rolled back in tests.Teardown() for test isolation.
@@ -34,6 +35,5 @@ func NewHandler() *Handler {
 		JobRunner: services.NewJobRunner(S.DB, nil), // nil processor is safe: execute() recovers the panic, so file-upload tests record the llm_jobs audit row without doing real extraction.
 	}
 
-	S.S3 = s.CreateS3Client()
 	return s
 }

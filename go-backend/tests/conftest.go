@@ -9,6 +9,7 @@ import (
 	"go-backend/models"
 	"go-backend/pkg/config"
 	"go-backend/server"
+	"go-backend/services/storage"
 	"log"
 	"math/rand"
 	"os"
@@ -149,10 +150,10 @@ func setTestEnvironmentVariables() {
 	setEnvIfNotSet("STRIPE_YEAR_PRICE", "price_yearly_test_id")
 	setEnvIfNotSet("STRIPE_BILLING_URL", "https://billing.stripe.com/test")
 
-	// S3/B2 config - test defaults
-	setEnvIfNotSet("B2_ACCESS_KEY_ID", "test-access-key-id")
-	setEnvIfNotSet("B2_SECRET_ACCESS_KEY", "test-secret-access-key")
-	setEnvIfNotSet("B2_BUCKET_NAME", "test-bucket-name")
+	// File storage config - test default. The suite shares one store dir per
+	// process (see Setup); keys are server-generated UUIDs so tests don't
+	// collide. Phase 2 swaps this for a dedicated setEnvIfNotSet (design D3/D8).
+	setEnvIfNotSet("STORAGE_DIR", filepath.Join(os.TempDir(), "zettelgarden-test-storage"))
 
 	// GitHub OAuth config - test defaults
 	setEnvIfNotSet("GITHUB_CLIENT_ID", "test-github-client-id")
@@ -246,7 +247,15 @@ func Setup() *server.Server {
 			TestingEmailsSent: 0,
 			DB:                db,
 		}
-		S.TestInspector = &server.TestInspector{}
+		// Real tempdir-backed local store (design D8): upload/download routes
+		// now stream real bytes in tests instead of the old Server.Testing
+		// no-op. loadStorageConfig already MkdirAll'd the dir; NewLocalStore
+		// re-validates it and returns a usable Store rooted there.
+		fileStore, err := storage.NewLocalStore(cfg.Services.Storage.Dir)
+		if err != nil {
+			log.Fatalf("test storage init: %v", err)
+		}
+		S.Store = fileStore
 		S.LLMClient = &models.LLMClient{Testing: true}
 
 		server.RunMigrations(S)

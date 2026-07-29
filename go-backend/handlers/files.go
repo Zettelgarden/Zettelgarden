@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -96,9 +97,17 @@ func (s *Handler) generateAndUploadThumbnail(userID int, fileID int, sourcePath,
 		return
 	}
 
-	// Upload thumbnail to S3 with _thumb suffix
+	// Upload thumbnail to storage with _thumb suffix
 	thumbnailS3Key := s3Key + "_thumb.jpg"
-	s.uploadObject(s.Server.S3, thumbnailS3Key, thumbnailTempPath)
+	thumbFile, err := os.Open(thumbnailTempPath)
+	if err != nil {
+		log.Printf("Failed to open thumbnail for upload (file %d): %v", fileID, err)
+		return
+	}
+	if err := s.Server.Store.Upload(context.Background(), thumbnailS3Key, thumbFile); err != nil {
+		log.Printf("Failed to upload thumbnail for file %d: %v", fileID, err)
+	}
+	thumbFile.Close()
 
 	// Update database with thumbnail path
 	_, err = s.GetDB().Exec("UPDATE files SET thumbnail_path = $1 WHERE id = $2", thumbnailS3Key, fileID)
@@ -586,7 +595,16 @@ func (s *Handler) UploadFileRoute(w http.ResponseWriter, r *http.Request) {
 	uuidKey := uuid.New().String()
 	s3Key := fmt.Sprintf("%s/%s", strconv.Itoa(userID), uuidKey)
 
-	s.uploadObject(s.Server.S3, s3Key, tempFile.Name())
+	// Store the uploaded file. Upload reads from tempFile, so rewind it to
+	// the start first (ReadFrom left the cursor at the end).
+	if _, err := tempFile.Seek(0, io.SeekStart); err != nil {
+		http.Error(w, "Unable to seek file", http.StatusInternalServerError)
+		return
+	}
+	if err := s.Server.Store.Upload(r.Context(), s3Key, tempFile); err != nil {
+		http.Error(w, "Unable to upload file", http.StatusInternalServerError)
+		return
+	}
 
 	fileSize, err := tempFile.Seek(0, io.SeekEnd)
 	if err != nil {
@@ -632,7 +650,10 @@ func (s *Handler) UploadFileRoute(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Started text extraction job for file %d", lastInsertId)
 	}
 
-	// Generate thumbnail asynchronously for images (skip during testing)
+	// Generate thumbnail asynchronously for images. NOTE: this skip is NOT
+	// about storage (the store works fine in tests) — it's about the
+	// fire-and-forget goroutine outliving the rolled-back test transaction and
+	// racing teardown. Keep it for that reason only (design decision D8).
 	if s.Server.Testing {
 		// In testing mode, skip thumbnail generation
 	} else {
@@ -676,22 +697,25 @@ func (s *Handler) DownloadFileRoute(w http.ResponseWriter, r *http.Request) {
 		filePathToDownload = *file.ThumbnailPath
 	}
 
-	s3Output, err := s.downloadObject(s.Server.S3, filePathToDownload, "")
+	rc, err := s.Server.Store.Download(r.Context(), filePathToDownload)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	defer rc.Close()
 
+	// Set headers BEFORE io.Copy: Content-Disposition used to be set *after*
+	// the copy, so the header was never actually sent (fix-while-here).
 	w.Header().Set("Content-Type", "application/octet-stream")
-	if s.Server.Testing {
-		return
-	}
-	// Copy the file content to the response
-	if _, err := io.Copy(w, s3Output.Body); err != nil {
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", file.Filename))
+
+	// Copy the file content to the response. The Server.Testing short-circuit
+	// that used to skip streaming here is gone — tests now use a real
+	// tempdir-backed store, so the route streams real bytes (design D8).
+	if _, err := io.Copy(w, rc); err != nil {
 		http.Error(w, "Unable to send file", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", file.Filename))
 
 }
 
@@ -713,7 +737,7 @@ func (s *Handler) DeleteFileRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	err = s.deleteObject(s.Server.S3, file.Path)
+	err = s.Server.Store.Delete(r.Context(), file.Path)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		_, _ = s.GetDB().Exec(`UPDATE files SET is_deleted = false WHERE id = $1`, cardPK)

@@ -1,13 +1,18 @@
 package config
 
+import (
+	"fmt"
+	"os"
+)
+
 // ServiceConfig holds configuration for all external services
 type ServiceConfig struct {
-	LLM    LLMConfig    // Language model/embedding services
-	Mail   MailConfig   // Email service
-	Stripe StripeConfig // Payment processing
-	S3     S3Config     // Object storage
-	GitHub GitHubConfig // OAuth service
-	Search SearchConfig // Search engine
+	LLM     LLMConfig     // Language model/embedding services
+	Mail    MailConfig    // Email service
+	Stripe  StripeConfig  // Payment processing
+	Storage StorageConfig // Local on-disk file storage
+	GitHub  GitHubConfig  // OAuth service
+	Search  SearchConfig  // Search engine
 }
 
 // LLMConfig holds language model service configuration
@@ -27,19 +32,19 @@ type MailConfig struct {
 
 // StripeConfig holds payment processing configuration
 type StripeConfig struct {
-	SecretKey       string // Stripe secret key (sensitive)
-	PublishableKey  string // Stripe publishable key
-	WebhookSecret   string // Webhook signature secret (sensitive)
-	MonthPrice      string // Monthly subscription price ID
-	YearPrice       string // Yearly subscription price ID
-	BillingURL      string // Billing portal URL
+	SecretKey      string // Stripe secret key (sensitive)
+	PublishableKey string // Stripe publishable key
+	WebhookSecret  string // Webhook signature secret (sensitive)
+	MonthPrice     string // Monthly subscription price ID
+	YearPrice      string // Yearly subscription price ID
+	BillingURL     string // Billing portal URL
 }
 
-// S3Config holds object storage configuration
-type S3Config struct {
-	AccessKeyID     string // S3/B2 access key ID (sensitive)
-	SecretAccessKey string // S3/B2 secret access key (sensitive)
-	BucketName      string // Bucket name
+// StorageConfig holds local on-disk file storage configuration.
+// Replaces the former S3Config (Backblaze B2) after the storage migration
+// (see docs/plans/2026-07-29-s3-to-local-file-storage-design.md).
+type StorageConfig struct {
+	Dir string // Path to the file storage root (absolute or relative)
 }
 
 // GitHubConfig holds OAuth service configuration
@@ -56,16 +61,15 @@ type SearchConfig struct {
 	Collection string // Typesense collection name
 }
 
-
 // LoadServiceConfig loads and validates service configuration from environment variables
 func loadServiceConfig() ServiceConfig {
 	return ServiceConfig{
-		LLM:    loadLLMConfig(),
-		Mail:   loadMailConfig(),
-		Stripe: loadStripeConfig(),
-		S3:     loadS3Config(),
-		GitHub: loadGitHubConfig(),
-		Search: loadSearchConfig(),
+		LLM:     loadLLMConfig(),
+		Mail:    loadMailConfig(),
+		Stripe:  loadStripeConfig(),
+		Storage: loadStorageConfig(),
+		GitHub:  loadGitHubConfig(),
+		Search:  loadSearchConfig(),
 	}
 }
 
@@ -115,22 +119,36 @@ func loadStripeConfig() StripeConfig {
 	return config
 }
 
-// loadS3Config loads S3/B2 object storage configuration
-func loadS3Config() S3Config {
-	config := S3Config{
-		AccessKeyID:     requireString("B2_ACCESS_KEY_ID"),
-		SecretAccessKey: requireString("B2_SECRET_ACCESS_KEY"),
-		BucketName:      requireString("B2_BUCKET_NAME"),
+// loadStorageConfig loads local file storage configuration (STORAGE_DIR).
+// The storage root is created at load time (mode 0750) so a fresh checkout
+// with the default ./data/files works without a manual mkdir, and validation
+// fails if the dir can't be created or written to — the one correctness
+// property local disk doesn't give us for free (design decision D3).
+func loadStorageConfig() StorageConfig {
+	config := StorageConfig{
+		Dir: requireStringWithDefault("STORAGE_DIR", "./data/files"),
 	}
 
-	// Basic validation that all S3 credentials are provided together
-	if (config.AccessKeyID != "" || config.SecretAccessKey != "" || config.BucketName != "") &&
-		(config.AccessKeyID == "" || config.SecretAccessKey == "" || config.BucketName == "") {
+	if err := os.MkdirAll(config.Dir, 0o750); err != nil {
 		validationErrors = append(validationErrors,
-			"B2_ACCESS_KEY_ID, B2_SECRET_ACCESS_KEY, and B2_BUCKET_NAME must all be provided together or all be empty")
+			fmt.Sprintf("STORAGE_DIR %q cannot be created: %v", config.Dir, err))
+	} else if err := checkDirWritable(config.Dir); err != nil {
+		validationErrors = append(validationErrors,
+			fmt.Sprintf("STORAGE_DIR %q is not writable: %v", config.Dir, err))
 	}
 
 	return config
+}
+
+// checkDirWritable confirms a directory is writable by creating and removing
+// a throwaway temp file inside it.
+func checkDirWritable(dir string) error {
+	f, err := os.CreateTemp(dir, ".storage-probe-*")
+	if err != nil {
+		return err
+	}
+	f.Close()
+	return os.Remove(f.Name())
 }
 
 // loadGitHubConfig loads GitHub OAuth configuration

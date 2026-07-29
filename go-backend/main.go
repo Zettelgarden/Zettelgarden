@@ -12,6 +12,7 @@ import (
 	"go-backend/server"
 	"go-backend/services"
 	"go-backend/services/jobs"
+	"go-backend/services/storage"
 
 	"log"
 	"net/http"
@@ -29,15 +30,6 @@ import (
 
 var s *server.Server
 var h *handlers.Handler
-
-// handlerS3Uploader wraps the Handler to implement jobs.S3Uploader interface
-type handlerS3Uploader struct {
-	handler *handlers.Handler
-}
-
-func (u *handlerS3Uploader) UploadObject(key string, filePath string) error {
-	return u.handler.UploadObject(u.handler.Server.S3, key, filePath)
-}
 
 // getEnvInt gets an integer environment variable with a fallback
 func getEnvInt(key string, defaultValue int) int {
@@ -126,10 +118,14 @@ func run() error {
 	stripe.Key = cfg.Services.Stripe.SecretKey
 	log.Printf("Stripe initialized (billing_url=%s)", cfg.Services.Stripe.BillingURL)
 
-	// Initialize S3 client for file storage
-	log.Printf("Initializing S3 client (bucket=%s)", cfg.Services.S3.BucketName)
-	s.S3 = h.CreateS3Client()
-	log.Printf("S3 client initialized successfully")
+	// Initialize local file storage for uploaded files (replaces B2/S3)
+	log.Printf("Initializing file storage (dir=%s)", cfg.Services.Storage.Dir)
+	fileStore, err := storage.NewLocalStore(cfg.Services.Storage.Dir)
+	if err != nil {
+		log.Fatalf("Failed to initialize file storage: %v", err)
+	}
+	s.Store = fileStore
+	log.Printf("File storage initialized successfully")
 
 	// Initialize mail client for transactional emails (password resets, reminders)
 	log.Printf("Initializing mail client (host=%s)", cfg.Services.Mail.Host)
