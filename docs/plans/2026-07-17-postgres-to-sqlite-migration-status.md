@@ -655,6 +655,34 @@ was added. Originals backed up as `.env.pre-sqlite` + `docker-compose.yml.pre-
 sqlite` on the host. Postgres on .93 is **untouched → read-only fallback (≥2
 weeks)**; `:pre-sqlite` image retained for instant rollback.
 
+**Post-cutover incident & fix (2026-07-29 00:09 UTC, commit `3d75fa94`).** Within
+minutes of the flip, every card-detail / starred-search / notification read
+errored: `unsupported Scan, storing driver.Value type string into type
+*json.RawMessage`. Root cause: the ETL's `normalizeValue` stored jsonb as
+**string (TEXT)** and PG arrays as **JSON**, but the app binds jsonb as `[]byte`
+(BLOB) and reads `notifications.filter_tags` via `pq.StringArray` (`{a,b}`
+text). modernc returns TEXT-stored values as a Go `string`, which cannot scan
+into `*json.RawMessage` (a named `[]byte` type); and `pq.StringArray` can't
+parse JSON. The test suite + gate-3 read-path diff missed it because they all
+insert via the **app** (BLOB storage), never via ETL-style TEXT storage.
+
+**Fix (data-only — no app-code or image change):** `normalizeValue` now keeps
+`[]byte` as `[]byte` (BLOB — matches app writes; scans into both
+`*json.RawMessage` and the `[]byte`+`json.Unmarshal` pattern; no SQL
+`json_extract`/`->` is used on these columns, verified) and passes PG-array
+text (`{a,b}`) through verbatim. Re-migrated just the 3 affected tables
+(`cards`/`starred_searches`/`notifications`, via `--no-schema --tables` —
+~3 s, 0 FK violations); storage class flipped `text→blob` and `filter_tags`
+`["x"]→{x}`. **Verified at the app level:** a throwaway probe ran the real
+`services.GetFullCard` + starred-search + notification scans against the live
+file → all succeeded, 0 scan errors; backend logs show 0 `unsupported Scan`
+since restart. (The other jsonb columns — `schema_definitions.fields`,
+`llm_jobs.payload/result`, `admin_audit_log.details` — scan into `[]byte` and
+work under either storage class, so they were not re-migrated; cosmetic
+mixed-storage-class only.) Regression test filed as `Zettelgarden-c7j.5`.
+
+[43 more lines — see "Remaining" below]
+
 **Remaining (Phase 7a repo cleanup + 7b):**
 1. **Phase 7a repo cleanup (½ day, non-urgent):** update `README.md` (lines
    62/89/97/100/125 still say "PostgreSQL + pgvector") and `AGENTS.md` (line 4);
