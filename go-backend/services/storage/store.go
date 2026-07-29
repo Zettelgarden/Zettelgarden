@@ -41,6 +41,11 @@ type Store interface {
 	// Delete removes the object at key. It is idempotent: a missing object
 	// returns nil (matching B2/S3 DeleteObject).
 	Delete(ctx context.Context, key string) error
+	// Exists reports whether an object is present at key. It does not return an
+	// error for a missing object (the bool is simply false); errors are reserved
+	// for path-resolution or stat failures. Used by the one-time B2→local
+	// migration tool to skip objects already copied on a re-run.
+	Exists(ctx context.Context, key string) (bool, error)
 }
 
 // Compile-time guarantee that LocalStore satisfies Store.
@@ -166,6 +171,26 @@ func (s *LocalStore) Delete(ctx context.Context, key string) error {
 		return fmt.Errorf("storage: delete %q: %w", key, err)
 	}
 	return nil
+}
+
+// Exists reports whether an object is present at key. A missing object returns
+// (false, nil); path-traversal attempts surface as errors via resolve().
+func (s *LocalStore) Exists(ctx context.Context, key string) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	target, err := s.resolve(key)
+	if err != nil {
+		return false, err
+	}
+	info, err := os.Stat(target)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, fmt.Errorf("storage: stat %q: %w", key, err)
+	}
+	return !info.IsDir(), nil
 }
 
 // resolve maps a (server-generated) key to an absolute path under the storage

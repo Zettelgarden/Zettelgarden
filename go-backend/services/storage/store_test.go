@@ -210,3 +210,33 @@ func TestNewLocalStoreCreatesMissingDir(t *testing.T) {
 		t.Errorf("expected store dir to exist at %s", store.Dir())
 	}
 }
+
+func TestExists(t *testing.T) {
+	store, err := NewLocalStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewLocalStore: %v", err)
+	}
+	ctx := context.Background()
+	key := "42/abc-uuid"
+
+	if ok, err := store.Exists(ctx, key); err != nil || ok {
+		t.Fatalf("before upload: Exists = (%v, %v), want (false, nil)", ok, err)
+	}
+	if err := store.Upload(ctx, key, strings.NewReader("payload")); err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+	if ok, err := store.Exists(ctx, key); err != nil || !ok {
+		t.Fatalf("after upload: Exists = (%v, %v), want (true, nil)", ok, err)
+	}
+	if err := store.Delete(ctx, key); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	if ok, err := store.Exists(ctx, key); err != nil || ok {
+		t.Fatalf("after delete: Exists = (%v, %v), want (false, nil)", ok, err)
+	}
+
+	// A traversal attempt surfaces as an error, not (false, nil).
+	if _, err := store.Exists(ctx, "../escape"); err == nil {
+		t.Errorf("Exists with traversal key returned nil error")
+	}
+}

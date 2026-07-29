@@ -1,15 +1,17 @@
 # S3 (Backblaze B2) → Local File Storage Migration — Status
 
-**Last updated:** 2026-07-29 (Phase 2 COMPLETE — all config/deploy artifacts swapped from S3/B2 to `STORAGE_DIR`; CI dead `B2_*` secrets removed; README updated; suite green. Phase 3 automated gate re-confirmed green.)
+**Last updated:** 2026-07-29 (Phase 4 COMPLETE — SDK-free `cmd/migrate-storage` ETL tool built + tested; `Store.Exists` added for idempotent re-runs. Suite green.)
 **Plan:** [`2026-07-29-s3-to-local-file-storage-design.md`](./2026-07-29-s3-to-local-file-storage-design.md)
-**Tracking:** epic `Zettelgarden-yar` · Phase 0 `Zettelgarden-yar.1` (closed) · Phase 1 `Zettelgarden-yar.2` (closed) · Phase 2 `Zettelgarden-yar.3` (closed) · Phase 3 `Zettelgarden-yar.5` (closed, automated) · Security follow-up `Zettelgarden-yar.4` (open)
+**Tracking:** epic `Zettelgarden-yar` · Phase 0 `Zettelgarden-yar.1` (closed) · Phase 1 `Zettelgarden-yar.2` (closed) · Phase 2 `Zettelgarden-yar.3` (closed) · Phase 3 `Zettelgarden-yar.5` (closed) · Phase 4 `Zettelgarden-yar.6` (closed, code) · Security follow-up `Zettelgarden-yar.4` (open)
 
 ## TL;DR
 
-**Phase 0 + Phase 1 + Phase 2 are done (Phase 3 automated gate green).** The
-backend stores uploads on local disk via `services/storage.LocalStore`; the
-AWS SDK is gone, `handlers/s3.go` is deleted, and every config/deploy artifact
-now points at `STORAGE_DIR` instead of S3/B2.
+**Phases 0–4 are done (code-complete).** The backend stores uploads on local
+disk via `services/storage.LocalStore`; the AWS SDK is gone,
+`handlers/s3.go` is deleted, every config/deploy artifact points at
+`STORAGE_DIR`, and the one-time B2→local ETL tool (`cmd/migrate-storage`,
+SDK-free) is built and tested. What remains is the production **run** of that
+ETL + the Phase 5 cutover (both operator steps on the live host).
 
 - **Phase 0 (spike):** `services/storage/` ships the `Store` interface
   (`Upload`/`Download`/`Delete`) and `LocalStore` with atomic writes, `0750`/
@@ -39,7 +41,7 @@ cutover (Phase 5).
 | 1 — Wire the store through | ✅ **Done** | `StorageConfig`/`STORAGE_DIR` (D3); `Server.Store` (D1); 5 call sites repointed; download `Content-Disposition` fix + `Testing` guard removal (D8); `handlers/s3.go` + dead `handlerS3Uploader` + `TestInspector` deleted; `go mod tidy` removed all AWS modules (D4). Full suite green. |
 | 2 — Config & deploy artifacts | ✅ **Done** | `.env.example` S3 block → `STORAGE_DIR` (D3); `.env-bash` `B2_*` → `STORAGE_DIR`; `Dockerfile` `ENV STORAGE_DIR=/usr/src/app/data/files` (D7); `docker-zettel-run.yml` documents the shared data volume carrying `files/` (D7); `.github/workflows/go.yml` dead `B2_*` GitHub-secret lines removed; `conftest.go` stale comment fixed; README File-Storage bullets → local disk. |
 | 3 — Tests green | ✅ **Done** (automated) | Re-ran `go test ./...` — 16/16 packages PASS (Phase 1 already made `TestDownloadFile` assert real bytes). Manual upload→thumb→download→epub→delete smoke folded into the Phase 5 cutover runbook. |
-| 4 — Data migration (B2 → local) | ⬜ Not started | SDK-free `cmd/migrate-storage` (D6); runs before cutover. |
+| 4 — Data migration (B2 → local) | ✅ **Done** (code) | `cmd/migrate-storage/` (D6): SDK-free SigV4 `GET` (`sign.go`, verified against an independent Python oracle — 4 vectors); reads `files.path`/`thumbnail_path` from sqlite or postgres; streams into `LocalStore`; idempotent via new `Store.Exists`; 7 tests green (E2E fake-B2 round-trip, dry-run, server-failure resilience, oracle vectors, path encoding, request round-trip). **Production run is an operator step (Phase 5).** |
 | 5 — Cutover & cleanup | ⬜ Not started | Deploy; smoke; keep B2 read-only for rollback window; then delete bucket. |
 
 ---
@@ -255,20 +257,100 @@ $ git grep -n 'S3_\|B2_\|aws-sdk\|backblaze' -- '*.go' '*.yml' '*.example' 'Dock
 
 ---
 
-## What's next (Phase 4 — B2→local ETL, then Phase 5 cutover)
+## Phase 4 progress
 
-- **Phase 4 (D6):** build & run the SDK-free `cmd/migrate-storage` on the
-  production host, writing into the populated `STORAGE_DIR`. It reads the key
-  list from the DB and raw SigV4-`GET`s each object from B2 (no AWS module), so
-  it builds from `main` at any time — including now, after Phase 1 dropped the
-  SDK. Idempotent (skip if local file exists); verify `count(files) ≈` local
-  file count. Keep B2 read-only for the rollback window.
-- **Phase 5 (cutover):** deploy the new binary pointed at the populated
-  `STORAGE_DIR`; smoke-test a real upload/download (this is where the deferred
-  manual upload→thumb→download→epub→delete check from Phase 3 runs); after a
-  green window, delete the B2 bucket and revoke keys (`yar.4`).
+The B2→local ETL tool is built, SDK-free, and tested. Per design **D6** it has
+no `aws-sdk-go` dependency, so it compiles from `main` today — after Phase 1
+already removed the SDK — with no branch or re-add.
 
-The `.env-bash` B2 keys are already removed locally and the `B2_*` GitHub
-secrets are unreferenced, so the only remaining B2 touchpoints are the
-production host's `zettel.env` (operator) and the Backblaze console itself
-(`yar.4`).
+### What landed
+
+- **`go-backend/cmd/migrate-storage/main.go`** — the tool. Flags: `--bucket`,
+  `--endpoint` (default `https://s3.us-east-005.backblazeb2.com`), `--region`
+  (default `us-east-005`, matching the old SDK config — **not** `us-east-1`),
+  `--storage-dir` (`$STORAGE_DIR` / `./data/files`), `--db-driver`
+  (sqlite|postgres), `--sqlite-path`, `--limit`, `--dry-run`, `--no-thumbnails`,
+  `--timeout`. Source creds come from `B2_ACCESS_KEY_ID`/`B2_SECRET_ACCESS_KEY`.
+  It reads `SELECT id, path, thumbnail_path FROM files WHERE
+  COALESCE(is_deleted,false)=false AND path<>''`, copies each primary object +
+  its thumbnail, and prints a summary (expected / downloaded / skipped / failed).
+  `main()` is thin; the testable core is `runMigration(...)`.
+- **`go-backend/cmd/migrate-storage/sign.go`** — hand-rolled **SigV4** for a
+  path-style GET: `deriveSigningKey`, `escapeS3Path` (AWS-spec percent-encoding,
+  preserving `/`), and `buildAuthorization`/`signGET`. ~150 lines, `crypto/hmac`
+  + `net/http` only, **zero AWS modules**.
+- **`go-backend/services/storage/store.go`** — added `Exists(ctx, key)` to the
+  `Store` interface + `LocalStore` (only impl, so no other implementer breaks).
+  The migration tool uses it for the idempotent "skip if already copied" guard.
+
+### Testing (why the signer is trustworthy)
+
+The SigV4 math is validated against **known-good vectors generated by an
+independent Python stdlib oracle** (`hmac`/`hashlib`/`urllib`) — not from
+memory, and not by re-running the Go code. Agreement on the full
+`Authorization` header (incl. the 64-hex signature) across 4 cases — realistic
+B2 file key + the real decommissioned dev creds, a thumbnail key, a nested
+multi-segment key, and a special-character key (`' '` and `@` encoded, `/`
+preserved) — validates canonical-request construction, the string-to-sign, the
+signing-key chain, and path encoding all at once.
+
+7 tests in `cmd/migrate-storage/`, all green:
+
+| Test | Asserts |
+|---|---|
+| `TestBuildAuthorizationOracleVectors` | 4 Python-oracle signature vectors match exactly. |
+| `TestEscapeS3Path` | `/` preserved; space/`@` encoded; unreserved passthrough. |
+| `TestSignGETRoundTrip` | `signGET` wires host/escaped-path into the auth header; body streams over `httptest`. |
+| `TestRunMigration` | E2E fake-B2 server (validates SigV4 + serves bytes) → temp SQLite `files` table → temp store: primary + thumbnail copied, **deleted row skipped**, empty-path row excluded, byte content matches, 2nd run 100% skipped. |
+| `TestRunMigrationDryRun` | `--dry-run` fetches nothing, writes nothing. |
+| `TestRunMigrationServerFailure` | a B2 404 is counted as `failed` (no crash); the run continues and can be re-run. |
+| (`services/storage` `TestExists`) | `Exists` false→true→false across upload/delete; traversal key errors. |
+
+### Verification
+
+```
+$ go build ./...            # clean
+$ go vet ./...              # only the 2 pre-existing oauth.go warnings
+$ go test ./...             # 16+ packages PASS (incl. cmd/migrate-storage: 7 tests)
+$ gofmt -l cmd/migrate-storage services/storage   # clean
+$ git diff --stat go-backend/go.mod go-backend/go.sum   # empty — NO new deps (SDK-free by design)
+```
+
+### Design notes / decisions
+
+- **Region `us-east-005`, not `us-east-1`.** Recovered from the deleted
+  `handlers/s3.go` (`git show d7635835^:go-backend/handlers/s3.go`): the old
+  SDK client set `WithRegion("us-east-005")`. B2's S3 API signs with the
+  bucket's actual region; using `us-east-1` would 403.
+- **Idempotency via `Store.Exists`, not by re-downloading.** `LocalStore.Upload`
+  is already atomic (temp+rename) so partials can't survive; `Exists` just gates
+  the fetch so a resume skips already-copied objects.
+- **Sequential copy.** A one-time, monitored run doesn't need a worker pool;
+  a `--jobs` flag is a trivial follow-up if the production file count is large.
+- **No new deps.** Reuses `lib/pq` (postgres path), `go-backend/server`
+  (`OpenSQLite`), and `go-backend/services/storage`. `go.mod`/`go.sum` untouched.
+
+---
+
+## What's next (Phase 5 — production cutover; operator steps)
+
+Both remaining steps run on the live host and are **Nick's call** (downtime):
+
+- **Run the ETL (Phase 4 production run):** on the production host, build the
+  tool (`go build -o migrate-storage ./cmd/migrate-storage` from `go-backend/`)
+  and run it pointed at the populated `STORAGE_DIR` and the live metadata DB:
+  ```
+  B2_ACCESS_KEY_ID=… B2_SECRET_ACCESS_KEY=… B2_BUCKET_NAME=… \
+    ./migrate-storage --storage-dir <PROD STORAGE_DIR> --db-driver <sqlite|postgres>
+  ```
+  Re-run freely (idempotent). Confirm the summary: `failed: 0` and
+  `expected == downloaded+skipped`. Keep B2 read-only for the rollback window.
+- **Phase 5 cutover:** deploy the new binary pointed at that same `STORAGE_DIR`;
+  smoke-test a real upload→thumb→download→epub→delete (the manual check deferred
+  from Phase 3). After a green window, delete the B2 bucket and revoke keys
+  (`Zettelgarden-yar.4`).
+
+The local `.env-bash` B2 keys are already gone and the `B2_*` GitHub secrets
+are unreferenced; the only remaining B2 touchpoints are the production host's
+`zettel.env` (operator sets it for the ETL run) and the Backblaze console
+itself (`yar.4`).
