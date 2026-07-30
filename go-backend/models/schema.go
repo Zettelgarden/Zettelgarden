@@ -13,21 +13,24 @@ import (
 // FieldDefinition represents a single field definition in a schema
 type FieldDefinition struct {
 	Name     string   `json:"name"`
-	Type     string   `json:"type"`     // text, number, date, boolean, select, multi-select, link_to_card
+	Type     string   `json:"type"` // text, number, date, boolean, select, multi-select, link_to_card
 	Required bool     `json:"required"`
 	Options  []string `json:"options,omitempty"` // For select/multi-select types
 }
 
 // SchemaDefinition represents a schema definition for structured card data
 type SchemaDefinition struct {
-	ID        int                      `json:"id"`
-	Name      string                   `json:"name"`
-	Slug      string                   `json:"slug"`
-	OwnerID   int                      `json:"owner_id"`
-	Fields    []FieldDefinition        `json:"fields"`
-	CreatedAt time.Time                `json:"created_at"`
-	UpdatedAt time.Time                `json:"updated_at"`
-	IsDeleted bool                     `json:"is_deleted"`
+	ID        int               `json:"id"`
+	Name      string            `json:"name"`
+	Slug      string            `json:"slug"`
+	OwnerID   int               `json:"owner_id"`
+	Fields    []FieldDefinition `json:"fields"`
+	CreatedAt time.Time         `json:"created_at"`
+	UpdatedAt time.Time         `json:"updated_at"`
+	IsDeleted bool              `json:"is_deleted"`
+	// CardCount is the number of non-deleted cards using this schema.
+	// It is only populated by the list endpoint; other responses leave it unset.
+	CardCount int `json:"card_count,omitempty"`
 }
 
 // ScanSchemaDefinition scans a single SchemaDefinition from a sql.Row
@@ -64,7 +67,8 @@ func ScanSchemaDefinition(row *sql.Row) (*SchemaDefinition, error) {
 	return &schema, nil
 }
 
-// ScanSchemaDefinitions scans multiple SchemaDefinitions from sql.Rows
+// ScanSchemaDefinitions scans multiple SchemaDefinitions from sql.Rows.
+// It expects a card_count column (populated by the list endpoint) as the 9th column.
 func ScanSchemaDefinitions(rows *sql.Rows) ([]SchemaDefinition, error) {
 	var schemas []SchemaDefinition
 
@@ -83,6 +87,7 @@ func ScanSchemaDefinitions(rows *sql.Rows) ([]SchemaDefinition, error) {
 			&schema.CreatedAt,
 			&schema.UpdatedAt,
 			&schema.IsDeleted,
+			&schema.CardCount,
 		); err != nil {
 			log.Printf("Error scanning schema definition: %v", err)
 			return schemas, err
@@ -117,16 +122,16 @@ func FieldsToJSONB(fields []FieldDefinition) ([]byte, error) {
 
 // CreateSchemaDefinitionParams represents the parameters needed to create a schema
 type CreateSchemaDefinitionParams struct {
-	Name    string           `json:"name"`
-	OwnerID int              `json:"owner_id"`
+	Name    string            `json:"name"`
+	OwnerID int               `json:"owner_id"`
 	Fields  []FieldDefinition `json:"fields"`
 }
 
 // UpdateSchemaDefinitionParams represents the parameters needed to update a schema
 type UpdateSchemaDefinitionParams struct {
-	ID      int              `json:"id"`
-	Name    string           `json:"name"`
-	Fields  []FieldDefinition `json:"fields"`
+	ID     int               `json:"id"`
+	Name   string            `json:"name"`
+	Fields []FieldDefinition `json:"fields"`
 }
 
 // GenerateSlug generates a URL-safe slug from a schema name

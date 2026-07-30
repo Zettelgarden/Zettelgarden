@@ -413,6 +413,70 @@ func TestGetSchemasRoute_EmptyArray(t *testing.T) {
 	}
 }
 
+// TestGetSchemasRoute_IncludesCardCount tests that each schema returned by the
+// list endpoint includes a card_count reflecting the number of non-deleted cards
+// currently using it.
+func TestGetSchemasRoute_IncludesCardCount(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	fields := []models.FieldDefinition{{Name: "title", Type: "text", Required: true}}
+	schema, _ := createSchema(t, s, 1, "Counted Schema", fields)
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	createCardWithSchema := func(cardID string, title string) {
+		structuredDataJSON := `{"title":"` + title + `"}`
+		var structuredData json.RawMessage
+		if err := json.Unmarshal([]byte(structuredDataJSON), &structuredData); err != nil {
+			t.Fatalf("Failed to unmarshal structured data: %v", err)
+		}
+		data := models.EditCardParams{
+			Title:          title,
+			Body:           "body",
+			CardID:         cardID,
+			Link:           "test",
+			SchemaID:       &schema.ID,
+			StructuredData: &structuredData,
+		}
+		jsonData, _ := json.Marshal(data)
+		req, _ := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute))
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("Failed to create card: status %d, body %s", rr.Code, rr.Body.String())
+		}
+	}
+
+	createCardWithSchema("COUNT001", "Card One")
+	createCardWithSchema("COUNT002", "Card Two")
+
+	req, _ := http.NewRequest("GET", "/api/schemas", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.GetSchemasRoute))
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", rr.Code)
+	}
+
+	var schemas []models.SchemaDefinition
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &schemas)
+
+	if len(schemas) != 1 {
+		t.Fatalf("Expected 1 schema, got %d", len(schemas))
+	}
+	if schemas[0].CardCount != 2 {
+		t.Errorf("Expected card_count 2, got %d", schemas[0].CardCount)
+	}
+}
+
 // TestGetSchemaRoute_Success tests successful retrieval of a specific schema
 func TestGetSchemaRoute_Success(t *testing.T) {
 	s := NewHandler()

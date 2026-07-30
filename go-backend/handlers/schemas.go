@@ -272,10 +272,11 @@ func (s *Handler) GetSchemasRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-		SELECT id, name, slug, owner_id, fields, created_at, updated_at, is_deleted
-		FROM schema_definitions
-		WHERE owner_id = $1 AND is_deleted = FALSE
-		ORDER BY created_at DESC
+		SELECT s.id, s.name, s.slug, s.owner_id, s.fields, s.created_at, s.updated_at, s.is_deleted,
+		       (SELECT COUNT(*) FROM cards c WHERE c.card_schema_id = s.id AND c.is_deleted = FALSE) AS card_count
+		FROM schema_definitions s
+		WHERE s.owner_id = $1 AND s.is_deleted = FALSE
+		ORDER BY s.created_at DESC
 	`
 
 	rows, err := s.GetDB().Query(query, userID)

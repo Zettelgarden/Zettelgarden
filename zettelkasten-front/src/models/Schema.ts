@@ -14,4 +14,6 @@ export interface SchemaDefinition {
   created_at: Date;
   updated_at: Date;
   is_deleted: boolean;
+  /** Number of cards using this schema. Only populated by the list endpoint. */
+  card_count?: number;
 }
