@@ -140,6 +140,33 @@ describe("matchesFilter", () => {
       expect(matchesFilter(10, "lte:5")).toBe(false);
     });
   });
+
+  describe("date comparisons", () => {
+    it("should compare ISO dates chronologically (not as the leading year)", () => {
+      expect(matchesFilter("2026-01-15", "gt:2026-01-01")).toBe(true);
+      expect(matchesFilter("2026-01-01", "gt:2026-01-01")).toBe(false);
+    });
+
+    it("should support gte on dates", () => {
+      expect(matchesFilter("2026-01-01", "gte:2026-01-01")).toBe(true);
+      expect(matchesFilter("2025-12-31", "gte:2026-01-01")).toBe(false);
+    });
+
+    it("should support lt/lte on dates (before / on-or-before)", () => {
+      expect(matchesFilter("2025-12-31", "lt:2026-01-01")).toBe(true);
+      expect(matchesFilter("2026-01-15", "lt:2026-01-01")).toBe(false);
+      expect(matchesFilter("2026-01-01", "lte:2026-01-01")).toBe(true);
+    });
+
+    it("should still use numeric comparison for bare numbers", () => {
+      expect(matchesFilter(5, "gt:3")).toBe(true);
+      expect(matchesFilter("7.5", "lt:5")).toBe(false);
+    });
+
+    it("should return false when the card value is not a date/number", () => {
+      expect(matchesFilter("not-a-date", "gt:2026-01-01")).toBe(false);
+    });
+  });
 });
 
 describe("parseFiltersString", () => {
@@ -205,6 +232,16 @@ describe("applyFiltersToCard", () => {
     expect(applyFiltersToCard(mockCard, { rating: "lte:5" })).toBe(true);
     expect(applyFiltersToCard(mockCard, { rating: "lt:6" })).toBe(true);
     expect(applyFiltersToCard(mockCard, { rating: "gt:5" })).toBe(false);
+  });
+
+  it("should apply date comparison operators to ISO date fields", () => {
+    const cardWithDate = {
+      title: "Task",
+      structured_data: { due_date: "2026-01-15" }
+    };
+    expect(applyFiltersToCard(cardWithDate, { due_date: "gt:2026-01-01" })).toBe(true);
+    expect(applyFiltersToCard(cardWithDate, { due_date: "lt:2026-01-01" })).toBe(false);
+    expect(applyFiltersToCard(cardWithDate, { due_date: "lte:2026-01-15" })).toBe(true);
   });
 
   it("should return true for empty filters", () => {

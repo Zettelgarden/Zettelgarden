@@ -7,12 +7,32 @@ interface InsertSchemaTableButtonProps {
   onInsert: (syntax: string) => void;
 }
 
+type FilterOperator = "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+
+const NUMBER_OPERATORS: { value: FilterOperator; label: string }[] = [
+  { value: "eq", label: "=" },
+  { value: "ne", label: "≠" },
+  { value: "gt", label: ">" },
+  { value: "gte", label: "≥" },
+  { value: "lt", label: "<" },
+  { value: "lte", label: "≤" },
+];
+
+const DATE_OPERATORS: { value: FilterOperator; label: string }[] = [
+  { value: "eq", label: "On" },
+  { value: "ne", label: "Not on" },
+  { value: "gt", label: "After" },
+  { value: "gte", label: "On or after" },
+  { value: "lt", label: "Before" },
+  { value: "lte", label: "On or before" },
+];
+
 export function InsertSchemaTableButton({ onInsert }: InsertSchemaTableButtonProps) {
   const [schemas, setSchemas] = useState<SchemaDefinition[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedSchema, setSelectedSchema] = useState<SchemaDefinition | null>(null);
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set());
-  const [filters, setFilters] = useState<Array<{ field: string; value: string }>>([]);
+  const [filters, setFilters] = useState<Array<{ field: string; operator: FilterOperator; value: string }>>([]);
 
   // Fetch schemas on mount
   useEffect(() => {
@@ -54,14 +74,24 @@ export function InsertSchemaTableButton({ onInsert }: InsertSchemaTableButtonPro
   const addFilter = () => {
     if (!selectedSchema) return;
     const firstField = selectedSchema.fields[0]?.name || "";
-    setFilters(prev => [...prev, { field: firstField, value: "" }]);
+    setFilters(prev => [...prev, { field: firstField, operator: "eq", value: "" }]);
+  };
+
+  // Changing the field resets operator/value because the available operators
+  // and input type depend on the field type.
+  const changeFilterField = (index: number, fieldName: string) => {
+    setFilters(prev =>
+      prev.map((f, i) =>
+        i === index ? { field: fieldName, operator: "eq" as FilterOperator, value: "" } : f
+      )
+    );
   };
 
   const removeFilter = (index: number) => {
     setFilters(prev => prev.filter((_, i) => i !== index));
   };
 
-  const updateFilter = (index: number, key: "field" | "value", val: string) => {
+  const updateFilter = (index: number, key: "field" | "value" | "operator", val: string) => {
     setFilters(prev =>
       prev.map((f, i) => (i === index ? { ...f, [key]: val } : f))
     );
@@ -80,10 +110,19 @@ export function InsertSchemaTableButton({ onInsert }: InsertSchemaTableButtonPro
       parts.push(`columns:${Array.from(selectedColumns).join(",")}`);
     }
 
-    // Build filter string, skipping empty values
+    // Build filter string, skipping empty values. Operators other than "eq"
+    // are emitted as "<op>:<value>" so the schema filter engine can apply
+    // gt/gte/lt/lte comparisons (e.g. due=gt:2026-01-01).
     const validFilters = filters.filter(f => f.field && f.value.trim());
     if (validFilters.length > 0) {
-      const filterStr = validFilters.map(f => `${f.field}=${f.value.trim()}`).join(",");
+      const filterStr = validFilters
+        .map(f => {
+          const v = f.value.trim();
+          return f.operator && f.operator !== "eq"
+            ? `${f.field}=${f.operator}:${v}`
+            : `${f.field}=${v}`;
+        })
+        .join(",");
       parts.push(`filter:${filterStr}`);
     }
 
@@ -101,13 +140,9 @@ export function InsertSchemaTableButton({ onInsert }: InsertSchemaTableButtonPro
     }
   };
 
-  const getFilterFieldOptions = (fieldName: string): string[] | undefined => {
+  const getFilterField = (fieldName: string): FieldDefinition | undefined => {
     if (!selectedSchema) return undefined;
-    const field = selectedSchema.fields.find(f => f.name === fieldName);
-    if (field?.type === "select" || field?.type === "multi-select") {
-      return field.options;
-    }
-    return undefined;
+    return selectedSchema.fields.find(f => f.name === fieldName);
   };
 
   const reset = () => {
@@ -211,24 +246,62 @@ export function InsertSchemaTableButton({ onInsert }: InsertSchemaTableButtonPro
                     <div className="text-xs text-gray-400">No filters</div>
                   )}
                   {filters.map((filter, index) => {
-                    const options = getFilterFieldOptions(filter.field);
+                    const field = getFilterField(filter.field);
+                    const fieldType = field?.type;
+                    const operators =
+                      fieldType === "date"
+                        ? DATE_OPERATORS
+                        : fieldType === "number"
+                          ? NUMBER_OPERATORS
+                          : null;
+                    const options =
+                      field && (field.type === "select" || field.type === "multi-select")
+                        ? field.options
+                        : undefined;
                     return (
-                      <div key={index} className="flex items-center gap-2 mb-2">
+                      <div key={index} className="flex items-center gap-1.5 mb-2">
                         <select
                           value={filter.field}
-                          onChange={(e) => updateFilter(index, "field", e.target.value)}
-                          className="flex-1 text-xs border border-gray-300 rounded px-2 py-1.5 bg-white"
+                          onChange={(e) => changeFilterField(index, e.target.value)}
+                          className="flex-1 min-w-0 text-xs border border-gray-300 rounded px-2 py-1.5 bg-white"
                         >
-                          {selectedSchema.fields.map(field => (
-                            <option key={field.name} value={field.name}>{field.name}</option>
+                          {selectedSchema.fields.map(f => (
+                            <option key={f.name} value={f.name}>{f.name}</option>
                           ))}
                         </select>
-                        <span className="text-gray-400 text-xs">=</span>
-                        {options ? (
+                        {operators ? (
+                          <select
+                            value={filter.operator}
+                            onChange={(e) => updateFilter(index, "operator", e.target.value)}
+                            className="text-xs border border-gray-300 rounded px-1.5 py-1.5 bg-white"
+                          >
+                            {operators.map(op => (
+                              <option key={op.value} value={op.value}>{op.label}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-gray-400 text-xs">=</span>
+                        )}
+                        {fieldType === "date" ? (
+                          <input
+                            type="date"
+                            value={filter.value}
+                            onChange={(e) => updateFilter(index, "value", e.target.value)}
+                            className="flex-1 min-w-0 text-xs border border-gray-300 rounded px-2 py-1.5"
+                          />
+                        ) : fieldType === "number" ? (
+                          <input
+                            type="number"
+                            value={filter.value}
+                            onChange={(e) => updateFilter(index, "value", e.target.value)}
+                            placeholder="value"
+                            className="flex-1 min-w-0 text-xs border border-gray-300 rounded px-2 py-1.5"
+                          />
+                        ) : options ? (
                           <select
                             value={filter.value}
                             onChange={(e) => updateFilter(index, "value", e.target.value)}
-                            className="flex-1 text-xs border border-gray-300 rounded px-2 py-1.5 bg-white"
+                            className="flex-1 min-w-0 text-xs border border-gray-300 rounded px-2 py-1.5 bg-white"
                           >
                             <option value="">Select...</option>
                             {options.map(opt => (
@@ -241,7 +314,7 @@ export function InsertSchemaTableButton({ onInsert }: InsertSchemaTableButtonPro
                             value={filter.value}
                             onChange={(e) => updateFilter(index, "value", e.target.value)}
                             placeholder="value"
-                            className="flex-1 text-xs border border-gray-300 rounded px-2 py-1.5"
+                            className="flex-1 min-w-0 text-xs border border-gray-300 rounded px-2 py-1.5"
                           />
                         )}
                         <button
