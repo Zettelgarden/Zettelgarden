@@ -11,10 +11,10 @@ import { TagList } from "../components/tags/TagList";
 import { StatusManagement } from "../components/settings/StatusManagement";
 import { TimezoneSelector } from "../components/settings/TimezoneSelector";
 import APIKeysManagement from "../components/settings/APIKeysManagement";
-import { SchemaPage } from "./SchemaPage";
+import { EntityPage } from "./EntityPage";
 import { StatsPage } from "./StatsPage";
 
-type Tab = "profile" | "templates" | "tags" | "statuses" | "apiKeys" | "schemas" | "stats";
+type Tab = "profile" | "templates" | "tags" | "statuses" | "apiKeys" | "entities" | "stats";
 
 export function UserSettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
@@ -248,8 +248,8 @@ export function UserSettingsPage() {
         return <StatusManagement />;
       case "apiKeys":
         return <APIKeysManagement />;
-      case "schemas":
-        return <SchemaPage />;
+      case "entities":
+        return <EntityPage />;
       case "stats":
         return <StatsPage />;
     }
@@ -291,10 +291,10 @@ export function UserSettingsPage() {
           API Keys
         </button>
         <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === "schemas" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-          onClick={() => setActiveTab("schemas")}
+          className={`px-4 py-2 text-sm font-medium ${activeTab === "entities" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+          onClick={() => setActiveTab("entities")}
         >
-          Schemas
+          Entities
         </button>
         <button
           className={`px-4 py-2 text-sm font-medium ${activeTab === "stats" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}

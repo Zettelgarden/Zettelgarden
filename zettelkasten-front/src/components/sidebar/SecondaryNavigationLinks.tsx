@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { EntityIcon } from "../../assets/icons/EntityIcon";
+import { SchemaIcon } from "../../assets/icons/SchemaIcon";
 import { FactsIcon } from "../../assets/icons/FactsIcon";
 
 interface SecondaryNavigationLinksProps {
@@ -102,9 +102,9 @@ export function SecondaryNavigationLinks({ hasSubscription, isCollapsed }: Secon
     <div className={`p-2 ${isCollapsed ? "px-1" : ""}`}>
       <ul className="space-y-1">
         <CollapsibleLink
-          to="/app/entities"
-          icon={<EntityIcon />}
-          label="Entities"
+          to="/app/schemas"
+          icon={<SchemaIcon />}
+          label="Schemas"
           isCollapsed={isCollapsed}
           isPro={true}
           hasSubscription={hasSubscription}

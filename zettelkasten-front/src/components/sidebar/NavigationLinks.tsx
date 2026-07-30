@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { SearchIcon } from "../../assets/icons/SearchIcon";
 import { TasksIcon } from "../../assets/icons/TasksIcon";
 import { RssIcon } from "../../assets/icons/RssIcon";
-import { EntityIcon } from "../../assets/icons/EntityIcon";
+import { SchemaIcon } from "../../assets/icons/SchemaIcon";
 import { FileIcon } from "../../assets/icons/FileIcon";
 
 interface NavigationLinksProps {
@@ -127,9 +127,9 @@ export function NavigationLinks({ todayTasksCount, unreadRssCount, isCollapsed }
           isCollapsed={isCollapsed}
         />
         <CollapsibleLink
-          to="/app/entities"
-          icon={<EntityIcon />}
-          label="Entities"
+          to="/app/schemas"
+          icon={<SchemaIcon />}
+          label="Schemas"
           isCollapsed={isCollapsed}
         />
         <CollapsibleLink
