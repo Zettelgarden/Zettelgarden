@@ -1,6 +1,6 @@
 # S3 (Backblaze B2) → Local File Storage Migration — Status
 
-**Last updated:** 2026-07-29 (Phase 5 CUTOVER LIVE + SMOKE GREEN on zg-internal / server-3 — backend on local-storage image serving 365 files from `/home/nick/zg/files`; authenticated upload→thumb→download→epub→delete smoke PASSED; rollback image tagged. Remaining: B2 bucket teardown (`yar.4`) + orphan cleanup (`yar.7`).)
+**Last updated:** 2026-07-29 (Phase 5 CUTOVER LIVE + SMOKE GREEN on zg-internal / server-3 — backend on local-storage image serving 365 files from `/home/nick/zg/files`; authenticated upload→thumb→download→epub→delete smoke PASSED; rollback image tagged. Orphan cleanup DONE (`yar.7` — 48 rows soft-deleted); remaining teardown is the B2 bucket + key revocation (`yar.4`, Nick).)
 **Plan:** [`2026-07-29-s3-to-local-file-storage-design.md`](./2026-07-29-s3-to-local-file-storage-design.md)
 **Tracking:** epic `Zettelgarden-yar` · Phase 0 `Zettelgarden-yar.1` (closed) · Phase 1 `Zettelgarden-yar.2` (closed) · Phase 2 `Zettelgarden-yar.3` (closed) · Phase 3 `Zettelgarden-yar.5` (closed) · Phase 4 `Zettelgarden-yar.6` (closed, code) · Security follow-up `Zettelgarden-yar.4` (open)
 
@@ -46,7 +46,7 @@ cutover (Phase 5).
 | 2 — Config & deploy artifacts | ✅ **Done** | `.env.example` S3 block → `STORAGE_DIR` (D3); `.env-bash` `B2_*` → `STORAGE_DIR`; `Dockerfile` `ENV STORAGE_DIR=/usr/src/app/data/files` (D7); `docker-zettel-run.yml` documents the shared data volume carrying `files/` (D7); `.github/workflows/go.yml` dead `B2_*` GitHub-secret lines removed; `conftest.go` stale comment fixed; README File-Storage bullets → local disk. |
 | 3 — Tests green | ✅ **Done** (automated) | Re-ran `go test ./...` — 16/16 packages PASS (Phase 1 already made `TestDownloadFile` assert real bytes). Manual upload→thumb→download→epub→delete smoke folded into the Phase 5 cutover runbook. |
 | 4 — Data migration (B2 → local) | ✅ **Done** (code + prod run) | `cmd/migrate-storage/` (D6): SDK-free SigV4 `GET` (`sign.go`, verified against an independent Python oracle — 4 vectors); reads `files.path`/``thumbnail_path` from sqlite or postgres; streams into `LocalStore`; idempotent via `Store.Exists`; classifies invalid-key / B2-404 as `not-in-source` (distinct from failures); 8 tests green. **Prod run on server-3: 363 objects copied (319 primary + 44 thumb, 480 MB), byte-verified vs B2; 48 orphaned rows not-in-source.** |
-| 5 — Cutover & cleanup | 🟡 **Live + smoke green** | Cutover LIVE on zg-internal / server-3 (local-storage image `3927b89c…` running as `:latest`, 365 files @ `/home/nick/zg/files`); authenticated upload→thumb→download→epub→delete smoke PASSED 2026-07-29; rollback image tagged (`b030f456…`). Remaining: B2 bucket deletion + key revocation (`yar.4`, now unblocked) and 48-row orphan cleanup (`yar.7`). |
+| 5 — Cutover & cleanup | 🟡 **Live + smoke green** | Cutover LIVE on zg-internal / server-3 (local-storage image `3927b89c…` running as `:latest`, 365 files @ `/home/nick/zg/files`); authenticated upload→thumb→download→epub→delete smoke PASSED 2026-07-29; rollback image tagged (`b030f456…`). 48-row orphan cleanup DONE (`yar.7`); remaining teardown: B2 bucket deletion + key revocation (`yar.4`, Nick — bucket is his), then strip inert `B2_*` env once the rollback window closes. |
 
 ---
 
@@ -372,8 +372,8 @@ migratable:
   orphaned rows from some past data loss.
 
 These 48 rows were **already broken pre-cutover** (a B2 download 404s today);
-the migration doesn't worsen them. Cleanup (mark deleted) is filed as a
-follow-up (`Zettelgarden-yar.7`) and is independent of cutover.
+the migration doesn't worsen them. Cleanup (mark deleted) was filed as a
+follow-up (`Zettelgarden-yar.7`, since completed 2026-07-29 — see *What's next*) and is independent of cutover.
 
 The running backend is still the pre-Phase-1 image (built 2026-07-28, uploads
 still go to B2), so this run was a pure pre-cutover populate — the live app
@@ -400,7 +400,7 @@ mount. **Rollback image tagged**
 Remaining (teardown only):
 - **Rollback if needed:** on server-3, `docker tag nsavage/zettelgarden_go_backend:rollback-pre-local-storage nsavage/zettelgarden_go_backend:latest && cd /mnt/nas-2-fast-data/config/services/zg-internal && docker compose up -d --no-deps go_backend`.
 - **B2 teardown (now unblocked — `Zettelgarden-yar.4`):** delete the B2 bucket + revoke the application keys in the Backblaze console, delete the unused GitHub repo secrets, then remove the now-inert `B2_*` lines from server-3's `.env` (still injected into the container but harmless — Phase 1 code reads only `STORAGE_DIR`).
-- **Orphan cleanup (`Zettelgarden-yar.7`, independent):** mark the 48 pre-existing orphaned rows `is_deleted=true`.
+- **Orphan cleanup (`Zettelgarden-yar.7`) — ✅ DONE 2026-07-29:** 48 rows (46 legacy absolute-path ids 5–53 + 2 normal-format ids 270, 271) soft-deleted `is_deleted=1` against the live prod SQLite on server-3, after a WAL-safe online backup (`/home/nick/zg/backup/zettelgarden-pre-orphancleanup-20260730-052218.db`, 586 MB). Detection cross-referenced active rows vs on-disk files (matched the Phase-4 ETL not-in-source set exactly); UPDATE touched exactly 48; active rows 368→320; re-verify showed 0 active orphans. Backend stayed healthy throughout (published `:8085`, 0 restarts). Reversible; backup retained.
 
 Note: this cutover was scoped to `zg-internal` (server-3). The public instance
 on `192.168.0.93` still runs the old B2 image and would need its own ETL +
