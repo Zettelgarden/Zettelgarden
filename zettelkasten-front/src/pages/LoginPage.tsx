@@ -1,9 +1,26 @@
 import React, { FormEvent, useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { login } from "../api/auth";
-import { FaGithub, FaCode } from "react-icons/fa";
+import { FaGithub, FaFingerprint } from "react-icons/fa";
 
 import { Link, useNavigate, useLocation } from "react-router-dom";
+
+// Friendly messages for the error codes emitted by the OIDC callback handler
+// (see go-backend/handlers/oidc.go CallbackOIDCRoute `fail(...)`).
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  missing_state: "Sign-in session expired. Please try again.",
+  bad_state: "Sign-in session was invalid. Please try again.",
+  state_mismatch: "Sign-in security check failed (state mismatch). Please try again.",
+  missing_code: "The identity provider did not return an authorization code.",
+  oidc_unavailable: "Single sign-on is not available right now. Please try again later.",
+  exchange_failed: "Could not complete sign-in with the identity provider.",
+  no_id_token: "The identity provider did not return an identity token.",
+  bad_id_token: "The identity token was invalid. Please try again.",
+  nonce_mismatch: "Sign-in replay check failed. Please try again.",
+  bad_claims: "Could not read your identity information from the provider.",
+  user_resolve_failed: "Could not sign you in. If the problem persists, contact support.",
+  jwt_failed: "Could not complete sign-in. Please try again.",
+};
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -13,6 +30,9 @@ function LoginForm() {
   const navigate = useNavigate();
   const location = useLocation();
   const message = location.state?.message;
+
+  const oidcEnabled = import.meta.env.VITE_OIDC_ENABLED === "true";
+  const oidcLabel = import.meta.env.VITE_OIDC_LABEL || "Continue with SSO";
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -30,10 +50,24 @@ function LoginForm() {
     window.location.href = githubOAuthURL;
   };
 
+  const handleOIDCLogin = () => {
+    const oidcStartURL = `${import.meta.env.VITE_URL}/auth/oidc/start`;
+    window.location.href = oidcStartURL;
+  };
+
   useEffect(() => {
     const handleOAuthCallback = async () => {
       const params = new URLSearchParams(location.search);
       const token = params.get("token");
+      const errorCode = params.get("error");
+
+      if (errorCode) {
+        setError(
+          OAUTH_ERROR_MESSAGES[errorCode] ||
+            "Sign-in failed. Please try again.",
+        );
+        return;
+      }
 
       if (token) {
         try {
@@ -67,6 +101,16 @@ function LoginForm() {
           <FaGithub className="mr-2" />
           Continue with GitHub
         </button>
+        {oidcEnabled && (
+          <button
+            onClick={handleOIDCLogin}
+            className="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center justify-center"
+            type="button"
+          >
+            <FaFingerprint className="mr-2" />
+            {oidcLabel}
+          </button>
+        )}
 
         <div className="my-4 flex items-center">
           <div className="flex-grow border-t border-gray-300"></div>
