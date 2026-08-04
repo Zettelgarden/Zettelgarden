@@ -156,15 +156,24 @@ writes valid refs), so they were left in place as a faithful copy. 1,723 orphan
 `summarizations` rows were deleted (garbage referencing non-existent user 1 +
 cards). File storage needed no migration (0 files; never on B2).
 
+Final image swap — DONE 2026-08-04 13:42 UTC-4:
+- Built `:latest` from master (`bf187fcd`) on .93 (`6854c18d0efe`, PG-free) and
+  flipped the public backend to it. Boots clean; auth live (401); scheduler
+  writing (a `scheduled_job_runs` row landed at 13:42:02, right after the
+  13:40:55 start); WAL active; integrity `ok`; `filter_tags` reads fine as
+  `{starred}` — the `pq.StringArray` → `models.StringArray` swap is
+  byte-compatible, as designed. The cutover image (`:sqlite-cutover-public`)
+  is retained on .93 as a one-line rollback.
+- Pushed that `:latest` to Docker Hub from .93 (`sha256:e046f3e8…`) so the
+  registry matches and a future `docker compose pull` can't regress. All
+  instances are on SQLite now, so a PG-free `:latest` is safe everywhere.
+- Removed the `ZG_PUBLIC_DEPLOY_CONFIRMED` guard from `build.sh` — its premise
+  (public instance still on PG) no longer holds.
+
 Remaining tail (low priority):
-1. **Final image swap** — build `:latest` from master (PG-free) on .93 and
-   deploy, so both instances run identical code; then remove the
-   `ZG_PUBLIC_DEPLOY_CONFIRMED` guard from `build.sh`. The
-   `pq.StringArray` → `models.StringArray` swap is byte-compatible with the
-   `{a,b}` `filter_tags` data, so seamless.
-2. **Retire the `postgres:16` container** after ~1 week green (take a final
-   fresh `pg_dump -Fc` first). Cutover artifacts retained for re-ETL:
-   `~/code/zg-cutover` worktree + `/tmp/zg-out/migrate-pg-to-sqlite`.
+- **Retire the `postgres:16` container** after ~1 week green (take a final
+  fresh `pg_dump -Fc` first). Cutover artifacts retained for re-ETL:
+  `~/code/zg-cutover` worktree + `/tmp/zg-out/migrate-pg-to-sqlite`.
 
 `zg-internal` (server-3) was already on SQLite and is unaffected.
 
