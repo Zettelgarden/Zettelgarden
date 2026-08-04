@@ -1,7 +1,7 @@
 # OIDC (OpenID Connect) Authentication Support — Design
 
 **Created:** 2026-08-03
-**Status:** Approved — decisions locked 2026-08-03
+**Status:** Phase 1 + 2 implemented (backend core + frontend button). Phase 3 (GitHub CSRF retrofit, e2e) pending.
 **Tracker:** Zettelgarden-0ck (beads)
 **Identity Provider:** Pocket ID (self-hosted OIDC)
 
@@ -278,25 +278,24 @@ section.
 
 ## Phased Implementation Plan
 
-**Phase 1 — Backend core (no UI)**
-1. Add deps to `go.mod` (`go-oidc/v3`, `oauth2`).
-2. `OIDCConfig` + `loadOIDCConfig()` + wire into `Handler`/`Server`.
-3. `handlers/oauth_state.go` signed-cookie helpers (with unit tests).
-4. `handlers/oidc.go` start + callback (discovery, exchange, verify,
-   find-or-create, issue JWT).
-5. Register routes.
-6. `models` + schema/migration (`0147` + `schema.sqlite.sql` edit).
+**Phase 1 — Backend core ✅ (done)**
+1. ✅ Add deps to `go.mod` (`go-oidc/v3`, `oauth2`, `go-jose/v4`).
+2. ✅ `OIDCConfig` + opt-in `loadOIDCConfig()` + wire into `Handler` (`main.go`).
+3. ✅ `handlers/oauth_state.go` signed-cookie helpers (state/nonce/PKCE) + unit tests.
+4. ✅ `handlers/oidc.go` start + callback (discovery, PKCE, id_token verify,
+   find-or-create with auto-link) + integration tests.
+5. ✅ Register routes (`/api/auth/oidc/start`, `/api/auth/oidc/callback`).
+6. ✅ `models` + schema/migration (`0147` + `schema.sqlite.sql` edit).
 
-**Phase 2 — Frontend**
-7. Conditional "Continue with SSO" button + env flag.
-8. Manual end-to-end against a test IdP (e.g. Google or a local Dex/Keycloak).
+**Phase 2 — Frontend ✅ (done)**
+7. ✅ Conditional "Continue with SSO" button (`VITE_OIDC_ENABLED`) + `?error=` code mapping.
+8. ⏳ Manual end-to-end against Pocket ID (Nick — needs OIDC_* env + a registered client).
 
-**Phase 3 — Hardening + tests**
-9. Backend tests: callback happy path, bad state, expired cookie, bad nonce,
-   email_verified=false, new vs existing user, `(provider,sub)` re-auth.
-10. Retrofit GitHub flow to the shared `state` cookie (CSRF fix).
-11. Docs: README config section, update `routes.go` public-route comment, add
-    `.env.example`.
+**Phase 3 — Hardening + tests (pending)**
+9. ✅ Backend tests for user resolution + state cookie (done in Phase 1).
+10. ⏳ Retrofit GitHub flow to the shared `state` cookie (CSRF fix).
+11. ✅ Docs: README config section (`.env.example`), route comments, plan doc.
+    ⏳ Update top-level README config section.
 
 ## Testing
 
