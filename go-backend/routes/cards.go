@@ -1,8 +1,8 @@
 package routes
 
 import (
-	"go-backend/handlers"
 	"github.com/gorilla/mux"
+	"go-backend/handlers"
 )
 
 func RegisterCardRoutes(r *mux.Router, h *handlers.Handler) {
@@ -33,7 +33,6 @@ func RegisterCardRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/cards/{id}/structured-data", h.PatchCardStructuredDataRoute, "PATCH")
 	addProtectedRoute(r, h, "/api/cards/{id}/structured-data", h.DeleteCardStructuredDataRoute, "DELETE")
 	addProtectedRoute(r, h, "/api/cards/{card_pk:[0-9]+}/linked-entities", h.GetEntityByLinkedCardPKRoute, "GET")
-	addProtectedRoute(r, h, "/api/cards/{card_pk:[0-9]+}/analysis", h.GetCardAnalysisRoute, "GET")
 	addProtectedRoute(r, h, "/api/cards/{id}/audit/{auditEventId}/restore", h.RestoreCardToAuditEventRoute, "POST")
 
 	// Article management routes

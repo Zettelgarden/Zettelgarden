@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -273,11 +272,6 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 			return
 		}
 
-		// Save the detailed analysis linked to the job ID
-		if err := h.SaveAnalysis(userID, card.ID, jobID, analyses); err != nil {
-			log.Printf("Failed to save analysis: %v", err)
-		}
-
 		// Enqueue the summarization job
 		_, err = h.runSummarizationJobViaQueue(userID, analyses, usage, &card.ID, jobID)
 		if err != nil {
@@ -371,137 +365,6 @@ func (h *Handler) ExtractSaveCardEntities(userID int, card models.Card) error {
 	}
 
 	return nil
-}
-
-// extractSectionOrder attempts to extract a section number from the section title.
-// Returns the extracted number if found, otherwise falls back to the provided default index.
-// Supports formats like "Section 1: Title", "Section 2", "1. Introduction", etc.
-func extractSectionOrder(sectionTitle string, defaultIndex int) int {
-	// Try to match common section patterns
-	patterns := []string{
-		"Section (\\d+)",    // "Section 1: Title"
-		"Section\\s*(\\d+)", // "Section 1"
-		"^(\\d+)\\.",        // "1. Introduction"
-		"Part (\\d+)",       // "Part 1"
-		"Chapter (\\d+)",    // "Chapter 1"
-	}
-
-	for _, pattern := range patterns {
-		re := regexp.MustCompile(pattern)
-		matches := re.FindStringSubmatch(sectionTitle)
-		if len(matches) > 1 {
-			// Parse the captured number
-			var num int
-			_, err := fmt.Sscanf(matches[1], "%d", &num)
-			if err == nil && num > 0 {
-				return num
-			}
-		}
-	}
-
-	// Fall back to array index if no pattern matched
-	return defaultIndex
-}
-
-// SaveAnalysis persists the structured analysis from the LLM into the database.
-func (h *Handler) SaveAnalysis(userID, cardPK, summarizationID int, analyses []models.SectionAnalysis) error {
-	// Validate cardPK is a positive integer
-	if cardPK <= 0 {
-		return fmt.Errorf("invalid card_pk: must be positive, got %d", cardPK)
-	}
-
-	tx, err := h.BeginTx()
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	// Only rollback if we're not in testing mode (test framework handles cleanup)
-	if h.ShouldCommitTx() {
-		defer tx.Rollback() // Rollback on error, if commit fails
-	}
-
-	for sectionIndex, analysis := range analyses {
-		// Skip sections with empty or whitespace-only titles
-		sectionTitle := strings.TrimSpace(analysis.Section)
-		if sectionTitle == "" {
-			continue
-		}
-
-		// Try to extract section number from title for proper ordering
-		// Falls back to array index if no number found
-		sectionOrder := extractSectionOrder(sectionTitle, sectionIndex)
-
-		// Insert Section - remove ON CONFLICT to allow multiple sections with same title
-		// Add section_order to distinguish between sections with identical titles
-		var sectionID int
-		err := tx.QueryRow(`
-			INSERT INTO summary_sections (user_id, card_pk, summarization_id, section_title, section_order)
-			VALUES ($1, $2, $3, $4, $5)
-			RETURNING id
-		`, userID, cardPK, summarizationID, sectionTitle, sectionOrder).Scan(&sectionID)
-		if err != nil {
-			return fmt.Errorf("failed to insert section: %w", err)
-		}
-
-		for _, thesisEntry := range analysis.Theses {
-			// Skip theses with empty or whitespace-only content
-			thesis := strings.TrimSpace(thesisEntry.Thesis)
-			if thesis == "" {
-				continue
-			}
-
-			// Insert Thesis
-			var thesisID int
-			err := tx.QueryRow(`
-				INSERT INTO summary_theses (user_id, card_pk, summarization_id, section_id, thesis)
-				VALUES ($1, $2, $3, $4, $5)
-				RETURNING id
-			`, userID, cardPK, summarizationID, sectionID, thesis).Scan(&thesisID)
-			if err != nil {
-				return fmt.Errorf("failed to insert thesis: %w", err)
-			}
-
-			// Insert Arguments for the thesis
-			for _, arg := range thesisEntry.Arguments {
-				_, err := tx.Exec(`
-					INSERT INTO summary_arguments (user_id, card_pk, summarization_id, thesis_id, argument, importance)
-					VALUES ($1, $2, $3, $4, $5, $6)
-				`, userID, cardPK, summarizationID, thesisID, arg.Argument, arg.Importance)
-				if err != nil {
-					return fmt.Errorf("failed to insert argument: %w", err)
-				}
-			}
-		}
-	}
-
-	if h.ShouldCommitTx() {
-		if err := tx.Commit(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// GetCardAnalysisRoute retrieves the analysis for the most recent summarization of a card.
-func (h *Handler) GetCardAnalysisRoute(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserIDFromContext(w, r)
-	if !ok {
-		return
-	}
-	cardPKStr := mux.Vars(r)["card_pk"]
-	cardPK, err := strconv.Atoi(cardPKStr)
-	if err != nil {
-		http.Error(w, "Invalid card_pk", http.StatusBadRequest)
-		return
-	}
-
-	analysis, err := services.GetCardAnalysis(h.DB, userID, cardPK)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to load analysis: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(analysis)
 }
 
 // runSummarizationJobViaQueue enqueues a summarization job to the LLM job queue.

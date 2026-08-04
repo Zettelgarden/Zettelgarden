@@ -787,48 +787,6 @@ CREATE TABLE summarizations (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE summary_arguments (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  card_pk INTEGER,
-  summarization_id INTEGER NOT NULL,
-  thesis_id INTEGER NOT NULL,
-  argument TEXT NOT NULL,
-  importance INTEGER NOT NULL,
-  created_at DATETIME DEFAULT (datetime('now')),
-  FOREIGN KEY (card_pk) REFERENCES cards(id) ON DELETE CASCADE,
-  FOREIGN KEY (summarization_id) REFERENCES summarizations(id) ON DELETE CASCADE,
-  FOREIGN KEY (thesis_id) REFERENCES summary_theses(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-CREATE TABLE summary_sections (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  card_pk INTEGER,
-  summarization_id INTEGER NOT NULL,
-  section_title TEXT NOT NULL,
-  created_at DATETIME DEFAULT (datetime('now')),
-  section_order INTEGER DEFAULT 0,
-  FOREIGN KEY (card_pk) REFERENCES cards(id) ON DELETE CASCADE,
-  FOREIGN KEY (summarization_id) REFERENCES summarizations(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-CREATE TABLE summary_theses (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  card_pk INTEGER,
-  summarization_id INTEGER NOT NULL,
-  section_id INTEGER NOT NULL,
-  thesis TEXT NOT NULL,
-  created_at DATETIME DEFAULT (datetime('now')),
-  FOREIGN KEY (card_pk) REFERENCES cards(id) ON DELETE CASCADE,
-  FOREIGN KEY (section_id) REFERENCES summary_sections(id) ON DELETE CASCADE,
-  FOREIGN KEY (summarization_id) REFERENCES summarizations(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
 CREATE TABLE tags (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
