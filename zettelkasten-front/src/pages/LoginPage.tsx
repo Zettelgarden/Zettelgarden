@@ -5,8 +5,9 @@ import { FaGithub, FaFingerprint } from "react-icons/fa";
 
 import { Link, useNavigate, useLocation } from "react-router-dom";
 
-// Friendly messages for the error codes emitted by the OIDC callback handler
-// (see go-backend/handlers/oidc.go CallbackOIDCRoute `fail(...)`).
+// Friendly messages for the error codes emitted by the OAuth callback
+// handlers (see go-backend/handlers/oidc.go and oauth.go `fail(...)`).
+// Codes are shared across the OIDC and GitHub flows; no_email is GitHub-only.
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   missing_state: "Sign-in session expired. Please try again.",
   bad_state: "Sign-in session was invalid. Please try again.",
@@ -14,6 +15,7 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   missing_code: "The identity provider did not return an authorization code.",
   oidc_unavailable: "Single sign-on is not available right now. Please try again later.",
   exchange_failed: "Could not complete sign-in with the identity provider.",
+  no_email: "GitHub did not return an email address.",
   no_id_token: "The identity provider did not return an identity token.",
   bad_id_token: "The identity token was invalid. Please try again.",
   nonce_mismatch: "Sign-in replay check failed. Please try again.",

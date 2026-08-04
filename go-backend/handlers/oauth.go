@@ -28,18 +28,62 @@ func (s *Handler) StartGitHubOAuthRoute(w http.ResponseWriter, r *http.Request) 
 	redirectURI := os.Getenv("GITHUB_REDIRECT_URI")
 	scope := "user:email"
 
+	// CSRF defense: generate a random `state`, store it in the shared signed
+	// state cookie (same primitive as the OIDC flow), and echo it on the
+	// authorize request. The callback verifies GitHub returns the same value
+	// before exchanging the code — see handlers/oauth_state.go.
+	state, err := randomString(24)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	raw, err := signOAuthState(s.Server.JwtSecretKey, oauthStatePayload{State: state})
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	setOAuthStateCookie(w, raw, redirectURI)
+
 	githubAuthURL := fmt.Sprintf(
-		"https://github.com/login/oauth/authorize?client_id=%s&redirect_uri=%s&scope=%s",
-		clientID, url.QueryEscape(redirectURI), scope,
+		"https://github.com/login/oauth/authorize?client_id=%s&redirect_uri=%s&scope=%s&state=%s",
+		clientID, url.QueryEscape(redirectURI), scope, url.QueryEscape(state),
 	)
 
 	http.Redirect(w, r, githubAuthURL, http.StatusFound)
 }
 
 func (s *Handler) GitHubCallbackRoute(w http.ResponseWriter, r *http.Request) {
+	frontendURL := os.Getenv("ZETTEL_URL")
+	// Failure modes redirect back to the login page with an error code
+	// (mirroring the OIDC callback) so the user lands somewhere sane. The
+	// codes map to friendly messages in LoginPage.tsx.
+	fail := func(code string) {
+		http.Redirect(w, r, fmt.Sprintf("%s/login?error=%s", frontendURL, url.QueryEscape(code)), http.StatusFound)
+	}
+
+	// 1. Validate + consume the signed state cookie (CSRF defense, shared with
+	//    the OIDC flow).
+	cookie, err := r.Cookie(oidcCookieName)
+	if err != nil {
+		fail("missing_state")
+		return
+	}
+	payload, err := verifyOAuthState(s.Server.JwtSecretKey, cookie.Value)
+	if err != nil {
+		fail("bad_state")
+		return
+	}
+	clearOAuthStateCookie(w)
+
+	// 2. CSRF: the state echoed by GitHub must match what we stored.
+	if r.URL.Query().Get("state") != payload.State {
+		fail("state_mismatch")
+		return
+	}
+
 	code := r.URL.Query().Get("code")
 	if code == "" {
-		http.Error(w, "Missing code", http.StatusBadRequest)
+		fail("missing_code")
 		return
 	}
 
@@ -59,7 +103,7 @@ func (s *Handler) GitHubCallbackRoute(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := http.DefaultClient.Do(tokenReq)
 	if err != nil {
-		http.Error(w, "Error exchanging code", http.StatusInternalServerError)
+		fail("exchange_failed")
 		return
 	}
 	defer resp.Body.Close()
@@ -68,7 +112,7 @@ func (s *Handler) GitHubCallbackRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(resp.Body).Decode(&tokenRes)
 
 	if tokenRes.AccessToken == "" {
-		http.Error(w, "Token exchange failed", http.StatusUnauthorized)
+		fail("exchange_failed")
 		return
 	}
 
@@ -104,7 +148,7 @@ func (s *Handler) GitHubCallbackRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if ghUser.Email == "" {
-		http.Error(w, "Could not retrieve email", http.StatusUnauthorized)
+		fail("no_email")
 		return
 	}
 
@@ -119,13 +163,13 @@ func (s *Handler) GitHubCallbackRoute(w http.ResponseWriter, r *http.Request) {
 		}
 		newID, err := s.CreateUser(params)
 		if err != nil {
-			http.Error(w, "User creation failed", http.StatusInternalServerError)
+			fail("user_resolve_failed")
 			return
 		}
 
 		_, err = s.DB.Exec(`UPDATE users SET auth_provider = 'github', github_id = $1 WHERE id = $2`, ghUser.ID, newID)
 		if err != nil {
-			http.Error(w, "Failed to update auth provider info", http.StatusInternalServerError)
+			fail("user_resolve_failed")
 			return
 		}
 		user, _ = s.QueryUser(newID)
@@ -133,7 +177,7 @@ func (s *Handler) GitHubCallbackRoute(w http.ResponseWriter, r *http.Request) {
 		// existing user found by email, update with GitHub metadata
 		_, err = s.DB.Exec(`UPDATE users SET auth_provider = 'github', github_id = $1 WHERE id = $2 AND (auth_provider = 'local' OR github_id IS NULL)`, ghUser.ID, user.ID)
 		if err != nil {
-			http.Error(w, "Failed to link GitHub account", http.StatusInternalServerError)
+			fail("user_resolve_failed")
 			return
 		}
 	}
@@ -141,12 +185,11 @@ func (s *Handler) GitHubCallbackRoute(w http.ResponseWriter, r *http.Request) {
 	// Generate JWT
 	token, err := s.generateAccessToken(user.ID)
 	if err != nil {
-		http.Error(w, "JWT generation failed", http.StatusInternalServerError)
+		fail("jwt_failed")
 		return
 	}
 
 	// Redirect back to frontend with token
-	frontendURL := os.Getenv("ZETTEL_URL")
 	redirect := fmt.Sprintf("%s/login?token=%s", frontendURL, token)
 	http.Redirect(w, r, redirect, http.StatusFound)
 }

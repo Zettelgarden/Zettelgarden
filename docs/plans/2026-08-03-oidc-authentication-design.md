@@ -258,8 +258,10 @@ section.
 
 ## Security Considerations
 
-- **CSRF `state`:** current GitHub flow omits it. OIDC must use it; plan also
-  retrofits GitHub to the shared signed-cookie helper.
+- **CSRF `state`:** the GitHub flow now uses the shared signed-cookie `state`
+  helper (retrofitted 2026-08-04); OIDC uses it from launch. Both flows reject
+  a missing/tampered/expired cookie or a `state` mismatch before exchanging
+  the code.
 - **`nonce`:** included in the auth request and validated inside the id_token
   to prevent replay. Stored alongside `state` in the signed cookie.
 - **`email_verified`:** only auto-link an existing local account to an OIDC
