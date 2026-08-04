@@ -971,6 +971,8 @@ CREATE TABLE users (
   is_agent BOOLEAN DEFAULT false NOT NULL,
   owner_user_id INTEGER,
   api_key_hash TEXT,
+  oidc_provider TEXT,
+  oidc_sub TEXT,
   CONSTRAINT check_agent_has_api_key CHECK (((NOT is_agent) OR (api_key_hash IS NOT NULL))),
   CONSTRAINT check_agent_not_admin CHECK ((NOT ((is_agent = 1) AND (is_admin = 1)))),
   FOREIGN KEY (last_memory_job_id) REFERENCES llm_jobs(id) ON DELETE SET NULL,
@@ -1078,6 +1080,7 @@ CREATE INDEX idx_users_agent ON users (is_agent) WHERE (is_agent = 1);
 CREATE INDEX idx_users_caldav_token ON users (caldav_token) WHERE (caldav_token IS NOT NULL);
 CREATE INDEX idx_users_last_memory_job_id ON users (last_memory_job_id);
 CREATE INDEX idx_users_owner ON users (owner_user_id) WHERE (is_agent = 1);
+CREATE UNIQUE INDEX idx_users_oidc_sub ON users (oidc_provider, oidc_sub) WHERE (oidc_sub IS NOT NULL);
 CREATE INDEX starred_cards_user_id_idx ON starred_cards (user_id);
 CREATE INDEX starred_searches_user_id_idx ON starred_searches (user_id);
 

@@ -1,8 +1,9 @@
 # OIDC (OpenID Connect) Authentication Support — Design
 
 **Created:** 2026-08-03
-**Status:** Proposed (awaiting review)
-**Tracker:** TBD (beads)
+**Status:** Approved — decisions locked 2026-08-03
+**Tracker:** Zettelgarden-0ck (beads)
+**Identity Provider:** Pocket ID (self-hosted OIDC)
 
 ## Problem Statement
 
@@ -32,6 +33,26 @@ to harden the existing OAuth flows, which currently lack CSRF `state` and
   flow).
 
 **Non-Goals (this phase)**
+
+## Pocket ID specifics
+
+Pocket ID is a standard, self-hosted OIDC provider — no provider-specific
+quirks are needed, but the configuration/values below are what we target:
+
+- **Issuer / discovery:** `https://<pocket-id-host>` with standard
+  `/.well-known/openid-configuration` (handled by `oidc.NewProvider`).
+- **Scopes to request:** `openid email profile`.
+  - Pocket ID also exposes a custom **`groups`** claim (scope `groups`).
+    *Optional follow-up:* map a configured group (e.g. `zettelgarden-admin`)
+    to `is_admin` on login. Not in scope for the first cut.
+- **Claims we rely on:** `sub` (stable), `email`, `email_verified`, and
+  `name`/`preferred_username` for the local username.
+- **Client setup in Pocket ID UI:** create one OIDC client with redirect URI
+  `${ZETTEL_URL}/api/auth/oidc/callback`; copy its Client ID + Secret into
+  `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET`.
+- **PKCE:** supported and used.
+- **`email_verified`:** Pocket ID sets this for users it has email-verified;
+  we gate auto-linking on it (see Security).
 - Multiple simultaneous providers (single configurable provider first; the
   design leaves the door open).
 - Linking/unlinking IdP accounts from a settings page (follow-up).
@@ -63,7 +84,11 @@ to harden the existing OAuth flows, which currently lack CSRF `state` and
 
 ## Proposed Architecture
 
-### Flow (Authorization Code + PKCE-optional)
+### Flow (Authorization Code + PKCE)
+
+PKCE is used on every flow (not optional) — Pocket ID supports it and
+`golang.org/x/oauth2` makes it a one-liner (`oauth2.GenerateVerifier()`). The
+PKCE verifier is stored alongside `state`/`nonce` in the signed cookie.
 
 1. User clicks **"Continue with SSO"** → frontend hits
    `GET /api/auth/oidc/start`.
@@ -288,19 +313,30 @@ section.
   works on a protected route (`GET /api/auth`).
 - **Regression:** GitHub login + email/password login unaffected.
 
+## Decisions (locked 2026-08-03)
+
+1. **Single vs. multi-provider:** **Single configurable provider** now
+   (Pocket ID). Design stays provider-agnostic via discovery; multi-provider
+   is a clean follow-up.
+2. **Account-linking UX:** **Auto-link existing users** by email when the
+   id_token asserts `email_verified=true`. No confirmation prompt.
+3. **Migration path:** Ship numbered migration **`0147-add-oidc-subject.sql`**
+   (Postgres in-place path) **and** update the consolidated
+   `schema/sqlite/schema.sqlite.sql` (SQLite fresh-build path). See
+   *Database / Schema* for the existing-SQLite-DB caveat.
+4. **IdP:** **Pocket ID.**
+
 ## Open Decisions (need Nick's input)
 
-1. **Single provider vs. multi-provider now?** Plan assumes one configurable
-   provider (simplest correct step). Multi-provider is a clean follow-up
-   (table/enum of providers + `provider` query param on start/callback).
-2. **Account-linking UX:** should an existing email/password user logging in
-   via OIDC for the first time be auto-linked (when `email_verified`) or
-   prompted to confirm? Plan auto-links when verified; confirm this is desired.
-3. **SQLite migration path for existing prod DBs:** edit consolidated
-   `schema.sqlite.sql` only, or also ship `0147` into the sqlite scan dir for
-   in-place upgrade? (See Database section.)
-4. **Provider for initial testing:** Google, Okta, Auth0, or self-hosted
-   Dex/Keycloak?
+1. **Single provider vs. multi-provider now?** ✅ Resolved: single
+   configurable provider (Pocket ID).
+2. **Account-linking UX:** ✅ Resolved: auto-link existing users by email
+   when `email_verified`.
+3. **SQLite migration path for existing prod DBs:** ✅ Resolved: ship
+   `0147` (Postgres path) + edit consolidated `schema.sqlite.sql` (SQLite
+   fresh builds). For an existing SQLite DB that isn't rebuilt, run the
+   ALTERs manually once (documented in the migration header).
+4. **Provider for initial testing:** ✅ Resolved: Pocket ID.
 
 ## Risks
 
