@@ -112,6 +112,7 @@ func (h *Handler) StartOIDCRoute(w http.ResponseWriter, r *http.Request) {
 	setOAuthStateCookie(w, raw, h.OIDCConfig.RedirectURI)
 
 	authURL := oauth2Config.AuthCodeURL(state,
+		oauth2.SetAuthURLParam("nonce", nonce),
 		oauth2.SetAuthURLParam("code_challenge", pkceS256Challenge(verifier)),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 	)

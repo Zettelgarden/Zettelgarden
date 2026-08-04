@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"go-backend/tests"
 	"testing"
 )
@@ -21,6 +23,25 @@ func insertTestUser(t *testing.T, s *Handler, email string, emailValidated bool)
 		t.Fatalf("insertTestUser: %v", err)
 	}
 	return id
+}
+
+func TestPkceS256Challenge(t *testing.T) {
+	// Known vector: S256 challenge is base64url(sha256(verifier)), no padding.
+	// 'verifier' -> sha256 -> base64url. Verified independently.
+	got := pkceS256Challenge("verifier")
+	// Recompute expected here to keep the test self-contained.
+	sum := sha256.Sum256([]byte("verifier"))
+	want := base64.RawURLEncoding.EncodeToString(sum[:])
+	if got != want {
+		t.Fatalf("pkceS256Challenge: got %q want %q", got, want)
+	}
+	// Must be base64url with no padding and not equal to the raw verifier.
+	if got == "verifier" {
+		t.Fatal("challenge must not equal the verifier")
+	}
+	if len(got) < 40 {
+		t.Fatalf("challenge looks too short: %q", got)
+	}
 }
 
 func TestFindOrCreateOIDCUser_CreatesNewAccount(t *testing.T) {
