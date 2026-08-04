@@ -6,8 +6,15 @@ services:
       context: ./zettelkasten-front
       dockerfile: Dockerfile
       args:
+        # Vite inlines VITE_* vars at BUILD time, so they must be passed here
+        # (and declared as ARGs in the Dockerfile). build.sh sources the root
+        # .env, so set VITE_OIDC_ENABLED=true there to show the SSO button in
+        # prod; it defaults to false (opt-in). VITE_OIDC_LABEL overrides the
+        # button text (default "Continue with SSO").
         VITE_URL: ${VITE_URL}
         VITE_ENV: ${VITE_ENV}
+        VITE_OIDC_ENABLED: ${VITE_OIDC_ENABLED:-false}
+        VITE_OIDC_LABEL: ${VITE_OIDC_LABEL:-}
     image: nsavage/zettelgarden_frontend:latest
     ports:
       - "3001:3000"
