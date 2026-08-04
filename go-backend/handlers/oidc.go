@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
 	"fmt"
@@ -37,6 +38,14 @@ func (b *boolish) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("invalid boolean value: %s", string(data))
 	}
 	return nil
+}
+
+// pkceS256Challenge returns the S256 code_challenge for a code_verifier:
+// base64url(SHA-256(verifier)) with no padding. Sent in the authorize request;
+// the verifier itself is only sent later in the token exchange.
+func pkceS256Challenge(verifier string) string {
+	sum := sha256.Sum256([]byte(verifier))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
 // getOIDCProvider lazily discovers (via .well-known/openid-configuration) and
@@ -102,7 +111,10 @@ func (h *Handler) StartOIDCRoute(w http.ResponseWriter, r *http.Request) {
 	}
 	setOAuthStateCookie(w, raw, h.OIDCConfig.RedirectURI)
 
-	authURL := oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOnline, oauth2.VerifierOption(verifier))
+	authURL := oauth2Config.AuthCodeURL(state,
+		oauth2.SetAuthURLParam("code_challenge", pkceS256Challenge(verifier)),
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+	)
 	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
