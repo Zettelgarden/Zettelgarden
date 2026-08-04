@@ -162,7 +162,10 @@ func (h *Handler) querySummarizations(userID int, cardPK *int) ([]SummarizeJobRe
 	return summaries, nil
 }
 
-// CreateSummarizationRoute creates a summarization job and enqueues it to the LLM job queue
+// CreateSummarizationRoute creates a summarization job and enqueues it to the
+// LLM job queue. No LLM work happens here: the row is inserted as 'pending'
+// and the whole map-reduce runs behind the job queue. The route returns
+// immediately with the (still-pending) status.
 func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Request) {
 	userID, ok := getUserIDFromContext(w, r)
 	if !ok {
@@ -182,42 +185,32 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Store the prepared text so the job can summarize it without re-running
+	// the (title + reference-stripping) preparation.
+	processedText := prepareTextForAnalysis(req.Title, req.Text)
+
 	var jobID int
 	var status string
 	err := h.DB.QueryRow(`
 			INSERT INTO summarizations (user_id, input_text, status, created_at, updated_at)
 			VALUES ($1, $2, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 			RETURNING id, status
-		`, userID, req.Text).Scan(&jobID, &status)
-
+		`, userID, processedText).Scan(&jobID, &status)
 	if err != nil {
 		log.Printf("error starting summarization %v", err)
 		http.Error(w, "Failed to create summarization", http.StatusInternalServerError)
 		return
 	}
 
-	// Extract theses and arguments
-	isTesting := h.Server != nil && h.Server.Testing
-	client := services.NewDefaultClient(h.DB, userID, isTesting)
-	client.RequestType = "analysis"
-	processedText := prepareTextForAnalysis(req.Title, req.Text)
-	analyses, usage, err := services.ExtractThesesAndArguments(client, processedText)
-	if err != nil {
-		log.Printf("Failed to extract theses: %v", err)
-		http.Error(w, "Failed to analyze text", http.StatusInternalServerError)
-		return
-	}
-
-	// Enqueue the summarization job
-	summarizationID, err := h.runSummarizationJobViaQueue(userID, analyses, usage, nil, jobID)
-	if err != nil {
+	// Enqueue the summarization job (non-blocking)
+	if _, err := h.runSummarizationJobViaQueue(userID, nil, jobID); err != nil {
 		log.Printf("err %v", err)
 		http.Error(w, "Failed to create summarization job", http.StatusInternalServerError)
 		return
 	}
 
 	// Return actual status from database (not hardcoded "pending")
-	resp := SummarizeJobResponse{ID: summarizationID, Status: status}
+	resp := SummarizeJobResponse{ID: jobID, Status: status}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
@@ -233,53 +226,49 @@ type SummarizeJobResponse struct {
 	Model            string  `json:"model,omitempty"`
 }
 
+// ProcessEntitiesAndFacts enqueues a card's summarization job and kicks off
+// entity extraction. Only the summary goes through the job queue; entity
+// extraction (ExtractSaveCardEntities + LinkCardToEntityIfPossible) is
+// independent of the summary and stays as-is in a recovered goroutine.
+//
+// (The name is historical: it no longer processes "facts" — those were removed
+// in qsg — but the public field on EditCardParams and its callers still use it.)
 func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 	// Skip during testing to avoid external LLM calls
 	if h.Server.Testing {
 		return
 	}
 
-	var jobID int
+	// Store the prepared card text so the job can summarize it.
+	processedText := prepareTextForAnalysis(card.Title, card.Body)
 
+	var jobID int
 	err := h.DB.QueryRow(`
 			INSERT INTO summarizations (user_id, card_pk, input_text, status, created_at, updated_at)
 			VALUES ($1, $2, $3, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 			RETURNING id
-		`, userID, card.ID, "").Scan(&jobID)
-
+		`, userID, card.ID, processedText).Scan(&jobID)
 	if err != nil {
 		log.Printf("error starting summarization %v", err)
 		return
 	}
 
+	// Enqueue the summarization job (non-blocking; whole map-reduce runs here)
+	if _, err := h.runSummarizationJobViaQueue(userID, &card.ID, jobID); err != nil {
+		log.Printf("Failed to run summarization job: %v", err)
+	}
+
+	// Entity extraction is independent of the summary; keep it async.
 	go func() {
-		// Panic recovery to prevent goroutine crashes
 		defer func() {
 			if r := recover(); r != nil {
 				log.Printf("[PANIC] Recovered in ProcessEntitiesAndFacts goroutine: %v", r)
 			}
 		}()
-		// Ensure LinkCardToEntityIfPossible is always called exactly once, regardless of success or failure
+		// Ensure LinkCardToEntityIfPossible is always called exactly once,
+		// regardless of success or failure of entity extraction.
 		defer h.LinkCardToEntityIfPossible(userID, card)
 
-		isTesting := h.Server != nil && h.Server.Testing
-		client := services.NewDefaultClient(h.DB, userID, isTesting)
-		client.RequestType = "analysis"
-		processedText := prepareTextForAnalysis(card.Title, card.Body)
-		analyses, usage, err := services.ExtractThesesAndArguments(client, processedText)
-		if err != nil {
-			log.Printf("Thesis extraction failed: %v", err)
-			return
-		}
-
-		// Enqueue the summarization job
-		_, err = h.runSummarizationJobViaQueue(userID, analyses, usage, &card.ID, jobID)
-		if err != nil {
-			log.Printf("Failed to run summarization job: %v", err)
-			return
-		}
-
-		// Extract and save entities directly from card
 		if err := h.ExtractSaveCardEntities(userID, card); err != nil {
 			log.Printf("Failed to extract/save card entities: %v", err)
 		}
@@ -367,42 +356,15 @@ func (h *Handler) ExtractSaveCardEntities(userID int, card models.Card) error {
 	return nil
 }
 
-// runSummarizationJobViaQueue enqueues a summarization job to the LLM job queue.
-// This replaces the old goroutine-based approach with proper job queue integration.
-func (h *Handler) runSummarizationJobViaQueue(userID int, analyses []models.SectionAnalysis, usage models.Usage, cardPK *int, summarizationID int) (int, error) {
-	// Convert analyses to JSON-serializable format for payload
-	analysesPayload := make([]map[string]interface{}, len(analyses))
-	for i, a := range analyses {
-		thesesPayload := make([]map[string]interface{}, len(a.Theses))
-		for j, t := range a.Theses {
-			argsPayload := make([]map[string]interface{}, len(t.Arguments))
-			for k, arg := range t.Arguments {
-				argsPayload[k] = map[string]interface{}{
-					"argument":   arg.Argument,
-					"importance": arg.Importance,
-				}
-			}
-			thesesPayload[j] = map[string]interface{}{
-				"thesis":    t.Thesis,
-				"arguments": argsPayload,
-			}
-		}
-		analysesPayload[i] = map[string]interface{}{
-			"section": a.Section,
-			"theses":  thesesPayload,
-		}
-	}
-
+// runSummarizationJobViaQueue enqueues a summarization job to the LLM job
+// queue. The job carries only the summarization id (and optional card_pk);
+// the map-reduce job loads the prepared input_text straight from the
+// summarizations row. This replaces both the old goroutine-based approach and
+// the analyses->payload->parse round-trip.
+func (h *Handler) runSummarizationJobViaQueue(userID int, cardPK *int, summarizationID int) (int, error) {
 	payload := map[string]interface{}{
 		"summarization_id": summarizationID,
 		"card_pk":          cardPK,
-		"analyses":         analysesPayload,
-		"usage": map[string]interface{}{
-			"prompt_tokens":     usage.PromptTokens,
-			"completion_tokens": usage.CompletionTokens,
-			"total_tokens":      usage.TotalTokens,
-			"total_cost":        usage.TotalCost,
-		},
 	}
 
 	jobQueue := h.JobRunner
@@ -413,7 +375,6 @@ func (h *Handler) runSummarizationJobViaQueue(userID int, analyses []models.Sect
 		MaxRetries:  3,
 		TimeoutSecs: 300,
 	})
-
 	if err != nil {
 		return 0, fmt.Errorf("failed to enqueue summarization job: %w", err)
 	}

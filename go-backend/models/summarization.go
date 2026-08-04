@@ -17,21 +17,6 @@ type Summarization struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 }
 
-type Argument struct {
-	Argument   string `json:"argument"`
-	Importance int    `json:"importance"`
-}
-
-type SectionAnalysis struct {
-	Section string        `json:"section"`
-	Theses  []ThesisEntry `json:"theses"`
-}
-
-type ThesisEntry struct {
-	Thesis    string     `json:"thesis"`
-	Arguments []Argument `json:"arguments"`
-}
-
 type Usage struct {
 	PromptTokens     int
 	CompletionTokens int

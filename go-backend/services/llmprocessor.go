@@ -266,7 +266,13 @@ func (p *LLMJobProcessor) processMemoryJob(ctx context.Context, job *models.LLMJ
 	}, nil
 }
 
-// processSummarizationJob processes a summarization job
+// processSummarizationJob runs the map-reduce summarizer for a summarization
+// row. It loads the prepared input_text from the row, summarizes each chunk
+// (map), then reduces the chunk-summaries into the final markdown, and writes
+// the result back to the summarizations row.
+//
+// All LLM work happens here, behind the job queue, so it is retried,
+// cancelable, and never blocks the HTTP request.
 func (p *LLMJobProcessor) processSummarizationJob(ctx context.Context, job *models.LLMJob) (map[string]interface{}, error) {
 	// Extract summarization_id from payload
 	summarizationID, ok := job.Payload["summarization_id"].(float64)
@@ -274,42 +280,11 @@ func (p *LLMJobProcessor) processSummarizationJob(ctx context.Context, job *mode
 		return nil, fmt.Errorf("missing or invalid summarization_id in payload")
 	}
 
-	// Check if pre-extracted analyses are in payload (new path)
-	if analysesData, hasAnalyses := job.Payload["analyses"]; hasAnalyses {
-		// New path: data already extracted, just call AnalyzeAndSummarizeText
-		analyses, usage, err := p.parsePayloadAnalyses(analysesData, job.Payload)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse payload analyses: %w", err)
-		}
-
-		client := NewDefaultClient(p.db, job.UserID, false)
-		client.RequestType = "summarization"
-
-		result, _, usage, err := AnalyzeAndSummarizeText(client, analyses, usage)
-		if err != nil {
-			return nil, fmt.Errorf("failed to summarize: %w", err)
-		}
-
-		// Update summarization record
-		err = p.updateSummarizationResult(ctx, int(summarizationID), result, usage, client.Model)
-		if err != nil {
-			return nil, fmt.Errorf("failed to update summarization: %w", err)
-		}
-
-		return map[string]interface{}{
-			"summarization_id": int(summarizationID),
-			"result":           result,
-			"status":           "completed",
-		}, nil
-	}
-
-	// Legacy path: fetch input_text and extract (keep for backward compatibility)
-	// Get summarization details
+	// Load the prepared input_text from the summarizations row
 	var inputText string
-	var cardPK sql.NullInt64
 	err := p.db.QueryRowContext(ctx,
-		"SELECT input_text, card_pk FROM summarizations WHERE id = $1 AND user_id = $2",
-		int(summarizationID), job.UserID).Scan(&inputText, &cardPK)
+		"SELECT input_text FROM summarizations WHERE id = $1 AND user_id = $2",
+		int(summarizationID), job.UserID).Scan(&inputText)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("summarization not found")
@@ -321,16 +296,16 @@ func (p *LLMJobProcessor) processSummarizationJob(ctx context.Context, job *mode
 	client := NewDefaultClient(p.db, job.UserID, false)
 	client.RequestType = "summarization"
 
-	// Extract theses and arguments
-	analyses, usage, err := ExtractThesesAndArguments(client, inputText)
+	// MAP: summarize each chunk independently
+	chunkSummaries, usage, err := SummarizeChunks(client, inputText)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract theses: %w", err)
+		return nil, fmt.Errorf("failed to summarize chunks: %w", err)
 	}
 
-	// Generate summary
-	result, _, usage, err := AnalyzeAndSummarizeText(client, analyses, usage)
+	// REDUCE: combine chunk-summaries into the final markdown
+	result, usage, err := SummarizeReduce(client, chunkSummaries, usage)
 	if err != nil {
-		return nil, fmt.Errorf("failed to summarize: %w", err)
+		return nil, fmt.Errorf("failed to reduce summary: %w", err)
 	}
 
 	// Update summarization record
@@ -344,80 +319,6 @@ func (p *LLMJobProcessor) processSummarizationJob(ctx context.Context, job *mode
 		"result":           result,
 		"status":           "completed",
 	}, nil
-}
-
-// parsePayloadAnalyses parses analyses and usage from the job payload
-func (p *LLMJobProcessor) parsePayloadAnalyses(analysesData interface{}, payload map[string]interface{}) ([]models.SectionAnalysis, models.Usage, error) {
-	// Parse analyses
-	analysesSlice, ok := analysesData.([]interface{})
-	if !ok {
-		return nil, models.Usage{}, fmt.Errorf("invalid analyses format in payload")
-	}
-
-	analyses := make([]models.SectionAnalysis, len(analysesSlice))
-	for i, a := range analysesSlice {
-		sectionMap, ok := a.(map[string]interface{})
-		if !ok {
-			return nil, models.Usage{}, fmt.Errorf("invalid section format at index %d", i)
-		}
-
-		section, _ := sectionMap["section"].(string)
-		analyses[i].Section = section
-
-		// Parse theses
-		thesesSlice, ok := sectionMap["theses"].([]interface{})
-		if !ok {
-			continue
-		}
-
-		analyses[i].Theses = make([]models.ThesisEntry, len(thesesSlice))
-		for j, t := range thesesSlice {
-			thesisMap, ok := t.(map[string]interface{})
-			if !ok {
-				continue
-			}
-
-			thesis, _ := thesisMap["thesis"].(string)
-			analyses[i].Theses[j].Thesis = thesis
-
-			// Parse arguments
-			argsSlice, ok := thesisMap["arguments"].([]interface{})
-			if ok {
-				analyses[i].Theses[j].Arguments = make([]models.Argument, len(argsSlice))
-				for k, arg := range argsSlice {
-					argMap, ok := arg.(map[string]interface{})
-					if !ok {
-						continue
-					}
-					argument, _ := argMap["argument"].(string)
-					importance, _ := argMap["importance"].(float64)
-					analyses[i].Theses[j].Arguments[k] = models.Argument{
-						Argument:   argument,
-						Importance: int(importance),
-					}
-				}
-			}
-		}
-	}
-
-	// Parse usage
-	var usage models.Usage
-	if usageData, ok := payload["usage"].(map[string]interface{}); ok {
-		if pt, ok := usageData["prompt_tokens"].(float64); ok {
-			usage.PromptTokens = int(pt)
-		}
-		if ct, ok := usageData["completion_tokens"].(float64); ok {
-			usage.CompletionTokens = int(ct)
-		}
-		if tt, ok := usageData["total_tokens"].(float64); ok {
-			usage.TotalTokens = int(tt)
-		}
-		if tc, ok := usageData["total_cost"].(float64); ok {
-			usage.TotalCost = tc
-		}
-	}
-
-	return analyses, usage, nil
 }
 
 // updateSummarizationResult updates the summarization record with the result

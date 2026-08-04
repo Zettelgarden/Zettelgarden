@@ -188,6 +188,15 @@ func ensureSQLiteSchemaUpgrades(db *sql.DB) error {
 		}
 		log.Printf("sqlite schema upgrade: added column %s.%s", u.table, u.column)
 	}
+	// Drop orphaned summary_* analysis tables. These were retired when the
+	// structured-analysis dimension was removed (qsg + fdi); fresh builds no
+	// longer create them, but pre-cutover SQLite DBs still carry them. The
+	// DROP is idempotent and a no-op once they're gone.
+	for _, tbl := range []string{"summary_arguments", "summary_theses", "summary_sections"} {
+		if _, err := db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", tbl)); err != nil {
+			return fmt.Errorf("drop orphan table %s: %w", tbl, err)
+		}
+	}
 	// Partial unique index for stable (provider, sub) OIDC re-auth. Only build
 	// it when the users table exists; idempotent otherwise via IF NOT EXISTS.
 	if hasUsers, err := sqliteTableExists(db, "users"); err != nil {

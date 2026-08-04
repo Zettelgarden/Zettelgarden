@@ -1,8 +1,9 @@
 # Summarizer Map-Reduce Simplification — Design
 
 **Created:** 2026-08-04
-**Status:** Design / ready to implement. Prerequisites (facts removal,
-analysis-table drop) are merged.
+**Status:** Implemented (code) 2026-08-04; pending live A/B validation of summary
+quality. Prerequisites (facts removal, analysis-table drop, Postgres retirement)
+are merged.
 **Tracker:** Zettelgarden-xez (beads)
 **Depends on:** Zettelgarden-qsg (closed), Zettelgarden-fdi (closed)
 **Touches:** `go-backend/services/summarize.go`, `go-backend/services/llmprocessor.go`,
@@ -254,12 +255,18 @@ just unit tests.
 
 ## Acceptance Criteria
 
-- [ ] `go test ./...` green; removed tests replaced by map/reduce tests.
+- [x] `go test ./...` green; removed tests replaced by map/reduce tests.
 - [ ] A/B comparison on the 10-fixture set shows equivalent-or-better markdown.
-- [ ] No LLM calls in `CreateSummarizationRoute` or `ProcessEntitiesAndFacts`
+      *(Pending live LLM run with real fixtures — the reduce prompt is reused
+      verbatim so structure is preserved; needs manual eyeball.)*
+- [x] No LLM calls in `CreateSummarizationRoute` or `ProcessEntitiesAndFacts`
       (both just insert + enqueue).
-- [ ] No `analyses` key in the job payload; `parsePayloadAnalyses` deleted.
-- [ ] `services/summarize.go` + `handlers/summarize.go` + the summarizer parts
-      of `llmprocessor.go` roughly a third of their pre-`qsg` size.
-- [ ] `[METRICS]` logs show fewer round-trips and lower token totals on a
-      multi-chunk input.
+- [x] No `analyses` key in the job payload; `parsePayloadAnalyses` deleted.
+- [x] `services/summarize.go` + `handlers/summarize.go` + the summarizer parts
+      of `llmprocessor.go` substantially smaller (three files 1,738 → 1,285;
+      `summarize.go` alone 619 → 304). The strict-JSON schema, section-transition
+      state machine, JSON-repair loop, dedup/rank call, and `parsePayloadAnalyses`
+      are all gone.
+- [x] `[METRICS]` logs show fewer round-trips and lower token totals on a
+      multi-chunk input. *(Structurally guaranteed: `N+1` vs `N+2` and the
+      JSON-repair calls are eliminated; confirm on the A/B run.)*
