@@ -249,6 +249,7 @@ funnels through the same JWT-in-localStorage mechanism as GitHub.
 | `OIDC_CLIENT_ID` | if enabled | `xxxx.apps.googleusercontent.com` | |
 | `OIDC_CLIENT_SECRET` | if enabled | `GOCSPX-...` | Sensitive. |
 | `OIDC_REDIRECT_URI` | if enabled | `https://app.zettelgarden.com/api/auth/oidc/callback` | Registered at the provider. |
+| `OIDC_PROVIDER_LABEL` | no | `pocket-id` | Stored in `users.oidc_provider`. Defaults to `OIDC_ISSUER` host. |
 | `VITE_OIDC_ENABLED` | no | `true` | Frontend flag to show the button. |
 | `VITE_OIDC_LABEL` | no | `Google` | Optional button label. |
 

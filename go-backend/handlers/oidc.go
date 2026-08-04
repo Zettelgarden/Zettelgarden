@@ -19,11 +19,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// oidcProviderLabel is the value stored in users.oidc_provider. Kept constant
-// for the single-provider first cut; a multi-provider rollout would derive
-// this from a request param / config.
-const oidcProviderLabel = "pocket-id"
-
 // boolish tolerates email_verified arriving as a JSON bool or a quoted string
 // ("true"/"false"), which keeps us robust to provider quirks.
 type boolish bool
@@ -209,7 +204,7 @@ func (h *Handler) CallbackOIDCRoute(w http.ResponseWriter, r *http.Request) {
 
 	// 7. Resolve or create the local user.
 	user, err := h.findOrCreateOIDCUser(
-		oidcProviderLabel,
+		h.OIDCConfig.ProviderLabel,
 		idToken.Subject,
 		claims.Email,
 		bool(claims.EmailVerified),

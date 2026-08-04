@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 )
 
@@ -59,11 +60,12 @@ type GitHubConfig struct {
 // (e.g. Pocket ID). All fields are optional; OIDC is opt-in via OIDC_ENABLED.
 // When enabled, Issuer/ClientID/ClientSecret/RedirectURI become required.
 type OIDCConfig struct {
-	Enabled      bool   // If false, the OIDC routes return 404
-	Issuer       string // IdP issuer URL (used for discovery), e.g. https://pocket-id.example
-	ClientID     string // OIDC client ID registered at the IdP
-	ClientSecret string // OIDC client secret (sensitive)
-	RedirectURI  string // Our callback URL, e.g. https://app/api/auth/oidc/callback
+	Enabled       bool   // If false, the OIDC routes return 404
+	Issuer        string // IdP issuer URL (used for discovery), e.g. https://pocket-id.example
+	ClientID      string // OIDC client ID registered at the IdP
+	ClientSecret  string // OIDC client secret (sensitive)
+	RedirectURI   string // Our callback URL, e.g. https://app/api/auth/oidc/callback
+	ProviderLabel string // Stored in users.oidc_provider; defaults to OIDC_ISSUER host
 }
 
 // SearchConfig holds search engine configuration
@@ -196,6 +198,19 @@ func loadOIDCConfig() OIDCConfig {
 		requireString("OIDC_REDIRECT_URI")
 		validateURL("OIDC_ISSUER", cfg.Issuer)
 		validateURL("OIDC_REDIRECT_URI", cfg.RedirectURI)
+
+		// ProviderLabel is stored in users.oidc_provider for stable
+		// (provider, sub) lookups. Default to the issuer host so the label
+		// tracks the actual IdP without extra config; an explicit
+		// OIDC_PROVIDER_LABEL overrides it (e.g. "google", "okta").
+		cfg.ProviderLabel = optionalString("OIDC_PROVIDER_LABEL")
+		if cfg.ProviderLabel == "" {
+			if u, err := url.Parse(cfg.Issuer); err == nil && u.Host != "" {
+				cfg.ProviderLabel = u.Host
+			} else {
+				cfg.ProviderLabel = "oidc"
+			}
+		}
 	}
 	return cfg
 }
