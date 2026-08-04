@@ -1,7 +1,7 @@
 # SQLite Schema Sync + Postgres Retirement
 
 **Date:** 2026-08-04
-**Status:** Implemented in code (commit `54046de9`). ⚠️ **Not deployable to the public instance on 192.168.0.93** — that instance is still on Postgres and must be migrated first (see "Remaining work — the public instance on 192.168.0.93" below).
+**Status:** Implemented in code (`54046de9`) and **deployed**. Both instances now run on SQLite: `zg-internal` (server-3) since 2026-07-28; the public instance (`zettelgarden.com`, 192.168.0.93) since 2026-08-04 via the `:sqlite-cutover-public` image. Only the final swap to the PG-free `:latest` + `postgres:16` decommission remain (see below).
 **Author:** Nick + Pi
 **Tracking:** `Zettelgarden-2lk` (schema sync), epic `Zettelgarden-c7j` Phase 7b (PG retirement)
 
@@ -125,43 +125,48 @@ Two things converged in one conversation:
   `server` (drift test), `handlers` (the full 30s suite), `schema/sqlite`, and
   `cmd/migrate-storage`.
 
-## ⚠️ Remaining work — the public instance on 192.168.0.93 (NOT done; blocks deploying this commit there)
+## Public-instance migration on 192.168.0.93 — DONE 2026-08-04
 
-The changes above are **code-only** and are **not deployable to 192.168.0.93**.
-That host runs the *public* instance (`zettelgarden.com`,
-`/mnt/nas-2-fast-data/config/zettelgarden`), which is **still on Postgres** (and
-still on B2 storage). Its Postgres is a live database:
+The public instance (`zettelgarden.com`, `/mnt/nas-2-fast-data/config/zettelgarden`)
+was migrated from Postgres to SQLite on 2026-08-04 (`Zettelgarden-f3r`).
 
-- **Do not** stop Postgres on .93.
-- **Do not** run `./build.sh` — it builds `:latest` from master (now
-  Postgres-free) and deploys it straight to .93, which would take the public
-  site down. `build.sh` now has a guard that aborts unless
-  `ZG_PUBLIC_DEPLOY_CONFIRMED=1`.
+What ran:
+- Built the `:sqlite-cutover-public` image + the `migrate-pg-to-sqlite` ETL from
+  `0a9a0599` (dual-driver: PG + SQLite + the ETL — recoverable from git since
+  `54046de9` deleted it).
+- ETL copied the live `zettelkasten` Postgres (the `postgres:16` container on
+  .93, reached via its `192.168.10.3` NIC) into `./data/zettelgarden.db`: **67
+  tables, 499,581 rows pg==sqlite exact** (a stop + final ETL cleared the
+  `scheduled_job_runs` live-write race).
+- Flipped the public backend to `:sqlite-cutover-public` with `DB_DRIVER=sqlite`
+  + `SQLITE_PATH` + the `./data:/usr/src/app/data` volume. Boots clean; Typesense
+  connected; auth live (401); scheduler writing (`scheduled_job_runs` growing);
+  WAL active; 0 restarts. Downtime ~5.5 min.
 
-Before this commit can reach .93, the public instance needs the **same ETL +
-cutover `zg-internal` got** (tracked in its own bd issue), performed with the
-pre-retirement tooling:
+Rollback safety: `:pre-sqlite-public` image tag (the old 2026-05-03 PG image), a
+`pg_dump -Fc` insurance dump (57 MB) at `backups/`, and `.env.pre-sqlite-cutover`
++ `docker-compose.yml.pre-sqlite-cutover`. The `postgres:16` container is **left
+running** as fallback — nothing reads it.
 
-1. **Verify state on .93** — confirm the public instance's `DB_DRIVER` / whether
-   a `data/*.db` exists / what image runs (believed still Postgres + B2 as of
-   2026-07-29; not re-verified).
-2. **Migrate the data** — `pg_dump` the public DB → import with
-   `cmd/migrate-pg-to-sqlite` (checked out from `0a9a0599`, or built from the
-   running image) into a SQLite file. The public DB has diverged from the
-   2026-07-28 snapshot, so this must be a **fresh** dump.
-3. **Migrate file storage** B2 → local (`STORAGE_DIR=/usr/src/app/data/files`)
-   via `cmd/migrate-storage` — same as the server-3 cutover
-   (`docs/plans/2026-07-29-s3-to-local-file-storage-status.md`).
-4. **Boot + A/B verify** a pre-retirement binary against the new SQLite + local
-   store on .93 (read-path diff vs the live PG/B2), then flip the public
-   compose to SQLite.
-5. **Only then** deploy the new (Postgres-free, local-storage) `:latest` to .93
-   and retire .93's Postgres (final fresh `pg_dump -Fc` to the NAS, then
-   stop/remove the service). Retain the `:pre-sqlite` tag + NAS dumps as the
-   cold fallback of record.
+Data note: the public DB carried ~109k pre-existing FK-orphan rows (92k
+`llm_query_log`, 8k `card_tags`, rest across log/junction tables — all
+referencing long-deleted users; accumulated cruft `zg-internal` never had).
+Harmless at runtime (FK enforcement is forward-looking on writes; the app only
+writes valid refs), so they were left in place as a faithful copy. 1,723 orphan
+`summarizations` rows were deleted (garbage referencing non-existent user 1 +
+cards). File storage needed no migration (0 files; never on B2).
 
-`zg-internal` (server-3) is unaffected and already safe — this section is about
-the public instance only.
+Remaining tail (low priority):
+1. **Final image swap** — build `:latest` from master (PG-free) on .93 and
+   deploy, so both instances run identical code; then remove the
+   `ZG_PUBLIC_DEPLOY_CONFIRMED` guard from `build.sh`. The
+   `pq.StringArray` → `models.StringArray` swap is byte-compatible with the
+   `{a,b}` `filter_tags` data, so seamless.
+2. **Retire the `postgres:16` container** after ~1 week green (take a final
+   fresh `pg_dump -Fc` first). Cutover artifacts retained for re-ETL:
+   `~/code/zg-cutover` worktree + `/tmp/zg-out/migrate-pg-to-sqlite`.
+
+`zg-internal` (server-3) was already on SQLite and is unaffected.
 
 ## Follow-ups (filed / noted)
 
@@ -169,10 +174,9 @@ the public instance only.
   numbered-migrations framework is **deferred** unless drift recurs. The
   hand-maintained self-heal list is now CI-guarded, which is the right scope
   for a single-engine single-user app.
-- **Public-instance migration (new bd issue)** — migrate `zettelgarden.com` on
-  192.168.0.93 from Postgres+B2 to SQLite+local storage. **Prerequisite** for
-  deploying this commit to .93 and for retiring .93's Postgres. `build.sh` is
-  guarded against an accidental deploy until this lands.
+- **`Zettelgarden-f3r` (DONE 2026-08-04)** — public instance migrated to SQLite
+  via the `:sqlite-cutover-public` image (see "Public-instance migration" above).
+  Only the final `:latest` swap + `postgres:16` decommission remain.
 - **`Zettelgarden-gve` (closed)** — originally "decommission standby PG on .93";
   closed because .93's Postgres is the *public* instance's live database, not a
   standby. Subsumed by the public-instance migration issue above.
