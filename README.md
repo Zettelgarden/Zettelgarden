@@ -126,6 +126,7 @@ Built with modern, scalable technologies optimized for both performance and AI c
 - Typesense search server
 - Local disk for file storage (bundled — no external object store)
 - OpenAI-compatible API key for AI features (optional)
+- OIDC / SSO provider for single sign-on (optional, e.g. [Pocket ID](https://github.com/pocket-id/pocket-id)) — see `go-backend/.env.example` (`OIDC_*` vars) and `docs/plans/2026-08-03-oidc-authentication-design.md`
 
 See our [getting started guide](https://zettelgarden.com/docs/getting-started/) for detailed setup instructions. (Coming soon!)
 

@@ -1,7 +1,7 @@
 # OIDC (OpenID Connect) Authentication Support — Design
 
 **Created:** 2026-08-03
-**Status:** Phase 1 + 2 implemented (backend core + frontend button). Phase 3 (GitHub CSRF retrofit, e2e) pending.
+**Status:** Phases 1–3 core + e2e validated against Pocket ID (2026-08-03). Remaining: GitHub CSRF retrofit (tracked separately).
 **Tracker:** Zettelgarden-0ck (beads)
 **Identity Provider:** Pocket ID (self-hosted OIDC)
 
@@ -289,13 +289,12 @@ section.
 
 **Phase 2 — Frontend ✅ (done)**
 7. ✅ Conditional "Continue with SSO" button (`VITE_OIDC_ENABLED`) + `?error=` code mapping.
-8. ⏳ Manual end-to-end against Pocket ID (Nick — needs OIDC_* env + a registered client).
+8. ✅ Manual end-to-end against Pocket ID — validated 2026-08-03 (see Troubleshooting for the issues hit & fixed).
 
-**Phase 3 — Hardening + tests (pending)**
-9. ✅ Backend tests for user resolution + state cookie (done in Phase 1).
-10. ⏳ Retrofit GitHub flow to the shared `state` cookie (CSRF fix).
-11. ✅ Docs: README config section (`.env.example`), route comments, plan doc.
-    ⏳ Update top-level README config section.
+**Phase 3 — Hardening (mostly done; one item remains)**
+9. ✅ Backend tests for user resolution + state cookie + PKCE challenge math.
+10. ⏳ Retrofit GitHub flow to the shared `state` cookie (CSRF fix) — tracked in its own issue; not blocking.
+11. ✅ Docs: `.env.example`, route comments, README self-hosting note, plan doc.
 
 ## Testing
 
@@ -336,6 +335,38 @@ section.
    fresh builds). For an existing SQLite DB that isn't rebuilt, run the
    ALTERs manually once (documented in the migration header).
 4. **Provider for initial testing:** ✅ Resolved: Pocket ID.
+
+## Troubleshooting (issues hit during Pocket ID integration)
+
+Real problems encountered while validating against Pocket ID, with root causes —
+read this before debugging a fresh OIDC integration.
+
+1. **404 on `/api/auth/oidc/start`.** Two causes, same symptom:
+   - The backend was started **without sourcing the env file**, so
+     `OIDC_ENABLED` was unset and `StartOIDCRoute` deliberately returns 404.
+     The app has **no auto `.env` loader** — it reads `os.Getenv`, so the
+     shell that runs `go run .` must `source go-backend/.env-bash` first.
+   - Stale `go run .` process (it compiles once at startup; restart after
+     code changes).
+2. **Blank page / `#/api/auth/oidc/callback…` after auth.** `OIDC_REDIRECT_URI`
+   pointed at the **frontend** (`:5173`) instead of the **backend** (`:8079`).
+   The callback is a backend route; Vite has no `/api` proxy, so it served the
+   SPA shell and the `HashRouter` re-encoded the path as a hash. Fix: set
+   `OIDC_REDIRECT_URI` (and the URI registered in Pocket ID) to
+   `http://<host>:8079/api/auth/oidc/callback`. (GitHub OAuth already uses
+   `:8079` — mirror it.)
+3. **`invalid_grant` at the token exchange.** PKCE was wired wrong:
+   `oauth2.VerifierOption(verifier)` was passed to `AuthCodeURL`, but that
+   option is **only valid for `Exchange`** — on the authorize URL it emits the
+   raw `code_verifier` instead of a `code_challenge`. Fix: compute
+   `code_challenge = base64url(sha256(verifier))` and send it via
+   `SetAuthURLParam("code_challenge", …)` + `code_challenge_method=S256` on
+   the authorize URL; keep `VerifierOption` for the exchange.
+4. **`nonce_mismatch`.** The nonce was generated and stored in the state
+   cookie but **never sent on the authorize request**, so the id_token carried
+   no `nonce` claim. Fix: add `SetAuthURLParam("nonce", nonce)` to the
+   authorize URL; the provider echoes it into the id_token, which
+   `CallbackOIDCRoute` then checks.
 
 ## Risks
 
