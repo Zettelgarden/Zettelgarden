@@ -274,10 +274,10 @@ func (p *LLMJobProcessor) processSummarizationJob(ctx context.Context, job *mode
 		return nil, fmt.Errorf("missing or invalid summarization_id in payload")
 	}
 
-	// Check if pre-extracted analyses/facts are in payload (new path)
+	// Check if pre-extracted analyses are in payload (new path)
 	if analysesData, hasAnalyses := job.Payload["analyses"]; hasAnalyses {
 		// New path: data already extracted, just call AnalyzeAndSummarizeText
-		analyses, facts, usage, err := p.parsePayloadAnalyses(analysesData, job.Payload)
+		analyses, usage, err := p.parsePayloadAnalyses(analysesData, job.Payload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse payload analyses: %w", err)
 		}
@@ -285,7 +285,7 @@ func (p *LLMJobProcessor) processSummarizationJob(ctx context.Context, job *mode
 		client := NewDefaultClient(p.db, job.UserID, false)
 		client.RequestType = "summarization"
 
-		result, _, usage, err := AnalyzeAndSummarizeText(client, analyses, facts, usage)
+		result, _, usage, err := AnalyzeAndSummarizeText(client, analyses, usage)
 		if err != nil {
 			return nil, fmt.Errorf("failed to summarize: %w", err)
 		}
@@ -322,13 +322,13 @@ func (p *LLMJobProcessor) processSummarizationJob(ctx context.Context, job *mode
 	client.RequestType = "summarization"
 
 	// Extract theses and arguments
-	analyses, facts, usage, err := ExtractThesesAndArguments(client, inputText)
+	analyses, usage, err := ExtractThesesAndArguments(client, inputText)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract theses: %w", err)
 	}
 
-	// Generate summary (facts are passed but may be empty)
-	result, _, usage, err := AnalyzeAndSummarizeText(client, analyses, facts, usage)
+	// Generate summary
+	result, _, usage, err := AnalyzeAndSummarizeText(client, analyses, usage)
 	if err != nil {
 		return nil, fmt.Errorf("failed to summarize: %w", err)
 	}
@@ -346,19 +346,19 @@ func (p *LLMJobProcessor) processSummarizationJob(ctx context.Context, job *mode
 	}, nil
 }
 
-// parsePayloadAnalyses parses analyses and facts from the job payload
-func (p *LLMJobProcessor) parsePayloadAnalyses(analysesData interface{}, payload map[string]interface{}) ([]models.SectionAnalysis, []string, models.Usage, error) {
+// parsePayloadAnalyses parses analyses and usage from the job payload
+func (p *LLMJobProcessor) parsePayloadAnalyses(analysesData interface{}, payload map[string]interface{}) ([]models.SectionAnalysis, models.Usage, error) {
 	// Parse analyses
 	analysesSlice, ok := analysesData.([]interface{})
 	if !ok {
-		return nil, nil, models.Usage{}, fmt.Errorf("invalid analyses format in payload")
+		return nil, models.Usage{}, fmt.Errorf("invalid analyses format in payload")
 	}
 
 	analyses := make([]models.SectionAnalysis, len(analysesSlice))
 	for i, a := range analysesSlice {
 		sectionMap, ok := a.(map[string]interface{})
 		if !ok {
-			return nil, nil, models.Usage{}, fmt.Errorf("invalid section format at index %d", i)
+			return nil, models.Usage{}, fmt.Errorf("invalid section format at index %d", i)
 		}
 
 		section, _ := sectionMap["section"].(string)
@@ -400,15 +400,6 @@ func (p *LLMJobProcessor) parsePayloadAnalyses(analysesData interface{}, payload
 		}
 	}
 
-	// Parse facts
-	var facts []string
-	if factsData, ok := payload["facts"].([]interface{}); ok {
-		facts = make([]string, len(factsData))
-		for i, f := range factsData {
-			facts[i], _ = f.(string)
-		}
-	}
-
 	// Parse usage
 	var usage models.Usage
 	if usageData, ok := payload["usage"].(map[string]interface{}); ok {
@@ -426,7 +417,7 @@ func (p *LLMJobProcessor) parsePayloadAnalyses(analysesData interface{}, payload
 		}
 	}
 
-	return analyses, facts, usage, nil
+	return analyses, usage, nil
 }
 
 // updateSummarizationResult updates the summarization record with the result

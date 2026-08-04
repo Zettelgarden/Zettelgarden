@@ -256,7 +256,6 @@ func TestSaveAnalysisSuccess(t *testing.T) {
 			Theses: []models.ThesisEntry{
 				{
 					Thesis: "This is the first thesis",
-					Facts:  []string{"fact1", "fact2"},
 					Arguments: []models.Argument{
 						{Argument: "argument 1", Importance: 8},
 						{Argument: "argument 2", Importance: 5},
@@ -333,19 +332,16 @@ func TestSaveAnalysisEmptyThesisSkipped(t *testing.T) {
 			Theses: []models.ThesisEntry{
 				{
 					Thesis: "Valid thesis",
-					Facts:  []string{"fact1"},
 					Arguments: []models.Argument{
 						{Argument: "argument 1", Importance: 8},
 					},
 				},
 				{
 					Thesis:    "", // Empty thesis - should be skipped
-					Facts:     []string{"fact2"},
 					Arguments: []models.Argument{{Argument: "argument 2", Importance: 5}},
 				},
 				{
 					Thesis: "   ", // Whitespace-only thesis - should be skipped
-					Facts:  []string{"fact3"},
 					Arguments: []models.Argument{
 						{Argument: "argument 3", Importance: 7},
 					},
@@ -397,7 +393,6 @@ func TestSaveAnalysisEmptySectionSkipped(t *testing.T) {
 			Theses: []models.ThesisEntry{
 				{
 					Thesis: "Valid thesis in valid section",
-					Facts:  []string{"fact1"},
 					Arguments: []models.Argument{
 						{Argument: "argument 1", Importance: 8},
 					},
@@ -409,7 +404,6 @@ func TestSaveAnalysisEmptySectionSkipped(t *testing.T) {
 			Theses: []models.ThesisEntry{
 				{
 					Thesis: "Thesis in empty section",
-					Facts:  []string{"fact2"},
 					Arguments: []models.Argument{
 						{Argument: "argument 2", Importance: 5},
 					},
@@ -421,7 +415,6 @@ func TestSaveAnalysisEmptySectionSkipped(t *testing.T) {
 			Theses: []models.ThesisEntry{
 				{
 					Thesis: "Thesis in whitespace section",
-					Facts:  []string{"fact3"},
 					Arguments: []models.Argument{
 						{Argument: "argument 3", Importance: 7},
 					},
@@ -473,7 +466,6 @@ func TestSaveAnalysisInvalidCardPK(t *testing.T) {
 			Theses: []models.ThesisEntry{
 				{
 					Thesis: "This is a thesis",
-					Facts:  []string{"fact1"},
 					Arguments: []models.Argument{
 						{Argument: "argument 1", Importance: 8},
 					},
@@ -525,7 +517,6 @@ func TestSaveAnalysisMultipleSections(t *testing.T) {
 			Theses: []models.ThesisEntry{
 				{
 					Thesis: "First thesis in section 1",
-					Facts:  []string{"fact1"},
 					Arguments: []models.Argument{
 						{Argument: "argument 1", Importance: 8},
 					},
@@ -537,14 +528,12 @@ func TestSaveAnalysisMultipleSections(t *testing.T) {
 			Theses: []models.ThesisEntry{
 				{
 					Thesis: "First thesis in section 2",
-					Facts:  []string{"fact2"},
 					Arguments: []models.Argument{
 						{Argument: "argument 2", Importance: 7},
 					},
 				},
 				{
 					Thesis: "Second thesis in section 2",
-					Facts:  []string{"fact3"},
 					Arguments: []models.Argument{
 						{Argument: "argument 3", Importance: 6},
 						{Argument: "argument 4", Importance: 9},
@@ -605,9 +594,9 @@ func TestSaveAnalysisSectionOrder(t *testing.T) {
 	}
 
 	analyses := []models.SectionAnalysis{
-		{Section: "First Section", Theses: []models.ThesisEntry{{Thesis: "Thesis 1", Facts: []string{}, Arguments: []models.Argument{}}}},
-		{Section: "Second Section", Theses: []models.ThesisEntry{{Thesis: "Thesis 2", Facts: []string{}, Arguments: []models.Argument{}}}},
-		{Section: "Third Section", Theses: []models.ThesisEntry{{Thesis: "Thesis 3", Facts: []string{}, Arguments: []models.Argument{}}}},
+		{Section: "First Section", Theses: []models.ThesisEntry{{Thesis: "Thesis 1", Arguments: []models.Argument{}}}},
+		{Section: "Second Section", Theses: []models.ThesisEntry{{Thesis: "Thesis 2", Arguments: []models.Argument{}}}},
+		{Section: "Third Section", Theses: []models.ThesisEntry{{Thesis: "Thesis 3", Arguments: []models.Argument{}}}},
 	}
 
 	err = s.SaveAnalysis(userID, cardPK, summarizationID, analyses)

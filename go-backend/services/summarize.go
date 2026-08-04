@@ -102,9 +102,9 @@ func executeLLMRequestWithRetry(ctx context.Context, c *models.LLMClient, messag
 const MaxChunkFailureRate = 0.5 // 50%
 
 // ExtractThesesAndArguments processes input text into SectionAnalysis entries,
-// aggregating theses, facts, and arguments from each chunk.
+// aggregating theses and arguments from each chunk.
 // Returns all analyses and usage statistics.
-func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.SectionAnalysis, []string, models.Usage, error) {
+func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.SectionAnalysis, models.Usage, error) {
 	start := time.Now()
 	chunks := ChunkText(input)
 
@@ -112,7 +112,6 @@ func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.Sect
 	log.Printf("[METRICS] ExtractThesesAndArguments started - input_size=%d chars, chunks=%d, model=%s",
 		len(input), len(chunks), c.Model)
 
-	var facts []string
 	var jsonRepairAttempts int
 	var jsonRepairSuccesses int
 	var failedChunks int // Track chunks that failed to process
@@ -136,7 +135,7 @@ func ExtractThesesAndArguments(c *models.LLMClient, input string) ([]models.Sect
 		messages := []openai.ChatCompletionMessage{
 			{
 				Role: openai.ChatMessageRoleSystem,
-				Content: `You are an assistant that extracts theses, facts, and arguments from text.
+				Content: `You are an assistant that extracts theses and arguments from text.
 				We are trying to come up with a coherent summary of the article/podcast/book/etc. You will be looking at
 				some or all of the writing and need to extract certain things from it.
 				Inside the <existing_analyses> block, you will find the current section being analyzed.
@@ -147,11 +146,8 @@ Instructions:
 - Do not add commentary, explanations, or non‑JSON text.
 - If an item cannot be extracted, return an empty string or empty list.
 - Importance must be an integer on a scale of 1–10 (10 = crucial to the central thesis, 1 = marginal).
-- Facts should be discrete, verifiable statements (events, statistics, claims of evidence).
-- Facts should *not* be about the text itself. For example, if the text is about a meeting on January 1, 2025, we do not need a fact that states that.
-- Do not use pronouns (he, she, this, that, etc) unless it directly refers to an object in the fact. Facts will likely be viewed out of context and will not make sense otherwise.
 - When you detect a new section, give it a descriptive name based on the text.
-- Start with section 1. If a section has no theses, arguments or facts, still include the section in the output, just empty
+- Start with section 1. If a section has no theses or arguments, still include the section in the output, just empty.
 - Continue working on the current section unless you detect a clear section break in the text.
 - Output only the sections you are currently working on (current section + any new sections detected).
 
@@ -162,7 +158,6 @@ Format Example:
   "theses": [
     {
       "thesis": "...",
-      "facts": ["...", "..."],
       "arguments": [
         {"argument": "...", "importance": 8},
         {"argument": "...", "importance": 5}
@@ -175,7 +170,6 @@ Format Example:
   "theses": [
     {
       "thesis": "...",
-      "facts": ["...", "..."],
       "arguments": [
         {"argument": "...", "importance": 8},
         {"argument": "...", "importance": 5}
@@ -196,7 +190,7 @@ Format Example:
 		resp, err := executeLLMRequestWithRetry(ctx, c, messages)
 		cancel()
 		if err != nil {
-			return nil, facts, models.Usage{}, err
+			return nil, models.Usage{}, err
 		}
 		if len(resp.Choices) == 0 {
 			log.Printf("[ERROR] LLM returned no choices for chunk %d/%d", len(completedSections)+1, len(chunks))
@@ -229,7 +223,6 @@ The JSON should be an array of section analyses with this structure:
   "section": "Section N: Title",
   "theses": [{
     "thesis": "...",
-    "facts": ["...", "..."],
     "arguments": [{"argument": "...", "importance": N}]
   }]
 }]`,
@@ -338,12 +331,10 @@ The JSON should be an array of section analyses with this structure:
 						currentSectionAnalyses = nil
 					}
 					// Add the new section
-					analysesWithoutFacts, newFacts := RemoveFactsFromAnalyses([]models.SectionAnalysis{section})
-					facts = append(facts, newFacts...)
 					if currentSectionAnalyses == nil {
-						currentSectionAnalyses = analysesWithoutFacts
+						currentSectionAnalyses = []models.SectionAnalysis{section}
 					} else {
-						currentSectionAnalyses = append(currentSectionAnalyses, analysesWithoutFacts...)
+						currentSectionAnalyses = append(currentSectionAnalyses, section)
 					}
 					lastSectionName = sectionTitle
 				}
@@ -369,7 +360,7 @@ The JSON should be an array of section analyses with this structure:
 		if failureRate > MaxChunkFailureRate {
 			log.Printf("[ERROR] Too many chunks failed - failed=%d/%d (%.1f%%), threshold=%.1f%%",
 				failedChunks, totalChunks, failureRate*100, MaxChunkFailureRate*100)
-			return nil, facts, models.Usage{}, fmt.Errorf("too many chunks failed: %d/%d (%.1f%%), threshold is %.1f%%",
+			return nil, models.Usage{}, fmt.Errorf("too many chunks failed: %d/%d (%.1f%%), threshold is %.1f%%",
 				failedChunks, totalChunks, failureRate*100, MaxChunkFailureRate*100)
 		}
 		if failedChunks > 0 {
@@ -385,7 +376,7 @@ The JSON should be an array of section analyses with this structure:
 
 	if len(allAnalyses) == 0 {
 		log.Printf("[METRICS] ExtractThesesAndArguments failed - no valid analyses returned")
-		return nil, facts, models.Usage{}, errors.New("no valid analyses returned")
+		return nil, models.Usage{}, errors.New("no valid analyses returned")
 	}
 
 	// Log completion metrics
@@ -395,14 +386,14 @@ The JSON should be an array of section analyses with this structure:
 	totalCost := promptCost + completionCost
 
 	log.Printf("[METRICS] ExtractThesesAndArguments completed - "+
-		"duration=%v, sections=%d, theses=%d, facts=%d, "+
+		"duration=%v, sections=%d, theses=%d, "+
 		"prompt_tokens=%d, completion_tokens=%d, total_tokens=%d, cost=$%.4f, "+
 		"json_repairs=%d/%d, failed_chunks=%d/%d, model=%s",
-		elapsed, len(allAnalyses), countTheses(allAnalyses), len(facts),
+		elapsed, len(allAnalyses), countTheses(allAnalyses),
 		totalPromptTokens, totalCompletionTokens, totalPromptTokens+totalCompletionTokens, totalCost,
 		jsonRepairSuccesses, jsonRepairAttempts, failedChunks, totalChunks, c.Model)
 
-	return allAnalyses, facts, models.Usage{
+	return allAnalyses, models.Usage{
 		PromptTokens:     totalPromptTokens,
 		CompletionTokens: totalCompletionTokens,
 		TotalTokens:      totalPromptTokens + totalCompletionTokens,
@@ -457,143 +448,8 @@ func buildUserContent(chunk, contextIntro, lastSectionName string) string {
 		"Always include \"section\" explicitly in your JSON output.\n\n<CHUNK>\n\n" + chunk
 }
 
-// buildExtractionMessages creates the system and user messages for thesis/argument extraction
-func buildExtractionMessages(userContent string) []openai.ChatCompletionMessage {
-	return []openai.ChatCompletionMessage{
-		{
-			Role: openai.ChatMessageRoleSystem,
-			Content: `You are an assistant that extracts theses, facts, and arguments from text.
-				We are trying to come up with a coherent summary of the article/podcast/book/etc. You will be looking at
-				some or all of the writing and need to extract certain things from it.
-				Inside the <existing_analyses> block, you will find the current section being analyzed.
-				Use this to understand the context and continue building on the current section.
-
-Instructions:
-- Respond ONLY in pure JSON with the following format.
-- Do not add commentary, explanations, or non‑JSON text.
-- If an item cannot be extracted, return an empty string or empty list.
-- Importance must be an integer on a scale of 1–10 (10 = crucial to the central thesis, 1 = marginal).
-- Facts should be discrete, verifiable statements (events, statistics, claims of evidence).
-- Facts should *not* be about the text itself. For example, if the text is about a meeting on January 1, 2025, we do not need a fact that states that.
-- Do not use pronouns (he, she, this, that, etc) unless it directly refers to an object in the fact. Facts will likely be viewed out of context and will not make sense otherwise.
-- When you detect a new section, give it a descriptive name based on the text.
-- Start with section 1. If a section has no theses, arguments or facts, still include the section in the output, just empty
-- Continue working on the current section unless you detect a clear section break in the text.
-- Output only the sections you are currently working on (current section + any new sections detected).
-
-Format Example:
-[
-{
-  "section": "Section [number]: [title]",
-  "theses": [
-    {
-      "thesis": "...",
-      "facts": ["...", "..."],
-      "arguments": [
-        {"argument": "...", "importance": 8},
-        {"argument": "...", "importance": 5}
-      ]
-    }
-  ]
-},
-{
-  "section": "Section [number]: [title]",
-  "theses": [
-    {
-      "thesis": "...",
-      "facts": ["...", "..."],
-      "arguments": [
-        {"argument": "...", "importance": 8},
-        {"argument": "...", "importance": 5}
-      ]
-    }
-  ]
-
-}
-
-]`,
-		},
-		{
-			Role:    openai.ChatMessageRoleUser,
-			Content: userContent,
-		},
-	}
-}
-
-// mergeSectionAnalyses merges new analysis results into current section analyses,
-// handling section transitions and returning updated facts
-func mergeSectionAnalyses(
-	analysis []models.SectionAnalysis,
-	currentSectionAnalyses []models.SectionAnalysis,
-	lastSectionName string,
-	facts []string,
-) ([]models.SectionAnalysis, string, []string) {
-	if len(analysis) == 0 {
-		if len(currentSectionAnalyses) > 0 {
-			// Save current section to avoid data loss when LLM returns empty array
-			return nil, "", append(facts, make([]string, 0)...) // Return nil to signal save occurred
-		}
-		return currentSectionAnalyses, lastSectionName, facts
-	}
-
-	for _, section := range analysis {
-		sectionTitle := strings.TrimSpace(section.Section)
-		if sectionTitle == "" {
-			continue
-		}
-
-		// Check if this section already exists in currentSectionAnalyses
-		existingSectionIndex := -1
-		for i, currentSec := range currentSectionAnalyses {
-			if strings.TrimSpace(currentSec.Section) == sectionTitle {
-				existingSectionIndex = i
-				break
-			}
-		}
-
-		if existingSectionIndex >= 0 {
-			// Section exists - merge theses
-			existingSection := &currentSectionAnalyses[existingSectionIndex]
-			for _, thesis := range section.Theses {
-				thesisText := strings.TrimSpace(thesis.Thesis)
-				if thesisText == "" {
-					continue
-				}
-				// Check for duplicates
-				thesisExists := false
-				for _, existingThesis := range existingSection.Theses {
-					if strings.TrimSpace(existingThesis.Thesis) == thesisText {
-						thesisExists = true
-						break
-					}
-				}
-				if !thesisExists {
-					existingSection.Theses = append(existingSection.Theses, thesis)
-				}
-			}
-		} else {
-			// New section - save previous if needed
-			if lastSectionName != "" && sectionTitle != lastSectionName && len(currentSectionAnalyses) > 0 {
-				// Signal caller to save completed sections
-				return currentSectionAnalyses, lastSectionName, facts
-			}
-			// Add new section
-			analysesWithoutFacts, newFacts := RemoveFactsFromAnalyses([]models.SectionAnalysis{section})
-			facts = append(facts, newFacts...)
-			if currentSectionAnalyses == nil {
-				currentSectionAnalyses = analysesWithoutFacts
-			} else {
-				currentSectionAnalyses = append(currentSectionAnalyses, analysesWithoutFacts...)
-			}
-			lastSectionName = sectionTitle
-		}
-	}
-
-	return currentSectionAnalyses, lastSectionName, facts
-}
-
 // AnalyzeAndSummarizeText: the advanced pipeline
-func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []models.SectionAnalysis, facts []string, usage models.Usage) (string, []models.SectionAnalysis, models.Usage, error) {
+func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []models.SectionAnalysis, usage models.Usage) (string, []models.SectionAnalysis, models.Usage, error) {
 	start := time.Now()
 	c.Model = os.Getenv(EnvSummarizeModel)
 	if c.Model == "" {
@@ -601,8 +457,8 @@ func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []models.SectionAn
 	}
 
 	// Log input metrics
-	log.Printf("[METRICS] AnalyzeAndSummarizeText started - sections=%d, theses=%d, facts=%d, model=%s",
-		len(allAnalyses), countTheses(allAnalyses), len(facts), c.Model)
+	log.Printf("[METRICS] AnalyzeAndSummarizeText started - sections=%d, theses=%d, model=%s",
+		len(allAnalyses), countTheses(allAnalyses), c.Model)
 
 	// Start with existing usage counts and accumulate
 	totalPromptTokens := usage.PromptTokens
@@ -629,7 +485,6 @@ func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []models.SectionAn
 		return strings.Join(out, "\n- ")
 	}
 	dedupInput := "Theses: " + strings.Join(theses, "; ") +
-		"\nFacts: " + strings.Join(facts, "; ") +
 		"\nCollected Arguments (with importance):\n- " + formatArguments(flattenArguments(allAnalyses))
 
 	dedupMessages := []openai.ChatCompletionMessage{
@@ -639,7 +494,6 @@ func AnalyzeAndSummarizeText(c *models.LLMClient, allAnalyses []models.SectionAn
 Respond ONLY in JSON with the following format:
 {
   "theses": [{"thesis": "...", "rank": 1}, {"thesis": "...", "rank": 2}],
-  "facts": ["...", "..."],
   "arguments": [{"argument": "...", "rank": 1}, {"argument": "...", "rank": 2}]
 }
 Important: Consider the full set of arguments with their importance values when performing deduplication and ranking.`,
@@ -698,8 +552,8 @@ The output should be **structured, concise, and tailored to distinct audiences**
    - Include:  
      - **Main Theses** (core claims or insights), organize by section.  
      - **Supporting Arguments** (reasoning behind these theses).  
-     - **Key Evidence or Facts** (5–8 of the most decisive data points, milestones, or examples).  
-   - Present information in a hierarchy (for each theses, show its supporting arguments → facts).  
+     - **Key Evidence** (5–8 of the most decisive data points, milestones, or examples).  
+   - Present information in a hierarchy (for each thesis, show its supporting arguments).  
    - Exclude secondary/tangential details.
 
 4. **General Guidelines:**  
@@ -711,7 +565,7 @@ The output should be **structured, concise, and tailored to distinct audiences**
      - Section 1 → plain, polished, and accessible ("boardroom-ready").  
      - Section 2 → objective, precise, and reference-style ("briefing document").  
 
-Input (including deduplicated theses, facts, and arguments with importance/rank):
+Input (including deduplicated theses and arguments with importance/rank):
 <analysis>\n` + aggregation,
 		},
 	}
@@ -738,9 +592,9 @@ Input (including deduplicated theses, facts, and arguments with importance/rank)
 	// Log completion metrics with structured format
 	elapsed := time.Since(start)
 	log.Printf("[METRICS] AnalyzeAndSummarizeText completed - "+
-		"duration=%v, summary_length=%d chars, sections=%d, theses=%d, facts=%d, "+
+		"duration=%v, summary_length=%d chars, sections=%d, theses=%d, "+
 		"prompt_tokens=%d, completion_tokens=%d, total_tokens=%d, cost=$%.4f, model=%s",
-		elapsed, len(summary), len(allAnalyses), countTheses(allAnalyses), len(facts),
+		elapsed, len(summary), len(allAnalyses), countTheses(allAnalyses),
 		totalPromptTokens, totalCompletionTokens, totalPromptTokens+totalCompletionTokens, totalCost, c.Model)
 
 	// Return new Usage struct with accumulated totals (don't mutate input parameter)
@@ -857,34 +711,4 @@ func GetCardAnalysis(db *sql.DB, userID int, cardPK int) ([]models.SectionAnalys
 	}
 
 	return analyses, nil
-}
-
-// RemoveFactsFromAnalyses creates a copy of the analyses structure without facts
-// to reduce context size when feeding back to the LLM
-func RemoveFactsFromAnalyses(analyses []models.SectionAnalysis) ([]models.SectionAnalysis, []string) {
-	// Pre-allocate result slice to avoid multiple reallocations
-	result := make([]models.SectionAnalysis, 0, len(analyses))
-	facts := make([]string, 0, len(analyses)*3) // Pre-allocate facts with estimated capacity
-
-	for _, section := range analyses {
-		// Pre-allocate theses slice to avoid multiple reallocations
-		newSection := models.SectionAnalysis{
-			Section: section.Section,
-			Theses:  make([]models.ThesisEntry, len(section.Theses)),
-		}
-
-		for i, thesis := range section.Theses {
-			facts = append(facts, thesis.Facts...)
-			// Reuse the Arguments slice reference - no need to copy the underlying data
-			newSection.Theses[i] = models.ThesisEntry{
-				Thesis:    thesis.Thesis,
-				Facts:     []string{}, // Remove facts to reduce token count
-				Arguments: thesis.Arguments,
-			}
-		}
-
-		result = append(result, newSection)
-	}
-
-	return result, facts
 }

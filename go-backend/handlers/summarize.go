@@ -202,15 +202,15 @@ func (h *Handler) CreateSummarizationRoute(w http.ResponseWriter, r *http.Reques
 	client := services.NewDefaultClient(h.DB, userID, isTesting)
 	client.RequestType = "analysis"
 	processedText := prepareTextForAnalysis(req.Title, req.Text)
-	analyses, _, usage, err := services.ExtractThesesAndArguments(client, processedText)
+	analyses, usage, err := services.ExtractThesesAndArguments(client, processedText)
 	if err != nil {
 		log.Printf("Failed to extract theses: %v", err)
 		http.Error(w, "Failed to analyze text", http.StatusInternalServerError)
 		return
 	}
 
-	// Enqueue the summarization job (facts disabled)
-	summarizationID, err := h.runSummarizationJobViaQueue(userID, analyses, nil, usage, nil, jobID)
+	// Enqueue the summarization job
+	summarizationID, err := h.runSummarizationJobViaQueue(userID, analyses, usage, nil, jobID)
 	if err != nil {
 		log.Printf("err %v", err)
 		http.Error(w, "Failed to create summarization job", http.StatusInternalServerError)
@@ -267,9 +267,9 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 		client := services.NewDefaultClient(h.DB, userID, isTesting)
 		client.RequestType = "analysis"
 		processedText := prepareTextForAnalysis(card.Title, card.Body)
-		analyses, _, usage, err := services.ExtractThesesAndArguments(client, processedText)
+		analyses, usage, err := services.ExtractThesesAndArguments(client, processedText)
 		if err != nil {
-			log.Printf("Fact extraction failed: %v", err)
+			log.Printf("Thesis extraction failed: %v", err)
 			return
 		}
 
@@ -278,30 +278,17 @@ func (h *Handler) ProcessEntitiesAndFacts(userID int, card models.Card) {
 			log.Printf("Failed to save analysis: %v", err)
 		}
 
-		// Enqueue the summarization job (facts disabled)
-		_, err = h.runSummarizationJobViaQueue(userID, analyses, nil, usage, &card.ID, jobID)
+		// Enqueue the summarization job
+		_, err = h.runSummarizationJobViaQueue(userID, analyses, usage, &card.ID, jobID)
 		if err != nil {
 			log.Printf("Failed to run summarization job: %v", err)
 			return
 		}
 
-		// Extract and save entities directly from card (independent of facts)
+		// Extract and save entities directly from card
 		if err := h.ExtractSaveCardEntities(userID, card); err != nil {
 			log.Printf("Failed to extract/save card entities: %v", err)
 		}
-
-		// Facts processing disabled
-		// log.Printf("facts %v", facts)
-		// if len(facts) > 0 {
-		// 	factObjs, err := h.ExtractSaveCardFacts(userID, card.ID, facts)
-		// 	if err != nil {
-		// 		log.Printf("Failed to save card facts: %v", err)
-		// 	} else {
-		// 		if err := h.ExtractSaveFactEntities(userID, card, factObjs); err != nil {
-		// 			log.Printf("Failed to extract/save fact entities: %v", err)
-		// 		}
-		// 	}
-		// }
 	}()
 }
 
@@ -519,7 +506,7 @@ func (h *Handler) GetCardAnalysisRoute(w http.ResponseWriter, r *http.Request) {
 
 // runSummarizationJobViaQueue enqueues a summarization job to the LLM job queue.
 // This replaces the old goroutine-based approach with proper job queue integration.
-func (h *Handler) runSummarizationJobViaQueue(userID int, analyses []models.SectionAnalysis, facts []string, usage models.Usage, cardPK *int, summarizationID int) (int, error) {
+func (h *Handler) runSummarizationJobViaQueue(userID int, analyses []models.SectionAnalysis, usage models.Usage, cardPK *int, summarizationID int) (int, error) {
 	// Convert analyses to JSON-serializable format for payload
 	analysesPayload := make([]map[string]interface{}, len(analyses))
 	for i, a := range analyses {
@@ -547,7 +534,6 @@ func (h *Handler) runSummarizationJobViaQueue(userID int, analyses []models.Sect
 		"summarization_id": summarizationID,
 		"card_pk":          cardPK,
 		"analyses":         analysesPayload,
-		// "facts":            facts, // Facts disabled
 		"usage": map[string]interface{}{
 			"prompt_tokens":     usage.PromptTokens,
 			"completion_tokens": usage.CompletionTokens,

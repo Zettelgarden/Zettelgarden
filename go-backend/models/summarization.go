@@ -29,7 +29,6 @@ type SectionAnalysis struct {
 
 type ThesisEntry struct {
 	Thesis    string     `json:"thesis"`
-	Facts     []string   `json:"facts"`
 	Arguments []Argument `json:"arguments"`
 }
 
