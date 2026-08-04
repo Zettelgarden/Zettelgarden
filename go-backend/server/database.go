@@ -114,11 +114,110 @@ func RunMigrations(S *Server) {
 			log.Fatal(err)
 		}
 	}
+
+	// SQLite has no incremental-migration story: the runner above only applies
+	// the consolidated schema/sqlite/schema.sqlite.sql (for fresh builds) and
+	// never scans the numbered Postgres migrations in ./schema (which use
+	// non-portable syntax anyway). Self-heal known column/index gaps here so an
+	// existing pre-cutover SQLite DB converges on the consolidated schema on
+	// the next start — this is what was missing when OIDC went live
+	// (2026-08-04: "no such column: oidc_provider").
+	if S.Driver == "sqlite" {
+		if err := ensureSQLiteSchemaUpgrades(S.DB); err != nil {
+			log.Fatalf("sqlite schema upgrade failed: %v", err)
+		}
+	}
+}
+
+// sqliteColumnExists reports whether `column` exists on `table` via
+// PRAGMA table_info. SQLite has no ALTER TABLE ... ADD COLUMN IF NOT EXISTS,
+// so this guard is the idempotent equivalent needed for schema self-heal.
+func sqliteColumnExists(db *sql.DB, table, column string) (bool, error) {
+	rows, err := db.Query(fmt.Sprintf("PRAGMA table_info(%q)", table))
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid, notnull, pk int
+		var name, ctype string
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, rows.Close()
+		}
+	}
+	return false, rows.Err()
+}
+
+// sqliteTableExists reports whether `table` exists. Upgrades only target
+// existing tables: if a table is absent it will be created fresh (with all
+// current columns) by the consolidated schema, so there is nothing to
+// back-fill. This also keeps the self-heal safe on partial/test schemas that
+// never create the table.
+func sqliteTableExists(db *sql.DB, table string) (bool, error) {
+	var n int
+	err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name = $1`, table).Scan(&n)
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
+// ensureSQLiteSchemaUpgrades applies idempotent, SQLite-only repairs for
+// schema elements that the consolidated schema carries on fresh builds but
+// that an existing (pre-cutover) SQLite database lacks. Each column addition
+// is guarded (SQLite ADD COLUMN has no IF NOT EXISTS); indexes use IF NOT
+// EXISTS directly. Add future gaps here as a list entry — this is the SQLite
+// analogue of the numbered Postgres migrations and runs on every start, so
+// it must be cheap and idempotent.
+func ensureSQLiteSchemaUpgrades(db *sql.DB) error {
+	upgrades := []struct {
+		table, column, decl string
+	}{
+		{"users", "oidc_provider", "TEXT"},
+		{"users", "oidc_sub", "TEXT"},
+	}
+	for _, u := range upgrades {
+		// Skip tables that don't exist yet (a fresh create carries the
+		// columns; back-fill is only for pre-existing tables).
+		exists, err := sqliteTableExists(db, u.table)
+		if err != nil {
+			return fmt.Errorf("check table %s: %w", u.table, err)
+		}
+		if !exists {
+			continue
+		}
+		colExists, err := sqliteColumnExists(db, u.table, u.column)
+		if err != nil {
+			return fmt.Errorf("check %s.%s: %w", u.table, u.column, err)
+		}
+		if colExists {
+			continue
+		}
+		if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", u.table, u.column, u.decl)); err != nil {
+			return fmt.Errorf("add %s.%s: %w", u.table, u.column, err)
+		}
+		log.Printf("sqlite schema upgrade: added column %s.%s", u.table, u.column)
+	}
+	// Partial unique index for stable (provider, sub) OIDC re-auth. Only build
+	// it when the users table exists; idempotent otherwise via IF NOT EXISTS.
+	if hasUsers, err := sqliteTableExists(db, "users"); err != nil {
+		return fmt.Errorf("check users table: %w", err)
+	} else if hasUsers {
+		if _, err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oidc_sub
+			ON users (oidc_provider, oidc_sub) WHERE oidc_sub IS NOT NULL`); err != nil {
+			return fmt.Errorf("create idx_users_oidc_sub: %w", err)
+		}
+	}
+	return nil
 }
 
 // execScript executes a multi-statement SQL script within tx. lib/pq parses
-// multiple statements in a single Exec; modernc.org/sqlite does not, so for the
-// sqlite driver the script is split into individual statements first (via
+// multiple statements in a single Exec; modernc.org/sqlite does not, so for
+// the sqlite driver the script is split into individual statements first (via
 // SplitSQL) before execution.
 func execScript(tx *sql.Tx, driver, script string) error {
 	if driver == "sqlite" {

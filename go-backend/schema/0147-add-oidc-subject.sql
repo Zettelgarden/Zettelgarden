@@ -16,9 +16,11 @@
 --   * Postgres path: this migration runs in place via the numbered-migration
 --     runner in server/database.go.
 --   * SQLite path: the consolidated schema/sqlite/schema.sqlite.sql carries
---     these same columns + index for fresh builds. If the live DB is already
---     SQLite (post Phase 7a cutover of Zettelgarden-c7j) and is NOT rebuilt
---     from the consolidated schema, apply these ALTERs manually once.
+--     these same columns + index for fresh builds. The numbered-migration
+--     runner does NOT scan this file on SQLite (and the IF NOT EXISTS /
+--     COMMENT syntax below is Postgres-only), so for an EXISTING SQLite DB the
+--     columns are back-filled idempotently by ensureSQLiteSchemaUpgrades()
+--     in server/database.go (runs on every boot). No manual ALTER is needed.
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS oidc_provider TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS oidc_sub      TEXT;
