@@ -12,7 +12,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
-	github.com/lib/pq v1.10.9
 	github.com/mmcdole/gofeed v1.3.0
 	github.com/neurosnap/sentences v1.1.2
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646

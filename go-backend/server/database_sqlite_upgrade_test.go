@@ -2,6 +2,8 @@ package server
 
 import (
 	"database/sql"
+	"fmt"
+	"sort"
 	"testing"
 )
 
@@ -150,4 +152,139 @@ func TestEnsureSQLiteSchemaUpgrades_IndexIsEnforced(t *testing.T) {
 			t.Fatalf("insert non-oidc user %s: %v", email, err)
 		}
 	}
+}
+
+// usersBaselineColumns is the FROZEN set of users-table columns as of the
+// moment the SQLite self-heal mechanism was introduced (pre-OIDC, 2026-08-04).
+// Existing production SQLite DBs that predate the self-heal have exactly these
+// columns and no others. NEVER add new columns here — new columns go into
+// sqliteSelfHealUpgrades, and TestSelfHealListMatchesSchemaDelta enforces the
+// invariant (consolidated_schema - baseline) == self_heal_managed_set.
+var usersBaselineColumns = []string{
+	"id", "username", "email", "password", "created_at", "updated_at",
+	"is_admin", "email_validated", "stripe_customer_id", "stripe_subscription_id",
+	"stripe_subscription_status", "stripe_subscription_frequency", "stripe_current_plan",
+	"last_login", "can_upload_files", "max_file_storage", "dashboard_card_pk",
+	"last_seen", "memory_has_changed", "auth_provider", "github_id",
+	"has_seen_getting_started", "stripe_cancel_at_period_end", "timezone",
+	"last_memory_job_id", "caldav_url", "caldav_token", "is_agent",
+	"owner_user_id", "api_key_hash",
+}
+
+// TestSelfHealListMatchesSchemaDelta is the SQLite schema-sync guard.
+//
+// It enforces the single-source-of-truth invariant for the users table: every
+// column the consolidated schema (schema.sqlite.sql) carries BEYOND the frozen
+// pre-self-heal baseline MUST have a matching entry in sqliteSelfHealUpgrades
+// — and vice versa. This is the exact gap that caused the 2026-08-04 OIDC prod
+// outage: oidc_provider/oidc_sub were added to the consolidated schema for
+// fresh builds but not to the self-heal, so existing DBs never received them
+// ("no such column: oidc_provider").
+//
+// If this test fails, either:
+//   - you added a column to schema.sqlite.sql's users table without adding it
+//     to sqliteSelfHealUpgrades (existing DBs will break on the next deploy) —
+//     add the self-heal entry; or
+//   - you added a self-heal entry without the matching consolidated-schema
+//     column — add it to schema.sqlite.sql.
+func TestSelfHealListMatchesSchemaDelta(t *testing.T) {
+	consolidated := toSet(tableColumnNames(t, freshConsolidatedDB(t), "users"))
+	baseline := toSet(usersBaselineColumns)
+
+	var managed []string
+	for _, u := range sqliteSelfHealUpgrades {
+		if u.table == "users" {
+			managed = append(managed, u.column)
+		}
+	}
+	selfHealed := toSet(managed)
+
+	// delta = columns a fresh build carries that a pre-self-heal existing DB lacks.
+	delta := subtract(consolidated, baseline)
+
+	if !equal(delta, selfHealed) {
+		t.Fatalf("SQLite schema/self-heal DRIFT for users table.\n"+
+			"  In consolidated schema but missing from self-heal "+
+			"(add an entry to sqliteSelfHealUpgrades or existing DBs will break): %v\n"+
+			"  In self-heal but missing from consolidated schema "+
+			"(add the column to schema.sqlite.sql): %v",
+			toSortedSlice(subtract(delta, selfHealed)),
+			toSortedSlice(subtract(selfHealed, delta)))
+	}
+}
+
+// freshConsolidatedDB builds an in-memory SQLite DB from the real production
+// consolidated schema (schema/sqlite/schema.sqlite.sql) via RunMigrations, so
+// the drift test reasons about the actual fresh-build schema rather than a
+// hand-maintained copy. (RunMigrations also invokes the self-heal, but it is
+// a no-op on a fresh build because the columns already exist.)
+func freshConsolidatedDB(t *testing.T) *sql.DB {
+	t.Helper()
+	db := openMemSQLite(t)
+	S := &Server{DB: db, Driver: "sqlite", SchemaDir: findSchemaSqliteDir(t)}
+	RunMigrations(S)
+	return db
+}
+
+// tableColumnNames returns the column names of `table` via PRAGMA table_info.
+func tableColumnNames(t *testing.T, db *sql.DB, table string) []string {
+	t.Helper()
+	rows, err := db.Query(fmt.Sprintf("PRAGMA table_info(%q)", table))
+	if err != nil {
+		t.Fatalf("pragma table_info(%s): %v", table, err)
+	}
+	defer rows.Close()
+	var cols []string
+	for rows.Next() {
+		var cid, notnull, pk int
+		var name, ctype string
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			t.Fatalf("scan table_info(%s): %v", table, err)
+		}
+		cols = append(cols, name)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows err table_info(%s): %v", table, err)
+	}
+	return cols
+}
+
+func toSet(xs []string) map[string]struct{} {
+	m := make(map[string]struct{}, len(xs))
+	for _, x := range xs {
+		m[x] = struct{}{}
+	}
+	return m
+}
+
+func subtract(a, b map[string]struct{}) map[string]struct{} {
+	r := make(map[string]struct{}, len(a))
+	for k := range a {
+		if _, ok := b[k]; !ok {
+			r[k] = struct{}{}
+		}
+	}
+	return r
+}
+
+func equal(a, b map[string]struct{}) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k := range a {
+		if _, ok := b[k]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func toSortedSlice(m map[string]struct{}) []string {
+	s := make([]string, 0, len(m))
+	for k := range m {
+		s = append(s, k)
+	}
+	sort.Strings(s)
+	return s
 }

@@ -14,9 +14,10 @@ import "strings"
 //
 // Not handled: Postgres dollar-quoted function bodies ($$ ... $$). The
 // consolidated SQLite schema contains none (trigger logic is ported to Go in
-// Phase 5); the old PG schema/*.sql files keep running through lib/pq, which
-// parses multi-statement strings itself, during the cutover window. If the
-// SQLite schema ever needs $$ support, add a dollar-tag state here.
+// Phase 5); the Postgres driver would parse multi-statement strings itself,
+// but Postgres was retired after the cutover and the runner now only loads the
+// SQLite schema. If the SQLite schema ever needs $$ support, add a dollar-tag
+// state here.
 func SplitSQL(script string) []string {
 	var (
 		stmts []string

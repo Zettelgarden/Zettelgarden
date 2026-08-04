@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/lib/pq"
 )
 
 // Valid field types for schema definitions
@@ -152,19 +151,15 @@ func validateUpdateSchemaParams(params models.UpdateSchemaDefinitionParams) erro
 	return validateSchemaParams(params.Name, params.Fields)
 }
 
-// isDuplicateKeyError checks if an error is a duplicate key/unique constraint violation
+// isDuplicateKeyError checks if an error is a duplicate key/unique constraint
+// violation. The Postgres->SQLite cutover is complete, so all errors now come
+// from modernc.org/sqlite, which reports these as "UNIQUE constraint failed:
+// ...". The string match is case-insensitive and also catches the historical
+// lib/pq "duplicate key" wording used during the cutover window.
 func isDuplicateKeyError(err error) bool {
 	if err == nil {
 		return false
 	}
-	// Check for PostgreSQL unique constraint violation (error code 23505)
-	var pqErr *pq.Error
-	if errors.As(err, &pqErr) {
-		return pqErr.Code == "23505"
-	}
-	// Also check error message as fallback (case-insensitive so it matches
-	// both lib/pq's "duplicate key" and modernc.org/sqlite's
-	// "UNIQUE constraint failed: ...").
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "duplicate key") ||
 		strings.Contains(msg, "unique constraint") ||

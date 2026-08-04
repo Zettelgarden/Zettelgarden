@@ -16,7 +16,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	_ "github.com/lib/pq"
 )
 
 func uploadTestFile(s *Handler) {

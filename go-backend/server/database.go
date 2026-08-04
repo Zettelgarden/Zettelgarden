@@ -3,36 +3,11 @@ package server
 import (
 	"database/sql"
 	"fmt"
-	"go-backend/models"
 	"io/ioutil"
 	"log"
 	"sort"
 	"strings"
-	"time"
-
-	_ "github.com/lib/pq"
 )
-
-func ConnectToDatabase(dbConfig models.DatabaseConfig) (*sql.DB, error) {
-	psqlInfo := fmt.Sprintf("host=%v port=%v user=%v "+
-		"password=%v dbname=%v sslmode=disable",
-		dbConfig.Host, dbConfig.Port, dbConfig.User, dbConfig.Password, dbConfig.DatabaseName)
-
-	db, err := sql.Open("postgres", psqlInfo)
-	if err != nil {
-		log.Fatalf("Unable to connect to the database: %v\n", err)
-	}
-	if err := db.Ping(); err != nil {
-		log.Fatal(err)
-	}
-
-	// Configure connection pool for better performance
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
-
-	return db, err
-}
 
 func RunMigrations(S *Server) {
 	// SQLite has no pre-existing migrations table to track what's applied.
@@ -166,21 +141,32 @@ func sqliteTableExists(db *sql.DB, table string) (bool, error) {
 	return n > 0, nil
 }
 
+// sqliteSelfHealUpgrades lists the columns back-filled to existing SQLite DBs
+// on every boot, grouped by table. It is the SQLite analogue of the (now
+// archived) numbered Postgres migrations for pre-existing databases — fresh
+// builds already get these columns from the consolidated schema.sqlite.sql.
+//
+// It is a package-level value (not a function-local) deliberately: the
+// schema-sync drift test TestSelfHealListMatchesSchemaDelta reads this SAME
+// definition and asserts it stays complete against the consolidated schema.
+// That test guards the exact gap that caused the 2026-08-04 OIDC prod outage
+// (the oidc columns were added to the consolidated schema for fresh builds
+// but never to the self-heal, so existing DBs never received them).
+var sqliteSelfHealUpgrades = []struct {
+	table, column, decl string
+}{
+	{"users", "oidc_provider", "TEXT"},
+	{"users", "oidc_sub", "TEXT"},
+}
+
 // ensureSQLiteSchemaUpgrades applies idempotent, SQLite-only repairs for
 // schema elements that the consolidated schema carries on fresh builds but
 // that an existing (pre-cutover) SQLite database lacks. Each column addition
 // is guarded (SQLite ADD COLUMN has no IF NOT EXISTS); indexes use IF NOT
-// EXISTS directly. Add future gaps here as a list entry — this is the SQLite
-// analogue of the numbered Postgres migrations and runs on every start, so
-// it must be cheap and idempotent.
+// EXISTS directly. Add future gaps as an entry in sqliteSelfHealUpgrades —
+// this runs on every start, so it must be cheap and idempotent.
 func ensureSQLiteSchemaUpgrades(db *sql.DB) error {
-	upgrades := []struct {
-		table, column, decl string
-	}{
-		{"users", "oidc_provider", "TEXT"},
-		{"users", "oidc_sub", "TEXT"},
-	}
-	for _, u := range upgrades {
+	for _, u := range sqliteSelfHealUpgrades {
 		// Skip tables that don't exist yet (a fresh create carries the
 		// columns; back-fill is only for pre-existing tables).
 		exists, err := sqliteTableExists(db, u.table)
@@ -215,10 +201,12 @@ func ensureSQLiteSchemaUpgrades(db *sql.DB) error {
 	return nil
 }
 
-// execScript executes a multi-statement SQL script within tx. lib/pq parses
-// multiple statements in a single Exec; modernc.org/sqlite does not, so for
-// the sqlite driver the script is split into individual statements first (via
-// SplitSQL) before execution.
+// execScript executes a multi-statement SQL script within tx. modernc.org/sqlite
+// executes only one statement per Exec, so the script is split into individual
+// statements first (via SplitSQL) before execution. (The Postgres driver used
+// to parse multi-statement strings itself, but Postgres was retired after the
+// cutover; the `driver` arg is now always "sqlite" and retained only so the
+// test harness can call this helper directly.)
 func execScript(tx *sql.Tx, driver, script string) error {
 	if driver == "sqlite" {
 		for _, stmt := range SplitSQL(script) {

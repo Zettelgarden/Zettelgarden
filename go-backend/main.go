@@ -95,7 +95,7 @@ func run() error {
 	defer cleanupLogging()
 
 	// Initialize shared server using bootstrap package
-	log.Printf("Initializing database connection (host=%s, port=%s, db=%s)", cfg.Database.Host, cfg.Database.Port, cfg.Database.DatabaseName)
+	log.Printf("Initializing SQLite database (path=%s)", cfg.Database.SQLitePath)
 	if s = bootstrap.InitServer(cfg.Database); s == nil {
 		log.Fatalf("Failed to initialize server")
 	}

@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `go-backend/`: Go API with `handlers/`, `services/`, and SQL `migrations/`; environment config comes from the root `.env` and expects SQLite (file), Typesense, and AI provider keys. The default database is SQLite (`DB_DRIVER=sqlite`, `SQLITE_PATH=./data/zettelgarden.db`); Postgres remains supported as a legacy path.
+- `go-backend/`: Go API with `handlers/`, `services/`, and SQL `migrations/`; environment config comes from the root `.env` and expects SQLite (file), Typesense, and AI provider keys. The database is SQLite only (`SQLITE_PATH=./data/zettelgarden.db`); Postgres was retired after the cutover (epic Zettelgarden-c7j, Phase 7b) and the numbered Postgres migrations live under `go-backend/schema/archive/postgres/`.
 - `zettelkasten-front/`: React 18 + TypeScript client; core UI lives in `src/components/`, state in `src/contexts/`, and shared helpers in `src/utils/` with colocated `*.test.ts(x)` specs.
 - `python-mail/`: Minimal Flask mailer for transactional email; keep requirements in sync with `requirements.txt`.
 - Supporting assets include `docs/` for design notes, `tickets/` for planning, and Docker manifests (`docker-compose.yml`, `docker-zettel-run.yml`, `build.sh`) for local orchestration.

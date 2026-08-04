@@ -3,8 +3,6 @@ package models
 import (
 	"database/sql"
 	"strconv"
-
-	"github.com/lib/pq"
 	"time"
 )
 
@@ -26,7 +24,7 @@ type Notification struct {
 	ImportanceScore int            `json:"importance_score"`  // Computed score for sorting
 	IsRead          bool           `json:"is_read"`           // Whether the user has read this notification
 	IsArchived      bool           `json:"is_archived"`       // Whether the user has archived this notification
-	FilterTags      pq.StringArray `json:"filter_tags"`       // Tags for filtering (e.g., ["unprocessed", "starred", "priority"])
+	FilterTags      StringArray     `json:"filter_tags"`       // Tags for filtering (e.g., ["unprocessed", "starred", "priority"])
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 }
@@ -79,8 +77,8 @@ func CalculateImportanceScore(sourceType string, isStarred, isPriorityFeed bool)
 }
 
 // GetFilterTagsForRSS generates filter tags for RSS article notifications
-func GetFilterTagsForRSS(isStarred, isPriorityFeed bool, folder string, feedName string) pq.StringArray {
-	tags := pq.StringArray{"rss"}
+func GetFilterTagsForRSS(isStarred, isPriorityFeed bool, folder string, feedName string) StringArray {
+	tags := StringArray{"rss"}
 
 	if isStarred {
 		tags = append(tags, "starred")
@@ -102,8 +100,8 @@ func GetFilterTagsForRSS(isStarred, isPriorityFeed bool, folder string, feedName
 }
 
 // GetFilterTagsForTask generates filter tags for task notifications
-func GetFilterTagsForTask(isPriority bool, tags string) pq.StringArray {
-	filterTags := pq.StringArray{"task"}
+func GetFilterTagsForTask(isPriority bool, tags string) StringArray {
+	filterTags := StringArray{"task"}
 
 	if isPriority {
 		filterTags = append(filterTags, "priority")
@@ -121,7 +119,7 @@ func GetFilterTagsForTask(isPriority bool, tags string) pq.StringArray {
 }
 
 // CreateNotification creates or updates a notification in the unified inbox
-func CreateNotification(db Database, userID int, sourceType string, sourceID int, title string, preview *string, timestamp time.Time, importanceScore int, filterTags pq.StringArray) (*Notification, error) {
+func CreateNotification(db Database, userID int, sourceType string, sourceID int, title string, preview *string, timestamp time.Time, importanceScore int, filterTags StringArray) (*Notification, error) {
 	query := `
 		INSERT INTO notifications (user_id, source_type, source_id, title, preview, timestamp, importance_score, filter_tags)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)

@@ -8,10 +8,10 @@ import (
 // InList returns a parenthesized, comma-separated list of n numbered SQL
 // placeholders beginning at startIdx, e.g. InList(3, 2) returns "($3,$4)".
 //
-// It translates Postgres "col = ANY($k)" array-binding queries to a form that
-// also runs on SQLite (which has no array type and no = ANY operator). Both
-// lib/pq and modernc.org/sqlite bind $N positionally, so the same query text
-// runs on either driver -- no driver gating required.
+// It translates the historical Postgres "col = ANY($k)" array-binding queries
+// to a form that runs on SQLite (which has no array type and no = ANY operator).
+// modernc.org/sqlite binds $N positionally, so the expanded IN (...) query runs
+// unchanged. (Driver gating is moot now that Postgres is retired.)
 //
 // Convention: assign fixed scalar args the LOW placeholder numbers ($1, $2, …)
 // and the expanding slice the numbers AFTER them, so growing the slice never

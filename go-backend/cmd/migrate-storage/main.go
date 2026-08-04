@@ -24,13 +24,14 @@
 // Usage:
 //
 //	migrate-storage [--bucket NAME] [--endpoint URL] [--region R]
-//	                [--storage-dir DIR] [--db-driver sqlite|postgres]
+//	                [--storage-dir DIR] [--db-driver sqlite]
 //	                [--sqlite-path PATH] [--limit N] [--dry-run]
 //	                [--timeout DURATION] [--no-thumbnails]
 //
 // Source B2 credentials come from B2_ACCESS_KEY_ID / B2_SECRET_ACCESS_KEY (the
-// same env the app used pre-migration). DB_DRIVER/SQLITE_PATH/DB_* select the
-// metadata database; STORAGE_DIR (default ./data/files) is the destination.
+// same env the app used pre-migration). SQLITE_PATH selects the metadata
+// database (SQLite only, since the Postgres retirement); STORAGE_DIR (default
+// ./data/files) is the destination.
 package main
 
 import (
@@ -44,8 +45,6 @@ import (
 	"net/http"
 	"os"
 	"time"
-
-	_ "github.com/lib/pq"
 
 	"go-backend/server"
 	"go-backend/services/storage"
@@ -103,7 +102,7 @@ func main() {
 	storageDir := flag.String("storage-dir", envOr("STORAGE_DIR", "./data/files"),
 		"destination local storage root (default: $STORAGE_DIR or ./data/files)")
 	dbDriver := flag.String("db-driver", envOr("DB_DRIVER", "sqlite"),
-		"metadata DB driver: sqlite (default) or postgres")
+		"metadata DB driver (sqlite only; the postgres option was removed with the Postgres retirement)")
 	sqlitePath := flag.String("sqlite-path", envOr("SQLITE_PATH", "./data/zettelgarden.db"),
 		"SQLite DB path when --db-driver=sqlite (default: $SQLITE_PATH)")
 	limit := flag.Int("limit", 0, "process at most N files (0 = all; for debugging)")
@@ -309,26 +308,9 @@ func openDB(driver, sqlitePath string) (*sql.DB, error) {
 	switch driver {
 	case "sqlite":
 		return server.OpenSQLite(sqlitePath)
-	case "postgres":
-		dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-			envOr("DB_HOST", "localhost"),
-			envOr("DB_PORT", "5432"),
-			os.Getenv("DB_USER"),
-			os.Getenv("DB_PASS"),
-			envOr("DB_NAME", os.Getenv("DB_USER")),
-		)
-		db, err := sql.Open("postgres", dsn)
-		if err != nil {
-			return nil, err
-		}
-		if err := db.Ping(); err != nil {
-			_ = db.Close()
-			return nil, fmt.Errorf("ping (dsn hidden): %w", err)
-		}
-		db.SetMaxOpenConns(4)
-		return db, nil
 	default:
-		return nil, fmt.Errorf("unsupported db driver %q (use sqlite or postgres)", driver)
+		return nil, fmt.Errorf("unsupported db driver %q; the metadata DB is "+
+			"SQLite-only since the Postgres retirement (use sqlite)", driver)
 	}
 }
 

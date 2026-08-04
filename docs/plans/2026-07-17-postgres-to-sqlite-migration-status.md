@@ -15,8 +15,11 @@ the read path works (scheduler queried tasks), the write path works
 (`scheduled_job_runs` accumulating new rows), and HTTP is serving. Postgres on
 .93 is **untouched and kept as the read-only fallback (≥2 weeks)**; the
 `:pre-sqlite` image tag is retained on the host for instant rollback. Insurance
-`pg_dump` (116 MB) stored on the NAS. Remaining = Phase 7a repo-cleanup
-(README/AGENTS/.env.example, scripts, ResetDatabase) + Phase 7b (~2 weeks).
+`pg_dump` (116 MB) stored on the NAS. **Phase 7a (repo cleanup) and Phase
+7b (code) are COMPLETE (2026-08-04): `lib/pq` is dropped, the runtime is
+SQLite-only, and the 148 numbered PG migrations are archived under
+`schema/archive/postgres/`.** Only the standby-Postgres *decommission*
+(stopping the .93 process) remains — see the plan doc.
 
 ---
 

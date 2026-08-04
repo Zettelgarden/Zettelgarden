@@ -20,10 +20,10 @@ func findSchemaSqliteDir(t *testing.T) string {
 }
 
 // TestRunMigrationsAppliesConsolidatedSchema exercises the real production
-// boot path for DB_DRIVER=sqlite: SchemaDir points at the consolidated schema
-// directory (schema/sqlite/), and RunMigrations must load the single
-// schema.sqlite.sql file — skipping the co-located .go test files and the
-// source/ subdirectory — to produce a fully-formed, FK-clean database.
+// boot path: SchemaDir points at the consolidated schema directory
+// (schema/sqlite/), and RunMigrations must load the single schema.sqlite.sql
+// file — skipping the co-located .go test files — to produce a fully-formed,
+// FK-clean database.
 //
 // This guards two things at once: (1) the production schema dir contains only
 // loadable SQL (the hotfix that moved source/ out, plus the .go skip), and

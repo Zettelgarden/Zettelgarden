@@ -60,8 +60,8 @@ func bumpIntCounter(db models.Database, userID int, col string, delta int) {
 
 // addAmount adds a positive amount to a user_stats column (revenue_cents,
 // llm_cost_usd) via an upsert. $2 is referenced twice (seed value + delta) on
-// purpose; both numbered params bind to the same positional arg on lib/pq and
-// modernc.org/sqlite. No flooring — amounts are strictly additive.
+// purpose; modernc.org/sqlite binds both numbered params to the same positional
+// arg. No flooring — amounts are strictly additive.
 func addAmount(db models.Database, userID int, col string, amount any) {
 	q := fmt.Sprintf(`
 		INSERT INTO user_stats (user_id, %s, updated_at)

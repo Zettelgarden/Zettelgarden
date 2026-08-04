@@ -23,8 +23,8 @@ services:
       - go_backend
 
   # Backend runs on SQLite (file-based, WAL mode) — no external database
-  # service. Set DB_DRIVER=sqlite + SQLITE_PATH in zettel.env (see
-  # go-backend/.env.example). The data dir is mounted so the SQLite file
+  # service. Set SQLITE_PATH in zettel.env (see go-backend/.env.example);
+  # Postgres was retired after the cutover. The data dir is mounted so the SQLite file
   # persists across container recreation; back it up with `VACUUM INTO`
   # (see docs/runbooks/sqlite-backup.md), NOT a raw cp. The SAME mount also
   # carries uploaded files under STORAGE_DIR=/usr/src/app/data/files (set in
