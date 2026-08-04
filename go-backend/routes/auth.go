@@ -1,8 +1,8 @@
 package routes
 
 import (
-	"go-backend/handlers"
 	"github.com/gorilla/mux"
+	"go-backend/handlers"
 )
 
 func RegisterAuthRoutes(r *mux.Router, h *handlers.Handler) {
@@ -11,6 +11,10 @@ func RegisterAuthRoutes(r *mux.Router, h *handlers.Handler) {
 	addRoute(r, "/api/auth/github", h.StartGitHubOAuthRoute, "GET")
 	// OAuth callback - handles GitHub redirect back (public for auth flow)
 	addRoute(r, "/api/auth/github/callback", h.GitHubCallbackRoute, "GET")
+	// OIDC start - redirects to the configured IdP, e.g. Pocket ID (public)
+	addRoute(r, "/api/auth/oidc/start", h.StartOIDCRoute, "GET")
+	// OIDC callback - handles IdP redirect back (public for auth flow)
+	addRoute(r, "/api/auth/oidc/callback", h.CallbackOIDCRoute, "GET")
 	// User login (public for authentication)
 	addRoute(r, "/api/login", h.LoginRoute, "POST")
 	// Password reset completion (public via email link)

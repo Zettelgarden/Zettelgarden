@@ -36,6 +36,11 @@ type User struct {
 	IsAgent     bool       `json:"is_agent"`
 	OwnerUserID *int       `json:"owner_user_id,omitempty"`
 	LastUsed    *time.Time `json:"last_used,omitempty"`
+
+	// OIDC / SSO identity. Populated only by OIDC-specific queries; the
+	// standard QueryUser* scan intentionally does not read these columns.
+	OIDCProvider string `json:"oidc_provider,omitempty"`
+	OIDCSub      string `json:"oidc_sub,omitempty"`
 }
 
 type UserSubscription struct {
@@ -49,12 +54,12 @@ type UserSubscription struct {
 }
 
 type EditUserParams struct {
-	Username              string  `json:"username"`
-	Email                 string  `json:"email"`
-	IsAdmin               bool    `json:"is_admin"`
-	DashboardCardPK       int     `json:"dashboard_card_pk"`
-	HasSeenGettingStarted bool    `json:"has_seen_getting_started"`
-	Timezone              string  `json:"timezone"`
+	Username              string `json:"username"`
+	Email                 string `json:"email"`
+	IsAdmin               bool   `json:"is_admin"`
+	DashboardCardPK       int    `json:"dashboard_card_pk"`
+	HasSeenGettingStarted bool   `json:"has_seen_getting_started"`
+	Timezone              string `json:"timezone"`
 }
 
 type CreateUserParams struct {

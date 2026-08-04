@@ -16,6 +16,8 @@ import (
 // Authentication endpoints:
 // - GET /api/auth/github - OAuth start (redirects user to GitHub)
 // - GET /api/auth/github/callback - OAuth callback (GitHub redirects back)
+// - GET /api/auth/oidc/start - OIDC start (redirects user to the IdP, e.g. Pocket ID)
+// - GET /api/auth/oidc/callback - OIDC callback (IdP redirects back)
 // - POST /api/login - User login (creates JWT token)
 // - POST /api/reset-password - Password reset completion
 // - POST /api/email-validate - Email validation links

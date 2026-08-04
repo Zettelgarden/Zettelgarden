@@ -12,6 +12,7 @@ type ServiceConfig struct {
 	Stripe  StripeConfig  // Payment processing
 	Storage StorageConfig // Local on-disk file storage
 	GitHub  GitHubConfig  // OAuth service
+	OIDC    OIDCConfig    // Generic OIDC / SSO (e.g. Pocket ID) — opt-in
 	Search  SearchConfig  // Search engine
 }
 
@@ -54,6 +55,17 @@ type GitHubConfig struct {
 	RedirectURI  string // OAuth callback URL
 }
 
+// OIDCConfig holds configuration for a generic OpenID Connect provider
+// (e.g. Pocket ID). All fields are optional; OIDC is opt-in via OIDC_ENABLED.
+// When enabled, Issuer/ClientID/ClientSecret/RedirectURI become required.
+type OIDCConfig struct {
+	Enabled      bool   // If false, the OIDC routes return 404
+	Issuer       string // IdP issuer URL (used for discovery), e.g. https://pocket-id.example
+	ClientID     string // OIDC client ID registered at the IdP
+	ClientSecret string // OIDC client secret (sensitive)
+	RedirectURI  string // Our callback URL, e.g. https://app/api/auth/oidc/callback
+}
+
 // SearchConfig holds search engine configuration
 type SearchConfig struct {
 	Host       string // Typesense host URL
@@ -69,6 +81,7 @@ func loadServiceConfig() ServiceConfig {
 		Stripe:  loadStripeConfig(),
 		Storage: loadStorageConfig(),
 		GitHub:  loadGitHubConfig(),
+		OIDC:    loadOIDCConfig(),
 		Search:  loadSearchConfig(),
 	}
 }
@@ -162,6 +175,29 @@ func loadGitHubConfig() GitHubConfig {
 	validateURL("GITHUB_REDIRECT_URI", config.RedirectURI)
 
 	return config
+}
+
+// loadOIDCConfig loads optional OIDC / SSO configuration. Unlike the GitHub
+// config (which is required), OIDC is opt-in: all values are read with optional
+// getters. When OIDC_ENABLED is true, the four provider values become required
+// and are validated; otherwise they may be empty.
+func loadOIDCConfig() OIDCConfig {
+	cfg := OIDCConfig{
+		Enabled:      optionalBool("OIDC_ENABLED"),
+		Issuer:       optionalString("OIDC_ISSUER"),
+		ClientID:     optionalString("OIDC_CLIENT_ID"),
+		ClientSecret: optionalString("OIDC_CLIENT_SECRET"),
+		RedirectURI:  optionalString("OIDC_REDIRECT_URI"),
+	}
+	if cfg.Enabled {
+		requireString("OIDC_ISSUER")
+		requireString("OIDC_CLIENT_ID")
+		requireString("OIDC_CLIENT_SECRET")
+		requireString("OIDC_REDIRECT_URI")
+		validateURL("OIDC_ISSUER", cfg.Issuer)
+		validateURL("OIDC_REDIRECT_URI", cfg.RedirectURI)
+	}
+	return cfg
 }
 
 // loadSearchConfig loads search engine configuration

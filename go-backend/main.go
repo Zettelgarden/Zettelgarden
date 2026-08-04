@@ -112,6 +112,12 @@ func run() error {
 		Server: s,
 		DB:     s.DB,
 	}
+	h.OIDCConfig = cfg.Services.OIDC
+	if h.OIDCConfig.Enabled {
+		log.Printf("OIDC SSO enabled (issuer=%s)", h.OIDCConfig.Issuer)
+	} else {
+		log.Printf("OIDC SSO disabled (set OIDC_ENABLED=true to enable)")
+	}
 
 	// Initialize Stripe
 	log.Printf("Initializing Stripe payment processing")

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"go-backend/models"
+	"go-backend/pkg/config"
 	"go-backend/server"
 	"go-backend/services"
 	"log"
@@ -13,7 +14,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gorilla/mux"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -41,6 +44,15 @@ type Handler struct {
 	// JobRunner executes LLM jobs inline and records each run in the
 	// llm_jobs audit table. See services.JobRunner.
 	JobRunner *services.JobRunner
+
+	// OIDC / SSO configuration (opt-in) and a lazily-discovered, cached
+	// provider+oauth2 config. Discovery happens on first use of the OIDC
+	// routes; the cache is process-local and never invalidated, so changing
+	// OIDC_* env vars requires a restart.
+	OIDCConfig   config.OIDCConfig
+	oidcProvider *oidc.Provider
+	oidcOAuth2   *oauth2.Config
+	oidcInitMu   sync.Mutex
 }
 
 // GetDB returns the appropriate database connection for database operations.
