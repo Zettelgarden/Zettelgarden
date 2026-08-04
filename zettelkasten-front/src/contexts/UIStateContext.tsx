@@ -11,6 +11,23 @@ import { PartialCard } from "../models/Card";
 /** Which tab is active in the card view's right info rail. */
 export type RightPaneTab = "links" | "metadata" | "entities" | "files";
 
+/** Width (px) of the card view's right info rail. */
+export const RIGHT_PANE_WIDTH_KEY = "zettelgarden-right-pane-width";
+export const RIGHT_PANE_WIDTH_DEFAULT = 400;
+export const RIGHT_PANE_WIDTH_MIN = 280;
+export const RIGHT_PANE_WIDTH_MAX = 640;
+
+const getInitialRightPaneWidth = (): number => {
+  if (typeof window === "undefined") return RIGHT_PANE_WIDTH_DEFAULT;
+  const stored = localStorage.getItem(RIGHT_PANE_WIDTH_KEY);
+  const parsed = stored ? parseInt(stored, 10) : NaN;
+  if (Number.isNaN(parsed)) return RIGHT_PANE_WIDTH_DEFAULT;
+  return Math.min(
+    RIGHT_PANE_WIDTH_MAX,
+    Math.max(RIGHT_PANE_WIDTH_MIN, parsed),
+  );
+};
+
 interface UIStateContextType {
   // Sidebar state
   isSidebarCollapsed: boolean;
@@ -26,6 +43,8 @@ interface UIStateContextType {
   toggleRightPane: () => void;
   rightPaneTab: RightPaneTab;
   setRightPaneTab: (tab: RightPaneTab) => void;
+  rightPaneWidth: number;
+  setRightPaneWidth: (width: number) => void;
 
   // Partial card state
   lastCard: PartialCard | null;
@@ -75,6 +94,18 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
     getInitialRightPaneState,
   );
   const [rightPaneTab, setRightPaneTab] = useState<RightPaneTab>("links");
+  const [rightPaneWidth, setRightPaneWidthState] = useState<number>(
+    getInitialRightPaneWidth,
+  );
+
+  const setRightPaneWidth = (width: number) => {
+    const clamped = Math.min(
+      RIGHT_PANE_WIDTH_MAX,
+      Math.max(RIGHT_PANE_WIDTH_MIN, width),
+    );
+    setRightPaneWidthState(clamped);
+    localStorage.setItem(RIGHT_PANE_WIDTH_KEY, String(clamped));
+  };
 
   const setIsSidebarCollapsed = (collapsed: boolean) => {
     setIsSidebarCollapsedState(collapsed);
@@ -143,6 +174,8 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
         toggleRightPane,
         rightPaneTab,
         setRightPaneTab,
+        rightPaneWidth,
+        setRightPaneWidth,
 
         // Partial card
         lastCard,

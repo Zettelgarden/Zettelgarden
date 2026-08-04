@@ -169,7 +169,7 @@ export function ViewPageSidePanels({
   };
 
   return (
-    <div className="md:w-1/3">
+    <div className="w-full">
       {/* Tab strip + close affordance */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex flex-wrap">
