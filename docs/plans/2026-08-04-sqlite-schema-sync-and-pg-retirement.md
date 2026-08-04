@@ -1,7 +1,7 @@
 # SQLite Schema Sync + Postgres Retirement
 
 **Date:** 2026-08-04
-**Status:** Implemented (code); one ops step remains (decommission the standby Postgres)
+**Status:** Implemented in code (commit `54046de9`). ⚠️ **Not deployable to the public instance on 192.168.0.93** — that instance is still on Postgres and must be migrated first (see "Remaining work — the public instance on 192.168.0.93" below).
 **Author:** Nick + Pi
 **Tracking:** `Zettelgarden-2lk` (schema sync), epic `Zettelgarden-c7j` Phase 7b (PG retirement)
 
@@ -20,15 +20,22 @@ Two things converged in one conversation:
    mechanical link to the consolidated schema. The next schema change would
    reproduce the outage unless a human remembered to update the list.
 
-2. **Postgres is already dead in production.** The PG→SQLite cutover
-   (epic `Zettelgarden-c7j`) completed 2026-07-28. Prod (`zg-internal`,
-   server-3) runs on SQLite. Postgres on 192.168.0.93 sits untouched,
-   read-only, as a standby. Nothing reads from it. The real rollback safety is
-   the 116 MB insurance `pg_dump` on the NAS + the `:pre-sqlite` image tag, not
-   the warm process. Phase 7b (decommission PG + drop `lib/pq` + archive the
-   numbered migrations) was already scoped in the migration status doc; this
-   doc pulls it forward ~1 week past the soft 2-week gate (the highest-risk
-   boot/scan window cleared on day 1).
+2. **The *internal* instance is off Postgres; the *public* instance is not.**
+   The PG→SQLite cutover (epic `Zettelgarden-c7j`) completed 2026-07-28 for
+   `zg-internal` (server-3 / 192.168.0.20), now on SQLite. **But 192.168.0.93
+   also hosts a second, *public* instance (`zettelgarden.com`,
+   `/mnt/nas-2-fast-data/config/zettelgarden`) that is still on Postgres (and
+   still on B2 file storage)** — it was never part of the cutover. Its Postgres
+   is a *live* database, not a standby; nothing about it has been decommissioned.
+   The 116 MB `pg_dump` on the NAS is a 2026-07-28 snapshot of the *internal*
+   instance's source DB and is now stale relative to the public instance.
+
+   **Consequence:** the code changes below are correct for the repo and for
+   `zg-internal`, but the resulting binary **cannot run on .93** until the
+   public instance is migrated to SQLite. `build.sh` builds `:latest` from
+   master and deploys it straight to .93 — so running it now would push a
+   Postgres-free binary at a Postgres-backed site and break `zettelgarden.com`.
+   A guard has been added to `build.sh` to prevent this.
 
 ## The two sync problems (kept distinct)
 
@@ -40,11 +47,16 @@ Two things converged in one conversation:
 
 ## Decisions
 
-- **Retire Postgres now.** It is Phase 7b, already scoped, and a net
-  simplification. Deleting it removes the cross-engine parity surface entirely
-  and a chunk of dead code (`lib/pq`, `ConnectToDatabase`, the PG bootstrap
-  branch, the dead `cmd/migrate-pg-to-sqlite`, the stale `translate.py`
-  lineage, and 148 archived numbered migrations).
+- **Retire Postgres from the codebase now** (scope: the repo + `zg-internal`).
+  It is Phase 7b, already scoped, and a net simplification — deleting it removes
+  the cross-engine parity surface entirely and a chunk of dead code (`lib/pq`,
+  `ConnectToDatabase`, the PG bootstrap branch, the dead
+  `cmd/migrate-pg-to-sqlite`, the stale `translate.py` lineage, and 148 archived
+  numbered migrations). **Caveat:** this is *code-only*. The public instance on
+  .93 still needs Postgres until its own migration lands, so the new binary is
+  not yet deployable there. The deleted ETL (`cmd/migrate-pg-to-sqlite`) and
+  dual-driver support remain recoverable from `git` (`0a9a0599`) / the image
+  currently running on .93 — which is exactly what the public migration will use.
 - **Keep the self-heal list; add a drift test.** The full numbered-migrations
   framework (the earlier "Option 3") is overkill for a single-engine,
   single-user app with occasional schema changes. The right-sized guard is the
@@ -113,22 +125,43 @@ Two things converged in one conversation:
   `server` (drift test), `handlers` (the full 30s suite), `schema/sqlite`, and
   `cmd/migrate-storage`.
 
-## Remaining ops step (NOT done by this change — Nick's action)
+## ⚠️ Remaining work — the public instance on 192.168.0.93 (NOT done; blocks deploying this commit there)
 
-The code no longer references Postgres, but the **standby Postgres process on
-192.168.0.93 is still running**. Decommission it:
+The changes above are **code-only** and are **not deployable to 192.168.0.93**.
+That host runs the *public* instance (`zettelgarden.com`,
+`/mnt/nas-2-fast-data/config/zettelgarden`), which is **still on Postgres** (and
+still on B2 storage). Its Postgres is a live database:
 
-1. Confirm ≥1 green day on SQLite post-this-deploy (smoke: login, card
-   read/write, notifications read — the `filter_tags` path that the
-   `pq.StringArray` → `StringArray` swap touched).
-2. Take a final `pg_dump -Fc` to the NAS alongside the existing 2026-07-28
-   insurance dump (belt-and-suspenders).
-3. Stop + remove the Postgres container/service on 192.168.0.93. Retain the
-   `:pre-sqlite` image tag and the NAS dumps as the cold fallback of record.
-4. Remove any `DB_*` / `DB_HOST`/`DB_PORT`/etc. from the prod `.env`/compose
-   (no longer read; tidy only).
+- **Do not** stop Postgres on .93.
+- **Do not** run `./build.sh` — it builds `:latest` from master (now
+  Postgres-free) and deploys it straight to .93, which would take the public
+  site down. `build.sh` now has a guard that aborts unless
+  `ZG_PUBLIC_DEPLOY_CONFIRMED=1`.
 
-This is reversible for as long as the NAS dumps + `:pre-sqlite` image are kept.
+Before this commit can reach .93, the public instance needs the **same ETL +
+cutover `zg-internal` got** (tracked in its own bd issue), performed with the
+pre-retirement tooling:
+
+1. **Verify state on .93** — confirm the public instance's `DB_DRIVER` / whether
+   a `data/*.db` exists / what image runs (believed still Postgres + B2 as of
+   2026-07-29; not re-verified).
+2. **Migrate the data** — `pg_dump` the public DB → import with
+   `cmd/migrate-pg-to-sqlite` (checked out from `0a9a0599`, or built from the
+   running image) into a SQLite file. The public DB has diverged from the
+   2026-07-28 snapshot, so this must be a **fresh** dump.
+3. **Migrate file storage** B2 → local (`STORAGE_DIR=/usr/src/app/data/files`)
+   via `cmd/migrate-storage` — same as the server-3 cutover
+   (`docs/plans/2026-07-29-s3-to-local-file-storage-status.md`).
+4. **Boot + A/B verify** a pre-retirement binary against the new SQLite + local
+   store on .93 (read-path diff vs the live PG/B2), then flip the public
+   compose to SQLite.
+5. **Only then** deploy the new (Postgres-free, local-storage) `:latest` to .93
+   and retire .93's Postgres (final fresh `pg_dump -Fc` to the NAS, then
+   stop/remove the service). Retain the `:pre-sqlite` tag + NAS dumps as the
+   cold fallback of record.
+
+`zg-internal` (server-3) is unaffected and already safe — this section is about
+the public instance only.
 
 ## Follow-ups (filed / noted)
 
@@ -136,6 +169,13 @@ This is reversible for as long as the NAS dumps + `:pre-sqlite` image are kept.
   numbered-migrations framework is **deferred** unless drift recurs. The
   hand-maintained self-heal list is now CI-guarded, which is the right scope
   for a single-engine single-user app.
+- **Public-instance migration (new bd issue)** — migrate `zettelgarden.com` on
+  192.168.0.93 from Postgres+B2 to SQLite+local storage. **Prerequisite** for
+  deploying this commit to .93 and for retiring .93's Postgres. `build.sh` is
+  guarded against an accidental deploy until this lands.
+- **`Zettelgarden-gve` (closed)** — originally "decommission standby PG on .93";
+  closed because .93's Postgres is the *public* instance's live database, not a
+  standby. Subsumed by the public-instance migration issue above.
 - **Vestigial `Server.Driver` field** — now always `"sqlite"`. The
   `if S.Driver == "sqlite"` checks in `database.go`/`conftest.go` are
   always-true. A future cleanup can remove the field + collapse the checks; left

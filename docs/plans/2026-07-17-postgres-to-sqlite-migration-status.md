@@ -18,8 +18,17 @@ the read path works (scheduler queried tasks), the write path works
 `pg_dump` (116 MB) stored on the NAS. **Phase 7a (repo cleanup) and Phase
 7b (code) are COMPLETE (2026-08-04): `lib/pq` is dropped, the runtime is
 SQLite-only, and the 148 numbered PG migrations are archived under
-`schema/archive/postgres/`.** Only the standby-Postgres *decommission*
-(stopping the .93 process) remains — see the plan doc.
+`schema/archive/postgres/`.**
+
+⚠️ **Scope correction (2026-08-04):** the cutover above was for `zg-internal`
+(server-3) **only**. 192.168.0.93 also hosts the **public** instance
+(`zettelgarden.com`, `/mnt/nas-2-fast-data/config/zettelgarden`) which is
+**still on Postgres (+ B2 storage)** and was never migrated. .93's Postgres is
+that instance's **live** database, *not* a standby — do **not** stop it, and do
+**not** run `build.sh` (it deploys `:latest` from master — now Postgres-free —
+straight to .93, which would break the public site). The Phase 7b code is not
+deployable to .93 until the public instance gets its own ETL+cutover; see
+[`2026-08-04-sqlite-schema-sync-and-pg-retirement.md`](./2026-08-04-sqlite-schema-sync-and-pg-retirement.md).
 
 ---
 
