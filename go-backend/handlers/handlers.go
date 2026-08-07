@@ -57,6 +57,11 @@ type Handler struct {
 	oidcProvider *oidc.Provider
 	oidcOAuth2   *oauth2.Config
 	oidcInitMu   sync.Mutex
+
+	// oidcClientOverride, when non-nil, replaces the real discovery-based OIDC
+	// client in CallbackOIDCRoute (test seam; production handlers leave it nil).
+	// See oidc.go for the interface and the real implementation.
+	oidcClientOverride oidcClient
 }
 
 // GetDB returns the appropriate database connection for database operations.

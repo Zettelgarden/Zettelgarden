@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -66,6 +67,74 @@ func (h *Handler) getOIDCProvider(ctx context.Context) (*oidc.Provider, *oauth2.
 	h.oidcProvider = provider
 	h.oidcOAuth2 = cfg
 	return provider, cfg, nil
+}
+
+// OIDC callback failure codes. The real client returns these (wrapped) so
+// CallbackOIDCRoute can map each to the matching frontend error code.
+var (
+	errOIDCExchangeFailed = errors.New("oidc: token exchange failed")
+	errOIDCNoIDToken      = errors.New("oidc: no id_token in token response")
+	errOIDCBadIDToken     = errors.New("oidc: id_token verification failed")
+	errOIDCBadClaims      = errors.New("oidc: id_token claims parse failed")
+)
+
+// oidcVerifiedIdentity is the verified identity material CallbackOIDCRoute
+// needs from the IdP: the subject, the nonce (replay check) and parsed claims.
+type oidcVerifiedIdentity struct {
+	Subject           string
+	Nonce             string
+	Email             string
+	EmailVerified     bool
+	Name              string
+	PreferredUsername string
+}
+
+// oidcClient abstracts the network-facing steps of the OIDC callback — the
+// PKCE code exchange and id_token verification (JWKS) — behind one method so
+// CallbackOIDCRoute can be driven end-to-end in tests with a stub instead of a
+// live IdP. Nonce validation stays with the caller, which holds the state
+// cookie payload.
+type oidcClient interface {
+	ExchangeAndVerify(ctx context.Context, code, verifier string) (*oidcVerifiedIdentity, error)
+}
+
+// realOIDCClient adapts a discovered provider + oauth2 config to oidcClient.
+type realOIDCClient struct {
+	provider *oidc.Provider
+	config   *oauth2.Config
+	clientID string
+}
+
+func (c *realOIDCClient) ExchangeAndVerify(ctx context.Context, code, verifier string) (*oidcVerifiedIdentity, error) {
+	token, err := c.config.Exchange(ctx, code, oauth2.VerifierOption(verifier))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", errOIDCExchangeFailed, err)
+	}
+	rawIDToken, _ := token.Extra("id_token").(string)
+	if rawIDToken == "" {
+		return nil, errOIDCNoIDToken
+	}
+	idToken, err := c.provider.Verifier(&oidc.Config{ClientID: c.clientID}).Verify(ctx, rawIDToken)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", errOIDCBadIDToken, err)
+	}
+	var claims struct {
+		Email             string  `json:"email"`
+		EmailVerified     boolish `json:"email_verified"`
+		Name              string  `json:"name"`
+		PreferredUsername string  `json:"preferred_username"`
+	}
+	if err := idToken.Claims(&claims); err != nil {
+		return nil, fmt.Errorf("%w: %v", errOIDCBadClaims, err)
+	}
+	return &oidcVerifiedIdentity{
+		Subject:           idToken.Subject,
+		Nonce:             idToken.Nonce,
+		Email:             claims.Email,
+		EmailVerified:     bool(claims.EmailVerified),
+		Name:              claims.Name,
+		PreferredUsername: claims.PreferredUsername,
+	}, nil
 }
 
 // StartOIDCRoute begins the OIDC Authorization Code (+PKCE) flow:
@@ -154,62 +223,56 @@ func (h *Handler) CallbackOIDCRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	provider, oauth2Config, err := h.getOIDCProvider(r.Context())
-	if err != nil {
-		fail("oidc_unavailable")
-		return
+	// 3-6. Exchange the authorization code (PKCE), verify the id_token (JWKS)
+	//      and extract the identity claims — through an overridable client so
+	//      tests can stub the network-facing steps.
+	var client oidcClient
+	if h.oidcClientOverride != nil {
+		client = h.oidcClientOverride
+	} else {
+		provider, oauth2Config, err := h.getOIDCProvider(r.Context())
+		if err != nil {
+			fail("oidc_unavailable")
+			return
+		}
+		client = &realOIDCClient{
+			provider: provider,
+			config:   oauth2Config,
+			clientID: h.OIDCConfig.ClientID,
+		}
 	}
-
-	// 3. Exchange the authorization code, sending the PKCE verifier.
-	token, err := oauth2Config.Exchange(r.Context(), code, oauth2.VerifierOption(payload.Ver))
+	identity, err := client.ExchangeAndVerify(r.Context(), code, payload.Ver)
 	if err != nil {
-		log.Printf("oidc token exchange failed: %v", err)
-		fail("exchange_failed")
-		return
-	}
-
-	// 4. Verify the id_token: signature (JWKS), iss, aud, exp — done by the
-	//    provider verifier pinned to our client_id.
-	verifier := provider.Verifier(&oidc.Config{ClientID: h.OIDCConfig.ClientID})
-	rawIDToken, _ := token.Extra("id_token").(string)
-	if rawIDToken == "" {
-		fail("no_id_token")
-		return
-	}
-	idToken, err := verifier.Verify(r.Context(), rawIDToken)
-	if err != nil {
-		log.Printf("oidc id_token verification failed: %v", err)
-		fail("bad_id_token")
+		switch {
+		case errors.Is(err, errOIDCNoIDToken):
+			fail("no_id_token")
+		case errors.Is(err, errOIDCBadIDToken):
+			log.Printf("oidc id_token verification failed: %v", err)
+			fail("bad_id_token")
+		case errors.Is(err, errOIDCBadClaims):
+			log.Printf("oidc claims parse failed: %v", err)
+			fail("bad_claims")
+		default:
+			log.Printf("oidc token exchange failed: %v", err)
+			fail("exchange_failed")
+		}
 		return
 	}
 
 	// 5. Replay defense: nonce from the auth request must be in the id_token.
-	if idToken.Nonce != payload.Nonce {
+	if identity.Nonce != payload.Nonce {
 		fail("nonce_mismatch")
-		return
-	}
-
-	// 6. Extract identity claims.
-	var claims struct {
-		Email             string  `json:"email"`
-		EmailVerified     boolish `json:"email_verified"`
-		Name              string  `json:"name"`
-		PreferredUsername string  `json:"preferred_username"`
-	}
-	if err := idToken.Claims(&claims); err != nil {
-		log.Printf("oidc claims parse failed: %v", err)
-		fail("bad_claims")
 		return
 	}
 
 	// 7. Resolve or create the local user.
 	user, err := h.findOrCreateOIDCUser(
 		h.OIDCConfig.ProviderLabel,
-		idToken.Subject,
-		claims.Email,
-		bool(claims.EmailVerified),
-		claims.PreferredUsername,
-		claims.Name,
+		identity.Subject,
+		identity.Email,
+		identity.EmailVerified,
+		identity.PreferredUsername,
+		identity.Name,
 	)
 	if err != nil {
 		log.Printf("oidc user resolution failed: %v", err)
