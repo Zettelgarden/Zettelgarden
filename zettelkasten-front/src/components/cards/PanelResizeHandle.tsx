@@ -26,6 +26,16 @@ export function PanelResizeHandle({
   const startXRef = useRef(0);
   const startWidthRef = useRef(width);
 
+  // Keep the latest props in refs so the global listeners below keep stable
+  // identities across re-renders. If `onResize` (e.g. the context's
+  // `setRightPaneWidth`) is a new function identity on each render, memoizing
+  // on it would recreate the listeners every time and the unmount cleanup
+  // would tear them off mid-drag, killing the resize after the first move.
+  const onResizeRef = useRef(onResize);
+  onResizeRef.current = onResize;
+  const widthRef = useRef(width);
+  widthRef.current = width;
+
   const clamp = useCallback(
     (value: number) => Math.min(maxWidth, Math.max(minWidth, value)),
     [minWidth, maxWidth],
@@ -35,9 +45,9 @@ export function PanelResizeHandle({
     (e: MouseEvent) => {
       // Panel is on the right: dragging the handle left increases width.
       const delta = e.clientX - startXRef.current;
-      onResize(clamp(startWidthRef.current - delta));
+      onResizeRef.current(clamp(startWidthRef.current - delta));
     },
-    [clamp, onResize],
+    [clamp],
   );
 
   const handleMouseUp = useCallback(() => {
@@ -51,16 +61,18 @@ export function PanelResizeHandle({
     (e: React.MouseEvent) => {
       e.preventDefault();
       startXRef.current = e.clientX;
-      startWidthRef.current = width;
+      startWidthRef.current = widthRef.current;
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
     },
-    [width, handleMouseMove, handleMouseUp],
+    [handleMouseMove, handleMouseUp],
   );
 
   // Ensure global listeners are removed if the component unmounts mid-drag.
+  // handleMouseMove/handleMouseUp are stable, so this cleanup only runs on
+  // unmount and never tears the listeners off during an active drag.
   useEffect(() => {
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
