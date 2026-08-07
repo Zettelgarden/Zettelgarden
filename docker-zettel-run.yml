@@ -1,3 +1,12 @@
+# Zettelgarden — production-ish variant fronted by nginx (TLS via
+# letsencrypt).
+#
+# REQUIRED: a `zettel.env` file — it is NOT committed (see .gitignore). Create
+# it from the committed example, which documents every variable the stack
+# reads:
+#
+#     cp .env.example zettel.env
+#
 version: '3'
 
 services:
@@ -23,7 +32,7 @@ services:
       - go_backend
 
   # Backend runs on SQLite (file-based, WAL mode) — no external database
-  # service. Set SQLITE_PATH in zettel.env (see go-backend/.env.example);
+  # service. Set SQLITE_PATH in zettel.env (see the root .env.example);
   # Postgres was retired after the cutover. The data dir is mounted so the SQLite file
   # persists across container recreation; back it up with `VACUUM INTO`
   # (see docs/runbooks/sqlite-backup.md), NOT a raw cp. The SAME mount also

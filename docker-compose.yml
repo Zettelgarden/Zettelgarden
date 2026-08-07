@@ -1,3 +1,15 @@
+# Zettelgarden — local dev / self-host compose file.
+#
+# REQUIRED: a root `.env` file. It is not committed (see .gitignore, which
+# ignores .env but keeps .env.example); create it from the committed example
+# before running anything:
+#
+#     cp .env.example .env
+#     docker compose up --build
+#
+# Every variable the stack reads is documented in .env.example. go-backend and
+# mail-service load it via `env_file: .env`; the frontend build picks up the
+# VITE_* values as build args (build-time only — see the args block below).
 version: "3"
 
 services:
@@ -46,3 +58,27 @@ services:
       - "8081:8081"
     env_file:
       - .env
+    # The python-mail container REQUIRES the ZETTEL_MAIL_* vars (server, port,
+    # username, password, default sender) and exits at startup if any is
+    # missing. If you run without email, comment out this whole service block
+    # instead of leaving it crashing (see the Mail section of .env.example).
+
+  # --- Optional: Typesense full-text/vector search (OFF by default) ---------
+  # Search degrades gracefully to SQL full-text when this service is absent.
+  # To enable: uncomment this block, uncomment the TYPESENSE_* vars in .env
+  # (TYPESENSE_HOST=http://typesense:8108, TYPESENSE_PASSWORD=<your key>,
+  # TYPESENSE_COLLECTION=zettelgarden), then run
+  # `docker compose up -d typesense` and recreate the backend.
+  # typesense:
+  #   image: typesense/typesense:27.1
+  #   ports:
+  #     - "8108:8108"
+  #   environment:
+  #     - TYPESENSE_API_KEY=${TYPESENSE_PASSWORD}
+  #     - TYPESENSE_DATA_DIR=/data
+  #   volumes:
+  #     - typesense-data:/data
+  #   restart: unless-stopped
+
+# volumes:
+#   typesense-data:

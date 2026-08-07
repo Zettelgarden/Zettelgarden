@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -669,16 +670,30 @@ func (s *Handler) CreateUser(params models.CreateUserParams) (int, error) {
 		return -1, fmt.Errorf("Email already exists")
 	}
 
+	// First-user bootstrap: the first account on a fresh install becomes the
+	// admin (self-hosted setups have no other way to mint one). A subsequent
+	// registration with users already present stays a normal user, unless the
+	// operator's deterministic path applies: an email matching
+	// ZETTEL_ADMIN_EMAIL (case-insensitive) also grants admin.
+	var userCount int
+	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM users`).Scan(&userCount); err != nil {
+		return -1, fmt.Errorf("failed to count users: %w", err)
+	}
+	isAdmin := userCount == 0
+	if adminEmail := os.Getenv("ZETTEL_ADMIN_EMAIL"); adminEmail != "" && strings.EqualFold(params.Email, adminEmail) {
+		isAdmin = true
+	}
+
 	var newID int
 	query := `
 	INSERT INTO users (username, email, password, created_at, updated_at,
 	stripe_customer_id, stripe_subscription_id, stripe_subscription_status, 
-	stripe_subscription_frequency, stripe_current_plan, dashboard_card_pk
+	stripe_subscription_frequency, stripe_current_plan, dashboard_card_pk, is_admin
 	)
-	VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '', '', 'free', '', '', 0) RETURNING id
+	VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '', '', 'free', '', '', 0, $4) RETURNING id
 	`
 
-	err = s.GetDB().QueryRow(query, params.Username, params.Email, hashedPassword).Scan(&newID)
+	err = s.GetDB().QueryRow(query, params.Username, params.Email, hashedPassword, isAdmin).Scan(&newID)
 	if err != nil {
 		// A concurrent signup can still beat the existence check above; the
 		// unique email index (one email = one account) turns that race into a
@@ -735,6 +750,11 @@ func (s *Handler) sendEmailValidation(user models.User) error {
 
 func (s *Handler) UserHasSubscription(userID int) bool {
 	if s.Server.Testing {
+		return true
+	}
+	// Self-hosted mode (STRIPE_ENABLED=false): billing is off, so pro features
+	// are unlocked for everyone regardless of Stripe status.
+	if !s.StripeConfig.Enabled {
 		return true
 	}
 	return services.UserHasSubscription(s.GetDB(), userID)

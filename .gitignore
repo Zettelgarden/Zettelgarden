@@ -6,8 +6,11 @@
 # Build directory (React frontend)
 /frontend/build/
 
-# Environment files
+# Environment files (real secrets stay ignored; the committed example is kept)
 .env*
+!.env.example
+# docker-zettel-run.yml reads zettel.env (not covered by .env*)
+zettel.env
 
 # Python virtual environment (Flask backend)
 /backend/.venv/

@@ -3,11 +3,13 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"go-backend/models"
 	"go-backend/tests"
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -735,5 +737,159 @@ func TestGetCurrentUserIncludesTimezone(t *testing.T) {
 	}
 	if user.Timezone != "UTC" {
 		t.Errorf("user timezone should default to UTC, got %v", user.Timezone)
+	}
+}
+
+// TestUserHasSubscriptionHonorsBillingSwitch verifies the Handler wrapper:
+// when billing is disabled (STRIPE_ENABLED=false) pro features are unlocked
+// for everyone; when billing is enabled the raw Stripe status decides.
+func TestUserHasSubscriptionHonorsBillingSwitch(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// The Testing flag short-circuits UserHasSubscription to true; flip it so
+	// the real billing path runs. GetDB() then reads the pool (h.DB), so seed
+	// users there too (and clean them up via t.Cleanup since pool writes
+	// persist beyond the per-test transaction).
+	origTesting := s.Server.Testing
+	s.Server.Testing = false
+	defer func() { s.Server.Testing = origTesting }()
+
+	pool := s.DB
+	seedSeq := 0
+	seedUser := func(status string) int {
+		seedSeq++
+		var id int
+		err := pool.QueryRow(`
+			INSERT INTO users (username, email, password, stripe_subscription_status)
+			VALUES ($1, $2, $3, $4) RETURNING id`,
+			fmt.Sprintf("sub_%s_%d", status, seedSeq),
+			fmt.Sprintf("%s-%d@subscription-test.com", status, seedSeq),
+			"x", status,
+		).Scan(&id)
+		if err != nil {
+			t.Fatalf("seed user with status %q: %v", status, err)
+		}
+		return id
+	}
+	var seeded []int
+	t.Cleanup(func() {
+		for _, id := range seeded {
+			if _, err := pool.Exec(`DELETE FROM users WHERE id = $1`, id); err != nil {
+				t.Logf("cleanup user %d: %v", id, err)
+			}
+		}
+	})
+
+	// Billing disabled: pro processing unlocked regardless of Stripe status.
+	s.StripeConfig.Enabled = false
+	id := seedUser("free")
+	seeded = append(seeded, id)
+	if !s.UserHasSubscription(id) {
+		t.Error("expected subscription when billing is disabled (status 'free')")
+	}
+
+	// Billing enabled: the raw Stripe status decides.
+	s.StripeConfig.Enabled = true
+	id = seedUser("free")
+	seeded = append(seeded, id)
+	if s.UserHasSubscription(id) {
+		t.Error("expected no subscription for status 'free' when billing is enabled")
+	}
+
+	id = seedUser("active")
+	seeded = append(seeded, id)
+	if !s.UserHasSubscription(id) {
+		t.Error("expected subscription for status 'active' when billing is enabled")
+	}
+}
+
+// TestCreateUserFirstUserBecomesAdmin verifies the first-user bootstrap: the
+// first account on an empty install is created as admin, a subsequent one is
+// not.
+func TestCreateUserFirstUserBecomesAdmin(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Empty the users table inside the test transaction (rolled back by
+	// Teardown) to simulate a fresh install. The rows in keywords and
+	// entity_card_junction reference cards/entities with NO ACTION FKs, so
+	// clear them first or the user-delete cascade fails.
+	for _, table := range []string{"keywords", "entity_card_junction"} {
+		if _, err := s.GetDB().Exec(`DELETE FROM ` + table); err != nil {
+			t.Fatalf("clear %s: %v", table, err)
+		}
+	}
+	if _, err := s.GetDB().Exec(`DELETE FROM users`); err != nil {
+		t.Fatalf("clear users table: %v", err)
+	}
+
+	// First signup on an empty install becomes the admin.
+	params := models.CreateUserParams{
+		Username:        "first-admin",
+		Password:        "asdfasdfasdf",
+		ConfirmPassword: "asdfasdfasdf",
+		Email:           "first@example.com",
+	}
+	id, err := s.CreateUser(params)
+	if err != nil {
+		t.Fatalf("first user creation failed: %v", err)
+	}
+	var isAdmin bool
+	if err := s.GetDB().QueryRow(`SELECT is_admin FROM users WHERE id = $1`, id).Scan(&isAdmin); err != nil {
+		t.Fatalf("query first user: %v", err)
+	}
+	if !isAdmin {
+		t.Error("expected the first user on an empty install to be admin")
+	}
+
+	// Second signup stays a normal user.
+	params = models.CreateUserParams{
+		Username:        "second-user",
+		Password:        "asdfasdfasdf",
+		ConfirmPassword: "asdfasdfasdf",
+		Email:           "second@example.com",
+	}
+	id2, err := s.CreateUser(params)
+	if err != nil {
+		t.Fatalf("second user creation failed: %v", err)
+	}
+	if err := s.GetDB().QueryRow(`SELECT is_admin FROM users WHERE id = $1`, id2).Scan(&isAdmin); err != nil {
+		t.Fatalf("query second user: %v", err)
+	}
+	if isAdmin {
+		t.Error("expected a subsequent user not to be admin")
+	}
+}
+
+// TestCreateUserAdminEmailGrantsAdmin verifies the operator path: registering
+// with an email matching ZETTEL_ADMIN_EMAIL (case-insensitive) grants admin
+// even when other users already exist.
+func TestCreateUserAdminEmailGrantsAdmin(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	adminEmail := os.Getenv("ZETTEL_ADMIN_EMAIL")
+	if adminEmail == "" {
+		t.Skip("ZETTEL_ADMIN_EMAIL not set")
+	}
+
+	params := models.CreateUserParams{
+		Username:        "operator",
+		Password:        "asdfasdfasdf",
+		ConfirmPassword: "asdfasdfasdf",
+		// Uppercased to also exercise the case-insensitive match.
+		Email: strings.ToUpper(adminEmail),
+	}
+	id, err := s.CreateUser(params)
+	if err != nil {
+		t.Fatalf("user creation failed: %v", err)
+	}
+	var isAdmin bool
+	if err := s.GetDB().QueryRow(`SELECT is_admin FROM users WHERE id = $1`, id).Scan(&isAdmin); err != nil {
+		t.Fatalf("query user: %v", err)
+	}
+	if !isAdmin {
+		t.Error("expected user with ZETTEL_ADMIN_EMAIL to be admin")
 	}
 }
