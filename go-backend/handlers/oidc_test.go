@@ -150,6 +150,41 @@ func TestFindOrCreateOIDCUser_RejectsUnverifiedEmailLink(t *testing.T) {
 	}
 }
 
+func TestFindOrCreateOIDCUser_AlreadyLinkedDifferentSub(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Account already linked to provider-a / sub-a.
+	existingID := insertTestUser(t, s, "erin@example.com", true)
+	if _, err := s.GetDB().Exec(
+		`UPDATE users SET oidc_provider = 'provider-a', oidc_sub = 'sub-a' WHERE id = $1`,
+		existingID,
+	); err != nil {
+		t.Fatalf("pre-link user: %v", err)
+	}
+
+	// A second provider presenting the same verified email must NOT silently
+	// overwrite the existing link: the link UPDATE affects 0 rows and the
+	// existing user is returned unchanged (the odd state is logged, not
+	// acted on).
+	user, err := s.findOrCreateOIDCUser("provider-b", "sub-b", "erin@example.com", true, "erin", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if user.ID != existingID {
+		t.Fatalf("expected existing user %d, got %d", existingID, user.ID)
+	}
+
+	// The original link must be preserved (no re-link happened).
+	var provider, sub string
+	if err := s.GetDB().QueryRow(`SELECT oidc_provider, oidc_sub FROM users WHERE id = $1`, existingID).Scan(&provider, &sub); err != nil {
+		t.Fatalf("query link: %v", err)
+	}
+	if provider != "provider-a" || sub != "sub-a" {
+		t.Fatalf("expected original link preserved, got provider=%q sub=%q", provider, sub)
+	}
+}
+
 func TestFindOrCreateOIDCUser_MissingSubject(t *testing.T) {
 	s := NewHandler()
 	defer tests.Teardown()

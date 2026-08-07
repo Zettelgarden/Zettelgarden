@@ -329,12 +329,24 @@ func (h *Handler) findOrCreateOIDCUser(provider, subject, email string, emailVer
 			if !emailVerified {
 				return models.User{}, fmt.Errorf("email matches existing account but IdP did not verify it")
 			}
-			_, err := h.GetDB().Exec(
+			res, err := h.GetDB().Exec(
 				`UPDATE users SET oidc_provider = $1, oidc_sub = $2, email_validated = TRUE WHERE id = $3 AND (oidc_sub IS NULL OR oidc_sub = '')`,
 				provider, subject, existingID,
 			)
 			if err != nil {
 				return models.User{}, fmt.Errorf("link existing user: %w", err)
+			}
+			// The link UPDATE only touches accounts not already linked. When it
+			// affects 0 rows, this account is already bound to a DIFFERENT
+			// (provider, sub) — a state the email-match branch must not silently
+			// overwrite. Log it loudly instead of returning the user as if the
+			// link had happened.
+			affected, err := res.RowsAffected()
+			if err != nil {
+				return models.User{}, fmt.Errorf("link existing user rows affected: %w", err)
+			}
+			if affected == 0 {
+				log.Printf("oidc: email %q matches user %d already linked to a different (provider, sub); not re-linking (incoming provider=%q sub=%q)", email, existingID, provider, subject)
 			}
 			return h.QueryUser(existingID)
 		}
