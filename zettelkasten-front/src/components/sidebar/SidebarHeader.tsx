@@ -11,6 +11,8 @@ interface SidebarHeaderProps {
   onAddFeed: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  showTasks?: boolean;
+  showRss?: boolean;
 }
 
 export function SidebarHeader({
@@ -20,6 +22,8 @@ export function SidebarHeader({
   onAddFeed,
   isCollapsed,
   onToggleCollapse,
+  showTasks = true,
+  showRss = true,
 }: SidebarHeaderProps) {
   const username = localStorage.getItem("username");
   const [isNewDropdownOpen, setIsNewDropdownOpen] = useState(false);
@@ -111,21 +115,25 @@ export function SidebarHeader({
               >
                 Add Article (Card)
               </button>
-              <button
-                onClick={onNewTask}
-                className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100"
-                role="menuitem"
-              >
-                Create Task
-              </button>
-              <button
-                onClick={onAddFeed}
-                className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 flex items-center gap-2"
-                role="menuitem"
-              >
-                <Rss size={16} />
-                Add RSS Feed
-              </button>
+              {showTasks && (
+                <button
+                  onClick={onNewTask}
+                  className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100"
+                  role="menuitem"
+                >
+                  Create Task
+                </button>
+              )}
+              {showRss && (
+                <button
+                  onClick={onAddFeed}
+                  className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-gray-100 flex items-center gap-2"
+                  role="menuitem"
+                >
+                  <Rss size={16} />
+                  Add RSS Feed
+                </button>
+              )}
             </div>
           )}
         </div>

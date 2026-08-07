@@ -37,6 +37,9 @@ export function Sidebar() {
   const [showStarCardDialog, setShowStarCardDialog] = useState(false);
   const { user, updateUser } = useAuth();
 
+  const showTasks = user?.show_tasks !== false;
+  const showRss = user?.show_rss !== false;
+
   const userTimezone = user?.timezone || "UTC";
 
   const [showGettingStarted, setShowGettingStarted] = useState(false);
@@ -187,6 +190,8 @@ export function Sidebar() {
           onAddFeed={handleAddFeed}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={toggleSidebarCollapsed}
+          showTasks={showTasks}
+          showRss={showRss}
         />
 
         <SidebarSearchBar isCollapsed={isSidebarCollapsed} />
@@ -197,6 +202,8 @@ export function Sidebar() {
             todayTasksCount={todayTasks.length}
             unreadRssCount={unreadRssCount}
             isCollapsed={isSidebarCollapsed}
+            showTasks={showTasks}
+            showRss={showRss}
           />
 
           {!isSidebarCollapsed && (

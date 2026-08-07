@@ -157,6 +157,8 @@ var sqliteSelfHealUpgrades = []struct {
 }{
 	{"users", "oidc_provider", "TEXT"},
 	{"users", "oidc_sub", "TEXT"},
+	{"users", "show_tasks", "BOOLEAN DEFAULT true"},
+	{"users", "show_rss", "BOOLEAN DEFAULT true"},
 }
 
 // ensureSQLiteSchemaUpgrades applies idempotent, SQLite-only repairs for

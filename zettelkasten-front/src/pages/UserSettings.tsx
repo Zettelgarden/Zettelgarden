@@ -10,6 +10,7 @@ import { setDocumentTitle } from "../utils/title";
 import { TagList } from "../components/tags/TagList";
 import { StatusManagement } from "../components/settings/StatusManagement";
 import { TimezoneSelector } from "../components/settings/TimezoneSelector";
+import ToggleSlider from "../components/ToggleSlider";
 import APIKeysManagement from "../components/settings/APIKeysManagement";
 import { EntityPage } from "./EntityPage";
 import { StatsPage } from "./StatsPage";
@@ -23,6 +24,8 @@ export function UserSettingsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [billingUrl, setBillingUrl] = useState<string | null>(null);
   const [timezone, setTimezone] = useState<string>("UTC");
+  const [showTasks, setShowTasks] = useState<boolean>(true);
+  const [showRss, setShowRss] = useState<boolean>(true);
 
   const navigate = useNavigate();
   const { user, hasSubscription, updateUser, logoutUser } = useAuth();
@@ -46,6 +49,8 @@ export function UserSettingsPage() {
       username: updatedUsername,
       email: updatedEmail,
       timezone: timezone,
+      show_tasks: showTasks,
+      show_rss: showRss,
     };
 
     try {
@@ -99,6 +104,12 @@ export function UserSettingsPage() {
     if (user?.timezone) {
       setTimezone(user.timezone);
     }
+    if (user?.show_tasks !== undefined) {
+      setShowTasks(user.show_tasks);
+    }
+    if (user?.show_rss !== undefined) {
+      setShowRss(user.show_rss);
+    }
   }, [user]);
 
   const renderTabContent = () => {
@@ -136,6 +147,21 @@ export function UserSettingsPage() {
                     value={timezone}
                     onChange={setTimezone}
                   />
+                </div>
+                <div className="pt-2">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Sidebar Visibility</h3>
+                  <div className="space-y-3">
+                    <ToggleSlider
+                      label="Show Tasks"
+                      initialState={user?.show_tasks !== false}
+                      onToggle={setShowTasks}
+                    />
+                    <ToggleSlider
+                      label="Show RSS"
+                      initialState={user?.show_rss !== false}
+                      onToggle={setShowRss}
+                    />
+                  </div>
                 </div>
                 <button
                   type="submit"

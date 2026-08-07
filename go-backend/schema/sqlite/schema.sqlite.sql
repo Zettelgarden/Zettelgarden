@@ -923,6 +923,8 @@ CREATE TABLE users (
   has_seen_getting_started BOOLEAN DEFAULT false,
   stripe_cancel_at_period_end BOOLEAN DEFAULT false,
   timezone TEXT DEFAULT 'UTC',
+  show_tasks BOOLEAN DEFAULT true,
+  show_rss BOOLEAN DEFAULT true,
   last_memory_job_id INTEGER,
   caldav_url TEXT,
   caldav_token TEXT,

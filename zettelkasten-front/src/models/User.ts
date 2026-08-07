@@ -26,6 +26,8 @@ export interface User {
   revenue: number;
   has_seen_getting_started: boolean;
   timezone: string;
+  show_tasks: boolean;
+  show_rss: boolean;
 }
 export const defaultUser: User = {
   id: 0,
@@ -55,6 +57,8 @@ export const defaultUser: User = {
   revenue: 0,
   has_seen_getting_started: false,
   timezone: "UTC",
+  show_tasks: true,
+  show_rss: true,
 };
 
 export interface UserSubscription {
@@ -74,6 +78,8 @@ export interface EditUserParams {
   dashboard_card_pk: number;
   has_seen_getting_started: boolean;
   timezone: string;
+  show_tasks: boolean;
+  show_rss: boolean;
 }
 
 export interface CreateUserParams {

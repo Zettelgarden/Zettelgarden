@@ -10,6 +10,8 @@ interface NavigationLinksProps {
   todayTasksCount: number;
   unreadRssCount: number;
   isCollapsed: boolean;
+  showTasks?: boolean;
+  showRss?: boolean;
 }
 
 interface CollapsibleLinkProps {
@@ -107,7 +109,13 @@ function CollapsibleLink({
   );
 }
 
-export function NavigationLinks({ todayTasksCount, unreadRssCount, isCollapsed }: NavigationLinksProps) {
+export function NavigationLinks({
+  todayTasksCount,
+  unreadRssCount,
+  isCollapsed,
+  showTasks = true,
+  showRss = true,
+}: NavigationLinksProps) {
   const SectionHeader = ({ children }: { children: React.ReactNode }) => {
     if (isCollapsed) return null;
     return (
@@ -132,33 +140,37 @@ export function NavigationLinks({ todayTasksCount, unreadRssCount, isCollapsed }
           label="Schemas"
           isCollapsed={isCollapsed}
         />
-        <CollapsibleLink
-          to="/app/rss"
-          icon={<RssIcon />}
-          label="RSS"
-          isCollapsed={isCollapsed}
-          badgeCount={unreadRssCount}
-          badge={
-            unreadRssCount > 0 && (
-              <span className="px-3 py-1.5 md:px-2 md:py-1 text-xs bg-blue-100 rounded-full min-h-[32px] md:min-h-0 flex items-center">
-                {unreadRssCount}
-              </span>
-            )
-          }
-        />
+        {showRss && (
+          <CollapsibleLink
+            to="/app/rss"
+            icon={<RssIcon />}
+            label="RSS"
+            isCollapsed={isCollapsed}
+            badgeCount={unreadRssCount}
+            badge={
+              unreadRssCount > 0 && (
+                <span className="px-3 py-1.5 md:px-2 md:py-1 text-xs bg-blue-100 rounded-full min-h-[32px] md:min-h-0 flex items-center">
+                  {unreadRssCount}
+                </span>
+              )
+            }
+          />
+        )}
 
-        <CollapsibleLink
-          to="/app/tasks"
-          icon={<TasksIcon />}
-          label="Tasks"
-          isCollapsed={isCollapsed}
-          badgeCount={todayTasksCount}
-          badge={
-            <span className="px-3 py-1.5 md:px-2 md:py-1 text-xs bg-blue-100 rounded-full min-h-[32px] md:min-h-0 flex items-center">
-              {todayTasksCount}
-            </span>
-          }
-        />
+        {showTasks && (
+          <CollapsibleLink
+            to="/app/tasks"
+            icon={<TasksIcon />}
+            label="Tasks"
+            isCollapsed={isCollapsed}
+            badgeCount={todayTasksCount}
+            badge={
+              <span className="px-3 py-1.5 md:px-2 md:py-1 text-xs bg-blue-100 rounded-full min-h-[32px] md:min-h-0 flex items-center">
+                {todayTasksCount}
+              </span>
+            }
+          />
+        )}
 
         <CollapsibleLink
           to="/app/files"

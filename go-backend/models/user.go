@@ -31,6 +31,8 @@ type User struct {
 	Revenue                     float64    `json:"revenue"`
 	HasSeenGettingStarted       bool       `json:"has_seen_getting_started"`
 	Timezone                    string     `json:"timezone"`
+	ShowTasks                   bool       `json:"show_tasks"`
+	ShowRss                     bool       `json:"show_rss"`
 
 	// Agent-specific fields
 	IsAgent     bool       `json:"is_agent"`
@@ -60,6 +62,8 @@ type EditUserParams struct {
 	DashboardCardPK       int    `json:"dashboard_card_pk"`
 	HasSeenGettingStarted bool   `json:"has_seen_getting_started"`
 	Timezone              string `json:"timezone"`
+	ShowTasks             bool   `json:"show_tasks"`
+	ShowRss               bool   `json:"show_rss"`
 }
 
 type CreateUserParams struct {

@@ -580,6 +580,66 @@ func TestUpdateUserTimezone(t *testing.T) {
 	}
 }
 
+func TestUpdateUserShowTasksAndRss(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	newData := map[string]interface{}{
+		"username":   "testuser",
+		"email":      "test@example.com",
+		"is_admin":   true,
+		"show_tasks": false,
+		"show_rss":   false,
+	}
+	jsonData, err := json.Marshal(newData)
+	if err != nil {
+		t.Fatalf("Error marshalling JSON: %v", err)
+	}
+
+	req, err := http.NewRequest("PUT", "/api/users/1", bytes.NewBuffer(jsonData))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", "1")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/users/{id}", s.JwtMiddleware(s.UpdateUserRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		log.Printf("err %v", rr.Body.String())
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	user, err := s.QueryUser(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if user.ShowTasks {
+		t.Errorf("show_tasks should be false after update, got %v", user.ShowTasks)
+	}
+	if user.ShowRss {
+		t.Errorf("show_rss should be false after update, got %v", user.ShowRss)
+	}
+
+	// Verify defaults are true for a fresh user
+	user2, err := s.QueryUser(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !user2.ShowTasks {
+		t.Error("show_tasks should default to true")
+	}
+	if !user2.ShowRss {
+		t.Error("show_rss should default to true")
+	}
+}
+
 func TestGetCurrentUserIncludesTimezone(t *testing.T) {
 	s := NewHandler()
 	defer tests.Teardown()
