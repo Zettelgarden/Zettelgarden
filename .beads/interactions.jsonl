@@ -48,3 +48,4 @@
 {"id":"int-565c8fe8","kind":"field_change","created_at":"2026-08-04T12:19:23.599578926Z","actor":"Nick Savage","issue_id":"Zettelgarden-fdi","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
 {"id":"int-9e895e27","kind":"field_change","created_at":"2026-08-04T12:48:37.341031603Z","actor":"Nick Savage","issue_id":"Zettelgarden-gve","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Closed"}}
 {"id":"int-ca78cd6f","kind":"field_change","created_at":"2026-08-04T12:59:26.670819123Z","actor":"Nick Savage","issue_id":"Zettelgarden-xez","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}
+{"id":"int-b0909002","kind":"field_change","created_at":"2026-08-07T20:38:09.154956297Z","actor":"Nick Savage","issue_id":"Zettelgarden-3g4","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Closed"}}
