@@ -32,8 +32,12 @@ type MailConfig struct {
 	Password string // Mail server password (sensitive)
 }
 
-// StripeConfig holds payment processing configuration
+// StripeConfig holds payment processing configuration. Enabled defaults to
+// true (existing installs keep working unchanged); set STRIPE_ENABLED=false to
+// disable billing entirely — the STRIPE_* values become optional, the billing
+// routes return 404, and Stripe is never initialized.
 type StripeConfig struct {
+	Enabled        bool   // If false, billing routes return 404 and Stripe is never initialized
 	SecretKey      string // Stripe secret key (sensitive)
 	PublishableKey string // Stripe publishable key
 	WebhookSecret  string // Webhook signature secret (sensitive)
@@ -120,16 +124,27 @@ func loadMailConfig() MailConfig {
 	}
 }
 
-// loadStripeConfig loads Stripe payment configuration
+// loadStripeConfig loads Stripe payment configuration. Billing is enabled by
+// default (STRIPE_ENABLED unset or true); when explicitly disabled via
+// STRIPE_ENABLED=false the six STRIPE_* values are optional and unvalidated,
+// mirroring the opt-in OIDC config (see loadOIDCConfig).
 func loadStripeConfig() StripeConfig {
-	config := StripeConfig{
-		SecretKey:      requireString("STRIPE_SECRET_KEY"),
-		PublishableKey: requireString("STRIPE_PUBLISHABLE_KEY"),
-		WebhookSecret:  requireString("STRIPE_WEBHOOK_SECRET"),
-		MonthPrice:     requireString("STRIPE_MONTH_PRICE"),
-		YearPrice:      requireString("STRIPE_YEAR_PRICE"),
-		BillingURL:     requireString("STRIPE_BILLING_URL"),
+	enabled := true
+	if v := os.Getenv("STRIPE_ENABLED"); v != "" {
+		enabled = requireBool("STRIPE_ENABLED")
 	}
+
+	config := StripeConfig{Enabled: enabled}
+	if !enabled {
+		return config
+	}
+
+	config.SecretKey = requireString("STRIPE_SECRET_KEY")
+	config.PublishableKey = requireString("STRIPE_PUBLISHABLE_KEY")
+	config.WebhookSecret = requireString("STRIPE_WEBHOOK_SECRET")
+	config.MonthPrice = requireString("STRIPE_MONTH_PRICE")
+	config.YearPrice = requireString("STRIPE_YEAR_PRICE")
+	config.BillingURL = requireString("STRIPE_BILLING_URL")
 
 	// Validate URLs
 	validateURL("STRIPE_BILLING_URL", config.BillingURL)

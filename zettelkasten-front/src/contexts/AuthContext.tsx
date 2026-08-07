@@ -10,6 +10,7 @@ import {
   updateUser as apiUpdateUser,
   getUserSubscription,
 } from "../api/users";
+import { getBillingStatus } from "../api/billing";
 import { getCurrentUser } from "../api/users";
 import { LoginResponse } from "../models/Auth";
 import { User, UserSubscription } from "../models/User";
@@ -62,10 +63,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           setUser(currentUser);
           if (currentUser && currentUser.id) {
             const subscription = await getUserSubscription(currentUser.id);
+            const billing = await getBillingStatus();
             setHasSubscription(
-              subscription &&
-              subscription.stripe_subscription_status === "active" ||
-              subscription.stripe_subscription_status === "trialing",
+              !billing.enabled ||
+                (!!subscription &&
+                  (subscription.stripe_subscription_status === "active" ||
+                    subscription.stripe_subscription_status === "trialing")),
             );
           } else {
             setHasSubscription(false);
@@ -81,12 +84,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     initializeAuth();
   }, []);
 
-  const loginUser = (data: LoginResponse) => {
+  const loginUser = async (data: LoginResponse) => {
     localStorage.setItem("token", data["access_token"]);
     localStorage.setItem("username", data["user"]["username"]);
+    const billing = await getBillingStatus();
+    // When billing is disabled on this instance, everyone is treated as
+    // subscribed (paywalls off) — there is nothing to upgrade to.
     setHasSubscription(
-      data["user"].stripe_subscription_status === "active" ||
-      data["user"].stripe_subscription_status === "trialing",
+      !billing.enabled ||
+        data["user"].stripe_subscription_status === "active" ||
+        data["user"].stripe_subscription_status === "trialing",
     );
     setIsAuthenticated(true);
   };
@@ -111,10 +118,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Update subscription status
       if (currentUser && currentUser.id) {
         const subscription = await getUserSubscription(currentUser.id);
+        const billing = await getBillingStatus();
         setHasSubscription(
-          subscription &&
-          (subscription.stripe_subscription_status === "active" ||
-          subscription.stripe_subscription_status === "trialing"),
+          !billing.enabled ||
+            (!!subscription &&
+              (subscription.stripe_subscription_status === "active" ||
+                subscription.stripe_subscription_status === "trialing")),
         );
       } else {
         setHasSubscription(false);
@@ -130,10 +139,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const currentUser = await getCurrentUser();
       if (currentUser && currentUser.id) {
         const subscription = await getUserSubscription(currentUser.id);
+        const billing = await getBillingStatus();
         const isActive =
-          subscription &&
-          (subscription.stripe_subscription_status === "active" ||
-            subscription.stripe_subscription_status === "trialing");
+          !billing.enabled ||
+          (!!subscription &&
+            (subscription.stripe_subscription_status === "active" ||
+              subscription.stripe_subscription_status === "trialing"));
         setHasSubscription(isActive);
         return isActive;
       }

@@ -27,6 +27,11 @@ type SubscribeResponse struct {
 
 // POST /api/billing/subscribe
 func (s *Handler) CreateSubscriptionRoute(w http.ResponseWriter, r *http.Request) {
+	if !s.StripeConfig.Enabled {
+		http.NotFound(w, r)
+		return
+	}
+
 	userID := r.Context().Value("current_user").(int)
 
 	var body SubscribeRequest
@@ -125,7 +130,25 @@ type BillingPortalResponse struct {
 
 // GET /api/billing/portal
 func (s *Handler) BillingPortalRoute(w http.ResponseWriter, r *http.Request) {
+	if !s.StripeConfig.Enabled {
+		http.NotFound(w, r)
+		return
+	}
 	resp := BillingPortalResponse{URL: os.Getenv("STRIPE_BILLING_URL")}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+type BillingStatusResponse struct {
+	Enabled bool `json:"enabled"`
+}
+
+// GET /api/billing/status
+// Source of truth for the frontend: {enabled: false} when billing is
+// switched off (STRIPE_ENABLED=false), so the UI can hide subscription UI and
+// unlock pro features instead of showing dead paywalls.
+func (s *Handler) BillingStatusRoute(w http.ResponseWriter, r *http.Request) {
+	resp := BillingStatusResponse{Enabled: s.StripeConfig.Enabled}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
@@ -136,6 +159,10 @@ type StripePublicKeyResponse struct {
 
 // GET /api/billing/public-key
 func (s *Handler) StripePublicKeyRoute(w http.ResponseWriter, r *http.Request) {
+	if !s.StripeConfig.Enabled {
+		http.NotFound(w, r)
+		return
+	}
 	resp := StripePublicKeyResponse{Key: os.Getenv("STRIPE_PUBLISHABLE_KEY")}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
@@ -156,6 +183,10 @@ func (s *Handler) EmailAdminOnSubscription(sess stripe.CheckoutSession) {
 
 // POST /api/stripe/webhook
 func (s *Handler) StripeWebhookRoute(w http.ResponseWriter, r *http.Request) {
+	if !s.StripeConfig.Enabled {
+		http.NotFound(w, r)
+		return
+	}
 	const MaxBodyBytes = int64(65536)
 	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
 	payload, err := ioutil.ReadAll(r.Body)

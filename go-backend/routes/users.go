@@ -1,14 +1,14 @@
 package routes
 
 import (
-	"go-backend/handlers"
 	"github.com/gorilla/mux"
+	"go-backend/handlers"
 )
 
 func RegisterUserRoutes(r *mux.Router, h *handlers.Handler) {
 	// Admin-only routes
-	addAdminRoute(r, h, "/api/users/{id}", h.GetUserRoute, "GET")         // View any user
-	addAdminRoute(r, h, "/api/users", h.GetUsersRoute, "GET")              // List all users
+	addAdminRoute(r, h, "/api/users/{id}", h.GetUserRoute, "GET") // View any user
+	addAdminRoute(r, h, "/api/users", h.GetUsersRoute, "GET")     // List all users
 
 	// Admin-or-self routes (admin can access any, users can access their own)
 	addAdminOrSelfRoute(r, h, "/api/users/{id}", h.UpdateUserRoute, "PUT", "id")
@@ -23,9 +23,11 @@ func RegisterUserRoutes(r *mux.Router, h *handlers.Handler) {
 	// User signup/registration (public for new account creation)
 	addRoute(r, "/api/users", h.CreateUserRoute, "POST")
 
-	// Billing routes (protected but not admin-only)
+	// Billing routes (protected but not admin-only). Handlers return 404 when
+	// billing is disabled via STRIPE_ENABLED=false.
 	addProtectedRoute(r, h, "/api/billing/subscribe", h.CreateSubscriptionRoute, "POST")
 	addProtectedRoute(r, h, "/api/billing/portal", h.BillingPortalRoute, "GET")
+	addProtectedRoute(r, h, "/api/billing/status", h.BillingStatusRoute, "GET")
 	addProtectedRoute(r, h, "/api/billing/public-key", h.StripePublicKeyRoute, "GET")
 
 	// Stripe webhook (public for payment processing, verified via signature)

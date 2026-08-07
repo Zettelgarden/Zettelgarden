@@ -124,11 +124,17 @@ func run() error {
 	} else {
 		log.Printf("OIDC SSO disabled (set OIDC_ENABLED=true to enable)")
 	}
+	h.StripeConfig = cfg.Services.Stripe
 
-	// Initialize Stripe
-	log.Printf("Initializing Stripe payment processing")
-	stripe.Key = cfg.Services.Stripe.SecretKey
-	log.Printf("Stripe initialized (billing_url=%s)", cfg.Services.Stripe.BillingURL)
+	// Initialize Stripe (billing is enabled by default; set STRIPE_ENABLED
+	// =false to run an instance without payment processing)
+	if cfg.Services.Stripe.Enabled {
+		log.Printf("Initializing Stripe payment processing")
+		stripe.Key = cfg.Services.Stripe.SecretKey
+		log.Printf("Stripe initialized (billing_url=%s)", cfg.Services.Stripe.BillingURL)
+	} else {
+		log.Printf("Stripe billing disabled (set STRIPE_ENABLED=true to enable)")
+	}
 
 	// Initialize local file storage for uploaded files (replaces B2/S3)
 	log.Printf("Initializing file storage (dir=%s)", cfg.Services.Storage.Dir)

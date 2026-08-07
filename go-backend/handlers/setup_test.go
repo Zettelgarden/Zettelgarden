@@ -37,6 +37,10 @@ func NewHandler() *Handler {
 		// GitHub OAuth defaults to enabled in tests; individual tests opt out
 		// by setting s.GitHubConfig.Enabled = false.
 		GitHubConfig: config.GitHubConfig{Enabled: true},
+		// Stripe billing defaults to enabled in tests (matches the production
+		// STRIPE_ENABLED default); tests opt out by setting
+		// s.StripeConfig.Enabled = false.
+		StripeConfig: config.StripeConfig{Enabled: true},
 	}
 
 	return s

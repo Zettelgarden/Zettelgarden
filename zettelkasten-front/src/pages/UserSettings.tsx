@@ -1,6 +1,6 @@
 import React, { useState, useEffect, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { getBillingPortalUrl } from "../api/billing";
+import { getBillingPortalUrl, getBillingStatus } from "../api/billing";
 import { requestPasswordReset } from "../api/auth";
 import { User, EditUserParams } from "../models/User";
 import { useAuth } from "../contexts/AuthContext";
@@ -23,6 +23,7 @@ export function UserSettingsPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [billingUrl, setBillingUrl] = useState<string | null>(null);
+  const [billingEnabled, setBillingEnabled] = useState<boolean>(true);
   const [timezone, setTimezone] = useState<string>("UTC");
   const [showTasks, setShowTasks] = useState<boolean>(true);
   const [showRss, setShowRss] = useState<boolean>(true);
@@ -85,18 +86,22 @@ export function UserSettingsPage() {
     import.meta.env.VITE_FEATURE_SUBSCRIPTION === "true";
 
   useEffect(() => {
-    async function fetchBillingUrl() {
+    async function fetchBilling() {
       try {
-        const response = await getBillingPortalUrl();
-        setBillingUrl(response.url);
+        const status = await getBillingStatus();
+        setBillingEnabled(status.enabled);
+        if (status.enabled) {
+          const response = await getBillingPortalUrl();
+          setBillingUrl(response.url);
+        }
       } catch (error) {
-        console.error("Failed to fetch billing URL:", error);
+        console.error("Failed to fetch billing info:", error);
       }
     }
 
     setDocumentTitle("Settings");
     if (subscriptionEnabled) {
-      fetchBillingUrl();
+      fetchBilling();
     }
   }, [subscriptionEnabled]);
 
@@ -188,7 +193,7 @@ export function UserSettingsPage() {
               {error && <div className="mt-2 text-red-600 text-sm">{error}</div>}
             </div>
 
-            {subscriptionEnabled && (
+            {subscriptionEnabled && billingEnabled && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-semibold mb-4">Subscription</h2>
                 {hasSubscription ? (

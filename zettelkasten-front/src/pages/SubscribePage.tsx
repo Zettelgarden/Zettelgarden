@@ -1,17 +1,28 @@
 import React, { useState, useEffect } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { useNavigate } from "react-router-dom";
-import { getStripePublicKey } from "../api/billing";
+import { getBillingStatus, getStripePublicKey } from "../api/billing";
 import { useAuth } from "../contexts/AuthContext";
 
 const base_url = import.meta.env.VITE_URL;
 
 export default function SubscribePage() {
+  const [billingEnabled, setBillingEnabled] = useState<boolean | null>(null);
   const [stripePromise, setStripePromise] = useState<Promise<any> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { refreshSubscription } = useAuth();
+
+  useEffect(() => {
+    let cancelled = false;
+    getBillingStatus().then((status) => {
+      if (!cancelled) setBillingEnabled(status.enabled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     async function fetchStripeKey() {
@@ -22,8 +33,10 @@ export default function SubscribePage() {
         console.error("Failed to fetch Stripe public key:", error);
       }
     }
-    fetchStripeKey();
-  }, []);
+    if (billingEnabled) {
+      fetchStripeKey();
+    }
+  }, [billingEnabled]);
 
   // If user arrives here but already has an active subscription, redirect to dashboard
   useEffect(() => {
@@ -69,6 +82,19 @@ export default function SubscribePage() {
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-12">
+      {billingEnabled === false ? (
+        <div className="text-center py-20">
+          <div className="text-5xl mb-4">💳</div>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">
+            Billing is not available
+          </h1>
+          <p className="text-gray-600 max-w-md mx-auto">
+            This instance has billing disabled, so all features are available
+            to everyone. There are no plans to purchase.
+          </p>
+        </div>
+      ) : (
+        <>
       <h1 className="text-3xl font-bold text-center mb-6 text-indigo-700">Simple, Transparent Pricing</h1>
       <p className="text-gray-600 text-center mb-12 max-w-2xl mx-auto">
         Upgrade to Zettelgarden Pro to unlock intelligent AI agents that can work with your knowledge base, advanced summarization, fact extraction, and early access to new features.
@@ -143,6 +169,8 @@ export default function SubscribePage() {
         <p className="mt-4 text-red-600 bg-red-50 p-2 rounded border border-red-200 text-center">
           {error}
         </p>
+      )}
+        </>
       )}
     </div>
   );

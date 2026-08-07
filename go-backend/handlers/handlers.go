@@ -58,6 +58,10 @@ type Handler struct {
 	oidcOAuth2   *oauth2.Config
 	oidcInitMu   sync.Mutex
 
+	// Stripe billing configuration (enabled by default; set STRIPE_ENABLED
+	// =false to disable — billing routes then return 404).
+	StripeConfig config.StripeConfig
+
 	// oidcClientOverride, when non-nil, replaces the real discovery-based OIDC
 	// client in CallbackOIDCRoute (test seam; production handlers leave it nil).
 	// See oidc.go for the interface and the real implementation.
