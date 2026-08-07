@@ -171,23 +171,30 @@ func (s *Handler) GitHubCallbackRoute(w http.ResponseWriter, r *http.Request) {
 		}
 		newID, err := s.CreateUser(params)
 		if err != nil {
-			fail("user_resolve_failed")
-			return
+			// A concurrent signup raced past the check above; the unique email
+			// index makes duplicate creation impossible, so the account now
+			// exists — re-resolve it and fall through to the link step below.
+			user, err = s.QueryUserByEmail(ghUser.Email)
+			if err != nil || user.ID == 0 {
+				fail("user_resolve_failed")
+				return
+			}
+		} else {
+			user, err = s.QueryUser(newID)
+			if err != nil {
+				fail("user_resolve_failed")
+				return
+			}
 		}
+	}
 
-		_, err = s.DB.Exec(`UPDATE users SET auth_provider = 'github', github_id = $1 WHERE id = $2`, ghUser.ID, newID)
-		if err != nil {
-			fail("user_resolve_failed")
-			return
-		}
-		user, _ = s.QueryUser(newID)
-	} else {
-		// existing user found by email, update with GitHub metadata
-		_, err = s.DB.Exec(`UPDATE users SET auth_provider = 'github', github_id = $1 WHERE id = $2 AND (auth_provider = 'local' OR github_id IS NULL)`, ghUser.ID, user.ID)
-		if err != nil {
-			fail("user_resolve_failed")
-			return
-		}
+	// Attach GitHub metadata. Guarded so an account already linked to a
+	// different GitHub id keeps its original link (mirrors the pre-existing
+	// behavior for existing users; a fresh user matches the guard too).
+	_, err = s.DB.Exec(`UPDATE users SET auth_provider = 'github', github_id = $1 WHERE id = $2 AND (auth_provider = 'local' OR github_id IS NULL)`, ghUser.ID, user.ID)
+	if err != nil {
+		fail("user_resolve_failed")
+		return
 	}
 
 	// Generate JWT

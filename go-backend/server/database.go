@@ -209,6 +209,24 @@ func ensureSQLiteSchemaUpgrades(db *sql.DB) error {
 			return fmt.Errorf("create idx_users_oidc_sub: %w", err)
 		}
 	}
+	// One email = one account (Zettelgarden-rbr): unique index on users.email.
+	// Guarded so a pre-existing DB that already carries duplicates (produced by
+	// the old check-then-insert signup race) does not crash boot: warn loudly
+	// and defer enforcement until the operator dedupes — the next boot builds
+	// the index.
+	if hasUsers, err := sqliteTableExists(db, "users"); err != nil {
+		return fmt.Errorf("check users table: %w", err)
+	} else if hasUsers {
+		var dupes int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM (SELECT email FROM users WHERE email IS NOT NULL GROUP BY email HAVING COUNT(*) > 1)`).Scan(&dupes); err != nil {
+			return fmt.Errorf("check duplicate user emails: %w", err)
+		}
+		if dupes > 0 {
+			log.Printf("WARNING: %d duplicate user emails block the unique users.email index (one email = one account); dedupe users and restart — Zettelgarden-rbr", dupes)
+		} else if _, err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email)`); err != nil {
+			return fmt.Errorf("create idx_users_email: %w", err)
+		}
+	}
 	return nil
 }
 

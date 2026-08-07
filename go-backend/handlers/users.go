@@ -181,7 +181,7 @@ func (s *Handler) CreateUserRoute(w http.ResponseWriter, r *http.Request) {
 	newID, err := s.CreateUser(params)
 	if err != nil {
 		response.Error = true
-		response.Message = "Passwords do not match"
+		response.Message = err.Error()
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(response)
 		return
@@ -680,6 +680,12 @@ func (s *Handler) CreateUser(params models.CreateUserParams) (int, error) {
 
 	err = s.GetDB().QueryRow(query, params.Username, params.Email, hashedPassword).Scan(&newID)
 	if err != nil {
+		// A concurrent signup can still beat the existence check above; the
+		// unique email index (one email = one account) turns that race into a
+		// clean constraint error rather than a duplicate row.
+		if isDuplicateKeyError(err) {
+			return -1, fmt.Errorf("Email already exists")
+		}
 		return -1, fmt.Errorf("failed to create user: %w", err)
 	}
 

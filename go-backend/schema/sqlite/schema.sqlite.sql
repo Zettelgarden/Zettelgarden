@@ -1041,6 +1041,7 @@ CREATE INDEX idx_users_caldav_token ON users (caldav_token) WHERE (caldav_token 
 CREATE INDEX idx_users_last_memory_job_id ON users (last_memory_job_id);
 CREATE INDEX idx_users_owner ON users (owner_user_id) WHERE (is_agent = 1);
 CREATE UNIQUE INDEX idx_users_oidc_sub ON users (oidc_provider, oidc_sub) WHERE (oidc_sub IS NOT NULL);
+CREATE UNIQUE INDEX idx_users_email ON users (email);
 CREATE INDEX starred_cards_user_id_idx ON starred_cards (user_id);
 CREATE INDEX starred_searches_user_id_idx ON starred_searches (user_id);
 

@@ -386,6 +386,13 @@ func (h *Handler) findOrCreateOIDCUser(provider, subject, email string, emailVer
 		username, email, hashed, provider, subject,
 	).Scan(&id)
 	if err != nil {
+		if isDuplicateKeyError(err) {
+			// A concurrent signup for the same email won the race; the unique
+			// email index makes duplicates impossible, so the account now
+			// exists. Re-run the resolution once — it finds the existing
+			// account by (provider, sub) or verified email.
+			return h.findOrCreateOIDCUser(provider, subject, email, emailVerified, preferredUsername, name)
+		}
 		return models.User{}, fmt.Errorf("create oidc user: %w", err)
 	}
 

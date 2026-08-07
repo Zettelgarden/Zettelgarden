@@ -48,7 +48,9 @@ function RegisterPage() {
       })
       .catch((error) => {
         console.error("Error creating user:", error);
-        setError("Failed to create user. Please try again.");
+        // Surface the server's message (e.g. "Email already exists") when
+        // available; fall back to a generic message.
+        setError(error?.message || "Failed to create user. Please try again.");
       });
   };
 

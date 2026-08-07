@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -317,6 +318,73 @@ func TestCreateUserSuccess(t *testing.T) {
 		t.Errorf("handler returned unexpected result, got %v want ID > 0", response.NewID)
 	}
 }
+
+func TestCreateUserDuplicateEmail(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	params := models.CreateUserParams{
+		Username:        "first-user",
+		Password:        "asdfasdfasdf",
+		ConfirmPassword: "asdfasdfasdf",
+		Email:           "dup@example.com",
+	}
+	if rr := createUserWithParams(s, t, params); rr.Code != http.StatusOK {
+		t.Fatalf("first signup: got status %v want 200", rr.Code)
+	}
+
+	// Same email, different username: rejected with a clean error, and no
+	// second account is created (one email = one account).
+	params.Username = "second-user"
+	rr := createUserWithParams(s, t, params)
+	var response models.CreateUserResponse
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &response)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("duplicate signup: got status %v want 400", rr.Code)
+	}
+	if !response.Error {
+		t.Fatal("expected error flag on duplicate signup")
+	}
+	if !strings.Contains(response.Message, "Email already exists") {
+		t.Fatalf("expected 'Email already exists' message, got %q", response.Message)
+	}
+
+	var count int
+	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM users WHERE email = $1`, "dup@example.com").Scan(&count); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected exactly 1 account for dup@example.com, got %d (duplicate created?)", count)
+	}
+}
+
+func TestUsersEmailUniqueIndexBlocksRace(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	if _, err := s.GetDB().Exec(`INSERT INTO users (username, email, password) VALUES ('a', 'idx@example.com', 'x')`); err != nil {
+		t.Fatalf("seed first user: %v", err)
+	}
+	// Simulate a concurrent signup that races past the app-level existence
+	// check: the unique email index is the backstop that makes duplicate
+	// accounts impossible.
+	_, err := s.GetDB().Exec(`INSERT INTO users (username, email, password) VALUES ('b', 'idx@example.com', 'x')`)
+	if err == nil {
+		t.Fatal("expected duplicate email INSERT to fail")
+	}
+	if !isDuplicateKeyError(err) {
+		t.Fatalf("expected unique constraint error, got %v", err)
+	}
+
+	var count int
+	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM users WHERE email = $1`, "idx@example.com").Scan(&count); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected exactly 1 account, got %d", count)
+	}
+}
+
 func TestCreateUserDashboardCardsSuccess(t *testing.T) {
 	s := NewHandler()
 	defer tests.Teardown()

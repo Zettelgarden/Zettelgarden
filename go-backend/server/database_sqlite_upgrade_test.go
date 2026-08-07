@@ -62,6 +62,16 @@ func TestEnsureSQLiteSchemaUpgrades_AddsMissingColumnsAndIndex(t *testing.T) {
 	if n != 1 {
 		t.Fatalf("expected idx_users_oidc_sub to exist, got count=%d", n)
 	}
+
+	// The unique email index (one email = one account) must also be present.
+	if err := db.QueryRow(
+		`SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_users_email'`,
+	).Scan(&n); err != nil {
+		t.Fatalf("query email index: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("expected idx_users_email to exist, got count=%d", n)
+	}
 }
 
 func TestEnsureSQLiteSchemaUpgrades_Idempotent(t *testing.T) {
@@ -151,6 +161,59 @@ func TestEnsureSQLiteSchemaUpgrades_IndexIsEnforced(t *testing.T) {
 		); err != nil {
 			t.Fatalf("insert non-oidc user %s: %v", email, err)
 		}
+	}
+}
+
+// TestEnsureSQLiteSchemaUpgrades_EmailIndexIsEnforced guards the users.email
+// unique index (Zettelgarden-rbr): duplicate emails collide, NULL emails do
+// not (accounts without an email remain valid).
+func TestEnsureSQLiteSchemaUpgrades_EmailIndexIsEnforced(t *testing.T) {
+	db := openMemSQLite(t)
+	createUsersWithoutOIDC(t, db)
+	if err := ensureSQLiteSchemaUpgrades(db); err != nil {
+		t.Fatalf("upgrade: %v", err)
+	}
+
+	if _, err := db.Exec(`INSERT INTO users (email) VALUES ('a@x.com')`); err != nil {
+		t.Fatalf("insert first user: %v", err)
+	}
+	_, err := db.Exec(`INSERT INTO users (email) VALUES ('a@x.com')`)
+	if err == nil {
+		t.Fatal("expected unique violation on duplicate email")
+	}
+
+	// NULL emails are distinct under the SQLite unique index.
+	for i := 0; i < 2; i++ {
+		if _, err := db.Exec(`INSERT INTO users (email) VALUES (NULL)`); err != nil {
+			t.Fatalf("insert null-email user %d: %v", i, err)
+		}
+	}
+}
+
+// TestEnsureSQLiteSchemaUpgrades_EmailIndexDeferredOnDupes guards the boot
+// path against pre-existing duplicate emails (the old check-then-insert race):
+// the upgrade must NOT crash; enforcement is deferred with a warning until the
+// operator dedupes, and the next boot builds the index.
+func TestEnsureSQLiteSchemaUpgrades_EmailIndexDeferredOnDupes(t *testing.T) {
+	db := openMemSQLite(t)
+	createUsersWithoutOIDC(t, db)
+	// Seed the legacy duplicates.
+	for _, email := range []string{"dup@x.com", "dup@x.com"} {
+		if _, err := db.Exec(`INSERT INTO users (email) VALUES ($1)`, email); err != nil {
+			t.Fatalf("seed duplicate: %v", err)
+		}
+	}
+	if err := ensureSQLiteSchemaUpgrades(db); err != nil {
+		t.Fatalf("upgrade with duplicate emails must not fail: %v", err)
+	}
+
+	// Enforcement is deferred: the index does not exist yet.
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_users_email'`).Scan(&n); err != nil {
+		t.Fatalf("query index: %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("expected idx_users_email deferred, got count=%d", n)
 	}
 }
 
