@@ -24,8 +24,12 @@ type GitHubUser struct {
 }
 
 func (s *Handler) StartGitHubOAuthRoute(w http.ResponseWriter, r *http.Request) {
-	clientID := os.Getenv("GITHUB_CLIENT_ID")
-	redirectURI := os.Getenv("GITHUB_REDIRECT_URI")
+	if !s.GitHubConfig.Enabled {
+		http.NotFound(w, r)
+		return
+	}
+	clientID := s.GitHubConfig.ClientID
+	redirectURI := s.GitHubConfig.RedirectURI
 	scope := "user:email"
 
 	// CSRF defense: generate a random `state`, store it in the shared signed
@@ -53,6 +57,10 @@ func (s *Handler) StartGitHubOAuthRoute(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Handler) GitHubCallbackRoute(w http.ResponseWriter, r *http.Request) {
+	if !s.GitHubConfig.Enabled {
+		http.NotFound(w, r)
+		return
+	}
 	frontendURL := os.Getenv("ZETTEL_URL")
 	// Failure modes redirect back to the login page with an error code
 	// (mirroring the OIDC callback) so the user lands somewhere sane. The
@@ -87,9 +95,9 @@ func (s *Handler) GitHubCallbackRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientID := os.Getenv("GITHUB_CLIENT_ID")
-	clientSecret := os.Getenv("GITHUB_CLIENT_SECRET")
-	redirectURI := os.Getenv("GITHUB_REDIRECT_URI")
+	clientID := s.GitHubConfig.ClientID
+	clientSecret := s.GitHubConfig.ClientSecret
+	redirectURI := s.GitHubConfig.RedirectURI
 
 	body := url.Values{}
 	body.Set("client_id", clientID)

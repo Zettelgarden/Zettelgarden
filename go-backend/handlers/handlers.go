@@ -45,6 +45,10 @@ type Handler struct {
 	// llm_jobs audit table. See services.JobRunner.
 	JobRunner *services.JobRunner
 
+	// GitHub OAuth configuration (enabled by default; set GITHUB_AUTH_ENABLED
+	// =false to disable, e.g. when a generic OIDC provider replaces it).
+	GitHubConfig config.GitHubConfig
+
 	// OIDC / SSO configuration (opt-in) and a lazily-discovered, cached
 	// provider+oauth2 config. Discovery happens on first use of the OIDC
 	// routes; the cache is process-local and never invalidated, so changing

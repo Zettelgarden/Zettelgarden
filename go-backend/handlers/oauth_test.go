@@ -166,3 +166,31 @@ func TestGitHubCallbackRoute_RejectsExpiredStateCookie(t *testing.T) {
 
 	assertLoginError(t, rr, "bad_state")
 }
+
+func TestStartGitHubOAuthRoute_DisabledReturns404(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	s.GitHubConfig.Enabled = false
+
+	req := httptest.NewRequest("GET", "/api/auth/github", nil)
+	rr := httptest.NewRecorder()
+	s.StartGitHubOAuthRoute(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 when GitHub auth disabled, got %d", rr.Code)
+	}
+}
+
+func TestGitHubCallbackRoute_DisabledReturns404(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	s.GitHubConfig.Enabled = false
+
+	req := httptest.NewRequest("GET", "/api/auth/github/callback?code=abc&state=mystate", nil)
+	rr := httptest.NewRecorder()
+	s.GitHubCallbackRoute(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 when GitHub auth disabled, got %d", rr.Code)
+	}
+}

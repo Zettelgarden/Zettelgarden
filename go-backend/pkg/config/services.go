@@ -49,8 +49,11 @@ type StorageConfig struct {
 	Dir string // Path to the file storage root (absolute or relative)
 }
 
-// GitHubConfig holds OAuth service configuration
+// GitHubConfig holds OAuth service configuration. Enabled defaults to true
+// (GitHub login is the long-standing default); set GITHUB_AUTH_ENABLED=false
+// to disable the routes when another provider (e.g. generic OIDC) replaces it.
 type GitHubConfig struct {
+	Enabled      bool   // If false, the GitHub OAuth routes return 404
 	ClientID     string // GitHub OAuth client ID
 	ClientSecret string // GitHub OAuth client secret (sensitive)
 	RedirectURI  string // OAuth callback URL
@@ -166,15 +169,28 @@ func checkDirWritable(dir string) error {
 	return os.Remove(f.Name())
 }
 
-// loadGitHubConfig loads GitHub OAuth configuration
+// loadGitHubConfig loads GitHub OAuth configuration. GitHub login is enabled by
+// default (GITHUB_AUTH_ENABLED defaults to true when unset) so existing
+// installs keep working; when explicitly disabled, the three client values are
+// no longer required (mirroring the opt-in OIDC config).
 func loadGitHubConfig() GitHubConfig {
+	enabled := true
+	if v := os.Getenv("GITHUB_AUTH_ENABLED"); v != "" {
+		enabled = requireBool("GITHUB_AUTH_ENABLED")
+	}
 	config := GitHubConfig{
-		ClientID:     requireString("GITHUB_CLIENT_ID"),
-		ClientSecret: requireString("GITHUB_CLIENT_SECRET"),
-		RedirectURI:  requireString("GITHUB_REDIRECT_URI"),
+		Enabled:      enabled,
+		ClientID:     optionalString("GITHUB_CLIENT_ID"),
+		ClientSecret: optionalString("GITHUB_CLIENT_SECRET"),
+		RedirectURI:  optionalString("GITHUB_REDIRECT_URI"),
 	}
 
-	validateURL("GITHUB_REDIRECT_URI", config.RedirectURI)
+	if enabled {
+		requireString("GITHUB_CLIENT_ID")
+		requireString("GITHUB_CLIENT_SECRET")
+		requireString("GITHUB_REDIRECT_URI")
+		validateURL("GITHUB_REDIRECT_URI", config.RedirectURI)
+	}
 
 	return config
 }

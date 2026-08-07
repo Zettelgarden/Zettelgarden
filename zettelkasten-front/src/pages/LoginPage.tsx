@@ -36,6 +36,10 @@ function LoginForm() {
   const oidcEnabled = import.meta.env.VITE_OIDC_ENABLED === "true";
   const oidcLabel = import.meta.env.VITE_OIDC_LABEL || "Continue with SSO";
 
+  // GitHub login is shown by default; set VITE_GITHUB_AUTH_ENABLED=false to
+  // hide the button when a generic OIDC provider replaces it.
+  const githubEnabled = import.meta.env.VITE_GITHUB_AUTH_ENABLED !== "false";
+
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     try {
@@ -95,14 +99,16 @@ function LoginForm() {
         <div className="text-center text-green-500 mb-4">
           {message && <span>{message}</span>}
         </div>
-        <button
-          onClick={handleGitHubLogin}
-          className="w-full bg-gray-200 text-gray-700 py-2.5 rounded-lg hover:bg-gray-300 transition duration-200 flex items-center justify-center"
-          type="button"
-        >
-          <FaGithub className="mr-2" />
-          Continue with GitHub
-        </button>
+        {githubEnabled && (
+          <button
+            onClick={handleGitHubLogin}
+            className="w-full bg-gray-200 text-gray-700 py-2.5 rounded-lg hover:bg-gray-300 transition duration-200 flex items-center justify-center"
+            type="button"
+          >
+            <FaGithub className="mr-2" />
+            Continue with GitHub
+          </button>
+        )}
         {oidcEnabled && (
           <button
             onClick={handleOIDCLogin}

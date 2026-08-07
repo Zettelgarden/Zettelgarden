@@ -147,6 +147,7 @@ func setTestEnvironmentVariables() {
 	setEnvIfNotSet("STORAGE_DIR", filepath.Join(os.TempDir(), "zettelgarden-test-storage"))
 
 	// GitHub OAuth config - test defaults
+	setEnvIfNotSet("GITHUB_AUTH_ENABLED", "true")
 	setEnvIfNotSet("GITHUB_CLIENT_ID", "test-github-client-id")
 	setEnvIfNotSet("GITHUB_CLIENT_SECRET", "test-github-client-secret")
 	setEnvIfNotSet("GITHUB_REDIRECT_URI", "http://localhost:8080/auth/github/callback")

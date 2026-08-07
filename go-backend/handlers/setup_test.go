@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"go-backend/pkg/config"
 	"go-backend/services"
 	"go-backend/tests"
 )
@@ -33,6 +34,9 @@ func NewHandler() *Handler {
 		DB:        S.DB,
 		Server:    S,
 		JobRunner: services.NewJobRunner(S.DB, nil), // nil processor is safe: execute() recovers the panic, so file-upload tests record the llm_jobs audit row without doing real extraction.
+		// GitHub OAuth defaults to enabled in tests; individual tests opt out
+		// by setting s.GitHubConfig.Enabled = false.
+		GitHubConfig: config.GitHubConfig{Enabled: true},
 	}
 
 	return s

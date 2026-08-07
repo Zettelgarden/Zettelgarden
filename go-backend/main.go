@@ -112,6 +112,12 @@ func run() error {
 		Server: s,
 		DB:     s.DB,
 	}
+	h.GitHubConfig = cfg.Services.GitHub
+	if h.GitHubConfig.Enabled {
+		log.Printf("GitHub OAuth enabled")
+	} else {
+		log.Printf("GitHub OAuth disabled (set GITHUB_AUTH_ENABLED=true to enable)")
+	}
 	h.OIDCConfig = cfg.Services.OIDC
 	if h.OIDCConfig.Enabled {
 		log.Printf("OIDC SSO enabled (issuer=%s)", h.OIDCConfig.Issuer)
