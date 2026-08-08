@@ -186,9 +186,12 @@ describe('SyncEngine', () => {
     devA.engine.mutate('cards', { rowUuid: 'card-a', data: { ...cardData('A'), tags: ['Work'] } });
     await devA.engine.sync();
 
+    // B's offline edit differs (red vs black): the merge discards it, so the
+    // engine must surface the lost edit (v5b.6).
     devB.engine.mutate('tags', { rowUuid: 'tag-b', data: { name: 'Work', color: 'red' } });
     const summary = await devB.engine.sync();
     expect(summary.conflicts).toBe(0);
+    expect(summary.lostEdits).toBe(1);
     // B's local tag row now uses the surviving uuid (tag-a).
     expect(devB.storage.getRow('tags', 'tag-a')).toBeDefined();
     expect(devB.storage.getRow('tags', 'tag-b')).toBeUndefined();
@@ -197,6 +200,24 @@ describe('SyncEngine', () => {
     // Exactly one server tag.
     const snap = await server.snapshot(['tags']);
     expect(snap.collections.tags!).toHaveLength(1);
+  });
+
+  it('tag name-merge with identical data reports no lost edit', async () => {
+    const server = new MockServer();
+    const devA = makeEngine(server, 'dev-a');
+    const devB = makeEngine(server, 'dev-b');
+    await devA.engine.bootstrap();
+    await devB.engine.bootstrap();
+
+    devA.engine.mutate('tags', { rowUuid: 'tag-x', data: { name: 'Home', color: 'green' } });
+    await devA.engine.sync();
+
+    // B pushes the same name AND the same color: nothing is discarded.
+    devB.engine.mutate('tags', { rowUuid: 'tag-y', data: { name: 'Home', color: 'green' } });
+    const summary = await devB.engine.sync();
+    expect(summary.lostEdits).toBe(0);
+    expect(devB.storage.getRow('tags', 'tag-x')).toBeDefined();
+    expect(devB.storage.getRow('tags', 'tag-y')).toBeUndefined();
   });
 
   it('delete propagates to the other device', async () => {

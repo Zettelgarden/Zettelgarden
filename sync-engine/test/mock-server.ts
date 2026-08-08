@@ -103,6 +103,7 @@ export class MockServer implements SyncTransport {
 
   push(req: PushRequest): Promise<PushResponse> {
     const results: PushResponse['results'] = [];
+    let lostEdits = 0;
     // Batch-internal tombstones: a row soft-deleted earlier in THIS batch is
     // resurrected by a same-batch upsert (delete-then-recreate), matching the
     // Go server's pushContext.deletedInBatch.
@@ -127,6 +128,10 @@ export class MockServer implements SyncTransport {
               byName.version = ch.base_version + 1;
               byName.data = { ...ch.data, id: byName.data.id };
               this.emit('tags', byName.rowUuid, 'upsert', byName.version);
+            } else if (!sameTagData(ch.data, byName.data)) {
+              // The server row won the merge and the losing edit differs:
+              // count the discarded edit like the Go server does.
+              lostEdits++;
             }
             results.push({
               rowUuid: ch.row_uuid,
@@ -163,6 +168,7 @@ export class MockServer implements SyncTransport {
         continue;
       }
       if (ch.base_version < existing.version && !resurrecting) {
+        lostEdits++;
         results.push({
           rowUuid: ch.row_uuid,
           status: 'conflict',
@@ -201,7 +207,16 @@ export class MockServer implements SyncTransport {
     return Promise.resolve({
       results,
       cursor,
-      lostEdits: results.filter((r) => r.status === 'conflict').length,
+      lostEdits,
     });
   }
+}
+
+/** True when both payloads carry the same tag fields (name/color/is_deleted). */
+function sameTagData(
+  a: Record<string, unknown> | undefined,
+  b: Record<string, unknown> | undefined,
+): boolean {
+  if (!a || !b) return a === b;
+  return a.name === b.name && a.color === b.color && a.is_deleted === b.is_deleted;
 }

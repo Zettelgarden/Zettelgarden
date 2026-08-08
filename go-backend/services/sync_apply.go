@@ -296,6 +296,22 @@ func (c *pushContext) taskRowMatchesPush(ch models.SyncChange, serverID int) boo
 		equalTimePtr(pushed.CompletedAt, row.CompletedAt) && equalTimePtr(pushed.ReminderTime, row.ReminderTime)
 }
 
+// tagPushDiffersFromRow reports whether the pushed tag data differs from the
+// current server row — i.e. the losing device's offline edit was discarded by
+// a name-merge. An identical re-push (dropped-response retry) reports no loss.
+func (c *pushContext) tagPushDiffersFromRow(data models.SyncTagData, serverID int) bool {
+	var row struct {
+		Name      string
+		Color     string
+		IsDeleted bool
+	}
+	if err := c.tx.QueryRow(`SELECT name, color, is_deleted FROM tags WHERE id = $1 AND user_id = $2`, serverID, c.userID).
+		Scan(&row.Name, &row.Color, &row.IsDeleted); err != nil {
+		return false // cannot verify against the row; don't count a phantom loss
+	}
+	return data.Name != row.Name || data.Color != row.Color || data.IsDeleted != row.IsDeleted
+}
+
 // tagRowMatchesPush compares a re-pushed tag change against the current row.
 func (c *pushContext) tagRowMatchesPush(ch models.SyncChange, serverID int) bool {
 	var row struct {
@@ -741,7 +757,14 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 		if err == nil {
 			if ch.BaseVersion <= mergedVersion && !c.deletedInBatch[mergedUUID] {
 				// The server row is as new or newer: keep it, tell the client to
-				// adopt its uuid. No write, no feed entry (nothing changed).
+				// adopt its uuid. No write, no feed entry (nothing changed). If
+				// the losing edit actually changed the tag, that edit is
+				// discarded — count it like a conflict so the client can
+				// surface it (Phase 4 conflict inbox). An identical re-push
+				// (e.g. a dropped-response retry) loses nothing.
+				if c.tagPushDiffersFromRow(data, mergedID) {
+					c.lost++
+				}
 				c.merged(ch, mergedID, mergedVersion, mergedUUID)
 				return nil
 			}

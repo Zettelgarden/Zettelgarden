@@ -193,6 +193,16 @@ must say what's offline-capable ("Available offline: cards, tasks, tags").
 - **Lost-edit surfacing:** the v1 policy silently discards the losing edit on
   two-device concurrent edit. Acceptable for v1, but the client surfaces a
   count ("N edits discarded on other devices") in the UI.
+- **Merge losses count too (v5b.6):** a tag name-merge that discards a
+  differing offline edit (pushed `name`/`color`/`is_deleted` differ from the
+  surviving server row) increments the same `lost_edits` total as a conflict;
+  a merge whose pushed data is identical to the surviving row (e.g. two
+  devices create the same tag with the same color, or a dropped-response
+  retry of an identical entry) reports no loss. The surviving row is always
+  authoritative and the client adopts its `sync_uuid`. Known limitation:
+  a dropped-response retry of a *differing* merge re-counts the loss (the
+  server has no per-client idempotency record for merges); acceptable until
+  the Phase 4 conflict inbox adds one.
 - **v2 (later):** field-level merge for card title/body, and a "discarded
   change" inbox so a losing edit isn't silently lost. Not needed for v1.
 

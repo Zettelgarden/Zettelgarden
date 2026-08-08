@@ -525,6 +525,72 @@ func TestSyncPushDeleteThenRecreateBatch(t *testing.T) {
 	}
 }
 
+// TestSyncPushTagMergeLostEdit pins the v5b.6 policy: a tag name-merge that
+// discards a differing offline edit counts a lost edit.
+func TestSyncPushTagMergeLostEdit(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	name := "sync-merge-loss-tag"
+	devA, _ := json.Marshal(models.SyncTagData{Name: name, Color: "black"})
+	devB, _ := json.Marshal(models.SyncTagData{Name: name, Color: "red"})
+
+	respA := pushChanges(t, s, router, []models.SyncChange{
+		{Collection: services.SyncCollectionTags, RowUUID: "tag-loss-a", Op: services.SyncOpUpsert, BaseVersion: 0, Data: devA},
+	})
+	if respA.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("device A tag: %+v", respA.Results[0])
+	}
+
+	// Device B's edit differs (red vs black): the merge discards it and must
+	// count the lost edit.
+	respB := pushChanges(t, s, router, []models.SyncChange{
+		{Collection: services.SyncCollectionTags, RowUUID: "tag-loss-b", Op: services.SyncOpUpsert, BaseVersion: 0, Data: devB},
+	})
+	if respB.Results[0].Status != services.SyncStatusMerged {
+		t.Fatalf("device B tag: expected merged, got %+v", respB.Results[0])
+	}
+	if respB.LostEdits != 1 {
+		t.Errorf("lost_edits = %d, want 1 (differing color discarded by merge)", respB.LostEdits)
+	}
+	// The surviving row is authoritative; the client must adopt its data.
+	var color string
+	if err := s.GetDB().QueryRow(`SELECT color FROM tags WHERE sync_uuid = 'tag-loss-a'`).Scan(&color); err != nil {
+		t.Fatal(err)
+	}
+	if color != "black" {
+		t.Errorf("surviving tag color = %q, want black", color)
+	}
+}
+
+// TestSyncPushTagMergeIdenticalNoLoss: a same-named tag pushed with data
+// identical to the surviving row reports no lost edit.
+func TestSyncPushTagMergeIdenticalNoLoss(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	name := "sync-merge-same-tag"
+	same, _ := json.Marshal(models.SyncTagData{Name: name, Color: "blue"})
+
+	respA := pushChanges(t, s, router, []models.SyncChange{
+		{Collection: services.SyncCollectionTags, RowUUID: "tag-same-a", Op: services.SyncOpUpsert, BaseVersion: 0, Data: same},
+	})
+	if respA.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("device A tag: %+v", respA.Results[0])
+	}
+	respB := pushChanges(t, s, router, []models.SyncChange{
+		{Collection: services.SyncCollectionTags, RowUUID: "tag-same-b", Op: services.SyncOpUpsert, BaseVersion: 0, Data: same},
+	})
+	if respB.Results[0].Status != services.SyncStatusMerged {
+		t.Fatalf("device B tag: expected merged, got %+v", respB.Results[0])
+	}
+	if respB.LostEdits != 0 {
+		t.Errorf("identical merge lost_edits = %d, want 0", respB.LostEdits)
+	}
+}
+
 // strPtr/intPtr are tiny helpers for pointer-typed task fields in the retry
 // tests above.
 func strPtr(s string) *string { return &s }
