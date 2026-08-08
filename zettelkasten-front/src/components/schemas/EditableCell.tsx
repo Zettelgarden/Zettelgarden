@@ -3,6 +3,7 @@ import { FieldDefinition } from '../../models/Schema';
 import { Card } from '../../models/Card';
 import { saveExistingCard, getCard } from '../../api/cards';
 import { CardLink } from '../cards/CardLink';
+import { isEmptyValue } from '../../utils/schemaValidation';
 
 interface EditableCellProps {
   card: Card;
@@ -121,6 +122,13 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
       return;
     }
 
+    // Required fields cannot be emptied (bead s2l) — mirror the backend rule.
+    if (field.required && isEmptyValue(value)) {
+      setError(`${field.name} is required`);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -138,7 +146,13 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
       onSave();
     } catch (err) {
       console.error('Failed to save cell value:', err);
-      setError('Failed to save');
+      // Surface the server's message (e.g. "required field 'x' cannot be
+      // empty") when available; the backend is the source of truth.
+      const msg =
+        err instanceof Error && err.message && err.message !== 'Failed to save'
+          ? err.message
+          : 'Failed to save';
+      setError(msg);
       setIsLoading(false);
     }
   };
