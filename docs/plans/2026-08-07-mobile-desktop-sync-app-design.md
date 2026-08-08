@@ -169,14 +169,16 @@ runs everywhere):
 | Category | Examples | Treatment |
 |---|---|---|
 | User-authored (offline-writable) | cards, tasks, tags, task statuses, templates, references, pins, starred searches, structured data, files metadata | Bidirectional |
-| Junction rows | card↔tag, task↔tag | Bidirectional, with tombstones |
+| Junction rows | card↔tag, task↔tag | **Server-derived, pull-only** — `AddTagsFromCard`/`AddTagsFromTask` wipe and re-insert from the card body / task title on every content edit; offline "tagging" is a body/title text edit |
 | Card parentage | `cards.parent_id` | **Server-authoritative** — derived from `card_id` on push; pull-only in v1 |
 | Server-derived (pull-only) | entities, facts, summaries, embeddings | Pull + overwrite; never merged |
 | Blobs | file contents | Metadata syncs; binary cached on demand (LRU) |
 
-**v1 offline-writable scope:** cards, tasks, tags, and their junction rows.
-Everything else syncs read-only until proven necessary. The UI must say what's
-offline-capable ("Available offline: cards, tasks, tags").
+**v1 offline-writable scope:** cards, tasks, tags only. `card_tags`/`task_tags`
+are server-derived from content (see Collections table) and sync pull-only —
+the UI's offline tag affordance is editing the `#tag` text in the card body /
+task title. Everything else syncs read-only until proven necessary. The UI
+must say what's offline-capable ("Available offline: cards, tasks, tags").
 
 ### Conflict Policy
 
@@ -216,9 +218,13 @@ scope is pinned to exactly five tables — `cards`, `tasks`, `tags`, `card_tags`
    snapshot endpoint, item 3).
 2. **Write-path audit + centralized change capture.** The real cost is
    inserting transactional `sync_log` writes into **every existing write path**
-   for the five pinned tables (several use `INSERT OR REPLACE` junctions that
-   must also emit tombstones). Make this an explicit Phase 0 workstream and
-   centralize capture in the **service layer** (`services/`) — a single
+   for the five pinned tables. The audit (done 2026-08-08) found the junction
+   writes are **derived, not user-authored**: `UpdateCard`/`CreateCard` call
+   `AddTagsFromCard` and task create/update call `AddTagsFromTask`, both of
+   which wipe-and-reinsert `card_tags`/`task_tags` from the content text — so
+   the sync path must **not** apply raw junction rows, and no junction
+   tombstones are needed (they fall out of re-derivation). Centralize capture
+   in the **service layer** (`services/`) — a single
    `emitChange(userID, collection, rowUUID, op, version)` helper called from
    services — rather than sprinkling handler edits.
 3. **`GET /api/sync/snapshot?collections=…` (bootstrap)** — serves full current
@@ -234,9 +240,18 @@ scope is pinned to exactly five tables — `cards`, `tasks`, `tags`, `card_tags`
    Each change carries `row_uuid` (the idempotency key — a retry replays the
    same op) and `base_version` (the concurrency check; see Conflict Policy).
    The handler **resolves `row_uuid → server int PK` inside the same
-   transaction** (for offline-created rows and for junctions referencing them)
-   and returns that mapping in the response so the client can rewrite local
-   references.
+   transaction** — covering **every** FK on the pinned tables: `cards.parent_id`,
+   `tasks.card_pk` (a task created offline attached to an offline-created
+   card is the common case), `tasks.parent_task_id` — and returns that mapping
+   in the response so the client can rewrite local references.
+   **Tags are special:** tag identity is name-keyed, not uuid-keyed (`CreateTag`
+   reuses an existing row by `(user_id, name)` — even resurrecting a
+   soft-deleted one — and `AddTagToCard` resolves name→id at insert; there is
+   no UNIQUE constraint on `tags(name)`). The push path for `tags` must
+   **merge by name** (find `(user_id, name)` incl. deleted → reuse, else
+   create) and return the reused row's `sync_uuid`/id so junction remapping and
+   the client's local tag references converge. A naive uuid-upsert silently
+   creates duplicate "Work" tags that the REST path would have merged.
 6. **`version INTEGER` column** on all five pinned tables, bumped on every
    accepted update (alongside existing `updated_at`).
 7. **Stable client identities — `sync_uuid TEXT UNIQUE` on *all* syncable
@@ -250,8 +265,11 @@ scope is pinned to exactly five tables — `cards`, `tasks`, `tags`, `card_tags`
    server derives it on push. The card↔parent junction is **pull-only in v1** —
    no offline reparenting; offline-created cards stay roots until the server
    resolves them.
-9. **Tombstones** — soft-delete (or tombstone rows) for the hard-deleted
-   junction rows (`card_tags`, `task_tags`) so deletes propagate.
+9. **No junction tombstones needed** — `card_tags`/`task_tags` are derived and
+   pull-only (item 2), so their "deletes" fall out of server re-derivation.
+   Delete propagation for the pinned tables rides on the existing soft-delete
+   columns (`is_deleted` on cards, tasks, tags — tags soft-delete via
+   `DeleteTag`); a soft-deleted row syncs as an `op=delete` feed entry.
 10. **Auth follow-ups** — refresh-token endpoint (lands in **Phase 0**: 15-day
     re-auth on mobile is a churn magnet); OAuth/GitHub/OIDC deep-link callbacks
     for native shells (the OIDC design's token-in-URL callback is awkward for
@@ -270,12 +288,15 @@ source of truth with the same read endpoints intact.
 Everything depends on this. Workstreams: (a) write-path audit + centralized
 `emitChange` capture in `services/` for the five pinned tables; (b) `sync_log`
 + snapshot + changes feed + push endpoints (with `row_uuid → PK` resolution
-and optimistic concurrency); (c) `version` + `sync_uuid` columns and junction
-tombstones; (d) server-authoritative `parent_id` derivation on push; (e)
+and optimistic concurrency); (c) `version` + `sync_uuid` columns and tag
+name-merge push semantics; (d) server-authoritative `parent_id` derivation on
+push; (e)
 refresh-token endpoint + native auth deep links.
 **Exit criteria:** a script can (1) snapshot-bootstrap an empty client, (2)
-pull the feed, (3) push a batch including an offline-created card, a tag, and a
-junction linking them, and observe the feed advance with the returned
+pull the feed, (3) push a batch including an offline-created card, a task
+linked to it via `card_pk`, and a tag — including the same-named tag pushed
+from two devices, which must merge into one server row with both devices'
+references remapped — and observe the feed advance with the returned
 `row_uuid → PK` mapping applied; idempotent retry produces no duplicates; a
 stale `base_version` push is rejected or LWW-resolved deterministically; Go
 tests green.
@@ -286,13 +307,20 @@ policy, unit tests against a SQLite adapter.
 **Exit criteria:** a headless harness (no UI) keeps two local databases
 converged through a live backend — including offline gaps, concurrent edits,
 **offline-created linked rows** (a card created offline on device A, a task
-created offline on device B, and junctions tying them to shared tags), and
-offline `card_id` rename on both devices (must not split one logical row).
+created offline on device B linked via `tasks.card_pk`, and the same-named tag
+created offline on both devices — one server tag, both remapped), and offline
+`card_id` rename on both devices (must not split one logical row). The harness
+must also interleave push and pull (a device's own pushed changes must not be
+double-applied when the feed echoes them back).
 
 ### Phase 2 — Desktop App (Tauri)
-Scaffold (keychain auth, server-URL setting), wire the engine, swap the UI's
-data layer to the local client, offline read + write for cards/tasks/tags,
-online/offline + pending-changes indicators, signed CI builds per OS.
+Scaffold (keychain auth, server-URL setting), wire the engine, **replace the
+UI's data layer** (the web client calls `apiClient` directly from ~28 files —
+components, contexts, and a few React Query hooks — so this is a frontend
+workstream comparable in size to the engine: every read/write path moves to
+the local mirror + outbox with optimistic invalidation), offline read + write
+for cards/tasks/tags, online/offline + pending-changes indicators, signed CI
+builds per OS.
 **Exit criteria:** create/edit/delete cards and tasks with the network
 disconnected; changes reconcile on reconnect; the app opens instantly offline.
 
@@ -317,8 +345,9 @@ gains offline reads.
    open (on launch, on focus, on a timer). Rust buys background sync with the
    app closed on desktop at the cost of a second engine language. Default: TS;
    revisit only if "sync while app closed" becomes a requirement.
-5. **Offline-writable scope** — confirm **cards, tasks, tags + junctions** for
-   v1.
+5. **Offline-writable scope** — confirm **cards, tasks, tags** for v1
+   (junctions are server-derived and pull-only; offline tag editing is a
+   body/title text edit).
 6. **Backend budget** — the Phase 0 items are the gate on "sync". Confirm
    willingness to spend it; otherwise the whole effort stalls at a read cache.
 7. **Web app** — stays thin-client (recommended) vs gains the IndexedDB adapter
@@ -479,4 +508,116 @@ Original review text preserved below and in git history (394f443b).
 12. The two-DB convergence harness should include junction + offline-created-
     linked-row cases (item 3), not just scalar card/task edits — that's where
     the engine will actually break.
+
+## Review Feedback (2026-08-08) — Second Pass
+
+Second-pass review against the current codebase. The first pass (above)
+verified auth, timestamps, and hard-delete claims; this pass verified the
+**write paths for the five pinned tables** and found two structural issues
+plus follow-ons. Must-fix for Phase 0: items 1–2.
+
+### Resolutions (2026-08-08)
+
+Each item below is now incorporated into the design above:
+
+| # | Feedback | Resolved where |
+|---|---|---|
+| 1 | `card_tags`/`task_tags` are server-derived, not user-authored | Collections table + v1 scope — junctions pull-only; offline tagging = body/title edit |
+| 2 | Tag identity is name-keyed, not uuid-keyed | Backend Work §5 — name-merge push for tags; Phase 0 exit-criteria test |
+| 3 | Junction tombstones unnecessary | Backend Work §9 — dropped; deletes ride `is_deleted` |
+| 4 | FK resolution list incomplete | Backend Work §5 — `tasks.card_pk`, `tasks.parent_task_id` enumerated |
+| 5 | Phase 2 "swap UI data layer" under-scoped | Phase 2 — explicit ~28-file refactor workstream |
+| 6 | Push-then-pull self-echo unspecified | Phase 1 exit criteria — interleaved push/pull harness case |
+
+Original review text preserved below and in git history.
+
+### Critical
+
+1. **`card_tags` and `task_tags` are server-derived, not user-authored — the
+   "Bidirectional, with tombstones" treatment is wrong.** Verified in the
+   write paths: `UpdateCard` and `CreateCard` call `AddTagsFromCard`
+   (`services/cards.go:776,905`), which **wipes every `card_tags` row for the
+   card** (`DELETE FROM card_tags WHERE card_pk = ?`) and re-inserts from
+   `#tags` parsed from `cards.body` plus parent-chain tags
+   (`IdentifyParentTags`). Tasks are identical: `AddTagsFromTask`
+   (`handlers/tags.go:57`) wipes `task_tags` and re-derives from `tasks.title`
+   on create, update, and recurring-task generation. The frontend has no
+   manual card-tag route (`GET /cards/{id}/tags` is read-only; only files have
+   tag POST/DELETE routes). Consequences:
+   - **No tombstones needed.** Junction "deletes" are implicit in the wipe-
+     and-reinsert on the next content edit. The §9 tombstone workstream
+     evaporates.
+   - **The push path must not apply raw junction rows.** If push applies
+     client `card_tags`/`task_tags` rows *and* the merged body edit re-derives
+     them, the two paths fight: a tag the client added offline is wiped when
+     the body lands; a body-derived junction the client removed offline
+     reappears.
+   - This is the **same server-authoritative argument the doc already makes
+     for `parent_id`** (§8) — apply it to the junctions sitting next to it.
+     Junctions are pull-only in v1; offline "tagging" is a body/title text
+     edit, which is exactly what the server derives from.
+
+2. **Tag identity is name-keyed, not uuid-keyed — the `row_uuid` machinery
+   does not fit `tags`.** Verified: `CreateTag` looks up by `(user_id, name)`
+   **including deleted rows** (`GetTagMaybeDeleted`) and *reuses/edits* the
+   existing row (`UPDATE tags ... SET is_deleted = FALSE` — a create-by-name
+   resurrects a deleted tag); `AddTagToCard`/`AddTagToTask` resolve name→id at
+   insert time; there is no UNIQUE constraint on `tags(name)`. So two devices
+   creating "Work" offline must converge to **one** server tag, and junctions
+   referencing the second device's tag must be remapped to the merged row. If
+   the push handler naively upserts tags by `sync_uuid`, it creates duplicate
+   "Work" tags — a silent data-model divergence the REST path would have
+   merged. The push path needs name-keyed merge for `tags` (find `(user_id,
+   name)` incl. deleted → reuse, else create) with the reused row's
+   `sync_uuid`/id returned in the mapping so the client rewrites its local tag
+   references. Add an exit-criteria test: same-named tag created offline on
+   two devices → one server row, both remapped.
+
+### Medium
+
+3. **`tasks.card_pk` and `tasks.parent_task_id` are missing from the FK
+   resolution enumeration.** §5 says push resolves `row_uuid → PK` "for
+   offline-created rows and for junctions referencing them" — but the concrete
+   list (from the first-pass review: `card_tags`, `task_tags`, `cards.parent_id`)
+   omits `tasks.card_pk`, the most common offline creation flow (a task
+   created offline attached to a card created offline). Enumerate every FK on
+   the pinned tables and make the push response mapping cover them; add
+   task→card and task→task to the Phase 1 harness.
+
+4. **"Swap the UI's data layer" under-scopes Phase 2.** The web client calls
+   `apiClient` directly from ~28 files (components + contexts + a few React
+   Query hooks); the engine's transport-agnosticism doesn't move those calls.
+   A local-first data layer means rewriting every data-touching component's
+   read/write path onto the local mirror + outbox + optimistic invalidation —
+   a frontend workstream roughly the size of the engine itself, currently one
+   bullet. Give it its own sub-workstream with exit criteria (e.g., "cards
+   list/edit/create flow reads and writes only local SQLite; no `fetch()` on
+   the hot path").
+
+5. **Push-then-pull self-echo is unspecified.** After a push the server writes
+   `sync_log` rows for the client's own changes and bumps versions; the next
+   pull echoes them back. The engine needs a rule (mark outbox entries
+   confirmed before applying the feed, or dedupe by `row_uuid`+`version`) so
+   its own optimistic writes aren't re-applied or double-bumped. The Phase 1
+   harness should interleave push and pull, not just push-then-verify.
+
+### Minor
+
+6. **`card_tags` also derive from parentage.** `IdentifyParentTags` walks the
+   parent chain, so pull-only junctions interact with §8's server-authoritative
+   parentage: when an offline-created root card gets reparented server-side,
+   its derived tag set changes too. Fine for v1 (pull-only absorbs it), but
+   worth one line in §8.
+
+7. **Collections table vs. v1 scope is ambiguous.** The "User-authored
+   (offline-writable)" row lists task statuses, templates, references, pins,
+   starred searches, structured data, and files metadata — all read-only in
+   v1 per the pinned-scope paragraph directly below. The table reads as the
+   eventual treatment; the header implies now. Suggest labeling the table
+   "full sync surface" so the v1 pin doesn't look contradictory.
+
+8. **`unsorted_cards`** (a card-shaped table with no `user_id`, referenced
+   nowhere in `services/`) looks like legacy cruft — confirm it's dead before
+   the local mirror copies "all syncable tables", or it drags into the client
+   schema for no reason.
 
