@@ -7,15 +7,15 @@ import (
 )
 
 // LLMClient wraps an OpenAI-compatible client with per-request metadata.
-// It is shared across all AI features (memory, entity recognition,
-// summarization, etc.).
+// It is shared across all AI features (entity recognition, summarization,
+// etc.).
 type LLMClient struct {
 	Client      *openai.Client
 	Testing     bool
 	Model       string // Just the model identifier string
 	UserID      int
 	DB          *sql.DB
-	RequestType string // e.g. "analysis", "summarization", "memory"
+	RequestType string // e.g. "analysis", "summarization"
 }
 
 const MODEL = "gpt-3.5-turbo"

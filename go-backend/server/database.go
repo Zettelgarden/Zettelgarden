@@ -222,18 +222,20 @@ func ensureSQLiteSchemaUpgrades(db *sql.DB) error {
 		}
 	}
 
-	// Remove the half-implemented AI-agent multi-user remnants (Zettelgarden-thw).
-	// The feature was never completed — no agent handlers/routes ever shipped —
-	// so existing DBs carry an always-empty agent_activity_log table and
-	// always-NULL columns (users.is_agent/owner_user_id/api_key_hash,
-	// cards.created_by_agent_id). Fresh builds no longer create them; existing
-	// DBs converge here on boot. SQLite cannot DROP COLUMN while a CHECK or FK
-	// constraint references the column, so users and cards are rebuilt without
-	// the agent columns (see sqliteRebuildTable). All steps are idempotent and
-	// no-ops once the columns are gone.
+	// Remove the half-implemented AI-agent multi-user remnants (Zettelgarden-thw)
+	// and the disabled user-memory feature (Zettelgarden-c1x). Neither shipped
+	// to users — no agent handlers/routes ever existed and the memory UI/job
+	// were disabled — so existing DBs carry an always-empty agent_activity_log
+	// table, an always-empty user_memories table, and always-NULL columns
+	// (users.is_agent/owner_user_id/api_key_hash, users.memory_has_changed /
+	// last_memory_job_id, cards.created_by_agent_id). Fresh builds no longer
+	// create them; existing DBs converge here on boot. SQLite cannot DROP
+	// COLUMN while a CHECK or FK constraint references the column, so users is
+	// rebuilt without the agent+memory columns (see sqliteRebuildTable). All
+	// steps are idempotent and no-ops once the columns are gone.
 	for _, idx := range []string{
 		"idx_agent_activity_action", "idx_agent_activity_agent", "idx_agent_activity_created",
-		"idx_cards_created_by_agent", "idx_users_agent", "idx_users_owner",
+		"idx_cards_created_by_agent", "idx_users_agent", "idx_users_owner", "idx_users_last_memory_job_id",
 	} {
 		if _, err := db.Exec(fmt.Sprintf("DROP INDEX IF EXISTS %s", idx)); err != nil {
 			return fmt.Errorf("drop index %s: %w", idx, err)
@@ -242,20 +244,31 @@ func ensureSQLiteSchemaUpgrades(db *sql.DB) error {
 	if _, err := db.Exec(`DROP TABLE IF EXISTS agent_activity_log`); err != nil {
 		return fmt.Errorf("drop agent_activity_log: %w", err)
 	}
+	if _, err := db.Exec(`DROP TABLE IF EXISTS user_memories`); err != nil {
+		return fmt.Errorf("drop user_memories: %w", err)
+	}
 
 	if hasUsers, err := sqliteTableExists(db, "users"); err != nil {
 		return fmt.Errorf("check users table: %w", err)
 	} else if hasUsers {
-		hasAgentCol, err := sqliteColumnExists(db, "users", "is_agent")
-		if err != nil {
-			return fmt.Errorf("check users.is_agent: %w", err)
+		needsRebuild := false
+		for _, col := range []string{"is_agent", "owner_user_id", "api_key_hash", "memory_has_changed", "last_memory_job_id"} {
+			hasCol, err := sqliteColumnExists(db, "users", col)
+			if err != nil {
+				return fmt.Errorf("check users.%s: %w", col, err)
+			}
+			if hasCol {
+				needsRebuild = true
+				break
+			}
 		}
-		if hasAgentCol {
+		if needsRebuild {
 			// users rebuild: full consolidated column set minus the agent
-			// columns (is_agent, owner_user_id, api_key_hash) and their CHECK
-			// constraints. The email/oidc unique indexes are recreated by the
-			// guarded self-heal steps below; caldav/last_memory_job_id indexes
-			// are recreated here to match the consolidated schema.
+			// columns (is_agent, owner_user_id, api_key_hash) and the memory
+			// columns (memory_has_changed, last_memory_job_id) and their CHECK
+			// constraints/FKs. The email/oidc unique indexes are recreated by
+			// the guarded self-heal steps below; caldav is recreated here to
+			// match the consolidated schema.
 			if err := sqliteRebuildTable(db,
 				`CREATE TABLE users_new (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -276,7 +289,6 @@ func ensureSQLiteSchemaUpgrades(db *sql.DB) error {
   max_file_storage INTEGER DEFAULT 100000000,
   dashboard_card_pk INTEGER DEFAULT 0,
   last_seen DATETIME,
-  memory_has_changed BOOLEAN DEFAULT true,
   auth_provider TEXT DEFAULT 'local',
   github_id TEXT,
   has_seen_getting_started BOOLEAN DEFAULT false,
@@ -284,16 +296,14 @@ func ensureSQLiteSchemaUpgrades(db *sql.DB) error {
   timezone TEXT DEFAULT 'UTC',
   show_tasks BOOLEAN DEFAULT true,
   show_rss BOOLEAN DEFAULT true,
-  last_memory_job_id INTEGER,
   caldav_url TEXT,
   caldav_token TEXT,
   oidc_provider TEXT,
-  oidc_sub TEXT,
-  FOREIGN KEY (last_memory_job_id) REFERENCES llm_jobs(id) ON DELETE SET NULL
-)`, `INSERT INTO users_new (id, username, email, password, created_at, updated_at, is_admin, email_validated, stripe_customer_id, stripe_subscription_id, stripe_subscription_status, stripe_subscription_frequency, stripe_current_plan, last_login, can_upload_files, max_file_storage, dashboard_card_pk, last_seen, memory_has_changed, auth_provider, github_id, has_seen_getting_started, stripe_cancel_at_period_end, timezone, show_tasks, show_rss, last_memory_job_id, caldav_url, caldav_token, oidc_provider, oidc_sub) SELECT id, username, email, password, created_at, updated_at, is_admin, email_validated, stripe_customer_id, stripe_subscription_id, stripe_subscription_status, stripe_subscription_frequency, stripe_current_plan, last_login, can_upload_files, max_file_storage, dashboard_card_pk, last_seen, memory_has_changed, auth_provider, github_id, has_seen_getting_started, stripe_cancel_at_period_end, timezone, show_tasks, show_rss, last_memory_job_id, caldav_url, caldav_token, oidc_provider, oidc_sub FROM users`, `DROP TABLE users`, `ALTER TABLE users_new RENAME TO users`, `CREATE INDEX idx_users_caldav_token ON users (caldav_token) WHERE (caldav_token IS NOT NULL)`, `CREATE INDEX idx_users_last_memory_job_id ON users (last_memory_job_id)`); err != nil {
-				return fmt.Errorf("rebuild users without agent columns: %w", err)
+  oidc_sub TEXT
+)`, `INSERT INTO users_new (id, username, email, password, created_at, updated_at, is_admin, email_validated, stripe_customer_id, stripe_subscription_id, stripe_subscription_status, stripe_subscription_frequency, stripe_current_plan, last_login, can_upload_files, max_file_storage, dashboard_card_pk, last_seen, auth_provider, github_id, has_seen_getting_started, stripe_cancel_at_period_end, timezone, show_tasks, show_rss, caldav_url, caldav_token, oidc_provider, oidc_sub) SELECT id, username, email, password, created_at, updated_at, is_admin, email_validated, stripe_customer_id, stripe_subscription_id, stripe_subscription_status, stripe_subscription_frequency, stripe_current_plan, last_login, can_upload_files, max_file_storage, dashboard_card_pk, last_seen, auth_provider, github_id, has_seen_getting_started, stripe_cancel_at_period_end, timezone, show_tasks, show_rss, caldav_url, caldav_token, oidc_provider, oidc_sub FROM users`, `DROP TABLE users`, `ALTER TABLE users_new RENAME TO users`, `CREATE INDEX idx_users_caldav_token ON users (caldav_token) WHERE (caldav_token IS NOT NULL)`); err != nil {
+				return fmt.Errorf("rebuild users without agent/memory columns: %w", err)
 			}
-			log.Printf("sqlite schema upgrade: dropped agent columns from users")
+			log.Printf("sqlite schema upgrade: dropped agent/memory columns from users")
 		}
 	}
 

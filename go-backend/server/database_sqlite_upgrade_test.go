@@ -354,12 +354,13 @@ func toSortedSlice(m map[string]struct{}) []string {
 }
 
 // createAgentEraTables simulates a database from the half-implemented
-// AI-agent era (Zettelgarden-thw): users carries the frozen pre-self-heal
-// baseline columns PLUS the agent columns (is_agent, owner_user_id,
-// api_key_hash) and their CHECK constraints; cards has created_by_agent_id;
-// and the always-empty agent_activity_log table exists. The agent feature was
-// never completed (no handlers/routes shipped), so these columns are all
-// NULL/false and the table is empty.
+// AI-agent era (Zettelgarden-thw) plus the disabled user-memory feature
+// (Zettelgarden-c1x): users carries the frozen pre-self-heal baseline columns
+// PLUS the agent columns (is_agent, owner_user_id, api_key_hash), their CHECK
+// constraints, and the memory columns (memory_has_changed, last_memory_job_id);
+// cards has created_by_agent_id; and the always-empty agent_activity_log and
+// user_memories tables exist. Neither feature shipped to users, so these
+// columns are all NULL/false and the tables are empty.
 func createAgentEraTables(t *testing.T, db *sql.DB) {
 	cols := []string{"id INTEGER PRIMARY KEY AUTOINCREMENT"}
 	for _, c := range usersBaselineColumns[1:] {
@@ -415,6 +416,14 @@ func createAgentEraTables(t *testing.T, db *sql.DB) {
 	if _, err := db.Exec(`CREATE TABLE schema_definitions (id INTEGER PRIMARY KEY AUTOINCREMENT)`); err != nil {
 		t.Fatalf("create schema_definitions: %v", err)
 	}
+	if _, err := db.Exec(`CREATE TABLE user_memories (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL,
+		memory TEXT,
+		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+	)`); err != nil {
+		t.Fatalf("create user_memories: %v", err)
+	}
 	if _, err := db.Exec(`INSERT INTO users (username, email, is_admin, email_validated) VALUES ('alice', 'alice@x.com', 0, 1)`); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
@@ -424,9 +433,10 @@ func createAgentEraTables(t *testing.T, db *sql.DB) {
 }
 
 // TestEnsureSQLiteSchemaUpgrades_DropsAgentRemnants guards the Zettelgarden-thw
-// cleanup: a pre-thw SQLite DB (agent columns present) converges on the
-// consolidated schema on boot — agent columns/table dropped, data preserved,
-// FK + CHECK constraints rebuilt, and a second run is a clean idempotent no-op.
+// and Zettelgarden-c1x cleanups: a pre-cleanup SQLite DB (agent + memory
+// columns present) converges on the consolidated schema on boot — agent and
+// memory columns/tables dropped, data preserved, FK + CHECK constraints
+// rebuilt, and a second run is a clean idempotent no-op.
 func TestEnsureSQLiteSchemaUpgrades_DropsAgentRemnants(t *testing.T) {
 	db := openMemSQLite(t)
 	createAgentEraTables(t, db)
@@ -435,7 +445,7 @@ func TestEnsureSQLiteSchemaUpgrades_DropsAgentRemnants(t *testing.T) {
 		t.Fatalf("upgrade: %v", err)
 	}
 
-	for _, col := range []string{"is_agent", "owner_user_id", "api_key_hash"} {
+	for _, col := range []string{"is_agent", "owner_user_id", "api_key_hash", "memory_has_changed", "last_memory_job_id"} {
 		got, err := sqliteColumnExists(db, "users", col)
 		if err != nil || got {
 			t.Fatalf("users.%s must be gone after upgrade (got=%v err=%v)", col, got, err)
@@ -449,15 +459,19 @@ func TestEnsureSQLiteSchemaUpgrades_DropsAgentRemnants(t *testing.T) {
 	if err != nil || exists {
 		t.Fatalf("agent_activity_log must be gone (exists=%v err=%v)", exists, err)
 	}
-	// Agent indexes gone.
-	for _, idx := range []string{"idx_users_agent", "idx_users_owner", "idx_cards_created_by_agent", "idx_agent_activity_action"} {
+	exists, err = sqliteTableExists(db, "user_memories")
+	if err != nil || exists {
+		t.Fatalf("user_memories must be gone (exists=%v err=%v)", exists, err)
+	}
+	// Agent + memory indexes gone.
+	for _, idx := range []string{"idx_users_agent", "idx_users_owner", "idx_users_last_memory_job_id", "idx_cards_created_by_agent", "idx_agent_activity_action"} {
 		var n int
 		if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name=$1`, idx).Scan(&n); err != nil || n != 0 {
 			t.Fatalf("index %s must be gone (n=%d err=%v)", idx, n, err)
 		}
 	}
-	// Non-agent indexes recreated to match the consolidated schema.
-	for _, idx := range []string{"idx_users_caldav_token", "idx_users_last_memory_job_id", "idx_cards_card_schema_id", "idx_cards_user_created", "idx_users_oidc_sub", "idx_users_email"} {
+	// Non-agent/non-memory indexes recreated to match the consolidated schema.
+	for _, idx := range []string{"idx_users_caldav_token", "idx_cards_card_schema_id", "idx_cards_user_created", "idx_users_oidc_sub", "idx_users_email"} {
 		var n int
 		if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name=$1`, idx).Scan(&n); err != nil || n != 1 {
 			t.Fatalf("index %s must exist after upgrade (n=%d err=%v)", idx, n, err)

@@ -5,11 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"go-backend/models"
-	"go-backend/prompts"
 	"log"
-	"strings"
-
-	openai "github.com/sashabaranov/go-openai"
 )
 
 // LLMJobProcessor executes LLM operations for each job type. It is invoked
@@ -36,8 +32,6 @@ func (p *LLMJobProcessor) ProcessJob(ctx context.Context, job *models.LLMJob) (m
 		return p.processEntityExtractionJob(ctx, job)
 	case models.JobTypeFactEntityExtraction:
 		return p.processFactEntityExtractionJob(ctx, job)
-	case models.JobTypeMemory:
-		return p.processMemoryJob(ctx, job)
 	case models.JobTypeSummarization:
 		return p.processSummarizationJob(ctx, job)
 	case models.JobTypeChat:
@@ -224,48 +218,6 @@ func (p *LLMJobProcessor) processFactEntityExtractionJob(ctx context.Context, jo
 	}, nil
 }
 
-// processMemoryJob generates or updates user memory
-func (p *LLMJobProcessor) processMemoryJob(ctx context.Context, job *models.LLMJob) (map[string]interface{}, error) {
-	// Extract memory_type from payload
-	memoryType, ok := job.Payload["memory_type"].(string)
-	if !ok {
-		return nil, fmt.Errorf("missing memory_type in payload")
-	}
-
-	client := NewDefaultClient(p.db, job.UserID, false)
-
-	switch memoryType {
-	case "card":
-		// Extract card_content from payload
-		cardContent, ok := job.Payload["card_content"].(string)
-		if !ok {
-			return nil, fmt.Errorf("missing card_content in payload")
-		}
-
-		_, err := GenerateUserMemory(ctx, p.db, client, uint(job.UserID), cardContent)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate memory: %w", err)
-		}
-
-		// Update memory_has_changed flag
-		_, err = p.db.ExecContext(ctx,
-			"UPDATE users SET memory_has_changed = true WHERE id = $1",
-			job.UserID)
-		if err != nil {
-			p.logger.Printf("[Processor] Failed to update memory_has_changed flag: %v", err)
-		}
-
-	default:
-		return nil, fmt.Errorf("unknown memory type: %s", memoryType)
-	}
-
-	return map[string]interface{}{
-		"user_id":     job.UserID,
-		"memory_type": memoryType,
-		"status":      "completed",
-	}, nil
-}
-
 // processSummarizationJob runs the map-reduce summarizer for a summarization
 // row. It loads the prepared input_text from the row, summarizes each chunk
 // (map), then reduces the chunk-summaries into the final markdown, and writes
@@ -344,9 +296,8 @@ func (p *LLMJobProcessor) processChatJob(ctx context.Context, job *models.LLMJob
 
 	// This is a placeholder - actual chat processing would involve:
 	// 1. Loading conversation history
-	// 2. Getting user memory
-	// 3. Calling the LLM with tools
-	// 4. Storing the response
+	// 2. Calling the LLM with tools
+	// 3. Storing the response
 
 	// For now, return a basic response indicating the job type
 	// The full chat implementation will be added when migrating chat handlers
@@ -386,57 +337,6 @@ func (p *LLMJobProcessor) saveEntity(ctx context.Context, userID int, entity mod
 	}
 
 	return entityID, nil
-}
-
-// Helper: GenerateUserMemory for card-based memory generation
-func GenerateUserMemory(ctx context.Context, db *sql.DB, client *models.LLMClient, userID uint, cardContent string) (string, error) {
-	userMemory, err := GetUserMemory(db, int(userID))
-	if err != nil {
-		return "", err
-	}
-
-	promptTemplate, err := prompts.GetCardMemoryAssistantPrompt()
-	if err != nil {
-		// Fallback prompt
-		promptTemplate = `You are analyzing a card to update user memory.
-
-**Existing Memory:**
-%s
-
-**New Card Content:**
-%s
-
-**Please update the memory with observations about the user based on this card:**`
-	}
-
-	prompt := fmt.Sprintf(promptTemplate, userMemory, cardContent)
-
-	messages := []openai.ChatCompletionMessage{
-		{
-			Role:    openai.ChatMessageRoleUser,
-			Content: prompt,
-		},
-	}
-
-	response, err := ExecuteLLMRequest(ctx, client, messages)
-	if err != nil {
-		return "", err
-	}
-
-	if len(response.Choices) == 0 {
-		return "", fmt.Errorf("no response from AI")
-	}
-
-	content := response.Choices[0].Message.Content
-	content = strings.TrimPrefix(content, "```json")
-	content = strings.TrimSuffix(content, "```")
-
-	err = UpdateUserMemory(db, int(userID), content)
-	if err != nil {
-		return "", err
-	}
-
-	return content, nil
 }
 
 // processFileTextExtractionJob extracts text from an uploaded file

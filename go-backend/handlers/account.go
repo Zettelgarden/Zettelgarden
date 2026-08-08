@@ -90,7 +90,6 @@ var userScopedTables = []exportTable{
 	{"flashcard_reviews", "user_id = $1"},
 	{"llm_jobs", "user_id = $1"},
 	{"llm_query_log", "user_id = $1"},
-	{"user_memories", "user_id = $1"},
 	{"user_stats", "user_id = $1"},
 	{"user_llm_configurations", "user_id = $1"},
 }

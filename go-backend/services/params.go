@@ -13,7 +13,6 @@
 // - fact_tools.go: Fact extraction and retrieval
 // - template_tools.go: Card template management
 // - article_tools.go: Article parsing and creation
-// - memory_tools.go: User memory operations
 package services
 
 import (

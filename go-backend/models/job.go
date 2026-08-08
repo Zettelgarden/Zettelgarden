@@ -27,7 +27,6 @@ const (
 	JobTypeEntityExtraction     JobType = "entity_extraction"
 	JobTypeFactEntityExtraction JobType = "fact_entity_extraction"
 	JobTypeChat                 JobType = "chat"
-	JobTypeMemory               JobType = "memory"
 	JobTypeEmail                JobType = "email"
 	JobTypeFileTextExtraction   JobType = "file_text_extraction"
 )

@@ -21,13 +21,6 @@ export async function createUser(
 }
 
 /**
- * Get user memory
- */
-export async function getUserMemory(): Promise<{ memory: string }> {
-  return getData(apiClient.get<{ memory: string }>('/user/memory'));
-}
-
-/**
  * Get a specific user by ID
  */
 export async function getUser(id: string): Promise<User> {
@@ -150,16 +143,5 @@ export async function getUserSubscription(
   const encodedId = encodeURIComponent(id);
   return getData(
     apiClient.get<UserSubscription>(`/users/${encodedId}/subscription`),
-  );
-}
-
-/**
- * Update user memory
- */
-export async function updateUserMemory(
-  memory: string,
-): Promise<{ message: string }> {
-  return getData(
-    apiClient.put<{ message: string }>('/user/memory', { memory }),
   );
 }

@@ -518,7 +518,7 @@ CREATE TABLE llm_jobs (
   last_heartbeat DATETIME,
   correlation_id TEXT,
   CONSTRAINT llm_jobs_status_check CHECK ((status IN ('pending', 'running', 'completed', 'failed', 'cancelled'))),
-  CONSTRAINT llm_jobs_type_check CHECK ((job_type IN ('summarization', 'entity_extraction', 'fact_entity_extraction', 'chat', 'memory', 'email'))),
+  CONSTRAINT llm_jobs_type_check CHECK ((job_type IN ('summarization', 'entity_extraction', 'fact_entity_extraction', 'chat', 'email'))),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -843,15 +843,6 @@ CREATE TABLE user_llm_configurations (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE user_memories (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  memory TEXT,
-  created_at DATETIME DEFAULT (datetime('now')),
-  updated_at DATETIME DEFAULT (datetime('now')),
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
 CREATE TABLE user_stats (
   user_id INTEGER NOT NULL,
   card_count INTEGER DEFAULT 0 NOT NULL,
@@ -884,7 +875,6 @@ CREATE TABLE users (
   max_file_storage INTEGER DEFAULT 100000000,
   dashboard_card_pk INTEGER DEFAULT 0,
   last_seen DATETIME,
-  memory_has_changed BOOLEAN DEFAULT true,
   auth_provider TEXT DEFAULT 'local',
   github_id TEXT,
   has_seen_getting_started BOOLEAN DEFAULT false,
@@ -892,12 +882,10 @@ CREATE TABLE users (
   timezone TEXT DEFAULT 'UTC',
   show_tasks BOOLEAN DEFAULT true,
   show_rss BOOLEAN DEFAULT true,
-  last_memory_job_id INTEGER,
   caldav_url TEXT,
   caldav_token TEXT,
   oidc_provider TEXT,
-  oidc_sub TEXT,
-  FOREIGN KEY (last_memory_job_id) REFERENCES llm_jobs(id) ON DELETE SET NULL
+  oidc_sub TEXT
 );
 
 
@@ -994,7 +982,6 @@ CREATE UNIQUE INDEX idx_unique_active_key_name_per_user ON api_keys (user_id, na
 CREATE INDEX idx_user_stats_card_count ON user_stats (card_count);
 CREATE INDEX idx_user_stats_revenue ON user_stats (revenue_cents DESC);
 CREATE INDEX idx_users_caldav_token ON users (caldav_token) WHERE (caldav_token IS NOT NULL);
-CREATE INDEX idx_users_last_memory_job_id ON users (last_memory_job_id);
 CREATE UNIQUE INDEX idx_users_oidc_sub ON users (oidc_provider, oidc_sub) WHERE (oidc_sub IS NOT NULL);
 CREATE UNIQUE INDEX idx_users_email ON users (email);
 CREATE INDEX starred_cards_user_id_idx ON starred_cards (user_id);
@@ -1026,7 +1013,6 @@ CREATE UNIQUE INDEX uq_task_statuses_user_id_name ON task_statuses (user_id, nam
 CREATE UNIQUE INDEX uq_task_statuses_user_id_position ON task_statuses (user_id, "position");
 CREATE UNIQUE INDEX uq_file_tags_user_id_name ON file_tags (user_id, name);
 CREATE UNIQUE INDEX uq_user_llm_configurations_user_id_model_id ON user_llm_configurations (user_id, model_id);
-CREATE UNIQUE INDEX uq_user_memories_user_id ON user_memories (user_id);
 CREATE UNIQUE INDEX uq_users_caldav_token ON users (caldav_token);
 
 -- task_saved_searches: added by migration 0143-add-task-saved-searches.sql.

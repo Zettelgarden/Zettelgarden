@@ -1002,15 +1002,7 @@ func (s *Handler) SuggestCardTitleRoute(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Get user memory for context
-	userMemory, err := GetUserMemory(s.GetDB(), int(userID))
-	if err != nil {
-		log.Printf("Error getting user memory: %v", err)
-		// Continue without memory if there's an error
-		userMemory = ""
-	}
-
-	suggestedTitle, err := s.suggestCardTitle(userID, req.Body, userMemory)
+	suggestedTitle, err := s.suggestCardTitle(userID, req.Body)
 	if err != nil {
 		log.Printf("Error suggesting card title: %v", err)
 		http.Error(w, "Error generating title suggestion", http.StatusInternalServerError)
@@ -1025,15 +1017,10 @@ func (s *Handler) SuggestCardTitleRoute(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(response)
 }
 
-func (s *Handler) suggestCardTitle(userID int, body string, userMemory string) (string, error) {
+func (s *Handler) suggestCardTitle(userID int, body string) (string, error) {
 	isTesting := s.Server != nil && s.Server.Testing
 	client := services.NewDefaultClient(s.DB, userID, isTesting)
 	client.RequestType = "title_suggestion"
-
-	memoryContext := ""
-	if userMemory != "" {
-		memoryContext = fmt.Sprintf("\n\nUser Context (from their knowledge base):\n%s", userMemory)
-	}
 
 	prompt := fmt.Sprintf(`You are an expert at creating concise, meaningful titles for knowledge management notes. Your task is to suggest a title for a note based on its content.
 
@@ -1046,9 +1033,9 @@ Guidelines:
 - Use title case
 
 Note Content:
-%s%s
+%s
 
-Respond with ONLY the suggested title, no explanation or additional text.`, body, memoryContext)
+Respond with ONLY the suggested title, no explanation or additional text.`, body)
 
 	messages := []openai.ChatCompletionMessage{
 		{

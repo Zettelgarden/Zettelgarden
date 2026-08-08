@@ -25,8 +25,3 @@ func LoadPrompt(filename string) (string, error) {
 
 	return string(content), nil
 }
-
-// GetCardMemoryAssistantPrompt loads the card memory assistant system prompt
-func GetCardMemoryAssistantPrompt() (string, error) {
-	return LoadPrompt("card_memory_assistant.md")
-}

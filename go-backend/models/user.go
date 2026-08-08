@@ -26,7 +26,6 @@ type User struct {
 	TaskCount                   int        `json:"task_count"`
 	FileCount                   int        `json:"file_count"`
 	ChatMessageCount            int        `json:"chat_message_count"`
-	MemoryHasChanged            bool       `json:"memory_has_changed"`
 	LLMCost                     float64    `json:"llm_cost"`
 	Revenue                     float64    `json:"revenue"`
 	HasSeenGettingStarted       bool       `json:"has_seen_getting_started"`

@@ -19,8 +19,6 @@ func RegisterUserRoutes(r *mux.Router, h *handlers.Handler) {
 
 	// Protected routes for current user
 	addProtectedRoute(r, h, "/api/current", h.GetCurrentUserRoute, "GET")
-	addProtectedRoute(r, h, "/api/user/memory", h.GetUserMemoryRoute, "GET")
-	addProtectedRoute(r, h, "/api/user/memory", h.UpdateUserMemoryRoute, "PUT")
 	addProtectedRoute(r, h, "/api/admin", h.GetUserAdminRoute, "GET")
 
 	// Self-serve data export + account deletion (6er.9)

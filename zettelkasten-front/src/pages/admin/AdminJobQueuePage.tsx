@@ -19,8 +19,6 @@ const getJobTypeIcon = (jobType: string) => {
       return '🏷️';
     case 'chat':
       return '💬';
-    case 'memory':
-      return '🧠';
     case 'file_text_extraction':
       return '📎';
     default:
@@ -148,7 +146,7 @@ export function AdminJobQueuePage() {
           </h1>
           <p className="text-gray-600 mt-1">
             Record of inline-processed background LLM work (summarization,
-            entity extraction, memory, etc.)
+            entity extraction, etc.)
           </p>
         </div>
         <button

@@ -316,7 +316,6 @@ func truncateTestData() {
 		"task_tags",
 		"tasks",
 		"user_llm_configurations",
-		"user_memories",
 		"users",
 	}
 
