@@ -303,17 +303,22 @@ following are **must-fix items for Phase 0**, plus smaller notes.
    rows, keyed by a "legacy" version. (a) is simpler and also solves
    re-installs; recommend it.
 
-2. **`card_id` is NOT safe as the sync identity for cards.** Verified:
-   - It is **optional and can be empty** ("unsorted cards", see
-     `GetUnsortedCardsRoute` in `handlers/cards.go`).
-   - It is **user-editable**: `UpdateCard` in `services/cards.go` lets the user
-     rename it (with an app-level uniqueness check, no DB constraint). Renaming
-     a card offline would make the client treat one row as two identities (or
-     the server as a new card) across devices.
-   - Uniqueness is enforced only in Go, not by schema.
+2. **Neither `card_id` nor `id` is safe as the sync identity for cards.**
+   Cards have **both** columns (`id INTEGER PRIMARY KEY AUTOINCREMENT` and
+   `card_id TEXT`), and both fail:
+   - `id` is **server-assigned**: an offline-created card has no `id` until
+     the first push assigns one — the same problem tasks/tags have, which is
+     why the doc already plans `sync_uuid` for them. Cards are no different.
+   - `card_id` is **user-editable**: `UpdateCard` in `services/cards.go`
+     renames it (app-level uniqueness check only, no DB constraint), and it
+     can be **empty** ("unsorted cards", `card_id = ''`). Renaming a card on
+     device A while offline while editing the same card on device B would
+     split one logical row into two identities.
    Use an immutable `sync_uuid` for **all** syncable tables, cards included.
-   `card_id` syncs as an ordinary field. Add an exit-criteria test for
-   "rename card_id while offline on two devices" to prove this.
+   `id` and `card_id` sync as ordinary fields. Add an exit-criteria test for
+   "rename card_id while offline on two devices" to prove this. Note
+   `parent_id` references `id` (int), so card parentage needs the same
+   `row_uuid → server id` resolution as the other junctions (see item 3).
 
 3. **Offline-created row references are unresolved.** Junctions
    (`card_tags`, `task_tags`) and `cards.parent_id` reference **server int
