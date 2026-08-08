@@ -2,6 +2,7 @@ import React from "react";
 import { GithubIcon } from "../assets/icons/GithubIcon";
 import { TwitterIcon } from "../assets/icons/TwitterIcon";
 import { YoutubeIcon } from "../assets/icons/YoutubeIcon";
+import { RssIcon } from "../assets/icons/RssIcon";
 
 export const SocialLinks: React.FC<{ className?: string }> = ({ className = "" }) => {
   return (
@@ -21,6 +22,12 @@ export const SocialLinks: React.FC<{ className?: string }> = ({ className = "" }
         className="text-gray-600 hover:text-gray-900 transition-colors duration-200">
         <YoutubeIcon />
       </a>
+      <a 
+        href="/blog/rss.xml"
+        className="text-gray-600 hover:text-gray-900 transition-colors duration-200"
+        title="RSS Feed">
+        <RssIcon />
+      </a>
     </div>
   );
-};
+}; 
