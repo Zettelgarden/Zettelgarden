@@ -4,7 +4,7 @@ import { SchemaDefinition, FieldDefinition } from '../../models/Schema';
 import { Card } from '../../models/Card';
 import { fetchSchemaByRef } from '../../api/schemas';
 import { NotFoundError, isAPIError } from '../../api/errors';
-import { applyFiltersToCard } from '../../utils/schemaFilters';
+import { applyFilterGroupsToCard } from '../../utils/schemaFilters';
 import { CardLink } from '../cards/CardLink';
 import { getCard } from '../../api/cards';
 
@@ -60,7 +60,7 @@ interface SchemaTableProps {
   onCardClick?: (card: Card) => void;
   compact?: boolean;
   columns?: string[]; // List of column names to display
-  filters?: Record<string, string>; // Filter object like { status: "active", priority: "high" }
+  filters?: Record<string, string> | Array<Record<string, string>>; // AND map, or OR-of-AND groups from "a=1,b=2||c=3"
 }
 
 export function SchemaTable({
@@ -112,13 +112,18 @@ export function SchemaTable({
     return fields.filter((field) => columns.includes(field.name));
   };
 
-  // Apply filters to cards
+  // Apply filters to cards (AND within a group, OR across groups)
   const filteredCards = useMemo(() => {
-    if (!filters || Object.keys(filters).length === 0) {
+    if (!filters) {
       return cards;
     }
 
-    return cards.filter((card) => applyFiltersToCard(card, filters));
+    const groups = Array.isArray(filters) ? filters : [filters];
+    if (groups.length === 0) {
+      return cards;
+    }
+
+    return cards.filter((card) => applyFilterGroupsToCard(card, groups));
   }, [cards, filters]);
 
   // Calculate total pages for pagination
@@ -291,7 +296,11 @@ export function SchemaTable({
 
   const sortedCards = getSortedCards();
   const filteredFields = schema ? getFilteredFields(schema.fields) : [];
-  const hasFilters = filters && Object.keys(filters).length > 0;
+  const hasFilters = filters
+    ? Array.isArray(filters)
+      ? filters.length > 0
+      : Object.keys(filters).length > 0
+    : false;
   const totalCards = cards.length;
   const displayCards = sortedCards.length;
 

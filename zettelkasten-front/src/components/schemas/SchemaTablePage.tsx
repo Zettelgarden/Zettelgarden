@@ -61,6 +61,91 @@ function LinkedCardDisplay({ cardId }: LinkedCardDisplayProps) {
   );
 }
 
+/**
+ * Check whether a single card value satisfies one UI filter (FilterValue).
+ * Extracted so filters can be combined with AND (every) or OR (some).
+ */
+function matchesFilterValue(cardValue: any, filterValue: FilterValue): boolean {
+  if (cardValue === null || cardValue === undefined || cardValue === '') {
+    return false;
+  }
+
+  switch (filterValue.type) {
+    case 'text':
+      switch (filterValue.operator) {
+        case 'contains':
+          return String(cardValue)
+            .toLowerCase()
+            .includes(String(filterValue.value).toLowerCase());
+        case 'equals':
+          return (
+            String(cardValue).toLowerCase() ===
+            String(filterValue.value).toLowerCase()
+          );
+        case 'startsWith':
+          return String(cardValue)
+            .toLowerCase()
+            .startsWith(String(filterValue.value).toLowerCase());
+        default:
+          return true;
+      }
+
+    case 'number':
+      const cardNum = parseFloat(cardValue);
+      const filterNum = parseFloat(filterValue.value);
+      if (isNaN(cardNum) || isNaN(filterNum)) return false;
+      switch (filterValue.operator) {
+        case 'equals':
+          return cardNum === filterNum;
+        case 'gt':
+          return cardNum > filterNum;
+        case 'gte':
+          return cardNum >= filterNum;
+        case 'lt':
+          return cardNum < filterNum;
+        case 'lte':
+          return cardNum <= filterNum;
+        default:
+          return true;
+      }
+
+    case 'date':
+      const cardDate = new Date(cardValue);
+      const filterDate = new Date(filterValue.value);
+      if (isNaN(cardDate.getTime()) || isNaN(filterDate.getTime()))
+        return false;
+      switch (filterValue.operator) {
+        case 'equals':
+          return cardDate.toDateString() === filterDate.toDateString();
+        case 'before':
+          return cardDate < filterDate;
+        case 'after':
+          return cardDate > filterDate;
+        default:
+          return true;
+      }
+
+    case 'boolean':
+      return Boolean(cardValue) === Boolean(filterValue.value);
+
+    case 'select':
+      return String(cardValue) === String(filterValue.value);
+
+    case 'multi-select':
+      if (filterValue.operator === 'any' && Array.isArray(filterValue.value)) {
+        const cardValues = Array.isArray(cardValue) ? cardValue : [cardValue];
+        return filterValue.value.some((v: string) => cardValues.includes(v));
+      }
+      return false;
+
+    case 'link_to_card':
+      return parseInt(cardValue, 10) === parseInt(filterValue.value, 10);
+
+    default:
+      return true;
+  }
+}
+
 interface SchemaTablePageProps {
   schemaId: number;
   onBack: () => void;
@@ -77,6 +162,7 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [filters, setFilters] = useState<FiltersState>({});
   const [showFilters, setShowFilters] = useState(false);
+  const [matchMode, setMatchMode] = useState<'all' | 'any'>('all');
 
   // Sync filters with URL query params
   useEffect(() => {
@@ -89,6 +175,10 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
       }
       if (key === 'order') {
         setSortDirection(value === 'desc' ? 'desc' : 'asc');
+        continue;
+      }
+      if (key === 'filter_match') {
+        setMatchMode(value === 'any' ? 'any' : 'all');
         continue;
       }
       if (key.startsWith('filter_')) {
@@ -115,6 +205,9 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
     if (sortField) params.set('sort', sortField);
     if (sortDirection !== 'asc') params.set('order', sortDirection);
 
+    // Preserve match mode
+    if (matchMode === 'any') params.set('filter_match', 'any');
+
     // Add filter params
     Object.entries(newFilters).forEach(([fieldName, filterValue]) => {
       params.set(
@@ -123,6 +216,18 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
       );
     });
 
+    setSearchParams(params, { replace: true });
+  };
+
+  // Update match mode (all conditions must match, or any may match)
+  const updateMatchMode = (mode: 'all' | 'any') => {
+    setMatchMode(mode);
+    const params = new URLSearchParams(searchParams);
+    if (mode === 'any') {
+      params.set('filter_match', 'any');
+    } else {
+      params.delete('filter_match');
+    }
     setSearchParams(params, { replace: true });
   };
 
@@ -203,98 +308,18 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
   const getSortedCards = () => {
     let filteredCards = [...cards];
 
-    // Apply filters
-    Object.entries(filters).forEach(([fieldName, filterValue]) => {
+    // Apply filters (AND when matchMode is 'all', OR when 'any')
+    const filterEntries = Object.entries(filters);
+    if (filterEntries.length > 0) {
       filteredCards = filteredCards.filter((card) => {
-        const cardValue = card.structured_data?.[fieldName];
-
-        if (cardValue === null || cardValue === undefined || cardValue === '') {
-          return false;
-        }
-
-        switch (filterValue.type) {
-          case 'text':
-            switch (filterValue.operator) {
-              case 'contains':
-                return String(cardValue)
-                  .toLowerCase()
-                  .includes(String(filterValue.value).toLowerCase());
-              case 'equals':
-                return (
-                  String(cardValue).toLowerCase() ===
-                  String(filterValue.value).toLowerCase()
-                );
-              case 'startsWith':
-                return String(cardValue)
-                  .toLowerCase()
-                  .startsWith(String(filterValue.value).toLowerCase());
-              default:
-                return true;
-            }
-
-          case 'number':
-            const cardNum = parseFloat(cardValue);
-            const filterNum = parseFloat(filterValue.value);
-            if (isNaN(cardNum) || isNaN(filterNum)) return false;
-            switch (filterValue.operator) {
-              case 'equals':
-                return cardNum === filterNum;
-              case 'gt':
-                return cardNum > filterNum;
-              case 'gte':
-                return cardNum >= filterNum;
-              case 'lt':
-                return cardNum < filterNum;
-              case 'lte':
-                return cardNum <= filterNum;
-              default:
-                return true;
-            }
-
-          case 'date':
-            const cardDate = new Date(cardValue);
-            const filterDate = new Date(filterValue.value);
-            if (isNaN(cardDate.getTime()) || isNaN(filterDate.getTime()))
-              return false;
-            switch (filterValue.operator) {
-              case 'equals':
-                return cardDate.toDateString() === filterDate.toDateString();
-              case 'before':
-                return cardDate < filterDate;
-              case 'after':
-                return cardDate > filterDate;
-              default:
-                return true;
-            }
-
-          case 'boolean':
-            return Boolean(cardValue) === Boolean(filterValue.value);
-
-          case 'select':
-            return String(cardValue) === String(filterValue.value);
-
-          case 'multi-select':
-            if (
-              filterValue.operator === 'any' &&
-              Array.isArray(filterValue.value)
-            ) {
-              const cardValues = Array.isArray(cardValue)
-                ? cardValue
-                : [cardValue];
-              return filterValue.value.some((v: string) =>
-                cardValues.includes(v),
-              );
-            }
-            return false;
-
-          case 'link_to_card':
-            return parseInt(cardValue, 10) === parseInt(filterValue.value, 10);
-
-          default:
-            return true;
-        }
+        const matches = filterEntries.map(([fieldName, filterValue]) =>
+          matchesFilterValue(card.structured_data?.[fieldName], filterValue),
+        );
+        return matchMode === 'any'
+          ? matches.some(Boolean)
+          : matches.every(Boolean);
       });
-    });
+    }
 
     // Apply sorting
     if (!sortField) return filteredCards;
@@ -494,14 +519,41 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
             <h3 className="text-sm font-semibold text-gray-700">
               Filter by field values
             </h3>
-            {Object.keys(filters).length > 0 && (
-              <button
-                onClick={clearAllFilters}
-                className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
-              >
-                Clear all filters
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-500">Match</span>
+                <div className="flex rounded-md border border-gray-300 overflow-hidden">
+                  <button
+                    onClick={() => updateMatchMode('all')}
+                    className={`px-3 py-1 text-xs font-medium ${
+                      matchMode === 'all'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => updateMatchMode('any')}
+                    className={`px-3 py-1 text-xs font-medium border-l border-gray-300 ${
+                      matchMode === 'any'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Any
+                  </button>
+                </div>
+              </div>
+              {Object.keys(filters).length > 0 && (
+                <button
+                  onClick={clearAllFilters}
+                  className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  Clear all filters
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Filter Inputs */}
@@ -534,7 +586,7 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
       {Object.keys(filters).length > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium text-gray-500">
-            Active filters:
+            Active filters ({matchMode === 'any' ? 'match any' : 'match all'}):
           </span>
           {Object.entries(filters).map(([fieldName, filterValue]) => (
             <ActiveFilterDisplay

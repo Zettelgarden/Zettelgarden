@@ -2,11 +2,12 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SchemaTable } from '../schemas/SchemaTable';
 import { PartialCard } from '../../models/Card';
+import { parseFilterGroups } from '../../utils/schemaFilters';
 
 interface DynamicSchemaTableProps {
   schemaRef: string; // Can be an ID (numeric string) or slug
   columns?: string; // Comma-separated list of column names
-  filters?: string; // Filter string like "status=active,priority=high"
+  filters?: string; // Filter string like "status=active,priority=high" (AND) or "status=active||status=done" (OR of AND groups)
 }
 
 export function DynamicSchemaTable({
@@ -25,17 +26,12 @@ export function DynamicSchemaTable({
     ? columns.split(',').map((c) => c.trim())
     : undefined;
 
-  // Parse filters string into object
-  const filtersObj = React.useMemo(() => {
+  // Parse filters string into AND/OR groups
+  // ("status=active,priority=high||status=done" ->
+  //  [{ status: 'active', priority: 'high' }, { status: 'done' }])
+  const filterGroups = React.useMemo(() => {
     if (!filters) return undefined;
-    const result: Record<string, string> = {};
-    filters.split(',').forEach((f) => {
-      const [key, value] = f.split('=').map((s) => s.trim());
-      if (key && value) {
-        result[key] = value;
-      }
-    });
-    return result;
+    return parseFilterGroups(filters);
   }, [filters]);
 
   return (
@@ -45,7 +41,7 @@ export function DynamicSchemaTable({
         onCardClick={handleCardClick}
         compact={true}
         columns={columnsList}
-        filters={filtersObj}
+        filters={filterGroups}
       />
     </div>
   );

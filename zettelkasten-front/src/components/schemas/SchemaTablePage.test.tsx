@@ -163,4 +163,36 @@ describe('SchemaTablePage actions', () => {
     expect(lines[1]).toContain('Frank Herbert');
     expect(csv).not.toContain('Foundation');
   });
+
+  it('shows cards matching any filter when filter_match=any', async () => {
+    // Author contains 'Herbert' (only Dune) OR Rating >= 4 (Dune + Foundation)
+    const authorFilter = encodeURIComponent(
+      JSON.stringify({ type: 'text', operator: 'contains', value: 'Herbert' }),
+    );
+    const ratingFilter = encodeURIComponent(
+      JSON.stringify({ type: 'number', operator: 'gte', value: 4 }),
+    );
+    renderPage([
+      `/table?filter_Author=${authorFilter}&filter_Rating=${ratingFilter}&filter_match=any`,
+    ]);
+    await waitFor(() => expect(screen.getByText(/Dune/)).toBeInTheDocument());
+    // Both cards pass because each matches at least one filter
+    expect(screen.getByText(/Foundation/)).toBeInTheDocument();
+  });
+
+  it('shows only cards matching all filters by default (match all)', async () => {
+    // Author contains 'Herbert' AND Rating >= 4 -> only Dune (Foundation's
+    // Author doesn't contain Herbert).
+    const authorFilter = encodeURIComponent(
+      JSON.stringify({ type: 'text', operator: 'contains', value: 'Herbert' }),
+    );
+    const ratingFilter = encodeURIComponent(
+      JSON.stringify({ type: 'number', operator: 'gte', value: 4 }),
+    );
+    renderPage([
+      `/table?filter_Author=${authorFilter}&filter_Rating=${ratingFilter}`,
+    ]);
+    await waitFor(() => expect(screen.getByText(/Dune/)).toBeInTheDocument());
+    expect(screen.queryByText(/Foundation/)).not.toBeInTheDocument();
+  });
 });

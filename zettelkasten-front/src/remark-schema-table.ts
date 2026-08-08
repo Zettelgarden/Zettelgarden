@@ -7,11 +7,13 @@ interface ParsedOptions {
 }
 
 // Parse the options string (e.g., "columns:title,status|filter:status=active")
+// The single-pipe split intentionally ignores `||` so OR filters like
+// "filter:status=active||priority=high" stay intact.
 function parseOptions(optionsStr: string): ParsedOptions {
   const result: ParsedOptions = {};
 
-  // Split by pipe to get sections
-  const sections = optionsStr.split('|');
+  // Split by pipe to get sections, but not by `||` (used for OR filters)
+  const sections = optionsStr.split(/(?<!\|)\|(?!\|)/);
 
   for (const section of sections) {
     const trimmed = section.trim();

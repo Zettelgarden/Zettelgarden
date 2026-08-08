@@ -113,6 +113,26 @@ export function parseFiltersString(filtersStr: string): Record<string, string> {
 }
 
 /**
+ * Parse a filter string into groups of AND conditions, where `||` separates
+ * OR groups and `,` separates AND conditions within a group.
+ *
+ * Examples:
+ * - "status=active,priority=high"                 -> [{ status: 'active', priority: 'high' }]
+ * - "status=active||priority=high"                -> [{ status: 'active' }, { priority: 'high' }]
+ * - "status=active,priority=high||status=done"    -> (status=active AND priority=high) OR (status=done)
+ */
+export function parseFilterGroups(
+  filterStr: string,
+): Array<Record<string, string>> {
+  if (!filterStr) return [];
+  return filterStr
+    .split('||')
+    .map((group) => group.trim())
+    .filter((group) => group.length > 0)
+    .map((group) => parseFiltersString(group));
+}
+
+/**
  * Apply filters to a card's structured data
  */
 export function applyFiltersToCard(
@@ -133,4 +153,16 @@ export function applyFiltersToCard(
     }
   }
   return true;
+}
+
+/**
+ * Apply filter groups to a card: a card matches if ANY group matches, where
+ * each group is AND-ed internally (OR of AND groups, i.e. DNF).
+ */
+export function applyFilterGroupsToCard(
+  card: { title?: string; structured_data?: Record<string, any> | null },
+  groups: Array<Record<string, string>>,
+): boolean {
+  if (!groups || groups.length === 0) return true;
+  return groups.some((group) => applyFiltersToCard(card, group));
 }

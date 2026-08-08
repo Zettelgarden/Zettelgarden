@@ -4,6 +4,8 @@ import {
   matchesFilter,
   parseFiltersString,
   applyFiltersToCard,
+  parseFilterGroups,
+  applyFilterGroupsToCard,
 } from './schemaFilters';
 
 describe('parseFilterValue', () => {
@@ -218,6 +220,31 @@ describe('parseFiltersString', () => {
   });
 });
 
+describe('parseFilterGroups', () => {
+  it('should parse a single AND group', () => {
+    expect(parseFilterGroups('status=active,priority=high')).toEqual([
+      { status: 'active', priority: 'high' },
+    ]);
+  });
+
+  it('should parse OR groups separated by ||', () => {
+    expect(parseFilterGroups('status=active||priority=high')).toEqual([
+      { status: 'active' },
+      { priority: 'high' },
+    ]);
+  });
+
+  it('should parse mixed AND/OR (OR of ANDs)', () => {
+    expect(
+      parseFilterGroups('status=active,priority=high||status=done'),
+    ).toEqual([{ status: 'active', priority: 'high' }, { status: 'done' }]);
+  });
+
+  it('should handle empty string', () => {
+    expect(parseFilterGroups('')).toEqual([]);
+  });
+});
+
 describe('applyFiltersToCard', () => {
   const mockCard = {
     title: 'Test Card',
@@ -294,5 +321,47 @@ describe('applyFiltersToCard', () => {
     expect(applyFiltersToCard(cardWithoutData, { status: 'active' })).toBe(
       false,
     );
+  });
+});
+
+describe('applyFilterGroupsToCard', () => {
+  const mockCard = {
+    title: 'Test Card',
+    structured_data: {
+      status: 'active',
+      priority: 'high',
+      rating: 5,
+    },
+  };
+
+  it('should match when any OR group matches', () => {
+    expect(
+      applyFilterGroupsToCard(mockCard, [
+        { status: 'inactive' },
+        { priority: 'high' },
+      ]),
+    ).toBe(true);
+  });
+
+  it('should not match when no OR group matches', () => {
+    expect(
+      applyFilterGroupsToCard(mockCard, [
+        { status: 'inactive' },
+        { priority: 'low' },
+      ]),
+    ).toBe(false);
+  });
+
+  it('should require all conditions within a group (AND inside OR)', () => {
+    expect(
+      applyFilterGroupsToCard(mockCard, [
+        { status: 'active', priority: 'low' },
+        { status: 'done' },
+      ]),
+    ).toBe(false);
+  });
+
+  it('should return true for empty groups', () => {
+    expect(applyFilterGroupsToCard(mockCard, [])).toBe(true);
   });
 });
