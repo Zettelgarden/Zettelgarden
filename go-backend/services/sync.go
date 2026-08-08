@@ -84,3 +84,33 @@ func emitRowChange(db models.Database, userID int, table string, id int, op stri
 	}
 	return EmitChange(db, userID, table, rowUUID, op, version)
 }
+
+// RowsToJSON materializes query rows into JSON-friendly maps (column name ->
+// value). SQLite NULLs become nil (JSON null); DATETIME columns scan as
+// time.Time (modernc declared-type conversion) and marshal as RFC3339;
+// BLOBs scan as []byte and marshal as base64. Used by the sync snapshot /
+// changes feed to build row payloads.
+func RowsToJSON(rows *sql.Rows) ([]map[string]any, error) {
+	cols, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+	var out []map[string]any
+	for rows.Next() {
+		vals := make([]any, len(cols))
+		ptrs := make([]any, len(cols))
+		for i := range vals {
+			ptrs[i] = &vals[i]
+		}
+		if err := rows.Scan(ptrs...); err != nil {
+			return nil, err
+		}
+		m := make(map[string]any, len(cols))
+		for i, c := range cols {
+			m[c] = vals[i]
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+

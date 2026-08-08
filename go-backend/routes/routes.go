@@ -93,6 +93,9 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.Sc
 	// Schema routes
 	RegisterSchemaRoutes(r, h)
 
+	// Local-first sync routes (snapshot / changes / push)
+	RegisterSyncRoutes(r, h)
+
 	// Job queue routes
 	RegisterJobRoutes(r, h)
 
