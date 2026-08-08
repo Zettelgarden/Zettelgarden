@@ -357,19 +357,33 @@ func (m *Manager) All() map[string]string {
 // cache so the change applies immediately. It refuses to write when the
 // current file is broken (never clobber a hand-edit that failed to parse).
 func (m *Manager) Set(key, value string) error {
-	k, ok := registryByName[key]
-	if !ok {
-		return fmt.Errorf("settings: unknown key %q", key)
+	return m.SetMany(map[string]string{key: value})
+}
+
+// SetMany validates and persists multiple registry keys in one atomic write,
+// then updates the cache so the changes apply immediately. Any invalid value
+// fails the whole batch (nothing is written). It refuses to write when the
+// current file is broken (never clobber a hand-edit that failed to parse).
+func (m *Manager) SetMany(updates map[string]string) error {
+	if len(updates) == 0 {
+		return nil
 	}
 
-	switch k.Kind {
-	case KindBool:
-		if _, err := strconv.ParseBool(strings.TrimSpace(value)); err != nil {
-			return fmt.Errorf("settings: %s must be true or false, got %q", key, value)
+	// Validate every key/value before touching the file or cache.
+	for key, value := range updates {
+		k, ok := registryByName[key]
+		if !ok {
+			return fmt.Errorf("settings: unknown key %q", key)
 		}
-	case KindString:
-		if key == "admin_email" && value != "" && !strings.Contains(value, "@") {
-			return fmt.Errorf("settings: admin_email %q is not a valid email address", value)
+		switch k.Kind {
+		case KindBool:
+			if _, err := strconv.ParseBool(strings.TrimSpace(value)); err != nil {
+				return fmt.Errorf("settings: %s must be true or false, got %q", key, value)
+			}
+		case KindString:
+			if key == "admin_email" && value != "" && !strings.Contains(value, "@") {
+				return fmt.Errorf("settings: admin_email %q is not a valid email address", value)
+			}
 		}
 	}
 
@@ -381,13 +395,14 @@ func (m *Manager) Set(key, value string) error {
 		return fmt.Errorf("settings: refusing to overwrite unreadable file %s: %w", m.path, err)
 	}
 
-	// Update the in-memory cache and merge into existing file values so other
-	// keys survive the rewrite.
+	// Merge into existing file values so other keys survive the rewrite.
 	values, err := readFile(m.path)
 	if err != nil {
 		return err
 	}
-	values[key] = value
+	for key, value := range updates {
+		values[key] = value
+	}
 	m.values = values
 
 	return m.writeLocked()

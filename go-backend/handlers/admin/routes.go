@@ -12,6 +12,7 @@ import (
 //
 // Routes are organized by feature:
 // - User management: /api/admin/users/*
+// - Settings: /api/admin/settings (file-backed config.yaml)
 // - Mailing list: /api/admin/mailing-list/*
 // - Job queue: /api/admin/jobs/*
 // - Scheduler: /api/admin/scheduler/*
@@ -74,6 +75,24 @@ func RegisterAllAdminRoutes(r *mux.Router, h *handlers.Handler, scheduler handle
 	adminAPI.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
 		GetAdminStatsRoute(h, w, r)
 	}).Methods("GET")
+
+	// Admin settings (file-backed config.yaml; admin-only)
+	// Read all settings (incl. admin_email, which the public endpoint hides)
+	// and apply partial updates that hot-reload without a restart.
+	adminAPI.HandleFunc("/settings",
+		h.APIKeyOrJWTMiddleware(
+			h.AdminMiddleware(
+				h.UpdateLastSeenMiddleware(
+					handlers.LogRoute(func(w http.ResponseWriter, r *http.Request) {
+						GetAdminSettingsRoute(h, w, r)
+					}))))).Methods("GET")
+	adminAPI.HandleFunc("/settings",
+		h.APIKeyOrJWTMiddleware(
+			h.AdminMiddleware(
+				h.UpdateLastSeenMiddleware(
+					handlers.LogRoute(func(w http.ResponseWriter, r *http.Request) {
+						UpdateAdminSettingsRoute(h, w, r)
+					}))))).Methods("PUT")
 
 	// Scheduler management routes (admin-only)
 	// These routes require admin authentication - middleware chain follows same pattern as addAdminRoute:

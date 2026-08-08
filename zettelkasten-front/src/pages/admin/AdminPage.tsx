@@ -11,6 +11,7 @@ import { AdminMailingListSendPage } from "./AdminMailingListSendPage";
 import { AdminMailingListHistoryPage } from "./AdminMailingListHistoryPage";
 import { AdminJobQueuePage } from "./AdminJobQueuePage";
 import { AdminSchedulerPage } from "./AdminSchedulerPage";
+import { AdminSettingsPage } from "./AdminSettingsPage";
 import { AdminDashboard } from "./AdminDashboard";
 
 import { Routes, Route } from "react-router-dom";
@@ -116,6 +117,15 @@ export function Admin() {
                 </li>
                 <li>
                   <Link
+                    to="/admin/settings"
+                    className="block py-3 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors min-h-[44px] flex items-center"
+                    onClick={() => setIsSidebarOpen(false)}
+                  >
+                    ⚙️ Settings
+                  </Link>
+                </li>
+                <li>
+                  <Link
                     to="/admin/job-queue"
                     className="block py-3 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors min-h-[44px] flex items-center"
                     onClick={() => setIsSidebarOpen(false)}
@@ -183,6 +193,7 @@ export function Admin() {
               <Route path="users" element={<AdminUserIndex />} />
               <Route path="user/:id" element={<AdminUserDetailPage />} />
               <Route path="user/:id/edit" element={<AdminEditUserPage />} />
+              <Route path="settings" element={<AdminSettingsPage />} />
               <Route path="job-queue" element={<AdminJobQueuePage />} />
               <Route path="scheduler" element={<AdminSchedulerPage />} />
               <Route path="mailing-list" element={<AdminMailingListPage />} />
