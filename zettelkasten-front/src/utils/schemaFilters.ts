@@ -8,16 +8,68 @@ export interface ParsedFilter {
 }
 
 /**
+ * Encode characters that have structural meaning in the filter directive
+ * syntax so they can appear literally inside values.
+ *
+ * Backslash escaping cannot be used here: CommonMark (the markdown parser
+ * that processes card bodies) strips `\` before punctuation, so `\\|` would
+ * be turned back into a raw `|` before the schema-table parser sees it.
+ * Percent-encoding survives markdown untouched.
+ *
+ * Encodes: `%` -> `%25`, `|` -> `%7C`, `,` -> `%2C`, `=` -> `%3D`, `:` -> `%3A`
+ *
+ * @example encodeFilterValue('a|b') -> 'a%7Cb'
+ */
+export function encodeFilterValue(value: string): string {
+  return value
+    .replace(/%/g, '%25')
+    .replace(/\|/g, '%7C')
+    .replace(/,/g, '%2C')
+    .replace(/=/g, '%3D')
+    .replace(/:/g, '%3A');
+}
+
+/**
+ * Decode characters encoded with {@link encodeFilterValue}.
+ *
+ * @example decodeFilterValue('a%7Cb') -> 'a|b'
+ */
+export function decodeFilterValue(value: string): string {
+  return value.replace(/%25|%7C|%2C|%3D|%3A/gi, (match) => {
+    switch (match.toLowerCase()) {
+      case '%25':
+        return '%';
+      case '%7c':
+        return '|';
+      case '%2c':
+        return ',';
+      case '%3d':
+        return '=';
+      case '%3a':
+        return ':';
+      default:
+        return match;
+    }
+  });
+}
+
+/**
  * Parse filter operator and value from filter string (e.g., "gte:5", "active", "lte:10")
+ * The operator prefix is matched on the raw (encoded) value, so an encoded
+ * literal like "gt%3A5" stays a literal "gt:5", not a greater-than filter.
+ * The value is then percent-decoded.
  */
 export function parseFilterValue(filterValue: string): ParsedFilter {
   // Check for operator prefix (gte, lte, gt, lt, ne)
   const operatorMatch = filterValue.match(/^(gte|lte|gt|lt|ne):(.+)$/);
   if (operatorMatch) {
-    return { operator: operatorMatch[1], value: operatorMatch[2] };
+    return {
+      operator: operatorMatch[1],
+      value: decodeFilterValue(operatorMatch[2]),
+    };
   }
   // Default is equality
-  return { operator: 'eq', value: filterValue };
+  return { operator: 'eq', value: decodeFilterValue(filterValue) };
 }
 
 /** Matches ISO-style dates: YYYY-MM-DD, optionally followed by a time component. */
@@ -99,12 +151,19 @@ export function matchesFilter(cardValue: any, filterValue: string): boolean {
 }
 
 /**
- * Parse filters string (e.g., "status=active,priority=high") into object
+ * Parse filters string (e.g., "status=active,priority=high") into object.
+ * Splits on `,` and the first `=` per segment, so raw `=` inside a value is
+ * kept ("title=a=b" -> value "a=b"). Values with `,` or `|` must be
+ * percent-encoded (e.g. "title=a%2Cb") - see {@link encodeFilterValue}.
+ * Keys are decoded; values stay encoded until {@link parseFilterValue}.
  */
 export function parseFiltersString(filtersStr: string): Record<string, string> {
   const result: Record<string, string> = {};
   filtersStr.split(',').forEach((f) => {
-    const [key, value] = f.split('=').map((s) => s.trim());
+    const eqIndex = f.indexOf('=');
+    if (eqIndex === -1) return;
+    const key = decodeFilterValue(f.slice(0, eqIndex).trim());
+    const value = f.slice(eqIndex + 1).trim();
     if (key && value) {
       result[key] = value;
     }
@@ -115,6 +174,9 @@ export function parseFiltersString(filtersStr: string): Record<string, string> {
 /**
  * Parse a filter string into groups of AND conditions, where `||` separates
  * OR groups and `,` separates AND conditions within a group.
+ *
+ * Values containing `|`, `,`, `=`, `:` must be percent-encoded
+ * (e.g. "title=a%7C%7Cb||status=done" for a literal "a||b").
  *
  * Examples:
  * - "status=active,priority=high"                 -> [{ status: 'active', priority: 'high' }]

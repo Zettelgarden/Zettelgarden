@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Popover } from '@headlessui/react';
 import { SchemaDefinition, FieldDefinition } from '../../models/Schema';
 import { fetchSchemas } from '../../api/schemas';
+import { encodeFilterValue } from '../../utils/schemaFilters';
 
 interface InsertSchemaTableButtonProps {
   onInsert: (syntax: string) => void;
@@ -134,15 +135,18 @@ export function InsertSchemaTableButton({
 
     // Build filter string, skipping empty values. Operators other than "eq"
     // are emitted as "<op>:<value>" so the schema filter engine can apply
-    // gt/gte/lt/lte comparisons (e.g. due=gt:2026-01-01).
+    // gt/gte/lt/lte comparisons (e.g. due=gt:2026-01-01). Values (and field
+    // names) are percent-encoded so literal | , = : % chars in text survive
+    // both markdown processing and the filter parser.
     const validFilters = filters.filter((f) => f.field && f.value.trim());
     if (validFilters.length > 0) {
       const filterStr = validFilters
         .map((f) => {
-          const v = f.value.trim();
+          const field = encodeFilterValue(f.field);
+          const v = encodeFilterValue(f.value.trim());
           return f.operator && f.operator !== 'eq'
-            ? `${f.field}=${f.operator}:${v}`
-            : `${f.field}=${v}`;
+            ? `${field}=${f.operator}:${v}`
+            : `${field}=${v}`;
         })
         .join(matchMode === 'any' ? '||' : ',');
       parts.push(`filter:${filterStr}`);

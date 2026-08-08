@@ -7,8 +7,10 @@ interface ParsedOptions {
 }
 
 // Parse the options string (e.g., "columns:title,status|filter:status=active")
-// The single-pipe split intentionally ignores `||` so OR filters like
-// "filter:status=active||priority=high" stay intact.
+// Splits on single pipes but not `||`, so OR filters like
+// "filter:status=active||priority=high" stay intact. Values containing a
+// literal pipe must be percent-encoded ("filter:title=a%7Cb") since backslash
+// escapes are consumed by CommonMark before this plugin runs.
 function parseOptions(optionsStr: string): ParsedOptions {
   const result: ParsedOptions = {};
 

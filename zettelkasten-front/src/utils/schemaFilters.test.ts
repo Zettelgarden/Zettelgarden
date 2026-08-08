@@ -6,6 +6,8 @@ import {
   applyFiltersToCard,
   parseFilterGroups,
   applyFilterGroupsToCard,
+  encodeFilterValue,
+  decodeFilterValue,
 } from './schemaFilters';
 
 describe('parseFilterValue', () => {
@@ -56,6 +58,45 @@ describe('parseFilterValue', () => {
       operator: 'gte',
       value: '2024-01-01',
     });
+  });
+
+  it('should decode percent-encoded special characters in values', () => {
+    expect(parseFilterValue('a%7Cb')).toEqual({ operator: 'eq', value: 'a|b' });
+    expect(parseFilterValue('a%2Cb')).toEqual({ operator: 'eq', value: 'a,b' });
+    expect(parseFilterValue('a%3Db')).toEqual({ operator: 'eq', value: 'a=b' });
+    expect(parseFilterValue('a%25b')).toEqual({ operator: 'eq', value: 'a%b' });
+  });
+
+  it('should treat an encoded operator prefix as a literal value', () => {
+    // gt%3A5 is a literal "gt:5" string, not a greater-than filter
+    expect(parseFilterValue('gt%3A5')).toEqual({
+      operator: 'eq',
+      value: 'gt:5',
+    });
+  });
+
+  it('should not decode plain values', () => {
+    expect(parseFilterValue('plain')).toEqual({
+      operator: 'eq',
+      value: 'plain',
+    });
+    expect(parseFilterValue('gte:5')).toEqual({ operator: 'gte', value: '5' });
+  });
+});
+
+describe('encodeFilterValue / decodeFilterValue', () => {
+  it('should round-trip special characters', () => {
+    const values = ['a|b', 'a,b', 'a=b', 'a:b', 'a%b', 'plain', ''];
+    for (const v of values) {
+      expect(decodeFilterValue(encodeFilterValue(v))).toBe(v);
+    }
+  });
+
+  it('should encode structural characters', () => {
+    expect(encodeFilterValue('a|b')).toBe('a%7Cb');
+    expect(encodeFilterValue('a,b')).toBe('a%2Cb');
+    expect(encodeFilterValue('a=b')).toBe('a%3Db');
+    expect(encodeFilterValue('a:b')).toBe('a%3Ab');
   });
 });
 
@@ -215,6 +256,21 @@ describe('parseFiltersString', () => {
     });
   });
 
+  it('should handle values containing = (split on first = only)', () => {
+    expect(parseFiltersString('title=a=b')).toEqual({ title: 'a=b' });
+  });
+
+  it('should handle encoded commas in values', () => {
+    expect(parseFiltersString('title=a%2Cb,status=active')).toEqual({
+      title: 'a%2Cb',
+      status: 'active',
+    });
+  });
+
+  it('should decode encoded field names', () => {
+    expect(parseFiltersString('a%7Cb=1')).toEqual({ 'a|b': '1' });
+  });
+
   it('should handle empty string', () => {
     expect(parseFiltersString('')).toEqual({});
   });
@@ -242,6 +298,13 @@ describe('parseFilterGroups', () => {
 
   it('should handle empty string', () => {
     expect(parseFilterGroups('')).toEqual([]);
+  });
+
+  it('should handle encoded pipes inside values', () => {
+    expect(parseFilterGroups('title=a%7C%7Cb||status=done')).toEqual([
+      { title: 'a%7C%7Cb' },
+      { status: 'done' },
+    ]);
   });
 });
 
@@ -321,6 +384,27 @@ describe('applyFiltersToCard', () => {
     expect(applyFiltersToCard(cardWithoutData, { status: 'active' })).toBe(
       false,
     );
+  });
+
+  it('should match percent-encoded special characters in values', () => {
+    const card = {
+      title: 'a|b',
+      structured_data: { status: 'x=y', note: 'a,b' },
+    };
+    expect(applyFiltersToCard(card, { title: 'a%7Cb' })).toBe(true);
+    expect(applyFiltersToCard(card, { status: 'x%3Dy' })).toBe(true);
+    expect(applyFiltersToCard(card, { note: 'a%2Cb' })).toBe(true);
+    expect(applyFiltersToCard(card, { title: 'a|b' })).toBe(true); // raw also works
+    expect(applyFiltersToCard(card, { title: 'a%7Cc' })).toBe(false);
+  });
+
+  it('should match raw = in values without encoding', () => {
+    const card = {
+      title: 'a=b',
+      structured_data: {},
+    };
+    expect(applyFiltersToCard(card, { title: 'a=b' })).toBe(true);
+    expect(applyFiltersToCard(card, { title: 'a%3Db' })).toBe(true);
   });
 });
 
