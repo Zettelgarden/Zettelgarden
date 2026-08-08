@@ -40,7 +40,7 @@ transport-agnostic and should be written **once**, shared by desktop and mobile.
 
 | Primitive | Status | Implication for sync |
 |---|---|---|
-| Stable string IDs | Cards only (`card_id`). Tasks/tags use int PKs | Offline-created records need a stable client identity for everything but cards |
+| Stable string IDs | None truly stable: `card_id` is user-editable + can be empty; tasks/tags use int PKs | Every syncable table needs an immutable `sync_uuid`; `id`/`card_id` sync as ordinary fields |
 | `updated_at` | Most tables have it, but **second precision** (`datetime('now')`) | Two devices editing in the same second can tie; timestamps alone can't order changes |
 | Soft delete | Cards, tasks, tags (`is_deleted`) | Good — syncable |
 | Hard delete | Junction tables (`fact_card_junction`, `entity_card_junction`, `entity_fact_junction`) and several resources | Un-syncable without tombstones (client can't distinguish deleted from never-existed) |
@@ -109,6 +109,14 @@ sync, without rebuilding the UI. If native UX later becomes a priority, the
 sync engine, types, and domain logic are already shareable — only the views
 would be rewritten (Option B).
 
+Two mobile-specific components the design must not gloss over:
+- **WebView → SQLite bridge.** `op-sqlite` runs on the RN JS thread, *not*
+  inside the WebView. The sync engine inside the WebView needs a `postMessage`
+  bridge (webview → RN native module → SQLite); the mobile `SQLiteAdapter` is
+  this bridge, not a direct call.
+- **Token injection.** The JWT must be injected into the WebView per navigation
+  (and revoked on logout), not read from `localStorage` inside the webview.
+
 > Note: the existing PWA manifest + responsive design work means a PWA is a
 > legitimate zero-native-code fallback, but store distribution is the reason to
 > prefer the RN shell.
@@ -130,8 +138,9 @@ runs everywhere):
          └──────────────┬───────────────────┘
                         ▼
               Go Backend — NEW sync API (canonical)
+        GET /api/sync/snapshot    (bootstrap: full state)
         GET /api/sync/changes?since=<cursor>
-        POST /api/sync/push        (batch, idempotent)
+        POST /api/sync/push        (batch, idempotent, optimistic)
 ```
 
 **Core pieces:**
@@ -142,9 +151,12 @@ runs everywhere):
 - **Local mirror** — the syncable tables copied into local SQLite, same schema
   dialect as the backend.
 - **Outbox** — every local mutation writes the local row + a queued change
-  (collection, row uuid, op, version, idempotency key) in one transaction.
-- **Pull** — `GET /api/sync/changes?since=<cursor>` returns rows changed after
-  the cursor; apply, advance cursor.
+  (collection, `row_uuid`, op, `base_version`) in one transaction. `row_uuid`
+  is the idempotency key (upsert-by-uuid); `base_version` is the concurrency
+  check carried on push.
+- **Bootstrap + Pull** — first sync pulls a snapshot
+  (`GET /api/sync/snapshot`); thereafter `GET /api/sync/changes?since=<cursor>`
+  returns rows changed after the cursor; apply, advance cursor.
 - **Push** — drain the outbox via `POST /api/sync/push`; apply server
   responses; reconcile conflicts per policy.
 - **Sync scheduler** — online/offline detection, exponential backoff, periodic
@@ -157,7 +169,8 @@ runs everywhere):
 | Category | Examples | Treatment |
 |---|---|---|
 | User-authored (offline-writable) | cards, tasks, tags, task statuses, templates, references, pins, starred searches, structured data, files metadata | Bidirectional |
-| Junction rows | card↔tag, card↔parent, task↔tag | Bidirectional, with tombstones |
+| Junction rows | card↔tag, task↔tag | Bidirectional, with tombstones |
+| Card parentage | `cards.parent_id` | **Server-authoritative** — derived from `card_id` on push; pull-only in v1 |
 | Server-derived (pull-only) | entities, facts, summaries, embeddings | Pull + overwrite; never merged |
 | Blobs | file contents | Metadata syncs; binary cached on demand (LRU) |
 
@@ -167,10 +180,17 @@ offline-capable ("Available offline: cards, tasks, tags").
 
 ### Conflict Policy
 
-- **v1: row-level last-write-wins**, ordered by `version` (monotonic per row,
-  bumped by the server on every accepted write), then `updated_at`, then a
-  deterministic tie-breaker (lexicographic device id). Because we add a real
-  `version` counter, the second-precision timestamp problem disappears.
+- **v1: optimistic concurrency + row-level last-write-wins.** The client sends
+  the `base_version` it wrote from; the server bumps `version` on every
+  accepted write. If the base is stale, the server applies LWW per the ordering
+  below and returns the accepted result (or a conflict response for deletes) —
+  the client re-pulls and reconciles per policy. Ordering is `version`
+  (monotonic per row), then `updated_at`, then a deterministic tie-breaker
+  (lexicographic device id). Because `version` is the primary ordering key, the
+  second-precision timestamp problem disappears.
+- **Lost-edit surfacing:** the v1 policy silently discards the losing edit on
+  two-device concurrent edit. Acceptable for v1, but the client surfaces a
+  count ("N edits discarded on other devices") in the UI.
 - **v2 (later):** field-level merge for card title/body, and a "discarded
   change" inbox so a losing edit isn't silently lost. Not needed for v1.
 
@@ -182,47 +202,92 @@ offline-capable ("Available offline: cards, tasks, tags").
 
 ## Backend Work Required (the Real Gate)
 
-Small, additive, behind versioned routes. **Nothing existing changes.**
+Small, additive, behind versioned routes. **Nothing existing changes.** Phase 0
+scope is pinned to exactly five tables — `cards`, `tasks`, `tags`, `card_tags`,
+`task_tags` — plus tombstones for hard-deleted rows. Everything else
+(`task_statuses`, templates, pins, …) stays read-only until proven necessary.
 
 1. **`sync_log` table** — `(id PK AUTOINCREMENT, user_id, collection, row_uuid,
    op, version, created_at)`. Every server-side mutation writes a row in the
-   same transaction. This is the changes feed; the cursor is the max `id` the
-   client has seen.
-2. **`GET /api/sync/changes?since=<cursor>&collections=…`** — per-user
-   incremental feed, ordered by `sync_log.id`.
-3. **`POST /api/sync/push`** — batch upsert/delete with idempotency keys
-   (`row_uuid` + `version`), applied transactionally, returns accepted versions
-   and conflicts.
-4. **`version INTEGER` column** on every syncable table, bumped on update
-   (alongside existing `updated_at`).
-5. **Stable client identities** — add `sync_uuid TEXT UNIQUE` to tables whose
-   PK is a server int (tasks, tags, …). Cards already have `card_id`; reuse it
-   as the sync identity for cards. Offline-created rows ship a fresh UUID.
-6. **Tombstones** — soft-delete (or tombstone rows) for currently hard-deleted
-   resources/junctions so deletes propagate.
-7. **Auth follow-ups (small)** — a refresh-token endpoint so native clients
-   don't force a login every 15 days; OAuth/GitHub/OIDC deep-link callbacks for
-   native shells.
-8. **Tests** — Go tests for feed/push/idempotency under the existing
-   `_test.go` pattern; fixtures in `go-backend/tests/`.
+   **same transaction**. This is the changes feed; the cursor is the max `id`
+   the client has seen. The log is **append-only**: it must never be pruned
+   while any client cursor trails it (retention = keep rows ≥ N days past the
+   oldest active cursor, else force that client to re-bootstrap via the
+   snapshot endpoint, item 3).
+2. **Write-path audit + centralized change capture.** The real cost is
+   inserting transactional `sync_log` writes into **every existing write path**
+   for the five pinned tables (several use `INSERT OR REPLACE` junctions that
+   must also emit tombstones). Make this an explicit Phase 0 workstream and
+   centralize capture in the **service layer** (`services/`) — a single
+   `emitChange(userID, collection, rowUUID, op, version)` helper called from
+   services — rather than sprinkling handler edits.
+3. **`GET /api/sync/snapshot?collections=…` (bootstrap)** — serves full current
+   state per collection. `sync_log` starts empty at migration time, so existing
+   rows have no feed entries; a new device pulling `since=0` would otherwise
+   get an empty database. Client bootstrap = snapshot, then incremental feed.
+   This also solves reinstalls. (Rejected alternative: a one-time backfill
+   writing `sync_log` rows for every pre-existing row.)
+4. **`GET /api/sync/changes?since=<cursor>&collections=…`** — per-user
+   incremental feed, ordered by `sync_log.id`. Cursor is per-user *max seen
+   id*, not contiguous.
+5. **`POST /api/sync/push`** — batch upsert/delete, applied transactionally.
+   Each change carries `row_uuid` (the idempotency key — a retry replays the
+   same op) and `base_version` (the concurrency check; see Conflict Policy).
+   The handler **resolves `row_uuid → server int PK` inside the same
+   transaction** (for offline-created rows and for junctions referencing them)
+   and returns that mapping in the response so the client can rewrite local
+   references.
+6. **`version INTEGER` column** on all five pinned tables, bumped on every
+   accepted update (alongside existing `updated_at`).
+7. **Stable client identities — `sync_uuid TEXT UNIQUE` on *all* syncable
+   tables, cards included.** Neither `id` (server-assigned; unknown until the
+   first push) nor `card_id` (user-editable via `UpdateCard`, app-level
+   uniqueness only, empty for unsorted cards) is safe as the sync identity.
+   `id` and `card_id` sync as ordinary fields.
+8. **Parent relationships are server-authoritative.** `UpdateCard` already
+   derives `parent_id` from the `card_id` prefix (`DiscoverParentId`) and root
+   cards self-parent. The client sends `card_id` and never `parent_id`; the
+   server derives it on push. The card↔parent junction is **pull-only in v1** —
+   no offline reparenting; offline-created cards stay roots until the server
+   resolves them.
+9. **Tombstones** — soft-delete (or tombstone rows) for the hard-deleted
+   junction rows (`card_tags`, `task_tags`) so deletes propagate.
+10. **Auth follow-ups** — refresh-token endpoint (lands in **Phase 0**: 15-day
+    re-auth on mobile is a churn magnet); OAuth/GitHub/OIDC deep-link callbacks
+    for native shells (the OIDC design's token-in-URL callback is awkward for
+    native — the deep-link work is genuinely needed).
+11. **Tests** — Go tests for snapshot/feed/push/idempotency/concurrency under
+    the existing `_test.go` pattern; fixtures in `go-backend/tests/`.
 
-Estimated surface: one migration file, two new handlers, version bumps in the
-existing write handlers. It is **mechanical, not architectural** — the backend
-stays the canonical source of truth with the same read endpoints intact.
+This is a bounded but wide workstream: one migration file, three new handlers,
+`version` + `sync_uuid` columns on five tables, and a capture helper woven
+through the existing service-layer write paths. The backend stays the canonical
+source of truth with the same read endpoints intact.
 
 ## Phased Implementation Plan
 
 ### Phase 0 — Backend Sync API (the critical path)
-Everything depends on this. Build the `sync_log` feed, push endpoint, version
-columns, sync UUIDs, and tombstones.
-**Exit criteria:** a script can pull a changes feed, push a batch, and observe
-the feed advance; idempotent retry produces no duplicates; Go tests green.
+Everything depends on this. Workstreams: (a) write-path audit + centralized
+`emitChange` capture in `services/` for the five pinned tables; (b) `sync_log`
++ snapshot + changes feed + push endpoints (with `row_uuid → PK` resolution
+and optimistic concurrency); (c) `version` + `sync_uuid` columns and junction
+tombstones; (d) server-authoritative `parent_id` derivation on push; (e)
+refresh-token endpoint + native auth deep links.
+**Exit criteria:** a script can (1) snapshot-bootstrap an empty client, (2)
+pull the feed, (3) push a batch including an offline-created card, a tag, and a
+junction linking them, and observe the feed advance with the returned
+`row_uuid → PK` mapping applied; idempotent retry produces no duplicates; a
+stale `base_version` push is rejected or LWW-resolved deterministically; Go
+tests green.
 
 ### Phase 1 — Shared Sync Engine (TS)
 Storage adapters, local mirror, outbox, pull/push/reconcile, cursor, conflict
 policy, unit tests against a SQLite adapter.
 **Exit criteria:** a headless harness (no UI) keeps two local databases
-converged through a live backend — including offline gaps and concurrent edits.
+converged through a live backend — including offline gaps, concurrent edits,
+**offline-created linked rows** (a card created offline on device A, a task
+created offline on device B, and junctions tying them to shared tags), and
+offline `card_id` rename on both devices (must not split one logical row).
 
 ### Phase 2 — Desktop App (Tauri)
 Scaffold (keychain auth, server-URL setting), wire the engine, swap the UI's
@@ -248,7 +313,10 @@ gains offline reads.
 2. **Desktop** — **Tauri** (recommended) vs keeping Electron.
 3. **Mobile** — **RN shell + WebView** (recommended v1) vs RN native UI vs PWA.
 4. **Sync engine language** — **TypeScript** (recommended; runs in every shell,
-   team's language) vs Rust (background sync with the app closed on desktop).
+   team's language). Explicit tradeoff: a TS engine syncs only while the app is
+   open (on launch, on focus, on a timer). Rust buys background sync with the
+   app closed on desktop at the cost of a second engine language. Default: TS;
+   revisit only if "sync while app closed" becomes a requirement.
 5. **Offline-writable scope** — confirm **cards, tasks, tags + junctions** for
    v1.
 6. **Backend budget** — the Phase 0 items are the gate on "sync". Confirm
@@ -291,6 +359,27 @@ Reviewed against the current codebase. Factual claims verified: 15-day JWT with
 no refresh (`handlers/auth.go`), second-precision `datetime('now')`, hard-deleted
 junctions, int PKs for tasks/tags, 68 tables, local-disk file storage. The
 following are **must-fix items for Phase 0**, plus smaller notes.
+
+### Resolutions (2026-08-08)
+
+Each item below is now incorporated into the design above:
+
+| # | Feedback | Resolved where |
+|---|---|---|
+| 1 | Bootstrap/backfill unspecified | Backend Work §3 — snapshot endpoint; client bootstrap = snapshot then incremental |
+| 2 | `id` + `card_id` both unsafe as sync identity | Backend Work §7 — immutable `sync_uuid` on all syncable tables, cards included |
+| 3 | Offline-created row references unresolved | Backend Work §5 — push resolves `row_uuid → PK` in-transaction and returns the mapping |
+| 4 | Push must be optimistic concurrency | Conflict Policy — `base_version` on push; LWW ordering; lost-edit count surfaced in UI |
+| 5 | `parent_id` derivable from `card_id` | Backend Work §8 — server-authoritative parentage; junction pull-only in v1 |
+| 6 | "Mechanical" undersells Phase 0 | Backend Work §2 + Phase 0(a) — write-path audit, centralized `emitChange` in `services/` |
+| 7 | Pin the table list | Backend Work intro — exactly `cards`, `tasks`, `tags`, `card_tags`, `task_tags` |
+| 8 | WebView→SQLite bridge is real | Mobile section — `postMessage` bridge + token injection |
+| 9 | Background sync tradeoff | Open Decision 4 — TS syncs while app open; Rust = background |
+| 10 | `sync_log` lifecycle / idempotency | Backend Work §1 + §5 — append-only, retention, cursor = max seen id, idempotency key = `row_uuid` |
+| 11 | Auth follow-ups | Backend Work §10 — refresh tokens land in Phase 0; deep links needed |
+| 12 | Harness must cover junctions | Phase 1 exit criteria — offline-created linked rows + concurrent `card_id` rename |
+
+Original review text preserved below and in git history (394f443b).
 
 ### Critical
 
