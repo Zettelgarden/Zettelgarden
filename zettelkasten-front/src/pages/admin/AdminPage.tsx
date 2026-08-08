@@ -6,9 +6,6 @@ import { MenuIcon } from "../../assets/icons/MenuIcon";
 import { AdminUserIndex } from "./AdminUserIndex";
 import { AdminUserDetailPage } from "./AdminUserDetailPage";
 import { AdminEditUserPage } from "./AdminEditUserPage";
-import { AdminMailingListPage } from "./AdminMailingListPage";
-import { AdminMailingListSendPage } from "./AdminMailingListSendPage";
-import { AdminMailingListHistoryPage } from "./AdminMailingListHistoryPage";
 import { AdminJobQueuePage } from "./AdminJobQueuePage";
 import { AdminSchedulerPage } from "./AdminSchedulerPage";
 import { AdminSettingsPage } from "./AdminSettingsPage";
@@ -142,33 +139,9 @@ export function Admin() {
                     ⏰ Scheduled Jobs
                   </Link>
                 </li>
-                <li>
-                  <Link
-                    to="/admin/mailing-list"
-                    className="block py-3 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors min-h-[44px] flex items-center"
-                    onClick={() => setIsSidebarOpen(false)}
-                  >
-                    📧 Mailing List Subscribers
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/admin/mailing-list/send"
-                    className="block py-3 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors min-h-[44px] flex items-center"
-                    onClick={() => setIsSidebarOpen(false)}
-                  >
-                    ✉️ Send Message
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/admin/mailing-list/history"
-                    className="block py-3 px-4 rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white transition-colors min-h-[44px] flex items-center"
-                    onClick={() => setIsSidebarOpen(false)}
-                  >
-                    📜 Message History
-                  </Link>
-                </li>
+                
+                
+                
                 <li className="pt-4 border-t border-gray-700 mt-4">
                   <Link
                     to="/app"
@@ -196,10 +169,7 @@ export function Admin() {
               <Route path="settings" element={<AdminSettingsPage />} />
               <Route path="job-queue" element={<AdminJobQueuePage />} />
               <Route path="scheduler" element={<AdminSchedulerPage />} />
-              <Route path="mailing-list" element={<AdminMailingListPage />} />
-              <Route path="mailing-list/send" element={<AdminMailingListSendPage />} />
-              <Route path="mailing-list/history" element={<AdminMailingListHistoryPage />} />
-            </Routes>
+                                                      </Routes>
           </div>
         </div>
       </div>

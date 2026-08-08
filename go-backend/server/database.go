@@ -211,6 +211,15 @@ func ensureSQLiteSchemaUpgrades(db *sql.DB) error {
 			return fmt.Errorf("drop orphan table %s: %w", tbl, err)
 		}
 	}
+	// Drop the SaaS mailing-list tables (6er.11): the feature was removed from
+	// the self-hosted app, so existing DBs that still carry the tables (fresh
+	// builds no longer create them) drop them on boot. Idempotent no-op once
+	// they're gone. Recipients references messages, so drop order matters.
+	for _, tbl := range []string{"mailing_list_recipients", "mailing_list_messages", "mailing_list"} {
+		if _, err := db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", tbl)); err != nil {
+			return fmt.Errorf("drop mailing list table %s: %w", tbl, err)
+		}
+	}
 	// Partial unique index for stable (provider, sub) OIDC re-auth. Only build
 	// it when the users table exists; idempotent otherwise via IF NOT EXISTS.
 	if hasUsers, err := sqliteTableExists(db, "users"); err != nil {

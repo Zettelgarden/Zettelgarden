@@ -90,17 +90,6 @@ export interface ContentStats {
 }
 
 /**
- * Mailing list recipient (for message history)
- */
-export interface MailingListRecipient {
-  id: number;
-  message_id: number;
-  recipient_email: string;
-  recipient_type: "to" | "bcc";
-  sent_at: string;
-}
-
-/**
  * Response wrapper for admin API errors
  */
 export interface AdminErrorResponse {
@@ -169,27 +158,6 @@ export async function getAdminStats(): Promise<AdminStats> {
   }
 
   return response.json() as Promise<AdminStats>;
-}
-
-/**
- * Get mailing list recipients for a specific message
- */
-export async function getMailingListRecipients(
-  messageId: number
-): Promise<MailingListRecipient[]> {
-  const base_url = import.meta.env.VITE_URL;
-  const token = localStorage.getItem("token");
-  const url = `${base_url}/mailing-list/messages/recipients?message_id=${messageId}`;
-
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch recipients: ${response.statusText}`);
-  }
-
-  return response.json() as Promise<MailingListRecipient[]>;
 }
 
 /**

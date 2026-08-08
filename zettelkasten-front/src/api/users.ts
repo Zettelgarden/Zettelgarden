@@ -9,15 +9,6 @@ import { GenericResponse } from "../models/common";
 import { apiClient, getData } from "./client";
 import { APIError } from "./errors";
 
-export interface MailingListSubscriber {
-  id: number;
-  email: string;
-  welcome_email_sent: boolean;
-  subscribed: boolean;
-  has_account: boolean;
-  created_at: string;
-  updated_at: string;
-}
 
 /**
  * Create a new user
@@ -152,31 +143,6 @@ export async function resendValidateEmail(): Promise<GenericResponse> {
 export async function getUserSubscription(id: number): Promise<UserSubscription> {
   const encodedId = encodeURIComponent(id);
   return getData(apiClient.get<UserSubscription>(`/users/${encodedId}/subscription`));
-}
-
-/**
- * Add email to mailing list
- */
-export async function addToMailingList(email: string): Promise<{ email: string }> {
-  return getData(
-    apiClient.post<{ email: string }>("/mailing-list", { email }, { skipAuth: true })
-  );
-}
-
-/**
- * Get all mailing list subscribers (admin only)
- */
-export async function getMailingListSubscribers(): Promise<MailingListSubscriber[]> {
-  return getData(apiClient.get<MailingListSubscriber[]>("/mailing-list"));
-}
-
-/**
- * Unsubscribe email from mailing list
- */
-export async function unsubscribeMailingList(email: string): Promise<{ message: string }> {
-  return getData(
-    apiClient.post<{ message: string }>("/mailing-list/unsubscribe", { email })
-  );
 }
 
 /**

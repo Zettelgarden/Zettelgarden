@@ -571,32 +571,6 @@ CREATE TABLE llm_query_log (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE mailing_list (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  email TEXT,
-  created_at DATETIME DEFAULT (datetime('now')),
-  updated_at DATETIME DEFAULT (datetime('now')),
-  welcome_email_sent BOOLEAN DEFAULT false,
-  subscribed BOOLEAN DEFAULT true
-);
-
-CREATE TABLE mailing_list_messages (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  subject TEXT NOT NULL,
-  body TEXT NOT NULL,
-  sent_at DATETIME DEFAULT (datetime('now')),
-  total_recipients INTEGER
-);
-
-CREATE TABLE mailing_list_recipients (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  message_id INTEGER NOT NULL,
-  recipient_email TEXT NOT NULL,
-  recipient_type TEXT NOT NULL,
-  sent_at DATETIME DEFAULT (datetime('now')),
-  FOREIGN KEY (message_id) REFERENCES mailing_list_messages(id)
-);
-
 CREATE TABLE notification_preferences (
   user_id INTEGER NOT NULL,
   show_unprocessed_emails BOOLEAN DEFAULT true,
