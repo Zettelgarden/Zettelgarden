@@ -254,7 +254,7 @@ func (s *Handler) ChangesRoute(w http.ResponseWriter, r *http.Request) {
 			cursor = e.ID
 		}
 		out = append(out, models.SyncRow{
-			RowUUID: e.RowUUID, Version: e.Version, Op: e.Op, Data: dataByUUID[e.RowUUID],
+			RowUUID: e.RowUUID, Version: e.Version, Op: e.Op, Collection: e.Collection, Data: dataByUUID[e.RowUUID],
 		})
 	}
 	writeJSON(w, http.StatusOK, models.SyncChangesResponse{

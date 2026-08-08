@@ -1,0 +1,254 @@
+import { describe, it, expect } from 'vitest';
+import { SyncEngine } from '../src/engine';
+import { InMemoryAdapter } from '../src/storage';
+import type { StorageAdapter } from '../src/storage';
+import { MockServer } from './mock-server';
+import type { Collection } from '../src/types';
+
+function makeEngine(server: MockServer, deviceId: string): {
+  engine: SyncEngine;
+  storage: StorageAdapter;
+} {
+  const storage = new InMemoryAdapter();
+  const engine = new SyncEngine({ storage, transport: server, deviceId });
+  return { engine, storage };
+}
+
+function cardData(title: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
+  return { title, body: title, card_id: title, ...extra };
+}
+
+describe('SyncEngine', () => {
+  it('bootstrap snapshots the mirror and sets the cursor', async () => {
+    const server = new MockServer();
+    server.seed('cards', 'c1', cardData('existing'));
+    server.seed('tasks', 't1', { title: 'task' });
+
+    const { engine, storage } = makeEngine(server, 'dev-a');
+    await engine.bootstrap();
+
+    expect(storage.getRow('cards', 'c1')?.data.title).toBe('existing');
+    expect(storage.getRow('tasks', 't1')).toBeDefined();
+    expect(storage.getCursor()).toBeGreaterThan(0);
+    expect(engine.pendingChanges()).toBe(0);
+  });
+
+  it('local mutate queues the outbox and push drains it, adopting server identity', async () => {
+    const server = new MockServer();
+    const { engine, storage } = makeEngine(server, 'dev-a');
+    await engine.bootstrap();
+
+    engine.mutate('cards', { rowUuid: 'new-card', data: cardData('offline card') });
+    expect(engine.pendingChanges()).toBe(1);
+
+    const summary = await engine.sync();
+    expect(summary.pushed).toBe(1);
+    expect(engine.pendingChanges()).toBe(0);
+
+    const row = storage.getRow('cards', 'new-card')!;
+    expect(row.version).toBe(1);
+    expect(row.data.id).toBeGreaterThan(0); // server-assigned PK adopted
+  });
+
+  it('offline gap: mutations queue while offline and converge on reconnect', async () => {
+    const server = new MockServer();
+    const { engine, storage } = makeEngine(server, 'dev-a');
+    await engine.bootstrap();
+
+    engine.setOnline(false);
+    engine.mutate('cards', { rowUuid: 'a1', data: cardData('card A') });
+    engine.mutate('tasks', { rowUuid: 't1', data: { title: 'task B' } });
+    engine.deleteLocal('cards', 'does-not-exist'); // server will ignore this
+    expect(engine.pendingChanges()).toBe(3);
+
+    engine.setOnline(true);
+    await engine.sync();
+    expect(engine.pendingChanges()).toBe(0);
+    expect(storage.getRow('cards', 'a1')?.data.title).toBe('card A');
+    expect(storage.getRow('tasks', 't1')?.data.title).toBe('task B');
+  });
+
+  it('idempotent retry: a dropped response does not duplicate or regress', async () => {
+    const server = new MockServer();
+    const storage = new InMemoryAdapter();
+
+    // Transport that applies the push server-side, then drops the response.
+    const failingTransport = {
+      snapshot: (c) => server.snapshot(c),
+      changes: (s) => server.changes(s),
+      push: async (req) => {
+        await server.push(req);
+        throw new Error('network dropped the response');
+      },
+    };
+    const engine1 = new SyncEngine({ storage, transport: failingTransport, deviceId: 'dev-a' });
+    await engine1.bootstrap();
+    engine1.mutate('cards', { rowUuid: 'r1', data: cardData('retry me') });
+    await expect(engine1.sync()).rejects.toThrow('network dropped');
+
+    // The server applied the create, but the outbox entry is still pending.
+    expect(engine1.pendingChanges()).toBe(1);
+    const snap1 = await server.snapshot(['cards']);
+    expect(snap1.collections.cards!).toHaveLength(1);
+
+    // A fresh engine on the same storage retries the same entry (base 0).
+    const engine2 = new SyncEngine({ storage, transport: server, deviceId: 'dev-a' });
+    await engine2.sync();
+    expect(engine2.pendingChanges()).toBe(0);
+    const snap2 = await server.snapshot(['cards']);
+    expect(snap2.collections.cards!).toHaveLength(1); // no duplicate row
+    expect(storage.getRow('cards', 'r1')!.version).toBe(1);
+  });
+
+  it('self-echo: our own pushed change is not double-applied on the next pull', async () => {
+    const server = new MockServer();
+    const { engine, storage } = makeEngine(server, 'dev-a');
+    await engine.bootstrap();
+
+    engine.mutate('cards', { rowUuid: 'e1', data: cardData('echo') });
+    await engine.sync(); // push lands, log entry emitted
+
+    const cursorBefore = storage.getCursor();
+    await engine.sync(); // pull echoes our own entry
+    expect(storage.getCursor()).toBeGreaterThanOrEqual(cursorBefore);
+
+    const row = storage.getRow('cards', 'e1')!;
+    expect(row.data.title).toBe('echo'); // data intact
+    expect(row.version).toBe(1); // not double-bumped
+    expect(storage.allRows('cards').filter((r) => r.rowUuid === 'e1')).toHaveLength(1);
+    expect(engine.pendingChanges()).toBe(0);
+  });
+
+  it('two devices converge through the server (cross-device edit)', async () => {
+    const server = new MockServer();
+    const devA = makeEngine(server, 'dev-a');
+    const devB = makeEngine(server, 'dev-b');
+    await devA.engine.bootstrap();
+    await devB.engine.bootstrap();
+
+    // A creates the card and syncs; B pulls it.
+    devA.engine.mutate('cards', { rowUuid: 'shared', data: cardData('A v1') });
+    await devA.engine.sync();
+    await devB.engine.sync();
+    expect(devB.storage.getRow('cards', 'shared')!.data.title).toBe('A v1');
+
+    // Both edit the SAME row from the same base (v1).
+    devA.engine.mutate('cards', { rowUuid: 'shared', data: cardData('A v2') });
+    devB.engine.mutate('cards', { rowUuid: 'shared', data: cardData('B v2') });
+    await devA.engine.sync(); // A lands first -> v2
+    await devB.engine.sync(); // B is stale -> adopts A's v2
+
+    const serverRow = (await server.snapshot(['cards'])).collections.cards!.find(
+      (r) => r.row_uuid === 'shared',
+    )!;
+    expect(serverRow.data?.title).toBe('A v2');
+    expect(devA.storage.getRow('cards', 'shared')!.data.title).toBe('A v2');
+    expect(devB.storage.getRow('cards', 'shared')!.data.title).toBe('A v2');
+    expect(devA.storage.getRow('cards', 'shared')!.version).toBe(
+      devB.storage.getRow('cards', 'shared')!.version,
+    );
+  });
+
+  it('conflict on stale base adopts the server row and counts the lost edit', async () => {
+    const server = new MockServer();
+    const devA = makeEngine(server, 'dev-a');
+    const devB = makeEngine(server, 'dev-b');
+    await devA.engine.bootstrap();
+    await devB.engine.bootstrap();
+
+    // A creates the card and syncs.
+    devA.engine.mutate('cards', { rowUuid: 'c1', data: cardData('A v1') });
+    await devA.engine.sync();
+
+    // B pulls it, then edits from base v1 -> v2.
+    await devB.engine.sync();
+    devB.engine.mutate('cards', { rowUuid: 'c1', data: cardData('B v2') });
+    await devB.engine.sync();
+
+    // A edits from its stale base v1 (server is now v2) -> conflict; A adopts.
+    devA.engine.mutate('cards', { rowUuid: 'c1', data: cardData('A stale') });
+    const summary = await devA.engine.sync();
+    expect(summary.conflicts).toBe(1);
+    expect(summary.lostEdits).toBe(1);
+
+    expect(devA.storage.getRow('cards', 'c1')!.data.title).toBe('B v2');
+    expect(devA.engine.pendingChanges()).toBe(0);
+  });
+
+  it('tag name-merge: second device adopts the surviving row_uuid', async () => {
+    const server = new MockServer();
+    const devA = makeEngine(server, 'dev-a');
+    const devB = makeEngine(server, 'dev-b');
+    await devA.engine.bootstrap();
+    await devB.engine.bootstrap();
+
+    devA.engine.mutate('tags', { rowUuid: 'tag-a', data: { name: 'Work', color: 'black' } });
+    devA.engine.mutate('cards', { rowUuid: 'card-a', data: { ...cardData('A'), tags: ['Work'] } });
+    await devA.engine.sync();
+
+    devB.engine.mutate('tags', { rowUuid: 'tag-b', data: { name: 'Work', color: 'red' } });
+    const summary = await devB.engine.sync();
+    expect(summary.conflicts).toBe(0);
+    // B's local tag row now uses the surviving uuid (tag-a).
+    expect(devB.storage.getRow('tags', 'tag-a')).toBeDefined();
+    expect(devB.storage.getRow('tags', 'tag-b')).toBeUndefined();
+    expect(devB.storage.getRow('tags', 'tag-a')!.version).toBe(1);
+
+    // Exactly one server tag.
+    const snap = await server.snapshot(['tags']);
+    expect(snap.collections.tags!).toHaveLength(1);
+  });
+
+  it('delete propagates to the other device', async () => {
+    const server = new MockServer();
+    const devA = makeEngine(server, 'dev-a');
+    const devB = makeEngine(server, 'dev-b');
+    await devA.engine.bootstrap();
+    await devB.engine.bootstrap();
+
+    devA.engine.mutate('cards', { rowUuid: 'gone', data: cardData('doomed') });
+    await devA.engine.sync();
+    await devB.engine.sync();
+    expect(devB.storage.getRow('cards', 'gone')).toBeDefined();
+
+    devA.engine.deleteLocal('cards', 'gone');
+    await devA.engine.sync();
+    await devB.engine.sync();
+
+    expect(devB.storage.getRow('cards', 'gone')).toBeUndefined();
+  });
+
+  it('progress events fire with pendingChanges and lastSynced', async () => {
+    const server = new MockServer();
+    const { engine, storage } = makeEngine(server, 'dev-a');
+    await engine.bootstrap();
+
+    const seen: string[] = [];
+    const off = engine.onProgress((p) => seen.push(`${p.state}:${p.pendingChanges}`));
+    engine.mutate('cards', { rowUuid: 'p1', data: cardData('progress') });
+    await engine.sync();
+    off();
+
+    expect(seen.some((s) => s.startsWith('idle:1'))).toBe(true);
+    expect(storage.getRow('cards', 'p1')?.data.id).toBeGreaterThan(0);
+  });
+
+  it('cursor advances correctly across snapshot -> incremental pulls', async () => {
+    const server = new MockServer();
+    server.seed('cards', 'c1', cardData('seed'));
+    const { engine, storage } = makeEngine(server, 'dev-a');
+    await engine.bootstrap();
+    const bootstrapCursor = storage.getCursor();
+
+    // Remote change after bootstrap must appear on the next pull.
+    server.seed('cards', 'c2', cardData('remote add'));
+    await engine.sync();
+    expect(storage.getRow('cards', 'c2')).toBeDefined();
+    expect(storage.getCursor()).toBeGreaterThan(bootstrapCursor);
+
+    // Nothing new -> pull is a no-op that returns the same cursor.
+    const cursorBefore = storage.getCursor();
+    await engine.sync();
+    expect(storage.getCursor()).toBeGreaterThanOrEqual(cursorBefore);
+  });
+});

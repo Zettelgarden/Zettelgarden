@@ -1,0 +1,21 @@
+{
+  "name": "@zettelgarden/sync-engine",
+  "version": "0.1.0",
+  "description": "Local-first sync engine for Zettelgarden desktop + mobile clients (epic Zettelgarden-v5b, Phase 1a).",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^24.0.0",
+    "better-sqlite3": "^12.2.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.0"
+  }
+}

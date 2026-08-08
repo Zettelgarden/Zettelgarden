@@ -12,12 +12,14 @@ import (
 
 // SyncRow is one row in a snapshot or changes-feed payload. Data is the raw
 // row columns (see the per-collection column lists in handlers/sync.go);
-// Op is "upsert" or "delete" (delete rows may carry no Data).
+// Op is "upsert" or "delete" (delete rows may carry no Data). Collection is
+// set on changes-feed entries (snapshot groups rows by collection already).
 type SyncRow struct {
-	RowUUID string          `json:"row_uuid"`
-	Version int             `json:"version"`
-	Op      string          `json:"op"`
-	Data    json.RawMessage `json:"data,omitempty"`
+	RowUUID    string          `json:"row_uuid"`
+	Version    int             `json:"version"`
+	Op         string          `json:"op"`
+	Collection string          `json:"collection,omitempty"`
+	Data       json.RawMessage `json:"data,omitempty"`
 }
 
 // SyncSnapshotResponse is the full bootstrap payload for one user.

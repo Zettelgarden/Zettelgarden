@@ -139,6 +139,7 @@ func (c *pushContext) merged(ch models.SyncChange, serverID int, version int, ma
 	c.results = append(c.results, models.SyncPushResult{
 		RowUUID: ch.RowUUID, Status: SyncStatusMerged,
 		ServerID: &serverID, ServerVersion: version, MappedToRowUUID: mappedTo,
+		Data: c.currentRow(SyncCollectionTags, serverID),
 	})
 }
 
