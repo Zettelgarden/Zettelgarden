@@ -621,3 +621,37 @@ Original review text preserved below and in git history.
    the local mirror copies "all syncable tables", or it drags into the client
    schema for no reason.
 
+## Review Feedback (2026-08-08) — Third Pass (pi)
+
+Reviewed the second pass against the codebase. **All of its claims verify**:
+`AddTagsFromCard` (`services/tags.go:120`) wipes via `RemoveAllTagsFromCard`
+and re-derives from `ParseTagsFromCardBody(card.Body)` + `IdentifyParentTags`;
+`CreateTag` (`services/tags.go:188`) is name-keyed via `GetTagMaybeDeleted` and
+resurrects deleted rows; `tags(name)` has no UNIQUE constraint (schema:790);
+card tags have no mutation route (`GET /api/cards/{id}/tags` only — the
+frontend tags cards by editing body text, `addTagToBody` in
+`utils/cardActions.ts`); exactly 28 frontend files import `apiClient`;
+`unsorted_cards` has no `user_id` and zero Go references. The structural
+corrections (junctions pull-only, tags name-merged) are right.
+
+The name-keyed tag model has three small gaps worth pinning down before Phase 0:
+
+1. **Tag rename under name-keyed merge is undefined.** `EditTag` renames
+   (`UPDATE tags SET name = $1 ...`), and the UI exposes it. Two-device
+   rename-vs-rename (A: "Work"→"Tasks", B: "Work"→"Projects") and
+   rename-vs-create (A renames "Work" away while B creates "Work" offline)
+   have no stated rule under "merge by name". Recommend: LWW on the merged
+   row by `version`, rename treated as a normal upsert of the *new* name, and
+   the renamed-away name's row soft-deleted — and pin one exit-criteria test
+   for rename-vs-create.
+2. **Tag field conflicts (color) on same-name concurrent create.** Two devices
+   create "Work" offline with different colors; the merged row's color is
+   currently unspecified. State it: LWW by `version` on the merged row,
+   same as any other field.
+3. **The losing device must adopt the winner's `sync_uuid`.** The push
+   response "returns the reused row's sync_uuid/id so references converge" —
+   make explicit that the client must rewrite **its own local tag row**
+   (`sync_uuid`, id, version) to the merged server row, or the next push
+   re-creates a duplicate. This is the client-side half of item 2 in the
+   second pass; worth one sentence in Backend Work §5.
+
