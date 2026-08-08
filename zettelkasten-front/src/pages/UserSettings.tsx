@@ -4,6 +4,7 @@ import { getBillingPortalUrl, getBillingStatus } from "../api/billing";
 import { requestPasswordReset } from "../api/auth";
 import { User, EditUserParams } from "../models/User";
 import { useAuth } from "../contexts/AuthContext";
+import { useSettings } from "../contexts/SettingsContext";
 import { H6 } from "../components/Header";
 import { TemplatesList } from "../components/templates/TemplatesList";
 import { setDocumentTitle } from "../utils/title";
@@ -30,6 +31,8 @@ export function UserSettingsPage() {
 
   const navigate = useNavigate();
   const { user, hasSubscription, updateUser, logoutUser } = useAuth();
+  const { settings } = useSettings();
+  const supportEmail = settings?.supportEmail;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault(); // Prevent the default form submit action
@@ -236,16 +239,23 @@ export function UserSettingsPage() {
                     <li>Data export in various formats</li>
                     <li>Selective data removal</li>
                   </ul>
-                  <p className="text-orange-700 text-sm mb-3">
+                  {supportEmail ? (
+                    <p className="text-orange-700 text-sm mb-3">
                     Please email us at{" "}
                     <a
-                      href="mailto:info@zettelgarden.com"
+                      href={`mailto:${supportEmail}`}
                       className="font-medium text-orange-800 hover:underline"
                     >
-                      info@zettelgarden.com
+                      {supportEmail}
                     </a>{" "}
                     with your request, and we'll take care of it promptly.
                   </p>
+                ) : (
+                  <p className="text-orange-700 text-sm mb-3">
+                    This instance has no support address configured; contact
+                    your administrator for account deletion or data export.
+                  </p>
+                )}
                 </div>
               </div>
             </div>

@@ -1,5 +1,6 @@
 import React, { FormEvent, useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { useSettings } from "../contexts/SettingsContext";
 import { login } from "../api/auth";
 import { FaGithub, FaFingerprint } from "react-icons/fa";
 
@@ -29,6 +30,7 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const { loginUser, loginUserFromToken } = useAuth();
+  const { settings } = useSettings();
   const navigate = useNavigate();
   const location = useLocation();
   const message = location.state?.message;
@@ -174,12 +176,14 @@ function LoginForm() {
         </form>
 
         <div className="text-center mt-6 text-sm">
-          <p>
-            Don't have an account?{" "}
-            <Link to="/register" className="text-blue-500 hover:underline">
-              Register here
-            </Link>
-          </p>
+          {settings?.signupsEnabled !== false && (
+            <p>
+              Don't have an account?{" "}
+              <Link to="/register" className="text-blue-500 hover:underline">
+                Register here
+              </Link>
+            </p>
+          )}
           <p className="mt-2">
             <Link to="/reset" className="text-blue-500 hover:underline">
               Forgot your password?

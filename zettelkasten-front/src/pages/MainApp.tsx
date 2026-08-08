@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import "../App.css";
 import { Sidebar } from "../components/Sidebar";
 import { useAuth } from "../contexts/AuthContext";
+import { useSettings } from "../contexts/SettingsContext";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Route, Routes } from "react-router-dom";
 import { EmailValidationBanner } from "../components/EmailValidationBanner";
@@ -21,6 +22,7 @@ import {
 } from "../components/LinuxTitlebar";
 function MainAppContent() {
   const navigate = useNavigate();
+  const { settings } = useSettings();
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchConfig, setSearchConfig] = useState<SearchConfig>({
@@ -83,7 +85,7 @@ function MainAppContent() {
         <Sidebar />
         <div className="flex-grow overflow-y-auto pb-16 md:pb-0 safe-bottom">
           <div className="">
-            <EmailValidationBanner />
+            {settings?.mailEnabled !== false && <EmailValidationBanner />}
             <AppRoutes
               hasSubscription={hasSubscription}
               searchTerm={searchTerm}

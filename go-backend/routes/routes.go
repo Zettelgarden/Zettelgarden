@@ -26,6 +26,9 @@ import (
 // User creation:
 // - POST /api/users - User signup/registration (creates new account)
 //
+// Runtime settings:
+// - GET /api/settings - Non-secret admin settings (site name, signups/mail toggles, support email)
+//
 // External integrations:
 // - POST /api/stripe/webhook - Stripe payment webhooks (verified via webhook signature)
 // - POST /api/mailing-list - Mailing list signup (public subscription)
@@ -50,6 +53,9 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.Sc
 
 	// User management routes
 	RegisterUserRoutes(r, h)
+
+	// Public runtime settings (non-secret admin settings from config.yaml)
+	addRoute(r, "/api/settings", h.SettingsRoute, "GET")
 
 	// Task management routes
 	RegisterTaskRoutes(r, h)
