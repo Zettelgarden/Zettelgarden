@@ -72,13 +72,59 @@ func SyncRSSArticleNotification(db models.Database, article *models.RSSArticle) 
 	}
 }
 
+// rssArticleColumns is the canonical rss_articles projection used by both
+// GetRSSArticleByID and the bulk predicate sync below. Kept in one place so
+// the two read paths cannot drift apart.
+const rssArticleColumns = `id, user_id, feed_id, title, content, author, url,
+       published_at, fetched_at, read, card_id, is_starred`
+
+// rowScanner is satisfied by both *sql.Rows and *sql.Row, so scanRSSArticle
+// works for the single-row and multi-row read paths alike.
+type rowScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+// scanRSSArticle hydrates an *models.RSSArticle from a row in the canonical
+// rssArticleColumns projection (nullable content/author/published_at/card_id
+// are lifted onto the model's pointer fields).
+func scanRSSArticle(s rowScanner) (*models.RSSArticle, error) {
+	var article models.RSSArticle
+	var content, author sql.NullString
+	var publishedAt sql.NullTime
+	var cardID sql.NullInt64
+
+	err := s.Scan(
+		&article.ID, &article.UserID, &article.FeedID, &article.Title,
+		&content, &author, &article.URL, &publishedAt,
+		&article.FetchedAt, &article.Read, &cardID, &article.IsStarred,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if content.Valid {
+		article.Content = &content.String
+	}
+	if author.Valid {
+		article.Author = &author.String
+	}
+	if publishedAt.Valid {
+		article.PublishedAt = &publishedAt.Time
+	}
+	if cardID.Valid {
+		cardIDInt := int(cardID.Int64)
+		article.CardID = &cardIDInt
+	}
+	return &article, nil
+}
+
 // syncRSSArticleNotificationsByPredicate re-syncs notifications for every
 // rss_articles row matching a predicate. Used by the bulk mark-as-read paths
 // (feed/folder), where the old per-row trigger would have fired on each updated
-// row. Best-effort.
+// row. Best-effort. The full row is fetched in the single predicate query (no
+// per-row GetRSSArticleByID round-trip) and hydrated via scanRSSArticle.
 func syncRSSArticleNotificationsByPredicate(db models.Database, userID int, predicate string, args ...interface{}) {
 	rows, err := db.Query(
-		`SELECT id FROM rss_articles WHERE user_id = $1 AND `+predicate,
+		`SELECT `+rssArticleColumns+` FROM rss_articles WHERE user_id = $1 AND `+predicate,
 		append([]interface{}{userID}, args...)...,
 	)
 	if err != nil {
@@ -87,12 +133,11 @@ func syncRSSArticleNotificationsByPredicate(db models.Database, userID int, pred
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var id int
-		if err := rows.Scan(&id); err != nil {
+		article, err := scanRSSArticle(rows)
+		if err != nil {
+			log.Printf("[rss] notification sync scan: %v", err)
 			continue
 		}
-		if art, err := GetRSSArticleByID(db, userID, id); err == nil {
-			SyncRSSArticleNotification(db, art)
-		}
+		SyncRSSArticleNotification(db, article)
 	}
 }

@@ -1,6 +1,8 @@
 package services
 
 import (
+	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -12,11 +14,11 @@ import (
 	"go-backend/server"
 )
 
-// loadConsolidatedSchemaForRSS opens an in-memory SQLite and applies the real
-// consolidated schema (the source of truth) so the rss/notification logic is
-// tested against actual table shapes, FKs, and the unique index that backs
+// loadConsolidatedSchema opens an in-memory SQLite and applies the real
+// consolidated schema (the source of truth) so services tests run against
+// actual table shapes, FKs, and the unique index that backs
 // CreateNotification's ON CONFLICT.
-func loadConsolidatedSchemaForRSS(t *testing.T) *server.Server {
+func loadConsolidatedSchema(t *testing.T) *server.Server {
 	t.Helper()
 	db := freshSQLiteDB(t)
 	// services/rss_notifications_sqlite_test.go -> ../schema/sqlite/schema.sqlite.sql
@@ -52,7 +54,7 @@ type rssTestWorld struct {
 
 func setupRSSWorld(t *testing.T) *rssTestWorld {
 	t.Helper()
-	s := loadConsolidatedSchemaForRSS(t)
+	s := loadConsolidatedSchema(t)
 	res, err := s.DB.Exec(`INSERT INTO users (username, email, password) VALUES ($1, $2, $3)`, "u", "u@e.com", "x")
 	if err != nil {
 		t.Fatal(err)
@@ -158,5 +160,63 @@ func TestSyncRSSArticleNotificationMissingFeed(t *testing.T) {
 	exists, _ := notifImportance(t, w.s.DB, w.userID, 500)
 	if exists {
 		t.Fatalf("missing feed: notification created, want none")
+	}
+}
+
+// countingDatabase wraps models.Database and tallies SELECTs that read
+// rss_articles, so the N+1 regression (one GetRSSArticleByID per matched
+// article in the bulk mark-as-read path) is caught by an exact-count assert.
+type countingDatabase struct {
+	models.Database
+	rssArticleSelects int
+}
+
+func (c *countingDatabase) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	if strings.Contains(strings.ToLower(query), "from rss_articles") {
+		c.rssArticleSelects++
+	}
+	return c.Database.Query(query, args...)
+}
+
+func (c *countingDatabase) QueryRow(query string, args ...interface{}) *sql.Row {
+	if strings.Contains(strings.ToLower(query), "from rss_articles") {
+		c.rssArticleSelects++
+	}
+	return c.Database.QueryRow(query, args...)
+}
+
+// TestMarkRSSFeedAsReadSingleArticleSelect pins the bn2 fix: the bulk
+// mark-as-read paths must read the article set with exactly ONE rss_articles
+// SELECT (the predicate query hydrating full rows), not one per article.
+func TestMarkRSSFeedAsReadSingleArticleSelect(t *testing.T) {
+	w := setupRSSWorld(t)
+	const n = 25
+	for i := 0; i < n; i++ {
+		if _, err := w.s.DB.Exec(
+			`INSERT INTO rss_articles (user_id, feed_id, title, url, fetched_at) VALUES ($1, $2, $3, $4, $5)`,
+			w.userID, w.priorityFeed, fmt.Sprintf("a%d", i), fmt.Sprintf("https://a/%d", i), time.Now().UTC(),
+		); err != nil {
+			t.Fatalf("insert article %d: %v", i, err)
+		}
+	}
+
+	db := &countingDatabase{Database: w.s.DB}
+	if err := MarkRSSFeedAsRead(db, w.userID, w.priorityFeed); err != nil {
+		t.Fatalf("MarkRSSFeedAsRead: %v", err)
+	}
+	if db.rssArticleSelects != 1 {
+		t.Fatalf("rss_articles SELECTs = %d, want exactly 1 (N+1 regression)", db.rssArticleSelects)
+	}
+
+	// Behaviour unchanged: every priority-feed article is now read, so none
+	// qualifies for a notification (priority && !read) and all are removed.
+	var remaining int
+	if err := w.s.DB.QueryRow(
+		`SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND source_type = 'rss'`, w.userID,
+	).Scan(&remaining); err != nil {
+		t.Fatal(err)
+	}
+	if remaining != 0 {
+		t.Fatalf("notifications remaining = %d, want 0 (all priority-read notifications removed)", remaining)
 	}
 }

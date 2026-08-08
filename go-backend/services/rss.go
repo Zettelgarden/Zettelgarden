@@ -378,43 +378,18 @@ func CountRSSArticles(db models.Database, userID int, filters map[string]interfa
 
 // GetRSSArticleByID retrieves a single RSS article
 func GetRSSArticleByID(db models.Database, userID, articleID int) (*models.RSSArticle, error) {
-	var article models.RSSArticle
-	var content, author sql.NullString
-	var publishedAt sql.NullTime
-	var cardID sql.NullInt64
-
-	err := db.QueryRow(`
-		SELECT id, user_id, feed_id, title, content, author, url,
-		       published_at, fetched_at, read, card_id, is_starred
+	article, err := scanRSSArticle(db.QueryRow(`
+		SELECT `+rssArticleColumns+`
 		FROM rss_articles
 		WHERE id = $1 AND user_id = $2
-	`, articleID, userID).Scan(
-		&article.ID, &article.UserID, &article.FeedID, &article.Title,
-		&content, &author, &article.URL, &publishedAt,
-		&article.FetchedAt, &article.Read, &cardID, &article.IsStarred,
-	)
+	`, articleID, userID))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("article not found")
 		}
 		return nil, fmt.Errorf("failed to get article: %w", err)
 	}
-
-	if content.Valid {
-		article.Content = &content.String
-	}
-	if author.Valid {
-		article.Author = &author.String
-	}
-	if publishedAt.Valid {
-		article.PublishedAt = &publishedAt.Time
-	}
-	if cardID.Valid {
-		cardIDInt := int(cardID.Int64)
-		article.CardID = &cardIDInt
-	}
-
-	return &article, nil
+	return article, nil
 }
 
 // MarkRSSArticleAsRead marks an article as read or unread
