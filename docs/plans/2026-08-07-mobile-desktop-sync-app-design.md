@@ -683,3 +683,23 @@ The name-keyed tag model has three small gaps worth pinning down before Phase 0:
    re-creates a duplicate. This is the client-side half of item 2 in the
    second pass; worth one sentence in Backend Work §5.
 
+### Resolutions (2026-08-08) — Phase 1b harness (Zettelgarden-xre)
+
+All three third-pass items are now covered by the live-backend convergence
+harness (`sync-engine/harness/`, `npm run harness`), which runs every Phase 1
+exit-criteria scenario headlessly against a real Go backend:
+
+| # | Feedback | Resolution |
+|---|---|---|
+| 1 | Tag rename under name-keyed merge undefined | rename-vs-rename (LWW on the merged row, one tag) and rename-vs-create (deterministic convergence) validated. The "renamed-away name soft-deleted" tombstone refinement is NOT implemented — observable convergence is identical either way — and is filed as **Zettelgarden-8g0**. |
+| 2 | Tag color conflicts on same-name concurrent create | Harness `03` pushes same-named tags with different colors from both devices: exactly one server tag survives, the losing edit is counted (`lost_edits`) and surfaced, and both devices adopt the winner's row. |
+| 3 | Losing device must adopt the winner's `sync_uuid` | Engine's merged-push reconcile rewrites the local tag row to the surviving uuid; harness `03` asserts the pre-merge uuid is gone from both devices. |
+
+The harness also caught and fixed three real bugs: the engine's HTTP transport
+read the Go backend's snake_case push/feed JSON as camelCase (outbox never
+drained), a `mappedToRowUuid` case typo in the merge normalization, and the
+server's `sync_uuid` unique index being GLOBAL instead of per-user (a create
+whose uuid collided with another account was silently ignored; now
+`(user_id, sync_uuid)` with a boot self-heal that replaces the old index on
+existing DBs).
+

@@ -9,7 +9,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "harness": "vitest run --config harness/vitest.harness.config.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",

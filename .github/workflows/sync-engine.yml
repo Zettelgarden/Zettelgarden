@@ -1,0 +1,40 @@
+name: Sync Engine
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go (harness builds the live backend)
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./sync-engine
+
+      - name: Unit tests
+        run: npm test
+        working-directory: ./sync-engine
+
+      # Phase 1b convergence harness (Zettelgarden-xre): boots a real Go
+      # backend against a throwaway SQLite DB and drives two devices through
+      # every scenario over HTTP. Non-zero exit on any divergence.
+      - name: Two-DB convergence harness (live backend)
+        run: npm run harness
+        working-directory: ./sync-engine
