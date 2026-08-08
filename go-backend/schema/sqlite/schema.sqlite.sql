@@ -1065,8 +1065,12 @@ CREATE TABLE sync_clients (
 
 -- Sync identity uniqueness: sync_uuid is the immutable per-row identity used
 -- by the sync engine (cards' id/card_id are both unsafe: id is server-assigned,
--- card_id is user-editable). Partial indexes so NULL (pre-backfill legacy rows
--- or test fixtures) is allowed; the Phase 0a self-heal backfills NULLs at boot.
-CREATE UNIQUE INDEX IF NOT EXISTS idx_cards_sync_uuid ON cards (sync_uuid) WHERE sync_uuid IS NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_sync_uuid ON tasks (sync_uuid) WHERE sync_uuid IS NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_sync_uuid ON tags (sync_uuid) WHERE sync_uuid IS NOT NULL;
+-- card_id is user-editable). Uniqueness is per-user (sync identities live in
+-- the user's namespace; every lookup is WHERE sync_uuid = ? AND user_id = ? —
+-- a GLOBAL unique index would silently drop a create whose uuid collides with
+-- another account, found by the Phase 1b harness Zettelgarden-xre). Partial
+-- indexes so NULL (pre-backfill legacy rows or test fixtures) is allowed; the
+-- Phase 0a self-heal backfills NULLs at boot.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cards_sync_uuid ON cards (user_id, sync_uuid) WHERE sync_uuid IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_sync_uuid ON tasks (user_id, sync_uuid) WHERE sync_uuid IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_sync_uuid ON tags (user_id, sync_uuid) WHERE sync_uuid IS NOT NULL;

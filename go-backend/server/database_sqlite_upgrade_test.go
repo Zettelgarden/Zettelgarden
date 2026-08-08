@@ -583,3 +583,62 @@ func TestSyncSelfHealAddsColumnsCreatesLogBackfills(t *testing.T) {
 		t.Fatalf("second upgrade (idempotency): %v", err)
 	}
 }
+
+// TestSyncSelfHealPerUserSyncUUIDIndex (Zettelgarden-xre): the sync_uuid
+// unique index must be scoped per-user. A GLOBAL unique index silently drops
+// a create whose uuid collides with another account — found by the Phase 1b
+// live harness (device B's offline tag create was ignored, leaving the
+// devices diverged). The boot self-heal must replace a pre-existing global
+// index with the per-user form, preserving the within-user uniqueness that
+// the sync lookups rely on.
+func TestSyncSelfHealPerUserSyncUUIDIndex(t *testing.T) {
+	db := openMemSQLite(t)
+	createSyncTablesWithoutSyncColumns(t, db)
+	if _, err := db.Exec(`INSERT INTO users (id, email) VALUES (1, 'a@test'), (2, 'b@test')`); err != nil {
+		t.Fatalf("seed users: %v", err)
+	}
+	// Simulate a pre-xre DB: sync_uuid column present (post-back-fill), with
+	// the old GLOBAL unique index and two users sharing one sync_uuid (each
+	// user's identity namespace is independent).
+	if _, err := db.Exec(`ALTER TABLE cards ADD COLUMN sync_uuid TEXT`); err != nil {
+		t.Fatalf("add sync_uuid: %v", err)
+	}
+	// A pre-xre DB with the old GLOBAL index can only hold per-user-unique
+	// uuids (the global index forbids cross-user sharing), so seed distinct
+	// uuids first, then confirm the upgrade opens up the per-user namespace.
+	if _, err := db.Exec(`CREATE UNIQUE INDEX idx_cards_sync_uuid ON cards (sync_uuid) WHERE sync_uuid IS NOT NULL`); err != nil {
+		t.Fatalf("create legacy global index: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO cards (card_id, title, user_id, sync_uuid) VALUES ('a', 'a', 1, 'user1-uuid'), ('b', 'b', 2, 'user2-uuid')`); err != nil {
+		t.Fatalf("seed rows: %v", err)
+	}
+	// The global index forbids a cross-user share of user1's uuid.
+	if _, err := db.Exec(`INSERT INTO cards (card_id, title, user_id, sync_uuid) VALUES ('b2', 'b2', 2, 'user1-uuid')`); err == nil {
+		t.Fatal("global index should reject a cross-user sync_uuid share (pre-upgrade)")
+	}
+
+	if err := ensureSQLiteSchemaUpgrades(db); err != nil {
+		t.Fatalf("upgrade: %v", err)
+	}
+
+	// The index is now the per-user form (user_id, sync_uuid) — 2 columns.
+	cols, err := sqliteIndexColumnCount(db, "idx_cards_sync_uuid")
+	if err != nil || cols != 2 {
+		t.Fatalf("idx_cards_sync_uuid columns = %d (want 2), err=%v", cols, err)
+	}
+	// The same sync_uuid now coexists across users (the harness failure mode).
+	if _, err := db.Exec(`INSERT INTO cards (card_id, title, user_id, sync_uuid) VALUES ('b2', 'b2', 2, 'user1-uuid')`); err != nil {
+		t.Fatalf("per-user index should allow a cross-user sync_uuid share: %v", err)
+	}
+	// Within one user the uniqueness is still enforced.
+	if _, err := db.Exec(`INSERT INTO cards (card_id, title, user_id, sync_uuid) VALUES ('a2', 'a2', 1, 'user1-uuid')`); err == nil {
+		t.Fatal("duplicate sync_uuid within one user should still be rejected")
+	}
+	// Idempotent: a second run leaves the per-user index untouched.
+	if err := ensureSQLiteSchemaUpgrades(db); err != nil {
+		t.Fatalf("second upgrade (idempotency): %v", err)
+	}
+	if cols, err := sqliteIndexColumnCount(db, "idx_cards_sync_uuid"); err != nil || cols != 2 {
+		t.Fatalf("post-idempotent index columns = %d (want 2), err=%v", cols, err)
+	}
+}

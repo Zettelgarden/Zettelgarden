@@ -137,6 +137,28 @@ func sqliteTableExists(db *sql.DB, table string) (bool, error) {
 	return n > 0, nil
 }
 
+// sqliteIndexColumnCount reports how many columns an index covers (0 when the
+// index does not exist). Used to reconcile sync_uuid indexes: the per-user
+// form covers (user_id, sync_uuid) — 2 columns — while the pre-xre global form
+// covered only (sync_uuid) — 1 column.
+func sqliteIndexColumnCount(db *sql.DB, index string) (int, error) {
+	rows, err := db.Query(fmt.Sprintf("PRAGMA index_info(%q)", index))
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	n := 0
+	for rows.Next() {
+		var seqno, cid int
+		var name string
+		if err := rows.Scan(&seqno, &cid, &name); err != nil {
+			return 0, err
+		}
+		n++
+	}
+	return n, rows.Err()
+}
+
 // sqliteSelfHealUpgrades lists the columns back-filled to existing SQLite DBs
 // on every boot, grouped by table. It is the SQLite analogue of the (now
 // archived) numbered Postgres migrations for pre-existing databases — fresh
@@ -401,6 +423,12 @@ func ensureSQLiteSchemaUpgrades(db *sql.DB) error {
 		return fmt.Errorf("create idx_sync_log_user_id: %w", err)
 	}
 	// sync_uuid uniqueness + legacy back-fill for the three synced tables.
+	// Uniqueness is scoped to (user_id, sync_uuid): sync identities live in
+	// the user's namespace and every lookup is per-user, so a GLOBAL unique
+	// index would silently drop a create whose uuid collides with another
+	// account (found by the Phase 1b harness Zettelgarden-xre). Existing DBs
+	// that carry the old global index (1 column) are rebuilt per-user; the
+	// partial predicate still allows NULL sync_uuids pre-back-fill.
 	for _, table := range []string{"cards", "tasks", "tags"} {
 		exists, err := sqliteTableExists(db, table)
 		if err != nil {
@@ -409,17 +437,37 @@ func ensureSQLiteSchemaUpgrades(db *sql.DB) error {
 		if !exists {
 			continue
 		}
-		if _, err := db.Exec(fmt.Sprintf(`CREATE UNIQUE INDEX IF NOT EXISTS idx_%s_sync_uuid ON %s (sync_uuid) WHERE sync_uuid IS NOT NULL`, table, table)); err != nil {
-			return fmt.Errorf("create idx_%s_sync_uuid: %w", table, err)
-		}
-		// Back-fill needs the canonical id column; skip tables that lack it
-		// (synthetic mini-schemas in tests) — real synced tables always have id.
+		// Synthetic mini-schemas in tests lack the sync identity columns;
+		// only real synced tables get the index + back-fill (the index needs
+		// user_id for the per-user scope, the back-fill needs id).
 		hasID, err := sqliteColumnExists(db, table, "id")
 		if err != nil {
 			return fmt.Errorf("check %s.id: %w", table, err)
 		}
-		if !hasID {
+		hasUserID, err := sqliteColumnExists(db, table, "user_id")
+		if err != nil {
+			return fmt.Errorf("check %s.user_id: %w", table, err)
+		}
+		hasSyncUUID, err := sqliteColumnExists(db, table, "sync_uuid")
+		if err != nil {
+			return fmt.Errorf("check %s.sync_uuid: %w", table, err)
+		}
+		if !hasID || !hasUserID || !hasSyncUUID {
 			continue
+		}
+		if cols, err := sqliteIndexColumnCount(db, "idx_"+table+"_sync_uuid"); err != nil {
+			return fmt.Errorf("inspect idx_%s_sync_uuid: %w", table, err)
+		} else if cols == 1 {
+			// Old global index: drop it so the per-user index can be created
+			// (a cross-user uuid duplicate would fail loudly here rather than
+			// silently drop future creates).
+			if _, err := db.Exec(fmt.Sprintf(`DROP INDEX IF EXISTS idx_%s_sync_uuid`, table)); err != nil {
+				return fmt.Errorf("drop global idx_%s_sync_uuid: %w", table, err)
+			}
+			log.Printf("sqlite schema upgrade: replaced global idx_%s_sync_uuid with per-user index", table)
+		}
+		if _, err := db.Exec(fmt.Sprintf(`CREATE UNIQUE INDEX IF NOT EXISTS idx_%s_sync_uuid ON %s (user_id, sync_uuid) WHERE sync_uuid IS NOT NULL`, table, table)); err != nil {
+			return fmt.Errorf("create idx_%s_sync_uuid: %w", table, err)
 		}
 		// One-time back-fill: legacy rows (and test fixtures) have NULL
 		// sync_uuid; assign canonical UUIDs so every synced row has an

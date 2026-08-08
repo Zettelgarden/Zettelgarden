@@ -82,6 +82,11 @@ func syncCardChange(rowUUID, cardID, title string, baseVersion int) models.SyncC
 	return models.SyncChange{Collection: services.SyncCollectionCards, RowUUID: rowUUID, Op: services.SyncOpUpsert, BaseVersion: baseVersion, Data: data}
 }
 
+func syncTagChange(rowUUID, name, color string, baseVersion int) models.SyncChange {
+	data, _ := json.Marshal(models.SyncTagData{Name: name, Color: color})
+	return models.SyncChange{Collection: services.SyncCollectionTags, RowUUID: rowUUID, Op: services.SyncOpUpsert, BaseVersion: baseVersion, Data: data}
+}
+
 func TestSyncSnapshotBootstrap(t *testing.T) {
 	s := NewHandler()
 	defer tests.Teardown()
@@ -771,6 +776,38 @@ func TestSyncMultiUserIsolation(t *testing.T) {
 	}
 	if !foundOwn {
 		t.Error("user1 feed missing own card (global cursor must not skip rows)")
+	}
+}
+
+// TestSyncPushPerUserSyncUUIDSharing (Zettelgarden-xre): sync_uuid identity
+// is per-user — two accounts may legitimately create rows with the same
+// sync_uuid offline (each has its own namespace). The sync_uuid unique index
+// must be scoped (user_id, sync_uuid): with the pre-xre GLOBAL index, user 2's
+// create was silently ignored (the harness's rename-vs-create divergence).
+func TestSyncPushPerUserSyncUUIDSharing(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	if _, err := s.GetDB().Exec(`INSERT INTO users (username, email, password, created_at, updated_at) VALUES ('user2', 'shared-uuid@test.local', 'x', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`); err != nil {
+		t.Fatal(err)
+	}
+
+	// User 1 creates a tag with sync_uuid "tag-w".
+	resp1 := pushChanges(t, s, router, []models.SyncChange{
+		syncTagChange("tag-w", "work", "blue", 0),
+	})
+	if resp1.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("user1 tag push: %+v", resp1.Results[0])
+	}
+
+	// User 2 creates a tag with the SAME sync_uuid — must apply, not be
+	// silently ignored by a global uniqueness constraint.
+	resp2 := pushChangesAs(t, s, router, 2, []models.SyncChange{
+		syncTagChange("tag-w", "work", "red", 0),
+	})
+	if resp2.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("user2 tag push with shared sync_uuid: %+v (want applied, not ignored)", resp2.Results[0])
 	}
 }
 
