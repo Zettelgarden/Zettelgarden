@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { afterAll, afterEach, beforeAll, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, vi } from 'vitest';
 import { act } from '@testing-library/react';
 import DOMPurify from 'dompurify';
 import {
@@ -45,7 +45,10 @@ if (typeof window !== 'undefined') {
 // so broken API wiring surfaces as a test failure rather than fake success.
 const originalFetch = globalThis.fetch;
 
-beforeAll(() => {
+// Registered per-test (not once per file) because afterEach() calls
+// resetMockEndpoints(), which would otherwise wipe the provider-stack
+// defaults after the first test of each file.
+beforeEach(() => {
   // Defaults for the shared provider stack mounted by renderWithProviders.
   mockEndpoint('/task-statuses', []);
   mockEndpoint('/tags', []);

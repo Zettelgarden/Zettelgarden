@@ -26,7 +26,8 @@ export const TagProvider: React.FC<TagProviderProps> = ({
   const [refreshTags, setRefreshTags] = useState(true);
 
   const getTags = async () => {
-    await fetchUserTags().then((data) => {
+    try {
+      const data = await fetchUserTags();
       // Handle undefined or null data
       if (!data) {
         setTags([]);
@@ -37,7 +38,12 @@ export const TagProvider: React.FC<TagProviderProps> = ({
       });
 
       setTags(sortedTags);
-    });
+    } catch (err) {
+      // Keep tags empty on failure; a rejected fetch must not become an
+      // unhandled rejection (matches StatusContext/RSSContext handling).
+      console.error('Error fetching tags:', err);
+      setTags([]);
+    }
   };
 
   useEffect(() => {

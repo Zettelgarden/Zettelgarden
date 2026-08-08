@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { settle } from '../tests/utils';
+import { mockEndpoint } from '../tests/fetchMock';
 import { BrowserRouter } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { UIStateProvider } from '../contexts/UIStateContext';
@@ -45,7 +46,7 @@ function SidebarWrapper() {
   return (
     <BrowserRouter>
       <ToastProvider>
-        <TagProvider>
+        <TagProvider testing={true} testTags={[]}>
           <TaskProvider testing={true} testTasks={[]}>
             <StatusProvider>
               <UIStateProvider>
@@ -66,6 +67,12 @@ function SidebarWrapper() {
 }
 
 describe('Sidebar Keyboard Shortcuts', () => {
+  // Sidebar fetches RSS folders on mount (Sidebar.tsx fetchFolders);
+  // stub explicitly so the fetch settles instead of failing loudly.
+  beforeEach(() => {
+    mockEndpoint('/rss/folders', []);
+  });
+
   it('should render without errors', async () => {
     render(<SidebarWrapper />);
     await settle();
