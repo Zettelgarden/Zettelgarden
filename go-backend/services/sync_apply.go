@@ -264,6 +264,14 @@ func (c *pushContext) applyCardUpsert(ch models.SyncChange) {
 	}
 
 	// Update path with optimistic concurrency.
+	if ch.BaseVersion == 0 {
+		// Idempotent retry of a create already applied: a row with our
+		// row_uuid exists and the client believes it never synced — the only
+		// way that happens is our own create landing earlier. No write, no
+		// lost edit.
+		c.applied(ch, id, version)
+		return
+	}
 	if ch.BaseVersion < version {
 		c.conflict(ch, id, version, c.currentRow(SyncCollectionCards, id))
 		return

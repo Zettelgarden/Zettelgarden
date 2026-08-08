@@ -13,7 +13,6 @@ import (
 // Routes are organized by feature:
 // - User management: /api/admin/users/*
 // - Settings: /api/admin/settings (file-backed config.yaml)
-// - Mailing list: /api/admin/mailing-list/*
 // - Job queue: /api/admin/jobs/*
 // - Scheduler: /api/admin/scheduler/*
 // - Audit logs: /api/admin/audit-logs
@@ -26,35 +25,6 @@ func RegisterAllAdminRoutes(r *mux.Router, h *handlers.Handler, scheduler handle
 	// Note: Some routes like /api/users are registered at the root level
 	// but protected by admin middleware. This centralizes the
 	// explicitly admin-prefixed routes.
-
-	// Mailing list management (admin-only)
-	// These are moved under /api/admin for clarity
-	// All routes require authentication and admin authorization
-	adminAPI.HandleFunc("/mailing-list/subscribers",
-		h.APIKeyOrJWTMiddleware(
-			h.AdminMiddleware(
-				h.UpdateLastSeenMiddleware(
-					handlers.LogRoute(h.GetMailingListSubscribersRoute))))).Methods("GET")
-	adminAPI.HandleFunc("/mailing-list/messages",
-		h.APIKeyOrJWTMiddleware(
-			h.AdminMiddleware(
-				h.UpdateLastSeenMiddleware(
-					handlers.LogRoute(h.GetMailingListMessagesRoute))))).Methods("GET")
-	adminAPI.HandleFunc("/mailing-list/messages/send",
-		h.APIKeyOrJWTMiddleware(
-			h.AdminMiddleware(
-				h.UpdateLastSeenMiddleware(
-					handlers.LogRoute(h.SendMailingListMessageRoute))))).Methods("POST")
-	adminAPI.HandleFunc("/mailing-list/messages/recipients",
-		h.APIKeyOrJWTMiddleware(
-			h.AdminMiddleware(
-				h.UpdateLastSeenMiddleware(
-					handlers.LogRoute(h.GetMessageRecipientsRoute))))).Methods("GET")
-	adminAPI.HandleFunc("/mailing-list/unsubscribe",
-		h.APIKeyOrJWTMiddleware(
-			h.AdminMiddleware(
-				h.UpdateLastSeenMiddleware(
-					handlers.LogRoute(h.UnsubscribeMailingListRoute))))).Methods("POST")
 
 	// Job audit log (admin-only)
 	// Jobs are now executed inline (see services.JobRunner); there is no

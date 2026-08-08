@@ -31,7 +31,6 @@ import (
 //
 // External integrations:
 // - POST /api/stripe/webhook - Stripe payment webhooks (verified via webhook signature)
-// - POST /api/mailing-list - Mailing list signup (public subscription)
 func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.SchedulerAPI) {
 	// Authentication routes
 	RegisterAuthRoutes(r, h)
@@ -74,9 +73,6 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.Sc
 
 	// URL parsing routes
 	RegisterURLRoutes(r, h)
-
-	// Mailing list routes
-	RegisterMailingListRoutes(r, h)
 
 	// RSS feed routes
 	RegisterRSSRoutes(r, h)

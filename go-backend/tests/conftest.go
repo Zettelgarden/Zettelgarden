@@ -303,7 +303,6 @@ func truncateTestData() {
 		"llm_models",
 		"llm_providers",
 		"llm_query_log",
-		"mailing_list",
 		"notifications",
 		"notification_preferences",
 		"revenue",
@@ -416,7 +415,7 @@ func importTestData(s *server.Server) error {
 
 	for _, card := range cards {
 		_, err := tx.Exec(
-			"INSERT INTO cards (card_id, user_id, title, body, link, created_at, updated_at, parent_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+			"INSERT INTO cards (card_id, user_id, title, body, link, created_at, updated_at, parent_id, sync_uuid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, lower(hex(randomblob(16))))",
 			card.CardID, card.UserID, card.Title, card.Body, card.Link, card.CreatedAt, card.UpdatedAt, card.ParentID,
 		)
 		if err != nil {
@@ -451,7 +450,7 @@ func importTestData(s *server.Server) error {
 
 	for _, task := range tasks {
 		_, err := tx.Exec(
-			"INSERT INTO tasks (card_pk, user_id, created_at, updated_at, due_date, scheduled_date, title, is_complete) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+			"INSERT INTO tasks (card_pk, user_id, created_at, updated_at, due_date, scheduled_date, title, is_complete, sync_uuid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, lower(hex(randomblob(16))))",
 			task.CardPK,
 			task.UserID,
 			task.CreatedAt,
@@ -482,7 +481,7 @@ func importTestData(s *server.Server) error {
 
 	for _, tag := range tags {
 		_, err := tx.Exec(
-			"INSERT INTO tags (name, color, user_id) VALUES ($1, $2, $3)",
+			"INSERT INTO tags (name, color, user_id, sync_uuid) VALUES ($1, $2, $3, lower(hex(randomblob(16))))",
 			tag.Name,
 			tag.Color,
 			tag.UserID,

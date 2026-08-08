@@ -97,7 +97,13 @@ func (s *Handler) SnapshotRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unable to start read transaction", http.StatusInternalServerError)
 		return
 	}
-	defer tx.Rollback() // read-only; always safe to roll back
+	// Read-only: release the tx in production. In tests BeginTx returns the
+	// shared per-test transaction, which the framework owns (rolled back at
+	// Teardown) — rolling it back here would kill the test's transaction for
+	// every subsequent request.
+	if s.ShouldCommitTx() {
+		defer tx.Rollback()
+	}
 
 	var cursor int64
 	if err := tx.QueryRow(`SELECT COALESCE(MAX(id), 0) FROM sync_log`).Scan(&cursor); err != nil {
@@ -281,6 +287,7 @@ func (s *Handler) PushRoute(w http.ResponseWriter, r *http.Request) {
 	results, cursor, lost, err := services.ApplySyncPush(tx, userID, &req)
 	if err != nil {
 		tx.Rollback()
+		log.Printf("sync push apply: %v", err)
 		http.Error(w, "unable to apply push", http.StatusInternalServerError)
 		return
 	}

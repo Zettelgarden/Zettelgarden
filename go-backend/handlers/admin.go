@@ -30,8 +30,8 @@ type AdminAuditLog struct {
 //
 // Parameters:
 //   - r: The HTTP request (used to get admin user from context and extract IP/user-agent)
-//   - action: The action performed (e.g., "user.update", "mailing_list.unsubscribe")
-//   - targetType: Type of entity affected (e.g., "user", "mailing_list")
+//   - action: The action performed (e.g., "user.update", "user.delete")
+//   - targetType: Type of entity affected (e.g., "user")
 //   - targetID: ID of the affected entity (0 if no specific target)
 //   - details: Additional context about the action (before/after values, reasons, etc.)
 func (s *Handler) LogAdminAction(r *http.Request, action string, targetType string, targetID int, details map[string]interface{}) {
