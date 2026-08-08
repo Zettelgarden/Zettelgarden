@@ -324,24 +324,15 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Validate and clean structured_data against schema
-		if params.StructuredData != nil && len(*params.StructuredData) > 0 {
-			cleanedData, err := services.ValidateStructuredData(*params.StructuredData, schema)
-			if err != nil {
-				log.Printf("Structured data validation error: %v", err)
-				http.Error(w, fmt.Sprintf("Invalid structured data: %v", err), http.StatusBadRequest)
-				return
-			}
-			params.StructuredData = &cleanedData
-		} else {
-			// If schema_id is provided but no structured_data, check if all fields are optional
-			for _, field := range schema.Fields {
-				if field.Required {
-					http.Error(w, fmt.Sprintf("Schema requires field '%s' but no structured_data provided", field.Name), http.StatusBadRequest)
-					return
-				}
-			}
+		// Validate and clean structured_data against schema (required-field
+		// enforcement shared with the sync push path, bead s2l)
+		cleanedData, err := services.ValidateCardStructuredData(params.StructuredData, schema)
+		if err != nil {
+			log.Printf("Structured data validation error: %v", err)
+			http.Error(w, fmt.Sprintf("Invalid structured data: %v", err), http.StatusBadRequest)
+			return
 		}
+		params.StructuredData = cleanedData
 
 		// Additional validation for link_to_card fields
 		if params.StructuredData != nil && len(*params.StructuredData) > 0 {
@@ -397,24 +388,15 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Validate and clean structured_data against schema
-		if params.StructuredData != nil && len(*params.StructuredData) > 0 {
-			cleanedData, err := services.ValidateStructuredData(*params.StructuredData, schema)
-			if err != nil {
-				log.Printf("Structured data validation error: %v", err)
-				http.Error(w, fmt.Sprintf("Invalid structured data: %v", err), http.StatusBadRequest)
-				return
-			}
-			params.StructuredData = &cleanedData
-		} else {
-			// If schema_id is provided but no structured_data, check if all fields are optional
-			for _, field := range schema.Fields {
-				if field.Required {
-					http.Error(w, fmt.Sprintf("Schema requires field '%s' but no structured_data provided", field.Name), http.StatusBadRequest)
-					return
-				}
-			}
+		// Validate and clean structured_data against schema (required-field
+		// enforcement shared with the sync push path, bead s2l)
+		cleanedData, err := services.ValidateCardStructuredData(params.StructuredData, schema)
+		if err != nil {
+			log.Printf("Structured data validation error: %v", err)
+			http.Error(w, fmt.Sprintf("Invalid structured data: %v", err), http.StatusBadRequest)
+			return
 		}
+		params.StructuredData = cleanedData
 
 		// Additional validation for link_to_card fields
 		if params.StructuredData != nil && len(*params.StructuredData) > 0 {

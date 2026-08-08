@@ -8,6 +8,16 @@ import {
   resetMockEndpoints,
 } from './fetchMock';
 
+// react-pdf (pdfjs-dist) requires browser-only APIs (DOMMatrix, canvas) that
+// happy-dom does not provide, so it cannot load in tests. Any component that
+// imports FilePreview (e.g. FileVault, ViewPage) pulls it in, so stub it
+// globally: the PDF preview is never exercised in unit/smoke tests.
+vi.mock('react-pdf', () => ({
+  Document: () => null,
+  Page: () => null,
+  pdfjs: { GlobalWorkerOptions: {} },
+}));
+
 // Suppress known happy-dom bug: DOMParser triggers an unhandled rejection
 // from HTMLIFrameElement internals ("Cannot read properties of null (reading 'console')")
 // See: https://github.com/nicedoc/html-encoding-sniffer/issues/1

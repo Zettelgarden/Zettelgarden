@@ -1228,7 +1228,9 @@ func TestCreateCardWithSchema_OtherUsersSchema(t *testing.T) {
 	}
 }
 
-// TestCreateCardWithSchema_MissingRequiredField tests error when required field is missing
+// TestCreateCardWithSchema_MissingRequiredField tests that a card whose
+// structured_data is missing a required field is rejected with a clear message
+// (bead Zettelgarden-s2l).
 func TestCreateCardWithSchema_MissingRequiredField(t *testing.T) {
 	s := NewHandler()
 	defer tests.Teardown()
@@ -1267,11 +1269,64 @@ func TestCreateCardWithSchema_MissingRequiredField(t *testing.T) {
 	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute))
 	handler.ServeHTTP(rr, req)
 
-	// Note: This test documents current behavior
-	// The card is created successfully but structured_data is missing required field
-	// Validation should be added to enforce required fields at the handler level
-	if status := rr.Code; status != http.StatusCreated {
-		t.Logf("Card creation failed with status %v: %v", status, rr.Body.String())
+	if status := rr.Code; status != http.StatusBadRequest {
+		t.Errorf("Expected 400 for missing required field, got %v (%v)", status, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "required field 'required_field'") {
+		t.Errorf("Expected message naming the missing field, got: %v", rr.Body.String())
+	}
+}
+
+// TestCreateCardWithSchema_EmptyRequiredField tests that a required field
+// present but empty (whitespace-only string) is rejected the same as missing
+// (bead Zettelgarden-s2l).
+func TestCreateCardWithSchema_EmptyRequiredField(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	fields := []models.FieldDefinition{
+		{Name: "required_field", Type: "text", Required: true},
+	}
+	schemaID := createTestSchema(s, t, 1, "Schema with Required Text", fields)
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	for name, sd := range map[string]string{
+		"empty string":    `{"required_field":""}`,
+		"whitespace only": `{"required_field":"   "}`,
+		"null value":      `{"required_field":null}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			var structuredData json.RawMessage
+			_ = json.Unmarshal([]byte(sd), &structuredData)
+
+			data := models.EditCardParams{
+				Title:          "Empty Required Field",
+				Body:           "Test body",
+				CardID:         "SCHEMA005",
+				Link:           "test",
+				SchemaID:       &schemaID,
+				StructuredData: &structuredData,
+			}
+			jsonData, _ := json.Marshal(data)
+			req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("Authorization", "Bearer "+token)
+			req.Header.Set("Content-Type", "application/json")
+
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute))
+			handler.ServeHTTP(rr, req)
+
+			if status := rr.Code; status != http.StatusBadRequest {
+				t.Errorf("Expected 400 for %s, got %v (%v)", name, status, rr.Body.String())
+			}
+			if !strings.Contains(rr.Body.String(), "required field 'required_field'") {
+				t.Errorf("Expected message naming the field for %s, got: %v", name, rr.Body.String())
+			}
+		})
 	}
 }
 

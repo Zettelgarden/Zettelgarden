@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go-backend/models"
 	"go-backend/tests"
+	"strings"
 	"testing"
 )
 
@@ -71,54 +72,95 @@ func TestValidateStructuredData_RequiredFieldMissing(t *testing.T) {
 	}
 }
 
+// TestValidateStructuredData_RequiredFieldEmpty tests that required fields
+// present but empty (empty/whitespace string, null, empty array) are rejected
+// (bead Zettelgarden-s2l).
+func TestValidateStructuredData_RequiredFieldEmpty(t *testing.T) {
+	schema := &models.SchemaDefinition{
+		Fields: []models.FieldDefinition{
+			{Name: "title", Type: "text", Required: true},
+			{Name: "tags", Type: "multi-select", Required: true, Options: []string{"a", "b"}},
+			{Name: "rating", Type: "number", Required: true},
+			{Name: "active", Type: "boolean", Required: true},
+		},
+	}
+
+	cases := []struct {
+		name  string
+		input string
+	}{
+		{"empty string", `{"title":"","tags":["a"],"rating":1,"active":true}`},
+		{"whitespace only", `{"title":"   ","tags":["a"],"rating":1,"active":true}`},
+		{"null value", `{"title":null,"tags":["a"],"rating":1,"active":true}`},
+		{"empty array multi-select", `{"title":"x","tags":[],"rating":1,"active":true}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ValidateStructuredData(json.RawMessage(tc.input), schema)
+			if err == nil {
+				t.Fatal("Expected error for empty required field, got nil")
+			}
+			if !strings.Contains(err.Error(), "required field '") {
+				t.Errorf("Expected message naming the field, got: %v", err.Error())
+			}
+		})
+	}
+
+	// Zero numbers and false booleans are legitimate values, not empty.
+	valid := `{"title":"x","tags":["a"],"rating":0,"active":false}`
+	if _, err := ValidateStructuredData(json.RawMessage(valid), schema); err != nil {
+		t.Errorf("Zero/false values should be accepted, got: %v", err)
+	}
+}
+
 // TestValidateStructuredData_InvalidFieldType tests that invalid field types return an error
 func TestValidateStructuredData_InvalidFieldType(t *testing.T) {
 	testCases := []struct {
-		name      string
-		fieldType string
-		inputData string
+		name          string
+		fieldType     string
+		inputData     string
 		expectedError string
 	}{
 		{
-			name:      "text field with number",
-			fieldType: "text",
-			inputData: `{"title":12345}`,
+			name:          "text field with number",
+			fieldType:     "text",
+			inputData:     `{"title":12345}`,
 			expectedError: "field 'title' must be a string",
 		},
 		{
-			name:      "number field with text",
-			fieldType: "number",
-			inputData: `{"rating":"not a number"}`,
+			name:          "number field with text",
+			fieldType:     "number",
+			inputData:     `{"rating":"not a number"}`,
 			expectedError: "field 'rating' must be a number",
 		},
 		{
-			name:      "date field with invalid format",
-			fieldType: "date",
-			inputData: `{"created_at":"not a date"}`,
+			name:          "date field with invalid format",
+			fieldType:     "date",
+			inputData:     `{"created_at":"not a date"}`,
 			expectedError: "field 'created_at' must be a valid ISO 8601 date",
 		},
 		{
-			name:      "boolean field with string",
-			fieldType: "boolean",
-			inputData: `{"is_published":"yes"}`,
+			name:          "boolean field with string",
+			fieldType:     "boolean",
+			inputData:     `{"is_published":"yes"}`,
 			expectedError: "field 'is_published' must be a boolean",
 		},
 		{
-			name:      "select field with invalid option",
-			fieldType: "select",
-			inputData: `{"status":"draft"}`,
+			name:          "select field with invalid option",
+			fieldType:     "select",
+			inputData:     `{"status":"draft"}`,
 			expectedError: "field 'status' value 'draft' is not in valid options",
 		},
 		{
-			name:      "multi-select field with non-array",
-			fieldType: "multi-select",
-			inputData: `{"tags":"single-tag"}`,
+			name:          "multi-select field with non-array",
+			fieldType:     "multi-select",
+			inputData:     `{"tags":"single-tag"}`,
 			expectedError: "field 'tags' must be an array for multi-select type",
 		},
 		{
-			name:      "link_to_card field with invalid ID",
-			fieldType: "link_to_card",
-			inputData: `{"related_card":"invalid"}`,
+			name:          "link_to_card field with invalid ID",
+			fieldType:     "link_to_card",
+			inputData:     `{"related_card":"invalid"}`,
 			expectedError: "field 'related_card' must be a valid card ID (integer)",
 		},
 	}
@@ -285,8 +327,8 @@ func TestValidateStructuredData_EmptyStructuredDataCreatesEmptyMap(t *testing.T)
 // TestValidateFieldValue_TextType tests text type validation
 func TestValidateFieldValue_TextType(t *testing.T) {
 	fieldDef := models.FieldDefinition{
-		Name: "title",
-		Type: "text",
+		Name:     "title",
+		Type:     "text",
 		Required: false,
 	}
 
@@ -348,8 +390,8 @@ func TestValidateFieldValue_TextType(t *testing.T) {
 // TestValidateFieldValue_NumberType tests number type validation (including string numbers)
 func TestValidateFieldValue_NumberType(t *testing.T) {
 	fieldDef := models.FieldDefinition{
-		Name: "rating",
-		Type: "number",
+		Name:     "rating",
+		Type:     "number",
 		Required: false,
 	}
 
@@ -436,8 +478,8 @@ func TestValidateFieldValue_NumberType(t *testing.T) {
 // TestValidateFieldValue_DateType tests date type validation (ISO 8601 and date-only formats)
 func TestValidateFieldValue_DateType(t *testing.T) {
 	fieldDef := models.FieldDefinition{
-		Name: "created_at",
-		Type: "date",
+		Name:     "created_at",
+		Type:     "date",
 		Required: false,
 	}
 
@@ -510,8 +552,8 @@ func TestValidateFieldValue_DateType(t *testing.T) {
 // TestValidateFieldValue_BooleanType tests boolean type validation
 func TestValidateFieldValue_BooleanType(t *testing.T) {
 	fieldDef := models.FieldDefinition{
-		Name: "is_published",
-		Type: "boolean",
+		Name:     "is_published",
+		Type:     "boolean",
 		Required: false,
 	}
 
@@ -1161,11 +1203,11 @@ func TestValidateLinkToCardFields_DeletedCardValidation(t *testing.T) {
 // TestValidateStructuredData_IntegrationTests provides integration tests that combine multiple validations
 func TestValidateStructuredData_IntegrationTests(t *testing.T) {
 	testCases := []struct {
-		name        string
-		schema      models.SchemaDefinition
-		inputData   string
-		wantError   bool
-		errorMsg    string
+		name         string
+		schema       models.SchemaDefinition
+		inputData    string
+		wantError    bool
+		errorMsg     string
 		validateData func(map[string]interface{}) error
 	}{
 		{
@@ -1248,7 +1290,7 @@ func TestValidateStructuredData_IntegrationTests(t *testing.T) {
 				"tags":["tag1","invalid_tag"]
 			}`,
 			wantError: true,
-			errorMsg: "field 'tags' value 'invalid_tag' is not in valid options",
+			errorMsg:  "field 'tags' value 'invalid_tag' is not in valid options",
 		},
 		{
 			name: "all required fields present",
@@ -1280,7 +1322,7 @@ func TestValidateStructuredData_IntegrationTests(t *testing.T) {
 				"field2":"value2"
 			}`,
 			wantError: true,
-			errorMsg: "required field 'field3' is missing",
+			errorMsg:  "required field 'field3' is missing",
 		},
 	}
 

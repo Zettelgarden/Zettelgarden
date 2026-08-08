@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -874,6 +875,182 @@ func TestSyncChangesFeedResetAfterPrune(t *testing.T) {
 	}
 }
 
+// TestSyncPushCreateRetryWithEdit: a dropped create response followed by a
+// local edit must NOT be silently swallowed by the base-0 create-retry
+// shortcut — LWW reports a visible conflict + lost edit (review P1-1).
+func TestSyncPushCreateRetryWithEdit(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	create := syncCardChange("c-edit-1", "sync-edit-retry", "v1 title", 0)
+	resp1 := pushChanges(t, s, router, []models.SyncChange{create})
+	if resp1.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("create: %+v", resp1.Results[0])
+	}
+
+	// Retry of the same entry, but the user edited before retrying: payload
+	// differs from the server row. Must conflict (visible), never a silent
+	// applied-with-no-write that clobbers the edit on the next pull.
+	edited := syncCardChange("c-edit-1", "sync-edit-retry", "edited title", 0)
+	resp2 := pushChanges(t, s, router, []models.SyncChange{edited})
+	if resp2.Results[0].Status != services.SyncStatusConflict {
+		t.Fatalf("edited create retry: expected conflict, got %+v", resp2.Results[0])
+	}
+	if resp2.LostEdits != 1 {
+		t.Errorf("lost_edits = %d, want 1", resp2.LostEdits)
+	}
+	var title string
+	if err := s.GetDB().QueryRow(`SELECT title FROM cards WHERE sync_uuid = 'c-edit-1'`).Scan(&title); err != nil {
+		t.Fatal(err)
+	}
+	if title != "v1 title" {
+		t.Errorf("server title = %q, want v1 title (LWW kept the server row)", title)
+	}
+}
+
+// TestSyncPushCrossBatchDeleteRecreate: the delete syncs (outbox drained),
+// THEN the client re-creates the same row_uuid. The mirror row is gone so the
+// recreate pushes base 0 — the server must resurrect the soft-deleted row
+// instead of LWW-conflicting the new content away (review P1-2).
+func TestSyncPushCrossBatchDeleteRecreate(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	create := syncCardChange("c-xb-1", "sync-xbatch", "v1 title", 0)
+	resp1 := pushChanges(t, s, router, []models.SyncChange{create})
+	if resp1.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("create: %+v", resp1.Results[0])
+	}
+	delData, _ := json.Marshal(models.SyncCardData{})
+	del := models.SyncChange{Collection: services.SyncCollectionCards, RowUUID: "c-xb-1", Op: services.SyncOpDelete, BaseVersion: 1, Data: delData}
+	respDel := pushChanges(t, s, router, []models.SyncChange{del})
+	if respDel.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("delete: %+v", respDel.Results[0])
+	}
+
+	// Recreate in a LATER batch with base 0: resurrect, not conflict.
+	recreate := syncCardChange("c-xb-1", "sync-xbatch", "recreated title", 0)
+	resp3 := pushChanges(t, s, router, []models.SyncChange{recreate})
+	if resp3.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("cross-batch recreate: expected applied (resurrect), got %+v", resp3.Results[0])
+	}
+	if resp3.LostEdits != 0 {
+		t.Errorf("lost_edits = %d, want 0", resp3.LostEdits)
+	}
+	var title string
+	var isDeleted bool
+	if err := s.GetDB().QueryRow(`SELECT title, is_deleted FROM cards WHERE sync_uuid = 'c-xb-1'`).Scan(&title, &isDeleted); err != nil {
+		t.Fatal(err)
+	}
+	if isDeleted {
+		t.Error("card still soft-deleted after cross-batch recreate")
+	}
+	if title != "recreated title" {
+		t.Errorf("title = %q, want recreated title", title)
+	}
+}
+
+// TestSyncPushTagDeleteFallbackResultUUID: when a tag delete falls back to a
+// name-keyed lookup (the client uuid is not on the server), the push RESULT
+// must carry the client's uuid so the engine drops and reconciles the right
+// outbox entry — otherwise the delete re-pushes forever (review P1-3).
+func TestSyncPushTagDeleteFallbackResultUUID(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	name := "sync-fallback-tag"
+	devA, _ := json.Marshal(models.SyncTagData{Name: name, Color: "black"})
+	respA := pushChanges(t, s, router, []models.SyncChange{
+		{Collection: services.SyncCollectionTags, RowUUID: "tag-fb-a", Op: services.SyncOpUpsert, BaseVersion: 0, Data: devA},
+	})
+	if respA.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("create: %+v", respA.Results[0])
+	}
+
+	// Device B holds a pre-merge uuid "tag-fb-b" for the same name and deletes.
+	delData, _ := json.Marshal(models.SyncTagData{Name: name, Color: "black"})
+	del := models.SyncChange{Collection: services.SyncCollectionTags, RowUUID: "tag-fb-b", Op: services.SyncOpDelete, BaseVersion: 1, Data: delData}
+	respDel := pushChanges(t, s, router, []models.SyncChange{del})
+	if respDel.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("delete: %+v", respDel.Results[0])
+	}
+	if respDel.Results[0].RowUUID != "tag-fb-b" {
+		t.Errorf("result row_uuid = %q, want tag-fb-b (client uuid, so the engine can drop the outbox entry)", respDel.Results[0].RowUUID)
+	}
+	var isDeleted bool
+	if err := s.GetDB().QueryRow(`SELECT is_deleted FROM tags WHERE sync_uuid = 'tag-fb-a'`).Scan(&isDeleted); err != nil {
+		t.Fatal(err)
+	}
+	if !isDeleted {
+		t.Error("tag not soft-deleted")
+	}
+}
+
+// TestSyncPushTagRecreateResurrect: re-creating a deleted tag NAME with a
+// fresh uuid resurrects the soft-deleted row (REST CreateTag semantics)
+// instead of merging onto a tombstone (review P2-4).
+func TestSyncPushTagRecreateResurrect(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	name := "sync-resurrect-tag"
+	tagData, _ := json.Marshal(models.SyncTagData{Name: name, Color: "black"})
+	resp1 := pushChanges(t, s, router, []models.SyncChange{
+		{Collection: services.SyncCollectionTags, RowUUID: "tag-rs-1", Op: services.SyncOpUpsert, BaseVersion: 0, Data: tagData},
+	})
+	if resp1.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("create: %+v", resp1.Results[0])
+	}
+	delData, _ := json.Marshal(models.SyncTagData{Name: name})
+	del := models.SyncChange{Collection: services.SyncCollectionTags, RowUUID: "tag-rs-1", Op: services.SyncOpDelete, BaseVersion: 1, Data: delData}
+	if resp := pushChanges(t, s, router, []models.SyncChange{del}); resp.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("delete: %+v", resp.Results[0])
+	}
+
+	// A fresh uuid re-creating the deleted name must resurrect the row.
+	recreate, _ := json.Marshal(models.SyncTagData{Name: name, Color: "red"})
+	resp2 := pushChanges(t, s, router, []models.SyncChange{
+		{Collection: services.SyncCollectionTags, RowUUID: "tag-rs-2", Op: services.SyncOpUpsert, BaseVersion: 0, Data: recreate},
+	})
+	if resp2.Results[0].Status != services.SyncStatusMerged {
+		t.Fatalf("recreate: expected merged (resurrected), got %+v", resp2.Results[0])
+	}
+	if resp2.LostEdits != 0 {
+		t.Errorf("lost_edits = %d, want 0 (resurrection is not a loss)", resp2.LostEdits)
+	}
+	var color string
+	var isDeleted bool
+	if err := s.GetDB().QueryRow(`SELECT color, is_deleted FROM tags WHERE sync_uuid = 'tag-rs-1'`).Scan(&color, &isDeleted); err != nil {
+		t.Fatal(err)
+	}
+	if isDeleted {
+		t.Error("tag not resurrected")
+	}
+	if color != "red" {
+		t.Errorf("color = %q, want red (recreate content applied)", color)
+	}
+}
+
+// TestSyncPushRejectsInvalidOp: the push route must reject unknown ops instead
+// of silently treating them as upserts (review P3-5).
+func TestSyncPushRejectsInvalidOp(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	data, _ := json.Marshal(models.SyncCardData{Title: "x"})
+	rr := syncRequest(t, s, router, "POST", "/api/sync/push", models.SyncPushRequest{Changes: []models.SyncChange{
+		{Collection: services.SyncCollectionCards, RowUUID: "c-bad-op", Op: "frobnicate", BaseVersion: 0, Data: data},
+	}})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid op, got %d", rr.Code)
+	}
+}
+
 // strPtr/intPtr are tiny helpers for pointer-typed task fields in the retry
 // tests above.
 func strPtr(s string) *string { return &s }
@@ -1069,3 +1246,76 @@ func TestSyncPushTaskTitleTagDerivation(t *testing.T) {
 		t.Errorf("expected derived tag 'grocery', got %d", tagCount)
 	}
 }
+
+// TestSyncPushSchemaValidationRejectsInvalidStructuredData verifies the sync
+// push path enforces required schema fields exactly like the REST save path
+// (bead Zettelgarden-s2l): a pushed card with a schema but missing/empty
+// required structured_data is refused with 400 + message, and a valid push
+// lands.
+func TestSyncPushSchemaValidationRejectsInvalidStructuredData(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	// Create a schema with one required text field (same helper as cards tests).
+	fields := []models.FieldDefinition{
+		{Name: "required_field", Type: "text", Required: true},
+	}
+	schemaID := createTestSchema(s, t, 1, "Sync Required Schema", fields)
+
+	validSD, _ := json.Marshal(map[string]interface{}{"required_field": "filled"})
+	valid := models.SyncChange{
+		Collection: services.SyncCollectionCards, RowUUID: "sync-schema-valid",
+		Op: services.SyncOpUpsert, BaseVersion: 0,
+		Data: mustJSON(t, models.SyncCardData{
+			CardID: "SYNCSCHEMA1", Title: "Valid", Body: "ok",
+			CardSchemaID: &schemaID, StructuredData: ptrRaw(validSD),
+		}),
+	}
+	resp := decodeSyncResp[models.SyncPushResponse](t, syncRequest(t, s, router, "POST", "/api/sync/push", models.SyncPushRequest{Changes: []models.SyncChange{valid}, DeviceID: "test-device"}))
+	if len(resp.Results) != 1 || resp.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("expected applied for valid schema card, got %+v", resp.Results)
+	}
+
+	// Now push a card missing the required field -> 400 with a message.
+	missing := models.SyncChange{
+		Collection: services.SyncCollectionCards, RowUUID: "sync-schema-missing",
+		Op: services.SyncOpUpsert, BaseVersion: 0,
+		Data: mustJSON(t, models.SyncCardData{
+			CardID: "SYNCSCHEMA2", Title: "Missing", Body: "bad",
+			CardSchemaID: &schemaID, StructuredData: ptrRaw(json.RawMessage(`{"other":"x"}`)),
+		}),
+	}
+	rr := syncRequest(t, s, router, "POST", "/api/sync/push", models.SyncPushRequest{Changes: []models.SyncChange{missing}, DeviceID: "test-device"})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for missing required field via sync, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "required field 'required_field'") {
+		t.Errorf("expected message naming the field, got: %s", rr.Body.String())
+	}
+
+	// Empty (whitespace-only) required value is refused too.
+	empty := models.SyncChange{
+		Collection: services.SyncCollectionCards, RowUUID: "sync-schema-empty",
+		Op: services.SyncOpUpsert, BaseVersion: 0,
+		Data: mustJSON(t, models.SyncCardData{
+			CardID: "SYNCSCHEMA3", Title: "Empty", Body: "bad",
+			CardSchemaID: &schemaID, StructuredData: ptrRaw(json.RawMessage(`{"required_field":"   "}`)),
+		}),
+	}
+	rr = syncRequest(t, s, router, "POST", "/api/sync/push", models.SyncPushRequest{Changes: []models.SyncChange{empty}, DeviceID: "test-device"})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for empty required field via sync, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func mustJSON[T any](t *testing.T, v T) json.RawMessage {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	return b
+}
+
+func ptrRaw(b json.RawMessage) *json.RawMessage { return &b }

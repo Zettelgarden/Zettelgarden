@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -152,14 +153,24 @@ func (s *Handler) ChangesRoute(w http.ResponseWriter, r *http.Request) {
 	}
 	collections := parseCollectionsParam(r)
 
-	db := s.GetDB()
+	// Retention boundary + feed are read in ONE read transaction so a prune
+	// committed between two statements can't let a stale client advance past
+	// the pruned range without ever seeing reset (TOCTOU, review P2-2).
+	tx, err := s.BeginTx()
+	if err != nil {
+		http.Error(w, "unable to start read transaction", http.StatusInternalServerError)
+		return
+	}
+	if s.ShouldCommitTx() {
+		defer tx.Rollback() // read-only in production; test tx owned by harness
+	}
 
 	// Retention boundary: if the client's cursor is older than the pruned
 	// sync_log range, it can no longer catch up incrementally — answer with
 	// reset so it re-bootstraps (snapshot). minID is the first remaining row;
 	// the client is fine when since >= minID-1 (nothing pruned between).
 	var minID sql.NullInt64
-	if err := db.QueryRow(`SELECT MIN(id) FROM sync_log WHERE user_id = $1`, userID).Scan(&minID); err != nil {
+	if err := tx.QueryRow(`SELECT MIN(id) FROM sync_log WHERE user_id = $1`, userID).Scan(&minID); err != nil {
 		http.Error(w, "unable to read changes", http.StatusInternalServerError)
 		return
 	}
@@ -190,7 +201,7 @@ func (s *Handler) ChangesRoute(w http.ResponseWriter, r *http.Request) {
 	query += ` ORDER BY id LIMIT $` + strconv.Itoa(len(args)+1)
 	args = append(args, syncFeedPageSize+1) // +1 to detect has_more
 
-	rows, err := db.Query(query, args...)
+	rows, err := tx.Query(query, args...)
 	if err != nil {
 		http.Error(w, "unable to read changes", http.StatusInternalServerError)
 		return
@@ -244,7 +255,7 @@ func (s *Handler) ChangesRoute(w http.ResponseWriter, r *http.Request) {
 			placeholders[i] = "$" + strconv.Itoa(i+2)
 			a = append(a, u)
 		}
-		rrows, err := db.Query(
+		rrows, err := tx.Query(
 			`SELECT `+cols+` FROM `+collection+` WHERE user_id = $1 AND sync_uuid IN (`+strings.Join(placeholders, ", ")+`)`, a...)
 		if err != nil {
 			continue
@@ -292,6 +303,10 @@ func (s *Handler) PushRoute(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid change: row_uuid and collection are required", http.StatusBadRequest)
 			return
 		}
+		if ch.Op != services.SyncOpUpsert && ch.Op != services.SyncOpDelete {
+			http.Error(w, "invalid change: op must be upsert or delete", http.StatusBadRequest)
+			return
+		}
 	}
 
 	tx, err := s.BeginTx()
@@ -303,6 +318,14 @@ func (s *Handler) PushRoute(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		tx.Rollback()
 		log.Printf("sync push apply: %v", err)
+		// Schema/validation rejections (bead s2l) are client errors: surface
+		// the message so the client knows why the batch was refused instead of
+		// a generic 500.
+		var vErr *services.ValidationError
+		if errors.As(err, &vErr) {
+			http.Error(w, vErr.Msg, http.StatusBadRequest)
+			return
+		}
 		http.Error(w, "unable to apply push", http.StatusInternalServerError)
 		return
 	}

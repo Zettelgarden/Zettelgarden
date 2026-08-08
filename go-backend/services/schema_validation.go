@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go-backend/models"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -26,11 +27,17 @@ func ValidateStructuredData(structuredData json.RawMessage, schema *models.Schem
 		fieldMap[field.Name] = field
 	}
 
-	// Check all required fields are present
+	// Check all required fields are present AND non-empty (bead Zettelgarden-s2l).
+	// A required field whose value is null, an empty/whitespace string, or an
+	// empty array is treated as missing: the UI marks the field required, so a
+	// "filled" value is the server-side contract.
 	for _, field := range schema.Fields {
 		if field.Required {
 			if _, exists := data[field.Name]; !exists {
 				return nil, fmt.Errorf("required field '%s' is missing", field.Name)
+			}
+			if isEmptyRequiredValue(data[field.Name]) {
+				return nil, fmt.Errorf("required field '%s' cannot be empty", field.Name)
 			}
 		}
 	}
@@ -58,6 +65,53 @@ func ValidateStructuredData(structuredData json.RawMessage, schema *models.Schem
 
 	return cleanedJSON, nil
 }
+
+// isEmptyRequiredValue reports whether a value for a required field counts as
+// empty: nil, a string of only whitespace, or an array with no elements.
+// Zero numbers and false booleans are NOT empty (they are legitimate values).
+func isEmptyRequiredValue(value interface{}) bool {
+	if value == nil {
+		return true
+	}
+	switch v := value.(type) {
+	case string:
+		return strings.TrimSpace(v) == ""
+	case []interface{}:
+		return len(v) == 0
+	case []string:
+		return len(v) == 0
+	default:
+		return false
+	}
+}
+
+// ValidateCardStructuredData validates structured_data for a card against its
+// schema, mirroring the REST create/update semantics so the sync push path
+// behaves identically (bead Zettelgarden-s2l). When structuredData is nil or
+// empty and the schema has required fields, returns an error. On success
+// returns the cleaned data (or nil when there was nothing to clean) plus nil.
+func ValidateCardStructuredData(structuredData *json.RawMessage, schema *models.SchemaDefinition) (*json.RawMessage, error) {
+	if structuredData != nil && len(*structuredData) > 0 {
+		cleaned, err := ValidateStructuredData(*structuredData, schema)
+		if err != nil {
+			return nil, err
+		}
+		return &cleaned, nil
+	}
+	for _, field := range schema.Fields {
+		if field.Required {
+			return nil, fmt.Errorf("schema requires field '%s' but no structured_data provided", field.Name)
+		}
+	}
+	return nil, nil
+}
+
+// ValidationError marks a push change rejected because its payload violates a
+// schema contract. The sync push handler maps it to a 400 with the message so
+// the client can surface why the batch was refused (mirrors the REST path).
+type ValidationError struct{ Msg string }
+
+func (e *ValidationError) Error() string { return e.Msg }
 
 // ValidateFieldValue validates a single field value against its definition
 func ValidateFieldValue(fieldName string, value interface{}, fieldDef models.FieldDefinition) error {

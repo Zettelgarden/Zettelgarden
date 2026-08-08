@@ -182,6 +182,17 @@ func (c *pushContext) retryMatchesCurrent(collection string, ch models.SyncChang
 	if version != ch.BaseVersion+1 {
 		return false
 	}
+	return c.payloadMatchesRow(collection, ch, serverID)
+}
+
+// payloadMatchesRow compares a re-pushed payload against the current server
+// row without the version guard. For upserts every pushed column must match
+// (FK references resolved as the write path resolves them); for deletes the
+// row must already be soft-deleted. Used both for retry detection and for the
+// base-0 create-retry shortcut, where a DIFFERING payload means the client
+// edited (or recreated) after its create landed and must not be silently
+// dropped.
+func (c *pushContext) payloadMatchesRow(collection string, ch models.SyncChange, serverID int) bool {
 	switch collection {
 	case SyncCollectionCards:
 		return c.cardRowMatchesPush(ch, serverID)
@@ -479,8 +490,26 @@ func (c *pushContext) applyCardUpsert(ch models.SyncChange) error {
 	// Match UpdateCard: strip all whitespace from card_id before proceeding.
 	data.CardID = normalizeCardID(data.CardID)
 
+	// Mirror REST create/update schema validation (bead s2l): a pushed card
+	// with a schema must carry structured_data satisfying required fields,
+	// exactly like the UI save path. Reject the change with a typed error so
+	// the push surfaces 400 with the message instead of silently accepting
+	// data the REST path would refuse.
+	if data.CardSchemaID != nil && !data.IsDeleted {
+		schema := backlink.GetSchemaByID(c.tx, c.userID, *data.CardSchemaID)
+		if schema == nil {
+			return &ValidationError{Msg: fmt.Sprintf("schema %d not found", *data.CardSchemaID)}
+		}
+		cleaned, err := ValidateCardStructuredData(data.StructuredData, schema)
+		if err != nil {
+			return &ValidationError{Msg: fmt.Sprintf("invalid structured_data for card %s: %v", data.CardID, err)}
+		}
+		data.StructuredData = cleaned
+	}
+
 	var id, version int
-	err := c.tx.QueryRow(`SELECT id, version FROM cards WHERE sync_uuid = $1 AND user_id = $2`, ch.RowUUID, c.userID).Scan(&id, &version)
+	var rowDeleted bool
+	err := c.tx.QueryRow(`SELECT id, version, is_deleted FROM cards WHERE sync_uuid = $1 AND user_id = $2`, ch.RowUUID, c.userID).Scan(&id, &version, &rowDeleted)
 	if err == sql.ErrNoRows {
 		// Create. version 1 is the base for a never-synced row; the client
 		// adopts the server's version after the push.
@@ -519,14 +548,23 @@ func (c *pushContext) applyCardUpsert(ch models.SyncChange) error {
 	// the recreate, no conflict), bypassing both the create-retry shortcut and
 	// the stale-base check.
 	if ch.BaseVersion == 0 && !c.deletedInBatch[ch.RowUUID] {
-		// Idempotent retry of a create already applied: a row with our
-		// row_uuid exists and the client believes it never synced — the only
-		// way that happens is our own create landing earlier. No write, no
-		// lost edit.
-		c.applied(ch, id, version)
-		return nil
+		// A row with our uuid exists while the client believes it never
+		// synced — only our own create landing earlier can explain that. An
+		// identical payload is a dropped-response retry (no write). A
+		// DIFFERING payload means the user edited (or recreated the row after
+		// a synced delete) before the retry: never silently drop it — fall
+		// through to LWW below (conflict for a live row, resurrect for a
+		// soft-deleted one).
+		if c.payloadMatchesRow(SyncCollectionCards, ch, id) {
+			c.applied(ch, id, version)
+			return nil
+		}
 	}
-	if ch.BaseVersion < version && !c.deletedInBatch[ch.RowUUID] {
+	// A base-0 upsert against a soft-deleted row is always a recreate intent
+	// (the client re-created the row after the delete synced) — resurrect it
+	// instead of LWW-conflicting the new content away.
+	resurrect := c.deletedInBatch[ch.RowUUID] || (ch.BaseVersion == 0 && rowDeleted)
+	if ch.BaseVersion < version && !resurrect {
 		c.retryOrConflict(SyncCollectionCards, ch, id, version)
 		return nil
 	}
@@ -541,7 +579,7 @@ func (c *pushContext) applyCardUpsert(ch models.SyncChange) error {
 	}
 	// A resurrection re-adds the row the batch's delete removed from the
 	// user's count (matching the create path).
-	if c.deletedInBatch[ch.RowUUID] && !data.IsDeleted {
+	if resurrect && !data.IsDeleted {
 		IncrementUserCardCount(c.tx, c.userID)
 	}
 	c.ensureSelfParent(SyncCollectionCards, id, data.CardID)
@@ -635,7 +673,8 @@ func (c *pushContext) applyTaskUpsert(ch models.SyncChange) error {
 	cardPK, parentTaskID := c.resolveTaskFKs(&data)
 
 	var id, version int
-	err := c.tx.QueryRow(`SELECT id, version FROM tasks WHERE sync_uuid = $1 AND user_id = $2`, ch.RowUUID, c.userID).Scan(&id, &version)
+	var rowDeleted bool
+	err := c.tx.QueryRow(`SELECT id, version, is_deleted FROM tasks WHERE sync_uuid = $1 AND user_id = $2`, ch.RowUUID, c.userID).Scan(&id, &version, &rowDeleted)
 	if err == sql.ErrNoRows {
 		now := time.Now().UTC()
 		res, err := c.tx.Exec(`
@@ -669,8 +708,12 @@ func (c *pushContext) applyTaskUpsert(ch models.SyncChange) error {
 	}
 
 	if ch.BaseVersion == 0 && !c.deletedInBatch[ch.RowUUID] {
-		c.applied(ch, id, version) // idempotent retry of an applied create
-		return nil
+		// Idempotent create-retry (payload matches) vs an edit that landed
+		// before the retry (payload differs -> apply it as an update).
+		if c.payloadMatchesRow(SyncCollectionTasks, ch, id) {
+			c.applied(ch, id, version)
+			return nil
+		}
 	}
 	if ch.BaseVersion < version && !c.deletedInBatch[ch.RowUUID] {
 		c.retryOrConflict(SyncCollectionTasks, ch, id, version)
@@ -763,7 +806,8 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 	}
 	var id, version int
 	var existingUUID string
-	err := c.tx.QueryRow(`SELECT id, version, sync_uuid FROM tags WHERE sync_uuid = $1 AND user_id = $2`, ch.RowUUID, c.userID).Scan(&id, &version, &existingUUID)
+	var rowDeleted bool
+	err := c.tx.QueryRow(`SELECT id, version, sync_uuid, is_deleted FROM tags WHERE sync_uuid = $1 AND user_id = $2`, ch.RowUUID, c.userID).Scan(&id, &version, &existingUUID, &rowDeleted)
 	if err == sql.ErrNoRows {
 		// Name-keyed merge: CreateTag semantics — find (user_id, name) including
 		// soft-deleted rows and reuse, so two devices creating "Work" offline
@@ -771,8 +815,24 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 		var mergedID int
 		var mergedVersion int
 		var mergedUUID string
-		err := c.tx.QueryRow(`SELECT id, version, sync_uuid FROM tags WHERE user_id = $1 AND name = $2`, c.userID, data.Name).Scan(&mergedID, &mergedVersion, &mergedUUID)
+		var mergedDeleted bool
+		err := c.tx.QueryRow(`SELECT id, version, sync_uuid, is_deleted FROM tags WHERE user_id = $1 AND name = $2`, c.userID, data.Name).Scan(&mergedID, &mergedVersion, &mergedUUID, &mergedDeleted)
 		if err == nil {
+			if mergedDeleted && !c.deletedInBatch[mergedUUID] {
+				// The tag was deleted server-side (e.g. by another device); the
+				// client re-creating the name must RESURRECT the row, matching
+				// REST CreateTag — never merge onto a tombstone. No lost edit.
+				newVersion := max(mergedVersion, ch.BaseVersion) + 1
+				if _, err := c.tx.Exec(`UPDATE tags SET name = $1, color = $2, is_deleted = $3, updated_at = $4, version = $5 WHERE id = $6`, data.Name, data.Color, data.IsDeleted, time.Now().UTC(), newVersion, mergedID); err != nil {
+					c.ignored(ch)
+					return nil
+				}
+				if err := c.emit(SyncCollectionTags, mergedUUID, SyncOpUpsert, newVersion); err != nil {
+					return err
+				}
+				c.merged(ch, mergedID, newVersion, mergedUUID)
+				return nil
+			}
 			if ch.BaseVersion <= mergedVersion && !c.deletedInBatch[mergedUUID] {
 				// The server row is as new or newer: keep it, tell the client to
 				// adopt its uuid. No write, no feed entry (nothing changed). If
@@ -821,8 +881,12 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 	}
 
 	if ch.BaseVersion == 0 && !c.deletedInBatch[ch.RowUUID] {
-		c.applied(ch, id, version) // idempotent retry of an applied create
-		return nil
+		// Idempotent create-retry (payload matches) vs an edit that landed
+		// before the retry (payload differs -> apply it as an update).
+		if c.payloadMatchesRow(SyncCollectionTags, ch, id) {
+			c.applied(ch, id, version)
+			return nil
+		}
 	}
 	if ch.BaseVersion < version && !c.deletedInBatch[ch.RowUUID] {
 		c.retryOrConflict(SyncCollectionTags, ch, id, version)
@@ -841,6 +905,10 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 }
 
 func (c *pushContext) applyTagDelete(ch models.SyncChange) error {
+	// The client's uuid is the outbox/result key the engine reconciles with;
+	// the name-keyed fallback below may rewrite it to the server's canonical
+	// uuid, so keep the original for every result we emit.
+	clientUUID := ch.RowUUID
 	var id, version int
 	var existingUUID string
 	err := c.tx.QueryRow(`SELECT id, version, sync_uuid FROM tags WHERE sync_uuid = $1 AND user_id = $2`, ch.RowUUID, c.userID).Scan(&id, &version, &existingUUID)
@@ -863,6 +931,10 @@ func (c *pushContext) applyTagDelete(ch models.SyncChange) error {
 		c.ignored(ch)
 		return nil
 	}
+	// The feed/tombstone use the canonical server uuid (existingUUID); every
+	// RESULT must be keyed on the client's uuid so the engine drops and
+	// reconciles the right outbox entry.
+	ch.RowUUID = clientUUID
 	if ch.BaseVersion < version {
 		c.retryOrConflict(SyncCollectionTags, ch, id, version)
 		return nil
