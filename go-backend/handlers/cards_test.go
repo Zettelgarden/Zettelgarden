@@ -1716,6 +1716,246 @@ func TestUpdateCardWithSchema_RemoveSchema(t *testing.T) {
 	}
 }
 
+// createCardWithSchema creates a card attached to a schema through the REST
+// handler and returns the created card.
+func createCardWithSchema(t *testing.T, s *Handler, token string, cardID string, schemaID int, dataJSON string) models.Card {
+	t.Helper()
+	payload := fmt.Sprintf(`{
+		"card_id": %q, "title": "Card %s", "body": "body", "link": "",
+		"schema_id": %d, "structured_data": %s
+	}`, cardID, cardID, schemaID, dataJSON)
+	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBufferString(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute))
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusCreated {
+		t.Fatalf("create card with schema: expected 201, got %d: %s", status, rr.Body.String())
+	}
+	var card models.Card
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &card)
+	return card
+}
+
+// updateCardWithPayload issues a PUT to UpdateCardRoute and returns the recorder.
+func updateCardWithPayload(t *testing.T, s *Handler, token string, id int, payload string) *httptest.ResponseRecorder {
+	t.Helper()
+	req, err := http.NewRequest("PUT", "/api/cards/"+strconv.Itoa(id), bytes.NewBufferString(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", strconv.Itoa(id))
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}", s.JwtMiddleware(s.UpdateCardRoute))
+	router.ServeHTTP(rr, req)
+	return rr
+}
+
+// TestUpdateCardWithSchema_DetachWithEmptyObject verifies that clearing the
+// schema dropdown in the editor — which sends schema_id: null with
+// structured_data: {} — succeeds and detaches the schema instead of hitting the
+// "structured_data requires schema_id" 400 (bead Zettelgarden-276).
+func TestUpdateCardWithSchema_DetachWithEmptyObject(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	schemaID := createTestSchema(s, t, 1, "Detach Schema", []models.FieldDefinition{
+		{Name: "field1", Type: "text", Required: true},
+	})
+	card := createCardWithSchema(t, s, token, "DETACH001", schemaID, `{"field1":"value1"}`)
+
+	payload := fmt.Sprintf(`{
+		"card_id": %q, "title": "Updated", "body": "body", "link": "",
+		"schema_id": null, "structured_data": {}
+	}`, card.CardID)
+	updateRR := updateCardWithPayload(t, s, token, card.ID, payload)
+
+	if status := updateRR.Code; status != http.StatusOK {
+		t.Fatalf("detach with {}: expected 200, got %d: %s", status, updateRR.Body.String())
+	}
+	var updated models.Card
+	tests.ParseJsonResponse(t, updateRR.Body.Bytes(), &updated)
+	if updated.SchemaID != nil {
+		t.Errorf("expected schema_id nil after detach, got %v", *updated.SchemaID)
+	}
+	if updated.StructuredData != nil {
+		t.Errorf("expected structured_data cleared after detach, got %s", string(*updated.StructuredData))
+	}
+}
+
+// TestUpdateCardWithSchema_DetachWithNull is the same detach when the payload
+// nulls structured_data instead of sending {} (bead Zettelgarden-276).
+func TestUpdateCardWithSchema_DetachWithNull(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	schemaID := createTestSchema(s, t, 1, "Detach Schema Null", []models.FieldDefinition{
+		{Name: "field1", Type: "text", Required: true},
+	})
+	card := createCardWithSchema(t, s, token, "DETACH002", schemaID, `{"field1":"value1"}`)
+
+	payload := fmt.Sprintf(`{
+		"card_id": %q, "title": "Updated", "body": "body", "link": "",
+		"schema_id": null, "structured_data": null
+	}`, card.CardID)
+	updateRR := updateCardWithPayload(t, s, token, card.ID, payload)
+
+	if status := updateRR.Code; status != http.StatusOK {
+		t.Fatalf("detach with null: expected 200, got %d: %s", status, updateRR.Body.String())
+	}
+	var updated models.Card
+	tests.ParseJsonResponse(t, updateRR.Body.Bytes(), &updated)
+	if updated.SchemaID != nil {
+		t.Errorf("expected schema_id nil after detach, got %v", *updated.SchemaID)
+	}
+	if updated.StructuredData != nil {
+		t.Errorf("expected structured_data cleared after detach, got %s", string(*updated.StructuredData))
+	}
+}
+
+// TestUpdateCardWithSchema_OmittedSchemaFieldsPreserved verifies a partial
+// update that omits schema_id/structured_data keeps the existing association
+// (the UpdateCard preserve branch must stay intact, bead Zettelgarden-276).
+func TestUpdateCardWithSchema_OmittedSchemaFieldsPreserved(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	schemaID := createTestSchema(s, t, 1, "Preserve Schema", []models.FieldDefinition{
+		{Name: "field1", Type: "text", Required: true},
+	})
+	card := createCardWithSchema(t, s, token, "PRESERVE001", schemaID, `{"field1":"value1"}`)
+
+	payload := fmt.Sprintf(`{
+		"card_id": %q, "title": "New Title", "body": "body", "link": ""
+	}`, card.CardID)
+	updateRR := updateCardWithPayload(t, s, token, card.ID, payload)
+
+	if status := updateRR.Code; status != http.StatusOK {
+		t.Fatalf("omitted schema fields: expected 200, got %d: %s", status, updateRR.Body.String())
+	}
+	var updated models.Card
+	tests.ParseJsonResponse(t, updateRR.Body.Bytes(), &updated)
+	if updated.SchemaID == nil || *updated.SchemaID != schemaID {
+		t.Errorf("expected schema_id preserved (%d), got %v", schemaID, updated.SchemaID)
+	}
+	if updated.StructuredData == nil || !strings.Contains(string(*updated.StructuredData), "value1") {
+		t.Errorf("expected structured_data preserved, got %v", updated.StructuredData)
+	}
+}
+
+// TestUpdateCardWithSchema_NonEmptyDataNoSchema_Rejected verifies the
+// stray-data contract on the update path: non-empty structured_data without a
+// schema still returns the 400 (bead Zettelgarden-276).
+func TestUpdateCardWithSchema_NonEmptyDataNoSchema_Rejected(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	schemaID := createTestSchema(s, t, 1, "Stray Data Schema", []models.FieldDefinition{
+		{Name: "field1", Type: "text", Required: true},
+	})
+	card := createCardWithSchema(t, s, token, "STRAY001", schemaID, `{"field1":"value1"}`)
+
+	payload := fmt.Sprintf(`{
+		"card_id": %q, "title": "Updated", "body": "body", "link": "",
+		"schema_id": null, "structured_data": {"field1":"value2"}
+	}`, card.CardID)
+	updateRR := updateCardWithPayload(t, s, token, card.ID, payload)
+
+	if status := updateRR.Code; status != http.StatusBadRequest {
+		t.Fatalf("expected 400 for stray data on update, got %d: %s", status, updateRR.Body.String())
+	}
+	if !strings.Contains(updateRR.Body.String(), "structured_data requires schema_id") {
+		t.Errorf("expected guard message, got: %v", updateRR.Body.String())
+	}
+}
+
+// TestCreateCardWithEmptyDataNoSchema verifies the create path accepts the
+// detach payload shape (schema_id: null + structured_data: {}) and stores no
+// schema association (bead Zettelgarden-276).
+func TestCreateCardWithEmptyDataNoSchema(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	payload := `{
+		"card_id": "NOSCHEMA001", "title": "No schema", "body": "body", "link": "",
+		"schema_id": null, "structured_data": {}
+	}`
+	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBufferString(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute))
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusCreated {
+		t.Fatalf("create with empty data: expected 201, got %d: %s", status, rr.Body.String())
+	}
+	var card models.Card
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &card)
+	if card.SchemaID != nil {
+		t.Errorf("expected schema_id nil, got %v", *card.SchemaID)
+	}
+	if card.StructuredData != nil {
+		t.Errorf("expected structured_data nil, got %s", string(*card.StructuredData))
+	}
+}
+
+// TestCreateCardWithStructuredDataNoSchema_Rejected verifies the stray-data
+// contract on the create path: non-empty structured_data without schema_id
+// still returns the 400 (that contract is intentional, bead Zettelgarden-276).
+func TestCreateCardWithStructuredDataNoSchema_Rejected(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	payload := `{
+		"card_id": "NOSCHEMA002", "title": "Stray", "body": "body", "link": "",
+		"schema_id": null, "structured_data": {"field1":"x"}
+	}`
+	req, err := http.NewRequest("POST", "/api/cards/", bytes.NewBufferString(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute))
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusBadRequest {
+		t.Fatalf("expected 400 for stray data on create, got %d: %s", status, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "structured_data requires schema_id") {
+		t.Errorf("expected guard message, got: %v", rr.Body.String())
+	}
+}
+
 // TestGetCardWithSchema_WithSchemaAndData tests getting card that includes schema_id and structured_data
 func TestGetCardWithSchema_WithSchemaAndData(t *testing.T) {
 	s := NewHandler()

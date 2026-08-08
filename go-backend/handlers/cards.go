@@ -8,6 +8,7 @@ import (
 	"go-backend/models"
 	"go-backend/server"
 	"go-backend/services"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -284,6 +285,34 @@ func (s *Handler) GetCardRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(card)
 }
 
+// schemaIDExplicitlyNull reports whether the request body explicitly sets
+// schema_id to JSON null. The editor clears the schema dropdown by sending
+// schema_id: null; distinguishing that from a partial update that simply omits
+// the field matters because UpdateCard preserves the association when both
+// schema fields are absent (bead Zettelgarden-276).
+func schemaIDExplicitlyNull(body []byte) bool {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return false
+	}
+	v, ok := raw["schema_id"]
+	return ok && strings.TrimSpace(string(v)) == "null"
+}
+
+// normalizeSchemaDetach applies schema-detach semantics to an edit payload:
+// when schema_id is explicitly null and structured_data is empty ({} or null —
+// what the editor sends when the dropdown is cleared), treat it as a request to
+// clear the association rather than stray data. UpdateCard honors ClearSchema;
+// CreateCard ignores the flag but StructuredData is nilled so nothing is
+// persisted (bead Zettelgarden-276).
+func normalizeSchemaDetach(body []byte, params *models.EditCardParams) {
+	if !schemaIDExplicitlyNull(body) || !services.StructuredDataIsEmpty(params.StructuredData) {
+		return
+	}
+	params.ClearSchema = true
+	params.StructuredData = nil
+}
+
 func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 
 	userID := r.Context().Value("current_user").(int)
@@ -301,13 +330,18 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 
 	var params models.EditCardParams
 
-	decoder := json.NewDecoder(r.Body)
-	err = decoder.Decode(&params)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+	err = json.Unmarshal(body, &params)
 	if err != nil {
 		log.Printf("err? %v", err)
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
+	normalizeSchemaDetach(body, &params)
 
 	// Validate schema data if provided
 	if params.SchemaID != nil {
@@ -342,7 +376,7 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-	} else if params.StructuredData != nil && len(*params.StructuredData) > 0 {
+	} else if !services.StructuredDataIsEmpty(params.StructuredData) {
 		// structured_data provided without schema_id
 		http.Error(w, "structured_data requires schema_id to be specified", http.StatusBadRequest)
 		return
@@ -365,13 +399,18 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 	var err error
 	userID := r.Context().Value("current_user").(int)
 
-	decoder := json.NewDecoder(r.Body)
-	err = decoder.Decode(&params)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+	err = json.Unmarshal(body, &params)
 	if err != nil {
 		log.Printf("err? %v", err)
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
+	normalizeSchemaDetach(body, &params)
 
 	// Validate schema data if provided
 	if params.SchemaID != nil {
@@ -406,7 +445,7 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-	} else if params.StructuredData != nil && len(*params.StructuredData) > 0 {
+	} else if !services.StructuredDataIsEmpty(params.StructuredData) {
 		// structured_data provided without schema_id
 		http.Error(w, "structured_data requires schema_id to be specified", http.StatusBadRequest)
 		return

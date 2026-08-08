@@ -9,6 +9,30 @@ import (
 	"time"
 )
 
+// StructuredDataIsEmpty reports whether a structured_data payload carries no
+// meaningful content: nil, JSON null, an empty object ({}, { }, ...), or an
+// empty array. The REST create/update guards use this so that detaching a
+// schema — which the editor sends as schema_id: null with structured_data: {} —
+// is not mistaken for stray data (bead Zettelgarden-276).
+func StructuredDataIsEmpty(raw *json.RawMessage) bool {
+	if raw == nil {
+		return true
+	}
+	trimmed := strings.TrimSpace(string(*raw))
+	if trimmed == "" || trimmed == "null" {
+		return true
+	}
+	var obj map[string]interface{}
+	if err := json.Unmarshal([]byte(trimmed), &obj); err == nil {
+		return len(obj) == 0
+	}
+	var arr []interface{}
+	if err := json.Unmarshal([]byte(trimmed), &arr); err == nil {
+		return len(arr) == 0
+	}
+	return false
+}
+
 // ValidateStructuredData validates structured_data against a schema definition and returns cleaned data
 func ValidateStructuredData(structuredData json.RawMessage, schema *models.SchemaDefinition) (json.RawMessage, error) {
 	// Parse the structured data into a map
