@@ -23,7 +23,6 @@ func InitServer(dbConfig config.DatabaseConfig) *server.Server {
 	s := &server.Server{
 		DB:        db,
 		SchemaDir: "./schema/sqlite",
-		Driver:    "sqlite",
 	}
 
 	server.RunMigrations(s)

@@ -211,7 +211,6 @@ func Setup() *server.Server {
 
 		S = &server.Server{}
 		S.DB = db
-		S.Driver = cfg.Database.Driver
 		S.Testing = true
 		// Use absolute path for schema directory to work from any test directory.
 		schemaDir, err := getSchemaDir()

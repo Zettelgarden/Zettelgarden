@@ -14,15 +14,13 @@ import (
 
 func RunMigrations(S *Server) {
 	// SQLite has no pre-existing migrations table to track what's applied.
-	// Bootstrap it here so the runner is self-contained on the sqlite path.
-	if S.Driver == "sqlite" {
-		if _, err := S.DB.Exec(`CREATE TABLE IF NOT EXISTS migrations (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			migration_name TEXT NOT NULL,
-			applied_at TEXT DEFAULT (datetime('now'))
-		)`); err != nil {
-			log.Fatal(err)
-		}
+	// Bootstrap it here so the runner is self-contained.
+	if _, err := S.DB.Exec(`CREATE TABLE IF NOT EXISTS migrations (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		migration_name TEXT NOT NULL,
+		applied_at TEXT DEFAULT (datetime('now'))
+	)`); err != nil {
+		log.Fatal(err)
 	}
 
 	// Existence check only (the applied_at value is never read). SELECT 1 scans
@@ -38,17 +36,15 @@ func RunMigrations(S *Server) {
 
 	var fileNames []string
 	for _, file := range files {
-		// Skip subdirectories (e.g. schema/sqlite/ under the postgres scan root).
-		// ioutil.ReadFile on a directory fails with "is a directory"; ReadDir
-		// returns both files and dirs, so this guard is required. Extensionless
-		// migration files (e.g. 0025-add-chunk-text) are intentionally kept.
+		// Skip subdirectories. ioutil.ReadFile on a directory fails with "is a
+		// directory"; ReadDir returns both files and dirs, so this guard is
+		// required.
 		if file.IsDir() {
 			continue
 		}
-		// Skip Go source files. The SQLite schema dir (schema/sqlite/) co-locates
-		// the consolidated schema with its Go test files; a migration runner must
-		// never interpret .go source as SQL. The postgres scan root contains only
-		// .sql / extensionless migration files, so this is a no-op there.
+		// Skip Go source files. The schema dir (schema/sqlite/) co-locates the
+		// consolidated schema with its Go test files; a migration runner must
+		// never interpret .go source as SQL.
 		if strings.HasSuffix(file.Name(), ".go") {
 			continue
 		}
@@ -71,7 +67,7 @@ func RunMigrations(S *Server) {
 				log.Fatal(err)
 			}
 
-			if err = execScript(tx, S.Driver, string(content)); err != nil {
+			if err = execScript(tx, string(content)); err != nil {
 				tx.Rollback()
 				log.Fatal(err)
 			}
@@ -94,16 +90,13 @@ func RunMigrations(S *Server) {
 	}
 
 	// SQLite has no incremental-migration story: the runner above only applies
-	// the consolidated schema/sqlite/schema.sqlite.sql (for fresh builds) and
-	// never scans the numbered Postgres migrations in ./schema (which use
-	// non-portable syntax anyway). Self-heal known column/index gaps here so an
-	// existing pre-cutover SQLite DB converges on the consolidated schema on
-	// the next start — this is what was missing when OIDC went live
-	// (2026-08-04: "no such column: oidc_provider").
-	if S.Driver == "sqlite" {
-		if err := ensureSQLiteSchemaUpgrades(S.DB); err != nil {
-			log.Fatalf("sqlite schema upgrade failed: %v", err)
-		}
+	// the consolidated schema/sqlite/schema.sqlite.sql (for fresh builds).
+	// Self-heal known column/index gaps here so an existing pre-cutover SQLite
+	// DB converges on the consolidated schema on the next start — this is what
+	// was missing when OIDC went live (2026-08-04: "no such column:
+	// oidc_provider").
+	if err := ensureSQLiteSchemaUpgrades(S.DB); err != nil {
+		log.Fatalf("sqlite schema upgrade failed: %v", err)
 	}
 }
 
@@ -504,20 +497,13 @@ func sqliteRebuildTable(db *sql.DB, stmts ...string) error {
 	return nil
 }
 
-// executes only one statement per Exec, so the script is split into individual
-// statements first (via SplitSQL) before execution. (The Postgres driver used
-// to parse multi-statement strings itself, but Postgres was retired after the
-// cutover; the `driver` arg is now always "sqlite" and retained only so the
-// test harness can call this helper directly.)
-func execScript(tx *sql.Tx, driver, script string) error {
-	if driver == "sqlite" {
-		for _, stmt := range SplitSQL(script) {
-			if _, err := tx.Exec(stmt); err != nil {
-				return fmt.Errorf("migration statement failed: %w\n  statement: %s", err, stmt)
-			}
+// SplitSQL executes one statement per Exec, so the script is split into
+// individual statements first (via SplitSQL) before execution.
+func execScript(tx *sql.Tx, script string) error {
+	for _, stmt := range SplitSQL(script) {
+		if _, err := tx.Exec(stmt); err != nil {
+			return fmt.Errorf("migration statement failed: %w\n  statement: %s", err, stmt)
 		}
-		return nil
 	}
-	_, err := tx.Exec(script)
-	return err
+	return nil
 }

@@ -33,7 +33,7 @@ func TestRunMigrationsAppliesConsolidatedSchema(t *testing.T) {
 	schemaDir := findSchemaSqliteDir(t)
 
 	db := openMemSQLite(t)
-	S := &Server{DB: db, Driver: "sqlite", SchemaDir: schemaDir}
+	S := &Server{DB: db, SchemaDir: schemaDir}
 	RunMigrations(S)
 
 	// The consolidated schema must have created the core tables.
@@ -75,7 +75,7 @@ func TestRunMigrationsAppliesConsolidatedSchema(t *testing.T) {
 }
 
 // TestRunMigrationsSkipsSubdirectories guards the regression where a
-// subdirectory under SchemaDir (e.g. schema/sqlite/ under the postgres scan
+// subdirectory under SchemaDir
 // root) was treated as a migration file and ioutil.ReadFile failed with "is a
 // directory", fataling the whole server at boot. The runner must skip dirs.
 func TestRunMigrationsSkipsSubdirectories(t *testing.T) {
@@ -95,7 +95,7 @@ func TestRunMigrationsSkipsSubdirectories(t *testing.T) {
 	}
 
 	db := openMemSQLite(t)
-	S := &Server{DB: db, Driver: "sqlite", SchemaDir: dir}
+	S := &Server{DB: db, SchemaDir: dir}
 	RunMigrations(S) // must not log.Fatal on the "sqlite" subdir
 
 	var n int
@@ -125,7 +125,7 @@ func TestExecScriptSQLite(t *testing.T) {
 		INSERT INTO a (name) VALUES ('x;y;z');  -- semicolons inside the string
 		CREATE INDEX idx_a ON a(name);
 	`
-	if err := execScript(tx, "sqlite", script); err != nil {
+	if err := execScript(tx, script); err != nil {
 		t.Fatalf("execScript: %v", err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -160,7 +160,7 @@ func TestRunMigrationsSQLite(t *testing.T) {
 	}
 
 	db := openMemSQLite(t)
-	S := &Server{DB: db, Driver: "sqlite", SchemaDir: dir}
+	S := &Server{DB: db, SchemaDir: dir}
 
 	RunMigrations(S)
 

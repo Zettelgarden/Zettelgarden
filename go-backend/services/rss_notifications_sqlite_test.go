@@ -40,7 +40,7 @@ func loadConsolidatedSchema(t *testing.T) *server.Server {
 			t.Fatalf("apply consolidated schema statement: %v\n  %s", err, head)
 		}
 	}
-	return &server.Server{DB: db, Driver: "sqlite"}
+	return &server.Server{DB: db}
 }
 
 // rssTestWorld seeds one user and two feeds (priority + non-priority) and

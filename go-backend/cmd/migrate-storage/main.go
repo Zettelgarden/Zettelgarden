@@ -24,7 +24,7 @@
 // Usage:
 //
 //	migrate-storage [--bucket NAME] [--endpoint URL] [--region R]
-//	                [--storage-dir DIR] [--db-driver sqlite]
+//	                [--storage-dir DIR]
 //	                [--sqlite-path PATH] [--limit N] [--dry-run]
 //	                [--timeout DURATION] [--no-thumbnails]
 //
@@ -101,10 +101,8 @@ func main() {
 	region := flag.String("region", defaultRegion, "SigV4 signing region (B2 uses us-east-005)")
 	storageDir := flag.String("storage-dir", envOr("STORAGE_DIR", "./data/files"),
 		"destination local storage root (default: $STORAGE_DIR or ./data/files)")
-	dbDriver := flag.String("db-driver", envOr("DB_DRIVER", "sqlite"),
-		"metadata DB driver (sqlite only; the postgres option was removed with the Postgres retirement)")
 	sqlitePath := flag.String("sqlite-path", envOr("SQLITE_PATH", "./data/zettelgarden.db"),
-		"SQLite DB path when --db-driver=sqlite (default: $SQLITE_PATH)")
+		"SQLite DB path (default: $SQLITE_PATH or ./data/zettelgarden.db)")
 	limit := flag.Int("limit", 0, "process at most N files (0 = all; for debugging)")
 	dryRun := flag.Bool("dry-run", false, "log what would be downloaded without writing or fetching")
 	noThumbnails := flag.Bool("no-thumbnails", false, "skip thumbnail objects (only copy primary files)")
@@ -126,9 +124,9 @@ func main() {
 	}
 
 	ctx := context.Background()
-	db, err := openDB(*dbDriver, *sqlitePath)
+	db, err := server.OpenSQLite(*sqlitePath)
 	if err != nil {
-		log.Fatalf("open db (driver=%s): %v", *dbDriver, err)
+		log.Fatalf("open metadata db: %v", err)
 	}
 	defer db.Close()
 
@@ -139,7 +137,6 @@ func main() {
 
 	log.Printf("source: b2 bucket=%q endpoint=%q region=%q", src.bucket, src.endpoint, src.region)
 	log.Printf("destination: %s", store.Dir())
-	log.Printf("metadata db: driver=%s", *dbDriver)
 
 	sum, err := runMigration(ctx, db, store, &http.Client{Timeout: 0}, src, migrateOptions{
 		limit:        *limit,
@@ -300,18 +297,6 @@ func downloadObject(ctx context.Context, client *http.Client, store *storage.Loc
 		return "", fmt.Errorf("store %q: %w", key, err)
 	}
 	return resDownloaded, nil
-}
-
-// openDB opens the metadata database (sqlite or postgres) that holds the
-// files.path / files.thumbnail_path keys.
-func openDB(driver, sqlitePath string) (*sql.DB, error) {
-	switch driver {
-	case "sqlite":
-		return server.OpenSQLite(sqlitePath)
-	default:
-		return nil, fmt.Errorf("unsupported db driver %q; the metadata DB is "+
-			"SQLite-only since the Postgres retirement (use sqlite)", driver)
-	}
 }
 
 func envOr(key, dflt string) string {

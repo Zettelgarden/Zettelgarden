@@ -1,8 +1,0 @@
-CREATE TABLE IF NOT EXISTS card_chunks (
-    id SERIAL PRIMARY KEY,
-    card_pk int,
-    user_id int,
-    chunk_text text,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (card_pk) REFERENCES cards(id)
-)

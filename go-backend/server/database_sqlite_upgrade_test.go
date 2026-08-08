@@ -285,7 +285,7 @@ func TestSelfHealListMatchesSchemaDelta(t *testing.T) {
 func freshConsolidatedDB(t *testing.T) *sql.DB {
 	t.Helper()
 	db := openMemSQLite(t)
-	S := &Server{DB: db, Driver: "sqlite", SchemaDir: findSchemaSqliteDir(t)}
+	S := &Server{DB: db, SchemaDir: findSchemaSqliteDir(t)}
 	RunMigrations(S)
 	return db
 }

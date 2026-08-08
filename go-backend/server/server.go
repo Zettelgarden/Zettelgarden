@@ -19,7 +19,6 @@ type Server struct {
 	StripeKey       string
 	Mail            *mail.MailClient
 	SchemaDir       string
-	Driver          string // "postgres" (default/empty) or "sqlite"
 	LLMClient       *models.LLMClient
 	TypesenseClient *typesense.Client
 

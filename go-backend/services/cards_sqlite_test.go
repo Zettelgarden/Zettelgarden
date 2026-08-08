@@ -27,7 +27,7 @@ func loadSpikeSchema(t *testing.T) *server.Server {
 			t.Fatalf("apply spike schema statement: %v\n  statement: %s", err, stmt)
 		}
 	}
-	return &server.Server{DB: db, Driver: "sqlite"}
+	return &server.Server{DB: db}
 }
 
 // seedUser inserts a user and returns its id. The cards FK requires it.
