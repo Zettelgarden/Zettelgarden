@@ -591,6 +591,126 @@ func TestSyncPushTagMergeIdenticalNoLoss(t *testing.T) {
 	}
 }
 
+// TestSyncPushDeleteRefusedWhenChildren: the sync delete path must mirror
+// DeleteCard's guard — a card with children cannot be deleted. The push is
+// conflict-rejected and the card stays active.
+func TestSyncPushDeleteRefusedWhenChildren(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	parent := syncCardChange("c-guard-par", "syncguardparent", "Parent", 0)
+	child := syncCardChange("c-guard-chi", "syncguardparent/syncguardchild", "Child", 0)
+	pushChanges(t, s, router, []models.SyncChange{parent, child})
+
+	delData, _ := json.Marshal(models.SyncCardData{})
+	del := models.SyncChange{Collection: services.SyncCollectionCards, RowUUID: "c-guard-par", Op: services.SyncOpDelete, BaseVersion: 1, Data: delData}
+	resp := pushChanges(t, s, router, []models.SyncChange{del})
+	if resp.Results[0].Status != services.SyncStatusConflict {
+		t.Fatalf("delete with children: expected conflict, got %+v", resp.Results[0])
+	}
+
+	var isDeleted bool
+	if err := s.GetDB().QueryRow(`SELECT is_deleted FROM cards WHERE sync_uuid = 'c-guard-par'`).Scan(&isDeleted); err != nil {
+		t.Fatal(err)
+	}
+	if isDeleted {
+		t.Error("parent card must survive a refused delete")
+	}
+}
+
+// TestSyncPushDeleteRefusedWhenBacklinks: same guard for backlinks.
+func TestSyncPushDeleteRefusedWhenBacklinks(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	target := syncCardChange("c-guard-tgt", "syncguardtarget", "Target", 0)
+	source := syncCardChange("c-guard-src", "syncguardsource", "Source", 0)
+	resp := pushChanges(t, s, router, []models.SyncChange{target, source})
+	if resp.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("create cards: %+v", resp.Results[0])
+	}
+	targetID := *resp.Results[0].ServerID
+	sourceID := *resp.Results[1].ServerID
+
+	// A backlink from the source card to the target (matches GetBacklinks).
+	if _, err := s.GetDB().Exec(`INSERT INTO backlinks (source_id, target_id, source_id_int, target_id_int, created_at, updated_at) VALUES ('syncguardsource', 'syncguardtarget', $1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, sourceID, targetID); err != nil {
+		t.Fatal(err)
+	}
+
+	delData, _ := json.Marshal(models.SyncCardData{})
+	del := models.SyncChange{Collection: services.SyncCollectionCards, RowUUID: "c-guard-tgt", Op: services.SyncOpDelete, BaseVersion: 1, Data: delData}
+	respDel := pushChanges(t, s, router, []models.SyncChange{del})
+	if respDel.Results[0].Status != services.SyncStatusConflict {
+		t.Fatalf("delete with backlinks: expected conflict, got %+v", respDel.Results[0])
+	}
+
+	var isDeleted bool
+	if err := s.GetDB().QueryRow(`SELECT is_deleted FROM cards WHERE sync_uuid = 'c-guard-tgt'`).Scan(&isDeleted); err != nil {
+		t.Fatal(err)
+	}
+	if isDeleted {
+		t.Error("target card must survive a refused delete")
+	}
+}
+
+// TestSyncPushDeleteCleansFacts: deleting a normal card via push runs the same
+// fact/junction cleanup as DeleteCard.
+func TestSyncPushDeleteCleansFacts(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	create := syncCardChange("c-clean-1", "sync-cleanup", "Doomed", 0)
+	resp := pushChanges(t, s, router, []models.SyncChange{create})
+	if resp.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("create: %+v", resp.Results[0])
+	}
+	cardID := *resp.Results[0].ServerID
+
+	// Fact originating from the card + its junction + an entity junction.
+	var factID int
+	if err := s.GetDB().QueryRow(`INSERT INTO facts (card_pk, user_id, fact, created_at, updated_at) VALUES ($1, 1, 'fact', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id`, cardID).Scan(&factID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.GetDB().Exec(`INSERT INTO fact_card_junction (fact_id, card_pk, user_id, is_origin) VALUES ($1, $2, 1, TRUE)`, factID, cardID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.GetDB().Exec(`INSERT INTO entity_card_junction (user_id, entity_id, card_pk) VALUES (1, 1, $1)`, cardID); err != nil {
+		t.Fatal(err)
+	}
+
+	delData, _ := json.Marshal(models.SyncCardData{})
+	del := models.SyncChange{Collection: services.SyncCollectionCards, RowUUID: "c-clean-1", Op: services.SyncOpDelete, BaseVersion: 1, Data: delData}
+	respDel := pushChanges(t, s, router, []models.SyncChange{del})
+	if respDel.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("delete: %+v", respDel.Results[0])
+	}
+
+	var factCount, junctionCount, entityCount int
+	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM facts WHERE card_pk = $1 AND user_id = 1`, cardID).Scan(&factCount); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM fact_card_junction WHERE fact_id = $1`, factID).Scan(&junctionCount); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM entity_card_junction WHERE card_pk = $1 AND user_id = 1`, cardID).Scan(&entityCount); err != nil {
+		t.Fatal(err)
+	}
+	if factCount != 0 || junctionCount != 0 || entityCount != 0 {
+		t.Errorf("derived data survived delete: facts=%d junctions=%d entities=%d, want all 0", factCount, junctionCount, entityCount)
+	}
+
+	var isDeleted bool
+	if err := s.GetDB().QueryRow(`SELECT is_deleted FROM cards WHERE sync_uuid = 'c-clean-1'`).Scan(&isDeleted); err != nil {
+		t.Fatal(err)
+	}
+	if !isDeleted {
+		t.Error("card not soft-deleted")
+	}
+}
+
 // strPtr/intPtr are tiny helpers for pointer-typed task fields in the retry
 // tests above.
 func strPtr(s string) *string { return &s }

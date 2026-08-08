@@ -572,23 +572,13 @@ func getParentIdAlternating(cardID string) string {
 	return parentID
 }
 
-func DeleteCard(db models.Database, userID int, id int) error {
-	// Get the card before deletion for audit
-	card, err := GetFullCard(db, userID, id)
-	if err != nil {
-		return err
-	}
-
-	backlinks, _ := GetBacklinks(db, userID, card.CardID)
-	if len(backlinks) > 0 {
-		return fmt.Errorf("card has backlinks, cannot be deleted")
-	}
-	children, err := GetChildCards(db, userID, card.ID)
-	if len(children) > 0 {
-		return fmt.Errorf("card has children, cannot be deleted")
-	}
-
-	// First, get all facts that originated from this card
+// cleanupCardDerivedData removes the derived rows a card owns before it is
+// soft-deleted: facts originating from the card, their fact_card_junction
+// entries (including relationships to other cards), entity_card_junction
+// (no CASCADE), and fact_card_junction entries where this card is the target.
+// Shared by the REST delete path (DeleteCard) and the sync push path
+// (applyCardDelete) so both transports clean up identically.
+func cleanupCardDerivedData(db models.Database, userID, id int) error {
 	var factIDs []int
 	factRows, err := db.Query(`
 		SELECT id FROM facts WHERE card_pk = $1 AND user_id = $2
@@ -621,32 +611,54 @@ func DeleteCard(db models.Database, userID int, id int) error {
 	}
 
 	// Delete the facts that originated from this card
-	_, err = db.Exec(`
+	if _, err = db.Exec(`
 		DELETE FROM facts WHERE card_pk = $1 AND user_id = $2
-	`, id, userID)
-	if err != nil {
+	`, id, userID); err != nil {
 		log.Printf("Error deleting facts originated from card: %v", err)
 		return err
 	}
 
 	// Clean up entity-card relationships (entity_card_junction doesn't have CASCADE)
-	_, err = db.Exec(`
+	if _, err = db.Exec(`
 		DELETE FROM entity_card_junction
 		WHERE card_pk = $1 AND user_id = $2
-	`, id, userID)
-	if err != nil {
+	`, id, userID); err != nil {
 		log.Printf("Error deleting entity-card relationships: %v", err)
 		return err
 	}
 
 	// Clean up any remaining fact-card relationships for this specific card
 	// (facts from other cards that reference this card)
-	_, err = db.Exec(`
+	if _, err = db.Exec(`
 		DELETE FROM fact_card_junction
 		WHERE card_pk = $1 AND user_id = $2
-	`, id, userID)
-	if err != nil {
+	`, id, userID); err != nil {
 		log.Printf("Error deleting remaining fact-card relationships: %v", err)
+		return err
+	}
+	return nil
+}
+
+// DeleteCard soft-deletes a card after guarding against backlinks/children
+// and cleaning up its derived data (facts, junctions).
+func DeleteCard(db models.Database, userID int, id int) error {
+	// Get the card before deletion for audit
+	card, err := GetFullCard(db, userID, id)
+	if err != nil {
+		return err
+	}
+
+	backlinks, _ := GetBacklinks(db, userID, card.CardID)
+	if len(backlinks) > 0 {
+		return fmt.Errorf("card has backlinks, cannot be deleted")
+	}
+	children, err := GetChildCards(db, userID, card.ID)
+	if len(children) > 0 {
+		return fmt.Errorf("card has children, cannot be deleted")
+	}
+
+	// First, get all facts that originated from this card
+	if err := cleanupCardDerivedData(db, userID, id); err != nil {
 		return err
 	}
 

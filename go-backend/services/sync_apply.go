@@ -556,7 +556,8 @@ func (c *pushContext) applyCardUpsert(ch models.SyncChange) error {
 
 func (c *pushContext) applyCardDelete(ch models.SyncChange) error {
 	var id, version int
-	err := c.tx.QueryRow(`SELECT id, version FROM cards WHERE sync_uuid = $1 AND user_id = $2`, ch.RowUUID, c.userID).Scan(&id, &version)
+	var cardID string
+	err := c.tx.QueryRow(`SELECT id, version, card_id FROM cards WHERE sync_uuid = $1 AND user_id = $2`, ch.RowUUID, c.userID).Scan(&id, &version, &cardID)
 	if err == sql.ErrNoRows {
 		c.ignored(ch) // already deleted or never existed
 		return nil
@@ -567,6 +568,23 @@ func (c *pushContext) applyCardDelete(ch models.SyncChange) error {
 	}
 	if ch.BaseVersion < version {
 		c.retryOrConflict(SyncCollectionCards, ch, id, version)
+		return nil
+	}
+	// Mirror DeleteCard's guards: a card with children or backlinks cannot be
+	// deleted via the REST path either. Reject with a conflict so the client
+	// keeps its row (LWW) and can surface the refusal.
+	if children, err := GetChildCards(c.tx, c.userID, id); err == nil && len(children) > 0 {
+		c.conflict(ch, id, version, c.currentRow(SyncCollectionCards, id))
+		return nil
+	}
+	if backlinks, err := GetBacklinks(c.tx, c.userID, cardID); err == nil && len(backlinks) > 0 {
+		c.conflict(ch, id, version, c.currentRow(SyncCollectionCards, id))
+		return nil
+	}
+	// Same derived-data cleanup as DeleteCard (facts, fact_card_junction,
+	// entity_card_junction) so both transports leave identical state.
+	if err := cleanupCardDerivedData(c.tx, c.userID, id); err != nil {
+		c.ignored(ch)
 		return nil
 	}
 	newVersion := version + 1
