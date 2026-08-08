@@ -7,7 +7,7 @@ on:
     branches: [master]
 
 jobs:
-  type-check:
+  check:
     runs-on: ubuntu-latest
 
     steps:
@@ -21,6 +21,10 @@ jobs:
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
+        working-directory: ./zettelkasten-front
+
+      - name: Check formatting
+        run: npm run format:check
         working-directory: ./zettelkasten-front
 
       - name: Run TypeScript compiler

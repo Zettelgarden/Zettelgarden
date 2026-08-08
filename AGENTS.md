@@ -12,7 +12,7 @@
 - Docker workflow: export the root `.env`, then `./build.sh` or `docker-compose up --build` to recreate images and services.
 
 ## Coding Style & Naming Conventions
-- TypeScript: rely on Prettier defaults (2-space indentation, single quotes) and Tailwind utility classes; components stay `PascalCase`, hooks use the `useX` prefix.
+- TypeScript: rely on Prettier defaults (2-space indentation, single quotes) and Tailwind utility classes; components stay `PascalCase`, hooks use the `useX` prefix. Run `npm run format` (write) or `npm run format:check` (CI gate) from `zettelkasten-front/`; config lives in `.prettierrc.json` + `.prettierignore`.
 - Go: run `go fmt ./...` before committing; packages stay lowercase, request handlers use verb-based names (`HandleCreateCard`).
 - Python mailer: stick to Black-compatible formatting (4-space indentation) and descriptive function names.
 
