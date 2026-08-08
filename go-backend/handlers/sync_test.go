@@ -824,6 +824,56 @@ func pushChangesAs(t *testing.T, s *Handler, router *mux.Router, userID int, cha
 	return decodeSyncResp[models.SyncPushResponse](t, rr)
 }
 
+// TestSyncChangesFeedResetAfterPrune proves the handler side of retention: a
+// client whose since cursor predates the pruned boundary gets reset=true (and
+// must re-bootstrap); a cursor at the boundary still fetches incrementally.
+func TestSyncChangesFeedResetAfterPrune(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+	userID := 2
+	now := time.Now()
+
+	old := now.Add(-60 * 24 * time.Hour).UTC().Format("2006-01-02 15:04:05")
+	var oldIDs []int64
+	for i := 0; i < 3; i++ {
+		var id int64
+		if err := s.GetDB().QueryRow(`INSERT INTO sync_log (user_id, collection, row_uuid, op, version, created_at) VALUES ($1, 'cards', $2, 'upsert', 1, $3) RETURNING id`,
+			userID, fmt.Sprintf("c-feed-old-%d", i), old).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		oldIDs = append(oldIDs, id)
+	}
+	var recentID int64
+	if err := s.GetDB().QueryRow(`INSERT INTO sync_log (user_id, collection, row_uuid, op, version) VALUES ($1, 'cards', 'c-feed-recent', 'upsert', 1) RETURNING id`, userID).Scan(&recentID); err != nil {
+		t.Fatal(err)
+	}
+	if err := services.UpsertSyncClient(s.GetDB(), userID, "dev-a", oldIDs[len(oldIDs)-1]); err != nil {
+		t.Fatal(err)
+	}
+	pruned, err := services.PruneSyncLog(s.GetDB(), userID, now, services.SyncLogRetention)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pruned != 3 {
+		t.Fatalf("pruned = %d, want 3", pruned)
+	}
+
+	// Stale cursor (0) predates the boundary -> reset.
+	feed := decodeSyncResp[models.SyncChangesResponse](t, syncRequestAs(t, s, router, userID, "GET", "/api/sync/changes?since=0", nil))
+	if !feed.Reset {
+		t.Fatalf("stale cursor: expected reset, got %+v", feed)
+	}
+	// Cursor at the boundary (minID-1) -> normal incremental feed.
+	feed2 := decodeSyncResp[models.SyncChangesResponse](t, syncRequestAs(t, s, router, userID, "GET", "/api/sync/changes?since="+strconv.FormatInt(recentID-1, 10), nil))
+	if feed2.Reset {
+		t.Fatalf("boundary cursor: unexpected reset, got %+v", feed2)
+	}
+	if len(feed2.Rows) != 1 || feed2.Rows[0].RowUUID != "c-feed-recent" {
+		t.Errorf("boundary feed rows = %+v, want the surviving recent row", feed2.Rows)
+	}
+}
+
 // strPtr/intPtr are tiny helpers for pointer-typed task fields in the retry
 // tests above.
 func strPtr(s string) *string { return &s }

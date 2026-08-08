@@ -2,7 +2,9 @@ package services
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
+	"time"
 
 	"go-backend/models"
 	"go-backend/tests"
@@ -400,6 +402,76 @@ func TestApplySyncPushEmitFailureRollsBack(t *testing.T) {
 	}
 	if count != 0 {
 		t.Errorf("cards rows = %d, want 0 (emit failure must roll back the batch)", count)
+	}
+}
+
+// TestSyncLogPruneAndRebootstrap covers the v5b.5 retention policy: rows older
+// than the threshold are pruned only when no active client cursor trails them;
+// a device that stopped reporting no longer blocks pruning; the changes feed
+// then answers reset for a stale cursor.
+func TestSyncLogPruneAndRebootstrap(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+	db := s.Tx
+	userID := 2 // isolated from user-1 noise in the shared test DB
+	now := time.Now()
+
+	old := now.Add(-60 * 24 * time.Hour).UTC().Format("2006-01-02 15:04:05")
+	insertRow := func(rowUUID, createdAt string) int64 {
+		t.Helper()
+		var id int64
+		if err := db.QueryRow(`INSERT INTO sync_log (user_id, collection, row_uuid, op, version, created_at) VALUES ($1, 'cards', $2, 'upsert', 1, $3) RETURNING id`,
+			userID, rowUUID, createdAt).Scan(&id); err != nil {
+			t.Fatalf("insert sync_log row: %v", err)
+		}
+		return id
+	}
+
+	// Three old rows the device has consumed + one recent row (same cursor
+	// range) that must survive because it is within retention.
+	var oldIDs []int64
+	for i := 0; i < 3; i++ {
+		oldIDs = append(oldIDs, insertRow(fmt.Sprintf("c-ret-old-%d", i), old))
+	}
+	_ = insertRow("c-ret-recent", now.UTC().Format("2006-01-02 15:04:05"))
+
+	// Active device trails a high cursor; a dead device (last seen 90 days
+	// ago) trails cursor 0. Only the active device counts, so pruning uses the
+	// high cutoff — the dead device's stale cursor 0 must not block it.
+	if err := UpsertSyncClient(db, userID, "dev-a", 1<<30); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO sync_clients (user_id, device_id, cursor, last_seen_at) VALUES ($1, 'dead-dev', 0, $2)`, userID, now.Add(-90*24*time.Hour).UTC().Format("2006-01-02 15:04:05")); err != nil {
+		t.Fatal(err)
+	}
+
+	pruned, err := PruneSyncLog(db, userID, now, SyncLogRetention)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pruned != 3 {
+		t.Fatalf("pruned = %d, want 3 (old rows at/below the active cursor; dead device excluded)", pruned)
+	}
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sync_log WHERE user_id = $1 AND row_uuid = 'c-ret-recent'`, userID).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Errorf("recent row within retention was pruned (count = %d)", count)
+	}
+
+	// With no tracked clients at all, nothing is pruned.
+	if _, err := db.Exec(`DELETE FROM sync_clients WHERE user_id = $1`, userID); err != nil {
+		t.Fatal(err)
+	}
+	moreOld := insertRow("c-ret-old-4", old)
+	_ = moreOld
+	pruned2, err := PruneSyncLog(db, userID, now, SyncLogRetention)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pruned2 != 0 {
+		t.Errorf("pruned = %d, want 0 with no tracked clients", pruned2)
 	}
 }
 

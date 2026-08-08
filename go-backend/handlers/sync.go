@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"go-backend/models"
 	"go-backend/services"
@@ -153,6 +154,20 @@ func (s *Handler) ChangesRoute(w http.ResponseWriter, r *http.Request) {
 
 	db := s.GetDB()
 
+	// Retention boundary: if the client's cursor is older than the pruned
+	// sync_log range, it can no longer catch up incrementally — answer with
+	// reset so it re-bootstraps (snapshot). minID is the first remaining row;
+	// the client is fine when since >= minID-1 (nothing pruned between).
+	var minID sql.NullInt64
+	if err := db.QueryRow(`SELECT MIN(id) FROM sync_log WHERE user_id = $1`, userID).Scan(&minID); err != nil {
+		http.Error(w, "unable to read changes", http.StatusInternalServerError)
+		return
+	}
+	if minID.Valid && since < minID.Int64-1 {
+		writeJSON(w, http.StatusOK, models.SyncChangesResponse{Cursor: since, Reset: true})
+		return
+	}
+
 	// Build the WHERE clause. When all three collections are requested (the
 	// default) no IN filter is needed; otherwise constrain to the requested set.
 	query := `SELECT id, collection, row_uuid, op, version FROM sync_log WHERE user_id = $1 AND id > $2`
@@ -290,6 +305,19 @@ func (s *Handler) PushRoute(w http.ResponseWriter, r *http.Request) {
 		log.Printf("sync push apply: %v", err)
 		http.Error(w, "unable to apply push", http.StatusInternalServerError)
 		return
+	}
+	// Retention heartbeat + opportunistic prune, inside the same tx so the
+	// reported cursor is never ahead of the applied batch.
+	if req.Cursor != nil {
+		if err := services.UpsertSyncClient(tx, userID, req.DeviceID, *req.Cursor); err != nil {
+			tx.Rollback()
+			log.Printf("sync push heartbeat: %v", err)
+			http.Error(w, "unable to record sync cursor", http.StatusInternalServerError)
+			return
+		}
+	}
+	if _, err := services.PruneSyncLog(tx, userID, time.Now(), services.SyncLogRetention); err != nil {
+		log.Printf("sync push prune: %v", err)
 	}
 	if s.ShouldCommitTx() {
 		if err := tx.Commit(); err != nil {

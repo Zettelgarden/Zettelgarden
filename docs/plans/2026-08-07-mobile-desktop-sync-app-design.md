@@ -222,10 +222,17 @@ scope is pinned to exactly five tables — `cards`, `tasks`, `tags`, `card_tags`
 1. **`sync_log` table** — `(id PK AUTOINCREMENT, user_id, collection, row_uuid,
    op, version, created_at)`. Every server-side mutation writes a row in the
    **same transaction**. This is the changes feed; the cursor is the max `id`
-   the client has seen. The log is **append-only**: it must never be pruned
-   while any client cursor trails it (retention = keep rows ≥ N days past the
-   oldest active cursor, else force that client to re-bootstrap via the
-   snapshot endpoint, item 3).
+   the client has seen. The log is **append-only but retained** (v5b.5):
+   rows are pruned only when they are BOTH older than the retention window
+   (30 days) AND at or below the oldest cursor any **active** client trails —
+   a device that has pushed within the window (clients report their cursor on
+   every push via the `sync_clients` heartbeat). A device that stopped
+   reporting no longer blocks pruning; when it returns with a stale cursor
+   the changes feed answers `reset=true` and the client **re-bootstraps via
+   the snapshot endpoint** (item 3) instead of an impossible incremental
+   catch-up. Read-only clients that never push are untracked and may be
+   forced to re-bootstrap after pruning — accepted for the v1 thin-client
+   scope.
 2. **Write-path audit + centralized change capture.** The real cost is
    inserting transactional `sync_log` writes into **every existing write path**
    for the five pinned tables. The audit (done 2026-08-08) found the junction

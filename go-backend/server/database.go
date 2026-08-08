@@ -230,6 +230,17 @@ func ensureSQLiteSchemaUpgrades(db *sql.DB) error {
 			return fmt.Errorf("create idx_users_oidc_sub: %w", err)
 		}
 	}
+	// sync_clients heartbeat table (v5b.5): needed by sync_log retention. Fresh
+	// builds carry it in the consolidated schema; existing DBs get it here.
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS sync_clients (
+		user_id INTEGER NOT NULL,
+		device_id TEXT NOT NULL,
+		cursor INTEGER NOT NULL DEFAULT 0,
+		last_seen_at DATETIME NOT NULL,
+		PRIMARY KEY (user_id, device_id)
+	)`); err != nil {
+		return fmt.Errorf("create sync_clients: %w", err)
+	}
 	// One email = one account (Zettelgarden-rbr): unique index on users.email.
 	// Guarded so a pre-existing DB that already carries duplicates (produced by
 	// the old check-then-insert signup race) does not crash boot: warn loudly

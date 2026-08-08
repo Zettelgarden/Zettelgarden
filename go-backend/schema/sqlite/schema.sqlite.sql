@@ -1091,6 +1091,17 @@ CREATE TABLE sync_log (
 
 CREATE INDEX IF NOT EXISTS idx_sync_log_user_id ON sync_log (user_id, id);
 
+-- sync_clients: per-device heartbeat for sync_log retention (v5b.5). Each
+-- push reports the device's last-known local cursor; pruning never removes
+-- rows any live client cursor trails.
+CREATE TABLE sync_clients (
+  user_id INTEGER NOT NULL,
+  device_id TEXT NOT NULL,
+  cursor INTEGER NOT NULL DEFAULT 0,
+  last_seen_at DATETIME NOT NULL,
+  PRIMARY KEY (user_id, device_id)
+);
+
 -- Sync identity uniqueness: sync_uuid is the immutable per-row identity used
 -- by the sync engine (cards' id/card_id are both unsafe: id is server-assigned,
 -- card_id is user-editable). Partial indexes so NULL (pre-backfill legacy rows

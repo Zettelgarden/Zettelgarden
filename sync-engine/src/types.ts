@@ -71,6 +71,8 @@ export interface ChangesResponse {
   cursor: number;
   rows: ServerRow[];
   hasMore: boolean;
+  /** True when `since` predates the pruned sync_log boundary: the engine must re-bootstrap (v5b.5). */
+  reset?: boolean;
 }
 
 export interface PushRequest {
@@ -82,6 +84,8 @@ export interface PushRequest {
     data?: Record<string, unknown>;
   }>;
   device_id: string;
+  /** Client's last-known local cursor (retention heartbeat; v5b.5). */
+  cursor?: number;
 }
 
 /** Transport abstraction over the Phase 0b sync API. */

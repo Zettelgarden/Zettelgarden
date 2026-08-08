@@ -329,6 +329,37 @@ describe('SyncEngine', () => {
     }
   });
 
+  it('re-bootstraps when the server reports a reset (pruned feed)', async () => {
+    const server = new MockServer();
+    server.seed('cards', 'c1', cardData('v1'));
+    const { engine, storage } = makeEngine(server, 'dev-a');
+    await engine.bootstrap();
+    expect(storage.getRow('cards', 'c1')!.data.title).toBe('v1');
+
+    // The server pruned sync_log past our cursor and adds a row that only
+    // exists in the snapshot: the next changes() answers reset, and the
+    // engine must re-bootstrap instead of applying an impossible delta.
+    server.seed('cards', 'c2', cardData('remote add'));
+    let resetSent = false;
+    const resettingTransport = {
+      snapshot: (c: Collection[]) => server.snapshot(c),
+      changes: async (since: number) => {
+        if (!resetSent) {
+          resetSent = true;
+          return { cursor: since, rows: [], hasMore: false, reset: true };
+        }
+        return server.changes(since);
+      },
+      push: (req) => server.push(req),
+    };
+    const e2 = new SyncEngine({ storage, transport: resettingTransport, deviceId: 'dev-a' });
+    const summary = await e2.sync();
+    expect(summary.cursor).toBeGreaterThanOrEqual(storage.getCursor());
+    // Re-bootstrapped: c2 (only present in the snapshot) is now mirrored.
+    expect(storage.getRow('cards', 'c2')).toBeDefined();
+    expect(storage.getRow('cards', 'c1')).toBeDefined();
+  });
+
   it('progress events fire with pendingChanges and lastSynced', async () => {
     const server = new MockServer();
     const { engine, storage } = makeEngine(server, 'dev-a');

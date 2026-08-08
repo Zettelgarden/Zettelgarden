@@ -31,11 +31,14 @@ type SyncSnapshotResponse struct {
 	Collections map[string][]SyncRow `json:"collections"`
 }
 
-// SyncChangesResponse is an incremental feed page.
+// SyncChangesResponse is an incremental feed page. Reset is set when the
+// client's since cursor is older than the pruned sync_log boundary: the client
+// can no longer incrementally catch up and must re-bootstrap (snapshot).
 type SyncChangesResponse struct {
 	Cursor  int64     `json:"cursor"`
 	Rows    []SyncRow `json:"rows"`
 	HasMore bool      `json:"has_more"`
+	Reset   bool      `json:"reset,omitempty"`
 }
 
 // SyncChange is one item in a push batch. RowUUID is the idempotency key
@@ -49,10 +52,13 @@ type SyncChange struct {
 	Data        json.RawMessage `json:"data"`
 }
 
-// SyncPushRequest is the push batch body.
+// SyncPushRequest is the push batch body. Cursor is the client's last-known
+// local sync cursor (heartbeat for retention pruning); nil when the client
+// does not report one.
 type SyncPushRequest struct {
 	Changes  []SyncChange `json:"changes"`
 	DeviceID string       `json:"device_id"`
+	Cursor   *int64       `json:"cursor,omitempty"`
 }
 
 // SyncPushResult reports the server's disposition of one pushed change.

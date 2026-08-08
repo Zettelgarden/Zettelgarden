@@ -196,6 +196,13 @@ export class SyncEngine {
     let applied = 0;
     for (;;) {
       const page: ChangesResponse = await this.transport.changes(cursor);
+      // The server pruned sync_log past our cursor: incremental catch-up is
+      // impossible, so re-bootstrap from the snapshot (v5b.5). Pending outbox
+      // entries survive and are pushed right after.
+      if (page.reset) {
+        await this.bootstrap();
+        return { applied: 0 };
+      }
       this.storage.transaction(() => {
         for (const entry of page.rows) {
           const collection = entry.collection ?? inferCollection(entry.data);
@@ -242,6 +249,9 @@ export class SyncEngine {
         data: e.data,
       })),
       device_id: this.deviceId,
+      // Retention heartbeat: report where this client's cursor is so the
+      // server never prunes rows this device still needs (v5b.5).
+      cursor: this.storage.getCursor(),
     });
 
     this.storage.transaction(() => {
