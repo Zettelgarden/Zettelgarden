@@ -1,21 +1,21 @@
-import "@testing-library/jest-dom";
-import { afterAll, afterEach, beforeAll, vi } from "vitest";
-import { act } from "@testing-library/react";
-import DOMPurify from "dompurify";
+import '@testing-library/jest-dom';
+import { afterAll, afterEach, beforeAll, vi } from 'vitest';
+import { act } from '@testing-library/react';
+import DOMPurify from 'dompurify';
 import {
   defaultFetchMock,
   mockEndpoint,
   resetMockEndpoints,
-} from "./fetchMock";
+} from './fetchMock';
 
 // Suppress known happy-dom bug: DOMParser triggers an unhandled rejection
 // from HTMLIFrameElement internals ("Cannot read properties of null (reading 'console')")
 // See: https://github.com/nicedoc/html-encoding-sniffer/issues/1
-process.on("unhandledRejection", (reason) => {
+process.on('unhandledRejection', (reason) => {
   if (
     reason instanceof TypeError &&
     reason.message.includes("reading 'console'") &&
-    reason.stack?.includes("HTMLIFrameElement")
+    reason.stack?.includes('HTMLIFrameElement')
   ) {
     return;
   }
@@ -23,11 +23,14 @@ process.on("unhandledRejection", (reason) => {
 });
 
 // Initialize DOMPurify with the test environment's window
-if (typeof window !== "undefined") {
-  DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
+if (typeof window !== 'undefined') {
+  DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
     // Additional security hook for attributes
-    if (data.attrName === "href" && data.attrValue?.toLowerCase().startsWith("javascript:")) {
-      data.attrValue = "";
+    if (
+      data.attrName === 'href' &&
+      data.attrValue?.toLowerCase().startsWith('javascript:')
+    ) {
+      data.attrValue = '';
     }
   });
 }
@@ -44,9 +47,9 @@ const originalFetch = globalThis.fetch;
 
 beforeAll(() => {
   // Defaults for the shared provider stack mounted by renderWithProviders.
-  mockEndpoint("/task-statuses", []);
-  mockEndpoint("/tags", []);
-  mockEndpoint("/tasks?", { tasks: [], total: 0, limit: 100, offset: 0 });
+  mockEndpoint('/task-statuses', []);
+  mockEndpoint('/tags', []);
+  mockEndpoint('/tasks?', { tasks: [], total: 0, limit: 100, offset: 0 });
 
   globalThis.fetch = vi.fn(defaultFetchMock) as unknown as typeof fetch;
 });

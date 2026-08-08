@@ -39,7 +39,7 @@ const handlers: EndpointHandler[] = [];
 export function mockEndpoint(
   pattern: string | RegExp,
   data: unknown,
-  status = 200
+  status = 200,
 ): void {
   handlers.push({
     pattern,
@@ -52,7 +52,7 @@ export function mockEndpoint(
  */
 export function mockEndpointWith(
   pattern: string | RegExp,
-  respond: (url: string) => MockResponse
+  respond: (url: string) => MockResponse,
 ): void {
   handlers.push({ pattern, respond });
 }
@@ -75,13 +75,15 @@ function urlMatches(pattern: string | RegExp, url: string): boolean {
  * - Otherwise FAILS LOUDLY: tests that forget to mock an endpoint the
  *   component actually hits get a clear error instead of fake success.
  */
-export async function defaultFetchMock(input: RequestInfo | URL): Promise<Response> {
+export async function defaultFetchMock(
+  input: RequestInfo | URL,
+): Promise<Response> {
   const url: string =
     typeof input === 'string'
       ? input
       : typeof input?.toString === 'function'
-        ? input.toString()
-        : '';
+      ? input.toString()
+      : '';
 
   const handler = handlers.find((h) => urlMatches(h.pattern, url));
 
@@ -92,7 +94,7 @@ export async function defaultFetchMock(input: RequestInfo | URL): Promise<Respon
   throw new Error(
     `[test-fetch-mock] No mock registered for URL: ${url}. ` +
       `Register an endpoint with mockEndpoint(pattern, data) in your test, ` +
-      `or add an explicit handler in src/tests/setup.ts.`
+      `or add an explicit handler in src/tests/setup.ts.`,
   );
 }
 

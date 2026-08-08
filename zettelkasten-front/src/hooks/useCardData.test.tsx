@@ -117,10 +117,30 @@ describe('useCardData', () => {
     vi.mocked(getCardTags).mockResolvedValue([{ id: 1, name: 'tag' }]);
     vi.mocked(getCardTasks).mockResolvedValue([{ id: 1 }]);
     vi.mocked(getCardEntities).mockResolvedValue([
-      { id: 1, user_id: 1, name: 'E', description: '', type: 'concept', created_at: new Date(), updated_at: new Date(), card_count: 0, card_pk: null },
+      {
+        id: 1,
+        user_id: 1,
+        name: 'E',
+        description: '',
+        type: 'concept',
+        created_at: new Date(),
+        updated_at: new Date(),
+        card_count: 0,
+        card_pk: null,
+      },
     ]);
     vi.mocked(getLinkedEntitiesByCardPK).mockResolvedValue([
-      { id: 2, user_id: 1, name: 'Linked', description: '', type: 'concept', created_at: new Date(), updated_at: new Date(), card_count: 0, card_pk: null },
+      {
+        id: 2,
+        user_id: 1,
+        name: 'Linked',
+        description: '',
+        type: 'concept',
+        created_at: new Date(),
+        updated_at: new Date(),
+        card_count: 0,
+        card_pk: null,
+      },
     ]);
     vi.mocked(fetchSummariesForCard).mockResolvedValue([]);
 

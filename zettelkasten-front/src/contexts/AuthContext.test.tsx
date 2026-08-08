@@ -155,7 +155,12 @@ describe('AuthContext', () => {
     const auth = renderAuth();
 
     const state = await auth.waitForState(
-      (s) => s.isAuthenticated && s.isAdmin && s.hasSubscription && s.username === 'tester' && !s.isLoading
+      (s) =>
+        s.isAuthenticated &&
+        s.isAdmin &&
+        s.hasSubscription &&
+        s.username === 'tester' &&
+        !s.isLoading,
     );
     expect(checkAdmin).toHaveBeenCalled();
     expect(getCurrentUser).toHaveBeenCalled();
@@ -170,7 +175,9 @@ describe('AuthContext', () => {
 
     const auth = renderAuth();
 
-    const state = await auth.waitForState((s) => s.isAuthenticated && s.hasSubscription && !s.isLoading);
+    const state = await auth.waitForState(
+      (s) => s.isAuthenticated && s.hasSubscription && !s.isLoading,
+    );
     expect(state.hasSubscription).toBe(true);
   });
 
