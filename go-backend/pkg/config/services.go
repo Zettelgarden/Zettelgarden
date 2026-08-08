@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
+	"strings"
 )
 
 // ServiceConfig holds configuration for all external services
@@ -26,10 +28,19 @@ type LLMConfig struct {
 	ChunkingEnabled bool   // Enable chunking/embeddings feature
 }
 
-// MailConfig holds email service configuration
+// MailConfig holds SMTP configuration for transactional email. Mail is
+// optional for self-hosters (6er.6): when SMTP_HOST is empty (or
+// MAIL_ENABLED=false is set explicitly) the SMTP_* values are not required
+// and the mail client is disabled at boot. When a host is configured,
+// SMTP_HOST + SMTP_FROM are required; SMTP_USERNAME/PASSWORD may be empty
+// for local relays without authentication.
 type MailConfig struct {
-	Host     string // Mail server hostname
-	Password string // Mail server password (sensitive)
+	SMTPHost     string // SMTP server hostname
+	SMTPPort     int    // SMTP server port (default 587)
+	SMTPUsername string // SMTP username (optional for local relays)
+	SMTPPassword string // SMTP password (optional for local relays; sensitive)
+	SMTPFrom     string // From/sender address
+	StartTLS     bool   // Use STARTTLS on the SMTP port (default true)
 }
 
 // StripeConfig holds payment processing configuration. Enabled defaults to
@@ -117,26 +128,56 @@ func loadLLMConfig() LLMConfig {
 }
 
 // loadMailConfig loads mail service configuration. Mail is optional for
-// self-hosters without SMTP (6er.6): when MAIL_HOST is empty (or
-// MAIL_ENABLED=false is set explicitly) the MAIL_* values are not required
-// and the mail client is disabled at boot. When a mail host is configured
-// (MAIL_ENABLED unset), MAIL_HOST + MAIL_PASSWORD are required — the same
+// self-hosters without SMTP (6er.6): when SMTP_HOST is empty (or
+// MAIL_ENABLED=false is set explicitly) the SMTP_* values are not required
+// and the mail client is disabled at boot. When a host is configured
+// (MAIL_ENABLED unset), SMTP_HOST + SMTP_FROM are required — the same
 // opt-in/opt-out shape as the OIDC and STRIPE configs.
 func loadMailConfig() MailConfig {
 	enabled := true
 	if v := os.Getenv("MAIL_ENABLED"); v != "" {
 		enabled = requireBool("MAIL_ENABLED")
-	} else if os.Getenv("MAIL_HOST") == "" {
+	} else if os.Getenv("SMTP_HOST") == "" {
 		enabled = false
 	}
 
 	config := MailConfig{
-		Host:     optionalString("MAIL_HOST"),
-		Password: optionalString("MAIL_PASSWORD"),
+		SMTPHost:     optionalString("SMTP_HOST"),
+		SMTPPort:     587,
+		SMTPUsername: optionalString("SMTP_USERNAME"),
+		SMTPPassword: optionalString("SMTP_PASSWORD"),
+		SMTPFrom:     optionalString("SMTP_FROM"),
+		StartTLS:     true,
 	}
+
+	// SMTP_PORT is optional (defaults to 587); when set it must parse as a
+	// positive integer.
+	if v := os.Getenv("SMTP_PORT"); v != "" {
+		port, err := strconv.Atoi(v)
+		if err != nil || port <= 0 {
+			validationErrors = append(validationErrors,
+				fmt.Sprintf("invalid SMTP_PORT value %q (must be a positive integer)", v))
+		} else {
+			config.SMTPPort = port
+		}
+	}
+
+	// SMTP_STARTTLS is optional (defaults to true, matching the retired
+	// python-mail service's MAIL_USE_TLS=True); SMTP_STARTTLS=false allows
+	// plaintext local relays without TLS.
+	if v := os.Getenv("SMTP_STARTTLS"); v != "" {
+		config.StartTLS = requireBool("SMTP_STARTTLS")
+	}
+
+	// SMTP_FROM, when set, must look like an email address.
+	if config.SMTPFrom != "" && !strings.Contains(config.SMTPFrom, "@") {
+		validationErrors = append(validationErrors,
+			fmt.Sprintf("SMTP_FROM must be an email address containing '@', got %q", config.SMTPFrom))
+	}
+
 	if enabled {
-		requireString("MAIL_HOST")
-		requireString("MAIL_PASSWORD")
+		requireString("SMTP_HOST")
+		requireString("SMTP_FROM")
 	}
 	return config
 }

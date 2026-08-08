@@ -45,6 +45,6 @@ func TestSettingsRouteReturnsPublicKeys(t *testing.T) {
 		t.Errorf("signups_enabled = %q, want true", resp["signups_enabled"])
 	}
 	if resp["mail_enabled"] != "true" {
-		t.Errorf("mail_enabled = %q, want true (MAIL_HOST set in tests)", resp["mail_enabled"])
+		t.Errorf("mail_enabled = %q, want true (SMTP_HOST set in tests)", resp["mail_enabled"])
 	}
 }

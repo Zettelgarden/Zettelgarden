@@ -1,0 +1,10 @@
+# Zettelgarden admin settings.
+# Managed via the admin UI; edit by hand at your own risk.
+# Env vars seed these on first boot; this file is the source of truth afterwards.
+admin_email: "nick@nicksavage.ca"
+site_name: "Zettelgarden"
+signups_enabled: "true"
+oidc_auto_provision: "true"
+mail_enabled: "true"
+email_auto_validate: "true"
+support_email: ""

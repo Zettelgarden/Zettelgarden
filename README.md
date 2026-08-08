@@ -107,10 +107,10 @@ Built with modern, scalable technologies optimized for both performance and AI c
 - **Security**: TLS/SSL, input validation, SQL injection protection
 - **Backup**: Online SQLite snapshots via `VACUUM INTO` (see the [backup runbook](docs/runbooks/sqlite-backup.md))
 
-### Mail Service (`python-mail`)
-- **Framework**: Flask for lightweight SMTP service
+### Transactional Email (direct SMTP, optional)
+- **Delivery**: The Go backend sends transactional email directly over SMTP (password resets, reminders, notifications) — no separate mail service.
 - **Purpose**: User notifications, password resets, subscription management
-- **Integration**: RESTful API for backend communication
+- **Optional**: Without SMTP configured the instance boots mail-disabled and send attempts are no-ops (see the Mail section of `.env.example`).
 
 ## Getting Started
 

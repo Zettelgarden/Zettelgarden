@@ -154,6 +154,8 @@ CREATE TABLE cards (
   card_schema_id INTEGER,
   structured_data TEXT,
   created_by_agent_id INTEGER,
+  version INTEGER DEFAULT 1,
+  sync_uuid TEXT,
   FOREIGN KEY (card_schema_id) REFERENCES schema_definitions(id),
   FOREIGN KEY (created_by_agent_id) REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -794,7 +796,9 @@ CREATE TABLE tags (
   user_id INTEGER,
   is_deleted BOOLEAN DEFAULT false,
   created_at DATETIME,
-  updated_at DATETIME
+  updated_at DATETIME,
+  version INTEGER DEFAULT 1,
+  sync_uuid TEXT
 );
 
 CREATE TABLE task_dependencies (
@@ -851,6 +855,8 @@ CREATE TABLE tasks (
   external_calendar_id INTEGER,
   parent_task_id INTEGER,
   sort_order INTEGER,
+  version INTEGER DEFAULT 1,
+  sync_uuid TEXT,
   FOREIGN KEY (external_calendar_id) REFERENCES external_calendars(id) ON DELETE SET NULL,
   FOREIGN KEY (parent_task_id) REFERENCES tasks(id) ON DELETE CASCADE
 );
@@ -1093,3 +1099,28 @@ CREATE TABLE IF NOT EXISTS task_saved_searches (
 );
 
 CREATE INDEX IF NOT EXISTS task_saved_searches_user_id_idx ON task_saved_searches (user_id);
+
+-- sync_log: append-only change feed for the local-first sync engine (epic
+-- Zettelgarden-v5b, Phase 0a). Every mutation on the synced tables (cards,
+-- tasks, tags) writes one row here in the same transaction as the mutation;
+-- the sync API (Phase 0b) serves it as the incremental changes feed. The log
+-- must never be pruned while any client cursor trails it.
+CREATE TABLE sync_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  collection TEXT NOT NULL,
+  row_uuid TEXT NOT NULL,
+  op TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  created_at DATETIME DEFAULT (datetime('now')) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_sync_log_user_id ON sync_log (user_id, id);
+
+-- Sync identity uniqueness: sync_uuid is the immutable per-row identity used
+-- by the sync engine (cards' id/card_id are both unsafe: id is server-assigned,
+-- card_id is user-editable). Partial indexes so NULL (pre-backfill legacy rows
+-- or test fixtures) is allowed; the Phase 0a self-heal backfills NULLs at boot.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cards_sync_uuid ON cards (sync_uuid) WHERE sync_uuid IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_sync_uuid ON tasks (sync_uuid) WHERE sync_uuid IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_sync_uuid ON tags (sync_uuid) WHERE sync_uuid IS NOT NULL;

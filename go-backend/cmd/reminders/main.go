@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"os"
 
 	"go-backend/bootstrap"
 	"go-backend/mail"
@@ -17,10 +16,14 @@ func main() {
 	s := bootstrap.InitServer(cfg.Database)
 
 	s.Mail = &mail.MailClient{
-		Host:     os.Getenv("MAIL_HOST"),
-		Password: os.Getenv("MAIL_PASSWORD"),
-		Queue:    mail.NewEmailQueue(),
-		DB:       s.DB,
+		SMTPHost:     cfg.Services.Mail.SMTPHost,
+		SMTPPort:     cfg.Services.Mail.SMTPPort,
+		SMTPUsername: cfg.Services.Mail.SMTPUsername,
+		SMTPPassword: cfg.Services.Mail.SMTPPassword,
+		SMTPFrom:     cfg.Services.Mail.SMTPFrom,
+		StartTLS:     cfg.Services.Mail.StartTLS,
+		Queue:        mail.NewEmailQueue(),
+		DB:           s.DB,
 	}
 
 	log.Println("Running scheduled reminder check...")
