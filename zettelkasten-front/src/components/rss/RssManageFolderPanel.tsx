@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { RSSFolder, RSSFeed, UnreadCounts } from "../../api/rss";
+import React, { useState } from 'react';
+import { RSSFolder, RSSFeed, UnreadCounts } from '../../api/rss';
 
 interface RssManageFolderPanelProps {
   folders: RSSFolder[];
@@ -25,19 +25,25 @@ export function RssManageFolderPanel({
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingFolder, setEditingFolder] = useState<RSSFolder | null>(null);
   const [deletingFolder, setDeletingFolder] = useState<RSSFolder | null>(null);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [renameValue, setRenameValue] = useState("");
+  const [newFolderName, setNewFolderName] = useState('');
+  const [renameValue, setRenameValue] = useState('');
 
   const getFeedCountForFolder = (folderName: string | null) => {
-    return feeds.filter(f => f.folder === folderName).length;
+    return feeds.filter((f) => f.folder === folderName).length;
   };
 
   const getUnreadCountForFolder = (folderName: string | null) => {
     if (folderName === null) {
-      return Object.values(unreadCounts.feeds).reduce((sum, count) => sum + count, 0);
+      return Object.values(unreadCounts.feeds).reduce(
+        (sum, count) => sum + count,
+        0,
+      );
     }
-    const folderFeeds = feeds.filter(f => f.folder === folderName);
-    return folderFeeds.reduce((sum, feed) => sum + (unreadCounts.feeds[feed.id] || 0), 0);
+    const folderFeeds = feeds.filter((f) => f.folder === folderName);
+    return folderFeeds.reduce(
+      (sum, feed) => sum + (unreadCounts.feeds[feed.id] || 0),
+      0,
+    );
   };
 
   const handleCreateFolder = async (e: React.FormEvent) => {
@@ -45,10 +51,10 @@ export function RssManageFolderPanel({
     if (!newFolderName.trim()) return;
     try {
       await onCreateFolder(newFolderName.trim());
-      setNewFolderName("");
+      setNewFolderName('');
       setShowCreateDialog(false);
     } catch (error) {
-      console.error("Failed to create folder:", error);
+      console.error('Failed to create folder:', error);
     }
   };
 
@@ -58,16 +64,18 @@ export function RssManageFolderPanel({
     try {
       await onRenameFolder(editingFolder.id, renameValue.trim());
       setEditingFolder(null);
-      setRenameValue("");
+      setRenameValue('');
     } catch (error) {
-      console.error("Failed to rename folder:", error);
+      console.error('Failed to rename folder:', error);
     }
   };
 
   const handleDeleteFolder = async (folder: RSSFolder) => {
     const feedCount = getFeedCountForFolder(folder.name);
     if (feedCount > 0) {
-      const move = confirm(`Folder "${folder.name}" contains ${feedCount} feed(s). Click OK to move them to Uncategorized, or Cancel to delete all feeds in this folder.`);
+      const move = confirm(
+        `Folder "${folder.name}" contains ${feedCount} feed(s). Click OK to move them to Uncategorized, or Cancel to delete all feeds in this folder.`,
+      );
       if (move) {
         // Just delete folder - feeds will become uncategorized automatically
         await onDeleteFolder(folder.id);
@@ -87,15 +95,17 @@ export function RssManageFolderPanel({
   return (
     <div className="w-64 bg-white border-r border-gray-200 overflow-y-auto">
       <div className="p-4">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Folders</h2>
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+          Folders
+        </h2>
 
         {/* All Feeds */}
         <button
           onClick={() => onSelectFolder(null)}
           className={`w-full text-left px-3 py-2 rounded-md mb-2 transition-colors flex items-center justify-between ${
             selectedFolder === null
-              ? "bg-blue-100 text-blue-900"
-              : "hover:bg-gray-100"
+              ? 'bg-blue-100 text-blue-900'
+              : 'hover:bg-gray-100'
           }`}
         >
           <span className="font-medium">All Feeds</span>
@@ -103,7 +113,7 @@ export function RssManageFolderPanel({
             <span className="text-sm text-gray-500">{feeds.length}</span>
             {totalUnread > 0 && (
               <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
-                {totalUnread > 99 ? "99+" : totalUnread}
+                {totalUnread > 99 ? '99+' : totalUnread}
               </span>
             )}
           </div>
@@ -120,7 +130,7 @@ export function RssManageFolderPanel({
               <div
                 key={folder.id}
                 className={`group flex items-center px-3 py-2 rounded-md transition-colors ${
-                  isSelected ? "bg-blue-100 text-blue-900" : "hover:bg-gray-100"
+                  isSelected ? 'bg-blue-100 text-blue-900' : 'hover:bg-gray-100'
                 }`}
               >
                 <button
@@ -132,7 +142,7 @@ export function RssManageFolderPanel({
                     <span className="text-sm text-gray-500">{feedCount}</span>
                     {unreadCount > 0 && (
                       <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
-                        {unreadCount > 99 ? "99+" : unreadCount}
+                        {unreadCount > 99 ? '99+' : unreadCount}
                       </span>
                     )}
                   </div>
@@ -146,8 +156,18 @@ export function RssManageFolderPanel({
                     className="p-1 text-gray-400 hover:text-blue-600"
                     title="Rename folder"
                   >
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
                     </svg>
                   </button>
                   <button
@@ -155,8 +175,18 @@ export function RssManageFolderPanel({
                     className="p-1 text-gray-400 hover:text-red-600"
                     title="Delete folder"
                   >
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
                     </svg>
                   </button>
                 </div>
@@ -172,7 +202,11 @@ export function RssManageFolderPanel({
             className="w-full mt-3 text-left px-3 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors flex items-center gap-2"
           >
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+              <path
+                fillRule="evenodd"
+                d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                clipRule="evenodd"
+              />
             </svg>
             Create Folder
           </button>
@@ -198,7 +232,7 @@ export function RssManageFolderPanel({
                 type="button"
                 onClick={() => {
                   setShowCreateDialog(false);
-                  setNewFolderName("");
+                  setNewFolderName('');
                 }}
                 className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded-md hover:bg-gray-300"
               >
@@ -227,7 +261,7 @@ export function RssManageFolderPanel({
                   type="button"
                   onClick={() => {
                     setEditingFolder(null);
-                    setRenameValue("");
+                    setRenameValue('');
                   }}
                   className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
                 >
@@ -253,7 +287,11 @@ export function RssManageFolderPanel({
             <p className="text-gray-600 mb-4">
               Are you sure you want to delete folder "{deletingFolder.name}"?
               {getFeedCountForFolder(deletingFolder.name) > 0 && (
-                <> It contains {getFeedCountForFolder(deletingFolder.name)} feed(s).</>
+                <>
+                  {' '}
+                  It contains {getFeedCountForFolder(deletingFolder.name)}{' '}
+                  feed(s).
+                </>
               )}
             </p>
             <div className="flex justify-end gap-2">

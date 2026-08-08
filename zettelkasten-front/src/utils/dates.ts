@@ -1,13 +1,23 @@
-import { Task } from "src/models/Task";
-import { toZonedTime, fromZonedTime } from "date-fns-tz";
+import { Task } from 'src/models/Task';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 
-export function getToday(timezone: string = "UTC"): Date {
+export function getToday(timezone: string = 'UTC'): Date {
   // Get current time
   const now = new Date();
 
-  if (timezone === "UTC") {
+  if (timezone === 'UTC') {
     // For UTC, return midnight UTC of the current UTC date
-    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    return new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        0,
+        0,
+        0,
+        0,
+      ),
+    );
   }
 
   // For other timezones, convert to the user's timezone to get today's date components
@@ -22,48 +32,63 @@ export function getToday(timezone: string = "UTC"): Date {
   return new Date(Date.UTC(year, month, date, 0, 0, 0, 0));
 }
 
-export function getTomorrow(timezone: string = "UTC"): Date {
+export function getTomorrow(timezone: string = 'UTC'): Date {
   const today = getToday(timezone);
-  return new Date(Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate() + 1,
-    0, 0, 0, 0
-  ));
+  return new Date(
+    Date.UTC(
+      today.getUTCFullYear(),
+      today.getUTCMonth(),
+      today.getUTCDate() + 1,
+      0,
+      0,
+      0,
+      0,
+    ),
+  );
 }
 
-export function getYesterday(timezone: string = "UTC"): Date {
+export function getYesterday(timezone: string = 'UTC'): Date {
   const today = getToday(timezone);
-  return new Date(Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate() - 1,
-    0, 0, 0, 0
-  ));
+  return new Date(
+    Date.UTC(
+      today.getUTCFullYear(),
+      today.getUTCMonth(),
+      today.getUTCDate() - 1,
+      0,
+      0,
+      0,
+      0,
+    ),
+  );
 }
 
-export function getNextWeek(timezone: string = "UTC"): Date {
+export function getNextWeek(timezone: string = 'UTC'): Date {
   const today = getToday(timezone);
-  return new Date(Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate() + 7,
-    0, 0, 0, 0
-  ));
+  return new Date(
+    Date.UTC(
+      today.getUTCFullYear(),
+      today.getUTCMonth(),
+      today.getUTCDate() + 7,
+      0,
+      0,
+      0,
+      0,
+    ),
+  );
 }
 
-export function isFriday(timezone: string = "UTC"): boolean {
+export function isFriday(timezone: string = 'UTC'): boolean {
   const today = getToday(timezone);
   const dayInTimezone = toZonedTime(today, timezone);
   return dayInTimezone.getDay() === 5; // 5 = Friday (0 = Sunday)
 }
 
-export function getNextMonday(timezone: string = "UTC"): Date {
+export function getNextMonday(timezone: string = 'UTC'): Date {
   const today = getToday(timezone);
   // Convert to user's timezone to calculate properly
   const todayInTz = toZonedTime(today, timezone);
   const day = todayInTz.getDay();
-  const diff = todayInTz.getDate() + (8 - day) % 7;
+  const diff = todayInTz.getDate() + ((8 - day) % 7);
   const nextMondayInTz = new Date(todayInTz);
   nextMondayInTz.setDate(diff);
   // Convert back to UTC Date object
@@ -85,7 +110,11 @@ export function compareDates(date1: Date | null, date2: Date | null): boolean {
  * Compare two dates to see if they represent the same day in a specific timezone.
  * This is timezone-aware unlike the legacy compareDates function.
  */
-export function compareDatesInTimezone(date1: Date | null, date2: Date | null, timezone: string): boolean {
+export function compareDatesInTimezone(
+  date1: Date | null,
+  date2: Date | null,
+  timezone: string,
+): boolean {
   if (date1 === null || date2 === null) {
     return false;
   }
@@ -99,7 +128,10 @@ export function compareDatesInTimezone(date1: Date | null, date2: Date | null, t
   );
 }
 
-export function isTodayOrPast(date: Date | null, timezone: string = "UTC"): boolean {
+export function isTodayOrPast(
+  date: Date | null,
+  timezone: string = 'UTC',
+): boolean {
   if (date === null) {
     return false;
   }
@@ -114,7 +146,7 @@ export function isTodayOrPast(date: Date | null, timezone: string = "UTC"): bool
   return inputDate <= today;
 }
 
-export function isPast(date: Date | null, timezone: string = "UTC"): boolean {
+export function isPast(date: Date | null, timezone: string = 'UTC'): boolean {
   if (date === null) {
     return false;
   }
@@ -146,7 +178,7 @@ export function isRecurringTask(task: Task): boolean {
 export function formatDate(dateString: string): string {
   const date = new Date(dateString);
 
-  const formattedDate = date.toISOString().split("T")[0];
+  const formattedDate = date.toISOString().split('T')[0];
   return formattedDate;
 }
 
@@ -174,7 +206,12 @@ export function toMidnightInTimezone(date: Date, timezone: string): Date {
  * For example, to create "tomorrow at 9 AM in user timezone", pass:
  * baseDate = getTomorrow(timezone), hour = 9, minute = 0
  */
-export function createTimeInTimezone(baseDate: Date, hour: number, minute: number, timezone: string): Date {
+export function createTimeInTimezone(
+  baseDate: Date,
+  hour: number,
+  minute: number,
+  timezone: string,
+): Date {
   const dateInTz = toZonedTime(baseDate, timezone);
   const year = dateInTz.getFullYear();
   const month = dateInTz.getMonth();
@@ -237,7 +274,11 @@ export function getEndOfMonthInTimezone(date: Date, timezone: string): Date {
  * @param timezone The user's timezone
  * @param weekStartsOn Day of the week (0 = Sunday, 1 = Monday, etc.)
  */
-export function getStartOfWeekInTimezone(date: Date, timezone: string, weekStartsOn: 0 | 1 | 6 = 0): Date {
+export function getStartOfWeekInTimezone(
+  date: Date,
+  timezone: string,
+  weekStartsOn: 0 | 1 | 6 = 0,
+): Date {
   const dateInTz = toZonedTime(date, timezone);
   const dayOfWeek = dateInTz.getDay(); // 0 = Sunday, 1 = Monday, etc.
 
@@ -259,7 +300,11 @@ export function getStartOfWeekInTimezone(date: Date, timezone: string, weekStart
  * @param timezone The user's timezone
  * @param weekStartsOn Day of the week (0 = Sunday, 1 = Monday, etc.)
  */
-export function getEndOfWeekInTimezone(date: Date, timezone: string, weekStartsOn: 0 | 1 | 6 = 0): Date {
+export function getEndOfWeekInTimezone(
+  date: Date,
+  timezone: string,
+  weekStartsOn: 0 | 1 | 6 = 0,
+): Date {
   const dateInTz = toZonedTime(date, timezone);
   const dayOfWeek = dateInTz.getDay(); // 0 = Sunday, 1 = Monday, etc.
 
@@ -282,7 +327,11 @@ export function getEndOfWeekInTimezone(date: Date, timezone: string, weekStartsO
  * @param timezone Timezone to use for comparison
  * @returns true if both dates represent the same calendar day in the given timezone
  */
-export function isSameDayInTimezone(date1: Date, date2: Date, timezone: string): boolean {
+export function isSameDayInTimezone(
+  date1: Date,
+  date2: Date,
+  timezone: string,
+): boolean {
   const date1InTz = toZonedTime(date1, timezone);
   const date2InTz = toZonedTime(date2, timezone);
 
@@ -300,7 +349,10 @@ export function isSameDayInTimezone(date1: Date, date2: Date, timezone: string):
  * @param timezone Timezone to create the date in
  * @returns Date object representing midnight in the specified timezone
  */
-export function createMidnightInTimezone(dateStr: string, timezone: string): Date {
+export function createMidnightInTimezone(
+  dateStr: string,
+  timezone: string,
+): Date {
   const [year, month, day] = dateStr.split('-').map(Number);
 
   // Create a date in the user's timezone at midnight

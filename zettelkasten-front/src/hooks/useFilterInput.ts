@@ -17,7 +17,9 @@ interface UseFilterInputResult {
   /** Set whether the filter input is focused */
   setIsFilterFocused: (focused: boolean) => void;
   /** Handler for filter input change events */
-  handleFilterChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  handleFilterChange: (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
   /** Handler for quick tag selection */
   handleSelectQuickTag: (selectedTagName: string) => void;
   /** Refresh the filter trigger state from the input element */
@@ -35,11 +37,11 @@ interface UseFilterInputOptions {
 
 /**
  * Custom hook to manage filter input state and quick tag autocomplete.
- * 
+ *
  * This hook encapsulates all the logic for handling filter input with
  * quick tag autocomplete functionality, including cursor position tracking
  * and tag selection.
- * 
+ *
  * @example
  * ```tsx
  * const {
@@ -64,26 +66,32 @@ export function useFilterInput({
 }: UseFilterInputOptions): UseFilterInputResult {
   const filterInputRef = useRef<HTMLInputElement>(null);
   const [cursorPosition, setCursorPosition] = useState(0);
-  const [filterTrigger, setFilterTrigger] = useState<QuickTagTrigger | null>(null);
+  const [filterTrigger, setFilterTrigger] = useState<QuickTagTrigger | null>(
+    null,
+  );
   const [isFilterFocused, setIsFilterFocused] = useState(false);
 
   const handleFilterChange = useCallback(
     (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       const nextValue = e.target.value;
-      const nextCursor = (e.target as HTMLInputElement).selectionStart ?? nextValue.length;
+      const nextCursor =
+        (e.target as HTMLInputElement).selectionStart ?? nextValue.length;
 
       setCursorPosition(nextCursor);
       setFilterTrigger(getQuickTagTrigger(nextValue, nextCursor));
       setFilterString(nextValue);
     },
-    [setFilterString]
+    [setFilterString],
   );
 
-  const refreshFilterTriggerFromInput = useCallback((input: HTMLInputElement) => {
-    const cursor = input.selectionStart ?? 0;
-    setCursorPosition(cursor);
-    setFilterTrigger(getQuickTagTrigger(input.value, cursor));
-  }, []);
+  const refreshFilterTriggerFromInput = useCallback(
+    (input: HTMLInputElement) => {
+      const cursor = input.selectionStart ?? 0;
+      setCursorPosition(cursor);
+      setFilterTrigger(getQuickTagTrigger(input.value, cursor));
+    },
+    [],
+  );
 
   const handleSelectQuickTag = useCallback(
     (selectedTagName: string) => {
@@ -113,7 +121,7 @@ export function useFilterInput({
         input.setSelectionRange(res.nextCursor, res.nextCursor);
       });
     },
-    [filterString, filterTrigger, setFilterString]
+    [filterString, filterTrigger, setFilterString],
   );
 
   return {

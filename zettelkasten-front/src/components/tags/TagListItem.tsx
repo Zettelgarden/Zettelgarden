@@ -1,9 +1,9 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
-import { Menu } from "@headlessui/react";
-import { Tag } from "../../models/Tags";
-import { deleteTag } from "../../api/tags";
-import { useTagContext } from "../../contexts/TagContext";
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Menu } from '@headlessui/react';
+import { Tag } from '../../models/Tags';
+import { deleteTag } from '../../api/tags';
+import { useTagContext } from '../../contexts/TagContext';
 
 interface TagListItemInterface {
   tag: Tag;
@@ -14,12 +14,12 @@ export function TagListItem({ tag }: TagListItemInterface) {
   const navigate = useNavigate();
 
   function handleViewCards() {
-    let searchTerm = "#" + tag.name;
+    let searchTerm = '#' + tag.name;
     navigate(`/app/search?term=${encodeURIComponent(searchTerm)}`);
   }
 
   function handleViewTasks() {
-    let searchTerm = "#" + tag.name;
+    let searchTerm = '#' + tag.name;
     navigate(`/app/tasks?term=${encodeURIComponent(searchTerm)}`);
   }
 
@@ -28,9 +28,7 @@ export function TagListItem({ tag }: TagListItemInterface) {
       .then((data) => {
         setRefreshTags(true);
       })
-      .catch((error) =>
-        alert("Unable to delete tag.")
-      );
+      .catch((error) => alert('Unable to delete tag.'));
   }
 
   return (
@@ -61,7 +59,7 @@ export function TagListItem({ tag }: TagListItemInterface) {
                   <button
                     onClick={handleViewCards}
                     className={`${
-                      active ? "bg-gray-100" : ""
+                      active ? 'bg-gray-100' : ''
                     } flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100`}
                   >
                     View Cards
@@ -74,7 +72,7 @@ export function TagListItem({ tag }: TagListItemInterface) {
                   <button
                     onClick={handleViewTasks}
                     className={`${
-                      active ? "bg-gray-100" : ""
+                      active ? 'bg-gray-100' : ''
                     } flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100`}
                   >
                     View Tasks
@@ -87,7 +85,7 @@ export function TagListItem({ tag }: TagListItemInterface) {
                   <button
                     onClick={handleDelete}
                     className={`${
-                      active ? "bg-gray-100" : ""
+                      active ? 'bg-gray-100' : ''
                     } flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100`}
                   >
                     Delete

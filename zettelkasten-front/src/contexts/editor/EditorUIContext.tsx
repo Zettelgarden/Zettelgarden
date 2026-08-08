@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState } from "react";
-import { CardTemplate, PartialCard } from "../../models/Card";
+import React, { createContext, useContext, useState } from 'react';
+import { CardTemplate, PartialCard } from '../../models/Card';
 
 interface EditorUIContextValue {
   // Dialog visibility states
@@ -22,12 +22,14 @@ interface EditorUIContextValue {
   handleSelectTemplate: (template: CardTemplate) => void;
 }
 
-const EditorUIContext = createContext<EditorUIContextValue | undefined>(undefined);
+const EditorUIContext = createContext<EditorUIContextValue | undefined>(
+  undefined,
+);
 
 export function useEditorUIContext() {
   const context = useContext(EditorUIContext);
   if (!context) {
-    throw new Error("useEditorUIContext must be used within EditorUIProvider");
+    throw new Error('useEditorUIContext must be used within EditorUIProvider');
   }
   return context;
 }
@@ -46,7 +48,7 @@ export function EditorUIProvider({
   handleSelectTemplate,
   initialTemplates = [],
   initialLoadingTemplates = true,
-  initialTemplateError = ""
+  initialTemplateError = '',
 }: EditorUIProviderProps) {
   // Dialog states
   const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
@@ -55,7 +57,9 @@ export function EditorUIProvider({
 
   // Template states
   const [templates, setTemplates] = useState<CardTemplate[]>(initialTemplates);
-  const [loadingTemplates, setLoadingTemplates] = useState(initialLoadingTemplates);
+  const [loadingTemplates, setLoadingTemplates] = useState(
+    initialLoadingTemplates,
+  );
   const [templateError, setTemplateError] = useState(initialTemplateError);
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
 

@@ -1,38 +1,38 @@
 // zettelkasten-front/src/components/cards/ViewMobileLayout.tsx
-import React, { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, PartialCard, Entity, RelatedCard } from "../../models/Card";
-import { File } from "../../models/File";
+import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, PartialCard, Entity, RelatedCard } from '../../models/Card';
+import { File } from '../../models/File';
 import {
   CategorizedReferences,
   saveExistingCard,
   getCardAuditEvents,
   restoreCardToAuditEvent,
-} from "../../api/cards";
-import { SummarizeJobResponse } from "../../api/summarizer";
-import { FilesTab } from "../tabs/FilesTab";
-import { SummariesTab } from "../tabs/SummariesTab";
-import { HistoryTab } from "../tabs/HistoryTab";
-import { RollbackConfirmDialog } from "../tabs/RollbackConfirmDialog";
-import { ViewMobileAccordion } from "./ViewMobileAccordion";
-import { ViewNavigationSheet } from "./ViewNavigationSheet";
-import { ViewCardContentSection } from "./ViewCardContentSection";
-import { SearchTagDropdown } from "../tags/SearchTagDropdown";
-import { RelatedCards } from "./RelatedCards";
-import { ChildrenCards } from "./ChildrenCards";
-import { CardList } from "./CardList";
-import { BacklinkInput } from "./BacklinkInput";
-import { SortControl as SortControlComponent } from "./SortControl";
-import { SortMethod, sortPartialCards } from "../../utils/cards";
+} from '../../api/cards';
+import { SummarizeJobResponse } from '../../api/summarizer';
+import { FilesTab } from '../tabs/FilesTab';
+import { SummariesTab } from '../tabs/SummariesTab';
+import { HistoryTab } from '../tabs/HistoryTab';
+import { RollbackConfirmDialog } from '../tabs/RollbackConfirmDialog';
+import { ViewMobileAccordion } from './ViewMobileAccordion';
+import { ViewNavigationSheet } from './ViewNavigationSheet';
+import { ViewCardContentSection } from './ViewCardContentSection';
+import { SearchTagDropdown } from '../tags/SearchTagDropdown';
+import { RelatedCards } from './RelatedCards';
+import { ChildrenCards } from './ChildrenCards';
+import { CardList } from './CardList';
+import { BacklinkInput } from './BacklinkInput';
+import { SortControl as SortControlComponent } from './SortControl';
+import { SortMethod, sortPartialCards } from '../../utils/cards';
 import {
   TagsList,
   DetailsList,
   SourceArticleLink,
-} from "./SideMetadataSections";
-import { PersonIcon } from "../../assets/icons/PersonIcon";
-import { CardStructuredDataDisplay } from "../schemas/CardStructuredDataDisplay";
-import { RSSArticle } from "../../api/rss";
-import { ViewMode } from "../../pages/cards/ViewPageContainer";
+} from './SideMetadataSections';
+import { PersonIcon } from '../../assets/icons/PersonIcon';
+import { CardStructuredDataDisplay } from '../schemas/CardStructuredDataDisplay';
+import { RSSArticle } from '../../api/rss';
+import { ViewMode } from '../../pages/cards/ViewPageContainer';
 
 interface ViewMobileLayoutProps {
   viewingCard: Card;
@@ -100,13 +100,14 @@ export function ViewMobileLayout({
   const navigate = useNavigate();
   const [showNavSheet, setShowNavSheet] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [childrenSortMethod, setChildrenSortMethod] = useState<SortMethod>("cardId");
+  const [childrenSortMethod, setChildrenSortMethod] =
+    useState<SortMethod>('cardId');
   const [referencesSortMethod, setReferencesSortMethod] =
-    useState<SortMethod>("cardId");
+    useState<SortMethod>('cardId');
 
   // Files + History (audit/restore) state, previously owned by the now-deleted
   // ViewCardTabbedDisplay. Mirrors the desktop rail's handling.
-  const [fileFilterString, setFileFilterString] = useState<string>("");
+  const [fileFilterString, setFileFilterString] = useState<string>('');
   const [auditEvents, setAuditEvents] = useState<any[]>([]);
   const [showRollbackDialog, setShowRollbackDialog] = useState<boolean>(false);
   const [pendingRestoreEvent, setPendingRestoreEvent] = useState<any>(null);
@@ -146,7 +147,7 @@ export function ViewMobileLayout({
     }
     const editedCard = {
       ...viewingCard,
-      body: viewingCard.body + "\n\n![](" + file.id + ")",
+      body: viewingCard.body + '\n\n![](' + file.id + ')',
     };
     await saveExistingCard(editedCard);
     setViewCard(editedCard);
@@ -156,7 +157,7 @@ export function ViewMobileLayout({
   function loadAuditEvents() {
     getCardAuditEvents(viewingCard.id.toString())
       .then((events) => setAuditEvents(events))
-      .catch(() => setError("Failed to load audit events"));
+      .catch(() => setError('Failed to load audit events'));
   }
 
   const handleRestoreClick = (event: any) => {
@@ -178,7 +179,7 @@ export function ViewMobileLayout({
       setShowRollbackDialog(false);
       setPendingRestoreEvent(null);
     } catch (error) {
-      setError("Failed to restore card");
+      setError('Failed to restore card');
     } finally {
       setIsRestoring(false);
     }
@@ -217,7 +218,7 @@ export function ViewMobileLayout({
               </button>
             )}
             <h1 className="text-lg font-semibold text-gray-900 truncate ml-2">
-              {viewingCard.title || "Card"}
+              {viewingCard.title || 'Card'}
             </h1>
           </div>
           <div className="relative shrink-0">
@@ -245,24 +246,22 @@ export function ViewMobileLayout({
                 <div className="px-3 py-2 text-xs text-gray-500 font-medium">
                   View Mode
                 </div>
-                {(["normal", "summary"] as ViewMode[]).map(
-                  (mode) => (
-                    <button
-                      key={mode}
-                      onClick={() => {
-                        onViewModeChange(mode);
-                        setShowMenu(false);
-                      }}
-                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                        viewMode === mode
-                          ? "text-blue-600 font-medium"
-                          : "text-gray-700"
-                      }`}
-                    >
-                      {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                    </button>
-                  ),
-                )}
+                {(['normal', 'summary'] as ViewMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => {
+                      onViewModeChange(mode);
+                      setShowMenu(false);
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                      viewMode === mode
+                        ? 'text-blue-600 font-medium'
+                        : 'text-gray-700'
+                    }`}
+                  >
+                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                  </button>
+                ))}
                 <hr className="my-1" />
                 <button
                   onClick={() => {
@@ -280,7 +279,7 @@ export function ViewMobileLayout({
                   }}
                   className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                 >
-                  {viewingCard.is_starred ? "Unstar" : "Star"}
+                  {viewingCard.is_starred ? 'Unstar' : 'Star'}
                 </button>
                 <button
                   onClick={() => {
@@ -303,7 +302,7 @@ export function ViewMobileLayout({
         <div className="p-4">
           <ViewCardContentSection
             viewingCard={viewingCard}
-            showingSummary={viewMode === "summary"}
+            showingSummary={viewMode === 'summary'}
             latestSummary={latestSummary}
             onSaveCard={onSaveCard}
           />
@@ -537,7 +536,7 @@ export function ViewMobileLayout({
         isOpen={showRollbackDialog}
         onClose={handleCancelRestore}
         onConfirm={handleConfirmRestore}
-        cardTitle={viewingCard.title || viewingCard.card_id || "Untitled Card"}
+        cardTitle={viewingCard.title || viewingCard.card_id || 'Untitled Card'}
         auditEvent={pendingRestoreEvent}
         isLoading={isRestoring}
       />

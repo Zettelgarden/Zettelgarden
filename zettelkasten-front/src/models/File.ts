@@ -1,5 +1,5 @@
 // src/models/File.ts
-import { PartialCard } from "./Card";
+import { PartialCard } from './Card';
 
 export interface File {
   id: number;

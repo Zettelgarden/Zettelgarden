@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 
 interface CollapsibleProps {
   title: string;
@@ -51,7 +51,7 @@ export function Collapsible({
         >
           <svg
             className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-150 ${
-              isOpen ? "rotate-90" : ""
+              isOpen ? 'rotate-90' : ''
             }`}
             fill="none"
             stroke="currentColor"

@@ -23,7 +23,8 @@ export function FilePreview({ fileUrl, filename, onClose }: FilePreviewProps) {
   };
 
   const goToPrevPage = () => setPageNumber(Math.max(1, pageNumber - 1));
-  const goToNextPage = () => setPageNumber(Math.min(numPages || 1, pageNumber + 1));
+  const goToNextPage = () =>
+    setPageNumber(Math.min(numPages || 1, pageNumber + 1));
   const zoomIn = () => setScale(Math.min(2.0, scale + 0.1));
   const zoomOut = () => setScale(Math.max(0.5, scale - 0.1));
 
@@ -33,7 +34,10 @@ export function FilePreview({ fileUrl, filename, onClose }: FilePreviewProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <h3 className="text-lg font-semibold truncate">{filename}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-2xl"
+          >
             ×
           </button>
         </div>
@@ -58,11 +62,17 @@ export function FilePreview({ fileUrl, filename, onClose }: FilePreviewProps) {
             Next
           </button>
           <div className="border-l pl-4 flex items-center gap-2">
-            <button onClick={zoomOut} className="px-3 py-1 bg-white border rounded">
+            <button
+              onClick={zoomOut}
+              className="px-3 py-1 bg-white border rounded"
+            >
               −
             </button>
             <span className="text-sm">{Math.round(scale * 100)}%</span>
-            <button onClick={zoomIn} className="px-3 py-1 bg-white border rounded">
+            <button
+              onClick={zoomIn}
+              className="px-3 py-1 bg-white border rounded"
+            >
               +
             </button>
           </div>

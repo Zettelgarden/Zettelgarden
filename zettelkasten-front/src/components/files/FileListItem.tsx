@@ -1,16 +1,23 @@
-import { File } from "../../models/File";
-import { PartialCard } from "../../models/Card";
-import { renderFile, deleteFile, editFile, downloadThumbnail, downloadFile, importEpub } from "../../api/files";
-import { Link } from "react-router-dom";
-import React, { useState, KeyboardEvent, useEffect } from "react";
-import { FileIcon } from "../../assets/icons/FileIcon";
-import { FileRender } from "./FileRender";
-import { FilePreview } from "./FilePreview";
-import { Menu } from "@headlessui/react";
+import { File } from '../../models/File';
+import { PartialCard } from '../../models/Card';
+import {
+  renderFile,
+  deleteFile,
+  editFile,
+  downloadThumbnail,
+  downloadFile,
+  importEpub,
+} from '../../api/files';
+import { Link } from 'react-router-dom';
+import React, { useState, KeyboardEvent, useEffect } from 'react';
+import { FileIcon } from '../../assets/icons/FileIcon';
+import { FileRender } from './FileRender';
+import { FilePreview } from './FilePreview';
+import { Menu } from '@headlessui/react';
 
-import { BacklinkInput } from "../cards/BacklinkInput";
-import { CardIdDiscoveryDialog } from "../cards/CardIdDiscoveryDialog";
-import { useToast } from "../toast/ToastContext";
+import { BacklinkInput } from '../cards/BacklinkInput';
+import { CardIdDiscoveryDialog } from '../cards/CardIdDiscoveryDialog';
+import { useToast } from '../toast/ToastContext';
 
 interface FileListItemProps {
   file: File;
@@ -31,7 +38,7 @@ export function FileListItem({
   setFilterString,
   onEditDetails,
 }: FileListItemProps) {
-  const [newName, setNewName] = useState<string>("");
+  const [newName, setNewName] = useState<string>('');
   const [showEditName, setShowEditName] = useState<boolean>(false);
   const [renderImage, setRenderImage] = useState<boolean>(false);
   const [showCardLink, setShowCardLink] = useState<boolean>(false);
@@ -47,7 +54,7 @@ export function FileListItem({
     setShowEditName(!showEditName);
   }
   function handleTitleEdit() {
-    editFile(file["id"].toString(), { name: newName, card_pk: file.card_pk });
+    editFile(file['id'].toString(), { name: newName, card_pk: file.card_pk });
     toggleEditName();
     setRefreshFiles(true);
   }
@@ -56,12 +63,13 @@ export function FileListItem({
   }
   const handleFileDownload = (file: File, e: React.MouseEvent) => {
     e.preventDefault();
-    const isImage = file.filetype === "image/png" ||
-      file.filetype === "image/jpeg" ||
-      file.filetype === "image/jpg" ||
-      file.filetype === "image/gif" ||
-      file.filetype === "image/webp";
-    const isPDF = file.filetype === "application/pdf";
+    const isImage =
+      file.filetype === 'image/png' ||
+      file.filetype === 'image/jpeg' ||
+      file.filetype === 'image/jpg' ||
+      file.filetype === 'image/gif' ||
+      file.filetype === 'image/webp';
+    const isPDF = file.filetype === 'application/pdf';
 
     if (isImage) {
       setRenderImage(true);
@@ -78,30 +86,30 @@ export function FileListItem({
           }
         })
         .catch((error) => {
-          console.error("Error loading PDF:", error);
+          console.error('Error loading PDF:', error);
         });
       return;
     }
 
     // For other file types, trigger download
     renderFile(file.id, file.name).catch((error) => {
-      console.error("Error downloading file:", error);
+      console.error('Error downloading file:', error);
     });
   };
   const handleFileDelete = (file_id: number) => {
-    if (window.confirm("Are you sure you want to delete this file?")) {
+    if (window.confirm('Are you sure you want to delete this file?')) {
       deleteFile(file_id)
         .then(() => {
           onDelete(file_id);
         })
         .catch((error) => {
-          console.error("Error deleting file:", error);
+          console.error('Error deleting file:', error);
         });
     }
   };
 
   async function handleBacklink(card: PartialCard) {
-    editFile(file["id"].toString(), { name: file.name, card_pk: card.id }).then(
+    editFile(file['id'].toString(), { name: file.name, card_pk: card.id }).then(
       (file) => {
         setShowCardLink(false);
         setRefreshFiles(true);
@@ -114,11 +122,11 @@ export function FileListItem({
   }
 
   function onFileTypeClick(file: File) {
-    setFilterString("filetype:" + file.filetype)
+    setFilterString('filetype:' + file.filetype);
   }
 
   async function handleCardUnlink() {
-    editFile(file["id"].toString(), { name: file.name, card_pk: -1 }).then(
+    editFile(file['id'].toString(), { name: file.name, card_pk: -1 }).then(
       (file) => {
         setShowCardLink(false);
         setRefreshFiles(true);
@@ -128,9 +136,9 @@ export function FileListItem({
 
   async function handleDisplayCardClick() {
     if (!displayFileOnCard) {
-      return
+      return;
     }
-    displayFileOnCard(file)
+    displayFileOnCard(file);
     setRefreshFiles(true);
   }
 
@@ -145,10 +153,15 @@ export function FileListItem({
       const result = await importEpub(file.id, cardId);
       const totalCards = result.child_card_ids.length + 1;
       const title = result.metadata.title || file.name;
-      showToast("success", "Epub Imported", `Created ${totalCards} cards from "${title}"`);
+      showToast(
+        'success',
+        'Epub Imported',
+        `Created ${totalCards} cards from "${title}"`,
+      );
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to import epub";
-      showToast("error", "Import Failed", message);
+      const message =
+        error instanceof Error ? error.message : 'Failed to import epub';
+      showToast('error', 'Import Failed', message);
     } finally {
       setIsImporting(false);
     }
@@ -156,7 +169,7 @@ export function FileListItem({
 
   useEffect(() => {
     // Load thumbnail if available
-    if (file.thumbnail_path && file.filetype.startsWith("image/")) {
+    if (file.thumbnail_path && file.filetype.startsWith('image/')) {
       downloadThumbnail(file.id.toString())
         .then((blobUrl) => {
           if (blobUrl) {
@@ -164,12 +177,12 @@ export function FileListItem({
           }
         })
         .catch((error) => {
-          console.error("Error loading thumbnail:", error);
+          console.error('Error loading thumbnail:', error);
         });
     }
   }, [file.id, file.thumbnail_path]);
 
-  const isImage = file.filetype.startsWith("image/");
+  const isImage = file.filetype.startsWith('image/');
 
   return (
     <div className="px-3 py-2">
@@ -201,7 +214,7 @@ export function FileListItem({
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyPress={(event: KeyboardEvent<HTMLInputElement>) => {
-                  if (event.key === "Enter") {
+                  if (event.key === 'Enter') {
                     handleTitleEdit();
                   }
                 }}
@@ -240,9 +253,7 @@ export function FileListItem({
           </div>
 
           <div className="flex items-center gap-3 text-xs text-gray-500">
-            <span>
-              {new Date(file.created_at).toLocaleDateString()}
-            </span>
+            <span>{new Date(file.created_at).toLocaleDateString()}</span>
             <span
               className="cursor-pointer hover:text-blue-600 px-1.5 py-0.5 rounded bg-gray-100 hover:bg-blue-50 text-xs"
               onClick={() => onFileTypeClick(file)}
@@ -250,9 +261,7 @@ export function FileListItem({
             >
               {file.filetype}
             </span>
-            <span>
-              {(file.size / 1024).toFixed(1)} KB
-            </span>
+            <span>{(file.size / 1024).toFixed(1)} KB</span>
           </div>
         </div>
 
@@ -336,7 +345,7 @@ export function FileListItem({
                 </Menu.Item>
               )}
 
-              {displayFileOnCard && file.filetype.includes("image") && (
+              {displayFileOnCard && file.filetype.includes('image') && (
                 <Menu.Item>
                   {({ active }) => (
                     <button
@@ -351,7 +360,7 @@ export function FileListItem({
                 </Menu.Item>
               )}
 
-              {file.filetype === "application/epub+zip" && (
+              {file.filetype === 'application/epub+zip' && (
                 <Menu.Item>
                   {({ active }) => (
                     <button
@@ -361,7 +370,7 @@ export function FileListItem({
                         active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                       } ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                      {isImporting ? "Importing..." : "Import as Cards"}
+                      {isImporting ? 'Importing...' : 'Import as Cards'}
                     </button>
                   )}
                 </Menu.Item>

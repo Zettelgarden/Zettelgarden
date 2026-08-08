@@ -1,6 +1,6 @@
-import React from "react";
-import ReactMarkdown from "react-markdown";
-import { SummarizeJobResponse } from "../../api/summarizer";
+import React from 'react';
+import ReactMarkdown from 'react-markdown';
+import { SummarizeJobResponse } from '../../api/summarizer';
 
 interface ViewSummaryViewProps {
   /** The most recent summary with a result to render prominently. */

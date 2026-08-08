@@ -4,9 +4,9 @@ import React, {
   useEffect,
   useState,
   ReactNode,
-} from "react";
-import { getSettings, AppSettings } from "../api/settings";
-import { setBaseTitle } from "../utils/title";
+} from 'react';
+import { getSettings, AppSettings } from '../api/settings';
+import { setBaseTitle } from '../utils/title';
 
 interface SettingsContextType {
   /** Runtime admin settings; null until the public fetch resolves. */

@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from "react";
-import { getJobHistory, JobRun } from "../../api/admin";
-import { ExecutionHistoryTable } from "./ExecutionHistoryTable";
+import React, { useState, useEffect } from 'react';
+import { getJobHistory, JobRun } from '../../api/admin';
+import { ExecutionHistoryTable } from './ExecutionHistoryTable';
 
 interface ExpandableHistoryProps {
   jobName: string;
   isExpanded: boolean;
 }
 
-export function ExpandableHistory({ jobName, isExpanded }: ExpandableHistoryProps) {
+export function ExpandableHistory({
+  jobName,
+  isExpanded,
+}: ExpandableHistoryProps) {
   const [runs, setRuns] = useState<JobRun[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +37,7 @@ export function ExpandableHistory({ jobName, isExpanded }: ExpandableHistoryProp
       setOffset(newOffset + response.runs.length);
       setHasMore(response.has_more);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load history");
+      setError(err instanceof Error ? err.message : 'Failed to load history');
     } finally {
       setIsLoading(false);
     }
@@ -63,7 +66,9 @@ export function ExpandableHistory({ jobName, isExpanded }: ExpandableHistoryProp
       )}
 
       {isLoading && runs.length === 0 ? (
-        <div className="py-8 text-center text-gray-500 text-sm">Loading job history...</div>
+        <div className="py-8 text-center text-gray-500 text-sm">
+          Loading job history...
+        </div>
       ) : (
         <>
           <ExecutionHistoryTable runs={runs} />
@@ -80,7 +85,9 @@ export function ExpandableHistory({ jobName, isExpanded }: ExpandableHistoryProp
           )}
 
           {isLoading && runs.length > 0 && (
-            <div className="mt-4 text-center text-sm text-gray-500">Loading more...</div>
+            <div className="mt-4 text-center text-sm text-gray-500">
+              Loading more...
+            </div>
           )}
         </>
       )}

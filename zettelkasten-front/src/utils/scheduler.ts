@@ -3,7 +3,7 @@
  */
 export function formatCronSchedule(cron: string | undefined): string {
   if (!cron) {
-    return "Schedule unavailable";
+    return 'Schedule unavailable';
   }
   const parts = cron.trim().split(/\s+/);
 
@@ -12,29 +12,49 @@ export function formatCronSchedule(cron: string | undefined): string {
   }
 
   const [seconds, minute, hour, dayOfMonth, month, dayOfWeek] =
-    parts.length === 6 ? parts : ["0", ...parts];
+    parts.length === 6 ? parts : ['0', ...parts];
 
   // Common patterns
-  if (minute === "0" && hour === "2" && dayOfMonth === "*" && month === "*" && dayOfWeek === "*") {
-    return "Daily at 2:00 AM";
+  if (
+    minute === '0' &&
+    hour === '2' &&
+    dayOfMonth === '*' &&
+    month === '*' &&
+    dayOfWeek === '*'
+  ) {
+    return 'Daily at 2:00 AM';
   }
-  if (minute === "0" && hour === "*" && dayOfMonth === "*" && month === "*" && dayOfWeek === "*") {
-    return "Hourly";
+  if (
+    minute === '0' &&
+    hour === '*' &&
+    dayOfMonth === '*' &&
+    month === '*' &&
+    dayOfWeek === '*'
+  ) {
+    return 'Hourly';
   }
-  if (cron === "0 0 * * 0") {
-    return "Weekly (Sunday midnight)";
+  if (cron === '0 0 * * 0') {
+    return 'Weekly (Sunday midnight)';
   }
-  if (cron === "0 0 1 * *") {
-    return "Monthly (1st at midnight)";
+  if (cron === '0 0 1 * *') {
+    return 'Monthly (1st at midnight)';
   }
 
   // Generic fallback
-  const timeStr = `${hour}:${minute.padStart(2, "0")}`;
-  if (dayOfMonth !== "*" && month !== "*") {
+  const timeStr = `${hour}:${minute.padStart(2, '0')}`;
+  if (dayOfMonth !== '*' && month !== '*') {
     return `Day ${dayOfMonth} of every month at ${timeStr}`;
   }
-  if (dayOfWeek !== "*") {
-    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  if (dayOfWeek !== '*') {
+    const days = [
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+    ];
     const dayIndex = parseInt(dayOfWeek);
     const day = days[dayIndex] ?? dayOfWeek;
     return `Every ${day} at ${timeStr}`;
@@ -48,7 +68,7 @@ export function formatCronSchedule(cron: string | undefined): string {
  */
 export function formatRelativeTime(dateStr: string | undefined): string {
   if (!dateStr) {
-    return "Unknown";
+    return 'Unknown';
   }
   const date = new Date(dateStr);
   const now = new Date();
@@ -57,7 +77,7 @@ export function formatRelativeTime(dateStr: string | undefined): string {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return "Just now";
+  if (diffMins < 1) return 'Just now';
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;

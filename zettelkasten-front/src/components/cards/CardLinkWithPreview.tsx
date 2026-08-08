@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 
-import { Card } from "../../models/Card";
-import { CardPreviewWindow } from "./CardPreviewWindow";
-import { CardLink } from "./CardLink";
+import { Card } from '../../models/Card';
+import { CardPreviewWindow } from './CardPreviewWindow';
+import { CardLink } from './CardLink';
 
 interface CardLinkWithPreviewProps {
   currentCard: Card;
@@ -41,7 +41,9 @@ export function CardLinkWithPreview({
           card={linkedCard}
           handleViewBacklink={handleViewBacklink}
           showTitle={false}
-          displayText={resolveTitle && linkedCard?.title ? linkedCard.title : displayText}
+          displayText={
+            resolveTitle && linkedCard?.title ? linkedCard.title : displayText
+          }
         />
       )}
       {showHover && linkedCard && (

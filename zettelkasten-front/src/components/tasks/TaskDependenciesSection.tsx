@@ -1,9 +1,9 @@
-import React from "react";
-import { Task } from "../../models/Task";
+import React from 'react';
+import { Task } from '../../models/Task';
 
 interface TaskDependenciesSectionProps {
   task: Task;
-  mode: "create" | "edit";
+  mode: 'create' | 'edit';
   showDependencyEditor: boolean;
   setShowDependencyEditor: (show: boolean) => void;
   dependencyFilter: string;
@@ -35,7 +35,7 @@ export function TaskDependenciesSection({
   return (
     <>
       {/* Blocked By Section (edit mode only) */}
-      {mode === "edit" && task.blocked_by && task.blocked_by.length > 0 && (
+      {mode === 'edit' && task.blocked_by && task.blocked_by.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-gray-700">Blocked by:</span>
           {task.blocked_by.map((blockingTask) => (
@@ -43,7 +43,7 @@ export function TaskDependenciesSection({
               key={blockingTask.id}
               className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 rounded text-sm"
             >
-              <span className={blockingTask.is_complete ? "line-through" : ""}>
+              <span className={blockingTask.is_complete ? 'line-through' : ''}>
                 {blockingTask.title}
               </span>
               <button
@@ -59,22 +59,22 @@ export function TaskDependenciesSection({
       )}
 
       {/* Add Blocker Button (edit mode only) */}
-      {mode === "edit" && task.id > 0 && (
+      {mode === 'edit' && task.id > 0 && (
         <button
           onClick={() => {
             setShowDependencyEditor(!showDependencyEditor);
             if (showDependencyEditor) {
-              setDependencyFilter("");
+              setDependencyFilter('');
             }
           }}
           className="text-sm text-blue-600 hover:text-blue-800 font-medium w-fit"
         >
-          {showDependencyEditor ? "- Hide Blockers" : "+ Add Blocker"}
+          {showDependencyEditor ? '- Hide Blockers' : '+ Add Blocker'}
         </button>
       )}
 
       {/* Dependency Editor (edit mode only) */}
-      {mode === "edit" && showDependencyEditor && (
+      {mode === 'edit' && showDependencyEditor && (
         <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
           <label className="block text-sm font-medium text-gray-700">
             Select tasks that block this task
@@ -92,16 +92,18 @@ export function TaskDependenciesSection({
                 .filter((t) => t.id !== task.id && !t.is_complete)
                 .filter(
                   (t) =>
-                    dependencyFilter === "" ||
-                    t.title.toLowerCase().includes(dependencyFilter.toLowerCase())
+                    dependencyFilter === '' ||
+                    t.title
+                      .toLowerCase()
+                      .includes(dependencyFilter.toLowerCase()),
                 );
 
               if (availableTasks.length === 0) {
                 return (
                   <p className="text-gray-500 text-sm text-center py-2">
                     {dependencyFilter
-                      ? "No tasks match your search"
-                      : "No available tasks"}
+                      ? 'No tasks match your search'
+                      : 'No available tasks'}
                   </p>
                 );
               }
@@ -123,8 +125,8 @@ export function TaskDependenciesSection({
                         }}
                         className={`w-full text-left px-3 py-2 rounded transition-colors ${
                           isBlocking
-                            ? "bg-orange-100 text-orange-800 border border-orange-300"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            ? 'bg-orange-100 text-orange-800 border border-orange-300'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                       >
                         <div className="flex items-center justify-between">

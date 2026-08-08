@@ -9,34 +9,34 @@
  * Lines of code: 172 → ~80 (53% reduction)
  */
 
-import React, { useState, useEffect } from "react";
-import "../App.css";
-import { Sidebar } from "../components/Sidebar";
-import { useAuth } from "../contexts/AuthContext";
-import { Navigate, useNavigate } from "react-router-dom";
-import { Route, Routes } from "react-router-dom";
-import { EmailValidationBanner } from "../components/EmailValidationBanner";
-import { Card, PartialCard, SearchResult } from "../models/Card";
-import { SplitViewLayout } from "../components/cards/SplitViewLayout";
-import { ChatSidebarLayout } from "../components/chat/ChatSidebarLayout";
-import { ErrorBoundary } from "../components/ErrorBoundary";
-import { ToastProvider } from "../components/toast/ToastContext";
-import { AppRoutes } from "./AppRoutes";
-import { SearchConfig } from "../models/StarredSearch";
+import React, { useState, useEffect } from 'react';
+import '../App.css';
+import { Sidebar } from '../components/Sidebar';
+import { useAuth } from '../contexts/AuthContext';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
+import { EmailValidationBanner } from '../components/EmailValidationBanner';
+import { Card, PartialCard, SearchResult } from '../models/Card';
+import { SplitViewLayout } from '../components/cards/SplitViewLayout';
+import { ChatSidebarLayout } from '../components/chat/ChatSidebarLayout';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { ToastProvider } from '../components/toast/ToastContext';
+import { AppRoutes } from './AppRoutes';
+import { SearchConfig } from '../models/StarredSearch';
 
 // NEW: Using Zustand stores instead of providers
-import { usePinnedCard } from "../stores/shortcutStore.example";
-import { useChatSidebarCard } from "../stores/shortcutStore.example";
+import { usePinnedCard } from '../stores/shortcutStore.example';
+import { useChatSidebarCard } from '../stores/shortcutStore.example';
 
 // NEW: Using React Query hooks instead of contexts
-import { useTasks, useRefetchTasks } from "../api/queries.example";
+import { useTasks, useRefetchTasks } from '../api/queries.example';
 
 function MainAppContent() {
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchConfig, setSearchConfig] = useState<SearchConfig>({
-    sortBy: "sortRanking",
+    sortBy: 'sortRanking',
     currentPage: 1,
     useClassicSearch: false,
     useFullText: false,
@@ -46,7 +46,7 @@ function MainAppContent() {
     showPreview: true,
     showFacts: true,
     showCards: true,
-    searchType: "typesense",
+    searchType: 'typesense',
     rerank: true,
   });
 
@@ -74,11 +74,11 @@ function MainAppContent() {
   // changing pages
 
   async function handleNewCard(cardType: string) {
-    navigate("/app/card/new", { state: { cardType: cardType } });
+    navigate('/app/card/new', { state: { cardType: cardType } });
   }
 
   useEffect(() => {
-    if (!localStorage.getItem("token")) {
+    if (!localStorage.getItem('token')) {
       logoutUser();
     }
   }, [isAuthenticated]);

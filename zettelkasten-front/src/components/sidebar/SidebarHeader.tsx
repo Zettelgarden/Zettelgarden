@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Link } from "react-router-dom";
-import logo from "../../assets/logo.png";
-import { useAuth } from "../../contexts/AuthContext";
-import { Plus, Rss } from "lucide-react";
+import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import logo from '../../assets/logo.png';
+import { useAuth } from '../../contexts/AuthContext';
+import { Plus, Rss } from 'lucide-react';
 
 interface SidebarHeaderProps {
   onNewStandardCard: () => void;
@@ -25,7 +25,7 @@ export function SidebarHeader({
   showTasks = true,
   showRss = true,
 }: SidebarHeaderProps) {
-  const username = localStorage.getItem("username");
+  const username = localStorage.getItem('username');
   const [isNewDropdownOpen, setIsNewDropdownOpen] = useState(false);
   const { hasSubscription } = useAuth();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -41,35 +41,42 @@ export function SidebarHeader({
   // Handle Escape key and click outside to close dropdown
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isNewDropdownOpen) {
+      if (e.key === 'Escape' && isNewDropdownOpen) {
         closeDropdown();
       }
     };
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
         closeDropdown();
       }
     };
 
     if (isNewDropdownOpen) {
-      document.addEventListener("keydown", handleKeyDown);
-      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+      document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isNewDropdownOpen]);
 
   return (
-    <div className={`flex items-center border-b ${isCollapsed ? "flex-col justify-center py-3 gap-3" : "p-4"}`}>
+    <div
+      className={`flex items-center border-b ${
+        isCollapsed ? 'flex-col justify-center py-3 gap-3' : 'p-4'
+      }`}
+    >
       <Link to="/app" className="flex-shrink-0">
         <img
           src={logo}
           alt="Company Logo"
-          className={`rounded-md ${isCollapsed ? "h-10 w-10" : "h-8 w-auto"}`}
+          className={`rounded-md ${isCollapsed ? 'h-10 w-10' : 'h-8 w-auto'}`}
         />
       </Link>
       {!isCollapsed && (
@@ -81,14 +88,18 @@ export function SidebarHeader({
           </Link>
         </div>
       )}
-      <div className={`flex items-center ${isCollapsed ? "justify-center gap-2" : ""} flex-shrink-0`}>
+      <div
+        className={`flex items-center ${
+          isCollapsed ? 'justify-center gap-2' : ''
+        } flex-shrink-0`}
+      >
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={toggleNewDropdown}
             className={`flex items-center justify-center rounded-full transition-colors ${
               isCollapsed
-                ? "w-10 h-10 text-gray-700 hover:bg-gray-100"
-                : "bg-blue-500 text-white hover:bg-blue-600 min-w-[44px] min-h-[44px]"
+                ? 'w-10 h-10 text-gray-700 hover:bg-gray-100'
+                : 'bg-blue-500 text-white hover:bg-blue-600 min-w-[44px] min-h-[44px]'
             }`}
             aria-haspopup="true"
             aria-expanded={isNewDropdownOpen}
@@ -98,7 +109,9 @@ export function SidebarHeader({
           </button>
           {isNewDropdownOpen && (
             <div
-              className={`absolute ${isCollapsed ? "left-full ml-2 top-0" : "right-0"} mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-[70] border`}
+              className={`absolute ${
+                isCollapsed ? 'left-full ml-2 top-0' : 'right-0'
+              } mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-[70] border`}
               role="menu"
             >
               <button

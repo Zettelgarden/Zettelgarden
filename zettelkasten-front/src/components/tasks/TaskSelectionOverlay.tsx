@@ -1,8 +1,8 @@
-import React, { useState } from "react";
-import { Task } from "../../models/Task";
-import { BulkTaskDateDisplay } from "./BulkTaskDateDisplay";
-import { BulkTaskTagEditor } from "./BulkTaskTagEditor";
-import { Button } from "../Button";
+import React, { useState } from 'react';
+import { Task } from '../../models/Task';
+import { BulkTaskDateDisplay } from './BulkTaskDateDisplay';
+import { BulkTaskTagEditor } from './BulkTaskTagEditor';
+import { Button } from '../Button';
 
 interface TaskSelectionOverlayProps {
   tasks: Task[];

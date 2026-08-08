@@ -1,31 +1,38 @@
-import React, { useState, useEffect, FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
-import { getBillingPortalUrl, getBillingStatus } from "../api/billing";
-import { exportUserData, deleteAccount } from "../api/account";
-import { requestPasswordReset } from "../api/auth";
-import { User, EditUserParams } from "../models/User";
-import { useAuth } from "../contexts/AuthContext";
-import { H6 } from "../components/Header";
-import { TemplatesList } from "../components/templates/TemplatesList";
-import { setDocumentTitle } from "../utils/title";
-import { TagList } from "../components/tags/TagList";
-import { StatusManagement } from "../components/settings/StatusManagement";
-import { TimezoneSelector } from "../components/settings/TimezoneSelector";
-import ToggleSlider from "../components/ToggleSlider";
-import APIKeysManagement from "../components/settings/APIKeysManagement";
-import { EntityPage } from "./EntityPage";
-import { StatsPage } from "./StatsPage";
+import React, { useState, useEffect, FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getBillingPortalUrl, getBillingStatus } from '../api/billing';
+import { exportUserData, deleteAccount } from '../api/account';
+import { requestPasswordReset } from '../api/auth';
+import { User, EditUserParams } from '../models/User';
+import { useAuth } from '../contexts/AuthContext';
+import { H6 } from '../components/Header';
+import { TemplatesList } from '../components/templates/TemplatesList';
+import { setDocumentTitle } from '../utils/title';
+import { TagList } from '../components/tags/TagList';
+import { StatusManagement } from '../components/settings/StatusManagement';
+import { TimezoneSelector } from '../components/settings/TimezoneSelector';
+import ToggleSlider from '../components/ToggleSlider';
+import APIKeysManagement from '../components/settings/APIKeysManagement';
+import { EntityPage } from './EntityPage';
+import { StatsPage } from './StatsPage';
 
-type Tab = "profile" | "templates" | "tags" | "statuses" | "apiKeys" | "entities" | "stats";
+type Tab =
+  | 'profile'
+  | 'templates'
+  | 'tags'
+  | 'statuses'
+  | 'apiKeys'
+  | 'entities'
+  | 'stats';
 
 export function UserSettingsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("profile");
+  const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [billingUrl, setBillingUrl] = useState<string | null>(null);
   const [billingEnabled, setBillingEnabled] = useState<boolean>(true);
-  const [timezone, setTimezone] = useState<string>("UTC");
+  const [timezone, setTimezone] = useState<string>('UTC');
   const [showTasks, setShowTasks] = useState<boolean>(true);
   const [showRss, setShowRss] = useState<boolean>(true);
 
@@ -36,7 +43,7 @@ export function UserSettingsPage() {
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deletePassword, setDeletePassword] = useState("");
+  const [deletePassword, setDeletePassword] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -46,9 +53,9 @@ export function UserSettingsPage() {
     setExportError(null);
     try {
       await exportUserData();
-      setExportMsg("Export downloaded.");
+      setExportMsg('Export downloaded.');
     } catch (err: any) {
-      setExportError(err.message || "Export failed.");
+      setExportError(err.message || 'Export failed.');
     } finally {
       setExporting(false);
     }
@@ -61,9 +68,9 @@ export function UserSettingsPage() {
       await deleteAccount(deletePassword);
       // Account and its data are gone server-side; drop the local session.
       logoutUser();
-      navigate("/");
+      navigate('/');
     } catch (err: any) {
-      setDeleteError(err.message || "Failed to delete account.");
+      setDeleteError(err.message || 'Failed to delete account.');
       setDeleting(false);
     }
   }
@@ -73,11 +80,11 @@ export function UserSettingsPage() {
 
     // Get the form data
     const formData = new FormData(event.currentTarget as HTMLFormElement);
-    const updatedUsername = formData.get("username");
-    const updatedEmail = formData.get("email");
+    const updatedUsername = formData.get('username');
+    const updatedEmail = formData.get('email');
 
     if (!user) {
-      setError("User data is not loaded");
+      setError('User data is not loaded');
       return;
     }
 
@@ -93,10 +100,10 @@ export function UserSettingsPage() {
 
     try {
       await updateUser(updatedUser as User);
-      alert("User updated successfully");
-      localStorage.setItem("username", updatedUser.username as string);
+      alert('User updated successfully');
+      localStorage.setItem('username', updatedUser.username as string);
     } catch (error: any) {
-      console.error("Failed to update user:", error);
+      console.error('Failed to update user:', error);
       setError(error.message);
     }
   }
@@ -110,17 +117,17 @@ export function UserSettingsPage() {
       if (response.error) {
         setError(response.message);
       } else {
-        setSuccess("Password reset link has been sent to your email address.");
+        setSuccess('Password reset link has been sent to your email address.');
       }
     } catch (error) {
-      setError("Failed to initiate password reset.");
+      setError('Failed to initiate password reset.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const subscriptionEnabled =
-    import.meta.env.VITE_FEATURE_SUBSCRIPTION === "true";
+    import.meta.env.VITE_FEATURE_SUBSCRIPTION === 'true';
 
   useEffect(() => {
     async function fetchBilling() {
@@ -132,11 +139,11 @@ export function UserSettingsPage() {
           setBillingUrl(response.url);
         }
       } catch (error) {
-        console.error("Failed to fetch billing info:", error);
+        console.error('Failed to fetch billing info:', error);
       }
     }
 
-    setDocumentTitle("Settings");
+    setDocumentTitle('Settings');
     if (subscriptionEnabled) {
       fetchBilling();
     }
@@ -156,7 +163,7 @@ export function UserSettingsPage() {
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case "profile":
+      case 'profile':
         return (
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow p-6">
@@ -185,13 +192,12 @@ export function UserSettingsPage() {
                   </label>
                 </div>
                 <div>
-                  <TimezoneSelector
-                    value={timezone}
-                    onChange={setTimezone}
-                  />
+                  <TimezoneSelector value={timezone} onChange={setTimezone} />
                 </div>
                 <div className="pt-2">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Sidebar Visibility</h3>
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">
+                    Sidebar Visibility
+                  </h3>
                   <div className="space-y-3">
                     <ToggleSlider
                       label="Show Tasks"
@@ -217,17 +223,22 @@ export function UserSettingsPage() {
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold mb-4">Password Settings</h2>
               <p className="text-gray-600 mb-4">
-                To change your password, we'll send a password reset link to your email address.
+                To change your password, we'll send a password reset link to
+                your email address.
               </p>
               <button
                 onClick={handlePasswordReset}
                 disabled={isLoading}
                 className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50"
               >
-                {isLoading ? "Sending..." : "Send Password Reset Link"}
+                {isLoading ? 'Sending...' : 'Send Password Reset Link'}
               </button>
-              {success && <div className="mt-2 text-green-600 text-sm">{success}</div>}
-              {error && <div className="mt-2 text-red-600 text-sm">{error}</div>}
+              {success && (
+                <div className="mt-2 text-green-600 text-sm">{success}</div>
+              )}
+              {error && (
+                <div className="mt-2 text-red-600 text-sm">{error}</div>
+              )}
             </div>
 
             {subscriptionEnabled && billingEnabled && (
@@ -236,11 +247,10 @@ export function UserSettingsPage() {
                 {hasSubscription ? (
                   <div className="space-y-2">
                     <p>
-                      Status:{" "}
-                      <span className="font-medium">active</span>
+                      Status: <span className="font-medium">active</span>
                     </p>
                     <a
-                      href={billingUrl || "#"}
+                      href={billingUrl || '#'}
                       className="text-blue-500 hover:underline"
                     >
                       Manage Subscription →
@@ -250,7 +260,7 @@ export function UserSettingsPage() {
                   <div className="space-y-2">
                     <p>You don't have a subscription yet.</p>
                     <button
-                      onClick={() => navigate("/app/subscription")}
+                      onClick={() => navigate('/app/subscription')}
                       className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
                     >
                       Upgrade to Pro →
@@ -264,7 +274,9 @@ export function UserSettingsPage() {
               <h2 className="text-xl font-semibold mb-4">Data & Privacy</h2>
               <div className="space-y-4">
                 <div className="border border-gray-200 rounded-lg p-4">
-                  <h3 className="text-lg font-medium text-gray-800 mb-2">Export your data</h3>
+                  <h3 className="text-lg font-medium text-gray-800 mb-2">
+                    Export your data
+                  </h3>
                   <p className="text-gray-600 text-sm mb-3">
                     Download a zip archive of your cards, tasks, files, tags,
                     entities, facts, and RSS data (as JSON, with Markdown/CSV
@@ -275,7 +287,7 @@ export function UserSettingsPage() {
                     disabled={exporting}
                     className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {exporting ? "Preparing export..." : "Export my data"}
+                    {exporting ? 'Preparing export...' : 'Export my data'}
                   </button>
                   {exportMsg && (
                     <p className="mt-2 text-sm text-green-600">{exportMsg}</p>
@@ -286,7 +298,9 @@ export function UserSettingsPage() {
                 </div>
 
                 <div className="border border-red-200 bg-red-50 rounded-lg p-4">
-                  <h3 className="text-lg font-medium text-red-800 mb-2">Delete account</h3>
+                  <h3 className="text-lg font-medium text-red-800 mb-2">
+                    Delete account
+                  </h3>
                   <p className="text-red-700 text-sm mb-3">
                     Permanently delete your account and all associated data
                     (cards, tasks, files, and more). This cannot be undone.
@@ -317,12 +331,12 @@ export function UserSettingsPage() {
                           disabled={deleting}
                           className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50"
                         >
-                          {deleting ? "Deleting..." : "Permanently delete"}
+                          {deleting ? 'Deleting...' : 'Permanently delete'}
                         </button>
                         <button
                           onClick={() => {
                             setShowDeleteConfirm(false);
-                            setDeletePassword("");
+                            setDeletePassword('');
                           }}
                           className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400"
                         >
@@ -354,77 +368,102 @@ export function UserSettingsPage() {
             </div>
           </div>
         );
-      case "templates":
+      case 'templates':
         return (
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold mb-4">Card Templates</h2>
             <TemplatesList />
           </div>
         );
-      case "tags":
+      case 'tags':
         return <TagList />;
-      case "statuses":
+      case 'statuses':
         return <StatusManagement />;
-      case "apiKeys":
+      case 'apiKeys':
         return <APIKeysManagement />;
-      case "entities":
+      case 'entities':
         return <EntityPage />;
-      case "stats":
+      case 'stats':
         return <StatsPage />;
     }
   };
-
 
   return (
     <div className="p-6">
       <H6 children="Settings" />
       <div className="flex border-b">
         <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === "profile" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-          onClick={() => setActiveTab("profile")}
+          className={`px-4 py-2 text-sm font-medium ${
+            activeTab === 'profile'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+          onClick={() => setActiveTab('profile')}
         >
           Profile
         </button>
         <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === "templates" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-          onClick={() => setActiveTab("templates")}
+          className={`px-4 py-2 text-sm font-medium ${
+            activeTab === 'templates'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+          onClick={() => setActiveTab('templates')}
         >
           Templates
         </button>
         <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === "tags" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-          onClick={() => setActiveTab("tags")}
+          className={`px-4 py-2 text-sm font-medium ${
+            activeTab === 'tags'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+          onClick={() => setActiveTab('tags')}
         >
           Tags
         </button>
         <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === "statuses" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-          onClick={() => setActiveTab("statuses")}
+          className={`px-4 py-2 text-sm font-medium ${
+            activeTab === 'statuses'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+          onClick={() => setActiveTab('statuses')}
         >
           Task Statuses
         </button>
         <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === "apiKeys" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-          onClick={() => setActiveTab("apiKeys")}
+          className={`px-4 py-2 text-sm font-medium ${
+            activeTab === 'apiKeys'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+          onClick={() => setActiveTab('apiKeys')}
         >
           API Keys
         </button>
         <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === "entities" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-          onClick={() => setActiveTab("entities")}
+          className={`px-4 py-2 text-sm font-medium ${
+            activeTab === 'entities'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+          onClick={() => setActiveTab('entities')}
         >
           Entities
         </button>
         <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === "stats" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-          onClick={() => setActiveTab("stats")}
+          className={`px-4 py-2 text-sm font-medium ${
+            activeTab === 'stats'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+          onClick={() => setActiveTab('stats')}
         >
           Stats
         </button>
       </div>
-      <div className="mt-4">
-        {renderTabContent()}
-      </div>
+      <div className="mt-4">{renderTabContent()}</div>
     </div>
   );
 }

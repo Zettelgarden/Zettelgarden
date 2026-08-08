@@ -1,6 +1,6 @@
-import { useTaskContext } from "../contexts/TaskContext";
-import { saveExistingTask } from "../api/tasks";
-import { Task } from "../models/Task";
+import { useTaskContext } from '../contexts/TaskContext';
+import { saveExistingTask } from '../api/tasks';
+import { Task } from '../models/Task';
 
 interface UseOptimisticTaskUpdateOptions {
   task: Task;
@@ -17,7 +17,7 @@ export function useOptimisticTaskUpdate({
   task,
   setTask,
   saveOnChange,
-  errorMessagePrefix = "Failed to update task",
+  errorMessagePrefix = 'Failed to update task',
 }: UseOptimisticTaskUpdateOptions) {
   const { updateTask: updateTaskInContext } = useTaskContext();
 
@@ -34,7 +34,7 @@ export function useOptimisticTaskUpdate({
       // Send update to server in background
       try {
         const response = await saveExistingTask(editedTask);
-        if ("error" in response) {
+        if ('error' in response) {
           // Rollback on error
           if (setTask) {
             setTask(task);

@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { FieldDefinition } from "../../models/Schema";
-import { BacklinkInputDropdownList } from "../cards/BacklinkInputDropdownList";
-import { PartialCard, Card } from "../../models/Card";
-import { Link } from "react-router-dom";
-import { getCard } from "../../api/cards";
-import { CardTag } from "../cards/CardTag";
+import React, { useState, useEffect } from 'react';
+import { FieldDefinition } from '../../models/Schema';
+import { BacklinkInputDropdownList } from '../cards/BacklinkInputDropdownList';
+import { PartialCard, Card } from '../../models/Card';
+import { Link } from 'react-router-dom';
+import { getCard } from '../../api/cards';
+import { CardTag } from '../cards/CardTag';
 
 interface LinkedCardFieldProps {
   value: number | null;
@@ -29,14 +29,14 @@ function LinkedCardField({ value, onUpdate }: LinkedCardFieldProps) {
     getCard(value.toString())
       .then((result) => {
         if (isError(result)) {
-          setError("Failed to load card");
+          setError('Failed to load card');
           setCard(null);
         } else {
           setCard(result);
         }
       })
       .catch(() => {
-        setError("Failed to load card");
+        setError('Failed to load card');
         setCard(null);
       })
       .finally(() => {
@@ -46,7 +46,7 @@ function LinkedCardField({ value, onUpdate }: LinkedCardFieldProps) {
 
   // Type guard for error response
   function isError(result: any): result is { error: string } {
-    return result && typeof result === "object" && "error" in result;
+    return result && typeof result === 'object' && 'error' in result;
   }
 
   return (
@@ -57,18 +57,11 @@ function LinkedCardField({ value, onUpdate }: LinkedCardFieldProps) {
         placeholder="Search for a card..."
         className="w-full"
       />
-      {loading && (
-        <div className="text-sm text-gray-500">Loading card...</div>
-      )}
-      {error && (
-        <div className="text-sm text-red-600">{error}</div>
-      )}
+      {loading && <div className="text-sm text-gray-500">Loading card...</div>}
+      {error && <div className="text-sm text-red-600">{error}</div>}
       {card && (
         <div className="flex items-center justify-between p-2 bg-blue-50 border border-blue-200 rounded-lg">
-          <Link
-            to={`/app/card/${card.id}`}
-            className="flex-1 min-w-0"
-          >
+          <Link to={`/app/card/${card.id}`} className="flex-1 min-w-0">
             <CardTag card={card} showTitle={true} />
           </Link>
           <button
@@ -77,8 +70,17 @@ function LinkedCardField({ value, onUpdate }: LinkedCardFieldProps) {
             className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 p-1 rounded flex-shrink-0 ml-2"
             title="Remove link"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clipRule="evenodd"
+              />
             </svg>
           </button>
         </div>
@@ -94,7 +96,12 @@ interface StructuredDataEditorProps {
   disabled?: boolean;
 }
 
-export function StructuredDataEditor({ fields, data, onChange, disabled = false }: StructuredDataEditorProps) {
+export function StructuredDataEditor({
+  fields,
+  data,
+  onChange,
+  disabled = false,
+}: StructuredDataEditorProps) {
   const updateField = (fieldName: string, value: any) => {
     onChange({
       ...data,
@@ -106,42 +113,51 @@ export function StructuredDataEditor({ fields, data, onChange, disabled = false 
     const value = data[field.name];
 
     switch (field.type) {
-      case "text":
+      case 'text':
         return (
           <input
             type="text"
-            value={value || ""}
+            value={value || ''}
             onChange={(e) => updateField(field.name, e.target.value)}
             disabled={disabled}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
-            placeholder={field.required ? `${field.name} (required)` : field.name}
+            placeholder={
+              field.required ? `${field.name} (required)` : field.name
+            }
           />
         );
 
-      case "number":
+      case 'number':
         return (
           <input
             type="number"
-            value={value ?? ""}
-            onChange={(e) => updateField(field.name, e.target.value ? parseFloat(e.target.value) : null)}
+            value={value ?? ''}
+            onChange={(e) =>
+              updateField(
+                field.name,
+                e.target.value ? parseFloat(e.target.value) : null,
+              )
+            }
             disabled={disabled}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
-            placeholder={field.required ? `${field.name} (required)` : field.name}
+            placeholder={
+              field.required ? `${field.name} (required)` : field.name
+            }
           />
         );
 
-      case "date":
+      case 'date':
         return (
           <input
             type="date"
-            value={value || ""}
+            value={value || ''}
             onChange={(e) => updateField(field.name, e.target.value || null)}
             disabled={disabled}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
           />
         );
 
-      case "boolean":
+      case 'boolean':
         return (
           <div className="flex items-center">
             <input
@@ -152,16 +168,19 @@ export function StructuredDataEditor({ fields, data, onChange, disabled = false 
               disabled={disabled}
               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
             />
-            <label htmlFor={`field-${field.name}`} className="ml-2 text-sm text-gray-700">
-              {value ? "Yes" : "No"}
+            <label
+              htmlFor={`field-${field.name}`}
+              className="ml-2 text-sm text-gray-700"
+            >
+              {value ? 'Yes' : 'No'}
             </label>
           </div>
         );
 
-      case "select":
+      case 'select':
         return (
           <select
-            value={value || ""}
+            value={value || ''}
             onChange={(e) => updateField(field.name, e.target.value || null)}
             disabled={disabled}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -175,7 +194,7 @@ export function StructuredDataEditor({ fields, data, onChange, disabled = false 
           </select>
         );
 
-      case "multi-select":
+      case 'multi-select':
         return (
           <div className="space-y-2">
             {field.options?.map((option) => (
@@ -188,7 +207,10 @@ export function StructuredDataEditor({ fields, data, onChange, disabled = false 
                     if (e.target.checked) {
                       updateField(field.name, [...currentValues, option]);
                     } else {
-                      updateField(field.name, currentValues.filter((v: string) => v !== option));
+                      updateField(
+                        field.name,
+                        currentValues.filter((v: string) => v !== option),
+                      );
                     }
                   }}
                   disabled={disabled}
@@ -200,7 +222,7 @@ export function StructuredDataEditor({ fields, data, onChange, disabled = false 
           </div>
         );
 
-      case "link_to_card":
+      case 'link_to_card':
         return (
           <LinkedCardField
             value={value}
@@ -212,7 +234,7 @@ export function StructuredDataEditor({ fields, data, onChange, disabled = false 
         return (
           <input
             type="text"
-            value={value || ""}
+            value={value || ''}
             onChange={(e) => updateField(field.name, e.target.value)}
             disabled={disabled}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"

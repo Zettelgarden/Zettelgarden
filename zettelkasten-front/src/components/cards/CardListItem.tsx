@@ -1,17 +1,17 @@
-import React, { useState } from "react";
-import { PartialCard, Card } from "../../models/Card";
-import { CardPreviewWindow } from "./CardPreviewWindow";
-import { CardLink } from "./CardLink";
-import { PlusCircleIcon } from "../../assets/icons/PlusCircleIcon";
-import { formatDate } from "../../utils/dates";
-import { useUIState } from "../../contexts/UIStateContext";
-import { useTagContext } from "../../contexts/TagContext";
-import { useNavigate } from "react-router-dom";
-import { Menu } from "@headlessui/react";
-import { CardIdDiscoveryDialog } from "./CardIdDiscoveryDialog";
-import { CardListMenu } from "./CardListMenu";
-import { getCard, saveExistingCard } from "../../api/cards";
-import { togglePartialCardStar } from "../../utils/cardActions";
+import React, { useState } from 'react';
+import { PartialCard, Card } from '../../models/Card';
+import { CardPreviewWindow } from './CardPreviewWindow';
+import { CardLink } from './CardLink';
+import { PlusCircleIcon } from '../../assets/icons/PlusCircleIcon';
+import { formatDate } from '../../utils/dates';
+import { useUIState } from '../../contexts/UIStateContext';
+import { useTagContext } from '../../contexts/TagContext';
+import { useNavigate } from 'react-router-dom';
+import { Menu } from '@headlessui/react';
+import { CardIdDiscoveryDialog } from './CardIdDiscoveryDialog';
+import { CardListMenu } from './CardListMenu';
+import { getCard, saveExistingCard } from '../../api/cards';
+import { togglePartialCardStar } from '../../utils/cardActions';
 
 interface CardListItemProps {
   card: PartialCard;
@@ -40,7 +40,7 @@ export function CardListItem({
 
   function handleAddCardClick() {
     setLastCard(card);
-    navigate("/app/card/new");
+    navigate('/app/card/new');
   }
 
   function handleEditClick() {
@@ -55,7 +55,7 @@ export function CardListItem({
     try {
       await togglePartialCardStar(card, onCardUpdate);
     } catch (error) {
-      console.error("Failed to toggle star:", error);
+      console.error('Failed to toggle star:', error);
     }
   }
 
@@ -67,7 +67,7 @@ export function CardListItem({
       // Add the tag to the card body
       const editedCard: Card = {
         ...fullCard,
-        body: fullCard.body + "\n\n#" + tagName,
+        body: fullCard.body + '\n\n#' + tagName,
       };
 
       // Save the updated card
@@ -80,7 +80,7 @@ export function CardListItem({
         onCardUpdate();
       }
     } catch (error) {
-      console.error("Failed to add tag to card:", error);
+      console.error('Failed to add tag to card:', error);
     }
   };
 
@@ -106,7 +106,7 @@ export function CardListItem({
         onCardUpdate();
       }
     } catch (error) {
-      console.error("Failed to remove tag from card:", error);
+      console.error('Failed to remove tag from card:', error);
     }
   };
 
@@ -135,13 +135,16 @@ export function CardListItem({
         onCardUpdate();
       }
     } catch (error) {
-      console.error("Failed to update card:", error);
+      console.error('Failed to update card:', error);
       // TODO: Show error message to user
     }
   }
 
   return (
-    <div key={card.id} className="text-palette-darkest py-1.5 px-2 flex w-full text-sm items-center hover:bg-gray-50 transition-colors duration-150 rounded-lg">
+    <div
+      key={card.id}
+      className="text-palette-darkest py-1.5 px-2 flex w-full text-sm items-center hover:bg-gray-50 transition-colors duration-150 rounded-lg"
+    >
       <div className="pr-3 flex-1 min-w-0 overflow-hidden">
         <span
           onMouseEnter={handleMouseEnter}
@@ -149,7 +152,7 @@ export function CardListItem({
         >
           <CardLink
             card={card}
-            handleViewBacklink={(id: number) => { }}
+            handleViewBacklink={(id: number) => {}}
             showTitle={true}
             showTags={true}
             onRemoveTag={handleRemoveTag}
@@ -158,7 +161,9 @@ export function CardListItem({
         </span>
       </div>
 
-      <div className="flex text-xs flex-shrink-0 mr-2 w-20">{formatDate(card.created_at.toISOString())}</div>
+      <div className="flex text-xs flex-shrink-0 mr-2 w-20">
+        {formatDate(card.created_at.toISOString())}
+      </div>
 
       {/* Hamburger Menu */}
       <CardListMenu
@@ -166,7 +171,7 @@ export function CardListItem({
         onEditClick={handleEditClick}
         onAddTag={handleAddTag}
         onRecategoryClick={handleRecategoryClick}
-        showRecategory={card.card_id === ""}
+        showRecategory={card.card_id === ''}
         tags={tags}
         isStarred={card.is_starred ?? false}
         onToggleStar={handleStarToggle}

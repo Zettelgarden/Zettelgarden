@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 
 /**
  * Props for the ConfirmDialog component
@@ -21,7 +21,7 @@ export interface ConfirmDialogProps {
   /** Text for cancel button (default: "Cancel") */
   cancelText?: string;
   /** Severity level for styling (default: "warning") */
-  severity?: "info" | "warning" | "danger";
+  severity?: 'info' | 'warning' | 'danger';
   /** Whether to require checkbox confirmation (default: false) */
   requireCheckbox?: boolean;
   /** Checkbox label text (when requireCheckbox is true) */
@@ -33,22 +33,22 @@ export interface ConfirmDialogProps {
  */
 const severityStyles = {
   info: {
-    container: "border-blue-200 bg-blue-50",
-    title: "text-blue-900",
-    icon: "ℹ️",
-    confirmButton: "bg-blue-600 hover:bg-blue-700 text-white",
+    container: 'border-blue-200 bg-blue-50',
+    title: 'text-blue-900',
+    icon: 'ℹ️',
+    confirmButton: 'bg-blue-600 hover:bg-blue-700 text-white',
   },
   warning: {
-    container: "border-yellow-200 bg-yellow-50",
-    title: "text-yellow-900",
-    icon: "⚠️",
-    confirmButton: "bg-yellow-600 hover:bg-yellow-700 text-white",
+    container: 'border-yellow-200 bg-yellow-50',
+    title: 'text-yellow-900',
+    icon: '⚠️',
+    confirmButton: 'bg-yellow-600 hover:bg-yellow-700 text-white',
   },
   danger: {
-    container: "border-red-200 bg-red-50",
-    title: "text-red-900",
-    icon: "🚨",
-    confirmButton: "bg-red-600 hover:bg-red-700 text-white",
+    container: 'border-red-200 bg-red-50',
+    title: 'text-red-900',
+    icon: '🚨',
+    confirmButton: 'bg-red-600 hover:bg-red-700 text-white',
   },
 };
 
@@ -81,11 +81,11 @@ export function ConfirmDialog({
   title,
   message,
   details,
-  confirmText = "Confirm",
-  cancelText = "Cancel",
-  severity = "warning",
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
+  severity = 'warning',
   requireCheckbox = false,
-  checkboxLabel = "I understand this action cannot be undone",
+  checkboxLabel = 'I understand this action cannot be undone',
 }: ConfirmDialogProps) {
   const [checkboxChecked, setCheckboxChecked] = React.useState(false);
   const [isClosing, setIsClosing] = React.useState(false);
@@ -103,24 +103,24 @@ export function ConfirmDialog({
     if (!isOpen) return;
 
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !isClosing) {
+      if (e.key === 'Escape' && !isClosing) {
         handleClose();
       }
     };
 
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, isClosing]);
 
   // Prevent body scroll when dialog is open
   React.useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = "hidden";
+      document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = "";
+      document.body.style.overflow = '';
     }
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = '';
     };
   }, [isOpen]);
 
@@ -151,7 +151,7 @@ export function ConfirmDialog({
       {/* Backdrop */}
       <div
         className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ${
-          isOpen ? "opacity-100" : "opacity-0"
+          isOpen ? 'opacity-100' : 'opacity-0'
         }`}
       />
 
@@ -159,16 +159,14 @@ export function ConfirmDialog({
       <div
         className={`relative bg-white rounded-lg shadow-xl border-2 max-w-md w-full p-6 transition-all duration-300 ${
           styles.container
-        } ${isClosing ? "scale-95 opacity-0" : "scale-100 opacity-100"}`}
+        } ${isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-start gap-4">
           <div className="text-2xl flex-shrink-0">{styles.icon}</div>
           <div className="flex-1">
-            <h3 className={`text-lg font-semibold ${styles.title}`}>
-              {title}
-            </h3>
+            <h3 className={`text-lg font-semibold ${styles.title}`}>{title}</h3>
             <p className="mt-2 text-sm text-gray-700">{message}</p>
             {details && (
               <p className="mt-2 text-xs text-gray-600 bg-black/5 p-2 rounded">
@@ -220,13 +218,17 @@ export function ConfirmDialog({
  */
 export function useConfirmDialog() {
   const [isOpen, setIsOpen] = React.useState(false);
-  const [config, setConfig] = React.useState<Omit<ConfirmDialogProps, "isOpen" | "onCancel">>({
+  const [config, setConfig] = React.useState<
+    Omit<ConfirmDialogProps, 'isOpen' | 'onCancel'>
+  >({
     onConfirm: () => {},
-    title: "",
-    message: "",
+    title: '',
+    message: '',
   });
 
-  const confirm = (newConfig: Omit<ConfirmDialogProps, "isOpen" | "onCancel">) => {
+  const confirm = (
+    newConfig: Omit<ConfirmDialogProps, 'isOpen' | 'onCancel'>,
+  ) => {
     return new Promise<boolean>((resolve) => {
       setConfig({
         ...newConfig,

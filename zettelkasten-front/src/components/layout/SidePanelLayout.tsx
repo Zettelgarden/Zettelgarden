@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { useIsDesktop } from "../../hooks/useWindowSize";
-import { PANEL_THEMES, PanelTheme } from "./panelThemes";
+import React, { useState } from 'react';
+import { useIsDesktop } from '../../hooks/useWindowSize';
+import { PANEL_THEMES, PanelTheme } from './panelThemes';
 
 export interface SidePanelLayoutProps {
   children: React.ReactNode;
@@ -35,34 +35,42 @@ export const SidePanelLayout: React.FC<SidePanelLayoutProps> = ({
   return (
     <div className="flex flex-col lg:flex-row h-full">
       {/* Main Content Pane - Left side on desktop, top on mobile */}
-      <div className={`
+      <div
+        className={`
         w-full lg:w-1/2
         border-b lg:border-b-0 lg:border-r border-gray-200
         overflow-y-auto
         ${isExpanded ? 'h-1/3 md:h-1/2 lg:h-full' : 'flex-1 lg:h-full'}
         transition-all duration-300 ease-in-out
-      `}>
-        <div className="h-full">
-          {children}
-        </div>
+      `}
+      >
+        <div className="h-full">{children}</div>
       </div>
 
       {/* Side Panel - Right side on desktop, collapsible bottom on mobile */}
-      <div className={`
+      <div
+        className={`
         w-full lg:w-1/2
         ${isExpanded ? 'h-2/3 md:h-1/2' : 'h-auto lg:h-full'}
         transition-all duration-300 ease-in-out
-      `}>
+      `}
+      >
         <div className={`h-full ${colors.bg} flex flex-col`}>
           {/* Desktop Header */}
-          <div className={`hidden lg:flex ${colors.bgLight} px-3 py-2 border-b ${colors.border} items-center justify-between`}>
+          <div
+            className={`hidden lg:flex ${colors.bgLight} px-3 py-2 border-b ${colors.border} items-center justify-between`}
+          >
             <div className="flex items-center gap-2">
               {icon && <div className={`${colors.text}`}>{icon}</div>}
-              <span className={`text-xs font-semibold uppercase tracking-wide ${colors.textMuted}`}>
+              <span
+                className={`text-xs font-semibold uppercase tracking-wide ${colors.textMuted}`}
+              >
                 {title}
               </span>
               {subtitle && (
-                <span className={`${colors.text} text-sm font-medium truncate max-w-md`}>
+                <span
+                  className={`${colors.text} text-sm font-medium truncate max-w-md`}
+                >
                   {subtitle}
                 </span>
               )}
@@ -72,15 +80,27 @@ export const SidePanelLayout: React.FC<SidePanelLayoutProps> = ({
               className={`${colors.text} ${colors.hoverBg} px-2 py-1 rounded text-sm flex items-center gap-1`}
               title="Close panel"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
               Close
             </button>
           </div>
 
           {/* Mobile collapse/expand button */}
-          <div className={`lg:hidden ${colors.bgLight} p-2 border-b ${colors.border}`}>
+          <div
+            className={`lg:hidden ${colors.bgLight} p-2 border-b ${colors.border}`}
+          >
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className={`flex items-center justify-between w-full ${colors.textMuted}`}
@@ -98,21 +118,41 @@ export const SidePanelLayout: React.FC<SidePanelLayoutProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={(e) => { e.stopPropagation(); onClose(); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClose();
+                  }}
                   className={`${colors.text} ${colors.hoverBg} p-1`}
                   title="Close panel"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
                 <svg
-                  className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                  className={`w-4 h-4 transition-transform ${
+                    isExpanded ? 'rotate-180' : ''
+                  }`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               </div>
             </button>
@@ -120,9 +160,7 @@ export const SidePanelLayout: React.FC<SidePanelLayoutProps> = ({
 
           {/* Panel content - conditionally shown on mobile */}
           {(isExpanded || isDesktop) && (
-            <div className="flex-1 min-h-0">
-              {panelContent}
-            </div>
+            <div className="flex-1 min-h-0">{panelContent}</div>
           )}
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from 'react';
 import {
   listFeeds,
   listFolders,
@@ -7,7 +7,7 @@ import {
   RSSFeed,
   RSSFolder,
   UnreadCounts,
-} from "../api/rss";
+} from '../api/rss';
 
 /**
  * Hook for managing RSS feeds, folders, and unread counts data
@@ -16,7 +16,10 @@ import {
 export function useRssData() {
   const [feeds, setFeeds] = useState<RSSFeed[]>([]);
   const [folders, setFolders] = useState<RSSFolder[]>([]);
-  const [unreadCounts, setUnreadCounts] = useState<UnreadCounts>({ folders: {}, feeds: {} });
+  const [unreadCounts, setUnreadCounts] = useState<UnreadCounts>({
+    folders: {},
+    feeds: {},
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -35,7 +38,7 @@ export function useRssData() {
       setFolders(foldersData);
       setUnreadCounts(countsData);
     } catch (error) {
-      console.error("Failed to load RSS data:", error);
+      console.error('Failed to load RSS data:', error);
       throw error;
     } finally {
       setLoading(false);
@@ -52,7 +55,7 @@ export function useRssData() {
       await loadData();
       return result;
     } catch (error) {
-      console.error("Failed to refresh feeds:", error);
+      console.error('Failed to refresh feeds:', error);
       throw error;
     } finally {
       setRefreshing(false);
@@ -67,7 +70,7 @@ export function useRssData() {
       const counts = await getUnreadCounts();
       setUnreadCounts(counts);
     } catch (error) {
-      console.error("Failed to refresh unread counts:", error);
+      console.error('Failed to refresh unread counts:', error);
       // Non-blocking error - counts will update on next refresh
     }
   }, []);

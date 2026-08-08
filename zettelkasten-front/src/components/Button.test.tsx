@@ -25,7 +25,11 @@ describe('Button', () => {
 
   it('does not call onClick when disabled', async () => {
     const handleClick = vi.fn();
-    render(<Button onClick={handleClick} disabled>Click</Button>);
+    render(
+      <Button onClick={handleClick} disabled>
+        Click
+      </Button>,
+    );
 
     await userEvent.click(screen.getByText('Click'));
     expect(handleClick).not.toHaveBeenCalled();

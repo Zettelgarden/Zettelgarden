@@ -1,6 +1,6 @@
-import React from "react";
-import { Dialog, Transition } from "@headlessui/react";
-import { Fragment } from "react";
+import React from 'react';
+import { Dialog, Transition } from '@headlessui/react';
+import { Fragment } from 'react';
 
 interface RssConfirmDialogProps {
   isOpen: boolean;
@@ -19,8 +19,8 @@ export function RssConfirmDialog({
   onConfirm,
   title,
   message,
-  confirmText = "Confirm",
-  cancelText = "Cancel",
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
   dangerous = false,
 }: RssConfirmDialogProps) {
   const handleConfirm = () => {
@@ -55,7 +55,10 @@ export function RssConfirmDialog({
               leaveTo="opacity-0 scale-95"
             >
               <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 mb-2">
+                <Dialog.Title
+                  as="h3"
+                  className="text-lg font-medium leading-6 text-gray-900 mb-2"
+                >
                   {title}
                 </Dialog.Title>
                 <p className="text-sm text-gray-500 mb-6">{message}</p>
@@ -73,8 +76,8 @@ export function RssConfirmDialog({
                     onClick={handleConfirm}
                     className={`px-4 py-2 rounded-md font-medium transition-colors ${
                       dangerous
-                        ? "bg-red-600 text-white hover:bg-red-700"
-                        : "bg-blue-600 text-white hover:bg-blue-700"
+                        ? 'bg-red-600 text-white hover:bg-red-700'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}
                   >
                     {confirmText}

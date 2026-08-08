@@ -1,9 +1,9 @@
-import React from "react";
-import { SearchResult } from "../../models/Card";
-import { SearchConfig } from "../../models/StarredSearch";
-import { Tag } from "../../models/Tags";
-import { SearchSidebar } from "./SearchSidebar";
-import { SearchMainContent } from "./SearchMainContent";
+import React from 'react';
+import { SearchResult } from '../../models/Card';
+import { SearchConfig } from '../../models/StarredSearch';
+import { Tag } from '../../models/Tags';
+import { SearchSidebar } from './SearchSidebar';
+import { SearchMainContent } from './SearchMainContent';
 
 interface SearchDesktopLayoutProps {
   // Search input state

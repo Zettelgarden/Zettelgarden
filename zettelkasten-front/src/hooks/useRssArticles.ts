@@ -1,10 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import {
-  listArticles,
-  RSSArticle,
-  ArticleFilters,
-} from "../api/rss";
-import { RSS_CONFIG } from "../constants/rss";
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { listArticles, RSSArticle, ArticleFilters } from '../api/rss';
+import { RSS_CONFIG } from '../constants/rss';
 
 /**
  * Options for useRssArticles hook
@@ -56,8 +52,8 @@ export function useRssArticles(options: UseRssArticlesOptions = {}) {
       setArticles(response?.articles || []);
       setTotalArticles(response?.total || 0);
     } catch (error) {
-      console.error("Failed to load articles:", error);
-      setError("Failed to load articles. Please try again.");
+      console.error('Failed to load articles:', error);
+      setError('Failed to load articles. Please try again.');
       if (errorTimeoutRef.current) {
         clearTimeout(errorTimeoutRef.current);
       }
@@ -88,8 +84,8 @@ export function useRssArticles(options: UseRssArticlesOptions = {}) {
       setArticles((prev) => [...prev, ...(response?.articles || [])]);
       setTotalArticles(response?.total || 0);
     } catch (error) {
-      console.error("Failed to load more articles:", error);
-      setError("Failed to load more articles. Please try again.");
+      console.error('Failed to load more articles:', error);
+      setError('Failed to load more articles. Please try again.');
       if (errorTimeoutRef.current) {
         clearTimeout(errorTimeoutRef.current);
       }
@@ -109,18 +105,24 @@ export function useRssArticles(options: UseRssArticlesOptions = {}) {
   /**
    * Update an article in the local state
    */
-  const updateArticle = useCallback((articleId: number, updates: Partial<RSSArticle>) => {
-    setArticles((prev) =>
-      prev.map((a) => (a.id === articleId ? { ...a, ...updates } : a))
-    );
-  }, []);
+  const updateArticle = useCallback(
+    (articleId: number, updates: Partial<RSSArticle>) => {
+      setArticles((prev) =>
+        prev.map((a) => (a.id === articleId ? { ...a, ...updates } : a)),
+      );
+    },
+    [],
+  );
 
   /**
    * Update multiple articles in the local state
    */
-  const updateArticles = useCallback((updater: (articles: RSSArticle[]) => RSSArticle[]) => {
-    setArticles(updater);
-  }, []);
+  const updateArticles = useCallback(
+    (updater: (articles: RSSArticle[]) => RSSArticle[]) => {
+      setArticles(updater);
+    },
+    [],
+  );
 
   // Load articles when filters changes
   useEffect(() => {

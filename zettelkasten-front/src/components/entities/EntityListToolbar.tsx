@@ -1,11 +1,14 @@
-import React from "react";
+import React from 'react';
 
 interface EntityListToolbarProps {
   filterText: string;
   onFilterChange: (value: string) => void;
-  sortBy: "name" | "cards" | "created_at";
-  sortDirection: "asc" | "desc";
-  onSortChange: (sortBy: "name" | "cards" | "created_at", direction: "asc" | "desc") => void;
+  sortBy: 'name' | 'cards' | 'created_at';
+  sortDirection: 'asc' | 'desc';
+  onSortChange: (
+    sortBy: 'name' | 'cards' | 'created_at',
+    direction: 'asc' | 'desc',
+  ) => void;
   onSearch: () => void;
   onKeyPress: (e: React.KeyboardEvent) => void;
 }
@@ -38,9 +41,9 @@ export function EntityListToolbar({
       <select
         value={`${sortBy}-${sortDirection}`}
         onChange={(e) => {
-          const [newSortBy, newDirection] = e.target.value.split("-") as [
-            "name" | "cards" | "created_at",
-            "asc" | "desc"
+          const [newSortBy, newDirection] = e.target.value.split('-') as [
+            'name' | 'cards' | 'created_at',
+            'asc' | 'desc',
           ];
           onSortChange(newSortBy, newDirection);
         }}
@@ -55,4 +58,4 @@ export function EntityListToolbar({
       </select>
     </div>
   );
-} 
+}

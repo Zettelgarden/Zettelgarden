@@ -1,22 +1,22 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Card, PartialCard, Entity, RelatedCard } from "../../models/Card";
-import { isErrorResponse } from "../../models/common";
-import { TaskListItem } from "../../components/tasks/TaskListItem";
-import { useTaskContext } from "../../contexts/TaskContext";
-import { useUIState } from "../../contexts/UIStateContext";
-import { useDialogState } from "../../contexts/DialogStateContext";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useRef } from 'react';
+import { Card, PartialCard, Entity, RelatedCard } from '../../models/Card';
+import { isErrorResponse } from '../../models/common';
+import { TaskListItem } from '../../components/tasks/TaskListItem';
+import { useTaskContext } from '../../contexts/TaskContext';
+import { useUIState } from '../../contexts/UIStateContext';
+import { useDialogState } from '../../contexts/DialogStateContext';
+import { useParams, useNavigate } from 'react-router-dom';
 
-import { CardItem } from "../../components/cards/CardItem";
-import { BacklinkInput } from "../../components/cards/BacklinkInput";
+import { CardItem } from '../../components/cards/CardItem';
+import { BacklinkInput } from '../../components/cards/BacklinkInput';
 import {
   getCard,
   CategorizedReferences,
   getRelatedCards,
-} from "../../api/cards";
-import { Menu } from "@headlessui/react";
+} from '../../api/cards';
+import { Menu } from '@headlessui/react';
 
-import { convertCardToPartialCard } from "../../utils/cards";
+import { convertCardToPartialCard } from '../../utils/cards';
 import {
   calculateNextChildId,
   addTagToCard,
@@ -24,24 +24,24 @@ import {
   addBacklinkToCard,
   toggleCardStar,
   resummarizeCard,
-} from "../../utils/cardActions";
+} from '../../utils/cardActions';
 
-import { useTagContext } from "../../contexts/TagContext";
-import { useCardData } from "../../hooks/useCardData";
-import { useCardNavigation } from "../../hooks/useCardNavigation";
+import { useTagContext } from '../../contexts/TagContext';
+import { useCardData } from '../../hooks/useCardData';
+import { useCardNavigation } from '../../hooks/useCardNavigation';
 
 import {
   fetchSummariesForCard,
   SummarizeJobResponse,
-} from "../../api/summarizer";
-import { FactWithCard } from "../../models/Fact";
+} from '../../api/summarizer';
+import { FactWithCard } from '../../models/Fact';
 
 interface ViewPageProps {
   cardId?: string; // Optional card ID prop
 }
 
 /** Active rendering mode for the card view. */
-export type ViewMode = "normal" | "summary";
+export type ViewMode = 'normal' | 'summary';
 
 interface ViewPageContainerData {
   viewingCard: Card | null;
@@ -86,7 +86,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   setters: ViewPageContainerStateSetters;
   actions: ViewPageContainerActions;
 } {
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const { refreshTasks, setRefreshTasks } = useTaskContext();
   const { refreshFiles, refreshTrigger } = useUIState();
   const { id: urlId } = useParams<{ id: string }>();
@@ -120,7 +120,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   const [showingSummary, setShowingSummary] = useState(false);
   const [showIdDiscovery, setShowIdDiscovery] = useState(false);
   const [relatedCards, setRelatedCards] = useState<RelatedCard[] | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("normal");
+  const [viewMode, setViewMode] = useState<ViewMode>('normal');
 
   const navigate = useNavigate();
 
@@ -181,9 +181,9 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
       cardData.viewingCard.card_id,
       cardData.viewingCard.children,
     );
-    console.log("next id", nextId);
+    console.log('next id', nextId);
     setNextCardId(nextId);
-    navigate("/app/card/new");
+    navigate('/app/card/new');
   }
 
   const handleToggleStar = async () => {
@@ -198,8 +198,8 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
         }
       });
     } catch (error) {
-      console.error("Error toggling star status:", error);
-      setError("Failed to toggle star status");
+      console.error('Error toggling star status:', error);
+      setError('Failed to toggle star status');
     }
   };
 
@@ -250,7 +250,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
     if (cardData.viewingCard && relatedCards === null) {
       getRelatedCards(cardData.viewingCard.id.toString())
         .then(setRelatedCards)
-        .catch((err) => console.error("Failed to fetch related cards:", err));
+        .catch((err) => console.error('Failed to fetch related cards:', err));
     }
   }, [cardData.viewingCard]);
 

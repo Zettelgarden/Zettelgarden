@@ -1,9 +1,15 @@
-import React from "react";
-import { RSSFeed, RSSFolder, RSSArticle, RSSArticleWithScore, UnreadCounts } from "../../api/rss";
-import { RssFeedsPanel } from "./RssFeedsPanel";
-import { RssArticlesPanel } from "./RssArticlesPanel";
-import { RssReaderPanel } from "./RssReaderPanel";
-import { RssErrorBoundary } from "./RssErrorBoundary";
+import React from 'react';
+import {
+  RSSFeed,
+  RSSFolder,
+  RSSArticle,
+  RSSArticleWithScore,
+  UnreadCounts,
+} from '../../api/rss';
+import { RssFeedsPanel } from './RssFeedsPanel';
+import { RssArticlesPanel } from './RssArticlesPanel';
+import { RssReaderPanel } from './RssReaderPanel';
+import { RssErrorBoundary } from './RssErrorBoundary';
 
 interface RssDesktopLayoutProps {
   feeds: RSSFeed[];

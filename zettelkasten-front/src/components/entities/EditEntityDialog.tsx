@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { Dialog } from "@headlessui/react";
-import { Entity, PartialCard } from "../../models/Card";
-import { UpdateEntityRequest, updateEntity } from "../../api/entities";
-import { BacklinkInput } from "../cards/BacklinkInput";
-import { CardTag } from "../cards/CardTag";
+import React, { useState, useEffect } from 'react';
+import { Dialog } from '@headlessui/react';
+import { Entity, PartialCard } from '../../models/Card';
+import { UpdateEntityRequest, updateEntity } from '../../api/entities';
+import { BacklinkInput } from '../cards/BacklinkInput';
+import { CardTag } from '../cards/CardTag';
 
 interface EditEntityDialogProps {
   entity: Entity | null;
@@ -13,10 +13,16 @@ interface EditEntityDialogProps {
   onDelete: (entity: Entity) => void;
 }
 
-export function EditEntityDialog({ entity, isOpen, onClose, onSuccess, onDelete }: EditEntityDialogProps) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [type, setType] = useState("");
+export function EditEntityDialog({
+  entity,
+  isOpen,
+  onClose,
+  onSuccess,
+  onDelete,
+}: EditEntityDialogProps) {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [type, setType] = useState('');
   const [linkedCard, setLinkedCard] = useState<PartialCard | null>(null);
   const [showCardLink, setShowCardLink] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +68,7 @@ export function EditEntityDialog({ entity, isOpen, onClose, onSuccess, onDelete 
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError("An unexpected error occurred");
+        setError('An unexpected error occurred');
       }
     } finally {
       setIsSubmitting(false);
@@ -70,9 +76,16 @@ export function EditEntityDialog({ entity, isOpen, onClose, onSuccess, onDelete 
   };
 
   return (
-    <Dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black bg-opacity-30" aria-hidden="true" />
-      
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
+      <div
+        className="fixed inset-0 bg-black bg-opacity-30"
+        aria-hidden="true"
+      />
+
       <Dialog.Panel className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-auto relative">
         <div className="px-6 py-4 border-b border-gray-200">
           <Dialog.Title className="text-xl font-semibold text-gray-900">
@@ -83,7 +96,10 @@ export function EditEntityDialog({ entity, isOpen, onClose, onSuccess, onDelete 
         <form onSubmit={handleSubmit} className="p-6">
           <div className="space-y-6">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="name"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Name *
               </label>
               <input
@@ -98,7 +114,10 @@ export function EditEntityDialog({ entity, isOpen, onClose, onSuccess, onDelete 
             </div>
 
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="description"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Description
               </label>
               <textarea
@@ -112,7 +131,10 @@ export function EditEntityDialog({ entity, isOpen, onClose, onSuccess, onDelete 
             </div>
 
             <div>
-              <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="type"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Type
               </label>
               <input
@@ -137,8 +159,17 @@ export function EditEntityDialog({ entity, isOpen, onClose, onSuccess, onDelete 
                     onClick={handleRemoveCard}
                     className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded-full transition-colors"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   </button>
                 </div>
@@ -152,8 +183,17 @@ export function EditEntityDialog({ entity, isOpen, onClose, onSuccess, onDelete 
                       onClick={() => setShowCardLink(true)}
                       className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                       Link Card
                     </button>
@@ -191,7 +231,7 @@ export function EditEntityDialog({ entity, isOpen, onClose, onSuccess, onDelete 
                 disabled={isSubmitting || !name.trim()}
                 className="px-6 py-3 min-h-[44px] bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
               >
-                {isSubmitting ? "Saving..." : "Save"}
+                {isSubmitting ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>
@@ -199,4 +239,4 @@ export function EditEntityDialog({ entity, isOpen, onClose, onSuccess, onDelete 
       </Dialog.Panel>
     </Dialog>
   );
-} 
+}

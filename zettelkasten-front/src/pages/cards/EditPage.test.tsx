@@ -48,7 +48,9 @@ describe('EditPage — closable rail', () => {
     expect(screen.getByText('Metadata')).toBeInTheDocument();
     expect(screen.getByText('Links')).toBeInTheDocument();
     expect(screen.getByText('Files')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Close info pane' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Close info pane' }),
+    ).toBeInTheDocument();
   });
 
   it('hides the rail and reclaims full width when the pane is closed', () => {
@@ -57,7 +59,9 @@ describe('EditPage — closable rail', () => {
       return (
         <>
           <EditPage newCard={true} />
-          <div data-testid="rail-state">{rightPaneOpen ? 'open' : 'closed'}</div>
+          <div data-testid="rail-state">
+            {rightPaneOpen ? 'open' : 'closed'}
+          </div>
         </>
       );
     }
@@ -79,7 +83,9 @@ describe('EditPage — closable rail', () => {
     expect(screen.getByTestId('rail-state').textContent).toBe('closed');
     // The rail tab strip + close affordance disappear with the panel.
     expect(screen.queryByText('Metadata')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Close info pane' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Close info pane' }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows Source/Link in the rail (Metadata tab), not the main column', async () => {

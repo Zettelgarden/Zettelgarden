@@ -24,7 +24,13 @@ describe('FileTags', () => {
 
   it('calls onRemoveTag when tag removed', () => {
     const onRemoveTag = vi.fn();
-    render(<FileTags tags={['taxes']} onAddTag={() => {}} onRemoveTag={onRemoveTag} />);
+    render(
+      <FileTags
+        tags={['taxes']}
+        onAddTag={() => {}}
+        onRemoveTag={onRemoveTag}
+      />,
+    );
 
     const removeButton = screen.getByLabelText('Remove tag taxes');
     fireEvent.click(removeButton);

@@ -9,7 +9,11 @@ vi.mock('../utils/cards', () => ({
 }));
 
 describe('useCardNavigation', () => {
-  const mockPartialCard = (card_id: string, id: number, title: string): PartialCard => ({
+  const mockPartialCard = (
+    card_id: string,
+    id: number,
+    title: string,
+  ): PartialCard => ({
     card_id,
     id,
     title,
@@ -42,18 +46,14 @@ describe('useCardNavigation', () => {
   });
 
   it('returns null for both prev and next when no parent card', () => {
-    const { result } = renderHook(() =>
-      useCardNavigation(null, mockCard(1))
-    );
+    const { result } = renderHook(() => useCardNavigation(null, mockCard(1)));
 
     expect(result.current.prevSibling).toBeNull();
     expect(result.current.nextSibling).toBeNull();
   });
 
   it('returns null for both prev and next when no viewing card', () => {
-    const { result } = renderHook(() =>
-      useCardNavigation(mockCard(1), null)
-    );
+    const { result } = renderHook(() => useCardNavigation(mockCard(1), null));
 
     expect(result.current.prevSibling).toBeNull();
     expect(result.current.nextSibling).toBeNull();
@@ -67,7 +67,7 @@ describe('useCardNavigation', () => {
     const viewingCard = mockCard(99); // Not in parent's children
 
     const { result } = renderHook(() =>
-      useCardNavigation(parentCard, viewingCard)
+      useCardNavigation(parentCard, viewingCard),
     );
 
     expect(result.current.prevSibling).toBeNull();
@@ -84,7 +84,7 @@ describe('useCardNavigation', () => {
     const viewingCard = mockCard(12); // Child B
 
     const { result } = renderHook(() =>
-      useCardNavigation(parentCard, viewingCard)
+      useCardNavigation(parentCard, viewingCard),
     );
 
     expect(result.current.prevSibling?.id).toBe(11); // Child A
@@ -100,7 +100,7 @@ describe('useCardNavigation', () => {
     const viewingCard = mockCard(11); // Child A
 
     const { result } = renderHook(() =>
-      useCardNavigation(parentCard, viewingCard)
+      useCardNavigation(parentCard, viewingCard),
     );
 
     expect(result.current.prevSibling).toBeNull();
@@ -116,7 +116,7 @@ describe('useCardNavigation', () => {
     const viewingCard = mockCard(12); // Child B
 
     const { result } = renderHook(() =>
-      useCardNavigation(parentCard, viewingCard)
+      useCardNavigation(parentCard, viewingCard),
     );
 
     expect(result.current.prevSibling?.id).toBe(11); // Child A
@@ -132,7 +132,7 @@ describe('useCardNavigation', () => {
     const viewingCard = mockCard(11); // Child A (sorted first)
 
     const { result } = renderHook(() =>
-      useCardNavigation(parentCard, viewingCard)
+      useCardNavigation(parentCard, viewingCard),
     );
 
     expect(result.current.prevSibling).toBeNull(); // Child A is first after sorting

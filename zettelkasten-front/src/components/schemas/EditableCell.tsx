@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from "react";
-import { FieldDefinition } from "../../models/Schema";
-import { Card } from "../../models/Card";
-import { saveExistingCard, getCard } from "../../api/cards";
-import { CardLink } from "../cards/CardLink";
+import React, { useState, useRef, useEffect } from 'react';
+import { FieldDefinition } from '../../models/Schema';
+import { Card } from '../../models/Card';
+import { saveExistingCard, getCard } from '../../api/cards';
+import { CardLink } from '../cards/CardLink';
 
 interface EditableCellProps {
   card: Card;
@@ -37,7 +37,7 @@ function LinkedCardDisplay({ cardId }: LinkedCardDisplayProps) {
   }, [cardId]);
 
   function isError(result: any): result is { error: string } {
-    return result && typeof result === "object" && "error" in result;
+    return result && typeof result === 'object' && 'error' in result;
   }
 
   if (loading) {
@@ -45,19 +45,33 @@ function LinkedCardDisplay({ cardId }: LinkedCardDisplayProps) {
   }
 
   if (!linkedCard) {
-    return <span className="text-blue-600 hover:underline text-sm font-mono">{cardId}</span>;
+    return (
+      <span className="text-blue-600 hover:underline text-sm font-mono">
+        {cardId}
+      </span>
+    );
   }
 
-  return <CardLink card={linkedCard} showTitle={true} handleViewBacklink={() => {}} />;
+  return (
+    <CardLink
+      card={linkedCard}
+      showTitle={true}
+      handleViewBacklink={() => {}}
+    />
+  );
 }
 
 export function EditableCell({ card, field, onSave }: EditableCellProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [value, setValue] = useState<any>(card.structured_data?.[field.name] ?? "");
+  const [value, setValue] = useState<any>(
+    card.structured_data?.[field.name] ?? '',
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [linkedCardLoading, setLinkedCardLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(null);
+  const inputRef = useRef<
+    HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+  >(null);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -80,16 +94,16 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
   };
 
   const handleCancelClick = () => {
-    setValue(card.structured_data?.[field.name] ?? "");
+    setValue(card.structured_data?.[field.name] ?? '');
     setIsEditing(false);
     setError(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
+    if (e.key === 'Enter') {
       (e.currentTarget as HTMLElement).blur();
-    } else if (e.key === "Escape") {
-      setValue(card.structured_data?.[field.name] ?? "");
+    } else if (e.key === 'Escape') {
+      setValue(card.structured_data?.[field.name] ?? '');
       setIsEditing(false);
       setError(null);
     }
@@ -98,7 +112,10 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
   const saveValue = async () => {
     // Skip save if value hasn't changed
     const currentValue = card.structured_data?.[field.name];
-    if (value === currentValue || (value === "" && (currentValue === null || currentValue === undefined))) {
+    if (
+      value === currentValue ||
+      (value === '' && (currentValue === null || currentValue === undefined))
+    ) {
       setIsEditing(false);
       setError(null);
       return;
@@ -120,8 +137,8 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
       setIsEditing(false);
       onSave();
     } catch (err) {
-      console.error("Failed to save cell value:", err);
-      setError("Failed to save");
+      console.error('Failed to save cell value:', err);
+      setError('Failed to save');
       setIsLoading(false);
     }
   };
@@ -129,30 +146,38 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
   const renderDisplayValue = () => {
     const displayValue = card.structured_data?.[field.name];
 
-    if (displayValue === null || displayValue === undefined || displayValue === "") {
-      return <span className="text-gray-400 italic cursor-pointer hover:bg-gray-100 px-1 rounded">—</span>;
+    if (
+      displayValue === null ||
+      displayValue === undefined ||
+      displayValue === ''
+    ) {
+      return (
+        <span className="text-gray-400 italic cursor-pointer hover:bg-gray-100 px-1 rounded">
+          —
+        </span>
+      );
     }
 
     switch (field.type) {
-      case "boolean":
+      case 'boolean':
         return (
           <span className="cursor-pointer hover:bg-gray-100 px-1 rounded">
-            {displayValue ? "Yes" : "No"}
+            {displayValue ? 'Yes' : 'No'}
           </span>
         );
-      case "multi-select":
+      case 'multi-select':
         return (
           <span className="cursor-pointer hover:bg-gray-100 px-1 rounded">
-            {(displayValue as string[]).join(", ")}
+            {(displayValue as string[]).join(', ')}
           </span>
         );
-      case "date":
+      case 'date':
         return (
           <span className="cursor-pointer hover:bg-gray-100 px-1 rounded">
             {new Date(displayValue).toLocaleDateString()}
           </span>
         );
-      case "link_to_card":
+      case 'link_to_card':
         return (
           <span className="cursor-pointer hover:bg-gray-100 px-1 rounded">
             <LinkedCardDisplay cardId={displayValue} />
@@ -168,11 +193,12 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
   };
 
   const renderEditInput = () => {
-    const baseClassName = "w-full px-2 py-1 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30";
+    const baseClassName =
+      'w-full px-2 py-1 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30';
     const inputStyle = { fontSize: '16px' };
 
     switch (field.type) {
-      case "text":
+      case 'text':
         return (
           <input
             ref={inputRef as React.RefObject<HTMLInputElement>}
@@ -187,13 +213,15 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
           />
         );
 
-      case "number":
+      case 'number':
         return (
           <input
             ref={inputRef as React.RefObject<HTMLInputElement>}
             type="number"
             value={value}
-            onChange={(e) => setValue(e.target.value ? parseFloat(e.target.value) : "")}
+            onChange={(e) =>
+              setValue(e.target.value ? parseFloat(e.target.value) : '')
+            }
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             className={baseClassName}
@@ -202,13 +230,13 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
           />
         );
 
-      case "date":
+      case 'date':
         return (
           <input
             ref={inputRef as React.RefObject<HTMLInputElement>}
             type="date"
             value={value}
-            onChange={(e) => setValue(e.target.value || "")}
+            onChange={(e) => setValue(e.target.value || '')}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             className={baseClassName}
@@ -217,12 +245,12 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
           />
         );
 
-      case "boolean":
+      case 'boolean':
         return (
           <select
             ref={inputRef as React.RefObject<HTMLSelectElement>}
             value={value}
-            onChange={(e) => setValue(e.target.value === "true")}
+            onChange={(e) => setValue(e.target.value === 'true')}
             onBlur={handleBlur}
             className={baseClassName}
             style={inputStyle}
@@ -233,7 +261,7 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
           </select>
         );
 
-      case "select":
+      case 'select':
         return (
           <select
             ref={inputRef as React.RefObject<HTMLSelectElement>}
@@ -254,12 +282,15 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
           </select>
         );
 
-      case "multi-select":
+      case 'multi-select':
         return (
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap gap-1">
               {field.options?.map((option) => (
-                <label key={option} className="inline-flex items-center text-sm">
+                <label
+                  key={option}
+                  className="inline-flex items-center text-sm"
+                >
                   <input
                     type="checkbox"
                     checked={(value || []).includes(option)}
@@ -268,7 +299,9 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
                       if (e.target.checked) {
                         setValue([...currentValues, option]);
                       } else {
-                        setValue(currentValues.filter((v: string) => v !== option));
+                        setValue(
+                          currentValues.filter((v: string) => v !== option),
+                        );
                       }
                     }}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -299,13 +332,15 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
           </div>
         );
 
-      case "link_to_card":
+      case 'link_to_card':
         return (
           <input
             ref={inputRef as React.RefObject<HTMLInputElement>}
             type="number"
             value={value}
-            onChange={(e) => setValue(e.target.value ? parseInt(e.target.value, 10) : "")}
+            onChange={(e) =>
+              setValue(e.target.value ? parseInt(e.target.value, 10) : '')
+            }
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             className={baseClassName}
@@ -337,9 +372,7 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
       ) : (
         <div>
           {renderDisplayValue()}
-          {error && (
-            <div className="text-xs text-red-500 mt-1">{error}</div>
-          )}
+          {error && <div className="text-xs text-red-500 mt-1">{error}</div>}
         </div>
       )}
     </td>

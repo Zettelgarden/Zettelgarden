@@ -1,19 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react';
 
-const isElectron = typeof window !== 'undefined' && window.electronAPI
-const isLinux = isElectron && window.electronAPI!.platform === 'linux'
+const isElectron = typeof window !== 'undefined' && window.electronAPI;
+const isLinux = isElectron && window.electronAPI!.platform === 'linux';
 
-const TITLEBAR_HEIGHT = 38
+const TITLEBAR_HEIGHT = 38;
 
 export function LinuxTitlebar() {
-  if (!isLinux) return null
+  if (!isLinux) return null;
 
   return (
     <>
       <DragRegion />
       <WindowControls />
     </>
-  )
+  );
 }
 
 function DragRegion() {
@@ -46,21 +46,27 @@ function DragRegion() {
         Zettelgarden
       </span>
     </div>
-  )
+  );
 }
 
 function WindowControls() {
-  const [maximized, setMaximized] = useState(false)
-  const api = window.electronAPI!
+  const [maximized, setMaximized] = useState(false);
+  const api = window.electronAPI!;
 
   useEffect(() => {
-    api.isMaximized().then(setMaximized).catch(() => {})
+    api
+      .isMaximized()
+      .then(setMaximized)
+      .catch(() => {});
     const onResize = () => {
-      api.isMaximized().then(setMaximized).catch(() => {})
-    }
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [api])
+      api
+        .isMaximized()
+        .then(setMaximized)
+        .catch(() => {});
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [api]);
 
   return (
     <div
@@ -81,7 +87,9 @@ function WindowControls() {
       </TitlebarButton>
       <TitlebarButton
         ariaLabel={maximized ? 'Restore' : 'Maximize'}
-        onClick={() => api.maximize().then(() => api.isMaximized().then(setMaximized))}
+        onClick={() =>
+          api.maximize().then(() => api.isMaximized().then(setMaximized))
+        }
       >
         {maximized ? <RestoreIcon /> : <MaximizeIcon />}
       </TitlebarButton>
@@ -89,7 +97,7 @@ function WindowControls() {
         <CloseIcon />
       </TitlebarButton>
     </div>
-  )
+  );
 }
 
 function TitlebarButton({
@@ -98,12 +106,12 @@ function TitlebarButton({
   close,
   onClick,
 }: {
-  ariaLabel: string
-  children: React.ReactNode
-  close?: boolean
-  onClick: () => void
+  ariaLabel: string;
+  children: React.ReactNode;
+  close?: boolean;
+  onClick: () => void;
 }) {
-  const [hovered, setHovered] = useState(false)
+  const [hovered, setHovered] = useState(false);
 
   return (
     <button
@@ -119,47 +127,82 @@ function TitlebarButton({
         justifyContent: 'center',
         border: 'none',
         cursor: 'pointer',
-        background: close && hovered ? '#E81123' : hovered ? 'rgba(0,0,0,0.06)' : 'transparent',
+        background:
+          close && hovered
+            ? '#E81123'
+            : hovered
+            ? 'rgba(0,0,0,0.06)'
+            : 'transparent',
         color: close && hovered ? '#FFF' : '#37352F',
       }}
     >
       {children}
     </button>
-  )
+  );
 }
 
 function MinimizeIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      strokeLinecap="round"
+    >
       <line x1="2.5" y1="6" x2="9.5" y2="6" />
     </svg>
-  )
+  );
 }
 
 function MaximizeIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+    >
       <rect x="2.5" y="2.5" width="7" height="7" rx="0.5" />
     </svg>
-  )
+  );
 }
 
 function RestoreIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+    >
       <rect x="2.5" y="3.8" width="6" height="6" rx="0.5" />
       <path d="M4 3.8 V 2.5 H 9.5 V 8" />
     </svg>
-  )
+  );
 }
 
 function CloseIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      strokeLinecap="round"
+    >
       <line x1="3" y1="3" x2="9" y2="9" />
       <line x1="9" y1="3" x2="3" y2="9" />
     </svg>
-  )
+  );
 }
 
 /**
@@ -167,5 +210,5 @@ function CloseIcon() {
  * Returns 0 on macOS/Windows/browser.
  */
 export function useLinuxTitlebarOffset(): number {
-  return isLinux ? TITLEBAR_HEIGHT : 0
+  return isLinux ? TITLEBAR_HEIGHT : 0;
 }

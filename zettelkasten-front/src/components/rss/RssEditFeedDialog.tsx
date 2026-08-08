@@ -1,7 +1,12 @@
-import React, { useState } from "react";
-import { Dialog, Transition } from "@headlessui/react";
-import { Fragment } from "react";
-import { updateFeed, UpdateRSSFeedParams, RSSFeed, RSSFolder } from "../../api/rss";
+import React, { useState } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
+import { Fragment } from 'react';
+import {
+  updateFeed,
+  UpdateRSSFeedParams,
+  RSSFeed,
+  RSSFolder,
+} from '../../api/rss';
 
 interface RssEditFeedDialogProps {
   isOpen: boolean;
@@ -18,20 +23,20 @@ export function RssEditFeedDialog({
   folders,
   onFeedUpdated,
 }: RssEditFeedDialogProps) {
-  const [name, setName] = useState("");
-  const [folder, setFolder] = useState("");
-  const [autoTags, setAutoTags] = useState("");
+  const [name, setName] = useState('');
+  const [folder, setFolder] = useState('');
+  const [autoTags, setAutoTags] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [priority, setPriority] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState<string>('');
 
   // Populate form when feed changes
   React.useEffect(() => {
     if (feed) {
       setName(feed.name);
-      setFolder(feed.folder || "");
-      setAutoTags(feed.auto_tags || "");
+      setFolder(feed.folder || '');
+      setAutoTags(feed.auto_tags || '');
       setEnabled(feed.enabled);
       setPriority(feed.priority || false);
     }
@@ -40,12 +45,12 @@ export function RssEditFeedDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!feed) {
-      setError("No feed selected");
+      setError('No feed selected');
       return;
     }
 
     setLoading(true);
-    setError("");
+    setError('');
 
     try {
       const feedParams: UpdateRSSFeedParams = {};
@@ -53,7 +58,7 @@ export function RssEditFeedDialog({
       if (name.trim() !== feed.name) {
         feedParams.name = name.trim();
       }
-      if (folder !== (feed.folder || "")) {
+      if (folder !== (feed.folder || '')) {
         feedParams.folder = folder.trim() || undefined;
       }
       if (autoTags !== feed.auto_tags) {
@@ -70,20 +75,24 @@ export function RssEditFeedDialog({
       onFeedUpdated(updatedFeed);
       handleClose();
     } catch (err) {
-      console.error("Failed to update feed:", err);
-      setError(err instanceof Error ? err.message : "Failed to update feed. Please try again.");
+      console.error('Failed to update feed:', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to update feed. Please try again.',
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const handleClose = () => {
-    setName("");
-    setFolder("");
-    setAutoTags("");
+    setName('');
+    setFolder('');
+    setAutoTags('');
     setEnabled(true);
     setPriority(false);
-    setError("");
+    setError('');
     onClose();
   };
 
@@ -116,7 +125,10 @@ export function RssEditFeedDialog({
               leaveTo="opacity-0 scale-95"
             >
               <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 mb-4">
+                <Dialog.Title
+                  as="h3"
+                  className="text-lg font-medium leading-6 text-gray-900 mb-4"
+                >
                   Edit RSS Feed
                 </Dialog.Title>
 
@@ -136,7 +148,10 @@ export function RssEditFeedDialog({
 
                   {/* Name */}
                   <div>
-                    <label htmlFor="feed-name" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label
+                      htmlFor="feed-name"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
                       Name
                     </label>
                     <input
@@ -151,7 +166,10 @@ export function RssEditFeedDialog({
 
                   {/* Folder */}
                   <div>
-                    <label htmlFor="feed-folder" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label
+                      htmlFor="feed-folder"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
                       Folder
                     </label>
                     <select
@@ -171,7 +189,10 @@ export function RssEditFeedDialog({
 
                   {/* Auto Tags */}
                   <div>
-                    <label htmlFor="feed-tags" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label
+                      htmlFor="feed-tags"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
                       Auto Tags
                     </label>
                     <input
@@ -183,7 +204,8 @@ export function RssEditFeedDialog({
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     />
                     <p className="mt-1 text-xs text-gray-500">
-                      Comma-separated tags to automatically apply to articles from this feed
+                      Comma-separated tags to automatically apply to articles
+                      from this feed
                     </p>
                   </div>
 
@@ -196,7 +218,9 @@ export function RssEditFeedDialog({
                         onChange={(e) => setEnabled(e.target.checked)}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
-                      <span className="text-sm font-medium text-gray-700">Enabled</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        Enabled
+                      </span>
                     </label>
                     <p className="mt-1 text-xs text-gray-500 ml-6">
                       When disabled, this feed won't be refreshed
@@ -212,10 +236,13 @@ export function RssEditFeedDialog({
                         onChange={(e) => setPriority(e.target.checked)}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
-                      <span className="text-sm font-medium text-gray-700">Priority feed</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        Priority feed
+                      </span>
                     </label>
                     <p className="mt-1 text-xs text-gray-500 ml-6">
-                      Priority feeds receive a +100 boost in the smart feed ranking
+                      Priority feeds receive a +100 boost in the smart feed
+                      ranking
                     </p>
                   </div>
 
@@ -243,14 +270,29 @@ export function RssEditFeedDialog({
                     >
                       {loading ? (
                         <>
-                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          <svg
+                            className="w-4 h-4 animate-spin"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
                           </svg>
                           Saving...
                         </>
                       ) : (
-                        "Save Changes"
+                        'Save Changes'
                       )}
                     </button>
                   </div>

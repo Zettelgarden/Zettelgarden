@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 
 export function BookOpenIcon() {
   return (
@@ -17,4 +17,4 @@ export function BookOpenIcon() {
       />
     </svg>
   );
-} 
+}

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from 'react';
 
 interface PanelResizeHandleProps {
   /** Current width (px) of the panel being resized. */
@@ -51,10 +51,10 @@ export function PanelResizeHandle({
   );
 
   const handleMouseUp = useCallback(() => {
-    document.removeEventListener("mousemove", handleMouseMove);
-    document.removeEventListener("mouseup", handleMouseUp);
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
   }, [handleMouseMove]);
 
   const handleMouseDown = useCallback(
@@ -62,10 +62,10 @@ export function PanelResizeHandle({
       e.preventDefault();
       startXRef.current = e.clientX;
       startWidthRef.current = widthRef.current;
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
     },
     [handleMouseMove, handleMouseUp],
   );
@@ -75,10 +75,10 @@ export function PanelResizeHandle({
   // unmount and never tears the listeners off during an active drag.
   useEffect(() => {
     return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
     };
   }, [handleMouseMove, handleMouseUp]);
 

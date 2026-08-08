@@ -1,5 +1,5 @@
-import { Tag } from "../models/Tags";
-import { apiClient, getData } from "./client";
+import { Tag } from '../models/Tags';
+import { apiClient, getData } from './client';
 
 export function fetchUserTags(): Promise<Tag[]> {
   return getData(apiClient.get<Tag[]>(`/tags`));

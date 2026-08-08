@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo } from 'react';
 import {
   AuditChange,
   parseAuditEvent,
@@ -7,7 +7,7 @@ import {
   renderAuditDiff,
   generateChangeSummary,
   groupEventsByDate,
-} from "../../utils/audit";
+} from '../../utils/audit';
 
 interface HistoryTabProps {
   auditEvents: any[];
@@ -22,7 +22,13 @@ interface HistoryEventProps {
   onRestore?: (event: any) => void;
 }
 
-function HistoryEvent({ event, changes, isExpanded, onToggleExpand, onRestore }: HistoryEventProps) {
+function HistoryEvent({
+  event,
+  changes,
+  isExpanded,
+  onToggleExpand,
+  onRestore,
+}: HistoryEventProps) {
   const eventType = event.details?.change_type || 'unknown';
   const changeSummary = generateChangeSummary(changes, eventType);
 
@@ -56,12 +62,11 @@ function HistoryEvent({ event, changes, isExpanded, onToggleExpand, onRestore }:
                   <span className="font-medium text-gray-900 capitalize">
                     {eventType.toLowerCase()}
                   </span>
-                  <span className="text-sm text-gray-600">
-                    {changeSummary}
-                  </span>
+                  <span className="text-sm text-gray-600">{changeSummary}</span>
                   {changes.length > 0 && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                      {changes.length} {changes.length === 1 ? 'change' : 'changes'}
+                      {changes.length}{' '}
+                      {changes.length === 1 ? 'change' : 'changes'}
                     </span>
                   )}
                 </div>
@@ -71,12 +76,32 @@ function HistoryEvent({ event, changes, isExpanded, onToggleExpand, onRestore }:
                   </span>
                   <button className="text-gray-400 hover:text-gray-600">
                     {isExpanded ? (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 15l7-7 7 7"
+                        />
                       </svg>
                     ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
                       </svg>
                     )}
                   </button>
@@ -98,28 +123,40 @@ function HistoryEvent({ event, changes, isExpanded, onToggleExpand, onRestore }:
                     {eventType.toLowerCase() === 'create'
                       ? 'Initial card creation'
                       : eventType.toLowerCase() === 'delete'
-                        ? 'Card was deleted'
-                        : 'No field changes recorded'}
+                      ? 'Card was deleted'
+                      : 'No field changes recorded'}
                   </div>
                 )}
 
                 {/* Restore button for non-create events */}
-                {onRestore && eventType.toLowerCase() !== 'create' && changes.length > 0 && (
-                  <div className="pt-2 mt-2 border-t border-gray-100">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRestore(event);
-                      }}
-                      className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                      </svg>
-                      Restore to this version
-                    </button>
-                  </div>
-                )}
+                {onRestore &&
+                  eventType.toLowerCase() !== 'create' &&
+                  changes.length > 0 && (
+                    <div className="pt-2 mt-2 border-t border-gray-100">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRestore(event);
+                        }}
+                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        <svg
+                          className="w-4 h-4 mr-1.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
+                          />
+                        </svg>
+                        Restore to this version
+                      </button>
+                    </div>
+                  )}
               </div>
             )}
           </div>
@@ -132,10 +169,13 @@ function HistoryEvent({ event, changes, isExpanded, onToggleExpand, onRestore }:
 export function HistoryTab({ auditEvents, onRestore }: HistoryTabProps) {
   const [expandedEvents, setExpandedEvents] = useState<Set<number>>(new Set());
 
-  const groupedEvents = useMemo(() => groupEventsByDate(auditEvents), [auditEvents]);
+  const groupedEvents = useMemo(
+    () => groupEventsByDate(auditEvents),
+    [auditEvents],
+  );
 
   const toggleExpand = (eventId: number) => {
-    setExpandedEvents(prev => {
+    setExpandedEvents((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(eventId)) {
         newSet.delete(eventId);
@@ -147,7 +187,7 @@ export function HistoryTab({ auditEvents, onRestore }: HistoryTabProps) {
   };
 
   const expandAll = () => {
-    setExpandedEvents(new Set(auditEvents.map(e => e.id)));
+    setExpandedEvents(new Set(auditEvents.map((e) => e.id)));
   };
 
   const collapseAll = () => {
@@ -155,14 +195,29 @@ export function HistoryTab({ auditEvents, onRestore }: HistoryTabProps) {
   };
 
   // Get all non-empty group names in order
-  const groupNames: Array<'Today' | 'Yesterday' | 'This Week' | 'Older'> = ['Today', 'Yesterday', 'This Week', 'Older'];
+  const groupNames: Array<'Today' | 'Yesterday' | 'This Week' | 'Older'> = [
+    'Today',
+    'Yesterday',
+    'This Week',
+    'Older',
+  ];
 
   if (auditEvents.length === 0) {
     return (
       <div className="p-4">
         <div className="text-center text-gray-500 py-8">
-          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="mx-auto h-12 w-12 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
           <p className="mt-2">No audit events found</p>
         </div>
@@ -174,9 +229,7 @@ export function HistoryTab({ auditEvents, onRestore }: HistoryTabProps) {
     <div className="p-4">
       {/* Header with expand/collapse controls */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Card History
-        </h3>
+        <h3 className="text-lg font-semibold text-gray-900">Card History</h3>
         <div className="flex space-x-2">
           <button
             onClick={expandAll}
@@ -196,7 +249,7 @@ export function HistoryTab({ auditEvents, onRestore }: HistoryTabProps) {
 
       {/* Timeline events grouped by date */}
       <div className="space-y-6">
-        {groupNames.map(groupName => {
+        {groupNames.map((groupName) => {
           const events = groupedEvents[groupName];
           if (events.length === 0) return null;
 

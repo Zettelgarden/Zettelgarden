@@ -55,5 +55,8 @@ export async function checkStatus(response: Response): Promise<Response> {
   }
 
   // Throw the error with the extracted message
-  throw new APIError(errorText || `Request failed with status: ${response.status}`, response.status);
+  throw new APIError(
+    errorText || `Request failed with status: ${response.status}`,
+    response.status,
+  );
 }

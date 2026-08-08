@@ -33,7 +33,10 @@ export function RssBulkTagsDialog({
 
         <div className="space-y-4">
           <div>
-            <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="tags"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Tags
             </label>
             <input
@@ -50,7 +53,9 @@ export function RssBulkTagsDialog({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tag Mode</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tag Mode
+            </label>
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <input
@@ -59,7 +64,9 @@ export function RssBulkTagsDialog({
                   name="mode"
                   value="replace"
                   checked={mode === 'replace'}
-                  onChange={(e) => setMode(e.target.value as 'replace' | 'append')}
+                  onChange={(e) =>
+                    setMode(e.target.value as 'replace' | 'append')
+                  }
                   className="text-blue-600 focus:ring-blue-500"
                 />
                 <label htmlFor="replace" className="text-sm text-gray-700">
@@ -73,7 +80,9 @@ export function RssBulkTagsDialog({
                   name="mode"
                   value="append"
                   checked={mode === 'append'}
-                  onChange={(e) => setMode(e.target.value as 'replace' | 'append')}
+                  onChange={(e) =>
+                    setMode(e.target.value as 'replace' | 'append')
+                  }
                   className="text-blue-600 focus:ring-blue-500"
                 />
                 <label htmlFor="append" className="text-sm text-gray-700">
@@ -101,8 +110,8 @@ export function RssBulkTagsDialog({
             disabled={!tags.trim()}
             className={`px-4 py-2 rounded-md ${
               tags.trim()
-                ? "bg-blue-600 text-white hover:bg-blue-700"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
           >
             Apply Tags

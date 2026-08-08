@@ -6,18 +6,18 @@
  * QueryClientProvider). Exposes the list plus async create/update/remove that
  * re-fetch on success so the menu stays in sync.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from 'react';
 import {
   fetchTaskSavedSearches,
   createTaskSavedSearch,
   updateTaskSavedSearch,
   deleteTaskSavedSearch,
-} from "../api/taskSavedSearches";
+} from '../api/taskSavedSearches';
 import {
   CreateTaskSavedSearchParams,
   UpdateTaskSavedSearchParams,
   TaskSavedSearch,
-} from "../models/TaskSavedSearch";
+} from '../models/TaskSavedSearch';
 
 export function useTaskSavedSearches() {
   const [searches, setSearches] = useState<TaskSavedSearch[]>([]);
@@ -65,5 +65,13 @@ export function useTaskSavedSearches() {
     [load],
   );
 
-  return { searches, isLoading, isError, create, update, remove, refetch: load };
+  return {
+    searches,
+    isLoading,
+    isError,
+    create,
+    update,
+    remove,
+    refetch: load,
+  };
 }

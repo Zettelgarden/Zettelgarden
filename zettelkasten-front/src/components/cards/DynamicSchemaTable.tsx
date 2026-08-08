@@ -1,7 +1,7 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
-import { SchemaTable } from "../schemas/SchemaTable";
-import { PartialCard } from "../../models/Card";
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { SchemaTable } from '../schemas/SchemaTable';
+import { PartialCard } from '../../models/Card';
 
 interface DynamicSchemaTableProps {
   schemaRef: string; // Can be an ID (numeric string) or slug
@@ -9,7 +9,11 @@ interface DynamicSchemaTableProps {
   filters?: string; // Filter string like "status=active,priority=high"
 }
 
-export function DynamicSchemaTable({ schemaRef, columns, filters }: DynamicSchemaTableProps) {
+export function DynamicSchemaTable({
+  schemaRef,
+  columns,
+  filters,
+}: DynamicSchemaTableProps) {
   const navigate = useNavigate();
 
   const handleCardClick = (card: PartialCard) => {
@@ -17,14 +21,16 @@ export function DynamicSchemaTable({ schemaRef, columns, filters }: DynamicSchem
   };
 
   // Parse columns string into array
-  const columnsList = columns ? columns.split(',').map(c => c.trim()) : undefined;
+  const columnsList = columns
+    ? columns.split(',').map((c) => c.trim())
+    : undefined;
 
   // Parse filters string into object
   const filtersObj = React.useMemo(() => {
     if (!filters) return undefined;
     const result: Record<string, string> = {};
-    filters.split(',').forEach(f => {
-      const [key, value] = f.split('=').map(s => s.trim());
+    filters.split(',').forEach((f) => {
+      const [key, value] = f.split('=').map((s) => s.trim());
       if (key && value) {
         result[key] = value;
       }

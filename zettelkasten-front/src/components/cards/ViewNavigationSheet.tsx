@@ -1,6 +1,6 @@
-import React from "react";
-import { MobileBottomSheet } from "../layout/MobileBottomSheet";
-import { Card, PartialCard } from "../../models/Card";
+import React from 'react';
+import { MobileBottomSheet } from '../layout/MobileBottomSheet';
+import { Card, PartialCard } from '../../models/Card';
 
 interface ViewNavigationSheetProps {
   isOpen: boolean;
@@ -29,11 +29,7 @@ export function ViewNavigationSheet({
   }
 
   return (
-    <MobileBottomSheet
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Navigate"
-    >
+    <MobileBottomSheet isOpen={isOpen} onClose={onClose} title="Navigate">
       <div className="p-4 space-y-4">
         {/* Parent Card */}
         {parentCard && (
@@ -48,7 +44,9 @@ export function ViewNavigationSheet({
               <span className="text-gray-400">↑</span>
               <div>
                 <div className="text-xs text-gray-500">Parent</div>
-                <div className="font-medium text-gray-900">{parentCard.title}</div>
+                <div className="font-medium text-gray-900">
+                  {parentCard.title}
+                </div>
               </div>
             </div>
           </button>
@@ -66,7 +64,9 @@ export function ViewNavigationSheet({
                 className="flex-1 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
               >
                 <span className="text-xs text-gray-500">← Prev</span>
-                <div className="text-sm font-medium text-gray-900">{prevSibling.title}</div>
+                <div className="text-sm font-medium text-gray-900">
+                  {prevSibling.title}
+                </div>
               </button>
             )}
             {nextSibling && (
@@ -78,7 +78,9 @@ export function ViewNavigationSheet({
                 className="flex-1 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
               >
                 <span className="text-xs text-gray-500">Next →</span>
-                <div className="text-sm font-medium text-gray-900">{nextSibling.title}</div>
+                <div className="text-sm font-medium text-gray-900">
+                  {nextSibling.title}
+                </div>
               </button>
             )}
           </div>
@@ -98,7 +100,7 @@ export function ViewNavigationSheet({
                   }}
                   className="w-full p-2 text-left text-sm text-blue-600 hover:bg-gray-50 rounded"
                 >
-                  {child.title || "Untitled"}
+                  {child.title || 'Untitled'}
                 </button>
               ))}
             </div>

@@ -1,4 +1,4 @@
-import { PartialCard } from "./Card";
+import { PartialCard } from './Card';
 
 export interface Fact {
   id: number;

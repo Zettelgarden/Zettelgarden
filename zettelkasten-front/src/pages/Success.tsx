@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Success() {
   const navigate = useNavigate();
@@ -13,7 +13,7 @@ export default function Success() {
       setRefreshing(false);
       if (isActive) {
         // Short delay so user sees the success message
-        setTimeout(() => navigate("/app", { replace: true }), 1500);
+        setTimeout(() => navigate('/app', { replace: true }), 1500);
       }
     }
     activateSubscription();
@@ -30,7 +30,9 @@ export default function Success() {
 
   return (
     <div className="flex flex-col items-center mt-10">
-      <h1 className="text-2xl font-bold text-green-600">Payment Successful 🎉</h1>
+      <h1 className="text-2xl font-bold text-green-600">
+        Payment Successful 🎉
+      </h1>
       <p>Your subscription is now active. Redirecting to your dashboard...</p>
     </div>
   );

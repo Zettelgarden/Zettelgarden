@@ -1,15 +1,18 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { SchemaDefinition } from "../../models/Schema";
-import { fetchSchema } from "../../api/schemas";
-import { StructuredDataDisplay } from "./StructuredDataDisplay";
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { SchemaDefinition } from '../../models/Schema';
+import { fetchSchema } from '../../api/schemas';
+import { StructuredDataDisplay } from './StructuredDataDisplay';
 
 interface CardStructuredDataDisplayProps {
   schemaId: number | null | undefined;
   structuredData: Record<string, any> | null | undefined;
 }
 
-export function CardStructuredDataDisplay({ schemaId, structuredData }: CardStructuredDataDisplayProps) {
+export function CardStructuredDataDisplay({
+  schemaId,
+  structuredData,
+}: CardStructuredDataDisplayProps) {
   const navigate = useNavigate();
   const [schema, setSchema] = useState<SchemaDefinition | null>(null);
   const [loading, setLoading] = useState(false);
@@ -30,8 +33,8 @@ export function CardStructuredDataDisplay({ schemaId, structuredData }: CardStru
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Error fetching schema:", err);
-        setError("Failed to load schema");
+        console.error('Error fetching schema:', err);
+        setError('Failed to load schema');
         setLoading(false);
       });
   }, [schemaId]);
@@ -51,7 +54,7 @@ export function CardStructuredDataDisplay({ schemaId, structuredData }: CardStru
   if (error || !schema) {
     return (
       <div className="bg-white rounded-lg p-4 shadow-sm">
-        <p className="text-sm text-red-600">{error || "Schema not found"}</p>
+        <p className="text-sm text-red-600">{error || 'Schema not found'}</p>
       </div>
     );
   }
@@ -66,7 +69,10 @@ export function CardStructuredDataDisplay({ schemaId, structuredData }: CardStru
           View all {schema.name} cards →
         </button>
       </div>
-      <StructuredDataDisplay fields={schema.fields} data={structuredData || {}} />
+      <StructuredDataDisplay
+        fields={schema.fields}
+        data={structuredData || {}}
+      />
     </div>
   );
 }

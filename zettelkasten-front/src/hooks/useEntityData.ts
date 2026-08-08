@@ -1,12 +1,9 @@
-import { useState, useEffect } from "react";
-import { Entity } from "../models/Card";
-import { PartialCard, SearchResult, defaultPartialCard } from "../models/Card";
-import { FactWithCard } from "../models/Fact";
-import {
-  semanticSearchCards,
-  escapeEntityNameForSearch,
-} from "../api/cards";
-import { getEntityFacts, getSimilarEntities } from "../api/entities";
+import { useState, useEffect } from 'react';
+import { Entity } from '../models/Card';
+import { PartialCard, SearchResult, defaultPartialCard } from '../models/Card';
+import { FactWithCard } from '../models/Fact';
+import { semanticSearchCards, escapeEntityNameForSearch } from '../api/cards';
+import { getEntityFacts, getSimilarEntities } from '../api/entities';
 
 export interface EntityData {
   associatedCards: PartialCard[];
@@ -24,7 +21,10 @@ export interface EntityWithScore extends Entity {
   score: number;
 }
 
-export function useEntityData(showDialog: boolean, entity: Entity | null): EntityData {
+export function useEntityData(
+  showDialog: boolean,
+  entity: Entity | null,
+): EntityData {
   const [associatedCards, setAssociatedCards] = useState<PartialCard[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,18 +42,24 @@ export function useEntityData(showDialog: boolean, entity: Entity | null): Entit
       setError(null);
       setAssociatedCards([]);
 
-      semanticSearchCards(`@[${escapeEntityNameForSearch(entity.name)}]`, false, false, false, true)
+      semanticSearchCards(
+        `@[${escapeEntityNameForSearch(entity.name)}]`,
+        false,
+        false,
+        false,
+        true,
+      )
         .then((results: SearchResult[]) => {
           if (results === null) {
             setAssociatedCards([]);
             return;
           }
-          const cards: PartialCard[] = results.map(result => ({
+          const cards: PartialCard[] = results.map((result) => ({
             id: Number(result.metadata?.id) || 0,
-            card_id: result.metadata?.card_id || "",
+            card_id: result.metadata?.card_id || '',
             title: result.title,
-            body: result.preview || "",
-            link: "",
+            body: result.preview || '',
+            link: '',
             is_deleted: false,
             created_at: new Date(result.created_at),
             updated_at: new Date(result.updated_at),
@@ -69,13 +75,13 @@ export function useEntityData(showDialog: boolean, entity: Entity | null): Entit
             is_template: false,
             is_pinned: false,
             rating: 0,
-            card_type: result.metadata?.card_type || "note",
+            card_type: result.metadata?.card_type || 'note',
           }));
           setAssociatedCards(cards);
         })
         .catch((err) => {
-          console.error("Error fetching cards for entity:", err);
-          setError("Failed to load associated cards.");
+          console.error('Error fetching cards for entity:', err);
+          setError('Failed to load associated cards.');
         })
         .finally(() => {
           setIsLoading(false);
@@ -89,8 +95,8 @@ export function useEntityData(showDialog: boolean, entity: Entity | null): Entit
       getEntityFacts(entity.id)
         .then((res) => setFacts(res ?? []))
         .catch((err) => {
-          console.error("Error fetching facts:", err);
-          setFactsError("Failed to load facts.");
+          console.error('Error fetching facts:', err);
+          setFactsError('Failed to load facts.');
           setFacts([]);
         })
         .finally(() => setFactsLoading(false));
@@ -100,7 +106,7 @@ export function useEntityData(showDialog: boolean, entity: Entity | null): Entit
       setSimilarError(null);
       getSimilarEntities(entity.id)
         .then(setSimilarEntities)
-        .catch(() => setSimilarError("Failed to load similar entities"))
+        .catch(() => setSimilarError('Failed to load similar entities'))
         .finally(() => setLoadingSimilar(false));
     }
   }, [showDialog, entity]);

@@ -1,10 +1,17 @@
-import { app, BrowserWindow, Menu, shell, ipcMain, nativeImage } from 'electron'
-import * as path from 'path'
+import {
+  app,
+  BrowserWindow,
+  Menu,
+  shell,
+  ipcMain,
+  nativeImage,
+} from 'electron';
+import * as path from 'path';
 
-let mainWindow: BrowserWindow | null = null
-const isDev = !app.isPackaged
-const isLinux = process.platform === 'linux'
-const isMac = process.platform === 'darwin'
+let mainWindow: BrowserWindow | null = null;
+const isDev = !app.isPackaged;
+const isLinux = process.platform === 'linux';
+const isMac = process.platform === 'darwin';
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -24,38 +31,38 @@ function createWindow() {
       nodeIntegration: false,
       preload: path.join(__dirname, 'preload.js'),
     },
-  })
+  });
 
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173')
+    mainWindow.loadURL('http://localhost:5173');
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow?.show()
-  })
+    mainWindow?.show();
+  });
 
   mainWindow.on('closed', () => {
-    mainWindow = null
-  })
+    mainWindow = null;
+  });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http')) {
-      shell.openExternal(url)
+      shell.openExternal(url);
     }
-    return { action: 'deny' }
-  })
+    return { action: 'deny' };
+  });
 }
 
 // ── IPC handlers for Linux window controls ─────────────────────────
-ipcMain.handle('window:minimize', () => mainWindow?.minimize())
+ipcMain.handle('window:minimize', () => mainWindow?.minimize());
 ipcMain.handle('window:maximize', () => {
-  if (!mainWindow) return
-  mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize()
-})
-ipcMain.handle('window:close', () => mainWindow?.close())
-ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized() ?? false)
+  if (!mainWindow) return;
+  mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
+});
+ipcMain.handle('window:close', () => mainWindow?.close());
+ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized() ?? false);
 
 // ── Native menu bar ────────────────────────────────────────────────
 function buildMenu(): Menu {
@@ -126,25 +133,25 @@ function buildMenu(): Menu {
         },
       ],
     },
-  ]
+  ];
 
-  return Menu.buildFromTemplate(template)
+  return Menu.buildFromTemplate(template);
 }
 
 // ── App lifecycle ──────────────────────────────────────────────────
 app.whenReady().then(() => {
-  Menu.setApplicationMenu(buildMenu())
-  createWindow()
+  Menu.setApplicationMenu(buildMenu());
+  createWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
+      createWindow();
     }
-  })
-})
+  });
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    app.quit()
+    app.quit();
   }
-})
+});

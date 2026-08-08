@@ -17,7 +17,7 @@ export function parseFilterValue(filterValue: string): ParsedFilter {
     return { operator: operatorMatch[1], value: operatorMatch[2] };
   }
   // Default is equality
-  return { operator: "eq", value: filterValue };
+  return { operator: 'eq', value: filterValue };
 }
 
 /** Matches ISO-style dates: YYYY-MM-DD, optionally followed by a time component. */
@@ -34,8 +34,8 @@ function parseDateValue(value: any): number | null {
     const t = value.getTime();
     return isNaN(t) ? null : t;
   }
-  if (typeof value === "number") return null;
-  if (typeof value !== "string") return null;
+  if (typeof value === 'number') return null;
+  if (typeof value !== 'string') return null;
   const str = value.trim();
   if (!ISO_DATE_PATTERN.test(str)) return null;
   const t = Date.parse(str);
@@ -51,7 +51,7 @@ function parseDateValue(value: any): number | null {
 function compareOrdered(
   cardValue: any,
   filterValue: string,
-  predicate: (a: number, b: number) => boolean
+  predicate: (a: number, b: number) => boolean,
 ): boolean {
   const cardTime = parseDateValue(cardValue);
   const filterTime = parseDateValue(filterValue);
@@ -59,7 +59,8 @@ function compareOrdered(
     return predicate(cardTime, filterTime);
   }
 
-  const numCardValue = typeof cardValue === "number" ? cardValue : parseFloat(cardValue);
+  const numCardValue =
+    typeof cardValue === 'number' ? cardValue : parseFloat(cardValue);
   const numFilterValue = parseFloat(filterValue);
   if (!isNaN(numCardValue) && !isNaN(numFilterValue)) {
     return predicate(numCardValue, numFilterValue);
@@ -75,22 +76,22 @@ export function matchesFilter(cardValue: any, filterValue: string): boolean {
   const { operator, value } = parseFilterValue(filterValue);
 
   // Handle undefined/null values
-  if (cardValue === null || cardValue === undefined || cardValue === "") {
+  if (cardValue === null || cardValue === undefined || cardValue === '') {
     return false;
   }
 
   switch (operator) {
-    case "eq":
+    case 'eq':
       return String(cardValue).toLowerCase() === String(value).toLowerCase();
-    case "ne":
+    case 'ne':
       return String(cardValue).toLowerCase() !== String(value).toLowerCase();
-    case "gt":
+    case 'gt':
       return compareOrdered(cardValue, value, (a, b) => a > b);
-    case "gte":
+    case 'gte':
       return compareOrdered(cardValue, value, (a, b) => a >= b);
-    case "lt":
+    case 'lt':
       return compareOrdered(cardValue, value, (a, b) => a < b);
-    case "lte":
+    case 'lte':
       return compareOrdered(cardValue, value, (a, b) => a <= b);
     default:
       return String(cardValue).toLowerCase() === String(value).toLowerCase();
@@ -102,8 +103,8 @@ export function matchesFilter(cardValue: any, filterValue: string): boolean {
  */
 export function parseFiltersString(filtersStr: string): Record<string, string> {
   const result: Record<string, string> = {};
-  filtersStr.split(',').forEach(f => {
-    const [key, value] = f.split('=').map(s => s.trim());
+  filtersStr.split(',').forEach((f) => {
+    const [key, value] = f.split('=').map((s) => s.trim());
     if (key && value) {
       result[key] = value;
     }
@@ -116,15 +117,15 @@ export function parseFiltersString(filtersStr: string): Record<string, string> {
  */
 export function applyFiltersToCard(
   card: { title?: string; structured_data?: Record<string, any> | null },
-  filters: Record<string, string>
+  filters: Record<string, string>,
 ): boolean {
   // Check each filter
   for (const [fieldName, filterValue] of Object.entries(filters)) {
     const cardValue = card.structured_data?.[fieldName];
 
     // Special case for "title" field
-    if (fieldName === "title") {
-      if (!matchesFilter(card.title || "", filterValue)) {
+    if (fieldName === 'title') {
+      if (!matchesFilter(card.title || '', filterValue)) {
         return false;
       }
     } else if (!matchesFilter(cardValue, filterValue)) {

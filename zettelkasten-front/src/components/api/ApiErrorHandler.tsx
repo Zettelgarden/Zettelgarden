@@ -60,7 +60,7 @@ export function useApiErrorHandler() {
           showToast(
             'error',
             'Authentication Failed',
-            error.message || 'Please log in to continue'
+            error.message || 'Please log in to continue',
           );
         }
 
@@ -78,7 +78,9 @@ export function useApiErrorHandler() {
           showToast(
             'error',
             'Network Error',
-            customMessage || error.message || 'Please check your connection and try again'
+            customMessage ||
+              error.message ||
+              'Please check your connection and try again',
           );
         }
         return true;
@@ -91,7 +93,7 @@ export function useApiErrorHandler() {
           showToast(
             'error',
             title,
-            customMessage || error.message || 'An error occurred'
+            customMessage || error.message || 'An error occurred',
           );
         }
         return true;
@@ -103,7 +105,7 @@ export function useApiErrorHandler() {
           showToast(
             'error',
             'Error',
-            customMessage || error.message || 'An unexpected error occurred'
+            customMessage || error.message || 'An unexpected error occurred',
           );
         }
         return true;
@@ -113,7 +115,7 @@ export function useApiErrorHandler() {
       console.error('Unknown error type:', error);
       return false;
     },
-    [logoutUser, showToast, navigate]
+    [logoutUser, showToast, navigate],
   );
 
   return { handleApiError };
@@ -163,9 +165,9 @@ function getErrorTitle(status?: number): string {
  * This wraps a component and provides error handling for async operations.
  * Use this when you want to automatically handle API errors in a component.
  */
-export function withApiErrorHandler<P extends { onError?: (error: unknown) => void }>(
-  Component: React.ComponentType<P>
-): React.ComponentType<Omit<P, 'onError'>> {
+export function withApiErrorHandler<
+  P extends { onError?: (error: unknown) => void },
+>(Component: React.ComponentType<P>): React.ComponentType<Omit<P, 'onError'>> {
   return function WrappedComponent(props: Omit<P, 'onError'>) {
     const { handleApiError } = useApiErrorHandler();
 
@@ -177,7 +179,7 @@ export function withApiErrorHandler<P extends { onError?: (error: unknown) => vo
           p.onError(error);
         }
       },
-      [handleApiError, props]
+      [handleApiError, props],
     );
 
     return <Component {...(props as P)} onError={onError} />;

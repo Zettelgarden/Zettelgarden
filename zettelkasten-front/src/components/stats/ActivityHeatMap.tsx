@@ -1,5 +1,5 @@
-import React from "react";
-import { DailyStats } from "../../models/Stats";
+import React from 'react';
+import { DailyStats } from '../../models/Stats';
 
 interface ActivityHeatMapProps {
   stats: DailyStats[];
@@ -11,31 +11,31 @@ interface ActivityHeatMapProps {
 // A busy day is considered 50 activities
 function getActivityLevel(count: number): number {
   if (count === 0) return 0;
-  if (count <= 12) return 1;  // 0-25% of busy day
-  if (count <= 25) return 2;  // 25-50% of busy day
-  if (count <= 40) return 3;  // 50-80% of busy day
-  return 4;                   // 80%+ of busy day
+  if (count <= 12) return 1; // 0-25% of busy day
+  if (count <= 25) return 2; // 25-50% of busy day
+  if (count <= 40) return 3; // 50-80% of busy day
+  return 4; // 80%+ of busy day
 }
 
 // Get background color class based on activity level
 function getColorClass(level: number): string {
   const colors = [
-    "bg-gray-200 hover:bg-gray-300",
-    "bg-green-200 hover:bg-green-300",
-    "bg-green-400 hover:bg-green-500",
-    "bg-green-600 hover:bg-green-700",
-    "bg-green-800 hover:bg-green-900",
+    'bg-gray-200 hover:bg-gray-300',
+    'bg-green-200 hover:bg-green-300',
+    'bg-green-400 hover:bg-green-500',
+    'bg-green-600 hover:bg-green-700',
+    'bg-green-800 hover:bg-green-900',
   ];
   return colors[level];
 }
 
 // Format date as "Mon, Jan 1, 2024"
 function formatDate(date: Date): string {
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
   });
 }
 
@@ -133,21 +133,23 @@ export function ActivityHeatMap({
                   // Show tooltip below for top 3 rows, above for bottom 4 rows
                   const showBelow = dayIndex < 3;
                   const tooltipPositionClass = showBelow
-                    ? "top-full mt-2"
-                    : "bottom-full mb-2";
+                    ? 'top-full mt-2'
+                    : 'bottom-full mb-2';
 
                   return (
                     <div
                       key={dayIndex}
                       className={`w-3 h-3 rounded-sm relative group cursor-pointer transition-all ${
                         isPlaceholder
-                          ? "bg-transparent cursor-default"
+                          ? 'bg-transparent cursor-default'
                           : getColorClass(level)
-                      } ${isSelected ? "ring-2 ring-blue-500" : ""}`}
+                      } ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
                       onClick={() => !isPlaceholder && onDateClick(stat.date)}
                     >
                       {!isPlaceholder && (
-                        <div className={`absolute ${tooltipPositionClass} left-1/2 transform -translate-x-1/2 hidden group-hover:block z-[9999] pointer-events-none`}>
+                        <div
+                          className={`absolute ${tooltipPositionClass} left-1/2 transform -translate-x-1/2 hidden group-hover:block z-[9999] pointer-events-none`}
+                        >
                           <div className="bg-gray-900 text-white text-xs rounded py-2 px-3 whitespace-nowrap shadow-lg">
                             <div className="font-semibold mb-1">
                               {formatDate(stat.date)}

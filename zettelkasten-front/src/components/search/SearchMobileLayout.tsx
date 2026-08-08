@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { SearchResult } from "../../models/Card";
-import { Tag } from "../../models/Tags";
-import { SearchConfig as SearchConfigType } from "../../models/StarredSearch";
-import { SchemaDefinition } from "../../models/Schema";
-import { SearchResultList } from "../../components/cards/SearchResultList";
-import { MobileView } from "../../hooks/useResponsiveLayout";
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { SearchResult } from '../../models/Card';
+import { Tag } from '../../models/Tags';
+import { SearchConfig as SearchConfigType } from '../../models/StarredSearch';
+import { SchemaDefinition } from '../../models/Schema';
+import { SearchResultList } from '../../components/cards/SearchResultList';
+import { MobileView } from '../../hooks/useResponsiveLayout';
 
 interface SearchMobileLayoutProps {
   mobileView: MobileView;
@@ -66,20 +66,20 @@ export function SearchMobileLayout({
   // Handle escape key and backdrop click for filters
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && mobileView === 'filters') {
+      if (e.key === 'Escape' && mobileView === 'filters') {
         setMobileView('list');
       }
     };
 
     if (mobileView === 'filters') {
-      document.addEventListener("keydown", handleEscape);
+      document.addEventListener('keydown', handleEscape);
       // Prevent body scroll when filters sheet is open
-      document.body.style.overflow = "hidden";
+      document.body.style.overflow = 'hidden';
     }
 
     return () => {
-      document.removeEventListener("keydown", handleEscape);
-      document.body.style.overflow = "";
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = '';
     };
   }, [mobileView, setMobileView]);
 
@@ -107,8 +107,18 @@ export function SearchMobileLayout({
             className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
             aria-label="Open menu"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
             </svg>
           </button>
 
@@ -123,8 +133,18 @@ export function SearchMobileLayout({
             className="p-2 -mr-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
             aria-label="Open filters"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+              />
             </svg>
           </button>
         </div>
@@ -138,7 +158,7 @@ export function SearchMobileLayout({
               placeholder="Search cards, entities, facts..."
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyPress={(e) => {
-                if (e.key === "Enter" && !isLoading) {
+                if (e.key === 'Enter' && !isLoading) {
                   onSearch(searchTerm, searchConfig);
                 }
               }}
@@ -165,7 +185,10 @@ export function SearchMobileLayout({
             <>
               <div className="flex-1 overflow-y-auto">
                 <SearchResultList
-                  results={searchResults.filter(result => !searchConfig.onlyParentCards || !result.id.includes("/"))}
+                  results={searchResults.filter(
+                    (result) =>
+                      !searchConfig.onlyParentCards || !result.id.includes('/'),
+                  )}
                   showPreview={searchConfig.showPreview}
                   onEntityClick={handleEntityClick}
                   onTagClick={handleTagClick}
@@ -207,7 +230,9 @@ export function SearchMobileLayout({
                 {error === null ? (
                   <>
                     <p className="text-gray-500 mb-2">No results found</p>
-                    <p className="text-sm text-gray-400">Try adjusting your search or filters</p>
+                    <p className="text-sm text-gray-400">
+                      Try adjusting your search or filters
+                    </p>
                   </>
                 ) : (
                   <p className="text-red-500">Search error: {error.message}</p>
@@ -238,7 +263,10 @@ export function SearchMobileLayout({
           </div>
           <div className="flex-1 overflow-y-auto">
             <SearchResultList
-              results={searchResults.filter(result => !searchConfig.onlyParentCards || !result.id.includes("/"))}
+              results={searchResults.filter(
+                (result) =>
+                  !searchConfig.onlyParentCards || !result.id.includes('/'),
+              )}
               showPreview={searchConfig.showPreview}
               onEntityClick={handleEntityClick}
               onTagClick={handleTagClick}
@@ -252,12 +280,12 @@ export function SearchMobileLayout({
           ref={backdropRef}
           onClick={handleBackdropClick}
           className="fixed inset-0 bg-black/50 z-50 md:hidden"
-          style={{ animation: "fade-in 0.2s ease-out" }}
+          style={{ animation: 'fade-in 0.2s ease-out' }}
         >
           <div
             ref={bottomSheetRef}
             className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl max-h-[80vh] flex flex-col"
-            style={{ animation: "slide-up 0.3s ease-out" }}
+            style={{ animation: 'slide-up 0.3s ease-out' }}
           >
             {/* Drag Handle */}
             <div className="flex justify-center pt-3 pb-2 px-4 flex-shrink-0">
@@ -267,14 +295,26 @@ export function SearchMobileLayout({
             {/* Header */}
             <div className="px-4 pb-3 border-b border-gray-200 flex-shrink-0">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Filters & Options</h2>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Filters & Options
+                </h2>
                 <button
                   onClick={() => setMobileView('list')}
                   className="p-2 -mr-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
                   aria-label="Close"
                 >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
@@ -284,7 +324,9 @@ export function SearchMobileLayout({
             <div className="flex-1 overflow-y-auto px-4 py-3">
               {/* Sorting Section */}
               <div className="mb-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Sort Results</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                  Sort Results
+                </h3>
                 <div className="space-y-1">
                   {[
                     { value: 'sortByRanking', label: 'Ranking Score' },
@@ -293,22 +335,35 @@ export function SearchMobileLayout({
                     { value: 'sortNewOld', label: 'Updated (Newest)' },
                     { value: 'sortOldNew', label: 'Updated (Oldest)' },
                     { value: 'sortBigSmall', label: 'A to Z' },
-                    { value: 'sortSmallBig', label: 'Z to A' }
+                    { value: 'sortSmallBig', label: 'Z to A' },
                   ].map((option) => (
                     <button
                       key={option.value}
-                      onClick={() => handleConfigChange({ ...searchConfig, sortBy: option.value })}
+                      onClick={() =>
+                        handleConfigChange({
+                          ...searchConfig,
+                          sortBy: option.value,
+                        })
+                      }
                       className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
                         searchConfig.sortBy === option.value
-                          ? "bg-blue-100 text-blue-900 font-medium"
-                          : "hover:bg-gray-100 bg-gray-50 text-gray-700"
+                          ? 'bg-blue-100 text-blue-900 font-medium'
+                          : 'hover:bg-gray-100 bg-gray-50 text-gray-700'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <span>{option.label}</span>
                         {searchConfig.sortBy === option.value && (
-                          <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          <svg
+                            className="w-5 h-5 text-blue-600"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
                           </svg>
                         )}
                       </div>
@@ -320,12 +375,14 @@ export function SearchMobileLayout({
               {/* Schema Filter */}
               {schemas.length > 0 && (
                 <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Filter by Schema</h3>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                    Filter by Schema
+                  </h3>
                   <select
-                    value={searchConfig.schemaId ?? ""}
+                    value={searchConfig.schemaId ?? ''}
                     onChange={(e) => {
                       const value = e.target.value;
-                      const schemaId = value === "" ? null : parseInt(value);
+                      const schemaId = value === '' ? null : parseInt(value);
                       handleConfigChange({ ...searchConfig, schemaId });
                     }}
                     className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
@@ -342,40 +399,68 @@ export function SearchMobileLayout({
 
               {/* Search Settings */}
               <div className="mb-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Search Settings</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                  Search Settings
+                </h3>
                 <div className="space-y-2">
                   <label className="flex items-center p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={searchConfig.useFullText}
-                      onChange={(e) => handleConfigChange({ ...searchConfig, useFullText: e.target.checked })}
+                      onChange={(e) =>
+                        handleConfigChange({
+                          ...searchConfig,
+                          useFullText: e.target.checked,
+                        })
+                      }
                       className="mr-3 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                     />
-                    <span className="text-sm text-gray-700">Search Full Text</span>
+                    <span className="text-sm text-gray-700">
+                      Search Full Text
+                    </span>
                   </label>
                   <label className="flex items-center p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={searchConfig.onlyParentCards}
-                      onChange={(e) => handleConfigChange({ ...searchConfig, onlyParentCards: e.target.checked })}
+                      onChange={(e) =>
+                        handleConfigChange({
+                          ...searchConfig,
+                          onlyParentCards: e.target.checked,
+                        })
+                      }
                       className="mr-3 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                     />
-                    <span className="text-sm text-gray-700">Only Parent Cards</span>
+                    <span className="text-sm text-gray-700">
+                      Only Parent Cards
+                    </span>
                   </label>
                   <label className="flex items-center p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={searchConfig.onlyEmptyCardId}
-                      onChange={(e) => handleConfigChange({ ...searchConfig, onlyEmptyCardId: e.target.checked })}
+                      onChange={(e) =>
+                        handleConfigChange({
+                          ...searchConfig,
+                          onlyEmptyCardId: e.target.checked,
+                        })
+                      }
                       className="mr-3 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                     />
-                    <span className="text-sm text-gray-700">Only Unsorted Cards</span>
+                    <span className="text-sm text-gray-700">
+                      Only Unsorted Cards
+                    </span>
                   </label>
                   <label className="flex items-center p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={searchConfig.showPreview}
-                      onChange={(e) => setSearchConfig({ ...searchConfig, showPreview: e.target.checked })}
+                      onChange={(e) =>
+                        setSearchConfig({
+                          ...searchConfig,
+                          showPreview: e.target.checked,
+                        })
+                      }
                       className="mr-3 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                     />
                     <span className="text-sm text-gray-700">Show Preview</span>
@@ -384,7 +469,12 @@ export function SearchMobileLayout({
                     <input
                       type="checkbox"
                       checked={searchConfig.showEntities}
-                      onChange={(e) => handleConfigChange({ ...searchConfig, showEntities: e.target.checked })}
+                      onChange={(e) =>
+                        handleConfigChange({
+                          ...searchConfig,
+                          showEntities: e.target.checked,
+                        })
+                      }
                       className="mr-3 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                     />
                     <span className="text-sm text-gray-700">Show Entities</span>
@@ -393,7 +483,12 @@ export function SearchMobileLayout({
                     <input
                       type="checkbox"
                       checked={searchConfig.showFacts}
-                      onChange={(e) => handleConfigChange({ ...searchConfig, showFacts: e.target.checked })}
+                      onChange={(e) =>
+                        handleConfigChange({
+                          ...searchConfig,
+                          showFacts: e.target.checked,
+                        })
+                      }
                       className="mr-3 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                     />
                     <span className="text-sm text-gray-700">Show Facts</span>
@@ -402,7 +497,12 @@ export function SearchMobileLayout({
                     <input
                       type="checkbox"
                       checked={searchConfig.showCards}
-                      onChange={(e) => handleConfigChange({ ...searchConfig, showCards: e.target.checked })}
+                      onChange={(e) =>
+                        handleConfigChange({
+                          ...searchConfig,
+                          showCards: e.target.checked,
+                        })
+                      }
                       className="mr-3 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                     />
                     <span className="text-sm text-gray-700">Show Cards</span>
@@ -413,7 +513,9 @@ export function SearchMobileLayout({
               {/* Tags Section */}
               {tags.length > 0 && (
                 <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Search by Tag</h3>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                    Search by Tag
+                  </h3>
                   <div className="flex flex-wrap gap-2">
                     {tags.slice(0, 12).map((tag) => (
                       <button
@@ -441,7 +543,11 @@ export function SearchMobileLayout({
                     }}
                     className="w-full px-4 py-3 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition-colors font-medium flex items-center justify-center gap-2"
                   >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <svg
+                      className="w-5 h-5"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
                       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                     </svg>
                     Star This Search

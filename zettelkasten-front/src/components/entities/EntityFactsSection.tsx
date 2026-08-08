@@ -1,6 +1,6 @@
-import React from "react";
-import { FactWithCard } from "../../models/Fact";
-import { CardTag } from "../cards/CardTag";
+import React from 'react';
+import { FactWithCard } from '../../models/Fact';
+import { CardTag } from '../cards/CardTag';
 
 interface EntityFactsSectionProps {
   facts: FactWithCard[];
@@ -9,10 +9,17 @@ interface EntityFactsSectionProps {
   onFactClick: (fact: FactWithCard) => void;
 }
 
-export function EntityFactsSection({ facts, isLoading, error, onFactClick }: EntityFactsSectionProps) {
+export function EntityFactsSection({
+  facts,
+  isLoading,
+  error,
+  onFactClick,
+}: EntityFactsSectionProps) {
   return (
     <>
-      <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">Facts:</h4>
+      <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">
+        Facts:
+      </h4>
       <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
         {isLoading && <p>Loading facts...</p>}
         {error && <p className="text-red-600">{error}</p>}

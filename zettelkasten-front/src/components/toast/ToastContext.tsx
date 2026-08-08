@@ -2,7 +2,12 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { Toast, ToastMessage, ToastType } from './Toast';
 
 interface ToastContextType {
-  showToast: (type: ToastType, title: string, description?: string, duration?: number) => void;
+  showToast: (
+    type: ToastType,
+    title: string,
+    description?: string,
+    duration?: number,
+  ) => void;
   removeToast: (id: string) => void;
 }
 
@@ -17,7 +22,12 @@ let toastId = 0;
 export function ToastProvider({ children }: ToastProviderProps) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const showToast = (type: ToastType, title: string, description?: string, duration?: number) => {
+  const showToast = (
+    type: ToastType,
+    title: string,
+    description?: string,
+    duration?: number,
+  ) => {
     const id = `toast-${++toastId}`;
     const newToast: ToastMessage = {
       id,
@@ -27,23 +37,20 @@ export function ToastProvider({ children }: ToastProviderProps) {
       duration,
     };
 
-    setToasts(prev => [...prev, newToast]);
+    setToasts((prev) => [...prev, newToast]);
   };
 
   const removeToast = (id: string) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
   };
 
   return (
     <ToastContext.Provider value={{ showToast, removeToast }}>
       {children}
       <div className="fixed top-4 right-4 z-50 space-y-2 pointer-events-none safe-top-fixed safe-right-fixed">
-        {toasts.map(toast => (
+        {toasts.map((toast) => (
           <div key={toast.id} className="pointer-events-auto">
-            <Toast
-              {...toast}
-              onRemove={removeToast}
-            />
+            <Toast {...toast} onRemove={removeToast} />
           </div>
         ))}
       </div>

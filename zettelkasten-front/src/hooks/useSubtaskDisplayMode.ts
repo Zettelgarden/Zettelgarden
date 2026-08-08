@@ -11,20 +11,22 @@ export function useSubtaskDisplayMode(): {
   subtaskMode: SubtaskDisplayMode;
   setSubtaskMode: (mode: SubtaskDisplayMode) => void;
 } {
-  const [subtaskMode, setSubtaskModeState] = useState<SubtaskDisplayMode>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (VALID_MODES.includes(parsed)) {
-          return parsed as SubtaskDisplayMode;
+  const [subtaskMode, setSubtaskModeState] = useState<SubtaskDisplayMode>(
+    () => {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (VALID_MODES.includes(parsed)) {
+            return parsed as SubtaskDisplayMode;
+          }
         }
+      } catch (e) {
+        console.error('Failed to load subtask display mode:', e);
       }
-    } catch (e) {
-      console.error('Failed to load subtask display mode:', e);
-    }
-    return DEFAULT_MODE;
-  });
+      return DEFAULT_MODE;
+    },
+  );
 
   const setSubtaskMode = (mode: SubtaskDisplayMode): void => {
     setSubtaskModeState(mode);

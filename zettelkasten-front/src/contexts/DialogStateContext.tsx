@@ -1,7 +1,7 @@
-import React, { createContext, ReactNode, useContext, useState } from "react";
-import { Entity } from "../models/Card";
-import { Fact, FactWithCard } from "../models/Fact";
-import { Task } from "../models/Task";
+import React, { createContext, ReactNode, useContext, useState } from 'react';
+import { Entity } from '../models/Card';
+import { Fact, FactWithCard } from '../models/Fact';
+import { Task } from '../models/Task';
 
 /**
  * DialogStateContext - Manages UI state for keyboard shortcut-triggered dialogs.
@@ -34,21 +34,21 @@ interface DialogStateContextType {
 
 const DialogStateContext = createContext<DialogStateContextType>({
   showCreateTaskWindow: false,
-  setShowCreateTaskWindow: () => { },
+  setShowCreateTaskWindow: () => {},
   showQuickSearchWindow: false,
-  setShowQuickSearchWindow: () => { },
+  setShowQuickSearchWindow: () => {},
   showEntityDialog: false,
-  setShowEntityDialog: () => { },
+  setShowEntityDialog: () => {},
   showFactDialog: false,
-  setShowFactDialog: () => { },
+  setShowFactDialog: () => {},
   showTaskDialog: false,
-  setShowTaskDialog: () => { },
+  setShowTaskDialog: () => {},
   selectedEntity: null,
-  setSelectedEntity: (entity: Entity | null) => { },
+  setSelectedEntity: (entity: Entity | null) => {},
   selectedFact: null,
-  setSelectedFact: (fact: FactWithCard | null) => { },
+  setSelectedFact: (fact: FactWithCard | null) => {},
   selectedTaskId: null,
-  setSelectedTaskId: (taskId: number | null) => { },
+  setSelectedTaskId: (taskId: number | null) => {},
 });
 
 export const DialogStateProvider = ({ children }: ChildrenProviderProps) => {
@@ -90,7 +90,7 @@ export const DialogStateProvider = ({ children }: ChildrenProviderProps) => {
 export const useDialogState = () => {
   const context = useContext(DialogStateContext);
   if (context === undefined) {
-    throw new Error("useDialogState must be used within a DialogStateProvider");
+    throw new Error('useDialogState must be used within a DialogStateProvider');
   }
   return context;
 };

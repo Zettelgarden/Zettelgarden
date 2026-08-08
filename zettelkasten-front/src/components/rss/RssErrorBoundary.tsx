@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from "react";
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -26,7 +26,7 @@ export class RssErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("RSS Error Boundary caught an error:", error, errorInfo);
+    console.error('RSS Error Boundary caught an error:', error, errorInfo);
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
@@ -61,7 +61,8 @@ export class RssErrorBoundary extends Component<Props, State> {
             Something went wrong
           </h3>
           <p className="text-sm text-red-700 mb-4">
-            An error occurred while loading this section. Please try refreshing the page.
+            An error occurred while loading this section. Please try refreshing
+            the page.
           </p>
           <button
             onClick={this.handleReset}

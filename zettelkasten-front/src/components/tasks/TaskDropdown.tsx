@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
-import { createPortal } from "react-dom";
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface TaskDropdownProps {
   isOpen: boolean;
@@ -29,12 +29,15 @@ export function TaskDropdown({
   onToggle,
   onClose,
   display,
-  menuClassName = "min-w-[140px]",
+  menuClassName = 'min-w-[140px]',
   children,
   triggerRef,
   usePortal = false,
 }: TaskDropdownProps) {
-  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
   const [isDropdownRendered, setIsDropdownRendered] = useState(false);
   const internalRef = useRef<HTMLSpanElement>(null);
   const effectiveRef = triggerRef || internalRef;
@@ -45,13 +48,16 @@ export function TaskDropdown({
     if (!usePortal || !isOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (effectiveRef.current && !effectiveRef.current.contains(e.target as Node)) {
+      if (
+        effectiveRef.current &&
+        !effectiveRef.current.contains(e.target as Node)
+      ) {
         onClose();
       }
     };
 
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, [usePortal, isOpen, onClose, effectiveRef]);
 
   // Track when dropdown has been rendered (for positioning adjustment)
@@ -65,7 +71,13 @@ export function TaskDropdown({
 
   // Adjust dropdown position after render to avoid clipping
   useLayoutEffect(() => {
-    if (usePortal && isOpen && isDropdownRendered && dropdownRef.current && effectiveRef.current) {
+    if (
+      usePortal &&
+      isOpen &&
+      isDropdownRendered &&
+      dropdownRef.current &&
+      effectiveRef.current
+    ) {
       const dropdownRect = dropdownRef.current.getBoundingClientRect();
       const triggerRect = effectiveRef.current.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
@@ -82,7 +94,7 @@ export function TaskDropdown({
         : triggerRect.bottom + 4;
 
       // Only update if position changed to avoid flicker
-      setDropdownPosition(prev => {
+      setDropdownPosition((prev) => {
         if (!prev || Math.abs(prev.top - top) > 1) {
           return { top, left: triggerRect.left };
         }
@@ -106,7 +118,7 @@ export function TaskDropdown({
   // Keyboard navigation for dropdown menu (portal mode)
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!usePortal || !isOpen) return;
-    if (e.key === "Escape") {
+    if (e.key === 'Escape') {
       e.preventDefault();
       onClose();
     }
@@ -116,11 +128,14 @@ export function TaskDropdown({
     <div
       ref={dropdownRef}
       className={`${
-        usePortal ? "fixed z-[1001]" : "absolute z-20"
+        usePortal ? 'fixed z-[1001]' : 'absolute z-20'
       } mt-1 bg-white rounded-md shadow-lg py-1 border border-gray-200 ${menuClassName}`}
       style={
         usePortal && dropdownPosition
-          ? { top: `${dropdownPosition.top}px`, left: `${dropdownPosition.left}px` }
+          ? {
+              top: `${dropdownPosition.top}px`,
+              left: `${dropdownPosition.left}px`,
+            }
           : undefined
       }
       onClick={(e) => {
@@ -140,7 +155,7 @@ export function TaskDropdown({
         onClick={handleToggle}
         className="cursor-pointer inline-flex items-center justify-center gap-1 px-1.5 py-0 min-w-[32px] min-h-[24px] rounded-md text-xs font-medium transition-colors hover:opacity-80"
         style={{
-          backgroundColor: display.color + "20",
+          backgroundColor: display.color + '20',
           color: display.color,
           border: `1px solid ${display.color}40`,
         }}

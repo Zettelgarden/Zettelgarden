@@ -1,5 +1,5 @@
 // zettelkasten-front/src/components/cards/ViewMobileAccordion.tsx
-import React, { useState } from "react";
+import React, { useState } from 'react';
 
 interface ViewMobileAccordionProps {
   title: string;
@@ -36,22 +36,16 @@ export function ViewMobileAccordion({
       >
         <div className="flex items-center gap-2">
           <span className="text-gray-400 text-sm">
-            {isExpanded ? "▼" : "►"}
+            {isExpanded ? '▼' : '►'}
           </span>
           {icon && <span className="text-gray-500">{icon}</span>}
           <span className="font-medium text-gray-900">{title}</span>
         </div>
         {rightElement && (
-          <div onClick={(e) => e.stopPropagation()}>
-            {rightElement}
-          </div>
+          <div onClick={(e) => e.stopPropagation()}>{rightElement}</div>
         )}
       </button>
-      {isExpanded && (
-        <div className="px-4 py-3 bg-white">
-          {children}
-        </div>
-      )}
+      {isExpanded && <div className="px-4 py-3 bg-white">{children}</div>}
     </div>
   );
 }

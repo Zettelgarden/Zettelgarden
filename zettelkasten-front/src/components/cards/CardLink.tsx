@@ -1,7 +1,7 @@
-import React from "react";
-import { PartialCard } from "../../models/Card";
-import { Link } from "react-router-dom";
-import { CardTag } from "./CardTag";
+import React from 'react';
+import { PartialCard } from '../../models/Card';
+import { Link } from 'react-router-dom';
+import { CardTag } from './CardTag';
 
 interface CardLinkProps {
   card: PartialCard;
@@ -13,9 +13,19 @@ interface CardLinkProps {
   showTagRemoval?: boolean;
 }
 
-export function CardLink({ card, showTitle, displayText, showTags = false, onRemoveTag, showTagRemoval = false }: CardLinkProps) {
+export function CardLink({
+  card,
+  showTitle,
+  displayText,
+  showTags = false,
+  onRemoveTag,
+  showTagRemoval = false,
+}: CardLinkProps) {
   return (
-    <Link to={`/app/card/${card.id}`} className="flex items-center gap-2 min-w-0 overflow-hidden">
+    <Link
+      to={`/app/card/${card.id}`}
+      className="flex items-center gap-2 min-w-0 overflow-hidden"
+    >
       <span className="inline-flex items-center flex-shrink min-w-0">
         <CardTag card={card} showTitle={showTitle} displayText={displayText} />
       </span>

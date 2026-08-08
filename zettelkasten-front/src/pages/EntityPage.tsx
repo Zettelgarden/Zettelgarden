@@ -1,42 +1,52 @@
-import React, { useState, useEffect } from "react";
-import { Entity } from "../models/Card";
-import { fetchEntities, mergeEntities, deleteEntity, EntityListResponse, EntityQueryParams } from "../api/entities";
-import { HeaderSection } from "../components/Header";
-import { Dialog } from "@headlessui/react";
-import { EditEntityDialog } from "../components/entities/EditEntityDialog";
-import { EntityTable } from "../components/entities/EntityTable";
-import { EntityListToolbar } from "../components/entities/EntityListToolbar";
-import { EntitySelectionActions } from "../components/entities/EntitySelectionActions";
-import { Link } from "react-router-dom";
-import { setDocumentTitle } from "../utils/title";
+import React, { useState, useEffect } from 'react';
+import { Entity } from '../models/Card';
+import {
+  fetchEntities,
+  mergeEntities,
+  deleteEntity,
+  EntityListResponse,
+  EntityQueryParams,
+} from '../api/entities';
+import { HeaderSection } from '../components/Header';
+import { Dialog } from '@headlessui/react';
+import { EditEntityDialog } from '../components/entities/EditEntityDialog';
+import { EntityTable } from '../components/entities/EntityTable';
+import { EntityListToolbar } from '../components/entities/EntityListToolbar';
+import { EntitySelectionActions } from '../components/entities/EntitySelectionActions';
+import { Link } from 'react-router-dom';
+import { setDocumentTitle } from '../utils/title';
 
-import { useAuth } from "../contexts/AuthContext";
-import { useDialogState } from "../contexts/DialogStateContext";
+import { useAuth } from '../contexts/AuthContext';
+import { useDialogState } from '../contexts/DialogStateContext';
 
 export function EntityPage() {
   const { hasSubscription } = useAuth();
   const [entities, setEntities] = useState<Entity[]>([]);
   const [totalEntities, setTotalEntities] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const STORAGE_KEY = "entityPageState";
-  const SCROLL_KEY = "entityPageScroll";
+  const STORAGE_KEY = 'entityPageState';
+  const SCROLL_KEY = 'entityPageScroll';
 
   // Hydrate persisted state on init
   const getInitialState = () => {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     } catch {
       return {};
     }
   };
   const initial = getInitialState();
 
-  const [filterText, setFilterText] = useState(initial.filterText || "");
-  const [searchTerm, setSearchTerm] = useState(initial.filterText || ""); // Actual search term sent to API
+  const [filterText, setFilterText] = useState(initial.filterText || '');
+  const [searchTerm, setSearchTerm] = useState(initial.filterText || ''); // Actual search term sent to API
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<"name" | "cards" | "created_at">(initial.sortBy || "name");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">(initial.sortDirection || "asc");
+  const [sortBy, setSortBy] = useState<'name' | 'cards' | 'created_at'>(
+    initial.sortBy || 'name',
+  );
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(
+    initial.sortDirection || 'asc',
+  );
   const [selectedEntities, setSelectedEntities] = useState<number[]>([]);
   const [isMerging, setIsMerging] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -49,12 +59,12 @@ export function EntityPage() {
   const [currentPage, setCurrentPage] = useState(initial.currentPage || 1);
   const [itemsPerPage] = useState(20);
 
-  const {
-    setShowEntityDialog,
-    setSelectedEntity,
-  } = useDialogState();
+  const { setShowEntityDialog, setSelectedEntity } = useDialogState();
 
-  const loadEntities = (page: number = currentPage, search: string = searchTerm) => {
+  const loadEntities = (
+    page: number = currentPage,
+    search: string = searchTerm,
+  ) => {
     setLoading(true);
     const params: EntityQueryParams = {
       page,
@@ -75,9 +85,9 @@ export function EntityPage() {
         setLoading(false);
       })
       .catch((err) => {
-        setError("Failed to load entities");
+        setError('Failed to load entities');
         setLoading(false);
-        console.error("Error fetching entities:", err);
+        console.error('Error fetching entities:', err);
       });
   };
 
@@ -93,7 +103,7 @@ export function EntityPage() {
   };
 
   useEffect(() => {
-    setDocumentTitle("Entities");
+    setDocumentTitle('Entities');
     loadEntities();
 
     // Restore scroll
@@ -109,7 +119,12 @@ export function EntityPage() {
   useEffect(() => {
     // Skip persisting until after the initial load to prevent overwriting saved state with defaults
     if (loading) return;
-    const stateToSave = { filterText: searchTerm, sortBy, sortDirection, currentPage };
+    const stateToSave = {
+      filterText: searchTerm,
+      sortBy,
+      sortDirection,
+      currentPage,
+    };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
   }, [searchTerm, sortBy, sortDirection, currentPage, loading]);
 
@@ -126,13 +141,14 @@ export function EntityPage() {
         ticking = true;
       }
     };
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   // Reload entities when sort changes
   useEffect(() => {
-    if (!loading) { // Don't reload on initial load
+    if (!loading) {
+      // Don't reload on initial load
       loadEntities(1); // Reset to first page when sorting changes
       setCurrentPage(1);
     }
@@ -140,7 +156,8 @@ export function EntityPage() {
 
   // Search effect - triggered when searchTerm changes (Enter press)
   useEffect(() => {
-    if (!loading) { // Don't search on initial load
+    if (!loading) {
+      // Don't search on initial load
       loadEntities(1, searchTerm); // Reset to first page when searching
       setCurrentPage(1);
     }
@@ -161,7 +178,7 @@ export function EntityPage() {
       // navigate(`/app/search?term=@[${entity.name}]`); // Old navigation
       event.preventDefault(); // Prevent any default action if EntityCard is wrapped in <a> or similar
       setShowEntityDialog(true);
-      setSelectedEntity(entity)
+      setSelectedEntity(entity);
     }
   };
 
@@ -184,8 +201,8 @@ export function EntityPage() {
       setSelectedEntities([]);
       loadEntities();
     } catch (err) {
-      setError("Failed to merge entities");
-      console.error("Error merging entities:", err);
+      setError('Failed to merge entities');
+      console.error('Error merging entities:', err);
     } finally {
       setIsMerging(false);
     }
@@ -214,8 +231,8 @@ export function EntityPage() {
       setEntityToDelete(null);
       loadEntities();
     } catch (err) {
-      setError("Failed to delete entities");
-      console.error("Error deleting entities:", err);
+      setError('Failed to delete entities');
+      console.error('Error deleting entities:', err);
     } finally {
       setIsDeleting(false);
     }
@@ -226,10 +243,10 @@ export function EntityPage() {
   };
 
   const handleClearFilters = () => {
-    setFilterText("");
-    setSearchTerm("");
-    setSortBy("name");
-    setSortDirection("asc");
+    setFilterText('');
+    setSearchTerm('');
+    setSortBy('name');
+    setSortDirection('asc');
     setCurrentPage(1);
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(SCROLL_KEY);
@@ -239,11 +256,10 @@ export function EntityPage() {
   const getSelectionInfo = (entityId: number) => {
     const index = selectedEntities.indexOf(entityId);
     if (index === -1) return null;
-    if (index === 0) return "Primary";
+    if (index === 0) return 'Primary';
     return `Will merge into ${entities.find((e) => e.id === selectedEntities[0])
       ?.name}`;
   };
-
 
   const handleEditClick = (entity: Entity, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -271,7 +287,7 @@ export function EntityPage() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedEntities(entities.map(entity => entity.id));
+      setSelectedEntities(entities.map((entity) => entity.id));
     } else {
       setSelectedEntities([]);
     }
@@ -285,25 +301,25 @@ export function EntityPage() {
   if (loading) return <div className="p-4">Loading entities...</div>;
   if (error) return <div className="p-4 text-red-600">{error}</div>;
 
-  const primaryEntity = selectedEntities.length > 0
-    ? entities.find((e) => e.id === selectedEntities[0])
-    : null;
-
+  const primaryEntity =
+    selectedEntities.length > 0
+      ? entities.find((e) => e.id === selectedEntities[0])
+      : null;
 
   return (
     <div className="p-4">
       <HeaderSection text="Entities" />
 
-      {!hasSubscription &&
-        (
-          <div className="text-center text-gray-500 mt-8">
-            Automatic entity extraction is a Pro feature. You are currently viewing default entities.
-            <br />
-            <Link to="/app/subscribe" className="text-blue-500 hover:underline">
-              Upgrade to Pro to automatically populate this page from your notes.
-            </Link>
-          </div>
-        )}
+      {!hasSubscription && (
+        <div className="text-center text-gray-500 mt-8">
+          Automatic entity extraction is a Pro feature. You are currently
+          viewing default entities.
+          <br />
+          <Link to="/app/subscribe" className="text-blue-500 hover:underline">
+            Upgrade to Pro to automatically populate this page from your notes.
+          </Link>
+        </div>
+      )}
       <EntityListToolbar
         filterText={filterText}
         onFilterChange={setFilterText}
@@ -328,23 +344,42 @@ export function EntityPage() {
         <button
           onClick={handleSelectionModeToggle}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
-            ${selectionMode
-              ? 'bg-blue-500 text-white hover:bg-blue-600'
-              : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
+            ${
+              selectionMode
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
             }`}
         >
           {selectionMode ? (
             <span className="flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
               </svg>
               Exit Selection
             </span>
           ) : (
             <span className="flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
                 <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
-                <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"
+                  clipRule="evenodd"
+                />
               </svg>
               Select Mode
             </span>
@@ -377,7 +412,7 @@ export function EntityPage() {
 
       {entities.length === 0 && !loading && (
         <div className="text-center text-gray-500 mt-8">
-          {searchTerm ? "No matching entities" : "No entities found"}
+          {searchTerm ? 'No matching entities' : 'No entities found'}
         </div>
       )}
 
@@ -409,7 +444,10 @@ export function EntityPage() {
           onClose={() => setShowConfirmDialog(false)}
           className="fixed inset-0 z-50 flex items-center justify-center"
         >
-          <div className="fixed inset-0 bg-black bg-opacity-30" aria-hidden="true" />
+          <div
+            className="fixed inset-0 bg-black bg-opacity-30"
+            aria-hidden="true"
+          />
           <Dialog.Panel className="bg-white p-6 rounded-lg max-w-md mx-auto relative">
             <Dialog.Title className="text-lg font-semibold mb-4">
               Confirm Merge
@@ -421,8 +459,7 @@ export function EntityPage() {
                 {primaryEntity.name} ({primaryEntity.type})
               </p>
               <p className="text-gray-600 mb-2">
-                The following entities will be merged into{" "}
-                {primaryEntity.name}:
+                The following entities will be merged into {primaryEntity.name}:
               </p>
               <ul className="list-disc pl-5">
                 {selectedEntities.slice(1).map((id) => {
@@ -436,8 +473,7 @@ export function EntityPage() {
               </ul>
             </div>
             <p className="text-red-600 text-sm mb-4">
-              This action cannot be undone. The merged entities will be
-              deleted.
+              This action cannot be undone. The merged entities will be deleted.
             </p>
             <div className="flex justify-end gap-4">
               <button
@@ -466,17 +502,26 @@ export function EntityPage() {
           }}
           className="fixed inset-0 z-50 flex items-center justify-center"
         >
-          <div className="fixed inset-0 bg-black bg-opacity-30" aria-hidden="true" />
+          <div
+            className="fixed inset-0 bg-black bg-opacity-30"
+            aria-hidden="true"
+          />
           <Dialog.Panel className="bg-white p-6 rounded-lg max-w-md mx-auto relative">
             <Dialog.Title className="text-lg font-semibold mb-4">
               Confirm Delete
             </Dialog.Title>
             <div className="mb-4">
               <p className="text-gray-600 mb-2">
-                Are you sure you want to delete {entityToDelete ? 'this entity' : 'these entities'}?
+                Are you sure you want to delete{' '}
+                {entityToDelete ? 'this entity' : 'these entities'}?
               </p>
               <ul className="list-disc pl-5">
-                {(entityToDelete ? [entityToDelete] : selectedEntities.map(id => entities.find(e => e.id === id))).map((entity) => {
+                {(entityToDelete
+                  ? [entityToDelete]
+                  : selectedEntities.map((id) =>
+                      entities.find((e) => e.id === id),
+                    )
+                ).map((entity) => {
                   return entity ? (
                     <li key={entity.id} className="text-gray-700">
                       {entity.name} ({entity.type})
@@ -486,7 +531,9 @@ export function EntityPage() {
               </ul>
             </div>
             <p className="text-red-600 text-sm mb-4">
-              This action cannot be undone. {entityToDelete ? 'The entity' : 'These entities'} will be permanently deleted.
+              This action cannot be undone.{' '}
+              {entityToDelete ? 'The entity' : 'These entities'} will be
+              permanently deleted.
             </p>
             <div className="flex justify-end gap-4">
               <button
@@ -519,7 +566,6 @@ export function EntityPage() {
         onSuccess={handleEditSuccess}
         onDelete={handleSingleDelete}
       />
-
     </div>
   );
 }

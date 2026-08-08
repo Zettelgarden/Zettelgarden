@@ -1,5 +1,5 @@
-import React from "react";
-import { Task } from "../../models/Task";
+import React from 'react';
+import { Task } from '../../models/Task';
 
 interface TaskTag {
   id: number;
@@ -30,7 +30,7 @@ export function TaskTagsSection({
   function handleAddNewTag() {
     if (newTagInput.trim()) {
       onAddTag(newTagInput);
-      setNewTagInput("");
+      setNewTagInput('');
     }
   }
 
@@ -47,7 +47,7 @@ export function TaskTagsSection({
             value={newTagInput}
             onChange={(e) => setNewTagInput(e.target.value)}
             onKeyPress={(e) => {
-              if (e.key === "Enter") {
+              if (e.key === 'Enter') {
                 handleAddNewTag();
               }
             }}
@@ -71,11 +71,11 @@ export function TaskTagsSection({
           {
             allTags.filter(
               (tag) =>
-                newTagInput.trim() === "" ||
+                newTagInput.trim() === '' ||
                 tag.name
-                  .replace(/^#/, "")
+                  .replace(/^#/, '')
                   .toLowerCase()
-                  .includes(newTagInput.trim().toLowerCase())
+                  .includes(newTagInput.trim().toLowerCase()),
             ).length
           }
           )
@@ -84,11 +84,11 @@ export function TaskTagsSection({
           {(() => {
             const filteredTags = allTags.filter(
               (tag) =>
-                newTagInput.trim() === "" ||
+                newTagInput.trim() === '' ||
                 tag.name
-                  .replace(/^#/, "")
+                  .replace(/^#/, '')
                   .toLowerCase()
-                  .includes(newTagInput.trim().toLowerCase())
+                  .includes(newTagInput.trim().toLowerCase()),
             );
 
             if (filteredTags.length === 0) {
@@ -106,7 +106,7 @@ export function TaskTagsSection({
             return (
               <div className="flex flex-wrap gap-2">
                 {filteredTags.map((tag) => {
-                  const cleanTagName = tag.name.replace(/^#/, "");
+                  const cleanTagName = tag.name.replace(/^#/, '');
                   const isSelected = getCurrentTaskTags().has(cleanTagName);
                   return (
                     <button
@@ -120,12 +120,12 @@ export function TaskTagsSection({
                       }}
                       className={`px-4 py-3 min-h-[44px] rounded-full text-sm transition-colors ${
                         isSelected
-                          ? "bg-purple-600 text-white"
-                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                       }`}
                     >
                       #{cleanTagName}
-                      {isSelected && " ✓"}
+                      {isSelected && ' ✓'}
                     </button>
                   );
                 })}

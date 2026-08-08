@@ -14,7 +14,13 @@ describe('EditPageHeader', () => {
   function renderWithProviders(
     ui: React.ReactElement,
     {
-      editingCard = { ...defaultCard, id: 1, card_id: 'abc', title: 'Test Card', body: 'body' },
+      editingCard = {
+        ...defaultCard,
+        id: 1,
+        card_id: 'abc',
+        title: 'Test Card',
+        body: 'body',
+      },
       setEditingCard = vi.fn(),
       setShowSaveAsTemplate = vi.fn(),
       setMessage = vi.fn(),
@@ -24,9 +30,15 @@ describe('EditPageHeader', () => {
   ) {
     const Wrapper = ({ children }: { children: React.ReactNode }) => (
       <UIStateProvider>
-        <CardEditorProvider editingCard={editingCard} setEditingCard={setEditingCard}>
+        <CardEditorProvider
+          editingCard={editingCard}
+          setEditingCard={setEditingCard}
+        >
           <EditorUIProvider handleSelectTemplate={vi.fn()}>
-            <EditorMessagesProvider initialMessage={message} initialError={error}>
+            <EditorMessagesProvider
+              initialMessage={message}
+              initialError={error}
+            >
               {children}
             </EditorMessagesProvider>
           </EditorUIProvider>
@@ -55,14 +67,26 @@ describe('EditPageHeader', () => {
 
     it('shows the proposed card_id in the breadcrumb for new cards', () => {
       renderWithProviders(<EditPageHeader {...defaultProps} newCard={true} />, {
-        editingCard: { ...defaultCard, id: 0, card_id: 'new-id', title: '', body: '' },
+        editingCard: {
+          ...defaultCard,
+          id: 0,
+          card_id: 'new-id',
+          title: '',
+          body: '',
+        },
       });
       expect(screen.getByText('[new-id]')).toBeInTheDocument();
     });
 
     it('falls back to [new] in the breadcrumb when a new card has no id yet', () => {
       renderWithProviders(<EditPageHeader {...defaultProps} newCard={true} />, {
-        editingCard: { ...defaultCard, id: 0, card_id: '', title: '', body: '' },
+        editingCard: {
+          ...defaultCard,
+          id: 0,
+          card_id: '',
+          title: '',
+          body: '',
+        },
       });
       expect(screen.getByText('[new]')).toBeInTheDocument();
     });
@@ -77,7 +101,13 @@ describe('EditPageHeader', () => {
     it('updates the title via setEditingCard on change', () => {
       const setEditingCard = vi.fn();
       renderWithProviders(<EditPageHeader {...defaultProps} />, {
-        editingCard: { ...defaultCard, id: 1, card_id: 'abc', title: 'Old', body: 'body' },
+        editingCard: {
+          ...defaultCard,
+          id: 1,
+          card_id: 'abc',
+          title: 'Old',
+          body: 'body',
+        },
         setEditingCard,
       });
       const titleInput = screen.getByLabelText('Title');
@@ -92,7 +122,9 @@ describe('EditPageHeader', () => {
     it('renders Save and Cancel buttons', () => {
       renderWithProviders(<EditPageHeader {...defaultProps} />);
       expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Cancel' }),
+      ).toBeInTheDocument();
     });
 
     it('calls handleSaveCard when Save is clicked', () => {
@@ -107,7 +139,10 @@ describe('EditPageHeader', () => {
     it('calls handleCancelButtonClick when Cancel is clicked', () => {
       const handleCancelButtonClick = vi.fn();
       renderWithProviders(
-        <EditPageHeader {...defaultProps} handleCancelButtonClick={handleCancelButtonClick} />,
+        <EditPageHeader
+          {...defaultProps}
+          handleCancelButtonClick={handleCancelButtonClick}
+        />,
       );
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
       expect(handleCancelButtonClick).toHaveBeenCalled();
@@ -118,7 +153,10 @@ describe('EditPageHeader', () => {
     it('calls handleSuggestTitle when clicked and enabled', () => {
       const handleSuggestTitle = vi.fn();
       renderWithProviders(
-        <EditPageHeader {...defaultProps} handleSuggestTitle={handleSuggestTitle} />,
+        <EditPageHeader
+          {...defaultProps}
+          handleSuggestTitle={handleSuggestTitle}
+        />,
       );
       const button = screen.getByTitle('Suggest title from content');
       fireEvent.click(button);
@@ -127,7 +165,13 @@ describe('EditPageHeader', () => {
 
     it('is disabled when the body is empty', () => {
       renderWithProviders(<EditPageHeader {...defaultProps} />, {
-        editingCard: { ...defaultCard, id: 1, card_id: 'abc', title: 'T', body: '' },
+        editingCard: {
+          ...defaultCard,
+          id: 1,
+          card_id: 'abc',
+          title: 'T',
+          body: '',
+        },
       });
       expect(screen.getByTitle('Suggest title from content')).toBeDisabled();
     });
@@ -159,17 +203,29 @@ describe('EditPageHeader', () => {
     }
 
     it('shows Process Entities & Facts checkbox only for existing cards', () => {
-      const { rerender } = renderWithProviders(<EditPageHeader {...defaultProps} />);
+      const { rerender } = renderWithProviders(
+        <EditPageHeader {...defaultProps} />,
+      );
       openMenu();
-      expect(screen.getByLabelText(/Process Entities & Facts/i)).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(/Process Entities & Facts/i),
+      ).toBeInTheDocument();
     });
 
     it('hides Process Entities & Facts checkbox for new cards', () => {
       renderWithProviders(<EditPageHeader {...defaultProps} newCard={true} />, {
-        editingCard: { ...defaultCard, id: 0, card_id: 'new-id', title: '', body: '' },
+        editingCard: {
+          ...defaultCard,
+          id: 0,
+          card_id: 'new-id',
+          title: '',
+          body: '',
+        },
       });
       openMenu();
-      expect(screen.queryByLabelText(/Process Entities & Facts/i)).not.toBeInTheDocument();
+      expect(
+        screen.queryByLabelText(/Process Entities & Facts/i),
+      ).not.toBeInTheDocument();
     });
 
     it('toggles process_entities_and_facts via the checkbox', () => {
@@ -194,7 +250,13 @@ describe('EditPageHeader', () => {
 
     it('renders Save as Template for both new and existing cards', () => {
       renderWithProviders(<EditPageHeader {...defaultProps} newCard={true} />, {
-        editingCard: { ...defaultCard, id: 0, card_id: 'new-id', title: '', body: '' },
+        editingCard: {
+          ...defaultCard,
+          id: 0,
+          card_id: 'new-id',
+          title: '',
+          body: '',
+        },
       });
       openMenu();
       expect(screen.getByText('Save as Template')).toBeInTheDocument();
@@ -208,7 +270,13 @@ describe('EditPageHeader', () => {
 
     it('hides Delete Card for new cards', () => {
       renderWithProviders(<EditPageHeader {...defaultProps} newCard={true} />, {
-        editingCard: { ...defaultCard, id: 0, card_id: 'new-id', title: '', body: '' },
+        editingCard: {
+          ...defaultCard,
+          id: 0,
+          card_id: 'new-id',
+          title: '',
+          body: '',
+        },
       });
       openMenu();
       expect(screen.queryByText('Delete Card')).not.toBeInTheDocument();

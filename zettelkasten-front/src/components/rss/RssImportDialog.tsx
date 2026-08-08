@@ -1,7 +1,7 @@
-import React, { useState, useRef } from "react";
-import { Dialog, Transition } from "@headlessui/react";
-import { Fragment } from "react";
-import { OPMLImportResult } from "../../api/rss";
+import React, { useState, useRef } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
+import { Fragment } from 'react';
+import { OPMLImportResult } from '../../api/rss';
 
 interface RssImportDialogProps {
   isOpen: boolean;
@@ -23,7 +23,7 @@ export function RssImportDialog({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (file: File) => {
-    if (!file.name.endsWith(".opml") && !file.name.endsWith(".xml")) {
+    if (!file.name.endsWith('.opml') && !file.name.endsWith('.xml')) {
       return;
     }
     setSelectedFile(file);
@@ -32,9 +32,9 @@ export function RssImportDialog({
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
+    if (e.type === 'dragenter' || e.type === 'dragover') {
       setDragActive(true);
-    } else if (e.type === "dragleave") {
+    } else if (e.type === 'dragleave') {
       setDragActive(false);
     }
   };
@@ -99,21 +99,26 @@ export function RssImportDialog({
               leaveTo="opacity-0 scale-95"
             >
               <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 mb-4">
+                <Dialog.Title
+                  as="h3"
+                  className="text-lg font-medium leading-6 text-gray-900 mb-4"
+                >
                   Import Feeds from OPML
                 </Dialog.Title>
 
                 {!importResult ? (
                   <>
                     <p className="text-sm text-gray-600 mb-4">
-                      Select an OPML file to import your RSS feed subscriptions. The file should contain feed URLs and optionally folder structure.
+                      Select an OPML file to import your RSS feed subscriptions.
+                      The file should contain feed URLs and optionally folder
+                      structure.
                     </p>
 
                     <div
                       className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
                         dragActive
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-gray-300 hover:border-gray-400"
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-300 hover:border-gray-400'
                       }`}
                       onDragEnter={handleDrag}
                       onDragLeave={handleDrag}
@@ -148,13 +153,16 @@ export function RssImportDialog({
                         </span>
                         <p className="pl-1">or drag and drop</p>
                       </div>
-                      <p className="text-xs leading-5 text-gray-500">OPML or XML files</p>
+                      <p className="text-xs leading-5 text-gray-500">
+                        OPML or XML files
+                      </p>
                     </div>
 
                     {selectedFile && (
                       <div className="mt-4 p-3 bg-blue-50 rounded-md">
                         <p className="text-sm text-blue-800">
-                          <strong>Selected:</strong> {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                          <strong>Selected:</strong> {selectedFile.name} (
+                          {(selectedFile.size / 1024).toFixed(1)} KB)
                         </p>
                       </div>
                     )}
@@ -176,16 +184,41 @@ export function RssImportDialog({
                       >
                         {importing ? (
                           <>
-                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            <svg
+                              className="w-4 h-4 animate-spin"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              />
                             </svg>
                             Importing...
                           </>
                         ) : (
                           <>
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                              />
                             </svg>
                             Import
                           </>
@@ -197,39 +230,65 @@ export function RssImportDialog({
                   <>
                     <div className="mb-4">
                       <div className="flex items-center gap-2 mb-4">
-                        <svg className="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        <svg
+                          className="w-8 h-8 text-green-600"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
                         </svg>
-                        <h4 className="text-lg font-semibold text-gray-900">Import Complete!</h4>
+                        <h4 className="text-lg font-semibold text-gray-900">
+                          Import Complete!
+                        </h4>
                       </div>
 
                       <div className="space-y-2 mb-4">
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Feeds created:</span>
-                          <span className="font-semibold text-green-600">{importResult.created_feeds}</span>
+                          <span className="font-semibold text-green-600">
+                            {importResult.created_feeds}
+                          </span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Feeds skipped (already exist):</span>
-                          <span className="font-semibold text-gray-600">{importResult.skipped_feeds}</span>
+                          <span className="text-gray-600">
+                            Feeds skipped (already exist):
+                          </span>
+                          <span className="font-semibold text-gray-600">
+                            {importResult.skipped_feeds}
+                          </span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Folders created:</span>
-                          <span className="font-semibold text-green-600">{importResult.created_folders}</span>
+                          <span className="text-gray-600">
+                            Folders created:
+                          </span>
+                          <span className="font-semibold text-green-600">
+                            {importResult.created_folders}
+                          </span>
                         </div>
                       </div>
 
-                      {importResult.errors && importResult.errors.length > 0 && (
-                        <div className="mt-4">
-                          <p className="text-sm font-semibold text-red-600 mb-2">Errors:</p>
-                          <div className="max-h-32 overflow-y-auto bg-red-50 rounded-md p-2">
-                            {importResult.errors.map((error, i) => (
-                              <p key={i} className="text-xs text-red-700 mb-1">
-                                • {error}
-                              </p>
-                            ))}
+                      {importResult.errors &&
+                        importResult.errors.length > 0 && (
+                          <div className="mt-4">
+                            <p className="text-sm font-semibold text-red-600 mb-2">
+                              Errors:
+                            </p>
+                            <div className="max-h-32 overflow-y-auto bg-red-50 rounded-md p-2">
+                              {importResult.errors.map((error, i) => (
+                                <p
+                                  key={i}
+                                  className="text-xs text-red-700 mb-1"
+                                >
+                                  • {error}
+                                </p>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                     </div>
 
                     <div className="flex justify-end">

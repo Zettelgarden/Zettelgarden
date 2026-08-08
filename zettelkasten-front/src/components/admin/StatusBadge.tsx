@@ -1,9 +1,9 @@
-import React from "react";
+import React from 'react';
 
 /**
  * Status badge type with predefined styles
  */
-export type StatusType = "success" | "warning" | "error" | "info" | "neutral";
+export type StatusType = 'success' | 'warning' | 'error' | 'info' | 'neutral';
 
 /**
  * Props for the StatusBadge component
@@ -23,22 +23,22 @@ export interface StatusBadgeProps {
  * Maps status types to their Tailwind CSS classes
  */
 const statusStyles: Record<StatusType, string> = {
-  success: "bg-green-100 text-green-800",
-  warning: "bg-yellow-100 text-yellow-800",
-  error: "bg-red-100 text-red-800",
-  info: "bg-blue-100 text-blue-800",
-  neutral: "bg-gray-100 text-gray-800",
+  success: 'bg-green-100 text-green-800',
+  warning: 'bg-yellow-100 text-yellow-800',
+  error: 'bg-red-100 text-red-800',
+  info: 'bg-blue-100 text-blue-800',
+  neutral: 'bg-gray-100 text-gray-800',
 };
 
 /**
  * Default labels for boolean values
  */
 const booleanLabels: Record<string, { true: string; false: string }> = {
-  default: { true: "Yes", false: "No" },
-  verified: { true: "Verified", false: "Pending" },
-  subscribed: { true: "Subscribed", false: "Unsubscribed" },
-  sent: { true: "Sent", false: "Pending" },
-  hasAccount: { true: "Has Account", false: "No Account" },
+  default: { true: 'Yes', false: 'No' },
+  verified: { true: 'Verified', false: 'Pending' },
+  subscribed: { true: 'Subscribed', false: 'Unsubscribed' },
+  sent: { true: 'Sent', false: 'Pending' },
+  hasAccount: { true: 'Has Account', false: 'No Account' },
 };
 
 /**
@@ -60,9 +60,10 @@ export function StatusBadge({
   value,
   type,
   label,
-  className = "",
+  className = '',
 }: StatusBadgeProps) {
-  const classes = `px-2 py-1 rounded text-sm ${statusStyles[type]} ${className}`.trim();
+  const classes =
+    `px-2 py-1 rounded text-sm ${statusStyles[type]} ${className}`.trim();
 
   // If label is provided, use it
   if (label !== undefined) {
@@ -70,8 +71,10 @@ export function StatusBadge({
   }
 
   // If value is a boolean, use default labels
-  if (typeof value === "boolean") {
-    const displayLabel = value ? booleanLabels.default.true : booleanLabels.default.false;
+  if (typeof value === 'boolean') {
+    const displayLabel = value
+      ? booleanLabels.default.true
+      : booleanLabels.default.false;
     return <span className={classes}>{displayLabel}</span>;
   }
 
@@ -92,17 +95,17 @@ export function getSubscriptionStatusBadge(status: string): {
   label: string;
 } {
   switch (status) {
-    case "active":
-      return { type: "success", label: "Active" };
-    case "trialing":
-      return { type: "info", label: "Trial" };
-    case "past_due":
-    case "canceled":
-    case "incomplete":
-    case "incomplete_expired":
-      return { type: "error", label: status };
+    case 'active':
+      return { type: 'success', label: 'Active' };
+    case 'trialing':
+      return { type: 'info', label: 'Trial' };
+    case 'past_due':
+    case 'canceled':
+    case 'incomplete':
+    case 'incomplete_expired':
+      return { type: 'error', label: status };
     default:
-      return { type: "neutral", label: "Free" };
+      return { type: 'neutral', label: 'Free' };
   }
 }
 
@@ -111,11 +114,11 @@ export function getSubscriptionStatusBadge(status: string): {
  */
 export function getBooleanStatusBadge(
   value: boolean,
-  options: { trueLabel?: string; falseLabel?: string } = {}
+  options: { trueLabel?: string; falseLabel?: string } = {},
 ): { type: StatusType; label: string } {
-  const { trueLabel = "Yes", falseLabel = "No" } = options;
+  const { trueLabel = 'Yes', falseLabel = 'No' } = options;
   return {
-    type: value ? "success" : "neutral",
+    type: value ? 'success' : 'neutral',
     label: value ? trueLabel : falseLabel,
   };
 }

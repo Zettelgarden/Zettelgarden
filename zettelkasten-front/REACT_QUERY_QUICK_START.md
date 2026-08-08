@@ -157,6 +157,7 @@ function SearchResults({ searchTerm }) {
 ### From TaskContext
 
 Before:
+
 ```typescript
 const { tasks, setRefreshTasks } = useTaskContext();
 
@@ -166,6 +167,7 @@ const handleRefresh = () => {
 ```
 
 After:
+
 ```typescript
 const { data: tasks, refetch } = useTasks();
 
@@ -177,6 +179,7 @@ const handleRefresh = () => {
 ### From TagContext
 
 Before:
+
 ```typescript
 const { tags, setRefreshTags } = useTagContext();
 
@@ -186,6 +189,7 @@ useEffect(() => {
 ```
 
 After:
+
 ```typescript
 const { data: tags } = useTags();
 // No manual refresh needed - automatic caching and refetching
@@ -193,17 +197,17 @@ const { data: tags } = useTags();
 
 ## Common Hooks Reference
 
-| Hook | Purpose | Returns |
-|------|---------|---------|
-| `useTasks(filters)` | Fetch task list | `{ data, isLoading, error, refetch, tags }` |
-| `useTask(id)` | Fetch single task | `{ data, isLoading, error }` |
-| `useCreateTask()` | Create task | `{ mutate, mutateAsync, isPending, error }` |
-| `useUpdateTask()` | Update task | `{ mutate, mutateAsync, isPending, error }` |
-| `useDeleteTask()` | Delete task | `{ mutate, mutateAsync, isPending, error }` |
-| `useCard(id)` | Fetch card | `{ data, isLoading, error }` |
-| `useCardSearch(params)` | Search cards | `{ data, isLoading, error }` |
-| `useTags()` | Fetch tags | `{ data, isLoading, error }` |
-| `useCurrentUser()` | Fetch current user | `{ data, isLoading, error }` |
+| Hook                    | Purpose            | Returns                                     |
+| ----------------------- | ------------------ | ------------------------------------------- |
+| `useTasks(filters)`     | Fetch task list    | `{ data, isLoading, error, refetch, tags }` |
+| `useTask(id)`           | Fetch single task  | `{ data, isLoading, error }`                |
+| `useCreateTask()`       | Create task        | `{ mutate, mutateAsync, isPending, error }` |
+| `useUpdateTask()`       | Update task        | `{ mutate, mutateAsync, isPending, error }` |
+| `useDeleteTask()`       | Delete task        | `{ mutate, mutateAsync, isPending, error }` |
+| `useCard(id)`           | Fetch card         | `{ data, isLoading, error }`                |
+| `useCardSearch(params)` | Search cards       | `{ data, isLoading, error }`                |
+| `useTags()`             | Fetch tags         | `{ data, isLoading, error }`                |
+| `useCurrentUser()`      | Fetch current user | `{ data, isLoading, error }`                |
 
 ## Query Options
 
@@ -249,6 +253,7 @@ function ManualRefresh() {
 Press `Alt + T` (or `Option + T` on Mac) to toggle React Query Devtools in development mode.
 
 Features:
+
 - See all active queries
 - Inspect query data
 - Manually refetch/invalidate queries
@@ -278,10 +283,13 @@ const { data } = useTasks({
 
 ```typescript
 // Use stable references for filters
-const filters = useMemo(() => ({
-  showCompleted: false,
-  status: selectedStatus,
-}), [selectedStatus]);
+const filters = useMemo(
+  () => ({
+    showCompleted: false,
+    status: selectedStatus,
+  }),
+  [selectedStatus],
+);
 
 const { data } = useTasks(filters);
 ```
@@ -289,23 +297,27 @@ const { data } = useTasks(filters);
 ## Best Practices
 
 1. **Destructure with defaults:**
+
    ```typescript
    const { data: tasks = [] } = useTasks();
    ```
 
 2. **Handle loading and error states:**
+
    ```typescript
    if (isLoading) return <Spinner />;
    if (error) return <ErrorMessage error={error} />;
    ```
 
 3. **Use query keys factory:**
+
    ```typescript
    import { queryKeys } from '../api/queryClient';
    // Consistent keys across the app
    ```
 
 4. **Don't over-invalidate:**
+
    ```typescript
    // Good: Invalidate only what changed
    queryClient.invalidateQueries({ queryKey: queryKeys.tasks.detail(id) });
@@ -315,6 +327,7 @@ const { data } = useTasks(filters);
    ```
 
 5. **Test hooks directly:**
+
    ```typescript
    import { renderHook } from '@testing-library/react';
    import { useTasks } from './useTasks';

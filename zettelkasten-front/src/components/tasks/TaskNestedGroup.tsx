@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { Task } from "../../models/Task";
-import { TaskListItem } from "./TaskListItem";
+import React, { useState } from 'react';
+import { Task } from '../../models/Task';
+import { TaskListItem } from './TaskListItem';
 
 interface TaskNestedGroupProps {
   task: Task;
@@ -51,11 +51,11 @@ export function TaskNestedGroup({
               setIsCollapsed(!isCollapsed);
             }}
             className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-6 w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 z-10"
-            title={isCollapsed ? "Expand subtasks" : "Collapse subtasks"}
+            title={isCollapsed ? 'Expand subtasks' : 'Collapse subtasks'}
             aria-expanded={!isCollapsed}
-            aria-label={isCollapsed ? "Expand subtasks" : "Collapse subtasks"}
+            aria-label={isCollapsed ? 'Expand subtasks' : 'Collapse subtasks'}
           >
-            <span className="text-xs">{isCollapsed ? "▶" : "▼"}</span>
+            <span className="text-xs">{isCollapsed ? '▶' : '▼'}</span>
           </button>
         )}
 

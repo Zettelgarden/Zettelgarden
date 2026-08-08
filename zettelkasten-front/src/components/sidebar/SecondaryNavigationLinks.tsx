@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { SchemaIcon } from "../../assets/icons/SchemaIcon";
-import { FactsIcon } from "../../assets/icons/FactsIcon";
+import React, { useState, useRef, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { SchemaIcon } from '../../assets/icons/SchemaIcon';
+import { FactsIcon } from '../../assets/icons/FactsIcon';
 
 interface SecondaryNavigationLinksProps {
   hasSubscription: boolean;
@@ -34,8 +34,11 @@ function CollapsibleLink({
   useEffect(() => {
     if (showTooltip && tooltipRef.current && linkRef.current) {
       const linkRect = linkRef.current.getBoundingClientRect();
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      tooltipRef.current.style.top = `${linkRect.top + linkRect.height / 2 - 10 + scrollTop}px`;
+      const scrollTop =
+        window.pageYOffset || document.documentElement.scrollTop;
+      tooltipRef.current.style.top = `${
+        linkRect.top + linkRect.height / 2 - 10 + scrollTop
+      }px`;
     }
   }, [showTooltip]);
 
@@ -49,8 +52,12 @@ function CollapsibleLink({
           to={to}
           className={`
             flex items-center relative rounded-md transition-colors
-            ${isActive ? "bg-gray-100" : "hover:bg-gray-100"}
-            ${isCollapsed ? "w-12 h-12 mx-auto justify-center" : "w-full px-3 py-2.5 md:px-2 md:py-1 min-h-[44px] md:min-h-0"}
+            ${isActive ? 'bg-gray-100' : 'hover:bg-gray-100'}
+            ${
+              isCollapsed
+                ? 'w-12 h-12 mx-auto justify-center'
+                : 'w-full px-3 py-2.5 md:px-2 md:py-1 min-h-[44px] md:min-h-0'
+            }
           `}
           onMouseEnter={() => isCollapsed && setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
@@ -58,16 +65,22 @@ function CollapsibleLink({
           onBlur={() => setShowTooltip(false)}
           aria-label={label}
         >
-          <span className={isCollapsed ? "" : "w-6 h-6 flex items-center justify-center flex-shrink-0"}>
+          <span
+            className={
+              isCollapsed
+                ? ''
+                : 'w-6 h-6 flex items-center justify-center flex-shrink-0'
+            }
+          >
             {icon}
           </span>
 
-          {!isCollapsed && (
-            <span className="px-2 flex-grow">{label}</span>
-          )}
+          {!isCollapsed && <span className="px-2 flex-grow">{label}</span>}
 
           {!isCollapsed && isPro && !hasSubscription && (
-            <span className="ml-2 bg-purple-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">PRO</span>
+            <span className="ml-2 bg-purple-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+              PRO
+            </span>
           )}
 
           {showDotIndicator && (
@@ -97,9 +110,12 @@ function CollapsibleLink({
   );
 }
 
-export function SecondaryNavigationLinks({ hasSubscription, isCollapsed }: SecondaryNavigationLinksProps) {
+export function SecondaryNavigationLinks({
+  hasSubscription,
+  isCollapsed,
+}: SecondaryNavigationLinksProps) {
   return (
-    <div className={`p-2 ${isCollapsed ? "px-1" : ""}`}>
+    <div className={`p-2 ${isCollapsed ? 'px-1' : ''}`}>
       <ul className="space-y-1">
         <CollapsibleLink
           to="/app/schemas"

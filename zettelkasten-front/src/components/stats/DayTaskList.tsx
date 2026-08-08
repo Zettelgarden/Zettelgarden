@@ -1,6 +1,6 @@
-import React from "react";
-import { Task } from "../../models/Task";
-import { Link } from "react-router-dom";
+import React from 'react';
+import { Task } from '../../models/Task';
+import { Link } from 'react-router-dom';
 
 interface DayTaskListProps {
   tasks: Task[];
@@ -9,19 +9,19 @@ interface DayTaskListProps {
 }
 
 function formatTime(date: Date): string {
-  return date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
     hour12: true,
   });
 }
 
 function formatDate(date: Date): string {
-  return date.toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
   });
 }
 
@@ -30,7 +30,8 @@ export function DayTaskList({ tasks, date, onClose }: DayTaskListProps) {
     <div className="bg-white rounded-lg shadow p-4 mt-4">
       <div className="flex justify-between items-center mb-3">
         <h2 className="text-lg font-semibold text-gray-800">
-          {formatDate(date)} ({tasks.length} task{tasks.length !== 1 ? 's' : ''} closed)
+          {formatDate(date)} ({tasks.length} task{tasks.length !== 1 ? 's' : ''}{' '}
+          closed)
         </h2>
         <button
           onClick={onClose}
@@ -53,7 +54,9 @@ export function DayTaskList({ tasks, date, onClose }: DayTaskListProps) {
               className="py-2 hover:bg-gray-50 -mx-4 px-4 transition-colors"
             >
               <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-sm font-medium text-gray-900">{task.title}</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {task.title}
+                </span>
                 {task.completed_at && (
                   <span className="text-xs text-gray-500">
                     {formatTime(task.completed_at)}

@@ -38,7 +38,10 @@ export function useKeyboardShortcuts({
 
       // Only trigger shortcuts when not focusing input/textarea elements
       const focusedElement = document.activeElement;
-      if (!focusedElement || !focusedElement.tagName.match(/^INPUT|TEXTAREA$/i)) {
+      if (
+        !focusedElement ||
+        !focusedElement.tagName.match(/^INPUT|TEXTAREA$/i)
+      ) {
         if (event.key === 't') {
           event.preventDefault();
           onCreateTask();

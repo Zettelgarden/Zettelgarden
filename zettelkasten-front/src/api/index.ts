@@ -9,7 +9,12 @@
  */
 
 // Core API client
-export { apiClient, getData, type RequestConfig, type APIResponse } from './client';
+export {
+  apiClient,
+  getData,
+  type RequestConfig,
+  type APIResponse,
+} from './client';
 
 // Error types
 export {

@@ -1,7 +1,7 @@
-import { DailyStatsResponse } from "../models/Stats";
-import { Task } from "../models/Task";
-import { PartialCard } from "../models/Card";
-import { apiClient, getData } from "./client";
+import { DailyStatsResponse } from '../models/Stats';
+import { Task } from '../models/Task';
+import { PartialCard } from '../models/Card';
+import { apiClient, getData } from './client';
 
 function formatLocalDate(date: Date): string {
   const year = date.getFullYear();
@@ -12,7 +12,7 @@ function formatLocalDate(date: Date): string {
 
 export function fetchDailyStats(
   startDate?: Date,
-  endDate?: Date
+  endDate?: Date,
 ): Promise<DailyStatsResponse> {
   const params: Record<string, string | undefined> = {};
 
@@ -23,14 +23,15 @@ export function fetchDailyStats(
     params.end_date = formatLocalDate(endDate);
   }
 
-  return getData(apiClient.get<any>("/stats/daily", { params }))
-    .then((data) => ({
+  return getData(apiClient.get<any>('/stats/daily', { params })).then(
+    (data) => ({
       ...data,
       stats: data.stats.map((stat: any) => ({
         ...stat,
         date: new Date(stat.date),
       })),
-    }));
+    }),
+  );
 }
 
 export function fetchTasksForDate(date: Date): Promise<Task[]> {
@@ -38,8 +39,8 @@ export function fetchTasksForDate(date: Date): Promise<Task[]> {
     date: formatLocalDate(date),
   };
 
-  return getData(apiClient.get<any[]>("/stats/day-tasks", { params }))
-    .then((tasks) =>
+  return getData(apiClient.get<any[]>('/stats/day-tasks', { params })).then(
+    (tasks) =>
       tasks.map((task) => ({
         ...task,
         scheduled_date: task.scheduled_date
@@ -48,11 +49,9 @@ export function fetchTasksForDate(date: Date): Promise<Task[]> {
         due_date: task.due_date ? new Date(task.due_date) : null,
         created_at: new Date(task.created_at),
         updated_at: new Date(task.updated_at),
-        completed_at: task.completed_at
-          ? new Date(task.completed_at)
-          : null,
-      }))
-    );
+        completed_at: task.completed_at ? new Date(task.completed_at) : null,
+      })),
+  );
 }
 
 export function fetchCardsForDate(date: Date): Promise<PartialCard[]> {
@@ -60,12 +59,12 @@ export function fetchCardsForDate(date: Date): Promise<PartialCard[]> {
     date: formatLocalDate(date),
   };
 
-  return getData(apiClient.get<any[]>("/stats/day-cards", { params }))
-    .then((cards) =>
+  return getData(apiClient.get<any[]>('/stats/day-cards', { params })).then(
+    (cards) =>
       cards.map((card) => ({
         ...card,
         created_at: new Date(card.created_at),
         updated_at: new Date(card.updated_at),
-      }))
-    );
+      })),
+  );
 }

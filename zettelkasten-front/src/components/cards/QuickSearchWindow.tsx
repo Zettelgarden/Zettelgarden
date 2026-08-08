@@ -1,8 +1,8 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { PartialCard, SearchResult } from "../../models/Card";
-import { BacklinkInputDropdownList } from "./BacklinkInputDropdownList";
-import { semanticSearchCards } from "../../api/cards";
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { PartialCard, SearchResult } from '../../models/Card';
+import { BacklinkInputDropdownList } from './BacklinkInputDropdownList';
+import { semanticSearchCards } from '../../api/cards';
 
 interface QuickSearchWindowProps {
   setShowWindow: (showWindow: boolean) => void;
@@ -12,7 +12,7 @@ export function QuickSearchWindow({ setShowWindow }: QuickSearchWindowProps) {
   const navigate = useNavigate();
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
 
   function handleSelect(card: PartialCard) {
     setShowWindow(false);
@@ -28,10 +28,20 @@ export function QuickSearchWindow({ setShowWindow }: QuickSearchWindowProps) {
 
     setIsSearching(true);
     try {
-      const cardsResponse = await semanticSearchCards(searchTerm, true, false, false, true, false, "sortByRanking", "typesense", false);
+      const cardsResponse = await semanticSearchCards(
+        searchTerm,
+        true,
+        false,
+        false,
+        true,
+        false,
+        'sortByRanking',
+        'typesense',
+        false,
+      );
       setSearchResults(cardsResponse);
     } catch (error) {
-      console.error("Search failed:", error);
+      console.error('Search failed:', error);
       setSearchResults([]);
     } finally {
       setIsSearching(false);

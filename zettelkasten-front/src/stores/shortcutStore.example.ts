@@ -100,8 +100,7 @@ export const useShortcutStore = create<ShortcutStore>((set) => ({
   // Combined actions
   openEntityDialog: (entity) =>
     set({ showEntityDialog: true, selectedEntity: entity }),
-  openFactDialog: (fact) =>
-    set({ showFactDialog: true, selectedFact: fact }),
+  openFactDialog: (fact) => set({ showFactDialog: true, selectedFact: fact }),
   openTaskDialog: (taskId) =>
     set({ showTaskDialog: true, selectedTaskId: taskId }),
   closeAllDialogs: () =>
@@ -207,12 +206,12 @@ export const useCardStore = create<CardStore>((set, get) => ({
   // Combined actions
   clearLastCard: () => set({ lastCard: null }),
   unpinCard: () => set({ pinnedCard: null, isPinMode: false }),
-  clearChatSidebar: () => set({ chatSidebarCard: null, isChatSidebarMode: false }),
+  clearChatSidebar: () =>
+    set({ chatSidebarCard: null, isChatSidebarMode: false }),
 }));
 
 // Selectors for optimized re-renders
-export const useLastCard = () =>
-  useCardStore((state) => state.lastCard);
+export const useLastCard = () => useCardStore((state) => state.lastCard);
 
 export const usePinnedCard = () =>
   useCardStore((state) => ({
@@ -272,8 +271,7 @@ export const useChatStore = create<ChatStore>((set) => ({
 export const useConversationId = () =>
   useChatStore((state) => state.conversationId);
 
-export const useShowChat = () =>
-  useChatStore((state) => state.showChat);
+export const useShowChat = () => useChatStore((state) => state.showChat);
 
 // =============================================================================
 // USAGE EXAMPLES

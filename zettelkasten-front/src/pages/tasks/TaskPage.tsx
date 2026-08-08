@@ -1,42 +1,50 @@
-import React, { useEffect, ChangeEvent, useState, useRef } from "react";
-import { TaskList } from "../../components/tasks/TaskList";
-import { TaskSelectionOverlay } from "../../components/tasks/TaskSelectionOverlay";
-import { SearchTagDropdown } from "../../components/tags/SearchTagDropdown";
-import { CreateTaskWindow } from "../../components/tasks/CreateTaskWindow";
-import { TaskDialog } from "../../components/tasks/TaskDialog";
-import { useTaskContext } from "../../contexts/TaskContext";
-import { useTagContext } from "../../contexts/TagContext";
-import { useAuth } from "../../contexts/AuthContext";
-import { setDocumentTitle } from "../../utils/title";
-import { Button } from "../../components/Button";
-import { useDialogState } from "../../contexts/DialogStateContext";
-import { EisenhowerMatrix } from "../../components/tasks/EisenhowerMatrix";
-import { KanbanBoard } from "../../components/tasks/KanbanBoard";
-import { useTaskPageSettings } from "../../hooks/useTaskPageSettings";
-import { useTaskFiltering } from "../../hooks/useTaskFiltering";
-import { useFilterInput } from "../../hooks/useFilterInput";
-import { useNavigate } from "react-router-dom";
-import { ErrorBoundary } from "../../components/ErrorBoundary";
-import { TaskDesktopLayout } from "../../components/tasks/TaskDesktopLayout";
-import { TaskMobileLayout } from "../../components/tasks/TaskMobileLayout";
-import { KeyboardShortcutsHelp, useKeyboardShortcuts } from "../../components/tasks/KeyboardShortcutsHelp";
-import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
-import { useUIState } from "../../contexts/UIStateContext";
+import React, { useEffect, ChangeEvent, useState, useRef } from 'react';
+import { TaskList } from '../../components/tasks/TaskList';
+import { TaskSelectionOverlay } from '../../components/tasks/TaskSelectionOverlay';
+import { SearchTagDropdown } from '../../components/tags/SearchTagDropdown';
+import { CreateTaskWindow } from '../../components/tasks/CreateTaskWindow';
+import { TaskDialog } from '../../components/tasks/TaskDialog';
+import { useTaskContext } from '../../contexts/TaskContext';
+import { useTagContext } from '../../contexts/TagContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { setDocumentTitle } from '../../utils/title';
+import { Button } from '../../components/Button';
+import { useDialogState } from '../../contexts/DialogStateContext';
+import { EisenhowerMatrix } from '../../components/tasks/EisenhowerMatrix';
+import { KanbanBoard } from '../../components/tasks/KanbanBoard';
+import { useTaskPageSettings } from '../../hooks/useTaskPageSettings';
+import { useTaskFiltering } from '../../hooks/useTaskFiltering';
+import { useFilterInput } from '../../hooks/useFilterInput';
+import { useNavigate } from 'react-router-dom';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
+import { TaskDesktopLayout } from '../../components/tasks/TaskDesktopLayout';
+import { TaskMobileLayout } from '../../components/tasks/TaskMobileLayout';
+import {
+  KeyboardShortcutsHelp,
+  useKeyboardShortcuts,
+} from '../../components/tasks/KeyboardShortcutsHelp';
+import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
+import { useUIState } from '../../contexts/UIStateContext';
 
 type TaskMobileView = 'list' | 'filters';
-import { parseTaskQuery, updateQueryDateView, updateQueryShowCompleted } from "../../utils/tasks";
-import { QuickTagPopover } from "../../components/tasks/QuickTagPopover";
+import {
+  parseTaskQuery,
+  updateQueryDateView,
+  updateQueryShowCompleted,
+} from '../../utils/tasks';
+import { QuickTagPopover } from '../../components/tasks/QuickTagPopover';
 
-interface TaskListProps { }
+interface TaskListProps {}
 
-export function TaskPage({ }: TaskListProps) {
-  const { tasks, isLoading, showCompleted, setShowCompleted, setRefreshTasks } = useTaskContext();
+export function TaskPage({}: TaskListProps) {
+  const { tasks, isLoading, showCompleted, setShowCompleted, setRefreshTasks } =
+    useTaskContext();
   const { tags } = useTagContext();
   const { user } = useAuth();
   const { showCreateTaskWindow, setShowCreateTaskWindow } = useDialogState();
   const navigate = useNavigate();
   const { toggleMobileSidebar } = useUIState();
-  const userTimezone = user?.timezone || "UTC";
+  const userTimezone = user?.timezone || 'UTC';
 
   // Responsive layout state
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
@@ -45,7 +53,9 @@ export function TaskPage({ }: TaskListProps) {
   // State for task dialog
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
-  const [createTaskStatus, setCreateTaskStatus] = useState<string | undefined>(undefined);
+  const [createTaskStatus, setCreateTaskStatus] = useState<string | undefined>(
+    undefined,
+  );
 
   // Ref to prevent infinite loops when syncing query and UI
   const isInternalUpdate = useRef(false);
@@ -68,23 +78,19 @@ export function TaskPage({ }: TaskListProps) {
     filterString: settings.filterString,
     setFilterString: settings.setFilterString,
   });
-  const {
-    tasksToDisplay,
-    paginatedTasks,
-    totalPages,
-    totalTasksForDateView
-  } = useTaskFiltering({
-    tasks,
-    dateView: settings.dateView,
-    showCompleted,
-    filterString: settings.filterString,
-    sortField: settings.sortField,
-    sortDirection: settings.sortDirection,
-    viewMode: settings.viewMode,
-    currentPage: settings.currentPage,
-    itemsPerPage: settings.itemsPerPage,
-    timezone: userTimezone,
-  });
+  const { tasksToDisplay, paginatedTasks, totalPages, totalTasksForDateView } =
+    useTaskFiltering({
+      tasks,
+      dateView: settings.dateView,
+      showCompleted,
+      filterString: settings.filterString,
+      sortField: settings.sortField,
+      sortDirection: settings.sortDirection,
+      viewMode: settings.viewMode,
+      currentPage: settings.currentPage,
+      itemsPerPage: settings.itemsPerPage,
+      timezone: userTimezone,
+    });
 
   // Sync UI controls with query keywords in filter string
   useEffect(() => {
@@ -113,11 +119,22 @@ export function TaskPage({ }: TaskListProps) {
     const newDateView = e.target.value;
     settings.setDateView(newDateView);
     // Update filter string to include the date view keyword
-    settings.setFilterString(updateQueryDateView(settings.filterString, newDateView));
+    settings.setFilterString(
+      updateQueryDateView(settings.filterString, newDateView),
+    );
   }
 
   function handleSortFieldChange(e: ChangeEvent<HTMLSelectElement>) {
-    settings.setSortField(e.target.value as "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "manual");
+    settings.setSortField(
+      e.target.value as
+        | 'updated_at'
+        | 'title'
+        | 'priority'
+        | 'status'
+        | 'id'
+        | 'scheduled_date'
+        | 'manual',
+    );
   }
 
   function handleShowCompletedChange() {
@@ -125,7 +142,9 @@ export function TaskPage({ }: TaskListProps) {
     const newShowCompleted = !showCompleted;
     setShowCompleted(newShowCompleted);
     // Update filter string to include/remove the completed keyword
-    settings.setFilterString(updateQueryShowCompleted(settings.filterString, newShowCompleted));
+    settings.setFilterString(
+      updateQueryShowCompleted(settings.filterString, newShowCompleted),
+    );
   }
 
   function toggleShowTaskWindow() {
@@ -139,7 +158,7 @@ export function TaskPage({ }: TaskListProps) {
   }
 
   function handleTagClick(tag: string) {
-    settings.setFilterString("#" + tag);
+    settings.setFilterString('#' + tag);
   }
 
   function handleCloseTaskDialog() {
@@ -147,9 +166,11 @@ export function TaskPage({ }: TaskListProps) {
     setSelectedTaskId(null);
     // Remove taskId parameter from URL
     const params = new URLSearchParams(location.search);
-    params.delete("taskId");
+    params.delete('taskId');
     const newSearch = params.toString();
-    navigate(`/app/tasks${newSearch ? `?${newSearch}` : ""}`, { replace: true });
+    navigate(`/app/tasks${newSearch ? `?${newSearch}` : ''}`, {
+      replace: true,
+    });
   }
 
   function handleTaskClick(taskId: number) {
@@ -175,16 +196,16 @@ export function TaskPage({ }: TaskListProps) {
   });
 
   useEffect(() => {
-    setDocumentTitle("Tasks");
+    setDocumentTitle('Tasks');
 
     const params = new URLSearchParams(location.search);
-    const term = params.get("term");
+    const term = params.get('term');
     if (term) {
       settings.setFilterString(term);
     }
 
     // Check for taskId parameter to open specific task dialog
-    const taskIdParam = params.get("taskId");
+    const taskIdParam = params.get('taskId');
     if (taskIdParam) {
       const taskId = parseInt(taskIdParam, 10);
       if (!isNaN(taskId)) {

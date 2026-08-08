@@ -28,7 +28,14 @@ const iconStyles = {
   warning: '⚠️',
 };
 
-export function Toast({ id, type, title, description, duration = 4000, onRemove }: ToastProps) {
+export function Toast({
+  id,
+  type,
+  title,
+  description,
+  duration = 4000,
+  onRemove,
+}: ToastProps) {
   useEffect(() => {
     if (duration > 0) {
       const timer = setTimeout(() => {
@@ -48,7 +55,9 @@ export function Toast({ id, type, title, description, duration = 4000, onRemove 
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm">{title}</p>
           {description && (
-            <p className="text-sm opacity-90 mt-1 leading-relaxed">{description}</p>
+            <p className="text-sm opacity-90 mt-1 leading-relaxed">
+              {description}
+            </p>
           )}
         </div>
         <button
@@ -56,8 +65,18 @@ export function Toast({ id, type, title, description, duration = 4000, onRemove 
           className="ml-3 text-white hover:opacity-75 transition-opacity p-1"
           aria-label="Dismiss"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
       </div>

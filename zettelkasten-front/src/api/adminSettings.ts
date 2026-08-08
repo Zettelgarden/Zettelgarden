@@ -1,4 +1,4 @@
-import { apiClient, getData } from "./client";
+import { apiClient, getData } from './client';
 
 /**
  * Admin-managed settings backed by config.yaml on the server (admin-only
@@ -16,7 +16,7 @@ export interface AdminSettings {
 }
 
 export function getAdminSettings(): Promise<AdminSettings> {
-  return getData(apiClient.get<AdminSettings>("/admin/settings"));
+  return getData(apiClient.get<AdminSettings>('/admin/settings'));
 }
 
 /**
@@ -26,5 +26,5 @@ export function getAdminSettings(): Promise<AdminSettings> {
 export function updateAdminSettings(
   updates: Partial<AdminSettings>,
 ): Promise<AdminSettings> {
-  return getData(apiClient.put<AdminSettings>("/admin/settings", updates));
+  return getData(apiClient.put<AdminSettings>('/admin/settings', updates));
 }

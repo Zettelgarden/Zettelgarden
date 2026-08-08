@@ -170,20 +170,47 @@ describe('card sub-resource hooks', () => {
   });
 
   const cases = [
-    { hook: useCardReferences, mock: getCardReferences, url: '/cards/c1/references' },
+    {
+      hook: useCardReferences,
+      mock: getCardReferences,
+      url: '/cards/c1/references',
+    },
     { hook: useCardChildren, mock: getCardChildren, url: '/cards/c1/children' },
     { hook: useCardFiles, mock: getCardFiles, url: '/cards/c1/files' },
     { hook: useCardTags, mock: getCardTags, url: '/cards/c1/tags' },
     { hook: useCardTasks, mock: getCardTasks, url: '/cards/c1/tasks' },
     { hook: useCardEntities, mock: getCardEntities, url: '/cards/c1/entities' },
-    { hook: useLinkedEntities, mock: getLinkedEntitiesByCardPK, url: '/cards/c1/linked-entities' },
-    { hook: useCardAuditEvents, mock: getCardAuditEvents, url: '/cards/c1/audit' },
+    {
+      hook: useLinkedEntities,
+      mock: getLinkedEntitiesByCardPK,
+      url: '/cards/c1/linked-entities',
+    },
+    {
+      hook: useCardAuditEvents,
+      mock: getCardAuditEvents,
+      url: '/cards/c1/audit',
+    },
   ] as const;
 
   it.each(cases.map((c) => [c.hook.name, c]))(
     '%s fetches data for the card id',
     async (_name, c) => {
-      const payload = c.hook === useLinkedEntities ? [{ id: 1, name: 'Entity' }] : [makePartialCard()];
+      const payload =
+        c.hook === useLinkedEntities
+          ? [
+              {
+                id: 1,
+                user_id: 1,
+                name: 'Entity',
+                description: '',
+                type: 'concept',
+                created_at: new Date(),
+                updated_at: new Date(),
+                card_count: 0,
+                card_pk: null,
+              },
+            ]
+          : [makePartialCard()];
       vi.mocked(c.mock).mockResolvedValue(payload as any);
 
       const { result } = renderHook(() => c.hook('c1'), { wrapper });
@@ -191,7 +218,7 @@ describe('card sub-resource hooks', () => {
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
       expect(c.mock).toHaveBeenCalledWith('c1');
       expect(result.current.data).toEqual(payload);
-    }
+    },
   );
 
   it('does not fetch sub-resources without a card id', async () => {
@@ -218,7 +245,7 @@ describe('useCardSearch', () => {
 
     const { result } = renderHook(
       () => useCardSearch({ searchTerm: 'zettel', onlyEmptyCardId: false }),
-      { wrapper }
+      { wrapper },
     );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -235,12 +262,14 @@ describe('useCardSearch', () => {
       1, // page
       50, // perPage
       false, // onlyEmptyCardId
-      undefined // schemaId
+      undefined, // schemaId
     );
   });
 
   it('is disabled when searchTerm is empty and onlyEmptyCardId is false', async () => {
-    const { result } = renderHook(() => useCardSearch({ searchTerm: '' }), { wrapper });
+    const { result } = renderHook(() => useCardSearch({ searchTerm: '' }), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.isFetching).toBe(false));
     expect(semanticSearchCardsPaginated).not.toHaveBeenCalled();
@@ -255,9 +284,12 @@ describe('useCardSearch', () => {
       total_pages: 0,
     });
 
-    const { result } = renderHook(() => useCardSearch({ searchTerm: '', onlyEmptyCardId: true }), {
-      wrapper,
-    });
+    const { result } = renderHook(
+      () => useCardSearch({ searchTerm: '', onlyEmptyCardId: true }),
+      {
+        wrapper,
+      },
+    );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(semanticSearchCardsPaginated).toHaveBeenCalled();
@@ -274,14 +306,18 @@ describe('useCardSearch', () => {
 
     const { result, rerender } = renderHook(
       ({ term }) => useCardSearch({ searchTerm: term }),
-      { wrapper, initialProps: { term: 'first' } }
+      { wrapper, initialProps: { term: 'first' } },
     );
 
-    await waitFor(() => expect(semanticSearchCardsPaginated).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(semanticSearchCardsPaginated).toHaveBeenCalledTimes(1),
+    );
 
     rerender({ term: 'second' });
 
-    await waitFor(() => expect(semanticSearchCardsPaginated).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(semanticSearchCardsPaginated).toHaveBeenCalledTimes(2),
+    );
     expect(semanticSearchCardsPaginated).toHaveBeenLastCalledWith(
       'second',
       expect.anything(),
@@ -295,7 +331,7 @@ describe('useCardSearch', () => {
       expect.anything(),
       expect.anything(),
       expect.anything(),
-      undefined
+      undefined,
     );
   });
 });
@@ -351,7 +387,9 @@ describe('useCreateCard', () => {
     const queryClient = createTestQueryClient();
     const { result } = renderHook(() => useCreateCard(), {
       wrapper: ({ children }) => (
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
       ),
     });
 
@@ -393,14 +431,18 @@ describe('useUpdateCard', () => {
 
     const { result } = renderHook(() => useUpdateCard(), {
       wrapper: ({ children }) => (
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
       ),
     });
 
     result.current.mutate(updated);
 
     await waitFor(() => {
-      expect(queryClient.getQueryData(['cards', 'detail', '1'])).toEqual(updated);
+      expect(queryClient.getQueryData(['cards', 'detail', '1'])).toEqual(
+        updated,
+      );
     });
 
     resolveUpdate!(updated);
@@ -417,7 +459,9 @@ describe('useUpdateCard', () => {
 
     const { result } = renderHook(() => useUpdateCard(), {
       wrapper: ({ children }) => (
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
       ),
     });
 
@@ -471,7 +515,9 @@ describe('useStarCard / useUnstarCard', () => {
 
     const { result } = renderHook(() => useStarCard(), {
       wrapper: ({ children }) => (
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
       ),
     });
 
@@ -495,14 +541,18 @@ describe('useStarCard / useUnstarCard', () => {
 
     const { result } = renderHook(() => useUnstarCard(), {
       wrapper: ({ children }) => (
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
       ),
     });
 
     result.current.mutate(1);
 
     await waitFor(() => {
-      expect((queryClient.getQueryData(['cards', 'detail', '1']) as any).is_pinned).toBe(false);
+      expect(
+        (queryClient.getQueryData(['cards', 'detail', '1']) as any).is_pinned,
+      ).toBe(false);
     });
 
     resolveUnstar!(undefined);
@@ -519,7 +569,9 @@ describe('useRestoreCardToAuditEvent', () => {
     const card = makeCard();
     vi.mocked(restoreCardToAuditEvent).mockResolvedValue(card);
 
-    const { result } = renderHook(() => useRestoreCardToAuditEvent(), { wrapper });
+    const { result } = renderHook(() => useRestoreCardToAuditEvent(), {
+      wrapper,
+    });
 
     result.current.mutate({ cardId: 'c1', auditEventId: 99 });
 
@@ -539,9 +591,17 @@ describe('useCreateArticle', () => {
 
     const { result } = renderHook(() => useCreateArticle(), { wrapper });
 
-    result.current.mutate({ url: 'https://example.com/a', cardId: 'c1', tags: 't1' });
+    result.current.mutate({
+      url: 'https://example.com/a',
+      cardId: 'c1',
+      tags: 't1',
+    });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(createArticle).toHaveBeenCalledWith('https://example.com/a', 'c1', 't1');
+    expect(createArticle).toHaveBeenCalledWith(
+      'https://example.com/a',
+      'c1',
+      't1',
+    );
   });
 });

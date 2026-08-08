@@ -1,13 +1,18 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { SchemaDefinition, FieldDefinition } from "../../models/Schema";
-import { fetchSchema } from "../../api/schemas";
-import { Card } from "../../models/Card";
-import { setDocumentTitle } from "../../utils/title";
-import { CardLink } from "../cards/CardLink";
-import { getCard } from "../../api/cards";
-import { FilterInput, ActiveFilterDisplay, FilterValue, FiltersState } from "./SchemaTableFilters";
-import { EditableCell } from "./EditableCell";
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { SchemaDefinition, FieldDefinition } from '../../models/Schema';
+import { fetchSchema } from '../../api/schemas';
+import { Card } from '../../models/Card';
+import { setDocumentTitle } from '../../utils/title';
+import { CardLink } from '../cards/CardLink';
+import { getCard } from '../../api/cards';
+import {
+  FilterInput,
+  ActiveFilterDisplay,
+  FilterValue,
+  FiltersState,
+} from './SchemaTableFilters';
+import { EditableCell } from './EditableCell';
 
 interface LinkedCardDisplayProps {
   cardId: number;
@@ -35,7 +40,7 @@ function LinkedCardDisplay({ cardId }: LinkedCardDisplayProps) {
   }, [cardId]);
 
   function isError(result: any): result is { error: string } {
-    return result && typeof result === "object" && "error" in result;
+    return result && typeof result === 'object' && 'error' in result;
   }
 
   if (loading) {
@@ -43,10 +48,16 @@ function LinkedCardDisplay({ cardId }: LinkedCardDisplayProps) {
   }
 
   if (!card) {
-    return <span className="text-blue-600 hover:underline text-sm font-mono">{cardId}</span>;
+    return (
+      <span className="text-blue-600 hover:underline text-sm font-mono">
+        {cardId}
+      </span>
+    );
   }
 
-  return <CardLink card={card} showTitle={true} handleViewBacklink={() => {}} />;
+  return (
+    <CardLink card={card} showTitle={true} handleViewBacklink={() => {}} />
+  );
 }
 
 interface SchemaTablePageProps {
@@ -62,7 +73,7 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortField, setSortField] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [filters, setFilters] = useState<FiltersState>({});
   const [showFilters, setShowFilters] = useState(false);
 
@@ -71,16 +82,16 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
     const parsedFilters: FiltersState = {};
 
     for (const [key, value] of searchParams.entries()) {
-      if (key === "sort") {
+      if (key === 'sort') {
         setSortField(value);
         continue;
       }
-      if (key === "order") {
-        setSortDirection(value === "desc" ? "desc" : "asc");
+      if (key === 'order') {
+        setSortDirection(value === 'desc' ? 'desc' : 'asc');
         continue;
       }
-      if (key.startsWith("filter_")) {
-        const fieldName = key.replace("filter_", "");
+      if (key.startsWith('filter_')) {
+        const fieldName = key.replace('filter_', '');
         try {
           const filterData = JSON.parse(decodeURIComponent(value));
           parsedFilters[fieldName] = filterData;
@@ -100,12 +111,15 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
     const params = new URLSearchParams();
 
     // Add sort params
-    if (sortField) params.set("sort", sortField);
-    if (sortDirection !== "asc") params.set("order", sortDirection);
+    if (sortField) params.set('sort', sortField);
+    if (sortDirection !== 'asc') params.set('order', sortDirection);
 
     // Add filter params
     Object.entries(newFilters).forEach(([fieldName, filterValue]) => {
-      params.set(`filter_${fieldName}`, encodeURIComponent(JSON.stringify(filterValue)));
+      params.set(
+        `filter_${fieldName}`,
+        encodeURIComponent(JSON.stringify(filterValue)),
+      );
     });
 
     setSearchParams(params, { replace: true });
@@ -122,7 +136,7 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
   };
 
   useEffect(() => {
-    setDocumentTitle("Table View");
+    setDocumentTitle('Table View');
     loadData();
   }, [schemaId]);
 
@@ -136,43 +150,52 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
       setSchema(schemaData);
 
       // Fetch cards with this schema_id
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${import.meta.env.VITE_URL}/schemas/${schemaId}/cards`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${import.meta.env.VITE_URL}/schemas/${schemaId}/cards`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch cards");
+        throw new Error('Failed to fetch cards');
       }
 
       const fetchedCards = await response.json();
       const cardsWithDates = fetchedCards.map((card: Card) => ({
         ...card,
-        created_at: card.created_at instanceof Date ? card.created_at : new Date(card.created_at),
-        updated_at: card.updated_at instanceof Date ? card.updated_at : new Date(card.updated_at),
+        created_at:
+          card.created_at instanceof Date
+            ? card.created_at
+            : new Date(card.created_at),
+        updated_at:
+          card.updated_at instanceof Date
+            ? card.updated_at
+            : new Date(card.updated_at),
       }));
 
       setCards(cardsWithDates);
     } catch (err) {
-      console.error("Error loading data:", err);
-      setError("Failed to load data");
+      console.error('Error loading data:', err);
+      setError('Failed to load data');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSort = (fieldName: string) => {
-    let newDirection: "asc" | "desc" = "asc";
+    let newDirection: 'asc' | 'desc' = 'asc';
     if (sortField === fieldName) {
-      newDirection = sortDirection === "asc" ? "desc" : "asc";
+      newDirection = sortDirection === 'asc' ? 'desc' : 'asc';
     }
     setSortField(fieldName);
     setSortDirection(newDirection);
 
     // Update URL
     const params = new URLSearchParams(searchParams);
-    params.set("sort", fieldName);
-    params.set("order", newDirection);
+    params.set('sort', fieldName);
+    params.set('order', newDirection);
     setSearchParams(params, { replace: true });
   };
 
@@ -184,71 +207,86 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
       filteredCards = filteredCards.filter((card) => {
         const cardValue = card.structured_data?.[fieldName];
 
-        if (cardValue === null || cardValue === undefined || cardValue === "") {
+        if (cardValue === null || cardValue === undefined || cardValue === '') {
           return false;
         }
 
         switch (filterValue.type) {
-          case "text":
+          case 'text':
             switch (filterValue.operator) {
-              case "contains":
-                return String(cardValue).toLowerCase().includes(String(filterValue.value).toLowerCase());
-              case "equals":
-                return String(cardValue).toLowerCase() === String(filterValue.value).toLowerCase();
-              case "startsWith":
-                return String(cardValue).toLowerCase().startsWith(String(filterValue.value).toLowerCase());
+              case 'contains':
+                return String(cardValue)
+                  .toLowerCase()
+                  .includes(String(filterValue.value).toLowerCase());
+              case 'equals':
+                return (
+                  String(cardValue).toLowerCase() ===
+                  String(filterValue.value).toLowerCase()
+                );
+              case 'startsWith':
+                return String(cardValue)
+                  .toLowerCase()
+                  .startsWith(String(filterValue.value).toLowerCase());
               default:
                 return true;
             }
 
-          case "number":
+          case 'number':
             const cardNum = parseFloat(cardValue);
             const filterNum = parseFloat(filterValue.value);
             if (isNaN(cardNum) || isNaN(filterNum)) return false;
             switch (filterValue.operator) {
-              case "equals":
+              case 'equals':
                 return cardNum === filterNum;
-              case "gt":
+              case 'gt':
                 return cardNum > filterNum;
-              case "gte":
+              case 'gte':
                 return cardNum >= filterNum;
-              case "lt":
+              case 'lt':
                 return cardNum < filterNum;
-              case "lte":
+              case 'lte':
                 return cardNum <= filterNum;
               default:
                 return true;
             }
 
-          case "date":
+          case 'date':
             const cardDate = new Date(cardValue);
             const filterDate = new Date(filterValue.value);
-            if (isNaN(cardDate.getTime()) || isNaN(filterDate.getTime())) return false;
+            if (isNaN(cardDate.getTime()) || isNaN(filterDate.getTime()))
+              return false;
             switch (filterValue.operator) {
-              case "equals":
+              case 'equals':
                 return cardDate.toDateString() === filterDate.toDateString();
-              case "before":
+              case 'before':
                 return cardDate < filterDate;
-              case "after":
+              case 'after':
                 return cardDate > filterDate;
               default:
                 return true;
             }
 
-          case "boolean":
+          case 'boolean':
             return Boolean(cardValue) === Boolean(filterValue.value);
 
-          case "select":
+          case 'select':
             return String(cardValue) === String(filterValue.value);
 
-          case "multi-select":
-            if (filterValue.operator === "any" && Array.isArray(filterValue.value)) {
-              const cardValues = Array.isArray(cardValue) ? cardValue : [cardValue];
-              return filterValue.value.some((v: string) => cardValues.includes(v));
+          case 'multi-select':
+            if (
+              filterValue.operator === 'any' &&
+              Array.isArray(filterValue.value)
+            ) {
+              const cardValues = Array.isArray(cardValue)
+                ? cardValue
+                : [cardValue];
+              return filterValue.value.some((v: string) =>
+                cardValues.includes(v),
+              );
             }
             return false;
 
-          case "link_to_card":
+          case 'link_to_card':
             return parseInt(cardValue, 10) === parseInt(filterValue.value, 10);
 
           default:
@@ -269,25 +307,25 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
       if (aValue === bValue) return 0;
 
       const comparison = aValue < bValue ? -1 : 1;
-      return sortDirection === "asc" ? comparison : -comparison;
+      return sortDirection === 'asc' ? comparison : -comparison;
     });
   };
 
   const getFieldValue = (card: Card, field: FieldDefinition) => {
     const value = card.structured_data?.[field.name];
 
-    if (value === null || value === undefined || value === "") {
+    if (value === null || value === undefined || value === '') {
       return <span className="text-gray-400 italic">—</span>;
     }
 
     switch (field.type) {
-      case "boolean":
-        return value ? "Yes" : "No";
-      case "multi-select":
-        return (value as string[]).join(", ");
-      case "date":
+      case 'boolean':
+        return value ? 'Yes' : 'No';
+      case 'multi-select':
+        return (value as string[]).join(', ');
+      case 'date':
         return new Date(value).toLocaleDateString();
-      case "link_to_card":
+      case 'link_to_card':
         return <LinkedCardDisplay cardId={value} />;
       default:
         return String(value);
@@ -300,25 +338,34 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
 
   const refreshCards = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${import.meta.env.VITE_URL}/schemas/${schemaId}/cards`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${import.meta.env.VITE_URL}/schemas/${schemaId}/cards`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch cards");
+        throw new Error('Failed to fetch cards');
       }
 
       const fetchedCards = await response.json();
       const cardsWithDates = fetchedCards.map((card: Card) => ({
         ...card,
-        created_at: card.created_at instanceof Date ? card.created_at : new Date(card.created_at),
-        updated_at: card.updated_at instanceof Date ? card.updated_at : new Date(card.updated_at),
+        created_at:
+          card.created_at instanceof Date
+            ? card.created_at
+            : new Date(card.created_at),
+        updated_at:
+          card.updated_at instanceof Date
+            ? card.updated_at
+            : new Date(card.updated_at),
       }));
 
       setCards(cardsWithDates);
     } catch (err) {
-      console.error("Error refreshing cards:", err);
+      console.error('Error refreshing cards:', err);
     }
   };
 
@@ -358,20 +405,36 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <button onClick={onBack} className="text-blue-600 hover:underline text-sm mb-2">
+          <button
+            onClick={onBack}
+            className="text-blue-600 hover:underline text-sm mb-2"
+          >
             ← Back to Schemas
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">{schema.name} - Table View</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {schema.name} - Table View
+          </h1>
           <p className="text-sm text-gray-500">{cards.length} cards</p>
         </div>
         <button
           onClick={() => setShowFilters(!showFilters)}
           className="px-4 py-3 min-h-[44px] bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 flex items-center gap-1"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z"
+              clipRule="evenodd"
+            />
           </svg>
-          Filters {Object.keys(filters).length > 0 && `(${Object.keys(filters).length})`}
+          Filters{' '}
+          {Object.keys(filters).length > 0 &&
+            `(${Object.keys(filters).length})`}
         </button>
       </div>
 
@@ -379,7 +442,9 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
       {showFilters && (
         <div className="mb-4 p-4 bg-gray-50 border rounded-lg">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-700">Filter by field values</h3>
+            <h3 className="text-sm font-semibold text-gray-700">
+              Filter by field values
+            </h3>
             {Object.keys(filters).length > 0 && (
               <button
                 onClick={clearAllFilters}
@@ -419,7 +484,9 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
       {/* Active Filters Display */}
       {Object.keys(filters).length > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-gray-500">Active filters:</span>
+          <span className="text-xs font-medium text-gray-500">
+            Active filters:
+          </span>
           {Object.entries(filters).map(([fieldName, filterValue]) => (
             <ActiveFilterDisplay
               key={fieldName}
@@ -435,7 +502,7 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
         <div className="text-center text-gray-500 py-8 bg-gray-50 rounded-lg">
           <p>No cards with this schema yet.</p>
           <button
-            onClick={() => navigate("/app/card/new")}
+            onClick={() => navigate('/app/card/new')}
             className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
           >
             Create First Card
@@ -448,12 +515,12 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
               <tr>
                 <th
                   className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort("title")}
+                  onClick={() => handleSort('title')}
                 >
                   <div className="flex items-center gap-1">
                     Title
-                    {sortField === "title" && (
-                      <span>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                    {sortField === 'title' && (
+                      <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
                     )}
                   </div>
                 </th>
@@ -466,7 +533,7 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
                     <div className="flex items-center gap-1">
                       {field.name}
                       {sortField === field.name && (
-                        <span>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                        <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
                       )}
                     </div>
                   </th>
@@ -478,12 +545,13 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {sortedCards.map((card) => (
-                <tr
-                  key={card.id}
-                  className="hover:bg-gray-50"
-                >
+                <tr key={card.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm">
-                    <CardLink card={card} showTitle={true} handleViewBacklink={() => {}} />
+                    <CardLink
+                      card={card}
+                      showTitle={true}
+                      handleViewBacklink={() => {}}
+                    />
                   </td>
                   {schema.fields.map((field) => (
                     <EditableCell

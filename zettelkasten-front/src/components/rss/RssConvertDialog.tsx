@@ -1,11 +1,16 @@
-import React, { useState, useEffect } from "react";
-import { Dialog, Transition } from "@headlessui/react";
-import { Fragment } from "react";
-import { convertToCard, ConvertArticleParams, RSSArticle, ConvertCardResponse } from "../../api/rss";
-import { safeHtmlToMarkdown } from "../../utils/markdown";
-import { CardIdDiscoveryDialog } from "../cards/CardIdDiscoveryDialog";
-import { SearchTagDropdown } from "../tags/SearchTagDropdown";
-import { useTagContext } from "../../contexts/TagContext";
+import React, { useState, useEffect } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
+import { Fragment } from 'react';
+import {
+  convertToCard,
+  ConvertArticleParams,
+  RSSArticle,
+  ConvertCardResponse,
+} from '../../api/rss';
+import { safeHtmlToMarkdown } from '../../utils/markdown';
+import { CardIdDiscoveryDialog } from '../cards/CardIdDiscoveryDialog';
+import { SearchTagDropdown } from '../tags/SearchTagDropdown';
+import { useTagContext } from '../../contexts/TagContext';
 
 interface RssConvertDialogProps {
   isOpen: boolean;
@@ -21,13 +26,13 @@ export function RssConvertDialog({
   onConverted,
 }: RssConvertDialogProps) {
   const { tags: allTags } = useTagContext();
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [cardId, setCardId] = useState("");
+  const [cardId, setCardId] = useState('');
   const [showCardIdDiscovery, setShowCardIdDiscovery] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState<string>('');
 
   // Initialize title and body from article when it changes
   useEffect(() => {
@@ -37,10 +42,10 @@ export function RssConvertDialog({
       if (article.content) {
         setBody(safeHtmlToMarkdown(article.content));
       } else {
-        setBody("");
+        setBody('');
       }
       setSelectedTags([]);
-      setCardId("");
+      setCardId('');
     }
   }, [article]);
 
@@ -49,12 +54,12 @@ export function RssConvertDialog({
     if (!article) return;
 
     if (!title.trim()) {
-      setError("Title is required");
+      setError('Title is required');
       return;
     }
 
     setLoading(true);
-    setError("");
+    setError('');
 
     try {
       const params: ConvertArticleParams = {
@@ -66,35 +71,44 @@ export function RssConvertDialog({
       }
 
       if (selectedTags.length > 0) {
-        params.tags = selectedTags.map(t => `#${t.replace(/^#/, '')}`).join(' ');
+        params.tags = selectedTags
+          .map((t) => `#${t.replace(/^#/, '')}`)
+          .join(' ');
       }
 
       if (cardId.trim()) {
         params.card_id = cardId.trim();
       }
 
-      const result: ConvertCardResponse = await convertToCard(article.id, params);
+      const result: ConvertCardResponse = await convertToCard(
+        article.id,
+        params,
+      );
 
       if (result.id) {
         onConverted(result.id);
         handleClose();
       } else {
-        setError("Failed to convert article to card");
+        setError('Failed to convert article to card');
       }
     } catch (err) {
-      console.error("Failed to convert article:", err);
-      setError(err instanceof Error ? err.message : "Failed to convert article. Please try again.");
+      console.error('Failed to convert article:', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to convert article. Please try again.',
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const handleClose = () => {
-    setTitle("");
-    setBody("");
+    setTitle('');
+    setBody('');
     setSelectedTags([]);
-    setCardId("");
-    setError("");
+    setCardId('');
+    setError('');
     onClose();
   };
 
@@ -111,7 +125,7 @@ export function RssConvertDialog({
   };
 
   const handleRemoveTag = (tagName: string) => {
-    setSelectedTags(selectedTags.filter(t => t !== tagName));
+    setSelectedTags(selectedTags.filter((t) => t !== tagName));
   };
 
   return (
@@ -142,14 +156,20 @@ export function RssConvertDialog({
                 leaveTo="opacity-0 scale-95"
               >
                 <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                  <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 mb-4">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-lg font-medium leading-6 text-gray-900 mb-4"
+                  >
                     Convert to Card
                   </Dialog.Title>
 
                   <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Title - Required */}
                     <div>
-                      <label htmlFor="card-title" className="block text-sm font-medium text-gray-700 mb-1">
+                      <label
+                        htmlFor="card-title"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
                         Title <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -166,8 +186,12 @@ export function RssConvertDialog({
 
                     {/* Content - Optional, monospace font, 10 rows */}
                     <div>
-                      <label htmlFor="card-content" className="block text-sm font-medium text-gray-700 mb-1">
-                        Content <span className="text-gray-400">(optional)</span>
+                      <label
+                        htmlFor="card-content"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Content{' '}
+                        <span className="text-gray-400">(optional)</span>
                       </label>
                       <textarea
                         id="card-content"
@@ -219,8 +243,12 @@ export function RssConvertDialog({
 
                     {/* Card ID - Optional */}
                     <div>
-                      <label htmlFor="card-id" className="block text-sm font-medium text-gray-700 mb-1">
-                        Card ID <span className="text-gray-400">(optional)</span>
+                      <label
+                        htmlFor="card-id"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Card ID{' '}
+                        <span className="text-gray-400">(optional)</span>
                       </label>
                       <div className="flex gap-2">
                         <input
@@ -280,15 +308,34 @@ export function RssConvertDialog({
                       >
                         {loading ? (
                           <>
-                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            <svg
+                              className="w-4 h-4 animate-spin"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              />
                             </svg>
                             Converting...
                           </>
                         ) : (
                           <>
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <svg
+                              className="w-4 h-4"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
                               <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
                             </svg>
                             Convert to Card

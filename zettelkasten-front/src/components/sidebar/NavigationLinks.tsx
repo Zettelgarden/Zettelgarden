@@ -1,10 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { SearchIcon } from "../../assets/icons/SearchIcon";
-import { TasksIcon } from "../../assets/icons/TasksIcon";
-import { RssIcon } from "../../assets/icons/RssIcon";
-import { SchemaIcon } from "../../assets/icons/SchemaIcon";
-import { FileIcon } from "../../assets/icons/FileIcon";
+import React, { useState, useRef, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { SearchIcon } from '../../assets/icons/SearchIcon';
+import { TasksIcon } from '../../assets/icons/TasksIcon';
+import { RssIcon } from '../../assets/icons/RssIcon';
+import { SchemaIcon } from '../../assets/icons/SchemaIcon';
+import { FileIcon } from '../../assets/icons/FileIcon';
 
 interface NavigationLinksProps {
   todayTasksCount: number;
@@ -44,12 +44,16 @@ function CollapsibleLink({
   useEffect(() => {
     if (showTooltip && tooltipRef.current && linkRef.current) {
       const linkRect = linkRef.current.getBoundingClientRect();
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      tooltipRef.current.style.top = `${linkRect.top + linkRect.height / 2 - 10 + scrollTop}px`;
+      const scrollTop =
+        window.pageYOffset || document.documentElement.scrollTop;
+      tooltipRef.current.style.top = `${
+        linkRect.top + linkRect.height / 2 - 10 + scrollTop
+      }px`;
     }
   }, [showTooltip]);
 
-  const showDotIndicator = isCollapsed && (badgeCount > 0 || (isPro && !hasSubscription));
+  const showDotIndicator =
+    isCollapsed && (badgeCount > 0 || (isPro && !hasSubscription));
 
   return (
     <li>
@@ -59,8 +63,12 @@ function CollapsibleLink({
           to={to}
           className={`
             flex items-center relative rounded-md transition-colors
-            ${isActive ? "bg-gray-100" : "hover:bg-gray-100"}
-            ${isCollapsed ? "w-12 h-12 mx-auto justify-center" : "w-full px-3 py-2.5 md:px-2 md:py-1 min-h-[44px] md:min-h-0"}
+            ${isActive ? 'bg-gray-100' : 'hover:bg-gray-100'}
+            ${
+              isCollapsed
+                ? 'w-12 h-12 mx-auto justify-center'
+                : 'w-full px-3 py-2.5 md:px-2 md:py-1 min-h-[44px] md:min-h-0'
+            }
           `}
           onMouseEnter={() => isCollapsed && setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
@@ -68,23 +76,29 @@ function CollapsibleLink({
           onBlur={() => setShowTooltip(false)}
           aria-label={label}
         >
-          <span className={isCollapsed ? "" : "w-6 h-6 flex items-center justify-center flex-shrink-0"}>
+          <span
+            className={
+              isCollapsed
+                ? ''
+                : 'w-6 h-6 flex items-center justify-center flex-shrink-0'
+            }
+          >
             {icon}
           </span>
 
-          {!isCollapsed && (
-            <span className="px-2 flex-grow">{label}</span>
-          )}
+          {!isCollapsed && <span className="px-2 flex-grow">{label}</span>}
 
           {!isCollapsed && badge}
 
           {showDotIndicator && (
             <span
               className={`absolute top-1 right-1 w-2 h-2 rounded-full ${
-                isPro && !hasSubscription ? "bg-purple-500" : "bg-blue-500"
+                isPro && !hasSubscription ? 'bg-purple-500' : 'bg-blue-500'
               }`}
               aria-label={
-                isPro && !hasSubscription ? "PRO feature" : `${badgeCount} items`
+                isPro && !hasSubscription
+                  ? 'PRO feature'
+                  : `${badgeCount} items`
               }
             />
           )}
@@ -126,7 +140,7 @@ export function NavigationLinks({
   };
 
   return (
-    <div className={`p-2 ${isCollapsed ? "px-1" : ""}`}>
+    <div className={`p-2 ${isCollapsed ? 'px-1' : ''}`}>
       <ul className="space-y-1">
         <CollapsibleLink
           to="/app/search?recent=true"
@@ -178,8 +192,6 @@ export function NavigationLinks({
           label="Files"
           isCollapsed={isCollapsed}
         />
-
-
       </ul>
     </div>
   );

@@ -6,7 +6,11 @@ import { NavigationLinks } from './NavigationLinks';
 describe('NavigationLinks', () => {
   it('renders Tasks and RSS links by default', () => {
     renderWithProviders(
-      <NavigationLinks todayTasksCount={0} unreadRssCount={0} isCollapsed={false} />
+      <NavigationLinks
+        todayTasksCount={0}
+        unreadRssCount={0}
+        isCollapsed={false}
+      />,
     );
 
     expect(screen.getByRole('link', { name: 'Tasks' })).toBeInTheDocument();
@@ -22,10 +26,12 @@ describe('NavigationLinks', () => {
         unreadRssCount={0}
         isCollapsed={false}
         showTasks={false}
-      />
+      />,
     );
 
-    expect(screen.queryByRole('link', { name: 'Tasks' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Tasks' }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'RSS' })).toBeInTheDocument();
   });
 
@@ -36,7 +42,7 @@ describe('NavigationLinks', () => {
         unreadRssCount={0}
         isCollapsed={false}
         showRss={false}
-      />
+      />,
     );
 
     expect(screen.queryByRole('link', { name: 'RSS' })).not.toBeInTheDocument();
@@ -51,10 +57,12 @@ describe('NavigationLinks', () => {
         isCollapsed={false}
         showTasks={false}
         showRss={false}
-      />
+      />,
     );
 
-    expect(screen.queryByRole('link', { name: 'Tasks' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Tasks' }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'RSS' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Search' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Files' })).toBeInTheDocument();

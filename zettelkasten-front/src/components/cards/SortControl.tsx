@@ -1,5 +1,5 @@
-import React from "react";
-import { SortMethod, SORT_METHOD_LABELS } from "../../utils/cards";
+import React from 'react';
+import { SortMethod, SORT_METHOD_LABELS } from '../../utils/cards';
 
 interface SortControlProps {
   sortMethod: SortMethod;
@@ -7,7 +7,11 @@ interface SortControlProps {
   label?: string;
 }
 
-export function SortControl({ sortMethod, onSortChange, label }: SortControlProps) {
+export function SortControl({
+  sortMethod,
+  onSortChange,
+  label,
+}: SortControlProps) {
   return (
     <div className="flex items-center gap-2">
       {label && (

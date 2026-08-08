@@ -25,11 +25,11 @@ describe('taskDataProcessing', () => {
         reminder_sent: false,
         tags: [
           { id: 1, name: 'urgent' },
-          { id: 2, name: 'project' }
+          { id: 2, name: 'project' },
         ],
         card: null,
         blocked_by: [],
-        blocks: []
+        blocks: [],
       };
 
       const processedTask = processTaskFromAPI(rawTask);
@@ -37,16 +37,22 @@ describe('taskDataProcessing', () => {
       // Check date conversions
       expect(processedTask.scheduled_date).toEqual(new Date('2024-01-15'));
       expect(processedTask.due_date).toBeNull();
-      expect(processedTask.created_at).toEqual(new Date('2024-01-01T10:00:00Z'));
-      expect(processedTask.updated_at).toEqual(new Date('2024-01-02T11:00:00Z'));
+      expect(processedTask.created_at).toEqual(
+        new Date('2024-01-01T10:00:00Z'),
+      );
+      expect(processedTask.updated_at).toEqual(
+        new Date('2024-01-02T11:00:00Z'),
+      );
       expect(processedTask.completed_at).toBeNull();
-      expect(processedTask.reminder_time).toEqual(new Date('2024-01-14T09:00:00Z'));
+      expect(processedTask.reminder_time).toEqual(
+        new Date('2024-01-14T09:00:00Z'),
+      );
 
       // Check property normalization
       expect(processedTask.description).toBe('Test description');
       expect(processedTask.tags).toEqual([
         { id: 1, name: 'urgent' },
-        { id: 2, name: 'project' }
+        { id: 2, name: 'project' },
       ]);
     });
 
@@ -69,7 +75,7 @@ describe('taskDataProcessing', () => {
         tags: undefined,
         card: null,
         blocked_by: [],
-        blocks: []
+        blocks: [],
       };
 
       const processedTask = processTaskFromAPI(rawTask);
@@ -101,7 +107,7 @@ describe('taskDataProcessing', () => {
         reminder_sent: false,
         card: null,
         blocked_by: [],
-        blocks: []
+        blocks: [],
       };
 
       const processedTask = processTaskFromAPI(rawTask);
@@ -126,7 +132,7 @@ describe('taskDataProcessing', () => {
         reminder_sent: false,
         card: null,
         blocked_by: [],
-        blocks: []
+        blocks: [],
       };
 
       // This should not throw - new Date('invalid-date') creates an Invalid Date object
@@ -142,7 +148,7 @@ describe('taskDataProcessing', () => {
         scheduled_date: '2024-01-15',
         due_date: null,
         reminder_time: '2024-01-14T09:00:00Z',
-        title: 'Test'
+        title: 'Test',
       };
 
       const converted = convertTaskDates(partialTask);
@@ -158,7 +164,7 @@ describe('taskDataProcessing', () => {
         scheduled_date: undefined,
         due_date: null,
         reminder_time: undefined,
-        title: 'Test'
+        title: 'Test',
       };
 
       const converted = convertTaskDates(partialTask);
@@ -175,7 +181,7 @@ describe('taskDataProcessing', () => {
       const partialTask = {
         description: '',
         tags: undefined,
-        title: 'Test'
+        title: 'Test',
       };
 
       const normalized = normalizeTaskProperties(partialTask);
@@ -187,10 +193,13 @@ describe('taskDataProcessing', () => {
 
     it('handles various tag array types', () => {
       const testCases = [
-        { input: [{ id: 1, name: 'tag1' }], expected: [{ id: 1, name: 'tag1' }] },
+        {
+          input: [{ id: 1, name: 'tag1' }],
+          expected: [{ id: 1, name: 'tag1' }],
+        },
         { input: [], expected: [] },
         { input: null, expected: [] },
-        { input: undefined, expected: [] }
+        { input: undefined, expected: [] },
       ];
 
       testCases.forEach(({ input, expected }) => {
@@ -206,7 +215,7 @@ describe('taskDataProcessing', () => {
         { input: '', expected: null },
         { input: '   ', expected: '   ' }, // Whitespace-only strings are preserved
         { input: null, expected: null },
-        { input: undefined, expected: null }
+        { input: undefined, expected: null },
       ];
 
       testCases.forEach(({ input, expected }) => {
@@ -236,11 +245,11 @@ describe('taskDataProcessing', () => {
         reminder_sent: true,
         tags: [
           { id: 10, name: 'feature' },
-          { id: 11, name: 'ui' }
+          { id: 11, name: 'ui' },
         ],
         card: { id: 789, title: 'Related Card' },
         blocked_by: [{ id: 111, title: 'Blocked by this', is_complete: false }],
-        blocks: [{ id: 222, title: 'Blocks that', is_complete: true }]
+        blocks: [{ id: 222, title: 'Blocks that', is_complete: true }],
       };
 
       const processed = processTaskFromAPI(fullApiResponse);
@@ -275,7 +284,7 @@ describe('taskDataProcessing', () => {
         status: 'todo',
         is_complete: false,
         is_deleted: false,
-        reminder_sent: false
+        reminder_sent: false,
         // All other nullable fields omitted or null
       };
 

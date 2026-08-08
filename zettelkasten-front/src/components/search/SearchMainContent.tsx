@@ -1,10 +1,10 @@
-import React, { useState } from "react";
-import { SearchResult } from "../../models/Card";
-import { SearchConfig } from "../../models/StarredSearch";
-import { Button } from "../../components/Button";
-import { SearchResultList } from "../../components/cards/SearchResultList";
-import { SearchHeader } from "./SearchHeader";
-import { AdvancedFiltersPanel } from "./AdvancedFiltersPanel";
+import React, { useState } from 'react';
+import { SearchResult } from '../../models/Card';
+import { SearchConfig } from '../../models/StarredSearch';
+import { Button } from '../../components/Button';
+import { SearchResultList } from '../../components/cards/SearchResultList';
+import { SearchHeader } from './SearchHeader';
+import { AdvancedFiltersPanel } from './AdvancedFiltersPanel';
 
 interface SearchMainContentProps {
   // Search input state
@@ -64,8 +64,9 @@ export function SearchMainContent({
   const [showFilters, setShowFilters] = useState(false);
 
   function getFilteredResults(): SearchResult[] {
-    return searchResults
-      .filter(result => !searchConfig.onlyParentCards || !result.id.includes("/"));
+    return searchResults.filter(
+      (result) => !searchConfig.onlyParentCards || !result.id.includes('/'),
+    );
   }
 
   const handleToggleFilters = () => {
@@ -151,22 +152,46 @@ export function SearchMainContent({
                 {error === null ? (
                   <>
                     <div className="text-gray-400 mb-4">
-                      <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      <svg
+                        className="w-16 h-16 mx-auto"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
                       </svg>
                     </div>
                     <p className="text-gray-600 text-center">
-                      {searchTerm ? 'No results found' : 'Enter a search term to find cards, entities, and facts'}
+                      {searchTerm
+                        ? 'No results found'
+                        : 'Enter a search term to find cards, entities, and facts'}
                     </p>
                   </>
                 ) : (
                   <div className="text-center">
                     <div className="text-red-400 mb-4">
-                      <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <svg
+                        className="w-16 h-16 mx-auto"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
                       </svg>
                     </div>
-                    <p className="text-red-600">Search returned an error: {error.message}</p>
+                    <p className="text-red-600">
+                      Search returned an error: {error.message}
+                    </p>
                   </div>
                 )}
               </div>

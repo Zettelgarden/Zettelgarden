@@ -113,7 +113,9 @@ describe('API Error Types', () => {
     it('should allow instanceof checks for all error types', () => {
       expect(new APIError('test') instanceof APIError).toBe(true);
       expect(new AuthError() instanceof AuthError).toBe(true);
-      expect(new TokenValidationError() instanceof TokenValidationError).toBe(true);
+      expect(new TokenValidationError() instanceof TokenValidationError).toBe(
+        true,
+      );
       expect(new NetworkError() instanceof NetworkError).toBe(true);
       expect(new ValidationError('test') instanceof ValidationError).toBe(true);
       expect(new NotFoundError() instanceof NotFoundError).toBe(true);

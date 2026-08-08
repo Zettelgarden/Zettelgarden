@@ -1,6 +1,6 @@
-import React from "react";
-import { Menu } from "@headlessui/react";
-import { Entity } from "../../models/Card";
+import React from 'react';
+import { Menu } from '@headlessui/react';
+import { Entity } from '../../models/Card';
 
 interface EntityWithScore extends Entity {
   score: number;
@@ -12,7 +12,10 @@ interface EntitySimilarSectionProps {
   error: string | null;
   currentEntityName: string;
   onEntityClick: (entity: Entity) => void;
-  onInitiateMerge: (entity: Entity, direction: 'into-current' | 'from-current') => void;
+  onInitiateMerge: (
+    entity: Entity,
+    direction: 'into-current' | 'from-current',
+  ) => void;
 }
 
 export function EntitySimilarSection({
@@ -25,11 +28,15 @@ export function EntitySimilarSection({
 }: EntitySimilarSectionProps) {
   return (
     <>
-      <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">Similar Entities:</h4>
+      <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">
+        Similar Entities:
+      </h4>
       <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
         {isLoading && <p>Loading similar entities...</p>}
         {error && <p className="text-red-600">{error}</p>}
-        {!isLoading && similarEntities && similarEntities.length === 0 && <p>No similar entities.</p>}
+        {!isLoading && similarEntities && similarEntities.length === 0 && (
+          <p>No similar entities.</p>
+        )}
         {!isLoading && similarEntities && similarEntities.length > 0 && (
           <ul className="space-y-1 text-sm">
             {similarEntities.map((e) => (
@@ -45,12 +52,13 @@ export function EntitySimilarSection({
                 </span>
                 <div className="flex items-center gap-2">
                   <span
-                    className={`text-xs px-2 py-0.5 rounded ${e.score >= 0.8
+                    className={`text-xs px-2 py-0.5 rounded ${
+                      e.score >= 0.8
                         ? 'bg-green-100 text-green-700'
                         : e.score >= 0.5
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}
                     title="Similarity score"
                   >
                     {Math.round(e.score * 100)}%
@@ -58,7 +66,12 @@ export function EntitySimilarSection({
                   <Menu as="div" className="relative inline-block text-left">
                     <div>
                       <Menu.Button className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5" viewBox="0 0 20 20" fill="currentColor">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
                           <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
                         </svg>
                       </Menu.Button>
@@ -69,9 +82,12 @@ export function EntitySimilarSection({
                           {({ active }) => (
                             <button
                               onClick={() => onInitiateMerge(e, 'into-current')}
-                              className={`${active ? 'bg-blue-500 text-white' : 'text-gray-900'
-                                } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
-                              >
+                              className={`${
+                                active
+                                  ? 'bg-blue-500 text-white'
+                                  : 'text-gray-900'
+                              } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                            >
                               Merge '{e.name}' into '{currentEntityName}'
                             </button>
                           )}
@@ -80,9 +96,12 @@ export function EntitySimilarSection({
                           {({ active }) => (
                             <button
                               onClick={() => onInitiateMerge(e, 'from-current')}
-                              className={`${active ? 'bg-blue-500 text-white' : 'text-gray-900'
-                                } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
-                              >
+                              className={`${
+                                active
+                                  ? 'bg-blue-500 text-white'
+                                  : 'text-gray-900'
+                              } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                            >
                               Merge '{currentEntityName}' into '{e.name}'
                             </button>
                           )}

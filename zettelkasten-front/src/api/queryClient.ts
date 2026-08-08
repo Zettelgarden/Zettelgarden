@@ -74,7 +74,8 @@ export const queryKeys = {
     detail: (id: string | number) => ['cards', 'detail', String(id)] as const,
     search: (params: SearchParams) => ['cards', 'search', params] as const,
     starred: () => ['cards', 'starred'] as const,
-    unsorted: (page: number, perPage: number) => ['cards', 'unsorted', page, perPage] as const,
+    unsorted: (page: number, perPage: number) =>
+      ['cards', 'unsorted', page, perPage] as const,
     references: (id: string) => ['cards', id, 'references'] as const,
     children: (id: string) => ['cards', id, 'children'] as const,
     files: (id: string) => ['cards', id, 'files'] as const,

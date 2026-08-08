@@ -1,5 +1,5 @@
-import React from "react";
-import { SummarizeJobResponse } from "../../api/summarizer";
+import React from 'react';
+import { SummarizeJobResponse } from '../../api/summarizer';
 
 interface SummariesTabProps {
   summaries: SummarizeJobResponse[] | null;

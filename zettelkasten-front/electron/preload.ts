@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // Platform info
@@ -12,12 +12,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Listen for maximize state changes
   onMaximizeChange: (callback: (maximized: boolean) => void) => {
-    ipcRenderer.on('window:maximize-changed', (_event: any, maximized: boolean) => callback(maximized))
+    ipcRenderer.on(
+      'window:maximize-changed',
+      (_event: any, maximized: boolean) => callback(maximized),
+    );
   },
 
   // Menu events from native menu bar
   onMenuAction: (callback: (action: string) => void) => {
-    ipcRenderer.on('menu:new-card', () => callback('new-card'))
-    ipcRenderer.on('menu:toggle-sidebar', () => callback('toggle-sidebar'))
+    ipcRenderer.on('menu:new-card', () => callback('new-card'));
+    ipcRenderer.on('menu:toggle-sidebar', () => callback('toggle-sidebar'));
   },
-})
+});

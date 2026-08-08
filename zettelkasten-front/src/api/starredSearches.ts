@@ -1,5 +1,5 @@
-import { StarredSearch, SearchConfig } from "../models/StarredSearch";
-import { apiClient, getData } from "./client";
+import { StarredSearch, SearchConfig } from '../models/StarredSearch';
+import { apiClient, getData } from './client';
 
 /**
  * Save a search configuration to starred searches
@@ -11,13 +11,15 @@ import { apiClient, getData } from "./client";
 export function starSearch(
   title: string,
   searchTerm: string,
-  searchConfig: SearchConfig
+  searchConfig: SearchConfig,
 ): Promise<void> {
-  return getData(apiClient.post<void>("/searches/star", {
-    title,
-    search_term: searchTerm,
-    search_config: searchConfig
-  }));
+  return getData(
+    apiClient.post<void>('/searches/star', {
+      title,
+      search_term: searchTerm,
+      search_config: searchConfig,
+    }),
+  );
 }
 
 /**
@@ -34,7 +36,7 @@ export function unstarSearch(id: number): Promise<void> {
  * @returns A promise that resolves to an array of starred searches
  */
 export function getStarredSearches(): Promise<StarredSearch[]> {
-  return getData(apiClient.get<StarredSearch[]>("/searches/starred"))
+  return getData(apiClient.get<StarredSearch[]>('/searches/starred'))
     .then((starredSearches) => starredSearches || [])
     .then((starredSearches) =>
       starredSearches.map((starredSearch) => {
@@ -42,6 +44,6 @@ export function getStarredSearches(): Promise<StarredSearch[]> {
           ...starredSearch,
           created_at: new Date(starredSearch.created_at),
         };
-      })
+      }),
     );
 }

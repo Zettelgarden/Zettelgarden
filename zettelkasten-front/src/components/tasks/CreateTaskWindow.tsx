@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from "react";
-import { saveNewTask } from "../../api/tasks";
-import { useTaskContext } from "../../contexts/TaskContext";
-import { useAuth } from "../../contexts/AuthContext";
-import { useUIState } from "../../contexts/UIStateContext";
-import { Task, emptyTask } from "../../models/Task";
-import { Card, PartialCard } from "../../models/Card";
-import { Button } from "../Button";
-import { TaskForm } from "./TaskForm";
-import { stripSpecialFilters } from "../../utils/tasks";
-import { getToday } from "../../utils/dates";
+import React, { useState, useEffect } from 'react';
+import { saveNewTask } from '../../api/tasks';
+import { useTaskContext } from '../../contexts/TaskContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useUIState } from '../../contexts/UIStateContext';
+import { Task, emptyTask } from '../../models/Task';
+import { Card, PartialCard } from '../../models/Card';
+import { Button } from '../Button';
+import { TaskForm } from './TaskForm';
+import { stripSpecialFilters } from '../../utils/tasks';
+import { getToday } from '../../utils/dates';
 
 interface CreateTaskWindowProps {
   currentCard: Card | PartialCard | null;
@@ -26,12 +26,12 @@ export function CreateTaskWindow({
   initialDate,
 }: CreateTaskWindowProps) {
   const { user } = useAuth();
-  const userTimezone = user?.timezone || "UTC";
+  const userTimezone = user?.timezone || 'UTC';
 
   const [newTask, setNewTask] = useState<Task>({
     ...emptyTask,
     scheduled_date: initialDate || getToday(userTimezone),
-    status: initialStatus || emptyTask.status || "todo",
+    status: initialStatus || emptyTask.status || 'todo',
   });
   const [selectedCard, setSelectedCard] = useState<PartialCard | null>(null);
 
@@ -45,8 +45,12 @@ export function CreateTaskWindow({
 
     if (match) {
       const detectedPriority = match[1].toUpperCase();
-      const cleanedTitle = text.replace(/priority:\s*[abc]/i, "").trim();
-      setNewTask({ ...newTask, title: cleanedTitle, priority: detectedPriority });
+      const cleanedTitle = text.replace(/priority:\s*[abc]/i, '').trim();
+      setNewTask({
+        ...newTask,
+        title: cleanedTitle,
+        priority: detectedPriority,
+      });
     } else {
       setNewTask({ ...newTask, title: text });
     }
@@ -60,7 +64,7 @@ export function CreateTaskWindow({
     }
 
     const response = await saveNewTask(task);
-    if (!("error" in response)) {
+    if (!('error' in response)) {
       setShowTaskWindow(false);
       setSelectedCard(null);
       setRefreshTasks(true);
@@ -71,14 +75,14 @@ export function CreateTaskWindow({
       setNewTask({
         ...emptyTask,
         scheduled_date: getToday(userTimezone),
-        status: initialStatus || emptyTask.status || "todo",
+        status: initialStatus || emptyTask.status || 'todo',
       });
       if (currentCard) {
         setNewTask({
           ...emptyTask,
           card_pk: currentCard.id,
           scheduled_date: getToday(userTimezone),
-          status: initialStatus || emptyTask.status || "todo",
+          status: initialStatus || emptyTask.status || 'todo',
         });
       }
     }
@@ -93,7 +97,7 @@ export function CreateTaskWindow({
     if (event.metaKey) {
       return;
     }
-    if (event.key === "Escape") {
+    if (event.key === 'Escape') {
       event.preventDefault();
       setShowTaskWindow(false);
       return;
@@ -102,9 +106,9 @@ export function CreateTaskWindow({
 
   useEffect(() => {
     const keyDownListener = (event: KeyboardEvent) => handleKeyPress(event);
-    document.addEventListener("keydown", keyDownListener);
+    document.addEventListener('keydown', keyDownListener);
     return () => {
-      document.removeEventListener("keydown", keyDownListener);
+      document.removeEventListener('keydown', keyDownListener);
     };
   }, []);
 
@@ -116,10 +120,10 @@ export function CreateTaskWindow({
 
   useEffect(() => {
     if (currentFilter === undefined) {
-      setNewTask({ ...newTask, title: "" });
+      setNewTask({ ...newTask, title: '' });
     } else {
       const cleanedFilter = stripSpecialFilters(currentFilter);
-      detectAndSetPriority(cleanedFilter + " ");
+      detectAndSetPriority(cleanedFilter + ' ');
     }
   }, [currentFilter]);
 
@@ -135,7 +139,7 @@ export function CreateTaskWindow({
         <div className="flex flex-col h-full">
           <div className="mb-4">
             <span className="block mb-3 font-bold text-gray-700 text-lg">
-              {"New Task"}
+              {'New Task'}
             </span>
             {selectedCard && (
               <span className="font-bold text-blue-600 mb-2 block">

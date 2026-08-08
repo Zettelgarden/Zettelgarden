@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
-import { Task } from "../../models/Task";
-import { format } from "date-fns-tz";
-import { useAuth } from "../../contexts/AuthContext";
-import { PRIORITY_CONFIG } from "../../constants/taskPriority";
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Task } from '../../models/Task';
+import { format } from 'date-fns-tz';
+import { useAuth } from '../../contexts/AuthContext';
+import { PRIORITY_CONFIG } from '../../constants/taskPriority';
 
 interface TaskHoverCardProps {
   task: Task;
@@ -16,7 +16,7 @@ export function TaskHoverCard({ task, children }: TaskHoverCardProps) {
   const triggerRef = useRef<HTMLDivElement>(null);
   const hoverCardRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
-  const userTimezone = user?.timezone || "UTC";
+  const userTimezone = user?.timezone || 'UTC';
 
   // Calculate position when hover card becomes visible
   useEffect(() => {
@@ -56,7 +56,10 @@ export function TaskHoverCard({ task, children }: TaskHoverCardProps) {
 
   const handleMouseLeave = (e: React.MouseEvent) => {
     // Check if we're moving to the hover card
-    if (hoverCardRef.current && hoverCardRef.current.contains(e.relatedTarget as Node)) {
+    if (
+      hoverCardRef.current &&
+      hoverCardRef.current.contains(e.relatedTarget as Node)
+    ) {
       return;
     }
     setIsVisible(false);
@@ -65,7 +68,7 @@ export function TaskHoverCard({ task, children }: TaskHoverCardProps) {
   // Get description preview (first 150 chars)
   const descriptionPreview = task.description
     ? task.description.length > 150
-      ? task.description.slice(0, 150) + "..."
+      ? task.description.slice(0, 150) + '...'
       : task.description
     : null;
 
@@ -73,7 +76,7 @@ export function TaskHoverCard({ task, children }: TaskHoverCardProps) {
   const formatDate = (date: Date | string | null) => {
     if (!date) return null;
     try {
-      return format(new Date(date), "MMM d, yyyy", { timeZone: userTimezone });
+      return format(new Date(date), 'MMM d, yyyy', { timeZone: userTimezone });
     } catch {
       return null;
     }
@@ -83,11 +86,19 @@ export function TaskHoverCard({ task, children }: TaskHoverCardProps) {
 
   // Get priority display
   const priorityDisplay = task.priority
-    ? PRIORITY_CONFIG[task.priority as keyof typeof PRIORITY_CONFIG] || { icon: "○", label: task.priority, color: "#6B7280" }
+    ? PRIORITY_CONFIG[task.priority as keyof typeof PRIORITY_CONFIG] || {
+        icon: '○',
+        label: task.priority,
+        color: '#6B7280',
+      }
     : null;
 
   // Don't show hover card if there's nothing to preview
-  const hasPreview = descriptionPreview || scheduledDate || priorityDisplay || task.tags.length > 0;
+  const hasPreview =
+    descriptionPreview ||
+    scheduledDate ||
+    priorityDisplay ||
+    task.tags.length > 0;
 
   if (!hasPreview) {
     return <>{children}</>;
@@ -104,75 +115,79 @@ export function TaskHoverCard({ task, children }: TaskHoverCardProps) {
         {children}
       </div>
 
-      {isVisible && createPortal(
-        <div
-          ref={hoverCardRef}
-          className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-3 w-72"
-          style={{
-            top: position.top,
-            left: position.left,
-          }}
-          onMouseEnter={() => setIsVisible(true)}
-          onMouseLeave={() => setIsVisible(false)}
-        >
-          {/* Task Title */}
-          <h4 className="font-medium text-sm text-gray-900 mb-2 line-clamp-2">
-            {task.title}
-          </h4>
+      {isVisible &&
+        createPortal(
+          <div
+            ref={hoverCardRef}
+            className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-3 w-72"
+            style={{
+              top: position.top,
+              left: position.left,
+            }}
+            onMouseEnter={() => setIsVisible(true)}
+            onMouseLeave={() => setIsVisible(false)}
+          >
+            {/* Task Title */}
+            <h4 className="font-medium text-sm text-gray-900 mb-2 line-clamp-2">
+              {task.title}
+            </h4>
 
-          {/* Description Preview */}
-          {descriptionPreview && (
-            <p className="text-xs text-gray-600 mb-2 leading-relaxed">
-              {descriptionPreview}
-            </p>
-          )}
-
-          {/* Metadata */}
-          <div className="flex flex-wrap gap-2 text-xs">
-            {/* Scheduled Date */}
-            {scheduledDate && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
-                📅 {scheduledDate}
-              </span>
+            {/* Description Preview */}
+            {descriptionPreview && (
+              <p className="text-xs text-gray-600 mb-2 leading-relaxed">
+                {descriptionPreview}
+              </p>
             )}
 
-            {/* Priority */}
-            {priorityDisplay && (
-              <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded"
-                style={{ backgroundColor: priorityDisplay.color + "15", color: priorityDisplay.color }}
-              >
-                {priorityDisplay.icon} {priorityDisplay.label}
-              </span>
-            )}
-          </div>
-
-          {/* Tags */}
-          {task.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {task.tags.slice(0, 5).map((tag) => (
-                <span
-                  key={tag.name}
-                  className="inline-block px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded"
-                >
-                  #{tag.name}
+            {/* Metadata */}
+            <div className="flex flex-wrap gap-2 text-xs">
+              {/* Scheduled Date */}
+              {scheduledDate && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
+                  📅 {scheduledDate}
                 </span>
-              ))}
-              {task.tags.length > 5 && (
-                <span className="text-xs text-gray-400">
-                  +{task.tags.length - 5} more
+              )}
+
+              {/* Priority */}
+              {priorityDisplay && (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded"
+                  style={{
+                    backgroundColor: priorityDisplay.color + '15',
+                    color: priorityDisplay.color,
+                  }}
+                >
+                  {priorityDisplay.icon} {priorityDisplay.label}
                 </span>
               )}
             </div>
-          )}
 
-          {/* Hint */}
-          <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400">
-            Click to open task
-          </div>
-        </div>,
-        document.body
-      )}
+            {/* Tags */}
+            {task.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {task.tags.slice(0, 5).map((tag) => (
+                  <span
+                    key={tag.name}
+                    className="inline-block px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded"
+                  >
+                    #{tag.name}
+                  </span>
+                ))}
+                {task.tags.length > 5 && (
+                  <span className="text-xs text-gray-400">
+                    +{task.tags.length - 5} more
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Hint */}
+            <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400">
+              Click to open task
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

@@ -1,9 +1,9 @@
-import React, { useRef } from "react";
-import { Task } from "../../models/Task";
-import { useTaskDropdown } from "../../hooks/useTaskDropdown";
-import { useOptimisticTaskUpdate } from "../../hooks/useOptimisticTaskUpdate";
-import { TaskDropdown } from "./TaskDropdown";
-import { useStatus } from "../../contexts/StatusContext";
+import React, { useRef } from 'react';
+import { Task } from '../../models/Task';
+import { useTaskDropdown } from '../../hooks/useTaskDropdown';
+import { useOptimisticTaskUpdate } from '../../hooks/useOptimisticTaskUpdate';
+import { TaskDropdown } from './TaskDropdown';
+import { useStatus } from '../../contexts/StatusContext';
 
 interface TaskStatusDisplayProps {
   task: Task;
@@ -21,7 +21,7 @@ export function TaskStatusDisplay({
     task,
     setTask,
     saveOnChange,
-    errorMessagePrefix: "Failed to update task status",
+    errorMessagePrefix: 'Failed to update task status',
   });
   const { statuses, getStatusByName } = useStatus();
   const triggerRef = useRef<HTMLSpanElement>(null);
@@ -35,7 +35,7 @@ export function TaskStatusDisplay({
           color: currentStatus.color,
           icon: currentStatus.icon,
         }
-      : { text: "Unknown", color: "#6B7280", icon: "⭕" };
+      : { text: 'Unknown', color: '#6B7280', icon: '⭕' };
   }, [task.status, getStatusByName]);
 
   async function setStatus(statusName: string) {

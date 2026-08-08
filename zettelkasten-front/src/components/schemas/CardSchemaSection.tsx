@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { SchemaDefinition, FieldDefinition } from "../../models/Schema";
-import { fetchSchemas } from "../../api/schemas";
-import { StructuredDataEditor } from "./StructuredDataEditor";
+import React, { useState, useEffect } from 'react';
+import { SchemaDefinition, FieldDefinition } from '../../models/Schema';
+import { fetchSchemas } from '../../api/schemas';
+import { StructuredDataEditor } from './StructuredDataEditor';
 
 interface CardSchemaSectionProps {
   schemaId: number | null | undefined;
@@ -19,7 +19,9 @@ export function CardSchemaSection({
   disabled = false,
 }: CardSchemaSectionProps) {
   const [schemas, setSchemas] = useState<SchemaDefinition[]>([]);
-  const [selectedSchema, setSelectedSchema] = useState<SchemaDefinition | null>(null);
+  const [selectedSchema, setSelectedSchema] = useState<SchemaDefinition | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,8 +34,8 @@ export function CardSchemaSection({
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Error fetching schemas:", err);
-        setError("Failed to load schemas");
+        console.error('Error fetching schemas:', err);
+        setError('Failed to load schemas');
         setLoading(false);
       });
   }, []);
@@ -58,9 +60,11 @@ export function CardSchemaSection({
         }
 
         // Only update if data was actually removed
-        const removedKeys = Object.keys(structuredData).filter((k) => !validFieldNames.has(k));
+        const removedKeys = Object.keys(structuredData).filter(
+          (k) => !validFieldNames.has(k),
+        );
         if (removedKeys.length > 0) {
-          console.log("Cleaning structured_data, removed fields:", removedKeys);
+          console.log('Cleaning structured_data, removed fields:', removedKeys);
           onDataChange(cleanedData);
         }
       }
@@ -73,7 +77,11 @@ export function CardSchemaSection({
     const value = e.target.value;
     const newSchemaId = value ? parseInt(value) : null;
 
-    console.log("Schema change:", { value, newSchemaId, oldSchemaId: schemaId });
+    console.log('Schema change:', {
+      value,
+      newSchemaId,
+      oldSchemaId: schemaId,
+    });
 
     // Update local state immediately for UI responsiveness
     if (newSchemaId) {
@@ -94,27 +102,35 @@ export function CardSchemaSection({
 
   return (
     <div className="space-y-4">
-
-      <h3 className="text-sm font-semibold text-gray-700 border-b pb-2">Structured Data</h3>
+      <h3 className="text-sm font-semibold text-gray-700 border-b pb-2">
+        Structured Data
+      </h3>
       <div>
-        <label htmlFor="schema-select" className="block text-sm font-medium text-gray-700 mb-1">
+        <label
+          htmlFor="schema-select"
+          className="block text-sm font-medium text-gray-700 mb-1"
+        >
           Schema
         </label>
         <select
           id="schema-select"
-          value={String(schemaId ?? "")}
+          value={String(schemaId ?? '')}
           onChange={handleSchemaChange}
           disabled={disabled || loading}
           className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
         >
           <option value="">No schema</option>
-          {schemas.sort((a, b) => a.name.localeCompare(b.name)).map((schema) => (
-            <option key={schema.id} value={schema.id}>
-              {schema.name}
-            </option>
-          ))}
+          {schemas
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((schema) => (
+              <option key={schema.id} value={schema.id}>
+                {schema.name}
+              </option>
+            ))}
         </select>
-        {loading && <p className="text-xs text-gray-500 mt-1">Loading schemas...</p>}
+        {loading && (
+          <p className="text-xs text-gray-500 mt-1">Loading schemas...</p>
+        )}
         {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
       </div>
 

@@ -1,17 +1,20 @@
-import React, { useState, useEffect } from "react";
-import { Dialog } from "@headlessui/react";
-import { PartialCard } from "../../models/Card";
-import { BacklinkInputDropdownList } from "./BacklinkInputDropdownList";
-import { CardTag } from "./CardTag";
-import { Button } from "../Button";
-import { getCardChildren, getNextRootId } from "../../api/cards";
+import React, { useState, useEffect } from 'react';
+import { Dialog } from '@headlessui/react';
+import { PartialCard } from '../../models/Card';
+import { BacklinkInputDropdownList } from './BacklinkInputDropdownList';
+import { CardTag } from './CardTag';
+import { Button } from '../Button';
+import { getCardChildren, getNextRootId } from '../../api/cards';
 
 interface CardIdDiscoveryDialogProps {
   onClose: () => void;
   onSelectId: (cardId: string) => void;
 }
 
-export function CardIdDiscoveryDialog({ onClose, onSelectId }: CardIdDiscoveryDialogProps) {
+export function CardIdDiscoveryDialog({
+  onClose,
+  onSelectId,
+}: CardIdDiscoveryDialogProps) {
   const [currentCard, setCurrentCard] = useState<PartialCard | null>(null);
   const [children, setChildren] = useState<PartialCard[]>([]);
   const [loadingChildren, setLoadingChildren] = useState(false);
@@ -25,10 +28,12 @@ export function CardIdDiscoveryDialog({ onClose, onSelectId }: CardIdDiscoveryDi
       getCardChildren(currentCard.id.toString())
         .then((allChildren) => {
           // Filter to only show direct children (where parent_id matches current card's id)
-          const directChildren = allChildren.filter(child => child.parent_id === currentCard.id);
+          const directChildren = allChildren.filter(
+            (child) => child.parent_id === currentCard.id,
+          );
           setChildren(directChildren);
         })
-        .catch(() => setChildrenError("Failed to load children"))
+        .catch(() => setChildrenError('Failed to load children'))
         .finally(() => setLoadingChildren(false));
     } else {
       setChildren([]);
@@ -42,26 +47,28 @@ export function CardIdDiscoveryDialog({ onClose, onSelectId }: CardIdDiscoveryDi
 
   function handleChildClick(child: PartialCard) {
     setCurrentCard(child);
-    setBreadcrumb(prev => [...prev, child]);
+    setBreadcrumb((prev) => [...prev, child]);
   }
 
   function handleBreadcrumbClick(card: PartialCard, index: number) {
     setCurrentCard(card);
-    setBreadcrumb(prev => prev.slice(0, index + 1));
+    setBreadcrumb((prev) => prev.slice(0, index + 1));
   }
 
   async function handleAddChild(parentCard: PartialCard) {
     try {
       // Get children of the parent card to generate the correct child ID
       const parentChildren = await getCardChildren(parentCard.id.toString());
-      const directChildren = parentChildren.filter(child => child.parent_id === parentCard.id);
+      const directChildren = parentChildren.filter(
+        (child) => child.parent_id === parentCard.id,
+      );
 
       // Generate a suggested child ID pattern
       const suggestedId = generateChildId(parentCard.card_id, directChildren);
       onSelectId(suggestedId);
       onClose();
     } catch (error) {
-      console.error("Failed to get children for ID generation:", error);
+      console.error('Failed to get children for ID generation:', error);
       // Fallback to simple pattern if API call fails
       const suggestedId = `${parentCard.card_id}.1`;
       onSelectId(suggestedId);
@@ -69,7 +76,10 @@ export function CardIdDiscoveryDialog({ onClose, onSelectId }: CardIdDiscoveryDi
     }
   }
 
-  function generateChildId(parentId: string, existingChildren: PartialCard[]): string {
+  function generateChildId(
+    parentId: string,
+    existingChildren: PartialCard[],
+  ): string {
     // Find the highest numbered child and increment
     // Supports both old format (alternating separators) and new format (any separators)
 
@@ -120,7 +130,7 @@ export function CardIdDiscoveryDialog({ onClose, onSelectId }: CardIdDiscoveryDi
         onClose();
       }
     } catch (error) {
-      console.error("Failed to get next ID:", error);
+      console.error('Failed to get next ID:', error);
     }
   }
 
@@ -195,9 +205,13 @@ export function CardIdDiscoveryDialog({ onClose, onSelectId }: CardIdDiscoveryDi
                       {childrenError && (
                         <p className="p-3 text-red-600">{childrenError}</p>
                       )}
-                      {!loadingChildren && children.length === 0 && !childrenError && (
-                        <p className="p-3 text-gray-500">No children found.</p>
-                      )}
+                      {!loadingChildren &&
+                        children.length === 0 &&
+                        !childrenError && (
+                          <p className="p-3 text-gray-500">
+                            No children found.
+                          </p>
+                        )}
                       {!loadingChildren && children.length > 0 && (
                         <div className="p-2 space-y-1">
                           {children.map((child) => (

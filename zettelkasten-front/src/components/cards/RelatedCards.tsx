@@ -1,7 +1,7 @@
-import React from "react";
-import { HeaderSubSection } from "../Header";
-import { CardItem } from "./CardItem";
-import { RelatedCard } from "../../models/Card";
+import React from 'react';
+import { HeaderSubSection } from '../Header';
+import { CardItem } from './CardItem';
+import { RelatedCard } from '../../models/Card';
 
 interface RelatedCardsProps {
   relatedCards: RelatedCard[];
@@ -9,7 +9,11 @@ interface RelatedCardsProps {
   onAddReference?: (card: RelatedCard) => void;
 }
 
-export function RelatedCards({ relatedCards, onCardClick, onAddReference }: RelatedCardsProps) {
+export function RelatedCards({
+  relatedCards,
+  onCardClick,
+  onAddReference,
+}: RelatedCardsProps) {
   if (relatedCards.length === 0) {
     return null;
   }
@@ -27,14 +31,21 @@ export function RelatedCards({ relatedCards, onCardClick, onAddReference }: Rela
               <div className="flex items-center gap-1 ml-2 shrink-0">
                 {onAddReference && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); onAddReference(rc); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddReference(rc);
+                    }}
                     className="opacity-0 group-hover:opacity-100 text-xs text-blue-500 hover:text-blue-700 border border-blue-300 hover:border-blue-500 rounded px-1.5 py-0.5 transition-opacity"
                     title="Add as reference"
                   >
                     +Ref
                   </button>
                 )}
-                {rc.score > 0 && <span className="text-xs text-gray-400">{rc.score.toFixed(1)}</span>}
+                {rc.score > 0 && (
+                  <span className="text-xs text-gray-400">
+                    {rc.score.toFixed(1)}
+                  </span>
+                )}
               </div>
             </div>
           </li>

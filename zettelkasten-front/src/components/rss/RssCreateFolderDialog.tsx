@@ -1,7 +1,7 @@
-import React, { useState } from "react";
-import { Dialog, Transition } from "@headlessui/react";
-import { Fragment } from "react";
-import { createFolder, CreateRSSFolderParams, RSSFolder } from "../../api/rss";
+import React, { useState } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
+import { Fragment } from 'react';
+import { createFolder, CreateRSSFolderParams, RSSFolder } from '../../api/rss';
 
 interface RssCreateFolderDialogProps {
   isOpen: boolean;
@@ -14,20 +14,20 @@ export function RssCreateFolderDialog({
   onClose,
   onFolderCreated,
 }: RssCreateFolderDialogProps) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState<string>('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name.trim()) {
-      setError("Folder name is required");
+      setError('Folder name is required');
       return;
     }
 
     setLoading(true);
-    setError("");
+    setError('');
 
     try {
       const folderParams: CreateRSSFolderParams = {
@@ -38,16 +38,20 @@ export function RssCreateFolderDialog({
       onFolderCreated(newFolder);
       handleClose();
     } catch (err) {
-      console.error("Failed to create folder:", err);
-      setError(err instanceof Error ? err.message : "Failed to create folder. Please try again.");
+      console.error('Failed to create folder:', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to create folder. Please try again.',
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const handleClose = () => {
-    setName("");
-    setError("");
+    setName('');
+    setError('');
     onClose();
   };
 
@@ -78,14 +82,20 @@ export function RssCreateFolderDialog({
               leaveTo="opacity-0 scale-95"
             >
               <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 mb-4">
+                <Dialog.Title
+                  as="h3"
+                  className="text-lg font-medium leading-6 text-gray-900 mb-4"
+                >
                   Create Folder
                 </Dialog.Title>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {/* Folder Name */}
                   <div>
-                    <label htmlFor="folder-name" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label
+                      htmlFor="folder-name"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
                       Folder Name
                     </label>
                     <input
@@ -123,14 +133,29 @@ export function RssCreateFolderDialog({
                     >
                       {loading ? (
                         <>
-                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          <svg
+                            className="w-4 h-4 animate-spin"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
                           </svg>
                           Creating...
                         </>
                       ) : (
-                        "Create"
+                        'Create'
                       )}
                     </button>
                   </div>

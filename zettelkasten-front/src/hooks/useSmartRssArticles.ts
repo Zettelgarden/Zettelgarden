@@ -1,9 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import {
-  getSmartRSSArticles,
-  RSSArticleWithScore,
-} from "../api/rss";
-import { RSS_CONFIG } from "../constants/rss";
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { getSmartRSSArticles, RSSArticleWithScore } from '../api/rss';
+import { RSS_CONFIG } from '../constants/rss';
 
 export interface SmartFeedFilters {
   folder?: string;
@@ -29,7 +26,9 @@ export function useSmartRssArticles(options: UseSmartRssArticlesOptions = {}) {
   const [articles, setArticles] = useState<RSSArticleWithScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [visibleCount, setVisibleCount] = useState<number>(RSS_CONFIG.ARTICLES_PER_PAGE);
+  const [visibleCount, setVisibleCount] = useState<number>(
+    RSS_CONFIG.ARTICLES_PER_PAGE,
+  );
   const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   /**
@@ -51,8 +50,8 @@ export function useSmartRssArticles(options: UseSmartRssArticlesOptions = {}) {
       // Reset visible count when loading new articles
       setVisibleCount(RSS_CONFIG.ARTICLES_PER_PAGE);
     } catch (error) {
-      console.error("Failed to load smart articles:", error);
-      setError("Failed to load articles. Please try again.");
+      console.error('Failed to load smart articles:', error);
+      setError('Failed to load articles. Please try again.');
       // Clear any existing timeout before setting a new one
       if (errorTimeoutRef.current) {
         clearTimeout(errorTimeoutRef.current);
@@ -80,18 +79,24 @@ export function useSmartRssArticles(options: UseSmartRssArticlesOptions = {}) {
   /**
    * Update an article in the local state
    */
-  const updateArticle = useCallback((articleId: number, updates: Partial<RSSArticleWithScore>) => {
-    setArticles((prev) =>
-      prev.map((a) => (a.id === articleId ? { ...a, ...updates } : a))
-    );
-  }, []);
+  const updateArticle = useCallback(
+    (articleId: number, updates: Partial<RSSArticleWithScore>) => {
+      setArticles((prev) =>
+        prev.map((a) => (a.id === articleId ? { ...a, ...updates } : a)),
+      );
+    },
+    [],
+  );
 
   /**
    * Update multiple articles in the local state
    */
-  const updateArticles = useCallback((updater: (articles: RSSArticleWithScore[]) => RSSArticleWithScore[]) => {
-    setArticles(updater);
-  }, []);
+  const updateArticles = useCallback(
+    (updater: (articles: RSSArticleWithScore[]) => RSSArticleWithScore[]) => {
+      setArticles(updater);
+    },
+    [],
+  );
 
   // Load articles when filters changes
   useEffect(() => {

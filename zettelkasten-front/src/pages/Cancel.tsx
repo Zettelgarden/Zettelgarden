@@ -1,5 +1,5 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Cancel() {
   const navigate = useNavigate();
@@ -9,7 +9,7 @@ export default function Cancel() {
       <h1 className="text-2xl font-bold text-red-600">Payment Canceled</h1>
       <p className="mb-4">You can try subscribing again anytime.</p>
       <button
-        onClick={() => navigate("/app/subscription")}
+        onClick={() => navigate('/app/subscription')}
         className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
       >
         Back to Plans

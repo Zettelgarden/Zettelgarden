@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
-import { SchemaDefinition, FieldDefinition } from "../../models/Schema";
-import { Card } from "../../models/Card";
-import { fetchSchemaByRef } from "../../api/schemas";
-import { applyFiltersToCard } from "../../utils/schemaFilters";
-import { CardLink } from "../cards/CardLink";
-import { getCard } from "../../api/cards";
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { SchemaDefinition, FieldDefinition } from '../../models/Schema';
+import { Card } from '../../models/Card';
+import { fetchSchemaByRef } from '../../api/schemas';
+import { applyFiltersToCard } from '../../utils/schemaFilters';
+import { CardLink } from '../cards/CardLink';
+import { getCard } from '../../api/cards';
 
 // LinkedCardDisplay component for link_to_card fields
 interface LinkedCardDisplayProps {
@@ -34,7 +34,7 @@ function LinkedCardDisplay({ cardId }: LinkedCardDisplayProps) {
   }, [cardId]);
 
   function isError(result: any): result is { error: string } {
-    return result && typeof result === "object" && "error" in result;
+    return result && typeof result === 'object' && 'error' in result;
   }
 
   if (loading) {
@@ -45,7 +45,13 @@ function LinkedCardDisplay({ cardId }: LinkedCardDisplayProps) {
     return <span className="text-blue-600 text-sm font-mono">{cardId}</span>;
   }
 
-  return <CardLink card={linkedCard} showTitle={true} handleViewBacklink={() => {}} />;
+  return (
+    <CardLink
+      card={linkedCard}
+      showTitle={true}
+      handleViewBacklink={() => {}}
+    />
+  );
 }
 
 interface SchemaTableProps {
@@ -56,14 +62,20 @@ interface SchemaTableProps {
   filters?: Record<string, string>; // Filter object like { status: "active", priority: "high" }
 }
 
-export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, filters }: SchemaTableProps) {
+export function SchemaTable({
+  schemaRef,
+  onCardClick,
+  compact = false,
+  columns,
+  filters,
+}: SchemaTableProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [schema, setSchema] = useState<SchemaDefinition | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortField, setSortField] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(() => {
@@ -96,7 +108,7 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
     if (!columns || columns.length === 0) {
       return fields;
     }
-    return fields.filter(field => columns.includes(field.name));
+    return fields.filter((field) => columns.includes(field.name));
   };
 
   // Apply filters to cards
@@ -105,7 +117,7 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
       return cards;
     }
 
-    return cards.filter(card => applyFiltersToCard(card, filters));
+    return cards.filter((card) => applyFiltersToCard(card, filters));
   }, [cards, filters]);
 
   // Calculate total pages for pagination
@@ -123,26 +135,35 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
       setSchema(schemaData);
 
       // Fetch cards with this schema_id using the actual ID from the schema
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${import.meta.env.VITE_URL}/schemas/${schemaData.id}/cards`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${import.meta.env.VITE_URL}/schemas/${schemaData.id}/cards`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch cards");
+        throw new Error('Failed to fetch cards');
       }
 
       const fetchedCards = await response.json();
       const cardsWithDates = fetchedCards.map((card: Card) => ({
         ...card,
-        created_at: card.created_at instanceof Date ? card.created_at : new Date(card.created_at),
-        updated_at: card.updated_at instanceof Date ? card.updated_at : new Date(card.updated_at),
+        created_at:
+          card.created_at instanceof Date
+            ? card.created_at
+            : new Date(card.created_at),
+        updated_at:
+          card.updated_at instanceof Date
+            ? card.updated_at
+            : new Date(card.updated_at),
       }));
 
       setCards(cardsWithDates);
     } catch (err) {
-      console.error("Error loading schema table:", err);
-      setError("Failed to load data");
+      console.error('Error loading schema table:', err);
+      setError('Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -150,10 +171,10 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
 
   const handleSort = (fieldName: string) => {
     if (sortField === fieldName) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(fieldName);
-      setSortDirection("asc");
+      setSortDirection('asc');
     }
   };
 
@@ -162,31 +183,36 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
 
     return [...filteredCards].sort((a, b) => {
       // Handle title field separately
-      const aValue = sortField === "title" ? a.title : a.structured_data?.[sortField];
-      const bValue = sortField === "title" ? b.title : b.structured_data?.[sortField];
+      const aValue =
+        sortField === 'title' ? a.title : a.structured_data?.[sortField];
+      const bValue =
+        sortField === 'title' ? b.title : b.structured_data?.[sortField];
 
       if (aValue === undefined) return 1;
       if (bValue === undefined) return -1;
       if (aValue === bValue) return 0;
 
       const comparison = aValue < bValue ? -1 : 1;
-      return sortDirection === "asc" ? comparison : -comparison;
+      return sortDirection === 'asc' ? comparison : -comparison;
     });
   };
 
-  const handlePageChange = useCallback((newPage: number) => {
-    const clampedPage = Math.max(1, Math.min(newPage, totalPages));
-    setCurrentPage(clampedPage);
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      const clampedPage = Math.max(1, Math.min(newPage, totalPages));
+      setCurrentPage(clampedPage);
 
-    // Update URL state
-    const newParams = new URLSearchParams(searchParams);
-    if (clampedPage === 1) {
-      newParams.delete(`schema_${schemaRef}_page`);
-    } else {
-      newParams.set(`schema_${schemaRef}_page`, clampedPage.toString());
-    }
-    setSearchParams(newParams);
-  }, [totalPages, searchParams, schemaRef, setSearchParams]);
+      // Update URL state
+      const newParams = new URLSearchParams(searchParams);
+      if (clampedPage === 1) {
+        newParams.delete(`schema_${schemaRef}_page`);
+      } else {
+        newParams.set(`schema_${schemaRef}_page`, clampedPage.toString());
+      }
+      setSearchParams(newParams);
+    },
+    [totalPages, searchParams, schemaRef, setSearchParams],
+  );
 
   // Reset to page 1 if filters change and current page is out of bounds
   useEffect(() => {
@@ -212,20 +238,20 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
   const getFieldValue = (card: Card, field: FieldDefinition) => {
     const value = card.structured_data?.[field.name];
 
-    if (value === null || value === undefined || value === "") {
+    if (value === null || value === undefined || value === '') {
       return <span className="text-gray-400 italic">—</span>;
     }
 
     switch (field.type) {
-      case "boolean":
-        return value ? "Yes" : "No";
-      case "multi-select":
-        return (value as string[]).join(", ");
-      case "date":
+      case 'boolean':
+        return value ? 'Yes' : 'No';
+      case 'multi-select':
+        return (value as string[]).join(', ');
+      case 'date':
         // Parse date and display in UTC to avoid timezone shifting
         const dateObj = new Date(value);
         return dateObj.toLocaleDateString(undefined, { timeZone: 'UTC' });
-      case "link_to_card":
+      case 'link_to_card':
         return <LinkedCardDisplay cardId={value} />;
       default:
         return String(value);
@@ -265,14 +291,20 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
   // Paginate cards
   const paginatedCards = sortedCards.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   return (
-    <div className={compact ? "my-2" : "my-4"}>
+    <div className={compact ? 'my-2' : 'my-4'}>
       <div className="flex items-center justify-between mb-2">
         <div>
-          <h3 className={compact ? "text-base font-semibold text-gray-900" : "text-xl font-bold text-gray-900"}>
+          <h3
+            className={
+              compact
+                ? 'text-base font-semibold text-gray-900'
+                : 'text-xl font-bold text-gray-900'
+            }
+          >
             {schema.name}
           </h3>
           <p className="text-xs text-gray-500">
@@ -298,12 +330,12 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
               <tr>
                 <th
                   className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort("title")}
+                  onClick={() => handleSort('title')}
                 >
                   <div className="flex items-center gap-1">
                     Title
-                    {sortField === "title" && (
-                      <span>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                    {sortField === 'title' && (
+                      <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
                     )}
                   </div>
                 </th>
@@ -316,7 +348,7 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
                     <div className="flex items-center gap-1">
                       {field.name}
                       {sortField === field.name && (
-                        <span>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                        <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
                       )}
                     </div>
                   </th>
@@ -330,14 +362,19 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
               {paginatedCards.map((card) => (
                 <tr
                   key={card.id}
-                  className={onCardClick ? "hover:bg-gray-50 cursor-pointer" : ""}
+                  className={
+                    onCardClick ? 'hover:bg-gray-50 cursor-pointer' : ''
+                  }
                   onClick={() => onCardClick?.(card)}
                 >
                   <td className="px-3 py-2 text-sm font-medium text-blue-600">
                     {card.title}
                   </td>
                   {filteredFields.map((field) => (
-                    <td key={field.name} className="px-3 py-2 text-sm text-gray-900">
+                    <td
+                      key={field.name}
+                      className="px-3 py-2 text-sm text-gray-900"
+                    >
                       {getFieldValue(card, field)}
                     </td>
                   ))}
@@ -388,21 +425,23 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
           <div className="hidden sm:flex items-center gap-1">
             {totalPages <= 7 ? (
               // Show all page numbers if 7 or fewer pages
-              Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                <button
-                  key={pageNum}
-                  onClick={() => handlePageChange(pageNum)}
-                  className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-md border focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                    pageNum === currentPage
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                  }`}
-                  aria-label={`Go to page ${pageNum}`}
-                  aria-current={pageNum === currentPage ? "page" : undefined}
-                >
-                  {pageNum}
-                </button>
-              ))
+              Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (pageNum) => (
+                  <button
+                    key={pageNum}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-md border focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                      pageNum === currentPage
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                    aria-label={`Go to page ${pageNum}`}
+                    aria-current={pageNum === currentPage ? 'page' : undefined}
+                  >
+                    {pageNum}
+                  </button>
+                ),
+              )
             ) : (
               // Show abbreviated page numbers for more than 7 pages
               <>
@@ -422,7 +461,7 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
 
                 {Array.from(
                   { length: Math.min(3, totalPages) },
-                  (_, i) => Math.max(1, currentPage - 1) + i
+                  (_, i) => Math.max(1, currentPage - 1) + i,
                 )
                   .filter((pageNum) => pageNum >= 1 && pageNum <= totalPages)
                   .map((pageNum) => (
@@ -431,11 +470,13 @@ export function SchemaTable({ schemaRef, onCardClick, compact = false, columns, 
                       onClick={() => handlePageChange(pageNum)}
                       className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-md border focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                         pageNum === currentPage
-                          ? "bg-blue-600 text-white border-blue-600"
-                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                       }`}
                       aria-label={`Go to page ${pageNum}`}
-                      aria-current={pageNum === currentPage ? "page" : undefined}
+                      aria-current={
+                        pageNum === currentPage ? 'page' : undefined
+                      }
                     >
                       {pageNum}
                     </button>

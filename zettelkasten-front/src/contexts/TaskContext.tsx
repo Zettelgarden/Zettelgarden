@@ -1,7 +1,7 @@
-import React, { createContext, useState, useEffect, useContext } from "react";
-import { Task } from "../models/Task";
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import { Task } from '../models/Task';
 
-import { fetchTasks } from "../api/tasks";
+import { fetchTasks } from '../api/tasks';
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
@@ -62,7 +62,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({
   const updateTask = (updatedTask: Task) => {
     setTasks((prevTasks) => {
       const newTasks = prevTasks.map((task) =>
-        task.id === updatedTask.id ? updatedTask : task
+        task.id === updatedTask.id ? updatedTask : task,
       );
       extractTags(newTasks);
       return newTasks;
@@ -106,7 +106,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({
 export const useTaskContext = () => {
   const context = useContext(TaskContext);
   if (context === undefined) {
-    throw new Error("useTaskContext must be used within a TaskProvider");
+    throw new Error('useTaskContext must be used within a TaskProvider');
   }
   return context;
 };

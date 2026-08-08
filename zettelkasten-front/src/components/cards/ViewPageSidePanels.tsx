@@ -1,36 +1,36 @@
-import React, { useState } from "react";
-import { Card, PartialCard, RelatedCard } from "../../models/Card";
-import { Entity } from "../../models/Card";
-import { HeaderSubSection } from "../Header";
-import { SearchTagDropdown } from "../tags/SearchTagDropdown";
-import { EntitiesTab } from "../tabs/EntitiesTab";
-import { FilesTab } from "../tabs/FilesTab";
-import { HistoryTab } from "../tabs/HistoryTab";
-import { RollbackConfirmDialog } from "../tabs/RollbackConfirmDialog";
-import { removeEntityFromCard } from "../../api/entities";
+import React, { useState } from 'react';
+import { Card, PartialCard, RelatedCard } from '../../models/Card';
+import { Entity } from '../../models/Card';
+import { HeaderSubSection } from '../Header';
+import { SearchTagDropdown } from '../tags/SearchTagDropdown';
+import { EntitiesTab } from '../tabs/EntitiesTab';
+import { FilesTab } from '../tabs/FilesTab';
+import { HistoryTab } from '../tabs/HistoryTab';
+import { RollbackConfirmDialog } from '../tabs/RollbackConfirmDialog';
+import { removeEntityFromCard } from '../../api/entities';
 import {
   saveExistingCard,
   getCardAuditEvents,
   restoreCardToAuditEvent,
-} from "../../api/cards";
-import { File } from "../../models/File";
-import { CardStructuredDataDisplay } from "../schemas/CardStructuredDataDisplay";
-import { RSSArticle } from "../../api/rss";
-import { CategorizedReferences } from "../../api/cards";
-import { RelatedCards } from "./RelatedCards";
-import { ChildrenCards } from "./ChildrenCards";
-import { CardList } from "./CardList";
-import { BacklinkInput } from "./BacklinkInput";
-import { Collapsible } from "../Collapsible";
-import { SortMethod, sortPartialCards } from "../../utils/cards";
-import { SortControl as SortControlComponent } from "./SortControl";
-import { useUIState, RightPaneTab } from "../../contexts/UIStateContext";
-import { useRightPaneTab } from "../../hooks/useRightPaneTab";
+} from '../../api/cards';
+import { File } from '../../models/File';
+import { CardStructuredDataDisplay } from '../schemas/CardStructuredDataDisplay';
+import { RSSArticle } from '../../api/rss';
+import { CategorizedReferences } from '../../api/cards';
+import { RelatedCards } from './RelatedCards';
+import { ChildrenCards } from './ChildrenCards';
+import { CardList } from './CardList';
+import { BacklinkInput } from './BacklinkInput';
+import { Collapsible } from '../Collapsible';
+import { SortMethod, sortPartialCards } from '../../utils/cards';
+import { SortControl as SortControlComponent } from './SortControl';
+import { useUIState, RightPaneTab } from '../../contexts/UIStateContext';
+import { useRightPaneTab } from '../../hooks/useRightPaneTab';
 import {
   TagsList,
   DetailsList,
   SourceArticleLink,
-} from "./SideMetadataSections";
+} from './SideMetadataSections';
 
 interface ViewPageSidePanelsProps {
   onOpenEntity: (entity: Entity) => void;
@@ -51,10 +51,10 @@ interface ViewPageSidePanelsProps {
 }
 
 const TABS: { id: RightPaneTab; label: string }[] = [
-  { id: "links", label: "Links" },
-  { id: "metadata", label: "Metadata" },
-  { id: "entities", label: "Entities" },
-  { id: "files", label: "Files" },
+  { id: 'links', label: 'Links' },
+  { id: 'metadata', label: 'Metadata' },
+  { id: 'entities', label: 'Entities' },
+  { id: 'files', label: 'Files' },
 ];
 
 export function ViewPageSidePanels({
@@ -76,20 +76,35 @@ export function ViewPageSidePanels({
 }: ViewPageSidePanelsProps) {
   const { toggleRightPane, rightPaneTab, setRightPaneTab } = useUIState();
 
-  const [childrenSortMethod, setChildrenSortMethod] = useState<SortMethod>("cardId");
-  const [referencesSortMethod, setReferencesSortMethod] = useState<SortMethod>("cardId");
-  const [entityFilterString, setEntityFilterString] = useState<string>("");
-  const [showAddEntityDialog, setShowAddEntityDialog] = useState<boolean>(false);
-  const [fileFilterString, setFileFilterString] = useState<string>("");
+  const [childrenSortMethod, setChildrenSortMethod] =
+    useState<SortMethod>('cardId');
+  const [referencesSortMethod, setReferencesSortMethod] =
+    useState<SortMethod>('cardId');
+  const [entityFilterString, setEntityFilterString] = useState<string>('');
+  const [showAddEntityDialog, setShowAddEntityDialog] =
+    useState<boolean>(false);
+  const [fileFilterString, setFileFilterString] = useState<string>('');
   const [auditEvents, setAuditEvents] = useState<any[]>([]);
   const [showRollbackDialog, setShowRollbackDialog] = useState<boolean>(false);
   const [pendingRestoreEvent, setPendingRestoreEvent] = useState<any>(null);
   const [isRestoring, setIsRestoring] = useState<boolean>(false);
 
-  const sortedChildren = sortPartialCards(viewingCard.children, childrenSortMethod);
-  const sortedBidirectional = sortPartialCards(categorizedReferences.bidirectional, referencesSortMethod);
-  const sortedIncoming = sortPartialCards(categorizedReferences.incoming, referencesSortMethod);
-  const sortedOutgoing = sortPartialCards(categorizedReferences.outgoing, referencesSortMethod);
+  const sortedChildren = sortPartialCards(
+    viewingCard.children,
+    childrenSortMethod,
+  );
+  const sortedBidirectional = sortPartialCards(
+    categorizedReferences.bidirectional,
+    referencesSortMethod,
+  );
+  const sortedIncoming = sortPartialCards(
+    categorizedReferences.incoming,
+    referencesSortMethod,
+  );
+  const sortedOutgoing = sortPartialCards(
+    categorizedReferences.outgoing,
+    referencesSortMethod,
+  );
   const totalReferences =
     sortedBidirectional.length + sortedIncoming.length + sortedOutgoing.length;
 
@@ -103,17 +118,19 @@ export function ViewPageSidePanels({
       await removeEntityFromCard(entityId, viewingCard.id);
       setViewCard({
         ...viewingCard,
-        entities: viewingCard.entities?.filter(entity => entity.id !== entityId) || []
+        entities:
+          viewingCard.entities?.filter((entity) => entity.id !== entityId) ||
+          [],
       });
     } catch (error) {
-      setError("Failed to remove entity from card");
+      setError('Failed to remove entity from card');
     }
   }
 
   function handleEntityAdded(entity: Entity) {
     setViewCard({
       ...viewingCard,
-      entities: [...(viewingCard.entities || []), entity]
+      entities: [...(viewingCard.entities || []), entity],
     });
   }
 
@@ -124,7 +141,7 @@ export function ViewPageSidePanels({
 
     const editedCard = {
       ...viewingCard,
-      body: viewingCard.body + "\n\n![](" + file.id + ")",
+      body: viewingCard.body + '\n\n![](' + file.id + ')',
     };
     await saveExistingCard(editedCard);
     setViewCard(editedCard);
@@ -133,8 +150,8 @@ export function ViewPageSidePanels({
   // Lazy-load audit events whenever the History collapsible is opened.
   function loadAuditEvents() {
     getCardAuditEvents(viewingCard.id.toString())
-      .then(events => setAuditEvents(events))
-      .catch(() => setError("Failed to load audit events"));
+      .then((events) => setAuditEvents(events))
+      .catch(() => setError('Failed to load audit events'));
   }
 
   const handleRestoreClick = (event: any) => {
@@ -149,7 +166,7 @@ export function ViewPageSidePanels({
     try {
       const restoredCard = await restoreCardToAuditEvent(
         viewingCard.id.toString(),
-        pendingRestoreEvent.id
+        pendingRestoreEvent.id,
       );
       setViewCard(restoredCard);
       const events = await getCardAuditEvents(viewingCard.id.toString());
@@ -157,7 +174,7 @@ export function ViewPageSidePanels({
       setShowRollbackDialog(false);
       setPendingRestoreEvent(null);
     } catch (error) {
-      setError("Failed to restore card");
+      setError('Failed to restore card');
     } finally {
       setIsRestoring(false);
     }
@@ -179,9 +196,10 @@ export function ViewPageSidePanels({
               onClick={() => setRightPaneTab(tab.id)}
               className={`
                 cursor-pointer font-medium py-1 px-2 flex items-center text-sm
-                ${rightPaneTab === tab.id
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md"
+                ${
+                  rightPaneTab === tab.id
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md'
                 }
               `}
             >
@@ -196,14 +214,24 @@ export function ViewPageSidePanels({
           aria-label="Close info pane"
           className="p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
       </div>
 
       <div className="space-y-6">
-        {rightPaneTab === "links" && (
+        {rightPaneTab === 'links' && (
           <>
             {/* Children */}
             <div>
@@ -220,8 +248,17 @@ export function ViewPageSidePanels({
                   className="text-blue-500 hover:text-blue-700"
                   title="Add child"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </button>
               </div>
@@ -279,7 +316,10 @@ export function ViewPageSidePanels({
               )}
 
               <div className="mt-4">
-                <BacklinkInput addBacklink={onAddBacklink} excludeCardId={viewingCard.id} />
+                <BacklinkInput
+                  addBacklink={onAddBacklink}
+                  excludeCardId={viewingCard.id}
+                />
               </div>
             </Collapsible>
 
@@ -294,7 +334,7 @@ export function ViewPageSidePanels({
           </>
         )}
 
-        {rightPaneTab === "metadata" && (
+        {rightPaneTab === 'metadata' && (
           <>
             {/* Source Article Section */}
             {sourceArticle && (
@@ -319,10 +359,7 @@ export function ViewPageSidePanels({
             <div>
               <div className="flex items-center justify-between">
                 <HeaderSubSection text="Tags" />
-                <SearchTagDropdown
-                  tags={tags}
-                  handleTagClick={onTagClick}
-                />
+                <SearchTagDropdown tags={tags} handleTagClick={onTagClick} />
               </div>
               <TagsList
                 card={viewingCard}
@@ -343,12 +380,15 @@ export function ViewPageSidePanels({
                 if (open) loadAuditEvents();
               }}
             >
-              <HistoryTab auditEvents={auditEvents} onRestore={handleRestoreClick} />
+              <HistoryTab
+                auditEvents={auditEvents}
+                onRestore={handleRestoreClick}
+              />
             </Collapsible>
           </>
         )}
 
-        {rightPaneTab === "entities" && (
+        {rightPaneTab === 'entities' && (
           <EntitiesTab
             viewingCard={viewingCard}
             entityFilterString={entityFilterString}
@@ -362,7 +402,7 @@ export function ViewPageSidePanels({
           />
         )}
 
-        {rightPaneTab === "files" && (
+        {rightPaneTab === 'files' && (
           <FilesTab
             viewingCard={viewingCard}
             fileUploadRef={fileUploadRef}
@@ -377,7 +417,9 @@ export function ViewPageSidePanels({
           isOpen={showRollbackDialog}
           onClose={handleCancelRestore}
           onConfirm={handleConfirmRestore}
-          cardTitle={viewingCard.title || viewingCard.card_id || 'Untitled Card'}
+          cardTitle={
+            viewingCard.title || viewingCard.card_id || 'Untitled Card'
+          }
           auditEvent={pendingRestoreEvent}
           isLoading={isRestoring}
         />

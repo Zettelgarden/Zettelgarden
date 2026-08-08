@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import {
   getScheduledJobs,
   getSchedulerHealth,
@@ -6,12 +6,12 @@ import {
   ScheduledJobInfo,
   SchedulerHealth,
   JobSummary,
-} from "../../api/admin";
-import { AdminErrorDisplay } from "../../components/admin/AdminErrorDisplay";
-import { JobStatusBadge } from "../../components/scheduler/JobStatusBadge";
-import { ScheduleDisplay } from "../../components/scheduler/ScheduleDisplay";
-import { RecentStatsSummary } from "../../components/scheduler/RecentStatsSummary";
-import { ExpandableHistory } from "../../components/scheduler/ExpandableHistory";
+} from '../../api/admin';
+import { AdminErrorDisplay } from '../../components/admin/AdminErrorDisplay';
+import { JobStatusBadge } from '../../components/scheduler/JobStatusBadge';
+import { ScheduleDisplay } from '../../components/scheduler/ScheduleDisplay';
+import { RecentStatsSummary } from '../../components/scheduler/RecentStatsSummary';
+import { ExpandableHistory } from '../../components/scheduler/ExpandableHistory';
 
 interface SchedulerJobData extends ScheduledJobInfo {
   summary?: JobSummary;
@@ -55,13 +55,17 @@ export function AdminSchedulerPage() {
           } catch {
             return { ...job, summary: undefined };
           }
-        })
+        }),
       );
 
       setJobs(jobsWithSummaries);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load scheduler data";
-      setError({ message, details: err instanceof Error ? err.stack : undefined });
+      const message =
+        err instanceof Error ? err.message : 'Failed to load scheduler data';
+      setError({
+        message,
+        details: err instanceof Error ? err.stack : undefined,
+      });
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -91,7 +95,9 @@ export function AdminSchedulerPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-gray-600">Loading scheduled jobs...</div>
+        <div className="animate-pulse text-gray-600">
+          Loading scheduled jobs...
+        </div>
       </div>
     );
   }
@@ -120,11 +126,19 @@ export function AdminSchedulerPage() {
         </div>
         <div className="flex items-center gap-3">
           {health && (
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-              health.running ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-            }`}>
-              <span className={`w-2 h-2 rounded-full mr-2 ${health.running ? "bg-green-500" : "bg-gray-500"}`} />
-              {health.running ? "Running" : "Stopped"}
+            <span
+              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                health.running
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-gray-100 text-gray-800'
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full mr-2 ${
+                  health.running ? 'bg-green-500' : 'bg-gray-500'
+                }`}
+              />
+              {health.running ? 'Running' : 'Stopped'}
             </span>
           )}
           <button
@@ -186,7 +200,7 @@ export function AdminSchedulerPage() {
             <tbody className="divide-y divide-gray-200">
               {jobs.map((job) => {
                 const isExpanded = expandedJobs.has(job.name);
-                const lastStatus = job.summary?.last_run_status ?? "never";
+                const lastStatus = job.summary?.last_run_status ?? 'never';
 
                 return (
                   <React.Fragment key={job.name}>
@@ -195,7 +209,10 @@ export function AdminSchedulerPage() {
                         {job.name}
                       </td>
                       <td className="px-6 py-4">
-                        <ScheduleDisplay schedule={job.schedule} nextRun={job.next_run} />
+                        <ScheduleDisplay
+                          schedule={job.schedule}
+                          nextRun={job.next_run}
+                        />
                       </td>
                       <td className="px-6 py-4">
                         <JobStatusBadge status={lastStatus as any} />
@@ -208,14 +225,17 @@ export function AdminSchedulerPage() {
                           onClick={() => toggleExpanded(job.name)}
                           className="text-sm text-blue-600 hover:text-blue-800 font-medium"
                         >
-                          {isExpanded ? "Hide" : "View"} History
+                          {isExpanded ? 'Hide' : 'View'} History
                         </button>
                       </td>
                     </tr>
                     {isExpanded && (
                       <tr>
                         <td colSpan={5} className="px-6 py-0">
-                          <ExpandableHistory jobName={job.name} isExpanded={isExpanded} />
+                          <ExpandableHistory
+                            jobName={job.name}
+                            isExpanded={isExpanded}
+                          />
                         </td>
                       </tr>
                     )}

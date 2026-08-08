@@ -1,10 +1,6 @@
-import React, { useEffect, useState } from "react";
-import {
-  getAllJobs,
-  retryJob,
-  AdminJob,
-} from "../../api/admin";
-import { AdminErrorDisplay } from "../../components/admin/AdminErrorDisplay";
+import React, { useEffect, useState } from 'react';
+import { getAllJobs, retryJob, AdminJob } from '../../api/admin';
+import { AdminErrorDisplay } from '../../components/admin/AdminErrorDisplay';
 
 interface ErrorState {
   message: string;
@@ -16,34 +12,34 @@ const PAGE_SIZE = 50;
 
 const getJobTypeIcon = (jobType: string) => {
   switch (jobType) {
-    case "summarization":
-      return "📝";
-    case "entity_extraction":
-    case "fact_entity_extraction":
-      return "🏷️";
-    case "chat":
-      return "💬";
-    case "memory":
-      return "🧠";
-    case "file_text_extraction":
-      return "📎";
+    case 'summarization':
+      return '📝';
+    case 'entity_extraction':
+    case 'fact_entity_extraction':
+      return '🏷️';
+    case 'chat':
+      return '💬';
+    case 'memory':
+      return '🧠';
+    case 'file_text_extraction':
+      return '📎';
     default:
-      return "⚙️";
+      return '⚙️';
   }
 };
 
 const getStatusColor = (status: string) => {
   switch (status) {
-    case "running":
-      return "bg-blue-100 text-blue-800";
-    case "completed":
-      return "bg-green-100 text-green-800";
-    case "failed":
-      return "bg-red-100 text-red-800";
-    case "cancelled":
-      return "bg-gray-100 text-gray-800";
+    case 'running':
+      return 'bg-blue-100 text-blue-800';
+    case 'completed':
+      return 'bg-green-100 text-green-800';
+    case 'failed':
+      return 'bg-red-100 text-red-800';
+    case 'cancelled':
+      return 'bg-gray-100 text-gray-800';
     default:
-      return "bg-gray-100 text-gray-800";
+      return 'bg-gray-100 text-gray-800';
   }
 };
 
@@ -91,7 +87,7 @@ export function AdminJobQueuePage() {
       setJobs(data.jobs);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Failed to load job audit log";
+        err instanceof Error ? err.message : 'Failed to load job audit log';
       setError({
         message,
         details: err instanceof Error ? err.stack : undefined,
@@ -128,14 +124,16 @@ export function AdminJobQueuePage() {
     }
   };
 
-  const runningCount = jobs.filter((j) => j.status === "running").length;
-  const completedCount = jobs.filter((j) => j.status === "completed").length;
-  const failedCount = jobs.filter((j) => j.status === "failed").length;
+  const runningCount = jobs.filter((j) => j.status === 'running').length;
+  const completedCount = jobs.filter((j) => j.status === 'completed').length;
+  const failedCount = jobs.filter((j) => j.status === 'failed').length;
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-gray-600">Loading job audit log...</div>
+        <div className="animate-pulse text-gray-600">
+          Loading job audit log...
+        </div>
       </div>
     );
   }
@@ -145,7 +143,9 @@ export function AdminJobQueuePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">LLM Job Audit Log</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            LLM Job Audit Log
+          </h1>
           <p className="text-gray-600 mt-1">
             Record of inline-processed background LLM work (summarization,
             entity extraction, memory, etc.)
@@ -268,23 +268,25 @@ export function AdminJobQueuePage() {
                   };
 
                   const getResultPreview = () => {
-                    if (job.status === "failed") {
-                      return job.error_message || "Failed";
+                    if (job.status === 'failed') {
+                      return job.error_message || 'Failed';
                     }
                     if (job.result) {
                       if (job.result.entities_saved !== undefined) {
                         return `Saved ${job.result.entities_saved} entities`;
                       }
                       if (job.result.summarization_id) {
-                        return "Summary generated";
+                        return 'Summary generated';
                       }
-                      return "Success";
+                      return 'Success';
                     }
-                    return job.status === "running" ? "In progress" : "Completed";
+                    return job.status === 'running'
+                      ? 'In progress'
+                      : 'Completed';
                   };
 
                   const canRetry =
-                    job.status === "failed" || job.status === "cancelled";
+                    job.status === 'failed' || job.status === 'cancelled';
 
                   return (
                     <tr key={job.id} className="hover:bg-gray-50">
@@ -298,7 +300,7 @@ export function AdminJobQueuePage() {
                         <span className="flex items-center gap-1">
                           <span>{getJobTypeIcon(job.job_type)}</span>
                           <span className="capitalize">
-                            {job.job_type.replace(/_/g, " ")}
+                            {job.job_type.replace(/_/g, ' ')}
                           </span>
                         </span>
                       </td>
@@ -312,7 +314,7 @@ export function AdminJobQueuePage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {durationMs !== null ? formatDuration(durationMs) : "-"}
+                        {durationMs !== null ? formatDuration(durationMs) : '-'}
                       </td>
                       <td
                         className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate"
@@ -327,7 +329,7 @@ export function AdminJobQueuePage() {
                             disabled={retryingId === job.id}
                             className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-medium transition-colors disabled:opacity-50"
                           >
-                            {retryingId === job.id ? "Retrying..." : "Retry"}
+                            {retryingId === job.id ? 'Retrying...' : 'Retry'}
                           </button>
                         )}
                       </td>

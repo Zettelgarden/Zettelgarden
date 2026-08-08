@@ -1,6 +1,6 @@
-import { Card, PartialCard } from "../models/Card";
-import { saveExistingCard, starCard, unstarCard } from "../api/cards";
-import { findNextChildId } from "./cards";
+import { Card, PartialCard } from '../models/Card';
+import { saveExistingCard, starCard, unstarCard } from '../api/cards';
+import { findNextChildId } from './cards';
 
 /**
  * Adds a tag to the card body by appending it with a newline prefix
@@ -11,7 +11,7 @@ import { findNextChildId } from "./cards";
 export function addTagToBody(card: Card, tagName: string): Card {
   return {
     ...card,
-    body: card.body + "\n\n#" + tagName,
+    body: card.body + '\n\n#' + tagName,
   };
 }
 
@@ -36,7 +36,7 @@ export function removeTagFromBody(card: Card, tagName: string): Card {
  * @returns The modified card with the backlink added to the body
  */
 export function addBacklinkToBody(card: Card, selectedCard: PartialCard): Card {
-  const backlinkText = "\n\n[[" + selectedCard.card_id + "|*|]]";
+  const backlinkText = '\n\n[[' + selectedCard.card_id + '|*|]]';
   return {
     ...card,
     body: card.body + backlinkText,
@@ -50,7 +50,7 @@ export function addBacklinkToBody(card: Card, selectedCard: PartialCard): Card {
  */
 export async function toggleCardStar(
   card: Card,
-  refreshCallback?: () => void
+  refreshCallback?: () => void,
 ): Promise<void> {
   try {
     if (card.is_starred) {
@@ -64,7 +64,7 @@ export async function toggleCardStar(
       refreshCallback();
     }
   } catch (error) {
-    console.error("Error toggling star status:", error);
+    console.error('Error toggling star status:', error);
     throw error; // Re-throw to allow caller to handle
   }
 }
@@ -76,7 +76,7 @@ export async function toggleCardStar(
  */
 export async function togglePartialCardStar(
   card: PartialCard,
-  refreshCallback?: () => void
+  refreshCallback?: () => void,
 ): Promise<void> {
   try {
     if (card.is_starred) {
@@ -90,7 +90,7 @@ export async function togglePartialCardStar(
       refreshCallback();
     }
   } catch (error) {
-    console.error("Error toggling star status:", error);
+    console.error('Error toggling star status:', error);
     throw error; // Re-throw to allow caller to handle
   }
 }
@@ -102,7 +102,7 @@ export async function togglePartialCardStar(
  */
 export async function saveCard(
   card: Card,
-  refreshCallback?: () => void
+  refreshCallback?: () => void,
 ): Promise<void> {
   await saveExistingCard(card);
 
@@ -119,11 +119,11 @@ export async function saveCard(
  */
 export async function resummarizeCard(
   card: Card,
-  refreshCallback?: () => void
+  refreshCallback?: () => void,
 ): Promise<void> {
   const updatedCard = {
     ...card,
-    process_entities_and_facts: true
+    process_entities_and_facts: true,
   };
 
   await saveCard(updatedCard, refreshCallback);
@@ -138,7 +138,7 @@ export async function resummarizeCard(
 export async function addTagToCard(
   card: Card,
   tagName: string,
-  refreshCallback?: () => void
+  refreshCallback?: () => void,
 ): Promise<void> {
   const editedCard = addTagToBody(card, tagName);
   await saveCard(editedCard, refreshCallback);
@@ -153,7 +153,7 @@ export async function addTagToCard(
 export async function removeTagFromCard(
   card: Card,
   tagName: string,
-  refreshCallback?: () => void
+  refreshCallback?: () => void,
 ): Promise<void> {
   const editedCard = removeTagFromBody(card, tagName);
   await saveCard(editedCard, refreshCallback);
@@ -168,7 +168,7 @@ export async function removeTagFromCard(
 export async function addBacklinkToCard(
   card: Card,
   selectedCard: PartialCard,
-  refreshCallback?: () => void
+  refreshCallback?: () => void,
 ): Promise<void> {
   const editedCard = addBacklinkToBody(card, selectedCard);
   await saveCard(editedCard, refreshCallback);
@@ -182,7 +182,7 @@ export async function addBacklinkToCard(
  */
 export function calculateNextChildId(
   parentCardId: string,
-  existingChildren: PartialCard[]
+  existingChildren: PartialCard[],
 ): string {
   return findNextChildId(parentCardId, existingChildren);
 }

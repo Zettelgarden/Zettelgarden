@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { FieldDefinition } from "../../models/Schema";
-import { Link } from "react-router-dom";
-import { getCard } from "../../api/cards";
-import { Card } from "../../models/Card";
-import { CardTag } from "../cards/CardTag";
+import React, { useState, useEffect } from 'react';
+import { FieldDefinition } from '../../models/Schema';
+import { Link } from 'react-router-dom';
+import { getCard } from '../../api/cards';
+import { Card } from '../../models/Card';
+import { CardTag } from '../cards/CardTag';
 
 interface LinkedCardDisplayProps {
   cardId: number;
@@ -31,7 +31,7 @@ function LinkedCardDisplay({ cardId }: LinkedCardDisplayProps) {
   }, [cardId]);
 
   function isError(result: any): result is { error: string } {
-    return result && typeof result === "object" && "error" in result;
+    return result && typeof result === 'object' && 'error' in result;
   }
 
   if (loading) {
@@ -39,7 +39,11 @@ function LinkedCardDisplay({ cardId }: LinkedCardDisplayProps) {
   }
 
   if (!card) {
-    return <span className="text-blue-600 hover:underline text-sm font-mono">{cardId}</span>;
+    return (
+      <span className="text-blue-600 hover:underline text-sm font-mono">
+        {cardId}
+      </span>
+    );
   }
 
   return (
@@ -54,16 +58,19 @@ interface StructuredDataDisplayProps {
   data: Record<string, any>;
 }
 
-export function StructuredDataDisplay({ fields, data }: StructuredDataDisplayProps) {
+export function StructuredDataDisplay({
+  fields,
+  data,
+}: StructuredDataDisplayProps) {
   const renderValue = (field: FieldDefinition) => {
     const value = data[field.name];
 
-    if (value === null || value === undefined || value === "") {
+    if (value === null || value === undefined || value === '') {
       return <span className="text-gray-400 italic">Not set</span>;
     }
 
     switch (field.type) {
-      case "boolean":
+      case 'boolean':
         return value ? (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
             Yes
@@ -74,14 +81,14 @@ export function StructuredDataDisplay({ fields, data }: StructuredDataDisplayPro
           </span>
         );
 
-      case "select":
+      case 'select':
         return (
           <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
             {value}
           </span>
         );
 
-      case "multi-select":
+      case 'multi-select':
         return (
           <div className="flex flex-wrap gap-1">
             {(value as string[]).map((v: string) => (
@@ -95,15 +102,19 @@ export function StructuredDataDisplay({ fields, data }: StructuredDataDisplayPro
           </div>
         );
 
-      case "number":
+      case 'number':
         return <span className="font-mono text-sm">{value}</span>;
 
-      case "date":
+      case 'date':
         // Parse date and display in UTC to avoid timezone shifting
         const dateObj = new Date(value);
-        return <span className="text-sm">{dateObj.toLocaleDateString(undefined, { timeZone: 'UTC' })}</span>;
+        return (
+          <span className="text-sm">
+            {dateObj.toLocaleDateString(undefined, { timeZone: 'UTC' })}
+          </span>
+        );
 
-      case "link_to_card":
+      case 'link_to_card':
         return <LinkedCardDisplay cardId={value} />;
 
       default:
@@ -118,7 +129,7 @@ export function StructuredDataDisplay({ fields, data }: StructuredDataDisplayPro
   // Only show fields that have values
   const fieldsWithValues = fields.filter((field) => {
     const value = data[field.name];
-    return value !== null && value !== undefined && value !== "";
+    return value !== null && value !== undefined && value !== '';
   });
 
   if (fieldsWithValues.length === 0) {
@@ -127,10 +138,15 @@ export function StructuredDataDisplay({ fields, data }: StructuredDataDisplayPro
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-gray-700 border-b pb-2">Structured Data</h3>
+      <h3 className="text-sm font-semibold text-gray-700 border-b pb-2">
+        Structured Data
+      </h3>
       <div className="grid grid-cols-1 gap-3">
         {fieldsWithValues.map((field) => (
-          <div key={field.name} className="flex items-baseline justify-between py-1">
+          <div
+            key={field.name}
+            className="flex items-baseline justify-between py-1"
+          >
             <span className="text-sm font-medium text-gray-600 mr-4">
               {field.name}
             </span>

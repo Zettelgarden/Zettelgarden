@@ -8,7 +8,12 @@
  * - Proper error handling
  */
 
-import { useQuery, useMutation, useQueryClient, UseQueryResult } from '@tanstack/react-query';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  UseQueryResult,
+} from '@tanstack/react-query';
 import { queryKeys, mutationKeys } from '../../api/queryClient';
 import {
   fetchTasks,
@@ -61,7 +66,10 @@ function extractTagsFromTasks(tasks: Task[]): string[] {
  * }
  * ```
  */
-export function useTasks(filters: TaskListFilters = {}): UseQueryResult<Task[], Error> & {
+export function useTasks(filters: TaskListFilters = {}): UseQueryResult<
+  Task[],
+  Error
+> & {
   tags: string[];
 } {
   const query = useQuery({
@@ -111,7 +119,9 @@ export function useTask(id: string | number): UseQueryResult<Task, Error> {
  * @param taskId - Task ID
  * @returns Query result with audit events
  */
-export function useTaskAuditEvents(taskId: number): UseQueryResult<TaskAuditEvent[], Error> {
+export function useTaskAuditEvents(
+  taskId: number,
+): UseQueryResult<TaskAuditEvent[], Error> {
   return useQuery({
     queryKey: queryKeys.tasks.auditEvents(taskId),
     queryFn: () => fetchTaskAuditEvents(taskId),
@@ -187,19 +197,26 @@ export function useUpdateTask() {
     // Optimistic update
     onMutate: async (updatedTask: Task) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.tasks.detail(updatedTask.id) });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.tasks.detail(updatedTask.id),
+      });
 
       // Snapshot previous value
-      const previousTask = queryClient.getQueryData(queryKeys.tasks.detail(updatedTask.id));
+      const previousTask = queryClient.getQueryData(
+        queryKeys.tasks.detail(updatedTask.id),
+      );
 
       // Optimistically update to the new value
-      queryClient.setQueryData(queryKeys.tasks.detail(updatedTask.id), updatedTask);
+      queryClient.setQueryData(
+        queryKeys.tasks.detail(updatedTask.id),
+        updatedTask,
+      );
 
       // Also update the task in any list queries
       queryClient.setQueriesData(
         { queryKey: queryKeys.tasks.lists() },
         (old: Task[] | undefined) =>
-          old?.map((task) => (task.id === updatedTask.id ? updatedTask : task))
+          old?.map((task) => (task.id === updatedTask.id ? updatedTask : task)),
       );
 
       // Return context with previous value for rollback
@@ -211,7 +228,7 @@ export function useUpdateTask() {
       if (context?.previousTask) {
         queryClient.setQueryData(
           queryKeys.tasks.detail(variables.id),
-          context.previousTask
+          context.previousTask,
         );
       }
     },
@@ -219,7 +236,9 @@ export function useUpdateTask() {
     // Always refetch after error or success
     onSettled: (newTask) => {
       if (newTask) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.tasks.detail(newTask.id) });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.tasks.detail(newTask.id),
+        });
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
     },
@@ -245,7 +264,8 @@ export function useDeleteTask() {
       // Optimistically remove the task from lists
       queryClient.setQueriesData(
         { queryKey: queryKeys.tasks.lists() },
-        (old: Task[] | undefined) => old?.filter((task) => task.id !== deletedTaskId)
+        (old: Task[] | undefined) =>
+          old?.filter((task) => task.id !== deletedTaskId),
       );
 
       return { previousTasks };
@@ -255,7 +275,7 @@ export function useDeleteTask() {
       if (context?.previousTasks) {
         queryClient.setQueriesData(
           { queryKey: queryKeys.tasks.lists() },
-          context.previousTasks
+          context.previousTasks,
         );
       }
     },
@@ -273,11 +293,18 @@ export function useAddTaskDependency() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ taskId, blockingTaskId }: { taskId: number; blockingTaskId: number }) =>
-      addTaskDependency(taskId, blockingTaskId),
+    mutationFn: ({
+      taskId,
+      blockingTaskId,
+    }: {
+      taskId: number;
+      blockingTaskId: number;
+    }) => addTaskDependency(taskId, blockingTaskId),
 
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.detail(variables.taskId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.tasks.detail(variables.taskId),
+      });
     },
   });
 }
@@ -289,11 +316,18 @@ export function useRemoveTaskDependency() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ taskId, blockingTaskId }: { taskId: number; blockingTaskId: number }) =>
-      removeTaskDependency(taskId, blockingTaskId),
+    mutationFn: ({
+      taskId,
+      blockingTaskId,
+    }: {
+      taskId: number;
+      blockingTaskId: number;
+    }) => removeTaskDependency(taskId, blockingTaskId),
 
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.detail(variables.taskId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.tasks.detail(variables.taskId),
+      });
     },
   });
 }
@@ -309,7 +343,9 @@ export function useCompleteAndScheduleTask() {
       completeAndScheduleTask(taskId, days),
 
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.detail(variables.taskId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.tasks.detail(variables.taskId),
+      });
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
     },
   });

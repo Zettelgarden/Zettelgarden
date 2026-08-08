@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 
 interface KeyboardShortcutsHelpProps {
   visible: boolean;
@@ -12,54 +12,54 @@ interface ShortcutGroup {
 
 const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
-    title: "General",
+    title: 'General',
     shortcuts: [
-      { key: "?", description: "Show keyboard shortcuts" },
-      { key: "Esc", description: "Close dialogs and menus" },
+      { key: '?', description: 'Show keyboard shortcuts' },
+      { key: 'Esc', description: 'Close dialogs and menus' },
     ],
   },
   {
-    title: "Tasks",
+    title: 'Tasks',
     shortcuts: [
-      { key: "N", description: "Create new task" },
-      { key: "F", description: "Focus filter input" },
+      { key: 'N', description: 'Create new task' },
+      { key: 'F', description: 'Focus filter input' },
     ],
   },
   {
-    title: "Views",
+    title: 'Views',
     shortcuts: [
-      { key: "1", description: "Switch to List view" },
-      { key: "2", description: "Switch to Matrix view" },
-      { key: "3", description: "Switch to Kanban view" },
+      { key: '1', description: 'Switch to List view' },
+      { key: '2', description: 'Switch to Matrix view' },
+      { key: '3', description: 'Switch to Kanban view' },
     ],
   },
   {
-    title: "Kanban Board",
+    title: 'Kanban Board',
     shortcuts: [
-      { key: "↑", description: "Move to previous card" },
-      { key: "↓", description: "Move to next card" },
-      { key: "←", description: "Move to previous column" },
-      { key: "→", description: "Move to next column" },
-      { key: "j", description: "Move to next card (vim)" },
-      { key: "k", description: "Move to previous card (vim)" },
-      { key: "h", description: "Move to previous column (vim)" },
-      { key: "l", description: "Move to next column (vim)" },
-      { key: "Enter", description: "Open focused task" },
-      { key: "Esc", description: "Clear selection" },
+      { key: '↑', description: 'Move to previous card' },
+      { key: '↓', description: 'Move to next card' },
+      { key: '←', description: 'Move to previous column' },
+      { key: '→', description: 'Move to next column' },
+      { key: 'j', description: 'Move to next card (vim)' },
+      { key: 'k', description: 'Move to previous card (vim)' },
+      { key: 'h', description: 'Move to previous column (vim)' },
+      { key: 'l', description: 'Move to next column (vim)' },
+      { key: 'Enter', description: 'Open focused task' },
+      { key: 'Esc', description: 'Clear selection' },
     ],
   },
 ];
 
-export function KeyboardShortcutsHelp({ visible, onClose }: KeyboardShortcutsHelpProps) {
+export function KeyboardShortcutsHelp({
+  visible,
+  onClose,
+}: KeyboardShortcutsHelpProps) {
   if (!visible) return null;
 
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 z-50"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black/50 z-50" onClick={onClose} />
 
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -102,7 +102,7 @@ export function KeyboardShortcutsHelp({ visible, onClose }: KeyboardShortcutsHel
                         {shortcut.description}
                       </span>
                       <kbd className="px-2 py-0.5 text-xs font-mono bg-slate-100 border border-slate-200 rounded text-slate-700">
-                        {shortcut.modifier ? `${shortcut.modifier}+` : ""}
+                        {shortcut.modifier ? `${shortcut.modifier}+` : ''}
                         {shortcut.key}
                       </kbd>
                     </li>
@@ -114,7 +114,15 @@ export function KeyboardShortcutsHelp({ visible, onClose }: KeyboardShortcutsHel
 
           <div className="mt-6 pt-4 border-t border-slate-100">
             <p className="text-xs text-slate-400 text-center">
-              Press <kbd className="px-1 py-0.5 text-xs font-mono bg-slate-100 border border-slate-200 rounded">?</kbd> or <kbd className="px-1 py-0.5 text-xs font-mono bg-slate-100 border border-slate-200 rounded">Esc</kbd> to close
+              Press{' '}
+              <kbd className="px-1 py-0.5 text-xs font-mono bg-slate-100 border border-slate-200 rounded">
+                ?
+              </kbd>{' '}
+              or{' '}
+              <kbd className="px-1 py-0.5 text-xs font-mono bg-slate-100 border border-slate-200 rounded">
+                Esc
+              </kbd>{' '}
+              to close
             </p>
           </div>
         </div>
@@ -131,7 +139,7 @@ export function useKeyboardShortcuts(handlers: {
   onCloseHelp?: () => void;
   onNewTask?: () => void;
   onFocusFilter?: () => void;
-  onSwitchView?: (view: "list" | "matrix" | "kanban") => void;
+  onSwitchView?: (view: 'list' | 'matrix' | 'kanban') => void;
   onEscape?: () => void;
 }) {
   const [showHelp, setShowHelp] = React.useState(false);
@@ -141,12 +149,12 @@ export function useKeyboardShortcuts(handlers: {
       // Ignore if typing in an input field (unless it's Escape)
       const target = event.target as HTMLElement;
       const isInputField =
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
         target.isContentEditable;
 
       // Escape always works
-      if (event.key === "Escape") {
+      if (event.key === 'Escape') {
         event.preventDefault();
         if (showHelp) {
           setShowHelp(false);
@@ -168,43 +176,43 @@ export function useKeyboardShortcuts(handlers: {
       }
 
       switch (event.key) {
-        case "?":
+        case '?':
           event.preventDefault();
           setShowHelp((prev) => !prev);
           if (!showHelp) {
             handlers.onShowHelp?.();
           }
           break;
-        case "n":
-        case "N":
+        case 'n':
+        case 'N':
           event.preventDefault();
           handlers.onNewTask?.();
           break;
-        case "f":
-        case "F":
+        case 'f':
+        case 'F':
           event.preventDefault();
           handlers.onFocusFilter?.();
           break;
-        case "1":
+        case '1':
           event.preventDefault();
-          handlers.onSwitchView?.("list");
+          handlers.onSwitchView?.('list');
           break;
-        case "2":
+        case '2':
           event.preventDefault();
-          handlers.onSwitchView?.("matrix");
+          handlers.onSwitchView?.('matrix');
           break;
-        case "3":
+        case '3':
           event.preventDefault();
-          handlers.onSwitchView?.("kanban");
+          handlers.onSwitchView?.('kanban');
           break;
-        case "4":
+        case '4':
           event.preventDefault();
           break;
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [showHelp, handlers]);
 
   return { showHelp, setShowHelp };

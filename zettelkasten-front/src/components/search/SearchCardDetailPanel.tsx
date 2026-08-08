@@ -1,19 +1,21 @@
-import React, { useState, useEffect } from "react";
-import { Card, SearchResult, Entity } from "../../models/Card";
-import { getCard, saveExistingCard } from "../../api/cards";
-import { CardBody } from "../cards/CardBody";
-import { HeaderSubSection, HeaderSection } from "../Header";
-import { CardTag } from "../cards/CardTag";
-import { formatDate } from "../../utils/dates";
+import React, { useState, useEffect } from 'react';
+import { Card, SearchResult, Entity } from '../../models/Card';
+import { getCard, saveExistingCard } from '../../api/cards';
+import { CardBody } from '../cards/CardBody';
+import { HeaderSubSection, HeaderSection } from '../Header';
+import { CardTag } from '../cards/CardTag';
+import { formatDate } from '../../utils/dates';
 
 // Type guard to check if a selected card is a SearchResult
-function isSearchResult(card: SearchResult | Card | null): card is SearchResult {
-  return card !== null && "type" in card && "preview" in card;
+function isSearchResult(
+  card: SearchResult | Card | null,
+): card is SearchResult {
+  return card !== null && 'type' in card && 'preview' in card;
 }
 
 // Type guard to check if a selected card is a full Card
 function isFullCard(card: SearchResult | Card | null): card is Card {
-  return card !== null && "body" in card;
+  return card !== null && 'body' in card;
 }
 
 interface SearchCardDetailPanelProps {
@@ -59,7 +61,7 @@ export function SearchCardDetailPanel({
     }
 
     // If it's a SearchResult of type card, fetch the full card
-    if (isSearchResult(selectedCard) && selectedCard.type === "card") {
+    if (isSearchResult(selectedCard) && selectedCard.type === 'card') {
       const cardId = selectedCard.metadata?.id;
       if (cardId) {
         fetchCardData(cardId);
@@ -74,8 +76,8 @@ export function SearchCardDetailPanel({
       const card = await getCard(cardId.toString());
       setFullCard(card);
     } catch (err) {
-      console.error("Failed to fetch card details:", err);
-      setError("Failed to load card details");
+      console.error('Failed to fetch card details:', err);
+      setError('Failed to load card details');
     } finally {
       setIsLoading(false);
     }
@@ -104,8 +106,8 @@ export function SearchCardDetailPanel({
       const saved = await saveExistingCard(updatedCard);
       setFullCard(saved);
     } catch (err) {
-      console.error("Failed to save card:", err);
-      setError("Failed to save card");
+      console.error('Failed to save card:', err);
+      setError('Failed to save card');
     }
   };
 
@@ -167,7 +169,11 @@ export function SearchCardDetailPanel({
   }
 
   // Display selected search result (non-card types)
-  if (!fullCard && isSearchResult(selectedCard) && selectedCard.type !== "card") {
+  if (
+    !fullCard &&
+    isSearchResult(selectedCard) &&
+    selectedCard.type !== 'card'
+  ) {
     return (
       <div className="h-full bg-white overflow-y-auto">
         {/* Mobile header with back button */}
@@ -198,7 +204,11 @@ export function SearchCardDetailPanel({
         <div className="p-6">
           <div className="mb-4">
             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-              {selectedCard.type === "entity" ? "Entity" : selectedCard.type === "fact" ? "Fact" : selectedCard.type}
+              {selectedCard.type === 'entity'
+                ? 'Entity'
+                : selectedCard.type === 'fact'
+                ? 'Fact'
+                : selectedCard.type}
             </span>
           </div>
 
@@ -215,16 +225,16 @@ export function SearchCardDetailPanel({
           {/* Metadata */}
           <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600 space-y-2">
             <div>
-              <span className="font-medium">Created:</span>{" "}
+              <span className="font-medium">Created:</span>{' '}
               {formatDate(selectedCard.created_at.toISOString())}
             </div>
             <div>
-              <span className="font-medium">Updated:</span>{" "}
+              <span className="font-medium">Updated:</span>{' '}
               {formatDate(selectedCard.updated_at.toISOString())}
             </div>
             {selectedCard.score !== undefined && (
               <div>
-                <span className="font-medium">Relevance Score:</span>{" "}
+                <span className="font-medium">Relevance Score:</span>{' '}
                 {selectedCard.score.toFixed(2)}
               </div>
             )}
@@ -331,7 +341,7 @@ export function SearchCardDetailPanel({
 
           {/* Title */}
           <h1 className="text-2xl font-bold text-gray-900">
-            {fullCard.title || "Untitled Card"}
+            {fullCard.title || 'Untitled Card'}
           </h1>
 
           {/* Metadata */}
@@ -426,7 +436,9 @@ export function SearchCardDetailPanel({
         {/* Backlinks/References */}
         {fullCard.references && fullCard.references.length > 0 && (
           <div>
-            <HeaderSubSection text={`References (${fullCard.references.length})`} />
+            <HeaderSubSection
+              text={`References (${fullCard.references.length})`}
+            />
             <div className="mt-2 space-y-2">
               {fullCard.references.map((ref) => (
                 <div key={ref.id} className="pl-4 border-l-2 border-gray-200">
@@ -477,13 +489,13 @@ export function SearchCardDetailPanel({
                   key={task.id}
                   className={`flex items-start gap-2 text-sm p-2 rounded ${
                     task.is_complete
-                      ? "bg-gray-50 text-gray-500"
-                      : "bg-white border border-gray-200"
+                      ? 'bg-gray-50 text-gray-500'
+                      : 'bg-white border border-gray-200'
                   }`}
                 >
                   <svg
                     className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
-                      task.is_complete ? "text-green-500" : "text-gray-300"
+                      task.is_complete ? 'text-green-500' : 'text-gray-300'
                     }`}
                     fill="currentColor"
                     viewBox="0 0 20 20"
@@ -494,7 +506,7 @@ export function SearchCardDetailPanel({
                       clipRule="evenodd"
                     />
                   </svg>
-                  <span className={task.is_complete ? "line-through" : ""}>
+                  <span className={task.is_complete ? 'line-through' : ''}>
                     {task.title}
                   </span>
                 </div>

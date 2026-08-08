@@ -1,4 +1,4 @@
-import { apiClient, getData } from "./client";
+import { apiClient, getData } from './client';
 
 // Types
 export interface RSSFeed {
@@ -129,18 +129,23 @@ export interface DiscoverFeedResponse {
 
 // Feed API
 export function createFeed(feed: CreateRSSFeedParams): Promise<RSSFeed> {
-  return getData(apiClient.post<RSSFeed>("/rss/feeds", feed));
+  return getData(apiClient.post<RSSFeed>('/rss/feeds', feed));
 }
 
 export function listFeeds(): Promise<RSSFeed[]> {
-  return getData(apiClient.get<RSSFeed[]>("/rss/feeds")).then(data => data ?? []);
+  return getData(apiClient.get<RSSFeed[]>('/rss/feeds')).then(
+    (data) => data ?? [],
+  );
 }
 
 export function getFeed(id: number): Promise<RSSFeed> {
   return getData(apiClient.get<RSSFeed>(`/rss/feeds/${id}`));
 }
 
-export function updateFeed(id: number, params: UpdateRSSFeedParams): Promise<RSSFeed> {
+export function updateFeed(
+  id: number,
+  params: UpdateRSSFeedParams,
+): Promise<RSSFeed> {
   return getData(apiClient.put<RSSFeed>(`/rss/feeds/${id}`, params));
 }
 
@@ -153,26 +158,34 @@ export function markFeedAsRead(id: number): Promise<void> {
 }
 
 export function refreshFeeds(): Promise<{ fetched: number }> {
-  return getData(apiClient.post<{ fetched: number }>("/rss/feeds/fetch", {}));
+  return getData(apiClient.post<{ fetched: number }>('/rss/feeds/fetch', {}));
 }
 
 // Feed Discovery API
 export function discoverFeed(url: string): Promise<DiscoverFeedResponse> {
-  return getData(apiClient.post<DiscoverFeedResponse>("/rss/discover", { url }));
+  return getData(
+    apiClient.post<DiscoverFeedResponse>('/rss/discover', { url }),
+  );
 }
 
 // Article API
-export function listArticles(filters?: ArticleFilters): Promise<PaginatedArticlesResponse> {
+export function listArticles(
+  filters?: ArticleFilters,
+): Promise<PaginatedArticlesResponse> {
   const params = new URLSearchParams();
-  if (filters?.folder) params.set("folder", filters.folder);
-  if (filters?.unread) params.set("unread", "true");
-  if (filters?.feed_id) params.set("feed_id", filters.feed_id.toString());
-  if (filters?.starred) params.set("starred", "true");
-  if (filters?.limit) params.set("limit", filters.limit.toString());
-  if (filters?.offset) params.set("offset", filters.offset.toString());
+  if (filters?.folder) params.set('folder', filters.folder);
+  if (filters?.unread) params.set('unread', 'true');
+  if (filters?.feed_id) params.set('feed_id', filters.feed_id.toString());
+  if (filters?.starred) params.set('starred', 'true');
+  if (filters?.limit) params.set('limit', filters.limit.toString());
+  if (filters?.offset) params.set('offset', filters.offset.toString());
 
   const query = params.toString();
-  return getData(apiClient.get<PaginatedArticlesResponse>(`/rss/articles${query ? `?${query}` : ""}`));
+  return getData(
+    apiClient.get<PaginatedArticlesResponse>(
+      `/rss/articles${query ? `?${query}` : ''}`,
+    ),
+  );
 }
 
 export function getArticle(id: number): Promise<RSSArticle> {
@@ -191,15 +204,24 @@ export async function getSmartRSSArticles(params: {
   if (params.limit) queryParams.append('limit', params.limit.toString());
   if (params.offset) queryParams.append('offset', params.offset.toString());
 
-  return getData(apiClient.get<{ articles: RSSArticleWithScore[]; total: number }>(`/rss/smart?${queryParams.toString()}`));
+  return getData(
+    apiClient.get<{ articles: RSSArticleWithScore[]; total: number }>(
+      `/rss/smart?${queryParams.toString()}`,
+    ),
+  );
 }
 
 export function markAsRead(id: number, read: boolean = true): Promise<void> {
   return getData(apiClient.post<void>(`/rss/articles/${id}/read`, { read }));
 }
 
-export function convertToCard(id: number, params?: ConvertArticleParams): Promise<ConvertCardResponse> {
-  return getData(apiClient.post<ConvertCardResponse>(`/rss/articles/${id}/convert`, params));
+export function convertToCard(
+  id: number,
+  params?: ConvertArticleParams,
+): Promise<ConvertCardResponse> {
+  return getData(
+    apiClient.post<ConvertCardResponse>(`/rss/articles/${id}/convert`, params),
+  );
 }
 
 export function starArticle(id: number): Promise<void> {
@@ -212,18 +234,25 @@ export function unstarArticle(id: number): Promise<void> {
 
 // Folder API
 export function listFolders(): Promise<RSSFolder[]> {
-  return getData(apiClient.get<RSSFolder[]>("/rss/folders")).then(data => data ?? []);
+  return getData(apiClient.get<RSSFolder[]>('/rss/folders')).then(
+    (data) => data ?? [],
+  );
 }
 
 export function getFolder(id: number): Promise<RSSFolder> {
   return getData(apiClient.get<RSSFolder>(`/rss/folders/${id}`));
 }
 
-export function createFolder(params: CreateRSSFolderParams): Promise<RSSFolder> {
-  return getData(apiClient.post<RSSFolder>("/rss/folders", params));
+export function createFolder(
+  params: CreateRSSFolderParams,
+): Promise<RSSFolder> {
+  return getData(apiClient.post<RSSFolder>('/rss/folders', params));
 }
 
-export function updateFolder(id: number, params: UpdateRSSFolderParams): Promise<RSSFolder> {
+export function updateFolder(
+  id: number,
+  params: UpdateRSSFolderParams,
+): Promise<RSSFolder> {
   return getData(apiClient.put<RSSFolder>(`/rss/folders/${id}`, params));
 }
 
@@ -237,21 +266,21 @@ export function markFolderAsRead(id: number): Promise<void> {
 
 // Unread Counts API
 export function getUnreadCounts(): Promise<UnreadCounts> {
-  return getData(apiClient.get<UnreadCounts>("/rss/unread-counts"));
+  return getData(apiClient.get<UnreadCounts>('/rss/unread-counts'));
 }
 
 // OPML Export/Import API
 export async function exportOPML(): Promise<Blob> {
   const BASE_URL = import.meta.env.VITE_URL;
-  const url = BASE_URL.endsWith("/")
-    ? BASE_URL + "rss/opml/export"
-    : BASE_URL + "/rss/opml/export";
+  const url = BASE_URL.endsWith('/')
+    ? BASE_URL + 'rss/opml/export'
+    : BASE_URL + '/rss/opml/export';
 
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem('token');
   const response = await fetch(url, {
-    method: "GET",
+    method: 'GET',
     headers: {
-      Authorization: token ? `Bearer ${token}` : "",
+      Authorization: token ? `Bearer ${token}` : '',
     },
   });
 
@@ -265,18 +294,18 @@ export async function exportOPML(): Promise<Blob> {
 
 export async function importOPML(file: File): Promise<OPMLImportResult> {
   const BASE_URL = import.meta.env.VITE_URL;
-  const url = BASE_URL.endsWith("/")
-    ? BASE_URL + "rss/opml/import"
-    : BASE_URL + "/rss/opml/import";
+  const url = BASE_URL.endsWith('/')
+    ? BASE_URL + 'rss/opml/import'
+    : BASE_URL + '/rss/opml/import';
 
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append('file', file);
 
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem('token');
   const response = await fetch(url, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      Authorization: token ? `Bearer ${token}` : "",
+      Authorization: token ? `Bearer ${token}` : '',
     },
     body: formData,
   });

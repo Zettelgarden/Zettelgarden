@@ -1,10 +1,10 @@
-import React, { useState, useEffect, FormEvent } from "react";
+import React, { useState, useEffect, FormEvent } from 'react';
 import {
   getAdminSettings,
   updateAdminSettings,
   AdminSettings,
-} from "../../api/adminSettings";
-import { setDocumentTitle } from "../../utils/title";
+} from '../../api/adminSettings';
+import { setDocumentTitle } from '../../utils/title';
 
 interface SettingsFormState {
   admin_email: string;
@@ -16,9 +16,9 @@ interface SettingsFormState {
 }
 
 const EMPTY_FORM: SettingsFormState = {
-  admin_email: "",
-  site_name: "Zettelgarden",
-  support_email: "",
+  admin_email: '',
+  site_name: 'Zettelgarden',
+  support_email: '',
   signups_enabled: true,
   mail_enabled: true,
   email_auto_validate: true,
@@ -31,29 +31,31 @@ export function AdminSettingsPage() {
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    setDocumentTitle("Admin Settings");
+    setDocumentTitle('Admin Settings');
     getAdminSettings()
       .then((s: AdminSettings) =>
         setForm({
           admin_email: s.admin_email,
           site_name: s.site_name,
           support_email: s.support_email,
-          signups_enabled: s.signups_enabled !== "false",
-          mail_enabled: s.mail_enabled !== "false",
-          email_auto_validate: s.email_auto_validate !== "false",
+          signups_enabled: s.signups_enabled !== 'false',
+          mail_enabled: s.mail_enabled !== 'false',
+          email_auto_validate: s.email_auto_validate !== 'false',
         }),
       )
       .catch((e) => setError(e.message))
       .finally(() => setIsLoading(false));
   }, []);
 
-  const handleText = (name: keyof SettingsFormState) => (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => setForm({ ...form, [name]: e.target.value });
+  const handleText =
+    (name: keyof SettingsFormState) =>
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      setForm({ ...form, [name]: e.target.value });
 
-  const handleBool = (name: keyof SettingsFormState) => (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => setForm({ ...form, [name]: e.target.checked });
+  const handleBool =
+    (name: keyof SettingsFormState) =>
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      setForm({ ...form, [name]: e.target.checked });
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -68,7 +70,7 @@ export function AdminSettingsPage() {
         mail_enabled: String(form.mail_enabled),
         email_auto_validate: String(form.email_auto_validate),
       });
-      setSuccess("Settings saved and applied immediately.");
+      setSuccess('Settings saved and applied immediately.');
     } catch (e: any) {
       setError(e.message);
     }
@@ -151,36 +153,36 @@ export function AdminSettingsPage() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {textField(
-          "site_name",
-          "Site name",
-          "Shown in the browser tab and email templates.",
+          'site_name',
+          'Site name',
+          'Shown in the browser tab and email templates.',
         )}
         {textField(
-          "admin_email",
-          "Admin email",
-          "Notification recipient (e.g. new subscriptions) and the email that grants admin on registration.",
+          'admin_email',
+          'Admin email',
+          'Notification recipient (e.g. new subscriptions) and the email that grants admin on registration.',
         )}
         {textField(
-          "support_email",
-          "Support email",
-          "Shown to users in settings for account/export help. Leave empty to hide.",
+          'support_email',
+          'Support email',
+          'Shown to users in settings for account/export help. Leave empty to hide.',
         )}
 
         <div className="border-t border-gray-200 pt-4 space-y-2">
           {boolField(
-            "signups_enabled",
-            "Allow new user registration",
-            "When off, the register link is hidden and public signup is rejected.",
+            'signups_enabled',
+            'Allow new user registration',
+            'When off, the register link is hidden and public signup is rejected.',
           )}
           {boolField(
-            "mail_enabled",
-            "Send transactional email",
-            "When off, no SMTP mail is sent and the email-validation banner is hidden.",
+            'mail_enabled',
+            'Send transactional email',
+            'When off, no SMTP mail is sent and the email-validation banner is hidden.',
           )}
           {boolField(
-            "email_auto_validate",
-            "Auto-validate new accounts",
-            "Treat new accounts as email-validated without a confirmation email.",
+            'email_auto_validate',
+            'Auto-validate new accounts',
+            'Treat new accounts as email-validated without a confirmation email.',
           )}
         </div>
 

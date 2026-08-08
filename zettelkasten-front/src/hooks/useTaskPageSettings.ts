@@ -1,10 +1,24 @@
-import { useState, useEffect, useMemo, useCallback, Dispatch, SetStateAction } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  Dispatch,
+  SetStateAction,
+} from 'react';
 
-const STORAGE_KEY = "taskPageSettings";
+const STORAGE_KEY = 'taskPageSettings';
 
-type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "manual";
-type SortDirection = "asc" | "desc";
-type ViewMode = "list" | "matrix" | "kanban";
+type SortField =
+  | 'updated_at'
+  | 'title'
+  | 'priority'
+  | 'status'
+  | 'id'
+  | 'scheduled_date'
+  | 'manual';
+type SortDirection = 'asc' | 'desc';
+type ViewMode = 'list' | 'matrix' | 'kanban';
 
 interface TaskPageSettings {
   dateView: string;
@@ -44,24 +58,38 @@ export function useTaskPageSettings(): TaskPageSettingsReturn {
   // Load saved settings from localStorage
   const savedSettings = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     } catch {
       return {};
     }
   }, []);
 
   // Initialize state with saved values or defaults
-  const [dateView, setDateView] = useState<string>(savedSettings.dateView || "today");
-  const [filterString, setFilterString] = useState<string>(savedSettings.filterString || "");
-  const [sortField, setSortField] = useState<SortField>(savedSettings.sortField || "priority");
-  const [sortDirection, setSortDirection] = useState<SortDirection>(savedSettings.sortDirection || "asc");
-  const [viewMode, setViewMode] = useState<ViewMode>(savedSettings.viewMode || "list");
+  const [dateView, setDateView] = useState<string>(
+    savedSettings.dateView || 'today',
+  );
+  const [filterString, setFilterString] = useState<string>(
+    savedSettings.filterString || '',
+  );
+  const [sortField, setSortField] = useState<SortField>(
+    savedSettings.sortField || 'priority',
+  );
+  const [sortDirection, setSortDirection] = useState<SortDirection>(
+    savedSettings.sortDirection || 'asc',
+  );
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    savedSettings.viewMode || 'list',
+  );
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(savedSettings.itemsPerPage || 50);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(
+    savedSettings.itemsPerPage || 50,
+  );
   const [showFilterHelp, setShowFilterHelp] = useState<boolean>(false);
   const [showDisplayMenu, setShowDisplayMenu] = useState<boolean>(false);
   const [selectMode, setSelectMode] = useState<boolean>(false);
-  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(new Set());
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(
+    new Set(),
+  );
 
   // Persist settings to localStorage whenever they change
   useEffect(() => {
@@ -71,10 +99,17 @@ export function useTaskPageSettings(): TaskPageSettingsReturn {
       filterString,
       sortField,
       sortDirection,
-      itemsPerPage
+      itemsPerPage,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  }, [dateView, viewMode, filterString, sortField, sortDirection, itemsPerPage]);
+  }, [
+    dateView,
+    viewMode,
+    filterString,
+    sortField,
+    sortDirection,
+    itemsPerPage,
+  ]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -83,7 +118,7 @@ export function useTaskPageSettings(): TaskPageSettingsReturn {
 
   // Clear selection when switching to matrix view
   useEffect(() => {
-    if (viewMode === "matrix") {
+    if (viewMode === 'matrix') {
       setSelectMode(false);
       setSelectedTaskIds(new Set());
     }
@@ -91,11 +126,11 @@ export function useTaskPageSettings(): TaskPageSettingsReturn {
 
   // Action functions
   const toggleSortDirection = useCallback(() => {
-    setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
   }, []);
 
   const toggleSelectMode = useCallback(() => {
-    setSelectMode(prev => {
+    setSelectMode((prev) => {
       const newValue = !prev;
       // Clear selections when exiting select mode
       if (!newValue) {
@@ -106,7 +141,7 @@ export function useTaskPageSettings(): TaskPageSettingsReturn {
   }, []);
 
   const toggleTaskSelection = useCallback((taskId: number) => {
-    setSelectedTaskIds(prev => {
+    setSelectedTaskIds((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(taskId)) {
         newSet.delete(taskId);

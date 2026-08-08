@@ -1,10 +1,10 @@
-import React from "react";
-import { SearchResult } from "../../models/Card";
-import { SearchConfig } from "../../models/StarredSearch";
-import { Button } from "../../components/Button";
-import { SearchForm } from "./SearchForm";
-import { SearchConfig as SearchConfigComponent } from "./SearchConfig";
-import { SearchResultList } from "../../components/cards/SearchResultList";
+import React from 'react';
+import { SearchResult } from '../../models/Card';
+import { SearchConfig } from '../../models/StarredSearch';
+import { Button } from '../../components/Button';
+import { SearchForm } from './SearchForm';
+import { SearchConfig as SearchConfigComponent } from './SearchConfig';
+import { SearchResultList } from '../../components/cards/SearchResultList';
 
 interface SearchResultsPanelProps {
   // Search input state
@@ -60,10 +60,10 @@ export function SearchResultsPanel({
   starredId,
   setShowStarSearchDialog,
 }: SearchResultsPanelProps) {
-
   function getFilteredResults(): SearchResult[] {
-    return searchResults
-      .filter(result => !searchConfig.onlyParentCards || !result.id.includes("/"));
+    return searchResults.filter(
+      (result) => !searchConfig.onlyParentCards || !result.id.includes('/'),
+    );
   }
 
   const handleResultClick = (result: SearchResult) => {
@@ -90,7 +90,7 @@ export function SearchResultsPanel({
             searchTerm={searchTerm}
             searchConfig={searchConfig}
             setSearchConfig={setSearchConfig}
-            tags={tags.map((name, id) => ({ id, name, color: "", user_id: 0 }))}
+            tags={tags.map((name, id) => ({ id, name, color: '', user_id: 0 }))}
             starredId={starredId}
             setShowStarSearchDialog={setShowStarSearchDialog}
             onTagClick={onTagClick}
@@ -156,22 +156,46 @@ export function SearchResultsPanel({
                 {error === null ? (
                   <>
                     <div className="text-gray-400 mb-4">
-                      <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      <svg
+                        className="w-16 h-16 mx-auto"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
                       </svg>
                     </div>
                     <p className="text-gray-600 text-center">
-                      {searchTerm ? 'No results found' : 'Enter a search term to find cards, entities, and facts'}
+                      {searchTerm
+                        ? 'No results found'
+                        : 'Enter a search term to find cards, entities, and facts'}
                     </p>
                   </>
                 ) : (
                   <div className="text-center">
                     <div className="text-red-400 mb-4">
-                      <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <svg
+                        className="w-16 h-16 mx-auto"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
                       </svg>
                     </div>
-                    <p className="text-red-600">Search returned an error: {error.message}</p>
+                    <p className="text-red-600">
+                      Search returned an error: {error.message}
+                    </p>
                   </div>
                 )}
               </div>

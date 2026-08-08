@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   getToday,
   getTomorrow,
@@ -12,9 +12,9 @@ import {
   getEndOfMonthInTimezone,
   getStartOfWeekInTimezone,
   getEndOfWeekInTimezone,
-} from "./dates";
+} from './dates';
 
-describe("Date utility functions", () => {
+describe('Date utility functions', () => {
   // Use UTC to remove time zone dependence
   const mockDate = new Date(Date.UTC(2023, 0, 1, 0, 0, 0)); // Jan 1, 2023, UTC
 
@@ -28,28 +28,28 @@ describe("Date utility functions", () => {
   });
 
   it("should return today's date", () => {
-    const today = getToday("UTC");
+    const today = getToday('UTC');
     expect(today.getUTCFullYear()).toBe(2023);
     expect(today.getUTCMonth()).toBe(0);
     expect(today.getUTCDate()).toBe(1);
   });
 
   it("should return tomorrow's date", () => {
-    const tomorrow = getTomorrow("UTC");
+    const tomorrow = getTomorrow('UTC');
     expect(tomorrow.getUTCFullYear()).toBe(2023);
     expect(tomorrow.getUTCMonth()).toBe(0);
     expect(tomorrow.getUTCDate()).toBe(2); // Expecting Jan 2, 2023, UTC
   });
 
   it("should return yesterday's date", () => {
-    const yesterday = getYesterday("UTC");
+    const yesterday = getYesterday('UTC');
     expect(yesterday.getUTCFullYear()).toBe(2022);
     expect(yesterday.getUTCMonth()).toBe(11); // December is 11
     expect(yesterday.getUTCDate()).toBe(31); // Expecting Dec 31, 2022, UTC
   });
 
-  it("should return the date for exactly one week from today", () => {
-    const nextWeek = getNextWeek("UTC");
+  it('should return the date for exactly one week from today', () => {
+    const nextWeek = getNextWeek('UTC');
     expect(nextWeek.getUTCFullYear()).toBe(2023);
     expect(nextWeek.getUTCMonth()).toBe(0);
     expect(nextWeek.getUTCDate()).toBe(8); // Expecting Jan 8, 2023, UTC
@@ -89,7 +89,7 @@ describe('compareDates function', () => {
   //   expect(compareDates(date1, date2)).toBe(true); // Assuming we just care about date, not time
   // });
 });
-describe("Date validation functions", () => {
+describe('Date validation functions', () => {
   // Mock date setup, similar to your existing tests
   const mockToday = new Date(Date.UTC(2023, 0, 1, 5, 0, 0)); // Jan 1, 2023, UTC
 
@@ -102,45 +102,45 @@ describe("Date validation functions", () => {
     vi.useRealTimers();
   });
 
-  describe("isTodayOrPast", () => {
+  describe('isTodayOrPast', () => {
     it("should return true for today's date", () => {
       const today = new Date(Date.UTC(2023, 0, 1, 5, 0, 0)); // Use same mock time
-      expect(isTodayOrPast(today, "UTC")).toBe(true);
+      expect(isTodayOrPast(today, 'UTC')).toBe(true);
     });
 
-    it("should return true for a past date", () => {
+    it('should return true for a past date', () => {
       const pastDate = new Date(Date.UTC(2022, 11, 31, 0, 0, 0));
-      expect(isTodayOrPast(pastDate, "UTC")).toBe(true);
+      expect(isTodayOrPast(pastDate, 'UTC')).toBe(true);
     });
 
-    it("should return false for a future date", () => {
+    it('should return false for a future date', () => {
       const futureDate = new Date(Date.UTC(2023, 0, 2, 0, 0, 0));
-      expect(isTodayOrPast(futureDate, "UTC")).toBe(false);
+      expect(isTodayOrPast(futureDate, 'UTC')).toBe(false);
     });
 
-    it("should return false for a null date", () => {
-      expect(isTodayOrPast(null, "UTC")).toBe(false);
+    it('should return false for a null date', () => {
+      expect(isTodayOrPast(null, 'UTC')).toBe(false);
     });
   });
 
-  describe("isPast", () => {
+  describe('isPast', () => {
     it("should return false for today's date", () => {
       const today = new Date(Date.UTC(2023, 0, 1, 5, 0, 0)); // Use same mock time
-      expect(isPast(today, "UTC")).toBe(false);
+      expect(isPast(today, 'UTC')).toBe(false);
     });
 
-    it("should return true for a past date", () => {
+    it('should return true for a past date', () => {
       const pastDate = new Date(Date.UTC(2022, 11, 30, 0, 0, 0));
-      expect(isPast(pastDate, "UTC")).toBe(true);
+      expect(isPast(pastDate, 'UTC')).toBe(true);
     });
 
-    it("should return false for a future date", () => {
+    it('should return false for a future date', () => {
       const futureDate = new Date(Date.UTC(2023, 0, 2, 0, 0, 0));
-      expect(isPast(futureDate, "UTC")).toBe(false);
+      expect(isPast(futureDate, 'UTC')).toBe(false);
     });
 
-    it("should return false for a null date", () => {
-      expect(isPast(null, "UTC")).toBe(false);
+    it('should return false for a null date', () => {
+      expect(isPast(null, 'UTC')).toBe(false);
     });
   });
 });
@@ -149,34 +149,34 @@ describe('compareDatesInTimezone function', () => {
   it('should return true for identical dates in the same timezone', () => {
     const date1 = new Date('2023-01-01T00:00:00Z');
     const date2 = new Date('2023-01-01T12:00:00Z'); // Same day, different time
-    expect(compareDatesInTimezone(date1, date2, "UTC")).toBe(true);
+    expect(compareDatesInTimezone(date1, date2, 'UTC')).toBe(true);
   });
 
   it('should return false for dates on different days in the same timezone', () => {
     const date1 = new Date('2023-01-01T00:00:00Z');
     const date2 = new Date('2023-01-02T00:00:00Z');
-    expect(compareDatesInTimezone(date1, date2, "UTC")).toBe(false);
+    expect(compareDatesInTimezone(date1, date2, 'UTC')).toBe(false);
   });
 
   it('should handle timezone conversion correctly - same moment in different timezones', () => {
     // January 1, 2023 at midnight UTC in different timezones
     const date1 = new Date('2023-01-01T00:00:00Z'); // UTC
     const date2 = new Date('2023-01-01T08:00:00+08:00'); // Same moment in China timezone
-    expect(compareDatesInTimezone(date1, date2, "UTC")).toBe(true);
+    expect(compareDatesInTimezone(date1, date2, 'UTC')).toBe(true);
   });
 
   it('should return false if the first date is null', () => {
     const date2 = new Date('2023-01-01T00:00:00Z');
-    expect(compareDatesInTimezone(null, date2, "UTC")).toBe(false);
+    expect(compareDatesInTimezone(null, date2, 'UTC')).toBe(false);
   });
 
   it('should return false if the second date is null', () => {
     const date1 = new Date('2023-01-01T00:00:00Z');
-    expect(compareDatesInTimezone(date1, null, "UTC")).toBe(false);
+    expect(compareDatesInTimezone(date1, null, 'UTC')).toBe(false);
   });
 
   it('should return false if both dates are null', () => {
-    expect(compareDatesInTimezone(null, null, "UTC")).toBe(false);
+    expect(compareDatesInTimezone(null, null, 'UTC')).toBe(false);
   });
 
   it('should handle timezone conversions correctly', () => {
@@ -187,11 +187,13 @@ describe('compareDatesInTimezone function', () => {
     const date2 = new Date('2023-03-14T10:00:00Z'); // 6 AM EDT on same day
 
     // These should be the same day in America/New_York timezone
-    expect(compareDatesInTimezone(date1, date2, "America/New_York")).toBe(true);
+    expect(compareDatesInTimezone(date1, date2, 'America/New_York')).toBe(true);
 
     // Different day should return false
     const date3 = new Date('2023-03-15T05:00:00Z'); // 1 AM EDT on next day
-    expect(compareDatesInTimezone(date1, date3, "America/New_York")).toBe(false);
+    expect(compareDatesInTimezone(date1, date3, 'America/New_York')).toBe(
+      false,
+    );
   });
 
   it('should work with different timezones', () => {
@@ -200,8 +202,10 @@ describe('compareDatesInTimezone function', () => {
     const tokyoDate = new Date('2023-01-02T10:00:00+09:00'); // Same moment
 
     // These should be the same day in their respective timezones
-    expect(compareDatesInTimezone(utcDate, utcDate, "UTC")).toBe(true);
-    expect(compareDatesInTimezone(tokyoDate, tokyoDate, "Asia/Tokyo")).toBe(true);
+    expect(compareDatesInTimezone(utcDate, utcDate, 'UTC')).toBe(true);
+    expect(compareDatesInTimezone(tokyoDate, tokyoDate, 'Asia/Tokyo')).toBe(
+      true,
+    );
   });
 });
 
@@ -211,11 +215,19 @@ describe('Timezone-aware date comparison scenarios', () => {
     // getToday("America/New_York") returns midnight UTC for the current day in NY timezone
     // If today is Jan 1, 2023 in NY (which is midnight Jan 1, 2023 UTC for UTC-5),
     // then it's still the same calendar day
-    const todayInUserTz = getToday("America/New_York");
-    const todayInUtc = new Date(Date.UTC(todayInUserTz.getUTCFullYear(), todayInUserTz.getUTCMonth(), todayInUserTz.getUTCDate()));
+    const todayInUserTz = getToday('America/New_York');
+    const todayInUtc = new Date(
+      Date.UTC(
+        todayInUserTz.getUTCFullYear(),
+        todayInUserTz.getUTCMonth(),
+        todayInUserTz.getUTCDate(),
+      ),
+    );
 
     // These should be comparable correctly - both represent the same calendar day
-    expect(compareDatesInTimezone(todayInUtc, todayInUserTz, "America/New_York")).toBe(true);
+    expect(
+      compareDatesInTimezone(todayInUtc, todayInUserTz, 'America/New_York'),
+    ).toBe(true);
   });
 });
 

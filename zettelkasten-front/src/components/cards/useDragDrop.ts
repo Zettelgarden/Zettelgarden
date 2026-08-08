@@ -1,6 +1,6 @@
-import { Card } from "../../models/Card";
-import { File } from "../../models/File";
-import { uploadFile } from "../../api/files";
+import { Card } from '../../models/Card';
+import { File } from '../../models/File';
+import { uploadFile } from '../../api/files';
 
 interface UseDragDropOptions {
   editingCard: Card;
@@ -15,7 +15,7 @@ export function useDragDrop({
   setEditingCard,
   setMessage,
   filesToUpdate,
-  setFilesToUpdate
+  setFilesToUpdate,
 }: UseDragDropOptions) {
   const handleDragOver = (event: React.DragEvent<HTMLTextAreaElement>) => {
     event.preventDefault();
@@ -26,7 +26,7 @@ export function useDragDrop({
     if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
       for (let i = 0; i < event.dataTransfer.files.length; i++) {
         const file = event.dataTransfer.files[i];
-        if (file.type.startsWith("image/")) {
+        if (file.type.startsWith('image/')) {
           try {
             // Create a sanitized filename based on card title
             const sanitizedTitle = editingCard.title
@@ -38,18 +38,22 @@ export function useDragDrop({
             const timestamp = new Date().getTime();
             const customFilename = `${sanitizedTitle}-${timestamp}-${i}`;
 
-            const response = await uploadFile(file, editingCard.id, customFilename);
+            const response = await uploadFile(
+              file,
+              editingCard.id,
+              customFilename,
+            );
 
-            if ("error" in response) {
-              setMessage("Error uploading file: " + response["message"]);
+            if ('error' in response) {
+              setMessage('Error uploading file: ' + response['message']);
             } else {
               setMessage(
-                "File uploaded successfully: " + response["file"]["name"],
+                'File uploaded successfully: ' + response['file']['name'],
               );
               setFilesToUpdate([...filesToUpdate, response.file]);
             }
           } catch (error) {
-            setMessage("Error uploading file: " + error);
+            setMessage('Error uploading file: ' + error);
           }
         }
       }
@@ -62,13 +66,13 @@ export function useDragDrop({
     if (event.clipboardData && event.clipboardData.items) {
       const items = Array.from(event.clipboardData.items);
       for (const item of items) {
-        if (item.type.indexOf("image") !== -1) {
+        if (item.type.indexOf('image') !== -1) {
           event.preventDefault(); // Prevent default only for images
           const file = item.getAsFile();
 
           try {
             // Use title or default to "image" if title is blank
-            const baseTitle = editingCard.title.trim() || "image";
+            const baseTitle = editingCard.title.trim() || 'image';
 
             // Create a sanitized filename based on card title
             const sanitizedTitle = baseTitle
@@ -80,15 +84,19 @@ export function useDragDrop({
             const timestamp = new Date().getTime();
             const customFilename = `${sanitizedTitle}-${timestamp}`;
 
-            const response = await uploadFile(file!, editingCard.id, customFilename);
+            const response = await uploadFile(
+              file!,
+              editingCard.id,
+              customFilename,
+            );
 
-            if ("error" in response) {
-              setMessage("Error uploading file: " + response["message"]);
+            if ('error' in response) {
+              setMessage('Error uploading file: ' + response['message']);
             } else {
               setFilesToUpdate([...filesToUpdate, response.file]);
-              let append_text = "\n\n![](" + response["file"]["id"] + ")";
+              let append_text = '\n\n![](' + response['file']['id'] + ')';
               setMessage(
-                `File uploaded successfully: ${response["file"]["name"]}`,
+                `File uploaded successfully: ${response['file']['name']}`,
               );
 
               let prevEditingCard = {
@@ -108,6 +116,6 @@ export function useDragDrop({
   return {
     handleDragOver,
     handleDrop,
-    handlePaste
+    handlePaste,
   };
 }

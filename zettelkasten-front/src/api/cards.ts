@@ -6,8 +6,8 @@ import {
   SearchResult,
   defaultCard,
   RelatedCard,
-} from "../models/Card";
-import { apiClient, getData } from "./client";
+} from '../models/Card';
+import { apiClient, getData } from './client';
 
 // Utility function to escape entity names for search queries
 export function escapeEntityNameForSearch(entityName: string): string {
@@ -53,14 +53,14 @@ function processSearchResults(results: SearchResult[]): SearchResult[] {
  * Semantic search with pagination
  */
 export async function semanticSearchCardsPaginated(
-  searchTerm = "",
+  searchTerm = '',
   fullText = false,
   showEntities = false,
   showFacts = true,
   showCards = true,
   showEmails = false,
-  sortBy = "sortByRanking",
-  searchType = "classic",
+  sortBy = 'sortByRanking',
+  searchType = 'classic',
   rerank = true,
   page = 1,
   perPage = 50,
@@ -82,10 +82,8 @@ export async function semanticSearchCardsPaginated(
     per_page: perPage,
   };
 
-  const { data: paginatedResponse } = await apiClient.post<PaginatedSearchResponse>(
-    "/search",
-    params
-  );
+  const { data: paginatedResponse } =
+    await apiClient.post<PaginatedSearchResponse>('/search', params);
 
   if (!paginatedResponse || !paginatedResponse.results) {
     return {
@@ -107,14 +105,14 @@ export async function semanticSearchCardsPaginated(
  * Semantic search (backward compatible wrapper)
  */
 export async function semanticSearchCards(
-  searchTerm = "",
+  searchTerm = '',
   fullText = false,
   showEntities = false,
   showFacts = true,
   showCards = true,
   showEmails = false,
-  sortBy = "sortByRanking",
-  searchType = "classic",
+  sortBy = 'sortByRanking',
+  searchType = 'classic',
   rerank = true,
 ): Promise<SearchResult[]> {
   const response = await semanticSearchCardsPaginated(
@@ -128,7 +126,7 @@ export async function semanticSearchCards(
     searchType,
     rerank,
     1,
-    1000 // Large page size to get most results
+    1000, // Large page size to get most results
   );
   return response.results;
 }
@@ -141,24 +139,29 @@ function processCardFromAPI(card: Card): Card {
     ...card,
     created_at: new Date(card.created_at),
     updated_at: new Date(card.updated_at),
-    children: card.children?.map((child) => ({
-      ...child,
-      created_at: new Date(child.created_at),
-      updated_at: new Date(child.updated_at),
-    })) || [],
-    references: card.references?.map((ref) => ({
-      ...ref,
-      created_at: new Date(ref.created_at),
-      updated_at: new Date(ref.updated_at),
-    })) || [],
-    tasks: card.tasks?.map((task) => ({
-      ...task,
-      scheduled_date: task.scheduled_date ? new Date(task.scheduled_date) : null,
-      due_date: task.due_date ? new Date(task.due_date) : null,
-      created_at: new Date(task.created_at),
-      updated_at: new Date(task.updated_at),
-      completed_at: task.completed_at ? new Date(task.completed_at) : null,
-    })) || [],
+    children:
+      card.children?.map((child) => ({
+        ...child,
+        created_at: new Date(child.created_at),
+        updated_at: new Date(child.updated_at),
+      })) || [],
+    references:
+      card.references?.map((ref) => ({
+        ...ref,
+        created_at: new Date(ref.created_at),
+        updated_at: new Date(ref.updated_at),
+      })) || [],
+    tasks:
+      card.tasks?.map((task) => ({
+        ...task,
+        scheduled_date: task.scheduled_date
+          ? new Date(task.scheduled_date)
+          : null,
+        due_date: task.due_date ? new Date(task.due_date) : null,
+        created_at: new Date(task.created_at),
+        updated_at: new Date(task.updated_at),
+        completed_at: task.completed_at ? new Date(task.completed_at) : null,
+      })) || [],
   };
 }
 
@@ -176,7 +179,7 @@ export async function getCard(id: string): Promise<Card> {
  */
 export async function saveNewCard(card: Card): Promise<Card> {
   card.card_id = card.card_id.trim();
-  const { data } = await apiClient.post<Card>("/cards", card);
+  const { data } = await apiClient.post<Card>('/cards', card);
   return processCardFromAPI(data);
 }
 
@@ -184,7 +187,10 @@ export async function saveNewCard(card: Card): Promise<Card> {
  * Save an existing card
  */
 export async function saveExistingCard(card: Card): Promise<Card> {
-  const { data } = await apiClient.put<Card>(`/cards/${encodeURIComponent(card.id)}`, card);
+  const { data } = await apiClient.put<Card>(
+    `/cards/${encodeURIComponent(card.id)}`,
+    card,
+  );
   return processCardFromAPI(data);
 }
 
@@ -193,7 +199,9 @@ export async function saveExistingCard(card: Card): Promise<Card> {
  */
 export async function deleteCard(id: number): Promise<Card | null> {
   const encodedId = encodeURIComponent(id);
-  const { response, data } = await apiClient.delete<Card>(`/cards/${encodedId}`);
+  const { response, data } = await apiClient.delete<Card>(
+    `/cards/${encodedId}`,
+  );
 
   if (response.status === 204) {
     return null;
@@ -206,14 +214,14 @@ export async function deleteCard(id: number): Promise<Card | null> {
  */
 export async function getCardAuditEvents(cardId: string): Promise<any[]> {
   const { data: events } = await apiClient.get<any[]>(
-    `/cards/${encodeURIComponent(cardId)}/audit`
+    `/cards/${encodeURIComponent(cardId)}/audit`,
   );
 
   if (!events) {
     return [];
   }
 
-  return events.map(event => ({
+  return events.map((event) => ({
     ...event,
     created_at: new Date(event.created_at),
     updated_at: new Date(event.updated_at),
@@ -225,7 +233,7 @@ export async function getCardAuditEvents(cardId: string): Promise<any[]> {
  */
 export async function getCardFiles(cardId: string): Promise<any[]> {
   const { data: files } = await apiClient.get<any[]>(
-    `/cards/${encodeURIComponent(cardId)}/files`
+    `/cards/${encodeURIComponent(cardId)}/files`,
   );
 
   if (!files) {
@@ -244,7 +252,7 @@ export async function getCardFiles(cardId: string): Promise<any[]> {
  */
 export async function getCardChildren(cardId: string): Promise<PartialCard[]> {
   const { data: children } = await apiClient.get<PartialCard[]>(
-    `/cards/${encodeURIComponent(cardId)}/children`
+    `/cards/${encodeURIComponent(cardId)}/children`,
   );
 
   if (!children) {
@@ -263,7 +271,7 @@ export async function getCardChildren(cardId: string): Promise<PartialCard[]> {
  */
 export async function getCardTags(cardId: string): Promise<any[]> {
   const { data: tags } = await apiClient.get<any[]>(
-    `/cards/${encodeURIComponent(cardId)}/tags`
+    `/cards/${encodeURIComponent(cardId)}/tags`,
   );
 
   if (!tags) {
@@ -275,9 +283,11 @@ export async function getCardTags(cardId: string): Promise<any[]> {
 /**
  * Get entities linked to a card
  */
-export async function getLinkedEntitiesByCardPK(cardId: string | number): Promise<Entity[]> {
+export async function getLinkedEntitiesByCardPK(
+  cardId: string | number,
+): Promise<Entity[]> {
   const response = await apiClient.fetchResponse(
-    `/cards/${encodeURIComponent(cardId)}/linked-entities`
+    `/cards/${encodeURIComponent(cardId)}/linked-entities`,
   );
 
   // Handle no content responses gracefully
@@ -302,7 +312,7 @@ export async function getLinkedEntitiesByCardPK(cardId: string | number): Promis
  */
 export async function getCardEntities(cardId: string | number): Promise<any[]> {
   const { data: entities } = await apiClient.get<any[]>(
-    `/cards/${encodeURIComponent(cardId)}/entities`
+    `/cards/${encodeURIComponent(cardId)}/entities`,
   );
 
   if (!entities) {
@@ -316,7 +326,7 @@ export async function getCardEntities(cardId: string | number): Promise<any[]> {
  */
 export async function getCardTasks(cardId: string | number): Promise<any[]> {
   const { data: tasks } = await apiClient.get<any[]>(
-    `/cards/${encodeURIComponent(cardId)}/tasks`
+    `/cards/${encodeURIComponent(cardId)}/tasks`,
   );
 
   if (!tasks) {
@@ -335,8 +345,8 @@ export async function getCardTasks(cardId: string | number): Promise<any[]> {
 
 export interface CategorizedReferences {
   bidirectional: PartialCard[]; // Two-way links (mutual references)
-  outgoing: PartialCard[];      // One-way links (this card references them)
-  incoming: PartialCard[];      // One-way links (they reference this card)
+  outgoing: PartialCard[]; // One-way links (this card references them)
+  incoming: PartialCard[]; // One-way links (they reference this card)
 }
 
 function processPartialCards(cards: PartialCard[]): PartialCard[] {
@@ -350,9 +360,11 @@ function processPartialCards(cards: PartialCard[]): PartialCard[] {
 /**
  * Get references for a card
  */
-export async function getCardReferences(cardId: string): Promise<CategorizedReferences> {
+export async function getCardReferences(
+  cardId: string,
+): Promise<CategorizedReferences> {
   const { data: refs } = await apiClient.get<CategorizedReferences>(
-    `/cards/${encodeURIComponent(cardId)}/references`
+    `/cards/${encodeURIComponent(cardId)}/references`,
   );
 
   if (!refs) {
@@ -374,7 +386,7 @@ export async function getCardReferences(cardId: string): Promise<CategorizedRefe
  * Get the next root card ID
  */
 export async function getNextRootId(): Promise<NextIdResponse> {
-  return getData(apiClient.get<NextIdResponse>("/cards/next-root-id"));
+  return getData(apiClient.get<NextIdResponse>('/cards/next-root-id'));
 }
 
 /**
@@ -395,7 +407,7 @@ export async function unstarCard(cardId: number): Promise<void> {
  * Get all starred cards
  */
 export async function getStarredCards(): Promise<Card[]> {
-  const { data: starredCards } = await apiClient.get<any[]>("/cards/starred");
+  const { data: starredCards } = await apiClient.get<any[]>('/cards/starred');
 
   if (!starredCards) {
     return [];
@@ -409,24 +421,29 @@ export async function getStarredCards(): Promise<Card[]> {
       ...card,
       created_at: new Date(card.created_at),
       updated_at: new Date(card.updated_at),
-      children: card.children?.map((child: any) => ({
-        ...child,
-        created_at: new Date(child.created_at),
-        updated_at: new Date(child.updated_at),
-      })) || [],
-      references: card.references?.map((ref: any) => ({
-        ...ref,
-        created_at: new Date(ref.created_at),
-        updated_at: new Date(ref.updated_at),
-      })) || [],
-      tasks: card.tasks?.map((task: any) => ({
-        ...task,
-        scheduled_date: task.scheduled_date ? new Date(task.scheduled_date) : null,
-        due_date: task.due_date ? new Date(task.due_date) : null,
-        created_at: new Date(task.created_at),
-        updated_at: new Date(task.updated_at),
-        completed_at: task.completed_at ? new Date(task.completed_at) : null,
-      })) || [],
+      children:
+        card.children?.map((child: any) => ({
+          ...child,
+          created_at: new Date(child.created_at),
+          updated_at: new Date(child.updated_at),
+        })) || [],
+      references:
+        card.references?.map((ref: any) => ({
+          ...ref,
+          created_at: new Date(ref.created_at),
+          updated_at: new Date(ref.updated_at),
+        })) || [],
+      tasks:
+        card.tasks?.map((task: any) => ({
+          ...task,
+          scheduled_date: task.scheduled_date
+            ? new Date(task.scheduled_date)
+            : null,
+          due_date: task.due_date ? new Date(task.due_date) : null,
+          created_at: new Date(task.created_at),
+          updated_at: new Date(task.updated_at),
+          completed_at: task.completed_at ? new Date(task.completed_at) : null,
+        })) || [],
       is_pinned: true, // Mark as starred since it's coming from the starred cards endpoint
     };
   });
@@ -437,8 +454,8 @@ export async function getStarredCards(): Promise<Card[]> {
  */
 export async function suggestCardTitle(body: string): Promise<string> {
   const { data } = await apiClient.post<{ suggested_title: string }>(
-    "/cards/suggest-title",
-    { body }
+    '/cards/suggest-title',
+    { body },
   );
   return data.suggested_title;
 }
@@ -454,9 +471,12 @@ interface UnsortedCardsResponse {
 /**
  * Fetch unsorted cards (cards with empty card_id)
  */
-export async function getUnsortedCards(page = 1, perPage = 10): Promise<UnsortedCardsResponse> {
+export async function getUnsortedCards(
+  page = 1,
+  perPage = 10,
+): Promise<UnsortedCardsResponse> {
   const { data } = await apiClient.get<UnsortedCardsResponse>(
-    `/cards/unsorted?page=${page}&per_page=${perPage}`
+    `/cards/unsorted?page=${page}&per_page=${perPage}`,
   );
 
   const cards = data.cards.map((card) => ({
@@ -476,11 +496,11 @@ export async function getUnsortedCards(page = 1, perPage = 10): Promise<Unsorted
  */
 export async function restoreCardToAuditEvent(
   cardId: string,
-  auditEventId: number
+  auditEventId: number,
 ): Promise<Card> {
   const { data: card } = await apiClient.post<Card>(
     `/cards/${encodeURIComponent(cardId)}/audit/${auditEventId}/restore`,
-    undefined
+    undefined,
   );
   return processCardFromAPI(card);
 }
@@ -491,9 +511,9 @@ export async function restoreCardToAuditEvent(
 export async function createArticle(
   url: string,
   cardId?: string,
-  tags?: string
+  tags?: string,
 ): Promise<Card> {
-  const { data: card } = await apiClient.post<Card>("/articles", {
+  const { data: card } = await apiClient.post<Card>('/articles', {
     url,
     card_id: cardId,
     tags,
@@ -520,10 +540,16 @@ export async function createCard(cardData: {
   const newCard: Card = {
     ...defaultCard,
     title: cardData.title,
-    body: cardData.body || "",
-    link: cardData.link || "",
+    body: cardData.body || '',
+    link: cardData.link || '',
     parent_id: cardData.parent_id || 0,
-    tags: cardData.tags?.map(tag => ({ id: 0, name: tag, color: "black", user_id: 1 })) || [],
+    tags:
+      cardData.tags?.map((tag) => ({
+        id: 0,
+        name: tag,
+        color: 'black',
+        user_id: 1,
+      })) || [],
   };
   return saveNewCard(newCard);
 }
@@ -540,20 +566,20 @@ export async function searchCards(
   query: string,
   fullText = false,
   perPage = 10,
-  page = 1
+  page = 1,
 ): Promise<SearchResult[]> {
   const response = await semanticSearchCardsPaginated(
     query,
     fullText,
     false, // showEntities
-    true,  // showFacts
-    true,  // showCards
+    true, // showFacts
+    true, // showCards
     false, // showEmails
-    "sortByRanking",
-    "classic",
-    true,  // rerank
+    'sortByRanking',
+    'classic',
+    true, // rerank
     page,
-    perPage
+    perPage,
   );
   return response.results;
 }
@@ -563,7 +589,7 @@ export async function searchCards(
  */
 export async function getRelatedCards(cardId: string): Promise<RelatedCard[]> {
   const { data: relatedCards } = await apiClient.get<RelatedCard[]>(
-    `/cards/${encodeURIComponent(cardId)}/related`
+    `/cards/${encodeURIComponent(cardId)}/related`,
   );
   return relatedCards;
 }

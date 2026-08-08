@@ -1,4 +1,4 @@
-import { apiClient, getData, buildURL } from "./client";
+import { apiClient, getData, buildURL } from './client';
 
 const BASE_URL = import.meta.env.VITE_URL;
 
@@ -12,11 +12,11 @@ export interface DeleteAccountResponse {
  * browser download, mirroring the file-download pattern in api/files.ts.
  */
 export async function exportUserData(): Promise<void> {
-  const token = localStorage.getItem("token");
-  const url = buildURL(BASE_URL, "/user/export");
+  const token = localStorage.getItem('token');
+  const url = buildURL(BASE_URL, '/user/export');
 
   const response = await fetch(url, {
-    method: "GET",
+    method: 'GET',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
@@ -29,12 +29,12 @@ export async function exportUserData(): Promise<void> {
 
   // Prefer the server-provided filename (zettelgarden-export-<id>-<date>.zip),
   // fall back to a generic name.
-  let filename = "zettelgarden-export.zip";
-  const disposition = response.headers.get("Content-Disposition");
+  let filename = 'zettelgarden-export.zip';
+  const disposition = response.headers.get('Content-Disposition');
   const match = disposition && disposition.match(/filename="?([^";]+)"?/);
   if (match) filename = match[1];
 
-  const a = document.createElement("a");
+  const a = document.createElement('a');
   a.href = localUrl;
   a.download = filename;
   document.body.appendChild(a);
@@ -51,7 +51,7 @@ export function deleteAccount(
   password: string,
 ): Promise<DeleteAccountResponse> {
   return getData(
-    apiClient.delete<DeleteAccountResponse>("/user", {
+    apiClient.delete<DeleteAccountResponse>('/user', {
       body: JSON.stringify({ password }),
     }),
   );

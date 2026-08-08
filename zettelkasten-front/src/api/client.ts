@@ -42,7 +42,11 @@ export interface APIResponse<T> {
  * this correctly produces "http://localhost:8079/api/login" instead of
  * "http://localhost:8079/login" (which is what new URL(path, base) does).
  */
-export function buildURL(base: string, path: string, params?: Record<string, string | number | boolean | undefined>): string {
+export function buildURL(
+  base: string,
+  path: string,
+  params?: Record<string, string | number | boolean | undefined>,
+): string {
   // If path is already a full URL, use it as-is
   if (path.startsWith('http://') || path.startsWith('https://')) {
     const url = new URL(path);
@@ -157,7 +161,10 @@ async function parseResponse<T>(response: Response): Promise<T> {
   try {
     return JSON.parse(text) as T;
   } catch (error) {
-    throw new APIError(`Failed to parse response as JSON: ${text}`, response.status);
+    throw new APIError(
+      `Failed to parse response as JSON: ${text}`,
+      response.status,
+    );
   }
 }
 
@@ -166,7 +173,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
  */
 async function fetchWithErrorHandling(
   path: string,
-  config: RequestConfig = {}
+  config: RequestConfig = {},
 ): Promise<Response> {
   const { params, skipAuth = false, ...requestConfig } = config;
 
@@ -197,7 +204,9 @@ async function fetchWithErrorHandling(
   } catch (error) {
     if (error instanceof TypeError) {
       // Network error (failed to fetch, timeout, etc.)
-      throw new NetworkError('Network request failed. Please check your connection.');
+      throw new NetworkError(
+        'Network request failed. Please check your connection.',
+      );
     }
     throw error;
   }
@@ -241,7 +250,11 @@ export const apiClient = {
   /**
    * POST request
    */
-  async post<T>(path: string, body?: unknown, config?: RequestConfig): Promise<APIResponse<T>> {
+  async post<T>(
+    path: string,
+    body?: unknown,
+    config?: RequestConfig,
+  ): Promise<APIResponse<T>> {
     const response = await fetchWithErrorHandling(path, {
       ...config,
       method: 'POST',
@@ -253,7 +266,11 @@ export const apiClient = {
   /**
    * PUT request
    */
-  async put<T>(path: string, body?: unknown, config?: RequestConfig): Promise<APIResponse<T>> {
+  async put<T>(
+    path: string,
+    body?: unknown,
+    config?: RequestConfig,
+  ): Promise<APIResponse<T>> {
     const response = await fetchWithErrorHandling(path, {
       ...config,
       method: 'PUT',
@@ -265,7 +282,11 @@ export const apiClient = {
   /**
    * PATCH request
    */
-  async patch<T>(path: string, body?: unknown, config?: RequestConfig): Promise<APIResponse<T>> {
+  async patch<T>(
+    path: string,
+    body?: unknown,
+    config?: RequestConfig,
+  ): Promise<APIResponse<T>> {
     const response = await fetchWithErrorHandling(path, {
       ...config,
       method: 'PATCH',
@@ -277,7 +298,10 @@ export const apiClient = {
   /**
    * DELETE request
    */
-  async delete<T>(path: string, config?: RequestConfig): Promise<APIResponse<T>> {
+  async delete<T>(
+    path: string,
+    config?: RequestConfig,
+  ): Promise<APIResponse<T>> {
     const response = await fetchWithErrorHandling(path, {
       ...config,
       method: 'DELETE',

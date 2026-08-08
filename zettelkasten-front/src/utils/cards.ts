@@ -4,7 +4,7 @@ import {
   CardChunk,
   SearchResult,
   defaultPartialCard,
-} from "../models/Card";
+} from '../models/Card';
 
 // filter the card_id and title by searchText, return top 5 matches
 export function quickFilterCards(
@@ -60,33 +60,33 @@ export function sortCards(
 ): SearchResult[] {
   const sortedCards = [...cards];
   switch (sortMethod) {
-    case "sortCreatedNewOld":
+    case 'sortCreatedNewOld':
       sortedCards.sort(
         (a, b) => b.created_at.getTime() - a.created_at.getTime(),
       );
       break;
-    case "sortCreatedOldNew":
+    case 'sortCreatedOldNew':
       sortedCards.sort(
         (a, b) => a.created_at.getTime() - b.created_at.getTime(),
       );
       break;
-    case "sortNewOld":
+    case 'sortNewOld':
       sortedCards.sort(
         (a, b) => b.updated_at.getTime() - a.updated_at.getTime(),
       );
       break;
-    case "sortOldNew":
+    case 'sortOldNew':
       sortedCards.sort(
         (a, b) => a.updated_at.getTime() - b.updated_at.getTime(),
       );
       break;
-    case "sortBigSmall":
+    case 'sortBigSmall':
       sortedCards.sort((a, b) => a.title.localeCompare(b.title));
       break;
-    case "sortSmallBig":
+    case 'sortSmallBig':
       sortedCards.sort((a, b) => b.title.localeCompare(a.title));
       break;
-    case "sortByRanking":
+    case 'sortByRanking':
       sortedCards.sort((a, b) => b.score - a.score);
       break;
     default:
@@ -98,8 +98,8 @@ export function sortCards(
 export function compareCardIds(a: string, b: string): number {
   const parseCardId = (cardId: string): (string | number)[] => {
     // Split ID on separators '/' and '.' and parse numbers
-    return cardId.split("/").flatMap((part) =>
-      part.split(".").map((segment, index) => {
+    return cardId.split('/').flatMap((part) =>
+      part.split('.').map((segment, index) => {
         return isNaN(Number(segment)) ? segment : Number(segment);
       }),
     );
@@ -115,17 +115,17 @@ export function compareCardIds(a: string, b: string): number {
     const bPart = bParts[i];
 
     // Compare numbers and strings accordingly
-    if (typeof aPart === "number" && typeof bPart === "number") {
+    if (typeof aPart === 'number' && typeof bPart === 'number') {
       if (aPart !== bPart) {
         return aPart - bPart;
       }
-    } else if (typeof aPart === "string" && typeof bPart === "string") {
+    } else if (typeof aPart === 'string' && typeof bPart === 'string') {
       if (aPart !== bPart) {
         return aPart.localeCompare(bPart);
       }
     } else {
       // Unequal types should never occur if input format is valid, but handle gracefully
-      return typeof aPart === "number" ? -1 : 1;
+      return typeof aPart === 'number' ? -1 : 1;
     }
   }
 
@@ -169,22 +169,22 @@ export function findNextChildId(
 }
 
 export type SortMethod =
-  | "cardId"
-  | "createdNewOld"
-  | "createdOldNew"
-  | "updatedNewOld"
-  | "updatedOldNew"
-  | "titleAZ"
-  | "titleZA";
+  | 'cardId'
+  | 'createdNewOld'
+  | 'createdOldNew'
+  | 'updatedNewOld'
+  | 'updatedOldNew'
+  | 'titleAZ'
+  | 'titleZA';
 
 export const SORT_METHOD_LABELS: Record<SortMethod, string> = {
-  cardId: "Card ID",
-  createdNewOld: "Created (Newest)",
-  createdOldNew: "Created (Oldest)",
-  updatedNewOld: "Updated (Newest)",
-  updatedOldNew: "Updated (Oldest)",
-  titleAZ: "Title (A-Z)",
-  titleZA: "Title (Z-A)",
+  cardId: 'Card ID',
+  createdNewOld: 'Created (Newest)',
+  createdOldNew: 'Created (Oldest)',
+  updatedNewOld: 'Updated (Newest)',
+  updatedOldNew: 'Updated (Oldest)',
+  titleAZ: 'Title (A-Z)',
+  titleZA: 'Title (Z-A)',
 };
 
 /**
@@ -196,9 +196,9 @@ export function buildCardFromParent(parent: PartialCard): Card {
     id: parent.id,
     card_id: parent.card_id,
     user_id: parent.user_id,
-    title: parent.title || "",
-    body: "", // Parent data doesn't include body
-    link: "", // Parent data doesn't include link
+    title: parent.title || '',
+    body: '', // Parent data doesn't include body
+    link: '', // Parent data doesn't include link
     is_deleted: false,
     created_at: parent.created_at,
     updated_at: parent.updated_at,
@@ -220,33 +220,33 @@ export function sortPartialCards(
 ): PartialCard[] {
   const sortedCards = [...cards];
   switch (sortMethod) {
-    case "cardId":
+    case 'cardId':
       sortedCards.sort((a, b) => compareCardIds(a.card_id, b.card_id));
       break;
-    case "createdNewOld":
+    case 'createdNewOld':
       sortedCards.sort(
         (a, b) => b.created_at.getTime() - a.created_at.getTime(),
       );
       break;
-    case "createdOldNew":
+    case 'createdOldNew':
       sortedCards.sort(
         (a, b) => a.created_at.getTime() - b.created_at.getTime(),
       );
       break;
-    case "updatedNewOld":
+    case 'updatedNewOld':
       sortedCards.sort(
         (a, b) => b.updated_at.getTime() - a.updated_at.getTime(),
       );
       break;
-    case "updatedOldNew":
+    case 'updatedOldNew':
       sortedCards.sort(
         (a, b) => a.updated_at.getTime() - b.updated_at.getTime(),
       );
       break;
-    case "titleAZ":
+    case 'titleAZ':
       sortedCards.sort((a, b) => a.title.localeCompare(b.title));
       break;
-    case "titleZA":
+    case 'titleZA':
       sortedCards.sort((a, b) => b.title.localeCompare(a.title));
       break;
     default:

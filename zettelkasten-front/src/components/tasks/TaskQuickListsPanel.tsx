@@ -1,8 +1,13 @@
-import React, { useState, useMemo } from "react";
-import { Task } from "../../models/Task";
-import { useDialogState } from "../../contexts/DialogStateContext";
-import { useAuth } from "../../contexts/AuthContext";
-import { getToday, getNextWeek, compareDatesInTimezone, isPast } from "../../utils/dates";
+import React, { useState, useMemo } from 'react';
+import { Task } from '../../models/Task';
+import { useDialogState } from '../../contexts/DialogStateContext';
+import { useAuth } from '../../contexts/AuthContext';
+import {
+  getToday,
+  getNextWeek,
+  compareDatesInTimezone,
+  isPast,
+} from '../../utils/dates';
 
 interface QuickList {
   id: string;
@@ -24,7 +29,7 @@ interface TaskQuickListsPanelProps {
 export function TaskQuickListsPanel({
   tasks,
   onTagClick,
-  className = "",
+  className = '',
   isCollapsible = true,
   defaultCollapsed = false,
   showOnMobile = false,
@@ -34,7 +39,7 @@ export function TaskQuickListsPanel({
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
   const [expandedLists, setExpandedLists] = useState<Set<string>>(new Set());
 
-  const userTimezone = user?.timezone || "UTC";
+  const userTimezone = user?.timezone || 'UTC';
 
   // Filter tasks into quick lists
   const quickLists = useMemo(() => {
@@ -64,15 +69,13 @@ export function TaskQuickListsPanel({
 
     // Helper to check if task is high priority
     const isHighPriority = (task: Task): boolean => {
-      return task.priority === "A" && !task.is_complete && !task.is_deleted;
+      return task.priority === 'A' && !task.is_complete && !task.is_deleted;
     };
 
     // Filter tasks for each quick list
     const todayTasks = tasks.filter(
       (task) =>
-        !task.is_complete &&
-        !task.is_deleted &&
-        isToday(task.scheduled_date)
+        !task.is_complete && !task.is_deleted && isToday(task.scheduled_date),
     );
 
     const thisWeekTasks = tasks.filter(
@@ -80,7 +83,7 @@ export function TaskQuickListsPanel({
         !task.is_complete &&
         !task.is_deleted &&
         isThisWeek(task.scheduled_date) &&
-        !isToday(task.scheduled_date)
+        !isToday(task.scheduled_date),
     );
 
     const overdueTasks = tasks.filter(isOverdue);
@@ -89,32 +92,32 @@ export function TaskQuickListsPanel({
 
     const lists: QuickList[] = [
       {
-        id: "today",
-        title: "Today",
-        description: "Due or scheduled for today",
+        id: 'today',
+        title: 'Today',
+        description: 'Due or scheduled for today',
         tasks: todayTasks,
-        icon: "📅",
+        icon: '📅',
       },
       {
-        id: "week",
-        title: "This Week",
-        description: "Due or scheduled within 7 days",
+        id: 'week',
+        title: 'This Week',
+        description: 'Due or scheduled within 7 days',
         tasks: thisWeekTasks,
-        icon: "📆",
+        icon: '📆',
       },
       {
-        id: "overdue",
-        title: "Overdue",
-        description: "Past scheduled date",
+        id: 'overdue',
+        title: 'Overdue',
+        description: 'Past scheduled date',
         tasks: overdueTasks,
-        icon: "⚠️",
+        icon: '⚠️',
       },
       {
-        id: "high-priority",
-        title: "High Priority",
-        description: "Priority A tasks",
+        id: 'high-priority',
+        title: 'High Priority',
+        description: 'Priority A tasks',
         tasks: highPriorityTasks,
-        icon: "🔴",
+        icon: '🔴',
       },
     ];
 
@@ -160,10 +163,12 @@ export function TaskQuickListsPanel({
   }
 
   // Responsive classes: hide on mobile unless showOnMobile is true
-  const responsiveClasses = showOnMobile ? "" : "hidden lg:block";
+  const responsiveClasses = showOnMobile ? '' : 'hidden lg:block';
 
   return (
-    <div className={`bg-white border-l border-slate-200 overflow-y-auto ${responsiveClasses} ${className}`}>
+    <div
+      className={`bg-white border-l border-slate-200 overflow-y-auto ${responsiveClasses} ${className}`}
+    >
       {/* Header */}
       <div className="sticky top-0 bg-white border-b border-slate-200 p-3 flex items-center justify-between z-10">
         <div>
@@ -210,11 +215,13 @@ export function TaskQuickListsPanel({
                         {list.tasks.length}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-500">{list.description}</div>
+                    <div className="text-xs text-slate-500">
+                      {list.description}
+                    </div>
                   </div>
                 </div>
                 <span className="text-slate-400">
-                  {isExpanded ? "▼" : "▶"}
+                  {isExpanded ? '▼' : '▶'}
                 </span>
               </button>
 
@@ -232,11 +239,13 @@ export function TaskQuickListsPanel({
                           onClick={(e) => handleCompleteToggle(task, e)}
                           className={`mt-0.5 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
                             task.is_complete
-                              ? "bg-green-500 border-green-500 text-white"
-                              : "border-slate-300 hover:border-green-500"
+                              ? 'bg-green-500 border-green-500 text-white'
+                              : 'border-slate-300 hover:border-green-500'
                           }`}
                           aria-label={
-                            task.is_complete ? "Mark as incomplete" : "Mark as complete"
+                            task.is_complete
+                              ? 'Mark as incomplete'
+                              : 'Mark as complete'
                           }
                         >
                           {task.is_complete && (
@@ -258,10 +267,12 @@ export function TaskQuickListsPanel({
                         <div className="flex-grow min-w-0">
                           <p
                             className={`text-sm truncate ${
-                              task.is_complete ? "line-through text-slate-400" : "text-slate-700"
+                              task.is_complete
+                                ? 'line-through text-slate-400'
+                                : 'text-slate-700'
                             }`}
                           >
-                            {task.title.replace(/#[\w-]+/g, "")}
+                            {task.title.replace(/#[\w-]+/g, '')}
                           </p>
                         </div>
                       </div>

@@ -10,13 +10,20 @@ import {
 
 describe('CardEditor', () => {
   // Mock dependencies
-  const mockCardBodyRef = { current: { formatText: vi.fn(), togglePreviewMode: vi.fn() } };
+  const mockCardBodyRef = {
+    current: { formatText: vi.fn(), togglePreviewMode: vi.fn() },
+  };
 
   // Helper function to render CardEditor with required providers
   function renderWithProviders(
     ui: React.ReactElement,
     {
-      editingCard = { ...defaultCard, id: 1, title: 'Test Title', body: 'Test Body' },
+      editingCard = {
+        ...defaultCard,
+        id: 1,
+        title: 'Test Title',
+        body: 'Test Body',
+      },
       setEditingCard = vi.fn(),
       message = '',
       setMessage = vi.fn(),
@@ -34,10 +41,13 @@ describe('CardEditor', () => {
       setShowCardIdDiscovery = vi.fn(),
       setShowSaveAsTemplate = vi.fn(),
       handleSelectTemplate = vi.fn(),
-    } = {}
+    } = {},
   ) {
     const Wrapper = ({ children }: { children: React.ReactNode }) => (
-      <CardEditorProvider editingCard={editingCard} setEditingCard={setEditingCard}>
+      <CardEditorProvider
+        editingCard={editingCard}
+        setEditingCard={setEditingCard}
+      >
         <EditorUIProvider
           handleSelectTemplate={handleSelectTemplate}
           initialTemplates={templates}
@@ -67,20 +77,20 @@ describe('CardEditor', () => {
   describe('Props rendering', () => {
     it('should display message and error states', () => {
       // Test message only (info styling)
-      renderWithProviders(
-        <CardEditor {...defaultProps} />,
-        { message: 'Success message', setMessage: vi.fn() }
-      );
+      renderWithProviders(<CardEditor {...defaultProps} />, {
+        message: 'Success message',
+        setMessage: vi.fn(),
+      });
 
       expect(screen.getByText('Success message')).toBeInTheDocument();
       const messageDiv = screen.getByText('Success message').closest('div');
       expect(messageDiv).toHaveClass('bg-blue-50', 'text-blue-700');
 
       // Test error only (error styling)
-      renderWithProviders(
-        <CardEditor {...defaultProps} />,
-        { error: 'Error message', setError: vi.fn() }
-      );
+      renderWithProviders(<CardEditor {...defaultProps} />, {
+        error: 'Error message',
+        setError: vi.fn(),
+      });
 
       expect(screen.getByText('Error message')).toBeInTheDocument();
       const errorDiv = screen.getByText('Error message').closest('div');
@@ -98,30 +108,34 @@ describe('CardEditor', () => {
     });
 
     it('should show template dropdown for new cards with templates', () => {
-      const templates = [{ ...defaultCardTemplate, id: 1, name: 'Test Template' }];
-      renderWithProviders(
-        <CardEditor {...defaultProps} newCard={true} />,
-        { templates, loadingTemplates: false }
-      );
+      const templates = [
+        { ...defaultCardTemplate, id: 1, name: 'Test Template' },
+      ];
+      renderWithProviders(<CardEditor {...defaultProps} newCard={true} />, {
+        templates,
+        loadingTemplates: false,
+      });
 
       expect(screen.getByText('Use Template')).toBeInTheDocument();
     });
 
     it('should show loading state for templates', () => {
-      renderWithProviders(
-        <CardEditor {...defaultProps} newCard={true} />,
-        { templates: [], loadingTemplates: true }
-      );
+      renderWithProviders(<CardEditor {...defaultProps} newCard={true} />, {
+        templates: [],
+        loadingTemplates: true,
+      });
 
       expect(screen.getByText('Loading templates...')).toBeInTheDocument();
     });
 
     it('should show template error state', () => {
-      const templates = [{ ...defaultCardTemplate, id: 1, name: 'Test Template' }];
-      renderWithProviders(
-        <CardEditor {...defaultProps} newCard={true} />,
-        { templates, templateError: 'Failed to load templates' }
-      );
+      const templates = [
+        { ...defaultCardTemplate, id: 1, name: 'Test Template' },
+      ];
+      renderWithProviders(<CardEditor {...defaultProps} newCard={true} />, {
+        templates,
+        templateError: 'Failed to load templates',
+      });
 
       expect(screen.getByText('Failed to load templates')).toBeInTheDocument();
     });
@@ -134,21 +148,27 @@ describe('CardEditor', () => {
 
     it('should not render Save/Cancel buttons (moved to EditPageHeader)', () => {
       renderWithProviders(<CardEditor {...defaultProps} />);
-      expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Save' }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Cancel' }),
+      ).not.toBeInTheDocument();
     });
-
   });
 
   describe('User interactions', () => {
     it('should show and hide template dropdown when Use Template button is clicked', () => {
-      const templates = [{ ...defaultCardTemplate, id: 1, name: 'Test Template' }];
+      const templates = [
+        { ...defaultCardTemplate, id: 1, name: 'Test Template' },
+      ];
       const setShowTemplateDropdown = vi.fn();
 
-      renderWithProviders(
-        <CardEditor {...defaultProps} newCard={true} />,
-        { templates, loadingTemplates: false, setShowTemplateDropdown }
-      );
+      renderWithProviders(<CardEditor {...defaultProps} newCard={true} />, {
+        templates,
+        loadingTemplates: false,
+        setShowTemplateDropdown,
+      });
 
       const templateButton = screen.getByText('Use Template');
       fireEvent.click(templateButton);
@@ -158,13 +178,21 @@ describe('CardEditor', () => {
     });
 
     it('should call template handlers when templates are selected', () => {
-      const templates = [{ ...defaultCardTemplate, id: 1, name: 'Test Template', title: 'Template Title' }];
+      const templates = [
+        {
+          ...defaultCardTemplate,
+          id: 1,
+          name: 'Test Template',
+          title: 'Template Title',
+        },
+      ];
       const handleSelectTemplate = vi.fn();
 
-      renderWithProviders(
-        <CardEditor {...defaultProps} newCard={true} />,
-        { templates, loadingTemplates: false, handleSelectTemplate }
-      );
+      renderWithProviders(<CardEditor {...defaultProps} newCard={true} />, {
+        templates,
+        loadingTemplates: false,
+        handleSelectTemplate,
+      });
 
       const templateButton = screen.getByText('Use Template');
       fireEvent.click(templateButton);
@@ -178,10 +206,9 @@ describe('CardEditor', () => {
     it('should handle backlink dialog show/hide', () => {
       const setShowBacklinkDialog = vi.fn();
 
-      renderWithProviders(
-        <CardEditor {...defaultProps} />,
-        { setShowBacklinkDialog }
-      );
+      renderWithProviders(<CardEditor {...defaultProps} />, {
+        setShowBacklinkDialog,
+      });
 
       // Assuming there's a backlink button or trigger in MarkdownToolbar
       // The backlink logic would be tested there
@@ -190,10 +217,9 @@ describe('CardEditor', () => {
     it('should handle card ID discovery dialog', () => {
       const setShowCardIdDiscovery = vi.fn();
 
-      renderWithProviders(
-        <CardEditor {...defaultProps} />,
-        { setShowCardIdDiscovery }
-      );
+      renderWithProviders(<CardEditor {...defaultProps} />, {
+        setShowCardIdDiscovery,
+      });
 
       // Card ID discovery would be triggered from CardMetadata component
     });
@@ -201,10 +227,9 @@ describe('CardEditor', () => {
     it('should handle save as template dialog', () => {
       const setShowSaveAsTemplate = vi.fn();
 
-      renderWithProviders(
-        <CardEditor {...defaultProps} />,
-        { setShowSaveAsTemplate }
-      );
+      renderWithProviders(<CardEditor {...defaultProps} />, {
+        setShowSaveAsTemplate,
+      });
 
       // Save as template dialog state management
     });

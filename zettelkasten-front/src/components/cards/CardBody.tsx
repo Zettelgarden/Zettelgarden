@@ -1,30 +1,30 @@
-import Markdown from "react-markdown";
-import React, { useState, useEffect, useMemo } from "react";
-import { downloadFile } from "../../api/files";
-import { Card, Entity } from "../../models/Card";
-import remarkEntity from "../../remark-entity";
-import remarkTaskQuery from "../../remark-task-query";
-import remarkSchemaTable from "../../remark-schema-table";
-import { useNavigate } from "react-router-dom";
-import remarkGfm from "remark-gfm";
+import Markdown from 'react-markdown';
+import React, { useState, useEffect, useMemo } from 'react';
+import { downloadFile } from '../../api/files';
+import { Card, Entity } from '../../models/Card';
+import remarkEntity from '../../remark-entity';
+import remarkTaskQuery from '../../remark-task-query';
+import remarkSchemaTable from '../../remark-schema-table';
+import { useNavigate } from 'react-router-dom';
+import remarkGfm from 'remark-gfm';
 
-import { useDialogState } from "../../contexts/DialogStateContext";
-import { CardEditorContext } from "../../contexts/editor";
+import { useDialogState } from '../../contexts/DialogStateContext';
+import { CardEditorContext } from '../../contexts/editor';
 
-import { CardLinkWithPreview } from "./CardLinkWithPreview";
-import { DynamicTaskList } from "./DynamicTaskList";
-import { DynamicSchemaTable } from "./DynamicSchemaTable";
-import { H1, H2, H3, H4, H5, H6 } from "../Header";
+import { CardLinkWithPreview } from './CardLinkWithPreview';
+import { DynamicTaskList } from './DynamicTaskList';
+import { DynamicSchemaTable } from './DynamicSchemaTable';
+import { H1, H2, H3, H4, H5, H6 } from '../Header';
 import {
   Table,
   TableHead,
   TableBody,
   TableRow,
   TableHeader,
-  TableCell
-} from "../table/TableComponents";
+  TableCell,
+} from '../table/TableComponents';
 //import { fetchEntityByName } from "../../api/entities";
-import { fetchEntityById } from "../../api/entities";
+import { fetchEntityById } from '../../api/entities';
 
 interface CustomImageRendererProps {
   src?: string; // Make src optional
@@ -52,21 +52,27 @@ export function preprocessWikiLinks(body: string): string {
   // [[42|Meeting Notes]] → [Meeting Notes](#card:42)
   // [[42|Meeting Notes|]] → [Meeting Notes](#card:42)  (trailing pipe is stripped)
   // Uses #card: prefix so the <a> component can distinguish from regular anchor links
-  const wikiLinked = body.replace(/\[\[([^\]|]+?)\|([^\]|]*?)(?:\|)?\]\]/g, (_match, cardId: string, displayText: string) => {
-    const label = displayText || cardId;
-    return `[${label}](#card:${cardId})`;
-  });
+  const wikiLinked = body.replace(
+    /\[\[([^\]|]+?)\|([^\]|]*?)(?:\|)?\]\]/g,
+    (_match, cardId: string, displayText: string) => {
+      const label = displayText || cardId;
+      return `[${label}](#card:${cardId})`;
+    },
+  );
   // Also handle [[card_id]] without display text (no pipe at all)
-  const result2 = wikiLinked.replace(/\[\[([^\]|]+?)\]\]/g, (_match, cardId: string) => {
-    return `[${cardId}](#card:${cardId})`;
-  });
+  const result2 = wikiLinked.replace(
+    /\[\[([^\]|]+?)\]\]/g,
+    (_match, cardId: string) => {
+      return `[${cardId}](#card:${cardId})`;
+    },
+  );
   return result2;
 }
 
 function preprocessCardLinks(body: string): string {
   // Legacy: match [card_id] without parentheses after, convert to clickable link
   // Only match IDs that look like card IDs (alphanumeric, dots, hyphens, underscores, slashes)
-  return body.replace(/\[([A-Za-z0-9_.-/]+)\](?!\()/g, "[$1](#)");
+  return body.replace(/\[([A-Za-z0-9_.-/]+)\](?!\()/g, '[$1](#)');
 }
 
 export function preprocessSchemaTables(body: string): string {
@@ -98,60 +104,78 @@ function preprocessEntities(body: string, entities?: Entity[]): string {
   const taskQueryRegex = /&TASKQUERY:[^&]+&/g;
   let match;
   while ((match = taskQueryRegex.exec(body)) !== null) {
-    protectedRegions.push({ start: match.index, end: match.index + match[0].length });
+    protectedRegions.push({
+      start: match.index,
+      end: match.index + match[0].length,
+    });
   }
 
   // Protect markdown links [text](url) - including card links [CardId](#)
   const linkRegex = /\[([^\]]+)\]\(([^)]*)\)/g;
   while ((match = linkRegex.exec(body)) !== null) {
-    protectedRegions.push({ start: match.index, end: match.index + match[0].length });
+    protectedRegions.push({
+      start: match.index,
+      end: match.index + match[0].length,
+    });
   }
 
   // Protect inline code `...`
   const inlineCodeRegex = /`[^`]+`/g;
   while ((match = inlineCodeRegex.exec(body)) !== null) {
-    protectedRegions.push({ start: match.index, end: match.index + match[0].length });
+    protectedRegions.push({
+      start: match.index,
+      end: match.index + match[0].length,
+    });
   }
 
   // Protect code blocks ```...```
   const codeBlockRegex = /```[\s\S]*?```/g;
   while ((match = codeBlockRegex.exec(body)) !== null) {
-    protectedRegions.push({ start: match.index, end: match.index + match[0].length });
+    protectedRegions.push({
+      start: match.index,
+      end: match.index + match[0].length,
+    });
   }
 
   // Sort and merge overlapping protected regions
   protectedRegions.sort((a, b) => a.start - b.start);
   const mergedRegions: Array<{ start: number; end: number }> = [];
-  protectedRegions.forEach(region => {
-    if (mergedRegions.length === 0 || region.start > mergedRegions[mergedRegions.length - 1].end) {
+  protectedRegions.forEach((region) => {
+    if (
+      mergedRegions.length === 0 ||
+      region.start > mergedRegions[mergedRegions.length - 1].end
+    ) {
       mergedRegions.push(region);
     } else {
       mergedRegions[mergedRegions.length - 1].end = Math.max(
         mergedRegions[mergedRegions.length - 1].end,
-        region.end
+        region.end,
       );
     }
   });
 
   // Helper function to check if a range is protected
   const isProtected = (start: number, end: number): boolean => {
-    return mergedRegions.some(region =>
-      (start >= region.start && start < region.end) ||
-      (end > region.start && end <= region.end) ||
-      (start <= region.start && end >= region.end)
+    return mergedRegions.some(
+      (region) =>
+        (start >= region.start && start < region.end) ||
+        (end > region.start && end <= region.end) ||
+        (start <= region.start && end >= region.end),
     );
   };
 
   // Sort entities by length (desc) to give priority to longer entity names
-  const sortedEntities = [...entities].sort((a, b) => b.name.length - a.name.length);
+  const sortedEntities = [...entities].sort(
+    (a, b) => b.name.length - a.name.length,
+  );
 
   // Collect all matches for all entities that are not in protected regions
   type Match = { start: number; end: number; id: number; text: string };
   const matches: Match[] = [];
 
-  sortedEntities.forEach(entity => {
-    const escapedName = entity.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`\\b(${escapedName})\\b`, "gi");
+  sortedEntities.forEach((entity) => {
+    const escapedName = entity.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b(${escapedName})\\b`, 'gi');
     let match;
     while ((match = regex.exec(body)) !== null) {
       const matchStart = match.index;
@@ -163,19 +187,21 @@ function preprocessEntities(body: string, entities?: Entity[]): string {
           start: matchStart,
           end: matchEnd,
           id: entity.id,
-          text: match[0]
+          text: match[0],
         });
       }
     }
   });
 
   // Sort matches by start index, then by length descending
-  matches.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+  matches.sort(
+    (a, b) => a.start - b.start || b.end - b.start - (a.end - a.start),
+  );
 
   // Filter to remove overlapping matches, keeping the longest first
   const nonOverlapping: Match[] = [];
   let lastEnd = -1;
-  matches.forEach(m => {
+  matches.forEach((m) => {
     if (m.start >= lastEnd) {
       nonOverlapping.push(m);
       lastEnd = m.end;
@@ -183,9 +209,9 @@ function preprocessEntities(body: string, entities?: Entity[]): string {
   });
 
   // Build the processed string with replacements
-  let result = "";
+  let result = '';
   let currentIndex = 0;
-  nonOverlapping.forEach(m => {
+  nonOverlapping.forEach((m) => {
     result += body.slice(currentIndex, m.start);
     result += `&ENTITY:${m.id}:${m.text}&`;
     currentIndex = m.end;
@@ -198,52 +224,50 @@ function preprocessEntities(body: string, entities?: Entity[]): string {
 // Module-level cache for blob URLs to prevent re-downloading images on re-renders
 const blobUrlCache = new Map<string, string>();
 
-const CustomImageRenderer: React.FC<CustomImageRendererProps> = React.memo(({
-  src,
-  alt,
-  title,
-}) => {
-  const [imageSrc, setImageSrc] = useState<string>(() => {
-    // Initialize from cache if available
-    return src ? (blobUrlCache.get(src) || "") : "";
-  });
+const CustomImageRenderer: React.FC<CustomImageRendererProps> = React.memo(
+  ({ src, alt, title }) => {
+    const [imageSrc, setImageSrc] = useState<string>(() => {
+      // Initialize from cache if available
+      return src ? blobUrlCache.get(src) || '' : '';
+    });
 
-  useEffect(() => {
-    if (!src) return;
+    useEffect(() => {
+      if (!src) return;
 
-    // Use cached blob URL if available
-    const cached = blobUrlCache.get(src);
-    if (cached) {
-      setImageSrc(cached);
-      return;
+      // Use cached blob URL if available
+      const cached = blobUrlCache.get(src);
+      if (cached) {
+        setImageSrc(cached);
+        return;
+      }
+
+      downloadFile(src)
+        .then((blobUrl) => {
+          if (blobUrl) {
+            blobUrlCache.set(src, blobUrl);
+            setImageSrc(blobUrl);
+          }
+        })
+        .catch((error) => {
+          console.error('Error fetching image:', error);
+        });
+    }, [src]);
+
+    if (!imageSrc) {
+      return <div>Loading...</div>;
     }
 
-    downloadFile(src)
-      .then((blobUrl) => {
-        if (blobUrl) {
-          blobUrlCache.set(src, blobUrl);
-          setImageSrc(blobUrl);
-        }
-      })
-      .catch((error) => {
-        console.error("Error fetching image:", error);
-      });
-  }, [src]);
-
-  if (!imageSrc) {
-    return <div>Loading...</div>;
-  }
-
-  return (
-    <img
-      src={imageSrc}
-      alt={alt || "Image"}
-      title={title || ""}
-      style={{ maxWidth: "100%", height: "auto" }}
-      onClick={() => console.log(`Image clicked: ${src}`)}
-    />
-  );
-});
+    return (
+      <img
+        src={imageSrc}
+        alt={alt || 'Image'}
+        title={title || ''}
+        style={{ maxWidth: '100%', height: 'auto' }}
+        onClick={() => console.log(`Image clicked: ${src}`)}
+      />
+    );
+  },
+);
 
 function CardMarkdownWithDialog({
   card,
@@ -258,34 +282,41 @@ function CardMarkdownWithDialog({
   entities?: Entity[];
   onCardBodyChange?: (newBody: string) => void;
 }) {
-  const {
-    setShowEntityDialog,
-    setSelectedEntity,
-  } = useDialogState();
+  const { setShowEntityDialog, setSelectedEntity } = useDialogState();
 
-  const handleEntityClickById = React.useCallback(async (id: string, name: string) => {
-    try {
-      const entity = await fetchEntityById(Number(id));
-      setSelectedEntity(entity);
-    } catch (error) {
-      console.error("Failed to fetch entity details:", error);
-      const fallbackEntity: Entity = {
-        id: Number(id) || 0,
-        user_id: 0,
-        name,
-        type: "UNKNOWN",
-        description: "",
-        created_at: new Date(),
-        updated_at: new Date(),
-        card_count: 0,
-        card_pk: null,
-      };
-      setSelectedEntity(fallbackEntity);
-    }
-    setShowEntityDialog(true);
-  }, [setSelectedEntity, setShowEntityDialog]);
+  const handleEntityClickById = React.useCallback(
+    async (id: string, name: string) => {
+      try {
+        const entity = await fetchEntityById(Number(id));
+        setSelectedEntity(entity);
+      } catch (error) {
+        console.error('Failed to fetch entity details:', error);
+        const fallbackEntity: Entity = {
+          id: Number(id) || 0,
+          user_id: 0,
+          name,
+          type: 'UNKNOWN',
+          description: '',
+          created_at: new Date(),
+          updated_at: new Date(),
+          card_count: 0,
+          card_pk: null,
+        };
+        setSelectedEntity(fallbackEntity);
+      }
+      setShowEntityDialog(true);
+    },
+    [setSelectedEntity, setShowEntityDialog],
+  );
 
-  return useCardMarkdown(card, activeCard, handleViewBacklink, entities, handleEntityClickById, onCardBodyChange);
+  return useCardMarkdown(
+    card,
+    activeCard,
+    handleViewBacklink,
+    entities,
+    handleEntityClickById,
+    onCardBodyChange,
+  );
 }
 
 // Custom component for inline code only
@@ -304,13 +335,21 @@ const CustomCode = ({ node, inline, className, children, ...props }: any) => {
 // Custom component for code blocks (pre)
 const CustomPre = ({ children, ...props }: any) => {
   return (
-    <pre className="bg-gray-50 p-3 rounded overflow-x-auto text-gray-800" {...props}>
+    <pre
+      className="bg-gray-50 p-3 rounded overflow-x-auto text-gray-800"
+      {...props}
+    >
       {children}
     </pre>
   );
 };
 
-const remarkPlugins = [remarkGfm, remarkTaskQuery, remarkEntity, remarkSchemaTable];
+const remarkPlugins = [
+  remarkGfm,
+  remarkTaskQuery,
+  remarkEntity,
+  remarkSchemaTable,
+];
 
 function useCardMarkdown(
   card: Card,
@@ -318,7 +357,7 @@ function useCardMarkdown(
   handleViewBacklink: (card_id: number) => void,
   entities?: Entity[],
   onEntityClick?: (id: string, name: string) => void,
-  onCardBodyChange?: (newBody: string) => void
+  onCardBodyChange?: (newBody: string) => void,
 ) {
   // Preprocess task queries first, then card links, then schema tables, then entities
   const processedBody = useMemo(() => {
@@ -331,92 +370,136 @@ function useCardMarkdown(
   }, [activeCard.body, entities]);
 
   // Memoize the components object so React doesn't unmount/remount on every render
-  const components = useMemo(() => ({
-    code: CustomCode,
-    pre: CustomPre,
-    a({ children, href, ...props }: any) {
-      if (href?.startsWith("#card:")) {
-        const cardId = href.replace("#card:", "");
-        // Extract display text from children if it differs from the card ID
-        let displayText = typeof children === 'string' && children !== cardId ? children : undefined;
+  const components = useMemo(
+    () => ({
+      code: CustomCode,
+      pre: CustomPre,
+      a({ children, href, ...props }: any) {
+        if (href?.startsWith('#card:')) {
+          const cardId = href.replace('#card:', '');
+          // Extract display text from children if it differs from the card ID
+          let displayText =
+            typeof children === 'string' && children !== cardId
+              ? children
+              : undefined;
+          return (
+            <CardLinkWithPreview
+              currentCard={card}
+              card_id={cardId}
+              displayText={displayText}
+              resolveTitle={displayText === '*'}
+              handleViewBacklink={handleViewBacklink}
+            />
+          );
+        }
+        if (href === '#') {
+          // Legacy: [card_id](#) links from old-style [card_id] syntax
+          const cardId = children as string;
+          return (
+            <CardLinkWithPreview
+              currentCard={card}
+              card_id={cardId}
+              handleViewBacklink={handleViewBacklink}
+            />
+          );
+        }
         return (
-          <CardLinkWithPreview
-            currentCard={card}
-            card_id={cardId}
-            displayText={displayText}
-            resolveTitle={displayText === '*'}
-            handleViewBacklink={handleViewBacklink}
-          />
+          <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+            {children}
+          </a>
         );
-      }
-      if (href === "#") {
-        // Legacy: [card_id](#) links from old-style [card_id] syntax
-        const cardId = children as string;
+      },
+      h1({ children }: any) {
+        return <H1 children={children as string} />;
+      },
+      h2({ children }: any) {
+        return <H2 children={children as string} />;
+      },
+      h3({ children }: any) {
+        return <H3 children={children as string} />;
+      },
+      h4({ children }: any) {
+        return <H4 children={children as string} />;
+      },
+      h5({ children }: any) {
+        return <H5 children={children as string} />;
+      },
+      h6({ children }: any) {
+        return <H6 children={children as string} />;
+      },
+      table({ children, ...props }: any) {
+        return <Table {...props}>{children}</Table>;
+      },
+      thead({ children, ...props }: any) {
+        return <TableHead {...props}>{children}</TableHead>;
+      },
+      tbody({ children, ...props }: any) {
+        return <TableBody {...props}>{children}</TableBody>;
+      },
+      tr({ children, ...props }: any) {
+        return <TableRow {...props}>{children}</TableRow>;
+      },
+      th({ children, ...props }: any) {
+        return <TableHeader {...props}>{children}</TableHeader>;
+      },
+      td({ children, ...props }: any) {
+        return <TableCell {...props}>{children}</TableCell>;
+      },
+      span: ({ node, children, ...props }: any) => {
+        const propsData = (node as any).properties || {};
+        if (propsData.className === 'entity' || propsData['data-id']) {
+          const id = propsData['data-id'];
+          const name = propsData['data-name'] || children;
+          return (
+            <span
+              style={{ backgroundColor: '#fff9c4', cursor: 'pointer' }}
+              onClick={() => onEntityClick?.(id, name)}
+            >
+              {name}
+            </span>
+          );
+        }
+        return <span {...props}>{children}</span>;
+      },
+      img({ src, alt, title, ...props }: any) {
         return (
-          <CardLinkWithPreview
-            currentCard={card}
-            card_id={cardId}
-            handleViewBacklink={handleViewBacklink}
-          />
+          <CustomImageRenderer src={src} alt={alt} title={title} {...props} />
         );
-      }
-      return (
-        <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
-          {children}
-        </a>
-      );
-    },
-    h1({ children }: any) { return (<H1 children={children as string} />) },
-    h2({ children }: any) { return (<H2 children={children as string} />) },
-    h3({ children }: any) { return (<H3 children={children as string} />) },
-    h4({ children }: any) { return (<H4 children={children as string} />) },
-    h5({ children }: any) { return (<H5 children={children as string} />) },
-    h6({ children }: any) { return (<H6 children={children as string} />) },
-    table({ children, ...props }: any) { return <Table {...props}>{children}</Table>; },
-    thead({ children, ...props }: any) { return <TableHead {...props}>{children}</TableHead>; },
-    tbody({ children, ...props }: any) { return <TableBody {...props}>{children}</TableBody>; },
-    tr({ children, ...props }: any) { return <TableRow {...props}>{children}</TableRow>; },
-    th({ children, ...props }: any) { return <TableHeader {...props}>{children}</TableHeader>; },
-    td({ children, ...props }: any) { return <TableCell {...props}>{children}</TableCell>; },
-    span: ({ node, children, ...props }: any) => {
-      const propsData = (node as any).properties || {};
-      if (propsData.className === "entity" || propsData["data-id"]) {
-        const id = propsData["data-id"];
-        const name = propsData["data-name"] || children;
-        return (
-          <span
-            style={{ backgroundColor: "#fff9c4", cursor: "pointer" }}
-            onClick={() => onEntityClick?.(id, name)}
-          >
-            {name}
-          </span>
-        );
-      }
-      return <span {...props}>{children}</span>;
-    },
-    img({ src, alt, title, ...props }: any) {
-      return (
-        <CustomImageRenderer src={src} alt={alt} title={title} {...props} />
-      );
-    },
-    div: ({ node, children, ...props }: any) => {
-      const propsData = (node as any).properties || {};
+      },
+      div: ({ node, children, ...props }: any) => {
+        const propsData = (node as any).properties || {};
 
-      if (propsData.className === "task-query-container" || propsData["data-query"] !== undefined) {
-        const query = propsData["data-query"] || "";
-        return <DynamicTaskList query={query} />;
-      }
+        if (
+          propsData.className === 'task-query-container' ||
+          propsData['data-query'] !== undefined
+        ) {
+          const query = propsData['data-query'] || '';
+          return <DynamicTaskList query={query} />;
+        }
 
-      if (propsData.className === "schema-table-container" || propsData["data-schema-id"] !== undefined || propsData["data-schema-ref"] !== undefined) {
-        const schemaRef = propsData["data-schema-ref"] || propsData["data-schema-id"] || "";
-        const columns = propsData["data-columns"];
-        const filters = propsData["data-filters"];
-        return <DynamicSchemaTable schemaRef={schemaRef} columns={columns} filters={filters} />;
-      }
+        if (
+          propsData.className === 'schema-table-container' ||
+          propsData['data-schema-id'] !== undefined ||
+          propsData['data-schema-ref'] !== undefined
+        ) {
+          const schemaRef =
+            propsData['data-schema-ref'] || propsData['data-schema-id'] || '';
+          const columns = propsData['data-columns'];
+          const filters = propsData['data-filters'];
+          return (
+            <DynamicSchemaTable
+              schemaRef={schemaRef}
+              columns={columns}
+              filters={filters}
+            />
+          );
+        }
 
-      return <div {...props}>{children}</div>;
-    },
-  }), [card, handleViewBacklink, onEntityClick]);
+        return <div {...props}>{children}</div>;
+      },
+    }),
+    [card, handleViewBacklink, onEntityClick],
+  );
 
   return (
     <Markdown
@@ -427,16 +510,21 @@ function useCardMarkdown(
   );
 }
 
-export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities, onSave }) => {
+export const CardBody: React.FC<CardBodyProps> = ({
+  viewingCard,
+  entities,
+  onSave,
+}) => {
   const navigate = useNavigate();
   const cardEditorContext = React.useContext(CardEditorContext);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [shouldShowToggle, setShouldShowToggle] = useState(false);
   const contentRef = React.useRef<HTMLDivElement>(null);
   // Use the context's editingCard if it's the same card (by id), otherwise use viewingCard
-  const activeCard = cardEditorContext?.editingCard?.id === viewingCard.id
-    ? cardEditorContext.editingCard
-    : viewingCard;
+  const activeCard =
+    cardEditorContext?.editingCard?.id === viewingCard.id
+      ? cardEditorContext.editingCard
+      : viewingCard;
 
   // Height threshold for showing the collapse toggle (in pixels)
   const HEIGHT_THRESHOLD = 600;
@@ -466,10 +554,13 @@ export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities, onSav
       <div
         ref={contentRef}
         className={`transition-all duration-300 overflow-hidden ${
-          isCollapsed && shouldShowToggle ? `max-h-[${HEIGHT_THRESHOLD}px]` : 'max-h-none'
+          isCollapsed && shouldShowToggle
+            ? `max-h-[${HEIGHT_THRESHOLD}px]`
+            : 'max-h-none'
         }`}
         style={{
-          maxHeight: isCollapsed && shouldShowToggle ? `${HEIGHT_THRESHOLD}px` : 'none'
+          maxHeight:
+            isCollapsed && shouldShowToggle ? `${HEIGHT_THRESHOLD}px` : 'none',
         }}
       >
         <CardMarkdownWithDialog
@@ -504,15 +595,35 @@ export const CardBody: React.FC<CardBodyProps> = ({ viewingCard, entities, onSav
             {isCollapsed ? (
               <>
                 Show more
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               </>
             ) : (
               <>
                 Show less
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 15l7-7 7 7"
+                  />
                 </svg>
               </>
             )}

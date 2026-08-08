@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import { Menu } from '@headlessui/react';
-import { SearchConfig as SearchConfigType } from "../../models/StarredSearch";
-import { Tag } from "../../models/Tags";
-import { fetchSchemas } from "../../api/schemas";
-import { SchemaDefinition } from "../../models/Schema";
+import { SearchConfig as SearchConfigType } from '../../models/StarredSearch';
+import { Tag } from '../../models/Tags';
+import { fetchSchemas } from '../../api/schemas';
+import { SchemaDefinition } from '../../models/Schema';
 
 interface SearchConfigProps {
   searchTerm: string;
@@ -35,7 +35,7 @@ export function SearchConfig({
         const data = await fetchSchemas();
         setSchemas(data);
       } catch (error) {
-        console.error("Failed to load schemas:", error);
+        console.error('Failed to load schemas:', error);
       } finally {
         setSchemasLoading(false);
       }
@@ -45,7 +45,7 @@ export function SearchConfig({
 
   const handleSchemaChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value;
-    const schemaId = value === "" ? null : parseInt(value);
+    const schemaId = value === '' ? null : parseInt(value);
     const newConfig = { ...searchConfig, schemaId };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
@@ -57,35 +57,53 @@ export function SearchConfig({
     onSearchTrigger?.(newConfig, true);
   };
 
-  const handleOnlyParentCardsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newConfig = { ...searchConfig, onlyParentCards: event.target.checked };
+  const handleOnlyParentCardsChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const newConfig = {
+      ...searchConfig,
+      onlyParentCards: event.target.checked,
+    };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
   };
 
-  const handleOnlyEmptyCardIdChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newConfig = { ...searchConfig, onlyEmptyCardId: event.target.checked };
+  const handleOnlyEmptyCardIdChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const newConfig = {
+      ...searchConfig,
+      onlyEmptyCardId: event.target.checked,
+    };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
   };
 
-  const handleShowPreviewChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShowPreviewChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     setSearchConfig({ ...searchConfig, showPreview: event.target.checked });
   };
 
-  const handleShowEntitiesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShowEntitiesChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const newConfig = { ...searchConfig, showEntities: event.target.checked };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
   };
 
-  const handleShowFactsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShowFactsChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const newConfig = { ...searchConfig, showFacts: event.target.checked };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
   };
 
-  const handleShowCardsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShowCardsChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const newConfig = { ...searchConfig, showCards: event.target.checked };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
@@ -121,7 +139,9 @@ export function SearchConfig({
 
             {/* Sorting Section */}
             <div className="mb-4">
-              <div className="text-xs text-gray-500 mb-2 font-semibold">Sort Results</div>
+              <div className="text-xs text-gray-500 mb-2 font-semibold">
+                Sort Results
+              </div>
               <div className="space-y-1">
                 {[
                   { value: 'sortByRanking', label: 'Ranking Score' },
@@ -130,13 +150,16 @@ export function SearchConfig({
                   { value: 'sortNewOld', label: 'Updated (Newest)' },
                   { value: 'sortOldNew', label: 'Updated (Oldest)' },
                   { value: 'sortBigSmall', label: 'A to Z' },
-                  { value: 'sortSmallBig', label: 'Z to A' }
+                  { value: 'sortSmallBig', label: 'Z to A' },
                 ].map((option) => (
                   <Menu.Item key={option.value}>
                     {({ active }) => (
                       <button
                         onClick={() => {
-                          const newConfig = { ...searchConfig, sortBy: option.value };
+                          const newConfig = {
+                            ...searchConfig,
+                            sortBy: option.value,
+                          };
                           setSearchConfig(newConfig);
                           onSearchTrigger?.(newConfig, true);
                         }}
@@ -144,10 +167,12 @@ export function SearchConfig({
                           searchConfig.sortBy === option.value
                             ? 'bg-blue-50 text-blue-700 border-blue-200'
                             : active
-                              ? 'bg-gray-100 text-gray-900'
-                              : 'text-gray-700'
+                            ? 'bg-gray-100 text-gray-900'
+                            : 'text-gray-700'
                         } group flex rounded-md items-center w-full px-2 py-1.5 text-xs border ${
-                          searchConfig.sortBy === option.value ? 'border-blue-200' : 'border-transparent'
+                          searchConfig.sortBy === option.value
+                            ? 'border-blue-200'
+                            : 'border-transparent'
                         }`}
                       >
                         {option.label}
@@ -163,29 +188,36 @@ export function SearchConfig({
 
             {/* Tags Section */}
             <div>
-              <div className="text-xs text-gray-500 mb-2 font-semibold">Search by Tag</div>
+              <div className="text-xs text-gray-500 mb-2 font-semibold">
+                Search by Tag
+              </div>
               <div className="max-h-32 overflow-y-auto space-y-1">
-                {tags && tags.slice(0, 8).map((tag) => (
-                  <Menu.Item key={tag.id}>
-                    {({ active }) => (
-                      <button
-                        onClick={() => onTagClick(tag.name)}
-                        className={`${
-                          active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                        } group flex rounded-md items-center w-full px-2 py-1 text-xs`}
-                      >
-                        #{tag.name}
-                      </button>
-                    )}
-                  </Menu.Item>
-                ))}
+                {tags &&
+                  tags.slice(0, 8).map((tag) => (
+                    <Menu.Item key={tag.id}>
+                      {({ active }) => (
+                        <button
+                          onClick={() => onTagClick(tag.name)}
+                          className={`${
+                            active
+                              ? 'bg-gray-100 text-gray-900'
+                              : 'text-gray-700'
+                          } group flex rounded-md items-center w-full px-2 py-1 text-xs`}
+                        >
+                          #{tag.name}
+                        </button>
+                      )}
+                    </Menu.Item>
+                  ))}
               </div>
             </div>
           </div>
 
           {/* Right Column */}
           <div className="w-1/2 px-4">
-            <div className="text-xs text-gray-500 mb-2 font-semibold">Search Settings</div>
+            <div className="text-xs text-gray-500 mb-2 font-semibold">
+              Search Settings
+            </div>
             <div className="space-y-2">
               {/* Schema Filter */}
               <div className="mb-4">
@@ -193,10 +225,12 @@ export function SearchConfig({
                   Filter by Schema
                 </label>
                 {schemasLoading ? (
-                  <div className="text-sm text-gray-500">Loading schemas...</div>
+                  <div className="text-sm text-gray-500">
+                    Loading schemas...
+                  </div>
                 ) : (
                   <select
-                    value={searchConfig.schemaId ?? ""}
+                    value={searchConfig.schemaId ?? ''}
                     onChange={handleSchemaChange}
                     className="w-full text-sm border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >

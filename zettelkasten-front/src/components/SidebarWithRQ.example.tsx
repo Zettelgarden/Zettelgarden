@@ -37,7 +37,13 @@ import { SidebarModals } from './sidebar/SidebarModals';
 export function SidebarWithRQ() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { lastCard, conversationId, setConversationId, isMobileSidebarOpen, setIsMobileSidebarOpen } = useUIState();
+  const {
+    lastCard,
+    conversationId,
+    setConversationId,
+    isMobileSidebarOpen,
+    setIsMobileSidebarOpen,
+  } = useUIState();
   const { showToast } = useToast();
 
   // BEFORE: const { tasks } = useTaskContext();
@@ -48,7 +54,12 @@ export function SidebarWithRQ() {
 
   const [showAddArticleDialog, setShowAddArticleDialog] = useState(false);
   const [showStarCardDialog, setShowStarCardDialog] = useState(false);
-  const { hasSubscription, user, updateUser, isLoading: authLoading } = useAuth();
+  const {
+    hasSubscription,
+    user,
+    updateUser,
+    isLoading: authLoading,
+  } = useAuth();
 
   const userTimezone = user?.timezone || 'UTC';
 
@@ -88,9 +99,10 @@ export function SidebarWithRQ() {
   const todayTasks = useMemo(
     () =>
       tasks.filter(
-        (task) => !task.is_complete && isTodayOrPast(task.scheduled_date, userTimezone)
+        (task) =>
+          !task.is_complete && isTodayOrPast(task.scheduled_date, userTimezone),
       ),
-    [tasks, userTimezone]
+    [tasks, userTimezone],
   );
 
   function handleNewStandardCard() {
@@ -159,7 +171,7 @@ export function SidebarWithRQ() {
           className="fixed inset-0 bg-black bg-opacity-50 md:hidden z-[45] safe-all"
           onClick={() => setIsMobileSidebarOpen(false)}
           onKeyDown={(e) => {
-            if (e.key === "Escape") {
+            if (e.key === 'Escape') {
               setIsMobileSidebarOpen(false);
             }
           }}

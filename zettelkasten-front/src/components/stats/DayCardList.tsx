@@ -1,6 +1,6 @@
-import React from "react";
-import { PartialCard } from "../../models/Card";
-import { Link } from "react-router-dom";
+import React from 'react';
+import { PartialCard } from '../../models/Card';
+import { Link } from 'react-router-dom';
 
 interface DayCardListProps {
   cards: PartialCard[];
@@ -9,19 +9,19 @@ interface DayCardListProps {
 }
 
 function formatTime(date: Date): string {
-  return date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
     hour12: true,
   });
 }
 
 function formatDate(date: Date): string {
-  return date.toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
   });
 }
 
@@ -30,7 +30,8 @@ export function DayCardList({ cards, date, onClose }: DayCardListProps) {
     <div className="bg-white rounded-lg shadow p-4 mt-4">
       <div className="flex justify-between items-center mb-3">
         <h2 className="text-lg font-semibold text-gray-800">
-          {formatDate(date)} ({cards.length} card{cards.length !== 1 ? 's' : ''} created)
+          {formatDate(date)} ({cards.length} card{cards.length !== 1 ? 's' : ''}{' '}
+          created)
         </h2>
         <button
           onClick={onClose}

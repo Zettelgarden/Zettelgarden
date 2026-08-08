@@ -1,8 +1,13 @@
-import { useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
-import { useUIState, RightPaneTab } from "../contexts/UIStateContext";
+import { useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useUIState, RightPaneTab } from '../contexts/UIStateContext';
 
-const VALID_TAB_IDS: RightPaneTab[] = ["links", "metadata", "entities", "files"];
+const VALID_TAB_IDS: RightPaneTab[] = [
+  'links',
+  'metadata',
+  'entities',
+  'files',
+];
 
 /**
  * Keeps `rightPaneTab` (from `UIStateContext`) in sync with the `?pane=`
@@ -17,7 +22,11 @@ const VALID_TAB_IDS: RightPaneTab[] = ["links", "metadata", "entities", "files"]
  * @param hasRelationships whether the host page has children/references to
  *   show, which decides the Links-vs-Metadata smart default.
  */
-export function useRightPaneTab({ hasRelationships }: { hasRelationships: boolean }) {
+export function useRightPaneTab({
+  hasRelationships,
+}: {
+  hasRelationships: boolean;
+}) {
   const { rightPaneTab, setRightPaneTab } = useUIState();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -25,12 +34,12 @@ export function useRightPaneTab({ hasRelationships }: { hasRelationships: boolea
   // fall back to the smart default. Runs once; explicit tab clicks (and the
   // URL sync below) take over afterwards.
   useEffect(() => {
-    const pane = searchParams.get("pane");
+    const pane = searchParams.get('pane');
     if (pane && VALID_TAB_IDS.includes(pane as RightPaneTab)) {
       setRightPaneTab(pane as RightPaneTab);
       return;
     }
-    setRightPaneTab(hasRelationships ? "links" : "metadata");
+    setRightPaneTab(hasRelationships ? 'links' : 'metadata');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -39,9 +48,9 @@ export function useRightPaneTab({ hasRelationships }: { hasRelationships: boolea
   useEffect(() => {
     setSearchParams(
       (prev) => {
-        if (prev.get("pane") === rightPaneTab) return prev;
+        if (prev.get('pane') === rightPaneTab) return prev;
         const next = new URLSearchParams(prev);
-        next.set("pane", rightPaneTab);
+        next.set('pane', rightPaneTab);
         return next;
       },
       { replace: true },

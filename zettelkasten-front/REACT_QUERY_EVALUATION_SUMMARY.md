@@ -9,6 +9,7 @@ This evaluation recommends introducing React Query (TanStack Query) to replace m
 ### Key Findings
 
 1. **Current State Analysis**
+
    - 8+ contexts managing data fetching with repetitive patterns
    - Manual polling every 60 seconds for tasks
    - No caching between navigations
@@ -16,6 +17,7 @@ This evaluation recommends introducing React Query (TanStack Query) to replace m
    - Difficult to test (requires provider wrapping)
 
 2. **Proposed Solution**
+
    - Introduce React Query for all server state
    - Keep React Context for UI-only state
    - Migrate incrementally, starting with Tasks feature
@@ -33,17 +35,17 @@ This evaluation recommends introducing React Query (TanStack Query) to replace m
 
 The following working files have been created:
 
-| File | Purpose |
-|------|---------|
-| `src/api/queryClient.ts` | QueryClient configuration and query key factory |
-| `src/hooks/queries/useTasks.ts` | Task query and mutation hooks |
-| `src/hooks/queries/useCards.ts` | Card query and mutation hooks |
-| `src/hooks/queries/useAuth.ts` | Authentication query hooks |
-| `src/hooks/queries/useTags.ts` | Tag query hooks |
-| `src/components/ReactQueryDevtools.tsx` | Provider setup component |
-| `src/components/tasks/TaskListWithRQ.example.tsx` | Migrated task list component |
-| `src/components/SidebarWithRQ.example.tsx` | Migrated sidebar component |
-| `src/hooks/queries/useTasks.test.ts` | Test example for query hooks |
+| File                                              | Purpose                                         |
+| ------------------------------------------------- | ----------------------------------------------- |
+| `src/api/queryClient.ts`                          | QueryClient configuration and query key factory |
+| `src/hooks/queries/useTasks.ts`                   | Task query and mutation hooks                   |
+| `src/hooks/queries/useCards.ts`                   | Card query and mutation hooks                   |
+| `src/hooks/queries/useAuth.ts`                    | Authentication query hooks                      |
+| `src/hooks/queries/useTags.ts`                    | Tag query hooks                                 |
+| `src/components/ReactQueryDevtools.tsx`           | Provider setup component                        |
+| `src/components/tasks/TaskListWithRQ.example.tsx` | Migrated task list component                    |
+| `src/components/SidebarWithRQ.example.tsx`        | Migrated sidebar component                      |
+| `src/hooks/queries/useTasks.test.ts`              | Test example for query hooks                    |
 
 ## Before and After Comparison
 
@@ -85,10 +87,16 @@ export function useTasks(filters: TaskListFilters = {}) {
 }
 
 // In component
-const { data: tasks = [], isLoading, error, refetch } = useTasks({ showCompleted: false });
+const {
+  data: tasks = [],
+  isLoading,
+  error,
+  refetch,
+} = useTasks({ showCompleted: false });
 ```
 
 **Benefits:**
+
 - No manual state management
 - No polling (smart refetching instead)
 - Built-in loading and error states
@@ -98,26 +106,31 @@ const { data: tasks = [], isLoading, error, refetch } = useTasks({ showCompleted
 ## Migration Plan
 
 ### Phase 1: Setup (Week 1)
+
 - Install dependencies
 - Create query client
 - Set up provider
 
 ### Phase 2: Pilot - Tasks (Week 2-3)
+
 - Create task query hooks
 - Migrate Sidebar component
 - Migrate TaskPage component
 - Test thoroughly
 
 ### Phase 3: Cards (Week 4-5)
+
 - Create card query hooks
 - Refactor useCardData hook
 - Migrate card components
 
 ### Phase 4: Additional Features (Week 6)
+
 - Tags, Entities, Facts
 - Remove old contexts
 
 ### Phase 5: Cleanup (Week 7)
+
 - Remove old code
 - Update documentation
 - Performance review
@@ -139,25 +152,25 @@ Bundle size impact: ~15KB minified + gzip
 
 ## Risk Assessment
 
-| Risk | Impact | Likelihood | Mitigation |
-|------|--------|------------|------------|
-| Breaking changes | Medium | Low | Incremental migration, feature flags |
-| Performance regression | Low | Low | Benchmark before/after, monitor cache |
-| Learning curve | Low | Medium | Documentation, examples, training |
-| Cache invalidation bugs | Medium | Medium | Clear patterns, automated tests |
-| Test complexity | Low | Low | Actually simpler with hooks |
+| Risk                    | Impact | Likelihood | Mitigation                            |
+| ----------------------- | ------ | ---------- | ------------------------------------- |
+| Breaking changes        | Medium | Low        | Incremental migration, feature flags  |
+| Performance regression  | Low    | Low        | Benchmark before/after, monitor cache |
+| Learning curve          | Low    | Medium     | Documentation, examples, training     |
+| Cache invalidation bugs | Medium | Medium     | Clear patterns, automated tests       |
+| Test complexity         | Low    | Low        | Actually simpler with hooks           |
 
 **Overall Risk Level: LOW**
 
 ## Success Metrics
 
-| Metric | Current | Target |
-|--------|---------|--------|
-| Boilerplate lines per data fetch | ~30 | ~5 |
-| API calls on navigation | ~10-15 | ~3-5 |
-| Test complexity (providers needed) | Yes | No |
-| Manual refresh patterns | Yes | No |
-| Cache hit rate | 0% | >60% |
+| Metric                             | Current | Target |
+| ---------------------------------- | ------- | ------ |
+| Boilerplate lines per data fetch   | ~30     | ~5     |
+| API calls on navigation            | ~10-15  | ~3-5   |
+| Test complexity (providers needed) | Yes     | No     |
+| Manual refresh patterns            | Yes     | No     |
+| Cache hit rate                     | 0%      | >60%   |
 
 ## Files Created
 

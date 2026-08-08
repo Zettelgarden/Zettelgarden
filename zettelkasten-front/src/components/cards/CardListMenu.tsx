@@ -1,7 +1,7 @@
-import React from "react";
-import { Menu } from "@headlessui/react";
-import { SearchTagDropdown } from "../tags/SearchTagDropdown";
-import { Tag } from "../../models/Tags";
+import React from 'react';
+import { Menu } from '@headlessui/react';
+import { SearchTagDropdown } from '../tags/SearchTagDropdown';
+import { Tag } from '../../models/Tags';
 
 interface CardListMenuProps {
   cardId: number;
@@ -48,8 +48,9 @@ export function CardListMenu({
             {({ active }) => (
               <button
                 onClick={onEditClick}
-                className={`${active ? "bg-gray-100" : ""
-                  } flex w-full items-center px-4 py-3 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100`}
+                className={`${
+                  active ? 'bg-gray-100' : ''
+                } flex w-full items-center px-4 py-3 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100`}
               >
                 <svg
                   className="w-4 h-4 mr-2"
@@ -74,12 +75,13 @@ export function CardListMenu({
               {({ active }) => (
                 <button
                   onClick={onToggleStar}
-                  className={`${active ? "bg-gray-100" : ""
-                    } flex w-full items-center px-4 py-3 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100`}
+                  className={`${
+                    active ? 'bg-gray-100' : ''
+                  } flex w-full items-center px-4 py-3 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100`}
                 >
                   <svg
                     className="w-4 h-4 mr-2"
-                    fill={isStarred ? "currentColor" : "none"}
+                    fill={isStarred ? 'currentColor' : 'none'}
                     stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
@@ -99,8 +101,9 @@ export function CardListMenu({
           <Menu.Item>
             {({ active }) => (
               <div
-                className={`${active ? "bg-gray-100" : ""
-                  } flex w-full items-center px-4 py-3 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100 border-t border-gray-100`}
+                className={`${
+                  active ? 'bg-gray-100' : ''
+                } flex w-full items-center px-4 py-3 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100 border-t border-gray-100`}
               >
                 <svg
                   className="w-4 h-4 mr-2"
@@ -126,8 +129,9 @@ export function CardListMenu({
               {({ active }) => (
                 <button
                   onClick={onRecategoryClick}
-                  className={`${active ? "bg-gray-100" : ""
-                    } flex w-full items-center px-4 py-3 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100`}
+                  className={`${
+                    active ? 'bg-gray-100' : ''
+                  } flex w-full items-center px-4 py-3 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100`}
                 >
                   <svg
                     className="w-4 h-4 mr-2"

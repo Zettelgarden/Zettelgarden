@@ -1,8 +1,8 @@
-import React, { useRef, useEffect, useState, useCallback } from "react";
-import { createPortal } from "react-dom";
-import { BacklinkInputDropdownList } from "./BacklinkInputDropdownList";
-import { PartialCard } from "../../models/Card";
-import { Z_INDEX } from "../../utils/zIndex";
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { BacklinkInputDropdownList } from './BacklinkInputDropdownList';
+import { PartialCard } from '../../models/Card';
+import { Z_INDEX } from '../../utils/zIndex';
 
 interface InlineCardReferenceDialogProps {
   position: { top: number; left: number; height: number };
@@ -25,7 +25,7 @@ function calculatePosition(
   anchorTop: number,
   anchorLeft: number,
   anchorHeight: number,
-  containerRef: React.RefObject<HTMLDivElement>
+  containerRef: React.RefObject<HTMLDivElement>,
 ): PositionResult {
   const PADDING = 8;
   const DEFAULT_WIDTH = 350;
@@ -96,11 +96,17 @@ export function InlineCardReferenceDialog({
   position,
   onSelect,
   onClose,
-  excludeCardId
+  excludeCardId,
 }: InlineCardReferenceDialogProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [calculatedPosition, setCalculatedPosition] = useState<PositionResult>(() =>
-    calculatePosition(position.top, position.left, position.height, containerRef)
+  const [calculatedPosition, setCalculatedPosition] = useState<PositionResult>(
+    () =>
+      calculatePosition(
+        position.top,
+        position.left,
+        position.height,
+        containerRef,
+      ),
   );
   const [isPositioned, setIsPositioned] = useState(false);
 
@@ -108,7 +114,12 @@ export function InlineCardReferenceDialog({
   useEffect(() => {
     const updatePosition = () => {
       setCalculatedPosition(
-        calculatePosition(position.top, position.left, position.height, containerRef)
+        calculatePosition(
+          position.top,
+          position.left,
+          position.height,
+          containerRef,
+        ),
       );
       setIsPositioned(true);
     };
@@ -126,18 +137,27 @@ export function InlineCardReferenceDialog({
   }, [position]);
 
   // Close on Escape or Click Outside
-  const handleClickOutside = useCallback((event: MouseEvent) => {
-    if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-      onClose();
-    }
-  }, [onClose]);
+  const handleClickOutside = useCallback(
+    (event: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        onClose();
+      }
+    },
+    [onClose],
+  );
 
-  const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      onClose();
-      event.stopPropagation();
-    }
-  }, [onClose]);
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+        event.stopPropagation();
+      }
+    },
+    [onClose],
+  );
 
   useEffect(() => {
     document.addEventListener('mousedown', handleClickOutside);

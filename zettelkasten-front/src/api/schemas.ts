@@ -1,5 +1,5 @@
-import { SchemaDefinition } from "../models/Schema";
-import { apiClient, getData } from "./client";
+import { SchemaDefinition } from '../models/Schema';
+import { apiClient, getData } from './client';
 
 function parseSchemaDates(schema: SchemaDefinition): SchemaDefinition {
   return {
@@ -10,41 +10,50 @@ function parseSchemaDates(schema: SchemaDefinition): SchemaDefinition {
 }
 
 export function fetchSchemas(): Promise<SchemaDefinition[]> {
-  return getData(apiClient.get<SchemaDefinition[]>("/schemas"))
+  return getData(apiClient.get<SchemaDefinition[]>('/schemas'))
     .then((schemas) => schemas || [])
     .then((schemas) => schemas.map(parseSchemaDates));
 }
 
 export function fetchSchema(id: number): Promise<SchemaDefinition> {
-  return getData(apiClient.get<SchemaDefinition>(`/schemas/${id}`))
-    .then(parseSchemaDates);
+  return getData(apiClient.get<SchemaDefinition>(`/schemas/${id}`)).then(
+    parseSchemaDates,
+  );
 }
 
 // Fetch schema by reference (ID or slug)
 // The ref can be a numeric ID (e.g., "123") or a slug (e.g., "book-review")
 export function fetchSchemaByRef(ref: string): Promise<SchemaDefinition> {
-  return getData(apiClient.get<SchemaDefinition>(`/schemas/${ref}`))
-    .then(parseSchemaDates);
+  return getData(apiClient.get<SchemaDefinition>(`/schemas/${ref}`)).then(
+    parseSchemaDates,
+  );
 }
 
 export interface CreateSchemaParams {
   name: string;
-  fields: SchemaDefinition["fields"];
+  fields: SchemaDefinition['fields'];
 }
 
-export function createSchema(params: CreateSchemaParams): Promise<SchemaDefinition> {
-  return getData(apiClient.post<SchemaDefinition>("/schemas", params))
-    .then(parseSchemaDates);
+export function createSchema(
+  params: CreateSchemaParams,
+): Promise<SchemaDefinition> {
+  return getData(apiClient.post<SchemaDefinition>('/schemas', params)).then(
+    parseSchemaDates,
+  );
 }
 
 export interface UpdateSchemaParams {
   name: string;
-  fields: SchemaDefinition["fields"];
+  fields: SchemaDefinition['fields'];
 }
 
-export function updateSchema(id: number, params: UpdateSchemaParams): Promise<SchemaDefinition> {
-  return getData(apiClient.put<SchemaDefinition>(`/schemas/${id}`, params))
-    .then(parseSchemaDates);
+export function updateSchema(
+  id: number,
+  params: UpdateSchemaParams,
+): Promise<SchemaDefinition> {
+  return getData(
+    apiClient.put<SchemaDefinition>(`/schemas/${id}`, params),
+  ).then(parseSchemaDates);
 }
 
 export interface DeleteSchemaResponse {

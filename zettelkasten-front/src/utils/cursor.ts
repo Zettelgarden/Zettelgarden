@@ -38,7 +38,10 @@ const properties = [
   'MozTabSize',
 ] as const;
 
-export function getCaretCoordinates(element: HTMLTextAreaElement, position: number): Coordinates {
+export function getCaretCoordinates(
+  element: HTMLTextAreaElement,
+  position: number,
+): Coordinates {
   // reliable implementation of textarea-caret logic
   const div = document.createElement('div');
   div.id = 'input-textarea-caret-position-mirror-div';
@@ -52,7 +55,7 @@ export function getCaretCoordinates(element: HTMLTextAreaElement, position: numb
   style.position = 'absolute';
   style.visibility = 'hidden';
 
-  properties.forEach(prop => {
+  properties.forEach((prop) => {
     // @ts-ignore
     style[prop] = computed[prop];
   });
@@ -69,7 +72,7 @@ export function getCaretCoordinates(element: HTMLTextAreaElement, position: numb
   const coordinates = {
     top: span.offsetTop + parseInt(computed['borderTopWidth']),
     left: span.offsetLeft + parseInt(computed['borderLeftWidth']),
-    height: parseInt(computed['lineHeight'])
+    height: parseInt(computed['lineHeight']),
   };
 
   document.body.removeChild(div);

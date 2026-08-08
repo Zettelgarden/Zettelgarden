@@ -1,13 +1,20 @@
-import type { RefObject, ChangeEvent } from "react";
-import type { Task } from "../models/Task";
-import type { Tag } from "../models/Tags";
-import type { QuickTagTrigger } from "../components/tasks/QuickTagPopover";
+import type { RefObject, ChangeEvent } from 'react';
+import type { Task } from '../models/Task';
+import type { Tag } from '../models/Tags';
+import type { QuickTagTrigger } from '../components/tasks/QuickTagPopover';
 
 // Type aliases for clarity
-export type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "manual";
-export type SortDirection = "asc" | "desc";
-export type ViewMode = "list" | "matrix" | "kanban";
-export type TaskMobileView = "list" | "filters";
+export type SortField =
+  | 'updated_at'
+  | 'title'
+  | 'priority'
+  | 'status'
+  | 'id'
+  | 'scheduled_date'
+  | 'manual';
+export type SortDirection = 'asc' | 'desc';
+export type ViewMode = 'list' | 'matrix' | 'kanban';
+export type TaskMobileView = 'list' | 'filters';
 
 /**
  * Task data passed from TaskPage to layout components
@@ -43,7 +50,9 @@ export interface ViewSettingsSetters {
   setDateView: (view: string | ((prev: string) => string)) => void;
   setViewMode: (mode: ViewMode | ((prev: ViewMode) => ViewMode)) => void;
   setSortField: (field: SortField | ((prev: SortField) => SortField)) => void;
-  setSortDirection: (direction: SortDirection | ((prev: SortDirection) => SortDirection)) => void;
+  setSortDirection: (
+    direction: SortDirection | ((prev: SortDirection) => SortDirection),
+  ) => void;
   setCurrentPage: (page: number | ((prev: number) => number)) => void;
   setItemsPerPage: (items: number | ((prev: number) => number)) => void;
   setShowDisplayMenu: (show: boolean | ((prev: boolean) => boolean)) => void;
@@ -63,7 +72,9 @@ export interface DialogState {
  * Dialog state setters
  */
 export interface DialogSetters {
-  setShowCreateTaskWindow: (show: boolean | ((prev: boolean) => boolean)) => void;
+  setShowCreateTaskWindow: (
+    show: boolean | ((prev: boolean) => boolean),
+  ) => void;
   setSelectedTaskId: (taskId: number | null) => void;
   setIsTaskDialogOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
   setCreateTaskStatus: (status: string | undefined) => void;
@@ -82,7 +93,9 @@ export interface SelectionState {
  */
 export interface SelectionActions {
   setSelectMode: (mode: boolean | ((prev: boolean) => boolean)) => void;
-  setSelectedTaskIds: (ids: Set<number> | ((prev: Set<number>) => Set<number>)) => void;
+  setSelectedTaskIds: (
+    ids: Set<number> | ((prev: Set<number>) => Set<number>),
+  ) => void;
   toggleSelectMode: () => void;
   toggleTaskSelection: (taskId: number) => void;
   selectAllTasks: (taskIds: number[]) => void;
@@ -129,7 +142,9 @@ export interface FilterInputSetters {
  * Filter input handlers
  */
 export interface FilterInputHandlers {
-  onFilterChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  onFilterChange: (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
   onSelectQuickTag: (tagName: string) => void;
   onRefreshFilterTriggerFromInput: (input: HTMLInputElement) => void;
 }

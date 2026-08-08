@@ -7,7 +7,12 @@
  * - Proper error handling
  */
 
-import { useQuery, useMutation, useQueryClient, UseQueryResult } from '@tanstack/react-query';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  UseQueryResult,
+} from '@tanstack/react-query';
 import { queryKeys, mutationKeys, SearchParams } from '../../api/queryClient';
 import {
   getCard,
@@ -31,7 +36,10 @@ import {
   createArticle,
 } from '../../api/cards';
 import { Card, PartialCard, Entity, SearchResult } from '../../models/Card';
-import { CategorizedReferences, PaginatedSearchResponse } from '../../api/cards';
+import {
+  CategorizedReferences,
+  PaginatedSearchResponse,
+} from '../../api/cards';
 
 /**
  * Hook to fetch a single card by ID
@@ -52,7 +60,10 @@ import { CategorizedReferences, PaginatedSearchResponse } from '../../api/cards'
  * }
  * ```
  */
-export function useCard(id: string | number, enabled = true): UseQueryResult<Card, Error> {
+export function useCard(
+  id: string | number,
+  enabled = true,
+): UseQueryResult<Card, Error> {
   return useQuery({
     queryKey: queryKeys.cards.detail(String(id)),
     queryFn: () => getCard(String(id)),
@@ -67,7 +78,9 @@ export function useCard(id: string | number, enabled = true): UseQueryResult<Car
  * @param cardId - Card ID
  * @returns Query result with categorized references
  */
-export function useCardReferences(cardId: string): UseQueryResult<CategorizedReferences, Error> {
+export function useCardReferences(
+  cardId: string,
+): UseQueryResult<CategorizedReferences, Error> {
   return useQuery({
     queryKey: queryKeys.cards.references(cardId),
     queryFn: () => getCardReferences(cardId),
@@ -81,7 +94,9 @@ export function useCardReferences(cardId: string): UseQueryResult<CategorizedRef
  * @param cardId - Card ID
  * @returns Query result with children array
  */
-export function useCardChildren(cardId: string): UseQueryResult<PartialCard[], Error> {
+export function useCardChildren(
+  cardId: string,
+): UseQueryResult<PartialCard[], Error> {
   return useQuery({
     queryKey: queryKeys.cards.children(cardId),
     queryFn: () => getCardChildren(cardId),
@@ -151,7 +166,9 @@ export function useCardEntities(cardId: string): UseQueryResult<any[], Error> {
  * @param cardId - Card ID
  * @returns Query result with linked entities array
  */
-export function useLinkedEntities(cardId: string): UseQueryResult<Entity[], Error> {
+export function useLinkedEntities(
+  cardId: string,
+): UseQueryResult<Entity[], Error> {
   return useQuery({
     queryKey: queryKeys.cards.linkedEntities(cardId),
     queryFn: () => getLinkedEntitiesByCardPK(cardId),
@@ -165,7 +182,9 @@ export function useLinkedEntities(cardId: string): UseQueryResult<Entity[], Erro
  * @param cardId - Card ID
  * @returns Query result with audit events
  */
-export function useCardAuditEvents(cardId: string): UseQueryResult<any[], Error> {
+export function useCardAuditEvents(
+  cardId: string,
+): UseQueryResult<any[], Error> {
   return useQuery({
     queryKey: queryKeys.cards.auditEvents(cardId),
     queryFn: () => getCardAuditEvents(cardId),
@@ -182,7 +201,7 @@ export function useCardAuditEvents(cardId: string): UseQueryResult<any[], Error>
  */
 export function useCardSearch(
   params: SearchParams,
-  enabled = true
+  enabled = true,
 ): UseQueryResult<PaginatedSearchResponse, Error> {
   // Create a stable query key from params
   const queryParams = {
@@ -217,9 +236,11 @@ export function useCardSearch(
         queryParams.page,
         queryParams.perPage,
         queryParams.onlyEmptyCardId,
-        queryParams.schemaId
+        queryParams.schemaId,
       ),
-    enabled: enabled && (queryParams.searchTerm.length > 0 || queryParams.onlyEmptyCardId),
+    enabled:
+      enabled &&
+      (queryParams.searchTerm.length > 0 || queryParams.onlyEmptyCardId),
     staleTime: 2 * 60 * 1000, // 2 minutes - search results can become stale
   });
 }
@@ -246,8 +267,17 @@ export function useStarredCards(): UseQueryResult<Card[], Error> {
  */
 export function useUnsortedCards(
   page = 1,
-  perPage = 10
-): UseQueryResult<{ cards: PartialCard[]; page: number; per_page: number; total: number; total_pages: number }, Error> {
+  perPage = 10,
+): UseQueryResult<
+  {
+    cards: PartialCard[];
+    page: number;
+    per_page: number;
+    total: number;
+    total_pages: number;
+  },
+  Error
+> {
   return useQuery({
     queryKey: queryKeys.cards.unsorted(page, perPage),
     queryFn: () => getUnsortedCards(page, perPage),
@@ -270,7 +300,9 @@ export function useCreateCard() {
     onSuccess: () => {
       // Invalidate card lists and searches
       queryClient.invalidateQueries({ queryKey: queryKeys.cards.lists() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.cards.search({} as any) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.cards.search({} as any),
+      });
     },
   });
 }
@@ -287,11 +319,18 @@ export function useUpdateCard() {
     mutationFn: saveExistingCard,
 
     onMutate: async (updatedCard: Card) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.cards.detail(String(updatedCard.id)) });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.cards.detail(String(updatedCard.id)),
+      });
 
-      const previousCard = queryClient.getQueryData(queryKeys.cards.detail(String(updatedCard.id)));
+      const previousCard = queryClient.getQueryData(
+        queryKeys.cards.detail(String(updatedCard.id)),
+      );
 
-      queryClient.setQueryData(queryKeys.cards.detail(String(updatedCard.id)), updatedCard);
+      queryClient.setQueryData(
+        queryKeys.cards.detail(String(updatedCard.id)),
+        updatedCard,
+      );
 
       return { previousCard };
     },
@@ -300,14 +339,16 @@ export function useUpdateCard() {
       if (context?.previousCard) {
         queryClient.setQueryData(
           queryKeys.cards.detail(String(variables.id)),
-          context.previousCard
+          context.previousCard,
         );
       }
     },
 
     onSettled: (newCard) => {
       if (newCard) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.cards.detail(String(newCard.id)) });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.cards.detail(String(newCard.id)),
+        });
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.cards.lists() });
     },
@@ -346,9 +387,13 @@ export function useStarCard() {
     mutationFn: (cardId: number) => starCard(cardId),
 
     onMutate: async (cardId: number) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.cards.detail(String(cardId)) });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.cards.detail(String(cardId)),
+      });
 
-      const previousCard = queryClient.getQueryData<Card>(queryKeys.cards.detail(String(cardId)));
+      const previousCard = queryClient.getQueryData<Card>(
+        queryKeys.cards.detail(String(cardId)),
+      );
 
       if (previousCard) {
         queryClient.setQueryData(queryKeys.cards.detail(String(cardId)), {
@@ -364,7 +409,7 @@ export function useStarCard() {
       if (context?.previousCard) {
         queryClient.setQueryData(
           queryKeys.cards.detail(String(variables)),
-          context.previousCard
+          context.previousCard,
         );
       }
     },
@@ -389,9 +434,13 @@ export function useUnstarCard() {
     mutationFn: (cardId: number) => unstarCard(cardId),
 
     onMutate: async (cardId: number) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.cards.detail(String(cardId)) });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.cards.detail(String(cardId)),
+      });
 
-      const previousCard = queryClient.getQueryData<Card>(queryKeys.cards.detail(String(cardId)));
+      const previousCard = queryClient.getQueryData<Card>(
+        queryKeys.cards.detail(String(cardId)),
+      );
 
       if (previousCard) {
         queryClient.setQueryData(queryKeys.cards.detail(String(cardId)), {
@@ -407,7 +456,7 @@ export function useUnstarCard() {
       if (context?.previousCard) {
         queryClient.setQueryData(
           queryKeys.cards.detail(String(variables)),
-          context.previousCard
+          context.previousCard,
         );
       }
     },
@@ -427,12 +476,21 @@ export function useRestoreCardToAuditEvent() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ cardId, auditEventId }: { cardId: string; auditEventId: number }) =>
-      restoreCardToAuditEvent(cardId, auditEventId),
+    mutationFn: ({
+      cardId,
+      auditEventId,
+    }: {
+      cardId: string;
+      auditEventId: number;
+    }) => restoreCardToAuditEvent(cardId, auditEventId),
 
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.cards.detail(variables.cardId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.cards.auditEvents(variables.cardId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.cards.detail(variables.cardId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.cards.auditEvents(variables.cardId),
+      });
     },
   });
 }
@@ -446,8 +504,15 @@ export function useCreateArticle() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ url, cardId, tags }: { url: string; cardId?: string; tags?: string }) =>
-      createArticle(url, cardId, tags),
+    mutationFn: ({
+      url,
+      cardId,
+      tags,
+    }: {
+      url: string;
+      cardId?: string;
+      tags?: string;
+    }) => createArticle(url, cardId, tags),
 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.cards.lists() });

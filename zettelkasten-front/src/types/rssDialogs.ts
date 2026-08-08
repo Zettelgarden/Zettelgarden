@@ -1,4 +1,4 @@
-import { RSSFeed, RSSFolder, RSSArticle } from "../api/rss";
+import { RSSFeed, RSSFolder, RSSArticle } from '../api/rss';
 
 /**
  * Unified dialog state using type discriminator pattern
@@ -9,7 +9,11 @@ export type DialogState =
   | { type: 'editFeed'; feed: RSSFeed }
   | { type: 'editFolder'; folder: RSSFolder }
   | { type: 'createFolder' }
-  | { type: 'deleteConfirm'; itemType: 'feed' | 'folder'; item: RSSFeed | RSSFolder }
+  | {
+      type: 'deleteConfirm';
+      itemType: 'feed' | 'folder';
+      item: RSSFeed | RSSFolder;
+    }
   | { type: 'convert'; article: RSSArticle }
   | { type: 'import' };
 
@@ -25,9 +29,15 @@ export const DialogStates = {
   none: (): DialogState => ({ type: 'none' }),
   addFeed: (): DialogState => ({ type: 'addFeed' }),
   editFeed: (feed: RSSFeed): DialogState => ({ type: 'editFeed', feed }),
-  editFolder: (folder: RSSFolder): DialogState => ({ type: 'editFolder', folder }),
+  editFolder: (folder: RSSFolder): DialogState => ({
+    type: 'editFolder',
+    folder,
+  }),
   createFolder: (): DialogState => ({ type: 'createFolder' }),
-  deleteConfirm: (itemType: 'feed' | 'folder', item: RSSFeed | RSSFolder): DialogState => ({
+  deleteConfirm: (
+    itemType: 'feed' | 'folder',
+    item: RSSFeed | RSSFolder,
+  ): DialogState => ({
     type: 'deleteConfirm',
     itemType,
     item,

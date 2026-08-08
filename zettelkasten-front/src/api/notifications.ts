@@ -1,4 +1,4 @@
-import { apiClient, getData } from "./client";
+import { apiClient, getData } from './client';
 
 // Types
 export interface Notification {
@@ -37,19 +37,27 @@ export interface NotificationListResponse {
 }
 
 // Notification API
-export function listNotifications(filters?: NotificationListFilters): Promise<NotificationListResponse> {
+export function listNotifications(
+  filters?: NotificationListFilters,
+): Promise<NotificationListResponse> {
   const params = new URLSearchParams();
-  if (filters?.source_type) params.set("source_type", filters.source_type);
-  if (filters?.unread_only) params.set("unread_only", "true");
-  if (filters?.limit) params.set("limit", filters.limit.toString());
-  if (filters?.offset) params.set("offset", filters.offset.toString());
+  if (filters?.source_type) params.set('source_type', filters.source_type);
+  if (filters?.unread_only) params.set('unread_only', 'true');
+  if (filters?.limit) params.set('limit', filters.limit.toString());
+  if (filters?.offset) params.set('offset', filters.offset.toString());
 
   const query = params.toString();
-  return getData(apiClient.get<NotificationListResponse>(`/notifications${query ? `?${query}` : ""}`));
+  return getData(
+    apiClient.get<NotificationListResponse>(
+      `/notifications${query ? `?${query}` : ''}`,
+    ),
+  );
 }
 
 export function getUnreadCount(): Promise<{ unread_count: number }> {
-  return getData(apiClient.get<{ unread_count: number }>("/notifications/unread-count"));
+  return getData(
+    apiClient.get<{ unread_count: number }>('/notifications/unread-count'),
+  );
 }
 
 export function markAsRead(id: number, read: boolean): Promise<void> {
@@ -61,9 +69,18 @@ export function archiveNotification(id: number): Promise<void> {
 }
 
 export function getPreferences(): Promise<NotificationPreferences> {
-  return getData(apiClient.get<NotificationPreferences>("/notifications/preferences"));
+  return getData(
+    apiClient.get<NotificationPreferences>('/notifications/preferences'),
+  );
 }
 
-export function updatePreferences(prefs: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
-  return getData(apiClient.patch<NotificationPreferences>("/notifications/preferences", prefs));
+export function updatePreferences(
+  prefs: Partial<NotificationPreferences>,
+): Promise<NotificationPreferences> {
+  return getData(
+    apiClient.patch<NotificationPreferences>(
+      '/notifications/preferences',
+      prefs,
+    ),
+  );
 }

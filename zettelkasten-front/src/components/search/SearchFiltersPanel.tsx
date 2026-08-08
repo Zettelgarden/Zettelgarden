@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { SearchConfig as SearchConfigType, StarredSearch } from "../../models/StarredSearch";
-import { Tag } from "../../models/Tags";
-import { SchemaDefinition } from "../../models/Schema";
-import { getStarredSearches, unstarSearch } from "../../api/starredSearches";
-import { fetchSchemas } from "../../api/schemas";
-import { useToast } from "../toast/ToastContext";
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  SearchConfig as SearchConfigType,
+  StarredSearch,
+} from '../../models/StarredSearch';
+import { Tag } from '../../models/Tags';
+import { SchemaDefinition } from '../../models/Schema';
+import { getStarredSearches, unstarSearch } from '../../api/starredSearches';
+import { fetchSchemas } from '../../api/schemas';
+import { useToast } from '../toast/ToastContext';
 
 interface SearchFiltersPanelProps {
   searchTerm: string;
@@ -49,8 +52,8 @@ export function SearchFiltersPanel({
       .then((searches) => {
         setStarredSearches(searches);
       })
-      .catch(error => {
-        console.error("Error fetching starred searches:", error);
+      .catch((error) => {
+        console.error('Error fetching starred searches:', error);
       });
   };
 
@@ -65,7 +68,7 @@ export function SearchFiltersPanel({
         const data = await fetchSchemas();
         setSchemas(data);
       } catch (error) {
-        console.error("Failed to load schemas:", error);
+        console.error('Failed to load schemas:', error);
       } finally {
         setSchemasLoading(false);
       }
@@ -77,23 +80,23 @@ export function SearchFiltersPanel({
     unstarSearch(searchId)
       .then(() => {
         refreshStarredSearches();
-        showToast("success", "Search unstarred successfully");
+        showToast('success', 'Search unstarred successfully');
       })
-      .catch(error => {
-        console.error("Error unstarring search:", error);
-        showToast("error", "Failed to unstar search", "Please try again");
+      .catch((error) => {
+        console.error('Error unstarring search:', error);
+        showToast('error', 'Failed to unstar search', 'Please try again');
       });
   };
   const handleSchemaChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value;
-    const schemaId = value === "" ? null : parseInt(value);
+    const schemaId = value === '' ? null : parseInt(value);
     const newConfig = { ...searchConfig, schemaId };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
   };
 
   const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter" && !isLoading) {
+    if (event.key === 'Enter' && !isLoading) {
       onSearch(searchTerm, searchConfig);
     }
   };
@@ -104,35 +107,53 @@ export function SearchFiltersPanel({
     onSearchTrigger?.(newConfig, true);
   };
 
-  const handleOnlyParentCardsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newConfig = { ...searchConfig, onlyParentCards: event.target.checked };
+  const handleOnlyParentCardsChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const newConfig = {
+      ...searchConfig,
+      onlyParentCards: event.target.checked,
+    };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
   };
 
-  const handleOnlyEmptyCardIdChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newConfig = { ...searchConfig, onlyEmptyCardId: event.target.checked };
+  const handleOnlyEmptyCardIdChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const newConfig = {
+      ...searchConfig,
+      onlyEmptyCardId: event.target.checked,
+    };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
   };
 
-  const handleShowPreviewChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShowPreviewChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     setSearchConfig({ ...searchConfig, showPreview: event.target.checked });
   };
 
-  const handleShowEntitiesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShowEntitiesChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const newConfig = { ...searchConfig, showEntities: event.target.checked };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
   };
 
-  const handleShowFactsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShowFactsChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const newConfig = { ...searchConfig, showFacts: event.target.checked };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
   };
 
-  const handleShowCardsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShowCardsChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const newConfig = { ...searchConfig, showCards: event.target.checked };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
@@ -163,8 +184,18 @@ export function SearchFiltersPanel({
             disabled={isLoading}
             className="w-full h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-md px-4 text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
             </svg>
             Search
           </button>
@@ -188,14 +219,18 @@ export function SearchFiltersPanel({
 
       {/* Starred Searches Section */}
       <div className="mb-4">
-        <div className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Starred Searches</div>
+        <div className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">
+          Starred Searches
+        </div>
         {starredSearches.length > 0 ? (
           <ul className="space-y-0.5">
             {starredSearches.map((search) => (
               <li key={search.id} className="px-2 py-0.5 text-sm group">
                 <div className="flex items-center">
                   <Link
-                    to={`/app/search?term=${encodeURIComponent(search.searchTerm)}&starred=${search.id}`}
+                    to={`/app/search?term=${encodeURIComponent(
+                      search.searchTerm,
+                    )}&starred=${search.id}`}
                     className="flex-grow hover:bg-gray-100 rounded p-1 truncate"
                     title={search.title}
                   >
@@ -221,7 +256,9 @@ export function SearchFiltersPanel({
 
       {/* Sorting Section */}
       <div className="mb-4">
-        <div className="text-xs text-gray-500 mb-2 font-semibold">Sort Results</div>
+        <div className="text-xs text-gray-500 mb-2 font-semibold">
+          Sort Results
+        </div>
         <div className="space-y-1">
           {[
             { value: 'sortByRanking', label: 'Ranking Score' },
@@ -230,7 +267,7 @@ export function SearchFiltersPanel({
             { value: 'sortNewOld', label: 'Updated (Newest)' },
             { value: 'sortOldNew', label: 'Updated (Oldest)' },
             { value: 'sortBigSmall', label: 'A to Z' },
-            { value: 'sortSmallBig', label: 'Z to A' }
+            { value: 'sortSmallBig', label: 'Z to A' },
           ].map((option) => (
             <button
               key={option.value}
@@ -254,7 +291,9 @@ export function SearchFiltersPanel({
 
       {/* Search Settings */}
       <div className="mb-4">
-        <div className="text-xs text-gray-500 mb-2 font-semibold">Search Settings</div>
+        <div className="text-xs text-gray-500 mb-2 font-semibold">
+          Search Settings
+        </div>
         <div className="space-y-2">
           {/* Schema Filter */}
           <div>
@@ -265,7 +304,7 @@ export function SearchFiltersPanel({
               <div className="text-sm text-gray-500">Loading schemas...</div>
             ) : (
               <select
-                value={searchConfig.schemaId ?? ""}
+                value={searchConfig.schemaId ?? ''}
                 onChange={handleSchemaChange}
                 className="w-full text-sm border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
@@ -362,7 +401,9 @@ export function SearchFiltersPanel({
       {/* Tags Section */}
       {tags && tags.length > 0 && (
         <div className="mb-4">
-          <div className="text-xs text-gray-500 mb-2 font-semibold">Search by Tag</div>
+          <div className="text-xs text-gray-500 mb-2 font-semibold">
+            Search by Tag
+          </div>
           <div className="max-h-48 overflow-y-auto space-y-1">
             {tags.slice(0, 10).map((tag) => (
               <button

@@ -1,26 +1,38 @@
-import React, { ChangeEvent, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Task } from "../../models/Task";
-import { Tag } from "../../models/Tags";
-import { MobileTopBar } from "../layout/MobileTopBar";
-import { TaskFiltersSheet } from "./TaskFiltersSheet";
-import { QuickTagPopover, type QuickTagTrigger, getQuickTagTrigger, applyQuickTagSelection } from "./QuickTagPopover";
-import { SearchTagDropdown } from "../tags/SearchTagDropdown";
-import { SavedSearchesMenu } from "./SavedSearchesMenu";
-import type { TaskSavedSearch } from "../../models/TaskSavedSearch";
-import { TaskList } from "./TaskList";
-import { TaskListSkeleton } from "./TaskListSkeleton";
-import { TaskEmptyState, getEmptyStateType } from "./TaskEmptyState";
-import { FilterHelpButton, FilterHelpPopover } from "./FilterHelpButton";
-import { EisenhowerMatrix } from "./EisenhowerMatrix";
-import { KanbanBoard } from "./KanbanBoard";
-import { TaskSelectionOverlay } from "./TaskSelectionOverlay";
-import { TaskDialog } from "./TaskDialog";
-import { CreateTaskWindow } from "./CreateTaskWindow";
+import React, { ChangeEvent, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Task } from '../../models/Task';
+import { Tag } from '../../models/Tags';
+import { MobileTopBar } from '../layout/MobileTopBar';
+import { TaskFiltersSheet } from './TaskFiltersSheet';
+import {
+  QuickTagPopover,
+  type QuickTagTrigger,
+  getQuickTagTrigger,
+  applyQuickTagSelection,
+} from './QuickTagPopover';
+import { SearchTagDropdown } from '../tags/SearchTagDropdown';
+import { SavedSearchesMenu } from './SavedSearchesMenu';
+import type { TaskSavedSearch } from '../../models/TaskSavedSearch';
+import { TaskList } from './TaskList';
+import { TaskListSkeleton } from './TaskListSkeleton';
+import { TaskEmptyState, getEmptyStateType } from './TaskEmptyState';
+import { FilterHelpButton, FilterHelpPopover } from './FilterHelpButton';
+import { EisenhowerMatrix } from './EisenhowerMatrix';
+import { KanbanBoard } from './KanbanBoard';
+import { TaskSelectionOverlay } from './TaskSelectionOverlay';
+import { TaskDialog } from './TaskDialog';
+import { CreateTaskWindow } from './CreateTaskWindow';
 
-type SortField = "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "manual";
-type SortDirection = "asc" | "desc";
-type ViewMode = "list" | "matrix" | "kanban";
+type SortField =
+  | 'updated_at'
+  | 'title'
+  | 'priority'
+  | 'status'
+  | 'id'
+  | 'scheduled_date'
+  | 'manual';
+type SortDirection = 'asc' | 'desc';
+type ViewMode = 'list' | 'matrix' | 'kanban';
 type TaskMobileView = 'list' | 'filters';
 
 interface TaskMobileLayoutProps {
@@ -92,7 +104,9 @@ interface TaskMobileLayoutProps {
   onTaskClick: (taskId: number) => void;
 
   // Filter handlers
-  onFilterChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  onFilterChange: (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
   onRefreshFilterTriggerFromInput: (input: HTMLInputElement) => void;
   onSelectQuickTag: (tagName: string) => void;
   filterInputRef: React.RefObject<HTMLInputElement>;
@@ -181,7 +195,9 @@ export function TaskMobileLayout({
   const [currentCard, setCurrentCard] = useState<null>(null);
 
   // Handle filter input changes (delegated from parent)
-  const handleFilterChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleFilterChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     onFilterChange(e);
   };
 
@@ -215,24 +231,26 @@ export function TaskMobileLayout({
   // Render current view based on viewMode
   const renderCurrentView = () => {
     switch (viewMode) {
-      case "list":
+      case 'list':
         if (isLoading) {
           return <TaskListSkeleton count={6} />;
         }
         if (paginatedTasks.length === 0) {
           return (
             <TaskEmptyState
-              type={getEmptyStateType({
-                totalTasks: tasks.length,
-                filteredTasks: tasksToDisplay.length,
-                hasActiveFilter: filterString.trim().length > 0,
-                showCompleted,
-              }) || "no-tasks"}
+              type={
+                getEmptyStateType({
+                  totalTasks: tasks.length,
+                  filteredTasks: tasksToDisplay.length,
+                  hasActiveFilter: filterString.trim().length > 0,
+                  showCompleted,
+                }) || 'no-tasks'
+              }
               onAddTask={() => {
                 setCreateTaskStatus(undefined);
                 setShowCreateTaskWindow(true);
               }}
-              onClearFilters={() => setFilterString("")}
+              onClearFilters={() => setFilterString('')}
               onShowCompleted={() => setShowCompleted(true)}
             />
           );
@@ -245,11 +263,11 @@ export function TaskMobileLayout({
             selectMode={selectMode}
             selectedTaskIds={selectedTaskIds}
             onTaskSelect={toggleTaskSelection}
-            manualSort={sortField === "manual"}
+            manualSort={sortField === 'manual'}
             onReorder={() => setRefreshTasks(true)}
           />
         );
-      case "kanban":
+      case 'kanban':
         return (
           <KanbanBoard
             tasks={tasksToDisplay}
@@ -260,7 +278,7 @@ export function TaskMobileLayout({
             onTaskSelect={toggleTaskSelection}
           />
         );
-      case "matrix":
+      case 'matrix':
         return (
           <EisenhowerMatrix
             tasks={tasksToDisplay}
@@ -268,7 +286,7 @@ export function TaskMobileLayout({
             onAddTaskWithTags={(tags) => {
               // For matrix view, we'll just use the first tag's value for status
               // or fall back to the status handler
-              onAddTaskWithStatus(tags[0] || "todo");
+              onAddTaskWithStatus(tags[0] || 'todo');
             }}
             selectMode={selectMode}
             selectedTaskIds={selectedTaskIds}
@@ -284,7 +302,7 @@ export function TaskMobileLayout({
             selectMode={selectMode}
             selectedTaskIds={selectedTaskIds}
             onTaskSelect={toggleTaskSelection}
-            manualSort={sortField === "manual"}
+            manualSort={sortField === 'manual'}
             onReorder={() => setRefreshTasks(true)}
           />
         );
@@ -308,8 +326,18 @@ export function TaskMobileLayout({
                 className="p-2 -mr-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
                 aria-label="Open filters"
               >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                  />
                 </svg>
               </button>
               {/* Add task button */}
@@ -318,8 +346,18 @@ export function TaskMobileLayout({
                 className="p-2 -mr-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
                 aria-label="Add task"
               >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
                 </svg>
               </button>
             </div>
@@ -365,10 +403,7 @@ export function TaskMobileLayout({
               onRequestClose={() => setFilterTrigger(null)}
             />
             <div className="h-9 flex items-center">
-              <SearchTagDropdown
-                tags={tags}
-                handleTagClick={onTagClick}
-              />
+              <SearchTagDropdown tags={tags} handleTagClick={onTagClick} />
             </div>
             <SavedSearchesMenu
               filterString={filterString}
@@ -388,17 +423,18 @@ export function TaskMobileLayout({
           <div className="mt-2 flex items-center gap-2">
             <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full text-xs whitespace-nowrap">
               {tasksToDisplay.length}/{totalTasksForDateView}
-              {dateView === "today"
-                ? " today"
-                : dateView === "tomorrow"
-                  ? " tomorrow"
-                  : dateView === "overdue"
-                    ? " overdue"
-                    : dateView === "this_week"
-                      ? " this week"
-                      : dateView === "no_date"
-                        ? " no date"
-                        : ""} {totalTasksForDateView === 1 ? "task" : "tasks"}
+              {dateView === 'today'
+                ? ' today'
+                : dateView === 'tomorrow'
+                ? ' tomorrow'
+                : dateView === 'overdue'
+                ? ' overdue'
+                : dateView === 'this_week'
+                ? ' this week'
+                : dateView === 'no_date'
+                ? ' no date'
+                : ''}{' '}
+              {totalTasksForDateView === 1 ? 'task' : 'tasks'}
             </span>
             {selectMode && (
               <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs whitespace-nowrap">
@@ -418,7 +454,7 @@ export function TaskMobileLayout({
           tasks={tasksToDisplay}
           selectMode={selectMode}
           selectedTaskIds={selectedTaskIds}
-          onSelectAll={() => selectAllTasks(tasksToDisplay.map(t => t.id))}
+          onSelectAll={() => selectAllTasks(tasksToDisplay.map((t) => t.id))}
           onClearSelection={clearSelection}
           onToggleSelectMode={toggleSelectMode}
         />
@@ -447,9 +483,7 @@ export function TaskMobileLayout({
         {/* Background content - shows list behind the filter overlay */}
         <div className="flex flex-col flex-1 h-full opacity-50">
           <MobileTopBar title="Tasks" onMenuClick={onMenuClick} />
-          <div className="flex-1 overflow-y-auto">
-            {renderCurrentView()}
-          </div>
+          <div className="flex-1 overflow-y-auto">{renderCurrentView()}</div>
         </div>
 
         {/* Filters Bottom Sheet */}

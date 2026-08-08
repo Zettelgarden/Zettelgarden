@@ -47,9 +47,7 @@ export interface ResponsiveLayoutProps {
  * }
  * ```
  */
-export function ResponsiveLayout({
-  children,
-}: ResponsiveLayoutProps) {
+export function ResponsiveLayout({ children }: ResponsiveLayoutProps) {
   const { isMobile } = useResponsiveLayout();
 
   return <>{children(isMobile)}</>;

@@ -16,6 +16,7 @@ Created a generic, reusable `MobileTopBar` component for responsive pages in Zet
 ## Component Features
 
 ### Core Functionality
+
 - ✅ Sticky positioning at top of viewport
 - ✅ Configurable title display
 - ✅ Optional badge support (counts, labels)
@@ -29,20 +30,21 @@ Created a generic, reusable `MobileTopBar` component for responsive pages in Zet
 
 ```typescript
 interface MobileTopBarProps {
-  title: string;                    // Required: Title text
-  badge?: string | number;          // Optional: Badge next to title
-  onBack?: () => void;              // Optional: Back button callback
-  onMenuClick?: () => void;         // Optional: Menu button callback
-  actions?: ReactNode;              // Optional: Right-side actions
-  className?: string;               // Optional: Custom styling
-  zIndex?: number;                  // Optional: Z-index (default: 40)
-  mobileOnly?: boolean;             // Optional: Mobile only (default: true)
+  title: string; // Required: Title text
+  badge?: string | number; // Optional: Badge next to title
+  onBack?: () => void; // Optional: Back button callback
+  onMenuClick?: () => void; // Optional: Menu button callback
+  actions?: ReactNode; // Optional: Right-side actions
+  className?: string; // Optional: Custom styling
+  zIndex?: number; // Optional: Z-index (default: 40)
+  mobileOnly?: boolean; // Optional: Mobile only (default: true)
 }
 ```
 
 ## Patterns Found in Existing Code
 
 ### 1. RssMobileTopBar Pattern
+
 **Location**: `src/components/rss/RssMobileTopBar.tsx`
 
 ```tsx
@@ -58,6 +60,7 @@ interface MobileTopBarProps {
 ```
 
 **Key observations**:
+
 - Sticky positioning with z-40
 - md:hidden for mobile-only
 - Left: Menu button
@@ -65,6 +68,7 @@ interface MobileTopBarProps {
 - Right: Settings/action button
 
 ### 2. RssMobileReader Pattern
+
 **Location**: `src/components/rss/RssMobileReader.tsx`
 
 ```tsx
@@ -77,27 +81,34 @@ interface MobileTopBarProps {
 ```
 
 **Key observations**:
+
 - Back button instead of menu
 - Title with truncate and flex-1
 - Text-based action button
 - Shadow for depth
 
 ### 3. AdminTopBar Pattern
+
 **Location**: `src/components/AdminTopBar.tsx`
 
 ```tsx
 // Pattern: Title | Action button (desktop)
 <div className="flex bg-white w-full h-[50px] items-center justify-between">
   <div>
-    <h1><Link to="/admin">Zettelindex Admin</Link></h1>
+    <h1>
+      <Link to="/admin">Zettelindex Admin</Link>
+    </h1>
   </div>
   <div>
-    <button><Link to="/app">Back To App</Link></button>
+    <button>
+      <Link to="/app">Back To App</Link>
+    </button>
   </div>
 </div>
 ```
 
 **Key observations**:
+
 - Desktop-focused (not mobile)
 - Fixed height
 - Link-based navigation
@@ -106,6 +117,7 @@ interface MobileTopBarProps {
 ## Implementation Details
 
 ### Layout Structure
+
 ```
 ┌─────────────────────────────────────────────────┐
 │ [Back/Menu]  Title [Badge]    [Actions...]     │
@@ -114,6 +126,7 @@ interface MobileTopBarProps {
 ```
 
 ### Styling Approach
+
 - **Container**: Flexbox with space-between
 - **Left side**: Button container with negative margin for proper touch target
 - **Center**: Flex-1 with horizontal margin and text truncation
@@ -121,6 +134,7 @@ interface MobileTopBarProps {
 - **Badge**: Red circular badge with white text
 
 ### Accessibility
+
 - ARIA labels on all interactive elements
 - Semantic HTML structure
 - Proper touch target sizes (p-2)
@@ -130,19 +144,19 @@ interface MobileTopBarProps {
 ## Usage Examples
 
 ### Example 1: Simple Title
+
 ```tsx
 <MobileTopBar title="Settings" />
 ```
 
 ### Example 2: With Back Button
+
 ```tsx
-<MobileTopBar
-  title="Article Details"
-  onBack={() => navigate(-1)}
-/>
+<MobileTopBar title="Article Details" onBack={() => navigate(-1)} />
 ```
 
 ### Example 3: With Menu and Badge
+
 ```tsx
 <MobileTopBar
   title="RSS Feeds"
@@ -153,6 +167,7 @@ interface MobileTopBarProps {
 ```
 
 ### Example 4: With Multiple Actions
+
 ```tsx
 <MobileTopBar
   title="Messages"
@@ -169,22 +184,26 @@ interface MobileTopBarProps {
 ## Design Decisions
 
 1. **Badge Logic**: Badges are hidden when:
+
    - Not provided (undefined)
    - Empty string
    - "0" (zero)
-   This keeps the UI clean when there's nothing to show.
+     This keeps the UI clean when there's nothing to show.
 
-2. **Button Priority**: 
+2. **Button Priority**:
+
    - If `onBack` is provided, show back button
    - Else if `onMenuClick` is provided, show menu button
    - Else, no left button (spacer only)
 
-3. **Mobile-Only by Default**: 
+3. **Mobile-Only by Default**:
+
    - Uses `md:hidden` to hide on desktop
    - Can be overridden with `mobileOnly={false}`
    - Maintains consistency with existing mobile components
 
-4. **Z-Index Default**: 
+4. **Z-Index Default**:
+
    - Set to 40 (same as RssMobileTopBar)
    - Ensures proper stacking with other mobile elements
    - Configurable for modal/dialog scenarios
@@ -197,20 +216,24 @@ interface MobileTopBarProps {
 ## Comparison with Existing Components
 
 ### RssMobileTopBar
+
 **Current**: RSS-specific, hardcoded menu and settings buttons
 **New**: Generic, accepts any actions via props
 
 ### RssMobileReader
+
 **Current**: Inline top bar within reader component
 **New**: Standalone reusable component
 
 ### AdminTopBar
+
 **Current**: Desktop-focused, fixed height
 **New**: Mobile-focused, responsive, more flexible
 
 ## Testing Recommendations
 
 1. **Unit Tests**:
+
    - Renders title correctly
    - Shows/hides badge based on value
    - Shows back button when onBack provided
@@ -219,6 +242,7 @@ interface MobileTopBarProps {
    - Applies custom className and zIndex
 
 2. **Integration Tests**:
+
    - Back button callback fires correctly
    - Menu button callback fires correctly
    - Actions are interactive
@@ -234,18 +258,21 @@ interface MobileTopBarProps {
 Potential improvements for future iterations:
 
 1. **Variants**:
+
    - Search input variant
    - Progress indicator variant
    - Breadcrumb navigation variant
    - Tab selector variant
 
 2. **Advanced Features**:
+
    - Animated transitions (slide up/down)
    - Blur effect on scroll
    - Dynamic title based on scroll position
    - Collapse/expand behavior
 
 3. **Theming**:
+
    - Dark mode support
    - Custom color schemes
    - Size variants (compact, large)
@@ -260,6 +287,7 @@ Potential improvements for future iterations:
 Existing components can be migrated to use MobileTopBar:
 
 ### Before (RssMobileTopBar):
+
 ```tsx
 export function RssMobileTopBar({
   title,
@@ -269,16 +297,15 @@ export function RssMobileTopBar({
   rightAction,
 }: RssMobileTopBarProps) {
   return (
-    <div className="sticky top-0 z-40...">
-      {/* Custom implementation */}
-    </div>
+    <div className="sticky top-0 z-40...">{/* Custom implementation */}</div>
   );
 }
 ```
 
 ### After (using MobileTopBar):
+
 ```tsx
-import { MobileTopBar } from "@/components/layout";
+import { MobileTopBar } from '@/components/layout';
 
 export function RssMobileTopBar({
   title,

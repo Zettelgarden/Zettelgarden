@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { StarredSearch } from "../../models/StarredSearch";
-import { Tag } from "../../models/Tags";
-import { getStarredSearches, unstarSearch } from "../../api/starredSearches";
-import { useToast } from "../toast/ToastContext";
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { StarredSearch } from '../../models/StarredSearch';
+import { Tag } from '../../models/Tags';
+import { getStarredSearches, unstarSearch } from '../../api/starredSearches';
+import { useToast } from '../toast/ToastContext';
 
 interface SearchSidebarProps {
   tags: Tag[];
@@ -14,10 +14,7 @@ interface SearchSidebarProps {
  * Left sidebar panel showing starred searches and tags
  * Navigation-only component - no search input or configuration
  */
-export function SearchSidebar({
-  tags,
-  onTagClick,
-}: SearchSidebarProps) {
+export function SearchSidebar({ tags, onTagClick }: SearchSidebarProps) {
   const [starredSearches, setStarredSearches] = useState<StarredSearch[]>([]);
   const { showToast } = useToast();
 
@@ -27,8 +24,8 @@ export function SearchSidebar({
       .then((searches) => {
         setStarredSearches(searches);
       })
-      .catch(error => {
-        console.error("Error fetching starred searches:", error);
+      .catch((error) => {
+        console.error('Error fetching starred searches:', error);
       });
   };
 
@@ -40,11 +37,11 @@ export function SearchSidebar({
     unstarSearch(searchId)
       .then(() => {
         refreshStarredSearches();
-        showToast("success", "Search unstarred successfully");
+        showToast('success', 'Search unstarred successfully');
       })
-      .catch(error => {
-        console.error("Error unstarring search:", error);
-        showToast("error", "Failed to unstar search", "Please try again");
+      .catch((error) => {
+        console.error('Error unstarring search:', error);
+        showToast('error', 'Failed to unstar search', 'Please try again');
       });
   };
 
@@ -52,14 +49,18 @@ export function SearchSidebar({
     <div className="hidden md:flex w-72 border-r border-gray-200 p-4 overflow-y-auto bg-gray-50 flex-shrink-0 flex-col">
       {/* Starred Searches Section */}
       <div className="mb-4">
-        <div className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Starred Searches</div>
+        <div className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">
+          Starred Searches
+        </div>
         {starredSearches.length > 0 ? (
           <ul className="space-y-0.5">
             {starredSearches.map((search) => (
               <li key={search.id} className="px-2 py-0.5 text-sm group">
                 <div className="flex items-center">
                   <Link
-                    to={`/app/search?term=${encodeURIComponent(search.searchTerm)}&starred=${search.id}`}
+                    to={`/app/search?term=${encodeURIComponent(
+                      search.searchTerm,
+                    )}&starred=${search.id}`}
                     className="flex-grow hover:bg-gray-100 rounded p-1 truncate"
                     title={search.title}
                   >
@@ -86,7 +87,9 @@ export function SearchSidebar({
       {/* Tags Section */}
       {tags && tags.length > 0 && (
         <div className="mb-4">
-          <div className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Search by Tag</div>
+          <div className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">
+            Search by Tag
+          </div>
           <div className="max-h-48 overflow-y-auto space-y-1">
             {tags.slice(0, 10).map((tag) => (
               <button

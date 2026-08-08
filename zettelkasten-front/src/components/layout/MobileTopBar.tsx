@@ -1,4 +1,4 @@
-import React, { ReactNode } from "react";
+import React, { ReactNode } from 'react';
 
 interface MobileTopBarProps {
   /**
@@ -87,15 +87,16 @@ export function MobileTopBar({
   onBack,
   onMenuClick,
   actions,
-  className = "",
+  className = '',
   zIndex = 40,
   mobileOnly = true,
 }: MobileTopBarProps) {
-  const visibilityClass = mobileOnly ? "md:hidden" : "";
+  const visibilityClass = mobileOnly ? 'md:hidden' : '';
 
   // Format badge for display
   const displayBadge = badge !== undefined ? String(badge) : null;
-  const shouldShowBadge = displayBadge !== null && displayBadge !== "" && displayBadge !== "0";
+  const shouldShowBadge =
+    displayBadge !== null && displayBadge !== '' && displayBadge !== '0';
 
   return (
     <div
@@ -110,8 +111,18 @@ export function MobileTopBar({
             className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
             aria-label="Go back"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
         )}
@@ -122,8 +133,18 @@ export function MobileTopBar({
             className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
             aria-label="Open menu"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
             </svg>
           </button>
         )}
@@ -131,7 +152,9 @@ export function MobileTopBar({
 
       {/* Center: Title with optional badge */}
       <div className="flex items-center gap-2 flex-1 mx-4">
-        <h1 className="text-lg font-semibold text-gray-900 truncate">{title}</h1>
+        <h1 className="text-lg font-semibold text-gray-900 truncate">
+          {title}
+        </h1>
         {shouldShowBadge && (
           <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0">
             {displayBadge}
@@ -140,9 +163,7 @@ export function MobileTopBar({
       </div>
 
       {/* Right side: Action buttons */}
-      <div className="flex items-center gap-1">
-        {actions}
-      </div>
+      <div className="flex items-center gap-1">{actions}</div>
     </div>
   );
 }
@@ -171,7 +192,7 @@ interface MobileTopBarLeftActionProps {
 export function MobileTopBarLeftAction({
   children,
   onClick,
-  ariaLabel = "Action",
+  ariaLabel = 'Action',
 }: MobileTopBarLeftActionProps) {
   return (
     <button

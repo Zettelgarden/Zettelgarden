@@ -1,8 +1,8 @@
-import React from "react";
-import { SearchResult } from "../../models/Card";
-import { SearchConfig } from "../../models/StarredSearch";
-import { Button } from "../../components/Button";
-import { SearchResultList } from "../../components/cards/SearchResultList";
+import React from 'react';
+import { SearchResult } from '../../models/Card';
+import { SearchConfig } from '../../models/StarredSearch';
+import { Button } from '../../components/Button';
+import { SearchResultList } from '../../components/cards/SearchResultList';
 
 interface SearchResultsProps {
   searchResults: SearchResult[];
@@ -32,8 +32,9 @@ export function SearchResults({
   setSearchResults,
 }: SearchResultsProps) {
   function getFilteredResults(): SearchResult[] {
-    return searchResults
-      .filter(result => !searchConfig.onlyParentCards || !result.id.includes("/"));
+    return searchResults.filter(
+      (result) => !searchConfig.onlyParentCards || !result.id.includes('/'),
+    );
   }
 
   return (
@@ -55,7 +56,7 @@ export function SearchResults({
                 <Button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
-                  children={"Previous"}
+                  children={'Previous'}
                 />
                 <span className="flex items-center text-sm text-gray-600">
                   Page {currentPage} of {totalPages} ({totalResults} results)
@@ -63,7 +64,7 @@ export function SearchResults({
                 <Button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  children={"Next"}
+                  children={'Next'}
                 />
               </div>
             </div>

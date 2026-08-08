@@ -1,8 +1,8 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
-import { CardIcon } from "../../assets/icons/CardIcon";
-import { TasksIcon } from "../../assets/icons/TasksIcon";
-import { SearchIcon } from "../../assets/icons/SearchIcon";
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { CardIcon } from '../../assets/icons/CardIcon';
+import { TasksIcon } from '../../assets/icons/TasksIcon';
+import { SearchIcon } from '../../assets/icons/SearchIcon';
 
 interface MobileBottomNavProps {
   onCreateCard: () => void;
@@ -16,11 +16,14 @@ interface MobileBottomNavProps {
  *
  * Part of Task 4: Mobile Bottom Navigation Bar
  */
-export function MobileBottomNav({ onCreateCard, onCreateTask }: MobileBottomNavProps) {
+export function MobileBottomNav({
+  onCreateCard,
+  onCreateTask,
+}: MobileBottomNavProps) {
   const navigate = useNavigate();
 
   const handleSearch = () => {
-    navigate("/app/search?recent=true");
+    navigate('/app/search?recent=true');
   };
 
   return (

@@ -212,7 +212,13 @@ describe('useKeyboardShortcuts', () => {
     const onQuickSearch1 = vi.fn();
 
     const { rerender } = renderHook(
-      ({ onCreateTask, onQuickSearch }: { onCreateTask: () => void; onQuickSearch: () => void }) =>
+      ({
+        onCreateTask,
+        onQuickSearch,
+      }: {
+        onCreateTask: () => void;
+        onQuickSearch: () => void;
+      }) =>
         useKeyboardShortcuts({
           onCreateTask,
           onQuickSearch,

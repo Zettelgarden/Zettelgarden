@@ -1,5 +1,5 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * Shown when a free-tier user navigates to a pro-only route.
@@ -18,7 +18,7 @@ export function Paywall({ feature }: { feature: string }) {
         advanced features. Start with a 30-day free trial.
       </p>
       <button
-        onClick={() => navigate("/app/subscription")}
+        onClick={() => navigate('/app/subscription')}
         className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
       >
         View Plans

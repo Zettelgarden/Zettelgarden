@@ -1,22 +1,38 @@
-import React, { ChangeEvent } from "react";
-import { MobileBottomSheet } from "../layout/MobileBottomSheet";
-import { Button } from "../Button";
+import React, { ChangeEvent } from 'react';
+import { MobileBottomSheet } from '../layout/MobileBottomSheet';
+import { Button } from '../Button';
 
 interface TaskFiltersSheetProps {
   isOpen: boolean;
   onClose: () => void;
   // Filter settings
   dateView: string;
-  viewMode: "list" | "matrix" | "kanban";
+  viewMode: 'list' | 'matrix' | 'kanban';
   showCompleted: boolean;
-  sortField: "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "manual";
-  sortDirection: "asc" | "desc";
+  sortField:
+    | 'updated_at'
+    | 'title'
+    | 'priority'
+    | 'status'
+    | 'id'
+    | 'scheduled_date'
+    | 'manual';
+  sortDirection: 'asc' | 'desc';
   selectMode: boolean;
   // Handlers
   onDateViewChange: (value: string) => void;
-  onViewModeChange: (value: "list" | "matrix" | "kanban") => void;
+  onViewModeChange: (value: 'list' | 'matrix' | 'kanban') => void;
   onShowCompletedChange: () => void;
-  onSortFieldChange: (value: "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "manual") => void;
+  onSortFieldChange: (
+    value:
+      | 'updated_at'
+      | 'title'
+      | 'priority'
+      | 'status'
+      | 'id'
+      | 'scheduled_date'
+      | 'manual',
+  ) => void;
   onSortDirectionToggle: () => void;
   onSelectModeToggle: () => void;
   onApply?: () => void;
@@ -44,11 +60,20 @@ export function TaskFiltersSheet({
   };
 
   const handleViewModeChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    onViewModeChange(e.target.value as "list" | "matrix" | "kanban");
+    onViewModeChange(e.target.value as 'list' | 'matrix' | 'kanban');
   };
 
   const handleSortFieldChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    onSortFieldChange(e.target.value as "updated_at" | "title" | "priority" | "status" | "id" | "scheduled_date" | "manual");
+    onSortFieldChange(
+      e.target.value as
+        | 'updated_at'
+        | 'title'
+        | 'priority'
+        | 'status'
+        | 'id'
+        | 'scheduled_date'
+        | 'manual',
+    );
   };
 
   const handleApply = () => {
@@ -126,9 +151,19 @@ export function TaskFiltersSheet({
             onClick={handleShowCompletedClick}
             className="w-full p-4 border border-gray-300 rounded-lg text-left flex items-center justify-between bg-white hover:bg-gray-50 active:bg-gray-100 min-h-[56px] transition-colors"
           >
-            <span className="text-base text-gray-900">Show Completed Tasks</span>
-            <div className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${showCompleted ? 'bg-blue-600' : 'bg-gray-300'}`}>
-              <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${showCompleted ? 'translate-x-5' : 'translate-x-0'}`} />
+            <span className="text-base text-gray-900">
+              Show Completed Tasks
+            </span>
+            <div
+              className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${
+                showCompleted ? 'bg-blue-600' : 'bg-gray-300'
+              }`}
+            >
+              <div
+                className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  showCompleted ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
             </div>
           </button>
 
@@ -139,8 +174,16 @@ export function TaskFiltersSheet({
             className="w-full p-4 border border-gray-300 rounded-lg text-left flex items-center justify-between bg-white hover:bg-gray-50 active:bg-gray-100 min-h-[56px] transition-colors"
           >
             <span className="text-base text-gray-900">Select Mode</span>
-            <div className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${selectMode ? 'bg-blue-600' : 'bg-gray-300'}`}>
-              <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${selectMode ? 'translate-x-5' : 'translate-x-0'}`} />
+            <div
+              className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${
+                selectMode ? 'bg-blue-600' : 'bg-gray-300'
+              }`}
+            >
+              <div
+                className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  selectMode ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
             </div>
           </button>
         </section>
@@ -164,15 +207,17 @@ export function TaskFiltersSheet({
               <option value="id">ID</option>
               <option value="manual">Manual</option>
             </select>
-            {sortField !== "manual" && (
+            {sortField !== 'manual' && (
               <button
                 type="button"
                 onClick={handleSortDirectionClick}
                 className="p-3 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 active:bg-gray-100 min-h-[48px] min-w-[48px] flex items-center justify-center transition-colors"
-                aria-label={`Sort ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
+                aria-label={`Sort ${
+                  sortDirection === 'asc' ? 'ascending' : 'descending'
+                }`}
               >
                 <span className="text-xl font-semibold text-gray-700">
-                  {sortDirection === "asc" ? "↑" : "↓"}
+                  {sortDirection === 'asc' ? '↑' : '↓'}
                 </span>
               </button>
             )}

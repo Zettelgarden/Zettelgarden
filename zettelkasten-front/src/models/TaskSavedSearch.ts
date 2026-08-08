@@ -1,4 +1,4 @@
-import type { SortField, SortDirection, ViewMode } from "../types/taskPage";
+import type { SortField, SortDirection, ViewMode } from '../types/taskPage';
 
 /**
  * A user-saved task search, synced across devices via the backend.

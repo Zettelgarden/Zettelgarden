@@ -1,62 +1,62 @@
 // zettelkasten-front/src/components/cards/ViewMobileLayout.test.tsx
-import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
-import { ViewMobileLayout } from "./ViewMobileLayout";
-import { Card, defaultPartialCard } from "../../models/Card";
+import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { ViewMobileLayout } from './ViewMobileLayout';
+import { Card, defaultPartialCard } from '../../models/Card';
 
 // Mock react-router-dom
-vi.mock("react-router-dom", () => ({
+vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
 }));
 
 // Mock child components
-vi.mock("./ViewCardContentSection", () => ({
+vi.mock('./ViewCardContentSection', () => ({
   ViewCardContentSection: ({ viewingCard }: any) => (
     <div data-testid="view-card-content-section">Content Section</div>
   ),
 }));
 
-vi.mock("../tags/SearchTagDropdown", () => ({
+vi.mock('../tags/SearchTagDropdown', () => ({
   SearchTagDropdown: ({ tags, handleTagClick }: any) => (
     <div data-testid="search-tag-dropdown">Add Tag</div>
   ),
 }));
 
-vi.mock("./RelatedCards", () => ({
+vi.mock('./RelatedCards', () => ({
   RelatedCards: ({ relatedCards, onCardClick }: any) => (
     <div data-testid="related-cards">Related Cards ({relatedCards.length})</div>
   ),
 }));
 
-vi.mock("./ChildrenCards", () => ({
+vi.mock('./ChildrenCards', () => ({
   ChildrenCards: ({ allChildren }: any) => (
     <div data-testid="children-cards">{allChildren.length}</div>
   ),
 }));
 
-vi.mock("./CardList", () => ({
+vi.mock('./CardList', () => ({
   CardList: ({ cards }: any) => (
     <div data-testid="card-list">{cards.length}</div>
   ),
 }));
 
-vi.mock("./BacklinkInput", () => ({
+vi.mock('./BacklinkInput', () => ({
   BacklinkInput: () => <div data-testid="backlink-input">Add Backlink</div>,
 }));
 
-vi.mock("./SortControl", () => ({
+vi.mock('./SortControl', () => ({
   SortControl: () => <div data-testid="sort-control">Sort</div>,
 }));
 
 // FilesTab pulls in react-pdf transitively (DOMMatrix); mock the tabs to keep
 // this a focused layout test, mirroring ViewPageSidePanels.test.tsx.
-vi.mock("../tabs/FilesTab", () => ({
+vi.mock('../tabs/FilesTab', () => ({
   FilesTab: ({ viewingCard }: any) => (
     <div data-testid="files-tab">{viewingCard.files.length} files</div>
   ),
 }));
 
-vi.mock("../tabs/SummariesTab", () => ({
+vi.mock('../tabs/SummariesTab', () => ({
   SummariesTab: ({ summaries }: any) => (
     <div data-testid="summaries-tab">
       {summaries ? summaries.length : 0} summaries
@@ -64,57 +64,57 @@ vi.mock("../tabs/SummariesTab", () => ({
   ),
 }));
 
-vi.mock("../tabs/HistoryTab", () => ({
+vi.mock('../tabs/HistoryTab', () => ({
   HistoryTab: ({ auditEvents }: any) => (
     <div data-testid="history-tab">{auditEvents.length} events</div>
   ),
 }));
 
-vi.mock("../tabs/RollbackConfirmDialog", () => ({
+vi.mock('../tabs/RollbackConfirmDialog', () => ({
   RollbackConfirmDialog: () => null,
 }));
 
-vi.mock("../schemas/CardStructuredDataDisplay", () => ({
+vi.mock('../schemas/CardStructuredDataDisplay', () => ({
   CardStructuredDataDisplay: () => (
     <div data-testid="structured-data-display">Structured Data</div>
   ),
 }));
 
-vi.mock("../../utils/strings", () => ({
+vi.mock('../../utils/strings', () => ({
   linkifyWithDefaultOptions: (str: string) => str,
 }));
 
-vi.mock("../../assets/icons/PersonIcon", () => ({
+vi.mock('../../assets/icons/PersonIcon', () => ({
   PersonIcon: () => <span data-testid="person-icon">P</span>,
 }));
 
-vi.mock("./ViewNavigationSheet", () => ({
+vi.mock('./ViewNavigationSheet', () => ({
   ViewNavigationSheet: ({ isOpen, onClose, title }: any) =>
     isOpen ? <div data-testid="view-navigation-sheet">Navigate</div> : null,
 }));
 
 const mockViewingCard: Card = {
   id: 1,
-  card_id: "test-1",
+  card_id: 'test-1',
   user_id: 1,
-  title: "Test Card",
-  body: "Test body content",
-  link: "",
+  title: 'Test Card',
+  body: 'Test body content',
+  link: '',
   is_deleted: false,
-  created_at: new Date("2024-01-01"),
-  updated_at: new Date("2024-01-02"),
+  created_at: new Date('2024-01-01'),
+  updated_at: new Date('2024-01-02'),
   parent_id: -1,
   parent: defaultPartialCard,
   files: [],
   children: [],
   references: [],
-  tags: [{ name: "test-tag", id: 1, color: "#3b82f6", user_id: 1 }],
+  tags: [{ name: 'test-tag', id: 1, color: '#3b82f6', user_id: 1 }],
   tasks: [],
   entities: [],
   is_starred: false,
 };
 
-describe("ViewMobileLayout", () => {
+describe('ViewMobileLayout', () => {
   const defaultProps = {
     viewingCard: mockViewingCard,
     parentCard: null,
@@ -143,56 +143,56 @@ describe("ViewMobileLayout", () => {
     setShowFactDialog: vi.fn(),
     fileUploadRef: { current: null },
     onSaveCard: vi.fn(),
-    viewMode: "normal" as const,
+    viewMode: 'normal' as const,
     onViewModeChange: vi.fn(),
   };
 
-  it("renders card title in top bar", () => {
+  it('renders card title in top bar', () => {
     render(<ViewMobileLayout {...defaultProps} />);
     // The title appears in the h1 element in the top bar
     expect(
-      screen.getByRole("heading", { name: "Test Card" }),
+      screen.getByRole('heading', { name: 'Test Card' }),
     ).toBeInTheDocument();
   });
 
-  it("renders tags section expanded by default", () => {
+  it('renders tags section expanded by default', () => {
     render(<ViewMobileLayout {...defaultProps} />);
-    expect(screen.getByText("#test-tag")).toBeVisible();
+    expect(screen.getByText('#test-tag')).toBeVisible();
   });
 
-  it("renders main content section", () => {
+  it('renders main content section', () => {
     render(<ViewMobileLayout {...defaultProps} />);
-    expect(screen.getByTestId("view-card-content-section")).toBeInTheDocument();
+    expect(screen.getByTestId('view-card-content-section')).toBeInTheDocument();
   });
 
-  it("shows navigation sheet when navigate clicked", () => {
+  it('shows navigation sheet when navigate clicked', () => {
     render(<ViewMobileLayout {...defaultProps} />);
-    fireEvent.click(screen.getByLabelText("More options"));
-    fireEvent.click(screen.getByText("Navigate..."));
-    expect(screen.getByText("Navigate")).toBeVisible();
+    fireEvent.click(screen.getByLabelText('More options'));
+    fireEvent.click(screen.getByText('Navigate...'));
+    expect(screen.getByText('Navigate')).toBeVisible();
   });
 
-  it("renders collapsed navigation section when parent exists", () => {
-    const parentCard = { ...mockViewingCard, id: 2, title: "Parent" };
+  it('renders collapsed navigation section when parent exists', () => {
+    const parentCard = { ...mockViewingCard, id: 2, title: 'Parent' };
     render(<ViewMobileLayout {...defaultProps} parentCard={parentCard} />);
-    expect(screen.getByText("Navigation")).toBeInTheDocument();
+    expect(screen.getByText('Navigation')).toBeInTheDocument();
   });
 
-  it("renders Children and Linked references accordions", () => {
+  it('renders Children and Linked references accordions', () => {
     render(<ViewMobileLayout {...defaultProps} />);
     // Both accordions are always present (parity with the desktop Links tab);
     // the add-child affordance lives in the Children header.
-    expect(screen.getByText("Children")).toBeInTheDocument();
-    expect(screen.getByText("Linked references")).toBeInTheDocument();
-    expect(screen.getByLabelText("Add child")).toBeInTheDocument();
+    expect(screen.getByText('Children')).toBeInTheDocument();
+    expect(screen.getByText('Linked references')).toBeInTheDocument();
+    expect(screen.getByLabelText('Add child')).toBeInTheDocument();
   });
 
-  it("expands Children + Linked references content when data is present", () => {
+  it('expands Children + Linked references content when data is present', () => {
     const child = {
       ...defaultPartialCard,
       id: 99,
-      card_id: "1/A",
-      title: "Child",
+      card_id: '1/A',
+      title: 'Child',
     };
     render(
       <ViewMobileLayout
@@ -206,33 +206,33 @@ describe("ViewMobileLayout", () => {
       />,
     );
     // defaultExpanded is true when there's data, so bodies render at once.
-    expect(screen.getByTestId("children-cards")).toBeInTheDocument();
-    expect(screen.getByTestId("card-list")).toBeInTheDocument();
+    expect(screen.getByTestId('children-cards')).toBeInTheDocument();
+    expect(screen.getByTestId('card-list')).toBeInTheDocument();
     expect(screen.getByText(/Two-way Links/)).toBeInTheDocument();
     // The backlink input lives inside the Linked references accordion.
-    expect(screen.getByTestId("backlink-input")).toBeInTheDocument();
+    expect(screen.getByTestId('backlink-input')).toBeInTheDocument();
   });
 
-  it("shows empty states when Children + Linked references are expanded with no data", () => {
+  it('shows empty states when Children + Linked references are expanded with no data', () => {
     render(<ViewMobileLayout {...defaultProps} />);
     // Collapsed by default (no data); expand each to reveal its empty state.
-    fireEvent.click(screen.getByText("Children"));
-    expect(screen.getByText("No children yet.")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("Linked references"));
-    expect(screen.getByText("No references yet.")).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Children'));
+    expect(screen.getByText('No children yet.')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Linked references'));
+    expect(screen.getByText('No references yet.')).toBeInTheDocument();
   });
 
-  it("renders Files, Summaries, and History accordions", () => {
+  it('renders Files, Summaries, and History accordions', () => {
     render(<ViewMobileLayout {...defaultProps} />);
     // The three accordions that previously lived in ViewCardTabbedDisplay.
-    expect(screen.getByText("Files")).toBeInTheDocument();
-    expect(screen.getByText("Summaries")).toBeInTheDocument();
-    expect(screen.getByText("History")).toBeInTheDocument();
+    expect(screen.getByText('Files')).toBeInTheDocument();
+    expect(screen.getByText('Summaries')).toBeInTheDocument();
+    expect(screen.getByText('History')).toBeInTheDocument();
   });
 
-  it("expands Files content on click", () => {
+  it('expands Files content on click', () => {
     render(<ViewMobileLayout {...defaultProps} />);
-    fireEvent.click(screen.getByText("Files"));
-    expect(screen.getByTestId("files-tab")).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Files'));
+    expect(screen.getByTestId('files-tab')).toBeInTheDocument();
   });
 });

@@ -62,7 +62,9 @@ describe('processTemplateVariables', () => {
 
   it('replaces multiple occurrences of the same variable', () => {
     const text = '$date and $date again';
-    expect(processTemplateVariables(text)).toBe('2024-03-15 and 2024-03-15 again');
+    expect(processTemplateVariables(text)).toBe(
+      '2024-03-15 and 2024-03-15 again',
+    );
   });
 
   it('handles empty string', () => {
@@ -71,6 +73,8 @@ describe('processTemplateVariables', () => {
 
   it('handles text with no matches', () => {
     const text = 'No $fake or $invalid variables here';
-    expect(processTemplateVariables(text)).toBe('No $fake or $invalid variables here');
+    expect(processTemplateVariables(text)).toBe(
+      'No $fake or $invalid variables here',
+    );
   });
 });

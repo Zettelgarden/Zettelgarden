@@ -1,10 +1,10 @@
-import React, { useState } from "react";
-import { createPortal } from "react-dom";
-import { Task } from "../../models/Task";
-import { saveExistingTask } from "../../api/tasks";
-import { useTaskContext } from "../../contexts/TaskContext";
-import { useTagContext } from "../../contexts/TagContext";
-import { parseTags } from "../../utils/tasks";
+import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Task } from '../../models/Task';
+import { saveExistingTask } from '../../api/tasks';
+import { useTaskContext } from '../../contexts/TaskContext';
+import { useTagContext } from '../../contexts/TagContext';
+import { parseTags } from '../../utils/tasks';
 
 interface BulkTaskTagEditorProps {
   tasks: Task[];
@@ -19,7 +19,7 @@ export function BulkTaskTagEditor({
   const { tags } = useTagContext();
   const [operation, setOperation] = useState<'add' | 'remove'>('add');
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
-  const [newTagInput, setNewTagInput] = useState<string>("");
+  const [newTagInput, setNewTagInput] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   // Get common tags across all selected tasks
@@ -30,7 +30,7 @@ export function BulkTaskTagEditor({
 
   async function handleApply() {
     if (selectedTags.size === 0) {
-      alert("Please select at least one tag");
+      alert('Please select at least one tag');
       return;
     }
 
@@ -39,7 +39,7 @@ export function BulkTaskTagEditor({
     const promises = tasks.map((task) => {
       let updatedTitle = task.title;
 
-      selectedTags.forEach(tag => {
+      selectedTags.forEach((tag) => {
         if (operation === 'add') {
           // Add tag if it doesn't exist
           if (!task.title.includes(`#${tag}`)) {
@@ -62,15 +62,15 @@ export function BulkTaskTagEditor({
       setRefreshTasks(true);
       setShowBulkTagEdit(false);
     } catch (error) {
-      console.error("Failed to bulk update task tags", error);
-      alert("Failed to bulk update task tags. Please try again.");
+      console.error('Failed to bulk update task tags', error);
+      alert('Failed to bulk update task tags. Please try again.');
     } finally {
       setIsProcessing(false);
     }
   }
 
   function toggleTag(tagName: string) {
-    setSelectedTags(prev => {
+    setSelectedTags((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(tagName)) {
         newSet.delete(tagName);
@@ -85,7 +85,7 @@ export function BulkTaskTagEditor({
     if (newTagInput.trim()) {
       const cleanTag = newTagInput.replace(/^#/, '').trim();
       toggleTag(cleanTag);
-      setNewTagInput("");
+      setNewTagInput('');
     }
   }
 
@@ -102,19 +102,21 @@ export function BulkTaskTagEditor({
           <div className="flex gap-2">
             <button
               onClick={() => setOperation('add')}
-              className={`flex-1 py-3 min-h-[44px] px-4 rounded ${operation === 'add'
+              className={`flex-1 py-3 min-h-[44px] px-4 rounded ${
+                operation === 'add'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-200 text-gray-700'
-                }`}
+              }`}
             >
               Add Tags
             </button>
             <button
               onClick={() => setOperation('remove')}
-              className={`flex-1 py-3 min-h-[44px] px-4 rounded ${operation === 'remove'
+              className={`flex-1 py-3 min-h-[44px] px-4 rounded ${
+                operation === 'remove'
                   ? 'bg-red-600 text-white'
                   : 'bg-gray-200 text-gray-700'
-                }`}
+              }`}
             >
               Remove Tags
             </button>
@@ -164,43 +166,47 @@ export function BulkTaskTagEditor({
                     <button
                       key={tag.id}
                       onClick={() => toggleTag(tag.name.replace(/^#/, ''))}
-                      className={`px-3 py-1 rounded-full text-sm ${selectedTags.has(tag.name.replace(/^#/, ''))
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        selectedTags.has(tag.name.replace(/^#/, ''))
                           ? 'bg-blue-600 text-white'
                           : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        }`}
+                      }`}
                     >
                       #{tag.name.replace(/^#/, '')}
                     </button>
                   ))}
                 </div>
               )
+            ) : // Show only tags from selected tasks when removing
+            allTagsInSelection.length === 0 ? (
+              <p className="text-gray-500 text-sm">No tags in selected tasks</p>
             ) : (
-              // Show only tags from selected tasks when removing
-              allTagsInSelection.length === 0 ? (
-                <p className="text-gray-500 text-sm">No tags in selected tasks</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {allTagsInSelection.map((tagName) => {
-                    const isCommon = commonTags.has(tagName);
-                    return (
-                      <button
-                        key={tagName}
-                        onClick={() => toggleTag(tagName)}
-                        className={`px-3 py-1 rounded-full text-sm ${selectedTags.has(tagName)
-                            ? 'bg-red-600 text-white'
-                            : isCommon
-                              ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                        title={isCommon ? 'Common across all selected tasks' : 'Present in some tasks'}
-                      >
-                        #{tagName}
-                        {isCommon && ' ✓'}
-                      </button>
-                    );
-                  })}
-                </div>
-              )
+              <div className="flex flex-wrap gap-2">
+                {allTagsInSelection.map((tagName) => {
+                  const isCommon = commonTags.has(tagName);
+                  return (
+                    <button
+                      key={tagName}
+                      onClick={() => toggleTag(tagName)}
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        selectedTags.has(tagName)
+                          ? 'bg-red-600 text-white'
+                          : isCommon
+                          ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                      title={
+                        isCommon
+                          ? 'Common across all selected tasks'
+                          : 'Present in some tasks'
+                      }
+                    >
+                      #{tagName}
+                      {isCommon && ' ✓'}
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
           {operation === 'remove' && allTagsInSelection.length > 0 && (
@@ -217,7 +223,7 @@ export function BulkTaskTagEditor({
               {operation === 'add' ? 'Tags to add:' : 'Tags to remove:'}
             </p>
             <div className="flex flex-wrap gap-1">
-              {Array.from(selectedTags).map(tag => (
+              {Array.from(selectedTags).map((tag) => (
                 <span key={tag} className="text-xs bg-white px-2 py-1 rounded">
                   #{tag}
                 </span>
@@ -238,17 +244,18 @@ export function BulkTaskTagEditor({
           <button
             onClick={handleApply}
             disabled={selectedTags.size === 0 || isProcessing}
-            className={`px-4 py-3 min-h-[44px] rounded text-white disabled:opacity-50 ${operation === 'add'
+            className={`px-4 py-3 min-h-[44px] rounded text-white disabled:opacity-50 ${
+              operation === 'add'
                 ? 'bg-blue-600 hover:bg-blue-700'
                 : 'bg-red-600 hover:bg-red-700'
-              }`}
+            }`}
           >
             {isProcessing ? 'Processing...' : `Apply to ${tasks.length} tasks`}
           </button>
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
 
@@ -258,17 +265,17 @@ function getCommonTags(tasks: Task[]): Set<string> {
 
   // Start with tags from first task
   const commonTags = new Set(
-    parseTags(tasks[0].title).map(t => t.replace(/^#/, ''))
+    parseTags(tasks[0].title).map((t) => t.replace(/^#/, '')),
   );
 
   // Keep only tags present in ALL tasks
   for (let i = 1; i < tasks.length; i++) {
     const taskTags = new Set(
-      parseTags(tasks[i].title).map(t => t.replace(/^#/, ''))
+      parseTags(tasks[i].title).map((t) => t.replace(/^#/, '')),
     );
 
     // Remove tags not in this task
-    commonTags.forEach(tag => {
+    commonTags.forEach((tag) => {
       if (!taskTags.has(tag)) {
         commonTags.delete(tag);
       }
@@ -281,8 +288,8 @@ function getCommonTags(tasks: Task[]): Set<string> {
 function getAllTagsInSelection(tasks: Task[]): string[] {
   const allTags = new Set<string>();
 
-  tasks.forEach(task => {
-    parseTags(task.title).forEach(tag => {
+  tasks.forEach((task) => {
+    parseTags(task.title).forEach((tag) => {
       allTags.add(tag.replace(/^#/, ''));
     });
   });

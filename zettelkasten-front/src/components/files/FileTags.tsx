@@ -7,7 +7,12 @@ interface FileTagsProps {
   editable?: boolean;
 }
 
-export function FileTags({ tags, onAddTag, onRemoveTag, editable = true }: FileTagsProps) {
+export function FileTags({
+  tags,
+  onAddTag,
+  onRemoveTag,
+  editable = true,
+}: FileTagsProps) {
   const [inputValue, setInputValue] = useState('');
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {

@@ -1,12 +1,22 @@
-import React, { useState } from "react";
-import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from "../table/TableComponents";
+import React, { useState } from 'react';
+import {
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableHeader,
+  TableCell,
+} from '../table/TableComponents';
 
 interface DataviewTableProps {
   content: string;
   onSave?: (newContent: string) => void;
 }
 
-export const DataviewTable: React.FC<DataviewTableProps> = ({ content, onSave }) => {
+export const DataviewTable: React.FC<DataviewTableProps> = ({
+  content,
+  onSave,
+}) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editableData, setEditableData] = useState<{
     headers: string[];
@@ -19,12 +29,12 @@ export const DataviewTable: React.FC<DataviewTableProps> = ({ content, onSave })
     if (lines.length === 0) {
       return { headers: [], rows: [] };
     }
-    
-    const headers = lines[0].split(',').map(h => h.trim());
-    const rows = lines.slice(1).map(line => 
-      line.split(',').map(cell => cell.trim())
-    );
-    
+
+    const headers = lines[0].split(',').map((h) => h.trim());
+    const rows = lines
+      .slice(1)
+      .map((line) => line.split(',').map((cell) => cell.trim()));
+
     return { headers, rows };
   }
 
@@ -32,13 +42,13 @@ export const DataviewTable: React.FC<DataviewTableProps> = ({ content, onSave })
   function toCSV(data: { headers: string[]; rows: string[][] }) {
     return [
       data.headers.join(','),
-      ...data.rows.map(row => row.join(','))
+      ...data.rows.map((row) => row.join(',')),
     ].join('\n');
   }
 
   // Handle cell value changes
   const updateCell = (rowIndex: number, colIndex: number, value: string) => {
-    setEditableData(prev => {
+    setEditableData((prev) => {
       const newData = { ...prev };
       if (rowIndex === -1) {
         // Update header
@@ -46,7 +56,7 @@ export const DataviewTable: React.FC<DataviewTableProps> = ({ content, onSave })
         newData.headers[colIndex] = value;
       } else {
         // Update cell
-        newData.rows = [...prev.rows.map(row => [...row])];
+        newData.rows = [...prev.rows.map((row) => [...row])];
         newData.rows[rowIndex][colIndex] = value;
       }
       return newData;
@@ -55,17 +65,17 @@ export const DataviewTable: React.FC<DataviewTableProps> = ({ content, onSave })
 
   // Add a new row
   const addRow = () => {
-    setEditableData(prev => ({
+    setEditableData((prev) => ({
       ...prev,
-      rows: [...prev.rows, prev.headers.map(() => '')]
+      rows: [...prev.rows, prev.headers.map(() => '')],
     }));
   };
 
   // Delete a row
   const deleteRow = (index: number) => {
-    setEditableData(prev => ({
+    setEditableData((prev) => ({
       ...prev,
-      rows: prev.rows.filter((_, i) => i !== index)
+      rows: prev.rows.filter((_, i) => i !== index),
     }));
   };
 
@@ -109,7 +119,7 @@ export const DataviewTable: React.FC<DataviewTableProps> = ({ content, onSave })
                 <TableHeader key={`header-${i}`}>
                   <input
                     value={header}
-                    onChange={e => updateCell(-1, i, e.target.value)}
+                    onChange={(e) => updateCell(-1, i, e.target.value)}
                     className="w-full px-2 py-1 border"
                   />
                 </TableHeader>
@@ -124,14 +134,16 @@ export const DataviewTable: React.FC<DataviewTableProps> = ({ content, onSave })
                   <TableCell key={`cell-${rowIdx}-${colIdx}`}>
                     <input
                       value={cell}
-                      onChange={e => updateCell(rowIdx, colIdx, e.target.value)}
+                      onChange={(e) =>
+                        updateCell(rowIdx, colIdx, e.target.value)
+                      }
                       className="w-full px-2 py-1 border"
                     />
                   </TableCell>
                 ))}
                 <TableCell>
-                  <button 
-                    onClick={() => deleteRow(rowIdx)} 
+                  <button
+                    onClick={() => deleteRow(rowIdx)}
                     className="text-red-500 px-2 py-1 rounded hover:bg-red-50"
                   >
                     Delete
@@ -142,20 +154,20 @@ export const DataviewTable: React.FC<DataviewTableProps> = ({ content, onSave })
           </TableBody>
         </Table>
         <div className="flex mt-2 space-x-2">
-          <button 
-            onClick={addRow} 
+          <button
+            onClick={addRow}
             className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
             Add Row
           </button>
-          <button 
-            onClick={handleSave} 
+          <button
+            onClick={handleSave}
             className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
           >
             Save
           </button>
-          <button 
-            onClick={handleCancel} 
+          <button
+            onClick={handleCancel}
             className="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600"
           >
             Cancel
@@ -187,8 +199,8 @@ export const DataviewTable: React.FC<DataviewTableProps> = ({ content, onSave })
         </TableBody>
       </Table>
       {onSave && (
-        <button 
-          onClick={toggleEditMode} 
+        <button
+          onClick={toggleEditMode}
           className="mt-2 px-3 py-1 bg-gray-200 rounded text-sm hover:bg-gray-300"
         >
           Edit Table

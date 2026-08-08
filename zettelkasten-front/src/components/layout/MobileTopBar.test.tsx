@@ -36,12 +36,16 @@ describe('MobileTopBar', () => {
 
     it('should render back button when onBack is provided', () => {
       render(<MobileTopBar title="Back Test" onBack={() => {}} />);
-      expect(screen.getByRole('button', { name: /go back/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /go back/i }),
+      ).toBeInTheDocument();
     });
 
     it('should render menu button when onMenuClick is provided without onBack', () => {
       render(<MobileTopBar title="Menu Test" onMenuClick={() => {}} />);
-      expect(screen.getByRole('button', { name: /open menu/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /open menu/i }),
+      ).toBeInTheDocument();
     });
 
     it('should prioritize back button over menu button', () => {
@@ -50,10 +54,14 @@ describe('MobileTopBar', () => {
           title="Priority Test"
           onBack={() => {}}
           onMenuClick={() => {}}
-        />
+        />,
       );
-      expect(screen.getByRole('button', { name: /go back/i })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /open menu/i })).not.toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /go back/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /open menu/i }),
+      ).not.toBeInTheDocument();
     });
 
     it('should render actions on the right side', () => {
@@ -61,7 +69,7 @@ describe('MobileTopBar', () => {
         <MobileTopBar
           title="Actions Test"
           actions={<button data-testid="custom-action">Action</button>}
-        />
+        />,
       );
       expect(screen.getByTestId('custom-action')).toBeInTheDocument();
     });
@@ -76,7 +84,7 @@ describe('MobileTopBar', () => {
               <button data-testid="action-2">Action 2</button>
             </>
           }
-        />
+        />,
       );
       expect(screen.getByTestId('action-1')).toBeInTheDocument();
       expect(screen.getByTestId('action-2')).toBeInTheDocument();
@@ -84,14 +92,14 @@ describe('MobileTopBar', () => {
 
     it('should apply custom className', () => {
       const { container } = render(
-        <MobileTopBar title="Class Test" className="custom-class" />
+        <MobileTopBar title="Class Test" className="custom-class" />,
       );
       expect(container.firstChild).toHaveClass('custom-class');
     });
 
     it('should apply custom zIndex', () => {
       const { container } = render(
-        <MobileTopBar title="Z-Index Test" zIndex={100} />
+        <MobileTopBar title="Z-Index Test" zIndex={100} />,
       );
       expect(container.firstChild).toHaveStyle({ zIndex: 100 });
     });
@@ -103,7 +111,7 @@ describe('MobileTopBar', () => {
 
     it('should not have mobileOnly class when mobileOnly is false', () => {
       const { container } = render(
-        <MobileTopBar title="Desktop Test" mobileOnly={false} />
+        <MobileTopBar title="Desktop Test" mobileOnly={false} />,
       );
       expect(container.firstChild).not.toHaveClass('md:hidden');
     });
@@ -141,7 +149,7 @@ describe('MobileTopBar', () => {
         <MobileTopBar
           title="Actions Test"
           actions={<button onClick={actionCallback}>Action</button>}
-        />
+        />,
       );
 
       const actionButton = screen.getByRole('button', { name: 'Action' });
@@ -154,18 +162,23 @@ describe('MobileTopBar', () => {
   describe('Accessibility', () => {
     it('should have aria-label on back button', () => {
       render(<MobileTopBar title="A11y Test" onBack={() => {}} />);
-      expect(screen.getByRole('button', { name: /go back/i })).toHaveAccessibleName(/go back/i);
+      expect(
+        screen.getByRole('button', { name: /go back/i }),
+      ).toHaveAccessibleName(/go back/i);
     });
 
     it('should have aria-label on menu button', () => {
       render(<MobileTopBar title="A11y Test" onMenuClick={() => {}} />);
-      expect(screen.getByRole('button', { name: /open menu/i })).toHaveAccessibleName(/open menu/i);
+      expect(
+        screen.getByRole('button', { name: /open menu/i }),
+      ).toHaveAccessibleName(/open menu/i);
     });
   });
 
   describe('Edge Cases', () => {
     it('should handle very long titles with truncation', () => {
-      const longTitle = 'This is a very long title that should be truncated with an ellipsis when it overflows the available space';
+      const longTitle =
+        'This is a very long title that should be truncated with an ellipsis when it overflows the available space';
       const { container } = render(<MobileTopBar title={longTitle} />);
       expect(container.querySelector('.truncate')).toBeInTheDocument();
     });
@@ -176,15 +189,21 @@ describe('MobileTopBar', () => {
     });
 
     it('should handle empty actions', () => {
-      const { container } = render(<MobileTopBar title="Empty Actions" actions={undefined} />);
-      expect(container.querySelector('.flex.items-center.gap-1')).toBeInTheDocument();
+      const { container } = render(
+        <MobileTopBar title="Empty Actions" actions={undefined} />,
+      );
+      expect(
+        container.querySelector('.flex.items-center.gap-1'),
+      ).toBeInTheDocument();
     });
 
     it('should handle null actions', () => {
       const { container } = render(
-        <MobileTopBar title="Null Actions" actions={null} />
+        <MobileTopBar title="Null Actions" actions={null} />,
       );
-      expect(container.querySelector('.flex.items-center.gap-1')).toBeInTheDocument();
+      expect(
+        container.querySelector('.flex.items-center.gap-1'),
+      ).toBeInTheDocument();
     });
   });
 });
@@ -194,7 +213,7 @@ describe('MobileTopBarLeftAction', () => {
     render(
       <MobileTopBarLeftAction onClick={() => {}}>
         <span data-testid="custom-content">Custom</span>
-      </MobileTopBarLeftAction>
+      </MobileTopBarLeftAction>,
     );
     expect(screen.getByTestId('custom-content')).toBeInTheDocument();
   });
@@ -204,7 +223,7 @@ describe('MobileTopBarLeftAction', () => {
     render(
       <MobileTopBarLeftAction onClick={onClick}>
         <span>Click me</span>
-      </MobileTopBarLeftAction>
+      </MobileTopBarLeftAction>,
     );
 
     const button = screen.getByRole('button');
@@ -216,16 +235,18 @@ describe('MobileTopBarLeftAction', () => {
     render(
       <MobileTopBarLeftAction onClick={() => {}} ariaLabel="Custom action">
         <span>Action</span>
-      </MobileTopBarLeftAction>
+      </MobileTopBarLeftAction>,
     );
-    expect(screen.getByRole('button', { name: 'Custom action' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Custom action' }),
+    ).toBeInTheDocument();
   });
 
   it('should use default ariaLabel when not provided', () => {
     render(
       <MobileTopBarLeftAction onClick={() => {}}>
         <span>Action</span>
-      </MobileTopBarLeftAction>
+      </MobileTopBarLeftAction>,
     );
     expect(screen.getByRole('button', { name: /action/i })).toBeInTheDocument();
   });

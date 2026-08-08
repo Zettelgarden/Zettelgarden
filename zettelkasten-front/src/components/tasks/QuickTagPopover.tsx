@@ -1,6 +1,6 @@
-import React from "react";
-import { createPortal } from "react-dom";
-import { useTagContext } from "../../contexts/TagContext";
+import React from 'react';
+import { createPortal } from 'react-dom';
+import { useTagContext } from '../../contexts/TagContext';
 
 export type QuickTagTrigger = {
   // index of the triggering '#'
@@ -17,26 +17,26 @@ export function getQuickTagTrigger(
 ): QuickTagTrigger | null {
   const safeCursor = Math.max(0, Math.min(cursor, title.length));
   const prefix = title.slice(0, safeCursor);
-  const hashIndex = prefix.lastIndexOf("#");
+  const hashIndex = prefix.lastIndexOf('#');
   if (hashIndex === -1) return null;
 
   // Word-start trigger: start of string or preceded by whitespace
   if (hashIndex > 0 && !/\s/.test(title[hashIndex - 1])) return null;
 
   // Treat multiple consecutive hashes as literal text
-  if (hashIndex > 0 && title[hashIndex - 1] === "#") return null;
+  if (hashIndex > 0 && title[hashIndex - 1] === '#') return null;
 
   // Only while cursor is still within the same token (no whitespace after '#')
   if (/\s/.test(prefix.slice(hashIndex))) return null;
 
   const query = title.slice(hashIndex + 1, safeCursor);
-  if (query.includes("#")) return null;
+  if (query.includes('#')) return null;
 
   return { start: hashIndex, end: safeCursor, query };
 }
 
 function escapeRegExp(input: string) {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 export function applyQuickTagSelection(params: {
@@ -45,7 +45,7 @@ export function applyQuickTagSelection(params: {
   selectedTagName: string;
 }): { nextTitle: string; nextCursor: number; didInsert: boolean } {
   const { title, trigger } = params;
-  const clean = params.selectedTagName.replace(/^#/, "").trim();
+  const clean = params.selectedTagName.replace(/^#/, '').trim();
   if (!clean) {
     return { nextTitle: title, nextCursor: trigger.end, didInsert: false };
   }
@@ -62,12 +62,17 @@ export function applyQuickTagSelection(params: {
   const needsLeadingSpace = before.length > 0 && !/\s$/.test(before);
 
   const tagToken = `#${clean}`;
-  let nextTitle = `${before}${needsLeadingSpace ? " " : ""}${tagToken} ${after}`;
+  let nextTitle = `${before}${
+    needsLeadingSpace ? ' ' : ''
+  }${tagToken} ${after}`;
 
   // Normalize runs of whitespace but preserve the single trailing space after insertion.
-  nextTitle = nextTitle.replace(/\s{2,}/g, " ").replace(/^\s+/, "");
+  nextTitle = nextTitle.replace(/\s{2,}/g, ' ').replace(/^\s+/, '');
 
-  const insertedIndex = nextTitle.indexOf(tagToken, Math.max(0, trigger.start - 1));
+  const insertedIndex = nextTitle.indexOf(
+    tagToken,
+    Math.max(0, trigger.start - 1),
+  );
   const nextCursor =
     insertedIndex === -1
       ? nextTitle.length
@@ -82,12 +87,10 @@ export function filterAndSortTagNames(
 ): string[] {
   const q = query.toLowerCase();
   const normalized = tags
-    .map((t) => t.name.replace(/^#/, ""))
+    .map((t) => t.name.replace(/^#/, ''))
     .filter((name) => name.length > 0);
 
-  const filtered = normalized.filter((name) =>
-    name.toLowerCase().includes(q),
-  );
+  const filtered = normalized.filter((name) => name.toLowerCase().includes(q));
 
   filtered.sort((a, b) => {
     const aLower = a.toLowerCase();
@@ -113,12 +116,12 @@ function getCaretViewportRect(params: {
   const inputRect = input.getBoundingClientRect();
   const style = window.getComputedStyle(input);
 
-  const mirror = document.createElement("div");
-  mirror.style.position = "absolute";
-  mirror.style.visibility = "hidden";
-  mirror.style.whiteSpace = "pre";
-  mirror.style.top = "0";
-  mirror.style.left = "0";
+  const mirror = document.createElement('div');
+  mirror.style.position = 'absolute';
+  mirror.style.visibility = 'hidden';
+  mirror.style.whiteSpace = 'pre';
+  mirror.style.top = '0';
+  mirror.style.left = '0';
 
   // Copy relevant text/layout styles
   mirror.style.fontFamily = style.fontFamily;
@@ -133,13 +136,13 @@ function getCaretViewportRect(params: {
   mirror.style.width = style.width;
 
   // Mirror scrolling behavior
-  mirror.style.overflow = "hidden";
+  mirror.style.overflow = 'hidden';
 
   const beforeText = value.slice(0, cursor);
-  const afterText = value.slice(cursor) || ".";
+  const afterText = value.slice(cursor) || '.';
 
   mirror.textContent = beforeText;
-  const marker = document.createElement("span");
+  const marker = document.createElement('span');
   marker.textContent = afterText[0];
   mirror.appendChild(marker);
 
@@ -181,7 +184,7 @@ export function QuickTagPopover({
   const { tags } = useTagContext();
   const popoverRef = React.useRef<HTMLDivElement>(null);
 
-  const query = trigger?.query ?? "";
+  const query = trigger?.query ?? '';
   const suggestions = React.useMemo(
     () => filterAndSortTagNames(tags, query),
     [tags, query],
@@ -214,7 +217,10 @@ export function QuickTagPopover({
 
     const margin = 8;
     let left = caret.left;
-    left = Math.max(margin, Math.min(left, window.innerWidth - popRect.width - margin));
+    left = Math.max(
+      margin,
+      Math.min(left, window.innerWidth - popRect.width - margin),
+    );
 
     const belowTop = caret.top + caret.height + 6;
     let top = belowTop;
@@ -224,7 +230,14 @@ export function QuickTagPopover({
     }
 
     setPos({ left, top });
-  }, [open, trigger, anchorInputRef, titleValue, cursorPosition, suggestions.length]);
+  }, [
+    open,
+    trigger,
+    anchorInputRef,
+    titleValue,
+    cursorPosition,
+    suggestions.length,
+  ]);
 
   // Close on outside click
   React.useEffect(() => {
@@ -242,8 +255,8 @@ export function QuickTagPopover({
       onRequestClose();
     }
 
-    document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
   }, [open, anchorInputRef, onRequestClose]);
 
   // Keyboard navigation on the title input
@@ -253,7 +266,7 @@ export function QuickTagPopover({
     if (!input) return;
 
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
+      if (e.key === 'Escape') {
         e.preventDefault();
         onRequestClose();
         return;
@@ -261,19 +274,19 @@ export function QuickTagPopover({
 
       if (suggestions.length === 0) return;
 
-      if (e.key === "ArrowDown") {
+      if (e.key === 'ArrowDown') {
         e.preventDefault();
         setActiveIndex((i) => Math.min(i + 1, suggestions.length - 1));
         return;
       }
 
-      if (e.key === "ArrowUp") {
+      if (e.key === 'ArrowUp') {
         e.preventDefault();
         setActiveIndex((i) => Math.max(i - 1, 0));
         return;
       }
 
-      if (e.key === "Enter") {
+      if (e.key === 'Enter') {
         e.preventDefault();
 
         const clampedIndex = Math.max(
@@ -289,8 +302,8 @@ export function QuickTagPopover({
       }
     }
 
-    input.addEventListener("keydown", onKeyDown);
-    return () => input.removeEventListener("keydown", onKeyDown);
+    input.addEventListener('keydown', onKeyDown);
+    return () => input.removeEventListener('keydown', onKeyDown);
   }, [
     open,
     anchorInputRef,
@@ -308,7 +321,7 @@ export function QuickTagPopover({
       ref={popoverRef}
       className="rounded-lg shadow-lg border border-gray-200 bg-white w-64"
       style={{
-        position: "fixed",
+        position: 'fixed',
         left: pos?.left ?? -9999,
         top: pos?.top ?? -9999,
         // Must sit above create-task overlay (z-index: 1000) and HeadlessUI dialogs.
@@ -327,8 +340,8 @@ export function QuickTagPopover({
                 type="button"
                 className={`w-full text-left px-4 py-3 min-h-[44px] text-sm ${
                   isActive
-                    ? "bg-purple-600 text-white"
-                    : "text-gray-700 hover:bg-purple-50"
+                    ? 'bg-purple-600 text-white'
+                    : 'text-gray-700 hover:bg-purple-50'
                 }`}
                 onMouseEnter={() => setActiveIndex(idx)}
                 onMouseDown={(e) => {
@@ -348,5 +361,7 @@ export function QuickTagPopover({
   );
 
   // Avoid clipping by rendering at body level.
-  return typeof document !== "undefined" ? createPortal(content, document.body) : content;
+  return typeof document !== 'undefined'
+    ? createPortal(content, document.body)
+    : content;
 }

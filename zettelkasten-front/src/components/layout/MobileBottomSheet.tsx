@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from 'react';
 
 interface MobileBottomSheetProps {
   isOpen: boolean;
@@ -14,7 +14,7 @@ export function MobileBottomSheet({
   onClose,
   children,
   title,
-  maxHeight = "80vh",
+  maxHeight = '80vh',
   showCloseButton = true,
 }: MobileBottomSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -25,20 +25,20 @@ export function MobileBottomSheet({
   // Handle escape key and backdrop click
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
+      if (e.key === 'Escape' && isOpen) {
         onClose();
       }
     };
 
     if (isOpen) {
-      document.addEventListener("keydown", handleEscape);
+      document.addEventListener('keydown', handleEscape);
       // Prevent body scroll when sheet is open
-      document.body.style.overflow = "hidden";
+      document.body.style.overflow = 'hidden';
     }
 
     return () => {
-      document.removeEventListener("keydown", handleEscape);
-      document.body.style.overflow = "";
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = '';
     };
   }, [isOpen, onClose]);
 
@@ -82,7 +82,7 @@ export function MobileBottomSheet({
       onClose();
     } else {
       // Reset transform if swipe wasn't enough
-      sheetRef.current.style.transform = "";
+      sheetRef.current.style.transform = '';
     }
 
     touchStartRef.current = null;
@@ -96,15 +96,15 @@ export function MobileBottomSheet({
       ref={backdropRef}
       onClick={handleBackdropClick}
       className="fixed inset-0 bg-black/50 z-50 md:hidden"
-      style={{ animation: "fade-in 0.2s ease-out" }}
+      style={{ animation: 'fade-in 0.2s ease-out' }}
     >
       <div
         ref={sheetRef}
         className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl flex flex-col"
         style={{
           maxHeight,
-          animation: "slide-up 0.3s ease-out",
-          transition: "transform 0.3s ease-out",
+          animation: 'slide-up 0.3s ease-out',
+          transition: 'transform 0.3s ease-out',
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -119,15 +119,27 @@ export function MobileBottomSheet({
         {(title || showCloseButton) && (
           <div className="px-4 pb-3 border-b border-gray-200 flex-shrink-0">
             <div className="flex items-center justify-between">
-              {title && <h2 className="text-lg font-semibold text-gray-900">{title}</h2>}
+              {title && (
+                <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+              )}
               {showCloseButton && (
                 <button
                   onClick={onClose}
                   className="p-2 -mr-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
                   aria-label="Close"
                 >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               )}

@@ -1,7 +1,7 @@
-import { Task } from "../models/Task";
-import { Tag } from "../models/Tags";
-import { Card, PartialCard } from "../models/Card";
-import { Entity } from "../models/Card";
+import { Task } from '../models/Task';
+import { Tag } from '../models/Tags';
+import { Card, PartialCard } from '../models/Card';
+import { Entity } from '../models/Card';
 
 export function sampleTasks(): Task[] {
   return sampleTaskData;
@@ -19,12 +19,11 @@ export function sampleTags(): Tag[] {
 export const sampleTagData: Tag[] = [
   {
     id: 1,
-    name: "report",
-    color: "black",
+    name: 'report',
+    color: 'black',
     user_id: 1,
   },
 ];
-
 
 export const sampleTaskData: Task[] = [
   {
@@ -36,7 +35,7 @@ export const sampleTaskData: Task[] = [
     created_at: new Date(),
     updated_at: new Date(),
     completed_at: null,
-    title: "Daily Standup Meeting #is #hi http://google.com",
+    title: 'Daily Standup Meeting #is #hi http://google.com',
     description: null,
     status: 'todo' as const,
     is_complete: false,
@@ -60,7 +59,7 @@ export const sampleTaskData: Task[] = [
     created_at: new Date(),
     updated_at: new Date(),
     completed_at: null,
-    title: "Weekly Sync-up #recurring",
+    title: 'Weekly Sync-up #recurring',
     description: null,
     status: 'todo' as const,
     is_complete: false,
@@ -84,7 +83,7 @@ export const sampleTaskData: Task[] = [
     created_at: new Date(),
     updated_at: new Date(),
     completed_at: null,
-    title: "Write Quarterly Work Report #report",
+    title: 'Write Quarterly Work Report #report',
     description: null,
     status: 'todo' as const,
     is_complete: false,
@@ -108,7 +107,7 @@ export const sampleTaskData: Task[] = [
     created_at: new Date(),
     updated_at: new Date(),
     completed_at: new Date(), // Completed
-    title: "Submit Expense Reports #work #task",
+    title: 'Submit Expense Reports #work #task',
     description: null,
     status: 'done' as const,
     is_complete: true,
@@ -120,14 +119,14 @@ export const sampleTaskData: Task[] = [
     tags: [
       {
         id: 2,
-        name: "work",
-        color: "black",
+        name: 'work',
+        color: 'black',
         user_id: 1,
       },
       {
         id: 4,
-        name: "task",
-        color: "black",
+        name: 'task',
+        color: 'black',
         user_id: 1,
       },
     ],
@@ -145,7 +144,7 @@ export const sampleTaskData: Task[] = [
     created_at: new Date(),
     updated_at: new Date(),
     completed_at: null,
-    title: "Brainstorm Session #work #todo",
+    title: 'Brainstorm Session #work #todo',
     description: null,
     status: 'todo' as const,
     is_complete: false,
@@ -157,14 +156,14 @@ export const sampleTaskData: Task[] = [
     tags: [
       {
         id: 2,
-        name: "work",
-        color: "black",
+        name: 'work',
+        color: 'black',
         user_id: 1,
       },
       {
         id: 3,
-        name: "todo",
-        color: "black",
+        name: 'todo',
+        color: 'black',
         user_id: 1,
       },
     ],
@@ -178,74 +177,74 @@ export const sampleEntityData: Entity[] = [
   {
     id: 1,
     user_id: 1,
-    name: "Entity One",
-    description: "Description for entity one",
-    type: "Type A",
+    name: 'Entity One',
+    description: 'Description for entity one',
+    type: 'Type A',
     created_at: new Date(),
     updated_at: new Date(),
     card_count: 1,
-    card_pk: null
+    card_pk: null,
   },
   {
     id: 2,
     user_id: 1,
-    name: "Entity Two",
-    description: "Description for entity two",
-    type: "Type B",
+    name: 'Entity Two',
+    description: 'Description for entity two',
+    type: 'Type B',
     created_at: new Date(),
     updated_at: new Date(),
     card_count: 2,
-    card_pk: null
+    card_pk: null,
   },
 ];
 
 const samplePartialCardData: PartialCard[] = [
   {
     id: 1,
-    card_id: "A.1",
+    card_id: 'A.1',
     user_id: 1,
-    title: "Introduction to Machine Learning",
+    title: 'Introduction to Machine Learning',
     parent_id: 0,
-    created_at: new Date("2024-01-15T10:00:00Z"),
-    updated_at: new Date("2024-01-15T10:00:00Z"),
+    created_at: new Date('2024-01-15T10:00:00Z'),
+    updated_at: new Date('2024-01-15T10:00:00Z'),
     tags: [
       {
         id: 1,
-        name: "ML",
-        color: "blue",
+        name: 'ML',
+        color: 'blue',
         user_id: 1,
       },
       {
         id: 2,
-        name: "study",
-        color: "green",
+        name: 'study',
+        color: 'green',
         user_id: 1,
       },
     ],
   },
   {
     id: 2,
-    card_id: "A.1/A",
+    card_id: 'A.1/A',
     user_id: 1,
-    title: "Supervised Learning Algorithms",
+    title: 'Supervised Learning Algorithms',
     parent_id: 1,
-    created_at: new Date("2024-01-16T11:00:00Z"),
-    updated_at: new Date("2024-01-16T11:00:00Z"),
+    created_at: new Date('2024-01-16T11:00:00Z'),
+    updated_at: new Date('2024-01-16T11:00:00Z'),
     tags: [],
   },
   {
     id: 3,
-    card_id: "B.1",
+    card_id: 'B.1',
     user_id: 1,
-    title: "Card with Long Title That Should Test Text Wrapping and Display",
+    title: 'Card with Long Title That Should Test Text Wrapping and Display',
     parent_id: 0,
-    created_at: new Date("2024-01-17T12:00:00Z"),
-    updated_at: new Date("2024-01-17T12:00:00Z"),
+    created_at: new Date('2024-01-17T12:00:00Z'),
+    updated_at: new Date('2024-01-17T12:00:00Z'),
     tags: [
       {
         id: 3,
-        name: "test",
-        color: "red",
+        name: 'test',
+        color: 'red',
         user_id: 1,
       },
     ],
@@ -255,11 +254,11 @@ const samplePartialCardData: PartialCard[] = [
 const sampleCardData: Card[] = [
   {
     id: 1,
-    card_id: "1",
+    card_id: '1',
     user_id: 1,
-    title: "hello world",
-    body: "this is a test of the emergency response system",
-    link: "",
+    title: 'hello world',
+    body: 'this is a test of the emergency response system',
+    link: '',
     created_at: new Date(),
     updated_at: new Date(),
     parent_id: 1,
@@ -274,11 +273,11 @@ const sampleCardData: Card[] = [
   },
   {
     id: 2,
-    card_id: "1/A",
+    card_id: '1/A',
     user_id: 1,
-    title: "update",
-    body: "this is another test of the emergency response system",
-    link: "",
+    title: 'update',
+    body: 'this is another test of the emergency response system',
+    link: '',
     created_at: new Date(),
     updated_at: new Date(),
     parent_id: 2,
@@ -292,5 +291,3 @@ const sampleCardData: Card[] = [
     entities: sampleEntityData,
   },
 ];
-
-

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { requestPasswordReset } from "../../api/auth";
-import { adminDeleteUser } from "../../api/account";
-import { getUser } from "../../api/users";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { User } from "../../models/User";
+import React, { useState, useEffect } from 'react';
+import { requestPasswordReset } from '../../api/auth';
+import { adminDeleteUser } from '../../api/account';
+import { getUser } from '../../api/users';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { User } from '../../models/User';
 
 export function AdminUserDetailPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -19,16 +19,20 @@ export function AdminUserDetailPage() {
 
   async function handleDelete() {
     if (user === null) return;
-    if (!window.confirm(`Permanently delete user "${user.username}" and all their data? This cannot be undone.`)) {
+    if (
+      !window.confirm(
+        `Permanently delete user "${user.username}" and all their data? This cannot be undone.`,
+      )
+    ) {
       return;
     }
     setDeleting(true);
     setDeleteError(null);
     try {
       await adminDeleteUser(user.id);
-      navigate("/admin/users");
+      navigate('/admin/users');
     } catch (err: any) {
-      setDeleteError(err.message || "Failed to delete user.");
+      setDeleteError(err.message || 'Failed to delete user.');
       setDeleting(false);
     }
   }
@@ -70,7 +74,7 @@ export function AdminUserDetailPage() {
               disabled={deleting}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
             >
-              {deleting ? "Deleting..." : "Delete User"}
+              {deleting ? 'Deleting...' : 'Delete User'}
             </button>
             {deleteError && (
               <p className="mt-2 text-sm text-red-600">{deleteError}</p>
@@ -93,49 +97,67 @@ export function AdminUserDetailPage() {
               <span className="text-gray-900">{user.email}</span>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="text-gray-600 font-medium w-32">Last Login:</span>
+              <span className="text-gray-600 font-medium w-32">
+                Last Login:
+              </span>
               <span className="text-gray-900">
-                {user.last_login ? new Date(user.last_login).toLocaleString() : 'Never'}
+                {user.last_login
+                  ? new Date(user.last_login).toLocaleString()
+                  : 'Never'}
               </span>
             </div>
             <div className="flex items-center space-x-2">
               <span className="text-gray-600 font-medium w-32">Last Seen:</span>
               <span className="text-gray-900">
-                {user.last_seen ? new Date(user.last_seen).toLocaleString() : 'Never'}
+                {user.last_seen
+                  ? new Date(user.last_seen).toLocaleString()
+                  : 'Never'}
               </span>
             </div>
           </div>
 
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <span className="text-gray-600 font-medium w-32">Admin Status:</span>
-              <span className={`px-2 py-1 rounded text-sm ${
-                user.is_admin
-                  ? "bg-purple-100 text-purple-800"
-                  : "bg-gray-100 text-gray-800"
-              }`}>
-                {user.is_admin ? "Admin" : "Regular User"}
+              <span className="text-gray-600 font-medium w-32">
+                Admin Status:
+              </span>
+              <span
+                className={`px-2 py-1 rounded text-sm ${
+                  user.is_admin
+                    ? 'bg-purple-100 text-purple-800'
+                    : 'bg-gray-100 text-gray-800'
+                }`}
+              >
+                {user.is_admin ? 'Admin' : 'Regular User'}
               </span>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="text-gray-600 font-medium w-32">Account Status:</span>
-              <span className={`px-2 py-1 rounded text-sm ${
-                user.is_active
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-              }`}>
-                {user.is_active ? "Active" : "Inactive"}
+              <span className="text-gray-600 font-medium w-32">
+                Account Status:
+              </span>
+              <span
+                className={`px-2 py-1 rounded text-sm ${
+                  user.is_active
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
+                }`}
+              >
+                {user.is_active ? 'Active' : 'Inactive'}
               </span>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="text-gray-600 font-medium w-32">Subscription:</span>
-              <span className={`px-2 py-1 rounded text-sm ${
-                user.stripe_subscription_status === "active"
-                  ? "bg-green-100 text-green-800"
-                  : user.stripe_subscription_status === "trialing"
-                  ? "bg-blue-100 text-blue-800"
-                  : "bg-red-100 text-red-800"
-              }`}>
+              <span className="text-gray-600 font-medium w-32">
+                Subscription:
+              </span>
+              <span
+                className={`px-2 py-1 rounded text-sm ${
+                  user.stripe_subscription_status === 'active'
+                    ? 'bg-green-100 text-green-800'
+                    : user.stripe_subscription_status === 'trialing'
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-red-100 text-red-800'
+                }`}
+              >
                 {user.stripe_subscription_status}
               </span>
             </div>

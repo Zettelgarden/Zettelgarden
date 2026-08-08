@@ -1,11 +1,11 @@
-import { apiClient, getData } from "./client";
+import { apiClient, getData } from './client';
 import {
   TaskSavedSearch,
   CreateTaskSavedSearchParams,
   UpdateTaskSavedSearchParams,
-} from "../models/TaskSavedSearch";
+} from '../models/TaskSavedSearch';
 
-const BASE = "/task-saved-searches";
+const BASE = '/task-saved-searches';
 
 export function fetchTaskSavedSearches(): Promise<TaskSavedSearch[]> {
   return getData(apiClient.get<TaskSavedSearch[]>(BASE)).then(

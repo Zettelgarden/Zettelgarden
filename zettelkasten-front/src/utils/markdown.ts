@@ -16,10 +16,16 @@ function stripScriptsAndStyles(html: string): string {
   if (!html) return '';
 
   // Remove script tags and their content
-  let cleaned = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  let cleaned = html.replace(
+    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+    '',
+  );
 
   // Remove style tags and their content
-  cleaned = cleaned.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+  cleaned = cleaned.replace(
+    /<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi,
+    '',
+  );
 
   return cleaned;
 }
@@ -67,7 +73,8 @@ turndownService.addRule('em', {
  */
 function isHtmlContent(content: string): boolean {
   // Check for common HTML tags
-  const htmlTagPattern = /<\s*(?:p|div|span|h[1-6]|a|img|strong|em|b|i|ul|ol|li|blockquote|pre|code|br|hr)\b[^>]*>/i;
+  const htmlTagPattern =
+    /<\s*(?:p|div|span|h[1-6]|a|img|strong|em|b|i|ul|ol|li|blockquote|pre|code|br|hr)\b[^>]*>/i;
   return htmlTagPattern.test(content);
 }
 
@@ -79,14 +86,14 @@ function isHtmlContent(content: string): boolean {
 function isMarkdownContent(content: string): boolean {
   // Check for markdown-specific patterns that aren't HTML
   const markdownPatterns = [
-    /^\#{1,6}\s+/m,        // Headings: #, ##, etc.
-    /^\*\*.*?\*\*/m,       // Bold: **text**
-    /^\*.*?\*/m,           // Italic: *text*
-    /^\[.*?\]\(.*?\)/m,     // Links: [text](url)
-    /^\>.*$/m,             // Blockquotes: > quote
-    /^\`\`\`/m,            // Code blocks: ```
-    /^\s*[-*+]\s+/m,       // Unordered lists: -, *, +
-    /^\s*\d+\.\s+/m,       // Ordered lists: 1.
+    /^\#{1,6}\s+/m, // Headings: #, ##, etc.
+    /^\*\*.*?\*\*/m, // Bold: **text**
+    /^\*.*?\*/m, // Italic: *text*
+    /^\[.*?\]\(.*?\)/m, // Links: [text](url)
+    /^\>.*$/m, // Blockquotes: > quote
+    /^\`\`\`/m, // Code blocks: ```
+    /^\s*[-*+]\s+/m, // Unordered lists: -, *, +
+    /^\s*\d+\.\s+/m, // Ordered lists: 1.
   ];
 
   // Not markdown if it has HTML tags
@@ -95,7 +102,7 @@ function isMarkdownContent(content: string): boolean {
   }
 
   // Check if it has markdown patterns
-  return markdownPatterns.some(pattern => pattern.test(content));
+  return markdownPatterns.some((pattern) => pattern.test(content));
 }
 
 /**

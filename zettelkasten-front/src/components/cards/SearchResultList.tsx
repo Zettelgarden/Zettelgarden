@@ -1,19 +1,19 @@
-import React from "react";
-import { SearchResult, Card } from "../../models/Card";
-import { CardIcon } from "../../assets/icons/CardIcon";
-import { PersonIcon } from "../../assets/icons/PersonIcon";
-import { Link, useNavigate } from "react-router-dom";
-import { formatDate } from "../../utils/dates";
-import { getFact } from "../../api/facts";
-import { FactWithCard } from "../../models/Fact";
-import { useState } from "react";
-import { Menu } from "@headlessui/react";
-import { getCard, saveExistingCard } from "../../api/cards";
-import { SearchTagDropdown } from "../tags/SearchTagDropdown";
-import { useTagContext } from "../../contexts/TagContext";
-import { CardListMenu } from "./CardListMenu";
+import React from 'react';
+import { SearchResult, Card } from '../../models/Card';
+import { CardIcon } from '../../assets/icons/CardIcon';
+import { PersonIcon } from '../../assets/icons/PersonIcon';
+import { Link, useNavigate } from 'react-router-dom';
+import { formatDate } from '../../utils/dates';
+import { getFact } from '../../api/facts';
+import { FactWithCard } from '../../models/Fact';
+import { useState } from 'react';
+import { Menu } from '@headlessui/react';
+import { getCard, saveExistingCard } from '../../api/cards';
+import { SearchTagDropdown } from '../tags/SearchTagDropdown';
+import { useTagContext } from '../../contexts/TagContext';
+import { CardListMenu } from './CardListMenu';
 
-import { useDialogState } from "../../contexts/DialogStateContext";
+import { useDialogState } from '../../contexts/DialogStateContext';
 
 interface SearchResultItemProps {
   result: SearchResult;
@@ -24,13 +24,20 @@ interface SearchResultItemProps {
   onResultUpdate?: (updatedResult: SearchResult) => void;
 }
 
-function SearchResultItem({ result, showPreview, onEntityClick, onTagClick, onFactClick, onResultUpdate }: SearchResultItemProps) {
+function SearchResultItem({
+  result,
+  showPreview,
+  onEntityClick,
+  onTagClick,
+  onFactClick,
+  onResultUpdate,
+}: SearchResultItemProps) {
   const navigate = useNavigate();
   const { tags } = useTagContext();
-  const isClassicSearch = result.type === "card" && result.score === 1.0;
-  const isEntity = result.type === "entity";
-  const isCard = result.type === "card";
-  const isFact = result.type === "fact";
+  const isClassicSearch = result.type === 'card' && result.score === 1.0;
+  const isEntity = result.type === 'entity';
+  const isCard = result.type === 'card';
+  const isFact = result.type === 'fact';
   const cardId = Number(result.metadata?.id) || 0;
   const linkedCard = isEntity ? result.metadata?.linked_card : null;
 
@@ -41,7 +48,7 @@ function SearchResultItem({ result, showPreview, onEntityClick, onTagClick, onFa
     }
     if (isFact && onFactClick) {
       e.preventDefault();
-      console.log("going to fetch", result)
+      console.log('going to fetch', result);
       onFactClick(Number(result.id));
     }
   };
@@ -60,7 +67,7 @@ function SearchResultItem({ result, showPreview, onEntityClick, onTagClick, onFa
       // Add the tag to the card body
       const editedCard: Card = {
         ...fullCard,
-        body: fullCard.body + "\n\n#" + tagName,
+        body: fullCard.body + '\n\n#' + tagName,
       };
 
       // Save the updated card
@@ -71,19 +78,19 @@ function SearchResultItem({ result, showPreview, onEntityClick, onTagClick, onFa
         const newTag = {
           id: Date.now(),
           name: tagName,
-          color: "",
-          user_id: 0
+          color: '',
+          user_id: 0,
         }; // Create temporary tag object with all required properties
         const updatedResult: SearchResult = {
           ...result,
-          tags: result.tags ? [...result.tags, newTag] : [newTag]
+          tags: result.tags ? [...result.tags, newTag] : [newTag],
         };
         onResultUpdate(updatedResult);
       }
 
       console.log(`Tag #${tagName} added to card ${cardId}`);
     } catch (error) {
-      console.error("Failed to add tag to card:", error);
+      console.error('Failed to add tag to card:', error);
     }
   };
 
@@ -108,14 +115,16 @@ function SearchResultItem({ result, showPreview, onEntityClick, onTagClick, onFa
       if (onResultUpdate) {
         const updatedResult: SearchResult = {
           ...result,
-          tags: result.tags ? result.tags.filter(tag => tag.name !== tagName) : []
+          tags: result.tags
+            ? result.tags.filter((tag) => tag.name !== tagName)
+            : [],
         };
         onResultUpdate(updatedResult);
       }
 
       console.log(`Tag #${tagName} removed from card ${cardId}`);
     } catch (error) {
-      console.error("Failed to remove tag from card:", error);
+      console.error('Failed to remove tag from card:', error);
     }
   };
 
@@ -135,13 +144,15 @@ function SearchResultItem({ result, showPreview, onEntityClick, onTagClick, onFa
         <div className="flex flex-col">
           <div className="flex items-center flex-wrap gap-1">
             <Link
-              to={isEntity ? "#" : isFact ? "#" : `/app/card/${cardId}`}
+              to={isEntity ? '#' : isFact ? '#' : `/app/card/${cardId}`}
               onClick={handleClick}
               className="hover:underline flex-shrink-0"
             >
               {!isEntity && !isFact && (
                 <>
-                  <span className="text-blue-600 hover:text-blue-800">[{result.metadata.card_id}]</span>
+                  <span className="text-blue-600 hover:text-blue-800">
+                    [{result.metadata.card_id}]
+                  </span>
                   <span className="mx-2 text-gray-400">-</span>
                 </>
               )}
@@ -158,7 +169,8 @@ function SearchResultItem({ result, showPreview, onEntityClick, onTagClick, onFa
                         <div className="w-3 h-3 mr-1 text-gray-400">
                           <CardIcon />
                         </div>
-                        [{result.metadata.linked_card_id}] {result.metadata.linked_card_title}
+                        [{result.metadata.linked_card_id}]{' '}
+                        {result.metadata.linked_card_title}
                       </Link>
                     </>
                   )}
@@ -178,7 +190,8 @@ function SearchResultItem({ result, showPreview, onEntityClick, onTagClick, onFa
                   <div className="w-3 h-3 mr-1 text-gray-400">
                     <CardIcon />
                   </div>
-                  [{result.metadata.linked_card_id}] {result.metadata.linked_card_title}
+                  [{result.metadata.linked_card_id}]{' '}
+                  {result.metadata.linked_card_title}
                 </Link>
               </>
             )}
@@ -186,27 +199,28 @@ function SearchResultItem({ result, showPreview, onEntityClick, onTagClick, onFa
             {result.preview && (
               <>
                 <span className="mx-2"></span>
-                {result.tags && result.tags.map((tag, index) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full"
-                  >
+                {result.tags &&
+                  result.tags.map((tag, index) => (
                     <span
-                      className="cursor-pointer hover:bg-purple-100"
-                      onClick={() => onTagClick && onTagClick(tag.name)}
+                      key={index}
+                      className="inline-flex items-center px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full"
                     >
-                      #{tag.name}
-                    </span>
-                    {isCard && (
-                      <button
-                        onClick={() => handleRemoveTag(tag.name)}
-                        className="ml-1.5 text-purple-400 hover:text-purple-600"
+                      <span
+                        className="cursor-pointer hover:bg-purple-100"
+                        onClick={() => onTagClick && onTagClick(tag.name)}
                       >
-                        &times;
-                      </button>
-                    )}
-                  </span>
-                ))}
+                        #{tag.name}
+                      </span>
+                      {isCard && (
+                        <button
+                          onClick={() => handleRemoveTag(tag.name)}
+                          className="ml-1.5 text-purple-400 hover:text-purple-600"
+                        >
+                          &times;
+                        </button>
+                      )}
+                    </span>
+                  ))}
               </>
             )}
           </div>
@@ -254,7 +268,6 @@ export function SearchResultList({
   onTagClick,
   onResultsUpdate,
 }: SearchResultListProps) {
-
   const {
     showEntityDialog,
     setShowEntityDialog,
@@ -273,8 +286,8 @@ export function SearchResultList({
 
   const handleResultUpdate = (updatedResult: SearchResult) => {
     if (onResultsUpdate) {
-      const updatedResults = results.map(result =>
-        result.id === updatedResult.id ? updatedResult : result
+      const updatedResults = results.map((result) =>
+        result.id === updatedResult.id ? updatedResult : result,
       );
       onResultsUpdate(updatedResults);
     }

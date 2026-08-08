@@ -1,12 +1,12 @@
-import React from "react";
-import { Menu } from "@headlessui/react";
-import { Card } from "../../models/Card";
-import { Button } from "../Button";
-import { StarIcon } from "../../assets/icons/StarIcon";
-import { useUIState } from "../../contexts/UIStateContext";
-import { ViewMode } from "../../pages/cards/ViewPageContainer";
+import React from 'react';
+import { Menu } from '@headlessui/react';
+import { Card } from '../../models/Card';
+import { Button } from '../Button';
+import { StarIcon } from '../../assets/icons/StarIcon';
+import { useUIState } from '../../contexts/UIStateContext';
+import { ViewMode } from '../../pages/cards/ViewPageContainer';
 
-const VIEW_MODES: ViewMode[] = ["normal", "summary"];
+const VIEW_MODES: ViewMode[] = ['normal', 'summary'];
 
 interface ViewPageHeaderProps {
   viewingCard: Card;
@@ -37,7 +37,8 @@ export function ViewPageHeader({
   onNavigateNext,
   onCreateChildCard,
 }: ViewPageHeaderProps) {
-  const { rightPaneOpen, toggleRightPane, setRightPaneOpen, setRightPaneTab } = useUIState();
+  const { rightPaneOpen, toggleRightPane, setRightPaneOpen, setRightPaneTab } =
+    useUIState();
   const hasParent = !!(onNavigateParent && viewingCard.parent);
   // Lateral/up tree navigation cluster — shown only when there's somewhere
   // to go. Promoted out of the buried Links-tab Parent section so navigating
@@ -88,7 +89,7 @@ export function ViewPageHeader({
             <span className="font-mono">[{viewingCard.card_id}]</span>
           </div>
           <h1 className="text-2xl font-semibold text-gray-900 truncate">
-            {viewingCard.title || "Untitled"}
+            {viewingCard.title || 'Untitled'}
           </h1>
         </div>
 
@@ -97,11 +98,11 @@ export function ViewPageHeader({
           <button
             type="button"
             onClick={onToggleStar}
-            title={viewingCard.is_starred ? "Unstar card" : "Star card"}
+            title={viewingCard.is_starred ? 'Unstar card' : 'Star card'}
             className={`p-2 rounded-md transition-colors ${
               viewingCard.is_starred
-                ? "text-yellow-500 hover:bg-yellow-50"
-                : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                ? 'text-yellow-500 hover:bg-yellow-50'
+                : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
             }`}
           >
             <StarIcon className="h-5 w-5" filled={!!viewingCard.is_starred} />
@@ -114,8 +115,8 @@ export function ViewPageHeader({
             aria-pressed={rightPaneOpen}
             className={`hidden md:inline-flex p-2 rounded-md transition-colors ${
               rightPaneOpen
-                ? "text-gray-700 hover:bg-gray-100"
-                : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                ? 'text-gray-700 hover:bg-gray-100'
+                : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
             }`}
           >
             <svg
@@ -167,7 +168,7 @@ export function ViewPageHeader({
                     <button
                       onClick={toggleCreateTaskWindow}
                       className={`${
-                        active ? "bg-gray-100 text-gray-900" : "text-gray-700"
+                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                       } group flex items-center w-full px-4 py-2 text-sm`}
                     >
                       Add Task
@@ -179,20 +180,20 @@ export function ViewPageHeader({
                     <button
                       onClick={onResummarize}
                       className={`${
-                        active ? "bg-gray-100 text-gray-900" : "text-gray-700"
+                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                       } group flex items-center w-full px-4 py-2 text-sm`}
                     >
                       Resummarize
                     </button>
                   )}
                 </Menu.Item>
-                {viewingCard.card_id === "" && (
+                {viewingCard.card_id === '' && (
                   <Menu.Item>
                     {({ active }) => (
                       <button
                         onClick={onRecategorize}
                         className={`${
-                          active ? "bg-gray-100 text-gray-900" : "text-gray-700"
+                          active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                         } group flex items-center w-full px-4 py-2 text-sm`}
                       >
                         Recategorize
@@ -252,8 +253,8 @@ export function ViewPageHeader({
               onClick={() => onViewModeChange(mode)}
               className={`px-3 py-1.5 text-sm rounded-md transition-colors capitalize ${
                 viewMode === mode
-                  ? "bg-white shadow-sm text-gray-900 font-medium"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? 'bg-white shadow-sm text-gray-900 font-medium'
+                  : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               {mode}
@@ -263,7 +264,10 @@ export function ViewPageHeader({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={() => { openLinksTab(); onCreateChildCard(); }}
+            onClick={() => {
+              openLinksTab();
+              onCreateChildCard();
+            }}
             title="Create a child card"
             className="px-2.5 py-1 text-xs text-gray-500 hover:text-blue-600 rounded-md transition-colors"
           >

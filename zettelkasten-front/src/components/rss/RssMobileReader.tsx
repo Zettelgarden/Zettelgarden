@@ -1,8 +1,8 @@
-import React, { useEffect, useRef } from "react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { safeHtmlToMarkdown } from "../../utils/markdown";
-import { RSSArticle } from "../../api/rss";
+import React, { useEffect, useRef } from 'react';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { safeHtmlToMarkdown } from '../../utils/markdown';
+import { RSSArticle } from '../../api/rss';
 
 interface RssMobileReaderProps {
   article: RSSArticle;
@@ -32,7 +32,7 @@ export function RssMobileReader({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Find current article index
-  const currentIndex = articles.findIndex(a => a.id === article.id);
+  const currentIndex = articles.findIndex((a) => a.id === article.id);
   const hasNextArticle = currentIndex < articles.length - 1;
   const hasPreviousArticle = currentIndex > 0;
 
@@ -56,7 +56,10 @@ export function RssMobileReader({
   }, [article.id]);
 
   return (
-    <div ref={scrollRef} className="fixed inset-0 bg-white z-50 overflow-y-auto flex flex-col md:hidden animate-slide-up">
+    <div
+      ref={scrollRef}
+      className="fixed inset-0 bg-white z-50 overflow-y-auto flex flex-col md:hidden animate-slide-up"
+    >
       {/* Top bar */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-2 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center">
@@ -65,8 +68,18 @@ export function RssMobileReader({
             className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
             aria-label="Back to articles"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
         </div>
@@ -82,8 +95,18 @@ export function RssMobileReader({
             className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
             aria-label="Previous article"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 15l7-7 7 7"
+              />
             </svg>
           </button>
           <button
@@ -92,8 +115,18 @@ export function RssMobileReader({
             className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
             aria-label="Next article"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </button>
         </div>
@@ -111,15 +144,27 @@ export function RssMobileReader({
           <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 mb-6 pb-4 border-b border-gray-200">
             {article.author && (
               <span className="flex items-center gap-1">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                <svg
+                  className="w-4 h-4"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 {article.author}
               </span>
             )}
             <span className="flex items-center gap-1">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
+                  clipRule="evenodd"
+                />
               </svg>
               {article.published_at
                 ? new Date(article.published_at).toLocaleDateString()
@@ -144,12 +189,22 @@ export function RssMobileReader({
                 remarkPlugins={[remarkGfm]}
                 components={{
                   a: ({ href, children, ...props }) => (
-                    <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      {...props}
+                    >
                       {children}
                     </a>
                   ),
                   img: ({ src, alt, ...props }) => (
-                    <img src={src} alt={alt} className="rounded-lg my-4" {...props} />
+                    <img
+                      src={src}
+                      alt={alt}
+                      className="rounded-lg my-4"
+                      {...props}
+                    />
                   ),
                 }}
               >
@@ -165,23 +220,27 @@ export function RssMobileReader({
         <div className="flex gap-2">
           {onToggleStar && (
             <button
-              onClick={() => onToggleStar(article.id, article.is_starred ?? false)}
+              onClick={() =>
+                onToggleStar(article.id, article.is_starred ?? false)
+              }
               className={`flex-1 px-4 py-3 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium ${
                 article.is_starred
-                  ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
-              aria-label={article.is_starred ? "Unstar article" : "Star article"}
+              aria-label={
+                article.is_starred ? 'Unstar article' : 'Star article'
+              }
             >
               <svg
                 className="w-5 h-5"
-                fill={article.is_starred ? "currentColor" : "none"}
+                fill={article.is_starred ? 'currentColor' : 'none'}
                 viewBox="0 0 20 20"
-                stroke={article.is_starred ? "none" : "currentColor"}
+                stroke={article.is_starred ? 'none' : 'currentColor'}
               >
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
-              {article.is_starred ? "Starred" : "Star"}
+              {article.is_starred ? 'Starred' : 'Star'}
             </button>
           )}
 
@@ -190,8 +249,18 @@ export function RssMobileReader({
               onClick={onMarkAsUnread}
               className="flex-1 bg-gray-100 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 font-medium"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
               Mark Unread
             </button>
@@ -203,8 +272,18 @@ export function RssMobileReader({
             rel="noopener noreferrer"
             className="flex-1 bg-gray-100 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 font-medium text-center"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+              />
             </svg>
             View Original
           </a>

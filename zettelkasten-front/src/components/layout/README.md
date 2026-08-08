@@ -22,7 +22,7 @@ The component is located at `src/components/layout/MobileTopBar.tsx`.
 ### Basic Usage
 
 ```tsx
-import { MobileTopBar } from "@/components/layout";
+import { MobileTopBar } from '@/components/layout';
 
 function MyPage() {
   return (
@@ -37,19 +37,13 @@ function MyPage() {
 ### With Back Button
 
 ```tsx
-<MobileTopBar
-  title="Article Details"
-  onBack={() => navigate(-1)}
-/>
+<MobileTopBar title="Article Details" onBack={() => navigate(-1)} />
 ```
 
 ### With Menu Button
 
 ```tsx
-<MobileTopBar
-  title="RSS Feeds"
-  onMenuClick={() => setShowMenu(true)}
-/>
+<MobileTopBar title="RSS Feeds" onMenuClick={() => setShowMenu(true)} />
 ```
 
 ### With Badge
@@ -125,28 +119,30 @@ function MyPage() {
 
 ### MobileTopBarProps
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `title` | `string` | *required* | The title to display in the top bar |
-| `badge` | `string \| number` | `undefined` | Optional badge text or number to display next to the title |
-| `onBack` | `() => void` | `undefined` | Callback for the back button (shows back button when provided) |
-| `onMenuClick` | `() => void` | `undefined` | Callback for the menu button (shows menu button when onBack is not provided) |
-| `actions` | `ReactNode` | `undefined` | Action buttons or elements to display on the right side |
-| `className` | `string` | `""` | Optional custom class name for additional styling |
-| `zIndex` | `number` | `40` | Z-index value for the top bar |
-| `mobileOnly` | `boolean` | `true` | Whether to show the component only on mobile devices |
+| Prop          | Type               | Default     | Description                                                                  |
+| ------------- | ------------------ | ----------- | ---------------------------------------------------------------------------- |
+| `title`       | `string`           | _required_  | The title to display in the top bar                                          |
+| `badge`       | `string \| number` | `undefined` | Optional badge text or number to display next to the title                   |
+| `onBack`      | `() => void`       | `undefined` | Callback for the back button (shows back button when provided)               |
+| `onMenuClick` | `() => void`       | `undefined` | Callback for the menu button (shows menu button when onBack is not provided) |
+| `actions`     | `ReactNode`        | `undefined` | Action buttons or elements to display on the right side                      |
+| `className`   | `string`           | `""`        | Optional custom class name for additional styling                            |
+| `zIndex`      | `number`           | `40`        | Z-index value for the top bar                                                |
+| `mobileOnly`  | `boolean`          | `true`      | Whether to show the component only on mobile devices                         |
 
 ## Design Patterns
 
 ### Patterns Found in Existing Code
 
 1. **RSS Page Pattern** (`src/pages/RssPage.tsx`):
+
    - Left: Menu button
    - Center: Title with unread badge
    - Right: Settings button
    - Sticky positioning with z-index 40
 
 2. **Mobile Reader Pattern** (`src/components/rss/RssMobileReader.tsx`):
+
    - Left: Back button
    - Center: Title with flex-1 and truncate
    - Right: Action button (Convert)
@@ -180,6 +176,7 @@ See `MobileTopBar.examples.tsx` for more usage examples.
 ## Future Enhancements
 
 Possible future additions:
+
 - Search input variant
 - Progress indicator variant
 - Breadcrumb navigation variant

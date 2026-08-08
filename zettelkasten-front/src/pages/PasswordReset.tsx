@@ -1,20 +1,20 @@
-import React, { useState, useEffect, FormEvent } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
-import { requestPasswordReset, resetPassword } from "../api/auth";
+import React, { useState, useEffect, FormEvent } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { requestPasswordReset, resetPassword } from '../api/auth';
 
 function PasswordReset() {
-  const [email, setEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [token, setToken] = useState("");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [email, setEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [token, setToken] = useState('');
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     const query = new URLSearchParams(location.search);
-    const token = query.get("token");
+    const token = query.get('token');
     if (token) {
       setToken(token);
     }
@@ -22,27 +22,27 @@ function PasswordReset() {
 
   const handleRequestReset = async (e: FormEvent) => {
     e.preventDefault();
-    setMessage("");
-    setError("");
+    setMessage('');
+    setError('');
     try {
       const response = await requestPasswordReset(email);
       if (response.error) {
         setError(response.message);
       } else {
         setMessage(
-          "If your email is in our system, you will receive a password reset link.",
+          'If your email is in our system, you will receive a password reset link.',
         );
       }
     } catch (error) {
-      setError("Failed to request password reset.");
+      setError('Failed to request password reset.');
     }
   };
 
   const handleResetPassword = async (e: FormEvent) => {
     e.preventDefault();
-    setError("");
+    setError('');
     if (newPassword !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError('Passwords do not match.');
       return;
     }
     try {
@@ -50,11 +50,11 @@ function PasswordReset() {
       if (response.error) {
         setError(response.message);
       } else {
-        setMessage("Your password has been successfully updated.");
-        setTimeout(() => navigate("/login"), 2000);
+        setMessage('Your password has been successfully updated.');
+        setTimeout(() => navigate('/login'), 2000);
       }
     } catch (error) {
-      setError("Failed to reset password.");
+      setError('Failed to reset password.');
     }
   };
 
@@ -64,16 +64,14 @@ function PasswordReset() {
         {token ? (
           // Reset Password Form
           <div>
-            <h2 className="text-2xl font-bold text-center mb-6">Reset Password</h2>
+            <h2 className="text-2xl font-bold text-center mb-6">
+              Reset Password
+            </h2>
             {error && (
-              <div className="text-center text-red-500 mb-4">
-                {error}
-              </div>
+              <div className="text-center text-red-500 mb-4">{error}</div>
             )}
             {message && (
-              <div className="text-center text-green-500 mb-4">
-                {message}
-              </div>
+              <div className="text-center text-green-500 mb-4">{message}</div>
             )}
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div>
@@ -130,16 +128,14 @@ function PasswordReset() {
         ) : (
           // Request Password Reset Form
           <div>
-            <h2 className="text-2xl font-bold text-center mb-6">Request Password Reset</h2>
+            <h2 className="text-2xl font-bold text-center mb-6">
+              Request Password Reset
+            </h2>
             {error && (
-              <div className="text-center text-red-500 mb-4">
-                {error}
-              </div>
+              <div className="text-center text-red-500 mb-4">{error}</div>
             )}
             {message && (
-              <div className="text-center text-green-500 mb-4">
-                {message}
-              </div>
+              <div className="text-center text-green-500 mb-4">{message}</div>
             )}
             <form onSubmit={handleRequestReset} className="space-y-4">
               <div>

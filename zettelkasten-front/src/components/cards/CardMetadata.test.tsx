@@ -17,7 +17,9 @@ vi.mock('../../api/cards', () => ({
 // Mock child components
 vi.mock('../tags/SearchTagDropdown', () => ({
   SearchTagDropdown: ({ tags, handleTagClick }: any) => (
-    <button data-testid="search-tag-dropdown">Search Tags ({tags.length})</button>
+    <button data-testid="search-tag-dropdown">
+      Search Tags ({tags.length})
+    </button>
   ),
 }));
 
@@ -120,7 +122,7 @@ describe('CardMetadata', () => {
       render(<CardMetadata {...defaultProps} />);
 
       const menuButtons = screen.getAllByRole('button');
-      const infoButton = menuButtons.find(btn => btn.querySelector('svg'));
+      const infoButton = menuButtons.find((btn) => btn.querySelector('svg'));
       expect(infoButton).toBeInTheDocument();
     });
   });
@@ -129,7 +131,8 @@ describe('CardMetadata', () => {
     it('should update card_id when input changes', () => {
       render(<CardMetadata {...defaultProps} />);
 
-      const cardIdInput = screen.getByPlaceholderText('ID') || screen.getByDisplayValue(/^/);
+      const cardIdInput =
+        screen.getByPlaceholderText('ID') || screen.getByDisplayValue(/^/);
       fireEvent.change(cardIdInput, { target: { value: '2' } });
 
       expect(mockSetEditingCard).toHaveBeenCalledWith({
@@ -148,12 +151,14 @@ describe('CardMetadata', () => {
   });
 
   describe('Card ID button actions (new cards)', () => {
-
     it('should show + button for new cards', () => {
       render(<CardMetadata {...defaultProps} newCard={true} />);
 
       const buttons = screen.getAllByRole('button');
-      const addButton = buttons.find(btn => btn.querySelector('svg')?.innerHTML.includes('M10 3a1 1 0 011 1v5h5'));
+      const addButton = buttons.find(
+        (btn) =>
+          btn.querySelector('svg')?.innerHTML.includes('M10 3a1 1 0 011 1v5h5'),
+      );
       expect(addButton).toBeDefined();
     });
 
@@ -161,12 +166,21 @@ describe('CardMetadata', () => {
       render(<CardMetadata {...defaultProps} newCard={true} />);
 
       const buttons = screen.getAllByRole('button');
-      const discoveryButton = buttons.find(btn => btn.querySelector('svg')?.innerHTML.includes('M8 4a4 4 0 100 8'));
+      const discoveryButton = buttons.find(
+        (btn) =>
+          btn.querySelector('svg')?.innerHTML.includes('M8 4a4 4 0 100 8'),
+      );
       expect(discoveryButton).toBeDefined();
     });
 
     it('should not show action buttons for existing cards with card_id', () => {
-      render(<CardMetadata {...defaultProps} newCard={false} editingCard={{ ...defaultEditingCard, card_id: '1' }} />);
+      render(
+        <CardMetadata
+          {...defaultProps}
+          newCard={false}
+          editingCard={{ ...defaultEditingCard, card_id: '1' }}
+        />,
+      );
 
       const buttons = screen.getAllByRole('button');
       // Should have menu button (1), tag dropdown button (1), 2 tag remove
@@ -175,7 +189,13 @@ describe('CardMetadata', () => {
     });
 
     it('should show action buttons for existing cards with empty card_id', () => {
-      render(<CardMetadata {...defaultProps} newCard={false} editingCard={{ ...defaultEditingCard, card_id: '' }} />);
+      render(
+        <CardMetadata
+          {...defaultProps}
+          newCard={false}
+          editingCard={{ ...defaultEditingCard, card_id: '' }}
+        />,
+      );
 
       const buttons = screen.getAllByRole('button');
       // Should have action buttons when card_id is empty
@@ -190,7 +210,10 @@ describe('CardMetadata', () => {
       render(<CardMetadata {...defaultProps} newCard={true} />);
 
       const buttons = screen.getAllByRole('button');
-      const addButton = buttons.find(btn => btn.querySelector('svg')?.innerHTML.includes('M10 3a1 1 0 011 1v5h5'));
+      const addButton = buttons.find(
+        (btn) =>
+          btn.querySelector('svg')?.innerHTML.includes('M10 3a1 1 0 011 1v5h5'),
+      );
 
       if (addButton) {
         fireEvent.click(addButton);
@@ -208,7 +231,10 @@ describe('CardMetadata', () => {
       render(<CardMetadata {...defaultProps} newCard={true} />);
 
       const buttons = screen.getAllByRole('button');
-      const addButton = buttons.find(btn => btn.querySelector('svg')?.innerHTML.includes('M10 3a1 1 0 011 1v5h5'));
+      const addButton = buttons.find(
+        (btn) =>
+          btn.querySelector('svg')?.innerHTML.includes('M10 3a1 1 0 011 1v5h5'),
+      );
 
       if (addButton) {
         fireEvent.click(addButton);
@@ -226,7 +252,10 @@ describe('CardMetadata', () => {
       render(<CardMetadata {...defaultProps} newCard={true} />);
 
       const buttons = screen.getAllByRole('button');
-      const discoveryButton = buttons.find(btn => btn.querySelector('svg')?.innerHTML.includes('M8 4a4 4 0 100 8'));
+      const discoveryButton = buttons.find(
+        (btn) =>
+          btn.querySelector('svg')?.innerHTML.includes('M8 4a4 4 0 100 8'),
+      );
 
       if (discoveryButton) {
         fireEvent.click(discoveryButton);
@@ -250,7 +279,9 @@ describe('CardMetadata', () => {
         tags: defaultTags,
       };
 
-      render(<CardMetadata {...defaultProps} editingCard={cardWithTagNotInBody} />);
+      render(
+        <CardMetadata {...defaultProps} editingCard={cardWithTagNotInBody} />,
+      );
 
       // The remove button (×) should only appear for tags in the body
       const removeButtons = screen.getAllByText('×');
@@ -275,7 +306,13 @@ describe('CardMetadata', () => {
 
     it('should display empty state when no tags', () => {
       const cardWithoutTags = { ...defaultEditingCard, tags: [] };
-      render(<CardMetadata {...defaultProps} editingCard={cardWithoutTags} tags={[]} />);
+      render(
+        <CardMetadata
+          {...defaultProps}
+          editingCard={cardWithoutTags}
+          tags={[]}
+        />,
+      );
 
       // Should not have any tag elements
       expect(screen.queryByText('#javascript')).not.toBeInTheDocument();
@@ -288,13 +325,15 @@ describe('CardMetadata', () => {
       render(<CardMetadata {...defaultProps} />);
 
       const menuButtons = screen.getAllByRole('button');
-      const infoButton = menuButtons.find(btn => btn.querySelector('svg'));
+      const infoButton = menuButtons.find((btn) => btn.querySelector('svg'));
 
       if (infoButton) {
         fireEvent.click(infoButton);
 
         // Menu should open with explanatory text
-        expect(screen.getByText(/Card IDs are unique identifiers/)).toBeInTheDocument();
+        expect(
+          screen.getByText(/Card IDs are unique identifiers/),
+        ).toBeInTheDocument();
         expect(screen.getByText(/root card/)).toBeInTheDocument();
         // Use getAllByText since "child of 1" appears twice (1.1 and 1.1.2)
         expect(screen.getAllByText(/child of 1/).length).toBeGreaterThan(0);
@@ -305,7 +344,7 @@ describe('CardMetadata', () => {
       render(<CardMetadata {...defaultProps} />);
 
       const menuButtons = screen.getAllByRole('button');
-      const infoButton = menuButtons.find(btn => btn.querySelector('svg'));
+      const infoButton = menuButtons.find((btn) => btn.querySelector('svg'));
 
       if (infoButton) {
         fireEvent.click(infoButton);
@@ -321,12 +360,14 @@ describe('CardMetadata', () => {
       render(<CardMetadata {...defaultProps} />);
 
       const menuButtons = screen.getAllByRole('button');
-      const infoButton = menuButtons.find(btn => btn.querySelector('svg'));
+      const infoButton = menuButtons.find((btn) => btn.querySelector('svg'));
 
       if (infoButton) {
         fireEvent.click(infoButton);
 
-        expect(screen.getByText(/We recommend using numbers for IDs/)).toBeInTheDocument();
+        expect(
+          screen.getByText(/We recommend using numbers for IDs/),
+        ).toBeInTheDocument();
       }
     });
   });
@@ -335,7 +376,8 @@ describe('CardMetadata', () => {
     it('should preserve all card properties when updating card_id', () => {
       render(<CardMetadata {...defaultProps} />);
 
-      const cardIdInput = screen.getByPlaceholderText('ID') || screen.getByDisplayValue(/^/);
+      const cardIdInput =
+        screen.getByPlaceholderText('ID') || screen.getByDisplayValue(/^/);
       fireEvent.change(cardIdInput, { target: { value: '2.5' } });
 
       expect(mockSetEditingCard).toHaveBeenCalledWith({
@@ -347,7 +389,8 @@ describe('CardMetadata', () => {
     it('should handle multiple card_id updates in sequence', () => {
       render(<CardMetadata {...defaultProps} />);
 
-      const cardIdInput = screen.getByPlaceholderText('ID') || screen.getByDisplayValue(/^/);
+      const cardIdInput =
+        screen.getByPlaceholderText('ID') || screen.getByDisplayValue(/^/);
 
       fireEvent.change(cardIdInput, { target: { value: '2' } });
       expect(mockSetEditingCard).toHaveBeenLastCalledWith({
@@ -370,7 +413,7 @@ describe('CardMetadata', () => {
           {...defaultProps}
           newCard={true}
           editingCard={{ ...defaultEditingCard, card_id: '' }}
-        />
+        />,
       );
 
       const buttons = screen.getAllByRole('button');
@@ -383,7 +426,7 @@ describe('CardMetadata', () => {
           {...defaultProps}
           newCard={false}
           editingCard={{ ...defaultEditingCard, card_id: '' }}
-        />
+        />,
       );
 
       const buttons = screen.getAllByRole('button');
@@ -396,7 +439,7 @@ describe('CardMetadata', () => {
           {...defaultProps}
           newCard={false}
           editingCard={{ ...defaultEditingCard, card_id: '1' }}
-        />
+        />,
       );
 
       const buttons = screen.getAllByRole('button');
@@ -405,8 +448,14 @@ describe('CardMetadata', () => {
       expect(buttons.length).toBe(5);
 
       // Verify no + or discovery buttons
-      const addButton = buttons.find(btn => btn.querySelector('svg')?.innerHTML.includes('M10 3a1 1 0 011 1v5h5'));
-      const discoveryButton = buttons.find(btn => btn.querySelector('svg')?.innerHTML.includes('M8 4a4 4 0 100 8'));
+      const addButton = buttons.find(
+        (btn) =>
+          btn.querySelector('svg')?.innerHTML.includes('M10 3a1 1 0 011 1v5h5'),
+      );
+      const discoveryButton = buttons.find(
+        (btn) =>
+          btn.querySelector('svg')?.innerHTML.includes('M8 4a4 4 0 100 8'),
+      );
       expect(addButton).toBeUndefined();
       expect(discoveryButton).toBeUndefined();
     });
@@ -418,10 +467,11 @@ describe('CardMetadata', () => {
         <CardMetadata
           {...defaultProps}
           editingCard={{ ...defaultEditingCard, card_id: '' }}
-        />
+        />,
       );
 
-      const cardIdInput = screen.getByPlaceholderText('ID') || screen.getByDisplayValue(/^/);
+      const cardIdInput =
+        screen.getByPlaceholderText('ID') || screen.getByDisplayValue(/^/);
       expect(cardIdInput).toHaveValue('');
     });
 
@@ -430,21 +480,24 @@ describe('CardMetadata', () => {
         <CardMetadata
           {...defaultProps}
           editingCard={{ ...defaultEditingCard, card_id: '1.2.3-beta' }}
-        />
+        />,
       );
 
-      const cardIdInput = screen.getByPlaceholderText('ID') || screen.getByDisplayValue(/^/);
+      const cardIdInput =
+        screen.getByPlaceholderText('ID') || screen.getByDisplayValue(/^/);
       expect(cardIdInput).toHaveValue('1.2.3-beta');
     });
 
     it('should handle tags with special characters', () => {
-      const specialTags: Tag[] = [{ id: 3, name: 'c++', color: '#0000FF', user_id: 1 }];
+      const specialTags: Tag[] = [
+        { id: 3, name: 'c++', color: '#0000FF', user_id: 1 },
+      ];
       render(
         <CardMetadata
           {...defaultProps}
           editingCard={{ ...defaultEditingCard, tags: specialTags }}
           tags={specialTags}
-        />
+        />,
       );
 
       expect(screen.getByText('#c++')).toBeInTheDocument();
@@ -456,10 +509,11 @@ describe('CardMetadata', () => {
         <CardMetadata
           {...defaultProps}
           editingCard={{ ...defaultEditingCard, card_id: longId }}
-        />
+        />,
       );
 
-      const cardIdInput = screen.getByPlaceholderText('ID') || screen.getByDisplayValue(/^/);
+      const cardIdInput =
+        screen.getByPlaceholderText('ID') || screen.getByDisplayValue(/^/);
       expect(cardIdInput).toHaveValue(longId);
     });
 
@@ -476,7 +530,7 @@ describe('CardMetadata', () => {
           {...defaultProps}
           editingCard={{ ...defaultEditingCard, tags: manyTags }}
           tags={manyTags}
-        />
+        />,
       );
 
       // Should render all tags

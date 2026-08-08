@@ -1,5 +1,12 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
-import { getUnreadCounts } from "../api/rss";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  ReactNode,
+} from 'react';
+import { getUnreadCounts } from '../api/rss';
 
 interface RSSContextType {
   unreadCount: number;
@@ -19,7 +26,10 @@ export function RSSProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     getUnreadCounts()
       .then((counts) => {
-        const total = Object.values(counts.feeds).reduce((sum, count) => sum + count, 0);
+        const total = Object.values(counts.feeds).reduce(
+          (sum, count) => sum + count,
+          0,
+        );
         setUnreadCount(total);
       })
       .catch(() => {
@@ -28,7 +38,9 @@ export function RSSProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <RSSContext.Provider value={{ unreadCount, setUnreadCount: setUnreadCountCallback }}>
+    <RSSContext.Provider
+      value={{ unreadCount, setUnreadCount: setUnreadCountCallback }}
+    >
       {children}
     </RSSContext.Provider>
   );
@@ -37,7 +49,7 @@ export function RSSProvider({ children }: { children: ReactNode }) {
 export function useRSS() {
   const context = useContext(RSSContext);
   if (context === undefined) {
-    throw new Error("useRSS must be used within an RSSProvider");
+    throw new Error('useRSS must be used within an RSSProvider');
   }
   return context;
 }

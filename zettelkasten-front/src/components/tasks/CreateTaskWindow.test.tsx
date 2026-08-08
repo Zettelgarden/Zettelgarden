@@ -1,12 +1,17 @@
-
 // @vitest-environment happy-dom
 
 import React from 'react';
-import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react';
+import {
+  render,
+  cleanup,
+  screen,
+  fireEvent,
+  waitFor,
+} from '@testing-library/react';
 import { CreateTaskWindow } from './CreateTaskWindow';
 import { saveNewTask } from '../../api/tasks';
-import { describe, it, vi, expect, beforeEach, afterEach } from "vitest";
-import { renderWithProviders } from "../../tests/utils";
+import { describe, it, vi, expect, beforeEach, afterEach } from 'vitest';
+import { renderWithProviders } from '../../tests/utils';
 import type { Mock } from 'vitest';
 
 // Mock the API call
@@ -16,7 +21,13 @@ vi.mock('../../api/tasks', () => ({
 
 // Mock the TaskDateDisplay component to avoid the useAuth dependency
 vi.mock('./TaskDateDisplay', () => ({
-  TaskDateDisplay: vi.fn(() => React.createElement('div', { 'data-testid': 'task-date-display' }, 'Task Date')),
+  TaskDateDisplay: vi.fn(() =>
+    React.createElement(
+      'div',
+      { 'data-testid': 'task-date-display' },
+      'Task Date',
+    ),
+  ),
 }));
 
 describe('CreateTaskWindow', () => {
@@ -57,9 +68,11 @@ describe('CreateTaskWindow', () => {
 
     // Wait and assert that saveNewTask was called
     await waitFor(() => {
-      expect(saveNewTask).toHaveBeenCalledWith(expect.objectContaining({
-        title: 'Test Task'
-      }));
+      expect(saveNewTask).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Test Task',
+        }),
+      );
     });
 
     // Check if setRefresh and setShowTaskWindow were called

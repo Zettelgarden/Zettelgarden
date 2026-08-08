@@ -1,5 +1,5 @@
-import React from "react";
-import { Fact, FactWithCard } from "../../models/Fact";
+import React from 'react';
+import { Fact, FactWithCard } from '../../models/Fact';
 
 interface FactsTabProps {
   facts: Fact[];
@@ -31,7 +31,7 @@ export function FactsTab({
         <div className="max-h-[600px] overflow-y-auto border rounded-md p-2 pb-4">
           {facts
             .filter((fact) =>
-              fact.fact.toLowerCase().includes(factFilterString.toLowerCase())
+              fact.fact.toLowerCase().includes(factFilterString.toLowerCase()),
             )
             .map((fact) => (
               <div

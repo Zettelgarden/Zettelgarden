@@ -1,11 +1,11 @@
-import React, { useEffect, useRef } from "react";
-import { RSSFeed, RSSFolder, UnreadCounts } from "../../api/rss";
+import React, { useEffect, useRef } from 'react';
+import { RSSFeed, RSSFolder, UnreadCounts } from '../../api/rss';
 import {
   getFeedsByFolder,
   getUnreadCountForFeed,
   getUnreadCountForFolder,
   renderUnreadBadge,
-} from "../../utils/rssHelpers";
+} from '../../utils/rssHelpers';
 
 interface RssFeedsBottomSheetProps {
   isOpen: boolean;
@@ -78,20 +78,20 @@ export function RssFeedsBottomSheet({
   // Handle escape key and backdrop click
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
+      if (e.key === 'Escape' && isOpen) {
         onClose();
       }
     };
 
     if (isOpen) {
-      document.addEventListener("keydown", handleEscape);
+      document.addEventListener('keydown', handleEscape);
       // Prevent body scroll when sheet is open
-      document.body.style.overflow = "hidden";
+      document.body.style.overflow = 'hidden';
     }
 
     return () => {
-      document.removeEventListener("keydown", handleEscape);
-      document.body.style.overflow = "";
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = '';
     };
   }, [isOpen, onClose]);
 
@@ -108,12 +108,12 @@ export function RssFeedsBottomSheet({
       ref={backdropRef}
       onClick={handleBackdropClick}
       className="fixed inset-0 bg-black/50 z-50 md:hidden"
-      style={{ animation: "fade-in 0.2s ease-out" }}
+      style={{ animation: 'fade-in 0.2s ease-out' }}
     >
       <div
         ref={sheetRef}
         className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl max-h-[80vh] flex flex-col"
-        style={{ animation: "slide-up 0.3s ease-out" }}
+        style={{ animation: 'slide-up 0.3s ease-out' }}
       >
         {/* Drag Handle */}
         <div className="flex justify-center pt-3 pb-2 px-4 flex-shrink-0">
@@ -129,8 +129,18 @@ export function RssFeedsBottomSheet({
               className="p-2 -mr-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
               aria-label="Close"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -147,12 +157,16 @@ export function RssFeedsBottomSheet({
               }}
               className={`w-full text-left px-4 py-3 rounded-lg transition-colors font-medium flex items-center gap-3 ${
                 isSmartFeedActive
-                  ? "bg-blue-100 text-blue-900"
-                  : "hover:bg-gray-100 bg-gray-50"
+                  ? 'bg-blue-100 text-blue-900'
+                  : 'hover:bg-gray-100 bg-gray-50'
               }`}
             >
-              <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+              <svg
+                className="w-5 h-5 text-amber-500"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
               Smart Feed
             </button>
@@ -167,12 +181,16 @@ export function RssFeedsBottomSheet({
               }}
               className={`w-full text-left px-4 py-3 rounded-lg transition-colors font-medium flex items-center gap-3 ${
                 isStarredFeedActive
-                  ? "bg-blue-100 text-blue-900"
-                  : "hover:bg-gray-100 bg-gray-50"
+                  ? 'bg-blue-100 text-blue-900'
+                  : 'hover:bg-gray-100 bg-gray-50'
               }`}
             >
-              <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+              <svg
+                className="w-5 h-5 text-amber-500"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
               <div className="flex-1">Starred</div>
               {starredCount !== undefined && starredCount > 0 && (
@@ -190,9 +208,12 @@ export function RssFeedsBottomSheet({
               onClose();
             }}
             className={`w-full text-left px-4 py-3 rounded-lg transition-colors font-medium ${
-              !isSmartFeedActive && !isStarredFeedActive && selectedFolder === null && selectedFeedId === null
-                ? "bg-blue-100 text-blue-900"
-                : "hover:bg-gray-100 bg-gray-50"
+              !isSmartFeedActive &&
+              !isStarredFeedActive &&
+              selectedFolder === null &&
+              selectedFeedId === null
+                ? 'bg-blue-100 text-blue-900'
+                : 'hover:bg-gray-100 bg-gray-50'
             }`}
           >
             <div className="flex items-center justify-between">
@@ -207,15 +228,22 @@ export function RssFeedsBottomSheet({
               {folders.map((folder) => {
                 const folderFeeds = getFeedsByFolder(feeds, folder.name);
                 const isExpanded = expandedFolders.has(folder.name);
-                const isSelected = selectedFolder === folder.name && selectedFeedId === null;
-                const unreadCount = getUnreadCountForFolder(unreadCounts, folder.name);
+                const isSelected =
+                  selectedFolder === folder.name && selectedFeedId === null;
+                const unreadCount = getUnreadCountForFolder(
+                  unreadCounts,
+                  folder.name,
+                );
 
                 return (
-                  <div key={folder.id} className="bg-gray-50 rounded-lg overflow-hidden">
+                  <div
+                    key={folder.id}
+                    className="bg-gray-50 rounded-lg overflow-hidden"
+                  >
                     {/* Folder header */}
                     <div
                       className={`px-3 py-2 transition-colors ${
-                        isSelected ? "bg-amber-100" : ""
+                        isSelected ? 'bg-amber-100' : ''
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -228,7 +256,7 @@ export function RssFeedsBottomSheet({
                         >
                           <svg
                             className={`w-4 h-4 text-gray-400 transition-transform ${
-                              isExpanded ? "rotate-90" : ""
+                              isExpanded ? 'rotate-90' : ''
                             }`}
                             fill="currentColor"
                             viewBox="0 0 20 20"
@@ -244,7 +272,9 @@ export function RssFeedsBottomSheet({
                             />
                           </svg>
                           <span className="font-medium">{folder.name}</span>
-                          <span className="text-gray-400 text-xs">({folderFeeds.length})</span>
+                          <span className="text-gray-400 text-xs">
+                            ({folderFeeds.length})
+                          </span>
                           {renderUnreadBadge(unreadCount)}
                         </button>
                         <div className="flex items-center gap-1">
@@ -256,7 +286,12 @@ export function RssFeedsBottomSheet({
                             className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-gray-100 rounded-md transition-colors"
                             aria-label={`Mark folder ${folder.name} as read`}
                           >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -273,7 +308,12 @@ export function RssFeedsBottomSheet({
                             className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-md transition-colors"
                             aria-label={`Rename folder ${folder.name}`}
                           >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -290,7 +330,12 @@ export function RssFeedsBottomSheet({
                             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-gray-100 rounded-md transition-colors"
                             aria-label={`Delete folder ${folder.name}`}
                           >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -306,14 +351,19 @@ export function RssFeedsBottomSheet({
                       {isExpanded && (
                         <div className="ml-4 mt-1 space-y-1">
                           {folderFeeds.map((feed) => {
-                            const unreadCount = getUnreadCountForFeed(unreadCounts, feed.id);
+                            const unreadCount = getUnreadCountForFeed(
+                              unreadCounts,
+                              feed.id,
+                            );
                             const showMenu = showFeedMenuId === feed.id;
 
                             return (
                               <div
                                 key={feed.id}
                                 className={`relative group flex items-center gap-2 rounded-md transition-colors ${
-                                  selectedFeedId === feed.id ? "bg-blue-100" : "hover:bg-gray-100"
+                                  selectedFeedId === feed.id
+                                    ? 'bg-blue-100'
+                                    : 'hover:bg-gray-100'
                                 }`}
                               >
                                 <button
@@ -324,7 +374,11 @@ export function RssFeedsBottomSheet({
                                   className="p-1 text-gray-400 hover:text-gray-600"
                                   aria-label={`Feed options for ${feed.name}`}
                                 >
-                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                  >
                                     <path d="M10 6a2 2 0 110-4 2 2 0 010 4z" />
                                     <path d="M2 10a2 2 0 114 0 2 2 0 01-4 0z" />
                                     <path d="M10 14a2 2 0 110-4 2 2 0 010 4z" />
@@ -355,7 +409,12 @@ export function RssFeedsBottomSheet({
                                       }}
                                       className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                                     >
-                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <svg
+                                        className="w-3 h-3"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                      >
                                         <path
                                           strokeLinecap="round"
                                           strokeLinejoin="round"
@@ -373,7 +432,12 @@ export function RssFeedsBottomSheet({
                                       }}
                                       className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                                     >
-                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <svg
+                                        className="w-3 h-3"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                      >
                                         <path
                                           strokeLinecap="round"
                                           strokeLinejoin="round"
@@ -391,7 +455,12 @@ export function RssFeedsBottomSheet({
                                       }}
                                       className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2"
                                     >
-                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <svg
+                                        className="w-3 h-3"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                      >
                                         <path
                                           strokeLinecap="round"
                                           strokeLinejoin="round"
@@ -407,7 +476,9 @@ export function RssFeedsBottomSheet({
                             );
                           })}
                           {folderFeeds.length === 0 && (
-                            <div className="px-3 py-2 text-xs text-gray-400 italic">No feeds</div>
+                            <div className="px-3 py-2 text-xs text-gray-400 italic">
+                              No feeds
+                            </div>
                           )}
                         </div>
                       )}
@@ -423,18 +494,18 @@ export function RssFeedsBottomSheet({
             const uncategorizedFeeds = getFeedsByFolder(feeds, null);
             if (uncategorizedFeeds.length === 0) return null;
 
-            const isExpanded = expandedFolders.has("__uncategorized__");
+            const isExpanded = expandedFolders.has('__uncategorized__');
             return (
               <div className="bg-gray-50 rounded-lg overflow-hidden">
                 <div className="px-3 py-2">
                   <div className="flex items-center justify-between">
                     <button
-                      onClick={() => onToggleFolder("__uncategorized__")}
+                      onClick={() => onToggleFolder('__uncategorized__')}
                       className="flex-1 text-left flex items-center gap-2"
                     >
                       <svg
                         className={`w-4 h-4 text-gray-400 transition-transform ${
-                          isExpanded ? "rotate-90" : ""
+                          isExpanded ? 'rotate-90' : ''
                         }`}
                         fill="currentColor"
                         viewBox="0 0 20 20"
@@ -445,21 +516,30 @@ export function RssFeedsBottomSheet({
                           clipRule="evenodd"
                         />
                       </svg>
-                      <span className="font-medium text-gray-600">Uncategorized</span>
-                      <span className="text-gray-400 text-xs">({uncategorizedFeeds.length})</span>
+                      <span className="font-medium text-gray-600">
+                        Uncategorized
+                      </span>
+                      <span className="text-gray-400 text-xs">
+                        ({uncategorizedFeeds.length})
+                      </span>
                     </button>
                   </div>
                   {isExpanded && (
                     <div className="ml-4 mt-1 space-y-1">
                       {uncategorizedFeeds.map((feed) => {
-                        const unreadCount = getUnreadCountForFeed(unreadCounts, feed.id);
+                        const unreadCount = getUnreadCountForFeed(
+                          unreadCounts,
+                          feed.id,
+                        );
                         const showMenu = showFeedMenuId === feed.id;
 
                         return (
                           <div
                             key={feed.id}
                             className={`relative group flex items-center gap-2 rounded-md transition-colors ${
-                              selectedFeedId === feed.id ? "bg-blue-100" : "hover:bg-gray-100"
+                              selectedFeedId === feed.id
+                                ? 'bg-blue-100'
+                                : 'hover:bg-gray-100'
                             }`}
                           >
                             <button
@@ -470,7 +550,11 @@ export function RssFeedsBottomSheet({
                               className="p-1 text-gray-400 hover:text-gray-600"
                               aria-label={`Feed options for ${feed.name}`}
                             >
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <svg
+                                className="w-4 h-4"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
                                 <path d="M10 6a2 2 0 110-4 2 2 0 010 4z" />
                                 <path d="M2 10a2 2 0 114 0 2 2 0 01-4 0z" />
                                 <path d="M10 14a2 2 0 110-4 2 2 0 010 4z" />
@@ -501,7 +585,12 @@ export function RssFeedsBottomSheet({
                                   }}
                                   className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                                 >
-                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <svg
+                                    className="w-3 h-3"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
                                     <path
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
@@ -519,7 +608,12 @@ export function RssFeedsBottomSheet({
                                   }}
                                   className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                                 >
-                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <svg
+                                    className="w-3 h-3"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
                                     <path
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
@@ -537,7 +631,12 @@ export function RssFeedsBottomSheet({
                                   }}
                                   className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2"
                                 >
-                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <svg
+                                    className="w-3 h-3"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
                                     <path
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
@@ -563,7 +662,9 @@ export function RssFeedsBottomSheet({
         {/* Settings Section */}
         {(onRefresh || onExportOPML || onImportOPML) && (
           <div className="px-4 py-3 border-t border-gray-200">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Settings</h3>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              Settings
+            </h3>
             <div className="space-y-1">
               {onRefresh && (
                 <button
@@ -573,8 +674,18 @@ export function RssFeedsBottomSheet({
                   }}
                   className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700"
                 >
-                  <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  <svg
+                    className="w-5 h-5 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
                   </svg>
                   <span className="font-medium">Refresh Feeds</span>
                 </button>
@@ -587,8 +698,18 @@ export function RssFeedsBottomSheet({
                   }}
                   className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700"
                 >
-                  <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  <svg
+                    className="w-5 h-5 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    />
                   </svg>
                   <span className="font-medium">Export OPML</span>
                 </button>
@@ -601,8 +722,18 @@ export function RssFeedsBottomSheet({
                   }}
                   className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700"
                 >
-                  <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  <svg
+                    className="w-5 h-5 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                    />
                   </svg>
                   <span className="font-medium">Import OPML</span>
                 </button>

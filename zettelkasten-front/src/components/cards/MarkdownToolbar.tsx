@@ -1,5 +1,5 @@
-import React from "react";
-import { Button } from "../Button";
+import React from 'react';
+import { Button } from '../Button';
 
 interface MarkdownToolbarProps {
   onFormatText: (formatType: string) => void;
@@ -12,19 +12,14 @@ export function MarkdownToolbar({
   onFormatText,
   onBacklinkClick,
   onTogglePreview,
-  isPreviewActive
+  isPreviewActive,
 }: MarkdownToolbarProps) {
   return (
     <div className="flex flex-wrap gap-2 mb-2">
       <div className="flex space-x-1">
-        <Button
-          onClick={onTogglePreview}
-          variant="secondary"
-          size="small"
-        >
-          {isPreviewActive ? "Edit" : "Preview"}
+        <Button onClick={onTogglePreview} variant="secondary" size="small">
+          {isPreviewActive ? 'Edit' : 'Preview'}
         </Button>
-
       </div>
       <div className="flex space-x-1">
         <Button
@@ -108,11 +103,7 @@ export function MarkdownToolbar({
         >
           Table
         </Button>
-        <Button
-          onClick={onBacklinkClick}
-          variant="secondary"
-          size="small"
-        >
+        <Button onClick={onBacklinkClick} variant="secondary" size="small">
           Backlink
         </Button>
       </div>

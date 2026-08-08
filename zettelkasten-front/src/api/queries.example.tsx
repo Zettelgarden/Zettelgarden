@@ -11,7 +11,12 @@
  * - Less boilerplate code
  */
 
-import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  UseQueryOptions,
+} from '@tanstack/react-query';
 import { fetchTasks, Task } from '../tasks';
 import { fetchUserTags, Tag } from '../tags';
 import { fetchTaskStatuses, TaskStatus } from '../taskStatuses';
@@ -34,9 +39,13 @@ interface UseTasksOptions {
  * After:
  *   const { data: tasks, isLoading, error } = useTasks({ showCompleted });
  */
-export function useTasks(
-  options: UseTasksOptions = {}
-): UseQueryOptions<Task[]> & { data: Task[] | undefined; isLoading: boolean; error: unknown } {
+export function useTasks(options: UseTasksOptions = {}): UseQueryOptions<
+  Task[]
+> & {
+  data: Task[] | undefined;
+  isLoading: boolean;
+  error: unknown;
+} {
   const { showCompleted = false, enabled = true } = options;
 
   const result = useQuery({
@@ -81,11 +90,16 @@ export function useUpdateTask() {
       await queryClient.cancelQueries({ queryKey: ['tasks'] });
 
       // Snapshot previous value
-      const previousTasks = queryClient.getQueryData(['tasks', { showCompleted: false }]);
+      const previousTasks = queryClient.getQueryData([
+        'tasks',
+        { showCompleted: false },
+      ]);
 
       // Optimistically update
-      queryClient.setQueryData(['tasks', { showCompleted: false }], (old: Task[] = []) =>
-        old.map((task) => (task.id === updatedTask.id ? updatedTask : task))
+      queryClient.setQueryData(
+        ['tasks', { showCompleted: false }],
+        (old: Task[] = []) =>
+          old.map((task) => (task.id === updatedTask.id ? updatedTask : task)),
       );
 
       // Return context with previous value
@@ -94,7 +108,10 @@ export function useUpdateTask() {
     // Rollback on error
     onError: (err, variables, context) => {
       if (context?.previousTasks) {
-        queryClient.setQueryData(['tasks', { showCompleted: false }], context.previousTasks);
+        queryClient.setQueryData(
+          ['tasks', { showCompleted: false }],
+          context.previousTasks,
+        );
       }
     },
     // Refetch on success

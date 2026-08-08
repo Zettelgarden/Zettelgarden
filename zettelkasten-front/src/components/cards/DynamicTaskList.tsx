@@ -1,6 +1,10 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { fetchTasks } from '../../api/tasks';
-import { filterTasks, filterTasksByDateView, parseTaskQuery } from '../../utils/tasks';
+import {
+  filterTasks,
+  filterTasksByDateView,
+  parseTaskQuery,
+} from '../../utils/tasks';
 import { TaskListItem } from '../tasks/TaskListItem';
 import { Task } from '../../models/Task';
 import { CreateTaskWindow } from '../tasks/CreateTaskWindow';
@@ -12,7 +16,9 @@ interface DynamicTaskListProps {
 }
 
 export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
-  const [allTasks, setAllTasks] = useState<Task[]>(() => taskQueryCache.get(query) ?? []);
+  const [allTasks, setAllTasks] = useState<Task[]>(
+    () => taskQueryCache.get(query) ?? [],
+  );
   const [isLoading, setIsLoading] = useState(() => !taskQueryCache.has(query));
   const [isRefreshing, setIsRefreshing] = useState(false);
   const hasLoadedOnceRef = useRef(taskQueryCache.has(query));
@@ -99,8 +105,8 @@ export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
       // Only apply date view filters if no specific date was provided
       // (specific dates are already filtered by the backend)
       if (!params.specificDate && params.dateView !== 'all') {
-        filtered = filtered.filter(task =>
-          filterTasksByDateView(task, params.dateView, params.showCompleted)
+        filtered = filtered.filter((task) =>
+          filterTasksByDateView(task, params.dateView, params.showCompleted),
         );
       }
 
@@ -111,7 +117,8 @@ export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
     }
   }, [query, allTasks]);
 
-  const shouldShowNoResults = !shouldShowInitialLoading && !isRefreshing && filteredTasks.length === 0;
+  const shouldShowNoResults =
+    !shouldShowInitialLoading && !isRefreshing && filteredTasks.length === 0;
 
   // If we're refreshing, keep showing the previous tasks (don’t flash the full loading state).
 
@@ -119,9 +126,7 @@ export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
   if (shouldShowInitialLoading) {
     return (
       <div className="bg-gray-50 rounded-lg p-4 my-4 border border-gray-200">
-        <p className="text-sm text-gray-500 italic">
-          Loading tasks...
-        </p>
+        <p className="text-sm text-gray-500 italic">Loading tasks...</p>
       </div>
     );
   }
@@ -145,7 +150,9 @@ export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
           <div className="flex justify-between items-center mb-2">
             <div className="text-xs text-gray-500">
               Tasks matching: "{query}" ({filteredTasks.length})
-              {isRefreshing && <span className="ml-2 italic">Refreshing...</span>}
+              {isRefreshing && (
+                <span className="ml-2 italic">Refreshing...</span>
+              )}
             </div>
             <button
               onClick={() => setShowTaskWindow(true)}
@@ -155,8 +162,11 @@ export const DynamicTaskList: React.FC<DynamicTaskListProps> = ({ query }) => {
             </button>
           </div>
           <div className="space-y-2">
-            {filteredTasks.map(task => (
-              <div key={task.id} className="border-b border-gray-100 last:border-0 pb-2 last:pb-0">
+            {filteredTasks.map((task) => (
+              <div
+                key={task.id}
+                className="border-b border-gray-100 last:border-0 pb-2 last:pb-0"
+              >
                 <TaskListItem
                   task={task}
                   onTagClick={(tag: string) => {}}

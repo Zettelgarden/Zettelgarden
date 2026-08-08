@@ -1,4 +1,4 @@
-import { apiClient, getData } from "./client";
+import { apiClient, getData } from './client';
 
 /**
  * Runtime admin settings exposed publicly by GET /api/settings (config.yaml
@@ -27,22 +27,22 @@ interface RawSettings {
 
 function parseSettings(raw: RawSettings): AppSettings {
   return {
-    siteName: raw.site_name ?? "Zettelgarden",
-    signupsEnabled: raw.signups_enabled !== "false",
-    oidcAutoProvision: raw.oidc_auto_provision !== "false",
-    mailEnabled: raw.mail_enabled !== "false",
-    emailAutoValidate: raw.email_auto_validate !== "false",
-    supportEmail: raw.support_email ?? "",
+    siteName: raw.site_name ?? 'Zettelgarden',
+    signupsEnabled: raw.signups_enabled !== 'false',
+    oidcAutoProvision: raw.oidc_auto_provision !== 'false',
+    mailEnabled: raw.mail_enabled !== 'false',
+    emailAutoValidate: raw.email_auto_validate !== 'false',
+    supportEmail: raw.support_email ?? '',
   };
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
-  siteName: "Zettelgarden",
+  siteName: 'Zettelgarden',
   signupsEnabled: true,
   oidcAutoProvision: true,
   mailEnabled: true,
   emailAutoValidate: true,
-  supportEmail: "",
+  supportEmail: '',
 };
 
 let settingsPromise: Promise<AppSettings> | null = null;
@@ -54,7 +54,7 @@ let settingsPromise: Promise<AppSettings> | null = null;
  */
 export function getSettings(): Promise<AppSettings> {
   if (!settingsPromise) {
-    settingsPromise = getData(apiClient.get<RawSettings>("/settings"))
+    settingsPromise = getData(apiClient.get<RawSettings>('/settings'))
       .then(parseSettings)
       .catch(() => DEFAULT_SETTINGS);
   }

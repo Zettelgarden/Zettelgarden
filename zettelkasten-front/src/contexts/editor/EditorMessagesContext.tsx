@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState } from 'react';
 
 interface EditorMessagesContextValue {
   message: string;
@@ -7,12 +7,16 @@ interface EditorMessagesContextValue {
   setError: (error: string) => void;
 }
 
-const EditorMessagesContext = createContext<EditorMessagesContextValue | undefined>(undefined);
+const EditorMessagesContext = createContext<
+  EditorMessagesContextValue | undefined
+>(undefined);
 
 export function useEditorMessagesContext() {
   const context = useContext(EditorMessagesContext);
   if (!context) {
-    throw new Error("useEditorMessagesContext must be used within EditorMessagesProvider");
+    throw new Error(
+      'useEditorMessagesContext must be used within EditorMessagesProvider',
+    );
   }
   return context;
 }
@@ -26,14 +30,16 @@ interface EditorMessagesProviderProps {
 
 export function EditorMessagesProvider({
   children,
-  initialMessage = "",
-  initialError = ""
+  initialMessage = '',
+  initialError = '',
 }: EditorMessagesProviderProps) {
   const [message, setMessage] = useState<string>(initialMessage);
   const [error, setError] = useState<string>(initialError);
 
   return (
-    <EditorMessagesContext.Provider value={{ message, setMessage, error, setError }}>
+    <EditorMessagesContext.Provider
+      value={{ message, setMessage, error, setError }}
+    >
       {children}
     </EditorMessagesContext.Provider>
   );

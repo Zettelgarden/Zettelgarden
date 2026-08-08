@@ -1,6 +1,6 @@
-import React from "react";
-import { CardListItem } from "./CardListItem";
-import { PartialCard } from "../../models/Card";
+import React from 'react';
+import { CardListItem } from './CardListItem';
+import { PartialCard } from '../../models/Card';
 
 interface CardListProps {
   cards: PartialCard[];
@@ -34,4 +34,4 @@ export function CardList({
       ))}
     </ul>
   );
-} 
+}

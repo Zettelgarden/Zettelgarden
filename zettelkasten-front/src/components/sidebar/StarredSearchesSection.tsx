@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { StarredSearch } from "../../models/StarredSearch";
-import { getStarredSearches, unstarSearch } from "../../api/starredSearches";
-import { useToast } from "../toast/ToastContext";
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { StarredSearch } from '../../models/StarredSearch';
+import { getStarredSearches, unstarSearch } from '../../api/starredSearches';
+import { useToast } from '../toast/ToastContext';
 
-interface StarredSearchesSectionProps {
-}
+interface StarredSearchesSectionProps {}
 
-export function StarredSearchesSection({ }: StarredSearchesSectionProps) {
+export function StarredSearchesSection({}: StarredSearchesSectionProps) {
   const [starredSearches, setStarredSearches] = useState<StarredSearch[]>([]);
   const { showToast } = useToast();
 
@@ -17,11 +16,11 @@ export function StarredSearchesSection({ }: StarredSearchesSectionProps) {
         // Refresh the starred searches list after unstarring
         refreshStarredSearches();
         // Show a success message
-        showToast("success", "Search unstarred successfully");
+        showToast('success', 'Search unstarred successfully');
       })
-      .catch(error => {
-        console.error("Error unstarring search:", error);
-        showToast("error", "Failed to unstar search", "Please try again");
+      .catch((error) => {
+        console.error('Error unstarring search:', error);
+        showToast('error', 'Failed to unstar search', 'Please try again');
       });
   };
 
@@ -30,8 +29,8 @@ export function StarredSearchesSection({ }: StarredSearchesSectionProps) {
       .then((searches) => {
         setStarredSearches(searches);
       })
-      .catch(error => {
-        console.error("Error fetching starred searches:", error);
+      .catch((error) => {
+        console.error('Error fetching starred searches:', error);
       });
   };
 
@@ -54,7 +53,9 @@ export function StarredSearchesSection({ }: StarredSearchesSectionProps) {
               <li key={search.id} className="px-2 py-0.5 text-sm group">
                 <div className="flex items-center">
                   <Link
-                    to={`/app/search?term=${encodeURIComponent(search.searchTerm)}&starred=${search.id}`}
+                    to={`/app/search?term=${encodeURIComponent(
+                      search.searchTerm,
+                    )}&starred=${search.id}`}
                     className="flex-grow hover:bg-gray-100 rounded p-1 truncate"
                     title={search.title}
                   >

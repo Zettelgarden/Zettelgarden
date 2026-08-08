@@ -1,7 +1,7 @@
-import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
-import { getUser, editUser } from "../../api/users";
-import { User, defaultUser } from "../../models/User";
+import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { getUser, editUser } from '../../api/users';
+import { User, defaultUser } from '../../models/User';
 
 export function AdminEditUserPage() {
   const [user, setUser] = useState<User>(defaultUser);
@@ -19,7 +19,7 @@ export function AdminEditUserPage() {
     const { name, value, type, checked } = event.target;
     setUser({
       ...user,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: type === 'checkbox' ? checked : value,
     });
   };
 
@@ -107,28 +107,34 @@ export function AdminEditUserPage() {
 
             <div className="space-y-4">
               <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-medium text-gray-800 mb-3">Current Status</h3>
+                <h3 className="text-lg font-medium text-gray-800 mb-3">
+                  Current Status
+                </h3>
                 <div className="space-y-2">
                   <div className="flex items-center space-x-2">
                     <span className="text-gray-600">Subscription:</span>
-                    <span className={`px-2 py-1 rounded text-sm ${
-                      user.stripe_subscription_status === "active"
-                        ? "bg-green-100 text-green-800"
-                        : user.stripe_subscription_status === "trialing"
-                        ? "bg-blue-100 text-blue-800"
-                        : "bg-red-100 text-red-800"
-                    }`}>
+                    <span
+                      className={`px-2 py-1 rounded text-sm ${
+                        user.stripe_subscription_status === 'active'
+                          ? 'bg-green-100 text-green-800'
+                          : user.stripe_subscription_status === 'trialing'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}
+                    >
                       {user.stripe_subscription_status}
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="text-gray-600">Account:</span>
-                    <span className={`px-2 py-1 rounded text-sm ${
-                      user.is_active
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                    }`}>
-                      {user.is_active ? "Active" : "Inactive"}
+                    <span
+                      className={`px-2 py-1 rounded text-sm ${
+                        user.is_active
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}
+                    >
+                      {user.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
                 </div>

@@ -1,14 +1,14 @@
-import React from "react";
-import { PartialCard, Card, Entity } from "../../models/Card";
-import { CreateTaskWindow } from "../tasks/CreateTaskWindow";
-import { QuickSearchWindow } from "../cards/QuickSearchWindow";
-import { StarCardDialog } from "../cards/StarCardDialog";
-import { EntityDialog } from "../entities/EntityDialog";
-import { FactDialog } from "../facts/FactDialog";
-import { TaskDialog } from "../tasks/TaskDialog";
-import { EditEntityDialog } from "../entities/EditEntityDialog";
-import { AddArticleDialog } from "../cards/AddArticleDialog";
-import { GettingStartedPage } from "../../pages/GettingStartedPage";
+import React from 'react';
+import { PartialCard, Card, Entity } from '../../models/Card';
+import { CreateTaskWindow } from '../tasks/CreateTaskWindow';
+import { QuickSearchWindow } from '../cards/QuickSearchWindow';
+import { StarCardDialog } from '../cards/StarCardDialog';
+import { EntityDialog } from '../entities/EntityDialog';
+import { FactDialog } from '../facts/FactDialog';
+import { TaskDialog } from '../tasks/TaskDialog';
+import { EditEntityDialog } from '../entities/EditEntityDialog';
+import { AddArticleDialog } from '../cards/AddArticleDialog';
+import { GettingStartedPage } from '../../pages/GettingStartedPage';
 
 interface SidebarModalsProps {
   showCreateTaskWindow: boolean;
@@ -89,7 +89,9 @@ export function SidebarModals({
       )}
 
       <EntityDialog
-        onClose={() => { setShowEntityDialog(false) }}
+        onClose={() => {
+          setShowEntityDialog(false);
+        }}
         onEdit={(entity) => {
           setEntityToEdit(entity);
           setShowEditEntityDialog(true);
@@ -113,7 +115,11 @@ export function SidebarModals({
         }}
         onSuccess={() => {
           // Refresh the entity dialog if it's still open
-          if (selectedEntity && entityToEdit && selectedEntity.id === entityToEdit.id) {
+          if (
+            selectedEntity &&
+            entityToEdit &&
+            selectedEntity.id === entityToEdit.id
+          ) {
             // Force refresh of the entity dialog by toggling it
             setShowEntityDialog(false);
             setTimeout(() => {

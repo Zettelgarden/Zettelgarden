@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
-import { SearchResultList } from "../../components/cards/SearchResultList";
-import { CardListItem } from "./CardListItem";
-import { TriangleDownIcon } from "../../assets/icons/TriangleDown";
-import { TriangleRightIcon } from "../../assets/icons/TriangleRight";
-import { getCardChildren } from "../../api/cards";
+import React, { useState, useEffect } from 'react';
+import { SearchResultList } from '../../components/cards/SearchResultList';
+import { CardListItem } from './CardListItem';
+import { TriangleDownIcon } from '../../assets/icons/TriangleDown';
+import { TriangleRightIcon } from '../../assets/icons/TriangleRight';
+import { getCardChildren } from '../../api/cards';
 
-import { Card, PartialCard } from "../../models/Card";
+import { Card, PartialCard } from '../../models/Card';
 
 interface ChildrenCardsProps {
   allChildren: PartialCard[];
@@ -15,7 +15,9 @@ interface ChildrenCardsProps {
 export function ChildrenCards({ allChildren, card }: ChildrenCardsProps) {
   const [openCards, setOpenCards] = useState<Record<string, boolean>>({});
   const [childCards, setChildCards] = useState<PartialCard[]>([]);
-  const [loadedChildren, setLoadedChildren] = useState<Record<string, PartialCard[]>>({});
+  const [loadedChildren, setLoadedChildren] = useState<
+    Record<string, PartialCard[]>
+  >({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
 
   async function handleIconClick(cardId: string, id: number) {
@@ -56,14 +58,20 @@ export function ChildrenCards({ allChildren, card }: ChildrenCardsProps) {
                 className="mr-2 cursor-pointer"
                 onClick={() => handleIconClick(c.card_id, c.id)}
               >
-                {openCards[c.card_id] ? <TriangleDownIcon /> : <TriangleRightIcon />}
+                {openCards[c.card_id] ? (
+                  <TriangleDownIcon />
+                ) : (
+                  <TriangleRightIcon />
+                )}
               </span>
               <CardListItem card={c} />
             </div>
             {openCards[c.card_id] && (
               <div className="ml-6">
                 {loading[c.card_id] ? (
-                  <div className="text-gray-500 text-xs">Loading children...</div>
+                  <div className="text-gray-500 text-xs">
+                    Loading children...
+                  </div>
                 ) : (
                   <ChildrenCards
                     allChildren={loadedChildren[c.card_id] || []}

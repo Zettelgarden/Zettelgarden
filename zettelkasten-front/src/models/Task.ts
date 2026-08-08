@@ -1,5 +1,5 @@
-import { PartialCard } from "./Card";
-import { Tag } from "./Tags";
+import { PartialCard } from './Card';
+import { Tag } from './Tags';
 
 interface AuditChange {
   from: any;
@@ -73,7 +73,7 @@ export const emptyTask: Task = {
   due_date: null,
   scheduled_date: new Date(),
   completed_at: null,
-  title: "",
+  title: '',
   description: null,
   priority: null,
   status: 'todo',

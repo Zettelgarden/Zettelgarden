@@ -50,19 +50,25 @@ export function SearchPageExample() {
               {mobileView === 'list' && (
                 <div className="w-full">
                   {/* Mobile list view */}
-                  <button onClick={() => setMobileView('filters')}>Show Filters</button>
+                  <button onClick={() => setMobileView('filters')}>
+                    Show Filters
+                  </button>
                   <div>Search Results List</div>
                 </div>
               )}
               {mobileView === 'detail' && (
                 <div className="w-full">
-                  <button onClick={() => setMobileView('list')}>Back to List</button>
+                  <button onClick={() => setMobileView('list')}>
+                    Back to List
+                  </button>
                   <div>Card Detail View</div>
                 </div>
               )}
               {mobileView === 'filters' && (
                 <div className="w-full">
-                  <button onClick={() => setMobileView('list')}>Close Filters</button>
+                  <button onClick={() => setMobileView('list')}>
+                    Close Filters
+                  </button>
                   <div>Filter Options</div>
                 </div>
               )}
@@ -94,13 +100,17 @@ export function TaskPageExample() {
             <>
               {mobileView === 'list' && (
                 <div className="w-full">
-                  <button onClick={() => setMobileView('filters')}>Show Filters</button>
+                  <button onClick={() => setMobileView('filters')}>
+                    Show Filters
+                  </button>
                   <div>Task List</div>
                 </div>
               )}
               {mobileView === 'filters' && (
                 <div className="w-full">
-                  <button onClick={() => setMobileView('list')}>Close Filters</button>
+                  <button onClick={() => setMobileView('list')}>
+                    Close Filters
+                  </button>
                   <div>Task Filters</div>
                 </div>
               )}

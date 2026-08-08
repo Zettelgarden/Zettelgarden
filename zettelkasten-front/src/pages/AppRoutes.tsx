@@ -1,30 +1,30 @@
-import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
-import { SearchPage } from "./cards/SearchPage";
-import { UserSettingsPage } from "./UserSettings";
-import { FileVault } from "./FileVault";
-import { ViewPage } from "./cards/ViewPage";
-import { EditPage } from "./cards/EditPage";
-import Success from "./Success";
-import Cancel from "./Cancel";
-import SubscribePage from "./SubscribePage";
-import { DashboardPage } from "./DashboardPage";
-import { TaskPage } from "./tasks/TaskPage";
-import { EntityPage } from "./EntityPage";
-import { Summarizer } from "./Summarizer";
-import { FactPage } from "./FactPage";
-import { HelpPage } from "./HelpPage";
-import { StatsPage } from "./StatsPage";
-import { SchemaPage } from "./SchemaPage";
-import { SchemaCreatePage } from "./SchemaCreatePage";
-import { SchemaEditPage } from "./SchemaEditPage";
-import { SchemaTableWrapper } from "./SchemaTableWrapper";
-import { RssPage } from "./RssPage";
-import { RssManagePage } from "./RssManagePage";
-import { NotificationInboxPage } from "./NotificationInboxPage";
-import { Paywall } from "../components/Paywall";
-import { SearchConfig } from "../models/StarredSearch";
-import { SearchResult } from "../models/Card";
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { SearchPage } from './cards/SearchPage';
+import { UserSettingsPage } from './UserSettings';
+import { FileVault } from './FileVault';
+import { ViewPage } from './cards/ViewPage';
+import { EditPage } from './cards/EditPage';
+import Success from './Success';
+import Cancel from './Cancel';
+import SubscribePage from './SubscribePage';
+import { DashboardPage } from './DashboardPage';
+import { TaskPage } from './tasks/TaskPage';
+import { EntityPage } from './EntityPage';
+import { Summarizer } from './Summarizer';
+import { FactPage } from './FactPage';
+import { HelpPage } from './HelpPage';
+import { StatsPage } from './StatsPage';
+import { SchemaPage } from './SchemaPage';
+import { SchemaCreatePage } from './SchemaCreatePage';
+import { SchemaEditPage } from './SchemaEditPage';
+import { SchemaTableWrapper } from './SchemaTableWrapper';
+import { RssPage } from './RssPage';
+import { RssManagePage } from './RssManagePage';
+import { NotificationInboxPage } from './NotificationInboxPage';
+import { Paywall } from '../components/Paywall';
+import { SearchConfig } from '../models/StarredSearch';
+import { SearchResult } from '../models/Card';
 
 interface AppRoutesProps {
   hasSubscription: boolean;
@@ -87,18 +87,35 @@ export function AppRoutes({
       <Route path="tasks" element={<TaskPage />} />
 
       {/* Pro-only routes */}
-      <Route path="files" element={proOnly(<FileVault />, "File Vault")} />
-      <Route path="entities" element={proOnly(<EntityPage />, "Entities")} />
-      <Route path="summarizer" element={proOnly(<Summarizer />, "Summarizer")} />
-      <Route path="facts" element={proOnly(<FactPage />, "Facts")} />
-      {includeStats && <Route path="stats" element={proOnly(<StatsPage />, "Stats")} />}
-      <Route path="schemas" element={proOnly(<SchemaPage />, "Schemas")} />
-      <Route path="schemas/new" element={proOnly(<SchemaCreatePage />, "Schemas")} />
-      <Route path="schemas/:id/edit" element={proOnly(<SchemaEditPage />, "Schemas")} />
-      <Route path="schemas/:id/table" element={proOnly(<SchemaTableWrapper />, "Schemas")} />
-      <Route path="rss" element={proOnly(<RssPage />, "RSS")} />
-      <Route path="rss/manage" element={proOnly(<RssManagePage />, "RSS")} />
-      <Route path="inbox" element={proOnly(<NotificationInboxPage />, "Inbox")} />
+      <Route path="files" element={proOnly(<FileVault />, 'File Vault')} />
+      <Route path="entities" element={proOnly(<EntityPage />, 'Entities')} />
+      <Route
+        path="summarizer"
+        element={proOnly(<Summarizer />, 'Summarizer')}
+      />
+      <Route path="facts" element={proOnly(<FactPage />, 'Facts')} />
+      {includeStats && (
+        <Route path="stats" element={proOnly(<StatsPage />, 'Stats')} />
+      )}
+      <Route path="schemas" element={proOnly(<SchemaPage />, 'Schemas')} />
+      <Route
+        path="schemas/new"
+        element={proOnly(<SchemaCreatePage />, 'Schemas')}
+      />
+      <Route
+        path="schemas/:id/edit"
+        element={proOnly(<SchemaEditPage />, 'Schemas')}
+      />
+      <Route
+        path="schemas/:id/table"
+        element={proOnly(<SchemaTableWrapper />, 'Schemas')}
+      />
+      <Route path="rss" element={proOnly(<RssPage />, 'RSS')} />
+      <Route path="rss/manage" element={proOnly(<RssManagePage />, 'RSS')} />
+      <Route
+        path="inbox"
+        element={proOnly(<NotificationInboxPage />, 'Inbox')}
+      />
 
       {/* Default route */}
       <Route path="*" element={<DashboardPage />} />

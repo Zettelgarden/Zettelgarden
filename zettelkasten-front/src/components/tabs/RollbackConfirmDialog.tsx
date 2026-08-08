@@ -1,5 +1,5 @@
-import React from "react";
-import { AuditChange, parseAuditEvent, formatDate } from "../../utils/audit";
+import React from 'react';
+import { AuditChange, parseAuditEvent, formatDate } from '../../utils/audit';
 
 interface RollbackConfirmDialogProps {
   isOpen: boolean;
@@ -31,7 +31,7 @@ export function RollbackConfirmDialog({
     if (changes.length === 0) {
       return 'restore with no changes';
     }
-    const fieldNames = changes.map(c => {
+    const fieldNames = changes.map((c) => {
       switch (c.field.toLowerCase()) {
         case 'title':
           return 'title';
@@ -119,14 +119,19 @@ export function RollbackConfirmDialog({
             {/* Changes preview */}
             {changes.length > 0 && eventType.toLowerCase() !== 'create' && (
               <div className="mt-4">
-                <p className="text-sm font-medium text-gray-700 mb-2">Changes that will be made:</p>
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  Changes that will be made:
+                </p>
                 <div className="bg-gray-50 border border-gray-200 rounded-md p-3 space-y-2">
                   {changes.map((change, idx) => {
                     const fieldName = change.field.toLowerCase();
-                    const displayField = fieldName === 'cardid' ? 'card ID' : fieldName;
+                    const displayField =
+                      fieldName === 'cardid' ? 'card ID' : fieldName;
                     return (
                       <div key={idx} className="text-sm">
-                        <span className="font-medium text-gray-700">{displayField}:</span>
+                        <span className="font-medium text-gray-700">
+                          {displayField}:
+                        </span>
                         <span className="text-gray-600 ml-2">
                           will revert to "{String(change.from || '(empty)')}"
                         </span>

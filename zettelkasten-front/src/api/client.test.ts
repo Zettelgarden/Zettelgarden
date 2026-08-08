@@ -4,7 +4,13 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { apiClient, getData } from './client';
-import { AuthError, TokenValidationError, NetworkError, ValidationError, NotFoundError } from './errors';
+import {
+  AuthError,
+  TokenValidationError,
+  NetworkError,
+  ValidationError,
+  NotFoundError,
+} from './errors';
 
 // Store the original fetch to restore after tests
 let originalFetch: typeof globalThis.fetch;
@@ -60,7 +66,7 @@ describe('API Client', () => {
           headers: expect.objectContaining({
             Authorization: 'Bearer test-token',
           }),
-        })
+        }),
       );
     });
 
@@ -84,7 +90,9 @@ describe('API Client', () => {
         text: async () => 'Invalid token',
       });
 
-      await expect(apiClient.get('/test')).rejects.toThrow(TokenValidationError);
+      await expect(apiClient.get('/test')).rejects.toThrow(
+        TokenValidationError,
+      );
       await expect(apiClient.get('/test')).rejects.toMatchObject({
         status: 422,
       });
@@ -171,7 +179,7 @@ describe('API Client', () => {
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify(requestBody),
-        })
+        }),
       );
     });
   });
@@ -195,7 +203,7 @@ describe('API Client', () => {
         expect.objectContaining({
           method: 'PUT',
           body: JSON.stringify(requestBody),
-        })
+        }),
       );
     });
   });
@@ -242,7 +250,10 @@ describe('API Client', () => {
         text: async () => JSON.stringify({ token: 'test-token' }),
       });
 
-      await apiClient.post('/login', { email: 'test@test.com', password: 'password' });
+      await apiClient.post('/login', {
+        email: 'test@test.com',
+        password: 'password',
+      });
 
       expect(mockFetch).toHaveBeenCalled();
       const callArgs = mockFetch.mock.calls[0];
@@ -297,7 +308,9 @@ describe('API Client', () => {
         text: async () => JSON.stringify({ message: 'Custom error message' }),
       });
 
-      await expect(apiClient.get('/test')).rejects.toThrow('Custom error message');
+      await expect(apiClient.get('/test')).rejects.toThrow(
+        'Custom error message',
+      );
     });
 
     it('should extract error message from text response', async () => {
@@ -307,7 +320,9 @@ describe('API Client', () => {
         text: async () => 'Internal server error',
       });
 
-      await expect(apiClient.get('/test')).rejects.toThrow('Internal server error');
+      await expect(apiClient.get('/test')).rejects.toThrow(
+        'Internal server error',
+      );
     });
 
     it('should use default message when response body is empty', async () => {
@@ -317,7 +332,9 @@ describe('API Client', () => {
         text: async () => '',
       });
 
-      await expect(apiClient.get('/test')).rejects.toThrow('Request failed with status: 500');
+      await expect(apiClient.get('/test')).rejects.toThrow(
+        'Request failed with status: 500',
+      );
     });
   });
 });

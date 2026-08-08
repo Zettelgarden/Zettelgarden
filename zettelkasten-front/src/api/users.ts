@@ -4,20 +4,19 @@ import {
   CreateUserResponse,
   EditUserParams,
   UserSubscription,
-} from "../models/User";
-import { GenericResponse } from "../models/common";
-import { apiClient, getData } from "./client";
-import { APIError } from "./errors";
-
+} from '../models/User';
+import { GenericResponse } from '../models/common';
+import { apiClient, getData } from './client';
+import { APIError } from './errors';
 
 /**
  * Create a new user
  */
 export async function createUser(
-  userData: CreateUserParams
+  userData: CreateUserParams,
 ): Promise<CreateUserResponse> {
   return getData(
-    apiClient.post<CreateUserResponse>("/users", userData, { skipAuth: true })
+    apiClient.post<CreateUserResponse>('/users', userData, { skipAuth: true }),
   );
 }
 
@@ -25,7 +24,7 @@ export async function createUser(
  * Get user memory
  */
 export async function getUserMemory(): Promise<{ memory: string }> {
-  return getData(apiClient.get<{ memory: string }>("/user/memory"));
+  return getData(apiClient.get<{ memory: string }>('/user/memory'));
 }
 
 /**
@@ -60,11 +59,16 @@ export interface GetUsersResponse {
 /**
  * Get list of users with pagination
  */
-export async function getUsers(params?: GetUsersParams): Promise<GetUsersResponse> {
-  const requestParams: Record<string, string | number | boolean | undefined> = {};
+export async function getUsers(
+  params?: GetUsersParams,
+): Promise<GetUsersResponse> {
+  const requestParams: Record<string, string | number | boolean | undefined> =
+    {};
   if (params?.page) requestParams.page = params.page;
   if (params?.per_page) requestParams.per_page = params.per_page;
-  return getData(apiClient.get<GetUsersResponse>("/users", { params: requestParams }));
+  return getData(
+    apiClient.get<GetUsersResponse>('/users', { params: requestParams }),
+  );
 }
 
 /**
@@ -88,7 +92,7 @@ export async function updateUser(user: User): Promise<User> {
  */
 export async function editUser(
   userId: string,
-  updateData: EditUserParams
+  updateData: EditUserParams,
 ): Promise<User> {
   return getData(apiClient.put<User>(`/users/${userId}`, updateData));
 }
@@ -97,7 +101,7 @@ export async function editUser(
  * Get current authenticated user
  */
 export async function getCurrentUser(): Promise<User> {
-  return getData(apiClient.get<User>("/current"));
+  return getData(apiClient.get<User>('/current'));
 }
 
 /**
@@ -105,8 +109,8 @@ export async function getCurrentUser(): Promise<User> {
  */
 export async function checkAdmin(): Promise<boolean> {
   try {
-    const response = await apiClient.fetchResponse("/admin", {
-      method: "GET",
+    const response = await apiClient.fetchResponse('/admin', {
+      method: 'GET',
     });
     return response.status === 204;
   } catch (error) {
@@ -123,10 +127,10 @@ export async function checkAdmin(): Promise<boolean> {
 export async function validateEmail(token: string): Promise<GenericResponse> {
   return getData(
     apiClient.post<GenericResponse>(
-      "/email-validate",
+      '/email-validate',
       { token },
-      { skipAuth: true }
-    )
+      { skipAuth: true },
+    ),
   );
 }
 
@@ -134,23 +138,28 @@ export async function validateEmail(token: string): Promise<GenericResponse> {
  * Resend email validation
  */
 export async function resendValidateEmail(): Promise<GenericResponse> {
-  return getData(apiClient.get<GenericResponse>("/email-validate"));
+  return getData(apiClient.get<GenericResponse>('/email-validate'));
 }
 
 /**
  * Get user subscription details
  */
-export async function getUserSubscription(id: number): Promise<UserSubscription> {
+export async function getUserSubscription(
+  id: number,
+): Promise<UserSubscription> {
   const encodedId = encodeURIComponent(id);
-  return getData(apiClient.get<UserSubscription>(`/users/${encodedId}/subscription`));
+  return getData(
+    apiClient.get<UserSubscription>(`/users/${encodedId}/subscription`),
+  );
 }
 
 /**
  * Update user memory
  */
-export async function updateUserMemory(memory: string): Promise<{ message: string }> {
+export async function updateUserMemory(
+  memory: string,
+): Promise<{ message: string }> {
   return getData(
-    apiClient.put<{ message: string }>("/user/memory", { memory })
+    apiClient.put<{ message: string }>('/user/memory', { memory }),
   );
 }
-

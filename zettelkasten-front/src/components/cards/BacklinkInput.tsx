@@ -1,16 +1,17 @@
-import React, { useState } from "react";
-import { BacklinkInputDropdownList } from "./BacklinkInputDropdownList";
-import { PartialCard } from "../../models/Card";
+import React, { useState } from 'react';
+import { BacklinkInputDropdownList } from './BacklinkInputDropdownList';
+import { PartialCard } from '../../models/Card';
 
 interface BacklinkInputProps {
   addBacklink: (selectedCard: PartialCard) => void;
   excludeCardId?: number;
 }
 
-export function BacklinkInput({ addBacklink, excludeCardId }: BacklinkInputProps) {
-
-  function handleSearch(searchTerm: string) {
-  }
+export function BacklinkInput({
+  addBacklink,
+  excludeCardId,
+}: BacklinkInputProps) {
+  function handleSearch(searchTerm: string) {}
 
   function handleSelect(card: PartialCard) {
     addBacklink(card);

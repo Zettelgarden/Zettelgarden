@@ -1,7 +1,7 @@
-import React, { useState } from "react";
-import { starSearch } from "../../api/starredSearches";
-import { SearchConfig } from "../../models/StarredSearch";
-import { useToast } from "../toast/ToastContext";
+import React, { useState } from 'react';
+import { starSearch } from '../../api/starredSearches';
+import { SearchConfig } from '../../models/StarredSearch';
+import { useToast } from '../toast/ToastContext';
 
 interface StarSearchDialogProps {
   searchTerm: string;
@@ -16,24 +16,36 @@ export function StarSearchDialog({
   onClose,
   onStarSuccess,
 }: StarSearchDialogProps) {
-  const [title, setTitle] = useState<string>(searchTerm || "Untitled Search");
+  const [title, setTitle] = useState<string>(searchTerm || 'Untitled Search');
   const { showToast } = useToast();
 
   function handleSave() {
     if (!title.trim()) {
-      showToast("error", "Validation Error", "Please enter a title for the starred search");
+      showToast(
+        'error',
+        'Validation Error',
+        'Please enter a title for the starred search',
+      );
       return;
     }
 
     starSearch(title, searchTerm, searchConfig)
       .then(() => {
-        showToast("success", "Search Starred", `Search "${title}" starred successfully`);
+        showToast(
+          'success',
+          'Search Starred',
+          `Search "${title}" starred successfully`,
+        );
         onStarSuccess();
         onClose();
       })
-      .catch(error => {
-        console.error("Error starring search:", error);
-        showToast("error", "Star Failed", `Error starring search: ${error.message}`);
+      .catch((error) => {
+        console.error('Error starring search:', error);
+        showToast(
+          'error',
+          'Star Failed',
+          `Error starring search: ${error.message}`,
+        );
       });
   }
 
@@ -43,7 +55,10 @@ export function StarSearchDialog({
         <h3 className="text-lg font-medium mb-4">Star Current Search</h3>
 
         <div className="mb-4">
-          <label htmlFor="search-title" className="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            htmlFor="search-title"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
             Title
           </label>
           <input
@@ -57,18 +72,40 @@ export function StarSearchDialog({
         </div>
 
         <div className="mb-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-1">Search Details</h4>
+          <h4 className="text-sm font-medium text-gray-700 mb-1">
+            Search Details
+          </h4>
           <div className="bg-gray-50 p-3 rounded text-sm">
-            <p><strong>Search Term:</strong> {searchTerm || "(empty)"}</p>
-            <p><strong>Search Type:</strong> {searchConfig.useClassicSearch ? "Classic" : "Semantic"}</p>
-            <p><strong>Sort By:</strong> {searchConfig.sortBy}</p>
-            <p><strong>Full Text:</strong> {searchConfig.useFullText ? "Yes" : "No"}</p>
-            <p><strong>Only Parent Cards:</strong> {searchConfig.onlyParentCards ? "Yes" : "No"}</p>
-            <p><strong>Show Entities:</strong> {searchConfig.showEntities ? "Yes" : "No"}</p>
-            <p><strong>Show Facts:</strong> {searchConfig.showFacts ? "Yes" : "No"}</p>
+            <p>
+              <strong>Search Term:</strong> {searchTerm || '(empty)'}
+            </p>
+            <p>
+              <strong>Search Type:</strong>{' '}
+              {searchConfig.useClassicSearch ? 'Classic' : 'Semantic'}
+            </p>
+            <p>
+              <strong>Sort By:</strong> {searchConfig.sortBy}
+            </p>
+            <p>
+              <strong>Full Text:</strong>{' '}
+              {searchConfig.useFullText ? 'Yes' : 'No'}
+            </p>
+            <p>
+              <strong>Only Parent Cards:</strong>{' '}
+              {searchConfig.onlyParentCards ? 'Yes' : 'No'}
+            </p>
+            <p>
+              <strong>Show Entities:</strong>{' '}
+              {searchConfig.showEntities ? 'Yes' : 'No'}
+            </p>
+            <p>
+              <strong>Show Facts:</strong>{' '}
+              {searchConfig.showFacts ? 'Yes' : 'No'}
+            </p>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            These search settings will be saved and applied when you click on this starred search.
+            These search settings will be saved and applied when you click on
+            this starred search.
           </p>
         </div>
 

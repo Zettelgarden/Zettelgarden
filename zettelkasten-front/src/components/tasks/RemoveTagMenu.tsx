@@ -1,8 +1,8 @@
-import React, { useState, useEffect, ChangeEvent } from "react";
-import { Task } from "../../models/Task";
-import { Tag } from "../../models/Tags";
-import { saveExistingTask } from "../../api/tasks";
-import { useTaskContext } from "../../contexts/TaskContext";
+import React, { useState, useEffect, ChangeEvent } from 'react';
+import { Task } from '../../models/Task';
+import { Tag } from '../../models/Tags';
+import { saveExistingTask } from '../../api/tasks';
+import { useTaskContext } from '../../contexts/TaskContext';
 
 interface RemoveTagMenuProps {
   task: Task;
@@ -18,18 +18,20 @@ export function RemoveTagMenu({
   handleRemoveTag,
 }: RemoveTagMenuProps) {
   function handleExistingTagClick(tag: string) {
-    handleRemoveTag("#" + tag);
+    handleRemoveTag('#' + tag);
   }
 
   useEffect(() => {
-    console.log("remove", tags);
+    console.log('remove', tags);
   }, []);
 
   return (
     <div className="w-24">
       {tags &&
         tags.map((tag) => (
-          <button onClick={() => handleExistingTagClick(tag.name)}>{tag.name}</button>
+          <button onClick={() => handleExistingTagClick(tag.name)}>
+            {tag.name}
+          </button>
         ))}
     </div>
   );

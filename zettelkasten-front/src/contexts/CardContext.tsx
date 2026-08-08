@@ -1,7 +1,5 @@
-import React, { createContext, useState, useEffect, useContext } from "react";
-import { PartialCard, Card } from "../models/Card";
-
-
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import { PartialCard, Card } from '../models/Card';
 
 interface PartialCardContextType {
   lastCard: PartialCard | null;
@@ -38,7 +36,7 @@ export const usePartialCardContext = () => {
   const context = useContext(PartialCardContext);
   if (context === undefined) {
     throw new Error(
-      "usePartialCardContext must be used wtihin a PartialCardProvider",
+      'usePartialCardContext must be used wtihin a PartialCardProvider',
     );
   }
   return context;

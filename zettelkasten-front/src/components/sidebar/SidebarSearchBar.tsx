@@ -1,20 +1,20 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface SidebarSearchBarProps {
   isCollapsed: boolean;
 }
 
 export function SidebarSearchBar({ isCollapsed }: SidebarSearchBarProps) {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+    if (e.key === 'Enter') {
       const trimmed = searchTerm.trim();
       if (trimmed) {
         navigate(`/app/search?term=${encodeURIComponent(trimmed)}`);
-        setSearchTerm(""); // Clear input after navigation
+        setSearchTerm(''); // Clear input after navigation
       }
     }
   };

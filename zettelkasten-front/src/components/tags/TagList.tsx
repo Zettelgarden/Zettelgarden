@@ -1,45 +1,51 @@
-import React, { useState } from "react";
-import { useTagContext } from "../../contexts/TagContext";
-import { TagListItem } from "./TagListItem";
-import { createTag } from "../../api/tags";
+import React, { useState } from 'react';
+import { useTagContext } from '../../contexts/TagContext';
+import { TagListItem } from './TagListItem';
+import { createTag } from '../../api/tags';
 
-interface TagListInterface { }
+interface TagListInterface {}
 
-type SortOption = "name" | "name-desc" | "tasks-asc" | "tasks-desc" | "cards-asc" | "cards-desc";
+type SortOption =
+  | 'name'
+  | 'name-desc'
+  | 'tasks-asc'
+  | 'tasks-desc'
+  | 'cards-asc'
+  | 'cards-desc';
 
-export function TagList({ }: TagListInterface) {
+export function TagList({}: TagListInterface) {
   const { tags, setRefreshTags } = useTagContext();
-  const [sortOption, setSortOption] = useState<SortOption>("name");
-  const [filterText, setFilterText] = useState<string>("");
+  const [sortOption, setSortOption] = useState<SortOption>('name');
+  const [filterText, setFilterText] = useState<string>('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newTagName, setNewTagName] = useState("");
+  const [newTagName, setNewTagName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const handleCreateTag = async () => {
     try {
       setError(null);
       if (!newTagName.trim()) {
-        setError("Tag name is required");
+        setError('Tag name is required');
         return;
       }
-      await createTag({ name: newTagName.trim(), color: "black" });
-      setNewTagName("");
+      await createTag({ name: newTagName.trim(), color: 'black' });
+      setNewTagName('');
       setIsCreateModalOpen(false);
       setRefreshTags(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create tag");
+      setError(err instanceof Error ? err.message : 'Failed to create tag');
     }
   };
 
-  const filteredTags = (tags || []).filter(tag =>
-    tag.name.toLowerCase().includes(filterText.toLowerCase())
+  const filteredTags = (tags || []).filter((tag) =>
+    tag.name.toLowerCase().includes(filterText.toLowerCase()),
   );
 
   const sortedTags = [...filteredTags].sort((a, b) => {
     switch (sortOption) {
-      case "name":
+      case 'name':
         return a.name.localeCompare(b.name);
-      case "name-desc":
+      case 'name-desc':
         return b.name.localeCompare(a.name);
       default:
         return 0;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect } from 'react';
 
 export const MOBILE_BREAKPOINT = 768;
 
@@ -9,19 +9,19 @@ export const MOBILE_BREAKPOINT = 768;
  */
 export function useIsMobile(breakpoint: number = MOBILE_BREAKPOINT): boolean {
   const [isMobile, setIsMobile] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== 'undefined') {
       return window.innerWidth < breakpoint;
     }
     return false;
   });
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === 'undefined') return;
     const handleResize = () => {
       setIsMobile(window.innerWidth < breakpoint);
     };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, [breakpoint]);
 
   return isMobile;

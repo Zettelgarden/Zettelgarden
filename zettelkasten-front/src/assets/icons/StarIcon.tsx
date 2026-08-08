@@ -1,18 +1,18 @@
-import React from "react";
+import React from 'react';
 
 interface StarIconProps {
   className?: string;
   filled?: boolean;
 }
 
-export function StarIcon({ className = "", filled = false }: StarIconProps) {
+export function StarIcon({ className = '', filled = false }: StarIconProps) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="16"
       height="16"
       viewBox="0 0 24 24"
-      fill={filled ? "currentColor" : "none"}
+      fill={filled ? 'currentColor' : 'none'}
       stroke="currentColor"
       strokeWidth="2"
       strokeLinecap="round"

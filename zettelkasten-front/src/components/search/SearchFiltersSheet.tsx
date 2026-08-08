@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { MobileBottomSheet } from "../layout/MobileBottomSheet";
-import { SearchConfig as SearchConfigType } from "../../models/StarredSearch";
-import { Tag } from "../../models/Tags";
-import { fetchSchemas } from "../../api/schemas";
-import { SchemaDefinition } from "../../models/Schema";
-import { getStarredSearches, unstarSearch } from "../../api/starredSearches";
-import { StarredSearch } from "../../models/StarredSearch";
-import { useToast } from "../toast/ToastContext";
+import React, { useState, useEffect } from 'react';
+import { MobileBottomSheet } from '../layout/MobileBottomSheet';
+import { SearchConfig as SearchConfigType } from '../../models/StarredSearch';
+import { Tag } from '../../models/Tags';
+import { fetchSchemas } from '../../api/schemas';
+import { SchemaDefinition } from '../../models/Schema';
+import { getStarredSearches, unstarSearch } from '../../api/starredSearches';
+import { StarredSearch } from '../../models/StarredSearch';
+import { useToast } from '../toast/ToastContext';
 
 interface SearchFiltersSheetProps {
   isOpen: boolean;
@@ -46,7 +46,7 @@ export function SearchFiltersSheet({
         const data = await fetchSchemas();
         setSchemas(data);
       } catch (error) {
-        console.error("Failed to load schemas:", error);
+        console.error('Failed to load schemas:', error);
       } finally {
         setSchemasLoading(false);
       }
@@ -62,13 +62,13 @@ export function SearchFiltersSheet({
       const searches = await getStarredSearches();
       setStarredSearches(searches);
     } catch (error) {
-      console.error("Failed to load starred searches:", error);
+      console.error('Failed to load starred searches:', error);
     }
   };
 
   const handleSchemaChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value;
-    const schemaId = value === "" ? null : parseInt(value);
+    const schemaId = value === '' ? null : parseInt(value);
     const newConfig = { ...searchConfig, schemaId };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
@@ -80,35 +80,53 @@ export function SearchFiltersSheet({
     onSearchTrigger?.(newConfig, true);
   };
 
-  const handleOnlyParentCardsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newConfig = { ...searchConfig, onlyParentCards: event.target.checked };
+  const handleOnlyParentCardsChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const newConfig = {
+      ...searchConfig,
+      onlyParentCards: event.target.checked,
+    };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
   };
 
-  const handleOnlyEmptyCardIdChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newConfig = { ...searchConfig, onlyEmptyCardId: event.target.checked };
+  const handleOnlyEmptyCardIdChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const newConfig = {
+      ...searchConfig,
+      onlyEmptyCardId: event.target.checked,
+    };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
   };
 
-  const handleShowPreviewChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShowPreviewChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     setSearchConfig({ ...searchConfig, showPreview: event.target.checked });
   };
 
-  const handleShowEntitiesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShowEntitiesChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const newConfig = { ...searchConfig, showEntities: event.target.checked };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
   };
 
-  const handleShowFactsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShowFactsChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const newConfig = { ...searchConfig, showFacts: event.target.checked };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
   };
 
-  const handleShowCardsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShowCardsChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const newConfig = { ...searchConfig, showCards: event.target.checked };
     setSearchConfig(newConfig);
     onSearchTrigger?.(newConfig, true);
@@ -124,22 +142,22 @@ export function SearchFiltersSheet({
     unstarSearch(searchId)
       .then(() => {
         loadStarredSearches();
-        showToast("success", "Search unstarred successfully");
+        showToast('success', 'Search unstarred successfully');
       })
       .catch((error) => {
-        console.error("Error unstarring search:", error);
-        showToast("error", "Failed to unstar search", "Please try again");
+        console.error('Error unstarring search:', error);
+        showToast('error', 'Failed to unstar search', 'Please try again');
       });
   };
 
   const sortOptions = [
-    { value: "sortByRanking", label: "Ranking Score" },
-    { value: "sortCreatedNewOld", label: "Created (Newest)" },
-    { value: "sortCreatedOldNew", label: "Created (Oldest)" },
-    { value: "sortNewOld", label: "Updated (Newest)" },
-    { value: "sortOldNew", label: "Updated (Oldest)" },
-    { value: "sortBigSmall", label: "A to Z" },
-    { value: "sortSmallBig", label: "Z to A" },
+    { value: 'sortByRanking', label: 'Ranking Score' },
+    { value: 'sortCreatedNewOld', label: 'Created (Newest)' },
+    { value: 'sortCreatedOldNew', label: 'Created (Oldest)' },
+    { value: 'sortNewOld', label: 'Updated (Newest)' },
+    { value: 'sortOldNew', label: 'Updated (Oldest)' },
+    { value: 'sortBigSmall', label: 'A to Z' },
+    { value: 'sortSmallBig', label: 'Z to A' },
   ];
 
   return (
@@ -174,13 +192,15 @@ export function SearchFiltersSheet({
                           ...searchConfig,
                           ...search.searchConfig,
                         },
-                        true
+                        true,
                       );
                       onClose();
                     }}
                     className="flex-grow text-left touch-manipulation min-h-[44px] flex items-center"
                   >
-                    <span className="text-sm text-gray-800">{search.title}</span>
+                    <span className="text-sm text-gray-800">
+                      {search.title}
+                    </span>
                   </button>
                   <button
                     onClick={() => handleUnstarSearch(search.id)}
@@ -238,8 +258,8 @@ export function SearchFiltersSheet({
                 onClick={() => handleSortChange(option.value)}
                 className={`p-3 text-sm rounded-lg touch-manipulation min-h-[44px] text-left transition-colors ${
                   searchConfig.sortBy === option.value
-                    ? "bg-blue-600 text-white border-2 border-blue-600"
-                    : "bg-gray-100 text-gray-700 border-2 border-transparent hover:bg-gray-200"
+                    ? 'bg-blue-600 text-white border-2 border-blue-600'
+                    : 'bg-gray-100 text-gray-700 border-2 border-transparent hover:bg-gray-200'
                 }`}
               >
                 {option.label}
@@ -288,7 +308,7 @@ export function SearchFiltersSheet({
                 </div>
               ) : (
                 <select
-                  value={searchConfig.schemaId ?? ""}
+                  value={searchConfig.schemaId ?? ''}
                   onChange={handleSchemaChange}
                   className="w-full p-3 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px] touch-manipulation"
                 >
@@ -347,9 +367,7 @@ export function SearchFiltersSheet({
                   onChange={handleShowPreviewChange}
                   className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 touch-manipulation"
                 />
-                <span className="ml-3 text-sm text-gray-700">
-                  Show Preview
-                </span>
+                <span className="ml-3 text-sm text-gray-700">Show Preview</span>
               </label>
 
               <label className="flex items-center p-3 hover:bg-gray-50 rounded-lg cursor-pointer touch-manipulation">

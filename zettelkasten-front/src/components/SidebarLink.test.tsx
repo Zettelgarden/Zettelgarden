@@ -9,7 +9,7 @@ describe('SidebarLink', () => {
       <SidebarLink to="/test">
         <span>Icon</span>
         <span>Link Text</span>
-      </SidebarLink>
+      </SidebarLink>,
     );
 
     expect(screen.getByText('Icon')).toBeInTheDocument();
@@ -20,7 +20,7 @@ describe('SidebarLink', () => {
     const { container } = renderWithProviders(
       <SidebarLink to="/">
         <span>Home</span>
-      </SidebarLink>
+      </SidebarLink>,
     );
 
     const link = container.querySelector('a');
@@ -31,7 +31,7 @@ describe('SidebarLink', () => {
     renderWithProviders(
       <SidebarLink to="/cards">
         <span>Cards</span>
-      </SidebarLink>
+      </SidebarLink>,
     );
 
     const link = screen.getByRole('link');
@@ -43,11 +43,13 @@ describe('SidebarLink', () => {
       <SidebarLink to="/test">
         <svg data-testid="icon">Icon</svg>
         <span>Text</span>
-      </SidebarLink>
+      </SidebarLink>,
     );
 
     const iconWrapper = container.querySelector('.w-6.h-6');
     expect(iconWrapper).toBeInTheDocument();
-    expect(iconWrapper?.querySelector('[data-testid="icon"]')).toBeInTheDocument();
+    expect(
+      iconWrapper?.querySelector('[data-testid="icon"]'),
+    ).toBeInTheDocument();
   });
 });

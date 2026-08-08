@@ -9,8 +9,19 @@ import { renderWithProviders } from '../../tests/utils';
 
 // Mock the CardPreviewWindow component to avoid complex dependencies
 vi.mock('./CardPreviewWindow', () => ({
-  CardPreviewWindow: ({ cardPK, mousePosition }: { cardPK: number; mousePosition: { x: number; y: number } }) => (
-    <div data-testid="card-preview-window" data-card-pk={cardPK} data-mouse-x={mousePosition.x} data-mouse-y={mousePosition.y}>
+  CardPreviewWindow: ({
+    cardPK,
+    mousePosition,
+  }: {
+    cardPK: number;
+    mousePosition: { x: number; y: number };
+  }) => (
+    <div
+      data-testid="card-preview-window"
+      data-card-pk={cardPK}
+      data-mouse-x={mousePosition.x}
+      data-mouse-y={mousePosition.y}
+    >
       Preview for card {cardPK}
     </div>
   ),
@@ -19,7 +30,11 @@ vi.mock('./CardPreviewWindow', () => ({
 // Mock the CardLink component to focus on CardItem behavior
 vi.mock('./CardLink', () => ({
   CardLink: ({ card, showTitle }: { card: any; showTitle: boolean }) => (
-    <div data-testid="card-link" data-card-id={card.card_id} data-show-title={showTitle}>
+    <div
+      data-testid="card-link"
+      data-card-id={card.card_id}
+      data-show-title={showTitle}
+    >
       {card.title}
     </div>
   ),

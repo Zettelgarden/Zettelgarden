@@ -1,6 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { Entity } from "../../models/Card";
-import { addEntityToCard, fetchEntities, EntityListResponse } from "../../api/entities";
+import React, { useState, useEffect } from 'react';
+import { Entity } from '../../models/Card';
+import {
+  addEntityToCard,
+  fetchEntities,
+  EntityListResponse,
+} from '../../api/entities';
 
 interface AddEntityDialogProps {
   isOpen: boolean;
@@ -20,17 +24,17 @@ export function AddEntityDialog({
   onError,
 }: AddEntityDialogProps) {
   const [availableEntities, setAvailableEntities] = useState<Entity[]>([]);
-  const [entitySearchTerm, setEntitySearchTerm] = useState<string>("");
+  const [entitySearchTerm, setEntitySearchTerm] = useState<string>('');
   const [isLoadingEntities, setIsLoadingEntities] = useState<boolean>(false);
 
   async function handleAddEntity(entity: Entity) {
     try {
       await addEntityToCard(entity.id, cardId);
       onEntityAdded(entity);
-      setEntitySearchTerm("");
+      setEntitySearchTerm('');
       onClose();
     } catch (error) {
-      onError("Failed to add entity to card");
+      onError('Failed to add entity to card');
     }
   }
 
@@ -44,14 +48,16 @@ export function AddEntityDialog({
     try {
       const response: EntityListResponse = await fetchEntities({
         search: searchTerm.trim(),
-        per_page: 20
+        per_page: 20,
       });
       // Filter out entities that are already linked to this card
       const linkedEntityIdsSet = new Set(linkedEntityIds);
-      const filteredEntities = response.entities.filter(entity => !linkedEntityIdsSet.has(entity.id));
+      const filteredEntities = response.entities.filter(
+        (entity) => !linkedEntityIdsSet.has(entity.id),
+      );
       setAvailableEntities(filteredEntities);
     } catch (error) {
-      onError("Failed to search entities");
+      onError('Failed to search entities');
       setAvailableEntities([]);
     } finally {
       setIsLoadingEntities(false);
@@ -67,7 +73,7 @@ export function AddEntityDialog({
   // Reset state when dialog closes
   useEffect(() => {
     if (!isOpen) {
-      setEntitySearchTerm("");
+      setEntitySearchTerm('');
       setAvailableEntities([]);
     }
   }, [isOpen]);
@@ -83,8 +89,18 @@ export function AddEntityDialog({
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -102,7 +118,9 @@ export function AddEntityDialog({
 
         <div className="max-h-60 overflow-y-auto">
           {isLoadingEntities ? (
-            <div className="text-center py-4 text-gray-500">Loading entities...</div>
+            <div className="text-center py-4 text-gray-500">
+              Loading entities...
+            </div>
           ) : availableEntities.length > 0 ? (
             <div className="space-y-1">
               {availableEntities.map((entity) => (
@@ -112,13 +130,17 @@ export function AddEntityDialog({
                   className="p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium text-gray-900">{entity.name}</span>
+                    <span className="font-medium text-gray-900">
+                      {entity.name}
+                    </span>
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                       {entity.type}
                     </span>
                   </div>
                   {entity.description && (
-                    <div className="text-sm text-gray-600 line-clamp-2">{entity.description}</div>
+                    <div className="text-sm text-gray-600 line-clamp-2">
+                      {entity.description}
+                    </div>
                   )}
                 </div>
               ))}

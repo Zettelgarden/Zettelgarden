@@ -321,16 +321,16 @@ src/
 
 ## Context vs Query Hook Mapping
 
-| Old Context | New Query Hook(s) | Notes |
-|-------------|-------------------|-------|
-| `TaskContext` | `useTasks()`, `useTask()`, `useCreateTask()`, `useUpdateTask()`, `useDeleteTask()` | Full replacement |
-| `TagContext` | `useTags()` | Full replacement |
-| `useCardData()` | `useCard()`, `useCardReferences()`, `useCardChildren()`, `useCardFiles()`, `useCardTags()`, `useCardTasks()`, `useCardEntities()`, `useLinkedEntities()` | Split into focused hooks |
-| `AuthContext` (data fetching) | `useCurrentUser()`, `useIsAdmin()`, `useUserSubscription()` | Partial replacement - keep auth logic in context |
-| `CardContext` | (keep) | UI-only state, not data fetching |
-| `ChatContext` | (keep) | UI-only state, not data fetching |
-| `FileContext` | (keep) | UI-only state, not data fetching |
-| `PinContext` | (keep) | UI-only state, not data fetching |
+| Old Context                   | New Query Hook(s)                                                                                                                                        | Notes                                            |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `TaskContext`                 | `useTasks()`, `useTask()`, `useCreateTask()`, `useUpdateTask()`, `useDeleteTask()`                                                                       | Full replacement                                 |
+| `TagContext`                  | `useTags()`                                                                                                                                              | Full replacement                                 |
+| `useCardData()`               | `useCard()`, `useCardReferences()`, `useCardChildren()`, `useCardFiles()`, `useCardTags()`, `useCardTasks()`, `useCardEntities()`, `useLinkedEntities()` | Split into focused hooks                         |
+| `AuthContext` (data fetching) | `useCurrentUser()`, `useIsAdmin()`, `useUserSubscription()`                                                                                              | Partial replacement - keep auth logic in context |
+| `CardContext`                 | (keep)                                                                                                                                                   | UI-only state, not data fetching                 |
+| `ChatContext`                 | (keep)                                                                                                                                                   | UI-only state, not data fetching                 |
+| `FileContext`                 | (keep)                                                                                                                                                   | UI-only state, not data fetching                 |
+| `PinContext`                  | (keep)                                                                                                                                                   | UI-only state, not data fetching                 |
 
 ## Query Key Hierarchy
 
@@ -382,6 +382,7 @@ const task = queryClient.getQueryData(queryKeys.tasks.detail(taskId));
 ## Testing Comparison
 
 ### Before (Context)
+
 ```typescript
 // Need to wrap components in providers
 test('renders tasks', () => {
@@ -395,6 +396,7 @@ test('renders tasks', () => {
 ```
 
 ### After (React Query)
+
 ```typescript
 // Test hooks directly
 test('fetches tasks', () => {

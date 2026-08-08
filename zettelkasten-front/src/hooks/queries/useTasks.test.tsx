@@ -50,9 +50,7 @@ function createTestQueryClient() {
 function wrapper({ children }: { children: React.ReactNode }) {
   const queryClient = createTestQueryClient();
   return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 }
 
@@ -79,8 +77,8 @@ describe('useTasks', () => {
       tags: [],
       blocked_by: [],
       blocks: [],
-    parent_task_id: null,
-    sort_order: null,
+      parent_task_id: null,
+      sort_order: null,
     },
     {
       id: 2,
@@ -103,8 +101,8 @@ describe('useTasks', () => {
       tags: [],
       blocked_by: [],
       blocks: [],
-    parent_task_id: null,
-    sort_order: null,
+      parent_task_id: null,
+      sort_order: null,
     },
   ];
 
@@ -186,7 +184,7 @@ describe('useTasks', () => {
       {
         wrapper,
         initialProps: { showCompleted: false },
-      }
+      },
     );
 
     await waitFor(() => {
@@ -260,7 +258,10 @@ describe('useUpdateTask', () => {
     });
 
     // React Query v5 passes context as second argument
-    expect(saveExistingTask).toHaveBeenCalledWith(updatedTask, expect.any(Object));
+    expect(saveExistingTask).toHaveBeenCalledWith(
+      updatedTask,
+      expect.any(Object),
+    );
 
     // Verify cache was updated (via invalidateQueries in onSettled)
     // In a real test, we'd check the cache state here

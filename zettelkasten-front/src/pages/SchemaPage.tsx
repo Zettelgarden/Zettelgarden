@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { SchemaDefinition, FieldDefinition } from "../models/Schema";
-import { fetchSchemas, deleteSchema } from "../api/schemas";
-import { Dialog, Menu } from "@headlessui/react";
-import { setDocumentTitle } from "../utils/title";
-import { useNavigate } from "react-router-dom";
-import { formatRelativeTime } from "../utils/scheduler";
+import React, { useState, useEffect, useMemo } from 'react';
+import { SchemaDefinition, FieldDefinition } from '../models/Schema';
+import { fetchSchemas, deleteSchema } from '../api/schemas';
+import { Dialog, Menu } from '@headlessui/react';
+import { setDocumentTitle } from '../utils/title';
+import { useNavigate } from 'react-router-dom';
+import { formatRelativeTime } from '../utils/scheduler';
 
-type SortKey = "usage" | "name" | "updated";
+type SortKey = 'usage' | 'name' | 'updated';
 
 const MAX_FIELD_CHIPS = 8;
 
@@ -17,12 +17,14 @@ export function SchemaPage() {
   const [error, setError] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [schemaToDelete, setSchemaToDelete] = useState<SchemaDefinition | null>(null);
-  const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<SortKey>("usage");
+  const [schemaToDelete, setSchemaToDelete] = useState<SchemaDefinition | null>(
+    null,
+  );
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<SortKey>('usage');
 
   useEffect(() => {
-    setDocumentTitle("Schemas");
+    setDocumentTitle('Schemas');
     loadSchemas();
   }, []);
 
@@ -34,9 +36,9 @@ export function SchemaPage() {
         setLoading(false);
       })
       .catch((err) => {
-        setError("Failed to load schemas");
+        setError('Failed to load schemas');
         setLoading(false);
-        console.error("Error fetching schemas:", err);
+        console.error('Error fetching schemas:', err);
       });
   };
 
@@ -54,20 +56,20 @@ export function SchemaPage() {
     try {
       const result = await deleteSchema(schemaToDelete.id);
       if (result.warning) {
-        console.warn("Schema deletion warning:", result.warning);
+        console.warn('Schema deletion warning:', result.warning);
       }
       setSchemaToDelete(null);
       loadSchemas();
     } catch (err) {
-      setError("Failed to delete schema");
-      console.error("Error deleting schema:", err);
+      setError('Failed to delete schema');
+      console.error('Error deleting schema:', err);
     } finally {
       setIsDeleting(false);
     }
   };
 
   const handleCreateClick = () => {
-    navigate("/app/schemas/new");
+    navigate('/app/schemas/new');
   };
 
   const handleEditClick = (schema: SchemaDefinition) => {
@@ -78,8 +80,11 @@ export function SchemaPage() {
     navigate(`/app/schemas/${schema.id}/table`);
   };
 
-  const handleRowKeyDown = (e: React.KeyboardEvent, schema: SchemaDefinition) => {
-    if (e.key === "Enter" || e.key === " ") {
+  const handleRowKeyDown = (
+    e: React.KeyboardEvent,
+    schema: SchemaDefinition,
+  ) => {
+    if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       handleOpenTable(schema);
     }
@@ -91,8 +96,8 @@ export function SchemaPage() {
       typeCount[field.type] = (typeCount[field.type] || 0) + 1;
     });
     return Object.entries(typeCount)
-      .map(([type, count]) => `${count} ${type}${count > 1 ? "s" : ""}`)
-      .join(", ");
+      .map(([type, count]) => `${count} ${type}${count > 1 ? 's' : ''}`)
+      .join(', ');
   };
 
   const visibleSchemas = useMemo(() => {
@@ -108,13 +113,13 @@ export function SchemaPage() {
 
     const sorted = [...list];
     switch (sortBy) {
-      case "name":
+      case 'name':
         sorted.sort((a, b) => a.name.localeCompare(b.name));
         break;
-      case "updated":
+      case 'updated':
         sorted.sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
         break;
-      case "usage":
+      case 'usage':
       default:
         sorted.sort((a, b) => {
           const ca = a.card_count ?? 0;
@@ -137,7 +142,9 @@ export function SchemaPage() {
         <div className="flex items-baseline gap-2">
           <h1 className="text-xl font-bold text-gray-900">Schemas</h1>
           {schemas.length > 0 && (
-            <span className="text-sm text-gray-500">{schemas.length} total</span>
+            <span className="text-sm text-gray-500">
+              {schemas.length} total
+            </span>
           )}
         </div>
         <button
@@ -178,8 +185,9 @@ export function SchemaPage() {
         <div className="text-center text-gray-500 mt-8 max-w-md mx-auto">
           <p className="mb-2 font-medium text-gray-700">No schemas yet</p>
           <p className="mb-4">
-            Schemas define custom data structures for your cards. Create a schema to add
-            structured fields like ratings, dates, or options to your notes.
+            Schemas define custom data structures for your cards. Create a
+            schema to add structured fields like ratings, dates, or options to
+            your notes.
           </p>
           <button
             onClick={handleCreateClick}
@@ -217,18 +225,23 @@ export function SchemaPage() {
           }}
           className="fixed inset-0 z-50 flex items-center justify-center"
         >
-          <div className="fixed inset-0 bg-black bg-opacity-30" aria-hidden="true" />
+          <div
+            className="fixed inset-0 bg-black bg-opacity-30"
+            aria-hidden="true"
+          />
           <Dialog.Panel className="bg-white p-6 rounded-lg max-w-md mx-auto relative">
             <Dialog.Title className="text-lg font-semibold mb-4">
               Confirm Delete
             </Dialog.Title>
             <div className="mb-4">
               <p className="text-gray-600 mb-2">
-                Are you sure you want to delete the schema "{schemaToDelete.name}"?
+                Are you sure you want to delete the schema "
+                {schemaToDelete.name}"?
               </p>
             </div>
             <p className="text-red-600 text-sm mb-4">
-              This action cannot be undone. Any cards using this schema will no longer display their structured data.
+              This action cannot be undone. Any cards using this schema will no
+              longer display their structured data.
             </p>
             <div className="flex justify-end gap-4">
               <button
@@ -245,7 +258,7 @@ export function SchemaPage() {
                 disabled={isDeleting}
                 className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isDeleting ? "Deleting..." : "Delete"}
+                {isDeleting ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </Dialog.Panel>
@@ -288,20 +301,22 @@ function SchemaRow({
       <div className="flex items-start justify-between gap-3">
         <div className="flex-grow min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-lg font-semibold text-gray-900 truncate">{schema.name}</h3>
+            <h3 className="text-lg font-semibold text-gray-900 truncate">
+              {schema.name}
+            </h3>
             <span
               className={`px-2 py-0.5 text-xs rounded-full ${
                 count > 0
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-gray-100 text-gray-500"
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-500'
               }`}
             >
-              {count} {count === 1 ? "card" : "cards"}
+              {count} {count === 1 ? 'card' : 'cards'}
             </span>
           </div>
           <p className="text-sm text-gray-500 mt-1">
-            {schema.fields.length} field{schema.fields.length !== 1 ? "s" : ""} ·{" "}
-            {getFieldTypesSummary(schema.fields)} · Updated{" "}
+            {schema.fields.length} field{schema.fields.length !== 1 ? 's' : ''}{' '}
+            · {getFieldTypesSummary(schema.fields)} · Updated{' '}
             {formatRelativeTime(schema.updated_at.toISOString())}
           </p>
         </div>
@@ -322,7 +337,7 @@ function SchemaRow({
                     <button
                       onClick={() => onOpen(schema)}
                       className={`${
-                        active ? "bg-gray-100 text-gray-900" : "text-gray-700"
+                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                       } group flex items-center w-full px-3 py-2 text-sm`}
                     >
                       View as Table
@@ -334,7 +349,7 @@ function SchemaRow({
                     <button
                       onClick={() => onEdit(schema)}
                       className={`${
-                        active ? "bg-gray-100 text-gray-900" : "text-gray-700"
+                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                       } group flex items-center w-full px-3 py-2 text-sm`}
                     >
                       Edit
@@ -346,7 +361,7 @@ function SchemaRow({
                     <button
                       onClick={() => onDelete(schema)}
                       className={`${
-                        active ? "bg-gray-100 text-red-600" : "text-red-600"
+                        active ? 'bg-gray-100 text-red-600' : 'text-red-600'
                       } group flex items-center w-full px-3 py-2 text-sm`}
                     >
                       Delete
@@ -366,8 +381,8 @@ function SchemaRow({
               key={field.name}
               className={`px-2 py-1 text-xs rounded-md ${
                 field.required
-                  ? "bg-blue-100 text-blue-700 border border-blue-200"
-                  : "bg-gray-100 text-gray-600 border border-gray-200"
+                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                  : 'bg-gray-100 text-gray-600 border border-gray-200'
               }`}
             >
               {field.name}

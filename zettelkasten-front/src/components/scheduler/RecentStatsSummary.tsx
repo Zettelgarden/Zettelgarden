@@ -1,5 +1,5 @@
-import React from "react";
-import { JobSummary } from "../../api/admin";
+import React from 'react';
+import { JobSummary } from '../../api/admin';
 
 interface RecentStatsSummaryProps {
   summary?: JobSummary;
@@ -7,10 +7,13 @@ interface RecentStatsSummaryProps {
 
 export function RecentStatsSummary({ summary }: RecentStatsSummaryProps) {
   if (!summary) {
-    return <span className="text-sm text-gray-400 italic">Stats unavailable</span>;
+    return (
+      <span className="text-sm text-gray-400 italic">Stats unavailable</span>
+    );
   }
 
-  const { total_runs, success_count, failure_count, success_rate } = summary.recent_stats;
+  const { total_runs, success_count, failure_count, success_rate } =
+    summary.recent_stats;
 
   if (total_runs === 0) {
     return <span className="text-sm text-gray-400 italic">No recent runs</span>;
@@ -18,9 +21,9 @@ export function RecentStatsSummary({ summary }: RecentStatsSummaryProps) {
 
   // Determine color based on success rate
   const getColor = () => {
-    if (success_rate >= 95) return "bg-green-500";
-    if (success_rate >= 70) return "bg-yellow-500";
-    return "bg-red-500";
+    if (success_rate >= 95) return 'bg-green-500';
+    if (success_rate >= 70) return 'bg-yellow-500';
+    return 'bg-red-500';
   };
 
   return (

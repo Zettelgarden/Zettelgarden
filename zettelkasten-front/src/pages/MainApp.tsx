@@ -1,32 +1,32 @@
-import React, { useState, useEffect } from "react";
-import "../App.css";
-import { Sidebar } from "../components/Sidebar";
-import { useAuth } from "../contexts/AuthContext";
-import { useSettings } from "../contexts/SettingsContext";
-import { Navigate, useNavigate } from "react-router-dom";
-import { Route, Routes } from "react-router-dom";
-import { EmailValidationBanner } from "../components/EmailValidationBanner";
-import { Card, PartialCard, SearchResult } from "../models/Card";
-import { TaskProvider, useTaskContext } from "../contexts/TaskContext";
-import { StatusProvider } from "../contexts/StatusContext";
-import { TagProvider } from "../contexts/TagContext";
-import { UIStateProvider } from "../contexts/UIStateContext";
-import { DialogStateProvider } from "../contexts/DialogStateContext";
-import { RSSProvider } from "../contexts/RSSContext";
-import { ToastProvider } from "../components/toast/ToastContext";
-import { AppRoutes } from "./AppRoutes";
-import { SearchConfig } from "../models/StarredSearch";
+import React, { useState, useEffect } from 'react';
+import '../App.css';
+import { Sidebar } from '../components/Sidebar';
+import { useAuth } from '../contexts/AuthContext';
+import { useSettings } from '../contexts/SettingsContext';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
+import { EmailValidationBanner } from '../components/EmailValidationBanner';
+import { Card, PartialCard, SearchResult } from '../models/Card';
+import { TaskProvider, useTaskContext } from '../contexts/TaskContext';
+import { StatusProvider } from '../contexts/StatusContext';
+import { TagProvider } from '../contexts/TagContext';
+import { UIStateProvider } from '../contexts/UIStateContext';
+import { DialogStateProvider } from '../contexts/DialogStateContext';
+import { RSSProvider } from '../contexts/RSSContext';
+import { ToastProvider } from '../components/toast/ToastContext';
+import { AppRoutes } from './AppRoutes';
+import { SearchConfig } from '../models/StarredSearch';
 import {
   LinuxTitlebar,
   useLinuxTitlebarOffset,
-} from "../components/LinuxTitlebar";
+} from '../components/LinuxTitlebar';
 function MainAppContent() {
   const navigate = useNavigate();
   const { settings } = useSettings();
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchConfig, setSearchConfig] = useState<SearchConfig>({
-    sortBy: "sortByRanking",
+    sortBy: 'sortByRanking',
     currentPage: 1,
     useClassicSearch: false,
     useFullText: false,
@@ -37,7 +37,7 @@ function MainAppContent() {
     showFacts: true,
     showCards: true,
     showEmails: false,
-    searchType: "typesense",
+    searchType: 'typesense',
     rerank: true,
   });
   const {
@@ -53,11 +53,11 @@ function MainAppContent() {
   // changing pages
 
   async function handleNewCard(cardType: string) {
-    navigate("/app/card/new", { state: { cardType: cardType } });
+    navigate('/app/card/new', { state: { cardType: cardType } });
   }
 
   useEffect(() => {
-    if (!localStorage.getItem("token")) {
+    if (!localStorage.getItem('token')) {
       logoutUser();
     }
   }, [isAuthenticated]);

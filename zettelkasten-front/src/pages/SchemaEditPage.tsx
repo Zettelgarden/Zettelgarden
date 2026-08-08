@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { SchemaDialog } from "../components/schemas/SchemaDialog";
-import { fetchSchema } from "../api/schemas";
-import { SchemaDefinition } from "../models/Schema";
-import { setDocumentTitle } from "../utils/title";
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { SchemaDialog } from '../components/schemas/SchemaDialog';
+import { fetchSchema } from '../api/schemas';
+import { SchemaDefinition } from '../models/Schema';
+import { setDocumentTitle } from '../utils/title';
 
 export function SchemaEditPage() {
   const navigate = useNavigate();
@@ -13,9 +13,9 @@ export function SchemaEditPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setDocumentTitle("Edit Schema");
+    setDocumentTitle('Edit Schema');
     if (!id) {
-      setError("Schema ID is required");
+      setError('Schema ID is required');
       setLoading(false);
       return;
     }
@@ -26,18 +26,18 @@ export function SchemaEditPage() {
         setLoading(false);
       })
       .catch((err) => {
-        setError("Failed to load schema");
+        setError('Failed to load schema');
         setLoading(false);
-        console.error("Error fetching schema:", err);
+        console.error('Error fetching schema:', err);
       });
   }, [id]);
 
   const handleSuccess = () => {
-    navigate("/app/schemas");
+    navigate('/app/schemas');
   };
 
   const handleClose = () => {
-    navigate("/app/schemas");
+    navigate('/app/schemas');
   };
 
   if (loading) {
@@ -64,5 +64,12 @@ export function SchemaEditPage() {
     );
   }
 
-  return <SchemaDialog schema={schema} isOpen={true} onClose={handleClose} onSuccess={handleSuccess} />;
+  return (
+    <SchemaDialog
+      schema={schema}
+      isOpen={true}
+      onClose={handleClose}
+      onSuccess={handleSuccess}
+    />
+  );
 }

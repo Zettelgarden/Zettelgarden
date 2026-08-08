@@ -1,15 +1,15 @@
-import React, { FormEvent, useState } from "react";
-import { createUser } from "../api/users";
-import { Link, useNavigate } from "react-router-dom";
-import { useSettings } from "../contexts/SettingsContext";
+import React, { FormEvent, useState } from 'react';
+import { createUser } from '../api/users';
+import { Link, useNavigate } from 'react-router-dom';
+import { useSettings } from '../contexts/SettingsContext';
 
 function RegisterPage() {
   // State to store each input field's value
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
 
   const navigate = useNavigate();
   const { settings } = useSettings();
@@ -45,12 +45,12 @@ function RegisterPage() {
 
     // Basic validation to check if passwords match
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError('Passwords do not match');
       return;
     }
 
     // Submit the form data
-    console.log("Form submitted", {
+    console.log('Form submitted', {
       username,
       email,
       password,
@@ -62,22 +62,22 @@ function RegisterPage() {
 
     createUser(userData)
       .then((data) => {
-        console.log("User created successfully", data);
-        navigate("/login");
-        navigate("/login", {
+        console.log('User created successfully', data);
+        navigate('/login');
+        navigate('/login', {
           state: {
             message:
-              "Account successfully created. Check your email for a validation link.",
+              'Account successfully created. Check your email for a validation link.',
           },
         });
         // Handle successful user creation (e.g., redirecting the user or showing a success message)
         // Reset form or redirect user to login page, etc.
       })
       .catch((error) => {
-        console.error("Error creating user:", error);
+        console.error('Error creating user:', error);
         // Surface the server's message (e.g. "Email already exists") when
         // available; fall back to a generic message.
-        setError(error?.message || "Failed to create user. Please try again.");
+        setError(error?.message || 'Failed to create user. Please try again.');
       });
   };
 
@@ -149,7 +149,7 @@ function RegisterPage() {
             Register
           </button>
           <span className="block text-center mt-4">
-            Already have an account?{" "}
+            Already have an account?{' '}
             <Link to="/login" className="text-indigo-500 hover:underline">
               Login instead
             </Link>

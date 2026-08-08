@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { getUsers, GetUsersResponse } from "../../api/users";
-import { User } from "../../models/User";
+import React, { useState, useEffect, useMemo } from 'react';
+import { getUsers, GetUsersResponse } from '../../api/users';
+import { User } from '../../models/User';
 import {
   useReactTable,
   getCoreRowModel,
@@ -9,12 +9,15 @@ import {
   createColumnHelper,
   SortingState,
   ColumnDef,
-} from "@tanstack/react-table";
-import { Link } from "react-router-dom";
-import { fuzzyFilter } from "../../utils/tableFilters";
-import { StatusBadge, getSubscriptionStatusBadge } from "../../components/admin/StatusBadge";
-import { AdminTableContainer } from "../../components/admin/AdminTable";
-import { AdminErrorDisplay } from "../../components/admin/AdminErrorDisplay";
+} from '@tanstack/react-table';
+import { Link } from 'react-router-dom';
+import { fuzzyFilter } from '../../utils/tableFilters';
+import {
+  StatusBadge,
+  getSubscriptionStatusBadge,
+} from '../../components/admin/StatusBadge';
+import { AdminTableContainer } from '../../components/admin/AdminTable';
+import { AdminErrorDisplay } from '../../components/admin/AdminErrorDisplay';
 
 interface ErrorState {
   message: string;
@@ -29,7 +32,10 @@ const fetchAllUsers = async (): Promise<User[]> => {
   let hasMore = true;
 
   while (hasMore) {
-    const response: GetUsersResponse = await getUsers({ page, per_page: PER_PAGE });
+    const response: GetUsersResponse = await getUsers({
+      page,
+      per_page: PER_PAGE,
+    });
     allUsers.push(...response.users);
     hasMore = page < response.pagination.total_pages;
     page++;
@@ -55,9 +61,9 @@ const TOP_N = 10;
 export function AdminDashboard() {
   const [users, setUsers] = useState<User[]>([]);
   const [sorting, setSorting] = useState<SortingState>([
-    { id: "last_seen", desc: true }
+    { id: 'last_seen', desc: true },
   ]);
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [globalFilter, setGlobalFilter] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<ErrorState | null>(null);
   const [totalCount, setTotalCount] = useState(0);
@@ -72,8 +78,12 @@ export function AdminDashboard() {
         const sorted = sortUsersByLastSeen(allUsers);
         setUsers(sorted.slice(0, TOP_N));
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to load users";
-        setError({ message, details: err instanceof Error ? err.stack : undefined });
+        const message =
+          err instanceof Error ? err.message : 'Failed to load users';
+        setError({
+          message,
+          details: err instanceof Error ? err.stack : undefined,
+        });
       } finally {
         setIsLoading(false);
       }
@@ -85,73 +95,77 @@ export function AdminDashboard() {
 
   const columns = useMemo<ColumnDef<User, any>[]>(
     () => [
-      columnHelper.accessor("id", {
-        header: "ID",
+      columnHelper.accessor('id', {
+        header: 'ID',
         cell: (info) => info.getValue(),
       }),
-      columnHelper.accessor("username", {
-        header: "Name",
+      columnHelper.accessor('username', {
+        header: 'Name',
         cell: (info) => (
           <Link
             to={`/admin/user/${info.row.original.id}`}
-            className={`hover:text-blue-800 ${info.row.original.is_admin ? "text-purple-600" : "text-blue-600"
-              }`}
+            className={`hover:text-blue-800 ${
+              info.row.original.is_admin ? 'text-purple-600' : 'text-blue-600'
+            }`}
           >
             {info.getValue()}
           </Link>
         ),
       }),
-      columnHelper.accessor("last_seen", {
-        header: "Last Seen",
-        cell: (info) => info.getValue() ? new Date(info.getValue()).toLocaleString() : 'Never',
+      columnHelper.accessor('last_seen', {
+        header: 'Last Seen',
+        cell: (info) =>
+          info.getValue()
+            ? new Date(info.getValue()).toLocaleString()
+            : 'Never',
       }),
-      columnHelper.accessor("email_validated", {
-        header: "Email Validated",
+      columnHelper.accessor('email_validated', {
+        header: 'Email Validated',
         cell: (info) => (
           <StatusBadge
             value={info.getValue()}
-            type={info.getValue() ? "success" : "warning"}
-            label={info.getValue() ? "Verified" : "Pending"}
+            type={info.getValue() ? 'success' : 'warning'}
+            label={info.getValue() ? 'Verified' : 'Pending'}
           />
         ),
       }),
-      columnHelper.accessor("stripe_subscription_status", {
-        header: "Subscription",
+      columnHelper.accessor('stripe_subscription_status', {
+        header: 'Subscription',
         cell: (info) => {
           const badge = getSubscriptionStatusBadge(info.getValue() as string);
           return <StatusBadge type={badge.type} label={badge.label} />;
         },
       }),
-      columnHelper.accessor("created_at", {
-        header: "Created At",
+      columnHelper.accessor('created_at', {
+        header: 'Created At',
         cell: (info) => new Date(info.getValue()).toLocaleString(),
       }),
-      columnHelper.accessor("card_count", {
-        header: "Cards",
+      columnHelper.accessor('card_count', {
+        header: 'Cards',
         cell: (info) => info.getValue(),
       }),
-      columnHelper.accessor("task_count", {
-        header: "Tasks",
+      columnHelper.accessor('task_count', {
+        header: 'Tasks',
         cell: (info) => info.getValue(),
       }),
-      columnHelper.accessor("file_count", {
-        header: "Files",
+      columnHelper.accessor('file_count', {
+        header: 'Files',
         cell: (info) => info.getValue(),
       }),
-      columnHelper.accessor("chat_message_count", {
-        header: "Chats",
+      columnHelper.accessor('chat_message_count', {
+        header: 'Chats',
         cell: (info) => info.getValue(),
       }),
-      columnHelper.accessor("revenue", {
-        header: "Revenue",
+      columnHelper.accessor('revenue', {
+        header: 'Revenue',
         cell: (info) => `$${Number(info.getValue() || 0).toFixed(2)}`,
       }),
-      columnHelper.accessor("llm_cost", {
-        header: "Cost",
+      columnHelper.accessor('llm_cost', {
+        header: 'Cost',
         cell: (info) => `$${Number(info.getValue() || 0).toFixed(4)}`,
       }),
     ],
-    []
+    [],
   );
 
   const table = useReactTable({
@@ -191,11 +205,17 @@ export function AdminDashboard() {
       <AdminTableContainer
         title="Recent Users"
         table={table}
-        searchValue={globalFilter ?? ""}
+        searchValue={globalFilter ?? ''}
         onSearchChange={setGlobalFilter}
         searchPlaceholder="Search all columns..."
         isLoading={isLoading}
-        hideOnMobile={["revenue", "llm_cost", "file_count", "task_count", "chat_message_count"]}
+        hideOnMobile={[
+          'revenue',
+          'llm_cost',
+          'file_count',
+          'task_count',
+          'chat_message_count',
+        ]}
         sorting={sorting}
         onSortingChange={setSorting}
       />

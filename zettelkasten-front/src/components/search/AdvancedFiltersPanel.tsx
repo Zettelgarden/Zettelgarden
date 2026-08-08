@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { SearchConfig } from "../../models/StarredSearch";
-import { SchemaDefinition } from "../../models/Schema";
-import { fetchSchemas } from "../../api/schemas";
+import React, { useEffect, useState } from 'react';
+import { SearchConfig } from '../../models/StarredSearch';
+import { SchemaDefinition } from '../../models/Schema';
+import { fetchSchemas } from '../../api/schemas';
 
 interface AdvancedFiltersPanelProps {
   searchConfig: SearchConfig;
@@ -30,7 +30,7 @@ export function AdvancedFiltersPanel({
         const data = await fetchSchemas();
         setSchemas(data);
       } catch (error) {
-        console.error("Failed to load schemas:", error);
+        console.error('Failed to load schemas:', error);
       } finally {
         setSchemasLoading(false);
       }
@@ -40,7 +40,7 @@ export function AdvancedFiltersPanel({
 
   const handleSchemaChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value;
-    const schemaId = value === "" ? null : parseInt(value);
+    const schemaId = value === '' ? null : parseInt(value);
     const newConfig = { ...searchConfig, schemaId };
     setSearchConfig(newConfig);
     onApply(newConfig);
@@ -52,35 +52,53 @@ export function AdvancedFiltersPanel({
     onApply(newConfig);
   };
 
-  const handleOnlyParentCardsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newConfig = { ...searchConfig, onlyParentCards: event.target.checked };
+  const handleOnlyParentCardsChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const newConfig = {
+      ...searchConfig,
+      onlyParentCards: event.target.checked,
+    };
     setSearchConfig(newConfig);
     onApply(newConfig);
   };
 
-  const handleOnlyEmptyCardIdChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newConfig = { ...searchConfig, onlyEmptyCardId: event.target.checked };
+  const handleOnlyEmptyCardIdChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const newConfig = {
+      ...searchConfig,
+      onlyEmptyCardId: event.target.checked,
+    };
     setSearchConfig(newConfig);
     onApply(newConfig);
   };
 
-  const handleShowPreviewChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShowPreviewChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     setSearchConfig({ ...searchConfig, showPreview: event.target.checked });
   };
 
-  const handleShowEntitiesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShowEntitiesChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const newConfig = { ...searchConfig, showEntities: event.target.checked };
     setSearchConfig(newConfig);
     onApply(newConfig);
   };
 
-  const handleShowFactsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShowFactsChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const newConfig = { ...searchConfig, showFacts: event.target.checked };
     setSearchConfig(newConfig);
     onApply(newConfig);
   };
 
-  const handleShowCardsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShowCardsChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const newConfig = { ...searchConfig, showCards: event.target.checked };
     setSearchConfig(newConfig);
     onApply(newConfig);
@@ -102,7 +120,9 @@ export function AdvancedFiltersPanel({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Sorting Section */}
           <div>
-            <div className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Sort Results</div>
+            <div className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">
+              Sort Results
+            </div>
             <div className="space-y-1">
               {[
                 { value: 'sortByRanking', label: 'Ranking Score' },
@@ -111,7 +131,7 @@ export function AdvancedFiltersPanel({
                 { value: 'sortNewOld', label: 'Updated (Newest)' },
                 { value: 'sortOldNew', label: 'Updated (Oldest)' },
                 { value: 'sortBigSmall', label: 'A to Z' },
-                { value: 'sortSmallBig', label: 'Z to A' }
+                { value: 'sortSmallBig', label: 'Z to A' },
               ].map((option) => (
                 <button
                   key={option.value}
@@ -135,7 +155,9 @@ export function AdvancedFiltersPanel({
 
           {/* Search Settings */}
           <div>
-            <div className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Search Settings</div>
+            <div className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">
+              Search Settings
+            </div>
             <div className="space-y-2">
               {/* Schema Filter */}
               <div>
@@ -143,10 +165,12 @@ export function AdvancedFiltersPanel({
                   Filter by Schema
                 </label>
                 {schemasLoading ? (
-                  <div className="text-sm text-gray-500">Loading schemas...</div>
+                  <div className="text-sm text-gray-500">
+                    Loading schemas...
+                  </div>
                 ) : (
                   <select
-                    value={searchConfig.schemaId ?? ""}
+                    value={searchConfig.schemaId ?? ''}
                     onChange={handleSchemaChange}
                     className="w-full text-sm border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >

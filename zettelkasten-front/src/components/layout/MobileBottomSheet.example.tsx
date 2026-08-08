@@ -4,8 +4,8 @@
  * This file demonstrates how to use the MobileBottomSheet component.
  */
 
-import React, { useState } from "react";
-import { MobileBottomSheet } from "./MobileBottomSheet";
+import React, { useState } from 'react';
+import { MobileBottomSheet } from './MobileBottomSheet';
 
 // Example 1: Basic usage with title and close button
 export function BasicExample() {
@@ -39,9 +39,9 @@ export function BasicExample() {
 // Example 2: Filter bottom sheet
 export function FilterExample() {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState<string>("all");
+  const [selectedFilter, setSelectedFilter] = useState<string>('all');
 
-  const filters = ["all", "unread", "starred", "recent"];
+  const filters = ['all', 'unread', 'starred', 'recent'];
 
   return (
     <>
@@ -62,8 +62,8 @@ export function FilterExample() {
               }}
               className={`w-full text-left px-4 py-3 rounded-lg capitalize transition-colors ${
                 selectedFilter === filter
-                  ? "bg-blue-100 text-blue-900"
-                  : "bg-gray-100 hover:bg-gray-200"
+                  ? 'bg-blue-100 text-blue-900'
+                  : 'bg-gray-100 hover:bg-gray-200'
               }`}
             >
               {filter}
@@ -93,7 +93,11 @@ export function CustomHeaderExample() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <svg
+                  className="w-5 h-5 text-white"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
                   <path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" />
                 </svg>
               </div>
@@ -154,9 +158,9 @@ export function FeedsExample() {
   const [selectedFeed, setSelectedFeed] = useState<number | null>(null);
 
   const feeds: Feed[] = [
-    { id: 1, name: "Tech News" },
-    { id: 2, name: "Design Blog" },
-    { id: 3, name: "Development Updates" },
+    { id: 1, name: 'Tech News' },
+    { id: 2, name: 'Design Blog' },
+    { id: 3, name: 'Development Updates' },
   ];
 
   return (
@@ -176,8 +180,8 @@ export function FeedsExample() {
             }}
             className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-colors ${
               selectedFeed === null
-                ? "bg-blue-100 text-blue-900"
-                : "hover:bg-gray-100 bg-gray-50"
+                ? 'bg-blue-100 text-blue-900'
+                : 'hover:bg-gray-100 bg-gray-50'
             }`}
           >
             All Feeds
@@ -192,8 +196,8 @@ export function FeedsExample() {
               }}
               className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
                 selectedFeed === feed.id
-                  ? "bg-blue-100 text-blue-900"
-                  : "hover:bg-gray-100 bg-gray-50"
+                  ? 'bg-blue-100 text-blue-900'
+                  : 'hover:bg-gray-100 bg-gray-50'
               }`}
             >
               {feed.name}

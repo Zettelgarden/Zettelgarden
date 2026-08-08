@@ -1,29 +1,26 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       fontSize: {
-        'xs': ['0.75rem', { lineHeight: '1rem' }],
-        'sm': ['0.875rem', { lineHeight: '1.25rem' }],
-        'base': ['1rem', { lineHeight: '1.5rem' }],
-        'lg': ['1.125rem', { lineHeight: '1.75rem' }],
-        'xl': ['1.25rem', { lineHeight: '1.75rem' }],
+        xs: ['0.75rem', { lineHeight: '1rem' }],
+        sm: ['0.875rem', { lineHeight: '1.25rem' }],
+        base: ['1rem', { lineHeight: '1.5rem' }],
+        lg: ['1.125rem', { lineHeight: '1.75rem' }],
+        xl: ['1.25rem', { lineHeight: '1.75rem' }],
         '2xl': ['1.5rem', { lineHeight: '2rem' }],
         '3xl': ['1.875rem', { lineHeight: '2.25rem' }],
       },
       colors: {
-        'palette': {
+        palette: {
           darkest: '#22577a',
           dark: '#38a3a5',
           mid: '#57cc99',
           light: '#80ed99',
-          lighest: '#c7f9cc'
+          lighest: '#c7f9cc',
         },
-        'modern': {
+        modern: {
           slate: {
             50: '#f8fafc',
             100: '#f1f5f9',
@@ -34,7 +31,7 @@ module.exports = {
             600: '#475569',
             700: '#334155',
             800: '#1e293b',
-            900: '#0f172a'
+            900: '#0f172a',
           },
           emerald: {
             50: '#ecfdf5',
@@ -46,7 +43,7 @@ module.exports = {
             600: '#059669',
             700: '#047857',
             800: '#065f46',
-            900: '#064e3b'
+            900: '#064e3b',
           },
           indigo: {
             50: '#eef2ff',
@@ -58,7 +55,7 @@ module.exports = {
             600: '#4f46e5',
             700: '#4338ca',
             800: '#3730a3',
-            900: '#312e81'
+            900: '#312e81',
           },
           amber: {
             50: '#fffbeb',
@@ -70,14 +67,14 @@ module.exports = {
             600: '#d97706',
             700: '#b45309',
             800: '#92400e',
-            900: '#78350f'
-          }
-        }
+            900: '#78350f',
+          },
+        },
       },
       fontFamily: {
-        'display': ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        'body': ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        'mono': ['JetBrains Mono', 'Consolas', 'Monaco', 'monospace']
+        display: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        body: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Consolas', 'Monaco', 'monospace'],
       },
       typography: {
         DEFAULT: {
@@ -110,7 +107,5 @@ module.exports = {
       },
     },
   },
-  plugins: [
-    require('@tailwindcss/typography'),
-  ],
-}
+  plugins: [require('@tailwindcss/typography')],
+};

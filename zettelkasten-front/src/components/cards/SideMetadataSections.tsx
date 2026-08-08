@@ -1,8 +1,8 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
-import { Card } from "../../models/Card";
-import { linkifyWithDefaultOptions } from "../../utils/strings";
-import { RSSArticle } from "../../api/rss";
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card } from '../../models/Card';
+import { linkifyWithDefaultOptions } from '../../utils/strings';
+import { RSSArticle } from '../../api/rss';
 
 /**
  * Shared side-metadata sub-sections used by both the desktop rail
@@ -29,7 +29,7 @@ interface TagsListProps {
 }
 
 /** Renders the tag pills row, unified between desktop and mobile. */
-export function TagsList({ card, onRemoveTag, className = "" }: TagsListProps) {
+export function TagsList({ card, onRemoveTag, className = '' }: TagsListProps) {
   const navigate = useNavigate();
   return (
     <div className={`flex flex-wrap gap-1.5 ${className}`}>
@@ -41,7 +41,7 @@ export function TagsList({ card, onRemoveTag, className = "" }: TagsListProps) {
           <span
             className="cursor-pointer hover:bg-purple-100"
             onClick={() =>
-              navigate(`/app/search?term=${encodeURIComponent("#" + tag.name)}`)
+              navigate(`/app/search?term=${encodeURIComponent('#' + tag.name)}`)
             }
           >
             #{tag.name}
@@ -67,7 +67,7 @@ interface DetailsListProps {
 }
 
 /** Renders the card details rows (ID, link, created/updated), unified. */
-export function DetailsList({ card, className = "" }: DetailsListProps) {
+export function DetailsList({ card, className = '' }: DetailsListProps) {
   return (
     <div className={`text-xs text-gray-600 space-y-1 ${className}`}>
       <div className="flex items-start">
@@ -107,7 +107,7 @@ export function SourceArticleLink({ sourceArticle }: SourceArticleLinkProps) {
   return (
     <button
       onClick={() =>
-        navigate("/app/rss", {
+        navigate('/app/rss', {
           state: { selectedArticleId: sourceArticle.id },
         })
       }

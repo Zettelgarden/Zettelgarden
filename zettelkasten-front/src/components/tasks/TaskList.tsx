@@ -1,10 +1,15 @@
-import React, { useState, useCallback } from "react";
-import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import { Task } from "../../models/Task";
-import { TaskNestedGroup } from "./TaskNestedGroup";
-import { TaskListItem } from "./TaskListItem";
-import { SubtaskDisplayMode } from "../../hooks/useSubtaskDisplayMode";
-import { reorderTasks } from "../../api/tasks";
+import React, { useState, useCallback } from 'react';
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  DropResult,
+} from '@hello-pangea/dnd';
+import { Task } from '../../models/Task';
+import { TaskNestedGroup } from './TaskNestedGroup';
+import { TaskListItem } from './TaskListItem';
+import { SubtaskDisplayMode } from '../../hooks/useSubtaskDisplayMode';
+import { reorderTasks } from '../../api/tasks';
 
 interface TaskListProps {
   tasks: Task[];
@@ -40,7 +45,7 @@ export function TaskList({
   const orderedTasks = React.useMemo(() => {
     if (localOrder) {
       // Use local order during/after drag
-      const taskMap = new Map(tasks.map(t => [t.id, t]));
+      const taskMap = new Map(tasks.map((t) => [t.id, t]));
       const ordered: Task[] = [];
       for (const id of localOrder) {
         const task = taskMap.get(id);
@@ -60,60 +65,68 @@ export function TaskList({
   // Clear local order when the underlying tasks change (e.g., filter change)
   React.useEffect(() => {
     setLocalOrder(null);
-  }, [tasks.map(t => t.id).join(',')]);
+  }, [tasks.map((t) => t.id).join(',')]);
 
-  const handleDragEnd = useCallback(async (result: DropResult) => {
-    if (!result.destination) return;
+  const handleDragEnd = useCallback(
+    async (result: DropResult) => {
+      if (!result.destination) return;
 
-    const sourceIndex = result.source.index;
-    const destIndex = result.destination.index;
-    if (sourceIndex === destIndex) return;
+      const sourceIndex = result.source.index;
+      const destIndex = result.destination.index;
+      if (sourceIndex === destIndex) return;
 
-    // Get the root tasks for ordering (same logic as the render below)
-    const rootTasks = orderedTasks.filter(t => !t.parent_task_id);
-    if (sourceIndex >= rootTasks.length || destIndex >= rootTasks.length) return;
+      // Get the root tasks for ordering (same logic as the render below)
+      const rootTasks = orderedTasks.filter((t) => !t.parent_task_id);
+      if (sourceIndex >= rootTasks.length || destIndex >= rootTasks.length)
+        return;
 
-    // Optimistic reorder: update local state immediately
-    const newRootOrder = [...rootTasks];
-    const [moved] = newRootOrder.splice(sourceIndex, 1);
-    newRootOrder.splice(destIndex, 0, moved);
+      // Optimistic reorder: update local state immediately
+      const newRootOrder = [...rootTasks];
+      const [moved] = newRootOrder.splice(sourceIndex, 1);
+      newRootOrder.splice(destIndex, 0, moved);
 
-    // Build new full order (root tasks in new order + subtasks in original positions)
-    const newFullOrder: number[] = [];
-    const subtasksByParent: Record<number, Task[]> = {};
-    orderedTasks.forEach(t => {
-      if (t.parent_task_id) {
-        if (!subtasksByParent[t.parent_task_id]) subtasksByParent[t.parent_task_id] = [];
-        subtasksByParent[t.parent_task_id].push(t);
+      // Build new full order (root tasks in new order + subtasks in original positions)
+      const newFullOrder: number[] = [];
+      const subtasksByParent: Record<number, Task[]> = {};
+      orderedTasks.forEach((t) => {
+        if (t.parent_task_id) {
+          if (!subtasksByParent[t.parent_task_id])
+            subtasksByParent[t.parent_task_id] = [];
+          subtasksByParent[t.parent_task_id].push(t);
+        }
+      });
+
+      for (const rootTask of newRootOrder) {
+        newFullOrder.push(rootTask.id);
+        const children = subtasksByParent[rootTask.id] || [];
+        for (const child of children) {
+          newFullOrder.push(child.id);
+        }
       }
-    });
-
-    for (const rootTask of newRootOrder) {
-      newFullOrder.push(rootTask.id);
-      const children = subtasksByParent[rootTask.id] || [];
-      for (const child of children) {
-        newFullOrder.push(child.id);
+      // Add any remaining tasks not in rootTasks
+      for (const t of orderedTasks) {
+        if (!newFullOrder.includes(t.id)) {
+          newFullOrder.push(t.id);
+        }
       }
-    }
-    // Add any remaining tasks not in rootTasks
-    for (const t of orderedTasks) {
-      if (!newFullOrder.includes(t.id)) {
-        newFullOrder.push(t.id);
+
+      setLocalOrder(newFullOrder);
+
+      // Persist to server (no full refresh needed — optimistic update already applied)
+      const orders = newFullOrder.map((id, index) => ({
+        id,
+        sort_order: index,
+      }));
+      try {
+        await reorderTasks(orders);
+      } catch (err) {
+        console.error('Failed to persist task reorder:', err);
+        // Revert on error
+        setLocalOrder(null);
       }
-    }
-
-    setLocalOrder(newFullOrder);
-
-    // Persist to server (no full refresh needed — optimistic update already applied)
-    const orders = newFullOrder.map((id, index) => ({ id, sort_order: index }));
-    try {
-      await reorderTasks(orders);
-    } catch (err) {
-      console.error("Failed to persist task reorder:", err);
-      // Revert on error
-      setLocalOrder(null);
-    }
-  }, [orderedTasks, onReorder]);
+    },
+    [orderedTasks, onReorder],
+  );
 
   // Separate root tasks from subtasks and build parent lookup
   const { rootTasks, subtasksByParent, taskById } = React.useMemo(() => {
@@ -163,12 +176,20 @@ export function TaskList({
                 className="divide-y divide-slate-200"
               >
                 {rootTasks.map((task, index) => (
-                  <Draggable key={task.id} draggableId={`task-${task.id}`} index={index}>
+                  <Draggable
+                    key={task.id}
+                    draggableId={`task-${task.id}`}
+                    index={index}
+                  >
                     {(provided, snapshot) => (
                       <li
                         ref={provided.innerRef}
                         {...provided.draggableProps}
-                        className={`py-1 ${snapshot.isDragging ? 'bg-blue-50 shadow-lg rounded' : ''}`}
+                        className={`py-1 ${
+                          snapshot.isDragging
+                            ? 'bg-blue-50 shadow-lg rounded'
+                            : ''
+                        }`}
                       >
                         <div className="flex items-center">
                           <span
@@ -211,7 +232,9 @@ export function TaskList({
     return (
       <ul className="divide-y divide-slate-200">
         {orderedTasks.map((task) => {
-          const parentTask = task.parent_task_id ? taskById[task.parent_task_id] : undefined;
+          const parentTask = task.parent_task_id
+            ? taskById[task.parent_task_id]
+            : undefined;
           return (
             <li key={task.id} className="py-1">
               {renderTaskItem(task, parentTask)}
@@ -237,12 +260,20 @@ export function TaskList({
                 const subtasks = subtasksByParent[task.id] || [];
 
                 return (
-                  <Draggable key={task.id} draggableId={`task-${task.id}`} index={index}>
+                  <Draggable
+                    key={task.id}
+                    draggableId={`task-${task.id}`}
+                    index={index}
+                  >
                     {(provided, snapshot) => (
                       <li
                         ref={provided.innerRef}
                         {...provided.draggableProps}
-                        className={`py-1 ${snapshot.isDragging ? 'bg-blue-50 shadow-lg rounded' : ''}`}
+                        className={`py-1 ${
+                          snapshot.isDragging
+                            ? 'bg-blue-50 shadow-lg rounded'
+                            : ''
+                        }`}
                       >
                         <div className="flex items-center">
                           <span

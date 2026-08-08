@@ -1,9 +1,9 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { PartialCard } from "../../models/Card";
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { PartialCard } from '../../models/Card';
 
-import { CardPreviewWindow } from "./CardPreviewWindow";
-import { CardLink } from "./CardLink";
+import { CardPreviewWindow } from './CardPreviewWindow';
+import { CardLink } from './CardLink';
 
 interface CardItemProps {
   card: PartialCard;

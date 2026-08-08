@@ -1,7 +1,7 @@
-import React, { useEffect, createContext, useContext, useState } from "react";
+import React, { useEffect, createContext, useContext, useState } from 'react';
 
-import { fetchUserTags } from "../api/tags";
-import { Tag } from "../models/Tags";
+import { fetchUserTags } from '../api/tags';
+import { Tag } from '../models/Tags';
 
 interface TagContextType {
   tags: Tag[];
@@ -42,7 +42,7 @@ export const TagProvider: React.FC<TagProviderProps> = ({
 
   useEffect(() => {
     if (testing) {
-      setTags(testTags)
+      setTags(testTags);
       return;
     }
     if (refreshTags) {
@@ -60,7 +60,7 @@ export const TagProvider: React.FC<TagProviderProps> = ({
 export const useTagContext = () => {
   const context = useContext(TagContext);
   if (context === undefined) {
-    throw new Error("useTagContext must be used wtihin a TagProvider");
+    throw new Error('useTagContext must be used wtihin a TagProvider');
   }
   return context;
 };

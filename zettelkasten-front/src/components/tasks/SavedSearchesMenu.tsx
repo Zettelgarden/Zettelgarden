@@ -1,14 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
-import type {
-  SortField,
-  SortDirection,
-  ViewMode,
-} from "../../types/taskPage";
-import type { TaskSavedSearch } from "../../models/TaskSavedSearch";
-import {
-  useTaskSavedSearches,
-} from "../../hooks/useTaskSavedSearches";
-import { useToast } from "../toast/ToastContext";
+import React, { useEffect, useRef, useState } from 'react';
+import type { SortField, SortDirection, ViewMode } from '../../types/taskPage';
+import type { TaskSavedSearch } from '../../models/TaskSavedSearch';
+import { useTaskSavedSearches } from '../../hooks/useTaskSavedSearches';
+import { useToast } from '../toast/ToastContext';
 
 export interface SavedSearchesMenuProps {
   /** Current page state, used to snapshot when saving and to detect the active search. */
@@ -47,13 +41,20 @@ export function SavedSearchesMenu({
   viewMode,
   onApply,
 }: SavedSearchesMenuProps) {
-  const { searches = [], isLoading, isError, create, update, remove } = useTaskSavedSearches();
+  const {
+    searches = [],
+    isLoading,
+    isError,
+    create,
+    update,
+    remove,
+  } = useTaskSavedSearches();
   const { showToast } = useToast();
 
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [name, setName] = useState("");
+  const [name, setName] = useState('');
   /** The id of the search most recently applied; drives the "Update" affordance. */
   const [appliedId, setAppliedId] = useState<number | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -84,14 +85,14 @@ export function SavedSearchesMenu({
   }
 
   function startSave() {
-    setName(filterString.trim() || "Untitled search");
+    setName(filterString.trim() || 'Untitled search');
     setSaving(true);
   }
 
   function confirmSave() {
     const trimmed = name.trim();
     if (!trimmed) {
-      showToast("error", "Name required", "Enter a name for this search");
+      showToast('error', 'Name required', 'Enter a name for this search');
       return;
     }
     setBusy(true);
@@ -103,12 +104,14 @@ export function SavedSearchesMenu({
       view_mode: viewMode,
     })
       .then(() => {
-        showToast("success", "Search saved", `"${trimmed}" is now available on all your devices`);
+        showToast(
+          'success',
+          'Search saved',
+          `"${trimmed}" is now available on all your devices`,
+        );
         setSaving(false);
       })
-      .catch((err: Error) =>
-        showToast("error", "Save failed", err.message),
-      )
+      .catch((err: Error) => showToast('error', 'Save failed', err.message))
       .finally(() => setBusy(false));
   }
 
@@ -122,12 +125,14 @@ export function SavedSearchesMenu({
       view_mode: viewMode,
     })
       .then(() => {
-        showToast("success", "Search updated", `"${appliedSearch.name}" updated`);
+        showToast(
+          'success',
+          'Search updated',
+          `"${appliedSearch.name}" updated`,
+        );
         setOpen(false);
       })
-      .catch((err: Error) =>
-        showToast("error", "Update failed", err.message),
-      )
+      .catch((err: Error) => showToast('error', 'Update failed', err.message))
       .finally(() => setBusy(false));
   }
 
@@ -136,11 +141,9 @@ export function SavedSearchesMenu({
     remove(search.id)
       .then(() => {
         if (appliedId === search.id) setAppliedId(null);
-        showToast("success", "Search deleted", `"${search.name}" removed`);
+        showToast('success', 'Search deleted', `"${search.name}" removed`);
       })
-      .catch((err: Error) =>
-        showToast("error", "Delete failed", err.message),
-      )
+      .catch((err: Error) => showToast('error', 'Delete failed', err.message))
       .finally(() => setBusy(false));
   }
 
@@ -158,7 +161,9 @@ export function SavedSearchesMenu({
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 20 20"
           fill="currentColor"
-          className={`w-4 h-4 ${activeSearch ? "text-blue-600" : "text-slate-400"}`}
+          className={`w-4 h-4 ${
+            activeSearch ? 'text-blue-600' : 'text-slate-400'
+          }`}
         >
           <path
             fillRule="evenodd"
@@ -167,7 +172,7 @@ export function SavedSearchesMenu({
           />
         </svg>
         <span className="hidden lg:inline">
-          {activeSearch ? activeSearch.name : "Saved"}
+          {activeSearch ? activeSearch.name : 'Saved'}
         </span>
       </button>
 
@@ -176,13 +181,20 @@ export function SavedSearchesMenu({
           <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
           <div className="absolute top-full right-0 mt-2 bg-white border border-slate-200 rounded-lg shadow-xl z-30 w-72">
             <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
-              <h4 className="font-semibold text-sm text-slate-800">Saved searches</h4>
+              <h4 className="font-semibold text-sm text-slate-800">
+                Saved searches
+              </h4>
               <button
                 onClick={() => setOpen(false)}
                 className="text-slate-400 hover:text-slate-600"
                 aria-label="Close"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="w-4 h-4"
+                >
                   <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
                 </svg>
               </button>
@@ -192,7 +204,9 @@ export function SavedSearchesMenu({
               {isLoading ? (
                 <p className="px-3 py-3 text-sm text-slate-400">Loading…</p>
               ) : isError ? (
-                <p className="px-3 py-3 text-sm text-red-500">Failed to load searches</p>
+                <p className="px-3 py-3 text-sm text-red-500">
+                  Failed to load searches
+                </p>
               ) : searches.length === 0 ? (
                 <p className="px-3 py-3 text-sm text-slate-400">
                   No saved searches yet. Save one to recall it on any device.
@@ -208,10 +222,10 @@ export function SavedSearchesMenu({
                             onClick={() => handleApply(search)}
                             className={`flex-grow text-left px-2 py-1.5 rounded text-sm truncate ${
                               isActive
-                                ? "bg-blue-50 text-blue-700 font-medium"
-                                : "text-slate-700 hover:bg-slate-50"
+                                ? 'bg-blue-50 text-blue-700 font-medium'
+                                : 'text-slate-700 hover:bg-slate-50'
                             }`}
-                            title={search.filter_string || "(no filter)"}
+                            title={search.filter_string || '(no filter)'}
                           >
                             {search.name}
                             {search.filter_string && (
@@ -227,7 +241,12 @@ export function SavedSearchesMenu({
                             aria-label={`Delete "${search.name}"`}
                             title="Delete search"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              className="w-4 h-4"
+                            >
                               <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
                             </svg>
                           </button>
@@ -259,12 +278,18 @@ export function SavedSearchesMenu({
                     <div className="flex gap-1">
                       <span className="text-slate-400 shrink-0">Filter:</span>
                       <span className="font-mono break-all">
-                        {filterString.trim() || <span className="text-slate-400 italic">(no filter — saves all tasks)</span>}
+                        {filterString.trim() || (
+                          <span className="text-slate-400 italic">
+                            (no filter — saves all tasks)
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="flex gap-1">
                       <span className="text-slate-400 shrink-0">Sort:</span>
-                      <span>{sortField} ({sortDirection})</span>
+                      <span>
+                        {sortField} ({sortDirection})
+                      </span>
                       <span className="text-slate-400 ml-2">View:</span>
                       <span>{viewMode}</span>
                     </div>
@@ -276,8 +301,8 @@ export function SavedSearchesMenu({
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") confirmSave();
-                        if (e.key === "Escape") setSaving(false);
+                        if (e.key === 'Enter') confirmSave();
+                        if (e.key === 'Escape') setSaving(false);
                       }}
                       placeholder="Search name"
                       className="flex-grow h-8 px-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
@@ -296,7 +321,12 @@ export function SavedSearchesMenu({
                   onClick={startSave}
                   className="w-full text-left px-2 py-1.5 rounded text-sm text-blue-700 hover:bg-blue-50 flex items-center gap-1.5"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="w-4 h-4"
+                  >
                     <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
                   </svg>
                   Save current search

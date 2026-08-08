@@ -1,16 +1,16 @@
-import React from "react";
-import { Task } from "../../models/Task";
+import React from 'react';
+import { Task } from '../../models/Task';
 import {
   QuickTagPopover,
   type QuickTagTrigger,
   getQuickTagTrigger,
   applyQuickTagSelection,
-} from "./QuickTagPopover";
+} from './QuickTagPopover';
 
 interface TaskTitleSectionProps {
   task: Task;
   setTask: (task: Task) => void;
-  mode: "create" | "edit";
+  mode: 'create' | 'edit';
   isEditingTitle: boolean;
   setIsEditingTitle: (editing: boolean) => void;
   showRecurringMenu: boolean;
@@ -38,7 +38,7 @@ export function TaskTitleSection({
 
   React.useEffect(() => {
     // If the input isn't visible (edit mode, not editing), ensure popover is closed.
-    if (!(mode === "create" || isEditingTitle)) {
+    if (!(mode === 'create' || isEditingTitle)) {
       setTrigger(null);
     }
   }, [mode, isEditingTitle]);
@@ -50,7 +50,7 @@ export function TaskTitleSection({
 
     if (match) {
       const detectedPriority = match[1].toUpperCase();
-      const cleanedTitle = text.replace(/priority:\s*[abc]/i, "").trim();
+      const cleanedTitle = text.replace(/priority:\s*[abc]/i, '').trim();
       setTask({ ...task, title: cleanedTitle, priority: detectedPriority });
     } else {
       setTask({ ...task, title: text });
@@ -70,17 +70,17 @@ export function TaskTitleSection({
   function handleTitleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.defaultPrevented) return;
 
-    if (e.key === "Enter") {
-      if (mode === "create" && onTitleSubmit) {
+    if (e.key === 'Enter') {
+      if (mode === 'create' && onTitleSubmit) {
         onTitleSubmit();
-      } else if (mode === "edit") {
+      } else if (mode === 'edit') {
         handleTitleSave();
       }
     }
   }
 
   async function handleTitleSave() {
-    if (mode === "edit" && saveOnChange) {
+    if (mode === 'edit' && saveOnChange) {
       await onSaveTitle();
       setIsEditingTitle(false);
     }
@@ -122,13 +122,13 @@ export function TaskTitleSection({
 
   // Recurring task options (create mode only)
   function handleAddRecurring(interval: string) {
-    setTask({ ...task, title: task.title + " " + interval });
+    setTask({ ...task, title: task.title + ' ' + interval });
     setShowRecurringMenu(false);
   }
 
   return (
     <div className="flex gap-2">
-      {mode === "create" || isEditingTitle ? (
+      {mode === 'create' || isEditingTitle ? (
         <>
           <input
             ref={inputRef}
@@ -140,7 +140,7 @@ export function TaskTitleSection({
             onKeyUp={(e) => refreshTriggerFromInput(e.currentTarget)}
             onClick={(e) => refreshTriggerFromInput(e.currentTarget)}
             onFocus={(e) => refreshTriggerFromInput(e.currentTarget)}
-            onBlur={mode === "edit" ? handleTitleSave : undefined}
+            onBlur={mode === 'edit' ? handleTitleSave : undefined}
             autoFocus
           />
 
@@ -150,14 +150,16 @@ export function TaskTitleSection({
             titleValue={task.title}
             cursorPosition={cursorPosition}
             trigger={trigger}
-            onSelectTag={(selectedTagName) => handleSelectQuickTag(selectedTagName)}
+            onSelectTag={(selectedTagName) =>
+              handleSelectQuickTag(selectedTagName)
+            }
             onRequestClose={() => setTrigger(null)}
           />
         </>
       ) : (
         <div
           className={`flex-1 text-lg cursor-pointer hover:bg-gray-50 p-2 rounded ${
-            task.is_complete ? "line-through text-gray-500" : ""
+            task.is_complete ? 'line-through text-gray-500' : ''
           }`}
           onClick={() => setIsEditingTitle(true)}
         >
@@ -166,7 +168,7 @@ export function TaskTitleSection({
       )}
 
       {/* Recurring Options Menu (create mode only) */}
-      {mode === "create" && (
+      {mode === 'create' && (
         <div className="relative flex-shrink-0">
           <button
             onClick={() => setShowRecurringMenu(!showRecurringMenu)}
@@ -181,19 +183,19 @@ export function TaskTitleSection({
                   Recurring Task
                 </div>
                 <button
-                  onClick={() => handleAddRecurring("every day")}
+                  onClick={() => handleAddRecurring('every day')}
                   className="w-full px-4 py-3 min-h-[44px] text-left hover:bg-gray-50"
                 >
                   Daily
                 </button>
                 <button
-                  onClick={() => handleAddRecurring("every week")}
+                  onClick={() => handleAddRecurring('every week')}
                   className="w-full px-4 py-3 min-h-[44px] text-left hover:bg-gray-50"
                 >
                   Weekly
                 </button>
                 <button
-                  onClick={() => handleAddRecurring("every month")}
+                  onClick={() => handleAddRecurring('every month')}
                   className="w-full px-4 py-3 min-h-[44px] text-left hover:bg-gray-50"
                 >
                   Monthly

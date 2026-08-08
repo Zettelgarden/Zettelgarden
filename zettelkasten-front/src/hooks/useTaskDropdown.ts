@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 
 /**
  * Hook to manage dropdown menu state with click-outside detection.
@@ -29,8 +29,8 @@ export function useTaskDropdown(initialOpen = false) {
   useEffect(() => {
     const handleClickOutside = () => setIsOpen(false);
     if (isOpen) {
-      document.addEventListener("click", handleClickOutside);
-      return () => document.removeEventListener("click", handleClickOutside);
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
     }
   }, [isOpen]);
 

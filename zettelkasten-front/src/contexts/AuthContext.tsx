@@ -4,16 +4,16 @@ import React, {
   createContext,
   useContext,
   ReactNode,
-} from "react";
+} from 'react';
 import {
   checkAdmin,
   updateUser as apiUpdateUser,
   getUserSubscription,
-} from "../api/users";
-import { getBillingStatus } from "../api/billing";
-import { getCurrentUser } from "../api/users";
-import { LoginResponse } from "../models/Auth";
-import { User, UserSubscription } from "../models/User";
+} from '../api/users';
+import { getBillingStatus } from '../api/billing';
+import { getCurrentUser } from '../api/users';
+import { LoginResponse } from '../models/Auth';
+import { User, UserSubscription } from '../models/User';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     const initializeAuth = async () => {
       setIsLoading(true);
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem('token');
       if (token) {
         try {
           setIsAuthenticated(true);
@@ -67,14 +67,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             setHasSubscription(
               !billing.enabled ||
                 (!!subscription &&
-                  (subscription.stripe_subscription_status === "active" ||
-                    subscription.stripe_subscription_status === "trialing")),
+                  (subscription.stripe_subscription_status === 'active' ||
+                    subscription.stripe_subscription_status === 'trialing')),
             );
           } else {
             setHasSubscription(false);
           }
         } catch (error) {
-          console.error("Failed to initialize auth:", error);
+          console.error('Failed to initialize auth:', error);
           // Gently handle auth initialization failure
           logoutUser();
         }
@@ -85,21 +85,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const loginUser = async (data: LoginResponse) => {
-    localStorage.setItem("token", data["access_token"]);
-    localStorage.setItem("username", data["user"]["username"]);
+    localStorage.setItem('token', data['access_token']);
+    localStorage.setItem('username', data['user']['username']);
     const billing = await getBillingStatus();
     // When billing is disabled on this instance, everyone is treated as
     // subscribed (paywalls off) — there is nothing to upgrade to.
     setHasSubscription(
       !billing.enabled ||
-        data["user"].stripe_subscription_status === "active" ||
-        data["user"].stripe_subscription_status === "trialing",
+        data['user'].stripe_subscription_status === 'active' ||
+        data['user'].stripe_subscription_status === 'trialing',
     );
     setIsAuthenticated(true);
   };
 
   const loginUserFromToken = async (token: string) => {
-    localStorage.setItem("token", token);
+    localStorage.setItem('token', token);
     setIsAuthenticated(true);
 
     try {
@@ -112,7 +112,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       // Set username in localStorage like regular login
       if (currentUser && currentUser.username) {
-        localStorage.setItem("username", currentUser.username);
+        localStorage.setItem('username', currentUser.username);
       }
 
       // Update subscription status
@@ -122,14 +122,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setHasSubscription(
           !billing.enabled ||
             (!!subscription &&
-              (subscription.stripe_subscription_status === "active" ||
-                subscription.stripe_subscription_status === "trialing")),
+              (subscription.stripe_subscription_status === 'active' ||
+                subscription.stripe_subscription_status === 'trialing')),
         );
       } else {
         setHasSubscription(false);
       }
     } catch (error) {
-      console.error("Failed to fetch user data after OAuth login:", error);
+      console.error('Failed to fetch user data after OAuth login:', error);
       // Don't logout on error, just continue with basic auth
     }
   };
@@ -143,20 +143,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const isActive =
           !billing.enabled ||
           (!!subscription &&
-            (subscription.stripe_subscription_status === "active" ||
-              subscription.stripe_subscription_status === "trialing"));
+            (subscription.stripe_subscription_status === 'active' ||
+              subscription.stripe_subscription_status === 'trialing'));
         setHasSubscription(isActive);
         return isActive;
       }
     } catch (error) {
-      console.error("Failed to refresh subscription:", error);
+      console.error('Failed to refresh subscription:', error);
     }
     setHasSubscription(false);
     return false;
   };
 
   const logoutUser = () => {
-    localStorage.removeItem("token");
+    localStorage.removeItem('token');
     setIsAuthenticated(false);
     setIsAdmin(false); // Reset admin status on logout
   };
@@ -185,7 +185,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };

@@ -8,10 +8,14 @@ import { sampleCards, samplePartialCards } from '../../tests/data';
 // Heavy children are mocked to keep this a focused unit test and avoid
 // pulling TagContext / react-pdf transitively.
 vi.mock('./CardList', () => ({
-  CardList: ({ cards }: any) => <div data-testid="card-list">{cards.length}</div>,
+  CardList: ({ cards }: any) => (
+    <div data-testid="card-list">{cards.length}</div>
+  ),
 }));
 vi.mock('./ChildrenCards', () => ({
-  ChildrenCards: ({ allChildren }: any) => <div data-testid="children-cards">{allChildren.length}</div>,
+  ChildrenCards: ({ allChildren }: any) => (
+    <div data-testid="children-cards">{allChildren.length}</div>
+  ),
 }));
 vi.mock('./BacklinkInput', () => ({
   BacklinkInput: () => <div data-testid="backlink-input">Add Backlink</div>,
@@ -19,9 +23,7 @@ vi.mock('./BacklinkInput', () => ({
 vi.mock('../tabs/EntitiesTab', () => ({
   EntitiesTab: ({ viewingCard }: any) => (
     <div data-testid="entities-tab">
-      {viewingCard.entities?.map((e: any) => (
-        <span key={e.id}>{e.name}</span>
-      ))}
+      {viewingCard.entities?.map((e: any) => <span key={e.id}>{e.name}</span>)}
       {(!viewingCard.entities || viewingCard.entities.length === 0) && (
         <span>No entities available</span>
       )}
@@ -91,7 +93,11 @@ describe('ViewPageSidePanels — tabs', () => {
   it('defaults to the Links tab when the card has references', () => {
     const [ref] = samplePartialCards();
     renderPanel({
-      categorizedReferences: { bidirectional: [ref], incoming: [], outgoing: [] },
+      categorizedReferences: {
+        bidirectional: [ref],
+        incoming: [],
+        outgoing: [],
+      },
     });
     // Smart default picks Links because there's relationship data.
     expect(screen.getByText('Children')).toBeInTheDocument();
@@ -112,7 +118,11 @@ describe('ViewPageSidePanels — tabs', () => {
   it('renders the Children + References structure on the Links tab', () => {
     const [ref] = samplePartialCards();
     renderPanel({
-      categorizedReferences: { bidirectional: [ref], incoming: [], outgoing: [] },
+      categorizedReferences: {
+        bidirectional: [ref],
+        incoming: [],
+        outgoing: [],
+      },
     });
     // Smart default is Links (has references); Children + references show.
     expect(screen.getByText('Children')).toBeInTheDocument();
@@ -146,7 +156,11 @@ describe('ViewPageSidePanels — tabs', () => {
   it('shows Children, Linked references, and the backlink input on the Links tab', () => {
     const [ref] = samplePartialCards();
     renderPanel({
-      categorizedReferences: { bidirectional: [ref], incoming: [], outgoing: [] },
+      categorizedReferences: {
+        bidirectional: [ref],
+        incoming: [],
+        outgoing: [],
+      },
     });
     // Default tab is Links.
     expect(screen.getByText('Children')).toBeInTheDocument();
@@ -160,7 +174,11 @@ describe('ViewPageSidePanels — tabs', () => {
     const [ref] = samplePartialCards();
     renderPanel({
       onCreateChildCard,
-      categorizedReferences: { bidirectional: [ref], incoming: [], outgoing: [] },
+      categorizedReferences: {
+        bidirectional: [ref],
+        incoming: [],
+        outgoing: [],
+      },
     });
     // Smart default lands on Links because of the reference.
     fireEvent.click(screen.getByTitle('Add child'));
@@ -199,7 +217,9 @@ describe('ViewPageSidePanels — tabs', () => {
       return (
         <>
           <ViewPageSidePanels {...baseProps()} />
-          <div data-testid="rail-state">{rightPaneOpen ? 'open' : 'closed'}</div>
+          <div data-testid="rail-state">
+            {rightPaneOpen ? 'open' : 'closed'}
+          </div>
         </>
       );
     }

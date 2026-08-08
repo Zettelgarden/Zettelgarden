@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { Task } from "../../models/Task";
-import { Tag } from "../../models/Tags";
+import React, { useEffect, useState } from 'react';
+import { Task } from '../../models/Task';
+import { Tag } from '../../models/Tags';
 
 interface TaskTagDisplayProps {
   task: Task;
@@ -10,9 +10,20 @@ interface TaskTagDisplayProps {
   hideMatrixTags?: boolean;
 }
 
-export function TaskTagDisplay({ task, tags, onTagClick, onRemoveTag, hideMatrixTags = false }: TaskTagDisplayProps) {
+export function TaskTagDisplay({
+  task,
+  tags,
+  onTagClick,
+  onRemoveTag,
+  hideMatrixTags = false,
+}: TaskTagDisplayProps) {
   const displayTags = hideMatrixTags
-    ? tags.filter(tag => !['important', 'urgent'].includes(tag.name.replace(/^#/, '').toLowerCase()))
+    ? tags.filter(
+        (tag) =>
+          !['important', 'urgent'].includes(
+            tag.name.replace(/^#/, '').toLowerCase(),
+          ),
+      )
     : tags;
 
   // Check if tag exists in task title

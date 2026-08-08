@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { Transition } from "@headlessui/react";
-import { getCard, getCardTags } from "../../api/cards";
-import { Card } from "../../models/Card";
-import { CardBody } from "./CardBody";
-import { isErrorResponse } from "../../models/common";
-import { formatDate } from "../../utils/dates";
+import React, { useEffect, useState } from 'react';
+import { Transition } from '@headlessui/react';
+import { getCard, getCardTags } from '../../api/cards';
+import { Card } from '../../models/Card';
+import { CardBody } from './CardBody';
+import { isErrorResponse } from '../../models/common';
+import { formatDate } from '../../utils/dates';
 
 interface CardPreviewWindowProps {
   cardPK: number;
@@ -16,14 +16,14 @@ export function CardPreviewWindow({
   mousePosition,
 }: CardPreviewWindowProps) {
   const [viewingCard, setViewingCard] = useState<Card | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [isVisible, setIsVisible] = useState(false);
 
   async function fetchCard(id: string) {
     let refreshed = await getCard(id);
 
     if (isErrorResponse(refreshed)) {
-      setError(refreshed["error"]);
+      setError(refreshed['error']);
     } else {
       // Fetch tags separately since getCard doesn't include them
       const tags = await getCardTags(id);
@@ -38,7 +38,7 @@ export function CardPreviewWindow({
     if (cardPK !== undefined && cardPK !== null) {
       fetchCard(cardPK.toString());
     } else {
-      setError("Invalid card ID");
+      setError('Invalid card ID');
     }
   }, [cardPK]);
 
@@ -72,8 +72,8 @@ export function CardPreviewWindow({
         style={{
           top: topPosition,
           left: leftPosition,
-          maxHeight: "400px",
-          width: "500px",
+          maxHeight: '400px',
+          width: '500px',
         }}
       >
         {error && (
@@ -109,7 +109,10 @@ export function CardPreviewWindow({
               )}
             </div>
             <div className="overflow-y-auto max-h-64 prose prose-xs max-w-none">
-              <CardBody viewingCard={viewingCard} entities={viewingCard.entities} />
+              <CardBody
+                viewingCard={viewingCard}
+                entities={viewingCard.entities}
+              />
             </div>
           </div>
         )}

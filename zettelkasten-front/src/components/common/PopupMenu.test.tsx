@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event';
 import { PopupMenu } from './PopupMenu';
 
 describe('PopupMenu', () => {
-
   const mockOptions = [
     { label: 'Option 1', onClick: vi.fn() },
     { label: 'Option 2', onClick: vi.fn() },
@@ -12,7 +11,9 @@ describe('PopupMenu', () => {
   ];
 
   it('renders nothing when isOpen is false', () => {
-    const { container } = render(<PopupMenu options={mockOptions} isOpen={false} />);
+    const { container } = render(
+      <PopupMenu options={mockOptions} isOpen={false} />,
+    );
     expect(container.firstChild).toBeNull();
   });
 
@@ -41,7 +42,11 @@ describe('PopupMenu', () => {
 
   it('applies custom className to menu', () => {
     const { container } = render(
-      <PopupMenu options={mockOptions} isOpen={true} className="custom-class" />
+      <PopupMenu
+        options={mockOptions}
+        isOpen={true}
+        className="custom-class"
+      />,
     );
     const menu = container.querySelector('.custom-class');
     expect(menu).toBeInTheDocument();

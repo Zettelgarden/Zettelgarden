@@ -1,14 +1,20 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
-import { Task } from "../../models/Task";
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { Task } from '../../models/Task';
 
-import { saveExistingTask, deleteTask } from "../../api/tasks";
+import { saveExistingTask, deleteTask } from '../../api/tasks';
 
-import { useTaskContext } from "../../contexts/TaskContext";
-import { useStatus } from "../../contexts/StatusContext";
-import { useAuth } from "../../contexts/AuthContext";
-import { Menu } from "@headlessui/react";
-import { getToday, getTomorrow, getNextWeek, getNextMonday, isFriday } from "../../utils/dates";
+import { useTaskContext } from '../../contexts/TaskContext';
+import { useStatus } from '../../contexts/StatusContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { Menu } from '@headlessui/react';
+import {
+  getToday,
+  getTomorrow,
+  getNextWeek,
+  getNextMonday,
+  isFriday,
+} from '../../utils/dates';
 
 interface TaskListOptionsMenuProps {
   task: Task;
@@ -36,20 +42,24 @@ export function TaskListOptionsMenu({
   const { setRefreshTasks } = useTaskContext();
   const { getDefaultStatus, getCompleteStatus } = useStatus();
   const { user } = useAuth();
-  const userTimezone = user?.timezone || "UTC";
+  const userTimezone = user?.timezone || 'UTC';
 
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
-  const [selectedScheduleDate, setSelectedScheduleDate] = useState("");
+  const [selectedScheduleDate, setSelectedScheduleDate] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = () => setShowSchedulePicker(false);
     if (showSchedulePicker) {
-      document.addEventListener("click", handleClickOutside);
-      return () => document.removeEventListener("click", handleClickOutside);
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
     }
   }, [showSchedulePicker]);
 
@@ -66,45 +76,59 @@ export function TaskListOptionsMenu({
   async function handleCardUnlink() {
     let editedTask = { ...task, card_pk: 0 };
     let response = await saveExistingTask(editedTask);
-    if (!("error" in response)) {
+    if (!('error' in response)) {
       setRefreshTasks(true);
     }
   }
 
   const calculateDaysFromNow = (targetDate: Date): number => {
     const today = getToday(userTimezone);
-    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const targetMidnight = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+    const todayMidnight = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+    );
+    const targetMidnight = new Date(
+      targetDate.getFullYear(),
+      targetDate.getMonth(),
+      targetDate.getDate(),
+    );
     const diffTime = targetMidnight.getTime() - todayMidnight.getTime();
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  const scheduleForDate = useCallback(async (date: Date) => {
-    const { completeAndScheduleTask } = await import("../../api/tasks");
-    const days = calculateDaysFromNow(date);
-    if (days <= 0) {
-      alert("Please select a future date.");
-      return;
-    }
-    try {
-      await completeAndScheduleTask(task.id, days);
-      onRefresh();
-      setShowSchedulePicker(false);
-      setDropdownPosition(null);
-      onClose();
-    } catch (error) {
-      console.error("Error completing and scheduling task:", error);
-      alert("Failed to complete and schedule task. Please try again.");
-    }
-  }, [task.id, onRefresh, onClose, userTimezone]);
+  const scheduleForDate = useCallback(
+    async (date: Date) => {
+      const { completeAndScheduleTask } = await import('../../api/tasks');
+      const days = calculateDaysFromNow(date);
+      if (days <= 0) {
+        alert('Please select a future date.');
+        return;
+      }
+      try {
+        await completeAndScheduleTask(task.id, days);
+        onRefresh();
+        setShowSchedulePicker(false);
+        setDropdownPosition(null);
+        onClose();
+      } catch (error) {
+        console.error('Error completing and scheduling task:', error);
+        alert('Failed to complete and schedule task. Please try again.');
+      }
+    },
+    [task.id, onRefresh, onClose, userTimezone],
+  );
 
-  const handleScheduleDateChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const inputValue = e.target.value;
-    if (!inputValue) return;
-    const [year, month, day] = inputValue.split('-').map(Number);
-    const newDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-    await scheduleForDate(newDate);
-  }, [scheduleForDate]);
+  const handleScheduleDateChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const inputValue = e.target.value;
+      if (!inputValue) return;
+      const [year, month, day] = inputValue.split('-').map(Number);
+      const newDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+      await scheduleForDate(newDate);
+    },
+    [scheduleForDate],
+  );
 
   const scheduleTomorrow = useCallback(async () => {
     await scheduleForDate(getTomorrow(userTimezone));
@@ -133,36 +157,43 @@ export function TaskListOptionsMenu({
   }, [showSchedulePicker]);
 
   // Keyboard navigation for dropdown menu
-  const handleDropdownKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!showSchedulePicker) return;
-    const items = dropdownRef.current?.querySelectorAll('button, input');
-    if (!items || items.length === 0) return;
-    const currentIndex = Array.from(items).indexOf(document.activeElement as HTMLElement);
-    switch (e.key) {
-      case 'Escape':
-        e.preventDefault();
-        setShowSchedulePicker(false);
-        break;
-      case 'ArrowDown':
-        e.preventDefault();
-        const nextIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
-        (items[nextIndex] as HTMLElement).focus();
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        const prevIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
-        (items[prevIndex] as HTMLElement).focus();
-        break;
-      case 'Home':
-        e.preventDefault();
-        (items[0] as HTMLElement).focus();
-        break;
-      case 'End':
-        e.preventDefault();
-        (items[items.length - 1] as HTMLElement).focus();
-        break;
-    }
-  }, [showSchedulePicker]);
+  const handleDropdownKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!showSchedulePicker) return;
+      const items = dropdownRef.current?.querySelectorAll('button, input');
+      if (!items || items.length === 0) return;
+      const currentIndex = Array.from(items).indexOf(
+        document.activeElement as HTMLElement,
+      );
+      switch (e.key) {
+        case 'Escape':
+          e.preventDefault();
+          setShowSchedulePicker(false);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          const nextIndex =
+            currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+          (items[nextIndex] as HTMLElement).focus();
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          const prevIndex =
+            currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+          (items[prevIndex] as HTMLElement).focus();
+          break;
+        case 'Home':
+          e.preventDefault();
+          (items[0] as HTMLElement).focus();
+          break;
+        case 'End':
+          e.preventDefault();
+          (items[items.length - 1] as HTMLElement).focus();
+          break;
+      }
+    },
+    [showSchedulePicker],
+  );
 
   return (
     <>
@@ -177,7 +208,9 @@ export function TaskListOptionsMenu({
             <Menu.Item>
               {({ active }) => (
                 <button
-                  onClick={task.card_pk === 0 ? toggleCardLink : handleCardUnlink}
+                  onClick={
+                    task.card_pk === 0 ? toggleCardLink : handleCardUnlink
+                  }
                   className={`${
                     active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                   } group flex rounded-md items-center w-full px-2 py-1 min-h-[26px] text-xs whitespace-nowrap`}
@@ -230,62 +263,65 @@ export function TaskListOptionsMenu({
           </div>
         </Menu.Items>
       </Menu>
-      {showSchedulePicker && dropdownPosition && createPortal(
-        <div
-          ref={dropdownRef}
-          role="menu"
-          className="fixed z-[1001] bg-white rounded-md shadow-lg py-1 border border-gray-200"
-          style={{
-            top: dropdownPosition.top + 40,
-            left: dropdownPosition.left,
-            minWidth: Math.max(160, dropdownPosition.width),
-          }}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={handleDropdownKeyDown}
-        >
-          <div className="flex flex-col">
-            <button
-              role="menuitem"
-              tabIndex={-1}
-              onClick={() => scheduleTomorrow()}
-              className="w-full text-left px-2 py-1 min-h-[26px] hover:bg-gray-100 text-xs whitespace-nowrap"
-            >
-              Tomorrow
-            </button>
-            <button
-              role="menuitem"
-              tabIndex={-1}
-              onClick={() => scheduleNextMonday()}
-              className="w-full text-left px-2 py-1 min-h-[26px] hover:bg-gray-100 text-xs whitespace-nowrap"
-            >
-              Next Monday
-            </button>
-            <button
-              role="menuitem"
-              tabIndex={-1}
-              onClick={() => scheduleNextWeek()}
-              className="w-full text-left px-2 py-1 min-h-[26px] hover:bg-gray-100 text-xs whitespace-nowrap"
-            >
-              Next Week
-            </button>
-            <div className="border-t mt-1 pt-1 px-2">
-              <input
-                aria-label="Schedule Date"
-                type="date"
-                className="w-full px-2 py-1 min-h-[26px] border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={selectedScheduleDate}
-                min={getToday(userTimezone).toISOString().split('T')[0]}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  setSelectedScheduleDate(e.target.value);
-                  handleScheduleDateChange(e);
-                }}
-                onClick={(e) => e.stopPropagation()}
-              />
+      {showSchedulePicker &&
+        dropdownPosition &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            role="menu"
+            className="fixed z-[1001] bg-white rounded-md shadow-lg py-1 border border-gray-200"
+            style={{
+              top: dropdownPosition.top + 40,
+              left: dropdownPosition.left,
+              minWidth: Math.max(160, dropdownPosition.width),
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={handleDropdownKeyDown}
+          >
+            <div className="flex flex-col">
+              <button
+                role="menuitem"
+                tabIndex={-1}
+                onClick={() => scheduleTomorrow()}
+                className="w-full text-left px-2 py-1 min-h-[26px] hover:bg-gray-100 text-xs whitespace-nowrap"
+              >
+                Tomorrow
+              </button>
+              <button
+                role="menuitem"
+                tabIndex={-1}
+                onClick={() => scheduleNextMonday()}
+                className="w-full text-left px-2 py-1 min-h-[26px] hover:bg-gray-100 text-xs whitespace-nowrap"
+              >
+                Next Monday
+              </button>
+              <button
+                role="menuitem"
+                tabIndex={-1}
+                onClick={() => scheduleNextWeek()}
+                className="w-full text-left px-2 py-1 min-h-[26px] hover:bg-gray-100 text-xs whitespace-nowrap"
+              >
+                Next Week
+              </button>
+              <div className="border-t mt-1 pt-1 px-2">
+                <input
+                  aria-label="Schedule Date"
+                  type="date"
+                  className="w-full px-2 py-1 min-h-[26px] border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={selectedScheduleDate}
+                  min={getToday(userTimezone).toISOString().split('T')[0]}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    setSelectedScheduleDate(e.target.value);
+                    handleScheduleDateChange(e);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
             </div>
-          </div>
-        </div>
-      , document.body)}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

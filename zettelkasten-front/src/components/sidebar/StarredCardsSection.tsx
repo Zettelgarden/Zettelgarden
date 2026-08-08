@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from "react";
-import { Card } from "../../models/Card";
-import { CardItem } from "../cards/CardItem";
-import { getStarredCards, unstarCard } from "../../api/cards";
-import { useLocation } from "react-router-dom";
-import { useToast } from "../toast/ToastContext";
+import React, { useState, useEffect } from 'react';
+import { Card } from '../../models/Card';
+import { CardItem } from '../cards/CardItem';
+import { getStarredCards, unstarCard } from '../../api/cards';
+import { useLocation } from 'react-router-dom';
+import { useToast } from '../toast/ToastContext';
 
 interface StarredCardsSectionProps {
   onShowStarCardDialog: () => void;
 }
 
-export function StarredCardsSection({ onShowStarCardDialog }: StarredCardsSectionProps) {
+export function StarredCardsSection({
+  onShowStarCardDialog,
+}: StarredCardsSectionProps) {
   const [starredCards, setStarredCards] = useState<Card[]>([]);
   const location = useLocation();
   const { showToast } = useToast();
@@ -20,11 +22,11 @@ export function StarredCardsSection({ onShowStarCardDialog }: StarredCardsSectio
         // Refresh the starred cards list after unstarring
         refreshStarredCards();
         // Show a success message
-        showToast("success", "Card unstarred successfully");
+        showToast('success', 'Card unstarred successfully');
       })
-      .catch(error => {
-        console.error("Error unstarring card:", error);
-        showToast("error", "Failed to unstar card", "Please try again");
+      .catch((error) => {
+        console.error('Error unstarring card:', error);
+        showToast('error', 'Failed to unstar card', 'Please try again');
       });
   };
 
@@ -33,8 +35,8 @@ export function StarredCardsSection({ onShowStarCardDialog }: StarredCardsSectio
       .then((cards) => {
         setStarredCards(cards);
       })
-      .catch(error => {
-        console.error("Error fetching starred cards:", error);
+      .catch((error) => {
+        console.error('Error fetching starred cards:', error);
       });
   };
 

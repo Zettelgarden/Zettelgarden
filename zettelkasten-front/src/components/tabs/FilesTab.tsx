@@ -1,8 +1,8 @@
-import React from "react";
-import { Card } from "../../models/Card";
-import { File } from "../../models/File";
-import { FileListItem } from "../files/FileListItem";
-import { FileUpload } from "../files/FileUpload";
+import React from 'react';
+import { Card } from '../../models/Card';
+import { File } from '../../models/File';
+import { FileListItem } from '../files/FileListItem';
+import { FileUpload } from '../files/FileUpload';
 
 interface FilesTabProps {
   viewingCard: Card;

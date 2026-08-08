@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { RefObject } from "react";
-import { PartialCard, Card } from "../../models/Card";
-import { getCaretCoordinates } from "../../utils/cursor";
+import { useState } from 'react';
+import { RefObject } from 'react';
+import { PartialCard, Card } from '../../models/Card';
+import { getCaretCoordinates } from '../../utils/cursor';
 
 interface UseCardReferenceOptions {
   editingCard: Card;
@@ -18,10 +18,14 @@ interface DialogPosition {
 export function useCardReference({
   editingCard,
   textareaRef,
-  setEditingCard
+  setEditingCard,
 }: UseCardReferenceOptions) {
   const [showReferenceDialog, setShowReferenceDialog] = useState(false);
-  const [dialogPosition, setDialogPosition] = useState<DialogPosition>({ top: 0, left: 0, height: 0 });
+  const [dialogPosition, setDialogPosition] = useState<DialogPosition>({
+    top: 0,
+    left: 0,
+    height: 0,
+  });
   // The position of the FIRST [ in the [[ trigger sequence
   const [triggerIndex, setTriggerIndex] = useState<number | null>(null);
 
@@ -31,7 +35,7 @@ export function useCardReference({
 
     const value = textarea.value;
     // Replace the [[ with [[card_id]] — the [[ is already in the textarea
-    const newText = "[[" + card.card_id + "|*|]]";
+    const newText = '[[' + card.card_id + '|*|]]';
 
     // triggerIndex points to the first [, so replace from there through the second ]
     const before = value.substring(0, triggerIndex);
@@ -50,7 +54,9 @@ export function useCardReference({
     }, 0);
   };
 
-  const handleBracketKey = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleBracketKey = (
+    event: React.KeyboardEvent<HTMLTextAreaElement>,
+  ) => {
     if (event.key !== '[') return;
 
     const textarea = event.currentTarget;
@@ -58,7 +64,8 @@ export function useCardReference({
 
     // Check if the character before the cursor (before this newly-typed [) is also [
     // The [ hasn't been inserted into the value yet at keydown time
-    const charBefore = selectionStart > 0 ? textarea.value[selectionStart - 1] : '';
+    const charBefore =
+      selectionStart > 0 ? textarea.value[selectionStart - 1] : '';
 
     if (charBefore === '[') {
       // This is the second [, forming [[ — show the reference dialog
@@ -68,7 +75,7 @@ export function useCardReference({
       const viewportCaret = {
         top: caret.top + textareaRect.top + window.scrollY,
         left: caret.left + textareaRect.left + window.scrollX,
-        height: caret.height
+        height: caret.height,
       };
 
       setDialogPosition(viewportCaret);
@@ -85,7 +92,9 @@ export function useCardReference({
     if (triggerIndex !== null && textareaRef.current) {
       const value = textareaRef.current.value;
       // Remove the character at triggerIndex + 1 (the second [)
-      const newBody = value.substring(0, triggerIndex + 1) + value.substring(triggerIndex + 2);
+      const newBody =
+        value.substring(0, triggerIndex + 1) +
+        value.substring(triggerIndex + 2);
       setEditingCard({ ...editingCard, body: newBody });
       setTriggerIndex(null);
 
@@ -105,6 +114,6 @@ export function useCardReference({
     dialogPosition,
     handleReferenceSelect,
     handleBracketKey,
-    handleCloseReferenceDialog
+    handleCloseReferenceDialog,
   };
 }

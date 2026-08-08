@@ -1,11 +1,11 @@
-import React, { useState } from "react";
-import { CardChunk } from "../../models/Card";
-import { CardPreviewWindow } from "./CardPreviewWindow";
-import { CardLink } from "./CardLink";
-import { PlusCircleIcon } from "../../assets/icons/PlusCircleIcon";
-import { formatDate } from "../../utils/dates";
-import { useUIState } from "../../contexts/UIStateContext";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from 'react';
+import { CardChunk } from '../../models/Card';
+import { CardPreviewWindow } from './CardPreviewWindow';
+import { CardLink } from './CardLink';
+import { PlusCircleIcon } from '../../assets/icons/PlusCircleIcon';
+import { formatDate } from '../../utils/dates';
+import { useUIState } from '../../contexts/UIStateContext';
+import { useNavigate } from 'react-router-dom';
 
 interface CardChunkListItemProps {
   card: CardChunk;
@@ -30,10 +30,10 @@ export function CardChunkListItem({
 
   function handleAddCardClick() {
     setLastCard(card);
-    navigate("/app/card/new");
+    navigate('/app/card/new');
   }
 
-  console.log(card)
+  console.log(card);
   return (
     <div
       key={card.id}
@@ -55,7 +55,9 @@ export function CardChunkListItem({
               showTitle={true}
             />
           </span>
-          <div className="mt-1 px-4 text-sm italic">{card.ranking} - {card.body}</div>
+          <div className="mt-1 px-4 text-sm italic">
+            {card.ranking} - {card.body}
+          </div>
         </div>
         {showAddButton && (
           <span onClick={handleAddCardClick}>

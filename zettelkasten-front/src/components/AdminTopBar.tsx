@@ -1,5 +1,5 @@
-import React, { ReactNode } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { ReactNode } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 
 interface AdminTopBarProps {
   children?: ReactNode;

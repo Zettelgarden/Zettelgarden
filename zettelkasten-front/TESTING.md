@@ -29,18 +29,22 @@ npm run test:ui
 ## Testing Strategy
 
 ### 1. Unit Tests
+
 Test individual components, utilities, and functions in isolation.
 
 **Examples:**
+
 - Utils functions (dates, strings, cards, tasks)
 - Individual components (buttons, inputs, menus)
 - API functions
 - Context providers
 
 ### 2. Integration Tests
+
 Test how components work together and interact with contexts.
 
 **Examples:**
+
 - Components with their contexts
 - Page-level components
 - Complex user flows
@@ -48,6 +52,7 @@ Test how components work together and interact with contexts.
 ### 3. What to Test
 
 #### ✅ DO Test:
+
 - **User interactions**: clicks, typing, form submissions
 - **Conditional rendering**: showing/hiding elements based on state
 - **Props handling**: component behavior with different props
@@ -58,6 +63,7 @@ Test how components work together and interact with contexts.
 - **Accessibility**: basic a11y attributes and behavior
 
 #### ❌ DON'T Test:
+
 - **Implementation details**: internal state, private methods
 - **Third-party libraries**: React Router, headlessui components
 - **Styling**: CSS classes, visual appearance
@@ -66,6 +72,7 @@ Test how components work together and interact with contexts.
 ### 4. Testing Patterns
 
 #### Component Testing Pattern
+
 ```tsx
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
@@ -93,6 +100,7 @@ describe('MyComponent', () => {
 ```
 
 #### API Testing Pattern
+
 ```tsx
 // Mock the API module
 vi.mock('../../api/cards', () => ({
@@ -112,6 +120,7 @@ it('handles API calls', async () => {
 ```
 
 #### Context Testing Pattern
+
 ```tsx
 const wrapper = ({ children }) => (
   <TagProvider testing={true} testTags={mockTags}>
@@ -156,7 +165,9 @@ src/
 ### 6. Common Testing Utilities
 
 #### renderWithProviders
+
 Use this for components that need React contexts:
+
 ```tsx
 import { renderWithProviders } from '../../tests/utils';
 
@@ -164,6 +175,7 @@ renderWithProviders(<MyComponent />);
 ```
 
 #### Mocking APIs
+
 ```tsx
 vi.mock('../../api/cards', () => ({
   getCard: vi.fn(),
@@ -172,6 +184,7 @@ vi.mock('../../api/cards', () => ({
 ```
 
 #### Testing User Events
+
 ```tsx
 const user = userEvent.setup();
 
@@ -224,6 +237,7 @@ await user.selectOptions(screen.getByRole('combobox'), 'option1');
 ### 11. Example Test Scenarios
 
 #### Form Testing
+
 ```tsx
 it('submits form with correct data', async () => {
   const mockSubmit = vi.fn();
@@ -233,12 +247,13 @@ it('submits form with correct data', async () => {
   await user.click(screen.getByRole('button', { name: /submit/i }));
 
   expect(mockSubmit).toHaveBeenCalledWith({
-    title: 'Test Title'
+    title: 'Test Title',
   });
 });
 ```
 
 #### Loading State Testing
+
 ```tsx
 it('shows loading state', async () => {
   renderWithProviders(<AsyncComponent />);
@@ -252,6 +267,7 @@ it('shows loading state', async () => {
 ```
 
 #### Error State Testing
+
 ```tsx
 it('handles errors gracefully', async () => {
   const mockAPI = vi.fn().mockRejectedValue(new Error('API Error'));

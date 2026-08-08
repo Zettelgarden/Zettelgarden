@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { BookOpenIcon } from "../../assets/icons/BookOpenIcon";
-import { SettingsIcon } from "../../assets/icons/SettingsIcon";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useState, useRef, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { BookOpenIcon } from '../../assets/icons/BookOpenIcon';
+import { SettingsIcon } from '../../assets/icons/SettingsIcon';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface SidebarFooterProps {
   isCollapsed: boolean;
@@ -31,8 +31,11 @@ function CollapsibleLink({
   useEffect(() => {
     if (showTooltip && tooltipRef.current && linkRef.current) {
       const linkRect = linkRef.current.getBoundingClientRect();
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      tooltipRef.current.style.top = `${linkRect.top + linkRect.height / 2 - 10 + scrollTop}px`;
+      const scrollTop =
+        window.pageYOffset || document.documentElement.scrollTop;
+      tooltipRef.current.style.top = `${
+        linkRect.top + linkRect.height / 2 - 10 + scrollTop
+      }px`;
     }
   }, [showTooltip]);
 
@@ -43,8 +46,8 @@ function CollapsibleLink({
         to={to}
         className={`
           flex items-center rounded-md transition-colors min-h-[44px]
-          ${isActive ? "bg-gray-100" : "hover:bg-gray-100"}
-          ${isCollapsed ? "w-12 h-12 justify-center" : "px-3 py-2"}
+          ${isActive ? 'bg-gray-100' : 'hover:bg-gray-100'}
+          ${isCollapsed ? 'w-12 h-12 justify-center' : 'px-3 py-2'}
         `}
         onMouseEnter={() => isCollapsed && setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
@@ -52,7 +55,13 @@ function CollapsibleLink({
         onBlur={() => setShowTooltip(false)}
         aria-label={label}
       >
-        <span className={isCollapsed ? "" : "w-6 h-6 flex items-center justify-center flex-shrink-0"}>
+        <span
+          className={
+            isCollapsed
+              ? ''
+              : 'w-6 h-6 flex items-center justify-center flex-shrink-0'
+          }
+        >
           {icon}
         </span>
       </Link>
@@ -75,7 +84,10 @@ function CollapsibleLink({
   );
 }
 
-export function SidebarFooter({ isCollapsed, onToggleCollapse }: SidebarFooterProps) {
+export function SidebarFooter({
+  isCollapsed,
+  onToggleCollapse,
+}: SidebarFooterProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -83,14 +95,28 @@ export function SidebarFooter({ isCollapsed, onToggleCollapse }: SidebarFooterPr
   useEffect(() => {
     if (showTooltip && tooltipRef.current && buttonRef.current) {
       const buttonRect = buttonRef.current.getBoundingClientRect();
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      tooltipRef.current.style.top = `${buttonRect.top + buttonRect.height / 2 - 10 + scrollTop}px`;
+      const scrollTop =
+        window.pageYOffset || document.documentElement.scrollTop;
+      tooltipRef.current.style.top = `${
+        buttonRect.top + buttonRect.height / 2 - 10 + scrollTop
+      }px`;
     }
   }, [showTooltip]);
 
   return (
-    <div className={`p-2 border-t ${isCollapsed ? "flex flex-col items-center gap-2" : ""}`} style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0.5rem))' }}>
-      <div className={`flex ${isCollapsed ? "flex-col gap-2" : "justify-end space-x-4 pr-2"}`}>
+    <div
+      className={`p-2 border-t ${
+        isCollapsed ? 'flex flex-col items-center gap-2' : ''
+      }`}
+      style={{
+        paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0.5rem))',
+      }}
+    >
+      <div
+        className={`flex ${
+          isCollapsed ? 'flex-col gap-2' : 'justify-end space-x-4 pr-2'
+        }`}
+      >
         <CollapsibleLink
           to="/app/help"
           icon={<BookOpenIcon />}
@@ -116,7 +142,10 @@ export function SidebarFooter({ isCollapsed, onToggleCollapse }: SidebarFooterPr
               onFocus={() => setShowTooltip(true)}
               onBlur={() => setShowTooltip(false)}
             >
-              <ChevronRight size={18} className="transition-transform duration-300" />
+              <ChevronRight
+                size={18}
+                className="transition-transform duration-300"
+              />
             </button>
             {showTooltip && (
               <div
@@ -141,7 +170,10 @@ export function SidebarFooter({ isCollapsed, onToggleCollapse }: SidebarFooterPr
             aria-pressed={isCollapsed}
             title="Collapse sidebar"
           >
-            <ChevronLeft size={18} className="transition-transform duration-300" />
+            <ChevronLeft
+              size={18}
+              className="transition-transform duration-300"
+            />
           </button>
         )}
       </div>

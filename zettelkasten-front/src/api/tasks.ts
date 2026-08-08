@@ -1,6 +1,6 @@
-import { Task, TaskAuditEvent, TasksResponse } from "src/models/Task";
-import { apiClient, getData } from "./client";
-import { processTaskFromAPI } from "../utils/taskDataProcessing";
+import { Task, TaskAuditEvent, TasksResponse } from 'src/models/Task';
+import { apiClient, getData } from './client';
+import { processTaskFromAPI } from '../utils/taskDataProcessing';
 
 export interface FetchTasksParams {
   showCompleted?: boolean;
@@ -13,15 +13,26 @@ export interface FetchTasksParams {
  * Fetch tasks with optional filters
  * Handles pagination automatically to fetch all tasks
  */
-export async function fetchTasks(params: FetchTasksParams = {}): Promise<Task[]> {
-  const { showCompleted = false, scheduledDate = null, completedDate = null, status = null } = params;
+export async function fetchTasks(
+  params: FetchTasksParams = {},
+): Promise<Task[]> {
+  const {
+    showCompleted = false,
+    scheduledDate = null,
+    completedDate = null,
+    status = null,
+  } = params;
 
-  const fetchAllTasks = async (offset = 0, allTasks: Task[] = []): Promise<Task[]> => {
-    const requestParams: Record<string, string | number | boolean | undefined> = {
-      limit: 100,
-      offset,
-      completed: showCompleted,
-    };
+  const fetchAllTasks = async (
+    offset = 0,
+    allTasks: Task[] = [],
+  ): Promise<Task[]> => {
+    const requestParams: Record<string, string | number | boolean | undefined> =
+      {
+        limit: 100,
+        offset,
+        completed: showCompleted,
+      };
 
     if (scheduledDate) {
       requestParams.scheduled_date = scheduledDate.toISOString().split('T')[0];
@@ -33,15 +44,20 @@ export async function fetchTasks(params: FetchTasksParams = {}): Promise<Task[]>
       requestParams.status = status;
     }
 
-    const { data: tasksResponse } = await apiClient.get<TasksResponse>("/tasks", {
-      params: requestParams,
-    });
+    const { data: tasksResponse } = await apiClient.get<TasksResponse>(
+      '/tasks',
+      {
+        params: requestParams,
+      },
+    );
 
     if (!tasksResponse.tasks) {
       return allTasks;
     }
 
-    const formattedTasks = tasksResponse.tasks.map(task => processTaskFromAPI(task));
+    const formattedTasks = tasksResponse.tasks.map((task) =>
+      processTaskFromAPI(task),
+    );
     const combinedTasks = [...allTasks, ...formattedTasks];
 
     // If we got fewer tasks than the limit, we've reached the end
@@ -69,21 +85,25 @@ export async function fetchTask(id: string): Promise<Task> {
  * Save a new task
  */
 export async function saveNewTask(task: Task): Promise<Task> {
-  return saveTask("/tasks", "POST", task);
+  return saveTask('/tasks', 'POST', task);
 }
 
 /**
  * Save an existing task
  */
 export async function saveExistingTask(task: Task): Promise<Task> {
-  return saveTask(`/tasks/${encodeURIComponent(task.id)}`, "PUT", task);
+  return saveTask(`/tasks/${encodeURIComponent(task.id)}`, 'PUT', task);
 }
 
 /**
  * Save task (internal function)
  */
-async function saveTask(url: string, method: string, task: Task): Promise<Task> {
-  if (method === "POST") {
+async function saveTask(
+  url: string,
+  method: string,
+  task: Task,
+): Promise<Task> {
+  if (method === 'POST') {
     const { data } = await apiClient.post<Task>(url, task);
     return data;
   } else {
@@ -97,7 +117,9 @@ async function saveTask(url: string, method: string, task: Task): Promise<Task> 
  */
 export async function deleteTask(id: number): Promise<Task | null> {
   const encodedId = encodeURIComponent(id);
-  const { response, data } = await apiClient.delete<Task>(`/tasks/${encodedId}`);
+  const { response, data } = await apiClient.delete<Task>(
+    `/tasks/${encodedId}`,
+  );
 
   if (response.status === 204) {
     return null;
@@ -108,18 +130,25 @@ export async function deleteTask(id: number): Promise<Task | null> {
 /**
  * Fetch audit events for a task
  */
-export async function fetchTaskAuditEvents(taskId: number): Promise<TaskAuditEvent[]> {
-  const { data: events } = await apiClient.get<TaskAuditEvent[]>(`/tasks/${taskId}/audit`);
+export async function fetchTaskAuditEvents(
+  taskId: number,
+): Promise<TaskAuditEvent[]> {
+  const { data: events } = await apiClient.get<TaskAuditEvent[]>(
+    `/tasks/${taskId}/audit`,
+  );
   return events.map((event) => ({
     ...event,
-    created_at: new Date(event.created_at)
+    created_at: new Date(event.created_at),
   }));
 }
 
 /**
  * Add a task dependency
  */
-export async function addTaskDependency(taskId: number, blockingTaskId: number): Promise<void> {
+export async function addTaskDependency(
+  taskId: number,
+  blockingTaskId: number,
+): Promise<void> {
   await apiClient.post(`/tasks/${taskId}/dependencies`, {
     blocking_task_id: blockingTaskId,
   });
@@ -128,14 +157,20 @@ export async function addTaskDependency(taskId: number, blockingTaskId: number):
 /**
  * Remove a task dependency
  */
-export async function removeTaskDependency(taskId: number, blockingTaskId: number): Promise<void> {
+export async function removeTaskDependency(
+  taskId: number,
+  blockingTaskId: number,
+): Promise<void> {
   await apiClient.delete(`/tasks/${taskId}/dependencies/${blockingTaskId}`);
 }
 
 /**
  * Complete a task and schedule the next occurrence
  */
-export async function completeAndScheduleTask(taskId: number, days: number): Promise<void> {
+export async function completeAndScheduleTask(
+  taskId: number,
+  days: number,
+): Promise<void> {
   await apiClient.post(`/tasks/${taskId}/complete-and-schedule`, { days });
 }
 
@@ -144,8 +179,14 @@ export async function completeAndScheduleTask(taskId: number, days: number): Pro
 /**
  * Create a subtask under a parent task
  */
-export async function createSubtask(parentId: number, task: Partial<Task>): Promise<Task> {
-  const { data } = await apiClient.post<Task>(`/tasks/${parentId}/subtasks`, task);
+export async function createSubtask(
+  parentId: number,
+  task: Partial<Task>,
+): Promise<Task> {
+  const { data } = await apiClient.post<Task>(
+    `/tasks/${parentId}/subtasks`,
+    task,
+  );
   return processTaskFromAPI(data);
 }
 
@@ -156,7 +197,10 @@ export async function createSubtask(parentId: number, task: Partial<Task>): Prom
  * @remarks This API function is available for future drag-and-drop reordering of subtasks.
  *          Currently unused in the UI but the backend endpoint is fully implemented.
  */
-export async function setTaskParent(taskId: number, parentId: number | null): Promise<Task> {
+export async function setTaskParent(
+  taskId: number,
+  parentId: number | null,
+): Promise<Task> {
   const { data } = await apiClient.patch<Task>(`/tasks/${taskId}/parent`, {
     parent_task_id: parentId,
   });
@@ -175,9 +219,9 @@ export async function getSubtasks(parentId: number): Promise<{
     total: number;
     complete_count: number;
   }>(`/tasks/${parentId}/subtasks`);
-  
+
   return {
-    subtasks: data.subtasks.map(task => processTaskFromAPI(task)),
+    subtasks: data.subtasks.map((task) => processTaskFromAPI(task)),
     total: data.total,
     complete_count: data.complete_count,
   };
@@ -186,6 +230,8 @@ export async function getSubtasks(parentId: number): Promise<{
 /**
  * Batch update sort_order for multiple tasks
  */
-export async function reorderTasks(orders: { id: number; sort_order: number }[]): Promise<void> {
+export async function reorderTasks(
+  orders: { id: number; sort_order: number }[],
+): Promise<void> {
   await apiClient.put('/tasks/reorder', { orders });
 }

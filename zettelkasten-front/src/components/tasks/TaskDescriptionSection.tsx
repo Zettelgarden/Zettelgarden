@@ -1,10 +1,10 @@
-import React from "react";
-import { Task } from "../../models/Task";
+import React from 'react';
+import { Task } from '../../models/Task';
 
 interface TaskDescriptionSectionProps {
   task: Task;
   setTask: (task: Task) => void;
-  mode: "create" | "edit";
+  mode: 'create' | 'edit';
   isEditingDescription: boolean;
   setIsEditingDescription: (editing: boolean) => void;
   onSaveDescription: () => Promise<void>;
@@ -26,16 +26,16 @@ export function TaskDescriptionSection({
     await onSaveDescription();
   }
 
-  return mode === "create" || isEditingDescription ? (
+  return mode === 'create' || isEditingDescription ? (
     <div className="space-y-2">
       <textarea
         placeholder="Add a description..."
-        value={task.description || ""}
+        value={task.description || ''}
         onChange={handleDescriptionChange}
         className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300 min-h-[80px] max-h-[30vh] resize-y"
-        autoFocus={mode === "edit"}
+        autoFocus={mode === 'edit'}
       />
-      {mode === "edit" && (
+      {mode === 'edit' && (
         <div className="flex gap-2">
           <button
             onClick={handleDescriptionSave}

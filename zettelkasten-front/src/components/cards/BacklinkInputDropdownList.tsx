@@ -1,8 +1,8 @@
-import React, { useState } from "react";
-import { Combobox } from "@headlessui/react";
-import { PartialCard } from "../../models/Card";
-import { CardTag } from "./CardTag";
-import { semanticSearchCards } from "../../api/cards";
+import React, { useState } from 'react';
+import { Combobox } from '@headlessui/react';
+import { PartialCard } from '../../models/Card';
+import { CardTag } from './CardTag';
+import { semanticSearchCards } from '../../api/cards';
 
 interface BacklinkInputDropdownListProps {
   onSelect: (card: PartialCard) => void;
@@ -16,12 +16,12 @@ interface BacklinkInputDropdownListProps {
 export function BacklinkInputDropdownList({
   onSelect,
   onSearch,
-  placeholder = "Search...",
-  className = "",
+  placeholder = 'Search...',
+  className = '',
   autoFocus = false,
   excludeCardId,
 }: BacklinkInputDropdownListProps) {
-  const [inputValue, setInputValue] = useState<string>("");
+  const [inputValue, setInputValue] = useState<string>('');
 
   const [searchResults, setSearchResults] = useState<PartialCard[]>([]);
   const latestRequestId = React.useRef(0);
@@ -51,11 +51,20 @@ export function BacklinkInputDropdownList({
     }
 
     debounceTimer.current = setTimeout(async () => {
-
       const requestId = ++latestRequestId.current;
       setIsLoading(true);
       try {
-        const results = await semanticSearchCards(value, true, false, false, true, false, "sortByRanking", "typesense", false);
+        const results = await semanticSearchCards(
+          value,
+          true,
+          false,
+          false,
+          true,
+          false,
+          'sortByRanking',
+          'typesense',
+          false,
+        );
         //const results = await semanticSearchCards(value, true, false, false);
         if (requestId === latestRequestId.current) {
           // Map SearchResult[] -> PartialCard[]
@@ -64,9 +73,9 @@ export function BacklinkInputDropdownList({
             title: r.title,
             user_id: r.user_id ?? 0,
             parent_id: r.parent_id ?? null,
-            id: r.pk != null ? Number(r.pk) : Number(r.id),  // Use pk (internal DB ID) if available
-            created_at: r.created_at ?? "",
-            updated_at: r.updated_at ?? "",
+            id: r.pk != null ? Number(r.pk) : Number(r.id), // Use pk (internal DB ID) if available
+            created_at: r.created_at ?? '',
+            updated_at: r.updated_at ?? '',
             tags: r.tags ?? [],
           }));
 
@@ -85,7 +94,7 @@ export function BacklinkInputDropdownList({
           setSearchResults(ordered);
         }
       } catch (err) {
-        console.error("Search error:", err);
+        console.error('Search error:', err);
         if (requestId === latestRequestId.current) {
           setSearchResults([]);
         }
@@ -98,7 +107,7 @@ export function BacklinkInputDropdownList({
   }
 
   function handleSelect(card: PartialCard) {
-    setInputValue("");
+    setInputValue('');
     onSelect(card);
   }
 
@@ -117,7 +126,10 @@ export function BacklinkInputDropdownList({
             />
           </div>
           {(searchResults.length > 0 || inputValue.length > 0) && (
-            <Combobox.Options className="w-full mt-1 overflow-hidden bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-y-auto text-sm" style={{ zIndex: 9999, minHeight: '44px' }}>
+            <Combobox.Options
+              className="w-full mt-1 overflow-hidden bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-y-auto text-sm"
+              style={{ zIndex: 9999, minHeight: '44px' }}
+            >
               {isLoading ? (
                 <div className="p-2 text-gray-500">Loading...</div>
               ) : searchResults.length > 0 ? (
@@ -126,7 +138,8 @@ export function BacklinkInputDropdownList({
                     key={card.card_id}
                     value={card}
                     className={({ active }) =>
-                      `cursor-pointer px-4 py-3 min-h-[44px] border-b border-gray-100 last:border-b-0 transition-colors duration-150 ${active ? "bg-blue-50" : ""
+                      `cursor-pointer px-4 py-3 min-h-[44px] border-b border-gray-100 last:border-b-0 transition-colors duration-150 ${
+                        active ? 'bg-blue-50' : ''
                       }`
                     }
                   >

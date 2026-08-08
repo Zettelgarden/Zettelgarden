@@ -1,5 +1,5 @@
-import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 
 interface SidebarLinkProps {
   to: string;
@@ -13,8 +13,9 @@ export function SidebarLink({ to, children }: SidebarLinkProps) {
   return (
     <Link
       to={to}
-      className={`flex items-center px-3 py-2.5 md:px-2 md:py-1 min-h-[44px] md:min-h-0 font-medium rounded-md hover:bg-gray-100 ${isActive ? "bg-gray-100" : ""
-        }`}
+      className={`flex items-center px-3 py-2.5 md:px-2 md:py-1 min-h-[44px] md:min-h-0 font-medium rounded-md hover:bg-gray-100 ${
+        isActive ? 'bg-gray-100' : ''
+      }`}
     >
       {/* Add icon wrapper for first child */}
       {React.Children.map(children, (child, index) => {

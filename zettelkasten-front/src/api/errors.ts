@@ -11,7 +11,7 @@ export class APIError extends Error {
   constructor(
     message: string,
     public status?: number,
-    public responseText?: string
+    public responseText?: string,
   ) {
     super(message);
     this.name = 'APIError';
@@ -81,7 +81,9 @@ export class ServerError extends APIError {
 /**
  * Check if an error is an auth-related error that should trigger logout
  */
-export function isAuthError(error: unknown): error is AuthError | TokenValidationError {
+export function isAuthError(
+  error: unknown,
+): error is AuthError | TokenValidationError {
   return error instanceof AuthError || error instanceof TokenValidationError;
 }
 

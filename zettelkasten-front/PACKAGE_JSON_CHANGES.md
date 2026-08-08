@@ -50,17 +50,18 @@ npm install -D @tanstack/react-query-devtools@^5.60.0
 
 ## Bundle Size Impact
 
-| Package | Minified | Gzipped |
-|---------|----------|---------|
-| @tanstack/react-query | ~45KB | ~13KB |
+| Package                        | Minified         | Gzipped         |
+| ------------------------------ | ---------------- | --------------- |
+| @tanstack/react-query          | ~45KB            | ~13KB           |
 | @tanstack/react-query-devtools | ~15KB (dev only) | ~4KB (dev only) |
-| **Total** | **~45KB** | **~13KB** |
+| **Total**                      | **~45KB**        | **~13KB**       |
 
 Note: Devtools are only included in development builds.
 
 ## Version Compatibility
 
 React Query v5 is compatible with:
+
 - React 18+ (Zettelgarden uses React 18.2.0)
 - TypeScript 5+ (Zettelgarden uses TypeScript 5.4.5)
 - Vite (Zettelgarden uses Vite 5.3.4)
@@ -74,6 +75,7 @@ React Query has no additional peer dependencies beyond React 18+.
 ## Existing TanStack Dependencies
 
 Zettelgarden already uses TanStack packages:
+
 - `@tanstack/react-table` - Table component library
 - `@tanstack/match-sorter-utils` - Utilities
 
@@ -142,17 +144,10 @@ Here is the complete updated `package.json` for reference:
     "test:ui": "vitest --ui"
   },
   "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
+    "extends": ["react-app", "react-app/jest"]
   },
   "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
+    "production": [">0.2%", "not dead", "not op_mini all"],
     "development": [
       "last 1 chrome version",
       "last 1 firefox version",

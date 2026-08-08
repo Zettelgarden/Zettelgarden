@@ -8,5 +8,5 @@ export interface ErrorResponse {
 }
 
 export function isErrorResponse(response: any): response is ErrorResponse {
-  return response && typeof response.error === "string";
+  return response && typeof response.error === 'string';
 }

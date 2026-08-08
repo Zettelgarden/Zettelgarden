@@ -1,10 +1,17 @@
-import { Task, TaskAuditEvent } from "../models/Task";
-import { format } from "date-fns-tz";
-import { compareDates, compareDatesInTimezone, getToday, getTomorrow, isTodayOrPast, isPast } from "./dates";
+import { Task, TaskAuditEvent } from '../models/Task';
+import { format } from 'date-fns-tz';
+import {
+  compareDates,
+  compareDatesInTimezone,
+  getToday,
+  getTomorrow,
+  isTodayOrPast,
+  isPast,
+} from './dates';
 
 export interface TaskFilterParams {
   searchTerms: string[];
-  dateView: "all" | "today" | "tomorrow" | "overdue" | "this_week" | "no_date";
+  dateView: 'all' | 'today' | 'tomorrow' | 'overdue' | 'this_week' | 'no_date';
   showCompleted: boolean;
   specificDate: Date | null;
 }
@@ -13,16 +20,19 @@ export function parseTaskQuery(query: string): TaskFilterParams {
   // Default values
   const params: TaskFilterParams = {
     searchTerms: [],
-    dateView: "all",
+    dateView: 'all',
     showCompleted: false,
     specificDate: null,
   };
 
   // Split query into tokens
-  const tokens = query.split(' ').map(t => t.trim()).filter(t => t !== '');
+  const tokens = query
+    .split(' ')
+    .map((t) => t.trim())
+    .filter((t) => t !== '');
 
   // Extract date-related tokens
-  const dateTokenIndex = tokens.findIndex(t => t.startsWith('date:'));
+  const dateTokenIndex = tokens.findIndex((t) => t.startsWith('date:'));
   if (dateTokenIndex !== -1) {
     const dateToken = tokens[dateTokenIndex];
     const dateString = dateToken.substring('date:'.length);
@@ -62,7 +72,7 @@ export function parseTaskQuery(query: string): TaskFilterParams {
   }
 
   // Check for show:completed flag
-  const completedIndex = tokens.findIndex(t => t === 'show:completed');
+  const completedIndex = tokens.findIndex((t) => t === 'show:completed');
   if (completedIndex !== -1) {
     params.showCompleted = true;
     tokens.splice(completedIndex, 1);
@@ -77,12 +87,18 @@ export function parseTaskQuery(query: string): TaskFilterParams {
 /**
  * Removes specific keywords from a query string
  */
-export function removeKeywordsFromQuery(query: string, keywords: string[]): string {
-  const tokens = query.split(' ').map(t => t.trim()).filter(t => t !== '');
-  const filtered = tokens.filter(token => {
+export function removeKeywordsFromQuery(
+  query: string,
+  keywords: string[],
+): string {
+  const tokens = query
+    .split(' ')
+    .map((t) => t.trim())
+    .filter((t) => t !== '');
+  const filtered = tokens.filter((token) => {
     // Check if token matches any keyword exactly or starts with keyword:
-    return !keywords.some(keyword =>
-      token === keyword || token.startsWith(keyword + ':')
+    return !keywords.some(
+      (keyword) => token === keyword || token.startsWith(keyword + ':'),
     );
   });
   return filtered.join(' ');
@@ -107,7 +123,9 @@ export function updateQueryDateView(query: string, dateView: string): string {
 
   // Add new date view if not "all"
   if (dateView !== 'all') {
-    updated = updated ? `${updated} date:${dateView}`.trim() : `date:${dateView}`;
+    updated = updated
+      ? `${updated} date:${dateView}`.trim()
+      : `date:${dateView}`;
   }
 
   return updated;
@@ -116,7 +134,10 @@ export function updateQueryDateView(query: string, dateView: string): string {
 /**
  * Updates the query string to reflect completed status
  */
-export function updateQueryShowCompleted(query: string, showCompleted: boolean): string {
+export function updateQueryShowCompleted(
+  query: string,
+  showCompleted: boolean,
+): string {
   let updated = removeKeywordsFromQuery(query, ['show']);
 
   if (showCompleted) {
@@ -131,9 +152,12 @@ export function updateQueryShowCompleted(query: string, showCompleted: boolean):
  * Used when initializing a new task with the current filter string
  */
 export function stripSpecialFilters(query: string): string {
-  const tokens = query.split(' ').map(t => t.trim()).filter(t => t !== '');
+  const tokens = query
+    .split(' ')
+    .map((t) => t.trim())
+    .filter((t) => t !== '');
 
-  const filteredTokens = tokens.filter(token => {
+  const filteredTokens = tokens.filter((token) => {
     // Keep tags (anything starting with #)
     if (token.startsWith('#')) {
       return true;
@@ -156,7 +180,7 @@ export function stripSpecialFilters(query: string): string {
 
 export function removeTagsFromTitle(title: string): string {
   const tagPattern = /#[\w-]+/g;
-  const cleanedTitle = title.replace(tagPattern, "");
+  const cleanedTitle = title.replace(tagPattern, '');
   return cleanedTitle.trim();
 }
 
@@ -172,8 +196,8 @@ export function filterTasks(input: Task[], filterString: string): Task[] {
   const parsed = parseTaskQuery(filterString);
   const searchTerms = parsed.searchTerms;
 
-  return input.filter(task => {
-    return searchTerms.every(term => {
+  return input.filter((task) => {
+    return searchTerms.every((term) => {
       const isNegation = term.startsWith('!');
       const termWithoutNegation = isNegation ? term.substring(1) : term;
       const lowerTerm = termWithoutNegation.toLowerCase();
@@ -186,7 +210,8 @@ export function filterTasks(input: Task[], filterString: string): Task[] {
           return isNegation ? !hasReminder : hasReminder;
         }
         if (hasValue === 'description') {
-          const hasDescription = task.description !== null && task.description.trim() !== '';
+          const hasDescription =
+            task.description !== null && task.description.trim() !== '';
           return isNegation ? !hasDescription : hasDescription;
         }
       }
@@ -194,7 +219,8 @@ export function filterTasks(input: Task[], filterString: string): Task[] {
       // Priority filtering
       if (lowerTerm.startsWith('priority:')) {
         const priorityValue = lowerTerm.substring('priority:'.length);
-        if (task.priority === null) { // Task has no priority
+        if (task.priority === null) {
+          // Task has no priority
           return isNegation; // If !priority:X and task has no priority, it's a match. If priority:X, it's not.
         }
         const taskPriorityLower = task.priority.toLowerCase();
@@ -213,7 +239,9 @@ export function filterTasks(input: Task[], filterString: string): Task[] {
       // Tag filtering
       if (lowerTerm.startsWith('#')) {
         const tagName = lowerTerm.substring(1);
-        const hasTag = task.tags.some(tag => tag.name.toLowerCase() === tagName);
+        const hasTag = task.tags.some(
+          (tag) => tag.name.toLowerCase() === tagName,
+        );
         return isNegation ? !hasTag : hasTag;
       }
 
@@ -228,10 +256,10 @@ export function filterTasksByDateView(
   task: Task,
   dateView: string,
   showCompleted: boolean,
-  timezone: string = "UTC"
+  timezone: string = 'UTC',
 ): boolean {
   // Handle "all" view
-  if (dateView === "all") {
+  if (dateView === 'all') {
     // Only show completed tasks if the "Closed" tab is active
     if (!showCompleted && task.is_complete) {
       return false;
@@ -240,7 +268,7 @@ export function filterTasksByDateView(
   }
 
   // Handle "today" view
-  if (dateView === "today") {
+  if (dateView === 'today') {
     if (!task.is_complete && isTodayOrPast(task.scheduled_date, timezone)) {
       return true;
     } else if (
@@ -255,11 +283,15 @@ export function filterTasksByDateView(
   }
 
   // Handle "tomorrow" view
-  if (dateView === "tomorrow") {
+  if (dateView === 'tomorrow') {
     if (
       !task.is_complete &&
       task.scheduled_date && // Ensure scheduled_date is not null
-      compareDatesInTimezone(task.scheduled_date, getTomorrow(timezone), timezone)
+      compareDatesInTimezone(
+        task.scheduled_date,
+        getTomorrow(timezone),
+        timezone,
+      )
     ) {
       return true;
     } else if (
@@ -274,17 +306,19 @@ export function filterTasksByDateView(
   }
 
   // Handle "overdue" view - tasks with scheduled_date in the past that are not complete
-  if (dateView === "overdue") {
+  if (dateView === 'overdue') {
     // Overdue tasks are never completed
     if (task.is_complete) {
       return false;
     }
     // Must have a scheduled date that is in the past
-    return task.scheduled_date !== null && isPast(task.scheduled_date, timezone);
+    return (
+      task.scheduled_date !== null && isPast(task.scheduled_date, timezone)
+    );
   }
 
   // Handle "this_week" view - tasks scheduled or due this week
-  if (dateView === "this_week") {
+  if (dateView === 'this_week') {
     if (task.is_complete) {
       return showCompleted;
     }
@@ -302,7 +336,7 @@ export function filterTasksByDateView(
   }
 
   // Handle "no_date" view - tasks without scheduled or due date
-  if (dateView === "no_date") {
+  if (dateView === 'no_date') {
     if (task.is_complete) {
       return showCompleted;
     }
@@ -314,59 +348,83 @@ export function filterTasksByDateView(
 }
 
 const AUDIT_ACTIONS = {
-  CREATE: "create",
-  DELETE: "delete",
-  UPDATE: "update",
+  CREATE: 'create',
+  DELETE: 'delete',
+  UPDATE: 'update',
 } as const;
 
-export function formatAuditEvent(event: TaskAuditEvent, timezone: string = "UTC"): string {
+export function formatAuditEvent(
+  event: TaskAuditEvent,
+  timezone: string = 'UTC',
+): string {
   if (event.action === AUDIT_ACTIONS.CREATE) {
-    return "Task created";
+    return 'Task created';
   }
 
   if (event.action === AUDIT_ACTIONS.DELETE) {
-    return "Task deleted";
+    return 'Task deleted';
   }
 
-  if (event.action === AUDIT_ACTIONS.UPDATE && event.details.change_type === "update") {
+  if (
+    event.action === AUDIT_ACTIONS.UPDATE &&
+    event.details.change_type === 'update'
+  ) {
     const changes: string[] = [];
     const changeDetails = event.details.changes;
 
     if (changeDetails.Title) {
-      changes.push(`Changed title from "${changeDetails.Title.from}" to "${changeDetails.Title.to}"`);
+      changes.push(
+        `Changed title from "${changeDetails.Title.from}" to "${changeDetails.Title.to}"`,
+      );
     }
 
     if (changeDetails.IsComplete) {
-      changes.push(changeDetails.IsComplete.to ? "Marked as complete" : "Marked as incomplete");
+      changes.push(
+        changeDetails.IsComplete.to
+          ? 'Marked as complete'
+          : 'Marked as incomplete',
+      );
     }
 
     if (changeDetails.ScheduledDate) {
       const newDate = changeDetails.ScheduledDate.to
-        ? format(new Date(changeDetails.ScheduledDate.to), "MMM d, yyyy")
-        : "none";
+        ? format(new Date(changeDetails.ScheduledDate.to), 'MMM d, yyyy')
+        : 'none';
       changes.push(`Changed scheduled date to ${newDate}`);
     }
 
     if (changeDetails.CardPK) {
       if (changeDetails.CardPK.from === 0 && changeDetails.CardPK.to > 0) {
         changes.push(`Linked to card [${changeDetails.CardPK.to}]`);
-      } else if (changeDetails.CardPK.from > 0 && changeDetails.CardPK.to === 0) {
+      } else if (
+        changeDetails.CardPK.from > 0 &&
+        changeDetails.CardPK.to === 0
+      ) {
         changes.push(`Unlinked from card [${changeDetails.CardPK.from}]`);
       } else {
-        changes.push(`Changed linked card from [${changeDetails.CardPK.from}] to [${changeDetails.CardPK.to}]`);
+        changes.push(
+          `Changed linked card from [${changeDetails.CardPK.from}] to [${changeDetails.CardPK.to}]`,
+        );
       }
     }
 
     if (changeDetails.Priority) {
-      const fromPriority = changeDetails.Priority.from ? `Priority ${changeDetails.Priority.from}` : "No Priority";
-      const toPriority = changeDetails.Priority.to ? `Priority ${changeDetails.Priority.to}` : "No Priority";
+      const fromPriority = changeDetails.Priority.from
+        ? `Priority ${changeDetails.Priority.from}`
+        : 'No Priority';
+      const toPriority = changeDetails.Priority.to
+        ? `Priority ${changeDetails.Priority.to}`
+        : 'No Priority';
       changes.push(`Changed priority from ${fromPriority} to ${toPriority}`);
     }
 
     if (changeDetails.Description) {
       if (!changeDetails.Description.from && changeDetails.Description.to) {
         changes.push(`Added description`);
-      } else if (changeDetails.Description.from && !changeDetails.Description.to) {
+      } else if (
+        changeDetails.Description.from &&
+        !changeDetails.Description.to
+      ) {
         changes.push(`Removed description`);
       } else {
         changes.push(`Updated description`);
@@ -375,22 +433,36 @@ export function formatAuditEvent(event: TaskAuditEvent, timezone: string = "UTC"
 
     if (changeDetails.ReminderTime) {
       if (!changeDetails.ReminderTime.from && changeDetails.ReminderTime.to) {
-        const newReminder = format(new Date(changeDetails.ReminderTime.to), "MMM d, yyyy h:mm a", { timeZone: timezone });
+        const newReminder = format(
+          new Date(changeDetails.ReminderTime.to),
+          'MMM d, yyyy h:mm a',
+          { timeZone: timezone },
+        );
         changes.push(`Set reminder for ${newReminder}`);
-      } else if (changeDetails.ReminderTime.from && !changeDetails.ReminderTime.to) {
+      } else if (
+        changeDetails.ReminderTime.from &&
+        !changeDetails.ReminderTime.to
+      ) {
         changes.push(`Removed reminder`);
-      } else if (changeDetails.ReminderTime.from && changeDetails.ReminderTime.to) {
-        const newReminder = format(new Date(changeDetails.ReminderTime.to), "MMM d, yyyy h:mm a", { timeZone: timezone });
+      } else if (
+        changeDetails.ReminderTime.from &&
+        changeDetails.ReminderTime.to
+      ) {
+        const newReminder = format(
+          new Date(changeDetails.ReminderTime.to),
+          'MMM d, yyyy h:mm a',
+          { timeZone: timezone },
+        );
         changes.push(`Changed reminder to ${newReminder}`);
       }
     }
 
     if (changes.length === 0) {
-      return "Task updated";
+      return 'Task updated';
     }
 
-    return changes.join("; ");
+    return changes.join('; ');
   }
 
-  return "Unknown change";
+  return 'Unknown change';
 }

@@ -59,7 +59,7 @@ export function QueryClientProvider({
       {enableDevtools && (
         <ReactQueryDevtools
           initialIsOpen={false}
-          position={"bottom-right" as any}
+          position={'bottom-right' as any}
         />
       )}
     </TanStackQueryClientProvider>

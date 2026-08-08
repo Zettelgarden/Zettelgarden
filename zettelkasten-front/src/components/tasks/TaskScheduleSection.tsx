@@ -1,10 +1,10 @@
-import React from "react";
-import { Task } from "../../models/Task";
-import { TaskDateDisplay } from "./TaskDateDisplay";
-import { TaskPriorityDisplay } from "./TaskPriorityDisplay";
-import { TaskReminderDisplay } from "./TaskReminderDisplay";
-import { TaskStatusDisplay } from "./TaskStatusDisplay";
-import { TaskTagDisplay } from "./TaskTagDisplay";
+import React from 'react';
+import { Task } from '../../models/Task';
+import { TaskDateDisplay } from './TaskDateDisplay';
+import { TaskPriorityDisplay } from './TaskPriorityDisplay';
+import { TaskReminderDisplay } from './TaskReminderDisplay';
+import { TaskStatusDisplay } from './TaskStatusDisplay';
+import { TaskTagDisplay } from './TaskTagDisplay';
 
 interface TaskScheduleSectionProps {
   task: Task;
@@ -55,7 +55,7 @@ export function TaskScheduleSection({
         onClick={() => setShowTagEditor(!showTagEditor)}
         className="text-sm text-blue-600 hover:text-blue-800 font-medium"
       >
-        {showTagEditor ? "- Hide Tags" : "+ Add Tags"}
+        {showTagEditor ? '- Hide Tags' : '+ Add Tags'}
       </button>
     </div>
   );

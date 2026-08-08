@@ -1,24 +1,28 @@
-import React, { useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { MobileTopBar } from "../../components/layout/MobileTopBar";
-import { ViewPageHeader } from "../../components/cards/ViewPageHeader";
-import { ViewCardContentSection } from "../../components/cards/ViewCardContentSection";
-import { ViewPageSidePanels } from "../../components/cards/ViewPageSidePanels";
-import { PanelResizeHandle } from "../../components/cards/PanelResizeHandle";
-import { CardIdDiscoveryDialog } from "../../components/cards/CardIdDiscoveryDialog";
-import { ViewSummaryView } from "../../components/cards/ViewSummaryView";
-import { ViewMobileLayout } from "../../components/cards/ViewMobileLayout";
-import { useViewPageContainer } from "./ViewPageContainer";
-import { useTagContext } from "../../contexts/TagContext";
-import { useUIState } from "../../contexts/UIStateContext";
-import { Card } from "../../models/Card";
-import { saveExistingCard } from "../../api/cards";
-import { useIsMobile } from "../../hooks/useIsMobile";
+import React, { useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { MobileTopBar } from '../../components/layout/MobileTopBar';
+import { ViewPageHeader } from '../../components/cards/ViewPageHeader';
+import { ViewCardContentSection } from '../../components/cards/ViewCardContentSection';
+import { ViewPageSidePanels } from '../../components/cards/ViewPageSidePanels';
+import { PanelResizeHandle } from '../../components/cards/PanelResizeHandle';
+import { CardIdDiscoveryDialog } from '../../components/cards/CardIdDiscoveryDialog';
+import { ViewSummaryView } from '../../components/cards/ViewSummaryView';
+import { ViewMobileLayout } from '../../components/cards/ViewMobileLayout';
+import { useViewPageContainer } from './ViewPageContainer';
+import { useTagContext } from '../../contexts/TagContext';
+import { useUIState } from '../../contexts/UIStateContext';
+import { Card } from '../../models/Card';
+import { saveExistingCard } from '../../api/cards';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 export function ViewPage({ cardId }: { cardId?: string }) {
   const { tags } = useTagContext();
-  const { toggleMobileSidebar, rightPaneOpen, rightPaneWidth, setRightPaneWidth } =
-    useUIState();
+  const {
+    toggleMobileSidebar,
+    rightPaneOpen,
+    rightPaneWidth,
+    setRightPaneWidth,
+  } = useUIState();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -65,8 +69,8 @@ export function ViewPage({ cardId }: { cardId?: string }) {
       // Update the viewingCard state with the saved data
       setViewCard(updatedCard);
     } catch (err) {
-      console.error("Failed to save card:", err);
-      setError("Failed to save card");
+      console.error('Failed to save card:', err);
+      setError('Failed to save card');
     }
   };
 
@@ -112,7 +116,7 @@ export function ViewPage({ cardId }: { cardId?: string }) {
     <div className="overflow-x-hidden">
       {viewingCard && (
         <MobileTopBar
-          title={viewingCard.title || "Card"}
+          title={viewingCard.title || 'Card'}
           onMenuClick={toggleMobileSidebar}
         />
       )}
@@ -138,10 +142,14 @@ export function ViewPage({ cardId }: { cardId?: string }) {
                 : undefined
             }
             onNavigatePrev={
-              prevSibling ? () => navigate(`/app/card/${prevSibling.id}`) : undefined
+              prevSibling
+                ? () => navigate(`/app/card/${prevSibling.id}`)
+                : undefined
             }
             onNavigateNext={
-              nextSibling ? () => navigate(`/app/card/${nextSibling.id}`) : undefined
+              nextSibling
+                ? () => navigate(`/app/card/${nextSibling.id}`)
+                : undefined
             }
             onCreateChildCard={onCreateChildCard}
           />
@@ -149,11 +157,14 @@ export function ViewPage({ cardId }: { cardId?: string }) {
           <div className="flex flex-col md:flex-row gap-4 md:gap-0">
             {/* Main Content Area - varies by view mode */}
             <div className="flex-1 min-w-0 space-y-4 overflow-y-auto">
-              {viewMode === "summary" && (
-                <ViewSummaryView summary={latestSummary} summaries={summaries} />
+              {viewMode === 'summary' && (
+                <ViewSummaryView
+                  summary={latestSummary}
+                  summaries={summaries}
+                />
               )}
 
-              {viewMode === "normal" && (
+              {viewMode === 'normal' && (
                 <ViewCardContentSection
                   viewingCard={viewingCard}
                   latestSummary={latestSummary}

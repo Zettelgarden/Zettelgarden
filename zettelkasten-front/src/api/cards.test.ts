@@ -41,7 +41,9 @@ vi.mock('./client', () => ({
     delete: vi.fn(),
     fetchResponse: vi.fn(),
   },
-  getData: vi.fn(async (promise: Promise<{ data: unknown }>) => (await promise).data),
+  getData: vi.fn(
+    async (promise: Promise<{ data: unknown }>) => (await promise).data,
+  ),
 }));
 
 const mockedGet = vi.mocked(apiClient.get);
@@ -61,7 +63,13 @@ describe('semanticSearchCardsPaginated', () => {
 
   it('POSTs search params to /search with snake_case mapping', async () => {
     mockedPost.mockResolvedValue(
-      mockApiResponse({ results: [], page: 1, per_page: 50, total: 0, total_pages: 0 })
+      mockApiResponse({
+        results: [],
+        page: 1,
+        per_page: 50,
+        total: 0,
+        total_pages: 0,
+      }),
     );
 
     await semanticSearchCardsPaginated(
@@ -77,7 +85,7 @@ describe('semanticSearchCardsPaginated', () => {
       2,
       25,
       false,
-      7 // schemaId
+      7, // schemaId
     );
 
     expect(mockedPost).toHaveBeenCalledWith('/search', {
@@ -98,7 +106,13 @@ describe('semanticSearchCardsPaginated', () => {
 
   it('applies defaults when called with no arguments', async () => {
     mockedPost.mockResolvedValue(
-      mockApiResponse({ results: [], page: 1, per_page: 50, total: 0, total_pages: 0 })
+      mockApiResponse({
+        results: [],
+        page: 1,
+        per_page: 50,
+        total: 0,
+        total_pages: 0,
+      }),
     );
 
     await semanticSearchCardsPaginated();
@@ -139,7 +153,7 @@ describe('semanticSearchCardsPaginated', () => {
         per_page: 50,
         total: 1,
         total_pages: 1,
-      })
+      }),
     );
 
     const result = await semanticSearchCardsPaginated('query');
@@ -153,7 +167,13 @@ describe('semanticSearchCardsPaginated', () => {
 
     const result = await semanticSearchCardsPaginated('query');
 
-    expect(result).toEqual({ results: [], page: 1, per_page: 50, total: 0, total_pages: 0 });
+    expect(result).toEqual({
+      results: [],
+      page: 1,
+      per_page: 50,
+      total: 0,
+      total_pages: 0,
+    });
   });
 });
 
@@ -182,14 +202,18 @@ describe('semanticSearchCards (legacy wrapper)', () => {
         per_page: 1000,
         total: 1,
         total_pages: 1,
-      })
+      }),
     );
 
     const results = await semanticSearchCards('hello');
 
     expect(mockedPost).toHaveBeenCalledWith(
       '/search',
-      expect.objectContaining({ search_term: 'hello', page: 1, per_page: 1000 })
+      expect.objectContaining({
+        search_term: 'hello',
+        page: 1,
+        per_page: 1000,
+      }),
     );
     expect(results).toHaveLength(1);
     expect(results[0].title).toBe('Result');
@@ -242,7 +266,7 @@ describe('getCard', () => {
           },
         ],
         entities: [],
-      })
+      }),
     );
 
     const card = await getCard('abc-123');
@@ -274,7 +298,7 @@ describe('getCard', () => {
         tags: [],
         tasks: [],
         entities: [],
-      })
+      }),
     );
     await getCard('has space/and-slash');
     expect(mockedGet).toHaveBeenCalledWith('/cards/has%20space%2Fand-slash');
@@ -306,7 +330,7 @@ describe('saveNewCard', () => {
         tags: [],
         tasks: [],
         entities: [],
-      })
+      }),
     );
 
     const card = {
@@ -330,7 +354,10 @@ describe('saveNewCard', () => {
     };
     await saveNewCard(card as any);
 
-    expect(mockedPost).toHaveBeenCalledWith('/cards', expect.objectContaining({ card_id: 'new-card' }));
+    expect(mockedPost).toHaveBeenCalledWith(
+      '/cards',
+      expect.objectContaining({ card_id: 'new-card' }),
+    );
   });
 });
 
@@ -359,12 +386,15 @@ describe('saveExistingCard', () => {
         tags: [],
         tasks: [],
         entities: [],
-      })
+      }),
     );
 
     await saveExistingCard({ id: 42, title: 'Updated' } as any);
 
-    expect(mockedPut).toHaveBeenCalledWith('/cards/42', expect.objectContaining({ id: 42 }));
+    expect(mockedPut).toHaveBeenCalledWith(
+      '/cards/42',
+      expect.objectContaining({ id: 42 }),
+    );
   });
 });
 
@@ -375,7 +405,25 @@ describe('deleteCard', () => {
 
   it('DELETEs /cards/:id and returns data on 200', async () => {
     mockedDelete.mockResolvedValue(
-      mockApiResponse({ id: 1, card_id: 'x', user_id: 1, title: 'Gone', body: '', link: '', is_deleted: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z', parent_id: 0, parent: null, files: [], children: [], references: [], tags: [], tasks: [], entities: [] })
+      mockApiResponse({
+        id: 1,
+        card_id: 'x',
+        user_id: 1,
+        title: 'Gone',
+        body: '',
+        link: '',
+        is_deleted: true,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        parent_id: 0,
+        parent: null,
+        files: [],
+        children: [],
+        references: [],
+        tags: [],
+        tasks: [],
+        entities: [],
+      }),
     );
 
     const result = await deleteCard(1);
@@ -400,7 +448,13 @@ describe('card sub-resource fetchers', () => {
 
   it('getCardAuditEvents GETs /cards/:id/audit and converts dates', async () => {
     mockedGet.mockResolvedValue(
-      mockApiResponse([{ id: 1, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' }])
+      mockApiResponse([
+        {
+          id: 1,
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
+        },
+      ]),
     );
 
     const events = await getCardAuditEvents('c1');
@@ -409,7 +463,15 @@ describe('card sub-resource fetchers', () => {
   });
 
   it('getCardFiles GETs /cards/:id/files', async () => {
-    mockedGet.mockResolvedValue(mockApiResponse([{ id: 1, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' }]));
+    mockedGet.mockResolvedValue(
+      mockApiResponse([
+        {
+          id: 1,
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
+        },
+      ]),
+    );
     const files = await getCardFiles('c1');
     expect(mockedGet).toHaveBeenCalledWith('/cards/c1/files');
     expect(files[0].created_at).toBeInstanceOf(Date);
@@ -417,7 +479,18 @@ describe('card sub-resource fetchers', () => {
 
   it('getCardChildren GETs /cards/:id/children', async () => {
     mockedGet.mockResolvedValue(
-      mockApiResponse([{ id: 2, card_id: 'kid', user_id: 1, title: 'Kid', parent_id: 1, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z', tags: [] }])
+      mockApiResponse([
+        {
+          id: 2,
+          card_id: 'kid',
+          user_id: 1,
+          title: 'Kid',
+          parent_id: 1,
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
+          tags: [],
+        },
+      ]),
     );
     const children = await getCardChildren('c1');
     expect(mockedGet).toHaveBeenCalledWith('/cards/c1/children');
@@ -425,7 +498,9 @@ describe('card sub-resource fetchers', () => {
   });
 
   it('getCardTags GETs /cards/:id/tags', async () => {
-    mockedGet.mockResolvedValue(mockApiResponse([{ id: 1, name: 'tag', color: 'black' }]));
+    mockedGet.mockResolvedValue(
+      mockApiResponse([{ id: 1, name: 'tag', color: 'black' }]),
+    );
     const tags = await getCardTags('c1');
     expect(mockedGet).toHaveBeenCalledWith('/cards/c1/tags');
     expect(tags[0].name).toBe('tag');
@@ -440,7 +515,17 @@ describe('card sub-resource fetchers', () => {
 
   it('getCardTasks GETs /cards/:id/tasks and converts dates', async () => {
     mockedGet.mockResolvedValue(
-      mockApiResponse([{ id: 1, title: 'T', scheduled_date: '2024-01-01T00:00:00Z', due_date: null, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z', completed_at: null }])
+      mockApiResponse([
+        {
+          id: 1,
+          title: 'T',
+          scheduled_date: '2024-01-01T00:00:00Z',
+          due_date: null,
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
+          completed_at: null,
+        },
+      ]),
     );
     const tasks = await getCardTasks('c1');
     expect(mockedGet).toHaveBeenCalledWith('/cards/c1/tasks');
@@ -448,23 +533,42 @@ describe('card sub-resource fetchers', () => {
   });
 
   it('getLinkedEntitiesByCardPK uses fetchResponse and handles 204', async () => {
-    mockedFetchResponse.mockResolvedValue({ status: 204, json: vi.fn() } as any);
+    mockedFetchResponse.mockResolvedValue({
+      status: 204,
+      json: vi.fn(),
+    } as any);
 
     const entities = await getLinkedEntitiesByCardPK('c1');
-    expect(mockedFetchResponse).toHaveBeenCalledWith('/cards/c1/linked-entities');
+    expect(mockedFetchResponse).toHaveBeenCalledWith(
+      '/cards/c1/linked-entities',
+    );
     expect(entities).toEqual([]);
   });
 
   it('getLinkedEntitiesByCardPK parses entities from response body', async () => {
-    mockedFetchResponse.mockResolvedValue({ status: 200, json: vi.fn().mockResolvedValue([{ id: 1, name: 'E' }]) } as any);
+    mockedFetchResponse.mockResolvedValue({
+      status: 200,
+      json: vi.fn().mockResolvedValue([{ id: 1, name: 'E' }]),
+    } as any);
 
     const entities = await getLinkedEntitiesByCardPK('c1');
     expect(entities).toEqual([{ id: 1, name: 'E' }]);
   });
 
   it('getCardReferences GETs /cards/:id/references and categorizes', async () => {
-    const ref = { id: 3, card_id: 'r', user_id: 1, title: 'Ref', parent_id: 1, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z', tags: [] };
-    mockedGet.mockResolvedValue(mockApiResponse({ bidirectional: [ref], outgoing: [], incoming: [ref] }));
+    const ref = {
+      id: 3,
+      card_id: 'r',
+      user_id: 1,
+      title: 'Ref',
+      parent_id: 1,
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
+      tags: [],
+    };
+    mockedGet.mockResolvedValue(
+      mockApiResponse({ bidirectional: [ref], outgoing: [], incoming: [ref] }),
+    );
 
     const refs = await getCardReferences('c1');
     expect(mockedGet).toHaveBeenCalledWith('/cards/c1/references');
@@ -534,7 +638,7 @@ describe('getStarredCards', () => {
             tags: [],
           },
         },
-      ])
+      ]),
     );
 
     const cards = await getStarredCards();
@@ -557,16 +661,29 @@ describe('getUnsortedCards', () => {
   it('GETs /cards/unsorted with page params and converts dates', async () => {
     mockedGet.mockResolvedValue(
       mockApiResponse({
-        cards: [{ id: 1, card_id: 'u', user_id: 1, title: 'U', parent_id: 0, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z', tags: [] }],
+        cards: [
+          {
+            id: 1,
+            card_id: 'u',
+            user_id: 1,
+            title: 'U',
+            parent_id: 0,
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+            tags: [],
+          },
+        ],
         page: 2,
         per_page: 25,
         total: 1,
         total_pages: 1,
-      })
+      }),
     );
 
     const result = await getUnsortedCards(2, 25);
-    expect(mockedGet).toHaveBeenCalledWith('/cards/unsorted?page=2&per_page=25');
+    expect(mockedGet).toHaveBeenCalledWith(
+      '/cards/unsorted?page=2&per_page=25',
+    );
     expect(result.cards[0].created_at).toBeInstanceOf(Date);
     expect(result.page).toBe(2);
   });
@@ -580,12 +697,31 @@ describe('restoreCardToAuditEvent', () => {
   it('POSTs to /cards/:id/audit/:eventId/restore', async () => {
     mockedPost.mockResolvedValue(
       mockApiResponse({
-        id: 1, card_id: 'c', user_id: 1, title: 'Restored', body: '', link: '', is_deleted: false, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z', parent_id: 0, parent: null, files: [], children: [], references: [], tags: [], tasks: [], entities: [],
-      })
+        id: 1,
+        card_id: 'c',
+        user_id: 1,
+        title: 'Restored',
+        body: '',
+        link: '',
+        is_deleted: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        parent_id: 0,
+        parent: null,
+        files: [],
+        children: [],
+        references: [],
+        tags: [],
+        tasks: [],
+        entities: [],
+      }),
     );
 
     const card = await restoreCardToAuditEvent('c1', 99);
-    expect(mockedPost).toHaveBeenCalledWith('/cards/c1/audit/99/restore', undefined);
+    expect(mockedPost).toHaveBeenCalledWith(
+      '/cards/c1/audit/99/restore',
+      undefined,
+    );
     expect(card.created_at).toBeInstanceOf(Date);
   });
 });
@@ -598,11 +734,31 @@ describe('createArticle', () => {
   it('POSTs to /articles with url, card_id and tags', async () => {
     mockedPost.mockResolvedValue(
       mockApiResponse({
-        id: 1, card_id: 'a', user_id: 1, title: 'Article', body: '', link: '', is_deleted: false, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z', parent_id: 0, parent: null, files: [], children: [], references: [], tags: [], tasks: [], entities: [],
-      })
+        id: 1,
+        card_id: 'a',
+        user_id: 1,
+        title: 'Article',
+        body: '',
+        link: '',
+        is_deleted: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        parent_id: 0,
+        parent: null,
+        files: [],
+        children: [],
+        references: [],
+        tags: [],
+        tasks: [],
+        entities: [],
+      }),
     );
 
-    await createArticle('https://example.com/article', 'parent-card', 'tag1,tag2');
+    await createArticle(
+      'https://example.com/article',
+      'parent-card',
+      'tag1,tag2',
+    );
     expect(mockedPost).toHaveBeenCalledWith('/articles', {
       url: 'https://example.com/article',
       card_id: 'parent-card',

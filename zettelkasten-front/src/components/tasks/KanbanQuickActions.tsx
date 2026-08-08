@@ -1,11 +1,14 @@
-import React, { useState, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
-import { Task } from "../../models/Task";
-import { saveExistingTask } from "../../api/tasks";
-import { useTaskContext } from "../../contexts/TaskContext";
-import { useStatus } from "../../contexts/StatusContext";
-import { useAuth } from "../../contexts/AuthContext";
-import { PRIORITY_OPTIONS, PRIORITY_CONFIG } from "../../constants/taskPriority";
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Task } from '../../models/Task';
+import { saveExistingTask } from '../../api/tasks';
+import { useTaskContext } from '../../contexts/TaskContext';
+import { useStatus } from '../../contexts/StatusContext';
+import { useAuth } from '../../contexts/AuthContext';
+import {
+  PRIORITY_OPTIONS,
+  PRIORITY_CONFIG,
+} from '../../constants/taskPriority';
 
 interface KanbanQuickActionsProps {
   task: Task;
@@ -19,20 +22,26 @@ export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
   const { statuses, getDefaultStatus, getCompleteStatus } = useStatus();
   const { updateTask } = useTaskContext();
   const { user } = useAuth();
-  const userTimezone = user?.timezone || "UTC";
+  const userTimezone = user?.timezone || 'UTC';
 
   // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (priorityRef.current && !priorityRef.current.contains(event.target as Node)) {
+      if (
+        priorityRef.current &&
+        !priorityRef.current.contains(event.target as Node)
+      ) {
         setShowPriorityMenu(false);
       }
-      if (statusRef.current && !statusRef.current.contains(event.target as Node)) {
+      if (
+        statusRef.current &&
+        !statusRef.current.contains(event.target as Node)
+      ) {
         setShowStatusMenu(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handlePriorityChange = async (priority: string | null) => {
@@ -43,7 +52,7 @@ export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
     try {
       await saveExistingTask(updatedTask);
     } catch (error) {
-      console.error("Failed to update priority:", error);
+      console.error('Failed to update priority:', error);
       updateTask(task); // Rollback
     }
   };
@@ -61,15 +70,17 @@ export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
     try {
       await saveExistingTask(updatedTask);
     } catch (error) {
-      console.error("Failed to update status:", error);
+      console.error('Failed to update status:', error);
       updateTask(task); // Rollback
     }
   };
 
   const handleToggleComplete = async () => {
-    const targetStatus = task.is_complete ? getDefaultStatus() : getCompleteStatus();
+    const targetStatus = task.is_complete
+      ? getDefaultStatus()
+      : getCompleteStatus();
     if (!targetStatus) {
-      console.error("Could not find appropriate status for toggle");
+      console.error('Could not find appropriate status for toggle');
       return;
     }
     const updatedTask = {
@@ -82,7 +93,7 @@ export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
     try {
       await saveExistingTask(updatedTask);
     } catch (error) {
-      console.error("Failed to toggle complete:", error);
+      console.error('Failed to toggle complete:', error);
       updateTask(task);
     }
   };
@@ -93,11 +104,11 @@ export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
       <button
         onClick={handleToggleComplete}
         className={`p-1.5 rounded text-xs hover:bg-gray-100 transition-colors ${
-          task.is_complete ? "text-green-600" : "text-gray-400"
+          task.is_complete ? 'text-green-600' : 'text-gray-400'
         }`}
-        title={task.is_complete ? "Mark incomplete" : "Mark complete"}
+        title={task.is_complete ? 'Mark incomplete' : 'Mark complete'}
       >
-        {task.is_complete ? "✓" : "○"}
+        {task.is_complete ? '✓' : '○'}
       </button>
 
       {/* Status Menu */}
@@ -109,29 +120,32 @@ export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
         >
           📊
         </button>
-        {showStatusMenu && createPortal(
-          <div
-            className="fixed bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40 max-h-60 overflow-y-auto"
-            style={{
-              top: statusRef.current?.getBoundingClientRect().bottom || 0,
-              left: statusRef.current?.getBoundingClientRect().left || 0,
-            }}
-          >
-            {statuses.map((status) => (
-              <button
-                key={status.name}
-                onClick={() => handleStatusChange(status.name)}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${
-                  task.status === status.name ? "bg-blue-50 text-blue-700" : ""
-                }`}
-              >
-                <span>{status.icon}</span>
-                <span>{status.display_name}</span>
-              </button>
-            ))}
-          </div>,
-          document.body
-        )}
+        {showStatusMenu &&
+          createPortal(
+            <div
+              className="fixed bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40 max-h-60 overflow-y-auto"
+              style={{
+                top: statusRef.current?.getBoundingClientRect().bottom || 0,
+                left: statusRef.current?.getBoundingClientRect().left || 0,
+              }}
+            >
+              {statuses.map((status) => (
+                <button
+                  key={status.name}
+                  onClick={() => handleStatusChange(status.name)}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                    task.status === status.name
+                      ? 'bg-blue-50 text-blue-700'
+                      : ''
+                  }`}
+                >
+                  <span>{status.icon}</span>
+                  <span>{status.display_name}</span>
+                </button>
+              ))}
+            </div>,
+            document.body,
+          )}
       </div>
 
       {/* Priority Menu */}
@@ -141,31 +155,37 @@ export function KanbanQuickActions({ task }: KanbanQuickActionsProps) {
           className="p-1.5 rounded text-xs text-gray-400 hover:bg-gray-100 transition-colors"
           title="Change priority"
         >
-          {task.priority ? PRIORITY_CONFIG[task.priority as keyof typeof PRIORITY_CONFIG]?.icon : "○"}
+          {task.priority
+            ? PRIORITY_CONFIG[task.priority as keyof typeof PRIORITY_CONFIG]
+                ?.icon
+            : '○'}
         </button>
-        {showPriorityMenu && createPortal(
-          <div
-            className="fixed bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-32"
-            style={{
-              top: priorityRef.current?.getBoundingClientRect().bottom || 0,
-              left: priorityRef.current?.getBoundingClientRect().left || 0,
-            }}
-          >
-            {PRIORITY_OPTIONS.map((option) => (
-              <button
-                key={option.value || "none"}
-                onClick={() => handlePriorityChange(option.value)}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${
-                  task.priority === option.value ? "bg-blue-50 text-blue-700" : ""
-                }`}
-              >
-                <span>{option.icon}</span>
-                <span>{option.label}</span>
-              </button>
-            ))}
-          </div>,
-          document.body
-        )}
+        {showPriorityMenu &&
+          createPortal(
+            <div
+              className="fixed bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-32"
+              style={{
+                top: priorityRef.current?.getBoundingClientRect().bottom || 0,
+                left: priorityRef.current?.getBoundingClientRect().left || 0,
+              }}
+            >
+              {PRIORITY_OPTIONS.map((option) => (
+                <button
+                  key={option.value || 'none'}
+                  onClick={() => handlePriorityChange(option.value)}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                    task.priority === option.value
+                      ? 'bg-blue-50 text-blue-700'
+                      : ''
+                  }`}
+                >
+                  <span>{option.icon}</span>
+                  <span>{option.label}</span>
+                </button>
+              ))}
+            </div>,
+            document.body,
+          )}
       </div>
     </div>
   );

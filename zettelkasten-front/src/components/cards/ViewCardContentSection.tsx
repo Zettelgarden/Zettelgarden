@@ -1,10 +1,10 @@
-import React from "react";
-import ReactMarkdown from "react-markdown";
-import { TaskListItem } from "../tasks/TaskListItem";
-import { Card } from "../../models/Card";
-import { SummarizeJobResponse } from "../../api/summarizer";
-import { HeaderSubSection } from "../Header";
-import { CardBody } from "./CardBody";
+import React from 'react';
+import ReactMarkdown from 'react-markdown';
+import { TaskListItem } from '../tasks/TaskListItem';
+import { Card } from '../../models/Card';
+import { SummarizeJobResponse } from '../../api/summarizer';
+import { HeaderSubSection } from '../Header';
+import { CardBody } from './CardBody';
 
 interface ViewCardContentSectionProps {
   viewingCard: Card;
@@ -24,8 +24,8 @@ export function ViewCardContentSection({
       <div
         className={`prose prose-sm max-w-none ${
           showingSummary
-            ? "bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3"
-            : ""
+            ? 'bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3'
+            : ''
         }`}
       >
         {showingSummary && latestSummary?.result ? (

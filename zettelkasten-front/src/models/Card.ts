@@ -1,7 +1,7 @@
-import { File } from "./File";
-import { Tag } from "./Tags";
-import { Task } from "./Task";
-import { RSSArticle } from "../api/rss";
+import { File } from './File';
+import { Tag } from './Tags';
+import { Task } from './Task';
+import { RSSArticle } from '../api/rss';
 
 export interface PartialCard {
   id: number;
@@ -81,7 +81,7 @@ export interface CardChunk {
 
 export interface SearchResult {
   id: string;
-  pk?: number;  // Internal database ID for linking
+  pk?: number; // Internal database ID for linking
   type: string;
   title: string;
   preview: string;
@@ -100,9 +100,9 @@ export interface SearchResult {
 
 export const defaultPartialCard: PartialCard = {
   id: -1,
-  card_id: "",
+  card_id: '',
   user_id: -1,
-  title: "",
+  title: '',
   parent_id: -1,
   created_at: new Date(0),
   updated_at: new Date(0),
@@ -112,11 +112,11 @@ export const defaultPartialCard: PartialCard = {
 
 export const defaultCard: Card = {
   id: -1,
-  card_id: "",
+  card_id: '',
   user_id: -1,
-  title: "",
-  body: "",
-  link: "",
+  title: '',
+  body: '',
+  link: '',
   is_deleted: false,
   created_at: new Date(0),
   updated_at: new Date(0),
@@ -135,14 +135,14 @@ export const defaultCard: Card = {
 export interface NextIdResponse {
   error: boolean;
   message: string;
-  new_id: string;  // Matches the actual backend response
+  new_id: string; // Matches the actual backend response
 }
 
 enum Rating {
   Again = 0,
   Hard = 1,
   Good = 2,
-  Easy = 3
+  Easy = 3,
 }
 
 export function getRatingValue(rating: string): number {
@@ -173,9 +173,9 @@ export interface CardTemplate {
 export const defaultCardTemplate: CardTemplate = {
   id: -1,
   user_id: -1,
-  name: "",
-  title: "",
-  body: "",
+  name: '',
+  title: '',
+  body: '',
   created_at: new Date(0),
   updated_at: new Date(0),
 };

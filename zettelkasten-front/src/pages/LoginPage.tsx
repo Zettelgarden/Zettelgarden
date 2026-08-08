@@ -1,55 +1,58 @@
-import React, { FormEvent, useState, useEffect } from "react";
-import { useAuth } from "../contexts/AuthContext";
-import { useSettings } from "../contexts/SettingsContext";
-import { login } from "../api/auth";
-import { FaGithub, FaFingerprint } from "react-icons/fa";
+import React, { FormEvent, useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { useSettings } from '../contexts/SettingsContext';
+import { login } from '../api/auth';
+import { FaGithub, FaFingerprint } from 'react-icons/fa';
 
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 // Friendly messages for the error codes emitted by the OAuth callback
 // handlers (see go-backend/handlers/oidc.go and oauth.go `fail(...)`).
 // Codes are shared across the OIDC and GitHub flows; no_email is GitHub-only.
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
-  missing_state: "Sign-in session expired. Please try again.",
-  bad_state: "Sign-in session was invalid. Please try again.",
-  state_mismatch: "Sign-in security check failed (state mismatch). Please try again.",
-  missing_code: "The identity provider did not return an authorization code.",
-  oidc_unavailable: "Single sign-on is not available right now. Please try again later.",
-  exchange_failed: "Could not complete sign-in with the identity provider.",
-  no_email: "GitHub did not return an email address.",
-  no_id_token: "The identity provider did not return an identity token.",
-  bad_id_token: "The identity token was invalid. Please try again.",
-  nonce_mismatch: "Sign-in replay check failed. Please try again.",
-  bad_claims: "Could not read your identity information from the provider.",
-  user_resolve_failed: "Could not sign you in. If the problem persists, contact support.",
-  jwt_failed: "Could not complete sign-in. Please try again.",
+  missing_state: 'Sign-in session expired. Please try again.',
+  bad_state: 'Sign-in session was invalid. Please try again.',
+  state_mismatch:
+    'Sign-in security check failed (state mismatch). Please try again.',
+  missing_code: 'The identity provider did not return an authorization code.',
+  oidc_unavailable:
+    'Single sign-on is not available right now. Please try again later.',
+  exchange_failed: 'Could not complete sign-in with the identity provider.',
+  no_email: 'GitHub did not return an email address.',
+  no_id_token: 'The identity provider did not return an identity token.',
+  bad_id_token: 'The identity token was invalid. Please try again.',
+  nonce_mismatch: 'Sign-in replay check failed. Please try again.',
+  bad_claims: 'Could not read your identity information from the provider.',
+  user_resolve_failed:
+    'Could not sign you in. If the problem persists, contact support.',
+  jwt_failed: 'Could not complete sign-in. Please try again.',
 };
 
 function LoginForm() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const { loginUser, loginUserFromToken } = useAuth();
   const { settings } = useSettings();
   const navigate = useNavigate();
   const location = useLocation();
   const message = location.state?.message;
 
-  const oidcEnabled = import.meta.env.VITE_OIDC_ENABLED === "true";
-  const oidcLabel = import.meta.env.VITE_OIDC_LABEL || "Continue with SSO";
+  const oidcEnabled = import.meta.env.VITE_OIDC_ENABLED === 'true';
+  const oidcLabel = import.meta.env.VITE_OIDC_LABEL || 'Continue with SSO';
 
   // GitHub login is shown by default; set VITE_GITHUB_AUTH_ENABLED=false to
   // hide the button when a generic OIDC provider replaces it.
-  const githubEnabled = import.meta.env.VITE_GITHUB_AUTH_ENABLED !== "false";
+  const githubEnabled = import.meta.env.VITE_GITHUB_AUTH_ENABLED !== 'false';
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     try {
       const response = await login(email, password);
       loginUser(response);
-      navigate("/app/");
+      navigate('/app/');
     } catch (message) {
-      setError("Login Failed: " + message);
+      setError('Login Failed: ' + message);
     }
   };
 
@@ -66,13 +69,13 @@ function LoginForm() {
   useEffect(() => {
     const handleOAuthCallback = async () => {
       const params = new URLSearchParams(location.search);
-      const token = params.get("token");
-      const errorCode = params.get("error");
+      const token = params.get('token');
+      const errorCode = params.get('error');
 
       if (errorCode) {
         setError(
           OAUTH_ERROR_MESSAGES[errorCode] ||
-            "Sign-in failed. Please try again.",
+            'Sign-in failed. Please try again.',
         );
         return;
       }
@@ -80,10 +83,10 @@ function LoginForm() {
       if (token) {
         try {
           await loginUserFromToken(token);
-          navigate("/app/");
+          navigate('/app/');
         } catch (error) {
-          console.error("OAuth login failed:", error);
-          setError("OAuth login failed. Please try again.");
+          console.error('OAuth login failed:', error);
+          setError('OAuth login failed. Please try again.');
         }
       }
     };
@@ -178,7 +181,7 @@ function LoginForm() {
         <div className="text-center mt-6 text-sm">
           {settings?.signupsEnabled !== false && (
             <p>
-              Don't have an account?{" "}
+              Don't have an account?{' '}
               <Link to="/register" className="text-blue-500 hover:underline">
                 Register here
               </Link>

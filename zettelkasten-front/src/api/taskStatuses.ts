@@ -10,7 +10,7 @@ const base_url = import.meta.env.VITE_URL;
 export async function fetchTaskStatuses(): Promise<TaskStatus[]> {
   const response = await fetch(`${base_url}/task-statuses`, {
     headers: {
-      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      Authorization: `Bearer ${localStorage.getItem('token')}`,
     },
   });
 
@@ -24,7 +24,7 @@ export async function fetchTaskStatuses(): Promise<TaskStatus[]> {
 export async function fetchTaskStatus(id: number): Promise<TaskStatus> {
   const response = await fetch(`${base_url}/task-statuses/${id}`, {
     headers: {
-      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      Authorization: `Bearer ${localStorage.getItem('token')}`,
     },
   });
 
@@ -35,12 +35,14 @@ export async function fetchTaskStatus(id: number): Promise<TaskStatus> {
   return await response.json();
 }
 
-export async function createTaskStatus(params: CreateTaskStatusParams): Promise<{ id: number }> {
+export async function createTaskStatus(
+  params: CreateTaskStatusParams,
+): Promise<{ id: number }> {
   const response = await fetch(`${base_url}/task-statuses`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      Authorization: `Bearer ${localStorage.getItem('token')}`,
     },
     body: JSON.stringify(params),
   });
@@ -54,13 +56,13 @@ export async function createTaskStatus(params: CreateTaskStatusParams): Promise<
 
 export async function updateTaskStatus(
   id: number,
-  params: UpdateTaskStatusParams
+  params: UpdateTaskStatusParams,
 ): Promise<{ message: string; error: boolean }> {
   const response = await fetch(`${base_url}/task-statuses/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      Authorization: `Bearer ${localStorage.getItem('token')}`,
     },
     body: JSON.stringify(params),
   });
@@ -76,7 +78,7 @@ export async function deleteTaskStatus(id: number): Promise<void> {
   const response = await fetch(`${base_url}/task-statuses/${id}`, {
     method: 'DELETE',
     headers: {
-      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      Authorization: `Bearer ${localStorage.getItem('token')}`,
     },
   });
 
@@ -87,13 +89,13 @@ export async function deleteTaskStatus(id: number): Promise<void> {
 }
 
 export async function reorderTaskStatuses(
-  params: ReorderTaskStatusesParams
+  params: ReorderTaskStatusesParams,
 ): Promise<{ message: string; error: boolean }> {
   const response = await fetch(`${base_url}/task-statuses/reorder`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      Authorization: `Bearer ${localStorage.getItem('token')}`,
     },
     body: JSON.stringify(params),
   });

@@ -1,34 +1,52 @@
-import React, { useState, useEffect, useRef } from "react";
-import { MobileTopBar } from "../../components/layout/MobileTopBar";
-import { isCardIdUnique } from "../../utils/cards";
-import { uploadFile } from "../../api/files";
-import { parseURL } from "../../api/references";
-import { saveNewCard, saveExistingCard, getCard, getNextRootId, getCardReferences, getCardChildren, getCardFiles, getCardTags, getCardTasks, getCardEntities, suggestCardTitle } from "../../api/cards";
-import { editFile } from "../../api/files";
-import { getTemplates } from "../../api/templates";
-import { FileListItem } from "../../components/files/FileListItem";
-import { BacklinkDialog } from "../../components/cards/BacklinkDialog";
-import { CardIdDiscoveryDialog } from "../../components/cards/CardIdDiscoveryDialog";
-import { useNavigate, useParams } from "react-router-dom";
-import { Card, PartialCard, defaultCard, CardTemplate } from "../../models/Card";
-import { File } from "../../models/File";
-import { useUIState, RightPaneTab } from "../../contexts/UIStateContext";
-import { Button } from "../../components/Button";
-import { CardBodyTextArea, CardBodyTextAreaHandle } from "../../components/cards/CardBodyTextArea";
-import { processTemplateVariables } from "../../utils/templateVariables";
-import { useRightPaneTab } from "../../hooks/useRightPaneTab";
+import React, { useState, useEffect, useRef } from 'react';
+import { MobileTopBar } from '../../components/layout/MobileTopBar';
+import { isCardIdUnique } from '../../utils/cards';
+import { uploadFile } from '../../api/files';
+import { parseURL } from '../../api/references';
+import {
+  saveNewCard,
+  saveExistingCard,
+  getCard,
+  getNextRootId,
+  getCardReferences,
+  getCardChildren,
+  getCardFiles,
+  getCardTags,
+  getCardTasks,
+  getCardEntities,
+  suggestCardTitle,
+} from '../../api/cards';
+import { editFile } from '../../api/files';
+import { getTemplates } from '../../api/templates';
+import { FileListItem } from '../../components/files/FileListItem';
+import { BacklinkDialog } from '../../components/cards/BacklinkDialog';
+import { CardIdDiscoveryDialog } from '../../components/cards/CardIdDiscoveryDialog';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+  Card,
+  PartialCard,
+  defaultCard,
+  CardTemplate,
+} from '../../models/Card';
+import { File } from '../../models/File';
+import { useUIState, RightPaneTab } from '../../contexts/UIStateContext';
+import { Button } from '../../components/Button';
+import {
+  CardBodyTextArea,
+  CardBodyTextAreaHandle,
+} from '../../components/cards/CardBodyTextArea';
+import { processTemplateVariables } from '../../utils/templateVariables';
+import { useRightPaneTab } from '../../hooks/useRightPaneTab';
 
-
-
-import { useTagContext } from "../../contexts/TagContext";
-import { setDocumentTitle } from "../../utils/title";
-import { isErrorResponse } from "../../models/common";
+import { useTagContext } from '../../contexts/TagContext';
+import { setDocumentTitle } from '../../utils/title';
+import { isErrorResponse } from '../../models/common';
 
 // New component imports
-import { EditPageHeader } from "../../components/cards/EditPageHeader";
-import { CardEditor } from "../../components/cards/CardEditor";
-import { CardMetadata } from "../../components/cards/CardMetadata";
-import { CardSchemaSection } from "../../components/schemas/CardSchemaSection";
+import { EditPageHeader } from '../../components/cards/EditPageHeader';
+import { CardEditor } from '../../components/cards/CardEditor';
+import { CardMetadata } from '../../components/cards/CardMetadata';
+import { CardSchemaSection } from '../../components/schemas/CardSchemaSection';
 
 // Editor context imports
 import {
@@ -38,7 +56,7 @@ import {
   useCardEditorContext,
   useEditorUIContext,
   useEditorMessagesContext,
-} from "../../contexts/editor";
+} from '../../contexts/editor';
 
 interface EditPageProps {
   newCard: boolean;
@@ -47,17 +65,21 @@ interface EditPageProps {
 // Edit rail tabs. Metadata holds Card ID/Tags/Schema/Details; Links (the
 // backlink input) arrives in PR 3.
 const EDIT_TABS: { id: RightPaneTab; label: string }[] = [
-  { id: "metadata", label: "Metadata" },
-  { id: "links", label: "Links" },
-  { id: "files", label: "Files" },
+  { id: 'metadata', label: 'Metadata' },
+  { id: 'links', label: 'Links' },
+  { id: 'files', label: 'Files' },
 ];
 
-function onFileDelete(file_id: number) { }
+function onFileDelete(file_id: number) {}
 
 function renderWarningLabel(cards: PartialCard[], editingCard: Card) {
   if (!editingCard.card_id) return null;
   if (!isCardIdUnique(cards, editingCard.card_id)) {
-    return <span className="text-red-600 text-sm font-medium">Card ID is not unique!</span>;
+    return (
+      <span className="text-red-600 text-sm font-medium">
+        Card ID is not unique!
+      </span>
+    );
   }
   return null;
 }
@@ -65,7 +87,16 @@ function renderWarningLabel(cards: PartialCard[], editingCard: Card) {
 function EditPageContent({ newCard }: EditPageProps) {
   const [originalCard, setOriginalCard] = useState<Card>(defaultCard);
   const [previewModeActive, setPreviewModeActive] = useState(false);
-  const { lastCard, nextCardId, setNextCardId, toggleMobileSidebar, rightPaneOpen, toggleRightPane, rightPaneTab, setRightPaneTab } = useUIState();
+  const {
+    lastCard,
+    nextCardId,
+    setNextCardId,
+    toggleMobileSidebar,
+    rightPaneOpen,
+    toggleRightPane,
+    rightPaneTab,
+    setRightPaneTab,
+  } = useUIState();
   const [filesToUpdate, setFilesToUpdate] = useState<File[]>([]);
   const cardBodyRef = useRef<CardBodyTextAreaHandle>(null);
   const [suggestingTitle, setSuggestingTitle] = useState(false);
@@ -83,7 +114,7 @@ function EditPageContent({ newCard }: EditPageProps) {
   } = useEditorUIContext();
   const { message, setMessage, error, setError } = useEditorMessagesContext();
 
-  const [fileFilterString, setFileFilterString] = useState<string>("");
+  const [fileFilterString, setFileFilterString] = useState<string>('');
   const { tags } = useTagContext();
 
   // Edit rail defaults to Metadata (an editor almost always wants Card ID/Tags
@@ -106,7 +137,7 @@ function EditPageContent({ newCard }: EditPageProps) {
       setTemplates(fetchedTemplates);
       setLoadingTemplates(false);
     } catch (err) {
-      setTemplateError("Failed to load templates");
+      setTemplateError('Failed to load templates');
       setLoadingTemplates(false);
     }
   }
@@ -126,11 +157,15 @@ function EditPageContent({ newCard }: EditPageProps) {
         getCardFiles(cardId),
         getCardTags(cardId),
         getCardTasks(cardId),
-        getCardEntities(cardId)
+        getCardEntities(cardId),
       ]);
 
       // Combine categorized references into a single array for backward compatibility
-      refreshed.references = [...refs.bidirectional, ...refs.outgoing, ...refs.incoming];
+      refreshed.references = [
+        ...refs.bidirectional,
+        ...refs.outgoing,
+        ...refs.incoming,
+      ];
       refreshed.children = kids;
       refreshed.files = files;
       refreshed.tags = cardTags;
@@ -139,9 +174,9 @@ function EditPageContent({ newCard }: EditPageProps) {
 
       setEditingCard(refreshed);
       setOriginalCard(refreshed);
-      setDocumentTitle(refreshed.card_id + " - Edit");
+      setDocumentTitle(refreshed.card_id + ' - Edit');
     } catch (err: any) {
-      setError((err as Error).message || "Failed to fetch card");
+      setError((err as Error).message || 'Failed to fetch card');
     }
   }
 
@@ -155,12 +190,12 @@ function EditPageContent({ newCard }: EditPageProps) {
         response = await saveExistingCard(editingCard);
       }
 
-      if (!("error" in response)) {
+      if (!('error' in response)) {
         if (newCard) {
           localStorage.removeItem('newCardBodyDraft');
         }
         filesToUpdate.map((file) =>
-          editFile(file["id"].toString(), {
+          editFile(file['id'].toString(), {
             name: file.name,
             card_pk: response.id,
           }),
@@ -168,15 +203,16 @@ function EditPageContent({ newCard }: EditPageProps) {
 
         navigate(`/app/card/${response.id}`);
       } else {
-        setError("Unable to save card, something has gone wrong.");
+        setError('Unable to save card, something has gone wrong.');
       }
     } catch (error: any) {
       console.error('Error saving card:', error);
 
       // Check for specific error messages from the backend
-      let errorMessage = error.message || "Failed to save card. Please try again.";
+      let errorMessage =
+        error.message || 'Failed to save card. Please try again.';
 
-      if (errorMessage.includes("card_id already exists")) {
+      if (errorMessage.includes('card_id already exists')) {
         errorMessage = `The Card ID "${editingCard.card_id}" is already in use by another card. Please choose a different ID.`;
       }
 
@@ -189,10 +225,10 @@ function EditPageContent({ newCard }: EditPageProps) {
     if (!newCard) {
       fetchCard(id!);
     } else if (!hasInitializedRef.current) {
-      setDocumentTitle("New Card");
-      const draft = localStorage.getItem('newCardBodyDraft') || "";
-      console.log(nextCardId, lastCard?.card_id)
-      const cardId = nextCardId || (lastCard ? lastCard.card_id : "");
+      setDocumentTitle('New Card');
+      const draft = localStorage.getItem('newCardBodyDraft') || '';
+      console.log(nextCardId, lastCard?.card_id);
+      const cardId = nextCardId || (lastCard ? lastCard.card_id : '');
       setEditingCard({
         ...defaultCard,
         card_id: cardId,
@@ -226,11 +262,11 @@ function EditPageContent({ newCard }: EditPageProps) {
   }
 
   function addBacklink(selectedCard: PartialCard) {
-    let text = "";
+    let text = '';
     if (selectedCard) {
-      text = "\n\n[[" + selectedCard.card_id + "|*|]]";
+      text = '\n\n[[' + selectedCard.card_id + '|*|]]';
     } else {
-      text = "";
+      text = '';
     }
     setEditingCard((prevEditingCard) => ({
       ...prevEditingCard,
@@ -241,7 +277,7 @@ function EditPageContent({ newCard }: EditPageProps) {
   function handleTagClick(tagName: string) {
     setEditingCard((prevEditingCard) => ({
       ...prevEditingCard,
-      body: prevEditingCard.body + "\n\n#" + tagName,
+      body: prevEditingCard.body + '\n\n#' + tagName,
     }));
   }
 
@@ -256,7 +292,7 @@ function EditPageContent({ newCard }: EditPageProps) {
   async function handleClickFillCard() {
     if (!editingCard.link) {
       // Handle case where there's no link
-      console.log("No link provided");
+      console.log('No link provided');
       return;
     }
 
@@ -266,13 +302,13 @@ function EditPageContent({ newCard }: EditPageProps) {
         ...prev,
         // Only update title if it's empty/blank
         title:
-          !prev.title || prev.title.trim() === "" ? result.title : prev.title,
+          !prev.title || prev.title.trim() === '' ? result.title : prev.title,
         // Only update body if it's empty/blank
         body:
-          !prev.body || prev.body.trim() === "" ? result.content : prev.body,
+          !prev.body || prev.body.trim() === '' ? result.content : prev.body,
       }));
     } catch (error) {
-      console.error("Failed to parse URL:", error);
+      console.error('Failed to parse URL:', error);
       // Handle error - maybe show a notification to the user
     }
   }
@@ -280,19 +316,21 @@ function EditPageContent({ newCard }: EditPageProps) {
   async function handleDisplayFileOnCardClick(file: File) {
     setEditingCard((prevEditingCard) => ({
       ...prevEditingCard,
-      body: prevEditingCard.body + "\n\n![](" + file.id + ")",
+      body: prevEditingCard.body + '\n\n![](' + file.id + ')',
     }));
   }
 
   async function handleSuggestTitle() {
     if (!editingCard.body.trim()) {
-      setError("Please add some content to the card body before suggesting a title.");
+      setError(
+        'Please add some content to the card body before suggesting a title.',
+      );
       return;
     }
 
     setSuggestingTitle(true);
-    setError("");
-    setMessage("");
+    setError('');
+    setMessage('');
 
     try {
       const suggestedTitle = await suggestCardTitle(editingCard.body);
@@ -300,26 +338,24 @@ function EditPageContent({ newCard }: EditPageProps) {
         ...prevCard,
         title: suggestedTitle,
       }));
-      setMessage("Title suggestion applied successfully!");
+      setMessage('Title suggestion applied successfully!');
     } catch (error: any) {
-      console.error("Error suggesting title:", error);
-      setError(error.message || "Failed to suggest title. Please try again.");
+      console.error('Error suggesting title:', error);
+      setError(error.message || 'Failed to suggest title. Please try again.');
     } finally {
       setSuggestingTitle(false);
     }
   }
 
   return (
-
     <div className="pb-10">
       {editingCard && (
         <MobileTopBar
-          title={editingCard.title || (newCard ? "New Card" : "Edit Card")}
+          title={editingCard.title || (newCard ? 'New Card' : 'Edit Card')}
           onMenuClick={toggleMobileSidebar}
         />
       )}
       <div className="space-y-6">
-
         <EditPageHeader
           newCard={newCard}
           originalCard={originalCard}
@@ -339,7 +375,9 @@ function EditPageContent({ newCard }: EditPageProps) {
         <div className="">
           {editingCard && (
             <div className="flex flex-col md:flex-row gap-4 px-4">
-              <div className={`${rightPaneOpen ? "md:w-2/3" : "w-full"} space-y-6`}>
+              <div
+                className={`${rightPaneOpen ? 'md:w-2/3' : 'w-full'} space-y-6`}
+              >
                 <CardEditor
                   newCard={newCard}
                   previewModeActive={previewModeActive}
@@ -361,9 +399,10 @@ function EditPageContent({ newCard }: EditPageProps) {
                           onClick={() => setRightPaneTab(tab.id)}
                           className={`
                             cursor-pointer font-medium py-1 px-2 flex items-center text-sm
-                            ${rightPaneTab === tab.id
-                              ? "text-blue-600 border-b-2 border-blue-600"
-                              : "text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md"
+                            ${
+                              rightPaneTab === tab.id
+                                ? 'text-blue-600 border-b-2 border-blue-600'
+                                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md'
                             }
                           `}
                         >
@@ -378,14 +417,24 @@ function EditPageContent({ newCard }: EditPageProps) {
                       aria-label="Close info pane"
                       className="p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
                   </div>
 
                   <div className="space-y-4">
-                    {rightPaneTab === "links" && (
+                    {rightPaneTab === 'links' && (
                       <CardMetadata
                         newCard={newCard}
                         originalCard={originalCard}
@@ -401,7 +450,7 @@ function EditPageContent({ newCard }: EditPageProps) {
                       />
                     )}
 
-                    {rightPaneTab === "metadata" && (
+                    {rightPaneTab === 'metadata' && (
                       <>
                         <CardMetadata
                           newCard={newCard}
@@ -422,17 +471,24 @@ function EditPageContent({ newCard }: EditPageProps) {
                             schemaId={editingCard.schema_id}
                             structuredData={editingCard.structured_data}
                             onSchemaChange={(schemaId) =>
-                              setEditingCard({ ...editingCard, schema_id: schemaId, structured_data: {} })
+                              setEditingCard({
+                                ...editingCard,
+                                schema_id: schemaId,
+                                structured_data: {},
+                              })
                             }
                             onDataChange={(data) =>
-                              setEditingCard({ ...editingCard, structured_data: data })
+                              setEditingCard({
+                                ...editingCard,
+                                structured_data: data,
+                              })
                             }
                           />
                         </div>
                       </>
                     )}
 
-                    {rightPaneTab === "files" && (
+                    {rightPaneTab === 'files' && (
                       <div>
                         <h4 className="text-sm font-medium text-gray-900 mb-3">
                           Files ({editingCard.files.length})
@@ -444,7 +500,7 @@ function EditPageContent({ newCard }: EditPageProps) {
                                 key={index}
                                 file={file}
                                 onDelete={onFileDelete}
-                                setRefreshFiles={(refresh: boolean) => { }}
+                                setRefreshFiles={(refresh: boolean) => {}}
                                 displayFileOnCard={(file: File) =>
                                   handleDisplayFileOnCardClick(file)
                                 }
@@ -454,7 +510,9 @@ function EditPageContent({ newCard }: EditPageProps) {
                             ))}
                           </ul>
                         ) : (
-                          <p className="text-sm text-gray-400">No files attached.</p>
+                          <p className="text-sm text-gray-400">
+                            No files attached.
+                          </p>
                         )}
                       </div>
                     )}
@@ -475,8 +533,7 @@ function EditPageContent({ newCard }: EditPageProps) {
           }}
         />
       )}
-
-    </div >
+    </div>
   );
 }
 
@@ -488,8 +545,8 @@ export function EditPage({ newCard }: EditPageProps) {
   // Initialize editingCard state for the provider
   const [editingCard, setEditingCard] = React.useState<Card>(() => {
     if (newCard) {
-      const draft = localStorage.getItem('newCardBodyDraft') || "";
-      const cardId = nextCardId || (lastCard ? lastCard.card_id : "");
+      const draft = localStorage.getItem('newCardBodyDraft') || '';
+      const cardId = nextCardId || (lastCard ? lastCard.card_id : '');
       return {
         ...defaultCard,
         card_id: cardId,
@@ -505,15 +562,18 @@ export function EditPage({ newCard }: EditPageProps) {
     const processedTitle = processTemplateVariables(template.title);
     const processedBody = processTemplateVariables(template.body);
 
-    setEditingCard(prevCard => ({
+    setEditingCard((prevCard) => ({
       ...prevCard,
       title: processedTitle,
-      body: processedBody
+      body: processedBody,
     }));
   }
 
   return (
-    <CardEditorProvider editingCard={editingCard} setEditingCard={setEditingCard}>
+    <CardEditorProvider
+      editingCard={editingCard}
+      setEditingCard={setEditingCard}
+    >
       <EditorUIProvider handleSelectTemplate={handleSelectTemplate}>
         <EditorMessagesProvider>
           <EditPageContent newCard={newCard} />

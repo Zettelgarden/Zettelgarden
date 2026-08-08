@@ -38,7 +38,7 @@ describe('MobileBottomNav', () => {
       <MobileBottomNav
         onCreateCard={mockCreateCard}
         onCreateTask={mockCreateTask}
-      />
+      />,
     );
 
     const nav = screen.getByRole('navigation', { name: /primary actions/i });
@@ -50,7 +50,7 @@ describe('MobileBottomNav', () => {
       <MobileBottomNav
         onCreateCard={mockCreateCard}
         onCreateTask={mockCreateTask}
-      />
+      />,
     );
 
     // Check for button labels
@@ -64,7 +64,7 @@ describe('MobileBottomNav', () => {
       <MobileBottomNav
         onCreateCard={mockCreateCard}
         onCreateTask={mockCreateTask}
-      />
+      />,
     );
 
     const cardButton = screen.getByLabelText(/create new card/i);
@@ -78,7 +78,7 @@ describe('MobileBottomNav', () => {
       <MobileBottomNav
         onCreateCard={mockCreateCard}
         onCreateTask={mockCreateTask}
-      />
+      />,
     );
 
     const taskButton = screen.getByLabelText(/create new task/i);
@@ -92,7 +92,7 @@ describe('MobileBottomNav', () => {
       <MobileBottomNav
         onCreateCard={mockCreateCard}
         onCreateTask={mockCreateTask}
-      />
+      />,
     );
 
     const nav = container.querySelector('nav');
@@ -104,7 +104,7 @@ describe('MobileBottomNav', () => {
       <MobileBottomNav
         onCreateCard={mockCreateCard}
         onCreateTask={mockCreateTask}
-      />
+      />,
     );
 
     const nav = container.querySelector('nav');
@@ -116,7 +116,7 @@ describe('MobileBottomNav', () => {
       <MobileBottomNav
         onCreateCard={mockCreateCard}
         onCreateTask={mockCreateTask}
-      />
+      />,
     );
 
     const nav = container.querySelector('nav');
@@ -129,7 +129,7 @@ describe('MobileBottomNav', () => {
       <MobileBottomNav
         onCreateCard={mockCreateCard}
         onCreateTask={mockCreateTask}
-      />
+      />,
     );
 
     // Check that visible text labels are present
@@ -143,7 +143,7 @@ describe('MobileBottomNav', () => {
       <MobileBottomNav
         onCreateCard={mockCreateCard}
         onCreateTask={mockCreateTask}
-      />
+      />,
     );
 
     const nav = container.querySelector('nav');
@@ -155,7 +155,7 @@ describe('MobileBottomNav', () => {
       <MobileBottomNav
         onCreateCard={mockCreateCard}
         onCreateTask={mockCreateTask}
-      />
+      />,
     );
 
     const nav = container.querySelector('nav');
@@ -167,11 +167,15 @@ describe('MobileBottomNav', () => {
       <MobileBottomNav
         onCreateCard={mockCreateCard}
         onCreateTask={mockCreateTask}
-      />
+      />,
     );
 
-    const cardButton = screen.getByLabelText(/create new card/i).closest('button');
-    const taskButton = screen.getByLabelText(/create new task/i).closest('button');
+    const cardButton = screen
+      .getByLabelText(/create new card/i)
+      .closest('button');
+    const taskButton = screen
+      .getByLabelText(/create new task/i)
+      .closest('button');
     const searchButton = screen.getByLabelText(/search/i).closest('button');
 
     // Check for min-height class on buttons (48px exceeds WCAG 44px minimum)
@@ -185,7 +189,7 @@ describe('MobileBottomNav', () => {
       <MobileBottomNav
         onCreateCard={mockCreateCard}
         onCreateTask={mockCreateTask}
-      />
+      />,
     );
 
     const searchButton = screen.getByLabelText(/search/i);

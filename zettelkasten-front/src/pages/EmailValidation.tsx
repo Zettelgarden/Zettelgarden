@@ -1,34 +1,34 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { validateEmail } from "../api/users";
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { validateEmail } from '../api/users';
 
 function EmailValidation() {
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     const query = new URLSearchParams(location.search);
-    const token = query.get("token");
+    const token = query.get('token');
     if (token) {
       handleValidateEmail(token);
     }
   }, [location]);
 
   const handleValidateEmail = async (token: string) => {
-    setMessage("");
+    setMessage('');
     try {
       const response = await validateEmail(token);
       if (response.error) {
         setMessage(response.message);
       } else {
-        setMessage("Your email has been successfully validated.");
-        navigate("/login", {
-          state: { message: "Your email has been successfully validated." },
+        setMessage('Your email has been successfully validated.');
+        navigate('/login', {
+          state: { message: 'Your email has been successfully validated.' },
         });
       }
     } catch (error) {
-      setMessage("Failed to validate email.");
+      setMessage('Failed to validate email.');
     }
   };
 

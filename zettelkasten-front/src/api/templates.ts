@@ -1,5 +1,5 @@
-import { CardTemplate, defaultCardTemplate } from "../models/Card";
-import { apiClient, getData } from "./client";
+import { CardTemplate, defaultCardTemplate } from '../models/Card';
+import { apiClient, getData } from './client';
 
 function parseTemplateDates(template: CardTemplate): CardTemplate {
   return {
@@ -26,9 +26,14 @@ export function getTemplates(): Promise<CardTemplate[]> {
  * @param body The body content for the template
  * @returns A promise that resolves to the created template
  */
-export function saveAsTemplate(name: string, title: string, body: string): Promise<CardTemplate> {
-  return getData(apiClient.post<CardTemplate>(`/templates`, { name, title, body }))
-    .then(parseTemplateDates);
+export function saveAsTemplate(
+  name: string,
+  title: string,
+  body: string,
+): Promise<CardTemplate> {
+  return getData(
+    apiClient.post<CardTemplate>(`/templates`, { name, title, body }),
+  ).then(parseTemplateDates);
 }
 
 /**
@@ -37,8 +42,9 @@ export function saveAsTemplate(name: string, title: string, body: string): Promi
  * @returns A promise that resolves to the template
  */
 export function getTemplate(id: number): Promise<CardTemplate> {
-  return getData(apiClient.get<CardTemplate>(`/templates/${id}`))
-    .then(parseTemplateDates);
+  return getData(apiClient.get<CardTemplate>(`/templates/${id}`)).then(
+    parseTemplateDates,
+  );
 }
 
 /**
@@ -49,9 +55,15 @@ export function getTemplate(id: number): Promise<CardTemplate> {
  * @param body The new body content for the template
  * @returns A promise that resolves to the updated template
  */
-export function updateTemplate(id: number, name: string, title: string, body: string): Promise<CardTemplate> {
-  return getData(apiClient.put<CardTemplate>(`/templates/${id}`, { name, title, body }))
-    .then(parseTemplateDates);
+export function updateTemplate(
+  id: number,
+  name: string,
+  title: string,
+  body: string,
+): Promise<CardTemplate> {
+  return getData(
+    apiClient.put<CardTemplate>(`/templates/${id}`, { name, title, body }),
+  ).then(parseTemplateDates);
 }
 
 /**

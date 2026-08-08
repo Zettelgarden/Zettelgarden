@@ -1,5 +1,5 @@
-import { RefObject } from "react";
-import { Card } from "../../models/Card";
+import { RefObject } from 'react';
+import { Card } from '../../models/Card';
 
 interface UseListEditingOptions {
   editingCard: Card;
@@ -10,9 +10,11 @@ interface UseListEditingOptions {
 export function useListEditing({
   editingCard,
   textareaRef,
-  setEditingCard
+  setEditingCard,
 }: UseListEditingOptions) {
-  const handleListKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleListKeyDown = (
+    event: React.KeyboardEvent<HTMLTextAreaElement>,
+  ) => {
     const textarea = event.currentTarget;
     const { value, selectionStart, selectionEnd } = textarea;
 
@@ -27,7 +29,7 @@ export function useListEditing({
       const lines = selectedLines.split('\n');
 
       // Check if any line starts with a bullet (- or *)
-      const hasBullets = lines.some(line => {
+      const hasBullets = lines.some((line) => {
         const trimmed = line.trim();
         return trimmed.startsWith('-') || trimmed.startsWith('*');
       });
@@ -47,7 +49,7 @@ export function useListEditing({
 
       if (event.shiftKey) {
         // Shift+Tab: Unindent (remove up to 2 spaces)
-        newLines = lines.map(line => {
+        newLines = lines.map((line) => {
           // Only unindent lines that have bullets or are already indented
           if (line.match(/^\s*[-*]/) || line.match(/^\s+/)) {
             // Remove up to 2 spaces from the beginning
@@ -66,7 +68,7 @@ export function useListEditing({
         cursorOffset = newLength - originalLength;
       } else {
         // Tab: Indent (add 2 spaces)
-        newLines = lines.map(line => {
+        newLines = lines.map((line) => {
           // Only indent lines that have content or bullets
           if (line.trim().length > 0) {
             return '  ' + line;
@@ -75,7 +77,8 @@ export function useListEditing({
         });
 
         // Calculate cursor offset (positive for indent)
-        const addedSpaces = newLines.filter(line => line.trim().length > 0).length * 2;
+        const addedSpaces =
+          newLines.filter((line) => line.trim().length > 0).length * 2;
         cursorOffset = addedSpaces;
       }
 
@@ -83,7 +86,13 @@ export function useListEditing({
       setEditingCard({ ...editingCard, body: newBody });
 
       setTimeout(() => {
-        const newStart = selectionStart + (lineStart === selectionStart ? (event.shiftKey ? Math.max(cursorOffset, -2) : 2) : 0);
+        const newStart =
+          selectionStart +
+          (lineStart === selectionStart
+            ? event.shiftKey
+              ? Math.max(cursorOffset, -2)
+              : 2
+            : 0);
         const newEnd = selectionEnd + cursorOffset;
         textarea.setSelectionRange(newStart, newEnd);
       }, 0);
@@ -135,7 +144,7 @@ export function useListEditing({
           setTimeout(() => {
             textarea.setSelectionRange(
               selectionStart + newText.length,
-              selectionStart + newText.length
+              selectionStart + newText.length,
             );
           }, 0);
         }

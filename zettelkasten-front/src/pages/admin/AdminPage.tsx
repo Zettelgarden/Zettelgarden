@@ -1,17 +1,17 @@
-import React, { useEffect, useState } from "react";
-import { useAuth } from "../../contexts/AuthContext";
-import { useNavigate, Link } from "react-router-dom";
-import { MenuIcon } from "../../assets/icons/MenuIcon";
+import React, { useEffect, useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate, Link } from 'react-router-dom';
+import { MenuIcon } from '../../assets/icons/MenuIcon';
 
-import { AdminUserIndex } from "./AdminUserIndex";
-import { AdminUserDetailPage } from "./AdminUserDetailPage";
-import { AdminEditUserPage } from "./AdminEditUserPage";
-import { AdminJobQueuePage } from "./AdminJobQueuePage";
-import { AdminSchedulerPage } from "./AdminSchedulerPage";
-import { AdminSettingsPage } from "./AdminSettingsPage";
-import { AdminDashboard } from "./AdminDashboard";
+import { AdminUserIndex } from './AdminUserIndex';
+import { AdminUserDetailPage } from './AdminUserDetailPage';
+import { AdminEditUserPage } from './AdminEditUserPage';
+import { AdminJobQueuePage } from './AdminJobQueuePage';
+import { AdminSchedulerPage } from './AdminSchedulerPage';
+import { AdminSettingsPage } from './AdminSettingsPage';
+import { AdminDashboard } from './AdminDashboard';
 
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route } from 'react-router-dom';
 
 export function Admin() {
   const { isAdmin, isLoading } = useAuth();
@@ -23,7 +23,7 @@ export function Admin() {
       // Navigate to /app using React Router. Since this page is only
       // reached via hash routes (/#/admin), navigate() correctly
       // changes the hash to #/app.
-      navigate("/app", { replace: true });
+      navigate('/app', { replace: true });
     }
   }, [isAdmin, isLoading, navigate]);
 
@@ -34,11 +34,11 @@ export function Admin() {
       </div>
     );
   }
-  
+
   if (!isLoading && !isAdmin) {
     return <div></div>;
   }
-  
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Mobile Menu Button */}
@@ -70,7 +70,7 @@ export function Admin() {
           bg-gray-800
           flex flex-col
           transform
-          ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           md:translate-x-0
           transition-transform
           duration-300
@@ -139,9 +139,7 @@ export function Admin() {
                     ⏰ Scheduled Jobs
                   </Link>
                 </li>
-                
-                
-                
+
                 <li className="pt-4 border-t border-gray-700 mt-4">
                   <Link
                     to="/app"
@@ -169,7 +167,7 @@ export function Admin() {
               <Route path="settings" element={<AdminSettingsPage />} />
               <Route path="job-queue" element={<AdminJobQueuePage />} />
               <Route path="scheduler" element={<AdminSchedulerPage />} />
-                                                      </Routes>
+            </Routes>
           </div>
         </div>
       </div>

@@ -1,9 +1,9 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import { Entity } from "../../models/Card";
-import { CardIcon } from "../../assets/icons/CardIcon";
-import { CardTag } from "../cards/CardTag";
-import { Button } from "../Button";
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Entity } from '../../models/Card';
+import { CardIcon } from '../../assets/icons/CardIcon';
+import { CardTag } from '../cards/CardTag';
+import { Button } from '../Button';
 
 interface EntityHeaderProps {
   entity: Entity;
@@ -12,7 +12,12 @@ interface EntityHeaderProps {
   onTurnIntoCard?: () => void;
 }
 
-export function EntityHeader({ entity, onClose, onEdit, onTurnIntoCard }: EntityHeaderProps) {
+export function EntityHeader({
+  entity,
+  onClose,
+  onEdit,
+  onTurnIntoCard,
+}: EntityHeaderProps) {
   return (
     <>
       <div className="text-lg font-medium leading-6 text-gray-900 mb-2 flex items-center gap-2 flex-wrap">
@@ -61,9 +66,7 @@ export function EntityHeader({ entity, onClose, onEdit, onTurnIntoCard }: Entity
             Edit
           </Button>
         )}
-        <Button onClick={onClose}>
-          Close
-        </Button>
+        <Button onClick={onClose}>Close</Button>
       </div>
     </>
   );

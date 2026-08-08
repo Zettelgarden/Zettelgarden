@@ -1,15 +1,15 @@
-const zettel_env = import.meta.env.VITE_ENV || "";
+const zettel_env = import.meta.env.VITE_ENV || '';
 
 // Base title is mutable: SettingsContext applies the instance's site_name
 // (config.yaml) once loaded, so a self-hosted instance brands its own tabs.
-let baseTitle = "Zettelgarden" + zettel_env;
+let baseTitle = 'Zettelgarden' + zettel_env;
 
 /**
  * Sets the base title suffix used by setDocumentTitle (e.g. the instance
  * site_name from runtime settings).
  */
 export function setBaseTitle(title: string) {
-  baseTitle = (title || "Zettelgarden") + zettel_env;
+  baseTitle = (title || 'Zettelgarden') + zettel_env;
 }
 
 /**

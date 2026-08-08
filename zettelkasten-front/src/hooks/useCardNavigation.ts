@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { Card, PartialCard } from "../models/Card";
-import { compareCardIds } from "../utils/cards";
+import { useState, useEffect } from 'react';
+import { Card, PartialCard } from '../models/Card';
+import { compareCardIds } from '../utils/cards';
 
 interface UseCardNavigationResult {
   prevSibling: PartialCard | null;
@@ -14,7 +14,7 @@ interface UseCardNavigationResult {
  */
 export function useCardNavigation(
   parentCard: Card | null,
-  viewingCard: Card | null
+  viewingCard: Card | null,
 ): UseCardNavigationResult {
   const [prevSibling, setPrevSibling] = useState<PartialCard | null>(null);
   const [nextSibling, setNextSibling] = useState<PartialCard | null>(null);
@@ -22,13 +22,17 @@ export function useCardNavigation(
   useEffect(() => {
     if (parentCard && viewingCard) {
       const siblings = parentCard.children.sort((a, b) =>
-        compareCardIds(a.card_id, b.card_id)
+        compareCardIds(a.card_id, b.card_id),
       );
-      const currentIndex = siblings.findIndex(s => s.id === viewingCard.id);
+      const currentIndex = siblings.findIndex((s) => s.id === viewingCard.id);
 
       if (currentIndex !== -1) {
         setPrevSibling(currentIndex > 0 ? siblings[currentIndex - 1] : null);
-        setNextSibling(currentIndex < siblings.length - 1 ? siblings[currentIndex + 1] : null);
+        setNextSibling(
+          currentIndex < siblings.length - 1
+            ? siblings[currentIndex + 1]
+            : null,
+        );
       } else {
         setPrevSibling(null);
         setNextSibling(null);

@@ -13,6 +13,7 @@ This document provides a comprehensive evaluation and implementation plan for in
 The Zettelgarden frontend currently uses React Context for state management with the following patterns:
 
 #### TaskContext (`src/contexts/TaskContext.tsx`)
+
 ```typescript
 // Current pattern
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
@@ -45,6 +46,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 ```
 
 **Issues identified:**
+
 - Manual polling every 60 seconds
 - Manual refresh triggers via boolean flag
 - No automatic caching or deduplication
@@ -53,6 +55,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 - No built-in optimistic updates
 
 #### TagContext (`src/contexts/TagContext.tsx`)
+
 ```typescript
 // Current pattern
 const [tags, setTags] = useState<Tag[]>([]);
@@ -74,11 +77,13 @@ useEffect(() => {
 ```
 
 **Issues identified:**
+
 - Manual refresh pattern with boolean flag
 - No caching
 - Sorting logic in the context
 
 #### useCardData Hook (`src/hooks/useCardData.ts`)
+
 ```typescript
 // Current pattern
 export function useCardData(cardId?: string): UseCardDataResult {
@@ -106,6 +111,7 @@ export function useCardData(cardId?: string): UseCardDataResult {
 ```
 
 **Issues identified:**
+
 - Multiple parallel fetches that could be combined
 - No caching between page navigations
 - Manual error handling
@@ -117,15 +123,17 @@ export function useCardData(cardId?: string): UseCardDataResult {
 The API layer (`src/api/`) is well-structured:
 
 **Strengths:**
+
 - Clean separation between API calls and state management
 - Consistent use of `checkStatus()` for error handling
 - Type-safe function signatures
 - Proper token management via localStorage
 
 **Example from `tasks.ts`:**
+
 ```typescript
 export function fetchTasks(params: FetchTasksParams = {}): Promise<Task[]> {
-  let token = localStorage.getItem("token");
+  let token = localStorage.getItem('token');
   // ... pagination logic
   return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
     .then(checkStatus)
@@ -138,6 +146,7 @@ This API layer is **well-suited for React Query integration** as it returns prom
 ### 1.3 Authentication Pattern
 
 Current auth in `AuthContext.tsx`:
+
 ```typescript
 const [isAuthenticated, setIsAuthenticated] = useState(false);
 const [isLoading, setIsLoading] = useState(true);
@@ -145,7 +154,7 @@ const [isLoading, setIsLoading] = useState(true);
 useEffect(() => {
   const initializeAuth = async () => {
     setIsLoading(true);
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem('token');
     if (token) {
       const currentUser = await getCurrentUser();
       setCurrentUser(currentUser);
@@ -167,6 +176,7 @@ This pattern is compatible with React Query's `useQuery` for user data fetching.
 **Recommended Pilot: Tasks Feature**
 
 Rationale:
+
 1. **Well-defined boundaries** - Tasks are self-contained with clear CRUD operations
 2. **High usage** - Tasks are used throughout the app (Sidebar, TaskPage, CardView)
 3. **Moderate complexity** - Enough complexity to demonstrate benefits without being overwhelming
@@ -174,6 +184,7 @@ Rationale:
 5. **Clear migration path** - TaskContext can be replaced incrementally
 
 Alternative pilots (for later):
+
 - Tags feature (simpler, good second step)
 - Cards feature (more complex, save for after pilot succeeds)
 
@@ -198,6 +209,7 @@ export const queryKeys = {
 ```
 
 **Benefits:**
+
 - Type-safe query keys
 - Easy partial invalidation (e.g., invalidate all task lists but not details)
 - Hierarchical cache management
@@ -219,11 +231,11 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: async ({ queryKey, signal }) => {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem('token');
         // Custom fetch with token
-      }
-    }
-  }
+      },
+    },
+  },
 });
 ```
 
@@ -242,13 +254,20 @@ export function useUpdateTask() {
 
     // 1. Cancel outgoing refetches
     onMutate: async (updatedTask) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.tasks.detail(updatedTask.id) });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.tasks.detail(updatedTask.id),
+      });
 
       // 2. Snapshot previous value
-      const previousTask = queryClient.getQueryData(queryKeys.tasks.detail(updatedTask.id));
+      const previousTask = queryClient.getQueryData(
+        queryKeys.tasks.detail(updatedTask.id),
+      );
 
       // 3. Optimistically update
-      queryClient.setQueryData(queryKeys.tasks.detail(updatedTask.id), updatedTask);
+      queryClient.setQueryData(
+        queryKeys.tasks.detail(updatedTask.id),
+        updatedTask,
+      );
 
       return { previousTask };
     },
@@ -256,13 +275,18 @@ export function useUpdateTask() {
     // 4. Rollback on error
     onError: (error, variables, context) => {
       if (context?.previousTask) {
-        queryClient.setQueryData(queryKeys.tasks.detail(variables.id), context.previousTask);
+        queryClient.setQueryData(
+          queryKeys.tasks.detail(variables.id),
+          context.previousTask,
+        );
       }
     },
 
     // 5. Always refetch after settled
     onSettled: (newTask) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.detail(newTask.id) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.tasks.detail(newTask.id),
+      });
     },
   });
 }
@@ -294,6 +318,7 @@ async function updateTask(editedTask: Task) {
 ### Phase 1: Setup and Installation (Week 1)
 
 #### Step 1.1: Install Dependencies
+
 ```bash
 cd zettelkasten-front
 npm install @tanstack/react-query@5
@@ -301,19 +326,25 @@ npm install -D @tanstack/react-query-devtools@5
 ```
 
 #### Step 1.2: Create Query Client Setup
+
 Create `src/api/queryClient.ts`:
+
 - Configure QueryClient with appropriate defaults
 - Create query key factory for tasks
 - Create mutation key factory
 
 #### Step 1.3: Create Provider Component
+
 Create `src/components/ReactQueryDevtools.tsx`:
+
 - Wrap app with QueryClientProvider
 - Add devtools for development
 - Document usage in comments
 
 #### Step 1.4: Update Entry Point
+
 Modify `src/index.tsx`:
+
 ```typescript
 import { QueryClientProvider } from './components/ReactQueryDevtools';
 
@@ -333,7 +364,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 ### Phase 2: Pilot Implementation - Tasks (Week 2-3)
 
 #### Step 2.1: Create Task Query Hooks
+
 Create `src/hooks/queries/useTasks.ts`:
+
 - `useTasks()` - Fetch task lists with filters
 - `useTask(id)` - Fetch single task
 - `useTaskAuditEvents(id)` - Fetch audit events
@@ -345,25 +378,33 @@ Create `src/hooks/queries/useTasks.ts`:
 - `useCompleteAndScheduleTask()` - Complete and reschedule mutation
 
 #### Step 2.2: Create Example Component
+
 Create `src/components/tasks/TaskListWithRQ.example.tsx`:
+
 - Demonstrate new pattern
 - Show before/after comparison
 - Document benefits and usage
 
 #### Step 2.3: Migrate Sidebar Component
+
 Modify `src/components/Sidebar.tsx`:
+
 - Replace `useTaskContext()` with `useTasks()`
 - Add loading state handling
 - Remove `setRefreshTasks` calls
 
 #### Step 2.4: Migrate TaskPage Component
+
 Modify `src/pages/tasks/TaskPage.tsx`:
+
 - Replace context usage with query hooks
 - Implement optimistic updates for task toggles
 - Add error handling UI
 
 #### Step 2.5: Migrate Task-Related Components
+
 Update components using TaskContext:
+
 - `TaskListItem.tsx`
 - `TaskForm.tsx`
 - `TaskDialog.tsx`
@@ -374,7 +415,9 @@ Update components using TaskContext:
 ### Phase 3: Testing and Refinement (Week 3)
 
 #### Step 3.1: Unit Tests
+
 Create tests for new hooks:
+
 ```typescript
 // src/hooks/queries/useTasks.test.ts
 import { renderHook, waitFor } from '@testing-library/react';
@@ -389,7 +432,9 @@ describe('useTasks', () => {
 ```
 
 #### Step 3.2: Integration Tests
+
 Test full user flows:
+
 - Loading task list
 - Creating a task
 - Updating a task
@@ -397,6 +442,7 @@ Test full user flows:
 - Filtering tasks
 
 #### Step 3.3: Performance Testing
+
 - Measure cache hit rates
 - Verify reduced API calls
 - Check memory usage
@@ -404,7 +450,9 @@ Test full user flows:
 ### Phase 4: Card Feature Migration (Week 4-5)
 
 #### Step 4.1: Create Card Query Hooks
+
 Create `src/hooks/queries/useCards.ts`:
+
 - `useCard(id)` - Fetch single card
 - `useCardReferences(id)` - Fetch references
 - `useCardChildren(id)` - Fetch children
@@ -419,12 +467,15 @@ Create `src/hooks/queries/useCards.ts`:
 - Mutations for create/update/delete/star/unstar
 
 #### Step 4.2: Refactor useCardData Hook
+
 Modify `src/hooks/useCardData.ts`:
+
 - Replace manual state with query hooks
 - Use parallel queries for card relationships
 - Simplify error handling
 
 #### Step 4.3: Migrate Card Components
+
 - Update card viewing components
 - Update card editing components
 - Update search components
@@ -432,33 +483,42 @@ Modify `src/hooks/useCardData.ts`:
 ### Phase 5: Additional Features (Week 6)
 
 #### Step 5.1: Tag Feature
+
 Create `src/hooks/queries/useTags.ts`:
+
 - Migrate TagContext to query hooks
 - Remove TagContext provider
 
 #### Step 5.2: Entity Feature
+
 Create `src/hooks/queries/useEntities.ts`:
+
 - Migrate entity fetching
 - Add optimistic updates
 
 #### Step 5.3: Fact Feature
+
 Create `src/hooks/queries/useFacts.ts`:
+
 - Migrate fact fetching and mutations
 
 ### Phase 6: Cleanup and Documentation (Week 7)
 
 #### Step 6.1: Remove Old Contexts
+
 - Delete `TaskContext.tsx` (keep as reference initially)
 - Delete `TagContext.tsx`
 - Update providers in `MainApp.tsx`
 - Update tests that use old contexts
 
 #### Step 6.2: Update Documentation
+
 - Document migration in CLAUDE.md
 - Create migration guide for contributors
 - Update component documentation
 
 #### Step 6.3: Performance Review
+
 - Set up React Query devtools for production monitoring
 - Configure appropriate stale times
 - Set up query cache monitoring
@@ -496,6 +556,7 @@ function TaskList() {
 ```
 
 **Issues:**
+
 - No loading state
 - No error handling
 - Manual refresh pattern
@@ -530,6 +591,7 @@ function TaskList() {
 ```
 
 **Benefits:**
+
 - Built-in loading state
 - Built-in error handling
 - One-click refresh
@@ -546,35 +608,42 @@ The following files have been created as a working proof of concept:
 ### Created Files
 
 1. **`src/api/queryClient.ts`**
+
    - QueryClient configuration
    - Query key factory for all resources
    - Mutation key factory
    - Type definitions
 
 2. **`src/hooks/queries/useTasks.ts`**
+
    - Complete task query hooks
    - Mutation hooks with optimistic updates
    - Comprehensive documentation
 
 3. **`src/hooks/queries/useCards.ts`**
+
    - Complete card query hooks
    - Search functionality
    - Star/unstar mutations with optimistic updates
 
 4. **`src/hooks/queries/useAuth.ts`**
+
    - Authentication query hooks
    - User data fetching
    - Subscription status
 
 5. **`src/hooks/queries/useTags.ts`**
+
    - Tag query hooks
    - Automatic sorting
 
 6. **`src/components/ReactQueryDevtools.tsx`**
+
    - Provider component setup
    - Devtools integration
 
 7. **`src/components/tasks/TaskListWithRQ.example.tsx`**
+
    - Example component showing migration
    - Before/after comparison
    - Usage documentation
@@ -626,6 +695,7 @@ function MyComponent() {
 ### Risk 1: Breaking Changes During Migration
 
 **Mitigation:**
+
 - Incremental migration - feature by feature
 - Keep old contexts alongside new hooks during transition
 - Run full test suite after each migration step
@@ -634,6 +704,7 @@ function MyComponent() {
 ### Risk 2: Performance Regression
 
 **Mitigation:**
+
 - Benchmark before and after
 - Configure appropriate stale times
 - Monitor query cache performance
@@ -642,6 +713,7 @@ function MyComponent() {
 ### Risk 3: Learning Curve for Team
 
 **Mitigation:**
+
 - Comprehensive documentation
 - Example components with before/after
 - Team training session
@@ -650,6 +722,7 @@ function MyComponent() {
 ### Risk 4: Cache Invalidation Issues
 
 **Mitigation:**
+
 - Well-defined query key hierarchy
 - Clear documentation of invalidation patterns
 - Automated tests for cache behavior
@@ -658,6 +731,7 @@ function MyComponent() {
 ### Risk 5: Testing Complexity
 
 **Mitigation:**
+
 - Create custom test utilities
 - Document testing patterns
 - Use React Query's testing utilities
@@ -669,30 +743,30 @@ function MyComponent() {
 
 ### Performance Metrics
 
-| Metric | Before | Target | Measurement |
-|--------|--------|--------|-------------|
-| API calls on page load | ~10-15 | ~3-5 | Browser DevTools |
-| Time to interactive | ~2s | <1s | Lighthouse |
-| Cache hit rate | 0% | >60% | React Query Devtools |
-| Bundle size increase | - | <15KB | Bundle analyzer |
+| Metric                 | Before | Target | Measurement          |
+| ---------------------- | ------ | ------ | -------------------- |
+| API calls on page load | ~10-15 | ~3-5   | Browser DevTools     |
+| Time to interactive    | ~2s    | <1s    | Lighthouse           |
+| Cache hit rate         | 0%     | >60%   | React Query Devtools |
+| Bundle size increase   | -      | <15KB  | Bundle analyzer      |
 
 ### Developer Experience Metrics
 
-| Metric | Before | Target |
-|--------|--------|--------|
-| Lines of boilerplate per data fetch | ~30 | ~5 |
-| Time to implement new feature | 4h | 2h |
-| Context providers needed | 8 | 1 |
-| Manual refresh patterns | Yes | No |
+| Metric                              | Before | Target |
+| ----------------------------------- | ------ | ------ |
+| Lines of boilerplate per data fetch | ~30    | ~5     |
+| Time to implement new feature       | 4h     | 2h     |
+| Context providers needed            | 8      | 1      |
+| Manual refresh patterns             | Yes    | No     |
 
 ### Quality Metrics
 
-| Metric | Target |
-|--------|--------|
-| Test coverage for query hooks | >80% |
-| TypeScript errors | 0 |
-| Runtime errors | 0 |
-| Console warnings | 0 |
+| Metric                        | Target |
+| ----------------------------- | ------ |
+| Test coverage for query hooks | >80%   |
+| TypeScript errors             | 0      |
+| Runtime errors                | 0      |
+| Console warnings              | 0      |
 
 ---
 

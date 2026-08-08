@@ -1,14 +1,17 @@
-import React from "react";
-import { MenuIcon } from "../../assets/icons/MenuIcon";
+import React from 'react';
+import { MenuIcon } from '../../assets/icons/MenuIcon';
 
 interface SidebarMobileMenuProps {
   isSidebarOpen: boolean;
   setIsSidebarOpen: (isOpen: boolean) => void;
 }
 
-export function SidebarMobileMenu({ isSidebarOpen, setIsSidebarOpen }: SidebarMobileMenuProps) {
+export function SidebarMobileMenu({
+  isSidebarOpen,
+  setIsSidebarOpen,
+}: SidebarMobileMenuProps) {
   const handleBackdropKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
+    if (e.key === 'Escape') {
       setIsSidebarOpen(false);
     }
   };
@@ -20,7 +23,7 @@ export function SidebarMobileMenu({ isSidebarOpen, setIsSidebarOpen }: SidebarMo
         className="md:hidden fixed top-4 right-4 z-[60] p-2 min-w-[44px] min-h-[44px] bg-white rounded shadow safe-top-fixed"
         style={{ top: `max(1rem, env(safe-area-inset-top, 0px))` }}
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        aria-label={isSidebarOpen ? "Close sidebar menu" : "Open sidebar menu"}
+        aria-label={isSidebarOpen ? 'Close sidebar menu' : 'Open sidebar menu'}
         aria-expanded={isSidebarOpen}
       >
         <MenuIcon />

@@ -1,5 +1,5 @@
-import React, { createContext, useState, useContext } from "react";
-import { PartialCard } from "../models/Card";
+import React, { createContext, useState, useContext } from 'react';
+import { PartialCard } from '../models/Card';
 
 /**
  * UIStateContext - Consolidates simple UI state from multiple providers:
@@ -9,23 +9,20 @@ import { PartialCard } from "../models/Card";
  */
 
 /** Which tab is active in the card view's right info rail. */
-export type RightPaneTab = "links" | "metadata" | "entities" | "files";
+export type RightPaneTab = 'links' | 'metadata' | 'entities' | 'files';
 
 /** Width (px) of the card view's right info rail. */
-export const RIGHT_PANE_WIDTH_KEY = "zettelgarden-right-pane-width";
+export const RIGHT_PANE_WIDTH_KEY = 'zettelgarden-right-pane-width';
 export const RIGHT_PANE_WIDTH_DEFAULT = 400;
 export const RIGHT_PANE_WIDTH_MIN = 280;
 export const RIGHT_PANE_WIDTH_MAX = 640;
 
 const getInitialRightPaneWidth = (): number => {
-  if (typeof window === "undefined") return RIGHT_PANE_WIDTH_DEFAULT;
+  if (typeof window === 'undefined') return RIGHT_PANE_WIDTH_DEFAULT;
   const stored = localStorage.getItem(RIGHT_PANE_WIDTH_KEY);
   const parsed = stored ? parseInt(stored, 10) : NaN;
   if (Number.isNaN(parsed)) return RIGHT_PANE_WIDTH_DEFAULT;
-  return Math.min(
-    RIGHT_PANE_WIDTH_MAX,
-    Math.max(RIGHT_PANE_WIDTH_MIN, parsed),
-  );
+  return Math.min(RIGHT_PANE_WIDTH_MAX, Math.max(RIGHT_PANE_WIDTH_MIN, parsed));
 };
 
 interface UIStateContextType {
@@ -63,20 +60,20 @@ interface UIStateContextType {
 
 const UIStateContext = createContext<UIStateContextType | undefined>(undefined);
 
-const SIDEBAR_COLLAPSED_KEY = "zettelgarden-sidebar-collapsed";
-const RIGHT_PANE_OPEN_KEY = "zettelgarden-right-pane-open";
+const SIDEBAR_COLLAPSED_KEY = 'zettelgarden-sidebar-collapsed';
+const RIGHT_PANE_OPEN_KEY = 'zettelgarden-right-pane-open';
 
 const getInitialSidebarState = (): boolean => {
-  if (typeof window === "undefined") return false;
+  if (typeof window === 'undefined') return false;
   const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-  return stored === "true";
+  return stored === 'true';
 };
 
 const getInitialRightPaneState = (): boolean => {
-  if (typeof window === "undefined") return true;
+  if (typeof window === 'undefined') return true;
   const stored = localStorage.getItem(RIGHT_PANE_OPEN_KEY);
   // Defaults to open (true) unless explicitly closed.
-  return stored !== "false";
+  return stored !== 'false';
 };
 
 export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -93,7 +90,7 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
   const [rightPaneOpen, setRightPaneOpenState] = useState<boolean>(
     getInitialRightPaneState,
   );
-  const [rightPaneTab, setRightPaneTab] = useState<RightPaneTab>("links");
+  const [rightPaneTab, setRightPaneTab] = useState<RightPaneTab>('links');
   const [rightPaneWidth, setRightPaneWidthState] = useState<number>(
     getInitialRightPaneWidth,
   );
@@ -200,7 +197,7 @@ export const UIStateProvider: React.FC<{ children: React.ReactNode }> = ({
 export const useUIState = () => {
   const context = useContext(UIStateContext);
   if (context === undefined) {
-    throw new Error("useUIState must be used within a UIStateProvider");
+    throw new Error('useUIState must be used within a UIStateProvider');
   }
   return context;
 };

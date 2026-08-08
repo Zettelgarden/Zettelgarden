@@ -29,12 +29,9 @@ describe('ResponsiveLayout', () => {
     ));
 
     render(
-      <ResponsiveLayout
-        mobileView="list"
-        setMobileView={vi.fn()}
-      >
+      <ResponsiveLayout mobileView="list" setMobileView={vi.fn()}>
         {mockChildren}
-      </ResponsiveLayout>
+      </ResponsiveLayout>,
     );
 
     expect(mockChildren).toHaveBeenCalledWith(false);
@@ -54,12 +51,9 @@ describe('ResponsiveLayout', () => {
     ));
 
     render(
-      <ResponsiveLayout
-        mobileView="list"
-        setMobileView={vi.fn()}
-      >
+      <ResponsiveLayout mobileView="list" setMobileView={vi.fn()}>
         {mockChildren}
-      </ResponsiveLayout>
+      </ResponsiveLayout>,
     );
 
     expect(mockChildren).toHaveBeenCalledWith(true);
@@ -79,12 +73,9 @@ describe('ResponsiveLayout', () => {
     ));
 
     render(
-      <ResponsiveLayout
-        mobileView="detail"
-        setMobileView={vi.fn()}
-      >
+      <ResponsiveLayout mobileView="detail" setMobileView={vi.fn()}>
         {mockChildren}
-      </ResponsiveLayout>
+      </ResponsiveLayout>,
     );
 
     expect(mockChildren).toHaveBeenCalledWith(true);
@@ -103,12 +94,9 @@ describe('ResponsiveLayout', () => {
     ));
 
     render(
-      <ResponsiveLayout
-        mobileView="filters"
-        setMobileView={vi.fn()}
-      >
+      <ResponsiveLayout mobileView="filters" setMobileView={vi.fn()}>
         {mockChildren}
-      </ResponsiveLayout>
+      </ResponsiveLayout>,
     );
 
     expect(mockChildren).toHaveBeenCalledWith(false);
@@ -120,12 +108,9 @@ describe('ResponsiveLayout', () => {
     ));
 
     const { rerender } = render(
-      <ResponsiveLayout
-        mobileView="list"
-        setMobileView={vi.fn()}
-      >
+      <ResponsiveLayout mobileView="list" setMobileView={vi.fn()}>
         {mockChildren}
-      </ResponsiveLayout>
+      </ResponsiveLayout>,
     );
 
     // Start as desktop

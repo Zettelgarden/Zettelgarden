@@ -1,11 +1,21 @@
-import { useState, useEffect } from "react";
-import { setDocumentTitle } from "../utils/title";
-import { Card, PartialCard, Entity } from "../models/Card";
-import { isErrorResponse } from "../models/common";
-import { convertCardToPartialCard } from "../utils/cards";
-import { useUIState } from "../contexts/UIStateContext";
-import { fetchSummariesForCard, SummarizeJobResponse } from "../api/summarizer";
-import { getCard, getCardReferences, getCardChildren, getCardFiles, getCardTags, getCardTasks, getCardEntities, getLinkedEntitiesByCardPK, CategorizedReferences } from "../api/cards";
+import { useState, useEffect } from 'react';
+import { setDocumentTitle } from '../utils/title';
+import { Card, PartialCard, Entity } from '../models/Card';
+import { isErrorResponse } from '../models/common';
+import { convertCardToPartialCard } from '../utils/cards';
+import { useUIState } from '../contexts/UIStateContext';
+import { fetchSummariesForCard, SummarizeJobResponse } from '../api/summarizer';
+import {
+  getCard,
+  getCardReferences,
+  getCardChildren,
+  getCardFiles,
+  getCardTags,
+  getCardTasks,
+  getCardEntities,
+  getLinkedEntitiesByCardPK,
+  CategorizedReferences,
+} from '../api/cards';
 
 export interface UseCardDataResult {
   // Data state
@@ -28,29 +38,36 @@ export function useCardData(cardId?: string): UseCardDataResult {
   const [viewingCard, setViewCard] = useState<Card | null>(null);
   const [parentCard, setParentCard] = useState<Card | null>(null);
   const [linkedEntities, setLinkedEntities] = useState<Entity[]>([]);
-  const [categorizedReferences, setCategorizedReferences] = useState<CategorizedReferences>({
-    bidirectional: [],
-    outgoing: [],
-    incoming: [],
-  });
-  const [summaries, setSummaries] = useState<SummarizeJobResponse[] | null>(null);
+  const [categorizedReferences, setCategorizedReferences] =
+    useState<CategorizedReferences>({
+      bidirectional: [],
+      outgoing: [],
+      incoming: [],
+    });
+  const [summaries, setSummaries] = useState<SummarizeJobResponse[] | null>(
+    null,
+  );
 
   const { setLastCard } = useUIState();
 
   // Derive latestSummary from summaries
-  const latestSummary = summaries ? (() => {
-    // Filter to only "complete" summaries
-    const completeSummaries = summaries.filter(s => s.status === "complete");
+  const latestSummary = summaries
+    ? (() => {
+        // Filter to only "complete" summaries
+        const completeSummaries = summaries.filter(
+          (s) => s.status === 'complete',
+        );
 
-    if (completeSummaries.length > 0) {
-      // Find the one with the highest ID
-      return completeSummaries.reduce((max, s) =>
-        s.id > max.id ? s : max
-      );
-    }
+        if (completeSummaries.length > 0) {
+          // Find the one with the highest ID
+          return completeSummaries.reduce((max, s) =>
+            s.id > max.id ? s : max,
+          );
+        }
 
-    return null;
-  })() : null;
+        return null;
+      })()
+    : null;
 
   async function loadSummaries(id: number) {
     try {
@@ -59,11 +76,14 @@ export function useCardData(cardId?: string): UseCardDataResult {
     } catch (err: any) {
       // Silently handle case where card has no summaries - this is expected
       const errorMessage = err?.message || String(err);
-      if (errorMessage.includes("no rows in result set") || errorMessage.includes("failed to find summarization")) {
+      if (
+        errorMessage.includes('no rows in result set') ||
+        errorMessage.includes('failed to find summarization')
+      ) {
         // No summaries exist for this card, which is expected
         setSummaries(null);
       } else {
-        console.error("Failed to fetch summaries", err);
+        console.error('Failed to fetch summaries', err);
       }
     }
   }
@@ -75,14 +95,18 @@ export function useCardData(cardId?: string): UseCardDataResult {
       if (isErrorResponse(refreshed)) {
         // Handle error at the hook level - for now, just log and continue
         // Error handling will be managed by the consuming component
-        console.error("Error fetching card:", refreshed.error);
+        console.error('Error fetching card:', refreshed.error);
         return;
       } else {
         // Also fetch categorized references via new endpoint
         const refs = await getCardReferences(id);
         setCategorizedReferences(refs);
         // Combine all references for backward compatibility with Card.references
-        refreshed.references = [...refs.bidirectional, ...refs.outgoing, ...refs.incoming];
+        refreshed.references = [
+          ...refs.bidirectional,
+          ...refs.outgoing,
+          ...refs.incoming,
+        ];
         // Also fetch children via new endpoint
         const kids = await getCardChildren(id);
         refreshed.children = kids;
@@ -104,10 +128,10 @@ export function useCardData(cardId?: string): UseCardDataResult {
         setLinkedEntities(linked);
 
         setViewCard(refreshed);
-        setDocumentTitle(refreshed.card_id + " - " + refreshed.title);
+        setDocumentTitle(refreshed.card_id + ' - ' + refreshed.title);
         setLastCard(convertCardToPartialCard(refreshed));
 
-        if (refreshed.parent && "id" in refreshed.parent) {
+        if (refreshed.parent && 'id' in refreshed.parent) {
           let parentCardId = refreshed.parent.id;
           const parentCardData = await getCard(parentCardId.toString());
           let parentChildren = await getCardChildren(parentCardId.toString());
@@ -119,7 +143,7 @@ export function useCardData(cardId?: string): UseCardDataResult {
         }
       }
     } catch (error: any) {
-      console.error("Error fetching card:", error);
+      console.error('Error fetching card:', error);
       // Error handling will be managed by the consuming component
     }
   }

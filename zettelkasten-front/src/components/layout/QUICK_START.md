@@ -3,9 +3,9 @@
 ## Import
 
 ```tsx
-import { MobileTopBar } from "@/components/layout";
+import { MobileTopBar } from '@/components/layout';
 // or
-import { MobileTopBar } from "@/components/layout/MobileTopBar";
+import { MobileTopBar } from '@/components/layout/MobileTopBar';
 ```
 
 ## Basic Usage
@@ -17,14 +17,13 @@ import { MobileTopBar } from "@/components/layout/MobileTopBar";
 ## Common Patterns
 
 ### Navigation Page (Back Button)
+
 ```tsx
-<MobileTopBar
-  title="Details"
-  onBack={() => navigate(-1)}
-/>
+<MobileTopBar title="Details" onBack={() => navigate(-1)} />
 ```
 
 ### List Page (Menu + Badge)
+
 ```tsx
 <MobileTopBar
   title="Inbox"
@@ -34,17 +33,17 @@ import { MobileTopBar } from "@/components/layout/MobileTopBar";
 ```
 
 ### Action Page (Back + Action Button)
+
 ```tsx
 <MobileTopBar
   title="Edit"
   onBack={() => navigate(-1)}
-  actions={
-    <button onClick={handleSave}>Save</button>
-  }
+  actions={<button onClick={handleSave}>Save</button>}
 />
 ```
 
 ### Multiple Actions
+
 ```tsx
 <MobileTopBar
   title="Messages"
@@ -60,26 +59,28 @@ import { MobileTopBar } from "@/components/layout/MobileTopBar";
 
 ## Props Reference
 
-| Prop | Type | Required | Default |
-|------|------|----------|---------|
-| title | string | ✅ | - |
-| badge | string \| number | ❌ | undefined |
-| onBack | () => void | ❌ | undefined |
-| onMenuClick | () => void | ❌ | undefined |
-| actions | ReactNode | ❌ | undefined |
-| className | string | ❌ | "" |
-| zIndex | number | ❌ | 40 |
-| mobileOnly | boolean | ❌ | true |
+| Prop        | Type             | Required | Default   |
+| ----------- | ---------------- | -------- | --------- |
+| title       | string           | ✅       | -         |
+| badge       | string \| number | ❌       | undefined |
+| onBack      | () => void       | ❌       | undefined |
+| onMenuClick | () => void       | ❌       | undefined |
+| actions     | ReactNode        | ❌       | undefined |
+| className   | string           | ❌       | ""        |
+| zIndex      | number           | ❌       | 40        |
+| mobileOnly  | boolean          | ❌       | true      |
 
 ## Badge Behavior
 
 Badge is shown when:
+
 - ✅ `badge={5}` - Shows "5"
 - ✅ `badge="New"` - Shows "New"
 - ✅ `badge={99}` - Shows "99"
 - ✅ `badge={150}` - Shows "150"
 
 Badge is hidden when:
+
 - ❌ `badge={0}` - Hidden
 - ❌ `badge=""` - Hidden
 - ❌ Not provided - Hidden
@@ -87,6 +88,7 @@ Badge is hidden when:
 ## Button Priority
 
 Left button logic:
+
 1. If `onBack` provided → Show back button
 2. Else if `onMenuClick` provided → Show menu button
 3. Else → No left button
@@ -94,16 +96,19 @@ Left button logic:
 ## Styling Tips
 
 ### Add Shadow
+
 ```tsx
 <MobileTopBar title="Modal" className="shadow-md" />
 ```
 
 ### Higher Z-Index
+
 ```tsx
 <MobileTopBar title="Overlay" zIndex={50} />
 ```
 
 ### Show on Desktop
+
 ```tsx
 <MobileTopBar title="Always" mobileOnly={false} />
 ```
@@ -111,6 +116,7 @@ Left button logic:
 ## Action Button Patterns
 
 ### Icon Button
+
 ```tsx
 <button
   className="p-2 -mr-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
@@ -121,13 +127,13 @@ Left button logic:
 ```
 
 ### Text Button
+
 ```tsx
-<button className="p-2 -mr-2 text-blue-600 font-medium text-sm">
-  Save
-</button>
+<button className="p-2 -mr-2 text-blue-600 font-medium text-sm">Save</button>
 ```
 
 ### Primary Button
+
 ```tsx
 <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
   Action
@@ -137,8 +143,8 @@ Left button logic:
 ## Full Example
 
 ```tsx
-import { MobileTopBar } from "@/components/layout";
-import { useNavigate } from "react-router-dom";
+import { MobileTopBar } from '@/components/layout';
+import { useNavigate } from 'react-router-dom';
 
 function MyPage() {
   const navigate = useNavigate();
@@ -171,7 +177,9 @@ function MyPage() {
 ## Migration from Existing Components
 
 ### From RssMobileTopBar
+
 Before:
+
 ```tsx
 <RssMobileTopBar
   title="RSS"
@@ -182,6 +190,7 @@ Before:
 ```
 
 After:
+
 ```tsx
 <MobileTopBar
   title="RSS"
@@ -194,13 +203,17 @@ After:
 ## Troubleshooting
 
 ### Badge not showing
+
 Ensure badge is not `0`, `""`, or `undefined`.
 
 ### Button not showing
+
 Ensure either `onBack` or `onMenuClick` is provided.
 
 ### Actions not visible
+
 Check that `actions` prop contains valid React elements.
 
 ### Z-index conflicts
+
 Increase `zIndex` prop if other elements cover the top bar.

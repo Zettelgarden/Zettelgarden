@@ -1,5 +1,5 @@
-import { RefObject } from "react";
-import { Card } from "../../models/Card";
+import { RefObject } from 'react';
+import { Card } from '../../models/Card';
 
 interface UseTextFormattingOptions {
   textareaRef: RefObject<HTMLTextAreaElement>;
@@ -10,7 +10,7 @@ interface UseTextFormattingOptions {
 export function useTextFormatting({
   textareaRef,
   editingCard,
-  setEditingCard
+  setEditingCard,
 }: UseTextFormattingOptions) {
   const formatText = (formatType: string) => {
     const textarea = textareaRef.current;
@@ -23,7 +23,7 @@ export function useTextFormatting({
     const currentLineEnd = editingCard.body.indexOf('\n', end);
     const currentLine = editingCard.body.substring(
       currentLineStart,
-      currentLineEnd === -1 ? editingCard.body.length : currentLineEnd
+      currentLineEnd === -1 ? editingCard.body.length : currentLineEnd,
     );
 
     let formattedText = selectedText;
@@ -134,7 +134,7 @@ export function useTextFormatting({
         if (selectedText.includes('\n')) {
           // Multi-line selection: add bullet to each line
           const lines = selectedText.split('\n');
-          formattedText = lines.map(line => `- ${line}`).join('\n');
+          formattedText = lines.map((line) => `- ${line}`).join('\n');
           newBody =
             editingCard.body.substring(0, start) +
             formattedText +
@@ -156,7 +156,9 @@ export function useTextFormatting({
         if (selectedText.includes('\n')) {
           // Multi-line selection: add numbers to each line
           const lines = selectedText.split('\n');
-          formattedText = lines.map((line, index) => `${index + 1}. ${line}`).join('\n');
+          formattedText = lines
+            .map((line, index) => `${index + 1}. ${line}`)
+            .join('\n');
           newBody =
             editingCard.body.substring(0, start) +
             formattedText +
@@ -177,7 +179,7 @@ export function useTextFormatting({
       case 'code':
         if (selectedText.includes('\n')) {
           // Multi-line selection: add code block
-          formattedText = "```\n" + selectedText + "\n```";
+          formattedText = '```\n' + selectedText + '\n```';
           newBody =
             editingCard.body.substring(0, start) +
             formattedText +
@@ -186,7 +188,7 @@ export function useTextFormatting({
           newCursorEnd = end + 4;
         } else if (selectedText) {
           // Single line: inline code
-          formattedText = "`" + selectedText + "`";
+          formattedText = '`' + selectedText + '`';
           newBody =
             editingCard.body.substring(0, start) +
             formattedText +
@@ -200,7 +202,7 @@ export function useTextFormatting({
         if (selectedText.includes('\n')) {
           // Multi-line selection: add quote to each line
           const lines = selectedText.split('\n');
-          formattedText = lines.map(line => `> ${line}`).join('\n');
+          formattedText = lines.map((line) => `> ${line}`).join('\n');
           newBody =
             editingCard.body.substring(0, start) +
             formattedText +
@@ -222,9 +224,13 @@ export function useTextFormatting({
         // Insert a basic 3-column table with one data row
         formattedText = `|  |  |  |\n|---|---|---|\n|  |  |  |`;
         // Add newline before table if not at beginning of line
-        const beforeTable = start > 0 && editingCard.body[start - 1] !== '\n' ? '\n' : '';
+        const beforeTable =
+          start > 0 && editingCard.body[start - 1] !== '\n' ? '\n' : '';
         // Add newline after table if not at end of content
-        const afterTable = end < editingCard.body.length && editingCard.body[end] !== '\n' ? '\n' : '';
+        const afterTable =
+          end < editingCard.body.length && editingCard.body[end] !== '\n'
+            ? '\n'
+            : '';
         formattedText = beforeTable + formattedText + afterTable;
 
         newBody =
@@ -247,10 +253,7 @@ export function useTextFormatting({
       // Re-focus and set selection to maintain cursor position after the formatting
       setTimeout(() => {
         textarea.focus();
-        textarea.setSelectionRange(
-          newCursorStart,
-          newCursorEnd
-        );
+        textarea.setSelectionRange(newCursorStart, newCursorEnd);
       }, 0);
     }
   };

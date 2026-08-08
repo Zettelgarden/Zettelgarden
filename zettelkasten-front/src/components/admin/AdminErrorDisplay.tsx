@@ -1,9 +1,9 @@
-import React from "react";
+import React from 'react';
 
 /**
  * Error severity levels
  */
-export type ErrorSeverity = "info" | "warning" | "error" | "critical";
+export type ErrorSeverity = 'info' | 'warning' | 'error' | 'critical';
 
 /**
  * Error display props
@@ -31,17 +31,17 @@ export interface AdminErrorDisplayProps {
  * Maps error severity to Tailwind CSS classes
  */
 const severityStyles: Record<ErrorSeverity, string> = {
-  info: "bg-blue-50 border-blue-200 text-blue-800",
-  warning: "bg-yellow-50 border-yellow-200 text-yellow-800",
-  error: "bg-red-50 border-red-200 text-red-800",
-  critical: "bg-red-100 border-red-300 text-red-900",
+  info: 'bg-blue-50 border-blue-200 text-blue-800',
+  warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+  error: 'bg-red-50 border-red-200 text-red-800',
+  critical: 'bg-red-100 border-red-300 text-red-900',
 };
 
 const iconMap: Record<ErrorSeverity, string> = {
-  info: "ℹ️",
-  warning: "⚠️",
-  error: "❌",
-  critical: "🚨",
+  info: 'ℹ️',
+  warning: '⚠️',
+  error: '❌',
+  critical: '🚨',
 };
 
 /**
@@ -66,27 +66,23 @@ const iconMap: Record<ErrorSeverity, string> = {
  */
 export function AdminErrorDisplay({
   message,
-  severity = "error",
+  severity = 'error',
   title,
   details,
   onDismiss,
   onRetry,
   dismissible = true,
-  className = "",
+  className = '',
 }: AdminErrorDisplayProps) {
-  const baseClasses = "rounded-lg border p-4 mb-4";
+  const baseClasses = 'rounded-lg border p-4 mb-4';
   const severityClasses = severityStyles[severity];
 
   return (
     <div className={`${baseClasses} ${severityClasses} ${className}`}>
       <div className="flex items-start">
-        <div className="flex-shrink-0 text-xl mr-3">
-          {iconMap[severity]}
-        </div>
+        <div className="flex-shrink-0 text-xl mr-3">{iconMap[severity]}</div>
         <div className="flex-1">
-          {title && (
-            <h3 className="text-lg font-semibold mb-1">{title}</h3>
-          )}
+          {title && <h3 className="text-lg font-semibold mb-1">{title}</h3>}
           <p className="text-sm">{message}</p>
           {details && (
             <details className="mt-2">
@@ -156,7 +152,7 @@ export interface AdminLoadingStateProps {
 export function AdminLoadingState({
   rows = 5,
   message,
-  className = "",
+  className = '',
 }: AdminLoadingStateProps) {
   return (
     <div className={`space-y-4 ${className}`}>

@@ -16,7 +16,11 @@ interface FileMetadataEditorProps {
   onClose: () => void;
 }
 
-export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEditorProps) {
+export function FileMetadataEditor({
+  file,
+  onUpdate,
+  onClose,
+}: FileMetadataEditorProps) {
   const { showToast } = useToast();
   const [description, setDescription] = useState(file.description || '');
   const [tags, setTags] = useState<string[]>(file.tags || []);
@@ -33,22 +37,25 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
   }, [file.id, file.description, file.tags, file.card_pk]);
 
   // Auto-save description with debounce
-  const saveDescription = useCallback(async (newDescription: string) => {
-    setSaving(true);
-    try {
-      await editFile(file.id.toString(), { 
-        name: file.name, 
-        card_pk: cardPk, 
-        description: newDescription || undefined 
-      });
-      onUpdate();
-    } catch (error) {
-      console.error('Failed to save description:', error);
-      showToast('error', 'Save Failed', 'Could not save description');
-    } finally {
-      setSaving(false);
-    }
-  }, [file.id, file.name, cardPk, onUpdate, showToast]);
+  const saveDescription = useCallback(
+    async (newDescription: string) => {
+      setSaving(true);
+      try {
+        await editFile(file.id.toString(), {
+          name: file.name,
+          card_pk: cardPk,
+          description: newDescription || undefined,
+        });
+        onUpdate();
+      } catch (error) {
+        console.error('Failed to save description:', error);
+        showToast('error', 'Save Failed', 'Could not save description');
+      } finally {
+        setSaving(false);
+      }
+    },
+    [file.id, file.name, cardPk, onUpdate, showToast],
+  );
 
   // Debounce description changes
   useEffect(() => {
@@ -115,7 +122,10 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
   const handleUnlinkCard = async () => {
     setLinkingCard(true);
     try {
-      await editFile(file.id.toString(), { name: file.name, card_pk: UNLINKED_CARD_PK });
+      await editFile(file.id.toString(), {
+        name: file.name,
+        card_pk: UNLINKED_CARD_PK,
+      });
       setCardPk(UNLINKED_CARD_PK);
       showToast('success', 'Card Unlinked', 'File unlinked from card');
       onUpdate();
@@ -139,9 +149,14 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
       <div className="flex justify-between items-center mb-4">
         <div className="min-w-0 flex-1 mr-2">
           <h3 className="text-lg font-semibold">Edit File Details</h3>
-          <p className="text-sm text-gray-500 truncate" title={file.name}>{file.name}</p>
+          <p className="text-sm text-gray-500 truncate" title={file.name}>
+            {file.name}
+          </p>
         </div>
-        <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none flex-shrink-0">
+        <button
+          onClick={handleClose}
+          className="text-gray-400 hover:text-gray-600 text-2xl leading-none flex-shrink-0"
+        >
           ×
         </button>
       </div>
@@ -150,7 +165,9 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Description
-          {saving && <span className="ml-2 text-xs text-gray-400">Saving...</span>}
+          {saving && (
+            <span className="ml-2 text-xs text-gray-400">Saving...</span>
+          )}
         </label>
         <textarea
           value={description}
@@ -163,7 +180,9 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
 
       {/* Tags */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Tags
+        </label>
         <div className="relative">
           {tagOperation && (
             <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded">
@@ -181,7 +200,9 @@ export function FileMetadataEditor({ file, onUpdate, onClose }: FileMetadataEdit
 
       {/* Card Link */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Linked Card</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Linked Card
+        </label>
         {isLinked ? (
           <div className="flex items-center gap-2">
             <Link

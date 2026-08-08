@@ -1,11 +1,11 @@
-import { apiClient, getData } from "./client";
+import { apiClient, getData } from './client';
 
 export function getBillingPortalUrl(): Promise<{ url: string }> {
-  return getData(apiClient.get<{ url: string }>("/billing/portal"));
+  return getData(apiClient.get<{ url: string }>('/billing/portal'));
 }
 
 export function getStripePublicKey(): Promise<{ key: string }> {
-  return getData(apiClient.get<{ key: string }>("/billing/public-key"));
+  return getData(apiClient.get<{ key: string }>('/billing/public-key'));
 }
 
 export interface BillingStatus {
@@ -23,7 +23,7 @@ let billingStatusPromise: Promise<BillingStatus> | null = null;
 export function getBillingStatus(): Promise<BillingStatus> {
   if (!billingStatusPromise) {
     billingStatusPromise = getData(
-      apiClient.get<BillingStatus>("/billing/status"),
+      apiClient.get<BillingStatus>('/billing/status'),
     ).catch(() => ({ enabled: true }));
   }
   return billingStatusPromise;

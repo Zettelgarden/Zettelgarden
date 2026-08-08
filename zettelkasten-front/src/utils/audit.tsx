@@ -1,5 +1,5 @@
-import React from "react";
-import { diffLines, diffWords } from "diff";
+import React from 'react';
+import { diffLines, diffWords } from 'diff';
 
 export interface AuditChange {
   field: string;
@@ -23,14 +23,19 @@ export interface AuditEventWithChanges {
 }
 
 export function formatFieldName(field: string): string {
-  return field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, " $1");
+  return (
+    field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1')
+  );
 }
 
 /**
  * Generate a human-readable summary of changes
  * e.g., "Updated title and body", "Updated title", "Updated 3 fields"
  */
-export function generateChangeSummary(changes: AuditChange[], eventType: string): string {
+export function generateChangeSummary(
+  changes: AuditChange[],
+  eventType: string,
+): string {
   if (changes.length === 0) {
     switch (eventType.toLowerCase()) {
       case 'create':
@@ -47,7 +52,9 @@ export function generateChangeSummary(changes: AuditChange[], eventType: string)
   }
 
   if (changes.length === 2) {
-    return `Updated ${formatFieldName(changes[0].field).toLowerCase()} and ${formatFieldName(changes[1].field).toLowerCase()}`;
+    return `Updated ${formatFieldName(
+      changes[0].field,
+    ).toLowerCase()} and ${formatFieldName(changes[1].field).toLowerCase()}`;
   }
 
   return `Updated ${changes.length} fields`;
@@ -68,12 +75,16 @@ export function groupEventsByDate(events: any[]): Record<string, any[]> {
     Today: [],
     Yesterday: [],
     'This Week': [],
-    Older: []
+    Older: [],
   };
 
   for (const event of events) {
     const eventDate = new Date(event.created_at);
-    const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+    const eventDay = new Date(
+      eventDate.getFullYear(),
+      eventDate.getMonth(),
+      eventDate.getDate(),
+    );
 
     if (eventDay.getTime() === today.getTime()) {
       groups.Today.push(event);
@@ -92,7 +103,11 @@ export function groupEventsByDate(events: any[]): Record<string, any[]> {
 /**
  * Render inline diff with word-level highlighting for string changes
  */
-export function renderInlineDiff(from: string, to: string, maxLength: number = 200): React.ReactNode {
+export function renderInlineDiff(
+  from: string,
+  to: string,
+  maxLength: number = 200,
+): React.ReactNode {
   const truncate = (text: string) => {
     if (text.length <= maxLength) return text;
     return text.slice(0, maxLength) + '...';
@@ -128,7 +143,7 @@ interface DiffLine {
 export function renderLineDiff(
   from: string,
   to: string,
-  options: { contextLines?: number; maxLines?: number } = {}
+  options: { contextLines?: number; maxLines?: number } = {},
 ): React.ReactNode {
   const { contextLines = 3, maxLines = 100 } = options;
 
@@ -152,14 +167,14 @@ export function renderLineDiff(
         processedLines.push({
           type: 'added',
           value: line,
-          lineNumber: toLineNum++
+          lineNumber: toLineNum++,
         });
         fromLineNum++; // Account for the line position
       } else if (part.removed) {
         processedLines.push({
           type: 'removed',
           value: line,
-          lineNumber: fromLineNum++
+          lineNumber: fromLineNum++,
         });
         toLineNum++; // Account for the line position
       } else {
@@ -196,9 +211,10 @@ export function renderLineDiff(
   }
 
   // Truncate if too many lines
-  const displayLines = filteredLines.length > maxLines
-    ? filteredLines.slice(0, maxLines)
-    : filteredLines;
+  const displayLines =
+    filteredLines.length > maxLines
+      ? filteredLines.slice(0, maxLines)
+      : filteredLines;
 
   const wasTruncated = filteredLines.length > maxLines;
 
@@ -206,22 +222,29 @@ export function renderLineDiff(
   return (
     <div className="font-mono text-xs bg-gray-900 rounded-md overflow-hidden">
       {displayLines.map((line, idx) => {
-        const bgColor = line.type === 'removed' ? 'bg-red-950' :
-                       line.type === 'added' ? 'bg-green-950' :
-                       'bg-gray-900';
-        const textColor = line.type === 'removed' ? 'text-red-300' :
-                         line.type === 'added' ? 'text-green-300' :
-                         'text-gray-300';
-        const prefix = line.type === 'removed' ? '-' :
-                      line.type === 'added' ? '+' :
-                      ' ';
+        const bgColor =
+          line.type === 'removed'
+            ? 'bg-red-950'
+            : line.type === 'added'
+            ? 'bg-green-950'
+            : 'bg-gray-900';
+        const textColor =
+          line.type === 'removed'
+            ? 'text-red-300'
+            : line.type === 'added'
+            ? 'text-green-300'
+            : 'text-gray-300';
+        const prefix =
+          line.type === 'removed' ? '-' : line.type === 'added' ? '+' : ' ';
 
         return (
           <div key={idx} className={`flex ${bgColor}`}>
             <span className="select-none w-8 text-right pr-2 text-gray-600 shrink-0">
               {line.lineNumber !== undefined ? line.lineNumber : ''}
             </span>
-            <span className={`select-none w-4 text-center ${textColor} opacity-70 shrink-0`}>
+            <span
+              className={`select-none w-4 text-center ${textColor} opacity-70 shrink-0`}
+            >
               {prefix}
             </span>
             <span className={`${textColor} break-words flex-grow`}>
@@ -242,7 +265,7 @@ export function renderLineDiff(
 export function renderAuditDiff(change: AuditChange) {
   const fieldName = formatFieldName(change.field);
 
-  if (typeof change.from === "string" && typeof change.to === "string") {
+  if (typeof change.from === 'string' && typeof change.to === 'string') {
     // Use line-level diff for the body field
     if (change.field.toLowerCase() === 'body') {
       const hasChanges = change.from !== change.to;
@@ -250,9 +273,14 @@ export function renderAuditDiff(change: AuditChange) {
         <div className="flex flex-col space-y-2">
           <div className="text-sm font-medium text-gray-700">{fieldName}</div>
           {hasChanges ? (
-            renderLineDiff(change.from || '', change.to || '', { contextLines: 2, maxLines: 50 })
+            renderLineDiff(change.from || '', change.to || '', {
+              contextLines: 2,
+              maxLines: 50,
+            })
           ) : (
-            <div className="text-gray-500 italic text-sm pl-4">No visible changes</div>
+            <div className="text-gray-500 italic text-sm pl-4">
+              No visible changes
+            </div>
           )}
         </div>
       );
@@ -266,10 +294,10 @@ export function renderAuditDiff(change: AuditChange) {
           <div className="text-sm font-medium text-gray-700">{fieldName}</div>
           <div className="flex flex-col space-y-1 pl-4">
             <div className="text-red-600 line-through bg-red-50 px-2 py-1 rounded">
-              {change.from || "(empty)"}
+              {change.from || '(empty)'}
             </div>
             <div className="text-green-600 bg-green-50 px-2 py-1 rounded">
-              {change.to || "(empty)"}
+              {change.to || '(empty)'}
             </div>
           </div>
         </div>
@@ -282,10 +310,10 @@ export function renderAuditDiff(change: AuditChange) {
         <div className="text-sm font-medium text-gray-700">{fieldName}</div>
         <div className="flex flex-col space-y-1 pl-4">
           <div className="text-red-600 bg-red-50 px-2 py-1 rounded">
-            {change.from || "(empty)"}
+            {change.from || '(empty)'}
           </div>
           <div className="text-green-600 bg-green-50 px-2 py-1 rounded">
-            {change.to || "(empty)"}
+            {change.to || '(empty)'}
           </div>
         </div>
       </div>
@@ -296,10 +324,14 @@ export function renderAuditDiff(change: AuditChange) {
     <div className="flex flex-col space-y-1">
       <div className="text-sm font-medium text-gray-700">{fieldName}</div>
       <div className="text-gray-600 pl-4">
-        Changed from{" "}
-        <code className="bg-gray-100 px-1 rounded">{JSON.stringify(change.from)}</code>
-        {" "}to{" "}
-        <code className="bg-gray-100 px-1 rounded">{JSON.stringify(change.to)}</code>
+        Changed from{' '}
+        <code className="bg-gray-100 px-1 rounded">
+          {JSON.stringify(change.from)}
+        </code>{' '}
+        to{' '}
+        <code className="bg-gray-100 px-1 rounded">
+          {JSON.stringify(change.to)}
+        </code>
       </div>
     </div>
   );
@@ -309,27 +341,36 @@ export function parseAuditEvent(event: any): AuditChange[] {
   const changes: AuditChange[] = [];
 
   if (event.details?.changes) {
-    Object.entries(event.details.changes).forEach(([field, values]: [string, any]) => {
-      if (typeof values === 'object' && values !== null) {
-        if ('from' in values && 'to' in values) {
-          changes.push({
-            field,
-            from: values.from,
-            to: values.to
-          });
-        } else {
-          Object.entries(values).forEach(([subField, subValues]: [string, any]) => {
-            if (typeof subValues === 'object' && subValues !== null && 'from' in subValues && 'to' in subValues) {
-              changes.push({
-                field: `${field}.${subField}`,
-                from: subValues.from,
-                to: subValues.to
-              });
-            }
-          });
+    Object.entries(event.details.changes).forEach(
+      ([field, values]: [string, any]) => {
+        if (typeof values === 'object' && values !== null) {
+          if ('from' in values && 'to' in values) {
+            changes.push({
+              field,
+              from: values.from,
+              to: values.to,
+            });
+          } else {
+            Object.entries(values).forEach(
+              ([subField, subValues]: [string, any]) => {
+                if (
+                  typeof subValues === 'object' &&
+                  subValues !== null &&
+                  'from' in subValues &&
+                  'to' in subValues
+                ) {
+                  changes.push({
+                    field: `${field}.${subField}`,
+                    from: subValues.from,
+                    to: subValues.to,
+                  });
+                }
+              },
+            );
+          }
         }
-      }
-    });
+      },
+    );
   }
 
   return changes;
@@ -339,39 +380,79 @@ export function getEventIcon(eventType: string) {
   switch (eventType.toLowerCase()) {
     case 'update':
       return (
-        <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+        <svg
+          className="w-5 h-5 text-blue-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+          />
         </svg>
       );
     case 'create':
       return (
-        <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+        <svg
+          className="w-5 h-5 text-green-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+          />
         </svg>
       );
     case 'delete':
       return (
-        <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        <svg
+          className="w-5 h-5 text-red-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+          />
         </svg>
       );
     default:
       return (
-        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <svg
+          className="w-5 h-5 text-gray-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
         </svg>
       );
   }
 }
 
 export function formatDate(date: Date | string) {
-  const d = typeof date === "string" ? new Date(date) : date;
+  const d = typeof date === 'string' ? new Date(date) : date;
   return new Intl.DateTimeFormat('default', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit'
+    second: '2-digit',
   }).format(d);
 }

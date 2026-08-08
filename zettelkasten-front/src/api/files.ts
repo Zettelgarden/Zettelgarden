@@ -4,22 +4,22 @@ import {
   EditFileMetadataParams,
   UploadFileResponse,
   ImportEpubResponse,
-} from "../models/File";
-import { GenericResponse } from "../models/common";
-import { apiClient, getData } from "./client";
-import { buildURL } from "./client";
+} from '../models/File';
+import { GenericResponse } from '../models/common';
+import { apiClient, getData } from './client';
+import { buildURL } from './client';
 
 const BASE_URL = import.meta.env.VITE_URL;
 
 export function uploadFile(
   file: Blob,
   card_pk: number,
-  customFilename?: string
+  customFilename?: string,
 ): Promise<UploadFileResponse> {
   const maxSize = 50 * 1024 * 1024; // 50 MB in bytes
   if (file.size > maxSize) {
     return Promise.reject(
-      new Error("File size exceeds the maximum limit of 50 MB."),
+      new Error('File size exceeds the maximum limit of 50 MB.'),
     );
   }
 
@@ -29,58 +29,61 @@ export function uploadFile(
   if (customFilename && file instanceof File) {
     // Create a new File with custom filename but keep the original file's content and type
     const fileExtension = file.name.split('.').pop() || '';
-    const newFile = new File([file], `${customFilename}.${fileExtension}`, { type: file.type });
-    formData.append("file", newFile);
+    const newFile = new File([file], `${customFilename}.${fileExtension}`, {
+      type: file.type,
+    });
+    formData.append('file', newFile);
   } else {
-    formData.append("file", file);
+    formData.append('file', file);
   }
 
-  formData.append("card_pk", card_pk.toString()); // Append card_pk to the form data
+  formData.append('card_pk', card_pk.toString()); // Append card_pk to the form data
 
   // Get token and manually handle FormData upload (skip Content-Type for FormData)
-  const token = localStorage.getItem("token");
-  const url = buildURL(BASE_URL, "/files/upload");
+  const token = localStorage.getItem('token');
+  const url = buildURL(BASE_URL, '/files/upload');
 
   return fetch(url, {
-    method: "POST",
+    method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       // Don't set Content-Type for FormData - browser sets it with boundary
     },
     body: formData,
-  })
-    .then((response) => {
-      if (!response.ok) {
-        return response.text().then((text) => {
-          throw new Error(text || `Request failed with status: ${response.status}`);
-        });
-      }
-      return response.json() as Promise<UploadFileResponse>;
-    });
+  }).then((response) => {
+    if (!response.ok) {
+      return response.text().then((text) => {
+        throw new Error(
+          text || `Request failed with status: ${response.status}`,
+        );
+      });
+    }
+    return response.json() as Promise<UploadFileResponse>;
+  });
 }
 
 export function renderFile(fileId: number, filename: string) {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem('token');
   const url = buildURL(BASE_URL, `/files/download/${fileId}`);
 
   return fetch(url, {
-    method: "GET",
+    method: 'GET',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   })
     .then((response) => {
       if (response.ok) return response.blob();
-      throw new Error("Network response was not ok.");
+      throw new Error('Network response was not ok.');
     })
     .then((blob) => {
       // Create a local URL for the blob object
       const localUrl = window.URL.createObjectURL(blob);
 
       // Create a temporary anchor tag to trigger the download
-      const a = document.createElement("a");
+      const a = document.createElement('a');
       a.href = localUrl;
-      a.download = filename || "downloaded_file";
+      a.download = filename || 'downloaded_file';
       document.body.appendChild(a);
       a.click();
 
@@ -88,48 +91,48 @@ export function renderFile(fileId: number, filename: string) {
       window.URL.revokeObjectURL(localUrl);
       a.remove();
     })
-    .catch((error) => console.error("Download error:", error));
+    .catch((error) => console.error('Download error:', error));
 }
 
 export function downloadFile(fileId: string) {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem('token');
   const url = buildURL(BASE_URL, `/files/download/${fileId}`);
 
   return fetch(url, {
-    method: "GET",
+    method: 'GET',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   })
     .then((response) => {
       if (response.ok) return response.blob();
-      throw new Error("Network response was not ok.");
+      throw new Error('Network response was not ok.');
     })
     .then((blob) => {
       return window.URL.createObjectURL(blob);
     })
-    .catch((error) => console.error("Download error:", error));
+    .catch((error) => console.error('Download error:', error));
 }
 
 export function downloadThumbnail(fileId: string): Promise<string | undefined> {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem('token');
   const url = buildURL(BASE_URL, `/files/download/${fileId}?thumbnail=true`);
 
   return fetch(url, {
-    method: "GET",
+    method: 'GET',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   })
     .then((response) => {
       if (response.ok) return response.blob();
-      throw new Error("Network response was not ok.");
+      throw new Error('Network response was not ok.');
     })
     .then((blob) => {
       return window.URL.createObjectURL(blob);
     })
     .catch((error) => {
-      console.error("Thumbnail download error:", error);
+      console.error('Thumbnail download error:', error);
       return undefined;
     });
 }
@@ -158,11 +161,11 @@ export interface GetAllFilesParams {
 export function getAllFiles(
   page: number = 1,
   perPage: number = 20,
-  search: string = "",
+  search: string = '',
   filetype?: string,
   unlinked?: boolean,
   sort?: string,
-  order?: string
+  order?: string,
 ): Promise<FilesResponse> {
   const params: Record<string, string | number | undefined> = {
     page: page,
@@ -178,7 +181,7 @@ export function getAllFiles(
   }
 
   if (unlinked) {
-    params.unlinked = "true";
+    params.unlinked = 'true';
   }
 
   if (sort && sort.trim()) {
@@ -189,7 +192,7 @@ export function getAllFiles(
     params.order = order.trim();
   }
 
-  return getData(apiClient.get<FilesResponse>("/files", { params }));
+  return getData(apiClient.get<FilesResponse>('/files', { params }));
 }
 
 export function deleteFile(fileId: number): Promise<GenericResponse> {
@@ -211,22 +214,35 @@ export interface CreateFileTagResponse {
 }
 
 export function createFileTag(name: string): Promise<CreateFileTagResponse> {
-  return getData(apiClient.post<CreateFileTagResponse>("/files/tags", { name }));
+  return getData(
+    apiClient.post<CreateFileTagResponse>('/files/tags', { name }),
+  );
 }
 
 export function getFileTags(): Promise<FileTag[]> {
-  return getData(apiClient.get<FileTag[]>("/files/tags"));
+  return getData(apiClient.get<FileTag[]>('/files/tags'));
 }
 
 export function tagFile(fileId: number, tagNames: string[]): Promise<void> {
-  return getData(apiClient.post(`/files/${fileId}/tags`, { tag_names: tagNames }));
+  return getData(
+    apiClient.post(`/files/${fileId}/tags`, { tag_names: tagNames }),
+  );
 }
 
 export function untagFile(fileId: number, tagName: string): Promise<void> {
-  return getData(apiClient.delete(`/files/${fileId}/tags/${encodeURIComponent(tagName)}`));
+  return getData(
+    apiClient.delete(`/files/${fileId}/tags/${encodeURIComponent(tagName)}`),
+  );
 }
 
 // Epub import function
-export function importEpub(fileId: number, cardId?: string): Promise<ImportEpubResponse> {
-  return getData(apiClient.post<ImportEpubResponse>(`/files/${fileId}/import-epub`, { card_id: cardId || "" }));
+export function importEpub(
+  fileId: number,
+  cardId?: string,
+): Promise<ImportEpubResponse> {
+  return getData(
+    apiClient.post<ImportEpubResponse>(`/files/${fileId}/import-epub`, {
+      card_id: cardId || '',
+    }),
+  );
 }

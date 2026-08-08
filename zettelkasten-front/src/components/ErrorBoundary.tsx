@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from "react";
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -24,7 +24,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log the error for debugging purposes
-    console.error("ErrorBoundary caught an error:", error, errorInfo);
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
 
     // Call optional error handler
     if (this.props.onError) {
@@ -54,7 +54,7 @@ export class ErrorBoundary extends Component<Props, State> {
           >
             Refresh Page
           </button>
-          {process.env.NODE_ENV === "development" && this.state.error && (
+          {process.env.NODE_ENV === 'development' && this.state.error && (
             <details className="mt-4">
               <summary className="cursor-pointer text-red-700 font-medium">
                 Error Details (Development)

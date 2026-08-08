@@ -1,14 +1,14 @@
-import React from "react";
-import { Menu } from "@headlessui/react";
-import { Card } from "../../models/Card";
-import { deleteCard } from "../../api/cards";
-import { Button } from "../Button";
-import { useUIState } from "../../contexts/UIStateContext";
+import React from 'react';
+import { Menu } from '@headlessui/react';
+import { Card } from '../../models/Card';
+import { deleteCard } from '../../api/cards';
+import { Button } from '../Button';
+import { useUIState } from '../../contexts/UIStateContext';
 import {
   useCardEditorContext,
   useEditorUIContext,
   useEditorMessagesContext,
-} from "../../contexts/editor";
+} from '../../contexts/editor';
 
 interface EditPageHeaderProps {
   newCard: boolean;
@@ -42,7 +42,7 @@ export function EditPageHeader({
 
   // Breadcrumb reads the proposed id for new cards, the persisted id otherwise.
   const breadcrumbId = newCard
-    ? editingCard.card_id || "new"
+    ? editingCard.card_id || 'new'
     : originalCard.card_id;
 
   return (
@@ -71,8 +71,8 @@ export function EditPageHeader({
               type="button"
               title={
                 suggestingTitle
-                  ? "Suggesting title..."
-                  : "Suggest title from content"
+                  ? 'Suggesting title...'
+                  : 'Suggest title from content'
               }
             >
               {suggestingTitle ? (
@@ -115,7 +115,11 @@ export function EditPageHeader({
           <Button onClick={handleSaveCard} variant="primary" size="small">
             Save
           </Button>
-          <Button onClick={handleCancelButtonClick} variant="outline" size="small">
+          <Button
+            onClick={handleCancelButtonClick}
+            variant="outline"
+            size="small"
+          >
             Cancel
           </Button>
           <button
@@ -126,8 +130,8 @@ export function EditPageHeader({
             aria-pressed={rightPaneOpen}
             className={`hidden md:inline-flex p-2 rounded-md transition-colors ${
               rightPaneOpen
-                ? "text-gray-700 hover:bg-gray-100"
-                : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                ? 'text-gray-700 hover:bg-gray-100'
+                : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
             }`}
           >
             <svg
@@ -177,7 +181,9 @@ export function EditPageHeader({
                       <input
                         type="checkbox"
                         id="process_entities_and_facts"
-                        checked={editingCard.process_entities_and_facts || false}
+                        checked={
+                          editingCard.process_entities_and_facts || false
+                        }
                         onChange={(e) =>
                           setEditingCard({
                             ...editingCard,
@@ -200,7 +206,7 @@ export function EditPageHeader({
                     <button
                       onClick={() => setShowSaveAsTemplate(true)}
                       className={`${
-                        active ? "bg-gray-100 text-gray-900" : "text-gray-700"
+                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
                       } group flex items-center w-full px-4 py-2 text-sm`}
                     >
                       Save as Template
@@ -214,23 +220,23 @@ export function EditPageHeader({
                         onClick={() => {
                           if (
                             window.confirm(
-                              "Are you sure you want to delete this card? This cannot be reversed",
+                              'Are you sure you want to delete this card? This cannot be reversed',
                             )
                           ) {
                             deleteCard(editingCard.id)
                               .then(() => {
-                                setMessage("Card deleted successfully");
+                                setMessage('Card deleted successfully');
                                 onDeleteSuccess();
                               })
                               .catch(() =>
                                 setMessage(
-                                  "Unable to delete card. Does it have backlinks, children or files?",
+                                  'Unable to delete card. Does it have backlinks, children or files?',
                                 ),
                               );
                           }
                         }}
                         className={`${
-                          active ? "bg-red-50" : ""
+                          active ? 'bg-red-50' : ''
                         } text-red-700 group flex items-center w-full px-4 py-2 text-sm hover:bg-red-50`}
                       >
                         Delete Card

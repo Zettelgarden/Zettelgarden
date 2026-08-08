@@ -1,6 +1,6 @@
-import React, { ChangeEvent, KeyboardEvent } from "react";
-import { Button } from "../../components/Button";
-import { SearchConfig } from "../../models/StarredSearch";
+import React, { ChangeEvent, KeyboardEvent } from 'react';
+import { Button } from '../../components/Button';
+import { SearchConfig } from '../../models/StarredSearch';
 
 interface SearchFormProps {
   searchTerm: string;
@@ -15,14 +15,14 @@ export function SearchForm({
   setSearchTerm,
   searchConfig,
   onSearch,
-  disabled = false
+  disabled = false,
 }: SearchFormProps) {
   function handleSearchUpdate(e: ChangeEvent<HTMLInputElement>) {
     setSearchTerm(e.target.value);
   }
 
   function handleKeyPress(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter" && !disabled) {
+    if (event.key === 'Enter' && !disabled) {
       onSearch(searchTerm, searchConfig);
     }
   }

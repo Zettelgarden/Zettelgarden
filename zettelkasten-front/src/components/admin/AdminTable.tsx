@@ -1,11 +1,11 @@
-import React from "react";
+import React from 'react';
 import {
   Table,
   flexRender,
   RowModel,
   SortingState,
   ColumnDef,
-} from "@tanstack/react-table";
+} from '@tanstack/react-table';
 
 /**
  * Props for the AdminTable component
@@ -29,8 +29,8 @@ export interface AdminTableProps<TData> {
  * Sorting indicator emoji for table headers
  */
 const SORT_INDICATORS = {
-  asc: " 🔼",
-  desc: " 🔽",
+  asc: ' 🔼',
+  desc: ' 🔽',
 } as const;
 
 /**
@@ -52,9 +52,9 @@ const SORT_INDICATORS = {
  */
 export function AdminTable<TData>({
   table,
-  className = "",
+  className = '',
   isLoading = false,
-  emptyMessage = "No data available",
+  emptyMessage = 'No data available',
   skeletonRows = 5,
   hideOnMobile = [],
 }: AdminTableProps<TData>) {
@@ -62,9 +62,10 @@ export function AdminTable<TData>({
   const rows = table.getRowModel().rows;
 
   // Filter columns for mobile view (hide those marked as hideOnMobile)
-  const mobileHeaders = headerGroups[0]?.headers.filter(
-    header => !hideOnMobile.includes(header.id)
-  ) || [];
+  const mobileHeaders =
+    headerGroups[0]?.headers.filter(
+      (header) => !hideOnMobile.includes(header.id),
+    ) || [];
 
   // Show loading skeleton
   if (isLoading) {
@@ -72,18 +73,17 @@ export function AdminTable<TData>({
       <>
         {/* Desktop table skeleton */}
         <div className="hidden md:block overflow-x-auto">
-          <table className={`min-w-full bg-white shadow-md rounded ${className}`}>
+          <table
+            className={`min-w-full bg-white shadow-md rounded ${className}`}
+          >
             <thead className="bg-gray-800 text-white">
               {headerGroups.map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <th
-                      key={header.id}
-                      className="py-2 px-4 text-left"
-                    >
+                    <th key={header.id} className="py-2 px-4 text-left">
                       {flexRender(
                         header.column.columnDef.header,
-                        header.getContext()
+                        header.getContext(),
                       )}
                     </th>
                   ))}
@@ -106,7 +106,10 @@ export function AdminTable<TData>({
         {/* Mobile card skeleton */}
         <div className="md:hidden space-y-4">
           {Array.from({ length: skeletonRows }).map((_, index) => (
-            <div key={`mobile-skeleton-${index}`} className="bg-white rounded-lg shadow p-4">
+            <div
+              key={`mobile-skeleton-${index}`}
+              className="bg-white rounded-lg shadow p-4"
+            >
               <div className="animate-pulse bg-gray-200 h-5 w-3/4 rounded mb-3" />
               <div className="animate-pulse bg-gray-200 h-4 w-1/2 rounded mb-2" />
               <div className="animate-pulse bg-gray-200 h-4 w-1/3 rounded" />
@@ -126,13 +129,10 @@ export function AdminTable<TData>({
             {headerGroups.map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="py-2 px-4 text-left"
-                  >
+                  <th key={header.id} className="py-2 px-4 text-left">
                     {flexRender(
                       header.column.columnDef.header,
-                      header.getContext()
+                      header.getContext(),
                     )}
                   </th>
                 ))}
@@ -170,9 +170,10 @@ export function AdminTable<TData>({
                   >
                     {flexRender(
                       header.column.columnDef.header,
-                      header.getContext()
+                      header.getContext(),
                     )}
-                    {SORT_INDICATORS[header.column.getIsSorted() as string] ?? null}
+                    {SORT_INDICATORS[header.column.getIsSorted() as string] ??
+                      null}
                   </th>
                 ))}
               </tr>
@@ -195,23 +196,29 @@ export function AdminTable<TData>({
       {/* Mobile card view */}
       <div className="md:hidden space-y-4">
         {rows.map((row) => (
-          <div key={row.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div
+            key={row.id}
+            className="bg-white rounded-lg shadow-md overflow-hidden"
+          >
             <div className="divide-y divide-gray-200">
               {mobileHeaders.map((header) => {
-                const cell = row.getVisibleCells().find(
-                  c => c.column.id === header.id
-                );
+                const cell = row
+                  .getVisibleCells()
+                  .find((c) => c.column.id === header.id);
                 if (!cell) return null;
                 return (
                   <div key={header.id} className="px-4 py-3">
                     <div className="text-xs text-gray-500 font-medium mb-1">
                       {flexRender(
                         header.column.columnDef.header,
-                        header.getContext()
+                        header.getContext(),
                       )}
                     </div>
                     <div className="text-sm">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
                     </div>
                   </div>
                 );
@@ -227,7 +234,8 @@ export function AdminTable<TData>({
 /**
  * Props for the AdminTableContainer component that wraps table with search
  */
-export interface AdminTableContainerProps<TData> extends AdminTableProps<TData> {
+export interface AdminTableContainerProps<TData>
+  extends AdminTableProps<TData> {
   /** Table title */
   title: string;
   /** Current search/filter value */
@@ -271,7 +279,7 @@ export function AdminTableContainer<TData>({
   table,
   searchValue,
   onSearchChange,
-  searchPlaceholder = "Search...",
+  searchPlaceholder = 'Search...',
   headerContent,
   isLoading,
   emptyMessage,
@@ -346,7 +354,7 @@ export function AdminTableContainer<TData>({
             </label>
             <select
               className="w-full px-3 py-2 border rounded-lg"
-              value={sorting[0]?.id ?? ""}
+              value={sorting[0]?.id ?? ''}
               onChange={(e) => {
                 const columnId = e.target.value;
                 if (columnId) {
@@ -357,7 +365,7 @@ export function AdminTableContainer<TData>({
               <option value="">Select column...</option>
               {table.getAllColumns().map((column) => (
                 <option key={column.id} value={column.id}>
-                  {typeof column.columnDef.header === "string"
+                  {typeof column.columnDef.header === 'string'
                     ? column.columnDef.header
                     : column.id}
                 </option>
@@ -367,21 +375,25 @@ export function AdminTableContainer<TData>({
           {sorting[0] && (
             <div className="flex gap-2">
               <button
-                onClick={() => onSortingChange([{ id: sorting[0].id, desc: false }])}
+                onClick={() =>
+                  onSortingChange([{ id: sorting[0].id, desc: false }])
+                }
                 className={`flex-1 px-3 py-2 border rounded-lg text-sm ${
                   !sorting[0].desc
-                    ? "bg-blue-500 text-white"
-                    : "bg-white hover:bg-gray-50"
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-white hover:bg-gray-50'
                 }`}
               >
                 Ascending ↑
               </button>
               <button
-                onClick={() => onSortingChange([{ id: sorting[0].id, desc: true }])}
+                onClick={() =>
+                  onSortingChange([{ id: sorting[0].id, desc: true }])
+                }
                 className={`flex-1 px-3 py-2 border rounded-lg text-sm ${
                   sorting[0].desc
-                    ? "bg-blue-500 text-white"
-                    : "bg-white hover:bg-gray-50"
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-white hover:bg-gray-50'
                 }`}
               >
                 Descending ↓

@@ -1,6 +1,13 @@
 export interface FieldDefinition {
   name: string;
-  type: "text" | "number" | "date" | "boolean" | "select" | "multi-select" | "link_to_card";
+  type:
+    | 'text'
+    | 'number'
+    | 'date'
+    | 'boolean'
+    | 'select'
+    | 'multi-select'
+    | 'link_to_card';
   required: boolean;
   options?: string[];
 }

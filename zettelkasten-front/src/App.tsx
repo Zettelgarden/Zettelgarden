@@ -1,15 +1,15 @@
-import React, { useEffect } from "react";
-import { Admin } from "./pages/admin/AdminPage";
-import LoginForm from "./pages/LoginPage";
-import MainApp from "./pages/MainApp";
-import RegisterPage from "./pages/RegisterPage";
-import { Routes, Route, Navigate } from "react-router-dom";
-import PasswordReset from "./pages/PasswordReset";
-import EmailValidation from "./pages/EmailValidation";
-import { useAuth } from "./contexts/AuthContext";
-import { RssManagePage } from "./pages/RssManagePage";
+import React, { useEffect } from 'react';
+import { Admin } from './pages/admin/AdminPage';
+import LoginForm from './pages/LoginPage';
+import MainApp from './pages/MainApp';
+import RegisterPage from './pages/RegisterPage';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import PasswordReset from './pages/PasswordReset';
+import EmailValidation from './pages/EmailValidation';
+import { useAuth } from './contexts/AuthContext';
+import { RssManagePage } from './pages/RssManagePage';
 
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from 'react-router-dom';
 
 function App() {
   const navigate = useNavigate();
@@ -22,10 +22,7 @@ function App() {
   useEffect(() => {
     const realPath = window.location.pathname;
     const hash = window.location.hash;
-    if (
-      (hash === "" || hash === "#" || hash === "#/") &&
-      realPath !== "/"
-    ) {
+    if ((hash === '' || hash === '#' || hash === '#/') && realPath !== '/') {
       navigate(realPath + window.location.search, { replace: true });
     }
   }, [navigate]);
@@ -41,7 +38,7 @@ function App() {
             isLoading ? (
               <div />
             ) : (
-              <Navigate to={isAuthenticated ? "/app" : "/login"} replace />
+              <Navigate to={isAuthenticated ? '/app' : '/login'} replace />
             )
           }
         />

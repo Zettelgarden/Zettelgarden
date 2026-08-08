@@ -1,4 +1,10 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  ReactNode,
+} from 'react';
 import { TaskStatus } from '../models/TaskStatus';
 import { fetchTaskStatuses } from '../api/taskStatuses';
 
@@ -14,7 +20,9 @@ interface StatusContextType {
 
 const StatusContext = createContext<StatusContextType | undefined>(undefined);
 
-export const StatusProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const StatusProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [statuses, setStatuses] = useState<TaskStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,15 +101,15 @@ export const StatusProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, []);
 
   const getStatusByName = (name: string): TaskStatus | undefined => {
-    return statuses.find(status => status.name === name);
+    return statuses.find((status) => status.name === name);
   };
 
   const getDefaultStatus = (): TaskStatus | undefined => {
-    return statuses.find(status => status.is_default);
+    return statuses.find((status) => status.is_default);
   };
 
   const getCompleteStatus = (): TaskStatus | undefined => {
-    return statuses.find(status => status.is_complete_state);
+    return statuses.find((status) => status.is_complete_state);
   };
 
   const value: StatusContextType = {
@@ -114,7 +122,9 @@ export const StatusProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     getCompleteStatus,
   };
 
-  return <StatusContext.Provider value={value}>{children}</StatusContext.Provider>;
+  return (
+    <StatusContext.Provider value={value}>{children}</StatusContext.Provider>
+  );
 };
 
 export const useStatus = (): StatusContextType => {

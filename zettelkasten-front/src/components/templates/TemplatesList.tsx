@@ -1,7 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { getTemplates, deleteTemplate, saveAsTemplate, updateTemplate } from "../../api/templates";
-import { CardTemplate } from "../../models/Card";
-import { TemplateVariablesHelp } from "./TemplateVariablesHelp";
+import React, { useState, useEffect } from 'react';
+import {
+  getTemplates,
+  deleteTemplate,
+  saveAsTemplate,
+  updateTemplate,
+} from '../../api/templates';
+import { CardTemplate } from '../../models/Card';
+import { TemplateVariablesHelp } from './TemplateVariablesHelp';
 
 interface TemplatesListProps {
   onTemplateDeleted?: () => void;
@@ -10,17 +15,19 @@ interface TemplatesListProps {
 export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
   const [templates, setTemplates] = useState<CardTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [newTemplateName, setNewTemplateName] = useState("");
-  const [newTemplateTitle, setNewTemplateTitle] = useState("");
-  const [newTemplateBody, setNewTemplateBody] = useState("");
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [newTemplateTitle, setNewTemplateTitle] = useState('');
+  const [newTemplateBody, setNewTemplateBody] = useState('');
   const [creating, setCreating] = useState(false);
-  const [viewingTemplate, setViewingTemplate] = useState<CardTemplate | null>(null);
+  const [viewingTemplate, setViewingTemplate] = useState<CardTemplate | null>(
+    null,
+  );
   const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState("");
-  const [editTitle, setEditTitle] = useState("");
-  const [editBody, setEditBody] = useState("");
+  const [editName, setEditName] = useState('');
+  const [editTitle, setEditTitle] = useState('');
+  const [editBody, setEditBody] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -32,9 +39,9 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
       setLoading(true);
       const fetchedTemplates = await getTemplates();
       setTemplates(fetchedTemplates);
-      setError("");
+      setError('');
     } catch (err) {
-      setError("Failed to load templates");
+      setError('Failed to load templates');
       console.error(err);
     } finally {
       setLoading(false);
@@ -42,15 +49,15 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
   }
 
   async function handleDeleteTemplate(id: number) {
-    if (window.confirm("Are you sure you want to delete this template?")) {
+    if (window.confirm('Are you sure you want to delete this template?')) {
       try {
         await deleteTemplate(id);
-        setTemplates(templates.filter(template => template.id !== id));
+        setTemplates(templates.filter((template) => template.id !== id));
         if (onTemplateDeleted) {
           onTemplateDeleted();
         }
       } catch (err) {
-        setError("Failed to delete template");
+        setError('Failed to delete template');
         console.error(err);
       }
     }
@@ -58,21 +65,25 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
 
   async function handleCreateTemplate() {
     if (!newTemplateName.trim()) {
-      setError("Template name is required");
+      setError('Template name is required');
       return;
     }
 
     try {
       setCreating(true);
-      const newTemplate = await saveAsTemplate(newTemplateName, newTemplateTitle, newTemplateBody);
+      const newTemplate = await saveAsTemplate(
+        newTemplateName,
+        newTemplateTitle,
+        newTemplateBody,
+      );
       setTemplates([...templates, newTemplate]);
       setShowCreateDialog(false);
-      setNewTemplateName("");
-      setNewTemplateTitle("");
-      setNewTemplateBody("");
-      setError("");
+      setNewTemplateName('');
+      setNewTemplateTitle('');
+      setNewTemplateBody('');
+      setError('');
     } catch (err) {
-      setError("Failed to create template");
+      setError('Failed to create template');
       console.error(err);
     } finally {
       setCreating(false);
@@ -83,19 +94,28 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
     if (!viewingTemplate) return;
 
     if (!editName.trim()) {
-      setError("Template name is required");
+      setError('Template name is required');
       return;
     }
 
     try {
       setSaving(true);
-      const updatedTemplate = await updateTemplate(viewingTemplate.id, editName, editTitle, editBody);
-      setTemplates(templates.map(t => t.id === updatedTemplate.id ? updatedTemplate : t));
+      const updatedTemplate = await updateTemplate(
+        viewingTemplate.id,
+        editName,
+        editTitle,
+        editBody,
+      );
+      setTemplates(
+        templates.map((t) =>
+          t.id === updatedTemplate.id ? updatedTemplate : t,
+        ),
+      );
       setViewingTemplate(updatedTemplate);
       setIsEditing(false);
-      setError("");
+      setError('');
     } catch (err) {
-      setError("Failed to update template");
+      setError('Failed to update template');
       console.error(err);
     } finally {
       setSaving(false);
@@ -111,19 +131,19 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
 
   function cancelEditing() {
     setIsEditing(false);
-    setEditName("");
-    setEditTitle("");
-    setEditBody("");
-    setError("");
+    setEditName('');
+    setEditTitle('');
+    setEditBody('');
+    setError('');
   }
 
   function closeViewDialog() {
     setViewingTemplate(null);
     setIsEditing(false);
-    setEditName("");
-    setEditTitle("");
-    setEditBody("");
-    setError("");
+    setEditName('');
+    setEditTitle('');
+    setEditBody('');
+    setError('');
   }
 
   if (loading) {
@@ -145,8 +165,17 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
           onClick={() => setShowCreateDialog(true)}
           className="inline-flex items-center gap-2 px-4 py-3 min-h-[44px] text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+              clipRule="evenodd"
+            />
           </svg>
           Create Template
         </button>
@@ -161,17 +190,24 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
       {templates.length === 0 ? (
         <div className="text-center py-8">
           <p className="text-gray-600 mb-2">No templates found.</p>
-          <p className="text-sm text-gray-500">Create a template to reuse card structures.</p>
+          <p className="text-sm text-gray-500">
+            Create a template to reuse card structures.
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
           {templates.map((template) => (
-            <div key={template.id} className="flex justify-between items-center p-3 border rounded-md bg-white">
+            <div
+              key={template.id}
+              className="flex justify-between items-center p-3 border rounded-md bg-white"
+            >
               <div
                 className="flex-1 cursor-pointer hover:bg-gray-50 -m-3 p-3 rounded-md transition-colors"
                 onClick={() => setViewingTemplate(template)}
               >
-                <h4 className="font-medium">{template.name || template.title}</h4>
+                <h4 className="font-medium">
+                  {template.name || template.title}
+                </h4>
                 <p className="text-sm text-gray-600">
                   Created: {new Date(template.created_at).toLocaleDateString()}
                 </p>
@@ -197,7 +233,10 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="template-name" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="template-name"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   Template Name
                 </label>
                 <input
@@ -214,8 +253,14 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
               </div>
 
               <div>
-                <label htmlFor="template-title" className="block text-sm font-medium text-gray-700 mb-1">
-                  Card Title <span className="text-gray-500 text-xs">(will become the card title)</span>
+                <label
+                  htmlFor="template-title"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Card Title{' '}
+                  <span className="text-gray-500 text-xs">
+                    (will become the card title)
+                  </span>
                 </label>
                 <input
                   id="template-title"
@@ -228,7 +273,10 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
               </div>
 
               <div>
-                <label htmlFor="template-body" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="template-body"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   Body
                 </label>
                 <textarea
@@ -246,10 +294,10 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
               <button
                 onClick={() => {
                   setShowCreateDialog(false);
-                  setNewTemplateName("");
-                  setNewTemplateTitle("");
-                  setNewTemplateBody("");
-                  setError("");
+                  setNewTemplateName('');
+                  setNewTemplateTitle('');
+                  setNewTemplateBody('');
+                  setError('');
                 }}
                 className="px-4 py-3 min-h-[44px] text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
               >
@@ -260,7 +308,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                 disabled={creating}
                 className="px-4 py-3 min-h-[44px] text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
               >
-                {creating ? "Creating..." : "Create Template"}
+                {creating ? 'Creating...' : 'Create Template'}
               </button>
             </div>
           </div>
@@ -274,14 +322,27 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
               {isEditing ? (
                 <h3 className="text-lg font-semibold">Edit Template</h3>
               ) : (
-                <h3 className="text-lg font-semibold">{viewingTemplate.name || viewingTemplate.title}</h3>
+                <h3 className="text-lg font-semibold">
+                  {viewingTemplate.name || viewingTemplate.title}
+                </h3>
               )}
               <button
                 onClick={closeViewDialog}
                 className="text-gray-400 hover:text-gray-600"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
@@ -297,11 +358,15 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                 <>
                   <div className="mb-4">
                     <p className="text-sm text-gray-500 mb-2">
-                      Created: {new Date(viewingTemplate.created_at).toLocaleDateString()}
+                      Created:{' '}
+                      {new Date(
+                        viewingTemplate.created_at,
+                      ).toLocaleDateString()}
                     </p>
                     {viewingTemplate.title && (
                       <p className="text-sm text-gray-600">
-                        <span className="font-medium">Card Title:</span> {viewingTemplate.title}
+                        <span className="font-medium">Card Title:</span>{' '}
+                        {viewingTemplate.title}
                       </p>
                     )}
                   </div>
@@ -320,7 +385,10 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
               ) : (
                 <div className="space-y-4">
                   <div>
-                    <label htmlFor="edit-template-name" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label
+                      htmlFor="edit-template-name"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
                       Template Name
                     </label>
                     <input
@@ -336,8 +404,14 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                   </div>
 
                   <div>
-                    <label htmlFor="edit-template-title" className="block text-sm font-medium text-gray-700 mb-1">
-                      Card Title <span className="text-gray-500 text-xs">(will become the card title)</span>
+                    <label
+                      htmlFor="edit-template-title"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Card Title{' '}
+                      <span className="text-gray-500 text-xs">
+                        (will become the card title)
+                      </span>
                     </label>
                     <input
                       id="edit-template-title"
@@ -350,7 +424,10 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
 
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label htmlFor="edit-template-body" className="block text-sm font-medium text-gray-700">
+                      <label
+                        htmlFor="edit-template-body"
+                        className="block text-sm font-medium text-gray-700"
+                      >
                         Body
                       </label>
                       <TemplateVariablesHelp />
@@ -396,7 +473,7 @@ export function TemplatesList({ onTemplateDeleted }: TemplatesListProps) {
                     disabled={saving}
                     className="px-4 py-3 min-h-[44px] text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {saving ? "Saving..." : "Save Changes"}
+                    {saving ? 'Saving...' : 'Save Changes'}
                   </button>
                 </>
               )}

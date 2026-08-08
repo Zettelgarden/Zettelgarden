@@ -1,33 +1,40 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { useLocation } from "react-router-dom";
-import { useTaskContext } from "../contexts/TaskContext";
-import { useUIState } from "../contexts/UIStateContext";
-import { useDialogState } from "../contexts/DialogStateContext";
-import { useRSS } from "../contexts/RSSContext";
-import { isTodayOrPast } from "../utils/dates";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
-import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
-import { useToast } from "./toast/ToastContext";
-import { listFolders } from "../api/rss";
-import { RSSFolder, RSSFeed } from "../api/rss";
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useTaskContext } from '../contexts/TaskContext';
+import { useUIState } from '../contexts/UIStateContext';
+import { useDialogState } from '../contexts/DialogStateContext';
+import { useRSS } from '../contexts/RSSContext';
+import { isTodayOrPast } from '../utils/dates';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useToast } from './toast/ToastContext';
+import { listFolders } from '../api/rss';
+import { RSSFolder, RSSFeed } from '../api/rss';
 
-import { PartialCard, Card, Entity } from "../models/Card";
+import { PartialCard, Card, Entity } from '../models/Card';
 
-import { SidebarHeader } from "./sidebar/SidebarHeader";
-import { NavigationLinks } from "./sidebar/NavigationLinks";
-import { StarredSearchesSection } from "./sidebar/StarredSearchesSection";
-import { StarredCardsSection } from "./sidebar/StarredCardsSection";
-import { SidebarFooter } from "./sidebar/SidebarFooter";
-import { SidebarModals } from "./sidebar/SidebarModals";
-import { MobileBottomNav } from "./mobile/MobileBottomNav";
-import { RssAddFeedDialog } from "./rss/RssAddFeedDialog";
-import { SidebarSearchBar } from "./sidebar/SidebarSearchBar";
+import { SidebarHeader } from './sidebar/SidebarHeader';
+import { NavigationLinks } from './sidebar/NavigationLinks';
+import { StarredSearchesSection } from './sidebar/StarredSearchesSection';
+import { StarredCardsSection } from './sidebar/StarredCardsSection';
+import { SidebarFooter } from './sidebar/SidebarFooter';
+import { SidebarModals } from './sidebar/SidebarModals';
+import { MobileBottomNav } from './mobile/MobileBottomNav';
+import { RssAddFeedDialog } from './rss/RssAddFeedDialog';
+import { SidebarSearchBar } from './sidebar/SidebarSearchBar';
 
 export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { lastCard, isSidebarCollapsed, toggleSidebarCollapsed, toggleRightPane, isMobileSidebarOpen, setIsMobileSidebarOpen } = useUIState();
+  const {
+    lastCard,
+    isSidebarCollapsed,
+    toggleSidebarCollapsed,
+    toggleRightPane,
+    isMobileSidebarOpen,
+    setIsMobileSidebarOpen,
+  } = useUIState();
   const { showToast } = useToast();
   const { tasks } = useTaskContext();
   const { unreadCount: unreadRssCount } = useRSS();
@@ -40,7 +47,7 @@ export function Sidebar() {
   const showTasks = user?.show_tasks !== false;
   const showRss = user?.show_rss !== false;
 
-  const userTimezone = user?.timezone || "UTC";
+  const userTimezone = user?.timezone || 'UTC';
 
   const [showGettingStarted, setShowGettingStarted] = useState(false);
   const [showEditEntityDialog, setShowEditEntityDialog] = useState(false);
@@ -76,13 +83,14 @@ export function Sidebar() {
   const todayTasks = useMemo(
     () =>
       tasks.filter(
-        (task) => !task.is_complete && isTodayOrPast(task.scheduled_date, userTimezone),
+        (task) =>
+          !task.is_complete && isTodayOrPast(task.scheduled_date, userTimezone),
       ),
     [tasks, userTimezone],
   );
 
   function handleNewStandardCard() {
-    navigate("/app/card/new", { state: { cardType: "standard" } });
+    navigate('/app/card/new', { state: { cardType: 'standard' } });
   }
 
   function handleNewTask() {
@@ -100,7 +108,7 @@ export function Sidebar() {
   function handleFeedAdded(feed: RSSFeed) {
     // Feed added successfully - dialog will close itself
     // No additional action needed - RSS page will show the new feed when visited
-    console.log("Feed added:", feed);
+    console.log('Feed added:', feed);
   }
 
   async function handleCloseGettingStarted() {
@@ -123,7 +131,7 @@ export function Sidebar() {
         const folders = await listFolders();
         setRssFolders(folders);
       } catch (error) {
-        console.error("Failed to fetch RSS folders:", error);
+        console.error('Failed to fetch RSS folders:', error);
       }
     }
     fetchFolders();
@@ -154,7 +162,7 @@ export function Sidebar() {
           className="fixed inset-0 bg-black bg-opacity-50 md:hidden z-[45] safe-all"
           onClick={() => setIsMobileSidebarOpen(false)}
           onKeyDown={(e) => {
-            if (e.key === "Escape") {
+            if (e.key === 'Escape') {
               setIsMobileSidebarOpen(false);
             }
           }}
@@ -175,12 +183,16 @@ export function Sidebar() {
     flex flex-col
     border-r
     transform
-    ${isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+    ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
     md:translate-x-0
     transition-all
     duration-300
     ease-in-out
-    ${isSidebarCollapsed ? "w-16 min-w-[4rem] max-w-[4rem]" : "w-72 min-w-[18rem] max-w-[18rem]"}
+    ${
+      isSidebarCollapsed
+        ? 'w-16 min-w-[4rem] max-w-[4rem]'
+        : 'w-72 min-w-[18rem] max-w-[18rem]'
+    }
   `}
       >
         <SidebarHeader
@@ -197,7 +209,10 @@ export function Sidebar() {
         <SidebarSearchBar isCollapsed={isSidebarCollapsed} />
 
         {/* Scrollable Middle Section */}
-        <div className="flex-1 overflow-y-auto" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}>
+        <div
+          className="flex-1 overflow-y-auto"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}
+        >
           <NavigationLinks
             todayTasksCount={todayTasks.length}
             unreadRssCount={unreadRssCount}

@@ -102,12 +102,12 @@ export interface AdminErrorResponse {
  * Type guard for admin API error responses
  */
 export function isAdminErrorResponse(
-  response: unknown
+  response: unknown,
 ): response is AdminErrorResponse {
   return (
-    typeof response === "object" &&
+    typeof response === 'object' &&
     response !== null &&
-    "error" in response &&
+    'error' in response &&
     (response as AdminErrorResponse).error === true
   );
 }
@@ -116,19 +116,21 @@ export function isAdminErrorResponse(
  * Get all admin audit logs
  */
 export async function getAdminAuditLogs(
-  params: AuditLogQueryParams = {}
+  params: AuditLogQueryParams = {},
 ): Promise<AdminAuditLog[]> {
   const base_url = import.meta.env.VITE_URL;
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem('token');
 
   const queryParams = new URLSearchParams();
-  if (params.limit) queryParams.append("limit", params.limit.toString());
-  if (params.offset) queryParams.append("offset", params.offset.toString());
-  if (params.action) queryParams.append("action", params.action);
-  if (params.target_type) queryParams.append("target_type", params.target_type);
+  if (params.limit) queryParams.append('limit', params.limit.toString());
+  if (params.offset) queryParams.append('offset', params.offset.toString());
+  if (params.action) queryParams.append('action', params.action);
+  if (params.target_type) queryParams.append('target_type', params.target_type);
 
   const queryString = queryParams.toString();
-  const url = `${base_url}/admin/audit-logs${queryString ? `?${queryString}` : ""}`;
+  const url = `${base_url}/admin/audit-logs${
+    queryString ? `?${queryString}` : ''
+  }`;
 
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
@@ -146,7 +148,7 @@ export async function getAdminAuditLogs(
  */
 export async function getAdminStats(): Promise<AdminStats> {
   const base_url = import.meta.env.VITE_URL;
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem('token');
   const url = `${base_url}/admin/stats`;
 
   const response = await fetch(url, {
@@ -210,14 +212,16 @@ export async function getAllJobs(params?: {
   offset?: number;
 }): Promise<AdminJobsResponse> {
   const base_url = import.meta.env.VITE_URL;
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem('token');
 
   const queryParams = new URLSearchParams();
-  if (params?.status) queryParams.set("status", params.status);
-  if (params?.limit) queryParams.set("limit", params.limit.toString());
-  if (params?.offset) queryParams.set("offset", params.offset.toString());
+  if (params?.status) queryParams.set('status', params.status);
+  if (params?.limit) queryParams.set('limit', params.limit.toString());
+  if (params?.offset) queryParams.set('offset', params.offset.toString());
 
-  const url = `${base_url}/admin/jobs${queryParams.toString() ? `?${queryParams}` : ""}`;
+  const url = `${base_url}/admin/jobs${
+    queryParams.toString() ? `?${queryParams}` : ''
+  }`;
 
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
@@ -235,11 +239,11 @@ export async function getAllJobs(params?: {
  */
 export async function retryJob(jobId: number): Promise<JobRetryResponse> {
   const base_url = import.meta.env.VITE_URL;
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem('token');
   const url = `${base_url}/admin/jobs/${jobId}/retry`;
 
   const response = await fetch(url, {
-    method: "POST",
+    method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -309,9 +313,11 @@ export interface SchedulerHealth {
 /**
  * Get all scheduled jobs
  */
-export async function getScheduledJobs(): Promise<{ jobs: ScheduledJobInfo[] }> {
+export async function getScheduledJobs(): Promise<{
+  jobs: ScheduledJobInfo[];
+}> {
   const base_url = import.meta.env.VITE_URL;
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem('token');
   const url = `${base_url}/admin/scheduler/jobs`;
 
   const response = await fetch(url, {
@@ -330,8 +336,10 @@ export async function getScheduledJobs(): Promise<{ jobs: ScheduledJobInfo[] }> 
  */
 export async function getJobSummary(jobName: string): Promise<JobSummary> {
   const base_url = import.meta.env.VITE_URL;
-  const token = localStorage.getItem("token");
-  const url = `${base_url}/admin/scheduler/jobs/${encodeURIComponent(jobName)}/summary`;
+  const token = localStorage.getItem('token');
+  const url = `${base_url}/admin/scheduler/jobs/${encodeURIComponent(
+    jobName,
+  )}/summary`;
 
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
@@ -350,16 +358,18 @@ export async function getJobSummary(jobName: string): Promise<JobSummary> {
 export async function getJobHistory(
   jobName: string,
   limit: number = 50,
-  offset: number = 0
+  offset: number = 0,
 ): Promise<JobHistoryResponse> {
   const base_url = import.meta.env.VITE_URL;
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem('token');
 
   const params = new URLSearchParams();
-  params.set("limit", limit.toString());
-  params.set("offset", offset.toString());
+  params.set('limit', limit.toString());
+  params.set('offset', offset.toString());
 
-  const url = `${base_url}/admin/scheduler/jobs/${encodeURIComponent(jobName)}/history?${params}`;
+  const url = `${base_url}/admin/scheduler/jobs/${encodeURIComponent(
+    jobName,
+  )}/history?${params}`;
 
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
@@ -377,7 +387,7 @@ export async function getJobHistory(
  */
 export async function getSchedulerHealth(): Promise<SchedulerHealth> {
   const base_url = import.meta.env.VITE_URL;
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem('token');
   const url = `${base_url}/admin/scheduler/health`;
 
   const response = await fetch(url, {

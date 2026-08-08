@@ -1,5 +1,5 @@
-import React from "react";
-import { PartialCard } from "../../models/Card";
+import React from 'react';
+import { PartialCard } from '../../models/Card';
 
 interface CardTagProps {
   card: PartialCard;
@@ -15,9 +15,7 @@ export function CardTag({ card, showTitle, displayText }: CardTagProps) {
         [{inner}]
       </span>
       {showTitle && (
-        <span className="truncate ml-1 text-gray-700">
-          - {card.title}
-        </span>
+        <span className="truncate ml-1 text-gray-700">- {card.title}</span>
       )}
     </div>
   );

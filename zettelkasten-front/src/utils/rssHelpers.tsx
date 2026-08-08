@@ -1,6 +1,6 @@
-import { RSSFeed, RSSFolder, UnreadCounts } from "../api/rss";
-import { RSS_CONFIG } from "../constants/rss";
-import React from "react";
+import { RSSFeed, RSSFolder, UnreadCounts } from '../api/rss';
+import { RSS_CONFIG } from '../constants/rss';
+import React from 'react';
 
 /**
  * Get feeds filtered by folder name
@@ -8,9 +8,12 @@ import React from "react";
  * @param folderName - Folder name to filter by (null for uncategorized)
  * @returns Filtered feeds
  */
-export function getFeedsByFolder(feeds: RSSFeed[], folderName: string | null): RSSFeed[] {
+export function getFeedsByFolder(
+  feeds: RSSFeed[],
+  folderName: string | null,
+): RSSFeed[] {
   return feeds.filter(
-    (f) => f.folder === folderName || (folderName === null && !f.folder)
+    (f) => f.folder === folderName || (folderName === null && !f.folder),
   );
 }
 
@@ -22,7 +25,7 @@ export function getFeedsByFolder(feeds: RSSFeed[], folderName: string | null): R
  */
 export function getUnreadCountForFeed(
   unreadCounts: UnreadCounts,
-  feedId: number
+  feedId: number,
 ): number {
   return unreadCounts.feeds[feedId] || 0;
 }
@@ -35,7 +38,7 @@ export function getUnreadCountForFeed(
  */
 export function getUnreadCountForFolder(
   unreadCounts: UnreadCounts,
-  folderName: string
+  folderName: string,
 ): number {
   return unreadCounts.folders[folderName] || 0;
 }
@@ -46,7 +49,10 @@ export function getUnreadCountForFolder(
  * @returns Total unread count
  */
 export function getTotalUnreadCount(unreadCounts: UnreadCounts): number {
-  return Object.values(unreadCounts.feeds).reduce((sum, count) => sum + count, 0);
+  return Object.values(unreadCounts.feeds).reduce(
+    (sum, count) => sum + count,
+    0,
+  );
 }
 
 /**
@@ -58,7 +64,7 @@ export function renderUnreadBadge(count: number): React.ReactNode {
   if (count === 0) return null;
   return (
     <span className="ml-1.5 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center">
-      {count > RSS_CONFIG.UNREAD_BADGE_MAX ? "99+" : count}
+      {count > RSS_CONFIG.UNREAD_BADGE_MAX ? '99+' : count}
     </span>
   );
 }
@@ -69,6 +75,6 @@ export function renderUnreadBadge(count: number): React.ReactNode {
  * @returns Formatted string
  */
 export function formatUnreadCount(count: number): string {
-  if (count === 0) return "";
-  return count > RSS_CONFIG.UNREAD_BADGE_MAX ? "99+" : count.toString();
+  if (count === 0) return '';
+  return count > RSS_CONFIG.UNREAD_BADGE_MAX ? '99+' : count.toString();
 }
