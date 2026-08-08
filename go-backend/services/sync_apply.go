@@ -55,13 +55,14 @@ func normalizeCardID(s string) string {
 }
 
 type pushContext struct {
-	tx         *sql.Tx
-	userID     int
-	deviceID   string
-	uuidToID   map[string]int // row_uuid -> server PK for rows created in this batch
-	cardIDToID map[string]int // card_id -> server PK for cards in this batch (parent resolution)
-	lost       int
-	results    []models.SyncPushResult
+	tx             *sql.Tx
+	userID         int
+	deviceID       string
+	uuidToID       map[string]int  // row_uuid -> server PK for rows created in this batch
+	cardIDToID     map[string]int  // card_id -> server PK for cards in this batch (parent resolution)
+	deletedInBatch map[string]bool // row_uuids soft-deleted earlier in THIS batch (delete-then-recreate)
+	lost           int
+	results        []models.SyncPushResult
 }
 
 // ApplySyncPush applies a push batch transactionally and returns per-change
@@ -69,11 +70,12 @@ type pushContext struct {
 // discarded (lost) edits.
 func ApplySyncPush(tx *sql.Tx, userID int, req *models.SyncPushRequest) ([]models.SyncPushResult, int64, int, error) {
 	ctx := &pushContext{
-		tx:         tx,
-		userID:     userID,
-		deviceID:   req.DeviceID,
-		uuidToID:   map[string]int{},
-		cardIDToID: map[string]int{},
+		tx:             tx,
+		userID:         userID,
+		deviceID:       req.DeviceID,
+		uuidToID:       map[string]int{},
+		cardIDToID:     map[string]int{},
+		deletedInBatch: map[string]bool{},
 	}
 	// Apply in collection order (cards → tasks → tags) regardless of client
 	// send order, so FK references from a task to a card created later in the
@@ -488,8 +490,11 @@ func (c *pushContext) applyCardUpsert(ch models.SyncChange) {
 		return
 	}
 
-	// Update path with optimistic concurrency.
-	if ch.BaseVersion == 0 {
+	// Update path with optimistic concurrency. A row soft-deleted earlier in
+	// THIS batch is a delete-then-recreate: the upsert resurrects it (writes
+	// the recreate, no conflict), bypassing both the create-retry shortcut and
+	// the stale-base check.
+	if ch.BaseVersion == 0 && !c.deletedInBatch[ch.RowUUID] {
 		// Idempotent retry of a create already applied: a row with our
 		// row_uuid exists and the client believes it never synced — the only
 		// way that happens is our own create landing earlier. No write, no
@@ -497,7 +502,7 @@ func (c *pushContext) applyCardUpsert(ch models.SyncChange) {
 		c.applied(ch, id, version)
 		return
 	}
-	if ch.BaseVersion < version {
+	if ch.BaseVersion < version && !c.deletedInBatch[ch.RowUUID] {
 		c.retryOrConflict(SyncCollectionCards, ch, id, version)
 		return
 	}
@@ -509,6 +514,11 @@ func (c *pushContext) applyCardUpsert(ch models.SyncChange) {
 	if err != nil {
 		c.ignored(ch)
 		return
+	}
+	// A resurrection re-adds the row the batch's delete removed from the
+	// user's count (matching the create path).
+	if c.deletedInBatch[ch.RowUUID] && !data.IsDeleted {
+		IncrementUserCardCount(c.tx, c.userID)
 	}
 	c.ensureSelfParent(SyncCollectionCards, id, data.CardID)
 	c.finishCardWrite(id)
@@ -539,6 +549,7 @@ func (c *pushContext) applyCardDelete(ch models.SyncChange) {
 	}
 	DecrementUserCardCount(c.tx, c.userID)
 	deleteCardTypesense(id)
+	c.deletedInBatch[ch.RowUUID] = true
 	c.emit(SyncCollectionCards, ch.RowUUID, SyncOpDelete, newVersion)
 	c.applied(ch, id, newVersion)
 }
@@ -607,11 +618,11 @@ func (c *pushContext) applyTaskUpsert(ch models.SyncChange) {
 		return
 	}
 
-	if ch.BaseVersion == 0 {
+	if ch.BaseVersion == 0 && !c.deletedInBatch[ch.RowUUID] {
 		c.applied(ch, id, version) // idempotent retry of an applied create
 		return
 	}
-	if ch.BaseVersion < version {
+	if ch.BaseVersion < version && !c.deletedInBatch[ch.RowUUID] {
 		c.retryOrConflict(SyncCollectionTasks, ch, id, version)
 		return
 	}
@@ -626,6 +637,11 @@ func (c *pushContext) applyTaskUpsert(ch models.SyncChange) {
 	if err != nil {
 		c.ignored(ch)
 		return
+	}
+	// A resurrection re-adds the row the batch's delete removed from the
+	// user's count (matching the create path).
+	if c.deletedInBatch[ch.RowUUID] && !data.IsDeleted {
+		IncrementUserTaskCount(c.tx, c.userID)
 	}
 	if err := AddTagsFromTask(c.tx, c.userID, id); err != nil {
 		log.Printf("sync push: re-derive tags for task %d: %v", id, err)
@@ -655,6 +671,7 @@ func (c *pushContext) applyTaskDelete(ch models.SyncChange) {
 		return
 	}
 	DecrementUserTaskCount(c.tx, c.userID)
+	c.deletedInBatch[ch.RowUUID] = true
 	c.emit(SyncCollectionTasks, ch.RowUUID, SyncOpDelete, newVersion)
 	c.applied(ch, id, newVersion)
 }
@@ -700,14 +717,15 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) {
 		var mergedUUID string
 		err := c.tx.QueryRow(`SELECT id, version, sync_uuid FROM tags WHERE user_id = $1 AND name = $2`, c.userID, data.Name).Scan(&mergedID, &mergedVersion, &mergedUUID)
 		if err == nil {
-			if ch.BaseVersion <= mergedVersion {
+			if ch.BaseVersion <= mergedVersion && !c.deletedInBatch[mergedUUID] {
 				// The server row is as new or newer: keep it, tell the client to
 				// adopt its uuid. No write, no feed entry (nothing changed).
 				c.merged(ch, mergedID, mergedVersion, mergedUUID)
 				return
 			}
-			// The client's edit is newer: apply it onto the merged row.
-			newVersion := ch.BaseVersion + 1
+			// The client's edit is newer (or resurrects a batch-deleted row):
+			// apply it onto the merged row, keeping the version monotonic.
+			newVersion := max(mergedVersion, ch.BaseVersion) + 1
 			if _, err := c.tx.Exec(`UPDATE tags SET name = $1, color = $2, is_deleted = $3, updated_at = $4, version = $5 WHERE id = $6`, data.Name, data.Color, data.IsDeleted, time.Now().UTC(), newVersion, mergedID); err != nil {
 				c.ignored(ch)
 				return
@@ -735,11 +753,11 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) {
 		return
 	}
 
-	if ch.BaseVersion == 0 {
+	if ch.BaseVersion == 0 && !c.deletedInBatch[ch.RowUUID] {
 		c.applied(ch, id, version) // idempotent retry of an applied create
 		return
 	}
-	if ch.BaseVersion < version {
+	if ch.BaseVersion < version && !c.deletedInBatch[ch.RowUUID] {
 		c.retryOrConflict(SyncCollectionTags, ch, id, version)
 		return
 	}
@@ -784,6 +802,7 @@ func (c *pushContext) applyTagDelete(ch models.SyncChange) {
 		c.ignored(ch)
 		return
 	}
+	c.deletedInBatch[existingUUID] = true
 	c.emit(SyncCollectionTags, existingUUID, SyncOpDelete, newVersion)
 	c.applied(ch, id, newVersion)
 }

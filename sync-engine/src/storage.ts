@@ -75,7 +75,13 @@ export class InMemoryAdapter implements StorageAdapter {
   enqueue(entry: OutboxEntry): void {
     const i = this.outboxList.findIndex((e) => e.rowUuid === entry.rowUuid);
     if (i >= 0) {
-      this.outboxList[i] = entry;
+      // Coalesce: replace op/data but KEEP the first (original) base_version
+      // so the server LWW compares against the version the client last
+      // confirmed — not the latest local edit. Mirrors SqliteStorageAdapter.
+      // In the delete-then-recreate case this keeps base 1 instead of 0, so
+      // the server applies the recreate instead of misreading it as a
+      // create-retry and silently dropping it.
+      this.outboxList[i] = { ...entry, baseVersion: this.outboxList[i]!.baseVersion };
     } else {
       this.outboxList.push(entry);
     }

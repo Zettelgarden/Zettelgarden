@@ -473,6 +473,58 @@ func TestSyncPushStaleUpdateVsDelete(t *testing.T) {
 	}
 }
 
+// TestSyncPushDeleteThenRecreateBatch: a batch containing BOTH a delete and an
+// upsert of the same row_uuid must end with the row active, carrying the
+// recreate's data — the same-batch upsert resurrects the row instead of being
+// rejected as a stale conflict or misread as a create-retry.
+func TestSyncPushDeleteThenRecreateBatch(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	create := syncCardChange("c-rc-1", "sync-recreate", "v1 title", 0)
+	resp1 := pushChanges(t, s, router, []models.SyncChange{create})
+	if resp1.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("create: %+v", resp1.Results[0])
+	}
+
+	// One batch: delete from v1, then re-create the same uuid from v1.
+	delData, _ := json.Marshal(models.SyncCardData{})
+	resp := pushChanges(t, s, router, []models.SyncChange{
+		{Collection: services.SyncCollectionCards, RowUUID: "c-rc-1", Op: services.SyncOpDelete, BaseVersion: 1, Data: delData},
+		syncCardChange("c-rc-1", "sync-recreate", "recreated title", 1),
+	})
+	for i, r := range resp.Results {
+		if r.Status != services.SyncStatusApplied {
+			t.Fatalf("result %d (%s): expected applied, got %+v", i, r.RowUUID, r)
+		}
+	}
+	if resp.LostEdits != 0 {
+		t.Errorf("lost_edits = %d, want 0 (the recreate must not be a lost edit)", resp.LostEdits)
+	}
+
+	var title string
+	var isDeleted bool
+	if err := s.GetDB().QueryRow(`SELECT title, is_deleted FROM cards WHERE sync_uuid = 'c-rc-1'`).Scan(&title, &isDeleted); err != nil {
+		t.Fatal(err)
+	}
+	if isDeleted {
+		t.Error("card still soft-deleted after same-batch recreate")
+	}
+	if title != "recreated title" {
+		t.Errorf("server title = %q, want recreated title", title)
+	}
+
+	// Exactly one active row with that uuid.
+	var count int
+	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM cards WHERE sync_uuid = 'c-rc-1' AND is_deleted = FALSE`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Errorf("active row count = %d, want 1", count)
+	}
+}
+
 // strPtr/intPtr are tiny helpers for pointer-typed task fields in the retry
 // tests above.
 func strPtr(s string) *string { return &s }

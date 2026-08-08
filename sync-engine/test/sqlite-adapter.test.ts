@@ -57,6 +57,20 @@ describe('SqliteStorageAdapter', () => {
     expect(adapter.outbox()).toHaveLength(0);
   });
 
+  it('delete-then-recreate coalesces to an upsert that keeps the original base', () => {
+    adapter.enqueue({ collection: 'cards', rowUuid: 'dtr', op: 'delete', baseVersion: 1, data: undefined });
+    adapter.enqueue({ collection: 'cards', rowUuid: 'dtr', op: 'upsert', baseVersion: 0, data: { title: 'recreated' } });
+
+    const outbox = adapter.outbox();
+    expect(outbox).toHaveLength(1);
+    expect(outbox[0]!.op).toBe('upsert');
+    // The local mirror row was dropped by the delete, so the recreate starts
+    // at base 0 — but the pending entry must keep base 1 (the version the
+    // client last confirmed) so the server LWW applies the recreate instead
+    // of misreading base 0 as a create-retry and silently dropping it.
+    expect(outbox[0]!.baseVersion).toBe(1);
+  });
+
   it('cursor and meta persist', () => {
     expect(adapter.getCursor()).toBe(0);
     adapter.setCursor(42);

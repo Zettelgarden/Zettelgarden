@@ -103,8 +103,14 @@ export class MockServer implements SyncTransport {
 
   push(req: PushRequest): Promise<PushResponse> {
     const results: PushResponse['results'] = [];
+    // Batch-internal tombstones: a row soft-deleted earlier in THIS batch is
+    // resurrected by a same-batch upsert (delete-then-recreate), matching the
+    // Go server's pushContext.deletedInBatch.
+    const deletedInBatch = new Set<string>();
     for (const ch of req.changes) {
+      const batchKey = this.key(ch.collection, ch.row_uuid);
       const existing = this.lookup(ch.collection, ch.row_uuid);
+      const resurrecting = deletedInBatch.has(batchKey);
       if (!existing) {
         if (ch.op === 'delete') {
           results.push({ rowUuid: ch.row_uuid, status: 'ignored', serverVersion: 0 });
@@ -146,7 +152,7 @@ export class MockServer implements SyncTransport {
       }
 
       // Existing row.
-      if (ch.base_version === 0) {
+      if (ch.base_version === 0 && !resurrecting) {
         // Idempotent retry of an applied create.
         results.push({
           rowUuid: ch.row_uuid,
@@ -156,7 +162,7 @@ export class MockServer implements SyncTransport {
         });
         continue;
       }
-      if (ch.base_version < existing.version) {
+      if (ch.base_version < existing.version && !resurrecting) {
         results.push({
           rowUuid: ch.row_uuid,
           status: 'conflict',
@@ -169,6 +175,7 @@ export class MockServer implements SyncTransport {
       if (ch.op === 'delete') {
         existing.isDeleted = true;
         existing.version += 1;
+        deletedInBatch.add(batchKey);
         this.emit(ch.collection, ch.row_uuid, 'delete', existing.version);
         results.push({
           rowUuid: ch.row_uuid,
@@ -181,6 +188,7 @@ export class MockServer implements SyncTransport {
       const newVersion = Math.max(existing.version, ch.base_version) + 1;
       existing.version = newVersion;
       existing.data = { ...ch.data, id: existing.data.id };
+      existing.isDeleted = ch.data?.is_deleted === true;
       this.emit(ch.collection, ch.row_uuid, 'upsert', newVersion);
       results.push({
         rowUuid: ch.row_uuid,

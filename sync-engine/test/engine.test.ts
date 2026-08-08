@@ -218,6 +218,44 @@ describe('SyncEngine', () => {
     expect(devB.storage.getRow('cards', 'gone')).toBeUndefined();
   });
 
+  it('delete-then-recreate offline converges (coalesced outbox keeps original base)', async () => {
+    const server = new MockServer();
+    server.seed('cards', 'dtr', cardData('v1'));
+    const { engine, storage } = makeEngine(server, 'dev-a');
+    await engine.bootstrap();
+    expect(storage.getRow('cards', 'dtr')!.version).toBe(1);
+
+    // Offline: delete the row, then re-create the same rowUuid.
+    engine.setOnline(false);
+    engine.deleteLocal('cards', 'dtr');
+    engine.mutate('cards', { rowUuid: 'dtr', data: cardData('recreated') });
+
+    // The outbox coalesced to ONE upsert entry that keeps the original base
+    // version (1), not the recreate's local base 0.
+    const outbox = storage.outbox();
+    expect(outbox).toHaveLength(1);
+    expect(outbox[0]!.op).toBe('upsert');
+    expect(outbox[0]!.baseVersion).toBe(1);
+
+    engine.setOnline(true);
+    const summary = await engine.sync();
+    expect(summary.conflicts).toBe(0);
+    expect(summary.lostEdits).toBe(0);
+    expect(engine.pendingChanges()).toBe(0);
+
+    // Server row is active with the recreate's data.
+    const serverRow = (await server.snapshot(['cards'])).collections.cards!.find(
+      (r) => r.row_uuid === 'dtr',
+    )!;
+    expect(serverRow).toBeDefined();
+    expect(serverRow.data?.title).toBe('recreated');
+
+    // The client mirror converges too.
+    const row = storage.getRow('cards', 'dtr')!;
+    expect(row.data.title).toBe('recreated');
+    expect(row.version).toBeGreaterThanOrEqual(2);
+  });
+
   it('progress events fire with pendingChanges and lastSynced', async () => {
     const server = new MockServer();
     const { engine, storage } = makeEngine(server, 'dev-a');
