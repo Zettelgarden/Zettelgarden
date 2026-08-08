@@ -175,7 +175,7 @@ func (s *Handler) EmailAdminOnSubscription(sess stripe.CheckoutSession) {
 	}
 
 	subject := "New subscription at Zettelgarden!"
-	recipient := os.Getenv("ZETTEL_ADMIN_EMAIL")
+	recipient := s.Settings.Get("admin_email")
 	body := fmt.Sprintf("A new user has subscribed at Zettelgarden: %v, %v", user.Username, user.Email)
 	s.Server.Mail.SendEmail(subject, recipient, body)
 	log.Printf("New user subscription: %v, %v", user.Username, user.Email)

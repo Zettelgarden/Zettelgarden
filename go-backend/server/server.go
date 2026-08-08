@@ -5,6 +5,7 @@ import (
 	"go-backend/mail"
 	"go-backend/models"
 	"go-backend/services/storage"
+	"go-backend/settings"
 
 	"github.com/typesense/typesense-go/typesense"
 )
@@ -21,4 +22,9 @@ type Server struct {
 	Driver          string // "postgres" (default/empty) or "sqlite"
 	LLMClient       *models.LLMClient
 	TypesenseClient *typesense.Client
+
+	// Settings is the file-backed admin settings manager (config.yaml next
+	// to the SQLite DB). Non-secret admin settings; env seeds it on first
+	// boot. See Zettelgarden-6er.15.
+	Settings *settings.Manager
 }

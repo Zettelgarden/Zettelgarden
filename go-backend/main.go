@@ -13,6 +13,7 @@ import (
 	"go-backend/services"
 	"go-backend/services/jobs"
 	"go-backend/services/storage"
+	"go-backend/settings"
 
 	"log"
 	"net/http"
@@ -112,6 +113,18 @@ func run() error {
 		Server: s,
 		DB:     s.DB,
 	}
+
+	// Initialize the file-backed admin settings manager (config.yaml next to
+	// the SQLite DB). Env seeds it on first boot; the file is the source of
+	// truth afterwards (hot-reloaded on change). See Zettelgarden-6er.15.
+	settingsPath := settings.DefaultPath(cfg.Database.SQLitePath)
+	sm, err := settings.New(settingsPath)
+	if err != nil {
+		log.Fatalf("Failed to load settings file %s: %v", settingsPath, err)
+	}
+	s.Settings = sm
+	h.Settings = sm
+	log.Printf("Settings loaded from %s", settingsPath)
 	h.GitHubConfig = cfg.Services.GitHub
 	if h.GitHubConfig.Enabled {
 		log.Printf("GitHub OAuth enabled")

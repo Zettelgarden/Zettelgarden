@@ -7,6 +7,7 @@ import (
 	"go-backend/pkg/config"
 	"go-backend/server"
 	"go-backend/services"
+	"go-backend/settings"
 	"log"
 	"net/http"
 	"net/url"
@@ -66,6 +67,11 @@ type Handler struct {
 	// client in CallbackOIDCRoute (test seam; production handlers leave it nil).
 	// See oidc.go for the interface and the real implementation.
 	oidcClientOverride oidcClient
+
+	// Settings is the file-backed admin settings manager (config.yaml next
+	// to the SQLite DB). Non-secret admin settings; env seeds it on first
+	// boot. See Zettelgarden-6er.15.
+	Settings *settings.Manager
 }
 
 // GetDB returns the appropriate database connection for database operations.

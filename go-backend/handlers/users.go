@@ -680,7 +680,10 @@ func (s *Handler) CreateUser(params models.CreateUserParams) (int, error) {
 		return -1, fmt.Errorf("failed to count users: %w", err)
 	}
 	isAdmin := userCount == 0
-	if adminEmail := os.Getenv("ZETTEL_ADMIN_EMAIL"); adminEmail != "" && strings.EqualFold(params.Email, adminEmail) {
+	// Deterministic admin path: an email matching the settings admin_email
+	// (case-insensitive; seeded from ZETTEL_ADMIN_EMAIL on first boot) also
+	// grants admin. See settings package (Zettelgarden-6er.15).
+	if adminEmail := s.Settings.Get("admin_email"); adminEmail != "" && strings.EqualFold(params.Email, adminEmail) {
 		isAdmin = true
 	}
 

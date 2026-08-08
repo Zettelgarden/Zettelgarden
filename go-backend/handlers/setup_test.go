@@ -1,8 +1,14 @@
 package handlers
 
 import (
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+
 	"go-backend/pkg/config"
 	"go-backend/services"
+	"go-backend/settings"
 	"go-backend/tests"
 )
 
@@ -42,6 +48,18 @@ func NewHandler() *Handler {
 		// s.StripeConfig.Enabled = false.
 		StripeConfig: config.StripeConfig{Enabled: true},
 	}
+
+	// Per-process test settings file (tests run parallel=1). Removed before
+	// each test so New() re-seeds it from test env; keeps Settings reads
+	// (e.g. admin_email) consistent across tests.
+	settingsPath := filepath.Join(os.TempDir(), fmt.Sprintf("zettelgarden-test-settings-%d.yaml", os.Getpid()))
+	_ = os.Remove(settingsPath)
+	sm, err := settings.New(settingsPath)
+	if err != nil {
+		log.Fatalf("test settings init: %v", err)
+	}
+	s.Settings = sm
+	s.Server.Settings = sm
 
 	return s
 }
