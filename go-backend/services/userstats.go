@@ -104,13 +104,19 @@ func DecrementUserTaskCount(db models.Database, userID int) {
 // --- Files ------------------------------------------------------------------
 
 // IncrementUserFileCount bumps user_stats.file_count by 1 (file uploaded).
-//
-// NOTE: there is intentionally no DecrementUserFileCount. The old PG trigger
-// fired AFTER hard DELETE, but the Go server only ever soft-deletes files
-// (UPDATE files SET is_deleted=true), so file_count never decremented in
-// practice — a pre-existing overcount tracked in beads issue Zettelgarden-y6s.
 func IncrementUserFileCount(db models.Database, userID int) {
 	bumpIntCounter(db, userID, userStatFileCount, +1)
+}
+
+// DecrementUserFileCount reduces user_stats.file_count by 1, floored at 0
+// (file soft-deleted). Files are only ever soft-deleted by the Go server
+// (UPDATE files SET is_deleted=true in handlers/files.go DeleteFileRoute), so
+// the decrement lives in that path. The old PG trigger (0093 trg_files_delete)
+// fired AFTER hard DELETE and never ran under the Go-only soft-delete world,
+// leaving the counter monotonically increasing — the overcount this fixes
+// (beads Zettelgarden-y6s).
+func DecrementUserFileCount(db models.Database, userID int) {
+	bumpIntCounter(db, userID, userStatFileCount, -1)
 }
 
 // --- Cost & revenue ---------------------------------------------------------

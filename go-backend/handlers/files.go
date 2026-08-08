@@ -743,6 +743,12 @@ func (s *Handler) DeleteFileRoute(w http.ResponseWriter, r *http.Request) {
 		_, _ = s.GetDB().Exec(`UPDATE files SET is_deleted = false WHERE id = $1`, cardPK)
 		return
 	}
+
+	// file_count was trigger-maintained (0093); now maintained in Go (Phase 5).
+	// Files are only ever soft-deleted, so the decrement rides the soft-delete
+	// path (beads Zettelgarden-y6s) — after the storage delete succeeds, to
+	// stay consistent with the is_deleted rollback above.
+	services.DecrementUserFileCount(s.GetDB(), userID)
 }
 
 // Tag management endpoints

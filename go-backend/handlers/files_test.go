@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"go-backend/models"
+	"go-backend/services"
 	"go-backend/tests"
 	"io"
 	"log"
@@ -468,6 +469,18 @@ func TestDeleteFile(t *testing.T) {
 	defer tests.Teardown()
 	uploadTestFile(s)
 
+	// The fixture inserts file rows directly (bypassing the upload route's
+	// IncrementUserFileCount), so seed the counter the way a real upload would
+	// (Zettelgarden-y6s: file_count must decrement on soft-delete).
+	services.IncrementUserFileCount(s.GetDB(), 1)
+	var before int
+	if err := s.GetDB().QueryRow(`SELECT file_count FROM user_stats WHERE user_id = 1`).Scan(&before); err != nil {
+		t.Fatalf("read file_count before delete: %v", err)
+	}
+	if before != 1 {
+		t.Fatalf("file_count before delete = %d, want 1", before)
+	}
+
 	token, _ := tests.GenerateTestJWT(1)
 
 	req, err := http.NewRequest("DELETE", "/api/files/1", nil)
@@ -501,5 +514,14 @@ func TestDeleteFile(t *testing.T) {
 	if status := rr.Code; status != http.StatusNotFound {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNotFound)
 
+	}
+
+	// Zettelgarden-y6s: the soft-delete path must decrement file_count.
+	var after int
+	if err := s.GetDB().QueryRow(`SELECT file_count FROM user_stats WHERE user_id = 1`).Scan(&after); err != nil {
+		t.Fatalf("read file_count after delete: %v", err)
+	}
+	if after != 0 {
+		t.Errorf("file_count after delete = %d, want 0 (decrement on soft-delete)", after)
 	}
 }

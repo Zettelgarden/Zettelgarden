@@ -69,9 +69,11 @@ func TestUserStatsCounters(t *testing.T) {
 	DecrementUserCardCount(s.DB, uid)
 	DecrementUserCardCount(s.DB, uid) // would go negative -> clamped to 0
 	DecrementUserTaskCount(s.DB, uid)
-	card, task, _, _, _, _ = readCounters(t, s, uid)
-	if card != 0 || task != 0 {
-		t.Fatalf("after decrements: card=%d task=%d, want 0/0 (floored)", card, task)
+	DecrementUserFileCount(s.DB, uid)  // 1 -> 0 (file soft-delete, Zettelgarden-y6s)
+	DecrementUserFileCount(s.DB, uid)  // would go negative -> clamped to 0
+	card, task, file, _, _, _ = readCounters(t, s, uid)
+	if card != 0 || task != 0 || file != 0 {
+		t.Fatalf("after decrements: card=%d task=%d file=%d, want 0/0/0 (floored)", card, task, file)
 	}
 }
 
