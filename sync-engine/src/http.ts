@@ -9,6 +9,7 @@ import type {
   Collection,
   PushRequest,
   PushResponse,
+  PushResult,
   SnapshotResponse,
   SyncTransport,
 } from './types';
@@ -96,7 +97,7 @@ function normalizePush(resp: PushResponse): PushResponse {
     results?: Array<{
       row_uuid?: string;
       rowUuid?: string;
-      status: string;
+      status: PushResult['status'];
       server_id?: number;
       serverId?: number;
       server_version?: number;
@@ -110,14 +111,22 @@ function normalizePush(resp: PushResponse): PushResponse {
     lostEdits?: number;
   };
   return {
-    results: (raw.results ?? []).map((r) => ({
-      rowUuid: r.row_uuid ?? r.rowUuid,
-      status: r.status,
-      serverId: r.server_id ?? r.serverId,
-      serverVersion: r.server_version ?? r.serverVersion ?? 0,
-      mappedToRowUuid: r.mapped_to_row_uuid ?? r.mappedToRowUuid,
-      data: r.data,
-    })),
+    results: (raw.results ?? []).map((r) => {
+      const rowUuid = r.row_uuid ?? r.rowUuid;
+      if (!rowUuid) {
+        // Every result is keyed by the pushed change's uuid; a missing one is
+        // a server contract violation that would silently break dropOutbox.
+        throw new Error(`sync push result missing row_uuid: ${JSON.stringify(r)}`);
+      }
+      return {
+        rowUuid,
+        status: r.status,
+        serverId: r.server_id ?? r.serverId,
+        serverVersion: r.server_version ?? r.serverVersion ?? 0,
+        mappedToRowUuid: r.mapped_to_row_uuid ?? r.mappedToRowUuid,
+        data: r.data,
+      };
+    }),
     cursor: raw.cursor,
     lostEdits: raw.lost_edits ?? raw.lostEdits ?? 0,
   };

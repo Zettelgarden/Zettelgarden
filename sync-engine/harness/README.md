@@ -41,7 +41,8 @@ harness/
     ├── 03-linked-rows.ts      # offline card (A) + task via card_pk_uuid (B) + same-named tag on both
     ├── 04-card-id-rename.ts   # offline card_id rename on both devices → no row split
     ├── 05-self-echo.ts        # interleaved push/pull: own echoed changes not double-applied
-    └── 06-tag-rename.ts       # rename-vs-rename (LWW, one tag) and rename-vs-create
+    ├── 06-tag-rename.ts       # rename-vs-rename (LWW, one tag) and rename-vs-create
+    └── 07-offline-delete.ts   # delete vs concurrent edit: no ghost row on the losing device
 ```
 
 Each scenario gets a **fresh account** (new users are seeded with a welcome
@@ -74,6 +75,13 @@ several rounds until settled, and the harness asserts:
   rebuilt per-user at boot. Regression tests:
   `TestSyncSelfHealPerUserSyncUUIDIndex` (server) and
   `TestSyncPushPerUserSyncUUIDSharing` (handlers).
+- **`is_deleted` 0/1 vs boolean** (`src/engine.ts`): the Go backend emits
+  SQLite BOOLEANs as `0`/`1` in row payloads; the engine compared `!== true`
+  and never matched. When a DELETE won an LWW conflict, the losing device
+  kept a permanent ghost row (the feed tombstone had been skipped while the
+  edit was pending). Scenario 07 reproduces it; the engine now treats
+  `is_deleted` truthiness and drops the mirror row when the adopted server
+  data says deleted. Found in the independent subagent review.
 
 ## Known policy gap (follow-up)
 

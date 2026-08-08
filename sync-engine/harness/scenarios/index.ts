@@ -5,6 +5,7 @@ import { linkedRowsScenario } from './03-linked-rows';
 import { cardIdRenameScenario } from './04-card-id-rename';
 import { selfEchoScenario } from './05-self-echo';
 import { tagRenameScenario } from './06-tag-rename';
+import { offlineDeleteScenario } from './07-offline-delete';
 
 /** All Phase 1b convergence scenarios, run in order against the live backend. */
 export const scenarios: Scenario[] = [
@@ -14,4 +15,5 @@ export const scenarios: Scenario[] = [
   cardIdRenameScenario,
   selfEchoScenario,
   tagRenameScenario,
+  offlineDeleteScenario,
 ];

@@ -39,9 +39,13 @@ export const linkedRowsScenario: Scenario = {
         },
       });
 
-      // A pushes (card + tag in one batch; the server derives the tag from the
-      // card body and merges A's tag onto it), then B pushes (task FK resolved
-      // to the card's server PK; B's tag merges onto the surviving row).
+      // A pushes (card + tag in one batch): applying the card re-derives its
+      // body tags server-side, which CREATES a 'work' tag (server-generated
+      // uuid, color black); A's own 'tag-a' then name-merges onto that derived
+      // row, so the surviving tag is a third row, not tag-a. B pushes next:
+      // its task FK resolves to the card's server PK and its 'tag-b' merges
+      // onto the same surviving 'work' row. Both devices must end up holding
+      // the surviving uuid and the server-form task (card_pk int).
       const summaries = await settle([a, b], 2);
       const bPush = pushSummary(summaries, 'dev-b');
       if (!bPush || bPush.lostEdits < 1) {

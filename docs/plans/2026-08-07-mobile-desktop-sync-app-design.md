@@ -703,3 +703,13 @@ whose uuid collided with another account was silently ignored; now
 `(user_id, sync_uuid)` with a boot self-heal that replaces the old index on
 existing DBs).
 
+Post-review follow-up (independent subagent review): the harness gained a
+delete-race scenario (07) after the review found the engine misread the Go
+backend's `is_deleted` 0/1 as booleans — a delete that won an LWW conflict left
+a permanent ghost row on the losing device; the engine now treats `is_deleted`
+truthiness and drops the row when the adopted server data says deleted. Note
+for operators: a pre-existing DB whose rows carry duplicate `sync_uuid` values
+across users now FAILS TO BOOT at the self-heal step (loud failure instead of
+the old silent create-drop); impossible with the old global index in place,
+and only reachable by manual DB edits.
+

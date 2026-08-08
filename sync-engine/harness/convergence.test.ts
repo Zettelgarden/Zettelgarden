@@ -16,7 +16,7 @@ describe('two-DB convergence harness (live backend)', () => {
 
   beforeAll(async () => {
     backend = await HarnessBackend.start();
-  }, 180_000);
+  }, 600_000);
 
   afterAll(async () => {
     await backend?.stop();

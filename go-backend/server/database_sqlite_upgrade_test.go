@@ -641,4 +641,26 @@ func TestSyncSelfHealPerUserSyncUUIDIndex(t *testing.T) {
 	if cols, err := sqliteIndexColumnCount(db, "idx_cards_sync_uuid"); err != nil || cols != 2 {
 		t.Fatalf("post-idempotent index columns = %d (want 2), err=%v", cols, err)
 	}
+
+	// The tasks/tags tables (no pre-existing index at all — the cols==0 path)
+	// must also end up with the per-user form after the upgrade.
+	if _, err := db.Exec(`INSERT INTO tasks (user_id, title, sync_uuid) VALUES (1, 't', 'shared-t'), (2, 't2', 'shared-t')`); err != nil {
+		t.Fatalf("seed cross-user tasks: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO tags (name, user_id, sync_uuid) VALUES ('w', 1, 'shared-tag'), ('w2', 2, 'shared-tag')`); err != nil {
+		t.Fatalf("seed cross-user tags: %v", err)
+	}
+	if err := ensureSQLiteSchemaUpgrades(db); err != nil {
+		t.Fatalf("upgrade tasks/tags: %v", err)
+	}
+	for _, table := range []string{"tasks", "tags"} {
+		cols, err := sqliteIndexColumnCount(db, "idx_"+table+"_sync_uuid")
+		if err != nil || cols != 2 {
+			t.Fatalf("idx_%s_sync_uuid columns = %d (want 2), err=%v", table, cols, err)
+		}
+		var n int
+		if err := db.QueryRow(fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE sync_uuid = 'shared-%s'`, table, map[string]string{"tasks": "t", "tags": "tag"}[table])).Scan(&n); err != nil || n != 2 {
+			t.Fatalf("cross-user %s rows = %d (want 2), err=%v", table, n, err)
+		}
+	}
 }

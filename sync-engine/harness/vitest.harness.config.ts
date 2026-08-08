@@ -13,6 +13,9 @@ export default defineConfig({
     pool: 'forks',
     poolOptions: { forks: { singleFork: true } },
     testTimeout: 120_000,
-    hookTimeout: 180_000,
+    // A cold go build of go-backend (module download + compile) can exceed
+    // several minutes on a fresh runner; CI pre-warms it, but keep the hook
+    // generous for local runs too.
+    hookTimeout: 600_000,
   },
 });

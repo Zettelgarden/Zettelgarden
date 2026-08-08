@@ -49,16 +49,36 @@ export class HarnessBackend {
 
   static async start(): Promise<HarnessBackend> {
     const bin = ensureBackendBinary();
+    // The free-port probe closes its socket before the backend binds, so the
+    // port can be stolen in between (TOCTOU); retry with a fresh port if the
+    // child dies during boot rather than failing the whole run.
+    let lastError: Error | undefined;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await HarnessBackend.tryStart(bin);
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+      }
+    }
+    throw lastError ?? new Error('backend failed to start');
+  }
+
+  private static async tryStart(bin: string): Promise<HarnessBackend> {
     const port = await findFreePort();
     const baseUrl = `http://127.0.0.1:${port}`;
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zg-harness-'));
     const backend = new HarnessBackend(baseUrl, port, tmpDir);
 
-    // Mirrors go-backend/tests/conftest.go defaults: a proven-bootable env.
-    // Dev mode (ZETTEL_DEV=true) tolerates the placeholder values; Typesense
-    // is unreachable and degrades to SQL search; no SMTP_HOST -> mail off.
+    // Whitelisted env (NOT ...process.env): the harness backend must boot
+    // identically regardless of what the developer's shell exports — a stray
+    // MAIL_ENABLED/ZETTEL_* would otherwise change settings seeding and
+    // silently alter scenario behavior. Mirrors go-backend/tests/conftest.go
+    // defaults; dev mode tolerates placeholders; Typesense is unreachable and
+    // degrades to SQL search; no SMTP_HOST -> mail off.
     const env: NodeJS.ProcessEnv = {
-      ...process.env,
+      PATH: process.env.PATH ?? '',
+      HOME: process.env.HOME,
+      TMPDIR: process.env.TMPDIR,
       ZETTEL_DEV: 'true',
       ZETTEL_PORT: String(port),
       ZETTEL_URL: baseUrl,
@@ -82,11 +102,6 @@ export class HarnessBackend {
       GITHUB_AUTH_ENABLED: 'false',
       ZETTEL_RUN_CHUNKING_EMBEDDING: 'false',
     };
-    // Explicitly unset anything that would make the boot env depend on the
-    // developer's shell (.env is not auto-loaded by main.go).
-    delete env.SMTP_HOST;
-    delete env.SMTP_PORT;
-    delete env.MAIL_PASSWORD;
 
     backend.proc = spawn(bin, [], { env, cwd: GO_BACKEND_DIR, stdio: ['ignore', 'pipe', 'pipe'] });
     backend.proc.stdout?.on('data', (d: Buffer) => backend.capture(d));
@@ -95,8 +110,14 @@ export class HarnessBackend {
       backend.logTail.push(`[proc exit code=${code} signal=${signal}]`);
     });
 
-    await backend.waitReady();
-    return backend;
+    try {
+      await backend.waitReady();
+      return backend;
+    } catch (err) {
+      // Never leak the child or the temp dir on a failed boot.
+      await backend.stop().catch(() => undefined);
+      throw err;
+    }
   }
 
   private capture(chunk: Buffer): void {
@@ -222,11 +243,14 @@ function ensureBackendBinary(): string {
 
 function goSourcesNewerThan(bin: string): boolean {
   try {
-    const newest = execSync(
-      `find . -name '*.go' -newer ${JSON.stringify(bin)} -print -quit`,
+    // Newest Go source or module file by mtime (GNU find printf).
+    const listing = execSync(
+      `find . \( -name '*.go' -o -name 'go.mod' -o -name 'go.sum' \) -printf '%T@ %p\\n' | sort -rn | head -1`,
       { cwd: GO_BACKEND_DIR, encoding: 'utf8' },
     ).trim();
-    return newest !== '';
+    if (listing === '') return true; // no sources: be safe, rebuild
+    const newestMtimeMs = Number(listing.split(/\s+/)[0]) * 1000;
+    return newestMtimeMs > fs.statSync(bin).mtimeMs;
   } catch {
     return true; // be safe: rebuild
   }

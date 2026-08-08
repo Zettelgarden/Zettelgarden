@@ -17,7 +17,7 @@ jobs:
       - name: Set up Go (harness builds the live backend)
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version-file: go-backend/go.mod
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -26,6 +26,13 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        working-directory: ./sync-engine
+
+      # Warm the Go build (module download + compile) OUTSIDE the harness's
+      # vitest hook, so a cold CI build never races a test timeout. Writes the
+      # exact path the harness reuses (its staleness check skips the rebuild).
+      - name: Pre-build backend (warm cache)
+        run: go build -C ../go-backend -o harness/.cache/zg-backend .
         working-directory: ./sync-engine
 
       - name: Unit tests

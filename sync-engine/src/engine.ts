@@ -37,6 +37,17 @@ function inferCollection(data?: Record<string, unknown>): Collection | undefined
   return undefined;
 }
 
+/**
+ * True when a row payload's is_deleted says deleted. The Go backend emits
+ * SQLite BOOLEANs as 0/1 (RowsToJSON scans generically), the mock and client
+ * payloads use booleans — accept both so LWW/adoption logic never misreads a
+ * deleted row as live (xre review: ghost rows after a delete won a conflict).
+ */
+function rowIsDeleted(data: Record<string, unknown>): boolean {
+  const v = data.is_deleted;
+  return v === true || v === 1 || v === '1';
+}
+
 export interface SyncEngineOptions {
   storage: StorageAdapter;
   transport: SyncTransport;
@@ -310,16 +321,20 @@ export class SyncEngine {
       }
       case 'conflict': {
         // LWW kept the server row; adopt it (server data is authoritative).
-        // For a DELETE conflict the row survived server-side — adopt the live
-        // row when the server data says so, otherwise the row is really gone.
-        if (entry.op === 'upsert' && result.data) {
+        // The server may have won with a DELETE: when the adopted row says it
+        // is deleted, drop it locally too — the feed tombstone was skipped
+        // while this row had a pending edit, so nothing else heals it (found
+        // by the xre review: SQLite BOOLEANs arrive as 0/1, so a strict
+        // boolean compare never matched).
+        const deleted = !!result.data && rowIsDeleted(result.data);
+        if (entry.op === 'upsert' && result.data && !deleted) {
           this.storage.putRow(entry.collection, {
             collection: entry.collection,
             rowUuid: entry.rowUuid,
             version: result.serverVersion,
             data: result.data,
           });
-        } else if (entry.op === 'delete' && result.data && result.data.is_deleted !== true) {
+        } else if (entry.op === 'delete' && result.data && !deleted) {
           // The server refused the delete (e.g. children/backlinks guard):
           // keep the row visible instead of flickering it out until the pull.
           this.storage.putRow(entry.collection, {
