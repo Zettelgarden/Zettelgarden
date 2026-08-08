@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -31,6 +32,11 @@ func newSyncRouter(s *Handler) *mux.Router {
 }
 
 func syncRequest(t *testing.T, s *Handler, router *mux.Router, method, path string, body any) *httptest.ResponseRecorder {
+	return syncRequestAs(t, s, router, 1, method, path, body)
+}
+
+// syncRequestAs is syncRequest for an explicit user id (multi-user tests).
+func syncRequestAs(t *testing.T, s *Handler, router *mux.Router, userID int, method, path string, body any) *httptest.ResponseRecorder {
 	t.Helper()
 	var buf bytes.Buffer
 	if body != nil {
@@ -42,7 +48,7 @@ func syncRequest(t *testing.T, s *Handler, router *mux.Router, method, path stri
 	if err != nil {
 		t.Fatalf("new request: %v", err)
 	}
-	token, _ := tests.GenerateTestJWT(1)
+	token, _ := tests.GenerateTestJWT(userID)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
@@ -709,6 +715,113 @@ func TestSyncPushDeleteCleansFacts(t *testing.T) {
 	if !isDeleted {
 		t.Error("card not soft-deleted")
 	}
+}
+
+// TestSyncMultiUserIsolation: user A's snapshot cursor and changes feed must
+// never expose or skip user B's rows — sync_log is a global max cursor but the
+// feed and snapshot filter by user_id.
+func TestSyncMultiUserIsolation(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	// Second user for the isolation check (fixture data only has user 1).
+	if _, err := s.GetDB().Exec(`INSERT INTO users (username, email, password, created_at, updated_at) VALUES ('user2', 'user2@test.local', 'x', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`); err != nil {
+		t.Fatal(err)
+	}
+
+	// User 1 pushes a card; user 2 must never see it.
+	resp1 := pushChanges(t, s, router, []models.SyncChange{syncCardChange("c-iso-1", "sync-isolation", "user1 card", 0)})
+	if resp1.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("user1 push: %+v", resp1.Results[0])
+	}
+
+	// User 2's snapshot has no user-1 rows.
+	snap2 := decodeSyncResp[models.SyncSnapshotResponse](t, syncRequestAs(t, s, router, 2, "GET", "/api/sync/snapshot", nil))
+	for _, row := range snap2.Collections["cards"] {
+		if row.RowUUID == "c-iso-1" {
+			t.Error("user2 snapshot leaks user1's card")
+		}
+	}
+
+	// User 2's changes feed is free of user-1 entries.
+	feed2 := decodeSyncResp[models.SyncChangesResponse](t, syncRequestAs(t, s, router, 2, "GET", "/api/sync/changes?since=0", nil))
+	for _, row := range feed2.Rows {
+		if row.RowUUID == "c-iso-1" {
+			t.Error("user2 feed leaks user1's change")
+		}
+	}
+
+	// User 2 pushes its own card; user 1's feed must not show it, and must
+	// still show user 1's own card (nothing skipped by the shared cursor).
+	resp2 := pushChangesAs(t, s, router, 2, []models.SyncChange{syncCardChange("c-iso-2", "sync-isolation-2", "user2 card", 0)})
+	if resp2.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("user2 push: %+v", resp2.Results[0])
+	}
+	feed1 := decodeSyncResp[models.SyncChangesResponse](t, syncRequest(t, s, router, "GET", "/api/sync/changes?since=0", nil))
+	foundOwn := false
+	for _, row := range feed1.Rows {
+		if row.RowUUID == "c-iso-2" {
+			t.Error("user1 feed leaks user2's change")
+		}
+		if row.RowUUID == "c-iso-1" {
+			foundOwn = true
+		}
+	}
+	if !foundOwn {
+		t.Error("user1 feed missing own card (global cursor must not skip rows)")
+	}
+}
+
+// TestSyncFeedPagination: the changes feed pages at syncFeedPageSize with a
+// stable hasMore + cursor contract past 500 rows.
+func TestSyncFeedPagination(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	// Other tests may have committed sync_log entries through the pool; start
+	// the pagination from the current high-water mark.
+	var sinceID int64
+	if err := s.GetDB().QueryRow(`SELECT COALESCE(MAX(id), 0) FROM sync_log`).Scan(&sinceID); err != nil {
+		t.Fatal(err)
+	}
+
+	total := syncFeedPageSize + 1 // 501
+	changes := make([]models.SyncChange, 0, total)
+	for i := 0; i < total; i++ {
+		changes = append(changes, syncCardChange(fmt.Sprintf("c-page-%03d", i), fmt.Sprintf("sync-page-%03d", i), fmt.Sprintf("Page card %03d", i), 0))
+	}
+	resp := pushChanges(t, s, router, changes)
+	if resp.LostEdits != 0 {
+		t.Fatalf("lost_edits = %d, want 0", resp.LostEdits)
+	}
+
+	page1 := decodeSyncResp[models.SyncChangesResponse](t, syncRequest(t, s, router, "GET", "/api/sync/changes?since="+strconv.FormatInt(sinceID, 10), nil))
+	if len(page1.Rows) != syncFeedPageSize {
+		t.Fatalf("page1 rows = %d, want %d", len(page1.Rows), syncFeedPageSize)
+	}
+	if !page1.HasMore {
+		t.Error("page1 must report hasMore")
+	}
+
+	page2 := decodeSyncResp[models.SyncChangesResponse](t, syncRequest(t, s, router, "GET", "/api/sync/changes?since="+strconv.FormatInt(page1.Cursor, 10), nil))
+	if len(page2.Rows) != 1 {
+		t.Fatalf("page2 rows = %d, want 1", len(page2.Rows))
+	}
+	if page2.HasMore {
+		t.Error("page2 must not report hasMore")
+	}
+	if page2.Cursor < page1.Cursor {
+		t.Errorf("page2 cursor = %d, want >= %d (cursor must not regress)", page2.Cursor, page1.Cursor)
+	}
+}
+
+// pushChangesAs pushes a batch as an explicit user (multi-user tests).
+func pushChangesAs(t *testing.T, s *Handler, router *mux.Router, userID int, changes []models.SyncChange) models.SyncPushResponse {
+	t.Helper()
+	rr := syncRequestAs(t, s, router, userID, "POST", "/api/sync/push", models.SyncPushRequest{Changes: changes, DeviceID: "test-device"})
+	return decodeSyncResp[models.SyncPushResponse](t, rr)
 }
 
 // strPtr/intPtr are tiny helpers for pointer-typed task fields in the retry
