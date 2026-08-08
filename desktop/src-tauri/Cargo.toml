@@ -1,0 +1,19 @@
+[package]
+name = "zettelgarden-desktop"
+version = "0.1.0"
+description = "Zettelgarden desktop app (Tauri v2 shell; epic Zettelgarden-v5b Phase 2a)"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-store = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+keyring = "3"
+
+[lib]
+name = "zettelgarden_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
