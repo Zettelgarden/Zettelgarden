@@ -41,6 +41,8 @@ export function InsertSchemaTableButton({
   const [filters, setFilters] = useState<
     Array<{ field: string; operator: FilterOperator; value: string }>
   >([]);
+  // Whether multiple filters combine with AND (",") or OR ("||")
+  const [matchMode, setMatchMode] = useState<'all' | 'any'>('all');
 
   // Fetch schemas on mount
   useEffect(() => {
@@ -67,6 +69,7 @@ export function InsertSchemaTableButton({
     setSelectedSchema(schema);
     setSelectedColumns(new Set());
     setFilters([]);
+    setMatchMode('all');
   };
 
   const toggleColumn = (fieldName: string) => {
@@ -141,7 +144,7 @@ export function InsertSchemaTableButton({
             ? `${f.field}=${f.operator}:${v}`
             : `${f.field}=${v}`;
         })
-        .join(',');
+        .join(matchMode === 'any' ? '||' : ',');
       parts.push(`filter:${filterStr}`);
     }
 
@@ -168,6 +171,7 @@ export function InsertSchemaTableButton({
     setSelectedSchema(null);
     setSelectedColumns(new Set());
     setFilters([]);
+    setMatchMode('all');
   };
 
   return (
@@ -283,12 +287,39 @@ export function InsertSchemaTableButton({
                     <span className="text-xs font-medium text-gray-700">
                       Filters
                     </span>
-                    <button
-                      onClick={addFilter}
-                      className="text-xs text-blue-600 hover:text-blue-800"
-                    >
-                      + Add filter
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-400">Match</span>
+                        <div className="flex rounded-md border border-gray-300 overflow-hidden">
+                          <button
+                            onClick={() => setMatchMode('all')}
+                            className={`px-2 py-0.5 text-xs ${
+                              matchMode === 'all'
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-white text-gray-600 hover:bg-gray-50'
+                            }`}
+                          >
+                            All
+                          </button>
+                          <button
+                            onClick={() => setMatchMode('any')}
+                            className={`px-2 py-0.5 text-xs border-l border-gray-300 ${
+                              matchMode === 'any'
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-white text-gray-600 hover:bg-gray-50'
+                            }`}
+                          >
+                            Any
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        onClick={addFilter}
+                        className="text-xs text-blue-600 hover:text-blue-800"
+                      >
+                        + Add filter
+                      </button>
+                    </div>
                   </div>
                   {filters.length === 0 && (
                     <div className="text-xs text-gray-400">No filters</div>
