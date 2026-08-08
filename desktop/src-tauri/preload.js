@@ -58,7 +58,17 @@
       try {
         for (const key of KEYS) {
           const v = await keychainGet(key);
-          if (v !== null) cache.set(key, v);
+          if (v !== null) {
+            cache.set(key, v);
+          } else if (real.getItem(key) !== null) {
+            // Pre-shim installs left token/username in real localStorage:
+            // migrate the plaintext copy into the keychain and remove it, so
+            // the credential never lingers in webview storage.
+            const legacy = real.getItem(key);
+            cache.set(key, legacy);
+            enqueue(key, () => keychainSet(key, legacy));
+            real.removeItem(key);
+          }
         }
       } finally {
         primed = true;

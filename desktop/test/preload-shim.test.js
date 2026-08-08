@@ -110,6 +110,24 @@ describe('keychain localStorage shim', () => {
     expect(shim.shim.getItem('token')).toBe('new-jwt');
   });
 
+  it('migrates legacy token/username out of real localStorage at prime', async () => {
+    const real = makeLocalStorage();
+    real.setItem('token', 'legacy-jwt'); // pre-shim plaintext install
+    real.setItem('username', 'nick');
+    real.setItem('theme', 'dark');
+    const ops = [];
+    const shim = createShim({ localStorage: real, invoke: makeInvoke(ops) });
+    await shim.ready;
+
+    expect(shim.shim.getItem('token')).toBe('legacy-jwt'); // still visible
+    expect(real.getItem('token')).toBeNull(); // migrated out of webview storage
+    expect(real.getItem('username')).toBeNull();
+    expect(real.getItem('theme')).toBe('dark'); // non-keychain key untouched
+    await shim.flush();
+    expect(ops).toContainEqual(['set_secret', { key: 'token', value: 'legacy-jwt' }]);
+    expect(ops).toContainEqual(['set_secret', { key: 'username', value: 'nick' }]);
+  });
+
   it('a failing keychain op does not stall later writes for the same key', async () => {
     const real = makeLocalStorage();
     const ops = [];

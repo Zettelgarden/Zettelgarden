@@ -89,6 +89,17 @@ brand, and the Rust core gives a future home for background sync. The sync
 engine itself is written in TypeScript (see [Shared Sync Engine](#shared-sync-engine)),
 so the Rust surface stays small (SQLite + keychain + window management).
 
+**Desktop shell hardening (v5b.8 + review):** the webview never gets the raw
+`__TAURI__` global (`withGlobalTauri: false`), the bundled SPA runs under a
+strict CSP (`script-src 'self'`, `connect-src 'self' + http(s)` for the
+configurable server origin), and the keychain commands gate on the webview
+origin (`tauri://localhost` / `http://tauri.localhost` / local dev). Known
+residual: `window.__TAURI_INTERNALS__` is still page-visible, so origin
+gating cannot distinguish a same-origin XSS from the shim — the CSP's
+`script-src 'self'` is the primary defense, and true per-command gating would
+require moving the secret commands into a Tauri plugin with capability
+permissions (deferred).
+
 ### Mobile
 
 | | A: RN shell + WebView (recommended v1) | B: RN native UI | C: PWA (what exists today) |

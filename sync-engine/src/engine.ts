@@ -57,6 +57,7 @@ export class SyncEngine {
   private lastError?: string;
   private online = true;
   private backoffMs = 1000;
+  private stopped = false;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private syncing = false;
   private currentSync: Promise<SyncSummary> | null = null;
@@ -124,6 +125,15 @@ export class SyncEngine {
     const snap = await this.transport.snapshot(COLLECTIONS);
     this.storage.transaction(() => {
       for (const collection of COLLECTIONS) {
+        // The snapshot is authoritative: drop mirror rows the server no
+        // longer has (e.g. rows deleted inside a pruned feed window after a
+        // reset re-bootstrap) unless a pending outbox edit is mid-flight.
+        const snapshotUUIDs = new Set((snap.collections[collection] ?? []).map((r) => r.row_uuid));
+        for (const row of this.storage.allRows(collection)) {
+          if (!snapshotUUIDs.has(row.rowUuid) && !this.storage.hasPending(row.rowUuid)) {
+            this.storage.deleteRow(collection, row.rowUuid);
+          }
+        }
         for (const row of snap.collections[collection] ?? []) {
           this.storage.putRow(collection, {
             collection,
@@ -300,7 +310,18 @@ export class SyncEngine {
       }
       case 'conflict': {
         // LWW kept the server row; adopt it (server data is authoritative).
+        // For a DELETE conflict the row survived server-side — adopt the live
+        // row when the server data says so, otherwise the row is really gone.
         if (entry.op === 'upsert' && result.data) {
+          this.storage.putRow(entry.collection, {
+            collection: entry.collection,
+            rowUuid: entry.rowUuid,
+            version: result.serverVersion,
+            data: result.data,
+          });
+        } else if (entry.op === 'delete' && result.data && result.data.is_deleted !== true) {
+          // The server refused the delete (e.g. children/backlinks guard):
+          // keep the row visible instead of flickering it out until the pull.
           this.storage.putRow(entry.collection, {
             collection: entry.collection,
             rowUuid: entry.rowUuid,
@@ -354,7 +375,16 @@ export class SyncEngine {
     this.online = online;
     if (online) {
       this.backoffMs = 1000;
+      this.stopped = false;
       void this.sync().catch(() => undefined);
+      if (this.intervalMs > 0) this.scheduleNext();
+    } else {
+      // Going offline halts the auto-sync timer; setOnline(true) re-arms it.
+      this.stopped = true;
+      if (this.timer) {
+        clearTimeout(this.timer);
+        this.timer = undefined;
+      }
     }
     this.emitProgress();
   }
@@ -363,12 +393,14 @@ export class SyncEngine {
   start(intervalMs: number): void {
     if (this.timer) clearTimeout(this.timer);
     this.timer = undefined;
+    this.stopped = false;
     this.intervalMs = intervalMs;
     this.backoffMs = 1000;
     this.scheduleNext();
   }
 
   stop(): void {
+    this.stopped = true;
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = undefined;
@@ -379,10 +411,12 @@ export class SyncEngine {
    * Schedules the next auto-sync. Steady state runs at intervalMs; after a
    * failure the next cycle waits backoffMs (doubles per failure, capped at
    * maxBackoffMs, reset to 1000 on success in runSync), so a flaky network
-   * does not hammer the server at constant frequency.
+   * does not hammer the server at constant frequency. stop()/offline set
+   * stopped, which both clears the pending timer and prevents an in-flight
+   * sync from re-arming it.
    */
   private scheduleNext(): void {
-    if (this.timer) return; // one in-flight schedule (or a sync running)
+    if (this.stopped || this.timer) return; // stopped, or already scheduled
     const delay = Math.max(this.backoffMs, this.intervalMs);
     this.timer = setTimeout(() => {
       this.timer = undefined;

@@ -360,6 +360,131 @@ describe('SyncEngine', () => {
     expect(storage.getRow('cards', 'c1')).toBeDefined();
   });
 
+  it('edited create-retry reports a conflict instead of silently dropping the edit', async () => {
+    const server = new MockServer();
+    const storage = new InMemoryAdapter();
+    const failingTransport = {
+      snapshot: (c: Collection[]) => server.snapshot(c),
+      changes: (s: number) => server.changes(s),
+      push: async (req) => {
+        await server.push(req);
+        throw new Error('network dropped the response');
+      },
+    };
+    const engine1 = new SyncEngine({ storage, transport: failingTransport, deviceId: 'dev-a' });
+    await engine1.bootstrap();
+    engine1.mutate('cards', { rowUuid: 'r1', data: cardData('v1 title') });
+    await expect(engine1.sync()).rejects.toThrow('network dropped');
+
+    // The user edits before the retry: the outbox entry is still pending at
+    // base 0 with the EDITED payload. LWW must surface a conflict + lost
+    // edit, not a silent applied-no-write that clobbers the edit on pull.
+    engine1.mutate('cards', { rowUuid: 'r1', data: cardData('edited title') });
+    const engine2 = new SyncEngine({ storage, transport: server, deviceId: 'dev-a' });
+    const summary = await engine2.sync();
+    expect(summary.conflicts).toBe(1);
+    expect(summary.lostEdits).toBe(1);
+    expect(engine2.pendingChanges()).toBe(0);
+    // Server row wins (LWW); the mirror adopts it.
+    expect(storage.getRow('cards', 'r1')!.data.title).toBe('v1 title');
+  });
+
+  it('recreates a row after its delete synced (cross-batch) instead of conflicting it away', async () => {
+    const server = new MockServer();
+    const { engine, storage } = makeEngine(server, 'dev-a');
+    await engine.bootstrap();
+    engine.mutate('cards', { rowUuid: 'dtr', data: cardData('v1') });
+    await engine.sync();
+    engine.deleteLocal('cards', 'dtr');
+    await engine.sync();
+    expect(storage.getRow('cards', 'dtr')).toBeUndefined();
+    expect((await server.snapshot(['cards'])).collections.cards!).toHaveLength(0);
+
+    // Recreate the SAME rowUuid: the mirror row is gone so the engine pushes
+    // base 0 — the server must resurrect, not conflict the recreate away.
+    engine.mutate('cards', { rowUuid: 'dtr', data: cardData('recreated') });
+    const summary = await engine.sync();
+    expect(summary.conflicts).toBe(0);
+    expect(summary.lostEdits).toBe(0);
+    const serverRow = (await server.snapshot(['cards'])).collections.cards!.find(
+      (r) => r.row_uuid === 'dtr',
+    )!;
+    expect(serverRow.data?.title).toBe('recreated');
+    expect(storage.getRow('cards', 'dtr')!.data.title).toBe('recreated');
+  });
+
+  it('re-bootstrap clears ghost rows the snapshot no longer has', async () => {
+    const server = new MockServer();
+    server.seed('cards', 'c1', cardData('v1'));
+    server.seed('cards', 'ghost', cardData('doomed'));
+    const { engine, storage } = makeEngine(server, 'dev-a');
+    await engine.bootstrap();
+    expect(storage.getRow('cards', 'ghost')).toBeDefined();
+
+    // The server pruned past our cursor and 'ghost' no longer exists in the
+    // snapshot: reset forces a re-bootstrap that must DROP the ghost row.
+    const resettingTransport = {
+      snapshot: async (c: Collection[]) => ({
+        cursor: 1,
+        collections: { cards: [{ row_uuid: 'c1', version: 1, op: 'upsert', data: cardData('v1') }] },
+      }),
+      changes: async (since: number) => ({ cursor: since, rows: [], hasMore: false, reset: true }),
+      push: (req) => server.push(req),
+    };
+    const e2 = new SyncEngine({ storage, transport: resettingTransport, deviceId: 'dev-a' });
+    await e2.sync();
+    expect(storage.getRow('cards', 'c1')).toBeDefined();
+    expect(storage.getRow('cards', 'ghost')).toBeUndefined();
+  });
+
+  it('stop() halts the scheduler even with a sync in flight', async () => {
+    vi.useFakeTimers();
+    try {
+      const server = new MockServer();
+      const storage = new InMemoryAdapter();
+      const delays: number[] = [];
+      const origSetTimeout = globalThis.setTimeout;
+      vi.spyOn(globalThis, 'setTimeout').mockImplementation((fn: () => void, delay?: number, ...args: unknown[]) => {
+        delays.push(delay ?? 0);
+        return origSetTimeout(fn, delay, ...args) as ReturnType<typeof setTimeout>;
+      });
+
+      const failingTransport = {
+        snapshot: (c: Collection[]) => server.snapshot(c),
+        changes: async () => {
+          throw new Error('down');
+        },
+        push: async () => {
+          throw new Error('down');
+        },
+      };
+      const engine = new SyncEngine({ storage, transport: failingTransport, deviceId: 'dev-a' });
+      await engine.bootstrap();
+      engine.start(1000);
+      await vi.advanceTimersByTimeAsync(1000); // first cycle fires + fails, backoff re-arms
+      engine.stop();
+      const countBefore = delays.length;
+      await vi.advanceTimersByTimeAsync(100_000);
+      expect(delays.length).toBe(countBefore); // no sync re-armed after stop()
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('tag delete of a pre-merge uuid drains the outbox (no infinite re-push)', async () => {
+    const server = new MockServer();
+    server.seed('tags', 'tag-a', { name: 'Work', color: 'black' });
+    const { engine, storage } = makeEngine(server, 'dev-a');
+    await engine.bootstrap();
+
+    // Device holds a pre-merge uuid 'tag-b' for the same name and deletes it.
+    engine.deleteLocal('tags', 'tag-b');
+    const summary = await engine.sync();
+    expect(summary.conflicts).toBe(0);
+    expect(engine.pendingChanges()).toBe(0); // drained, no re-push loop
+    expect(storage.getRow('tags', 'tag-b')).toBeUndefined();
+  });
+
   it('progress events fire with pendingChanges and lastSynced', async () => {
     const server = new MockServer();
     const { engine, storage } = makeEngine(server, 'dev-a');

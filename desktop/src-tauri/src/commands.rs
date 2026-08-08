@@ -12,8 +12,28 @@ use tauri::Manager;
 
 const SERVICE: &str = "zettelgarden";
 
+/// The secret commands only serve the bundled app origin. withGlobalTauri is
+/// off and the CSP blunts injected scripts, but window.__TAURI_INTERNALS__ is
+/// still page-visible, so an XSS that gets code running could otherwise call
+/// get_secret directly. Gate on the webview origin as defense in depth: only
+/// the app bundle (tauri://localhost / http://tauri.localhost) and the local
+/// dev server (http://localhost) may read or write keychain entries.
+fn trusted_origin(window: &tauri::WebviewWindow) -> bool {
+    let Ok(url) = window.url() else {
+        return false;
+    };
+    match (url.scheme(), url.host_str()) {
+        ("tauri", Some("localhost")) => true,
+        ("http" | "https", Some("localhost")) => true,
+        _ => false,
+    }
+}
+
 #[tauri::command]
-pub fn get_secret(key: String) -> Result<Option<String>, String> {
+pub fn get_secret(window: tauri::WebviewWindow, key: String) -> Result<Option<String>, String> {
+    if !trusted_origin(&window) {
+        return Err("get_secret denied: untrusted webview origin".to_string());
+    }
     let entry = keyring::Entry::new(SERVICE, &key).map_err(|e| e.to_string())?;
     match entry.get_password() {
         Ok(v) => Ok(Some(v)),
@@ -23,13 +43,19 @@ pub fn get_secret(key: String) -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
-pub fn set_secret(key: String, value: String) -> Result<(), String> {
+pub fn set_secret(window: tauri::WebviewWindow, key: String, value: String) -> Result<(), String> {
+    if !trusted_origin(&window) {
+        return Err("set_secret denied: untrusted webview origin".to_string());
+    }
     let entry = keyring::Entry::new(SERVICE, &key).map_err(|e| e.to_string())?;
     entry.set_password(&value).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn delete_secret(key: String) -> Result<(), String> {
+pub fn delete_secret(window: tauri::WebviewWindow, key: String) -> Result<(), String> {
+    if !trusted_origin(&window) {
+        return Err("delete_secret denied: untrusted webview origin".to_string());
+    }
     let entry = keyring::Entry::new(SERVICE, &key).map_err(|e| e.to_string())?;
     match entry.delete_credential() {
         Ok(()) => Ok(()),

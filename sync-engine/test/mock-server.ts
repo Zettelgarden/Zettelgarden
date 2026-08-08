@@ -117,12 +117,32 @@ export class MockServer implements SyncTransport {
           results.push({ rowUuid: ch.row_uuid, status: 'ignored', serverVersion: 0 });
           continue;
         }
-        // Tags merge by name; everything else creates.
+        // Tags merge by name (incl. soft-deleted rows; a deleted row is
+        // resurrected by the recreate, matching the Go server), everything
+        // else creates.
         if (ch.collection === 'tags') {
           const byName = [...this.rows.values()].find(
-            (r) => r.data.name === ch.data?.name && !r.isDeleted,
+            (r) => r.data.name === ch.data?.name,
           );
           if (byName) {
+            if (byName.isDeleted && ch.data?.is_deleted !== true) {
+              // Recreate of a deleted tag name: resurrect the row (REST
+              // CreateTag semantics), no lost edit.
+              const newVersion = Math.max(byName.version, ch.base_version) + 1;
+              byName.version = newVersion;
+              byName.data = { ...ch.data, id: byName.data.id };
+              byName.isDeleted = false;
+              this.emit('tags', byName.rowUuid, 'upsert', newVersion);
+              results.push({
+                rowUuid: ch.row_uuid,
+                status: 'merged',
+                serverId: byName.data.id as number,
+                serverVersion: newVersion,
+                mappedToRowUuid: byName.rowUuid,
+                data: byName.data,
+              });
+              continue;
+            }
             const merged = ch.base_version > byName.version;
             if (merged) {
               byName.version = ch.base_version + 1;
@@ -156,29 +176,29 @@ export class MockServer implements SyncTransport {
         continue;
       }
 
-      // Existing row.
-      if (ch.base_version === 0 && !resurrecting) {
-        // Idempotent retry of an applied create.
-        results.push({
-          rowUuid: ch.row_uuid,
-          status: 'applied',
-          serverId: existing.data.id as number,
-          serverVersion: existing.version,
-        });
-        continue;
-      }
-      if (ch.base_version < existing.version && !resurrecting) {
-        lostEdits++;
-        results.push({
-          rowUuid: ch.row_uuid,
-          status: 'conflict',
-          serverId: existing.data.id as number,
-          serverVersion: existing.version,
-          data: existing.data,
-        });
-        continue;
-      }
+      // Existing row — mirror the Go server's apply logic.
       if (ch.op === 'delete') {
+        // Idempotent retry of an applied delete, or a repeat delete.
+        if (existing.isDeleted) {
+          results.push({
+            rowUuid: ch.row_uuid,
+            status: 'applied',
+            serverId: existing.data.id as number,
+            serverVersion: existing.version,
+          });
+          continue;
+        }
+        if (ch.base_version < existing.version && !resurrecting) {
+          lostEdits++;
+          results.push({
+            rowUuid: ch.row_uuid,
+            status: 'conflict',
+            serverId: existing.data.id as number,
+            serverVersion: existing.version,
+            data: existing.data,
+          });
+          continue;
+        }
         existing.isDeleted = true;
         existing.version += 1;
         deletedInBatch.add(batchKey);
@@ -188,6 +208,34 @@ export class MockServer implements SyncTransport {
           status: 'applied',
           serverId: existing.data.id as number,
           serverVersion: existing.version,
+        });
+        continue;
+      }
+      // Upsert on an existing row.
+      const identical = sameRowData(ch.data, existing.data);
+      if (ch.base_version === 0 && !resurrecting && identical) {
+        // Idempotent retry of an applied create: identical payload, no write.
+        results.push({
+          rowUuid: ch.row_uuid,
+          status: 'applied',
+          serverId: existing.data.id as number,
+          serverVersion: existing.version,
+        });
+        continue;
+      }
+      // A base-0 upsert against a soft-deleted row is a recreate intent:
+      // resurrect. Otherwise a stale base conflicts unless the row advanced
+      // exactly one version to OUR payload (dropped-response retry).
+      const resurrect = resurrecting || (ch.base_version === 0 && existing.isDeleted);
+      const retry = existing.version === ch.base_version + 1 && identical;
+      if (ch.base_version < existing.version && !resurrect && !retry) {
+        lostEdits++;
+        results.push({
+          rowUuid: ch.row_uuid,
+          status: 'conflict',
+          serverId: existing.data.id as number,
+          serverVersion: existing.version,
+          data: existing.data,
         });
         continue;
       }
@@ -219,4 +267,31 @@ function sameTagData(
 ): boolean {
   if (!a || !b) return a === b;
   return a.name === b.name && a.color === b.color && a.is_deleted === b.is_deleted;
+}
+
+/**
+ * Deep-equals two row payloads, ignoring the server-assigned `id` and key
+ * order — mirrors the Go server's payloadMatchesRow content comparison.
+ */
+function sameRowData(
+  a: Record<string, unknown> | undefined,
+  b: Record<string, unknown> | undefined,
+): boolean {
+  if (!a || !b) return a === b;
+  const { id: _aid, ...pa } = a;
+  const { id: _bid, ...pb } = b;
+  return JSON.stringify(canonical(pa)) === JSON.stringify(canonical(pb));
+}
+
+/** Recursively sorts object keys so JSON comparison ignores key order. */
+function canonical(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(canonical);
+  if (v && typeof v === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(v as Record<string, unknown>).sort()) {
+      out[k] = canonical((v as Record<string, unknown>)[k]);
+    }
+    return out;
+  }
+  return v;
 }
