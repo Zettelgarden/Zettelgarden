@@ -7,9 +7,11 @@
     "dev": "tauri dev",
     "build": "tauri build",
     "icon": "tauri icon",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.3.0"
+    "@tauri-apps/cli": "^2.3.0",
+    "vitest": "^3.0.0"
   }
 }

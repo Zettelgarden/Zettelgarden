@@ -1,118 +1,189 @@
 /**
- * Zettelgarden desktop preload shim (Tauri v2, Phase 2a — issue c5b).
+ * Zettelgarden desktop preload shim (Tauri v2, Phase 2a — issue c5b, hardening
+ * v5b.8).
  *
- * Runs before the web app loads and intercepts the token/username keys the
- * web app historically kept in localStorage, redirecting them to the OS
- * keychain via the Rust commands. The web app is otherwise unchanged; the
- * shell owns credential storage.
+ * Runs before the web app loads (Tauri initialization_script) and intercepts
+ * the token/username keys the web app historically kept in localStorage,
+ * redirecting them to the OS keychain via the Rust commands. The web app is
+ * otherwise unchanged; the shell owns credential storage.
  *
- * Also exposes `window.zgDesktop` for the shell: settings, and (stubbed for
- * Phase 2b) online/pending-change status that the UI indicators will read.
+ * The core (createShim) is UMD so it is unit-testable under vitest (module
+ * export) while still loading as a plain initialization script (attaches
+ * ZgPreloadShim to the global). Hardening: per-key serialized keychain writes
+ * (logout-then-login cannot reorder), clear()/key()/length include keychain
+ * keys, and the page itself never gets the raw __TAURI__ bridge (only the
+ * shim's invoke path does).
  */
-(function () {
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) {
+    module.exports = factory();
+  } else {
+    root.ZgPreloadShim = factory();
+    // Auto-install only when loaded as an initialization script (browser),
+    // never when imported by a test runner.
+    root.ZgPreloadShim.autoInstall();
+  }
+})(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const KEYS = new Set(['token', 'username']);
+  const DEFAULT_KEYS = ['token', 'username'];
 
-  function invoke(cmd, args) {
-    const api = window.__TAURI__;
-    if (!api || !api.core) {
-      return Promise.reject(new Error('__TAURI__ bridge unavailable'));
-    }
-    return api.core.invoke(cmd, args);
+  /**
+   * Builds the keychain-backed localStorage shim. `invoke(cmd, args)` must
+   * return a Promise. Returns { shim, ready, flush, queueSet, queueDelete }.
+   */
+  function createShim({ localStorage: real, invoke, keychainKeys = DEFAULT_KEYS }) {
+    const KEYS = new Set(keychainKeys);
+    const cache = new Map();
+    let primed = false;
+
+    const keychainGet = (key) => invoke('get_secret', { key }).then((v) => v ?? null);
+    const keychainSet = (key, value) => invoke('set_secret', { key, value });
+    const keychainDelete = (key) => invoke('delete_secret', { key });
+
+    // Per-key write serialization: localStorage is synchronous, so writes are
+    // fire-and-forget — but they MUST apply to the keychain in call order. A
+    // naive logout-then-login (removeItem then setItem) could otherwise race
+    // and leave the delete landing after the set (stale logged-out state).
+    const queues = new Map();
+    const enqueue = (key, op) => {
+      const prev = queues.get(key) ?? Promise.resolve();
+      const next = prev.then(op, op); // run even if the previous op failed
+      queues.set(key, next.catch(() => undefined)); // keep the chain alive
+      return next;
+    };
+
+    const prime = async () => {
+      if (primed) return;
+      try {
+        for (const key of KEYS) {
+          const v = await keychainGet(key);
+          if (v !== null) cache.set(key, v);
+        }
+      } finally {
+        primed = true;
+      }
+    };
+
+    const presentKeys = () => [...KEYS].filter((k) => cache.has(k));
+
+    const realKeys = () => {
+      const out = [];
+      for (let i = 0; i < real.length; i++) {
+        const k = real.key(i);
+        if (!KEYS.has(k)) out.push(k);
+      }
+      return out;
+    };
+
+    const shim = new Proxy(real, {
+      get(target, prop) {
+        if (prop === 'getItem') {
+          return (key) => (KEYS.has(key) ? (cache.get(key) ?? null) : target.getItem(key));
+        }
+        if (prop === 'setItem') {
+          return (key, value) => {
+            if (KEYS.has(key)) {
+              cache.set(key, String(value));
+              enqueue(key, () => keychainSet(key, String(value)));
+              return undefined;
+            }
+            return target.setItem(key, value);
+          };
+        }
+        if (prop === 'removeItem') {
+          return (key) => {
+            if (KEYS.has(key)) {
+              cache.delete(key);
+              enqueue(key, () => keychainDelete(key));
+              return undefined;
+            }
+            return target.removeItem(key);
+          };
+        }
+        // The web app does not call clear() today, but a future clear() must
+        // not leave the token in the keychain (that would silently keep a
+        // user logged in after "logout").
+        if (prop === 'clear') {
+          return () => {
+            cache.clear();
+            for (const key of KEYS) enqueue(key, () => keychainDelete(key));
+            return target.clear();
+          };
+        }
+        if (prop === 'key') {
+          return (i) => presentKeys().concat(realKeys())[i] ?? null;
+        }
+        if (prop === 'length') {
+          return presentKeys().length + target.length;
+        }
+        const v = target[prop];
+        return typeof v === 'function' ? v.bind(target) : v;
+      },
+    });
+
+    return {
+      shim,
+      ready: prime(),
+      flush: async () => {
+        await prime();
+        await Promise.all([...queues.values()]);
+      },
+      get: async (key) => {
+        await prime();
+        return cache.get(key) ?? null;
+      },
+      queueSet: (key, value) => enqueue(key, () => keychainSet(key, value)),
+      queueDelete: (key) => enqueue(key, () => keychainDelete(key)),
+    };
   }
 
-  // ---- localStorage shim: token/username -> keychain ----------------------
-  const realStorage = window.localStorage;
+  function autoInstall() {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    if (window.__zgShimInstalled) return;
+    window.__zgShimInstalled = true;
 
-  const keychainGet = (key) =>
-    invoke('get_secret', { key }).then((v) => v ?? null);
-  const keychainSet = (key, value) =>
-    invoke('set_secret', { key, value }).then(() => undefined);
-  const keychainDelete = (key) =>
-    invoke('delete_secret', { key }).then(() => undefined);
-
-  // Async persistence: localStorage is synchronous, so the shim is a hybrid —
-  // reads resolve from an in-memory cache (primed from the keychain at boot),
-  // writes go to both the cache and the keychain (fire-and-forget). The auth
-  // boot flow awaits the prime before the app checks the token.
-  let cache = new Map();
-  let primed = false;
-  const prime = async () => {
-    if (primed) return;
-    try {
-      for (const key of KEYS) {
-        const v = await keychainGet(key);
-        if (v !== null) cache.set(key, v);
+    const invoke = (cmd, args) => {
+      const internals = window.__TAURI_INTERNALS__;
+      if (internals && typeof internals.invoke === 'function') {
+        return internals.invoke(cmd, args);
       }
-    } catch (err) {
-      console.error('[zg-desktop] keychain prime failed:', err);
-    } finally {
-      primed = true;
-    }
-  };
+      const api = window.__TAURI__;
+      if (api && api.core) return api.core.invoke(cmd, args);
+      return Promise.reject(new Error('Tauri bridge unavailable'));
+    };
 
-  const storageProxy = new Proxy(realStorage, {
-    get(target, prop) {
-      if (prop === 'getItem') {
-        return (key) => (KEYS.has(key) ? (cache.get(key) ?? null) : target.getItem(key));
-      }
-      if (prop === 'setItem') {
-        return (key, value) => {
-          if (KEYS.has(key)) {
-            cache.set(key, value);
-            keychainSet(key, String(value)).catch((e) =>
-              console.error('[zg-desktop] keychain write failed:', e),
-            );
-            return undefined;
-          }
-          return target.setItem(key, value);
-        };
-      }
-      if (prop === 'removeItem') {
-        return (key) => {
-          if (KEYS.has(key)) {
-            cache.delete(key);
-            keychainDelete(key).catch((e) =>
-              console.error('[zg-desktop] keychain delete failed:', e),
-            );
-            return undefined;
-          }
-          return target.removeItem(key);
-        };
-      }
-      const v = target[prop];
-      return typeof v === 'function' ? v.bind(target) : v;
-    },
-  });
+    const shim = createShim({ localStorage: window.localStorage, invoke });
 
-  // ---- expose shell API ---------------------------------------------------
-  window.zgDesktop = {
-    /** Resolves once the keychain has been read into the shim cache. */
-    ready: prime(),
-    platform: 'linux',
+    Object.defineProperty(window, 'localStorage', { value: shim.shim });
 
-    getToken: () => keychainGet('token'),
-    setToken: (t) => keychainSet('token', t),
+    window.zgDesktop = {
+      /** Resolves once the keychain has been read into the shim cache. */
+      ready: shim.ready,
+      platform: 'linux',
 
-    loadSettings: () => invoke('load_settings'),
-    saveSettings: (settings) => invoke('save_settings', { settings }),
+      getToken: () => shim.get('token'),
+      setToken: (t) => shim.queueSet('token', t),
 
-    windowControls: {
-      minimize: () => invoke('window_minimize'),
-      maximize: () => invoke('window_maximize'),
-      close: () => invoke('window_close'),
-      isMaximized: () => invoke('window_is_maximized'),
-    },
+      loadSettings: () => invoke('load_settings'),
+      saveSettings: (settings) => invoke('save_settings', { settings }),
 
-    // Phase 2b stubs: the sync engine will drive these.
-    getSyncStatus: () => ({ online: navigator.onLine, pendingChanges: 0 }),
-    onSyncStatus: (_cb) => () => {},
-  };
+      windowControls: {
+        minimize: () => invoke('window_minimize'),
+        maximize: () => invoke('window_maximize'),
+        close: () => invoke('window_close'),
+        isMaximized: () => invoke('window_is_maximized'),
+      },
 
-  // ---- install ------------------------------------------------------------
-  Object.defineProperty(window, 'localStorage', { value: storageProxy });
-  window.addEventListener('DOMContentLoaded', () => {
-    window.zgDesktop.ready.catch(() => undefined);
-  });
-})();
+      // Phase 2b stubs: the sync engine will drive these.
+      getSyncStatus: () => ({ online: navigator.onLine, pendingChanges: 0 }),
+      onSyncStatus: () => () => {},
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      shim.ready.catch(() => undefined);
+    });
+  }
+
+  return { createShim, autoInstall };
+});
