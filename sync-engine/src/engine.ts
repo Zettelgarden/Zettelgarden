@@ -50,13 +50,14 @@ export class SyncEngine {
   private transport: SyncTransport;
   readonly deviceId: string;
   private maxBackoffMs: number;
+  private intervalMs = 0;
 
   private listeners = new Set<(p: SyncProgress) => void>();
   private lastSynced?: Date;
   private lastError?: string;
   private online = true;
   private backoffMs = 1000;
-  private timer: ReturnType<typeof setInterval> | undefined;
+  private timer: ReturnType<typeof setTimeout> | undefined;
   private syncing = false;
   private currentSync: Promise<SyncSummary> | null = null;
 
@@ -214,14 +215,13 @@ export class SyncEngine {
             });
             applied++;
           }
-          if (entry.row_uuid) {
-            // Advance past this entry regardless of whether it was applied
-            // (pending rows are resolved by the subsequent push).
-            cursor = Math.max(cursor, page.cursor);
-          }
         }
         this.storage.setCursor(page.cursor);
       });
+      // Advance the pull cursor for the next page fetch. Page cursors are
+      // monotonic and constant across the page (setCursor above persists it),
+      // so this single hoisted update replaces any per-entry bookkeeping.
+      cursor = page.cursor;
       if (!page.hasMore) break;
     }
     return { applied };
@@ -349,24 +349,42 @@ export class SyncEngine {
     this.emitProgress();
   }
 
-  /** Start periodic auto-sync. */
+  /** Start periodic auto-sync with exponential backoff on failure. */
   start(intervalMs: number): void {
-    if (this.timer) clearInterval(this.timer);
-    this.timer = setInterval(() => {
-      void this.sync().catch((err) => {
-        // Exponential backoff: slow down the next auto-sync on repeated failure.
-        this.backoffMs = Math.min(this.backoffMs * 2, this.maxBackoffMs);
-        const _ = err; // surfaced via progress.lastError
-        void this.emitProgress();
-      });
-    }, intervalMs);
-    this.timer.unref?.();
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = undefined;
+    this.intervalMs = intervalMs;
+    this.backoffMs = 1000;
+    this.scheduleNext();
   }
 
   stop(): void {
     if (this.timer) {
-      clearInterval(this.timer);
+      clearTimeout(this.timer);
       this.timer = undefined;
     }
+  }
+
+  /**
+   * Schedules the next auto-sync. Steady state runs at intervalMs; after a
+   * failure the next cycle waits backoffMs (doubles per failure, capped at
+   * maxBackoffMs, reset to 1000 on success in runSync), so a flaky network
+   * does not hammer the server at constant frequency.
+   */
+  private scheduleNext(): void {
+    if (this.timer) return; // one in-flight schedule (or a sync running)
+    const delay = Math.max(this.backoffMs, this.intervalMs);
+    this.timer = setTimeout(() => {
+      this.timer = undefined;
+      void this.sync()
+        .catch(() => {
+          // Exponential backoff on repeated failure (errors surface via
+          // progress.lastError).
+          this.backoffMs = Math.min(this.backoffMs * 2, this.maxBackoffMs);
+          this.emitProgress();
+        })
+        .finally(() => this.scheduleNext());
+    }, delay);
+    this.timer.unref?.();
   }
 }

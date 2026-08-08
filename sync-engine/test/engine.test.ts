@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { SyncEngine } from '../src/engine';
 import { InMemoryAdapter } from '../src/storage';
 import type { StorageAdapter } from '../src/storage';
@@ -254,6 +254,58 @@ describe('SyncEngine', () => {
     const row = storage.getRow('cards', 'dtr')!;
     expect(row.data.title).toBe('recreated');
     expect(row.version).toBeGreaterThanOrEqual(2);
+  });
+
+  it('auto-sync backs off exponentially after repeated failures', async () => {
+    vi.useFakeTimers();
+    try {
+      const server = new MockServer();
+      const storage = new InMemoryAdapter();
+      const delays: number[] = [];
+      const origSetTimeout = globalThis.setTimeout;
+      vi.spyOn(globalThis, 'setTimeout').mockImplementation((fn: () => void, delay?: number, ...args: unknown[]) => {
+        delays.push(delay ?? 0);
+        return origSetTimeout(fn, delay, ...args) as ReturnType<typeof setTimeout>;
+      });
+
+      // Transport that fails on every changes/push after bootstrap.
+      const failingTransport = {
+        snapshot: (c: Collection[]) => server.snapshot(c),
+        changes: async () => {
+          throw new Error('network down');
+        },
+        push: async () => {
+          throw new Error('network down');
+        },
+      };
+      const engine = new SyncEngine({ storage, transport: failingTransport, deviceId: 'dev-a' });
+      await engine.bootstrap();
+
+      engine.start(1000);
+      expect(delays[0]).toBe(1000); // steady state = interval
+
+      // First cycle fails -> backoff doubles to 2000.
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(delays[1]).toBe(2000);
+
+      // Second failure -> 4000; a 2000ms wait must NOT fire a sync.
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(delays[2]).toBe(4000);
+      engine.stop();
+
+      // Backoff is capped at maxBackoffMs.
+      const capped = new SyncEngine({ storage, transport: failingTransport, deviceId: 'dev-a', maxBackoffMs: 2500 });
+      capped.start(1000);
+      await vi.advanceTimersByTimeAsync(1000); // fail -> backoff min(2000,2500)
+      await vi.advanceTimersByTimeAsync(2000); // fail -> backoff min(4000,2500)=2500
+      const cappedDelays = delays.length;
+      await vi.advanceTimersByTimeAsync(2500);
+      expect(delays.length).toBe(cappedDelays + 1);
+      expect(delays[delays.length - 1]).toBeLessThanOrEqual(2500);
+      capped.stop();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('progress events fire with pendingChanges and lastSynced', async () => {
