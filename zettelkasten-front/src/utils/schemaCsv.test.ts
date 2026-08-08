@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { formatCsvValue, schemaCardsToCsv } from './schemaCsv';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { formatCsvValue, schemaCardsToCsv, downloadCsv } from './schemaCsv';
 import { Card } from '../models/Card';
 import { FieldDefinition } from '../models/Schema';
 
@@ -57,6 +57,23 @@ describe('formatCsvValue', () => {
   it('joins arrays for multi-select values (quoted when they contain commas)', () => {
     expect(formatCsvValue(['a', 'b'])).toBe('"a, b"');
     expect(formatCsvValue(['a'])).toBe('a');
+  });
+
+  it('neutralizes spreadsheet formula injection (OWASP CSV Injection)', () => {
+    // Contains quotes, so RFC 4180 quoting wraps it and doubles the quotes
+    // on top of the apostrophe guard.
+    expect(formatCsvValue('=HYPERLINK("http://evil","x")')).toBe(
+      '"\'=HYPERLINK(""http://evil"",""x"")"',
+    );
+    expect(formatCsvValue('+SUM(1,2)')).toBe('"\'+SUM(1,2)"');
+    expect(formatCsvValue('-1+1')).toBe("'-1+1");
+    expect(formatCsvValue('@cmd')).toBe("'@cmd");
+    expect(formatCsvValue('\t=2')).toBe("'\t=2");
+    // Innocent values are untouched
+    expect(formatCsvValue('normal')).toBe('normal');
+    expect(formatCsvValue('5')).toBe('5');
+    // The guard composes with quoting (comma + formula prefix)
+    expect(formatCsvValue('=1,2')).toBe('"\'=1,2"');
   });
 
   it('quotes values containing commas, quotes, or newlines', () => {
@@ -129,5 +146,48 @@ describe('schemaCardsToCsv', () => {
     expect(csv.split('\n')).toHaveLength(2);
     expect(csv).toContain('Keep');
     expect(csv).not.toContain('Filtered out');
+  });
+});
+
+describe('downloadCsv', () => {
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+  const clickSpy = vi.fn();
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+  });
+
+  it('creates a BOM-prefixed blob download with the given filename', () => {
+    let capturedBlob: Blob | null = null;
+    URL.createObjectURL = vi.fn((blob: Blob) => {
+      capturedBlob = blob;
+      return 'blob:mock';
+    });
+    URL.revokeObjectURL = vi.fn();
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(clickSpy);
+
+    downloadCsv('cards.csv', 'card_id,title\n1,Dune');
+
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(capturedBlob).not.toBeNull();
+    // The blob carries a UTF-8 BOM so Excel decodes non-ASCII correctly.
+    expect(capturedBlob!.text()).resolves.toBe('\uFEFFcard_id,title\n1,Dune');
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('deferred revoke of the object URL', () => {
+    URL.createObjectURL = vi.fn(() => 'blob:mock');
+    const revoke = vi.fn();
+    URL.revokeObjectURL = revoke;
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    downloadCsv('cards.csv', 'a\n1');
+
+    // Not revoked synchronously; freed on a later tick.
+    expect(revoke).not.toHaveBeenCalled();
+    vi.waitFor(() => expect(revoke).toHaveBeenCalledWith('blob:mock'));
   });
 });

@@ -8,16 +8,20 @@ import { FieldDefinition } from '../models/Schema';
  * - arrays (multi-select) are joined with ", "
  * - values containing a comma, quote, or newline are wrapped in double
  *   quotes with embedded quotes doubled (RFC 4180)
+ * - values starting with a spreadsheet-formula metacharacter (=, +, -, @,
+ *   tab) are neutralized with a leading apostrophe so Excel/LibreOffice
+ *   treat them as text, not formulas (OWASP CSV Injection)
  */
 export function formatCsvValue(value: unknown): string {
   if (value === null || value === undefined) return '';
   const str = Array.isArray(value)
     ? (value as unknown[]).join(', ')
     : String(value);
-  if (/[",\n\r]/.test(str)) {
-    return `"${str.replace(/"/g, '""')}"`;
+  const guarded = /^[=+\-@\t]/.test(str) ? `'${str}` : str;
+  if (/[",\n\r]/.test(guarded)) {
+    return `"${guarded.replace(/"/g, '""')}"`;
   }
-  return str;
+  return guarded;
 }
 
 /**
@@ -48,7 +52,11 @@ export function schemaCardsToCsv(
  * Trigger a browser download of `csv` content as `filename`.
  */
 export function downloadCsv(filename: string, csv: string): void {
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  // UTF-8 BOM: without it Excel sniffs the file as ANSI and renders
+  // non-ASCII titles/values as mojibake.
+  const blob = new Blob(['\uFEFF' + csv], {
+    type: 'text/csv;charset=utf-8',
+  });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -56,5 +64,7 @@ export function downloadCsv(filename: string, csv: string): void {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // Defer revoke so the browser has finished reading the blob URL before it
+  // is freed (avoids rare dropped downloads in some engines).
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }

@@ -400,6 +400,8 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
     );
   }
 
+  const sortedCards = getSortedCards();
+
   const handleAddCard = () => {
     navigate(`/app/card/new?schema=${schemaId}`);
   };
@@ -408,8 +410,6 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
     const csv = schemaCardsToCsv(sortedCards, schema.fields);
     downloadCsv(`${schema.slug || 'schema'}-cards.csv`, csv);
   };
-
-  const sortedCards = getSortedCards();
 
   return (
     <div className="p-4">

@@ -65,16 +65,17 @@ interface EditPageProps {
 }
 
 // Read the optional ?schema= query param used by the schema table's
-// "Add Card" action to pre-attach a schema to a new card.
+// "Add Card" action to pre-attach a schema to a new card. Only a clean
+// positive integer is accepted so a malformed URL (e.g. ?schema=7abc or
+// ?schema=-1) cannot silently attach the wrong schema.
 function getNewCardSchemaId(
   searchParams: URLSearchParams,
   newCard: boolean,
 ): number | undefined {
   if (!newCard) return undefined;
   const raw = searchParams.get('schema');
-  if (!raw) return undefined;
-  const parsed = parseInt(raw, 10);
-  return Number.isNaN(parsed) ? undefined : parsed;
+  if (!raw || !/^\d+$/.test(raw)) return undefined;
+  return parseInt(raw, 10);
 }
 
 // Edit rail tabs. Metadata holds Card ID/Tags/Schema/Details; Links (the

@@ -168,4 +168,18 @@ describe('EditPage new card with ?schema=', () => {
     const select = await screen.findByLabelText('Schema');
     expect((select as HTMLSelectElement).value).toBe('');
   });
+
+  it('ignores a malformed schema param instead of attaching a wrong schema', async () => {
+    renderEditPageWithEntry('/app/card/new?schema=7abc');
+
+    const select = await screen.findByLabelText('Schema');
+    await waitFor(() => expect((select as HTMLSelectElement).value).toBe(''));
+  });
+
+  it('ignores a negative schema param', async () => {
+    renderEditPageWithEntry('/app/card/new?schema=-1');
+
+    const select = await screen.findByLabelText('Schema');
+    await waitFor(() => expect((select as HTMLSelectElement).value).toBe(''));
+  });
 });
