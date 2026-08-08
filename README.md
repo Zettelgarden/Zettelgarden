@@ -63,13 +63,13 @@ You can also try Zettelgarden directly at [zettelgarden.com](https://zettelgarde
 - **Web-Native**: Full functionality in browser with Progressive Web App capabilities
 - **API Access**: RESTful API with JWT authentication for programmatic integration
 - **Real-Time Sync**: WebSocket connections with optimistic updates across sessions
-- **Data Portability**: Export to JSON, Markdown, CSV formats with migration tools
+- **Data Portability**: One-click full-data export from Settings — a zip of every user-owned table (JSON), cards as Markdown/CSV, and your original uploaded files. Migration tooling lives under `docs/migration-plans/`.
 - **Keyboard Shortcuts**: Efficient power-user workflows (c=create, s=search, t=tasks)
 
 ### Privacy & Security
 - **Data Ownership**: Complete control with self-hosting option or secure cloud hosting
 - **Encryption**: TLS for transport, AES for storage
-- **No Vendor Lock-in**: Export data anytime, open source transparency
+- **No Vendor Lock-in**: Export your data anytime and delete your account self-serve from Settings (admins can also delete any user), open source transparency
 - **Privacy-First AI**: Optional AI features, no data mining, model choices
 
 ## Architecture

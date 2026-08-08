@@ -14,11 +14,18 @@ func RegisterUserRoutes(r *mux.Router, h *handlers.Handler) {
 	addAdminOrSelfRoute(r, h, "/api/users/{id}", h.UpdateUserRoute, "PUT", "id")
 	addAdminOrSelfRoute(r, h, "/api/users/{id}/subscription", h.GetUserSubscriptionRoute, "GET", "id")
 
+	// Admin-only account deletion
+	addAdminRoute(r, h, "/api/users/{id}", h.DeleteUserRoute, "DELETE")
+
 	// Protected routes for current user
 	addProtectedRoute(r, h, "/api/current", h.GetCurrentUserRoute, "GET")
 	addProtectedRoute(r, h, "/api/user/memory", h.GetUserMemoryRoute, "GET")
 	addProtectedRoute(r, h, "/api/user/memory", h.UpdateUserMemoryRoute, "PUT")
 	addProtectedRoute(r, h, "/api/admin", h.GetUserAdminRoute, "GET")
+
+	// Self-serve data export + account deletion (6er.9)
+	addProtectedRoute(r, h, "/api/user/export", h.ExportUserDataRoute, "GET")
+	addProtectedRoute(r, h, "/api/user", h.DeleteAccountRoute, "DELETE")
 
 	// User signup/registration (public for new account creation)
 	addRoute(r, "/api/users", h.CreateUserRoute, "POST")

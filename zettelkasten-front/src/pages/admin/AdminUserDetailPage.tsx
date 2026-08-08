@@ -1,16 +1,36 @@
 import React, { useState, useEffect } from "react";
 import { requestPasswordReset } from "../../api/auth";
+import { adminDeleteUser } from "../../api/account";
 import { getUser } from "../../api/users";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { User } from "../../models/User";
 
 export function AdminUserDetailPage() {
   const [user, setUser] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
   function handlePasswordReset() {
     if (user === null) return;
     requestPasswordReset(user.email);
+  }
+
+  async function handleDelete() {
+    if (user === null) return;
+    if (!window.confirm(`Permanently delete user "${user.username}" and all their data? This cannot be undone.`)) {
+      return;
+    }
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await adminDeleteUser(user.id);
+      navigate("/admin/users");
+    } catch (err: any) {
+      setDeleteError(err.message || "Failed to delete user.");
+      setDeleting(false);
+    }
   }
 
   useEffect(() => {
@@ -45,6 +65,16 @@ export function AdminUserDetailPage() {
             >
               Send Password Reset
             </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+            >
+              {deleting ? "Deleting..." : "Delete User"}
+            </button>
+            {deleteError && (
+              <p className="mt-2 text-sm text-red-600">{deleteError}</p>
+            )}
           </div>
         </div>
 

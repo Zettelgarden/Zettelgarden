@@ -1,10 +1,10 @@
 import React, { useState, useEffect, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { getBillingPortalUrl, getBillingStatus } from "../api/billing";
+import { exportUserData, deleteAccount } from "../api/account";
 import { requestPasswordReset } from "../api/auth";
 import { User, EditUserParams } from "../models/User";
 import { useAuth } from "../contexts/AuthContext";
-import { useSettings } from "../contexts/SettingsContext";
 import { H6 } from "../components/Header";
 import { TemplatesList } from "../components/templates/TemplatesList";
 import { setDocumentTitle } from "../utils/title";
@@ -31,8 +31,42 @@ export function UserSettingsPage() {
 
   const navigate = useNavigate();
   const { user, hasSubscription, updateUser, logoutUser } = useAuth();
-  const { settings } = useSettings();
-  const supportEmail = settings?.supportEmail;
+
+  const [exporting, setExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function handleExport() {
+    setExporting(true);
+    setExportMsg(null);
+    setExportError(null);
+    try {
+      await exportUserData();
+      setExportMsg("Export downloaded.");
+    } catch (err: any) {
+      setExportError(err.message || "Export failed.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteAccount(deletePassword);
+      // Account and its data are gone server-side; drop the local session.
+      logoutUser();
+      navigate("/");
+    } catch (err: any) {
+      setDeleteError(err.message || "Failed to delete account.");
+      setDeleting(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault(); // Prevent the default form submit action
@@ -229,33 +263,77 @@ export function UserSettingsPage() {
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold mb-4">Data & Privacy</h2>
               <div className="space-y-4">
-                <div className="border border-orange-200 bg-orange-50 rounded-lg p-4">
-                  <h3 className="text-lg font-medium text-orange-800 mb-2">Account Deletion & Data Export</h3>
-                  <p className="text-orange-700 text-sm mb-3">
-                    Need to delete your account or export your data? We're happy to help! Our team can assist you with:
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-medium text-gray-800 mb-2">Export your data</h3>
+                  <p className="text-gray-600 text-sm mb-3">
+                    Download a zip archive of your cards, tasks, files, tags,
+                    entities, facts, and RSS data (as JSON, with Markdown/CSV
+                    renderings of your cards and the original file bytes).
                   </p>
-                  <ul className="text-orange-700 text-sm mb-3 ml-4 list-disc space-y-1">
-                    <li>Complete account deletion</li>
-                    <li>Data export in various formats</li>
-                    <li>Selective data removal</li>
-                  </ul>
-                  {supportEmail ? (
-                    <p className="text-orange-700 text-sm mb-3">
-                    Please email us at{" "}
-                    <a
-                      href={`mailto:${supportEmail}`}
-                      className="font-medium text-orange-800 hover:underline"
+                  <button
+                    onClick={handleExport}
+                    disabled={exporting}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {exporting ? "Preparing export..." : "Export my data"}
+                  </button>
+                  {exportMsg && (
+                    <p className="mt-2 text-sm text-green-600">{exportMsg}</p>
+                  )}
+                  {exportError && (
+                    <p className="mt-2 text-sm text-red-600">{exportError}</p>
+                  )}
+                </div>
+
+                <div className="border border-red-200 bg-red-50 rounded-lg p-4">
+                  <h3 className="text-lg font-medium text-red-800 mb-2">Delete account</h3>
+                  <p className="text-red-700 text-sm mb-3">
+                    Permanently delete your account and all associated data
+                    (cards, tasks, files, and more). This cannot be undone.
+                  </p>
+                  {!showDeleteConfirm ? (
+                    <button
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
                     >
-                      {supportEmail}
-                    </a>{" "}
-                    with your request, and we'll take care of it promptly.
-                  </p>
-                ) : (
-                  <p className="text-orange-700 text-sm mb-3">
-                    This instance has no support address configured; contact
-                    your administrator for account deletion or data export.
-                  </p>
-                )}
+                      Delete account
+                    </button>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-red-700 text-sm">
+                        Type your password to confirm (GitHub/OIDC accounts can
+                        leave it empty).
+                      </p>
+                      <input
+                        type="password"
+                        value={deletePassword}
+                        onChange={(e) => setDeletePassword(e.target.value)}
+                        placeholder="Password"
+                        className="w-full max-w-xs px-3 py-2 border border-red-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleDelete}
+                          disabled={deleting}
+                          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50"
+                        >
+                          {deleting ? "Deleting..." : "Permanently delete"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowDeleteConfirm(false);
+                            setDeletePassword("");
+                          }}
+                          className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      {deleteError && (
+                        <p className="text-sm text-red-700">{deleteError}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
