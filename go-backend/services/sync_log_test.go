@@ -361,6 +361,48 @@ func TestJunctionDerivationNeverEmits(t *testing.T) {
 	}
 }
 
+// TestApplySyncPushEmitFailureRollsBack covers the v5b.3 invariant: a failed
+// sync_log emit inside a push must propagate so the caller rolls back the
+// whole batch — never a committed row write with no feed entry for other
+// clients to pull.
+func TestApplySyncPushEmitFailureRollsBack(t *testing.T) {
+	s := tests.Setup()
+	defer tests.Teardown()
+
+	// Use a dedicated pool-level tx so we can prove the rollback discards the
+	// partial write (the shared test tx is owned by the harness).
+	tx, err := s.DB.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+
+	// Inject an emit failure: the sync_log table vanishes mid-batch.
+	if _, err := tx.Exec(`DROP TABLE sync_log`); err != nil {
+		t.Fatal(err)
+	}
+
+	data, _ := json.Marshal(models.SyncCardData{CardID: "emit-fail", Title: "t", Body: "b"})
+	_, _, _, err = ApplySyncPush(tx, 1, &models.SyncPushRequest{
+		DeviceID: "dev",
+		Changes: []models.SyncChange{
+			{Collection: SyncCollectionCards, RowUUID: "c-emit-fail", Op: SyncOpUpsert, BaseVersion: 0, Data: data},
+		},
+	})
+	if err == nil {
+		t.Fatal("ApplySyncPush: expected error from failed sync_log emit")
+	}
+
+	// The caller rolled back: no partial card write survived the failure.
+	var count int
+	if err := s.DB.QueryRow(`SELECT COUNT(*) FROM cards WHERE sync_uuid = 'c-emit-fail'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Errorf("cards rows = %d, want 0 (emit failure must roll back the batch)", count)
+	}
+}
+
 // TestSyncLogAppendOnly asserts ids are strictly increasing (nothing is
 // updated in place) across the whole feed, and that every mutation produced
 // exactly one entry within the test.
