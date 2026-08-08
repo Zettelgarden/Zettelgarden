@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 
 	"go-backend/models"
 	"go-backend/services"
@@ -258,6 +259,225 @@ func TestSyncPushIdempotentRetry(t *testing.T) {
 		t.Errorf("idempotent retry counted %d lost edits", resp2.LostEdits)
 	}
 }
+
+// TestSyncPushUpdateRetryIdempotent covers the dropped-response case: the
+// server applies an update, the response is lost, and the client re-pushes the
+// SAME outbox entry (base_version unchanged). The retry must be reported
+// applied with no lost edit, and must not emit a duplicate feed entry.
+func TestSyncPushUpdateRetryIdempotent(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	boot := decodeSyncResp[models.SyncSnapshotResponse](t, syncRequest(t, s, router, "GET", "/api/sync/snapshot", nil))
+
+	create := syncCardChange("c-ur-1", "sync-update-retry", "v1 title", 0)
+	resp1 := pushChanges(t, s, router, []models.SyncChange{create})
+	if resp1.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("create: %+v", resp1.Results[0])
+	}
+
+	// Update applies server-side (v2) but the response never reaches the
+	// client, so it retries the identical outbox entry.
+	update := syncCardChange("c-ur-1", "sync-update-retry", "v2 title", 1)
+	resp2 := pushChanges(t, s, router, []models.SyncChange{update})
+	if resp2.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("first update: %+v", resp2.Results[0])
+	}
+
+	retry := pushChanges(t, s, router, []models.SyncChange{update})
+	if retry.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("update retry: expected applied (idempotent), got %+v", retry.Results[0])
+	}
+	if retry.LostEdits != 0 {
+		t.Errorf("update retry counted %d lost edits, want 0", retry.LostEdits)
+	}
+	if retry.Results[0].ServerVersion != 2 {
+		t.Errorf("retry server_version = %d, want 2 (current server version)", retry.Results[0].ServerVersion)
+	}
+
+	var title string
+	if err := s.GetDB().QueryRow(`SELECT title FROM cards WHERE sync_uuid = 'c-ur-1'`).Scan(&title); err != nil {
+		t.Fatal(err)
+	}
+	if title != "v2 title" {
+		t.Errorf("server title = %q, want v2 title", title)
+	}
+	var count int
+	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM cards WHERE sync_uuid = 'c-ur-1'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Errorf("row count = %d, want 1 (no duplicate from retry)", count)
+	}
+
+	// Exactly one upsert entry for the update (v2) in the feed: the retry
+	// must not emit a second entry.
+	feed := decodeSyncResp[models.SyncChangesResponse](t, syncRequest(t, s, router, "GET",
+		"/api/sync/changes?since="+strconv.FormatInt(boot.Cursor, 10), nil))
+	upserts := 0
+	for _, row := range feed.Rows {
+		if row.RowUUID == "c-ur-1" && row.Op == services.SyncOpUpsert {
+			upserts++
+		}
+	}
+	if upserts != 2 { // create v1 + update v2
+		t.Errorf("feed upsert entries for c-ur-1 = %d, want 2 (create + update, no retry duplicate)", upserts)
+	}
+}
+
+// TestSyncPushDeleteRetryIdempotent is the delete sibling of the dropped-
+// response retry: the delete applies, the response is lost, and the re-push of
+// the same delete entry must be applied with no lost edit.
+func TestSyncPushDeleteRetryIdempotent(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	create := syncCardChange("c-dr-1", "sync-delete-retry", "doomed", 0)
+	resp1 := pushChanges(t, s, router, []models.SyncChange{create})
+	if resp1.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("create: %+v", resp1.Results[0])
+	}
+
+	delData, _ := json.Marshal(models.SyncCardData{})
+	del := models.SyncChange{Collection: services.SyncCollectionCards, RowUUID: "c-dr-1", Op: services.SyncOpDelete, BaseVersion: 1, Data: delData}
+	resp2 := pushChanges(t, s, router, []models.SyncChange{del})
+	if resp2.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("delete: %+v", resp2.Results[0])
+	}
+
+	retry := pushChanges(t, s, router, []models.SyncChange{del})
+	if retry.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("delete retry: expected applied (idempotent), got %+v", retry.Results[0])
+	}
+	if retry.LostEdits != 0 {
+		t.Errorf("delete retry counted %d lost edits, want 0", retry.LostEdits)
+	}
+
+	var isDeleted bool
+	if err := s.GetDB().QueryRow(`SELECT is_deleted FROM cards WHERE sync_uuid = 'c-dr-1'`).Scan(&isDeleted); err != nil {
+		t.Fatal(err)
+	}
+	if !isDeleted {
+		t.Error("card not soft-deleted after retry")
+	}
+}
+
+// TestSyncPushTaskUpdateRetryIdempotent exercises the task retry matcher,
+// which must resolve uuid FK references and compare timestamp fields when
+// deciding an idempotent retry from a genuinely stale concurrent edit.
+func TestSyncPushTaskUpdateRetryIdempotent(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	cardData, _ := json.Marshal(models.SyncCardData{CardID: "sync-task-retry", Title: "Parent", Body: "p"})
+	respCard := pushChanges(t, s, router, []models.SyncChange{
+		{Collection: services.SyncCollectionCards, RowUUID: "c-tr-1", Op: services.SyncOpUpsert, BaseVersion: 0, Data: cardData},
+	})
+	if respCard.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("card: %+v", respCard.Results[0])
+	}
+
+	due := time.Date(2026, 9, 1, 12, 30, 0, 0, time.UTC)
+	taskData, _ := json.Marshal(models.SyncTaskData{
+		Title:        "Retry me",
+		Status:       "todo",
+		CardPKUUID:   "c-tr-1",
+		DueDate:      &due,
+		ReminderTime: &due,
+		ReminderSent: true,
+		Priority:     strPtr("high"),
+		Description:  strPtr("note"),
+		SortOrder:    intPtr(3),
+	})
+	taskChange := models.SyncChange{Collection: services.SyncCollectionTasks, RowUUID: "t-tr-1", Op: services.SyncOpUpsert, BaseVersion: 0, Data: taskData}
+	resp1 := pushChanges(t, s, router, []models.SyncChange{taskChange})
+	if resp1.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("create task: %+v", resp1.Results[0])
+	}
+
+	// Edit the task (v2), then retry the same outbox entry.
+	v2Data, _ := json.Marshal(models.SyncTaskData{
+		Title:        "Retry me v2",
+		Status:       "todo",
+		CardPKUUID:   "c-tr-1",
+		DueDate:      &due,
+		ReminderTime: &due,
+		ReminderSent: true,
+		Priority:     strPtr("high"),
+		Description:  strPtr("note"),
+		SortOrder:    intPtr(3),
+	})
+	update := models.SyncChange{Collection: services.SyncCollectionTasks, RowUUID: "t-tr-1", Op: services.SyncOpUpsert, BaseVersion: 1, Data: v2Data}
+	resp2 := pushChanges(t, s, router, []models.SyncChange{update})
+	if resp2.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("update task: %+v", resp2.Results[0])
+	}
+	retry := pushChanges(t, s, router, []models.SyncChange{update})
+	if retry.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("task update retry: expected applied, got %+v", retry.Results[0])
+	}
+	if retry.LostEdits != 0 {
+		t.Errorf("task update retry counted %d lost edits, want 0", retry.LostEdits)
+	}
+
+	var title string
+	var cardPK int
+	if err := s.GetDB().QueryRow(`SELECT title, card_pk FROM tasks WHERE sync_uuid = 't-tr-1'`).Scan(&title, &cardPK); err != nil {
+		t.Fatal(err)
+	}
+	if title != "Retry me v2" {
+		t.Errorf("task title = %q, want Retry me v2", title)
+	}
+	if cardPK != *respCard.Results[0].ServerID {
+		t.Errorf("task.card_pk = %d, want %d", cardPK, *respCard.Results[0].ServerID)
+	}
+}
+
+// TestSyncPushStaleUpdateVsDelete pins the discriminator between an idempotent
+// delete retry and a genuinely stale concurrent edit: a different edit landing
+// at version == base+1 must still conflict with a lost edit, even though the
+// row is already soft-deleted (so a naive "row deleted => delete retry"
+// shortcut would wrongly swallow it).
+func TestSyncPushStaleUpdateVsDelete(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	create := syncCardChange("c-sd-1", "sync-stale-del", "v1 title", 0)
+	resp1 := pushChanges(t, s, router, []models.SyncChange{create})
+	if resp1.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("create: %+v", resp1.Results[0])
+	}
+
+	// Device A deletes from v1 -> server v2 (soft-deleted).
+	delData, _ := json.Marshal(models.SyncCardData{})
+	delA := models.SyncChange{Collection: services.SyncCollectionCards, RowUUID: "c-sd-1", Op: services.SyncOpDelete, BaseVersion: 1, Data: delData}
+	resp2 := pushChanges(t, s, router, []models.SyncChange{delA})
+	if resp2.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("delete A: %+v", resp2.Results[0])
+	}
+
+	// Device B never saw the delete; it edits from v1 with DIFFERENT content.
+	// version == base+1 and the row is deleted, but the payload doesn't match
+	// the row -> genuine conflict, not an idempotent delete retry.
+	stale := syncCardChange("c-sd-1", "sync-stale-del", "B's v2 title", 1)
+	resp3 := pushChanges(t, s, router, []models.SyncChange{stale})
+	if resp3.Results[0].Status != services.SyncStatusConflict {
+		t.Fatalf("stale update after delete: expected conflict, got %+v", resp3.Results[0])
+	}
+	if resp3.LostEdits != 1 {
+		t.Errorf("lost_edits = %d, want 1", resp3.LostEdits)
+	}
+}
+
+// strPtr/intPtr are tiny helpers for pointer-typed task fields in the retry
+// tests above.
+func strPtr(s string) *string { return &s }
+
+func intPtr(i int) *int { return &i }
 
 func TestSyncPushStaleBaseConflict(t *testing.T) {
 	s := NewHandler()

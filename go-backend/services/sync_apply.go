@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"reflect"
 	"regexp"
-	"strings"
 	"time"
 
 	"go-backend/models"
@@ -44,6 +44,15 @@ const (
 	SyncStatusMerged   = "merged"
 	SyncStatusIgnored  = "ignored"
 )
+
+// syncCardIDSpace matches any whitespace run in a card_id. Card IDs are
+// stored whitespace-stripped (UpdateCard semantics); the retry matcher must
+// normalize identically before comparing a re-pushed payload to the row.
+var syncCardIDSpace = regexp.MustCompile(`\s+`)
+
+func normalizeCardID(s string) string {
+	return syncCardIDSpace.ReplaceAllString(s, "")
+}
 
 type pushContext struct {
 	tx         *sql.Tx
@@ -133,6 +142,211 @@ func (c *pushContext) conflict(ch models.SyncChange, serverID, version int, rowJ
 		RowUUID: ch.RowUUID, Status: SyncStatusConflict,
 		ServerID: &serverID, ServerVersion: version, Data: rowJSON,
 	})
+}
+
+// retryOrConflict resolves a stale base_version. A stale base usually means a
+// genuinely concurrent edit won the LWW race (conflict + lost edit), but it
+// also happens when the client re-pushes the SAME outbox entry whose response
+// was lost on the wire: the server already applied it and the row advanced by
+// exactly one version to the very payload being re-pushed. That case must be
+// reported applied with no lost edit, or ordinary network flakiness would
+// surface spurious lost-edit counts.
+func (c *pushContext) retryOrConflict(collection string, ch models.SyncChange, serverID, version int) {
+	if c.retryMatchesCurrent(collection, ch, serverID, version) {
+		c.applied(ch, serverID, version)
+		return
+	}
+	c.conflict(ch, serverID, version, c.currentRow(collection, serverID))
+}
+
+// retryMatchesCurrent reports whether a stale base_version is an idempotent
+// retry of an op the server already applied. Two conditions must BOTH hold:
+//
+//   - the server row advanced by exactly the one version our apply would have
+//     produced (version == base+1), and
+//   - the current row is exactly what our apply would have left: for an
+//     upsert the re-pushed payload matches the stored columns; for a delete
+//     the row is already soft-deleted.
+//
+// A genuinely stale concurrent edit (different content, or a row that jumped
+// more than one version) fails one of these and still conflicts.
+func (c *pushContext) retryMatchesCurrent(collection string, ch models.SyncChange, serverID, version int) bool {
+	if version != ch.BaseVersion+1 {
+		return false
+	}
+	switch collection {
+	case SyncCollectionCards:
+		return c.cardRowMatchesPush(ch, serverID)
+	case SyncCollectionTasks:
+		return c.taskRowMatchesPush(ch, serverID)
+	case SyncCollectionTags:
+		return c.tagRowMatchesPush(ch, serverID)
+	}
+	return false
+}
+
+// cardRowMatchesPush compares a re-pushed card change against the current row.
+func (c *pushContext) cardRowMatchesPush(ch models.SyncChange, serverID int) bool {
+	var row struct {
+		CardID         sql.NullString
+		Title          string
+		Body           string
+		Link           string
+		IsDeleted      bool
+		CardSchemaID   *int
+		StructuredData sql.NullString
+	}
+	if err := c.tx.QueryRow(`SELECT card_id, title, body, link, is_deleted, card_schema_id, structured_data FROM cards WHERE id = $1 AND user_id = $2`, serverID, c.userID).
+		Scan(&row.CardID, &row.Title, &row.Body, &row.Link, &row.IsDeleted, &row.CardSchemaID, &row.StructuredData); err != nil {
+		return false
+	}
+	if ch.Op == SyncOpDelete {
+		// Our delete applied earlier: the row is already soft-deleted. The
+		// delete payload carries no meaningful data to compare.
+		return row.IsDeleted
+	}
+	var pushed models.SyncCardData
+	if err := json.Unmarshal(ch.Data, &pushed); err != nil {
+		return false
+	}
+	// applyCardUpsert normalizes card_id before storing; normalize identically.
+	pushed.CardID = normalizeCardID(pushed.CardID)
+	if pushed.CardID != row.CardID.String || pushed.Title != row.Title || pushed.Body != row.Body || pushed.Link != row.Link || pushed.IsDeleted != row.IsDeleted {
+		return false
+	}
+	if !equalIntPtr(pushed.CardSchemaID, row.CardSchemaID) {
+		return false
+	}
+	return structuredDataMatches(pushed.StructuredData, row.StructuredData.String)
+}
+
+// taskRowMatchesPush compares a re-pushed task change against the current row,
+// resolving the client's uuid FK references the same way applyTaskUpsert does.
+func (c *pushContext) taskRowMatchesPush(ch models.SyncChange, serverID int) bool {
+	var row struct {
+		CardPK        sql.NullInt64
+		Title         string
+		Description   *string
+		Priority      *string
+		Status        string
+		IsComplete    bool
+		IsDeleted     bool
+		ScheduledDate *time.Time
+		DueDate       *time.Time
+		CompletedAt   *time.Time
+		ReminderTime  *time.Time
+		ReminderSent  bool
+		ParentTaskID  *int
+		SortOrder     *int
+	}
+	if err := c.tx.QueryRow(`SELECT card_pk, title, description, priority, status, is_complete, is_deleted, scheduled_date, due_date, completed_at, reminder_time, reminder_sent, parent_task_id, sort_order FROM tasks WHERE id = $1 AND user_id = $2`, serverID, c.userID).
+		Scan(&row.CardPK, &row.Title, &row.Description, &row.Priority, &row.Status, &row.IsComplete, &row.IsDeleted, &row.ScheduledDate, &row.DueDate, &row.CompletedAt, &row.ReminderTime, &row.ReminderSent, &row.ParentTaskID, &row.SortOrder); err != nil {
+		return false
+	}
+	if ch.Op == SyncOpDelete {
+		return row.IsDeleted
+	}
+	var pushed models.SyncTaskData
+	if err := json.Unmarshal(ch.Data, &pushed); err != nil {
+		return false
+	}
+	cardPK := 0
+	if pushed.CardPK != nil {
+		cardPK = *pushed.CardPK
+	} else if pushed.CardPKUUID != "" {
+		id, ok := c.resolveRowUUID(SyncCollectionCards, pushed.CardPKUUID)
+		if !ok {
+			return false
+		}
+		cardPK = id
+	}
+	storedCardPK := 0
+	if row.CardPK.Valid {
+		storedCardPK = int(row.CardPK.Int64)
+	}
+	var parentTaskID *int
+	if pushed.ParentTaskID != nil {
+		parentTaskID = pushed.ParentTaskID
+	} else if pushed.ParentTaskUUID != "" {
+		id, ok := c.resolveRowUUID(SyncCollectionTasks, pushed.ParentTaskUUID)
+		if !ok {
+			return false
+		}
+		parentTaskID = &id
+	}
+	if storedCardPK != cardPK || pushed.Title != row.Title || pushed.Status != row.Status ||
+		pushed.IsComplete != row.IsComplete || pushed.IsDeleted != row.IsDeleted || pushed.ReminderSent != row.ReminderSent {
+		return false
+	}
+	if !equalStrPtr(pushed.Description, row.Description) || !equalStrPtr(pushed.Priority, row.Priority) {
+		return false
+	}
+	if !equalIntPtr(pushed.SortOrder, row.SortOrder) || !equalIntPtr(parentTaskID, row.ParentTaskID) {
+		return false
+	}
+	return equalTimePtr(pushed.ScheduledDate, row.ScheduledDate) && equalTimePtr(pushed.DueDate, row.DueDate) &&
+		equalTimePtr(pushed.CompletedAt, row.CompletedAt) && equalTimePtr(pushed.ReminderTime, row.ReminderTime)
+}
+
+// tagRowMatchesPush compares a re-pushed tag change against the current row.
+func (c *pushContext) tagRowMatchesPush(ch models.SyncChange, serverID int) bool {
+	var row struct {
+		Name      string
+		Color     string
+		IsDeleted bool
+	}
+	if err := c.tx.QueryRow(`SELECT name, color, is_deleted FROM tags WHERE id = $1 AND user_id = $2`, serverID, c.userID).
+		Scan(&row.Name, &row.Color, &row.IsDeleted); err != nil {
+		return false
+	}
+	if ch.Op == SyncOpDelete {
+		return row.IsDeleted
+	}
+	var pushed models.SyncTagData
+	if err := json.Unmarshal(ch.Data, &pushed); err != nil {
+		return false
+	}
+	return pushed.Name == row.Name && pushed.Color == row.Color && pushed.IsDeleted == row.IsDeleted
+}
+
+// ---- pointer comparison helpers (nil-aware, instant-based for times) -------
+
+func equalStrPtr(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
+
+func equalIntPtr(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
+
+func equalTimePtr(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.Equal(*b)
+}
+
+// structuredDataMatches compares a pushed structured_data payload against the
+// stored column value semantically (JSON round-trip), so key order and number
+// formatting differences never false-negative a retry.
+func structuredDataMatches(pushed *json.RawMessage, stored string) bool {
+	if pushed == nil {
+		return stored == ""
+	}
+	if stored == "" {
+		return false
+	}
+	var p, s any
+	if err := json.Unmarshal(*pushed, &p); err != nil || json.Unmarshal([]byte(stored), &s) != nil {
+		return false
+	}
+	return reflect.DeepEqual(p, s)
 }
 
 func (c *pushContext) merged(ch models.SyncChange, serverID int, version int, mappedTo string) {
@@ -239,8 +453,7 @@ func (c *pushContext) applyCardUpsert(ch models.SyncChange) {
 		return
 	}
 	// Match UpdateCard: strip all whitespace from card_id before proceeding.
-	data.CardID = strings.ReplaceAll(data.CardID, " ", "")
-	data.CardID = regexp.MustCompile(`\s+`).ReplaceAllString(data.CardID, "")
+	data.CardID = normalizeCardID(data.CardID)
 
 	var id, version int
 	err := c.tx.QueryRow(`SELECT id, version FROM cards WHERE sync_uuid = $1 AND user_id = $2`, ch.RowUUID, c.userID).Scan(&id, &version)
@@ -285,7 +498,7 @@ func (c *pushContext) applyCardUpsert(ch models.SyncChange) {
 		return
 	}
 	if ch.BaseVersion < version {
-		c.conflict(ch, id, version, c.currentRow(SyncCollectionCards, id))
+		c.retryOrConflict(SyncCollectionCards, ch, id, version)
 		return
 	}
 	newVersion := max(version, ch.BaseVersion) + 1
@@ -316,7 +529,7 @@ func (c *pushContext) applyCardDelete(ch models.SyncChange) {
 		return
 	}
 	if ch.BaseVersion < version {
-		c.conflict(ch, id, version, c.currentRow(SyncCollectionCards, id))
+		c.retryOrConflict(SyncCollectionCards, ch, id, version)
 		return
 	}
 	newVersion := version + 1
@@ -399,7 +612,7 @@ func (c *pushContext) applyTaskUpsert(ch models.SyncChange) {
 		return
 	}
 	if ch.BaseVersion < version {
-		c.conflict(ch, id, version, c.currentRow(SyncCollectionTasks, id))
+		c.retryOrConflict(SyncCollectionTasks, ch, id, version)
 		return
 	}
 	newVersion := max(version, ch.BaseVersion) + 1
@@ -433,7 +646,7 @@ func (c *pushContext) applyTaskDelete(ch models.SyncChange) {
 		return
 	}
 	if ch.BaseVersion < version {
-		c.conflict(ch, id, version, c.currentRow(SyncCollectionTasks, id))
+		c.retryOrConflict(SyncCollectionTasks, ch, id, version)
 		return
 	}
 	newVersion := version + 1
@@ -527,7 +740,7 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) {
 		return
 	}
 	if ch.BaseVersion < version {
-		c.conflict(ch, id, version, c.currentRow(SyncCollectionTags, id))
+		c.retryOrConflict(SyncCollectionTags, ch, id, version)
 		return
 	}
 	newVersion := max(version, ch.BaseVersion) + 1
@@ -563,7 +776,7 @@ func (c *pushContext) applyTagDelete(ch models.SyncChange) {
 		return
 	}
 	if ch.BaseVersion < version {
-		c.conflict(ch, id, version, c.currentRow(SyncCollectionTags, id))
+		c.retryOrConflict(SyncCollectionTags, ch, id, version)
 		return
 	}
 	newVersion := version + 1
