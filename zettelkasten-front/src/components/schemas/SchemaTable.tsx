@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { SchemaDefinition, FieldDefinition } from '../../models/Schema';
 import { Card } from '../../models/Card';
 import { fetchSchemaByRef } from '../../api/schemas';
+import { NotFoundError, isAPIError } from '../../api/errors';
 import { applyFiltersToCard } from '../../utils/schemaFilters';
 import { CardLink } from '../cards/CardLink';
 import { getCard } from '../../api/cards';
@@ -163,7 +164,13 @@ export function SchemaTable({
       setCards(cardsWithDates);
     } catch (err) {
       console.error('Error loading schema table:', err);
-      setError('Failed to load data');
+      if (err instanceof NotFoundError) {
+        setError(`Schema '${schemaRef}' not found`);
+      } else if (isAPIError(err)) {
+        setError(err.message || 'Failed to load data');
+      } else {
+        setError('Failed to load data');
+      }
     } finally {
       setLoading(false);
     }
