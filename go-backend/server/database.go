@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"io/ioutil"
@@ -220,6 +221,124 @@ func ensureSQLiteSchemaUpgrades(db *sql.DB) error {
 			return fmt.Errorf("drop mailing list table %s: %w", tbl, err)
 		}
 	}
+
+	// Remove the half-implemented AI-agent multi-user remnants (Zettelgarden-thw).
+	// The feature was never completed — no agent handlers/routes ever shipped —
+	// so existing DBs carry an always-empty agent_activity_log table and
+	// always-NULL columns (users.is_agent/owner_user_id/api_key_hash,
+	// cards.created_by_agent_id). Fresh builds no longer create them; existing
+	// DBs converge here on boot. SQLite cannot DROP COLUMN while a CHECK or FK
+	// constraint references the column, so users and cards are rebuilt without
+	// the agent columns (see sqliteRebuildTable). All steps are idempotent and
+	// no-ops once the columns are gone.
+	for _, idx := range []string{
+		"idx_agent_activity_action", "idx_agent_activity_agent", "idx_agent_activity_created",
+		"idx_cards_created_by_agent", "idx_users_agent", "idx_users_owner",
+	} {
+		if _, err := db.Exec(fmt.Sprintf("DROP INDEX IF EXISTS %s", idx)); err != nil {
+			return fmt.Errorf("drop index %s: %w", idx, err)
+		}
+	}
+	if _, err := db.Exec(`DROP TABLE IF EXISTS agent_activity_log`); err != nil {
+		return fmt.Errorf("drop agent_activity_log: %w", err)
+	}
+
+	if hasUsers, err := sqliteTableExists(db, "users"); err != nil {
+		return fmt.Errorf("check users table: %w", err)
+	} else if hasUsers {
+		hasAgentCol, err := sqliteColumnExists(db, "users", "is_agent")
+		if err != nil {
+			return fmt.Errorf("check users.is_agent: %w", err)
+		}
+		if hasAgentCol {
+			// users rebuild: full consolidated column set minus the agent
+			// columns (is_agent, owner_user_id, api_key_hash) and their CHECK
+			// constraints. The email/oidc unique indexes are recreated by the
+			// guarded self-heal steps below; caldav/last_memory_job_id indexes
+			// are recreated here to match the consolidated schema.
+			if err := sqliteRebuildTable(db,
+				`CREATE TABLE users_new (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT,
+  email TEXT,
+  password TEXT,
+  created_at DATETIME,
+  updated_at DATETIME,
+  is_admin BOOLEAN DEFAULT false NOT NULL,
+  email_validated BOOLEAN DEFAULT false NOT NULL,
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT,
+  stripe_subscription_status TEXT,
+  stripe_subscription_frequency TEXT,
+  stripe_current_plan TEXT,
+  last_login DATETIME,
+  can_upload_files BOOLEAN DEFAULT true,
+  max_file_storage INTEGER DEFAULT 100000000,
+  dashboard_card_pk INTEGER DEFAULT 0,
+  last_seen DATETIME,
+  memory_has_changed BOOLEAN DEFAULT true,
+  auth_provider TEXT DEFAULT 'local',
+  github_id TEXT,
+  has_seen_getting_started BOOLEAN DEFAULT false,
+  stripe_cancel_at_period_end BOOLEAN DEFAULT false,
+  timezone TEXT DEFAULT 'UTC',
+  show_tasks BOOLEAN DEFAULT true,
+  show_rss BOOLEAN DEFAULT true,
+  last_memory_job_id INTEGER,
+  caldav_url TEXT,
+  caldav_token TEXT,
+  oidc_provider TEXT,
+  oidc_sub TEXT,
+  FOREIGN KEY (last_memory_job_id) REFERENCES llm_jobs(id) ON DELETE SET NULL
+)`, `INSERT INTO users_new (id, username, email, password, created_at, updated_at, is_admin, email_validated, stripe_customer_id, stripe_subscription_id, stripe_subscription_status, stripe_subscription_frequency, stripe_current_plan, last_login, can_upload_files, max_file_storage, dashboard_card_pk, last_seen, memory_has_changed, auth_provider, github_id, has_seen_getting_started, stripe_cancel_at_period_end, timezone, show_tasks, show_rss, last_memory_job_id, caldav_url, caldav_token, oidc_provider, oidc_sub) SELECT id, username, email, password, created_at, updated_at, is_admin, email_validated, stripe_customer_id, stripe_subscription_id, stripe_subscription_status, stripe_subscription_frequency, stripe_current_plan, last_login, can_upload_files, max_file_storage, dashboard_card_pk, last_seen, memory_has_changed, auth_provider, github_id, has_seen_getting_started, stripe_cancel_at_period_end, timezone, show_tasks, show_rss, last_memory_job_id, caldav_url, caldav_token, oidc_provider, oidc_sub FROM users`, `DROP TABLE users`, `ALTER TABLE users_new RENAME TO users`, `CREATE INDEX idx_users_caldav_token ON users (caldav_token) WHERE (caldav_token IS NOT NULL)`, `CREATE INDEX idx_users_last_memory_job_id ON users (last_memory_job_id)`); err != nil {
+				return fmt.Errorf("rebuild users without agent columns: %w", err)
+			}
+			log.Printf("sqlite schema upgrade: dropped agent columns from users")
+		}
+	}
+
+	if hasCards, err := sqliteTableExists(db, "cards"); err != nil {
+		return fmt.Errorf("check cards table: %w", err)
+	} else if hasCards {
+		hasAgentCol, err := sqliteColumnExists(db, "cards", "created_by_agent_id")
+		if err != nil {
+			return fmt.Errorf("check cards.created_by_agent_id: %w", err)
+		}
+		if hasAgentCol {
+			if err := sqliteRebuildTable(db,
+				`CREATE TABLE cards_new (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  card_id TEXT,
+  title TEXT,
+  body TEXT,
+  is_reference INTEGER DEFAULT 0,
+  link TEXT,
+  created_at DATETIME,
+  updated_at DATETIME,
+  user_id INTEGER,
+  is_deleted BOOLEAN DEFAULT false,
+  parent_id INTEGER,
+  is_literature_card BOOLEAN DEFAULT false,
+  is_flashcard BOOLEAN DEFAULT false,
+  flashcard_state TEXT,
+  flashcard_reps INTEGER DEFAULT 0,
+  flashcard_lapses INTEGER DEFAULT 0,
+  flashcard_last_review DATETIME,
+  flashcard_due DATETIME,
+  flashcard_stability REAL DEFAULT 0,
+  flashcard_difficulty REAL DEFAULT 0,
+  card_schema_id INTEGER,
+  structured_data TEXT,
+  version INTEGER DEFAULT 1,
+  sync_uuid TEXT,
+  FOREIGN KEY (card_schema_id) REFERENCES schema_definitions(id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+)`, `INSERT INTO cards_new (id, card_id, title, body, is_reference, link, created_at, updated_at, user_id, is_deleted, parent_id, is_literature_card, is_flashcard, flashcard_state, flashcard_reps, flashcard_lapses, flashcard_last_review, flashcard_due, flashcard_stability, flashcard_difficulty, card_schema_id, structured_data, version, sync_uuid) SELECT id, card_id, title, body, is_reference, link, created_at, updated_at, user_id, is_deleted, parent_id, is_literature_card, is_flashcard, flashcard_state, flashcard_reps, flashcard_lapses, flashcard_last_review, flashcard_due, flashcard_stability, flashcard_difficulty, card_schema_id, structured_data, version, sync_uuid FROM cards`, `DROP TABLE cards`, `ALTER TABLE cards_new RENAME TO cards`, `CREATE INDEX idx_cards_card_schema_id ON cards (card_schema_id)`, `CREATE INDEX idx_cards_user_created ON cards (user_id, created_at) WHERE (is_deleted = 0)`); err != nil {
+				return fmt.Errorf("rebuild cards without agent column: %w", err)
+			}
+			log.Printf("sqlite schema upgrade: dropped created_by_agent_id from cards")
+		}
+	}
 	// Partial unique index for stable (provider, sub) OIDC re-auth. Only build
 	// it when the users table exists; idempotent otherwise via IF NOT EXISTS.
 	if hasUsers, err := sqliteTableExists(db, "users"); err != nil {
@@ -328,7 +447,53 @@ func ensureSQLiteSchemaUpgrades(db *sql.DB) error {
 	return nil
 }
 
-// execScript executes a multi-statement SQL script within tx. modernc.org/sqlite
+// sqliteRebuildTable runs the SQLite "recreate the table" procedure for a
+// table that must lose columns SQLite cannot DROP COLUMN directly (columns
+// referenced by CHECK or FK constraints). It temporarily disables foreign-key
+// enforcement (required so DROP TABLE users does not cascade-delete children)
+// and runs the statements atomically on a single dedicated connection:
+//
+//  1. CREATE TABLE <t>_new (...)         — new shape, no removed columns
+//  2. INSERT INTO <t>_new SELECT ...     — copy all rows
+//  3. DROP TABLE <t>
+//  4. ALTER TABLE <t>_new RENAME TO <t> — SQLite rewrites FK references in
+//     other tables to the renamed table
+//
+// plus any index recreation passed by the caller (indexes are dropped with
+// the table). foreign_keys=ON is restored before returning (PRAGMA foreign_keys
+// cannot change inside a transaction, so it is toggled around the BEGIN/COMMIT).
+func sqliteRebuildTable(db *sql.DB, stmts ...string) error {
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	if _, err := conn.ExecContext(context.Background(), `PRAGMA foreign_keys=OFF`); err != nil {
+		return err
+	}
+	restoreFK := func() {
+		_, _ = conn.ExecContext(context.Background(), `PRAGMA foreign_keys=ON`)
+	}
+	if _, err := conn.ExecContext(context.Background(), `BEGIN`); err != nil {
+		restoreFK()
+		return err
+	}
+	for _, s := range stmts {
+		if _, err := conn.ExecContext(context.Background(), s); err != nil {
+			_, _ = conn.ExecContext(context.Background(), `ROLLBACK`)
+			restoreFK()
+			return fmt.Errorf("rebuild statement failed: %w\n  statement: %s", err, s)
+		}
+	}
+	if _, err := conn.ExecContext(context.Background(), `COMMIT`); err != nil {
+		restoreFK()
+		return err
+	}
+	restoreFK()
+	return nil
+}
+
 // executes only one statement per Exec, so the script is split into individual
 // statements first (via SplitSQL) before execution. (The Postgres driver used
 // to parse multi-statement strings itself, but Postgres was retired after the

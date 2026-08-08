@@ -26,10 +26,10 @@ var tablesNotCascaded = []string{
 	"files",
 }
 
-// CountAdmins returns the number of admin (non-agent) users.
+// CountAdmins returns the number of admin users.
 func CountAdmins(db models.Database) (int, error) {
 	var n int
-	err := db.QueryRow(`SELECT COUNT(*) FROM users WHERE is_admin = 1 AND is_agent = 0`).Scan(&n)
+	err := db.QueryRow(`SELECT COUNT(*) FROM users WHERE is_admin = 1`).Scan(&n)
 	return n, err
 }
 

@@ -34,11 +34,6 @@ type User struct {
 	ShowTasks                   bool       `json:"show_tasks"`
 	ShowRss                     bool       `json:"show_rss"`
 
-	// Agent-specific fields
-	IsAgent     bool       `json:"is_agent"`
-	OwnerUserID *int       `json:"owner_user_id,omitempty"`
-	LastUsed    *time.Time `json:"last_used,omitempty"`
-
 	// OIDC / SSO identity. Populated only by OIDC-specific queries; the
 	// standard QueryUser* scan intentionally does not read these columns.
 	OIDCProvider string `json:"oidc_provider,omitempty"`

@@ -433,9 +433,7 @@ func (s *Handler) QueryUserByEmail(email string) (models.User, error) {
 	is_admin, email_validated, can_upload_files,
 	stripe_subscription_status, max_file_storage, last_login,
 	last_seen, dashboard_card_pk, has_seen_getting_started, COALESCE(timezone, 'UTC'),
-	show_tasks, show_rss,
-	COALESCE(is_agent, FALSE) as is_agent,
-	owner_user_id
+	show_tasks, show_rss
 	FROM users WHERE email = $1
 	`, email).Scan(
 		&user.ID,
@@ -456,8 +454,6 @@ func (s *Handler) QueryUserByEmail(email string) (models.User, error) {
 		&user.Timezone,
 		&user.ShowTasks,
 		&user.ShowRss,
-		&user.IsAgent,
-		&user.OwnerUserID,
 	)
 	if err != nil {
 		log.Printf("err %v", err)
@@ -481,9 +477,7 @@ func (s *Handler) QueryUserByStripeID(stripeID string) (models.User, error) {
 	is_admin, email_validated, can_upload_files,
 	stripe_subscription_status, max_file_storage, last_login,
 	last_seen, dashboard_card_pk, has_seen_getting_started, COALESCE(timezone, 'UTC'),
-	show_tasks, show_rss,
-	COALESCE(is_agent, FALSE) as is_agent,
-	owner_user_id
+	show_tasks, show_rss
 	FROM users WHERE stripe_customer_id = $1
 	`, stripeID).Scan(
 		&user.ID,
@@ -504,8 +498,6 @@ func (s *Handler) QueryUserByStripeID(stripeID string) (models.User, error) {
 		&user.Timezone,
 		&user.ShowTasks,
 		&user.ShowRss,
-		&user.IsAgent,
-		&user.OwnerUserID,
 	)
 	if err != nil {
 		log.Printf("err %v", err)
@@ -527,9 +519,7 @@ func (s *Handler) QueryUser(id int) (models.User, error) {
 	is_admin, email_validated, can_upload_files,
 	stripe_subscription_status, max_file_storage, last_login,
 	last_seen, dashboard_card_pk, has_seen_getting_started, COALESCE(timezone, 'UTC'),
-	show_tasks, show_rss,
-	COALESCE(is_agent, FALSE) as is_agent,
-	owner_user_id
+	show_tasks, show_rss
 	FROM users WHERE id = $1
 	`, id).Scan(
 		&user.ID,
@@ -550,8 +540,6 @@ func (s *Handler) QueryUser(id int) (models.User, error) {
 		&user.Timezone,
 		&user.ShowTasks,
 		&user.ShowRss,
-		&user.IsAgent,
-		&user.OwnerUserID,
 	)
 	if err != nil {
 		log.Printf("errsd %v", err)

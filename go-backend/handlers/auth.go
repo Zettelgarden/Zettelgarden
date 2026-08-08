@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"crypto/rand"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"go-backend/models"
@@ -414,38 +413,6 @@ func (s *Handler) validateAPIKey(apiKey string) (int, int, error) {
 		return 0, 0, err
 	}
 
-	// If not found in regular API keys, check agent API keys from users table
-	agentRows, err := s.GetDB().Query(`
-		SELECT id, api_key_hash, owner_user_id
-		FROM users
-		WHERE is_agent = TRUE AND api_key_hash IS NOT NULL
-	`)
-	if err != nil {
-		return 0, 0, err
-	}
-	defer agentRows.Close()
-
-	for agentRows.Next() {
-		var agentID int
-		var keyHash string
-		var ownerUserID sql.NullInt64
-
-		err := agentRows.Scan(&agentID, &keyHash, &ownerUserID)
-		if err != nil {
-			continue
-		}
-
-		// Compare the provided key against the stored hash
-		if checkPasswordHash(apiKey, keyHash) {
-			// For agents, return agent ID as userID and negative API key ID
-			return agentID, -agentID, nil
-		}
-	}
-
-	if err := agentRows.Err(); err != nil {
-		return 0, 0, err
-	}
-
 	return 0, 0, fmt.Errorf("invalid api key")
 }
 
@@ -473,12 +440,4 @@ func generateAPIKey() (string, error) {
 	}
 
 	return string(bytes), nil
-}
-
-// updateAgentLastSeen updates the last_seen timestamp for an agent
-func (s *Handler) updateAgentLastSeen(agentID int) {
-	_, err := s.DB.Exec("UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE id = $1", agentID)
-	if err != nil {
-		log.Printf("Error updating agent last_seen: %v", err)
-	}
 }

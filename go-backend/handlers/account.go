@@ -210,7 +210,7 @@ func (s *Handler) ExportUserDataRoute(w http.ResponseWriter, r *http.Request) {
 func sanitizeUserForExport(u models.User) map[string]interface{} {
 	// Re-marshal through the struct's json tags minus the secret fields.
 	secrets := map[string]bool{
-		"password": true, "api_key_hash": true, "caldav_token": true,
+		"password": true, "caldav_token": true,
 	}
 	raw, err := json.Marshal(u)
 	if err != nil {

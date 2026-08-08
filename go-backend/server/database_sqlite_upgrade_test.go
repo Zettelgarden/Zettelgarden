@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -352,7 +353,139 @@ func toSortedSlice(m map[string]struct{}) []string {
 	return s
 }
 
-// createSyncTablesWithoutSyncColumns simulates a pre-sync SQLite database:
+// createAgentEraTables simulates a database from the half-implemented
+// AI-agent era (Zettelgarden-thw): users carries the frozen pre-self-heal
+// baseline columns PLUS the agent columns (is_agent, owner_user_id,
+// api_key_hash) and their CHECK constraints; cards has created_by_agent_id;
+// and the always-empty agent_activity_log table exists. The agent feature was
+// never completed (no handlers/routes shipped), so these columns are all
+// NULL/false and the table is empty.
+func createAgentEraTables(t *testing.T, db *sql.DB) {
+	cols := []string{"id INTEGER PRIMARY KEY AUTOINCREMENT"}
+	for _, c := range usersBaselineColumns[1:] {
+		cols = append(cols, c+" TEXT")
+	}
+	cols = append(cols,
+		"CONSTRAINT check_agent_has_api_key CHECK (((NOT is_agent) OR (api_key_hash IS NOT NULL)))",
+		"CONSTRAINT check_agent_not_admin CHECK ((NOT ((is_agent = 1) AND (is_admin = 1))))",
+		"FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE",
+	)
+	if _, err := db.Exec("CREATE TABLE users (" + strings.Join(cols, ", ") + ")"); err != nil {
+		t.Fatalf("create agent-era users: %v", err)
+	}
+	if _, err := db.Exec(`CREATE TABLE cards (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		card_id TEXT,
+		title TEXT,
+		body TEXT,
+		is_reference INTEGER DEFAULT 0,
+		link TEXT,
+		created_at DATETIME,
+		updated_at DATETIME,
+		user_id INTEGER,
+		is_deleted BOOLEAN DEFAULT false,
+		parent_id INTEGER,
+		is_literature_card BOOLEAN DEFAULT false,
+		is_flashcard BOOLEAN DEFAULT false,
+		flashcard_state TEXT,
+		flashcard_reps INTEGER DEFAULT 0,
+		flashcard_lapses INTEGER DEFAULT 0,
+		flashcard_last_review DATETIME,
+		flashcard_due DATETIME,
+		flashcard_stability REAL DEFAULT 0,
+		flashcard_difficulty REAL DEFAULT 0,
+		card_schema_id INTEGER,
+		structured_data TEXT,
+		created_by_agent_id INTEGER,
+		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+		FOREIGN KEY (created_by_agent_id) REFERENCES users(id) ON DELETE SET NULL
+	)`); err != nil {
+		t.Fatalf("create agent-era cards: %v", err)
+	}
+	if _, err := db.Exec(`CREATE TABLE agent_activity_log (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		agent_id INTEGER,
+		action TEXT NOT NULL,
+		FOREIGN KEY (agent_id) REFERENCES users(id) ON DELETE SET NULL
+	)`); err != nil {
+		t.Fatalf("create agent_activity_log: %v", err)
+	}
+	// cards references schema_definitions in the real schema; provide it so
+	// FK enforcement on the rebuilt cards table resolves.
+	if _, err := db.Exec(`CREATE TABLE schema_definitions (id INTEGER PRIMARY KEY AUTOINCREMENT)`); err != nil {
+		t.Fatalf("create schema_definitions: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO users (username, email, is_admin, email_validated) VALUES ('alice', 'alice@x.com', 0, 1)`); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO cards (title, user_id) VALUES ('hello', 1)`); err != nil {
+		t.Fatalf("seed card: %v", err)
+	}
+}
+
+// TestEnsureSQLiteSchemaUpgrades_DropsAgentRemnants guards the Zettelgarden-thw
+// cleanup: a pre-thw SQLite DB (agent columns present) converges on the
+// consolidated schema on boot — agent columns/table dropped, data preserved,
+// FK + CHECK constraints rebuilt, and a second run is a clean idempotent no-op.
+func TestEnsureSQLiteSchemaUpgrades_DropsAgentRemnants(t *testing.T) {
+	db := openMemSQLite(t)
+	createAgentEraTables(t, db)
+
+	if err := ensureSQLiteSchemaUpgrades(db); err != nil {
+		t.Fatalf("upgrade: %v", err)
+	}
+
+	for _, col := range []string{"is_agent", "owner_user_id", "api_key_hash"} {
+		got, err := sqliteColumnExists(db, "users", col)
+		if err != nil || got {
+			t.Fatalf("users.%s must be gone after upgrade (got=%v err=%v)", col, got, err)
+		}
+	}
+	got, err := sqliteColumnExists(db, "cards", "created_by_agent_id")
+	if err != nil || got {
+		t.Fatalf("cards.created_by_agent_id must be gone (got=%v err=%v)", got, err)
+	}
+	exists, err := sqliteTableExists(db, "agent_activity_log")
+	if err != nil || exists {
+		t.Fatalf("agent_activity_log must be gone (exists=%v err=%v)", exists, err)
+	}
+	// Agent indexes gone.
+	for _, idx := range []string{"idx_users_agent", "idx_users_owner", "idx_cards_created_by_agent", "idx_agent_activity_action"} {
+		var n int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name=$1`, idx).Scan(&n); err != nil || n != 0 {
+			t.Fatalf("index %s must be gone (n=%d err=%v)", idx, n, err)
+		}
+	}
+	// Non-agent indexes recreated to match the consolidated schema.
+	for _, idx := range []string{"idx_users_caldav_token", "idx_users_last_memory_job_id", "idx_cards_card_schema_id", "idx_cards_user_created", "idx_users_oidc_sub", "idx_users_email"} {
+		var n int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name=$1`, idx).Scan(&n); err != nil || n != 1 {
+			t.Fatalf("index %s must exist after upgrade (n=%d err=%v)", idx, n, err)
+		}
+	}
+	// Data preserved across the rebuild.
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("users rows = %d (want 1), err=%v", n, err)
+	}
+	if err := db.QueryRow(`SELECT COUNT(*) FROM cards`).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("cards rows = %d (want 1), err=%v", n, err)
+	}
+	var email string
+	if err := db.QueryRow(`SELECT email FROM users WHERE username='alice'`).Scan(&email); err != nil || email != "alice@x.com" {
+		t.Fatalf("user data lost across rebuild (email=%q err=%v)", email, err)
+	}
+	// New rows still obey the remaining FK (user_id → users) after the rebuild.
+	if _, err := db.Exec(`INSERT INTO cards (title, user_id) VALUES ('second', 1)`); err != nil {
+		t.Fatalf("insert card after rebuild: %v", err)
+	}
+
+	// Idempotent: a second run is a clean no-op (self-heal runs on every boot).
+	if err := ensureSQLiteSchemaUpgrades(db); err != nil {
+		t.Fatalf("second upgrade (idempotency): %v", err)
+	}
+}
+
 // cards/tasks/tags WITHOUT version/sync_uuid and no sync_log — the state of
 // any DB that predates the Phase 0a migration (epic Zettelgarden-v5b).
 func createSyncTablesWithoutSyncColumns(t *testing.T, db *sql.DB) {

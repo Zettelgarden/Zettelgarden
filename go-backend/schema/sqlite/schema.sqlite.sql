@@ -38,17 +38,6 @@ CREATE TABLE admin_audit_log (
   FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE agent_activity_log (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  agent_id INTEGER,
-  action TEXT NOT NULL,
-  target_type TEXT NOT NULL,
-  target_id INTEGER,
-  details TEXT,
-  created_at DATETIME DEFAULT (datetime('now')),
-  FOREIGN KEY (agent_id) REFERENCES users(id) ON DELETE SET NULL
-);
-
 CREATE TABLE api_keys (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
@@ -153,11 +142,9 @@ CREATE TABLE cards (
   flashcard_difficulty REAL DEFAULT 0,
   card_schema_id INTEGER,
   structured_data TEXT,
-  created_by_agent_id INTEGER,
   version INTEGER DEFAULT 1,
   sync_uuid TEXT,
   FOREIGN KEY (card_schema_id) REFERENCES schema_definitions(id),
-  FOREIGN KEY (created_by_agent_id) REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -908,15 +895,9 @@ CREATE TABLE users (
   last_memory_job_id INTEGER,
   caldav_url TEXT,
   caldav_token TEXT,
-  is_agent BOOLEAN DEFAULT false NOT NULL,
-  owner_user_id INTEGER,
-  api_key_hash TEXT,
   oidc_provider TEXT,
   oidc_sub TEXT,
-  CONSTRAINT check_agent_has_api_key CHECK (((NOT is_agent) OR (api_key_hash IS NOT NULL))),
-  CONSTRAINT check_agent_not_admin CHECK ((NOT ((is_agent = 1) AND (is_admin = 1)))),
-  FOREIGN KEY (last_memory_job_id) REFERENCES llm_jobs(id) ON DELETE SET NULL,
-  FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE
+  FOREIGN KEY (last_memory_job_id) REFERENCES llm_jobs(id) ON DELETE SET NULL
 );
 
 
@@ -925,13 +906,9 @@ CREATE INDEX idx_admin_audit_log_action ON admin_audit_log (action);
 CREATE INDEX idx_admin_audit_log_admin_user_id ON admin_audit_log (admin_user_id);
 CREATE INDEX idx_admin_audit_log_created_at ON admin_audit_log (created_at DESC);
 CREATE INDEX idx_admin_audit_log_target ON admin_audit_log (target_type, target_id);
-CREATE INDEX idx_agent_activity_action ON agent_activity_log (action);
-CREATE INDEX idx_agent_activity_agent ON agent_activity_log (agent_id);
-CREATE INDEX idx_agent_activity_created ON agent_activity_log (created_at DESC);
 CREATE INDEX idx_api_keys_user_id ON api_keys (user_id);
 CREATE INDEX idx_card_templates_user_id ON card_templates (user_id);
 CREATE INDEX idx_cards_card_schema_id ON cards (card_schema_id);
-CREATE INDEX idx_cards_created_by_agent ON cards (created_by_agent_id) WHERE (created_by_agent_id IS NOT NULL);
 CREATE INDEX idx_cards_user_created ON cards (user_id, created_at) WHERE (is_deleted = 0);
 CREATE INDEX idx_chat_conversations_primary_card_id ON chat_conversations (primary_card_id);
 CREATE INDEX idx_chat_conversations_updated_at ON chat_conversations (updated_at DESC);
@@ -1016,10 +993,8 @@ CREATE INDEX idx_tasks_user_created ON tasks (user_id, created_at) WHERE (is_del
 CREATE UNIQUE INDEX idx_unique_active_key_name_per_user ON api_keys (user_id, name) WHERE (is_active = 1);
 CREATE INDEX idx_user_stats_card_count ON user_stats (card_count);
 CREATE INDEX idx_user_stats_revenue ON user_stats (revenue_cents DESC);
-CREATE INDEX idx_users_agent ON users (is_agent) WHERE (is_agent = 1);
 CREATE INDEX idx_users_caldav_token ON users (caldav_token) WHERE (caldav_token IS NOT NULL);
 CREATE INDEX idx_users_last_memory_job_id ON users (last_memory_job_id);
-CREATE INDEX idx_users_owner ON users (owner_user_id) WHERE (is_agent = 1);
 CREATE UNIQUE INDEX idx_users_oidc_sub ON users (oidc_provider, oidc_sub) WHERE (oidc_sub IS NOT NULL);
 CREATE UNIQUE INDEX idx_users_email ON users (email);
 CREATE INDEX starred_cards_user_id_idx ON starred_cards (user_id);
