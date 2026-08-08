@@ -28,9 +28,11 @@ func SendTaskReminders(db *sql.DB, mailClient *mail.MailClient) error {
 	successCount := 0
 	failCount := 0
 
+	// ZETTEL_URL is required config, so the reminder links should always be
+	// buildable; never fall back to a SaaS host (6.7).
 	frontendURL := os.Getenv("ZETTEL_URL")
 	if frontendURL == "" {
-		frontendURL = "https://zettelgarden.com"
+		log.Printf("WARNING: ZETTEL_URL is empty; task reminder email links will be incomplete")
 	}
 
 	for _, task := range tasks {

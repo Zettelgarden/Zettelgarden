@@ -19,7 +19,7 @@ func (s *Handler) AddToMailingListRoute(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	err := s.Server.Mail.HandleAddToMailingList(request.Email)
+	err := s.Server.Mail.HandleAddToMailingList(s.Settings.Get("admin_email"), request.Email)
 	if err != nil {
 		log.Printf("err %v", err)
 		http.Error(w, "Internal server error: %v", http.StatusInternalServerError)

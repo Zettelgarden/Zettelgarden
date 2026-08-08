@@ -11,7 +11,10 @@ import (
 	"github.com/gomarkdown/markdown/parser"
 )
 
-func (m *MailClient) HandleAddToMailingList(email string) error {
+// HandleAddToMailingList subscribes an email to the mailing list and notifies
+// the configured admin (adminEmail — derived from settings at the call site,
+// 6er.7). The mailing list feature itself is slated for removal (6er.11).
+func (m *MailClient) HandleAddToMailingList(adminEmail, email string) error {
 	// First check if email already exists
 	checkQuery := `
         SELECT id, welcome_email_sent
@@ -46,13 +49,16 @@ func (m *MailClient) HandleAddToMailingList(email string) error {
 		return fmt.Errorf("Error adding email to mailing list: %v", err)
 	}
 
-	adminEmail := Email{
-		Subject:   "New mailing list registered at Zettelgarden",
-		Recipient: "nick@nicksavage.ca",
-		Body:      fmt.Sprintf("A new email has registered at for the Zettelgarden mailing list: %v", email),
+	if adminEmail == "" {
+		log.Printf("mailing list: no admin_email configured; skipping new-subscriber notification")
+	} else {
+		notification := Email{
+			Subject:   "New mailing list registered at Zettelgarden",
+			Recipient: adminEmail,
+			Body:      fmt.Sprintf("A new email has registered for the Zettelgarden mailing list: %v", email),
+		}
+		m.SendEmail(notification.Subject, notification.Recipient, notification.Body)
 	}
-
-	m.SendEmail(adminEmail.Subject, adminEmail.Recipient, adminEmail.Body)
 	if !sent {
 		m.SendWelcomeEmail(email)
 	}
