@@ -354,11 +354,11 @@ func TestSyncPushServerAuthoritativeParentage(t *testing.T) {
 	router := newSyncRouter(s)
 
 	// Parent exists on the server already (created via push, root card).
-	parent := syncCardChange("c-par-1", "sync-parent", "Parent", 0)
+	parent := syncCardChange("c-par-1", "syncparent", "Parent", 0)
 	pushChanges(t, s, router, []models.SyncChange{parent})
 
 	// Child card: card_id encodes the hierarchy; server derives parent_id.
-	child := syncCardChange("c-chi-1", "sync-parent/sync-child", "Child", 0)
+	child := syncCardChange("c-chi-1", "syncparent/syncchild", "Child", 0)
 	resp := pushChanges(t, s, router, []models.SyncChange{child})
 	if resp.Results[0].Status != services.SyncStatusApplied {
 		t.Fatalf("child: %+v", resp.Results[0])
@@ -373,3 +373,78 @@ func TestSyncPushServerAuthoritativeParentage(t *testing.T) {
 	}
 }
 
+// TestSyncPushBatchOutOfOrderFKResolution proves the apply loop's topological
+// ordering: a task sent BEFORE its card in the same batch still resolves
+// card_pk_uuid (cards are applied before tasks regardless of send order).
+func TestSyncPushBatchOutOfOrderFKResolution(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	cardData, _ := json.Marshal(models.SyncCardData{CardID: "sync-oob", Title: "Card", Body: "c"})
+	taskData, _ := json.Marshal(models.SyncTaskData{
+		Title:      "Out-of-order task",
+		CardPKUUID: "c-oob-1",
+		Status:     "todo",
+	})
+	resp := pushChanges(t, s, router, []models.SyncChange{
+		{Collection: services.SyncCollectionTasks, RowUUID: "t-oob-1", Op: services.SyncOpUpsert, BaseVersion: 0, Data: taskData},
+		{Collection: services.SyncCollectionCards, RowUUID: "c-oob-1", Op: services.SyncOpUpsert, BaseVersion: 0, Data: cardData},
+	})
+	var cardResult *models.SyncPushResult
+	var taskResult *models.SyncPushResult
+	for i := range resp.Results {
+		switch resp.Results[i].RowUUID {
+		case "c-oob-1":
+			cardResult = &resp.Results[i]
+		case "t-oob-1":
+			taskResult = &resp.Results[i]
+		}
+	}
+	if cardResult == nil || taskResult == nil {
+		t.Fatalf("missing results: %+v", resp.Results)
+	}
+	if cardResult.Status != services.SyncStatusApplied || taskResult.Status != services.SyncStatusApplied {
+		t.Fatalf("expected both applied: %+v", resp.Results)
+	}
+	var cardPK int
+	if err := s.GetDB().QueryRow(`SELECT card_pk FROM tasks WHERE sync_uuid = 't-oob-1'`).Scan(&cardPK); err != nil {
+		t.Fatalf("read task card_pk: %v", err)
+	}
+	if cardPK != *cardResult.ServerID {
+		t.Errorf("task.card_pk = %d, want card id %d (topological resolution)", cardPK, *cardResult.ServerID)
+	}
+}
+
+// TestSyncPushTaskTitleTagDerivation asserts a task title's #tag creates a
+// real tag (emitted) and task_tags junction rows, while task_tags never
+// appears in the feed.
+func TestSyncPushTaskTitleTagDerivation(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	taskData, _ := json.Marshal(models.SyncTaskData{Title: "Buy milk #grocery", Status: "todo"})
+	resp := pushChanges(t, s, router, []models.SyncChange{
+		{Collection: services.SyncCollectionTasks, RowUUID: "t-tag-1", Op: services.SyncOpUpsert, BaseVersion: 0, Data: taskData},
+	})
+	if resp.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("task: %+v", resp.Results[0])
+	}
+
+	var junctionCount int
+	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM task_tags tt JOIN tasks t ON tt.task_pk = t.id WHERE t.sync_uuid = 't-tag-1'`).Scan(&junctionCount); err != nil {
+		t.Fatalf("count task_tags: %v", err)
+	}
+	if junctionCount != 1 {
+		t.Errorf("expected 1 derived task_tags row, got %d", junctionCount)
+	}
+
+	var tagCount int
+	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM tags WHERE user_id = 1 AND name = 'grocery' AND is_deleted = FALSE`).Scan(&tagCount); err != nil {
+		t.Fatal(err)
+	}
+	if tagCount != 1 {
+		t.Errorf("expected derived tag 'grocery', got %d", tagCount)
+	}
+}

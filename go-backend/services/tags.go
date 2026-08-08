@@ -151,6 +151,34 @@ func AddTagsFromCard(db models.Database, userID, cardPK int) error {
 
 	return nil
 }
+
+// AddTagsFromTask re-derives task_tags from the task title, matching what the
+// UI's task create/update does (handlers.AddTagsFromTask) so sync-pushed task
+// writes keep the derived junctions correct. Junction rows never emit sync
+// changes; tags created implicitly DO (they are real rows).
+func AddTagsFromTask(db models.Database, userID int, taskPK int) error {
+	task, err := GetTask(db, userID, taskPK)
+	if err != nil {
+		return err
+	}
+	if err := RemoveAllTagsFromTask(db, userID, taskPK); err != nil {
+		return err
+	}
+	tags, err := ParseTagsFromCardBody(task.Title)
+	if err != nil {
+		return err
+	}
+	for _, tagName := range tags {
+		if _, err := CreateTag(db, userID, models.EditTagParams{Name: tagName, Color: "black"}); err != nil {
+			return err
+		}
+		if err := AddTagToTask(db, userID, tagName, taskPK); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func contains[T comparable](collection []T, target T) bool {
 	for _, v := range collection {
 		if v == target {

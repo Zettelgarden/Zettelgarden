@@ -46,13 +46,13 @@ const (
 )
 
 type pushContext struct {
-	tx        *sql.Tx
-	userID    int
-	deviceID  string
-	uuidToID  map[string]int // row_uuid -> server PK for rows created in this batch
+	tx         *sql.Tx
+	userID     int
+	deviceID   string
+	uuidToID   map[string]int // row_uuid -> server PK for rows created in this batch
 	cardIDToID map[string]int // card_id -> server PK for cards in this batch (parent resolution)
-	lost      int
-	results   []models.SyncPushResult
+	lost       int
+	results    []models.SyncPushResult
 }
 
 // ApplySyncPush applies a push batch transactionally and returns per-change
@@ -66,7 +66,18 @@ func ApplySyncPush(tx *sql.Tx, userID int, req *models.SyncPushRequest) ([]model
 		uuidToID:   map[string]int{},
 		cardIDToID: map[string]int{},
 	}
-	for _, ch := range req.Changes {
+	// Apply in collection order (cards → tasks → tags) regardless of client
+	// send order, so FK references from a task to a card created later in the
+	// batch still resolve. Stable within a collection (client order kept).
+	ordered := make([]models.SyncChange, 0, len(req.Changes))
+	for _, c := range []string{SyncCollectionCards, SyncCollectionTasks, SyncCollectionTags} {
+		for _, ch := range req.Changes {
+			if ch.Collection == c {
+				ordered = append(ordered, ch)
+			}
+		}
+	}
+	for _, ch := range ordered {
 		switch ch.Collection {
 		case SyncCollectionCards:
 			if ch.Op == SyncOpDelete {
@@ -369,6 +380,9 @@ func (c *pushContext) applyTaskUpsert(ch models.SyncChange) {
 		if !data.IsDeleted {
 			IncrementUserTaskCount(c.tx, c.userID)
 		}
+		if err := AddTagsFromTask(c.tx, c.userID, id); err != nil {
+			log.Printf("sync push: re-derive tags for task %d: %v", id, err)
+		}
 		c.uuidToID[ch.RowUUID] = id
 		c.emit(SyncCollectionTasks, ch.RowUUID, SyncOpUpsert, 1)
 		c.applied(ch, id, 1)
@@ -398,6 +412,9 @@ func (c *pushContext) applyTaskUpsert(ch models.SyncChange) {
 	if err != nil {
 		c.ignored(ch)
 		return
+	}
+	if err := AddTagsFromTask(c.tx, c.userID, id); err != nil {
+		log.Printf("sync push: re-derive tags for task %d: %v", id, err)
 	}
 	c.emit(SyncCollectionTasks, ch.RowUUID, SyncOpUpsert, newVersion)
 	c.applied(ch, id, newVersion)

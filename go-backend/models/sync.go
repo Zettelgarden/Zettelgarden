@@ -31,8 +31,8 @@ type SyncSnapshotResponse struct {
 
 // SyncChangesResponse is an incremental feed page.
 type SyncChangesResponse struct {
-	Cursor int64      `json:"cursor"`
-	Rows   []SyncRow  `json:"rows"`
+	Cursor  int64     `json:"cursor"`
+	Rows    []SyncRow `json:"rows"`
 	HasMore bool      `json:"has_more"`
 }
 
@@ -64,12 +64,12 @@ type SyncPushRequest struct {
 //     rewrite its local tag row to that uuid.
 //   - Status "ignored": no-op (e.g. delete of a row that doesn't exist).
 type SyncPushResult struct {
-	RowUUID        string          `json:"row_uuid"`
-	Status         string          `json:"status"`
-	ServerID       *int            `json:"server_id,omitempty"`
-	ServerVersion  int             `json:"server_version"`
-	MappedToRowUUID string         `json:"mapped_to_row_uuid,omitempty"`
-	Data           json.RawMessage `json:"data,omitempty"`
+	RowUUID         string          `json:"row_uuid"`
+	Status          string          `json:"status"`
+	ServerID        *int            `json:"server_id,omitempty"`
+	ServerVersion   int             `json:"server_version"`
+	MappedToRowUUID string          `json:"mapped_to_row_uuid,omitempty"`
+	Data            json.RawMessage `json:"data,omitempty"`
 }
 
 // SyncPushResponse is the push batch outcome.
@@ -86,12 +86,12 @@ type SyncPushResponse struct {
 // (CardPKUUID / ParentTaskUUID) for offline-created rows resolved in-batch.
 
 type SyncCardData struct {
-	CardID         string          `json:"card_id"`
-	Title          string          `json:"title"`
-	Body           string          `json:"body"`
-	Link           string          `json:"link"`
-	IsDeleted      bool            `json:"is_deleted"`
-	CardSchemaID   *int            `json:"card_schema_id,omitempty"`
+	CardID         string           `json:"card_id"`
+	Title          string           `json:"title"`
+	Body           string           `json:"body"`
+	Link           string           `json:"link"`
+	IsDeleted      bool             `json:"is_deleted"`
+	CardSchemaID   *int             `json:"card_schema_id,omitempty"`
 	StructuredData *json.RawMessage `json:"structured_data,omitempty"`
 }
 

@@ -113,4 +113,3 @@ func RowsToJSON(rows *sql.Rows) ([]map[string]any, error) {
 	}
 	return out, rows.Err()
 }
-
