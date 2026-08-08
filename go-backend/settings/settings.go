@@ -5,7 +5,7 @@
 // the SQLite DB) which is the single source of truth. Env vars only SEED the
 // file on first boot (or when a new registry key appears); afterwards the
 // file wins and env is ignored for these keys. Secrets and boot-time infra
-// (SECRET_KEY, MAIL_PASSWORD, STRIPE_*, TYPESENSE_PASSWORD, ZETTEL_PORT,
+// (SECRET_KEY, SMTP_PASSWORD, STRIPE_*, TYPESENSE_PASSWORD, ZETTEL_PORT,
 // ZETTEL_URL, SQLITE_PATH, STORAGE_DIR, ...) stay env-only and never enter
 // the file.
 //
@@ -144,14 +144,14 @@ func (m *Manager) ensureSeeded() error {
 
 // seedValue returns the env-derived seed for a key, falling back to the
 // registry default. mail_enabled and email_auto_validate auto-detect from
-// MAIL_HOST presence (6er.6): a no-mail instance can't deliver validation
+// SMTP_HOST presence (6er.6): a no-mail instance can't deliver validation
 // emails, so mail is off AND new accounts are auto-validated; a mail-enabled
 // instance keeps the historical validation-email flow.
 func seedValue(k Key) string {
 	if v := os.Getenv(k.Env); v != "" {
 		return v
 	}
-	mailConfigured := os.Getenv("MAIL_HOST") != ""
+	mailConfigured := os.Getenv("SMTP_HOST") != ""
 	switch k.Name {
 	case "mail_enabled":
 		return strconv.FormatBool(mailConfigured)

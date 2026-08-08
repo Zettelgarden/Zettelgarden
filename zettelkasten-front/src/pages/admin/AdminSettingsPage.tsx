@@ -195,7 +195,7 @@ export function AdminSettingsPage() {
       </form>
 
       <p className="text-xs text-gray-500 mt-6">
-        Secrets and boot-time values (SECRET_KEY, MAIL_PASSWORD, Stripe /
+        Secrets and boot-time values (SECRET_KEY, SMTP_PASSWORD, Stripe /
         Typesense / LLM keys, port, URL, storage dir) are intentionally not
         manageable here — they stay in the environment config.
       </p>

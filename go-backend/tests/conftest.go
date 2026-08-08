@@ -129,9 +129,12 @@ func setTestEnvironmentVariables() {
 	setEnvIfNotSet("ZETTEL_LLM_DEFAULT_MODEL", "glm-5.1")
 	setEnvIfNotSet("ZETTEL_LLM_SUMMARIZE_MODEL", "glm-5.1")
 
-	// Mail service config - test defaults
-	setEnvIfNotSet("MAIL_HOST", "smtp.gmail.com")
-	setEnvIfNotSet("MAIL_PASSWORD", "test-mail-password")
+	// Mail service config - test defaults (direct SMTP, 6er.12)
+	setEnvIfNotSet("SMTP_HOST", "smtp.gmail.com")
+	setEnvIfNotSet("SMTP_PORT", "587")
+	setEnvIfNotSet("SMTP_USERNAME", "test-smtp-user")
+	setEnvIfNotSet("SMTP_PASSWORD", "test-mail-password")
+	setEnvIfNotSet("SMTP_FROM", "noreply@test.com")
 
 	// Stripe config - test defaults
 	setEnvIfNotSet("STRIPE_SECRET_KEY", "test-stripe-secret-key")

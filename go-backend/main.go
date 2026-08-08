@@ -160,17 +160,22 @@ func run() error {
 
 	// Initialize mail client for transactional emails (password resets,
 	// reminders). Mail is optional (6er.6): with mail_enabled=false (settings
-	// file; seeded from MAIL_ENABLED or the absence of MAIL_HOST), the client
-	// is a Disabled no-op so callers degrade gracefully.
+	// file; seeded from MAIL_ENABLED or the absence of SMTP_HOST), the client
+	// is a Disabled no-op so callers degrade gracefully. Delivery is direct
+	// SMTP (the python-mail service was retired, 6er.12).
 	mailEnabled := sm.GetBool("mail_enabled")
 	if mailEnabled {
-		log.Printf("Initializing mail client (host=%s)", cfg.Services.Mail.Host)
+		log.Printf("Initializing mail client (smtp=%s:%d, from=%s)", cfg.Services.Mail.SMTPHost, cfg.Services.Mail.SMTPPort, cfg.Services.Mail.SMTPFrom)
 	} else {
-		log.Printf("Mail disabled (set mail_enabled=true in config.yaml or configure MAIL_HOST to enable)")
+		log.Printf("Mail disabled (set mail_enabled=true in config.yaml or configure SMTP_HOST to enable)")
 	}
 	s.Mail = &mail.MailClient{
-		Host:         cfg.Services.Mail.Host,
-		Password:     cfg.Services.Mail.Password,
+		SMTPHost:     cfg.Services.Mail.SMTPHost,
+		SMTPPort:     cfg.Services.Mail.SMTPPort,
+		SMTPUsername: cfg.Services.Mail.SMTPUsername,
+		SMTPPassword: cfg.Services.Mail.SMTPPassword,
+		SMTPFrom:     cfg.Services.Mail.SMTPFrom,
+		StartTLS:     cfg.Services.Mail.StartTLS,
 		Queue:        mail.NewEmailQueue(),
 		DB:           s.DB,
 		ShutdownChan: make(chan struct{}),

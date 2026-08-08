@@ -7,9 +7,9 @@
 #     cp .env.example .env
 #     docker compose up --build
 #
-# Every variable the stack reads is documented in .env.example. go-backend and
-# mail-service load it via `env_file: .env`; the frontend build picks up the
-# VITE_* values as build args (build-time only — see the args block below).
+# Every variable the stack reads is documented in .env.example. The go-backend
+# loads it via `env_file: .env`; the frontend build picks up the VITE_* values
+# as build args (build-time only — see the args block below).
 version: "3"
 
 services:
@@ -49,31 +49,11 @@ services:
       # Persist the SQLite DB (default ./data/zettelgarden.db) on the host.
       - ./go-backend/data:/usr/src/app/data
 
-  # mail-service (OPTIONAL — behind the `mail` profile)
-  #
-  # Transactional email (validation, password reset, reminders) is optional
-  # (6er.6): without this service the Go backend boots mail-disabled
-  # (mail_enabled=false in config.yaml) and send attempts are no-ops. To
-  # enable email:
-  #   1. Set the ZETTEL_MAIL_* vars in .env (server/port/username/password/
-  #      default sender).
-  #   2. Point the backend at it: MAIL_HOST=http://mail-service:8081 (and
-  #      MAIL_PASSWORD=<anything>; the Go client only uses it as a token).
-  #   3. docker compose --profile mail up -d mail-service
-  # The container now boots even when the ZETTEL_MAIL_* vars are missing
-  # (the send routes return 503 instead of crashing at startup).
-  mail-service:
-    build:
-      context: ./python-mail
-      dockerfile: Dockerfile
-    image: nsavage/zettelgarden_python_mail:latest
-    profiles: ["mail"]
-    ports:
-      - "8081:8081"
-    env_file:
-      - .env
-
-  # --- Optional: Typesense full-text/vector search (OFF by default) ---------
+# Transactional email is sent directly from the Go backend via SMTP (see the
+# Mail section of .env.example). No separate mail container is required: with
+# SMTP_HOST unset (or MAIL_ENABLED=false) the backend boots mail-disabled and
+# send attempts are no-ops (6er.6). To enable email, set the SMTP_* vars in
+# .env (host/port/username/password/from) and recreate the go-backend service.  # --- Optional: Typesense full-text/vector search (OFF by default) ---------
   # Search degrades gracefully to SQL full-text when this service is absent.
   # To enable: uncomment this block, uncomment the TYPESENSE_* vars in .env
   # (TYPESENSE_HOST=http://typesense:8108, TYPESENSE_PASSWORD=<your key>,

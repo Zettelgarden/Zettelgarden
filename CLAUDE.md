@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Zettelgarden is a human-centric, open-source personal knowledge management system built on zettelkasten principles. It's a full-stack application with three main services:
 
 - **Frontend**: React/TypeScript with Vite (`zettelkasten-front/`)
-- **Backend**: Go API server (`go-backend/`)  
-- **Mail Service**: Python Flask SMTP service (`python-mail/`)
+- **Backend**: Go API server (`go-backend/`)
+- **Mail**: Transactional email sent directly from the Go backend over SMTP (optional)
 
 ## Development Commands
 

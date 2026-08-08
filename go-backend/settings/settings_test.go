@@ -11,7 +11,7 @@ import (
 func testEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv("ZETTEL_ADMIN_EMAIL", "admin@test.com")
-	t.Setenv("MAIL_HOST", "smtp.example.com")
+	t.Setenv("SMTP_HOST", "smtp.example.com")
 	t.Setenv("ZETTEL_SITE_NAME", "")
 }
 
@@ -44,9 +44,9 @@ func TestNewSeedsFileFromEnv(t *testing.T) {
 	if got := m.GetBool("signups_enabled"); !got {
 		t.Error("signups_enabled should default to true")
 	}
-	// mail_enabled auto-detects from MAIL_HOST (set in testEnv).
+	// mail_enabled auto-detects from SMTP_HOST (set in testEnv).
 	if got := m.GetBool("mail_enabled"); !got {
-		t.Error("mail_enabled should auto-detect true when MAIL_HOST is set")
+		t.Error("mail_enabled should auto-detect true when SMTP_HOST is set")
 	}
 
 	// The file should exist on disk with the seeded values.

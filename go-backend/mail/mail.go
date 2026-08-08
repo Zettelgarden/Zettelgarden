@@ -1,13 +1,13 @@
 package mail
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"crypto/tls"
 	"fmt"
 	"log"
-	"net/http"
 	"time"
+
+	goMail "github.com/wneessen/go-mail"
 )
 
 func NewEmailQueue() *EmailQueue {
@@ -48,6 +48,17 @@ func (eq *EmailQueue) Length() int {
 	return len(eq.queue)
 }
 
+// Mail timeouts: a dead SMTP server must not wedge the queue forever. The
+// dial timeout bounds connecting (and the TLS handshake); the send context
+// bounds the full dial+envelope+data exchange.
+const (
+	mailDialTimeout = 10 * time.Second
+	mailSendTimeout = 30 * time.Second
+)
+
+// sendMailImpl delivers one email directly over SMTP (the separate python-mail
+// Flask service was retired, bead 6er.12). In testing mode it just counts the
+// email as "sent" without touching the network.
 func (m *MailClient) sendMailImpl(email Email) error {
 	// In testing mode, just count the email as "sent"
 	if m.Testing {
@@ -55,33 +66,60 @@ func (m *MailClient) sendMailImpl(email Email) error {
 		return nil
 	}
 
-	emailJSON, err := json.Marshal(email)
-	if err != nil {
-		return err
+	// Build the message. The library handles RFC 2047 encoding for non-ASCII
+	// subjects, quoted-printable/base64 body encoding, and UTF-8 headers.
+	msg := goMail.NewMsg()
+	if err := msg.FromFormat("Zettelgarden", m.SMTPFrom); err != nil {
+		return fmt.Errorf("invalid SMTP from address %q: %w", m.SMTPFrom, err)
 	}
-	// Create a new request
-	req, err := http.NewRequest("POST", m.Host+"/api/send", bytes.NewBuffer(emailJSON))
-	if err != nil {
-		return err
+	if err := msg.To(email.Recipient); err != nil {
+		return fmt.Errorf("invalid recipient address %q: %w", email.Recipient, err)
+	}
+	msg.Subject(email.Subject)
+	if email.IsHTML {
+		msg.SetBodyString(goMail.TypeTextHTML, email.Body)
+	} else {
+		msg.SetBodyString(goMail.TypeTextPlain, email.Body)
 	}
 
-	// Set headers
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", m.Password)
-
-	// Send the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Printf("error with email client: %s", err)
-		return err
+	opts := []goMail.Option{
+		goMail.WithPort(m.SMTPPort),
+		goMail.WithTimeout(mailDialTimeout),
 	}
-	defer resp.Body.Close()
+	// Implicit TLS on 465; explicit STARTTLS (default) elsewhere; plain when
+	// SMTP_STARTTLS=false for local relays without TLS.
+	switch {
+	case m.SMTPPort == 465:
+		opts = append(opts, goMail.WithSSL())
+	case m.StartTLS:
+		opts = append(opts, goMail.WithTLSPolicy(goMail.TLSMandatory))
+	default:
+		opts = append(opts, goMail.WithTLSPolicy(goMail.NoTLS))
+	}
+	// Authenticate only when both username and password are present (local
+	// relays without auth send unauthenticated).
+	if m.SMTPUsername != "" && m.SMTPPassword != "" {
+		opts = append(opts,
+			goMail.WithSMTPAuth(goMail.SMTPAuthPlain),
+			goMail.WithUsername(m.SMTPUsername),
+			goMail.WithPassword(m.SMTPPassword),
+		)
+	}
+	if m.insecureSkipTLSVerify {
+		opts = append(opts, goMail.WithTLSConfig(&tls.Config{InsecureSkipVerify: true}))
+	}
 
-	// Check the response status code
-	if resp.StatusCode != http.StatusOK {
-		log.Printf("failed to send email: %s", resp.Status)
-		return fmt.Errorf("failed to send email: %s", resp.Status)
+	client, err := goMail.NewClient(m.SMTPHost, opts...)
+	if err != nil {
+		return fmt.Errorf("error creating SMTP client: %w", err)
+	}
+
+	// Bound the whole exchange so a hung server can't wedge the queue.
+	ctx, cancel := context.WithTimeout(context.Background(), mailSendTimeout)
+	defer cancel()
+	if err := client.DialAndSendWithContext(ctx, msg); err != nil {
+		log.Printf("error sending email via SMTP: %s", err)
+		return err
 	}
 	return nil
 }
@@ -205,7 +243,10 @@ func (m *MailClient) Shutdown(ctx context.Context) error {
 			}
 			return ctx.Err()
 		case <-ticker.C:
-			if !m.isProcessing && m.Queue.Length() == 0 {
+			m.mu.Lock()
+			processing := m.isProcessing
+			m.mu.Unlock()
+			if !processing && m.Queue.Length() == 0 {
 				log.Printf("mail queue shutdown complete")
 				return nil
 			}
