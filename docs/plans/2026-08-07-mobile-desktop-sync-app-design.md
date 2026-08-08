@@ -284,3 +284,105 @@ gains offline reads.
 3. Stand up the Phase 0 migration + handlers; write the feed/push tests.
 4. Prototype Phase 1 engine against the cards collection end-to-end before
    broadening to tasks/tags.
+
+## Review Feedback (2026-08-08)
+
+Reviewed against the current codebase. Factual claims verified: 15-day JWT with
+no refresh (`handlers/auth.go`), second-precision `datetime('now')`, hard-deleted
+junctions, int PKs for tasks/tags, 68 tables, local-disk file storage. The
+following are **must-fix items for Phase 0**, plus smaller notes.
+
+### Critical
+
+1. **Initial bootstrap / backfill is unspecified — this is the biggest gap.**
+   `sync_log` starts empty at migration time, so **existing rows have no feed
+   entries**. A new device (or reinstall) pulling `since=0` gets an empty
+   database. The design needs either (a) a snapshot endpoint that serves full
+   current state per collection (cursor "0" = snapshot, then incremental), or
+   (b) a one-time backfill that writes `sync_log` rows for all pre-existing
+   rows, keyed by a "legacy" version. (a) is simpler and also solves
+   re-installs; recommend it.
+
+2. **`card_id` is NOT safe as the sync identity for cards.** Verified:
+   - It is **optional and can be empty** ("unsorted cards", see
+     `GetUnsortedCardsRoute` in `handlers/cards.go`).
+   - It is **user-editable**: `UpdateCard` in `services/cards.go` lets the user
+     rename it (with an app-level uniqueness check, no DB constraint). Renaming
+     a card offline would make the client treat one row as two identities (or
+     the server as a new card) across devices.
+   - Uniqueness is enforced only in Go, not by schema.
+   Use an immutable `sync_uuid` for **all** syncable tables, cards included.
+   `card_id` syncs as an ordinary field. Add an exit-criteria test for
+   "rename card_id while offline on two devices" to prove this.
+
+3. **Offline-created row references are unresolved.** Junctions
+   (`card_tags`, `task_tags`) and `cards.parent_id` reference **server int
+   PKs**. Two offline-created rows linked to each other (and every junction
+   pointing at them) can't be written until the server assigns PKs. The push
+   endpoint must resolve `row_uuid → server id` inside the same transaction,
+   and the push response must return that mapping so the client can rewrite
+   local references. Say this explicitly; it's the subtle part of the batch
+   push.
+
+4. **Push must be optimistic concurrency, or the conflict policy is dead
+   code.** The doc's ordering is "version → updated_at → device id", but if
+   the server blindly bumps `version` on every accepted push, then order is
+   server arrival order and the tie-breakers never fire. Specify: client sends
+   its `base_version`; server rejects (conflict response) or applies LWW when
+   the base is stale; the client re-pulls and reconciles per policy. Also note
+   the v1 policy silently discards the losing edit on two-device concurrent
+   edit — acceptable for v1, but surface a count in the UI.
+
+5. **`parent_id` is derivable from `card_id` and must not fight the server.**
+   Verified: root cards self-parent (`parent_id = id`), and `UpdateCard`
+   recomputes parentage from the card_id prefix on every rename. Syncing
+   `parent_id` bidirectionally invites conflicts with server-side
+   recomputation. Recommend: server-authoritative parent relationships
+   (client sends `card_id`; server derives `parent_id`), or treat the
+   card↔parent junction as pull-only for v1.
+
+### Medium
+
+6. **"Mechanical, not architectural" undersells Phase 0.** The real cost is
+   inserting transactional `sync_log` writes into **every existing write path**
+   (~60+ routes), several of which use `INSERT OR REPLACE` junctions that must
+   also emit tombstones. Audit the write paths as an explicit Phase 0
+   workstream, and centralize change capture in the service layer
+   (`services/`) rather than sprinkling handler edits.
+
+7. **Pin the Phase 0 table list.** "Every syncable table" invites scope creep.
+   v1 scope is exactly: `cards`, `tasks`, `tags`, `card_tags`, `task_tags`
+   (+ tombstones for the junctions and hard-deleted rows). `task_statuses`,
+   templates, pins, etc. stay read-only until proven necessary.
+
+8. **Mobile: the WebView→SQLite bridge is a real component.** `op-sqlite`
+   runs on the RN JS thread, *not* inside the WebView. The sync engine running
+   in the WebView needs a `postMessage` bridge (webview → RN native module →
+   SQLite). One line in the design so the adapter isn't assumed to "just
+   work". Token injection into the WebView per navigation also needs a story.
+
+9. **Desktop background sync tradeoff.** The recommended TS-in-WebView engine
+   cannot sync with the UI closed. Open Decision 4 should state this explicitly
+   (TS = sync while app open; Rust = background sync), not just list Rust's
+   capability in a table.
+
+10. **`sync_log` lifecycle.** It must be append-only and never pruned while any
+    client cursor trails (or define a retention policy + force-rebootstrap).
+    Cursor is per-user *max seen id*, not contiguous. Minor: idempotency key is
+    really `row_uuid` (upsert-by-uuid); `version` is the concurrency check, not
+    part of the idempotency key — a retry replays the same op, not the same
+    version.
+
+11. **Auth follow-ups are real, and already partly designed.** The OIDC design
+    (`2026-08-03-oidc-authentication-design.md`) uses a token-in-URL callback
+    — awkward for native shells; the deep-link work is genuinely needed.
+    Decide now whether refresh tokens land in Phase 0 or Phase 4 (the doc lists
+    both); recommend Phase 0 since 15-day re-auth on mobile is a churn
+    magnet.
+
+### Phase 1 harness suggestion
+
+12. The two-DB convergence harness should include junction + offline-created-
+    linked-row cases (item 3), not just scalar card/task edits — that's where
+    the engine will actually break.
+
