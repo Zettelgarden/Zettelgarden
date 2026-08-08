@@ -50,9 +50,14 @@ services:
       - /var/log/zettel:/app/logs
       - ./data:/usr/src/app/data
 
+  # mail-service (OPTIONAL — behind the `mail` profile; see docker-compose.yml
+  # for the full enable steps). Boots without ZETTEL_MAIL_* (send routes return
+  # 503 instead of crashing) — enable with:
+  #   docker compose -f docker-zettel-run.yml --profile mail up -d mail-service
   mail-service:
     image: nsavage/zettelgarden_python_mail:latest
     restart: always
+    profiles: ["mail"]
     expose:
       - "8081"
     env_file:

@@ -49,19 +49,29 @@ services:
       # Persist the SQLite DB (default ./data/zettelgarden.db) on the host.
       - ./go-backend/data:/usr/src/app/data
 
+  # mail-service (OPTIONAL — behind the `mail` profile)
+  #
+  # Transactional email (validation, password reset, reminders) is optional
+  # (6er.6): without this service the Go backend boots mail-disabled
+  # (mail_enabled=false in config.yaml) and send attempts are no-ops. To
+  # enable email:
+  #   1. Set the ZETTEL_MAIL_* vars in .env (server/port/username/password/
+  #      default sender).
+  #   2. Point the backend at it: MAIL_HOST=http://mail-service:8081 (and
+  #      MAIL_PASSWORD=<anything>; the Go client only uses it as a token).
+  #   3. docker compose --profile mail up -d mail-service
+  # The container now boots even when the ZETTEL_MAIL_* vars are missing
+  # (the send routes return 503 instead of crashing at startup).
   mail-service:
     build:
       context: ./python-mail
       dockerfile: Dockerfile
     image: nsavage/zettelgarden_python_mail:latest
+    profiles: ["mail"]
     ports:
       - "8081:8081"
     env_file:
       - .env
-    # The python-mail container REQUIRES the ZETTEL_MAIL_* vars (server, port,
-    # username, password, default sender) and exits at startup if any is
-    # missing. If you run without email, comment out this whole service block
-    # instead of leaving it crashing (see the Mail section of .env.example).
 
   # --- Optional: Typesense full-text/vector search (OFF by default) ---------
   # Search degrades gracefully to SQL full-text when this service is absent.
