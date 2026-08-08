@@ -154,7 +154,9 @@ describe('AuthContext', () => {
 
     const auth = renderAuth();
 
-    const state = await auth.waitForState((s) => s.isAuthenticated && s.isAdmin && s.hasSubscription && s.username === 'tester');
+    const state = await auth.waitForState(
+      (s) => s.isAuthenticated && s.isAdmin && s.hasSubscription && s.username === 'tester' && !s.isLoading
+    );
     expect(checkAdmin).toHaveBeenCalled();
     expect(getCurrentUser).toHaveBeenCalled();
   });
@@ -168,7 +170,7 @@ describe('AuthContext', () => {
 
     const auth = renderAuth();
 
-    const state = await auth.waitForState((s) => s.isAuthenticated && s.hasSubscription);
+    const state = await auth.waitForState((s) => s.isAuthenticated && s.hasSubscription && !s.isLoading);
     expect(state.hasSubscription).toBe(true);
   });
 
@@ -242,7 +244,7 @@ describe('AuthContext', () => {
     vi.mocked(getBillingStatus).mockResolvedValue({ enabled: true });
 
     const auth = renderAuth();
-    await auth.waitForState((s) => s.isAuthenticated);
+    await auth.waitForState((s) => s.isAuthenticated && !s.isLoading);
 
     act(() => {
       auth.actions.logoutUser();

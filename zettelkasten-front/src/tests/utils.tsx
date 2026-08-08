@@ -1,5 +1,5 @@
 import React, { ReactElement } from 'react';
-import { render } from '@testing-library/react';
+import { render, act } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { UIStateProvider } from '../contexts/UIStateContext';
 import { DialogStateProvider } from '../contexts/DialogStateContext';
@@ -32,6 +32,20 @@ function AllTheProviders({ children }) {
 
 const customRender = (ui: ReactElement, options = {}) =>
   render(ui, { wrapper: AllTheProviders, ...options });
+
+/**
+ * Flush pending async work (provider mount-fetches, etc.) inside act() so
+ * their state updates don't emit "not wrapped in act(...)" warnings.
+ * Call `await settle()` after render() in tests that mount the provider
+ * stack and don't otherwise wait for fetched data.
+ */
+export async function settle() {
+  await act(async () => {
+    // Yield through a macrotask so multi-hop promise chains (fetch ->
+    // response.json/text -> setState) complete inside the act scope.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
 
 // Re-export everything from @testing-library/react
 export * from '@testing-library/react';

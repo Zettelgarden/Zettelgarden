@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { settle } from '../tests/utils';
 import { BrowserRouter } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { UIStateProvider } from '../contexts/UIStateContext';
@@ -65,13 +66,15 @@ function SidebarWrapper() {
 }
 
 describe('Sidebar Keyboard Shortcuts', () => {
-  it('should render without errors', () => {
+  it('should render without errors', async () => {
     render(<SidebarWrapper />);
+    await settle();
     expect(screen.getByTestId('sidebar-header')).toBeInTheDocument();
   });
 
-  it('should respond to "t" key press for creating task', () => {
+  it('should respond to "t" key press for creating task', async () => {
     render(<SidebarWrapper />);
+    await settle();
 
     // Fire keydown event with key "t"
     fireEvent.keyDown(document, { key: 't' });
@@ -82,8 +85,9 @@ describe('Sidebar Keyboard Shortcuts', () => {
     expect(screen.getByTestId('sidebar-modals')).toBeInTheDocument();
   });
 
-  it('should respond to "s" key press for search', () => {
+  it('should respond to "s" key press for search', async () => {
     render(<SidebarWrapper />);
+    await settle();
 
     // Fire keydown event with key "s"
     fireEvent.keyDown(document, { key: 's' });
@@ -92,8 +96,9 @@ describe('Sidebar Keyboard Shortcuts', () => {
     expect(screen.getByTestId('sidebar-modals')).toBeInTheDocument();
   });
 
-  it('should not respond to shortcuts when input is focused', () => {
+  it('should not respond to shortcuts when input is focused', async () => {
     render(<SidebarWrapper />);
+    await settle();
 
     const input = document.createElement('input');
     document.body.appendChild(input);
@@ -107,8 +112,9 @@ describe('Sidebar Keyboard Shortcuts', () => {
     document.body.removeChild(input);
   });
 
-  it('should not respond to shortcuts with metaKey', () => {
+  it('should not respond to shortcuts with metaKey', async () => {
     render(<SidebarWrapper />);
+    await settle();
 
     fireEvent.keyDown(document, { key: 't', metaKey: true });
 

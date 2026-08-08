@@ -1,15 +1,21 @@
-import '@testing-library/jest-dom';
-import { afterAll, beforeAll, vi } from 'vitest';
-import DOMPurify from 'dompurify';
+import "@testing-library/jest-dom";
+import { afterAll, afterEach, beforeAll, vi } from "vitest";
+import { act } from "@testing-library/react";
+import DOMPurify from "dompurify";
+import {
+  defaultFetchMock,
+  mockEndpoint,
+  resetMockEndpoints,
+} from "./fetchMock";
 
 // Suppress known happy-dom bug: DOMParser triggers an unhandled rejection
 // from HTMLIFrameElement internals ("Cannot read properties of null (reading 'console')")
 // See: https://github.com/nicedoc/html-encoding-sniffer/issues/1
-process.on('unhandledRejection', (reason) => {
+process.on("unhandledRejection", (reason) => {
   if (
     reason instanceof TypeError &&
     reason.message.includes("reading 'console'") &&
-    reason.stack?.includes('HTMLIFrameElement')
+    reason.stack?.includes("HTMLIFrameElement")
   ) {
     return;
   }
@@ -17,65 +23,36 @@ process.on('unhandledRejection', (reason) => {
 });
 
 // Initialize DOMPurify with the test environment's window
-if (typeof window !== 'undefined') {
-  DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
+if (typeof window !== "undefined") {
+  DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
     // Additional security hook for attributes
-    if (
-      data.attrName === 'href' &&
-      data.attrValue?.toLowerCase().startsWith('javascript:')
-    ) {
-      data.attrValue = '';
+    if (data.attrName === "href" && data.attrValue?.toLowerCase().startsWith("javascript:")) {
+      data.attrValue = "";
     }
   });
 }
 
+// ---------------------------------------------------------------------------
+// Fetch mock
+// ---------------------------------------------------------------------------
 // Many components mount application contexts which fetch from the backend.
-// In tests we provide a safe default fetch mock to avoid cross-origin/network
-// failures causing unhandled rejections.
+// We provide EXPLICIT defaults for the endpoints the shared provider stack
+// (AuthProvider/TaskProvider/TagProvider/StatusProvider) hits on mount.
+// Any other request with no registered handler FAILS LOUDLY (see fetchMock.ts)
+// so broken API wiring surfaces as a test failure rather than fake success.
 const originalFetch = globalThis.fetch;
 
 beforeAll(() => {
-  globalThis.fetch = vi.fn(async (input: any) => {
-    const url: string =
-      typeof input === 'string'
-        ? input
-        : input?.url ??
-          (typeof input?.toString === 'function' ? input.toString() : '');
+  // Defaults for the shared provider stack mounted by renderWithProviders.
+  mockEndpoint("/task-statuses", []);
+  mockEndpoint("/tags", []);
+  mockEndpoint("/tasks?", { tasks: [], total: 0, limit: 100, offset: 0 });
 
-    if (url.includes('/task-statuses')) {
-      return {
-        ok: true,
-        status: 200,
-        json: async () => [],
-        text: async () => '',
-      } as any;
-    }
+  globalThis.fetch = vi.fn(defaultFetchMock) as unknown as typeof fetch;
+});
 
-    if (url.includes('/tags')) {
-      return {
-        ok: true,
-        status: 200,
-        json: async () => [],
-        text: async () => '',
-      } as any;
-    }
-
-    if (url.includes('/tasks?')) {
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ tasks: [], total: 0, limit: 100, offset: 0 }),
-        text: async () => '',
-      } as any;
-    }
-
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-      text: async () => '',
-    } as any;
-  });
+afterEach(() => {
+  resetMockEndpoints();
 });
 
 afterAll(() => {
