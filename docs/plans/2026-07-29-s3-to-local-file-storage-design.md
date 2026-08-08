@@ -1,3 +1,5 @@
+> **STATUS: EXECUTED.** Local on-disk file storage is now the implementation (epic Zettelgarden-yar; `STORAGE_DIR`). Kept for design history.
+
 # S3 (Backblaze B2) → Local File Storage Migration Plan
 
 **Date:** 2026-07-29

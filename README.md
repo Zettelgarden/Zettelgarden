@@ -2,151 +2,161 @@
 
 **Build Understanding, Not Just Notes**
 
-Zettelgarden is the knowledge management system that thinks with you. Combining proven zettelkasten methodology with AI intelligence, it helps knowledge workers, researchers, and thinkers discover connections, build insights, and turn information overload into understanding.
+Zettelgarden is a self-hosted, open-source knowledge management system built on
+zettelkasten methodology, with AI-assisted discovery. It combines atomic
+notes, bidirectional linking, tasks, RSS, and a local-first sync engine — all
+backed by a single SQLite database.
 
-**Target Users**: Researchers, consultants, content creators, students, and anyone who works with complex information and wants to build connected understanding rather than just store data.
-
-**NOTE: This project is actively evolving. While stable for personal use, features may change based on community feedback and development priorities.**
+> **Note:** This project is actively evolving. While stable for personal use,
+> features may change based on development priorities.
 
 ## Why Zettelgarden?
 
-**Unique Positioning**: The only knowledge management platform that combines proven zettelkasten methodology with built-in AI features, offering web accessibility with self-hosting options.
-
-### vs. Competitors
-- **vs. Obsidian**: Web-native (no desktop app required), built-in AI features, mobile-optimized
-- **vs. Notion**: Purpose-built for knowledge connection, faster search, academic methodology
-- **vs. Roam**: Modern interface, AI integration, better performance, open source
-- **vs. AI-only tools**: AI augments proven methodology instead of replacing it
-
-### Core Principles
-- **Human-Centric AI**: AI augments your thinking rather than replacing it
-- **Proven Methodology**: Based on the zettelkasten system used by Darwin, Luhmann, and other great thinkers
-- **Connected Knowledge**: Every idea links to every other idea in a living knowledge graph
-- **Privacy First**: Self-host for complete control or use secure cloud hosting
-
-## Demo
-
-Watch our [demo video](https://www.youtube.com/watch?v=0kSAhX2R7eM) to see Zettelgarden in action and learn about its key features.
-
-You can also try Zettelgarden directly at [zettelgarden.com](https://zettelgarden.com) using our demo account:
-- Email: demo@zettelgarden.com
-- Password: demo
+- **Zettelkasten methodology** — atomic cards, `[[wiki-links]]`, backlinks, and a
+  living knowledge graph.
+- **AI as an augmentation** — optional LLM integration (OpenAI-compatible
+  endpoints) for summaries, entity extraction, and semantic search.
+- **Self-hosted by default** — SQLite file database (no external DB server),
+  local on-disk file storage, optional SMTP mail, optional Stripe billing.
+  Everything runs in one Docker container or two dev processes.
+- **No vendor lock-in** — full data export from Settings, self-serve account
+  deletion, plain JSON/Markdown/CSV output, and your original files.
 
 ## Features
 
-### Core Knowledge Management
-- **Atomic Cards**: Markdown-supported notes with unique identifiers for reliable linking
-- **Bidirectional Linking**: Automatic `[[card-title]]` syntax with backlink detection and display
-- **Task Management**: Integrated todo system with scheduling, priorities, and recurring patterns
-- **File Attachments**: Upload and organize PDFs, images, and documents with local on-disk storage
-- **Templates**: Reusable card templates with variable substitution
-- **Hierarchical Organization**: Parent-child card relationships with multiple view modes
+### Core knowledge management
+- **Atomic Cards** — Markdown-supported notes with unique identifiers and
+  `[[card-title]]` bidirectional linking with backlink display.
+- **Tasks** — Integrated todo system with scheduling, priorities, subtasks,
+  recurring patterns, and saved searches.
+- **Files** — Upload and organize PDFs, images, and documents, stored locally
+  on disk under `STORAGE_DIR` (backed up together with the SQLite DB).
+- **Templates** — Reusable card templates with variable substitution.
+- **Hierarchical Organization** — Parent-child card relationships with multiple
+  view modes.
+- **RSS Feed Client** — Subscribe to feeds, read articles, star for later, and
+  convert interesting articles into cards.
 
-### AI-Powered Intelligence (PRO Features)
-- **Vector Search**: Semantic similarity search using embeddings for content discovery beyond keywords
-- **Entity Recognition**: Automatic extraction and linking of people, places, organizations, and concepts using LLM-powered NLP
-- **Content Analysis**: AI-generated summaries, theme extraction, and insight generation with citation integrity
-- **Smart Discovery**: Related content recommendations and pattern recognition across your knowledge graph
+### AI-powered intelligence (PRO features; unlocked by default when Stripe is disabled)
+- **Vector Search** — Semantic similarity search via embeddings
+  (OpenAI-compatible endpoints) in addition to full-text search (Typesense with
+  a graceful fallback when Typesense is not configured).
+- **Entity Recognition** — LLM-powered extraction and linking of people,
+  places, organizations, and concepts.
+- **Content Analysis** — Summaries, theme extraction, and insight generation
+  with citation integrity.
 
-### Search & Discovery
-- **Multi-Modal Search**:
-  - Full-text search with Typesense integration
-  - Vector/semantic search using OpenAI-compatible embeddings
-  - Boolean operators and advanced filters
-  - Real-time search results with highlighting
-- **Entity-Based Navigation**: Search and filter by automatically recognized entities
-- **Starred Searches**: Save and organize frequently used search queries
-- **Backlink Analysis**: Automatic bidirectional relationship tracking
+### Local-first sync (in progress)
+- **Desktop app** — a Tauri v2 shell (`desktop/`) wrapping the web app.
+- **Sync engine** — a TypeScript sync engine (`sync-engine/`) providing
+  offline-first sync: local SQLite mirror + outbox, with the server acting as a
+  sync hub (snapshot/changes/push). See the
+  [sync app design](docs/plans/2026-08-07-mobile-desktop-sync-app-design.md)
+  for the live spec (epic Zettelgarden-v5b).
 
-### Technical Features
-- **Self-Hosting**: Docker-based deployment with SQLite — no external database required — for complete data ownership
-- **Web-Native**: Full functionality in browser with Progressive Web App capabilities
-- **API Access**: RESTful API with JWT authentication for programmatic integration
-- **Real-Time Sync**: WebSocket connections with optimistic updates across sessions
-- **Data Portability**: One-click full-data export from Settings — a zip of every user-owned table (JSON), cards as Markdown/CSV, and your original uploaded files. Migration tooling lives under `docs/migration-plans/`.
-- **Keyboard Shortcuts**: Efficient power-user workflows (c=create, s=search, t=tasks)
-
-### Privacy & Security
-- **Data Ownership**: Complete control with self-hosting option or secure cloud hosting
-- **Encryption**: TLS for transport, AES for storage
-- **No Vendor Lock-in**: Export your data anytime and delete your account self-serve from Settings (admins can also delete any user), open source transparency
-- **Privacy-First AI**: Optional AI features, no data mining, model choices
+### Technical features
+- **SQLite-only** — file-based, WAL mode; no external database server.
+- **Web client** — React 18 + TypeScript + Vite, Tailwind CSS, PWA.
+- **REST API** — Go backend with JWT auth; programmatic access.
+- **Transactional email** — sent directly from the Go backend over SMTP
+  (optional; no separate mail service).
+- **Backup** — online SQLite snapshots via `VACUUM INTO` (see the
+  [backup runbook](docs/runbooks/sqlite-backup.md)).
+- **Data export & deletion** — self-serve from Settings; see the
+  [data export runbook](docs/runbooks/data-export-and-account-deletion.md).
+- **Keyboard shortcuts** — `c` create card, `s` search, `t` create task.
 
 ## Architecture
 
-Built with modern, scalable technologies optimized for both performance and AI capabilities:
+| Component | Path | Stack |
+| --------- | ---- | ----- |
+| Web frontend | `zettelkasten-front/` | React 18 + TypeScript, Vite, Tailwind, TanStack Query |
+| API backend | `go-backend/` | Go (`net/http`), SQLite (WAL), JWT auth, Typesense (optional), local file storage |
+| Desktop shell | `desktop/` | Tauri v2 (Rust) wrapping the web app |
+| Sync engine | `sync-engine/` | TypeScript offline-first sync (local SQLite mirror + outbox) |
+| CLI | `zg/` | Go CLI for card/task operations |
+| MCP server | `zettelgarden-mcp/` | Model Context Protocol server for Claude |
 
-### Frontend (`zettelkasten-front`)
-- **Framework**: React 18 with TypeScript for type safety
-- **Build Tool**: Vite for fast development and optimized builds
-- **Styling**: Tailwind CSS with custom design system
-- **State Management**: React Context API with optimistic updates
-- **Real-time**: WebSocket integration for live synchronization
-- **PWA**: Service worker with offline capabilities and caching
-
-### Backend (`go-backend`)
-- **Language**: Go with `net/http` for high-performance HTTP server
-- **Database**: SQLite (file-based, WAL mode) for storage — no external database server
-- **Search Engine**: Typesense for full-text search with built-in ML capabilities
-- **Authentication**: JWT-based with middleware pipeline
-- **File Storage**: Local on-disk storage under STORAGE_DIR (no external object store)
-- **API Design**: RESTful endpoints with JSON responses
-
-### AI/ML Stack
-- **Embeddings**: OpenAI-compatible API integration for text embeddings
-- **Vector Search**: Embedding-based cosine similarity for semantic search
-- **Entity Recognition**: LLM-powered Named Entity Recognition pipeline
-- **Content Analysis**: Structured prompting for summaries and insights
-- **Search Integration**: Hybrid search combining full-text (Typesense) and vector similarity
-- **Model Flexibility**: Configurable LLM endpoints (OpenAI, Anthropic, local models)
+### AI/ML stack
+- Embeddings and chat via OpenAI-compatible endpoints (configurable base URL,
+  key, model — works with local models too).
+- Vector search via Typesense when configured; graceful full-text fallback
+  otherwise.
+- LLM-powered entity recognition and content analysis.
 
 ### Infrastructure
-- **Containerization**: Docker and Docker Compose for easy deployment
-- **Database Migrations**: SQL migration system with version control
-- **Monitoring**: Structured logging with configurable levels
-- **Security**: TLS/SSL, input validation, SQL injection protection
-- **Backup**: Online SQLite snapshots via `VACUUM INTO` (see the [backup runbook](docs/runbooks/sqlite-backup.md))
+- Docker Compose manifests (`docker-compose.yml`) for self-hosting; a single
+  data directory holds the SQLite DB and uploaded files.
+- SQL migrations in `go-backend/schema/sqlite/` (consolidated schema;
+  historical Postgres migrations archived under `go-backend/schema/archive/`).
+- Optional: SMTP for transactional mail, Stripe for PRO billing,
+  OIDC/SSO providers, Uptime Kuma push monitors.
 
-### Transactional Email (direct SMTP, optional)
-- **Delivery**: The Go backend sends transactional email directly over SMTP (password resets, reminders, notifications) — no separate mail service.
-- **Purpose**: User notifications, password resets, subscription management
-- **Optional**: Without SMTP configured the instance boots mail-disabled and send attempts are no-ops (see the Mail section of `.env.example`).
+## Getting Started (self-hosted)
 
-## Getting Started
+### Quick start with Docker
 
-### Quick Start Options
+```bash
+cp .env.example .env        # review and edit
+docker-compose up --build
+```
 
-1. **Try the Demo**: Visit [zettelgarden.com](https://zettelgarden.com) and use demo credentials (demo@zettelgarden.com / demo)
-2. **Cloud Hosting**: Sign up for free at [zettelgarden.com](https://zettelgarden.com) with 30-day PRO trial
-3. **Self-Hosting**: Deploy with Docker for complete data ownership
+The instance is then available on the configured port (see `.env.example`).
+A fresh install auto-creates the SQLite database file under `./data/`.
 
-### Self-Hosting Requirements
-- Docker and Docker Compose
-- SQLite database (bundled — no external database server to install)
-- Typesense search server
-- Local disk for file storage (bundled — no external object store)
-- OpenAI-compatible API key for AI features (optional)
-- OIDC / SSO provider for single sign-on (optional, e.g. [Pocket ID](https://github.com/pocket-id/pocket-id)) — see `go-backend/.env.example` (`OIDC_*` vars) and `docs/plans/2026-08-03-oidc-authentication-design.md`
+### Manual development setup
 
-See our [getting started guide](https://zettelgarden.com/docs/getting-started/) for detailed setup instructions. (Coming soon!)
+Backend (Go):
 
-### Use Cases
+```bash
+cd go-backend
+go run ./main.go            # REST API (reads root .env)
+```
 
-**For Researchers**: Organize literature, track citations, discover cross-study connections
-**For Consultants**: Build client knowledge bases, synthesize industry insights, develop frameworks
-**For Content Creators**: Research management, idea development, content planning workflows
-**For Students**: Note-taking that builds understanding, concept mapping, exam preparation
+Frontend (React + Vite):
 
-## Pricing
+```bash
+cd zettelkasten-front
+npm install
+npm run start               # Vite dev server on http://localhost:5173
+```
 
-- **Free**: Core zettelkasten features (cards, linking, tasks, basic search)
-- **PRO ($10/month, $100/year)**: AI features, vector search, entity recognition, content analysis
-- **Self-Hosting**: Deploy the open source version with your own infrastructure
+Tests: `go test ./...` (backend) and `npm run test:coverage` (frontend).
 
-## Contributing
+### Configuration
 
-Zettelgarden is built in the open. Contributions and feedback are welcome. Please check our [contribution guidelines](CONTRIBUTING.md).
+All configuration comes from the root `.env` (template: `.env.example`).
+Highlights:
 
-## Stay Updated
+- `SQLITE_PATH` — SQLite database file (default `./data/zettelgarden.db`).
+- `STORAGE_DIR` — local file storage directory (default `./data/files`).
+- `ZETTEL_LLM_KEY` / `ZETTEL_LLM_ENDPOINT` — optional AI integration.
+- `TYPESENSE_*` — optional full-text/vector search; the app falls back to
+  built-in search when Typesense is not configured.
+- `SMTP_*` — optional transactional mail (mail is a no-op when unset).
+- `STRIPE_ENABLED=false` (default) — disables billing; PRO features are
+  unlocked. Set to `true` with Stripe keys to enable subscription billing.
+- `OIDC_*` — optional OIDC/SSO (e.g. Pocket ID); see the
+  [OIDC design](docs/plans/2026-08-03-oidc-authentication-design.md).
 
-Follow our [blog](https://zettelgarden.com/blog/) and Nick Savage's [Substack](https://nsavage.substack.com/) for detailed updates on development and new features.
+### Desktop app
+
+```bash
+cd desktop
+npm install
+npm run dev                # tauri dev; requires Rust/Tauri toolchain
+```
+
+See `desktop/README.md` for details.
+
+## Documentation
+
+- `docs/plans/` — design docs (dated; historical ones carry a
+  `HISTORICAL`/`SUPERSEDED`/`EXECUTED` header).
+- `docs/runbooks/` — operational runbooks (SQLite backup, data export).
+- `docs/archive/` — archived one-off reports and marketing-era docs.
+- `AGENTS.md` / `CLAUDE.md` — development guides and commands.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

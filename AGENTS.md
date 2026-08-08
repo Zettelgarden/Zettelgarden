@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 - `go-backend/`: Go API with `handlers/`, `services/`, and SQL `migrations/`; environment config comes from the root `.env` and expects SQLite (file), Typesense, and AI provider keys. The database is SQLite only (`SQLITE_PATH=./data/zettelgarden.db`); Postgres was retired after the cutover (epic Zettelgarden-c7j, Phase 7b) and the numbered Postgres migrations live under `go-backend/schema/archive/postgres/`. Transactional email is sent directly from the Go backend over SMTP (optional; see the Mail section of `.env.example`).
 - `zettelkasten-front/`: React 18 + TypeScript client; core UI lives in `src/components/`, state in `src/contexts/`, and shared helpers in `src/utils/` with colocated `*.test.ts(x)` specs.
-- Supporting assets include `docs/` for design notes, `tickets/` for planning, and Docker manifests (`docker-compose.yml`, `docker-zettel-run.yml`, `build.sh`) for local orchestration.
+- Supporting assets include `docs/` for design notes and planning (task tracking lives in beads), and Docker manifests (`docker-compose.yml`, `docker-zettel-run.yml`, `build.sh`) for local orchestration.
 
 ## Build, Test, and Development Commands
 - Frontend: `npm install` then `npm run start` (Vite dev server on http://localhost:5173); `npm run build` emits production assets in `dist/`.

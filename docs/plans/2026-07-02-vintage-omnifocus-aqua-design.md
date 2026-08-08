@@ -1,3 +1,5 @@
+> **STATUS: HISTORICAL — pre-SQLite era.** This plan predates the PostgreSQL→SQLite cutover (2026-07-28, epic Zettelgarden-c7j) and the move to local on-disk file storage (epic Zettelgarden-yar). Zettelgarden now runs SQLite-only with local storage; this document is kept for design history.
+
 # Vintage OmniFocus 1 (OS X Tiger Aqua) — Design Document
 
 **Date:** 2026-07-02

@@ -1,3 +1,5 @@
+> **STATUS: COMPLETE — ARCHIVAL.** Cutover shipped 2026-07-28; only Phase 7b cleanup remained at the last update. See epic Zettelgarden-c7j. Kept for the record.
+
 # PostgreSQL → SQLite Migration — Status
 
 **Last updated:** 2026-07-29 (Phase 7a Part 2 repo cleanup COMPLETE — docker manifest + VACUUM INTO backup runbook done; c7j.4 closable; only Phase 7b remains)

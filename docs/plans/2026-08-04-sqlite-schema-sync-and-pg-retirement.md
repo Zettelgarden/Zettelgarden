@@ -1,3 +1,5 @@
+> **STATUS: IMPLEMENTED — ARCHIVAL.** Schema sync landed; both instances run SQLite. Remaining Postgres decommission steps are tracked in epic Zettelgarden-c7j Phase 7b. Kept for the record.
+
 # SQLite Schema Sync + Postgres Retirement
 
 **Date:** 2026-08-04

@@ -1,3 +1,5 @@
+> **STATUS: EXECUTED.** The PostgreSQL→SQLite cutover this plan describes is complete (2026-07-28; epic Zettelgarden-c7j). Remaining Phase 7b cleanup is tracked in that epic. Kept for design history.
+
 # PostgreSQL → SQLite Migration Plan
 
 **Date:** 2026-07-17

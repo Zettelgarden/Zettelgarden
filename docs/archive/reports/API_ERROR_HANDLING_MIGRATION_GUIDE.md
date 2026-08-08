@@ -1,3 +1,5 @@
+> **ARCHIVED** — Historical document moved to `docs/archive/` on 2026-08-08 during the documentation audit (Zettelgarden-0ui). Does not describe the current app; kept for the record.
+
 # API Error Handling Migration Guide
 
 This guide explains the new API error handling system and how to migrate from the old `checkStatus` pattern.

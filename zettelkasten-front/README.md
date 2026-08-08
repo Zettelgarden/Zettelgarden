@@ -1,70 +1,41 @@
-# Getting Started with Create React App
+# zettelkasten-front
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Web client for Zettelgarden — React 18 + TypeScript, built with Vite, styled
+with Tailwind CSS. Server state is managed with TanStack Query.
 
-## Available Scripts
+See the [root README](../README.md) for the overall project and self-hosting
+instructions.
 
-In the project directory, you can run:
+## Development
 
-### `npm start`
+```bash
+npm install
+npm run start        # Vite dev server on http://localhost:5173
+```
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Scripts
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+| Script                                    | Purpose                                  |
+| ----------------------------------------- | ---------------------------------------- |
+| `npm run start`                           | Vite dev server                          |
+| `npm run build`                           | Type-check + production build to `dist/` |
+| `npm run serve`                           | Preview the production build             |
+| `npm run test` / `npm run test:watch`     | Vitest (watch mode)                      |
+| `npm run test:run`                        | Vitest, run once                         |
+| `npm run test:coverage`                   | Vitest with coverage (CI-style)          |
+| `npm run typecheck`                       | `tsc --noEmit`                           |
+| `npm run format` / `npm run format:check` | Prettier (write / CI gate)               |
 
-### `npm test`
+## Conventions
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- Components in `src/components/` (PascalCase), state in `src/contexts/`,
+  server-state hooks in `src/hooks/queries/`, API clients in `src/api/`.
+- Unit tests are colocated as `*.test.ts(x)` and run with Vitest + Testing
+  Library; prefer rendering components over shallow mocks. See `TESTING.md`.
+- Format with Prettier (2-space indent, single quotes).
 
-### `npm run build`
+## Desktop shell
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+The Tauri v2 desktop wrapper lives in `../desktop/` and packages the build
+output of this app (`npm run build` produces `dist/`, which
+`desktop/src-tauri/tauri.conf.json` points at).

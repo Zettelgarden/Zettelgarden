@@ -1,3 +1,5 @@
+> **STATUS: SUPERSEDED.** Replaced by the sync app design ([2026-08-07-mobile-desktop-sync-app-design.md](./2026-08-07-mobile-desktop-sync-app-design.md)), which is the live spec for epic Zettelgarden-v5b and chose Tauri v2 over Electron. Kept for design history.
+
 # Desktop Sync Client Design
 
 **Date:** 2026-07-25

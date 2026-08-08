@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Zettelgarden is a human-centric, open-source personal knowledge management system built on zettelkasten principles. It's a full-stack application with three main services:
+Zettelgarden is a human-centric, open-source personal knowledge management system built on zettelkasten principles. It's a full-stack application with four main components:
 
 - **Frontend**: React/TypeScript with Vite (`zettelkasten-front/`)
-- **Backend**: Go API server (`go-backend/`)
+- **Backend**: Go API server (`go-backend/`), SQLite-only
 - **Mail**: Transactional email sent directly from the Go backend over SMTP (optional)
+- **Desktop + Sync**: Tauri v2 shell (`desktop/`) and TypeScript offline-first sync engine (`sync-engine/`) — see epic Zettelgarden-v5b
 
 ## Development Commands
 
@@ -65,7 +66,7 @@ docker-compose up  # Start all services locally
   - Today's task counter in sidebar
   - Task creation shortcuts and dialogs
   - Task tagging and filtering
-- **Files**: File upload/storage with S3 integration and card attachment
+- **Files**: File upload/storage on local disk under `STORAGE_DIR` with card attachment
 - **RSS Feed Client**: Subscribe to RSS/Atom feeds with auto-tagging support
   - Feeds: Browse and manage RSS/Atom feed subscriptions
   - Articles: Reader-style inbox for fetched articles
@@ -83,14 +84,12 @@ docker-compose up  # Start all services locally
   - Entity dialogs for viewing and editing
   - Entity-card relationship tracking
 - **Facts**: Structured fact management and storage (PRO feature)
-- **Memory**: Personal knowledge retention and recall system
 - **Starring**: Bookmark system for both cards and searches with sidebar management
 - **Templates**: Card templates with variable substitution
 - **Keyboard Shortcuts**: 'c' (create card), 't' (create task), 's' (search)
 - **Subscription Features**: PRO gating for advanced features like entities and facts
 - **Admin**: Administrative interface for managing users, jobs, and system operations
   - Job Queue monitoring and management
-  - Mailing list management and history
   - Scheduled Jobs Admin
     - View all registered scheduled jobs with schedules
     - Monitor job execution status and history
@@ -100,9 +99,9 @@ docker-compose up  # Start all services locally
   - User management and details
 
 ### Database
-- PostgreSQL with pgvector extension
-- Typesense as a search cache with built in embeddings
-- Migration-based schema management in `go-backend/schema/`
+- SQLite (file-based, WAL mode) — the only supported database; no external DB server
+- Typesense as an optional search cache with graceful fallback when not configured
+- Migration-based schema management in `go-backend/schema/sqlite/` (consolidated schema; historical Postgres migrations live under `go-backend/schema/archive/postgres/`)
 - Models use database/sql with manual query construction
 
 ### Authentication & Authorization
@@ -122,8 +121,9 @@ docker-compose up  # Start all services locally
 
 ## Environment Configuration
 
-The application requires extensive environment configuration for:
-- Database connection (DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME)
+The application requires environment configuration for:
+- Database connection (SQLITE_PATH, default `./data/zettelgarden.db`)
+- Local file storage (STORAGE_DIR, default `./data/files`)
 - JWT secret (SECRET_KEY)
 - Calendar encryption (CALENDAR_ENCRYPTION_KEY)
   - Purpose: Encryption key for calendar passwords (AES-256-GCM)
@@ -131,8 +131,7 @@ The application requires extensive environment configuration for:
   - Generation command: `openssl rand -base64 32`
   - When required: For authenticated calendar feeds
 - LLM integration (ZETTEL_LLM_KEY, ZETTEL_LLM_ENDPOINT)
-- S3/file storage configuration
-- Stripe payment integration
+- Stripe billing (optional — `STRIPE_ENABLED=false` disables it; PRO features unlocked)
 - Uptime Kuma integration (UPTIME_KUMA_PUSH_URL)
   - Purpose: Push monitor URL for heartbeat signals to verify job scheduler is operational
   - Format: Full URL including monitor UUID, e.g.: https://uptime.example.com/api/push/YOUR_MONITOR_ID?status=up&msg=OK
@@ -141,15 +140,18 @@ The application requires extensive environment configuration for:
   - Purpose: Interval in minutes for RSS feed fetching
   - Default: 60 minutes
   - When required: Optional - uses default if not configured
-- Mail service configuration
+- Mail service configuration (SMTP_HOST/SMTP_PORT/SMTP_USERNAME/SMTP_PASSWORD/SMTP_FROM — optional; mail is a no-op when unset)
+- OIDC / SSO (OIDC_* vars, optional) — see `.env.example`
 
 ## Development Notes
 
 - The frontend uses Vite for fast development builds
 - Backend follows RESTful API conventions with consistent error handling
 - All routes are logged via `handlers.LogRoute` middleware
-- File uploads go through S3-compatible storage
+- File uploads go to local disk under STORAGE_DIR (no external object store)
 - The application supports both development and production logging configurations
+- Desktop shell: `cd desktop && npm run dev` (Tauri v2, requires Rust toolchain; see `desktop/README.md`)
+- Sync engine: TypeScript offline-first sync (local SQLite mirror + outbox); live spec is `docs/plans/2026-08-07-mobile-desktop-sync-app-design.md`
 
 We track work in Beads instead of Markdown. Run `bd quickstart` to see how.
 Use 'bd' for task tracking

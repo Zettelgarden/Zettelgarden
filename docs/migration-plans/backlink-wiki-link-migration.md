@@ -1,3 +1,5 @@
+> **STATUS: COMPLETED.** The `[[card_id]]` wiki-link syntax described here is now the implementation (README: "Bidirectional Linking: Automatic `[[card-title]]` syntax"). Kept for migration history.
+
 # Migration Plan: `[card_id]` → `[[card_id]]` Wiki-Link Syntax
 
 ## Overview

@@ -1,3 +1,5 @@
+> **STATUS: HISTORICAL — pre-SQLite era.** This plan predates the PostgreSQL→SQLite cutover (2026-07-28, epic Zettelgarden-c7j) and the move to local on-disk file storage (epic Zettelgarden-yar). Zettelgarden now runs SQLite-only with local storage; this document is kept for design history. The AI-agent multi-user feature it describes was **never completed** — the task list is archived at `docs/archive/root/TODO.md` and no agent handlers/routes exist in the codebase.
+
 # AI Agent Multi-User Support Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

@@ -1,3 +1,5 @@
+> **STATUS: COMPLETE — ARCHIVAL.** The B2→local migration is done (epic Zettelgarden-yar). Kept for the record.
+
 # S3 (Backblaze B2) → Local File Storage Migration — Status
 
 **Last updated:** 2026-07-29 (Phase 5 CUTOVER LIVE + SMOKE GREEN on zg-internal / server-3 — backend on local-storage image serving 365 files from `/home/nick/zg/files`; authenticated upload→thumb→download→epub→delete smoke PASSED; rollback image tagged. Orphan cleanup DONE (`yar.7` — 48 rows soft-deleted); remaining teardown is the B2 bucket + key revocation (`yar.4`, Nick).)
