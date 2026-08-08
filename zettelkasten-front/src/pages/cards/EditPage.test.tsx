@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 import { EditPage } from './EditPage';
 import { UIStateProvider, useUIState } from '../../contexts/UIStateContext';
 import { TagProvider } from '../../contexts/TagContext';
+import { mockEndpoint } from '../../tests/fetchMock';
+import { SchemaDefinition } from '../../models/Schema';
 
 // Templates are the only network call made on mount for a new card.
 vi.mock('../../api/templates', () => ({
@@ -112,5 +114,58 @@ describe('EditPage — closable rail', () => {
     // Metadata content is hidden.
     expect(screen.queryByText('Card ID')).not.toBeInTheDocument();
     expect(screen.queryByText('Tags')).not.toBeInTheDocument();
+  });
+});
+
+describe('EditPage new card with ?schema=', () => {
+  const schema: SchemaDefinition = {
+    id: 7,
+    name: 'Book Review',
+    slug: 'book-review',
+    owner_id: 1,
+    fields: [
+      { name: 'Author', type: 'text', required: true },
+      { name: 'Rating', type: 'number', required: false },
+    ],
+    created_at: new Date(),
+    updated_at: new Date(),
+    is_deleted: false,
+  };
+
+  function renderEditPageWithEntry(initialEntry: string) {
+    return render(
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <TagProvider testing testTags={[]}>
+          <UIStateProvider>
+            <EditPage newCard={true} />
+          </UIStateProvider>
+        </TagProvider>
+      </MemoryRouter>,
+    );
+  }
+
+  beforeEach(() => {
+    // The schema table's "Add Card" navigates to card/new?schema=<id>; the
+    // schemas list is what CardSchemaSection fetches to resolve the id.
+    mockEndpoint('/schemas', [schema]);
+  });
+
+  it('pre-selects the schema and renders its structured fields', async () => {
+    renderEditPageWithEntry('/app/card/new?schema=7');
+
+    const select = await screen.findByLabelText('Schema');
+    await waitFor(() => expect((select as HTMLSelectElement).value).toBe('7'));
+
+    // The pre-attached schema's fields show up in the structured data editor
+    // (required text fields append "(required)" to the placeholder).
+    expect(await screen.findByPlaceholderText(/Author/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Rating')).toBeInTheDocument();
+  });
+
+  it('leaves the schema unset when no schema param is present', async () => {
+    renderEditPageWithEntry('/app/card/new');
+
+    const select = await screen.findByLabelText('Schema');
+    expect((select as HTMLSelectElement).value).toBe('');
   });
 });

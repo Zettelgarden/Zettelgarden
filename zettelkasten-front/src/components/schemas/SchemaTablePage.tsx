@@ -13,6 +13,7 @@ import {
   FiltersState,
 } from './SchemaTableFilters';
 import { EditableCell } from './EditableCell';
+import { schemaCardsToCsv, downloadCsv } from '../../utils/schemaCsv';
 
 interface LinkedCardDisplayProps {
   cardId: number;
@@ -399,6 +400,15 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
     );
   }
 
+  const handleAddCard = () => {
+    navigate(`/app/card/new?schema=${schemaId}`);
+  };
+
+  const handleExportCsv = () => {
+    const csv = schemaCardsToCsv(sortedCards, schema.fields);
+    downloadCsv(`${schema.slug || 'schema'}-cards.csv`, csv);
+  };
+
   const sortedCards = getSortedCards();
 
   return (
@@ -416,26 +426,65 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
           </h1>
           <p className="text-sm text-gray-500">{cards.length} cards</p>
         </div>
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className="px-4 py-3 min-h-[44px] bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 flex items-center gap-1"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-4 w-4"
-            viewBox="0 0 20 20"
-            fill="currentColor"
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleAddCard}
+            className="px-4 py-3 min-h-[44px] bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 flex items-center gap-1"
           >
-            <path
-              fillRule="evenodd"
-              d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z"
-              clipRule="evenodd"
-            />
-          </svg>
-          Filters{' '}
-          {Object.keys(filters).length > 0 &&
-            `(${Object.keys(filters).length})`}
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Add Card
+          </button>
+          <button
+            onClick={handleExportCsv}
+            className="px-4 py-3 min-h-[44px] bg-white border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 flex items-center gap-1"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path d="M10 2a1 1 0 011 1v7.586l2.293-2.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 10.586V3a1 1 0 011-1z" />
+              <path
+                fillRule="evenodd"
+                d="M4 14a1 1 0 011 1v1a1 1 0 001 1h8a1 1 0 001-1v-1a1 1 0 112 0v1a3 3 0 01-3 3H6a3 3 0 01-3-3v-1a1 1 0 011-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Export CSV
+          </button>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="px-4 py-3 min-h-[44px] bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 flex items-center gap-1"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Filters{' '}
+            {Object.keys(filters).length > 0 &&
+              `(${Object.keys(filters).length})`}
+          </button>
+        </div>
       </div>
 
       {/* Filter Section */}
@@ -502,7 +551,7 @@ export function SchemaTablePage({ schemaId, onBack }: SchemaTablePageProps) {
         <div className="text-center text-gray-500 py-8 bg-gray-50 rounded-lg">
           <p>No cards with this schema yet.</p>
           <button
-            onClick={() => navigate('/app/card/new')}
+            onClick={() => navigate(`/app/card/new?schema=${schema.id}`)}
             className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
           >
             Create First Card

@@ -93,6 +93,16 @@ export function SchemaDialog({
     setFields(fields.filter((f) => f.id !== id));
   };
 
+  const moveField = (index: number, direction: -1 | 1) => {
+    setFields((prevFields) => {
+      const target = index + direction;
+      if (target < 0 || target >= prevFields.length) return prevFields;
+      const next = [...prevFields];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
   const updateField = (id: string, updates: Partial<FieldEditor>) => {
     setFields(fields.map((f) => (f.id === id ? { ...f, ...updates } : f)));
   };
@@ -200,25 +210,71 @@ export function SchemaDialog({
             />
           </div>
 
-          <button
-            type="button"
-            onClick={() => removeField(field.id)}
-            className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded-full transition-colors mt-5"
-            disabled={fields.length === 1}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              viewBox="0 0 20 20"
-              fill="currentColor"
+          <div className="flex items-center gap-0.5 mt-5">
+            <button
+              type="button"
+              onClick={() => moveField(index, -1)}
+              disabled={index === 0}
+              title="Move field up"
+              aria-label={`Move field ${field.name || 'untitled'} up`}
+              className="text-gray-500 hover:text-gray-800 p-1 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              <path
-                fillRule="evenodd"
-                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => moveField(index, 1)}
+              disabled={index === fields.length - 1}
+              title="Move field down"
+              aria-label={`Move field ${field.name || 'untitled'} down`}
+              className="text-gray-500 hover:text-gray-800 p-1 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => removeField(field.id)}
+              className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded-full transition-colors"
+              disabled={fields.length === 1}
+              title="Remove field"
+              aria-label={`Remove field ${field.name || ''}`}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
 
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-0.5">

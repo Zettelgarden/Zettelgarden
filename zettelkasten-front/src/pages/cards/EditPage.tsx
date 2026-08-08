@@ -21,7 +21,7 @@ import { getTemplates } from '../../api/templates';
 import { FileListItem } from '../../components/files/FileListItem';
 import { BacklinkDialog } from '../../components/cards/BacklinkDialog';
 import { CardIdDiscoveryDialog } from '../../components/cards/CardIdDiscoveryDialog';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Card,
   PartialCard,
@@ -64,6 +64,19 @@ interface EditPageProps {
   newCard: boolean;
 }
 
+// Read the optional ?schema= query param used by the schema table's
+// "Add Card" action to pre-attach a schema to a new card.
+function getNewCardSchemaId(
+  searchParams: URLSearchParams,
+  newCard: boolean,
+): number | undefined {
+  if (!newCard) return undefined;
+  const raw = searchParams.get('schema');
+  if (!raw) return undefined;
+  const parsed = parseInt(raw, 10);
+  return Number.isNaN(parsed) ? undefined : parsed;
+}
+
 // Edit rail tabs. Metadata holds Card ID/Tags/Schema/Details; Links (the
 // backlink input) arrives in PR 3.
 const EDIT_TABS: { id: RightPaneTab; label: string }[] = [
@@ -87,6 +100,7 @@ function renderWarningLabel(cards: PartialCard[], editingCard: Card) {
 }
 
 function EditPageContent({ newCard }: EditPageProps) {
+  const [searchParams] = useSearchParams();
   const [originalCard, setOriginalCard] = useState<Card>(defaultCard);
   const [previewModeActive, setPreviewModeActive] = useState(false);
   const {
@@ -257,6 +271,7 @@ function EditPageContent({ newCard }: EditPageProps) {
         ...defaultCard,
         card_id: cardId,
         body: draft,
+        schema_id: getNewCardSchemaId(searchParams, newCard),
         process_entities_and_facts: true,
       });
       hasInitializedRef.current = true;
@@ -564,6 +579,7 @@ function EditPageContent({ newCard }: EditPageProps) {
 export function EditPage({ newCard }: EditPageProps) {
   const { lastCard, nextCardId, setNextCardId } = useUIState();
   const params = useParams();
+  const [searchParams] = useSearchParams();
   const id: string | undefined = params.id;
 
   // Initialize editingCard state for the provider
@@ -575,6 +591,7 @@ export function EditPage({ newCard }: EditPageProps) {
         ...defaultCard,
         card_id: cardId,
         body: draft,
+        schema_id: getNewCardSchemaId(searchParams, newCard),
         process_entities_and_facts: true,
       };
     }
