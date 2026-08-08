@@ -78,6 +78,8 @@ describe('NotificationInboxPage smoke', () => {
     expect(
       screen.getByText('Task reminder: submit report'),
     ).toBeInTheDocument();
+    // Guards the unread-count contract (backend returns unread_count).
+    expect(screen.getByText('2 unread')).toBeInTheDocument();
     // Tab buttons
     expect(screen.getByText('All')).toBeInTheDocument();
     expect(screen.getByText('RSS')).toBeInTheDocument();

@@ -246,6 +246,46 @@ func GetNotificationsByUser(db Database, userID int, filters NotificationListFil
 	return notifications, nil
 }
 
+// CountNotificationsByUser returns the total number of notifications matching
+// the same filters as GetNotificationsByUser (ignoring limit/offset). Used to
+// report a "total" alongside a paginated list.
+func CountNotificationsByUser(db Database, userID int, filters NotificationListFilters) (int, error) {
+	baseQuery := `
+		SELECT COUNT(*)
+		FROM notifications
+		WHERE user_id = $1
+	`
+
+	var conditions []interface{}
+	conditions = append(conditions, userID)
+	argCount := 1
+
+	if filters.SourceType != nil {
+		argCount++
+		baseQuery += " AND source_type = $" + strconv.Itoa(argCount)
+		conditions = append(conditions, *filters.SourceType)
+	}
+
+	if filters.IsRead != nil {
+		argCount++
+		baseQuery += " AND is_read = $" + strconv.Itoa(argCount)
+		conditions = append(conditions, *filters.IsRead)
+	}
+
+	if filters.IsArchived != nil {
+		argCount++
+		baseQuery += " AND is_archived = $" + strconv.Itoa(argCount)
+		conditions = append(conditions, *filters.IsArchived)
+	}
+
+	var total int
+	err := db.QueryRow(baseQuery, conditions...).Scan(&total)
+	if err != nil {
+		return 0, err
+	}
+	return total, nil
+}
+
 // GetUnreadCount retrieves the count of unread, unarchived notifications for a user
 func GetUnreadCount(db Database, userID int) (int, error) {
 	query := `

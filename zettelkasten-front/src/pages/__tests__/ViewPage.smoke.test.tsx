@@ -102,6 +102,8 @@ describe('ViewPage smoke', () => {
     renderWithProviders(<ViewPage cardId="missing" />);
 
     await waitFor(() => expect(consoleSpy).toHaveBeenCalled());
+    // Failure path must not render the card content.
+    expect(screen.queryByText(/Viewed Card Title/)).toBeNull();
 
     consoleSpy.mockRestore();
   });

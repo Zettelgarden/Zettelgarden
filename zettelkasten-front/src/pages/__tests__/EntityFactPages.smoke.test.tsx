@@ -91,9 +91,9 @@ describe('EntityPage smoke', () => {
 
     renderWithProviders(<EntityPage />);
 
-    // Header only renders after the loading state resolves.
+    // The real empty state, not just the header.
     await waitFor(() =>
-      expect(screen.getByText('Entities')).toBeInTheDocument(),
+      expect(screen.getByText('No entities found')).toBeInTheDocument(),
     );
   });
 });
@@ -133,7 +133,9 @@ describe('FactPage smoke', () => {
 
     renderWithProviders(<FactPage />);
 
-    // Header only renders after the loading state resolves.
-    await waitFor(() => expect(screen.getByText('Facts')).toBeInTheDocument());
+    // The real empty state, not just the header.
+    await waitFor(() =>
+      expect(screen.getByText('No facts found')).toBeInTheDocument(),
+    );
   });
 });

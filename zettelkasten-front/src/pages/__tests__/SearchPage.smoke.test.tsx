@@ -56,6 +56,8 @@ vi.mock('../../api/entities', () => ({
   fetchEntityByName: vi.fn(),
 }));
 
+import { mockEndpoint } from '../../tests/fetchMock';
+
 const { semanticSearchCardsPaginated } = await import('../../api/cards');
 
 function renderSearchPage() {
@@ -74,6 +76,9 @@ function renderSearchPage() {
 describe('SearchPage smoke', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // SearchFiltersPanel fetches schemas on mount; stub explicitly so the
+    // fetch settles instead of failing loudly (see subagent review M2).
+    mockEndpoint('/schemas', []);
   });
 
   it('renders the search form and result titles', async () => {

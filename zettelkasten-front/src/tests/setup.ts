@@ -63,6 +63,10 @@ beforeEach(() => {
   mockEndpoint('/task-statuses', []);
   mockEndpoint('/tags', []);
   mockEndpoint('/tasks?', { tasks: [], total: 0, limit: 100, offset: 0 });
+  // RSSProvider fetches unread counts on mount; without this explicit
+  // default that fetch fails loudly and is only kept quiet by the provider's
+  // own .catch handler (hidden coupling — see Zettelgarden-7pq follow-up).
+  mockEndpoint('/rss/unread-counts', { folders: {}, feeds: {} });
 
   globalThis.fetch = vi.fn(defaultFetchMock) as unknown as typeof fetch;
 });

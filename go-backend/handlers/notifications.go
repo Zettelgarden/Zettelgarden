@@ -59,8 +59,14 @@ func (h *Handler) ListNotifications(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	// Matches the frontend contract (api/notifications.ts: NotificationListResponse).
+	total, err := models.CountNotificationsByUser(h.GetDB(), userID, filters)
+	if err != nil {
+		log.Printf("[notifications] failed to count notifications: %v", err)
+	}
 	response := map[string]interface{}{
 		"notifications": notifications,
+		"total":         total,
 	}
 	json.NewEncoder(w).Encode(response)
 }
@@ -79,8 +85,9 @@ func (h *Handler) GetUnreadCount(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	// Frontend reads response.unread_count (api/notifications.ts getUnreadCount).
 	response := map[string]int{
-		"count": count,
+		"unread_count": count,
 	}
 	json.NewEncoder(w).Encode(response)
 }

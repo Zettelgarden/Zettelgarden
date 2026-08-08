@@ -173,6 +173,10 @@ func TestListNotificationsSuccess(t *testing.T) {
 	} else {
 		t.Error("response should contain notifications array")
 	}
+
+	if total, ok := response["total"].(float64); !ok || int(total) < 3 {
+		t.Errorf("expected total >= 3, got %v", response["total"])
+	}
 }
 
 func TestListNotificationsWithFilters(t *testing.T) {
@@ -238,8 +242,8 @@ func TestGetUnreadCountSuccess(t *testing.T) {
 	var response map[string]int
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &response)
 
-	if count, ok := response["count"]; !ok || count != 2 {
-		t.Errorf("expected unread count 2, got %v", response["count"])
+	if count, ok := response["unread_count"]; !ok || count != 2 {
+		t.Errorf("expected unread count 2, got %v", response["unread_count"])
 	}
 }
 
