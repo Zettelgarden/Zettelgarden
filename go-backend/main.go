@@ -158,16 +158,27 @@ func run() error {
 	s.Store = fileStore
 	log.Printf("File storage initialized successfully")
 
-	// Initialize mail client for transactional emails (password resets, reminders)
-	log.Printf("Initializing mail client (host=%s)", cfg.Services.Mail.Host)
+	// Initialize mail client for transactional emails (password resets,
+	// reminders). Mail is optional (6er.6): with mail_enabled=false (settings
+	// file; seeded from MAIL_ENABLED or the absence of MAIL_HOST), the client
+	// is a Disabled no-op so callers degrade gracefully.
+	mailEnabled := sm.GetBool("mail_enabled")
+	if mailEnabled {
+		log.Printf("Initializing mail client (host=%s)", cfg.Services.Mail.Host)
+	} else {
+		log.Printf("Mail disabled (set mail_enabled=true in config.yaml or configure MAIL_HOST to enable)")
+	}
 	s.Mail = &mail.MailClient{
 		Host:         cfg.Services.Mail.Host,
 		Password:     cfg.Services.Mail.Password,
 		Queue:        mail.NewEmailQueue(),
 		DB:           s.DB,
 		ShutdownChan: make(chan struct{}),
+		Disabled:     !mailEnabled,
 	}
-	log.Printf("Mail client initialized successfully")
+	if mailEnabled {
+		log.Printf("Mail client initialized successfully")
+	}
 
 	// Typesense is optional - search will still work without it (slower full-text search only)
 	log.Printf("Initializing Typesense search client (host=%s, collection=%s)", cfg.Services.Search.Host, cfg.Services.Search.Collection)

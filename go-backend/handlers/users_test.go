@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go-backend/models"
 	"go-backend/tests"
@@ -891,5 +892,159 @@ func TestCreateUserAdminEmailGrantsAdmin(t *testing.T) {
 	}
 	if !isAdmin {
 		t.Error("expected user with ZETTEL_ADMIN_EMAIL to be admin")
+	}
+}
+
+// TestCreateUserRegistrationClosed verifies the 6er.10 gate: with
+// signups_enabled=false, only the first-user bootstrap and the deterministic
+// admin_email path may create accounts; everyone else gets
+// ErrRegistrationClosed.
+func TestCreateUserRegistrationClosed(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Start from an empty install (the test fixture seeds users). The rows in
+	// keywords and entity_card_junction reference cards/entities with NO ACTION
+	// FKs, so clear them first or the user-delete cascade fails — same as
+	// TestCreateUserFirstUserBecomesAdmin.
+	for _, table := range []string{"keywords", "entity_card_junction"} {
+		if _, err := s.GetDB().Exec(`DELETE FROM ` + table); err != nil {
+			t.Fatalf("clear %s: %v", table, err)
+		}
+	}
+	if _, err := s.GetDB().Exec(`DELETE FROM users`); err != nil {
+		t.Fatalf("clear users: %v", err)
+	}
+
+	if err := s.Settings.Set("signups_enabled", "false"); err != nil {
+		t.Fatalf("disable signups: %v", err)
+	}
+
+	// Fresh install (no users yet) can still mint its first admin.
+	first := models.CreateUserParams{
+		Username: "first", Password: "asdfasdfasdf", ConfirmPassword: "asdfasdfasdf",
+		Email: "first@example.com",
+	}
+	id, err := s.CreateUser(first)
+	if err != nil {
+		t.Fatalf("first-user bootstrap should bypass the registration gate: %v", err)
+	}
+	var isAdmin bool
+	if err := s.GetDB().QueryRow(`SELECT is_admin FROM users WHERE id = $1`, id).Scan(&isAdmin); err != nil {
+		t.Fatalf("query user: %v", err)
+	}
+	if !isAdmin {
+		t.Error("expected the first user to be admin")
+	}
+
+	// A second, non-admin user is rejected while signups are closed.
+	second := models.CreateUserParams{
+		Username: "second", Password: "asdfasdfasdf", ConfirmPassword: "asdfasdfasdf",
+		Email: "second@example.com",
+	}
+	if _, err := s.CreateUser(second); !errors.Is(err, ErrRegistrationClosed) {
+		t.Fatalf("expected ErrRegistrationClosed, got %v", err)
+	}
+
+	// The deterministic admin_email path stays open.
+	adminEmail := s.Settings.Get("admin_email")
+	if adminEmail == "" {
+		t.Skip("admin_email not set in test env")
+	}
+	operator := models.CreateUserParams{
+		Username: "operator", Password: "asdfasdfasdf", ConfirmPassword: "asdfasdfasdf",
+		Email: strings.ToUpper(adminEmail), // case-insensitive
+	}
+	if _, err := s.CreateUser(operator); err != nil {
+		t.Fatalf("admin_email path should bypass the registration gate: %v", err)
+	}
+}
+
+// TestCreateUserRouteRegistrationClosedReturns403 verifies POST /api/users
+// maps ErrRegistrationClosed to a 403 (6er.10 acceptance).
+func TestCreateUserRouteRegistrationClosedReturns403(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Seed one user so the bootstrap exception no longer applies.
+	if _, err := s.CreateUser(models.CreateUserParams{
+		Username: "existing", Password: "asdfasdfasdf", ConfirmPassword: "asdfasdfasdf",
+		Email: "existing@example.com",
+	}); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	if err := s.Settings.Set("signups_enabled", "false"); err != nil {
+		t.Fatalf("disable signups: %v", err)
+	}
+
+	body, _ := json.Marshal(models.CreateUserParams{
+		Username: "blocked", Password: "asdfasdfasdf", ConfirmPassword: "asdfasdfasdf",
+		Email: "blocked@example.com",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/users", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.CreateUserRoute(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for closed registration, got %d", rr.Code)
+	}
+}
+
+// TestCreateUserEmailAutoValidate verifies the 6er.6 toggle: with
+// email_auto_validate=true new accounts are created email-validated and no
+// validation email is queued; with it off, they start unvalidated.
+func TestCreateUserEmailAutoValidate(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	if err := s.Settings.Set("email_auto_validate", "true"); err != nil {
+		t.Fatalf("enable auto-validate: %v", err)
+	}
+	emailsBefore := s.Server.Mail.TestingEmailsSent
+
+	params := models.CreateUserParams{
+		Username: "autovalidated", Password: "asdfasdfasdf", ConfirmPassword: "asdfasdfasdf",
+		Email: "auto@example.com",
+	}
+	id, err := s.CreateUser(params)
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	var validated bool
+	if err := s.GetDB().QueryRow(`SELECT email_validated FROM users WHERE id = $1`, id).Scan(&validated); err != nil {
+		t.Fatalf("query validated: %v", err)
+	}
+	if !validated {
+		t.Error("expected email_validated=true with email_auto_validate enabled")
+	}
+	// No validation email queued.
+	if s.Server.Mail.TestingEmailsSent != emailsBefore {
+		t.Errorf("expected no validation email with auto-validate, sent=%d before=%d", s.Server.Mail.TestingEmailsSent, emailsBefore)
+	}
+}
+
+// TestCreateUserEmailAutoValidateOff verifies the default path still sends a
+// validation email and leaves the account unvalidated.
+func TestCreateUserEmailAutoValidateOff(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	emailsBefore := s.Server.Mail.TestingEmailsSent
+	params := models.CreateUserParams{
+		Username: "needsvalidation", Password: "asdfasdfasdf", ConfirmPassword: "asdfasdfasdf",
+		Email: "needsvalidation@example.com",
+	}
+	id, err := s.CreateUser(params)
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	var validated bool
+	if err := s.GetDB().QueryRow(`SELECT email_validated FROM users WHERE id = $1`, id).Scan(&validated); err != nil {
+		t.Fatalf("query validated: %v", err)
+	}
+	if validated {
+		t.Error("expected email_validated=false by default")
+	}
+	if s.Server.Mail.TestingEmailsSent != emailsBefore+1 {
+		t.Errorf("expected one validation email, sent=%d before=%d", s.Server.Mail.TestingEmailsSent, emailsBefore)
 	}
 }

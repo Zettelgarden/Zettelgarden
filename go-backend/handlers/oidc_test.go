@@ -193,3 +193,59 @@ func TestFindOrCreateOIDCUser_MissingSubject(t *testing.T) {
 		t.Fatal("expected error for missing subject")
 	}
 }
+
+// TestFindOrCreateOIDCUser_RegistrationClosed verifies the 6er.10 gate: with
+// signups_enabled=false, OIDC only resolves EXISTING accounts — a brand-new
+// IdP user gets an error instead of a provisioned account.
+func TestFindOrCreateOIDCUser_RegistrationClosed(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Provision an account while signups are open.
+	first, err := s.findOrCreateOIDCUser("pocket-id", "sub-closed-1", "stranger@example.com", true, "stranger", "")
+	if err != nil {
+		t.Fatalf("provision while open: %v", err)
+	}
+
+	// Close signups.
+	if err := s.Settings.Set("signups_enabled", "false"); err != nil {
+		t.Fatalf("disable signups: %v", err)
+	}
+
+	// The same (provider, sub) still logs in (existing account).
+	reauth, err := s.findOrCreateOIDCUser("pocket-id", "sub-closed-1", "changed@example.com", true, "stranger", "")
+	if err != nil {
+		t.Fatalf("existing-account login should still work: %v", err)
+	}
+	if reauth.ID != first.ID {
+		t.Errorf("expected same account id %d, got %d", first.ID, reauth.ID)
+	}
+
+	// A brand-new IdP user is rejected (no auto-provision).
+	if _, err := s.findOrCreateOIDCUser("pocket-id", "sub-closed-new", "newcomer@example.com", true, "newcomer", ""); err == nil {
+		t.Fatal("expected error creating a NEW OIDC account while signups are closed")
+	}
+}
+
+// TestFindOrCreateOIDCUser_RegistrationClosedAdminEmailBypass verifies the
+// deterministic admin_email path stays open for OIDC provisioning too.
+func TestFindOrCreateOIDCUser_RegistrationClosedAdminEmailBypass(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	adminEmail := s.Settings.Get("admin_email")
+	if adminEmail == "" {
+		t.Skip("admin_email not set in test env")
+	}
+	if err := s.Settings.Set("signups_enabled", "false"); err != nil {
+		t.Fatalf("disable signups: %v", err)
+	}
+
+	user, err := s.findOrCreateOIDCUser("pocket-id", "sub-closed-3", adminEmail, true, "operator", "")
+	if err != nil {
+		t.Fatalf("admin_email OIDC provisioning should bypass the gate: %v", err)
+	}
+	if user.Email != adminEmail {
+		t.Errorf("expected %s, got %s", adminEmail, user.Email)
+	}
+}

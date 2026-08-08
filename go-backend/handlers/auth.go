@@ -200,8 +200,13 @@ func (s *Handler) ResetPasswordRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send confirmation email
-	messageBody := fmt.Sprintf("Your password has been successfully reset. If you did not request this change, please contact info@zettelgarden.com immediately.")
+	// Send confirmation email. The support address comes from settings
+	// (6er.7); when none is configured, omit the contact line rather than
+	// pointing at a SaaS mailbox.
+	messageBody := "Your password has been successfully reset."
+	if supportEmail := s.Settings.Get("support_email"); supportEmail != "" {
+		messageBody = fmt.Sprintf("Your password has been successfully reset. If you did not request this change, please contact %s immediately.", supportEmail)
+	}
 	err = s.Server.Mail.SendEmail("Password Reset Confirmation", user.Email, messageBody)
 	if err != nil {
 		// Log the error but don't return it to the user since the password was successfully reset

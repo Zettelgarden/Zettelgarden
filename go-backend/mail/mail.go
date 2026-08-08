@@ -87,6 +87,9 @@ func (m *MailClient) sendMailImpl(email Email) error {
 }
 
 func (m *MailClient) SendEmail(subject, recipient, body string) error {
+	if m.Disabled {
+		return nil
+	}
 	if m.Testing {
 		m.TestingEmailsSent += 1
 		return nil
@@ -105,6 +108,9 @@ func (m *MailClient) SendEmail(subject, recipient, body string) error {
 
 // SendHTMLEmail is a convenience method for sending HTML emails
 func (m *MailClient) SendHTMLEmail(subject, recipient, body string) error {
+	if m.Disabled {
+		return nil
+	}
 	if m.Testing {
 		m.TestingEmailsSent += 1
 		return nil

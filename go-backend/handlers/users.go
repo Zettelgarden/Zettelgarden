@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go-backend/models"
 	"go-backend/services"
@@ -183,7 +184,13 @@ func (s *Handler) CreateUserRoute(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		response.Error = true
 		response.Message = err.Error()
-		w.WriteHeader(http.StatusBadRequest)
+		// Registration-closed (signups_enabled=false) is a 403 so the
+		// frontend can distinguish "closed" from a bad request (6er.10).
+		if errors.Is(err, ErrRegistrationClosed) {
+			w.WriteHeader(http.StatusForbidden)
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+		}
 		json.NewEncoder(w).Encode(response)
 		return
 	}
@@ -197,7 +204,12 @@ func (s *Handler) CreateUserRoute(w http.ResponseWriter, r *http.Request) {
 
 	}
 	response.NewID = newID
-	response.Message = "Check your email for a validation email"
+	if s.Settings.GetBool("email_auto_validate") {
+		// No confirmation email is sent (6er.6); don't promise one.
+		response.Message = "Account created"
+	} else {
+		response.Message = "Check your email for a validation email"
+	}
 	response.User = user
 
 	json.NewEncoder(w).Encode(response)
@@ -649,6 +661,12 @@ func (s *Handler) createDefaultTags(userID int) error {
 	return nil
 }
 
+// ErrRegistrationClosed is returned by CreateUser when signups are disabled
+// (signups_enabled=false in settings) and the account is neither the first
+// user nor the deterministic admin_email path (6er.10). Routes map it to a
+// 403 so the frontend can show a distinct "registration closed" message.
+var ErrRegistrationClosed = errors.New("registration is closed on this instance")
+
 func (s *Handler) CreateUser(params models.CreateUserParams) (int, error) {
 	if params.Email == "" {
 		return -1, fmt.Errorf("Email is blank.")
@@ -670,33 +688,43 @@ func (s *Handler) CreateUser(params models.CreateUserParams) (int, error) {
 		return -1, fmt.Errorf("Email already exists")
 	}
 
-	// First-user bootstrap: the first account on a fresh install becomes the
-	// admin (self-hosted setups have no other way to mint one). A subsequent
-	// registration with users already present stays a normal user, unless the
-	// operator's deterministic path applies: an email matching
-	// ZETTEL_ADMIN_EMAIL (case-insensitive) also grants admin.
+	// Registration gate (6er.10): with signups closed, only the first-user
+	// bootstrap (fresh install must be able to mint its admin) and the
+	// deterministic admin_email path may create accounts — invite-only.
+	// Covers POST /api/users, GitHub OAuth, and any other CreateUser caller.
 	var userCount int
 	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM users`).Scan(&userCount); err != nil {
 		return -1, fmt.Errorf("failed to count users: %w", err)
 	}
+	if !s.Settings.GetBool("signups_enabled") && userCount > 0 && !strings.EqualFold(params.Email, s.Settings.Get("admin_email")) {
+		return -1, ErrRegistrationClosed
+	}
+
+	// First-user bootstrap: the first account on a fresh install becomes the
+	// admin (self-hosted setups have no other way to mint one). A subsequent
+	// registration with users already present stays a normal user, unless the
+	// operator's deterministic path applies: an email matching the settings
+	// admin_email (case-insensitive; seeded from ZETTEL_ADMIN_EMAIL on first
+	// boot) also grants admin.
 	isAdmin := userCount == 0
-	// Deterministic admin path: an email matching the settings admin_email
-	// (case-insensitive; seeded from ZETTEL_ADMIN_EMAIL on first boot) also
-	// grants admin. See settings package (Zettelgarden-6er.15).
 	if adminEmail := s.Settings.Get("admin_email"); adminEmail != "" && strings.EqualFold(params.Email, adminEmail) {
 		isAdmin = true
 	}
+
+	// email_auto_validate (6.6): self-hosters without mail treat new accounts
+	// as validated immediately so no confirmation email/banner is involved.
+	emailValidated := s.Settings.GetBool("email_auto_validate")
 
 	var newID int
 	query := `
 	INSERT INTO users (username, email, password, created_at, updated_at,
 	stripe_customer_id, stripe_subscription_id, stripe_subscription_status, 
-	stripe_subscription_frequency, stripe_current_plan, dashboard_card_pk, is_admin
+	stripe_subscription_frequency, stripe_current_plan, dashboard_card_pk, is_admin, email_validated
 	)
-	VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '', '', 'free', '', '', 0, $4) RETURNING id
+	VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '', '', 'free', '', '', 0, $4, $5) RETURNING id
 	`
 
-	err = s.GetDB().QueryRow(query, params.Username, params.Email, hashedPassword, isAdmin).Scan(&newID)
+	err = s.GetDB().QueryRow(query, params.Username, params.Email, hashedPassword, isAdmin, emailValidated).Scan(&newID)
 	if err != nil {
 		// A concurrent signup can still beat the existence check above; the
 		// unique email index (one email = one account) turns that race into a
@@ -720,10 +748,19 @@ func (s *Handler) CreateUser(params models.CreateUserParams) (int, error) {
 	}
 
 	user, _ := s.QueryUser(newID)
-	s.sendEmailValidation(user)
+	// email_auto_validate: skip the confirmation email entirely — the account
+	// is already email_validated (6er.6).
+	if !s.Settings.GetBool("email_auto_validate") {
+		s.sendEmailValidation(user)
+	}
 	go func() {
+		// New-user notification goes to the configured admin email (6er.7);
+		// no recipient configured means no notification.
+		recipient := s.Settings.Get("admin_email")
+		if recipient == "" {
+			return
+		}
 		subject := "New user registered at Zettelgarden"
-		recipient := "nick@nicksavage.ca"
 		body := fmt.Sprintf("A new user has registered at Zettelgarden: %v, %v", params.Username, params.Email)
 		s.Server.Mail.SendEmail(subject, recipient, body)
 		log.Printf("New user registered: %v, %v", params.Username, params.Email)

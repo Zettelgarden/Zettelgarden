@@ -61,8 +61,10 @@ func setFullValidEnv(t *testing.T, devMode bool) {
 }
 
 // prodRequiredEnvKeys lists every variable LoadConfig requires in production
-// mode (dev mode tolerates all of them missing). STRIPE_* and the GitHub/OIDC
-// client vars are excluded because their opt-outs are covered separately.
+// mode (dev mode tolerates all of them missing). STRIPE_*, the GitHub/OIDC
+// client vars, and MAIL_HOST/MAIL_PASSWORD are excluded because their
+// opt-outs (STRIPE_ENABLED=false, GITHUB_AUTH_ENABLED=false, and mail-off
+// auto-detect/MAIL_ENABLED=false) are covered separately.
 var prodRequiredEnvKeys = []string{
 	"ZETTEL_URL",
 	"ZETTEL_ADMIN_EMAIL",
@@ -71,8 +73,6 @@ var prodRequiredEnvKeys = []string{
 	"ZETTEL_LLM_ENDPOINT",
 	"ZETTEL_LLM_DEFAULT_MODEL",
 	"ZETTEL_LLM_SUMMARIZE_MODEL",
-	"MAIL_HOST",
-	"MAIL_PASSWORD",
 	"TYPESENSE_HOST",
 	"TYPESENSE_PASSWORD",
 	"TYPESENSE_COLLECTION",
@@ -160,6 +160,37 @@ func TestLoadConfigProdModeGitHubDisabledAllowsMissingClientVars(t *testing.T) {
 	cfg := LoadConfig() // must not panic with the GitHub client values missing
 	if cfg.Services.GitHub.Enabled {
 		t.Fatal("expected GitHub.Enabled=false when GITHUB_AUTH_ENABLED=false")
+	}
+}
+
+// TestLoadConfigProdModeMailDisabledAllowsMissingMailKeys verifies the
+// MAIL_ENABLED=false opt-out: with mail explicitly off, MAIL_HOST and
+// MAIL_PASSWORD are not required (6er.6).
+func TestLoadConfigProdModeMailDisabledAllowsMissingMailKeys(t *testing.T) {
+	setFullValidEnv(t, false)
+	t.Setenv("MAIL_ENABLED", "false")
+	os.Unsetenv("MAIL_HOST")
+	os.Unsetenv("MAIL_PASSWORD")
+
+	cfg := LoadConfig() // must not panic with every MAIL_* value missing
+	if cfg.Services.Mail.Host != "" {
+		t.Errorf("expected Mail.Host empty when mail disabled, got %q", cfg.Services.Mail.Host)
+	}
+}
+
+// TestLoadConfigProdModeMailOptionalWithoutConfig verifies the auto-detect
+// path: with no MAIL_HOST and no MAIL_ENABLED at all, mail is treated as
+// disabled and LoadConfig does not require the MAIL_* values — a self-hoster
+// with no SMTP at all boots cleanly (6er.6).
+func TestLoadConfigProdModeMailOptionalWithoutConfig(t *testing.T) {
+	setFullValidEnv(t, false)
+	os.Unsetenv("MAIL_HOST")
+	os.Unsetenv("MAIL_PASSWORD")
+	os.Unsetenv("MAIL_ENABLED")
+
+	cfg := LoadConfig() // must not panic
+	if cfg.Services.Mail.Host != "" {
+		t.Errorf("expected Mail.Host empty without mail config, got %q", cfg.Services.Mail.Host)
 	}
 }
 

@@ -70,3 +70,25 @@ func TestMailClientShutdownTimeout(t *testing.T) {
 		t.Errorf("Expected DeadlineExceeded, got: %v", err)
 	}
 }
+
+// TestMailClientDisabledNoOp verifies a Disabled client (mail off, 6er.6)
+// swallows sends without queueing or counting — callers degrade gracefully.
+func TestMailClientDisabledNoOp(t *testing.T) {
+	client := &MailClient{
+		Disabled: true,
+		Queue:    NewEmailQueue(),
+	}
+
+	if err := client.SendEmail("subject", "recipient@example.com", "body"); err != nil {
+		t.Fatalf("disabled SendEmail returned error: %v", err)
+	}
+	if err := client.SendHTMLEmail("subject", "recipient@example.com", "<b>body</b>"); err != nil {
+		t.Fatalf("disabled SendHTMLEmail returned error: %v", err)
+	}
+	if client.Queue.Length() != 0 {
+		t.Errorf("disabled client must not queue emails, got %d", client.Queue.Length())
+	}
+	if client.TestingEmailsSent != 0 {
+		t.Errorf("disabled client must not count emails, got %d", client.TestingEmailsSent)
+	}
+}

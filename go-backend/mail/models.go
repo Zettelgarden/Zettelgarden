@@ -11,9 +11,15 @@ import (
 // integration with the LLM job queue (JobQueue/WorkerPool/EmailProcessor) has
 // been removed; email is delivered synchronously off the EmailQueue by
 // processQueue in mail.go.
+//
+// Disabled marks a no-op client for self-hosters without SMTP (6er.6):
+// SendEmail/SendHTMLEmail return nil immediately and nothing is queued, so
+// callers (validation mails, reminders, notifications) degrade gracefully
+// without nil checks.
 type MailClient struct {
 	Host              string
 	Password          string
+	Disabled          bool
 	Testing           bool
 	TestingEmailsSent int
 	Queue             *EmailQueue

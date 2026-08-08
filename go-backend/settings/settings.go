@@ -58,7 +58,7 @@ var Registry = []Key{
 	{Name: "site_name", Env: "ZETTEL_SITE_NAME", Kind: KindString, Default: "Zettelgarden"},
 	{Name: "signups_enabled", Env: "SIGNUPS_ENABLED", Kind: KindBool, Default: "true"},
 	{Name: "mail_enabled", Env: "MAIL_ENABLED", Kind: KindBool},
-	{Name: "email_auto_validate", Env: "EMAIL_AUTO_VALIDATE", Kind: KindBool, Default: "true"},
+	{Name: "email_auto_validate", Env: "EMAIL_AUTO_VALIDATE", Kind: KindBool},
 	{Name: "support_email", Env: "ZETTEL_SUPPORT_EMAIL", Kind: KindString},
 }
 
@@ -143,17 +143,20 @@ func (m *Manager) ensureSeeded() error {
 }
 
 // seedValue returns the env-derived seed for a key, falling back to the
-// registry default. mail_enabled has a special auto-detect: enabled when a
-// MAIL_HOST is configured (matches MAIL_ENABLED semantics from 6er.6).
+// registry default. mail_enabled and email_auto_validate auto-detect from
+// MAIL_HOST presence (6er.6): a no-mail instance can't deliver validation
+// emails, so mail is off AND new accounts are auto-validated; a mail-enabled
+// instance keeps the historical validation-email flow.
 func seedValue(k Key) string {
 	if v := os.Getenv(k.Env); v != "" {
 		return v
 	}
-	if k.Name == "mail_enabled" {
-		if os.Getenv("MAIL_HOST") != "" {
-			return "true"
-		}
-		return "false"
+	mailConfigured := os.Getenv("MAIL_HOST") != ""
+	switch k.Name {
+	case "mail_enabled":
+		return strconv.FormatBool(mailConfigured)
+	case "email_auto_validate":
+		return strconv.FormatBool(!mailConfigured)
 	}
 	return k.Default
 }

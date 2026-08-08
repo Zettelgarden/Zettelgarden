@@ -116,12 +116,29 @@ func loadLLMConfig() LLMConfig {
 	return config
 }
 
-// loadMailConfig loads mail service configuration
+// loadMailConfig loads mail service configuration. Mail is optional for
+// self-hosters without SMTP (6er.6): when MAIL_HOST is empty (or
+// MAIL_ENABLED=false is set explicitly) the MAIL_* values are not required
+// and the mail client is disabled at boot. When a mail host is configured
+// (MAIL_ENABLED unset), MAIL_HOST + MAIL_PASSWORD are required — the same
+// opt-in/opt-out shape as the OIDC and STRIPE configs.
 func loadMailConfig() MailConfig {
-	return MailConfig{
-		Host:     requireString("MAIL_HOST"),
-		Password: requireString("MAIL_PASSWORD"),
+	enabled := true
+	if v := os.Getenv("MAIL_ENABLED"); v != "" {
+		enabled = requireBool("MAIL_ENABLED")
+	} else if os.Getenv("MAIL_HOST") == "" {
+		enabled = false
 	}
+
+	config := MailConfig{
+		Host:     optionalString("MAIL_HOST"),
+		Password: optionalString("MAIL_PASSWORD"),
+	}
+	if enabled {
+		requireString("MAIL_HOST")
+		requireString("MAIL_PASSWORD")
+	}
+	return config
 }
 
 // loadStripeConfig loads Stripe payment configuration. Billing is enabled by
