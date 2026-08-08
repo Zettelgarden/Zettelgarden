@@ -249,3 +249,37 @@ func TestFindOrCreateOIDCUser_RegistrationClosedAdminEmailBypass(t *testing.T) {
 		t.Errorf("expected %s, got %s", adminEmail, user.Email)
 	}
 }
+
+// TestFindOrCreateOIDCUser_AutoProvisionDisabled verifies the independent
+// oidc_auto_provision toggle (6er.10): with local signups still OPEN but OIDC
+// auto-provision off, OIDC resolves existing accounts but rejects brand-new
+// IdP users.
+func TestFindOrCreateOIDCUser_AutoProvisionDisabled(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Provision an account while auto-provision is on (the default).
+	first, err := s.findOrCreateOIDCUser("pocket-id", "sub-approv-1", "member@example.com", true, "member", "")
+	if err != nil {
+		t.Fatalf("provision while auto-provision on: %v", err)
+	}
+
+	// Turn off OIDC auto-provision only; signups stay open.
+	if err := s.Settings.Set("oidc_auto_provision", "false"); err != nil {
+		t.Fatalf("disable oidc auto-provision: %v", err)
+	}
+
+	// The same (provider, sub) still logs in (existing account).
+	reauth, err := s.findOrCreateOIDCUser("pocket-id", "sub-approv-1", "changed@example.com", true, "member", "")
+	if err != nil {
+		t.Fatalf("existing-account login should still work: %v", err)
+	}
+	if reauth.ID != first.ID {
+		t.Errorf("expected same account id %d, got %d", first.ID, reauth.ID)
+	}
+
+	// A brand-new IdP user is rejected even though local signups are open.
+	if _, err := s.findOrCreateOIDCUser("pocket-id", "sub-approv-new", "newcomer@example.com", true, "newcomer", ""); err == nil {
+		t.Fatal("expected error creating a NEW OIDC account with auto-provision off")
+	}
+}

@@ -21,6 +21,7 @@ describe("getSettings", () => {
       data: {
         site_name: "My Notes",
         signups_enabled: "true",
+        oidc_auto_provision: "false",
         mail_enabled: "false",
         email_auto_validate: "true",
         support_email: "help@example.com",
@@ -32,6 +33,7 @@ describe("getSettings", () => {
     expect(settings).toEqual({
       siteName: "My Notes",
       signupsEnabled: true,
+      oidcAutoProvision: false,
       mailEnabled: false,
       emailAutoValidate: true,
       supportEmail: "help@example.com",
@@ -47,6 +49,7 @@ describe("getSettings", () => {
     expect(settings).toEqual({
       siteName: "Zettelgarden",
       signupsEnabled: true,
+      oidcAutoProvision: true,
       mailEnabled: true,
       emailAutoValidate: true,
       supportEmail: "",

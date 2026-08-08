@@ -9,6 +9,7 @@ import { apiClient, getData } from "./client";
 export interface AppSettings {
   siteName: string;
   signupsEnabled: boolean;
+  oidcAutoProvision: boolean;
   mailEnabled: boolean;
   emailAutoValidate: boolean;
   supportEmail: string;
@@ -18,6 +19,7 @@ export interface AppSettings {
 interface RawSettings {
   site_name?: string;
   signups_enabled?: string;
+  oidc_auto_provision?: string;
   mail_enabled?: string;
   email_auto_validate?: string;
   support_email?: string;
@@ -27,6 +29,7 @@ function parseSettings(raw: RawSettings): AppSettings {
   return {
     siteName: raw.site_name ?? "Zettelgarden",
     signupsEnabled: raw.signups_enabled !== "false",
+    oidcAutoProvision: raw.oidc_auto_provision !== "false",
     mailEnabled: raw.mail_enabled !== "false",
     emailAutoValidate: raw.email_auto_validate !== "false",
     supportEmail: raw.support_email ?? "",
@@ -36,6 +39,7 @@ function parseSettings(raw: RawSettings): AppSettings {
 const DEFAULT_SETTINGS: AppSettings = {
   siteName: "Zettelgarden",
   signupsEnabled: true,
+  oidcAutoProvision: true,
   mailEnabled: true,
   emailAutoValidate: true,
   supportEmail: "",

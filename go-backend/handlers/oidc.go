@@ -356,13 +356,13 @@ func (h *Handler) findOrCreateOIDCUser(provider, subject, email string, emailVer
 	}
 
 	// 3. Create a new account.
-	// Registration gate (6er.10): with signups closed, OIDC only logs in
-	// accounts that already exist (steps 1-2) — unknown IdP users get an error
-	// instead of a provisioned account. The first-user bootstrap and the
-	// deterministic admin_email path stay open so a fresh install can still
-	// mint its first admin via OIDC. Existing admins mint accounts via the
-	// admin UI instead.
-	if !h.Settings.GetBool("signups_enabled") {
+	// Registration gate (6er.10): with signups closed, or OIDC auto-provision
+	// turned off (oidc_auto_provision=false), OIDC only logs in accounts that
+	// already exist (steps 1-2) — unknown IdP users get an error instead of a
+	// provisioned account. The first-user bootstrap and the deterministic
+	// admin_email path stay open so a fresh install can still mint its first
+	// admin via OIDC. Existing admins mint accounts via the admin UI instead.
+	if !h.Settings.GetBool("signups_enabled") || !h.Settings.GetBool("oidc_auto_provision") {
 		var userCount int
 		if err := h.GetDB().QueryRow(`SELECT COUNT(*) FROM users`).Scan(&userCount); err != nil {
 			return models.User{}, fmt.Errorf("count users: %w", err)

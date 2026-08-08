@@ -51,12 +51,15 @@ type Key struct {
 // Registry is the ordered allowlist of admin-managed settings. Order defines
 // the file layout. Keys coordinate with sibling beads:
 //   - admin_email: ZETTEL_ADMIN_EMAIL (notification recipient; 6er.15)
-//   - signups_enabled / mail_enabled / email_auto_validate: 6er.10 / 6er.6
+//   - signups_enabled / oidc_auto_provision: 6er.10 (registration + OIDC
+//     provisioning gates)
+//   - mail_enabled / email_auto_validate: 6er.10 / 6er.6
 //   - support_email: 6er.7
 var Registry = []Key{
 	{Name: "admin_email", Env: "ZETTEL_ADMIN_EMAIL", Kind: KindString},
 	{Name: "site_name", Env: "ZETTEL_SITE_NAME", Kind: KindString, Default: "Zettelgarden"},
 	{Name: "signups_enabled", Env: "SIGNUPS_ENABLED", Kind: KindBool, Default: "true"},
+	{Name: "oidc_auto_provision", Env: "OIDC_AUTO_PROVISION", Kind: KindBool, Default: "true"},
 	{Name: "mail_enabled", Env: "MAIL_ENABLED", Kind: KindBool},
 	{Name: "email_auto_validate", Env: "EMAIL_AUTO_VALIDATE", Kind: KindBool},
 	{Name: "support_email", Env: "ZETTEL_SUPPORT_EMAIL", Kind: KindString},

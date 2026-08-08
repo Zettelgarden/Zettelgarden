@@ -1,6 +1,7 @@
 import React, { FormEvent, useState } from "react";
 import { createUser } from "../api/users";
 import { Link, useNavigate } from "react-router-dom";
+import { useSettings } from "../contexts/SettingsContext";
 
 function RegisterPage() {
   // State to store each input field's value
@@ -11,6 +12,32 @@ function RegisterPage() {
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
+  const { settings } = useSettings();
+
+  // Registration closed (SIGNUPS_ENABLED=false): hide the form. The server
+  // also returns 403 on POST /api/users, but surfacing it here avoids the
+  // dead-end form (matches LoginPage hiding the register link).
+  if (settings && settings.signupsEnabled === false) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 px-4">
+        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
+          <h2 className="text-2xl font-bold text-center mb-4">
+            Registration is closed
+          </h2>
+          <p className="text-gray-600 mb-6">
+            This instance is not accepting new accounts. If you were invited,
+            contact your administrator.
+          </p>
+          <Link
+            to="/login"
+            className="inline-block bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600 transition duration-200"
+          >
+            Back to login
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // Handle form submission
   const handleSubmit = (e: FormEvent) => {

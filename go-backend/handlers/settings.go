@@ -12,6 +12,7 @@ import (
 var publicSettingsKeys = []string{
 	"site_name",
 	"signups_enabled",
+	"oidc_auto_provision",
 	"mail_enabled",
 	"email_auto_validate",
 	"support_email",
