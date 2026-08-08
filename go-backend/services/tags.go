@@ -6,6 +6,8 @@ import (
 	"log"
 	"regexp"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 func QueryTagsForCard(db models.Database, userID int, cardPK int) ([]models.Tag, error) {
@@ -193,29 +195,44 @@ func CreateTag(db models.Database, userID int, tagData models.EditTagParams) (mo
 		return EditTag(db, userID, tagData.Name, tagData)
 	}
 
-	query := `INSERT INTO tags (name, color, user_id, created_at, updated_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
-	_, err = db.Exec(query, tagData.Name, tagData.Color, userID)
+	syncUUID := uuid.New().String()
+	query := `INSERT INTO tags (name, color, user_id, created_at, updated_at, sync_uuid) VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $4)`
+	_, err = db.Exec(query, tagData.Name, tagData.Color, userID, syncUUID)
 	if err != nil {
 		log.Printf("create tag err %v", err)
 		return models.Tag{}, nil
 	}
 	tag, err := GetTag(db, userID, tagData.Name)
+	if err != nil {
+		return models.Tag{}, err
+	}
+
+	// Record the create in the sync change feed (Phase 0a). Note this also
+	// fires for tags created implicitly from a card body / task title edit
+	// (iterateCreateTagsForCard) — the tag row is real and must propagate.
+	if err := EmitChange(db, userID, SyncCollectionTags, syncUUID, SyncOpUpsert, 1); err != nil {
+		return models.Tag{}, err
+	}
 
 	return tag, nil
 }
 
 func EditTag(db models.Database, userID int, tagName string, tagData models.EditTagParams) (models.Tag, error) {
 
-	query := `UPDATE tags SET name = $1, color = $2, is_deleted = FALSE WHERE user_id = $3 AND name = $4`
+	query := `UPDATE tags SET name = $1, color = $2, is_deleted = FALSE, version = version + 1 WHERE user_id = $3 AND name = $4`
 	_, err := db.Exec(query, tagData.Name, tagData.Color, userID, tagName)
 	if err != nil {
-		log.Printf("update tag err %v", err)
-		return models.Tag{}, nil
+		return models.Tag{}, err
 	}
 	tag, err := GetTag(db, userID, tagData.Name)
 	if err != nil {
-		log.Printf("update tag get err %v", err)
-		return models.Tag{}, nil
+		return models.Tag{}, err
+	}
+
+	// Record the change (incl. resurrection of a soft-deleted tag) in the
+	// sync change feed (Phase 0a).
+	if err := emitRowChange(db, userID, SyncCollectionTags, tag.ID, SyncOpUpsert); err != nil {
+		return models.Tag{}, err
 	}
 	return tag, nil
 }
@@ -386,7 +403,10 @@ func RemoveAllTagsFromTask(db models.Database, userID, taskPK int) error {
 // DeleteTag soft-deletes a tag
 func DeleteTag(db models.Database, userID, id int) error {
 	_, err := db.Exec(`
-UPDATE tags SET is_deleted = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id =  $1 AND user_id = $2
+UPDATE tags SET is_deleted = TRUE, updated_at = CURRENT_TIMESTAMP, version = version + 1 WHERE id =  $1 AND user_id = $2
 `, id, userID)
-	return err
+	if err != nil {
+		return err
+	}
+	return emitRowChange(db, userID, SyncCollectionTags, id, SyncOpDelete)
 }

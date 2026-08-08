@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/typesense/typesense-go/typesense"
 	"github.com/typesense/typesense-go/typesense/api"
 	"github.com/typesense/typesense-go/typesense/api/pointer"
@@ -651,10 +652,14 @@ func DeleteCard(db models.Database, userID int, id int) error {
 
 	// Delete the card (soft delete)
 	_, err = db.Exec(`
-		UPDATE cards SET is_deleted = TRUE, updated_at = $3
+		UPDATE cards SET is_deleted = TRUE, updated_at = $3, version = version + 1
 		WHERE id = $1 AND user_id = $2
 	`, id, userID, time.Now().UTC())
 	if err != nil {
+		return err
+	}
+
+	if err := emitRowChange(db, userID, SyncCollectionCards, id, SyncOpDelete); err != nil {
 		return err
 	}
 
@@ -745,13 +750,17 @@ func UpdateCard(db models.Database, userID int, cardPK int, params models.EditCa
 	}
 
 	query := `
-	UPDATE cards SET title = $1, body = $2, link = $3, parent_id = $4, updated_at = $9, card_id = $5, card_schema_id = $6, structured_data = $7
+	UPDATE cards SET title = $1, body = $2, link = $3, parent_id = $4, updated_at = $9, card_id = $5, card_schema_id = $6, structured_data = $7, version = version + 1
 	WHERE
 	id = $8
 	`
 	_, err = db.Exec(query, params.Title, params.Body, params.Link, parent_id, params.CardID, schemaID, structuredData, cardPK, time.Now().UTC())
 	if err != nil {
 		log.Printf("updatecard err %v", err)
+		return models.Card{}, err
+	}
+
+	if err := emitRowChange(db, userID, SyncCollectionCards, cardPK, SyncOpUpsert); err != nil {
 		return models.Card{}, err
 	}
 
@@ -883,14 +892,15 @@ func CreateCard(db models.Database, userID int, params models.EditCardParams) (m
 	// time.Now().UTC() explicitly works on both drivers and makes tests
 	// deterministic. See migration design doc Phase 3 / D5.
 	now := time.Now().UTC()
+	syncUUID := uuid.New().String()
 	query := `
 	INSERT INTO cards
-	(title, body, link, user_id, card_id, parent_id, card_schema_id, structured_data, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	(title, body, link, user_id, card_id, parent_id, card_schema_id, structured_data, created_at, updated_at, sync_uuid)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	RETURNING id;
 	`
 	var id int
-	err := db.QueryRow(query, params.Title, params.Body, params.Link, userID, params.CardID, parentID, params.SchemaID, params.StructuredData, now, now).Scan(&id)
+	err := db.QueryRow(query, params.Title, params.Body, params.Link, userID, params.CardID, parentID, params.SchemaID, params.StructuredData, now, now, syncUUID).Scan(&id)
 	if err != nil {
 		log.Printf("updatecard err %v", err)
 		return models.Card{}, err
@@ -925,6 +935,12 @@ func CreateCard(db models.Database, userID int, params models.EditCardParams) (m
 	structuredDataBacklinks := ExtractBacklinksFromStructuredData(db, userID, newCard.StructuredData, schema)
 	allBacklinks := append(backlinks, structuredDataBacklinks...)
 	UpdateBacklinks(db, newCard.ID, allBacklinks)
+
+	// Record the create in the sync change feed (Phase 0a). Tag creation from
+	// the body is captured separately inside AddTagsFromCard/CreateTag.
+	if err := EmitChange(db, userID, SyncCollectionCards, syncUUID, SyncOpUpsert, 1); err != nil {
+		return models.Card{}, err
+	}
 
 	return GetFullCard(db, userID, id)
 }
@@ -1428,7 +1444,7 @@ func UpdateCardStructuredData(db models.Database, userID int, cardPK int, schema
 
 	// Update only the structured data fields
 	query := `
-	UPDATE cards SET card_schema_id = $1, structured_data = $2, updated_at = $5
+	UPDATE cards SET card_schema_id = $1, structured_data = $2, updated_at = $5, version = version + 1
 	WHERE id = $3 AND user_id = $4
 	`
 	result, err := db.Exec(query, schemaID, structuredData, cardPK, userID, time.Now().UTC())
@@ -1443,6 +1459,10 @@ func UpdateCardStructuredData(db models.Database, userID int, cardPK int, schema
 	}
 	if rowsAffected == 0 {
 		return models.Card{}, fmt.Errorf("card not found or not owned by user")
+	}
+
+	if err := emitRowChange(db, userID, SyncCollectionCards, cardPK, SyncOpUpsert); err != nil {
+		return models.Card{}, err
 	}
 
 	// Get the new state

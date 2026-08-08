@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS cards (
     card_schema_id INT,
     structured_data TEXT,
     created_by_agent_id INT NULL REFERENCES users(id) ON DELETE SET NULL,
+    version INTEGER DEFAULT 1,
+    sync_uuid TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
@@ -97,6 +99,19 @@ CREATE TABLE IF NOT EXISTS audit_events (
     entity_type TEXT NOT NULL,
     action TEXT NOT NULL,
     details TEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT (datetime('now'))
+);
+
+-- sync_log: change feed for the local-first sync engine (Zettelgarden-v5b
+-- Phase 0a). Mirrors the consolidated schema so the spike exercises the
+-- full CreateCard path including EmitChange.
+CREATE TABLE IF NOT EXISTS sync_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    collection TEXT NOT NULL,
+    row_uuid TEXT NOT NULL,
+    op TEXT NOT NULL,
+    version INTEGER NOT NULL,
     created_at DATETIME NOT NULL DEFAULT (datetime('now'))
 );
 

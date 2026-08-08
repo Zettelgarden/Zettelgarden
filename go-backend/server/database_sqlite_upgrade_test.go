@@ -351,3 +351,88 @@ func toSortedSlice(m map[string]struct{}) []string {
 	sort.Strings(s)
 	return s
 }
+
+// createSyncTablesWithoutSyncColumns simulates a pre-sync SQLite database:
+// cards/tasks/tags WITHOUT version/sync_uuid and no sync_log — the state of
+// any DB that predates the Phase 0a migration (epic Zettelgarden-v5b).
+func createSyncTablesWithoutSyncColumns(t *testing.T, db *sql.DB) {
+	t.Helper()
+	stmts := []string{
+		`CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT, auth_provider TEXT DEFAULT 'local')`,
+		`CREATE TABLE cards (id INTEGER PRIMARY KEY AUTOINCREMENT, card_id TEXT, title TEXT, user_id INTEGER, created_at DATETIME, updated_at DATETIME, is_deleted BOOLEAN DEFAULT false, parent_id INTEGER)`,
+		`CREATE TABLE tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, title TEXT NOT NULL, created_at DATETIME, updated_at DATETIME, is_deleted BOOLEAN DEFAULT false)`,
+		`CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, color TEXT, user_id INTEGER, is_deleted BOOLEAN DEFAULT false, created_at DATETIME, updated_at DATETIME)`,
+	}
+	for _, s := range stmts {
+		if _, err := db.Exec(s); err != nil {
+			t.Fatalf("create pre-sync table: %v", err)
+		}
+	}
+}
+
+func TestSyncSelfHealAddsColumnsCreatesLogBackfills(t *testing.T) {
+	db := openMemSQLite(t)
+	createSyncTablesWithoutSyncColumns(t, db)
+
+	// Seed legacy rows with NULL sync_uuid (pre-sync writes).
+	for _, ins := range []string{
+		`INSERT INTO cards (title) VALUES ('legacy card')`,
+		`INSERT INTO tasks (user_id, title) VALUES (1, 'legacy task')`,
+		`INSERT INTO tags (name, user_id) VALUES ('legacy', 1)`,
+	} {
+		if _, err := db.Exec(ins); err != nil {
+			t.Fatalf("seed legacy row: %v", err)
+		}
+	}
+
+	if err := ensureSQLiteSchemaUpgrades(db); err != nil {
+		t.Fatalf("upgrade: %v", err)
+	}
+
+	// Columns added to all three synced tables.
+	for _, table := range []string{"cards", "tasks", "tags"} {
+		for _, col := range []string{"version", "sync_uuid"} {
+			got, err := sqliteColumnExists(db, table, col)
+			if err != nil || !got {
+				t.Fatalf("%s.%s missing after upgrade (got=%v err=%v)", table, col, got, err)
+			}
+		}
+	}
+
+	// sync_log + feed index created.
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='sync_log'`).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("sync_log missing after upgrade (n=%d err=%v)", n, err)
+	}
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_sync_log_user_id'`).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("idx_sync_log_user_id missing after upgrade (n=%d err=%v)", n, err)
+	}
+
+	// Legacy rows back-filled with non-NULL sync_uuid; version defaults to 1.
+	for _, table := range []string{"cards", "tasks", "tags"} {
+		var nullCount int
+		if err := db.QueryRow(fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE sync_uuid IS NULL`, table)).Scan(&nullCount); err != nil {
+			t.Fatalf("check NULL sync_uuid in %s: %v", table, err)
+		}
+		if nullCount != 0 {
+			t.Errorf("%s still has %d NULL sync_uuid rows after back-fill", table, nullCount)
+		}
+	}
+	var version int
+	if err := db.QueryRow(`SELECT version FROM cards LIMIT 1`).Scan(&version); err != nil || version != 1 {
+		t.Fatalf("cards.version = %d (want 1), err=%v", version, err)
+	}
+
+	// Unique partial sync_uuid indexes present on all three tables.
+	for _, table := range []string{"cards", "tasks", "tags"} {
+		idx := fmt.Sprintf("idx_%s_sync_uuid", table)
+		if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name=$1`, idx).Scan(&n); err != nil || n != 1 {
+			t.Fatalf("index %s missing (n=%d err=%v)", idx, n, err)
+		}
+	}
+
+	// Idempotent: a second run is a clean no-op (self-heal runs on every boot).
+	if err := ensureSQLiteSchemaUpgrades(db); err != nil {
+		t.Fatalf("second upgrade (idempotency): %v", err)
+	}
+}

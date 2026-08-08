@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // GetTask retrieves a single task by ID for a specific user
@@ -437,13 +439,18 @@ func UpdateTaskWithRecurring(db models.Database, userID int, id int, task models
 			is_complete = $9,
 			reminder_time = $10,
 			reminder_sent = $11,
-			sort_order = $12
+			sort_order = $12,
+			version = version + 1
 		WHERE id = $13 AND user_id = $14 AND is_deleted = FALSE
 	`, task.CardPK, task.ScheduledDate, task.DueDate, completedAt, task.Title, task.Description, task.Priority, task.Status, task.IsComplete, task.ReminderTime, reminderSent, task.SortOrder, id, userID)
 
 	if err != nil {
 		log.Printf("error: %v", err)
 		return 0, fmt.Errorf("unable to update task")
+	}
+
+	if err := emitRowChange(db, userID, SyncCollectionTasks, id, SyncOpUpsert); err != nil {
+		return 0, err
 	}
 
 	newTask, err := GetTask(db, userID, id)
@@ -496,11 +503,12 @@ func CreateTask(db models.Database, task models.Task) (int, error) {
 		}
 	}
 
+	syncUUID := uuid.New().String()
 	err := db.QueryRow(`
-	INSERT INTO tasks (card_pk, user_id, scheduled_date, due_date, created_at, updated_at, completed_at, title, description, priority, status, is_complete, is_deleted, reminder_time, reminder_sent, parent_task_id, sort_order)
-	VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $5, $6, $7, $8, $9, $10, FALSE, $11, FALSE, $12, $13)
+	INSERT INTO tasks (card_pk, user_id, scheduled_date, due_date, created_at, updated_at, completed_at, title, description, priority, status, is_complete, is_deleted, reminder_time, reminder_sent, parent_task_id, sort_order, sync_uuid)
+	VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $5, $6, $7, $8, $9, $10, FALSE, $11, FALSE, $12, $13, $14)
 	RETURNING id
-	`, task.CardPK, task.UserID, task.ScheduledDate, task.DueDate, task.CompletedAt, task.Title, task.Description, task.Priority, task.Status, task.IsComplete, task.ReminderTime, task.ParentTaskID, task.SortOrder).Scan(&taskID)
+	`, task.CardPK, task.UserID, task.ScheduledDate, task.DueDate, task.CompletedAt, task.Title, task.Description, task.Priority, task.Status, task.IsComplete, task.ReminderTime, task.ParentTaskID, task.SortOrder, syncUUID).Scan(&taskID)
 
 	if err != nil {
 		log.Printf("err %v", err)
@@ -520,6 +528,11 @@ func CreateTask(db models.Database, task models.Task) (int, error) {
 		}
 	}
 
+	// Record the create in the sync change feed (Phase 0a).
+	if err := EmitChange(db, task.UserID, SyncCollectionTasks, syncUUID, SyncOpUpsert, 1); err != nil {
+		return 0, err
+	}
+
 	return taskID, nil
 }
 
@@ -531,13 +544,17 @@ func DeleteTask(db models.Database, userID int, id int) error {
 	}
 
 	_, err = db.Exec(`
-	UPDATE tasks SET is_deleted = TRUE
+	UPDATE tasks SET is_deleted = TRUE, version = version + 1
 	WHERE id = $1 AND user_id = $2
 	`, id, userID)
 
 	if err != nil {
 		log.Printf("err %v", err)
 		return fmt.Errorf("unable to delete task")
+	}
+
+	if err := emitRowChange(db, userID, SyncCollectionTasks, id, SyncOpDelete); err != nil {
+		return err
 	}
 
 	// user_stats was trigger-maintained (0093); now maintained in Go (Phase 5).
@@ -891,7 +908,7 @@ func GetSubtasks(db models.Database, userID int, parentTaskID int) ([]models.Tas
 
 // UpdateTaskParent updates the parent_task_id of a task
 func UpdateTaskParent(db models.Database, userID int, taskID int, parentTaskID *int) error {
-	query := `UPDATE tasks SET parent_task_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3`
+	query := `UPDATE tasks SET parent_task_id = $1, updated_at = CURRENT_TIMESTAMP, version = version + 1 WHERE id = $2 AND user_id = $3`
 	result, err := db.Exec(query, parentTaskID, taskID, userID)
 	if err != nil {
 		return err
@@ -902,7 +919,7 @@ func UpdateTaskParent(db models.Database, userID int, taskID int, parentTaskID *
 		return fmt.Errorf("task not found")
 	}
 
-	return nil
+	return emitRowChange(db, userID, SyncCollectionTasks, taskID, SyncOpUpsert)
 }
 
 // PrepareSubtask creates a subtask task model with inherited properties
@@ -914,9 +931,12 @@ func ReorderTasks(db models.Database, userID int, orders []struct {
 	SortOrder int `json:"sort_order"`
 }) error {
 	for _, item := range orders {
-		_, err := db.Exec(`UPDATE tasks SET sort_order = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3 AND is_deleted = FALSE`, item.SortOrder, item.ID, userID)
+		_, err := db.Exec(`UPDATE tasks SET sort_order = $1, updated_at = CURRENT_TIMESTAMP, version = version + 1 WHERE id = $2 AND user_id = $3 AND is_deleted = FALSE`, item.SortOrder, item.ID, userID)
 		if err != nil {
 			return fmt.Errorf("failed to update sort_order for task %d: %w", item.ID, err)
+		}
+		if err := emitRowChange(db, userID, SyncCollectionTasks, item.ID, SyncOpUpsert); err != nil {
+			return fmt.Errorf("failed to record sync change for task %d: %w", item.ID, err)
 		}
 	}
 	return nil

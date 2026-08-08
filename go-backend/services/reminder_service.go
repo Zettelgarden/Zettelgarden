@@ -71,9 +71,14 @@ func SendTaskReminders(db *sql.DB, mailClient *mail.MailClient) error {
 		}
 
 		// Mark reminder as sent
-		_, err = db.Exec("UPDATE tasks SET reminder_sent = TRUE WHERE id = $1", task.ID)
+		_, err = db.Exec("UPDATE tasks SET reminder_sent = TRUE, version = version + 1 WHERE id = $1", task.ID)
 		if err != nil {
 			log.Printf("Failed to mark reminder as sent for task %d: %v", task.ID, err)
+			failCount++
+			continue
+		}
+		if err := emitRowChange(db, task.UserID, SyncCollectionTasks, task.ID, SyncOpUpsert); err != nil {
+			log.Printf("Failed to record sync change for task %d: %v", task.ID, err)
 			failCount++
 			continue
 		}

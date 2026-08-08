@@ -7,6 +7,8 @@ import (
 	"log"
 	"sort"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 func RunMigrations(S *Server) {
@@ -159,6 +161,16 @@ var sqliteSelfHealUpgrades = []struct {
 	{"users", "oidc_sub", "TEXT"},
 	{"users", "show_tasks", "BOOLEAN DEFAULT true"},
 	{"users", "show_rss", "BOOLEAN DEFAULT true"},
+	// Local-first sync columns (epic Zettelgarden-v5b, Phase 0a). version is
+	// the monotonic per-row concurrency counter for last-write-wins; sync_uuid
+	// is the immutable sync identity (id is server-assigned, card_id is
+	// user-editable, tags/tasks have int PKs — none safe for offline sync).
+	{"cards", "version", "INTEGER DEFAULT 1"},
+	{"cards", "sync_uuid", "TEXT"},
+	{"tasks", "version", "INTEGER DEFAULT 1"},
+	{"tasks", "sync_uuid", "TEXT"},
+	{"tags", "version", "INTEGER DEFAULT 1"},
+	{"tags", "sync_uuid", "TEXT"},
 }
 
 // ensureSQLiteSchemaUpgrades applies idempotent, SQLite-only repairs for
@@ -225,6 +237,72 @@ func ensureSQLiteSchemaUpgrades(db *sql.DB) error {
 			log.Printf("WARNING: %d duplicate user emails block the unique users.email index (one email = one account); dedupe users and restart — Zettelgarden-rbr", dupes)
 		} else if _, err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email)`); err != nil {
 			return fmt.Errorf("create idx_users_email: %w", err)
+		}
+	}
+
+	// Local-first sync (epic Zettelgarden-v5b, Phase 0a): create the sync_log
+	// change feed (fresh builds get it from the consolidated schema; existing
+	// DBs need it here) and back-fill sync_uuid for legacy rows. The columns
+	// themselves are handled by sqliteSelfHealUpgrades above.
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS sync_log (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL,
+		collection TEXT NOT NULL,
+		row_uuid TEXT NOT NULL,
+		op TEXT NOT NULL,
+		version INTEGER NOT NULL,
+		created_at DATETIME DEFAULT (datetime('now')) NOT NULL
+	)`); err != nil {
+		return fmt.Errorf("create sync_log: %w", err)
+	}
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_sync_log_user_id ON sync_log (user_id, id)`); err != nil {
+		return fmt.Errorf("create idx_sync_log_user_id: %w", err)
+	}
+	// sync_uuid uniqueness + legacy back-fill for the three synced tables.
+	for _, table := range []string{"cards", "tasks", "tags"} {
+		exists, err := sqliteTableExists(db, table)
+		if err != nil {
+			return fmt.Errorf("check %s table: %w", table, err)
+		}
+		if !exists {
+			continue
+		}
+		if _, err := db.Exec(fmt.Sprintf(`CREATE UNIQUE INDEX IF NOT EXISTS idx_%s_sync_uuid ON %s (sync_uuid) WHERE sync_uuid IS NOT NULL`, table, table)); err != nil {
+			return fmt.Errorf("create idx_%s_sync_uuid: %w", table, err)
+		}
+		// Back-fill needs the canonical id column; skip tables that lack it
+		// (synthetic mini-schemas in tests) — real synced tables always have id.
+		hasID, err := sqliteColumnExists(db, table, "id")
+		if err != nil {
+			return fmt.Errorf("check %s.id: %w", table, err)
+		}
+		if !hasID {
+			continue
+		}
+		// One-time back-fill: legacy rows (and test fixtures) have NULL
+		// sync_uuid; assign canonical UUIDs so every synced row has an
+		// identity. Cheap after the first boot (no NULLs remain).
+		rows, err := db.Query(fmt.Sprintf(`SELECT id FROM %s WHERE sync_uuid IS NULL`, table))
+		if err != nil {
+			return fmt.Errorf("select NULL-sync_uuid %s: %w", table, err)
+		}
+		var ids []int
+		for rows.Next() {
+			var id int
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				return fmt.Errorf("scan %s id: %w", table, err)
+			}
+			ids = append(ids, id)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return fmt.Errorf("iterate %s ids: %w", table, err)
+		}
+		for _, id := range ids {
+			if _, err := db.Exec(fmt.Sprintf(`UPDATE %s SET sync_uuid = $1 WHERE id = $2`, table), uuid.New().String(), id); err != nil {
+				return fmt.Errorf("back-fill %s.%d sync_uuid: %w", table, id, err)
+			}
 		}
 	}
 	return nil

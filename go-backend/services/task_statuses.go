@@ -281,11 +281,37 @@ func DeleteTaskStatus(db models.Database, userID int, statusID int) error {
 		return fmt.Errorf("no default status found for reassignment")
 	}
 
-	// Reassign all tasks with this status to the default status
-	_, err = db.Exec(`UPDATE tasks SET status = $1 WHERE user_id = $2 AND status = $3`, defaultStatus.Name, userID, status.Name)
+	// Reassign all tasks with this status to the default status. Collect the
+	// affected rows first so each reassigned task emits a sync change (Phase 0a).
+	rows, err := db.Query(`SELECT id FROM tasks WHERE user_id = $1 AND status = $2`, userID, status.Name)
+	if err != nil {
+		log.Printf("Error querying tasks to reassign: %v", err)
+		return err
+	}
+	var reassignedIDs []int
+	for rows.Next() {
+		var taskID int
+		if err := rows.Scan(&taskID); err != nil {
+			rows.Close()
+			return err
+		}
+		reassignedIDs = append(reassignedIDs, taskID)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	_, err = db.Exec(`UPDATE tasks SET status = $1, version = version + 1 WHERE user_id = $2 AND status = $3`, defaultStatus.Name, userID, status.Name)
 	if err != nil {
 		log.Printf("Error reassigning tasks: %v", err)
 		return err
+	}
+	for _, taskID := range reassignedIDs {
+		if err := emitRowChange(db, userID, SyncCollectionTasks, taskID, SyncOpUpsert); err != nil {
+			log.Printf("Error recording sync change for reassigned task %d: %v", taskID, err)
+			return err
+		}
 	}
 
 	// Delete the status
