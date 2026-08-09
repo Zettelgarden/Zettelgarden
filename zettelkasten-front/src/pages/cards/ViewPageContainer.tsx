@@ -79,6 +79,7 @@ interface ViewPageContainerActions {
   onRecategorize: () => void;
   onCloseIdDiscovery: () => void;
   refreshCard: () => void;
+  refreshRelatedCards: () => void;
 }
 
 export function useViewPageContainer({ cardId }: ViewPageProps): {
@@ -225,6 +226,11 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
     }
   };
 
+  /** Invalidate cached related cards so the fetch effect repopulates them. */
+  const refreshRelatedCards = () => {
+    setRelatedCards(null);
+  };
+
   // useEffects
   useEffect(() => {
     // Reset view states when card changes
@@ -246,13 +252,15 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   }, [refreshTrigger, id]);
 
   useEffect(() => {
-    // Fetch related cards when viewingCard loads and relatedCards is null
+    // Fetch related cards when viewingCard loads and relatedCards is null.
+    // relatedCards is a dependency so a refreshRelatedCards() invalidation
+    // (reset to null) triggers a fresh fetch, not just the initial load.
     if (cardData.viewingCard && relatedCards === null) {
       getRelatedCards(cardData.viewingCard.id.toString())
         .then(setRelatedCards)
         .catch((err) => console.error('Failed to fetch related cards:', err));
     }
-  }, [cardData.viewingCard]);
+  }, [cardData.viewingCard, relatedCards]);
 
   // Filter out related cards that already appear in the card's references so
   // the Related Cards list doesn't duplicate the Linked references section.
@@ -305,6 +313,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
       onRecategorize,
       onCloseIdDiscovery,
       refreshCard,
+      refreshRelatedCards,
     },
   };
 }

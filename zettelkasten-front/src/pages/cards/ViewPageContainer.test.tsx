@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { UIStateProvider } from '../../contexts/UIStateContext';
 import { DialogStateProvider } from '../../contexts/DialogStateContext';
@@ -140,5 +140,39 @@ describe('useViewPageContainer related cards filtering', () => {
     const ids = result.current.data.relatedCards!.map((rc) => rc.card.id);
     expect(ids).toContain(11);
     expect(ids).not.toContain(10);
+  });
+
+  it('refetches related cards after refreshRelatedCards invalidates the cache', async () => {
+    const staleCard = makePartialCard(11, 'REL-11');
+    const freshCard = makePartialCard(12, 'REL-12');
+
+    // First fetch returns the stale list; the invalidation triggers a second
+    // fetch that returns the fresh list.
+    vi.mocked(getRelatedCards)
+      .mockResolvedValueOnce([{ card: staleCard, score: 5, reasons: ['tags'] }])
+      .mockResolvedValueOnce([
+        { card: freshCard, score: 6, reasons: ['tags'] },
+      ]);
+
+    const { result } = renderHook(() => useViewPageContainer({ cardId: '1' }), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.data.relatedCards?.map((rc) => rc.card.id)).toEqual(
+        [11],
+      );
+    });
+
+    act(() => {
+      result.current.actions.refreshRelatedCards();
+    });
+
+    await waitFor(() => {
+      expect(result.current.data.relatedCards?.map((rc) => rc.card.id)).toEqual(
+        [12],
+      );
+    });
+    expect(getRelatedCards).toHaveBeenCalledTimes(2);
   });
 });

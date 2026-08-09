@@ -60,6 +60,7 @@ export function ViewPage({ cardId }: { cardId?: string }) {
     onRecategorize,
     onCloseIdDiscovery,
     refreshCard,
+    refreshRelatedCards,
   } = actions;
 
   // Handle saving card
@@ -68,6 +69,8 @@ export function ViewPage({ cardId }: { cardId?: string }) {
       await saveExistingCard(updatedCard);
       // Update the viewingCard state with the saved data
       setViewCard(updatedCard);
+      // Relatedness depends on the saved body/title, so refetch the list
+      refreshRelatedCards();
     } catch (err) {
       console.error('Failed to save card:', err);
       setError('Failed to save card');
@@ -222,6 +225,7 @@ export function ViewPage({ cardId }: { cardId?: string }) {
               saveExistingCard(updatedCard).then(() => {
                 // Trigger a refresh to update the card data
                 refreshCard();
+                refreshRelatedCards();
               });
               onCloseIdDiscovery();
             }
