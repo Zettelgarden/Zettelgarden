@@ -14,9 +14,22 @@ raw styled `<button>` elements, custom menu markup, spinner markup, status
 pills, or label+input+error markup. If the primitive doesn't cover your case,
 extend the primitive (or file an issue), don't fork the markup.
 
-This is enforced by code review today and will be backed by a CI grep check
-(no `fixed inset-0` outside `ui/`; see Zettelgarden-z11.16) once Phase D
-lands. ESLint rules may follow later.
+This is enforced by a CI/script check (Zettelgarden-z11.16):
+
+```bash
+npm run check:primitives   # node scripts/check-ui-primitives.mjs
+```
+
+The check fails (exit 1, listing offenders) on any raw centered modal shell
+(`fixed inset-0` + `items-center` + `justify-center`) or raw Headless UI
+`Dialog` import outside `src/components/ui/`. Non-dialog `fixed inset-0`
+patterns (bottom sheets, mobile drawers, sidebar backdrops, hover popovers,
+drag-and-drop overlays) are allowed — the centering signature is what marks a
+modal shell. A small allowlist covers FileVault's intentional
+fullscreen/lightbox/upload overlays (remove an entry when that surface
+migrates). `Menu`/`Popover`/`Combobox`/`Transition` Headless imports are
+allowed; popovers and autocompletes route through dedicated primitives
+(see Zettelgarden-12g). ESLint rules may follow later.
 
 ## The primitives
 

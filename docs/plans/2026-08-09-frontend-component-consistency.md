@@ -187,6 +187,13 @@ as their call sites migrate / outright.
   script; `build` is `tsc && vite build`. Adding ESLint is a greenfield tooling
   introduction, so start with a lightweight grep/CI check (e.g., block `fixed
   inset-0` outside `ui/`), and treat ESLint as a follow-up rather than the first gate.
+- **Landed (Zettelgarden-z11.16):** `npm run check:primitives`
+  (`scripts/check-ui-primitives.mjs`) fails on raw centered modal shells
+  (`fixed inset-0` + `items-center` + `justify-center`) and raw Headless `Dialog`
+  imports outside `src/components/ui/`; allows non-dialog `fixed inset-0`
+  (bottom sheets, backdrops, popovers, overlays) and a small allowlist for
+  FileVault's fullscreen/lightbox/upload overlays. Documented in
+  `docs/ui-primitives-how-to-use.md`.
 - Route new dialogs/menus/buttons through the primitives by convention documented
   in `docs/`.
 - Optionally normalize to a single palette in `tailwind.config.js` (retire

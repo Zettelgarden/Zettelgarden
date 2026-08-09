@@ -63,7 +63,8 @@
     "test:ui": "vitest --ui",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "check:primitives": "node scripts/check-ui-primitives.mjs"
   },
   "browserslist": {
     "production": [
