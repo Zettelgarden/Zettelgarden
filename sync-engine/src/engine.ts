@@ -239,14 +239,17 @@ export class SyncEngine {
         pending: await this.pendingChanges(),
         at: this.lastSynced,
       };
-      void this.emitProgress();
       return summary;
     } catch (err) {
       this.lastError = err instanceof Error ? err.message : String(err);
-      void this.emitProgress();
       throw err;
     } finally {
+      // Emit the terminal state AFTER clearing the syncing flag: the success
+      // path above must not leave the UI stuck on 'syncing' forever (the
+      // indicator showed "Syncing…" permanently after every sync — found by
+      // the desktop E2E smoke, Zettelgarden-77j).
       this.syncing = false;
+      void this.emitProgress();
     }
   }
 

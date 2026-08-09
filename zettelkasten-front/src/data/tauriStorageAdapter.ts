@@ -44,7 +44,6 @@ export class TauriStorageAdapter implements StorageAdapter {
    * between calls, so BEGIN…body…COMMIT must not interleave with another
    * transaction's BEGIN). */
   private txQueue: Promise<void> = Promise.resolve();
-  private inTransaction = false;
 
   constructor() {
     this.ready = this.migrate();
@@ -107,15 +106,14 @@ export class TauriStorageAdapter implements StorageAdapter {
     return res ?? [];
   }
 
+  // The promise queue serializes concurrent callers (each invoke releases the
+  // Rust mutex between calls, so BEGIN…body…COMMIT must not interleave with
+  // another transaction's BEGIN). NOT reentrant — no engine caller nests.
   async transaction<T>(fn: () => Promise<T>): Promise<T> {
-    if (this.inTransaction) {
-      throw new Error('TauriStorageAdapter.transaction is not reentrant');
-    }
     const prev = this.txQueue;
     let release!: () => void;
     this.txQueue = new Promise((r) => (release = r));
     await prev;
-    this.inTransaction = true;
     try {
       await tauriInvoke('sync_begin');
       try {
@@ -127,7 +125,6 @@ export class TauriStorageAdapter implements StorageAdapter {
         throw err;
       }
     } finally {
-      this.inTransaction = false;
       release();
     }
   }

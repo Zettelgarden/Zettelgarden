@@ -15,7 +15,6 @@ export class SqliteStorageAdapter implements StorageAdapter {
    * async transaction body yields between awaits, so two overlapping
    * transaction() calls could interleave BEGIN/COMMIT without this). */
   private txQueue: Promise<void> = Promise.resolve();
-  private inTransaction = false;
 
   constructor(path: string) {
     this.db = new Database(path);
@@ -55,20 +54,16 @@ export class SqliteStorageAdapter implements StorageAdapter {
     this.db.close();
   }
 
-  /** Runs fn inside BEGIN IMMEDIATE…COMMIT (ROLLBACK on throw). Serialized
-   * per adapter so async transaction bodies never interleave. */
+  /** Runs fn inside BEGIN IMMEDIATE…COMMIT (ROLLBACK on throw). The promise
+   * queue serializes concurrent callers (a scheduler sync overlapping a UI
+   * mutation waits for the previous transaction). NOT reentrant — a
+   * transaction nested inside a transaction body would deadlock; no engine
+   * caller nests. */
   async transaction<T>(fn: () => Promise<T>): Promise<T> {
-    if (this.inTransaction) {
-      // Not reentrant: a nested transaction would deadlock on the queue
-      // (inner awaits the outer's tail). No engine caller nests; fail loud
-      // rather than hang if one ever does.
-      throw new Error('SqliteStorageAdapter.transaction is not reentrant');
-    }
     const prev = this.txQueue;
     let release!: () => void;
     this.txQueue = new Promise((r) => (release = r));
     await prev;
-    this.inTransaction = true;
     try {
       this.db.exec('BEGIN IMMEDIATE');
       try {
@@ -80,7 +75,6 @@ export class SqliteStorageAdapter implements StorageAdapter {
         throw err;
       }
     } finally {
-      this.inTransaction = false;
       release();
     }
   }

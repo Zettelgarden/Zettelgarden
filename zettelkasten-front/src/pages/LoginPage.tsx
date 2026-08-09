@@ -49,7 +49,11 @@ function LoginForm() {
     e.preventDefault();
     try {
       const response = await login(email, password);
-      loginUser(response);
+      // Await the full login (incl. the billing fetch) BEFORE navigating:
+      // MainApp's auth guard otherwise mounts while isAuthenticated is still
+      // false and bounces straight back to /login (found by the desktop E2E
+      // smoke, Zettelgarden-77j).
+      await loginUser(response);
       navigate('/app/');
     } catch (message) {
       setError('Login Failed: ' + message);

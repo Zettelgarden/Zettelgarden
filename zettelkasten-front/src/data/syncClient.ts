@@ -27,22 +27,29 @@ export interface SyncClient {
   subscribe(cb: () => void): () => void;
 }
 
-/** Resolves the API base URL: desktop settings -> build-time VITE_URL.
- * Never falls back to the webview origin — in the bundled app that is
- * tauri://localhost, which fetch() cannot reach (a desktop build with no
- * configured server would otherwise silently never sync). */
+/** Resolves the API base URL for the SYNC transport (server ROOT — the engine
+ * appends /api/sync/... itself; VITE_URL / settings may include the /api
+ * suffix used by the web REST client). Never falls back to the webview
+ * origin — in the bundled app that is tauri://localhost, which fetch()
+ * cannot reach. */
 export async function resolveBaseUrl(): Promise<string> {
+  let base: string | undefined;
   try {
     const settings = await tauriInvoke<{ serverUrl?: string }>('load_settings');
-    if (settings?.serverUrl) return settings.serverUrl;
+    base = settings?.serverUrl;
   } catch {
     // Settings unavailable (e.g. missing zgDesktop) — fall through.
   }
-  const viteUrl = (import.meta as any).env?.VITE_URL as string | undefined;
-  if (viteUrl) return viteUrl;
-  throw new Error(
-    'no server URL configured: set VITE_URL at build time or configure the server in the desktop app settings',
-  );
+  base = base || ((import.meta as any).env?.VITE_URL as string | undefined);
+  if (!base) {
+    throw new Error(
+      'no server URL configured: set VITE_URL at build time or configure the server in the desktop app settings',
+    );
+  }
+  // Normalize to the server root: strip a trailing /api (web REST convention)
+  // and any trailing slash so the engine's /api/sync/* paths resolve exactly
+  // once.
+  return base.replace(/\/?api\/?$/, '').replace(/\/$/, '');
 }
 
 let client: SyncClient | null = null;
