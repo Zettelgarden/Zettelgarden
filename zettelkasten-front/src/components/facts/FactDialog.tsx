@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Dialog, Menu } from '@headlessui/react';
+import { Menu } from '@headlessui/react';
+import { Modal } from '../ui/Modal';
 import { Link } from 'react-router-dom';
 import { FactWithCard, FactWithCardAndScore } from '../../models/Fact';
 import { CardTag } from '../cards/CardTag';
@@ -227,328 +228,310 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
   }
 
   return (
-    <Dialog open={showFactDialog} onClose={onClose} className="relative z-50">
-      <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="w-full max-w-4xl transform max-h-[90vh] rounded-2xl bg-white p-6 shadow-xl transition-all flex flex-col">
-          <Dialog.Title className="text-lg font-medium leading-6 text-gray-900 mb-2">
-            {selectedFact && !isEditing
-              ? `Fact: ${selectedFact.fact.slice(0, 50)}...`
-              : 'Fact Details'}
-          </Dialog.Title>
-          <div className="overflow-y-auto">
-            {selectedFact ? (
-              <div className="mb-4 space-y-2 text-sm text-gray-700">
-                {isEditing ? (
-                  <textarea
-                    value={editedFact}
-                    onChange={(e) => setEditedFact(e.target.value)}
-                    className="w-full min-h-[120px] max-h-[30vh] sm:h-40 sm:max-h-none p-2 border rounded resize-y"
-                  />
-                ) : (
-                  <p
-                    onClick={handleStartEditing}
-                    className="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                  >
-                    {selectedFact.fact}
-                  </p>
-                )}
-                {selectedFact.card && (
-                  <div>
-                    <span className="text-xs text-gray-600">From: </span>
-                    <Link
-                      to={`/app/card/${selectedFact.card.id}`}
-                      className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline"
-                      onClick={onClose}
-                    >
-                      <div className="w-4 h-4 mr-1 text-gray-400">
-                        <CardIcon />
-                      </div>
-                      [{selectedFact.card.card_id}] {selectedFact.card.title}
-                    </Link>
-                  </div>
-                )}
-              </div>
+    <Modal
+      open={showFactDialog}
+      onClose={onClose}
+      size="4xl"
+      dialogClassName="z-50"
+      className="max-h-[90vh] flex flex-col"
+    >
+      <h3 className="text-lg font-medium leading-6 text-gray-900 mb-2">
+        {selectedFact && !isEditing
+          ? `Fact: ${selectedFact.fact.slice(0, 50)}...`
+          : 'Fact Details'}
+      </h3>
+      <div className="overflow-y-auto">
+        {selectedFact ? (
+          <div className="mb-4 space-y-2 text-sm text-gray-700">
+            {isEditing ? (
+              <textarea
+                value={editedFact}
+                onChange={(e) => setEditedFact(e.target.value)}
+                className="w-full min-h-[120px] max-h-[30vh] sm:h-40 sm:max-h-none p-2 border rounded resize-y"
+              />
             ) : (
-              <p className="text-sm text-gray-500">No fact selected.</p>
-            )}
-
-            <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">
-              Linked Entities:
-            </h4>
-            <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
-              {loading && <p>Loading entities...</p>}
-              {error && <p className="text-red-600">{error}</p>}
-              {!loading && entities.length === 0 && <p>No entities linked.</p>}
-              {!loading && entities.length > 0 && (
-                <ul className="space-y-1 text-sm">
-                  {entities.map((e) => (
-                    <li key={e.id} onClick={() => handleEntityClick(e)}>
-                      <span className="text-xs text-blue-600 cursor-pointer">
-                        {e.name}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">
-              Linked Cards:
-            </h4>
-
-            <BacklinkInputDropdownList
-              onSelect={handleCardSelect}
-              onSearch={() => {}}
-              placeholder="Link a card..."
-              className="mb-2"
-            />
-
-            <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
-              {loadingCards && <p>Loading cards...</p>}
-              {cardsError && <p className="text-red-600">{cardsError}</p>}
-              {!loadingCards && cards.length === 0 && <p>No cards linked.</p>}
-              {!loadingCards && cards.length > 0 && (
-                <ul className="space-y-1 text-sm">
-                  {cards.map((c) => (
-                    <li key={c.id}>
-                      <Link
-                        to={`/app/card/${c.id}`}
-                        className="text-blue-600 hover:text-blue-800 hover:underline"
-                        onClick={onClose}
-                      >
-                        <CardTag card={c} showTitle={true} />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">
-              Similar Facts:
-            </h4>
-            <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
-              {loadingSimilar && <p>Loading similar facts...</p>}
-              {similarError && <p className="text-red-600">{similarError}</p>}
-              {!loadingSimilar && similarFacts && similarFacts.length === 0 && (
-                <p>No similar facts.</p>
-              )}
-              {!loadingSimilar && similarFacts && similarFacts.length > 0 && (
-                <ul className="space-y-1 text-sm">
-                  {similarFacts.map((f) => (
-                    <li
-                      key={f.id}
-                      className="flex items-center justify-between hover:bg-gray-100 p-1 rounded"
-                    >
-                      <span
-                        onClick={() => handleFactClick(f)}
-                        className="text-gray-700 cursor-pointer flex-grow"
-                      >
-                        • {f.fact}
-                      </span>
-                      <div className="flex items-center ml-2 gap-2">
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded ${
-                            f.score >= 0.8
-                              ? 'bg-green-100 text-green-700'
-                              : f.score >= 0.5
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-gray-100 text-gray-600'
-                          }`}
-                          title="Similarity score"
-                        >
-                          {Math.round(f.score * 100)}%
-                        </span>
-                        <span className="text-xs text-blue-600">
-                          [{f.card.card_id}]
-                        </span>
-                        <Menu
-                          as="div"
-                          className="relative inline-block text-left"
-                        >
-                          <div>
-                            <Menu.Button className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-5"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
-                              >
-                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                              </svg>
-                            </Menu.Button>
-                          </div>
-                          <Menu.Items className="absolute right-0 w-64 mt-2 origin-top-right bg-white divide-y divide-gray-100 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
-                            <div className="px-1 py-1 ">
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={() =>
-                                      handleInitiateMerge(f, 'into-current')
-                                    }
-                                    className={`${
-                                      active
-                                        ? 'bg-blue-500 text-white'
-                                        : 'text-gray-900'
-                                    } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
-                                  >
-                                    Merge '{f.fact.slice(0, 20)}...' into
-                                    current
-                                  </button>
-                                )}
-                              </Menu.Item>
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={() =>
-                                      handleInitiateMerge(f, 'from-current')
-                                    }
-                                    className={`${
-                                      active
-                                        ? 'bg-blue-500 text-white'
-                                        : 'text-gray-900'
-                                    } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
-                                  >
-                                    Merge current into '{f.fact.slice(0, 20)}
-                                    ...'
-                                  </button>
-                                )}
-                              </Menu.Item>
-                            </div>
-                          </Menu.Items>
-                        </Menu>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-6 flex justify-between items-center border-t pt-4">
-            <div className="flex gap-3">
-              <Button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="bg-red-500 text-white"
+              <p
+                onClick={handleStartEditing}
+                className="cursor-pointer hover:bg-gray-100 p-2 rounded"
               >
-                Delete Fact
-              </Button>
-              <Button onClick={handleStartConversion} disabled={!selectedFact}>
-                Create Card
-              </Button>
-            </div>
-            <div className="flex justify-end gap-3">
-              {isEditing && (
-                <>
-                  <Button onClick={handleSave}>Save</Button>
-                  <Button
-                    onClick={() => setIsEditing(false)}
-                    className="bg-gray-300"
-                  >
-                    Cancel
-                  </Button>
-                </>
-              )}
-              <Button onClick={onClose}>Close</Button>
-            </div>
+                {selectedFact.fact}
+              </p>
+            )}
+            {selectedFact.card && (
+              <div>
+                <span className="text-xs text-gray-600">From: </span>
+                <Link
+                  to={`/app/card/${selectedFact.card.id}`}
+                  className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                  onClick={onClose}
+                >
+                  <div className="w-4 h-4 mr-1 text-gray-400">
+                    <CardIcon />
+                  </div>
+                  [{selectedFact.card.card_id}] {selectedFact.card.title}
+                </Link>
+              </div>
+            )}
           </div>
-        </Dialog.Panel>
+        ) : (
+          <p className="text-sm text-gray-500">No fact selected.</p>
+        )}
+
+        <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">
+          Linked Entities:
+        </h4>
+        <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
+          {loading && <p>Loading entities...</p>}
+          {error && <p className="text-red-600">{error}</p>}
+          {!loading && entities.length === 0 && <p>No entities linked.</p>}
+          {!loading && entities.length > 0 && (
+            <ul className="space-y-1 text-sm">
+              {entities.map((e) => (
+                <li key={e.id} onClick={() => handleEntityClick(e)}>
+                  <span className="text-xs text-blue-600 cursor-pointer">
+                    {e.name}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">
+          Linked Cards:
+        </h4>
+
+        <BacklinkInputDropdownList
+          onSelect={handleCardSelect}
+          onSearch={() => {}}
+          placeholder="Link a card..."
+          className="mb-2"
+        />
+
+        <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
+          {loadingCards && <p>Loading cards...</p>}
+          {cardsError && <p className="text-red-600">{cardsError}</p>}
+          {!loadingCards && cards.length === 0 && <p>No cards linked.</p>}
+          {!loadingCards && cards.length > 0 && (
+            <ul className="space-y-1 text-sm">
+              {cards.map((c) => (
+                <li key={c.id}>
+                  <Link
+                    to={`/app/card/${c.id}`}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                    onClick={onClose}
+                  >
+                    <CardTag card={c} showTitle={true} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <h4 className="text-md font-medium text-gray-800 mt-4 border-t pt-3">
+          Similar Facts:
+        </h4>
+        <div className="min-h-[100px] max-h-[30vh] overflow-y-auto pr-2">
+          {loadingSimilar && <p>Loading similar facts...</p>}
+          {similarError && <p className="text-red-600">{similarError}</p>}
+          {!loadingSimilar && similarFacts && similarFacts.length === 0 && (
+            <p>No similar facts.</p>
+          )}
+          {!loadingSimilar && similarFacts && similarFacts.length > 0 && (
+            <ul className="space-y-1 text-sm">
+              {similarFacts.map((f) => (
+                <li
+                  key={f.id}
+                  className="flex items-center justify-between hover:bg-gray-100 p-1 rounded"
+                >
+                  <span
+                    onClick={() => handleFactClick(f)}
+                    className="text-gray-700 cursor-pointer flex-grow"
+                  >
+                    • {f.fact}
+                  </span>
+                  <div className="flex items-center ml-2 gap-2">
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded ${
+                        f.score >= 0.8
+                          ? 'bg-green-100 text-green-700'
+                          : f.score >= 0.5
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                      title="Similarity score"
+                    >
+                      {Math.round(f.score * 100)}%
+                    </span>
+                    <span className="text-xs text-blue-600">
+                      [{f.card.card_id}]
+                    </span>
+                    <Menu as="div" className="relative inline-block text-left">
+                      <div>
+                        <Menu.Button className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                          </svg>
+                        </Menu.Button>
+                      </div>
+                      <Menu.Items className="absolute right-0 w-64 mt-2 origin-top-right bg-white divide-y divide-gray-100 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                        <div className="px-1 py-1 ">
+                          <Menu.Item>
+                            {({ active }) => (
+                              <button
+                                onClick={() =>
+                                  handleInitiateMerge(f, 'into-current')
+                                }
+                                className={`${
+                                  active
+                                    ? 'bg-blue-500 text-white'
+                                    : 'text-gray-900'
+                                } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                              >
+                                Merge '{f.fact.slice(0, 20)}...' into current
+                              </button>
+                            )}
+                          </Menu.Item>
+                          <Menu.Item>
+                            {({ active }) => (
+                              <button
+                                onClick={() =>
+                                  handleInitiateMerge(f, 'from-current')
+                                }
+                                className={`${
+                                  active
+                                    ? 'bg-blue-500 text-white'
+                                    : 'text-gray-900'
+                                } group flex rounded-md items-center w-full px-2 py-2 text-sm`}
+                              >
+                                Merge current into '{f.fact.slice(0, 20)}
+                                ...'
+                              </button>
+                            )}
+                          </Menu.Item>
+                        </div>
+                      </Menu.Items>
+                    </Menu>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-6 flex justify-between items-center border-t pt-4">
+        <div className="flex gap-3">
+          <Button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="bg-red-500 text-white"
+          >
+            Delete Fact
+          </Button>
+          <Button onClick={handleStartConversion} disabled={!selectedFact}>
+            Create Card
+          </Button>
+        </div>
+        <div className="flex justify-end gap-3">
+          {isEditing && (
+            <>
+              <Button onClick={handleSave}>Save</Button>
+              <Button
+                onClick={() => setIsEditing(false)}
+                className="bg-gray-300"
+              >
+                Cancel
+              </Button>
+            </>
+          )}
+          <Button onClick={onClose}>Close</Button>
+        </div>
       </div>
       {showDeleteConfirm && (
-        <Dialog
+        <Modal
           open={showDeleteConfirm}
           onClose={() => setShowDeleteConfirm(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          size="md"
+          dialogClassName="z-50"
         >
-          <div
-            className="fixed inset-0 bg-black bg-opacity-30"
-            aria-hidden="true"
-          />
-          <Dialog.Panel className="bg-white p-6 rounded-lg max-w-md mx-auto relative">
-            <Dialog.Title className="text-lg font-semibold mb-4">
-              Confirm Delete
-            </Dialog.Title>
-            <p className="mb-4">
-              Are you sure you want to delete this fact? This action cannot be
-              undone.
-            </p>
-            <p className="text-gray-800 font-medium italic mb-4">
-              {selectedFact?.fact}
-            </p>
-            {deleteError && <p className="text-red-600 mb-2">{deleteError}</p>}
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-3 min-h-[44px] text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                disabled={isDeleting}
-                className="px-4 py-3 min-h-[44px] bg-red-500 text-white rounded hover:bg-red-600"
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </Dialog.Panel>
-        </Dialog>
+          <h2 className="text-lg font-semibold mb-4">Confirm Delete</h2>
+          <p className="mb-4">
+            Are you sure you want to delete this fact? This action cannot be
+            undone.
+          </p>
+          <p className="text-gray-800 font-medium italic mb-4">
+            {selectedFact?.fact}
+          </p>
+          {deleteError && <p className="text-red-600 mb-2">{deleteError}</p>}
+          <div className="flex justify-end gap-4">
+            <button
+              onClick={() => setShowDeleteConfirm(false)}
+              className="px-4 py-3 min-h-[44px] text-gray-600 hover:text-gray-800"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="px-4 py-3 min-h-[44px] bg-red-500 text-white rounded hover:bg-red-600"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </button>
+          </div>
+        </Modal>
       )}
       {showConfirmDialog && factToMerge && (
-        <Dialog
+        <Modal
           open={showConfirmDialog}
           onClose={() => setShowConfirmDialog(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          size="md"
+          dialogClassName="z-50"
         >
-          <div
-            className="fixed inset-0 bg-black bg-opacity-30"
-            aria-hidden="true"
-          />
-          <Dialog.Panel className="bg-white p-6 rounded-lg max-w-md mx-auto relative">
-            <Dialog.Title className="text-lg font-semibold mb-4">
-              Confirm Merge
-            </Dialog.Title>
-            <div className="mb-4">
-              <p className="font-medium text-green-600 mb-2">
-                Primary Fact (will be kept):
-                <br />
-                {mergeDirection === 'into-current'
-                  ? selectedFact?.fact
-                  : factToMerge.fact}
-              </p>
-              <p className="text-gray-600 mb-2">
-                This fact will be merged into the primary:
-              </p>
-              <p className="text-gray-800">
-                •{' '}
-                {mergeDirection === 'into-current'
-                  ? factToMerge.fact
-                  : selectedFact?.fact}
-              </p>
-            </div>
-            <p className="text-red-600 text-sm mb-4">
-              This action cannot be undone. The merged fact will be deleted.
+          <h2 className="text-lg font-semibold mb-4">Confirm Merge</h2>
+          <div className="mb-4">
+            <p className="font-medium text-green-600 mb-2">
+              Primary Fact (will be kept):
+              <br />
+              {mergeDirection === 'into-current'
+                ? selectedFact?.fact
+                : factToMerge.fact}
             </p>
-            {mergeError && <p className="text-red-600 mb-2">{mergeError}</p>}
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => setShowConfirmDialog(false)}
-                className="px-4 py-3 min-h-[44px] text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmMerge}
-                disabled={isMerging}
-                className="px-4 py-3 min-h-[44px] bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                {isMerging ? 'Merging...' : 'Merge'}
-              </button>
-            </div>
-          </Dialog.Panel>
-        </Dialog>
+            <p className="text-gray-600 mb-2">
+              This fact will be merged into the primary:
+            </p>
+            <p className="text-gray-800">
+              •{' '}
+              {mergeDirection === 'into-current'
+                ? factToMerge.fact
+                : selectedFact?.fact}
+            </p>
+          </div>
+          <p className="text-red-600 text-sm mb-4">
+            This action cannot be undone. The merged fact will be deleted.
+          </p>
+          {mergeError && <p className="text-red-600 mb-2">{mergeError}</p>}
+          <div className="flex justify-end gap-4">
+            <button
+              onClick={() => setShowConfirmDialog(false)}
+              className="px-4 py-3 min-h-[44px] text-gray-600 hover:text-gray-800"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmMerge}
+              disabled={isMerging}
+              className="px-4 py-3 min-h-[44px] bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              {isMerging ? 'Merging...' : 'Merge'}
+            </button>
+          </div>
+        </Modal>
       )}
       <CreateCardDialog
         isOpen={showConvertDialog}
@@ -559,6 +542,6 @@ export function FactDialog({ onClose, onFactDeleted }: FactDialogProps) {
         initialBody={cardBody}
         processEntitiesAndFacts={false}
       />
-    </Dialog>
+    </Modal>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Dialog } from '@headlessui/react';
+import { Modal } from '../ui/Modal';
 import { SchemaDefinition, FieldDefinition } from '../../models/Schema';
 import {
   createSchema,
@@ -336,130 +336,123 @@ export function SchemaDialog({
   };
 
   return (
-    <Dialog
+    <Modal
       open={isOpen}
       onClose={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      size="2xl"
+      dialogClassName="z-50"
+      className="rounded-xl !p-0 max-h-[90vh] overflow-hidden flex flex-col"
     >
-      <div
-        className="fixed inset-0 bg-black bg-opacity-30"
-        aria-hidden="true"
-      />
+      <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
+        <h2 className="text-xl font-semibold text-gray-900">
+          {schema ? 'Edit Schema' : 'Create Schema'}
+        </h2>
+      </div>
 
-      <Dialog.Panel className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-auto relative max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
-          <Dialog.Title className="text-xl font-semibold text-gray-900">
-            {schema ? 'Edit Schema' : 'Create Schema'}
-          </Dialog.Title>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-6">
-            <div>
-              <label
-                htmlFor="schema-name"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Schema Name *
-              </label>
-              <input
-                type="text"
-                id="schema-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30 transition-colors"
-                placeholder="e.g., Book, Movie, Recipe"
-                required
-              />
-              {slugPreview && (
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="text-xs text-gray-500">
-                    Slug (auto-generated):
+      <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
+        <div className="space-y-6">
+          <div>
+            <label
+              htmlFor="schema-name"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Schema Name *
+            </label>
+            <input
+              type="text"
+              id="schema-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-30 transition-colors"
+              placeholder="e.g., Book, Movie, Recipe"
+              required
+            />
+            {slugPreview && (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-xs text-gray-500">
+                  Slug (auto-generated):
+                </span>
+                <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-700">
+                  {schema?.slug || slugPreview}
+                </code>
+                <span className="text-xs text-gray-400">
+                  Use as:{' '}
+                  <span className="font-mono bg-gray-50 px-1 rounded">
+                    {'{{schema:' + (schema?.slug || slugPreview) + '}}'}
                   </span>
-                  <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-700">
-                    {schema?.slug || slugPreview}
-                  </code>
-                  <span className="text-xs text-gray-400">
-                    Use as:{' '}
-                    <span className="font-mono bg-gray-50 px-1 rounded">
-                      {'{{schema:' + (schema?.slug || slugPreview) + '}}'}
-                    </span>
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="block text-sm font-medium text-gray-700">
-                  Fields *
-                </label>
-                <button
-                  type="button"
-                  onClick={addField}
-                  className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm font-medium"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  Add Field
-                </button>
-              </div>
-
-              {fields.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                  <p className="text-gray-500 text-sm">
-                    No fields yet. Click "Add Field" to create your first field.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {fields.map((field, index) =>
-                    renderFieldEditor(field, index),
-                  )}
-                </div>
-              )}
-            </div>
-
-            {error && (
-              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
-                {error}
+                </span>
               </div>
             )}
           </div>
-        </form>
 
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-4 flex-shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-3 min-h-[44px] text-gray-700 hover:text-gray-900 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={isSubmitting || !name.trim() || fields.length === 0}
-            className="px-6 py-3 min-h-[44px] bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-            onClick={handleSubmit}
-          >
-            {isSubmitting
-              ? 'Saving...'
-              : schema
-              ? 'Save Changes'
-              : 'Create Schema'}
-          </button>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-medium text-gray-700">
+                Fields *
+              </label>
+              <button
+                type="button"
+                onClick={addField}
+                className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm font-medium"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Add Field
+              </button>
+            </div>
+
+            {fields.length === 0 ? (
+              <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                <p className="text-gray-500 text-sm">
+                  No fields yet. Click "Add Field" to create your first field.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {fields.map((field, index) => renderFieldEditor(field, index))}
+              </div>
+            )}
+          </div>
+
+          {error && (
+            <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
+              {error}
+            </div>
+          )}
         </div>
-      </Dialog.Panel>
-    </Dialog>
+      </form>
+
+      <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-4 flex-shrink-0">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-3 min-h-[44px] text-gray-700 hover:text-gray-900 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          disabled={isSubmitting || !name.trim() || fields.length === 0}
+          className="px-6 py-3 min-h-[44px] bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+          onClick={handleSubmit}
+        >
+          {isSubmitting
+            ? 'Saving...'
+            : schema
+            ? 'Save Changes'
+            : 'Create Schema'}
+        </button>
+      </div>
+    </Modal>
   );
 }

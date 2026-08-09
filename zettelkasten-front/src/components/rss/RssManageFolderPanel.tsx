@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Modal } from '../ui/Modal';
 import { RSSFolder, RSSFeed, UnreadCounts } from '../../api/rss';
 
 interface RssManageFolderPanelProps {
@@ -245,71 +246,82 @@ export function RssManageFolderPanel({
 
       {/* Rename Dialog */}
       {editingFolder && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">Rename Folder</h3>
-            <form onSubmit={handleRenameFolder}>
-              <input
-                type="text"
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                autoFocus
-              />
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingFolder(null);
-                    setRenameValue('');
-                  }}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Rename
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation */}
-      {deletingFolder && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold mb-2">Delete Folder</h3>
-            <p className="text-gray-600 mb-4">
-              Are you sure you want to delete folder "{deletingFolder.name}"?
-              {getFeedCountForFolder(deletingFolder.name) > 0 && (
-                <>
-                  {' '}
-                  It contains {getFeedCountForFolder(deletingFolder.name)}{' '}
-                  feed(s).
-                </>
-              )}
-            </p>
-            <div className="flex justify-end gap-2">
+        <Modal
+          open
+          onClose={() => {
+            setEditingFolder(null);
+            setRenameValue('');
+          }}
+          size="md"
+          dialogClassName="z-50"
+          className="!max-w-96"
+        >
+          <h3 className="text-lg font-semibold mb-4">Rename Folder</h3>
+          <form onSubmit={handleRenameFolder}>
+            <input
+              type="text"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 mt-4">
               <button
-                onClick={() => setDeletingFolder(null)}
+                type="button"
+                onClick={() => {
+                  setEditingFolder(null);
+                  setRenameValue('');
+                }}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
               >
                 Cancel
               </button>
               <button
-                onClick={() => handleDeleteFolder(deletingFolder)}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
-                Delete
+                Rename
               </button>
             </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Delete Confirmation */}
+      {deletingFolder && (
+        <Modal
+          open
+          onClose={() => setDeletingFolder(null)}
+          size="md"
+          dialogClassName="z-50"
+          className="!max-w-96"
+        >
+          <h3 className="text-lg font-semibold mb-2">Delete Folder</h3>
+          <p className="text-gray-600 mb-4">
+            Are you sure you want to delete folder "{deletingFolder.name}"?
+            {getFeedCountForFolder(deletingFolder.name) > 0 && (
+              <>
+                {' '}
+                It contains {getFeedCountForFolder(deletingFolder.name)}{' '}
+                feed(s).
+              </>
+            )}
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setDeletingFolder(null)}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => handleDeleteFolder(deletingFolder)}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+            >
+              Delete
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

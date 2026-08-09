@@ -20,6 +20,7 @@ import { useUIState } from '../contexts/UIStateContext';
 import { MobileTopBar } from '../components/layout/MobileTopBar';
 import { useToast } from '../components/toast/ToastContext';
 import { Spinner } from '../components/ui/Spinner';
+import { Modal } from '../components/ui/Modal';
 
 import { File, FileTag } from '../models/File';
 import { defaultCard, PartialCard } from '../models/Card';
@@ -720,16 +721,20 @@ export function FileVault() {
 
       {/* File Metadata Editor Modal */}
       {editingFile && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-auto">
-            <FileMetadataEditor
-              key={editingFile.id}
-              file={editingFile}
-              onUpdate={handleEditorUpdate}
-              onClose={handleCloseEditor}
-            />
-          </div>
-        </div>
+        <Modal
+          open
+          onClose={handleCloseEditor}
+          size="lg"
+          dialogClassName="z-50"
+          className="max-h-[90vh] overflow-auto"
+        >
+          <FileMetadataEditor
+            key={editingFile.id}
+            file={editingFile}
+            onUpdate={handleEditorUpdate}
+            onClose={handleCloseEditor}
+          />
+        </Modal>
       )}
 
       <MobileTopBar title="Files" onMenuClick={toggleMobileSidebar} />

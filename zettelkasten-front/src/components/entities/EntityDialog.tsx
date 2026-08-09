@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Dialog } from '@headlessui/react';
 import { useNavigate } from 'react-router-dom';
+import { Modal } from '../ui/Modal';
 import { Entity } from '../../models/Card';
 import {
   mergeEntities,
@@ -147,43 +147,39 @@ export function EntityDialog({ onClose, onEdit }: EntityDialogProps) {
 
   return (
     <>
-      <Dialog
+      <Modal
         open={showEntityDialog}
         onClose={onClose}
-        className="relative z-50"
+        size="3xl"
+        dialogClassName="z-50"
+        className="max-h-[90vh] overflow-y-auto"
       >
-        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+        {selectedEntity && (
+          <>
+            <EntityHeader
+              entity={selectedEntity}
+              onClose={onClose}
+              onEdit={onEdit ? handleEditClick : undefined}
+              onTurnIntoCard={handleTurnIntoCard}
+            />
 
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Dialog.Panel className="w-full max-w-3xl transform overflow-y-auto max-h-[90vh] rounded-2xl bg-white p-6 shadow-xl transition-all">
-            {selectedEntity && (
-              <>
-                <EntityHeader
-                  entity={selectedEntity}
-                  onClose={onClose}
-                  onEdit={onEdit ? handleEditClick : undefined}
-                  onTurnIntoCard={handleTurnIntoCard}
-                />
+            <EntityCardsSection
+              cards={entityData.associatedCards}
+              isLoading={entityData.isLoading}
+              error={entityData.error}
+            />
 
-                <EntityCardsSection
-                  cards={entityData.associatedCards}
-                  isLoading={entityData.isLoading}
-                  error={entityData.error}
-                />
-
-                <EntitySimilarSection
-                  similarEntities={entityData.similarEntities}
-                  isLoading={entityData.loadingSimilar}
-                  error={entityData.similarError}
-                  currentEntityName={selectedEntity.name}
-                  onEntityClick={handleEntityClick}
-                  onInitiateMerge={handleInitiateMerge}
-                />
-              </>
-            )}
-          </Dialog.Panel>
-        </div>
-      </Dialog>
+            <EntitySimilarSection
+              similarEntities={entityData.similarEntities}
+              isLoading={entityData.loadingSimilar}
+              error={entityData.similarError}
+              currentEntityName={selectedEntity.name}
+              onEntityClick={handleEntityClick}
+              onInitiateMerge={handleInitiateMerge}
+            />
+          </>
+        )}
+      </Modal>
 
       <EntityMergeDialog
         isOpen={showConfirmDialog}

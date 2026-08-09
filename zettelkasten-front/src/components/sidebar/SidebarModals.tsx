@@ -1,4 +1,5 @@
 import React from 'react';
+import { Modal } from '../ui/Modal';
 import { PartialCard, Card, Entity } from '../../models/Card';
 import { CreateTaskWindow } from '../tasks/CreateTaskWindow';
 import { QuickSearchWindow } from '../cards/QuickSearchWindow';
@@ -141,17 +142,15 @@ export function SidebarModals({
         onClose={() => setShowAddArticleDialog(false)}
       />
       {showGettingStarted && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[1000]"
-          onClick={() => handleCloseGettingStarted()}
+        <Modal
+          open
+          onClose={() => handleCloseGettingStarted()}
+          size="4xl"
+          dialogClassName="z-[1000]"
+          className="w-[90%] max-h-[90vh] overflow-y-auto !p-5"
         >
-          <div
-            className="bg-white p-5 rounded-md shadow-lg max-w-4xl w-[90%] max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <GettingStartedPage setShowGettingStarted={setShowGettingStarted} />
-          </div>
-        </div>
+          <GettingStartedPage setShowGettingStarted={setShowGettingStarted} />
+        </Modal>
       )}
     </>
   );

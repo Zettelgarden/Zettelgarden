@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { createPortal } from 'react-dom';
+import { Modal } from '../ui/Modal';
 import { Task } from '../../models/Task';
 import { saveExistingTask } from '../../api/tasks';
 import { useTaskContext } from '../../contexts/TaskContext';
@@ -89,173 +89,176 @@ export function BulkTaskTagEditor({
     }
   }
 
-  return createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]">
-      <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-semibold mb-4">
-          Bulk Edit Tags ({tasks.length} tasks)
-        </h2>
+  return (
+    <Modal
+      open
+      onClose={() => setShowBulkTagEdit(false)}
+      size="md"
+      dialogClassName="z-[100]"
+      className="max-h-[90vh] overflow-y-auto"
+    >
+      <h2 className="text-xl font-semibold mb-4">
+        Bulk Edit Tags ({tasks.length} tasks)
+      </h2>
 
-        {/* Operation selector */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-2">Operation</label>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setOperation('add')}
-              className={`flex-1 py-3 min-h-[44px] px-4 rounded ${
-                operation === 'add'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700'
-              }`}
-            >
-              Add Tags
-            </button>
-            <button
-              onClick={() => setOperation('remove')}
-              className={`flex-1 py-3 min-h-[44px] px-4 rounded ${
-                operation === 'remove'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-200 text-gray-700'
-              }`}
-            >
-              Remove Tags
-            </button>
-          </div>
-        </div>
-
-        {/* New tag input (only for add operation) */}
-        {operation === 'add' && (
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">New Tag</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newTagInput}
-                onChange={(e) => setNewTagInput(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddNewTag();
-                  }
-                }}
-                placeholder="Enter tag name"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded"
-              />
-              <button
-                onClick={handleAddNewTag}
-                className="px-4 py-3 min-h-[44px] bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Add
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Tag selection area */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-2">
-            {operation === 'add' ? 'Available Tags' : 'Tags to Remove'}
-          </label>
-          <div className="border border-gray-300 rounded p-3 max-h-48 overflow-y-auto">
-            {operation === 'add' ? (
-              // Show all existing tags when adding
-              tags.length === 0 ? (
-                <p className="text-gray-500 text-sm">No tags available</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {tags.map((tag) => (
-                    <button
-                      key={tag.id}
-                      onClick={() => toggleTag(tag.name.replace(/^#/, ''))}
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        selectedTags.has(tag.name.replace(/^#/, ''))
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                    >
-                      #{tag.name.replace(/^#/, '')}
-                    </button>
-                  ))}
-                </div>
-              )
-            ) : // Show only tags from selected tasks when removing
-            allTagsInSelection.length === 0 ? (
-              <p className="text-gray-500 text-sm">No tags in selected tasks</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {allTagsInSelection.map((tagName) => {
-                  const isCommon = commonTags.has(tagName);
-                  return (
-                    <button
-                      key={tagName}
-                      onClick={() => toggleTag(tagName)}
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        selectedTags.has(tagName)
-                          ? 'bg-red-600 text-white'
-                          : isCommon
-                          ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                      title={
-                        isCommon
-                          ? 'Common across all selected tasks'
-                          : 'Present in some tasks'
-                      }
-                    >
-                      #{tagName}
-                      {isCommon && ' ✓'}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          {operation === 'remove' && allTagsInSelection.length > 0 && (
-            <p className="text-xs text-gray-500 mt-1">
-              Tags with ✓ are present in all selected tasks
-            </p>
-          )}
-        </div>
-
-        {/* Selected tags preview */}
-        {selectedTags.size > 0 && (
-          <div className="mb-4 p-3 bg-gray-50 rounded">
-            <p className="text-sm font-medium mb-1">
-              {operation === 'add' ? 'Tags to add:' : 'Tags to remove:'}
-            </p>
-            <div className="flex flex-wrap gap-1">
-              {Array.from(selectedTags).map((tag) => (
-                <span key={tag} className="text-xs bg-white px-2 py-1 rounded">
-                  #{tag}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Action buttons */}
-        <div className="flex gap-2 justify-end">
+      {/* Operation selector */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-2">Operation</label>
+        <div className="flex gap-2">
           <button
-            onClick={() => setShowBulkTagEdit(false)}
-            disabled={isProcessing}
-            className="px-4 py-3 min-h-[44px] border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleApply}
-            disabled={selectedTags.size === 0 || isProcessing}
-            className={`px-4 py-3 min-h-[44px] rounded text-white disabled:opacity-50 ${
+            onClick={() => setOperation('add')}
+            className={`flex-1 py-3 min-h-[44px] px-4 rounded ${
               operation === 'add'
-                ? 'bg-blue-600 hover:bg-blue-700'
-                : 'bg-red-600 hover:bg-red-700'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700'
             }`}
           >
-            {isProcessing ? 'Processing...' : `Apply to ${tasks.length} tasks`}
+            Add Tags
+          </button>
+          <button
+            onClick={() => setOperation('remove')}
+            className={`flex-1 py-3 min-h-[44px] px-4 rounded ${
+              operation === 'remove'
+                ? 'bg-red-600 text-white'
+                : 'bg-gray-200 text-gray-700'
+            }`}
+          >
+            Remove Tags
           </button>
         </div>
       </div>
-    </div>,
-    document.body,
+
+      {/* New tag input (only for add operation) */}
+      {operation === 'add' && (
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">New Tag</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newTagInput}
+              onChange={(e) => setNewTagInput(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleAddNewTag();
+                }
+              }}
+              placeholder="Enter tag name"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded"
+            />
+            <button
+              onClick={handleAddNewTag}
+              className="px-4 py-3 min-h-[44px] bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Add
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tag selection area */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-2">
+          {operation === 'add' ? 'Available Tags' : 'Tags to Remove'}
+        </label>
+        <div className="border border-gray-300 rounded p-3 max-h-48 overflow-y-auto">
+          {operation === 'add' ? (
+            // Show all existing tags when adding
+            tags.length === 0 ? (
+              <p className="text-gray-500 text-sm">No tags available</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {tags.map((tag) => (
+                  <button
+                    key={tag.id}
+                    onClick={() => toggleTag(tag.name.replace(/^#/, ''))}
+                    className={`px-3 py-1 rounded-full text-sm ${
+                      selectedTags.has(tag.name.replace(/^#/, ''))
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    #{tag.name.replace(/^#/, '')}
+                  </button>
+                ))}
+              </div>
+            )
+          ) : // Show only tags from selected tasks when removing
+          allTagsInSelection.length === 0 ? (
+            <p className="text-gray-500 text-sm">No tags in selected tasks</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {allTagsInSelection.map((tagName) => {
+                const isCommon = commonTags.has(tagName);
+                return (
+                  <button
+                    key={tagName}
+                    onClick={() => toggleTag(tagName)}
+                    className={`px-3 py-1 rounded-full text-sm ${
+                      selectedTags.has(tagName)
+                        ? 'bg-red-600 text-white'
+                        : isCommon
+                        ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                    title={
+                      isCommon
+                        ? 'Common across all selected tasks'
+                        : 'Present in some tasks'
+                    }
+                  >
+                    #{tagName}
+                    {isCommon && ' ✓'}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        {operation === 'remove' && allTagsInSelection.length > 0 && (
+          <p className="text-xs text-gray-500 mt-1">
+            Tags with ✓ are present in all selected tasks
+          </p>
+        )}
+      </div>
+
+      {/* Selected tags preview */}
+      {selectedTags.size > 0 && (
+        <div className="mb-4 p-3 bg-gray-50 rounded">
+          <p className="text-sm font-medium mb-1">
+            {operation === 'add' ? 'Tags to add:' : 'Tags to remove:'}
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {Array.from(selectedTags).map((tag) => (
+              <span key={tag} className="text-xs bg-white px-2 py-1 rounded">
+                #{tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex gap-2 justify-end">
+        <button
+          onClick={() => setShowBulkTagEdit(false)}
+          disabled={isProcessing}
+          className="px-4 py-3 min-h-[44px] border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleApply}
+          disabled={selectedTags.size === 0 || isProcessing}
+          className={`px-4 py-3 min-h-[44px] rounded text-white disabled:opacity-50 ${
+            operation === 'add'
+              ? 'bg-blue-600 hover:bg-blue-700'
+              : 'bg-red-600 hover:bg-red-700'
+          }`}
+        >
+          {isProcessing ? 'Processing...' : `Apply to ${tasks.length} tasks`}
+        </button>
+      </div>
+    </Modal>
   );
 }
 

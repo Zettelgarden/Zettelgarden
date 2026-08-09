@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Modal } from '../ui/Modal';
 import { useStatus } from '../../contexts/StatusContext';
 import {
   TaskStatus,
@@ -480,37 +481,39 @@ export const StatusManagement: React.FC = () => {
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-2">Delete Status</h3>
-            <p className="text-gray-600 mb-4">
-              Are you sure you want to delete "{deleteConfirm.display_name}"?
-              All tasks with this status will be reassigned to your default
-              status.
+        <Modal
+          open
+          onClose={() => setDeleteConfirm(null)}
+          size="md"
+          dialogClassName="z-50"
+        >
+          <h3 className="text-lg font-semibold mb-2">Delete Status</h3>
+          <p className="text-gray-600 mb-4">
+            Are you sure you want to delete "{deleteConfirm.display_name}"? All
+            tasks with this status will be reassigned to your default status.
+          </p>
+          {(deleteConfirm.is_default || deleteConfirm.is_complete_state) && (
+            <p className="text-amber-600 text-sm mb-4">
+              ⚠️ Warning: This is a{' '}
+              {deleteConfirm.is_default ? 'default' : 'complete'} status. Make
+              sure you have another one configured.
             </p>
-            {(deleteConfirm.is_default || deleteConfirm.is_complete_state) && (
-              <p className="text-amber-600 text-sm mb-4">
-                ⚠️ Warning: This is a{' '}
-                {deleteConfirm.is_default ? 'default' : 'complete'} status. Make
-                sure you have another one configured.
-              </p>
-            )}
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-              >
-                Delete
-              </button>
-            </div>
+          )}
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => setDeleteConfirm(null)}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmDelete}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+            >
+              Delete
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

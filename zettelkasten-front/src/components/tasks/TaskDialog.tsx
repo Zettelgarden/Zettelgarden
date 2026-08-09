@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Dialog } from '@headlessui/react';
+import { Modal } from '../ui/Modal';
 import { Task, TaskAuditEvent } from '../../models/Task';
 import { PartialCard } from '../../models/Card';
 import { Link } from 'react-router-dom';
@@ -218,109 +218,98 @@ export function TaskDialog({ taskId, isOpen, onClose }: TaskDialogProps) {
 
   if (!editedTask || isLoading) {
     return (
-      <Dialog open={isOpen} onClose={onClose} className="relative z-50">
-        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 shadow-xl transition-all">
-            <LoadingSpinner />
-          </Dialog.Panel>
-        </div>
-      </Dialog>
+      <Modal open={isOpen} onClose={onClose} size="2xl" dialogClassName="z-50">
+        <LoadingSpinner />
+      </Modal>
     );
   }
 
   return (
     <>
-      <Dialog open={isOpen} onClose={onClose} className="relative z-50">
-        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Dialog.Panel
-            className={`w-full max-w-2xl transform overflow-hidden rounded-2xl py-6 shadow-xl transition-all max-h-[80vh] flex flex-col ${
-              editedTask.is_complete
-                ? 'bg-white border-2 border-green-200'
-                : 'bg-white border-2 border-transparent'
-            }`}
-          >
-            {/* Header */}
-            <div className="px-6 flex justify-between items-start mb-4">
-              <div className="flex items-center gap-4">
-                <span
-                  onClick={handleToggleComplete}
-                  className="cursor-pointer hover:scale-110 transition-transform"
-                >
-                  {editedTask.is_complete ? (
-                    <TaskClosedIcon />
-                  ) : (
-                    <TaskOpenIcon />
-                  )}
-                </span>
-                <Dialog.Title
-                  className={`text-lg font-medium leading-6 ${
-                    editedTask.is_complete ? 'text-green-700' : 'text-gray-900'
-                  }`}
-                >
-                  {editedTask.is_complete ? 'Task Completed' : 'Task Details'}
-                </Dialog.Title>
-                {editedTask.card && editedTask.card.id > 0 && (
-                  <Link
-                    to={`/app/card/${editedTask.card.id}`}
-                    className="text-blue-600 hover:text-blue-800"
-                    style={{ textDecoration: 'none' }}
-                  >
-                    <span className="card-id">[{editedTask.card.card_id}]</span>
-                  </Link>
-                )}
-              </div>
-              <TaskListOptionsMenu
-                task={editedTask}
-                showCardLink={showCardLink}
-                setShowCardLink={setShowCardLink}
-                onDelete={handleDelete}
-                onToggleComplete={handleToggleComplete}
-                onRefresh={() => setRefreshTasks(true)}
-                onClose={onClose}
-                showHistory={showHistory}
-                onToggleHistory={() => setShowHistory(!showHistory)}
-              />
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto px-6">
-              <div className="space-y-4">
-                <TaskForm
-                  task={editedTask}
-                  setTask={setEditedTask}
-                  mode="edit"
-                  saveOnChange={true}
-                  showCardLink={showCardLink}
-                  onBacklink={handleBacklink}
-                />
-
-                {/* Subtasks Section */}
-                {editedTask.id > 0 && (
-                  <div className="border-t border-gray-200 pt-4">
-                    <TaskSubtasksSection
-                      task={editedTask}
-                      onCreateSubtask={handleCreateSubtask}
-                      onToggleSubtask={handleToggleSubtask}
-                      onDeleteSubtask={handleDeleteSubtask}
-                      disabled={editedTask.is_complete}
-                    />
-                  </div>
-                )}
-
-                {showHistory && <TaskAuditHistory events={auditEvents} />}
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="px-6 mt-6 flex justify-end">
-              <Button onClick={onClose}>Close</Button>
-            </div>
-          </Dialog.Panel>
+      <Modal
+        open={isOpen}
+        onClose={onClose}
+        size="2xl"
+        dialogClassName="z-50"
+        className={`!px-0 max-h-[80vh] flex flex-col ${
+          editedTask.is_complete
+            ? 'border-2 border-green-200'
+            : 'border-2 border-transparent'
+        }`}
+      >
+        {/* Header */}
+        <div className="px-6 flex justify-between items-start mb-4">
+          <div className="flex items-center gap-4">
+            <span
+              onClick={handleToggleComplete}
+              className="cursor-pointer hover:scale-110 transition-transform"
+            >
+              {editedTask.is_complete ? <TaskClosedIcon /> : <TaskOpenIcon />}
+            </span>
+            <h3
+              className={`text-lg font-medium leading-6 ${
+                editedTask.is_complete ? 'text-green-700' : 'text-gray-900'
+              }`}
+            >
+              {editedTask.is_complete ? 'Task Completed' : 'Task Details'}
+            </h3>
+            {editedTask.card && editedTask.card.id > 0 && (
+              <Link
+                to={`/app/card/${editedTask.card.id}`}
+                className="text-blue-600 hover:text-blue-800"
+                style={{ textDecoration: 'none' }}
+              >
+                <span className="card-id">[{editedTask.card.card_id}]</span>
+              </Link>
+            )}
+          </div>
+          <TaskListOptionsMenu
+            task={editedTask}
+            showCardLink={showCardLink}
+            setShowCardLink={setShowCardLink}
+            onDelete={handleDelete}
+            onToggleComplete={handleToggleComplete}
+            onRefresh={() => setRefreshTasks(true)}
+            onClose={onClose}
+            showHistory={showHistory}
+            onToggleHistory={() => setShowHistory(!showHistory)}
+          />
         </div>
-      </Dialog>
+
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto px-6">
+          <div className="space-y-4">
+            <TaskForm
+              task={editedTask}
+              setTask={setEditedTask}
+              mode="edit"
+              saveOnChange={true}
+              showCardLink={showCardLink}
+              onBacklink={handleBacklink}
+            />
+
+            {/* Subtasks Section */}
+            {editedTask.id > 0 && (
+              <div className="border-t border-gray-200 pt-4">
+                <TaskSubtasksSection
+                  task={editedTask}
+                  onCreateSubtask={handleCreateSubtask}
+                  onToggleSubtask={handleToggleSubtask}
+                  onDeleteSubtask={handleDeleteSubtask}
+                  disabled={editedTask.is_complete}
+                />
+              </div>
+            )}
+
+            {showHistory && <TaskAuditHistory events={auditEvents} />}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 mt-6 flex justify-end">
+          <Button onClick={onClose}>Close</Button>
+        </div>
+      </Modal>
 
       <ConfirmDialog
         isOpen={showDeleteConfirm}

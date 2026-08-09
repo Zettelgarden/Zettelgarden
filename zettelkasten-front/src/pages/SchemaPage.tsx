@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { SchemaDefinition, FieldDefinition } from '../models/Schema';
 import { fetchSchemas, deleteSchema } from '../api/schemas';
-import { Dialog, Menu } from '@headlessui/react';
+import { Menu } from '@headlessui/react';
+import { Modal } from '../components/ui/Modal';
 import { setDocumentTitle } from '../utils/title';
 import { useNavigate } from 'react-router-dom';
 import { formatRelativeTime } from '../utils/scheduler';
@@ -217,52 +218,45 @@ export function SchemaPage() {
       )}
 
       {showDeleteDialog && schemaToDelete && (
-        <Dialog
+        <Modal
           open={showDeleteDialog}
           onClose={() => {
             setShowDeleteDialog(false);
             setSchemaToDelete(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          size="md"
+          dialogClassName="z-50"
         >
-          <div
-            className="fixed inset-0 bg-black bg-opacity-30"
-            aria-hidden="true"
-          />
-          <Dialog.Panel className="bg-white p-6 rounded-lg max-w-md mx-auto relative">
-            <Dialog.Title className="text-lg font-semibold mb-4">
-              Confirm Delete
-            </Dialog.Title>
-            <div className="mb-4">
-              <p className="text-gray-600 mb-2">
-                Are you sure you want to delete the schema "
-                {schemaToDelete.name}"?
-              </p>
-            </div>
-            <p className="text-red-600 text-sm mb-4">
-              This action cannot be undone. Any cards using this schema will no
-              longer display their structured data.
+          <h2 className="text-lg font-semibold mb-4">Confirm Delete</h2>
+          <div className="mb-4">
+            <p className="text-gray-600 mb-2">
+              Are you sure you want to delete the schema "{schemaToDelete.name}
+              "?
             </p>
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => {
-                  setShowDeleteDialog(false);
-                  setSchemaToDelete(null);
-                }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                disabled={isDeleting}
-                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </Dialog.Panel>
-        </Dialog>
+          </div>
+          <p className="text-red-600 text-sm mb-4">
+            This action cannot be undone. Any cards using this schema will no
+            longer display their structured data.
+          </p>
+          <div className="flex justify-end gap-4">
+            <button
+              onClick={() => {
+                setShowDeleteDialog(false);
+                setSchemaToDelete(null);
+              }}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );

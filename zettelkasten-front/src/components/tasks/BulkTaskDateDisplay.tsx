@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { Modal } from '../ui/Modal';
 import { Task } from '../../models/Task';
 
 import {
@@ -76,74 +76,70 @@ export function BulkTaskDateDisplay({
     updateTasks(getNextMonday(userTimezone));
   }
 
-  return createPortal(
-    <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]"
-      onClick={() => setShowBulkEdit(false)}
+  return (
+    <Modal
+      open
+      onClose={() => setShowBulkEdit(false)}
+      size="sm"
+      dialogClassName="z-[100]"
     >
-      <div
-        className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-semibold mb-4 text-gray-700">
-          Edit Date ({tasks.length} tasks)
-        </h3>
-        <div className="flex flex-col space-y-2">
+      <h3 className="text-lg font-semibold mb-4 text-gray-700">
+        Edit Date ({tasks.length} tasks)
+      </h3>
+      <div className="flex flex-col space-y-2">
+        <button
+          onClick={setNoDate}
+          className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-slate-100 rounded border border-slate-200"
+        >
+          No Date
+        </button>
+        <button
+          onClick={setToday}
+          className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-slate-100 rounded border border-slate-200"
+        >
+          Today
+        </button>
+        <button
+          onClick={setTomorrow}
+          className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-slate-100 rounded border border-slate-200"
+        >
+          Tomorrow
+        </button>
+        {isFriday(userTimezone) ? (
           <button
-            onClick={setNoDate}
+            onClick={setNextMonday}
             className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-slate-100 rounded border border-slate-200"
           >
-            No Date
+            Next Monday
           </button>
-          <button
-            onClick={setToday}
-            className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-slate-100 rounded border border-slate-200"
-          >
-            Today
-          </button>
-          <button
-            onClick={setTomorrow}
-            className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-slate-100 rounded border border-slate-200"
-          >
-            Tomorrow
-          </button>
-          {isFriday(userTimezone) ? (
-            <button
-              onClick={setNextMonday}
-              className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-slate-100 rounded border border-slate-200"
-            >
-              Next Monday
-            </button>
-          ) : null}
-          <button
-            onClick={setNextWeek}
-            className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-slate-100 rounded border border-slate-200"
-          >
-            Next Week
-          </button>
+        ) : null}
+        <button
+          onClick={setNextWeek}
+          className="w-full text-left px-4 py-3 min-h-[44px] hover:bg-slate-100 rounded border border-slate-200"
+        >
+          Next Week
+        </button>
 
-          <div className="pt-2 border-t mt-2">
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Custom Date
-            </label>
-            <input
-              aria-label="Date"
-              type="date"
-              className="p-2 min-h-[44px] w-full border border-slate-300 rounded"
-              value={selectedDate}
-              onChange={handleScheduledDateChange}
-            />
-          </div>
-
-          <button
-            onClick={() => setShowBulkEdit(false)}
-            className="mt-4 px-4 py-3 min-h-[44px] border border-slate-300 rounded hover:bg-slate-50 w-full"
-          >
-            Cancel
-          </button>
+        <div className="pt-2 border-t mt-2">
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Custom Date
+          </label>
+          <input
+            aria-label="Date"
+            type="date"
+            className="p-2 min-h-[44px] w-full border border-slate-300 rounded"
+            value={selectedDate}
+            onChange={handleScheduledDateChange}
+          />
         </div>
+
+        <button
+          onClick={() => setShowBulkEdit(false)}
+          className="mt-4 px-4 py-3 min-h-[44px] border border-slate-300 rounded hover:bg-slate-50 w-full"
+        >
+          Cancel
+        </button>
       </div>
-    </div>,
-    document.body,
+    </Modal>
   );
 }

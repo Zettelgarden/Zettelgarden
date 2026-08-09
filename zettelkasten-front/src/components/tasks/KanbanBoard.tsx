@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Modal } from '../ui/Modal';
 import {
   DragDropContext,
   Droppable,
@@ -897,84 +898,91 @@ export function KanbanBoard({
 
       {/* Status Management Modal */}
       {showStatusManagement && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto relative">
-            {/* Close button */}
-            <button
-              onClick={() => setShowStatusManagement(false)}
-              className="sticky top-0 right-0 float-right m-4 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors z-10"
+        <Modal
+          open
+          onClose={() => setShowStatusManagement(false)}
+          size="4xl"
+          dialogClassName="z-50"
+          className="max-h-[90vh] overflow-y-auto relative !p-0"
+        >
+          {/* Close button */}
+          <button
+            onClick={() => setShowStatusManagement(false)}
+            className="sticky top-0 right-0 float-right m-4 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors z-10"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
 
-            {/* StatusManagement component */}
-            <div className="p-6">
-              <StatusManagement />
-            </div>
+          {/* StatusManagement component */}
+          <div className="p-6">
+            <StatusManagement />
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* WIP Limit Modal */}
       {showWipModal && editingWipStatus && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-sm p-6">
-            <h3 className="text-lg font-semibold mb-4">Set WIP Limit</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Set the maximum number of tasks allowed in the{' '}
-              <strong>
-                {
-                  statuses.find((s) => s.name === editingWipStatus)
-                    ?.display_name
+        <Modal
+          open
+          onClose={() => {
+            setEditingWipStatus(null);
+            setShowWipModal(false);
+          }}
+          size="sm"
+          dialogClassName="z-50"
+        >
+          <h3 className="text-lg font-semibold mb-4">Set WIP Limit</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Set the maximum number of tasks allowed in the{' '}
+            <strong>
+              {statuses.find((s) => s.name === editingWipStatus)?.display_name}
+            </strong>{' '}
+            column. Tasks exceeding this limit will show a warning.
+          </p>
+          <input
+            type="number"
+            min="0"
+            value={tempWipValue}
+            onChange={(e) => setTempWipValue(e.target.value)}
+            placeholder="Enter limit (0 for no limit)"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            autoFocus
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => {
+                setEditingWipStatus(null);
+                setShowWipModal(false);
+              }}
+              className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                const limit = parseInt(tempWipValue, 10);
+                if (!isNaN(limit)) {
+                  handleSetWipLimit(editingWipStatus, limit);
                 }
-              </strong>{' '}
-              column. Tasks exceeding this limit will show a warning.
-            </p>
-            <input
-              type="number"
-              min="0"
-              value={tempWipValue}
-              onChange={(e) => setTempWipValue(e.target.value)}
-              placeholder="Enter limit (0 for no limit)"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              autoFocus
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setEditingWipStatus(null);
-                  setShowWipModal(false);
-                }}
-                className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  const limit = parseInt(tempWipValue, 10);
-                  if (!isNaN(limit)) {
-                    handleSetWipLimit(editingWipStatus, limit);
-                  }
-                }}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Save
-              </button>
-            </div>
+              }}
+              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Save
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Modal } from '../ui/Modal';
 import { useTagContext } from '../../contexts/TagContext';
 import { TagListItem } from './TagListItem';
 import { createTag } from '../../api/tags';
@@ -65,36 +66,39 @@ export function TagList({}: TagListInterface) {
       </div>
 
       {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold mb-4">Create New Tag</h3>
-            {error && <div className="text-red-500 mb-4">{error}</div>}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Name</label>
-              <input
-                type="text"
-                value={newTagName}
-                onChange={(e) => setNewTagName(e.target.value)}
-                className="border border-gray-300 rounded px-3 py-2 w-full"
-                placeholder="Enter tag name"
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setIsCreateModalOpen(false)}
-                className="px-4 py-3 min-h-[44px] text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateTag}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 min-h-[44px] rounded"
-              >
-                Create
-              </button>
-            </div>
+        <Modal
+          open
+          onClose={() => setIsCreateModalOpen(false)}
+          size="md"
+          dialogClassName="z-50"
+        >
+          <h3 className="text-xl font-bold mb-4">Create New Tag</h3>
+          {error && <div className="text-red-500 mb-4">{error}</div>}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Name</label>
+            <input
+              type="text"
+              value={newTagName}
+              onChange={(e) => setNewTagName(e.target.value)}
+              className="border border-gray-300 rounded px-3 py-2 w-full"
+              placeholder="Enter tag name"
+            />
           </div>
-        </div>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setIsCreateModalOpen(false)}
+              className="px-4 py-3 min-h-[44px] text-gray-600 hover:text-gray-800"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreateTag}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 min-h-[44px] rounded"
+            >
+              Create
+            </button>
+          </div>
+        </Modal>
       )}
 
       <div className="mb-4 flex flex-wrap items-center gap-4">

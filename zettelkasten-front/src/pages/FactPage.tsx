@@ -8,7 +8,7 @@ import {
   deleteFact,
   FactsResponse,
 } from '../api/facts';
-import { Dialog } from '@headlessui/react';
+import { Modal } from '../components/ui/Modal';
 import { HeaderSection } from '../components/Header';
 import { useDialogState } from '../contexts/DialogStateContext';
 import { setDocumentTitle } from '../utils/title';
@@ -353,94 +353,80 @@ export function FactPage() {
         </div>
       )}
       {showConfirmDialog && (
-        <Dialog
+        <Modal
           open={showConfirmDialog}
           onClose={() => setShowConfirmDialog(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          size="md"
+          dialogClassName="z-50"
         >
-          <div
-            className="fixed inset-0 bg-black bg-opacity-30"
-            aria-hidden="true"
-          />
-          <Dialog.Panel className="bg-white p-6 rounded-lg max-w-md mx-auto relative">
-            <Dialog.Title className="text-lg font-semibold mb-4">
-              Confirm Merge
-            </Dialog.Title>
-            <div className="mb-4">
-              <p className="font-medium text-green-600 mb-2">
-                Primary Fact (will be kept):
-                <br />
-                {facts.find((f) => f.id === selectedFacts[0])?.fact}
-              </p>
-              <p className="text-gray-600 mb-2">
-                The following facts will be merged into the primary:
-              </p>
-              <ul className="list-disc pl-5">
-                {selectedFacts.slice(1).map((id) => {
-                  const fact = facts.find((f) => f.id === id);
-                  return fact ? (
-                    <li key={id} className="text-gray-700">
-                      {fact.fact}
-                    </li>
-                  ) : null;
-                })}
-              </ul>
-            </div>
-            <p className="text-red-600 text-sm mb-4">
-              This action cannot be undone. The merged facts will be deleted.
+          <h2 className="text-lg font-semibold mb-4">Confirm Merge</h2>
+          <div className="mb-4">
+            <p className="font-medium text-green-600 mb-2">
+              Primary Fact (will be kept):
+              <br />
+              {facts.find((f) => f.id === selectedFacts[0])?.fact}
             </p>
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => setShowConfirmDialog(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmMerge}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Merge
-              </button>
-            </div>
-          </Dialog.Panel>
-        </Dialog>
+            <p className="text-gray-600 mb-2">
+              The following facts will be merged into the primary:
+            </p>
+            <ul className="list-disc pl-5">
+              {selectedFacts.slice(1).map((id) => {
+                const fact = facts.find((f) => f.id === id);
+                return fact ? (
+                  <li key={id} className="text-gray-700">
+                    {fact.fact}
+                  </li>
+                ) : null;
+              })}
+            </ul>
+          </div>
+          <p className="text-red-600 text-sm mb-4">
+            This action cannot be undone. The merged facts will be deleted.
+          </p>
+          <div className="flex justify-end gap-4">
+            <button
+              onClick={() => setShowConfirmDialog(false)}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmMerge}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Merge
+            </button>
+          </div>
+        </Modal>
       )}
 
       {showDeleteConfirm && (
-        <Dialog
+        <Modal
           open={showDeleteConfirm}
           onClose={() => setShowDeleteConfirm(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          size="md"
+          dialogClassName="z-50"
         >
-          <div
-            className="fixed inset-0 bg-black bg-opacity-30"
-            aria-hidden="true"
-          />
-          <Dialog.Panel className="bg-white p-6 rounded-lg max-w-md mx-auto relative">
-            <Dialog.Title className="text-lg font-semibold mb-4">
-              Confirm Delete
-            </Dialog.Title>
-            <p className="text-gray-700 mb-4">
-              Are you sure you want to delete {selectedFacts.length} fact(s)?
-              This action cannot be undone.
-            </p>
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-              >
-                Delete
-              </button>
-            </div>
-          </Dialog.Panel>
-        </Dialog>
+          <h2 className="text-lg font-semibold mb-4">Confirm Delete</h2>
+          <p className="text-gray-700 mb-4">
+            Are you sure you want to delete {selectedFacts.length} fact(s)? This
+            action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-4">
+            <button
+              onClick={() => setShowDeleteConfirm(false)}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmDelete}
+              className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+            >
+              Delete
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );

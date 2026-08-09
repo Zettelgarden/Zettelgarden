@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Modal } from '../ui/Modal';
 import { RSSFeed, RSSFolder, UnreadCounts } from '../../api/rss';
 import { RssBulkMoveDialog } from './RssBulkMoveDialog';
 import { RssBulkTagsDialog } from './RssBulkTagsDialog';
@@ -574,154 +575,162 @@ export function RssManageFeedsTable({
 
       {/* Edit Feed Dialog - Reuse existing dialog */}
       {editingFeed && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-[500px]">
-            <h3 className="text-lg font-semibold mb-4">Edit Feed</h3>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                await onUpdateFeed(editingFeed.id, {
-                  name: formData.get('name') as string,
-                  url: formData.get('url') as string,
-                  folder: (formData.get('folder') as string) || undefined,
-                  auto_tags: formData.get('tags') as string,
-                  fetch_interval:
-                    parseInt(formData.get('interval') as string) || undefined,
-                  enabled: formData.get('enabled') === 'on',
-                  priority: formData.get('priority') === 'on',
-                });
-                setEditingFeed(null);
-              }}
-            >
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Name
-                  </label>
-                  <input
-                    name="name"
-                    defaultValue={editingFeed.name}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    URL
-                  </label>
-                  <input
-                    name="url"
-                    defaultValue={editingFeed.url}
-                    type="url"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Folder
-                  </label>
-                  <select
-                    name="folder"
-                    defaultValue={editingFeed.folder || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  >
-                    <option value="">Uncategorized</option>
-                    {folders.map((f) => (
-                      <option key={f.id} value={f.name}>
-                        {f.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Auto Tags (comma-separated)
-                  </label>
-                  <input
-                    name="tags"
-                    defaultValue={editingFeed.auto_tags}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fetch Interval (minutes)
-                  </label>
-                  <input
-                    name="interval"
-                    defaultValue={editingFeed.fetch_interval}
-                    type="number"
-                    min="1"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2">
-                    <input
-                      name="enabled"
-                      type="checkbox"
-                      defaultChecked={editingFeed.enabled}
-                    />
-                    <span className="text-sm">Enabled</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      name="priority"
-                      type="checkbox"
-                      defaultChecked={editingFeed.priority}
-                    />
-                    <span className="text-sm">Priority</span>
-                  </label>
-                </div>
+        <Modal
+          open
+          onClose={() => setEditingFeed(null)}
+          size="md"
+          dialogClassName="z-50"
+          className="!max-w-[500px]"
+        >
+          <h3 className="text-lg font-semibold mb-4">Edit Feed</h3>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              await onUpdateFeed(editingFeed.id, {
+                name: formData.get('name') as string,
+                url: formData.get('url') as string,
+                folder: (formData.get('folder') as string) || undefined,
+                auto_tags: formData.get('tags') as string,
+                fetch_interval:
+                  parseInt(formData.get('interval') as string) || undefined,
+                enabled: formData.get('enabled') === 'on',
+                priority: formData.get('priority') === 'on',
+              });
+              setEditingFeed(null);
+            }}
+          >
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Name
+                </label>
+                <input
+                  name="name"
+                  defaultValue={editingFeed.name}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  required
+                />
               </div>
-              <div className="flex justify-end gap-2 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setEditingFeed(null)}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Save
-                </button>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  URL
+                </label>
+                <input
+                  name="url"
+                  defaultValue={editingFeed.url}
+                  type="url"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  required
+                />
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Bulk Delete Confirmation */}
-      {showBulkDelete && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold mb-2">Delete Feeds</h3>
-            <p className="text-gray-600 mb-4">
-              Are you sure you want to delete {selectedIds.size} feed
-              {selectedIds.size !== 1 ? 's' : ''}? This will also delete all
-              articles from these feeds. This action cannot be undone.
-            </p>
-            <div className="flex justify-end gap-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Folder
+                </label>
+                <select
+                  name="folder"
+                  defaultValue={editingFeed.folder || ''}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="">Uncategorized</option>
+                  {folders.map((f) => (
+                    <option key={f.id} value={f.name}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Auto Tags (comma-separated)
+                </label>
+                <input
+                  name="tags"
+                  defaultValue={editingFeed.auto_tags}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Fetch Interval (minutes)
+                </label>
+                <input
+                  name="interval"
+                  defaultValue={editingFeed.fetch_interval}
+                  type="number"
+                  min="1"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    name="enabled"
+                    type="checkbox"
+                    defaultChecked={editingFeed.enabled}
+                  />
+                  <span className="text-sm">Enabled</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    name="priority"
+                    type="checkbox"
+                    defaultChecked={editingFeed.priority}
+                  />
+                  <span className="text-sm">Priority</span>
+                </label>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
               <button
-                onClick={() => setShowBulkDelete(false)}
+                type="button"
+                onClick={() => setEditingFeed(null)}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
               >
                 Cancel
               </button>
               <button
-                onClick={handleBulkDeleteConfirm}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
-                Delete
+                Save
               </button>
             </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Bulk Delete Confirmation */}
+      {showBulkDelete && (
+        <Modal
+          open
+          onClose={() => setShowBulkDelete(false)}
+          size="md"
+          dialogClassName="z-50"
+          className="!max-w-96"
+        >
+          <h3 className="text-lg font-semibold mb-2">Delete Feeds</h3>
+          <p className="text-gray-600 mb-4">
+            Are you sure you want to delete {selectedIds.size} feed
+            {selectedIds.size !== 1 ? 's' : ''}? This will also delete all
+            articles from these feeds. This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setShowBulkDelete(false)}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleBulkDeleteConfirm}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+            >
+              Delete
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Bulk Move Dialog */}
