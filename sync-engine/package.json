@@ -5,7 +5,9 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
@@ -18,5 +20,13 @@
     "better-sqlite3": "^12.2.0",
     "typescript": "^5.7.3",
     "vitest": "^3.0.0"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./engine": "./dist/engine.js",
+    "./http": "./dist/http.js",
+    "./storage": "./dist/storage.js",
+    "./types": "./dist/types.js",
+    "./sqlite": "./dist/sqlite.js"
   }
 }

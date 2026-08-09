@@ -116,6 +116,16 @@ export class SyncEngine {
     return (await this.storage.outbox()).length;
   }
 
+  /** Meta passthroughs (adapter-level key/value store; used by shells for
+   * client-side bookkeeping such as local-id alias maps). */
+  getMeta(key: string): Promise<string | null> {
+    return this.storage.getMeta(key);
+  }
+
+  setMeta(key: string, value: string): Promise<void> {
+    return this.storage.setMeta(key, value);
+  }
+
   /** Local upsert: writes the mirror row and queues the change atomically. */
   async mutate(collection: Collection, row: { rowUuid: string; data: Record<string, unknown> }): Promise<void> {
     const existing = await this.storage.getRow(collection, row.rowUuid);
@@ -154,6 +164,14 @@ export class SyncEngine {
   /** One-time bootstrap: snapshot the server into the mirror and set cursor. */
   async bootstrap(): Promise<void> {
     const snap = await this.transport.snapshot(COLLECTIONS);
+    await this.applySnapshot(snap);
+    this.lastSynced = new Date();
+    void this.emitProgress();
+  }
+
+  /** Applies a snapshot atomically (used by bootstrap and by pull when the
+   * cursor is 0 — a changes(0) pull would miss rows that predate sync_log). */
+  private async applySnapshot(snap: { cursor: number; collections: Partial<Record<Collection, { row_uuid: string; version: number; op: 'upsert' | 'delete'; data?: Record<string, unknown> }[]>> }): Promise<void> {
     await this.storage.transaction(async () => {
       for (const collection of COLLECTIONS) {
         // The snapshot is authoritative: drop mirror rows the server no
@@ -166,6 +184,9 @@ export class SyncEngine {
           }
         }
         for (const row of snap.collections[collection] ?? []) {
+          // Never clobber a row with a pending local edit: the push that
+          // follows reconciles it with the server. (Same rule as pull.)
+          if (await this.storage.hasPending(row.row_uuid)) continue;
           await this.storage.putRow(collection, {
             collection,
             rowUuid: row.row_uuid,
@@ -176,8 +197,6 @@ export class SyncEngine {
       }
       await this.storage.setCursor(snap.cursor);
     });
-    this.lastSynced = new Date();
-    void this.emitProgress();
   }
 
   /**
@@ -234,6 +253,16 @@ export class SyncEngine {
   /** Apply feed entries since the cursor; advance the cursor. */
   async pull(): Promise<{ applied: number }> {
     let cursor = await this.storage.getCursor();
+    if (cursor === 0) {
+      // Never bootstrapped (first launch, or a pre-login bootstrap attempt
+      // that failed while unauthenticated). A changes(0) pull would miss
+      // rows that predate sync_log, so snapshot-bootstrap first — this also
+      // makes the retry loop self-healing: once a token is available and the
+      // network is back, the next pull bootstraps automatically.
+      const snap = await this.transport.snapshot(COLLECTIONS);
+      await this.applySnapshot(snap);
+      return { applied: 0 };
+    }
     let applied = 0;
     for (;;) {
       const page: ChangesResponse = await this.transport.changes(cursor);

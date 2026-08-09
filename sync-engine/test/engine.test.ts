@@ -301,6 +301,10 @@ describe('SyncEngine', () => {
       };
       const engine = new SyncEngine({ storage, transport: failingTransport, deviceId: 'dev-a' });
       await engine.bootstrap();
+      // A pending mutation makes the push path actually hit the (failing)
+      // transport — with an empty outbox a cursor-0 sync succeeds via the
+      // snapshot bootstrap alone and never exercises backoff.
+      await engine.mutate('cards', { rowUuid: 'b1', data: cardData('pending') });
 
       engine.start(1000);
       expect(delays[0]).toBe(1000); // steady state = interval
@@ -498,6 +502,36 @@ describe('SyncEngine', () => {
 
     expect(seen.some((s) => s.startsWith('idle:1'))).toBe(true);
     expect((await storage.getRow('cards', 'p1'))?.data.id).toBeGreaterThan(0);
+  });
+
+  it('cursor-0 pull auto-bootstraps (never-bootstrapped device)', async () => {
+    const server = new MockServer();
+    server.seed('cards', 'c1', cardData('seeded'));
+    const { engine, storage } = makeEngine(server, 'dev-a');
+
+    // NO explicit bootstrap: the first sync's pull sees cursor 0 and must
+    // snapshot-bootstrap (a changes(0) pull would miss pre-sync_log rows).
+    const summary = await engine.sync();
+    expect(summary.cursor).toBeGreaterThan(0);
+    expect((await storage.getRow('cards', 'c1'))?.data.title).toBe('seeded');
+  });
+
+  it('auto-bootstrap never clobbers a row with a pending local edit', async () => {
+    const server = new MockServer();
+    server.seed('cards', 'c1', cardData('seeded'));
+    const { engine, storage } = makeEngine(server, 'dev-a');
+    await engine.bootstrap();
+
+    // Offline edit while the cursor is 0 (mock snapshot cursor stays 0 until
+    // a push lands): the next sync's auto-bootstrap must keep the local edit.
+    engine.setOnline(false);
+    await engine.mutate('cards', { rowUuid: 'local-edit', data: cardData('edited offline') });
+    engine.setOnline(true);
+    await engine.sync();
+
+    const row = (await storage.getRow('cards', 'local-edit'))!;
+    expect(row.data.title).toBe('edited offline');
+    expect(row.version).toBe(1); // adopted server version after push
   });
 
   it('cursor advances correctly across snapshot -> incremental pulls', async () => {
