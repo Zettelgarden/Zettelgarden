@@ -2,6 +2,7 @@ import React from 'react';
 import { SearchResult } from '../../models/Card';
 import { SearchConfig } from '../../models/StarredSearch';
 import { Button } from '../../components/Button';
+import { Spinner } from '../ui/Spinner';
 import { SearchForm } from './SearchForm';
 import { SearchConfig as SearchConfigComponent } from './SearchConfig';
 import { SearchResultList } from '../../components/cards/SearchResultList';
@@ -111,7 +112,7 @@ export function SearchResultsPanel({
       <div className="flex-grow overflow-y-auto">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <Spinner size="xl" className="text-blue-600 mb-4" />
             <p className="text-gray-600">Searching...</p>
           </div>
         ) : (

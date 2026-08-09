@@ -3,6 +3,7 @@ import { FieldDefinition } from '../../models/Schema';
 import { Card } from '../../models/Card';
 import { saveExistingCard, getCard } from '../../api/cards';
 import { CardLink } from '../cards/CardLink';
+import { Spinner } from '../ui/Spinner';
 import { isEmptyValue } from '../../utils/schemaValidation';
 
 interface EditableCellProps {
@@ -379,7 +380,7 @@ export function EditableCell({ card, field, onSave }: EditableCellProps) {
           {renderEditInput()}
           {isLoading && (
             <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center">
-              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <Spinner size="sm" className="text-blue-500" />
             </div>
           )}
         </div>

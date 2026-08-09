@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { Spinner } from '../components/ui/Spinner';
 
 export default function Success() {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ export default function Success() {
   if (refreshing) {
     return (
       <div className="flex flex-col items-center mt-10">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-4"></div>
+        <Spinner size="lg" className="text-indigo-600 mb-4" />
         <p className="text-gray-600">Activating your subscription...</p>
       </div>
     );

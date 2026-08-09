@@ -8,7 +8,8 @@ import {
   JobSummary,
 } from '../../api/admin';
 import { AdminErrorDisplay } from '../../components/admin/AdminErrorDisplay';
-import { JobStatusBadge } from '../../components/scheduler/JobStatusBadge';
+import { Spinner } from '../../components/ui/Spinner';
+import { Badge } from '../../components/ui/Badge';
 import { ScheduleDisplay } from '../../components/scheduler/ScheduleDisplay';
 import { RecentStatsSummary } from '../../components/scheduler/RecentStatsSummary';
 import { ExpandableHistory } from '../../components/scheduler/ExpandableHistory';
@@ -148,7 +149,7 @@ export function AdminSchedulerPage() {
           >
             {isRefreshing ? (
               <>
-                <span className="animate-spin">⟳</span>
+                <Spinner size="sm" />
                 Refreshing...
               </>
             ) : (
@@ -215,7 +216,21 @@ export function AdminSchedulerPage() {
                         />
                       </td>
                       <td className="px-6 py-4">
-                        <JobStatusBadge status={lastStatus as any} />
+                        {lastStatus === 'completed' ? (
+                          <Badge color="success" dot>
+                            Completed
+                          </Badge>
+                        ) : lastStatus === 'failed' ? (
+                          <Badge color="error" dot>
+                            Failed
+                          </Badge>
+                        ) : lastStatus === 'running' ? (
+                          <Badge color="warning" dot pulse>
+                            Running
+                          </Badge>
+                        ) : (
+                          <Badge color="neutral">Never run</Badge>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <RecentStatsSummary summary={job.summary} />

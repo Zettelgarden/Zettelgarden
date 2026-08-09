@@ -3,6 +3,7 @@ import { Dialog } from '@headlessui/react';
 import { Task, TaskAuditEvent } from '../../models/Task';
 import { PartialCard } from '../../models/Card';
 import { Link } from 'react-router-dom';
+import { Spinner } from '../ui/Spinner';
 import {
   saveExistingTask,
   deleteTask,
@@ -33,7 +34,7 @@ interface TaskDialogProps {
 function LoadingSpinner() {
   return (
     <div className="flex items-center justify-center py-8">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+      <Spinner size="lg" className="text-gray-900" />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { APIKeyResponse, CreateAPIKeyRequest } from '../../models/APIKey';
 import { createAPIKey, listAPIKeys, revokeAPIKey } from '../../api/apiKeys';
+import { Spinner } from '../ui/Spinner';
 
 interface APIKeysManagementProps {}
 
@@ -97,7 +98,7 @@ const APIKeysManagement: React.FC<APIKeysManagementProps> = () => {
   if (loading) {
     return (
       <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+        <Spinner size="lg" className="text-blue-500" />
         <p className="mt-2 text-gray-600">Loading API keys...</p>
       </div>
     );

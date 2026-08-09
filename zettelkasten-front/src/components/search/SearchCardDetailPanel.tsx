@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, SearchResult, Entity } from '../../models/Card';
 import { getCard, saveExistingCard } from '../../api/cards';
 import { CardBody } from '../cards/CardBody';
+import { Spinner } from '../ui/Spinner';
 import { HeaderSubSection, HeaderSection } from '../Header';
 import { CardTag } from '../cards/CardTag';
 import { formatDate } from '../../utils/dates';
@@ -140,7 +141,7 @@ export function SearchCardDetailPanel({
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full bg-white p-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+        <Spinner size="xl" className="text-blue-600 mb-4" />
         <p className="text-gray-600">Loading card details...</p>
       </div>
     );

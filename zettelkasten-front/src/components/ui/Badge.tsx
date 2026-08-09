@@ -56,3 +56,39 @@ export function Badge({
     </span>
   );
 }
+
+/**
+ * Badge props for a subscription status string (from admin/StatusBadge).
+ */
+export function getSubscriptionStatusBadge(status: string): {
+  color: BadgeColor;
+  label: string;
+} {
+  switch (status) {
+    case 'active':
+      return { color: 'success', label: 'Active' };
+    case 'trialing':
+      return { color: 'info', label: 'Trial' };
+    case 'past_due':
+    case 'canceled':
+    case 'incomplete':
+    case 'incomplete_expired':
+      return { color: 'error', label: status };
+    default:
+      return { color: 'neutral', label: 'Free' };
+  }
+}
+
+/**
+ * Badge props for a boolean status (from admin/StatusBadge).
+ */
+export function getBooleanStatusBadge(
+  value: boolean,
+  options: { trueLabel?: string; falseLabel?: string } = {},
+): { color: BadgeColor; label: string } {
+  const { trueLabel = 'Yes', falseLabel = 'No' } = options;
+  return {
+    color: value ? 'success' : 'neutral',
+    label: value ? trueLabel : falseLabel,
+  };
+}

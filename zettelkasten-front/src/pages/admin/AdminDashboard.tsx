@@ -12,10 +12,7 @@ import {
 } from '@tanstack/react-table';
 import { Link } from 'react-router-dom';
 import { fuzzyFilter } from '../../utils/tableFilters';
-import {
-  StatusBadge,
-  getSubscriptionStatusBadge,
-} from '../../components/admin/StatusBadge';
+import { Badge, getSubscriptionStatusBadge } from '../../components/ui/Badge';
 import { AdminTableContainer } from '../../components/admin/AdminTable';
 import { AdminErrorDisplay } from '../../components/admin/AdminErrorDisplay';
 
@@ -122,18 +119,16 @@ export function AdminDashboard() {
       columnHelper.accessor('email_validated', {
         header: 'Email Validated',
         cell: (info) => (
-          <StatusBadge
-            value={info.getValue()}
-            type={info.getValue() ? 'success' : 'warning'}
-            label={info.getValue() ? 'Verified' : 'Pending'}
-          />
+          <Badge color={info.getValue() ? 'success' : 'warning'} dot>
+            {info.getValue() ? 'Verified' : 'Pending'}
+          </Badge>
         ),
       }),
       columnHelper.accessor('stripe_subscription_status', {
         header: 'Subscription',
         cell: (info) => {
           const badge = getSubscriptionStatusBadge(info.getValue() as string);
-          return <StatusBadge type={badge.type} label={badge.label} />;
+          return <Badge color={badge.color}>{badge.label}</Badge>;
         },
       }),
       columnHelper.accessor('created_at', {

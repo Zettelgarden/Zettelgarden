@@ -1,4 +1,5 @@
 import React from 'react';
+import { Spinner } from '../ui/Spinner';
 
 /**
  * Error severity levels
@@ -159,7 +160,7 @@ export function AdminLoadingState({
       {message && (
         <div className="text-center text-gray-500 py-4">
           <div className="animate-pulse inline-flex items-center gap-2">
-            <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+            <Spinner size="sm" className="text-gray-600" />
             {message}
           </div>
         </div>

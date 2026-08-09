@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getAllJobs, retryJob, AdminJob } from '../../api/admin';
 import { AdminErrorDisplay } from '../../components/admin/AdminErrorDisplay';
+import { Spinner } from '../../components/ui/Spinner';
 
 interface ErrorState {
   message: string;
@@ -156,7 +157,7 @@ export function AdminJobQueuePage() {
         >
           {isRefreshing ? (
             <>
-              <span className="animate-spin">⟳</span>
+              <Spinner size="sm" />
               Refreshing...
             </>
           ) : (

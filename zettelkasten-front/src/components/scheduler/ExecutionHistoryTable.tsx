@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { JobRun } from '../../api/admin';
 import { formatDuration } from '../../utils/scheduler';
+import { Badge } from '../ui/Badge';
 
 interface ExecutionHistoryTableProps {
   runs: JobRun[];
@@ -22,19 +23,16 @@ export function ExecutionHistoryTable({ runs }: ExecutionHistoryTableProps) {
   };
 
   const getStatusBadge = (status: string) => {
-    const styles = {
-      completed: 'bg-green-100 text-green-800',
-      failed: 'bg-red-100 text-red-800',
-      running: 'bg-yellow-100 text-yellow-800',
-    };
+    const color =
+      status === 'completed'
+        ? 'success'
+        : status === 'failed'
+        ? 'error'
+        : 'warning';
     return (
-      <span
-        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-          styles[status as keyof typeof styles] || styles.running
-        }`}
-      >
+      <Badge color={color} dot>
         {status}
-      </span>
+      </Badge>
     );
   };
 
