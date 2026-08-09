@@ -159,10 +159,11 @@ Create `src/components/ui/` with small, typed, tested primitives:
 - `DialogStateContext` compatibility: ensure the new `Modal`/`ConfirmDialog` still
   work with the global dialog-open state used by keyboard-shortcut dialogs (`review`)
 - Decide a **single primary-button color** (proposal: `bg-palette-dark`, the brand)
-  and delete the ad-hoc blue/indigo buttons as they're touched.
+  and delete the ad-hoc blue/indigo buttons as they're touched. **Decision (z11.4):
+  `bg-palette-dark` (#38a3a5) confirmed; see `docs/ui-primitives-how-to-use.md`.**
 
-Write a short `docs/` page: "UI primitives — how to use", and add a Vitest spec
-per primitive.
+Write a short `docs/` page: "UI primitives — how to use" (see
+`docs/ui-primitives-how-to-use.md`), and add a Vitest spec per primitive.
 
 ### Phase B — Seed adoption on the highest-traffic surfaces
 Migrate the most-visible/least-risk spots first to prove the pattern and show
