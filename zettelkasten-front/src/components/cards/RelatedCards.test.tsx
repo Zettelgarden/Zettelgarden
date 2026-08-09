@@ -110,4 +110,67 @@ describe('RelatedCards', () => {
     fireEvent.click(screen.getByTitle('Add as reference'));
     expect(onAddReference).toHaveBeenCalledWith(cards[0]);
   });
+
+  it('stays flat when all cards share a single reason category', () => {
+    const cards = [
+      makeRelatedCard(1, 'CARD-1', 'First Card', 6, [
+        '2 shared entities: Python, LLM',
+      ]),
+      makeRelatedCard(2, 'CARD-2', 'Second Card', 3, [
+        '1 shared entity: Python',
+      ]),
+    ];
+    renderWithRouter(
+      <RelatedCards relatedCards={cards} onCardClick={() => {}} />,
+    );
+
+    expect(screen.queryByText('Shared entities')).not.toBeInTheDocument();
+    expect(screen.queryByText('Shared tags')).not.toBeInTheDocument();
+    expect(screen.queryByText('Semantically similar')).not.toBeInTheDocument();
+    expect(screen.getByText('- First Card')).toBeInTheDocument();
+    expect(screen.getByText('- Second Card')).toBeInTheDocument();
+  });
+
+  it('groups cards by reason category with headers when multiple categories exist', () => {
+    const cards = [
+      makeRelatedCard(1, 'CARD-1', 'Entity Card', 6, [
+        '2 shared entities: Python, LLM',
+      ]),
+      makeRelatedCard(2, 'CARD-2', 'Tag Card', 2, ['2 shared tags: notes']),
+      makeRelatedCard(3, 'CARD-3', 'Similar Card', 4, ['semantically similar']),
+    ];
+    renderWithRouter(
+      <RelatedCards relatedCards={cards} onCardClick={() => {}} />,
+    );
+
+    expect(screen.getByText('Shared entities (1)')).toBeInTheDocument();
+    expect(screen.getByText('Shared tags (1)')).toBeInTheDocument();
+    expect(screen.getByText('Semantically similar (1)')).toBeInTheDocument();
+    expect(screen.getByText('- Entity Card')).toBeInTheDocument();
+    expect(screen.getByText('- Tag Card')).toBeInTheDocument();
+    expect(screen.getByText('- Similar Card')).toBeInTheDocument();
+  });
+
+  it('assigns a card with multiple reasons to its first (primary) category only', () => {
+    const cards = [
+      makeRelatedCard(1, 'CARD-1', 'Entity Card', 8, [
+        '1 shared entity: Python',
+        '2 shared tags: notes, research',
+        'semantically similar',
+      ]),
+      makeRelatedCard(2, 'CARD-2', 'Tag Card', 2, ['2 shared tags: notes']),
+    ];
+    renderWithRouter(
+      <RelatedCards relatedCards={cards} onCardClick={() => {}} />,
+    );
+
+    expect(screen.getByText('Shared entities (1)')).toBeInTheDocument();
+    expect(screen.getByText('Shared tags (1)')).toBeInTheDocument();
+    // No card has similarity as its PRIMARY reason, so no group header renders.
+    expect(screen.queryByText('Semantically similar')).not.toBeInTheDocument();
+
+    // Entity Card should appear exactly once, under Shared entities.
+    const entityCardTitles = screen.getAllByText('- Entity Card');
+    expect(entityCardTitles).toHaveLength(1);
+  });
 });
