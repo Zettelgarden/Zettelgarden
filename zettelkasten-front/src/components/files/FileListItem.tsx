@@ -266,7 +266,7 @@ export function FileListItem({
         </div>
 
         <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-          {file.card_pk > 0 && (
+          {file.card_pk > 0 && file.card && file.card.id > 0 && (
             <Link
               to={`/app/card/${file.card.id}`}
               className="text-blue-600 hover:text-blue-700 text-xs font-medium bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded flex-shrink-0"

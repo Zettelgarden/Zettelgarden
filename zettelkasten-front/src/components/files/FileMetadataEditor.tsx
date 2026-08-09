@@ -44,7 +44,7 @@ export function FileMetadataEditor({
         await editFile(file.id.toString(), {
           name: file.name,
           card_pk: cardPk,
-          description: newDescription || undefined,
+          description: newDescription,
         });
         onUpdate();
       } catch (error) {

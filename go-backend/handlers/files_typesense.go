@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"go-backend/models"
 	"log"
 	"time"
 
@@ -176,18 +177,20 @@ func (s *Handler) searchFilesInTypesense(ctx context.Context, userID int, query 
 
 	// Convert Typesense results to response format
 	type FileSearchResult struct {
-		ID            int      `json:"id"`
-		UserID        int      `json:"user_id"`
-		Name          string   `json:"name"`
-		Type          string   `json:"type"`
-		Path          string   `json:"path"`
-		Filename      string   `json:"filename"`
-		Size          int      `json:"size"`
-		CardPK        *int     `json:"card_pk,omitempty"`
-		CreatedAt     string   `json:"created_at"`
-		UpdatedAt     string   `json:"updated_at"`
-		ThumbnailPath *string  `json:"thumbnail_path,omitempty"`
-		Tags          []string `json:"tags,omitempty"`
+		ID            int                `json:"id"`
+		UserID        int                `json:"user_id"`
+		Name          string             `json:"name"`
+		Type          string             `json:"type"`
+		Path          string             `json:"path"`
+		Filename      string             `json:"filename"`
+		Size          int                `json:"size"`
+		CardPK        *int               `json:"card_pk,omitempty"`
+		CreatedAt     string             `json:"created_at"`
+		UpdatedAt     string             `json:"updated_at"`
+		ThumbnailPath *string            `json:"thumbnail_path,omitempty"`
+		Tags          []string           `json:"tags,omitempty"`
+		Description   *string            `json:"description,omitempty"`
+		Card          models.PartialCard `json:"card"`
 	}
 
 	// Initialize as an empty slice (not nil) so the JSON response is `[]` rather
@@ -255,11 +258,12 @@ func (s *Handler) searchFilesInTypesense(ctx context.Context, userID int, query 
 			var path, filename string
 			var cardPK sql.NullInt32
 			var thumbnailPath sql.NullString
+			var description sql.NullString
 			var updatedAt time.Time
 			err := s.GetDB().QueryRowContext(ctx, `
-				SELECT path, filename, card_pk, updated_at, thumbnail_path
+				SELECT path, filename, card_pk, updated_at, thumbnail_path, description
 				FROM files WHERE id = $1
-			`, fileID).Scan(&path, &filename, &cardPK, &updatedAt, &thumbnailPath)
+			`, fileID).Scan(&path, &filename, &cardPK, &updatedAt, &thumbnailPath, &description)
 			if err == nil {
 				file.Path = path
 				file.Filename = filename
@@ -267,6 +271,19 @@ func (s *Handler) searchFilesInTypesense(ctx context.Context, userID int, query 
 				if cardPK.Valid && cardPK.Int32 > 0 {
 					cardPKInt := int(cardPK.Int32)
 					file.CardPK = &cardPKInt
+					// Populate the linked card so the UI can render a link without
+					// crashing on a missing card object (Zettelgarden-72f.2).
+					if card, cardErr := s.QueryPartialCardByID(userID, cardPKInt); cardErr == nil {
+						file.Card = card
+					} else {
+						file.Card = models.PartialCard{}
+					}
+				} else {
+					file.Card = models.PartialCard{}
+				}
+				if description.Valid {
+					desc := description.String
+					file.Description = &desc
 				}
 				if thumbnailPath.Valid {
 					file.ThumbnailPath = &thumbnailPath.String

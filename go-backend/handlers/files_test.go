@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"go-backend/models"
 	"go-backend/services"
@@ -282,6 +283,162 @@ func TestEditFileSuccessChangeCard(t *testing.T) {
 	}
 	if file.CardPK == nil || *file.CardPK != 2 {
 		t.Errorf("handler returned wrong file, got id %v want %v", file.ID, 2)
+	}
+}
+
+func TestEditFileDescriptionSave(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+	cardPK := 1
+	description := "a useful note about this file"
+	fileData := models.EditFileMetadataParams{
+		Name:        "described.txt",
+		CardPK:      &cardPK,
+		Description: &description,
+	}
+	body, err := json.Marshal(fileData)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("PATCH", "/api/files/1", bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", "1")
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/files/{id}", s.JwtMiddleware(s.EditFileMetadataRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		log.Printf("%v", rr.Body.String())
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+	var file models.File
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &file)
+	if file.Description == nil || *file.Description != description {
+		t.Errorf("response description = %v, want %q", file.Description, description)
+	}
+
+	// Verify the value was actually written to the DB
+	var storedDescription sql.NullString
+	err = s.GetDB().QueryRow("SELECT description FROM files WHERE id = 1").Scan(&storedDescription)
+	if err != nil {
+		t.Fatalf("failed to read description from DB: %v", err)
+	}
+	if !storedDescription.Valid || storedDescription.String != description {
+		t.Errorf("DB description = %v, want %q", storedDescription, description)
+	}
+}
+
+func TestEditFileDescriptionClear(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Seed an existing description, then clear it explicitly
+	_, err := s.GetDB().Exec("UPDATE files SET description = 'existing note' WHERE id = 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	token, _ := tests.GenerateTestJWT(1)
+	cardPK := 1
+	description := ""
+	fileData := models.EditFileMetadataParams{
+		Name:        "cleared.txt",
+		CardPK:      &cardPK,
+		Description: &description,
+	}
+	body, err := json.Marshal(fileData)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("PATCH", "/api/files/1", bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", "1")
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/files/{id}", s.JwtMiddleware(s.EditFileMetadataRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		log.Printf("%v", rr.Body.String())
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+	var file models.File
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &file)
+	if file.Description != nil {
+		t.Errorf("response description = %v, want nil (cleared)", *file.Description)
+	}
+
+	var storedDescription sql.NullString
+	err = s.GetDB().QueryRow("SELECT description FROM files WHERE id = 1").Scan(&storedDescription)
+	if err != nil {
+		t.Fatalf("failed to read description from DB: %v", err)
+	}
+	if storedDescription.Valid {
+		t.Errorf("DB description = %q, want NULL after clear", storedDescription.String)
+	}
+}
+
+func TestEditFileDescriptionOmittedKeepsExisting(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Seed an existing description, then rename without sending description
+	_, err := s.GetDB().Exec("UPDATE files SET description = 'keep me' WHERE id = 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	token, _ := tests.GenerateTestJWT(1)
+	cardPK := 1
+	fileData := models.EditFileMetadataParams{
+		Name:   "renamed.txt",
+		CardPK: &cardPK,
+	}
+	body, err := json.Marshal(fileData)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("PATCH", "/api/files/1", bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", "1")
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/files/{id}", s.JwtMiddleware(s.EditFileMetadataRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		log.Printf("%v", rr.Body.String())
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var storedDescription sql.NullString
+	err = s.GetDB().QueryRow("SELECT description FROM files WHERE id = 1").Scan(&storedDescription)
+	if err != nil {
+		t.Fatalf("failed to read description from DB: %v", err)
+	}
+	if !storedDescription.Valid || storedDescription.String != "keep me" {
+		t.Errorf("DB description = %v, want %q (unchanged by rename)", storedDescription, "keep me")
 	}
 }
 func TestEditFileWrongUser(t *testing.T) {

@@ -241,7 +241,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 		SELECT
 		f.id, f.user_id, f.name, f.type, f.path, f.filename, f.size,
 		f.created_by, f.updated_by, f.card_pk, f.is_deleted,
-		f.created_at, f.updated_at, f.thumbnail_path
+		f.created_at, f.updated_at, f.thumbnail_path, f.description
 		FROM files as f
 		` + whereClause + ` ORDER BY ` + orderByClause + ` LIMIT $` + strconv.Itoa(argNum) + ` OFFSET $` + strconv.Itoa(argNum+1)
 
@@ -265,6 +265,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var file models.File
 		var cardPK sql.NullInt32
+		var description sql.NullString
 		if err := rows.Scan(
 			&file.ID,
 			&file.UserID,
@@ -280,6 +281,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 			&file.CreatedAt,
 			&file.UpdatedAt,
 			&file.ThumbnailPath,
+			&description,
 		); err != nil {
 			log.Printf("Error scanning file: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -289,6 +291,11 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 		if cardPK.Valid {
 			pk := int(cardPK.Int32)
 			file.CardPK = &pk
+		}
+		// Convert nullable description
+		if description.Valid {
+			desc := description.String
+			file.Description = &desc
 		}
 		files = append(files, file)
 	}
@@ -362,12 +369,13 @@ func (s *Handler) queryFile(userID int, id int) (models.File, error) {
 
 	row := s.GetDB().QueryRow(`
 	SELECT files.id, files.user_id, files.name, files.type, files.path, files.filename, files.size, files.created_by, files.updated_by, files.card_pk, files.is_deleted,
-	files.created_at, files.updated_at, files.thumbnail_path
+	files.created_at, files.updated_at, files.thumbnail_path, files.description
 FROM files
 	WHERE files.is_deleted = FALSE and files.id = $1 AND files.user_id = $2`, id, userID)
 
 	var file models.File
 	var cardPK sql.NullInt32
+	var description sql.NullString
 
 	if err := row.Scan(
 		&file.ID,
@@ -384,6 +392,7 @@ FROM files
 		&file.CreatedAt,
 		&file.UpdatedAt,
 		&file.ThumbnailPath,
+		&description,
 	); err != nil {
 		log.Printf("err id %v %v", id, err)
 		return models.File{}, errors.New("unable to access file")
@@ -392,6 +401,10 @@ FROM files
 	if cardPK.Valid {
 		pk := int(cardPK.Int32)
 		file.CardPK = &pk
+	}
+	if description.Valid {
+		desc := description.String
+		file.Description = &desc
 	}
 	if file.CardPK != nil {
 		card, err := s.QueryPartialCardByID(userID, *file.CardPK)
@@ -504,7 +517,18 @@ func (s *Handler) EditFileMetadataRoute(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	_, err = s.GetDB().Exec("UPDATE files SET name = $1, card_pk = $2 WHERE id = $3", data.Name, data.CardPK, filePK)
+	// Description is optional: only write the column when explicitly provided so
+	// rename / link / unlink calls (which omit it) don't wipe an existing value.
+	// An explicitly-empty description clears the column (NULL).
+	if data.Description != nil {
+		var descriptionValue interface{} = *data.Description
+		if *data.Description == "" {
+			descriptionValue = nil
+		}
+		_, err = s.GetDB().Exec("UPDATE files SET name = $1, card_pk = $2, description = $3 WHERE id = $4", data.Name, data.CardPK, descriptionValue, filePK)
+	} else {
+		_, err = s.GetDB().Exec("UPDATE files SET name = $1, card_pk = $2 WHERE id = $3", data.Name, data.CardPK, filePK)
+	}
 
 	if err != nil {
 		http.Error(w, "Failed to update file metadata", http.StatusInternalServerError)
