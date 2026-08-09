@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 
-const isElectron = typeof window !== 'undefined' && window.electronAPI;
-const isLinux = isElectron && window.electronAPI!.platform === 'linux';
+// Tauri desktop bridge (desktop/src-tauri/preload.js); absent on web.
+const isDesktop = typeof window !== 'undefined' && window.zgDesktop;
+const isLinux = isDesktop && window.zgDesktop!.platform === 'linux';
 
 const TITLEBAR_HEIGHT = 38;
 
@@ -29,7 +30,7 @@ function DragRegion() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        // @ts-expect-error — Electron supports -webkit-app-region for drag
+        // @ts-expect-error — native shells support -webkit-app-region for drag
         WebkitAppRegion: 'drag',
         userSelect: 'none',
         background: '#FFFFFF',
@@ -51,7 +52,7 @@ function DragRegion() {
 
 function WindowControls() {
   const [maximized, setMaximized] = useState(false);
-  const api = window.electronAPI!;
+  const api = window.zgDesktop!.windowControls;
 
   useEffect(() => {
     api
@@ -78,7 +79,7 @@ function WindowControls() {
         zIndex: 10000,
         display: 'flex',
         alignItems: 'center',
-        // @ts-expect-error — Electron supports -webkit-app-region for no-drag
+        // @ts-expect-error — native shells support -webkit-app-region for no-drag
         WebkitAppRegion: 'no-drag',
       }}
     >

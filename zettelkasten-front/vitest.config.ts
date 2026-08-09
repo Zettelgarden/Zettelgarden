@@ -17,8 +17,6 @@ export default defineConfig({
       exclude: [
         'node_modules/',
         'dist/',
-        'dist-electron/',
-        'electron/',
         'src/tests/',
         'src/setupTests.js',
         'src/reportWebVitals.js',

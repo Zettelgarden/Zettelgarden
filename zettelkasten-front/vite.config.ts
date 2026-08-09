@@ -1,7 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react-swc';
-import electron from 'vite-plugin-electron';
 
 // The shared sync engine (sync-engine/) is imported by source (not built
 // dist) so the frontend builds without a preceding sync-engine build step —
@@ -15,26 +14,7 @@ const syncEngineSrc = fileURLToPath(
 // https://vitejs.dev/config/
 export default defineConfig({
   base: '/',
-  plugins: [
-    react(),
-    ...(process.env.ELECTRON
-      ? [
-          electron([
-            {
-              entry: 'electron/main.ts',
-            },
-            {
-              // Preload script — runs in renderer context with Node access
-              entry: 'electron/preload.ts',
-              onstart(args) {
-                // Notify renderer to reload when preload changes
-                args.reload();
-              },
-            },
-          ]),
-        ]
-      : []),
-  ],
+  plugins: [react()],
   resolve: {
     alias: {
       '@zettelgarden/sync-engine': syncEngineSrc,
