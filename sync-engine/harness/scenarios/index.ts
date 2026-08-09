@@ -6,6 +6,8 @@ import { cardIdRenameScenario } from './04-card-id-rename';
 import { selfEchoScenario } from './05-self-echo';
 import { tagRenameScenario } from './06-tag-rename';
 import { offlineDeleteScenario } from './07-offline-delete';
+import { deletePropagatesScenario } from './08-delete-propagates';
+import { feedPaginationScenario } from './09-feed-pagination';
 
 /** All Phase 1b convergence scenarios, run in order against the live backend. */
 export const scenarios: Scenario[] = [
@@ -16,4 +18,6 @@ export const scenarios: Scenario[] = [
   selfEchoScenario,
   tagRenameScenario,
   offlineDeleteScenario,
+  deletePropagatesScenario,
+  feedPaginationScenario,
 ];

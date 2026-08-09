@@ -42,7 +42,9 @@ harness/
     ├── 04-card-id-rename.ts   # offline card_id rename on both devices → no row split
     ├── 05-self-echo.ts        # interleaved push/pull: own echoed changes not double-applied
     ├── 06-tag-rename.ts       # rename-vs-rename (LWW, one tag) and rename-vs-create
-    └── 07-offline-delete.ts   # delete vs concurrent edit: no ghost row on the losing device
+    ├── 07-offline-delete.ts   # delete vs concurrent edit: no ghost row on the losing device
+    ├── 08-delete-propagates.ts # plain offline delete reaches the other device via the feed
+    └── 09-feed-pagination.ts  # 510-row push + paginated pull (>500 feed page size)
 ```
 
 Each scenario gets a **fresh account** (new users are seeded with a welcome
