@@ -3,6 +3,8 @@ import React from 'react';
 export interface ButtonProps {
   onClick?: () => void;
   disabled?: boolean;
+  type?: 'button' | 'submit' | 'reset';
+  'aria-pressed'?: boolean;
   variant?: 'primary' | 'secondary' | 'outline' | 'danger';
   size?: 'small' | 'medium' | 'large';
   children: React.ReactNode;
@@ -13,6 +15,8 @@ export interface ButtonProps {
 export const Button: React.FC<ButtonProps> = ({
   onClick,
   disabled = false,
+  type,
+  'aria-pressed': ariaPressed,
   variant = 'primary',
   size = 'medium',
   children,
@@ -42,6 +46,8 @@ export const Button: React.FC<ButtonProps> = ({
     <button
       onClick={onClick}
       disabled={disabled}
+      type={type}
+      aria-pressed={ariaPressed}
       className={classes}
       title={title}
     >

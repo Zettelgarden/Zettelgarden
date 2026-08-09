@@ -1,7 +1,7 @@
 import React from 'react';
 import { Menu } from '@headlessui/react';
 import { Card } from '../../models/Card';
-import { Button } from '../Button';
+import { Button } from '../ui/Button';
 import { StarIcon } from '../../assets/icons/StarIcon';
 import { useUIState } from '../../contexts/UIStateContext';
 import { ViewMode } from '../../pages/cards/ViewPageContainer';
@@ -63,7 +63,7 @@ export function ViewPageHeader({
                 <button
                   type="button"
                   onClick={onNavigateParent}
-                  className="font-mono hover:text-blue-600 transition-colors"
+                  className="font-mono hover:text-palette-dark transition-colors"
                   title={
                     viewingCard.parent?.title ||
                     `Go to parent [${viewingCard.parent?.card_id}]`
@@ -95,25 +95,26 @@ export function ViewPageHeader({
 
         {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
-          <button
+          <Button
             type="button"
             onClick={onToggleStar}
             title={viewingCard.is_starred ? 'Unstar card' : 'Star card'}
-            className={`p-2 rounded-md transition-colors ${
+            size="small"
+            className={`${
               viewingCard.is_starred
                 ? 'text-yellow-500 hover:bg-yellow-50'
                 : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
             }`}
           >
             <StarIcon className="h-5 w-5" filled={!!viewingCard.is_starred} />
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={toggleRightPane}
             title="Toggle info pane"
-            aria-label="Toggle info pane"
             aria-pressed={rightPaneOpen}
-            className={`hidden md:inline-flex p-2 rounded-md transition-colors ${
+            size="small"
+            className={`hidden md:inline-flex ${
               rightPaneOpen
                 ? 'text-gray-700 hover:bg-gray-100'
                 : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
@@ -138,7 +139,7 @@ export function ViewPageHeader({
                 d="M15 5v14"
               />
             </svg>
-          </button>
+          </Button>
           <Button onClick={onEditCard} variant="outline" size="small">
             Edit
           </Button>
@@ -212,34 +213,37 @@ export function ViewPageHeader({
         {showSiblingNav ? (
           <div className="flex items-center gap-1 text-sm">
             {onNavigatePrev && (
-              <button
+              <Button
                 type="button"
                 onClick={onNavigatePrev}
                 title="Previous sibling"
-                className="px-2 py-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                size="small"
+                className="text-gray-500 hover:text-gray-900 hover:bg-gray-100"
               >
                 ‹ Prev
-              </button>
+              </Button>
             )}
             {hasParent && (
-              <button
+              <Button
                 type="button"
                 onClick={onNavigateParent}
                 title="Go to parent"
-                className="px-2 py-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                size="small"
+                className="text-gray-500 hover:text-gray-900 hover:bg-gray-100"
               >
                 ↑ Up
-              </button>
+              </Button>
             )}
             {onNavigateNext && (
-              <button
+              <Button
                 type="button"
                 onClick={onNavigateNext}
                 title="Next sibling"
-                className="px-2 py-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                size="small"
+                className="text-gray-500 hover:text-gray-900 hover:bg-gray-100"
               >
                 Next ›
-              </button>
+              </Button>
             )}
           </div>
         ) : (
@@ -262,17 +266,18 @@ export function ViewPageHeader({
           ))}
         </div>
         <div className="flex items-center gap-1">
-          <button
+          <Button
             type="button"
             onClick={() => {
               openLinksTab();
               onCreateChildCard();
             }}
             title="Create a child card"
-            className="px-2.5 py-1 text-xs text-gray-500 hover:text-blue-600 rounded-md transition-colors"
+            size="small"
+            className="!px-2.5 !py-1 !min-h-0 md:!min-h-0 text-gray-500 hover:text-palette-dark rounded-md"
           >
             ＋ Child
-          </button>
+          </Button>
         </div>
       </div>
     </header>

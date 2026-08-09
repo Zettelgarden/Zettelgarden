@@ -91,4 +91,15 @@ describe('Button', () => {
     const button = screen.getByText('Custom');
     expect(button).toHaveClass('custom-class');
   });
+
+  it('passes through type and aria-pressed', () => {
+    render(
+      <Button type="submit" aria-pressed>
+        Toggle
+      </Button>,
+    );
+    const button = screen.getByText('Toggle');
+    expect(button).toHaveAttribute('type', 'submit');
+    expect(button).toHaveAttribute('aria-pressed', 'true');
+  });
 });

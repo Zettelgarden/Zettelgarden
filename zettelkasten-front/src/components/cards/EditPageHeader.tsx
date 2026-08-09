@@ -2,7 +2,7 @@ import React from 'react';
 import { Menu } from '@headlessui/react';
 import { Card } from '../../models/Card';
 import { deleteCard } from '../../api/cards';
-import { Button } from '../Button';
+import { Button } from '../ui/Button';
 import { useUIState } from '../../contexts/UIStateContext';
 import {
   useCardEditorContext,
@@ -64,11 +64,12 @@ export function EditPageHeader({
               placeholder="Untitled"
               className="block w-full text-2xl font-semibold text-gray-900 bg-transparent border border-transparent rounded-md px-2 py-1 -mx-2 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
             />
-            <button
+            <Button
               onClick={handleSuggestTitle}
               disabled={suggestingTitle || !editingCard.body.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-transparent"
               type="button"
+              size="small"
+              className="absolute right-2 top-1/2 -translate-y-1/2 !p-1 text-palette-dark hover:text-palette-darkest hover:bg-palette-lighest disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-transparent"
               title={
                 suggestingTitle
                   ? 'Suggesting title...'
@@ -106,7 +107,7 @@ export function EditPageHeader({
                   <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
                 </svg>
               )}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -122,17 +123,13 @@ export function EditPageHeader({
           >
             Cancel
           </Button>
-          <button
+          <Button
             type="button"
             onClick={toggleRightPane}
             title="Toggle info pane"
-            aria-label="Toggle info pane"
             aria-pressed={rightPaneOpen}
-            className={`hidden md:inline-flex p-2 rounded-md transition-colors ${
-              rightPaneOpen
-                ? 'text-gray-700 hover:bg-gray-100'
-                : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
-            }`}
+            size="small"
+            className="hidden md:inline-flex text-gray-400 hover:text-gray-700 hover:bg-gray-100"
           >
             <svg
               className="h-5 w-5"
@@ -153,7 +150,7 @@ export function EditPageHeader({
                 d="M15 5v14"
               />
             </svg>
-          </button>
+          </Button>
           <Menu as="div" className="relative inline-block">
             <Menu.Button
               className="p-2 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
