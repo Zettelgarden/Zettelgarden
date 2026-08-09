@@ -185,7 +185,9 @@
         isMaximized: () => invoke('window_is_maximized'),
       },
 
-      // Phase 2b stubs: the sync engine will drive these.
+      // Phase 2b: the sync engine drives the UI indicators via the React
+      // SyncContext (sidebar SyncStatusIndicator). These stubs remain for
+      // shell-level callers that want a quick online/pending snapshot.
       getSyncStatus: () => ({ online: navigator.onLine, pendingChanges: 0 }),
       onSyncStatus: () => () => {},
     };

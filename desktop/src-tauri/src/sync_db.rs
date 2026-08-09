@@ -128,7 +128,8 @@ pub fn sync_commit(window: tauri::WebviewWindow, db: State<'_, SyncDb>) -> Resul
         return Err("sync_commit: no open transaction".to_string());
     }
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-    conn.execute_batch("COMMIT").map_err(|e| format!("sync_commit: {e}"))?;
+    conn.execute_batch("COMMIT")
+        .map_err(|e| format!("sync_commit: {e}"))?;
     *in_tx = false;
     Ok(())
 }
@@ -256,7 +257,8 @@ mod tests {
         let db = mem_db();
         {
             let conn = db.conn.lock().unwrap();
-            conn.execute_batch("CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)").unwrap();
+            conn.execute_batch("CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)")
+                .unwrap();
         }
         {
             let mut in_tx = db.in_tx.lock().unwrap();
@@ -269,7 +271,9 @@ mod tests {
         // Uncommitted write must be visible on the same connection…
         {
             let conn = db.conn.lock().unwrap();
-            let n: i64 = conn.query_row("SELECT COUNT(*) FROM t", [], |r| r.get(0)).unwrap();
+            let n: i64 = conn
+                .query_row("SELECT COUNT(*) FROM t", [], |r| r.get(0))
+                .unwrap();
             assert_eq!(n, 1);
         }
         // …and rolled back.
@@ -281,7 +285,9 @@ mod tests {
         }
         {
             let conn = db.conn.lock().unwrap();
-            let n: i64 = conn.query_row("SELECT COUNT(*) FROM t", [], |r| r.get(0)).unwrap();
+            let n: i64 = conn
+                .query_row("SELECT COUNT(*) FROM t", [], |r| r.get(0))
+                .unwrap();
             assert_eq!(n, 0);
         }
     }

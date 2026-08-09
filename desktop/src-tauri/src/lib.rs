@@ -25,8 +25,9 @@ pub fn run() {
             commands::window_is_maximized,
         ])
         .setup(|app| {
-            let sync_db = sync_db::init(app.handle())
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, format!("sync db init: {e}")))?;
+            let sync_db = sync_db::init(app.handle()).map_err(|e| {
+                std::io::Error::new(std::io::ErrorKind::Other, format!("sync db init: {e}"))
+            })?;
             app.manage(sync_db);
             let shim = include_str!("../preload.js");
             let _window = tauri::WebviewWindowBuilder::new(
