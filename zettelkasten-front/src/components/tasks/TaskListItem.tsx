@@ -6,7 +6,7 @@ import { TaskDateDisplay } from './TaskDateDisplay';
 import { TaskPriorityDisplay } from './TaskPriorityDisplay';
 import { TaskStatusDisplay } from './TaskStatusDisplay';
 import { TaskListOptionsMenu } from './TaskListOptionsMenu';
-import { ConfirmDialog } from './ConfirmDialog';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Task } from '../../models/Task';
 import { Tag } from '../../models/Tags';
 import { Link } from 'react-router-dom';
@@ -339,7 +339,6 @@ export function TaskListItem({
         message="Are you sure you want to delete this task? This cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"
-        variant="danger"
       />
     </>
   );

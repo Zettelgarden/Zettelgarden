@@ -17,7 +17,7 @@ import { Button } from '../Button';
 import { TaskListOptionsMenu } from './TaskListOptionsMenu';
 import { TaskForm } from './TaskForm';
 import { TaskAuditHistory } from './TaskAuditHistory';
-import { ConfirmDialog } from './ConfirmDialog';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { TaskClosedIcon } from '../../assets/icons/TaskClosedIcon';
 import { TaskOpenIcon } from '../../assets/icons/TaskOpenIcon';
 import { getToday, getTomorrow } from '../../utils/dates';
@@ -329,7 +329,6 @@ export function TaskDialog({ taskId, isOpen, onClose }: TaskDialogProps) {
         message="Are you sure you want to delete this task? This cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"
-        variant="danger"
       />
 
       {/* Completion Warning Dialog */}

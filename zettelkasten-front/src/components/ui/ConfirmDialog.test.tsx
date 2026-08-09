@@ -67,6 +67,22 @@ describe('ConfirmDialog', () => {
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
 
+  it('renders custom children instead of the default message', () => {
+    render(
+      <ConfirmDialog
+        isOpen
+        onClose={() => {}}
+        onConfirm={() => {}}
+        title="Confirm Restore"
+        message="Should not appear"
+      >
+        <p>Custom change preview</p>
+      </ConfirmDialog>,
+    );
+    expect(screen.getByText('Custom change preview')).toBeInTheDocument();
+    expect(screen.queryByText('Should not appear')).not.toBeInTheDocument();
+  });
+
   it('requires checkbox before confirming', async () => {
     const handleConfirm = vi.fn();
     render(

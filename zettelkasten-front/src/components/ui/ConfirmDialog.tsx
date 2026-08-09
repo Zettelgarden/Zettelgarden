@@ -7,11 +7,14 @@ export interface ConfirmDialogProps {
   onClose: () => void;
   onConfirm: () => void;
   title: string;
-  message: string;
+  /** Main message; required unless custom `children` replace the body */
+  message?: string;
   /** Optional detail text shown under the message */
   details?: string;
-  confirmText?: string;
-  cancelText?: string;
+  /** Custom body content; when provided it replaces the default message/details block */
+  children?: React.ReactNode;
+  confirmText?: React.ReactNode;
+  cancelText?: React.ReactNode;
   /** Severity styling for the confirm button/icon (default: danger) */
   variant?: 'info' | 'warning' | 'danger';
   /** Require a checkbox before the confirm button is enabled */
@@ -53,6 +56,7 @@ export function ConfirmDialog({
   title,
   message,
   details,
+  children,
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   variant = 'danger',
@@ -107,11 +111,17 @@ export function ConfirmDialog({
 
       {/* Content */}
       <div className="mb-6">
-        <p className="text-sm text-gray-600">{message}</p>
-        {details && (
-          <p className="mt-2 text-xs text-gray-600 bg-black/5 p-2 rounded">
-            {details}
-          </p>
+        {children !== undefined ? (
+          children
+        ) : (
+          <>
+            <p className="text-sm text-gray-600">{message}</p>
+            {details && (
+              <p className="mt-2 text-xs text-gray-600 bg-black/5 p-2 rounded">
+                {details}
+              </p>
+            )}
+          </>
         )}
       </div>
 

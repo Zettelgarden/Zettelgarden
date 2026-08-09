@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Task } from '../../models/Task';
-import { ConfirmDialog } from './ConfirmDialog';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { useToast } from '../toast/ToastContext';
 
 interface TaskSubtasksSectionProps {
@@ -220,7 +220,6 @@ export function TaskSubtasksSection({
         message="Are you sure you want to delete this subtask? This cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"
-        variant="danger"
       />
     </>
   );

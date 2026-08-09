@@ -22,7 +22,7 @@ import { RssAddFeedDialog } from '../components/rss/RssAddFeedDialog';
 import { RssEditFeedDialog } from '../components/rss/RssEditFeedDialog';
 import { RssEditFolderDialog } from '../components/rss/RssEditFolderDialog';
 import { RssCreateFolderDialog } from '../components/rss/RssCreateFolderDialog';
-import { RssConfirmDialog } from '../components/rss/RssConfirmDialog';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { RssConvertDialog } from '../components/rss/RssConvertDialog';
 import { RssImportDialog } from '../components/rss/RssImportDialog';
 import { useRSS } from '../contexts/RSSContext';
@@ -875,7 +875,7 @@ export function RssPage() {
         onClose={() => setDialogState(initialDialogState)}
         onFolderCreated={handleFolderCreated}
       />
-      <RssConfirmDialog
+      <ConfirmDialog
         isOpen={showDeleteConfirm}
         onClose={() => setDialogState(initialDialogState)}
         onConfirm={handleConfirmDelete}
@@ -889,7 +889,6 @@ export function RssPage() {
               )?.name}"? Feeds in this folder will become uncategorized.`
         }
         confirmText="Delete"
-        dangerous={true}
       />
       <RssConvertDialog
         isOpen={showConvertDialog}
