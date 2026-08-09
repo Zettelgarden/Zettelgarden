@@ -259,12 +259,37 @@ func runCardList(cmd *cobra.Command, args []string) error {
 
 	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
 
-	url := fmt.Sprintf("/api/cards?limit=%d&offset=%d", listLimit, listOffset)
+	// Starred cards are served by their own endpoint. Everything else goes
+	// through POST /api/search with an empty query (the general GET /api/cards
+	// route was removed from the backend).
 	if listStarred {
-		url += "&starred=true"
+		return runStarredCardList(client)
+	}
+	return runAllCardSearch(client)
+}
+
+// runAllCardSearch lists all cards via POST /api/search with an empty query.
+// The search API paginates by page/per_page, so convert limit/offset to page.
+func runAllCardSearch(client *api.Client) error {
+	perPage := listLimit
+	if perPage <= 0 {
+		perPage = 20
+	}
+	page := listOffset/perPage + 1
+
+	searchParams := SearchRequestParams{
+		SearchTerm: "",
+		FullText:   false,
+		ShowCards:  true,
+		Page:       page,
+		PerPage:    perPage,
+	}
+	reqBody, err := json.Marshal(searchParams)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Failed to build request", err.Error())
 	}
 
-	resp, err := client.Get(url)
+	resp, err := client.Post("/api/search", reqBody)
 	if err != nil {
 		return output.WriteError(os.Stdout, "API request failed", err.Error())
 	}
@@ -278,31 +303,49 @@ func runCardList(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
 	}
 
-	// Parse paginated response
-	var result struct {
-		Cards  []Card `json:"cards"`
-		Total  int    `json:"total"`
-		Limit  int    `json:"limit"`
-		Offset int    `json:"offset"`
-	}
-
-	if err := json.Unmarshal(body, &result); err != nil {
-		// Try direct array parse
-		var cards []Card
-		if err2 := json.Unmarshal(body, &cards); err2 == nil {
-			for i := range cards {
-				truncateCardBody(&cards[i], listFull)
-			}
-			return output.WriteSuccess(os.Stdout, cards)
-		}
+	var searchResp PaginatedSearchResponse
+	if err := json.Unmarshal(body, &searchResp); err != nil {
 		return output.WriteError(os.Stdout, "Parse error", err.Error())
 	}
 
-	for i := range result.Cards {
-		truncateCardBody(&result.Cards[i], listFull)
+	for i := range searchResp.Results {
+		truncateSearchPreview(&searchResp.Results[i], listFull)
 	}
 
-	return output.WriteList(os.Stdout, result.Cards, result.Total, result.Limit, result.Offset)
+	return output.WriteList(os.Stdout, searchResp.Results, searchResp.Total, searchResp.PerPage, (searchResp.Page-1)*searchResp.PerPage)
+}
+
+// runStarredCardList lists starred cards via GET /api/cards/starred, which
+// returns full card objects embedded in the starred-card response.
+func runStarredCardList(client *api.Client) error {
+	resp, err := client.Get("/api/cards/starred")
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	body, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
+	}
+
+	var starred []struct {
+		Card Card `json:"card"`
+	}
+	if err := json.Unmarshal(body, &starred); err != nil {
+		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+
+	cards := make([]Card, 0, len(starred))
+	for i := range starred {
+		truncateCardBody(&starred[i].Card, listFull)
+		cards = append(cards, starred[i].Card)
+	}
+
+	return output.WriteSuccess(os.Stdout, cards)
 }
 
 func runCardCreate(cmd *cobra.Command, args []string) error {
@@ -885,17 +928,17 @@ func truncateSearchPreview(result *SearchResult, fullMode bool) {
 	}
 }
 
-func loadConfig() (*config.Config, error) {
-	var configPath string
-	var err error
-
+func getConfigPath() (string, error) {
 	if getCfgFile() != "" {
-		configPath = getCfgFile()
-	} else {
-		configPath, err = config.GetDefaultConfigPath()
-		if err != nil {
-			return nil, err
-		}
+		return getCfgFile(), nil
+	}
+	return config.GetDefaultConfigPath()
+}
+
+func loadConfig() (*config.Config, error) {
+	configPath, err := getConfigPath()
+	if err != nil {
+		return nil, err
 	}
 
 	cfg, err := config.LoadConfig(configPath)
@@ -903,12 +946,21 @@ func loadConfig() (*config.Config, error) {
 		return nil, err
 	}
 
-	// Apply command-line overrides
+	// Apply command-line overrides, then resolve the token with precedence
+	// flag > env (ZETTELGARDEN_TOKEN) > keyring > config file.
 	if getAPIURL() != "" {
 		cfg.APIURL = getAPIURL()
 	}
-	if getAPIToken() != "" {
-		cfg.Token = getAPIToken()
+	token, source, err := cfg.ResolveToken(getAPIToken())
+	if err != nil {
+		return nil, err
+	}
+	cfg.Token = token
+
+	// Warn early when the configured token is a short-lived JWT so CLI auth
+	// doesn't silently break after the 15-day session expiry.
+	if (source == config.TokenFromConfig || source == config.TokenFromKeyring) && config.IsJWT(token) {
+		fmt.Fprintln(os.Stderr, "warning: "+config.JWTMigrationNotice())
 	}
 
 	return cfg, nil

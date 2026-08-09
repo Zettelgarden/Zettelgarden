@@ -40,7 +40,8 @@ Get your token from the Zettelgarden web UI.
 
 ```bash
 zg card get <id>              # Get a card
-zg card list [--limit N]      # List cards (body truncated to 300 chars by default)
+zg card list [--limit N]      # List cards via search (preview truncated to 300 chars by default)
+zg card list --starred        # List starred cards
 zg card create -t "Title"     # Create card
 zg card update <id> -t "New"  # Update card
 zg card delete <id>           # Delete card
@@ -50,7 +51,7 @@ zg card search "query"        # Search cards (preview truncated by default)
 **Context-friendly defaults:** By default, `list` and `search` truncate body/preview content to 300 characters to avoid polluting LLM context. Use `--full` to get complete content:
 
 ```bash
-zg card list --full           # Show full body content
+zg card list --full           # Show full preview content
 zg card search "query" --full # Show full preview content
 ```
 
