@@ -1,0 +1,82 @@
+name: Mobile
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  android:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install mobile deps
+        run: npm ci
+        working-directory: ./mobile
+
+      - name: Typecheck + lint + tests
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test -- --ci
+        working-directory: ./mobile
+
+      - name: Build debug APK
+        run: npm run build:android:debug
+        working-directory: ./mobile
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zettelgarden-mobile-debug
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+
+  ios-compile:
+    # iOS run-verification is deferred (Phase 3b / p08 store builds); this
+    # job only proves the RN app compiles for iOS on a macOS runner.
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install mobile deps
+        run: npm ci
+        working-directory: ./mobile
+
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          bundle install
+          bundle exec pod install
+        working-directory: ./mobile
+
+      - name: Compile iOS (no signing)
+        run: xcodebuild -workspace ZettelgardenMobile.xcworkspace -scheme ZettelgardenMobile -configuration Debug -sdk iphonesimulator -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+        working-directory: ./mobile
