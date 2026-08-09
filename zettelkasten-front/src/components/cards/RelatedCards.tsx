@@ -48,6 +48,22 @@ export function RelatedCards({
                 )}
               </div>
             </div>
+            {rc.reasons && rc.reasons.length > 0 && (
+              <div
+                className="mt-1 flex flex-wrap gap-1 px-2"
+                onClick={() => onCardClick(rc.card.id)}
+              >
+                {rc.reasons.map((reason) => (
+                  <span
+                    key={reason}
+                    className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 text-[10px] leading-4 px-2 py-0.5 border border-blue-100 max-w-full truncate"
+                    title={reason}
+                  >
+                    {reason}
+                  </span>
+                ))}
+              </div>
+            )}
           </li>
         ))}
       </ul>

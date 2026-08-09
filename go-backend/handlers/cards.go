@@ -1404,6 +1404,16 @@ func (s *Handler) ProcessCardAfterCreation(userID int, card models.Card, shouldP
 	}
 }
 
+// sharedMatchReason builds a human-readable reason string for a shared
+// entity/tag match, e.g. "3 shared entities: Python, LLM" or "1 shared tag: research".
+func sharedMatchReason(singular string, match models.SharedMatch) string {
+	prefix := fmt.Sprintf("%d shared %ss", match.Count, singular)
+	if len(match.Names) == 0 {
+		return prefix
+	}
+	return fmt.Sprintf("%s: %s", prefix, strings.Join(match.Names, ", "))
+}
+
 // boolPtr returns a pointer to a bool
 func boolPtr(b bool) *bool {
 	return &b
@@ -1431,7 +1441,7 @@ func (s *Handler) GetRelatedCardsRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get cards by shared entities
-	entityScores, err := services.GetCardsBySharedEntities(s.GetDB(), userID, cardID)
+	entityMatches, err := services.GetCardsBySharedEntities(s.GetDB(), userID, cardID)
 	if err != nil {
 		log.Printf("Failed to get cards by shared entities: %v", err)
 		http.Error(w, "Failed to find related cards", http.StatusInternalServerError)
@@ -1439,7 +1449,7 @@ func (s *Handler) GetRelatedCardsRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get cards by shared tags
-	tagScores, err := services.GetCardsBySharedTags(s.GetDB(), userID, cardID)
+	tagMatches, err := services.GetCardsBySharedTags(s.GetDB(), userID, cardID)
 	if err != nil {
 		log.Printf("Failed to get cards by shared tags: %v", err)
 		http.Error(w, "Failed to find related cards", http.StatusInternalServerError)
@@ -1463,15 +1473,15 @@ func (s *Handler) GetRelatedCardsRoute(w http.ResponseWriter, r *http.Request) {
 	cardReasons := make(map[int][]string)
 
 	// Add entity scores (each shared entity = 3 points)
-	for cardID, score := range entityScores {
-		combinedScores[cardID] += float64(score)
-		cardReasons[cardID] = append(cardReasons[cardID], "entities")
+	for candidateID, match := range entityMatches {
+		combinedScores[candidateID] += float64(match.Count) * 3
+		cardReasons[candidateID] = append(cardReasons[candidateID], sharedMatchReason("entity", match))
 	}
 
 	// Add tag scores (each shared tag = 1 point)
-	for cardID, score := range tagScores {
-		combinedScores[cardID] += float64(score)
-		cardReasons[cardID] = append(cardReasons[cardID], "tags")
+	for candidateID, match := range tagMatches {
+		combinedScores[candidateID] += float64(match.Count) * 1
+		cardReasons[candidateID] = append(cardReasons[candidateID], sharedMatchReason("tag", match))
 	}
 
 	// Add semantic scores (already 0-1 range)
@@ -1479,7 +1489,7 @@ func (s *Handler) GetRelatedCardsRoute(w http.ResponseWriter, r *http.Request) {
 		// Scale semantic score (0-1) to 0-10 range for better balance with entity/tag scores
 		scaledScore := sc.Score * 10.0
 		combinedScores[sc.ID] += scaledScore
-		cardReasons[sc.ID] = append(cardReasons[sc.ID], "similarity")
+		cardReasons[sc.ID] = append(cardReasons[sc.ID], "semantically similar")
 	}
 
 	// Return early if no candidates

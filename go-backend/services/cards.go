@@ -1313,9 +1313,9 @@ func RestoreCardToAuditEvent(db models.Database, userID int, cardPK int, auditEv
 	return restoredCard, nil
 }
 
-// GetCardsBySharedEntities finds cards that share entities with the source card
-// Returns a map of cardID to score (higher = more shared entities)
-func GetCardsBySharedEntities(db models.Database, userID int, sourceCardID int) (map[int]int, error) {
+// GetCardsBySharedEntities finds cards that share entities with the source card.
+// Returns a map of cardID to SharedMatch (count of shared entities + entity names).
+func GetCardsBySharedEntities(db models.Database, userID int, sourceCardID int) (map[int]models.SharedMatch, error) {
 	// First, get all entity IDs for the source card
 	entityQuery := `
 		SELECT DISTINCT entity_id
@@ -1337,21 +1337,24 @@ func GetCardsBySharedEntities(db models.Database, userID int, sourceCardID int) 
 		}
 		entityIDs = append(entityIDs, entityID)
 	}
-
-	if len(entityIDs) == 0 {
-		return make(map[int]int), nil
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating entity rows: %w", err)
 	}
 
-	// Now find all cards that share these entities
+	if len(entityIDs) == 0 {
+		return make(map[int]models.SharedMatch), nil
+	}
+
+	// Now find all cards that share these entities, including entity names
 	query := `
-		SELECT ecj.card_pk, COUNT(DISTINCT ecj.entity_id) as shared_count
+		SELECT ecj.card_pk, ecj.entity_id, e.name
 		FROM entity_card_junction ecj
 		JOIN cards c ON ecj.card_pk = c.id
+		JOIN entities e ON ecj.entity_id = e.id
 		WHERE ecj.user_id = $1
 		  AND ecj.card_pk != $2
 		  AND ecj.entity_id IN ` + models.InList(3, len(entityIDs)) + `
 		  AND c.is_deleted = FALSE
-		GROUP BY ecj.card_pk
 	`
 
 	rows, err = db.Query(query, append([]any{userID, sourceCardID}, models.IntArgs(entityIDs)...)...)
@@ -1360,22 +1363,38 @@ func GetCardsBySharedEntities(db models.Database, userID int, sourceCardID int) 
 	}
 	defer rows.Close()
 
-	scores := make(map[int]int)
+	// Aggregate per card, deduping by entity ID (junction has no unique constraint)
+	seenEntities := make(map[int]map[int]bool)
+	namesByCard := make(map[int][]string)
 	for rows.Next() {
-		var cardID, sharedCount int
-		if err := rows.Scan(&cardID, &sharedCount); err != nil {
+		var cardPK, entityID int
+		var name string
+		if err := rows.Scan(&cardPK, &entityID, &name); err != nil {
 			return nil, fmt.Errorf("failed to scan shared entity card: %w", err)
 		}
-		// Each shared entity adds 3 points
-		scores[cardID] = sharedCount * 3
+		if seenEntities[cardPK] == nil {
+			seenEntities[cardPK] = make(map[int]bool)
+		}
+		if !seenEntities[cardPK][entityID] {
+			seenEntities[cardPK][entityID] = true
+			namesByCard[cardPK] = append(namesByCard[cardPK], name)
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating shared entity rows: %w", err)
 	}
 
-	return scores, nil
+	matches := make(map[int]models.SharedMatch, len(namesByCard))
+	for cardPK, names := range namesByCard {
+		matches[cardPK] = models.SharedMatch{Count: len(names), Names: names}
+	}
+
+	return matches, nil
 }
 
-// GetCardsBySharedTags finds cards that share tags with the source card
-// Returns a map of cardID to score (higher = more shared tags)
-func GetCardsBySharedTags(db models.Database, userID int, sourceCardID int) (map[int]int, error) {
+// GetCardsBySharedTags finds cards that share tags with the source card.
+// Returns a map of cardID to SharedMatch (count of shared tags + tag names).
+func GetCardsBySharedTags(db models.Database, userID int, sourceCardID int) (map[int]models.SharedMatch, error) {
 	// First, get all tag IDs for the source card
 	tagQuery := `
 		SELECT DISTINCT ct.tag_id
@@ -1405,12 +1424,12 @@ func GetCardsBySharedTags(db models.Database, userID int, sourceCardID int) (map
 	}
 
 	if len(tagIDs) == 0 {
-		return make(map[int]int), nil
+		return make(map[int]models.SharedMatch), nil
 	}
 
-	// Now find all cards that share these tags
+	// Now find all cards that share these tags, including tag names
 	query := `
-		SELECT ct.card_pk, COUNT(DISTINCT ct.tag_id) as shared_count
+		SELECT ct.card_pk, t.id, t.name
 		FROM card_tags ct
 		JOIN cards c ON ct.card_pk = c.id
 		JOIN tags t ON ct.tag_id = t.id
@@ -1419,7 +1438,6 @@ func GetCardsBySharedTags(db models.Database, userID int, sourceCardID int) (map
 		  AND ct.tag_id IN ` + models.InList(3, len(tagIDs)) + `
 		  AND c.is_deleted = FALSE
 		  AND t.is_deleted = FALSE
-		GROUP BY ct.card_pk
 	`
 
 	rows, err = db.Query(query, append([]any{userID, sourceCardID}, models.IntArgs(tagIDs)...)...)
@@ -1428,21 +1446,33 @@ func GetCardsBySharedTags(db models.Database, userID int, sourceCardID int) (map
 	}
 	defer rows.Close()
 
-	const sharedTagScoreWeight = 1
-	scores := make(map[int]int)
+	// Aggregate per card, deduping by tag ID (defensive; card_tags is PK'd)
+	seenTags := make(map[int]map[int]bool)
+	namesByCard := make(map[int][]string)
 	for rows.Next() {
-		var cardID, sharedCount int
-		if err := rows.Scan(&cardID, &sharedCount); err != nil {
+		var cardPK, tagID int
+		var name string
+		if err := rows.Scan(&cardPK, &tagID, &name); err != nil {
 			return nil, fmt.Errorf("failed to scan shared tag card: %w", err)
 		}
-		// Each shared tag adds 1 point
-		scores[cardID] = sharedCount * sharedTagScoreWeight
+		if seenTags[cardPK] == nil {
+			seenTags[cardPK] = make(map[int]bool)
+		}
+		if !seenTags[cardPK][tagID] {
+			seenTags[cardPK][tagID] = true
+			namesByCard[cardPK] = append(namesByCard[cardPK], name)
+		}
 	}
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating shared tag rows: %w", err)
 	}
 
-	return scores, nil
+	matches := make(map[int]models.SharedMatch, len(namesByCard))
+	for cardPK, names := range namesByCard {
+		matches[cardPK] = models.SharedMatch{Count: len(names), Names: names}
+	}
+
+	return matches, nil
 }
 
 // UpdateCardStructuredData updates only the schema_id and structured_data fields of a card

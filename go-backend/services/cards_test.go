@@ -29,12 +29,16 @@ func TestGetCardsBySharedEntities(t *testing.T) {
 	}
 
 	// From test data: Card 2 shares both entities with Card 1
-	// So card 2 should have a score of 6 (2 entities * 3 points each)
-	expectedScore := 6
-	if score, ok := scores[2]; !ok {
+	// So card 2 should share 2 entities with names Test Entity 1 and Test Entity 2
+	if match, ok := scores[2]; !ok {
 		t.Error("expected card 2 to be in results (shares both entities)")
-	} else if score != expectedScore {
-		t.Errorf("expected card 2 to have score %d, got %d", expectedScore, score)
+	} else {
+		if match.Count != 2 {
+			t.Errorf("expected card 2 to share 2 entities, got %d", match.Count)
+		}
+		if !containsAll(match.Names, "Test Entity 1", "Test Entity 2") {
+			t.Errorf("expected card 2 to share [Test Entity 1 Test Entity 2], got %v", match.Names)
+		}
 	}
 
 	// Source card should not be in its own results
@@ -228,24 +232,28 @@ func TestGetCardsBySharedEntities_SingleSharedEntity(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	// Card B should be in results with score 3 (1 shared entity)
-	expectedScore := 3 // 1 shared entity * 3 points
-	if score, ok := scores[cardBID]; !ok {
+	// Card B should be in results sharing 1 entity (Test Entity A)
+	if match, ok := scores[cardBID]; !ok {
 		t.Error("expected card B to be in results (shares 1 entity)")
-	} else if score != expectedScore {
-		t.Errorf("expected card B to have score %d, got %d", expectedScore, score)
+	} else {
+		if match.Count != 1 {
+			t.Errorf("expected card B to share 1 entity, got %d", match.Count)
+		}
+		if !containsAll(match.Names, "Test Entity A") {
+			t.Errorf("expected card B to share [Test Entity A], got %v", match.Names)
+		}
 	}
 
-	// If we query from card B, card A should have score 3 (shares only entity 1)
+	// If we query from card B, card A should share 1 entity (Test Entity A)
 	scoresFromB, err := GetCardsBySharedEntities(s.DB, userID, cardBID)
 	if err != nil {
 		t.Fatalf("expected no error querying from card B, got %v", err)
 	}
 
-	if score, ok := scoresFromB[cardAID]; !ok {
+	if match, ok := scoresFromB[cardAID]; !ok {
 		t.Error("expected card A to be in results when querying from card B")
-	} else if score != expectedScore {
-		t.Errorf("expected card A to have score %d when querying from B, got %d", expectedScore, score)
+	} else if match.Count != 1 {
+		t.Errorf("expected card A to share 1 entity when querying from B, got %d", match.Count)
 	}
 }
 
@@ -344,12 +352,16 @@ func TestGetCardsBySharedTags(t *testing.T) {
 		t.Error("expected at least one card with shared tags")
 	}
 
-	// The new card should be in results with score 1 (1 shared tag)
-	expectedScore := 1
-	if score, ok := scores[newCardID]; !ok {
+	// The new card should be in results sharing 1 tag ("test")
+	if match, ok := scores[newCardID]; !ok {
 		t.Error("expected new card to be in results (shares tag 1)")
-	} else if score != expectedScore {
-		t.Errorf("expected new card to have score %d, got %d", expectedScore, score)
+	} else {
+		if match.Count != 1 {
+			t.Errorf("expected new card to share 1 tag, got %d", match.Count)
+		}
+		if !containsAll(match.Names, "test") {
+			t.Errorf("expected new card to share [test], got %v", match.Names)
+		}
 	}
 
 	// Source card should not be in its own results
@@ -466,18 +478,18 @@ func TestGetCardsBySharedTags_MultipleSharedTags(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	// Card B should have score 1 (shares tag 1)
-	if score, ok := scores[cardBID]; !ok {
+	// Card B should share 1 tag (shares tag 1)
+	if match, ok := scores[cardBID]; !ok {
 		t.Error("expected card B to be in results")
-	} else if score != 1 {
-		t.Errorf("expected card B to have score 1, got %d", score)
+	} else if match.Count != 1 {
+		t.Errorf("expected card B to share 1 tag, got %d", match.Count)
 	}
 
-	// Card C should have score 1 (shares only tag 1, not tag 2)
-	if score, ok := scores[cardCID]; !ok {
+	// Card C should share 1 tag (shares only tag 1, not tag 2)
+	if match, ok := scores[cardCID]; !ok {
 		t.Error("expected card C to be in results")
-	} else if score != 1 {
-		t.Errorf("expected card C to have score 1, got %d", score)
+	} else if match.Count != 1 {
+		t.Errorf("expected card C to share 1 tag, got %d", match.Count)
 	}
 
 	// Query from card C - should find card A and card B (both share tag 1)
@@ -486,18 +498,18 @@ func TestGetCardsBySharedTags_MultipleSharedTags(t *testing.T) {
 		t.Fatalf("expected no error querying from card C, got %v", err)
 	}
 
-	// Card A should have score 1 (shares only tag 1)
-	if score, ok := scoresFromC[cardAID]; !ok {
+	// Card A should share 1 tag (shares only tag 1)
+	if match, ok := scoresFromC[cardAID]; !ok {
 		t.Error("expected card A to be in results when querying from card C")
-	} else if score != 1 {
-		t.Errorf("expected card A to have score 1 when querying from C, got %d", score)
+	} else if match.Count != 1 {
+		t.Errorf("expected card A to share 1 tag when querying from C, got %d", match.Count)
 	}
 
-	// Card B should have score 1 (shares only tag 1)
-	if score, ok := scoresFromC[cardBID]; !ok {
+	// Card B should share 1 tag (shares only tag 1)
+	if match, ok := scoresFromC[cardBID]; !ok {
 		t.Error("expected card B to be in results when querying from card C")
-	} else if score != 1 {
-		t.Errorf("expected card B to have score 1 when querying from C, got %d", score)
+	} else if match.Count != 1 {
+		t.Errorf("expected card B to share 1 tag when querying from C, got %d", match.Count)
 	}
 }
 
@@ -609,4 +621,21 @@ func TestGetCardsBySharedTags_DeletedTag(t *testing.T) {
 	if _, ok := scoresAfterDelete[newCardID]; ok {
 		t.Error("card with deleted tag should not be in results")
 	}
+}
+
+// containsAll reports whether haystack contains every needle.
+func containsAll(haystack []string, needles ...string) bool {
+	for _, n := range needles {
+		found := false
+		for _, h := range haystack {
+			if h == n {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }

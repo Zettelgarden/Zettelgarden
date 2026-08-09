@@ -129,7 +129,13 @@ type CardWithDescendants struct {
 type RelatedCard struct {
 	Card    PartialCard `json:"card"`
 	Score   float64     `json:"score"`
-	Reasons []string    `json:"reasons"` // e.g. entity/tag names that caused the match
+	Reasons []string    `json:"reasons"` // human-readable strings, e.g. "3 shared entities: Python, LLM"
+}
+
+// SharedMatch represents cards that share entities or tags with a source card
+type SharedMatch struct {
+	Count int      // number of shared entities/tags
+	Names []string // names of the shared entities/tags
 }
 
 func ConvertCardToPartialCard(input Card) PartialCard {
