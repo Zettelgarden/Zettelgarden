@@ -59,15 +59,6 @@ vi.mock('../../components/rss/RssCreateFolderDialog', () => ({
     ) : null,
 }));
 
-vi.mock('../../components/rss/RssConfirmDialog', () => ({
-  RssConfirmDialog: ({ isOpen, onClose }: any) =>
-    isOpen ? (
-      <div data-testid="confirm-dialog">
-        <button onClick={onClose}>Cancel</button>
-      </div>
-    ) : null,
-}));
-
 vi.mock('../../components/rss/RssConvertDialog', () => ({
   RssConvertDialog: ({ isOpen, onClose, onConverted }: any) =>
     isOpen ? (

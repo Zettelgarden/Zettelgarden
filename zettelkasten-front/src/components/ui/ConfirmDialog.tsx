@@ -22,6 +22,14 @@ export interface ConfirmDialogProps {
   checkboxLabel?: string;
   /** Disables both buttons while an async confirm is in flight */
   isLoading?: boolean;
+  /** Modal max-width preset (default: md) */
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
+  /**
+   * Auto-close on confirm (default true). Set false when the parent wants to
+   * keep the dialog open while the confirm action completes (e.g. an async
+   * restore with an error-retry affordance).
+   */
+  closeOnConfirm?: boolean;
 }
 
 const variantStyles = {
@@ -63,6 +71,8 @@ export function ConfirmDialog({
   requireCheckbox = false,
   checkboxLabel = 'I understand this action cannot be undone',
   isLoading = false,
+  size = 'md',
+  closeOnConfirm = true,
 }: ConfirmDialogProps) {
   const [checkboxChecked, setCheckboxChecked] = useState(false);
 
@@ -79,7 +89,9 @@ export function ConfirmDialog({
   const handleConfirm = () => {
     if (isLoading) return;
     onConfirm();
-    onClose();
+    if (closeOnConfirm) {
+      onClose();
+    }
   };
 
   const isInfo = variant === 'info';
@@ -88,7 +100,7 @@ export function ConfirmDialog({
     : 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z';
 
   return (
-    <Modal open={isOpen} onClose={onClose}>
+    <Modal open={isOpen} onClose={onClose} size={size} ariaLabel={title}>
       {/* Header with icon */}
       <div className="flex items-center mb-4">
         <div className="flex-shrink-0 mr-3">
@@ -197,10 +209,17 @@ export function useConfirmDialog() {
   };
 
   const handleConfirm = () => {
-    config.onConfirm();
-    resolveRef.current?.(true);
-    resolveRef.current = null;
-    setIsOpen(false);
+    try {
+      config.onConfirm();
+      resolveRef.current?.(true);
+    } catch (error) {
+      // Never leave the awaiting promise hanging, even if onConfirm throws
+      resolveRef.current?.(false);
+      throw error;
+    } finally {
+      resolveRef.current = null;
+      setIsOpen(false);
+    }
   };
 
   const Dialog = () => (
@@ -211,11 +230,13 @@ export function useConfirmDialog() {
       title={config.title}
       message={config.message}
       details={config.details}
+      children={config.children}
       confirmText={config.confirmText}
       cancelText={config.cancelText}
       variant={config.variant}
       requireCheckbox={config.requireCheckbox}
       checkboxLabel={config.checkboxLabel}
+      isLoading={config.isLoading}
     />
   );
 

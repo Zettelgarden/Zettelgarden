@@ -5,6 +5,8 @@ export interface ModalProps {
   open: boolean;
   onClose: () => void;
   children: React.ReactNode;
+  /** Accessible name for the dialog (aria-label on the role=dialog root) */
+  ariaLabel?: string;
   /** Standardized max-width preset (override via className for intentional per-dialog sizing) */
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
   /** Extra classes for the Dialog.Panel (sizing/rounded overrides) */
@@ -36,6 +38,7 @@ export function Modal({
   open,
   onClose,
   children,
+  ariaLabel,
   size = 'md',
   className = '',
   dialogClassName = '',
@@ -47,6 +50,7 @@ export function Modal({
         as="div"
         className={`relative z-50 ${dialogClassName}`}
         onClose={onClose}
+        aria-label={ariaLabel}
         initialFocus={initialFocus}
       >
         {/* Overlay */}

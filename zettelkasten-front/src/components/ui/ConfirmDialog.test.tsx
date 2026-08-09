@@ -67,6 +67,57 @@ describe('ConfirmDialog', () => {
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
 
+  it('does not auto-close on confirm when closeOnConfirm is false', async () => {
+    const handleConfirm = vi.fn();
+    const handleClose = vi.fn();
+    render(
+      <ConfirmDialog
+        isOpen
+        onClose={handleClose}
+        onConfirm={handleConfirm}
+        title="Confirm Restore"
+        message="Restore this version?"
+        confirmText="Restore"
+        closeOnConfirm={false}
+      />,
+    );
+    await userEvent.click(screen.getByText('Restore'));
+    expect(handleConfirm).toHaveBeenCalledTimes(1);
+    expect(handleClose).not.toHaveBeenCalled();
+  });
+
+  it('disables both buttons while isLoading', () => {
+    render(
+      <ConfirmDialog
+        isOpen
+        onClose={() => {}}
+        onConfirm={() => {}}
+        title="Confirm Restore"
+        message="Restore this version?"
+        confirmText="Restore"
+        cancelText="Cancel"
+        isLoading
+      />,
+    );
+    expect(screen.getByText('Restore')).toBeDisabled();
+    expect(screen.getByText('Cancel')).toBeDisabled();
+  });
+
+  it('exposes the title as the accessible name', () => {
+    render(
+      <ConfirmDialog
+        isOpen
+        onClose={() => {}}
+        onConfirm={() => {}}
+        title="Delete Task"
+        message="Are you sure?"
+      />,
+    );
+    expect(
+      screen.getByRole('dialog', { name: 'Delete Task' }),
+    ).toBeInTheDocument();
+  });
+
   it('renders custom children instead of the default message', () => {
     render(
       <ConfirmDialog

@@ -78,6 +78,7 @@ export function EditPageHeader({
             >
               {suggestingTitle ? (
                 <svg
+                  aria-hidden="true"
                   className="animate-spin h-5 w-5"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
@@ -99,6 +100,7 @@ export function EditPageHeader({
                 </svg>
               ) : (
                 <svg
+                  aria-hidden="true"
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-5 w-5"
                   viewBox="0 0 20 20"
@@ -132,6 +134,7 @@ export function EditPageHeader({
             className="hidden md:inline-flex text-gray-400 hover:text-gray-700 hover:bg-gray-100"
           >
             <svg
+              aria-hidden="true"
               className="h-5 w-5"
               fill="none"
               viewBox="0 0 24 24"

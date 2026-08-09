@@ -79,6 +79,8 @@ export function RollbackConfirmDialog({
       cancelText="Cancel"
       variant="info"
       isLoading={isLoading}
+      size="lg"
+      closeOnConfirm={false}
     >
       <p className="text-sm text-gray-600 mb-4">
         You are about to <strong>{getRestoreSummary()}</strong> for card:

@@ -35,6 +35,7 @@ export function Menu({
   return (
     <HeadlessMenu as="div" className="relative flex-shrink-0">
       <HeadlessMenu.Button
+        type="button"
         className={`p-1.5 md:p-1 rounded hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${buttonClassName}`}
       >
         {button}

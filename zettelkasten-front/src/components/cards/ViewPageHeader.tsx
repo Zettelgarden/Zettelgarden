@@ -107,7 +107,7 @@ export function ViewPageHeader({
             }`}
           >
             <StarIcon className="h-5 w-5" filled={!!viewingCard.is_starred} />
-          </Button>
+          </Button>{' '}
           <Button
             type="button"
             onClick={toggleRightPane}
@@ -121,6 +121,7 @@ export function ViewPageHeader({
             }`}
           >
             <svg
+              aria-hidden="true"
               className="h-5 w-5"
               fill="none"
               viewBox="0 0 24 24"

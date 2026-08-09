@@ -14,21 +14,22 @@ raw styled `<button>` elements, custom menu markup, spinner markup, status
 pills, or label+input+error markup. If the primitive doesn't cover your case,
 extend the primitive (or file an issue), don't fork the markup.
 
-This is enforced by a CI grep check (no `fixed inset-0` outside `ui/`) and by
-code review. ESLint rules may follow later.
+This is enforced by code review today and will be backed by a CI grep check
+(no `fixed inset-0` outside `ui/`; see Zettelgarden-z11.16) once Phase D
+lands. ESLint rules may follow later.
 
 ## The primitives
 
-| Primitive | Use for | Notes |
-|---|---|---|
-| `ui/Button` | Any interactive button | Variants: `primary` (brand `bg-palette-dark`), `secondary`, `outline`, `danger`. Sizes: `small`/`medium`/`large`; the `min-h-[44px]` touch target is built in. |
-| `ui/Modal` | Any dialog shell | Overlay, sizing (`size` = `sm`…`4xl`), Escape, focus trap, scroll-lock, aria. Controlled via `open`/`onClose`. |
-| `ui/ConfirmDialog` | Any yes/no confirmation | Built on Modal. `variant` = `danger`/`warning`/`info`, optional `requireCheckbox`, `details`. Also `useConfirmDialog()` for `await confirm(...)` → `boolean`. |
-| `ui/Menu` | Dropdown menus / kebab actions | Trigger button + panel; `MenuItem` has the 44px touch target and active highlight; keyboard nav built in. |
-| `ui/Dropdown` | Select-style pickers | Shows current value + chevron, options with check mark on the selected one. |
-| `ui/Badge` | Status pills | `color` = `success`/`warning`/`error`/`info`/`neutral`, optional `dot` / `pulse`. |
-| `ui/Spinner` | Any loading indicator | `size` = `sm`/`md`/`lg`/`xl`; color via `className="text-…"`; `role="status"` + sr-only label. |
-| `ui/Field` / `ui/Input` / `ui/Select` / `ui/Label` | Forms | Field wires label + control + error/help slot; `hasError` on Input/Select shows the red state. |
+| Primitive                                          | Use for                        | Notes                                                                                                                                                          |
+| -------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ui/Button`                                        | Any interactive button         | Variants: `primary` (brand `bg-palette-dark`), `secondary`, `outline`, `danger`. Sizes: `small`/`medium`/`large`; the `min-h-[44px]` touch target is built in. |
+| `ui/Modal`                                         | Any dialog shell               | Overlay, sizing (`size` = `sm`…`4xl`), Escape, focus trap, scroll-lock, aria. Controlled via `open`/`onClose`.                                                 |
+| `ui/ConfirmDialog`                                 | Any yes/no confirmation        | Built on Modal. `variant` = `danger`/`warning`/`info`, optional `requireCheckbox`, `details`. Also `useConfirmDialog()` for `await confirm(...)` → `boolean`.  |
+| `ui/Menu`                                          | Dropdown menus / kebab actions | Trigger button + panel; `MenuItem` has the 44px touch target and active highlight; keyboard nav built in.                                                      |
+| `ui/Dropdown`                                      | Select-style pickers           | Shows current value + chevron, options with check mark on the selected one.                                                                                    |
+| `ui/Badge`                                         | Status pills                   | `color` = `success`/`warning`/`error`/`info`/`neutral`, optional `dot` / `pulse`.                                                                              |
+| `ui/Spinner`                                       | Any loading indicator          | `size` = `sm`/`md`/`lg`/`xl`; color via `className="text-…"`; `role="status"` + sr-only label.                                                                 |
+| `ui/Field` / `ui/Input` / `ui/Select` / `ui/Label` | Forms                          | Field wires label + control + error/help slot; `hasError` on Input/Select shows the red state.                                                                 |
 
 ## How to use
 
