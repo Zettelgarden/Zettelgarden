@@ -7,7 +7,7 @@ import { saveExistingTask, deleteTask } from '../../api/tasks';
 import { useTaskContext } from '../../contexts/TaskContext';
 import { useStatus } from '../../contexts/StatusContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { Menu } from '@headlessui/react';
+import { Menu, MenuItem, MenuRawItem } from '../ui/Menu';
 import {
   getToday,
   getTomorrow,
@@ -197,71 +197,54 @@ export function TaskListOptionsMenu({
 
   return (
     <>
-      <Menu as="div" className="relative inline-block text-left">
-        <div>
-          <Menu.Button className="inline-flex justify-center items-center w-full rounded-md border border-gray-300 shadow-sm px-1.5 py-0.5 min-w-[32px] min-h-[24px] bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-indigo-500">
-            ⋮
-          </Menu.Button>
-        </div>
-        <Menu.Items className="origin-top-right absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
-          <div className="py-1">
-            <Menu.Item>
-              {({ active }) => (
-                <button
-                  onClick={
-                    task.card_pk === 0 ? toggleCardLink : handleCardUnlink
-                  }
-                  className={`${
-                    active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                  } group flex rounded-md items-center w-full px-2 py-1 min-h-[26px] text-xs whitespace-nowrap`}
-                >
-                  {task.card_pk === 0 ? 'Link Card' : 'Unlink Card'}
-                </button>
-              )}
-            </Menu.Item>
-            {!task.is_complete && (
-              <Menu.Item>
-                {({ active }) => (
-                  <button
-                    ref={buttonRef}
-                    onClick={handleCompleteAndSchedule}
-                    className={`${
-                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                    } group flex rounded-md items-center w-full px-2 py-1 min-h-[26px] text-xs whitespace-nowrap`}
-                  >
-                    Complete & Schedule
-                  </button>
-                )}
-              </Menu.Item>
+      <Menu
+        align="right"
+        panelClassName="w-40 z-10"
+        button={
+          <svg
+            className="w-4 h-4 text-gray-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+            />
+          </svg>
+        }
+      >
+        <MenuItem
+          onClick={task.card_pk === 0 ? toggleCardLink : handleCardUnlink}
+        >
+          {task.card_pk === 0 ? 'Link Card' : 'Unlink Card'}
+        </MenuItem>
+        {!task.is_complete && (
+          <MenuRawItem>
+            {({ active }) => (
+              <button
+                ref={buttonRef}
+                type="button"
+                onClick={handleCompleteAndSchedule}
+                className={`${
+                  active ? 'bg-gray-100' : ''
+                } flex w-full items-center px-4 py-3 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100`}
+              >
+                Complete & Schedule
+              </button>
             )}
-            {onToggleHistory && (
-              <Menu.Item>
-                {({ active }) => (
-                  <button
-                    onClick={onToggleHistory}
-                    className={`${
-                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                    } group flex rounded-md items-center w-full px-2 py-1 min-h-[26px] text-xs whitespace-nowrap`}
-                  >
-                    {showHistory ? 'Hide' : 'Show'} History
-                  </button>
-                )}
-              </Menu.Item>
-            )}
-            <Menu.Item>
-              {({ active }) => (
-                <button
-                  onClick={onDelete}
-                  className={`${
-                    active ? 'bg-gray-100 text-red-600' : 'text-red-600'
-                  } group flex rounded-md items-center w-full px-2 py-1 min-h-[26px] text-xs whitespace-nowrap`}
-                >
-                  Delete Task
-                </button>
-              )}
-            </Menu.Item>
-          </div>
-        </Menu.Items>
+          </MenuRawItem>
+        )}
+        {onToggleHistory && (
+          <MenuItem onClick={onToggleHistory}>
+            {showHistory ? 'Hide' : 'Show'} History
+          </MenuItem>
+        )}
+        <MenuItem onClick={onDelete} className="!text-red-600">
+          Delete Task
+        </MenuItem>
       </Menu>
       {showSchedulePicker &&
         dropdownPosition &&

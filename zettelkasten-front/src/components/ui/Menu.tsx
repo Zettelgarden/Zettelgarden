@@ -1,11 +1,18 @@
 import React from 'react';
 import { Menu as HeadlessMenu } from '@headlessui/react';
 
+const defaultTriggerClassName =
+  'p-1.5 md:p-1 rounded hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500';
+
 export interface MenuProps {
   /** Trigger content rendered inside the menu button */
   button: React.ReactNode;
-  /** Extra classes for the trigger button */
+  /** Extra classes for the trigger button (appended to the standard look) */
   buttonClassName?: string;
+  /** Replaces the standard trigger-button styling entirely (custom triggers like bordered text buttons) */
+  triggerClassName?: string;
+  /** Tooltip on the trigger button */
+  title?: string;
   /** Which side the panel drops toward (default: right) */
   align?: 'left' | 'right';
   /** Extra classes for the items panel */
@@ -25,6 +32,8 @@ export interface MenuProps {
 export function Menu({
   button,
   buttonClassName = '',
+  triggerClassName,
+  title,
   align = 'right',
   panelClassName = '',
   children,
@@ -36,7 +45,12 @@ export function Menu({
     <HeadlessMenu as="div" className="relative flex-shrink-0">
       <HeadlessMenu.Button
         type="button"
-        className={`p-1.5 md:p-1 rounded hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${buttonClassName}`}
+        title={title}
+        className={
+          triggerClassName
+            ? triggerClassName
+            : `${defaultTriggerClassName} ${buttonClassName}`
+        }
       >
         {button}
       </HeadlessMenu.Button>

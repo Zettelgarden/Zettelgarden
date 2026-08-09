@@ -59,6 +59,30 @@ describe('Menu', () => {
     fireEvent.keyDown(menu, { key: 'Enter' });
     expect(handleDelete).toHaveBeenCalledTimes(1);
   });
+
+  it('sets a tooltip on the trigger via title', async () => {
+    render(
+      <Menu button={<span>⋮</span>} title="More actions">
+        <MenuItem onClick={() => {}}>Edit</MenuItem>
+      </Menu>,
+    );
+    expect(screen.getByTitle('More actions')).toBeInTheDocument();
+  });
+
+  it('applies a replacement triggerClassName for custom triggers', async () => {
+    render(
+      <Menu
+        button={<span>Saved</span>}
+        triggerClassName="h-9 px-2.5 border border-slate-300 rounded-md bg-white text-slate-600"
+      >
+        <MenuItem onClick={() => {}}>Edit</MenuItem>
+      </Menu>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Saved' });
+    expect(trigger.className).toContain('h-9');
+    // Standard trigger styling must NOT leak through when replaced.
+    expect(trigger.className).not.toContain('min-w-[44px]');
+  });
 });
 
 describe('Dropdown', () => {
