@@ -258,8 +258,10 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	// First, buffer all files to avoid PostgreSQL protocol error
-	// (can't execute queries while iterating through a result set on same connection)
-	var files []models.File
+	// (can't execute queries while iterating through a result set on same connection).
+	// Initialize as an empty slice (not nil) so the JSON response is `[]` rather
+	// than `null` when no files match — the frontend expects an array.
+	files := []models.File{}
 	for rows.Next() {
 		var file models.File
 		var cardPK sql.NullInt32

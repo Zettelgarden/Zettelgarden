@@ -156,7 +156,8 @@ export function FileVault() {
   const hasActiveFilters = searchTerm || filetypeFilter || unlinkedOnly;
 
   // Bulk selection helpers
-  const isAllSelected = files.length > 0 && selectedFiles.size === files.length;
+  const isAllSelected =
+    (files?.length ?? 0) > 0 && selectedFiles.size === files.length;
   const isSomeSelected = selectedFiles.size > 0;
 
   const toggleFileSelection = (fileId: number) => {
@@ -479,7 +480,7 @@ export function FileVault() {
         sort,
         order,
       );
-      setFiles(data.files);
+      setFiles(data.files ?? []);
       setCurrentPage(data.page);
       setTotalPages(data.total_pages);
       setTotalItems(data.total);

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -70,6 +71,50 @@ func TestGetAllFiles(t *testing.T) {
 	tests.ParseJsonResponse(t, rr.Body.Bytes(), &response)
 	if len(response.Files) != 5 {
 		t.Fatalf("wrong length of results, got %v want %v (after test data reduction)", len(response.Files), 5)
+	}
+}
+
+// TestGetAllFilesEmptyResult guards against the nil-slice bug where a filter
+// with zero matches serialized `files` as JSON null instead of []. The frontend
+// expects an array (it reads .length), so null crashes the FileVault render.
+func TestGetAllFilesEmptyResult(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	req, err := http.NewRequest("GET", "/api/files?filetype=document", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.GetAllFilesRoute))
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	if strings.Contains(rr.Body.String(), `"files":null`) {
+		t.Errorf("response serialized files as null (nil slice bug): %s", rr.Body.String())
+	}
+
+	var response struct {
+		Files []models.File `json:"files"`
+		Page  int           `json:"page"`
+		Total int           `json:"total"`
+	}
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &response)
+	if response.Total != 0 {
+		t.Errorf("expected 0 total for filetype=document, got %d", response.Total)
+	}
+	if response.Files == nil {
+		t.Errorf("files must be an empty array, got nil (JSON null)")
+	}
+	if len(response.Files) != 0 {
+		t.Errorf("expected 0 files, got %d", len(response.Files))
 	}
 }
 func TestGetAllFilesNoToken(t *testing.T) {

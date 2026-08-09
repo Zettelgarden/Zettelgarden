@@ -190,7 +190,9 @@ func (s *Handler) searchFilesInTypesense(ctx context.Context, userID int, query 
 		Tags          []string `json:"tags,omitempty"`
 	}
 
-	var files []FileSearchResult
+	// Initialize as an empty slice (not nil) so the JSON response is `[]` rather
+	// than `null` when Typesense returns no hits — the frontend expects an array.
+	files := []FileSearchResult{}
 	if result.Hits != nil {
 		for _, hit := range *result.Hits {
 			doc := *hit.Document
