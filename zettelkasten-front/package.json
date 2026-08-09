@@ -51,8 +51,7 @@
     "vite-plugin-svgr": "^4.2.0",
     "vite-tsconfig-paths": "^4.3.2",
     "web-vitals": "^2.1.4",
-    "zustand": "^5.0.10",
-    "@zettelgarden/sync-engine": "file:../sync-engine"
+    "zustand": "^5.0.10"
   },
   "scripts": {
     "start": "vite",

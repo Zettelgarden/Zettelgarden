@@ -15,8 +15,10 @@ version: "3"
 services:
   frontend:
     build:
-      context: ./zettelkasten-front
-      dockerfile: Dockerfile
+      # Repo-root context so the frontend build can reach the shared sync
+      # engine (the data-provider seam imports sync-engine/src directly).
+      context: .
+      dockerfile: zettelkasten-front/Dockerfile
       args:
         # Vite inlines VITE_* vars at BUILD time, so they must be passed here
         # (and declared as ARGs in the Dockerfile). build.sh sources the root

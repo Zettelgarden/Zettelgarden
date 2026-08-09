@@ -8,6 +8,17 @@ import {
   RelatedCard,
 } from '../models/Card';
 import { apiClient, getData } from './client';
+import { getDataProvider } from '../data/provider';
+import { processCardFromAPI as httpProcessCardFromAPI } from '../data/httpProvider';
+import { graceful, EMPTY_REFERENCES } from '../data/offline';
+
+/**
+ * Process card data from API (shared by online-only card reads; the
+ * offline-writable reads route through the data provider).
+ */
+function processCardFromAPI(card: Card): Card {
+  return httpProcessCardFromAPI(card);
+}
 
 // Utility function to escape entity names for search queries
 export function escapeEntityNameForSearch(entityName: string): string {
@@ -82,8 +93,11 @@ export async function semanticSearchCardsPaginated(
     per_page: perPage,
   };
 
-  const { data: paginatedResponse } =
-    await apiClient.post<PaginatedSearchResponse>('/search', params);
+  const response = await graceful<{ data: PaginatedSearchResponse | null }>(
+    { data: null },
+    () => apiClient.post<PaginatedSearchResponse>('/search', params),
+  );
+  const paginatedResponse = response?.data;
 
   if (!paginatedResponse || !paginatedResponse.results) {
     return {
@@ -132,152 +146,86 @@ export async function semanticSearchCards(
 }
 
 /**
- * Process card data from API
- */
-function processCardFromAPI(card: Card): Card {
-  return {
-    ...card,
-    created_at: new Date(card.created_at),
-    updated_at: new Date(card.updated_at),
-    children:
-      card.children?.map((child) => ({
-        ...child,
-        created_at: new Date(child.created_at),
-        updated_at: new Date(child.updated_at),
-      })) || [],
-    references:
-      card.references?.map((ref) => ({
-        ...ref,
-        created_at: new Date(ref.created_at),
-        updated_at: new Date(ref.updated_at),
-      })) || [],
-    tasks:
-      card.tasks?.map((task) => ({
-        ...task,
-        scheduled_date: task.scheduled_date
-          ? new Date(task.scheduled_date)
-          : null,
-        due_date: task.due_date ? new Date(task.due_date) : null,
-        created_at: new Date(task.created_at),
-        updated_at: new Date(task.updated_at),
-        completed_at: task.completed_at ? new Date(task.completed_at) : null,
-      })) || [],
-  };
-}
-
-/**
- * Get a single card by ID
+ * Get a single card by ID. Desktop: resolved from the local mirror (instant,
+ * offline). Web: GET /cards/:id.
  */
 export async function getCard(id: string): Promise<Card> {
-  const encoded = encodeURIComponent(id);
-  const { data: card } = await apiClient.get<Card>(`/cards/${encoded}`);
-  return processCardFromAPI(card);
+  return getDataProvider().getCard(id);
 }
 
 /**
- * Save a new card
+ * Save a new card. Desktop: writes the local mirror + outbox (offline-safe).
  */
 export async function saveNewCard(card: Card): Promise<Card> {
-  card.card_id = card.card_id.trim();
-  const { data } = await apiClient.post<Card>('/cards', card);
-  return processCardFromAPI(data);
+  return getDataProvider().saveNewCard(card);
 }
 
 /**
- * Save an existing card
+ * Save an existing card. Desktop: local mirror + outbox (offline-safe).
  */
 export async function saveExistingCard(card: Card): Promise<Card> {
-  const { data } = await apiClient.put<Card>(
-    `/cards/${encodeURIComponent(card.id)}`,
-    card,
-  );
-  return processCardFromAPI(data);
+  return getDataProvider().saveExistingCard(card);
 }
 
 /**
- * Delete a card
+ * Delete a card. Desktop: queues a local delete, reconciles on reconnect.
  */
 export async function deleteCard(id: number): Promise<Card | null> {
-  const encodedId = encodeURIComponent(id);
-  const { response, data } = await apiClient.delete<Card>(
-    `/cards/${encodedId}`,
-  );
-
-  if (response.status === 204) {
-    return null;
-  }
-  return data;
+  return getDataProvider().deleteCard(id);
 }
 
 /**
  * Get audit events for a card
  */
 export async function getCardAuditEvents(cardId: string): Promise<any[]> {
-  const { data: events } = await apiClient.get<any[]>(
-    `/cards/${encodeURIComponent(cardId)}/audit`,
-  );
+  return graceful<any[]>([] as any[], async () => {
+    const { data: events } = await apiClient.get<any[]>(
+      `/cards/${encodeURIComponent(cardId)}/audit`,
+    );
 
-  if (!events) {
-    return [];
-  }
+    if (!events) {
+      return [];
+    }
 
-  return events.map((event) => ({
-    ...event,
-    created_at: new Date(event.created_at),
-    updated_at: new Date(event.updated_at),
-  }));
+    return events.map((event) => ({
+      ...event,
+      created_at: new Date(event.created_at),
+      updated_at: new Date(event.updated_at),
+    }));
+  });
 }
-
 /**
  * Get files attached to a card
  */
 export async function getCardFiles(cardId: string): Promise<any[]> {
-  const { data: files } = await apiClient.get<any[]>(
-    `/cards/${encodeURIComponent(cardId)}/files`,
-  );
+  return graceful<any[]>([] as any[], async () => {
+    const { data: files } = await apiClient.get<any[]>(
+      `/cards/${encodeURIComponent(cardId)}/files`,
+    );
 
-  if (!files) {
-    return [];
-  }
+    if (!files) {
+      return [];
+    }
 
-  return files.map((file) => ({
-    ...file,
-    created_at: new Date(file.created_at),
-    updated_at: new Date(file.updated_at),
-  }));
+    return files.map((file) => ({
+      ...file,
+      created_at: new Date(file.created_at),
+      updated_at: new Date(file.updated_at),
+    }));
+  });
 }
-
 /**
- * Get children of a card
+ * Get children of a card. Desktop: computed from the local mirror.
  */
 export async function getCardChildren(cardId: string): Promise<PartialCard[]> {
-  const { data: children } = await apiClient.get<PartialCard[]>(
-    `/cards/${encodeURIComponent(cardId)}/children`,
-  );
-
-  if (!children) {
-    return [];
-  }
-
-  return children.map((child) => ({
-    ...child,
-    created_at: new Date(child.created_at),
-    updated_at: new Date(child.updated_at),
-  }));
+  return getDataProvider().getCardChildren(cardId);
 }
 
 /**
- * Get tags for a card
+ * Get tags for a card. Desktop: derived from the body + mirror tags.
  */
 export async function getCardTags(cardId: string): Promise<any[]> {
-  const { data: tags } = await apiClient.get<any[]>(
-    `/cards/${encodeURIComponent(cardId)}/tags`,
-  );
-
-  if (!tags) {
-    return [];
-  }
-  return tags;
+  return getDataProvider().getCardTags(cardId);
 }
 
 /**
@@ -286,61 +234,48 @@ export async function getCardTags(cardId: string): Promise<any[]> {
 export async function getLinkedEntitiesByCardPK(
   cardId: string | number,
 ): Promise<Entity[]> {
-  const response = await apiClient.fetchResponse(
-    `/cards/${encodeURIComponent(cardId)}/linked-entities`,
-  );
+  return graceful<Entity[]>([] as Entity[], async () => {
+    const response = await apiClient.fetchResponse(
+      `/cards/${encodeURIComponent(cardId)}/linked-entities`,
+    );
 
-  // Handle no content responses gracefully
-  if (response.status === 204) {
-    return [];
-  }
-
-  try {
-    const entities: Entity[] | null = await response.json();
-    if (!entities) {
+    // Handle no content responses gracefully
+    if (response.status === 204) {
       return [];
     }
-    return entities;
-  } catch (err) {
-    // In case of empty body or invalid JSON
-    return [];
-  }
-}
 
+    try {
+      const entities: Entity[] | null = await response.json();
+      if (!entities) {
+        return [];
+      }
+      return entities;
+    } catch (err) {
+      // In case of empty body or invalid JSON
+      return [];
+    }
+  });
+}
 /**
  * Get entities for a card
  */
 export async function getCardEntities(cardId: string | number): Promise<any[]> {
-  const { data: entities } = await apiClient.get<any[]>(
-    `/cards/${encodeURIComponent(cardId)}/entities`,
-  );
+  return graceful<any[]>([] as any[], async () => {
+    const { data: entities } = await apiClient.get<any[]>(
+      `/cards/${encodeURIComponent(cardId)}/entities`,
+    );
 
-  if (!entities) {
-    return [];
-  }
-  return entities;
+    if (!entities) {
+      return [];
+    }
+    return entities;
+  });
 }
-
 /**
- * Get tasks for a card
+ * Get tasks for a card. Desktop: computed from the local mirror.
  */
 export async function getCardTasks(cardId: string | number): Promise<any[]> {
-  const { data: tasks } = await apiClient.get<any[]>(
-    `/cards/${encodeURIComponent(cardId)}/tasks`,
-  );
-
-  if (!tasks) {
-    return [];
-  }
-
-  return tasks.map((task) => ({
-    ...task,
-    scheduled_date: task.scheduled_date ? new Date(task.scheduled_date) : null,
-    due_date: task.due_date ? new Date(task.due_date) : null,
-    created_at: new Date(task.created_at),
-    updated_at: new Date(task.updated_at),
-    completed_at: task.completed_at ? new Date(task.completed_at) : null,
-  }));
+  return getDataProvider().getCardTasks(cardId);
 }
 
 export interface CategorizedReferences {
@@ -363,30 +298,31 @@ function processPartialCards(cards: PartialCard[]): PartialCard[] {
 export async function getCardReferences(
   cardId: string,
 ): Promise<CategorizedReferences> {
-  const { data: refs } = await apiClient.get<CategorizedReferences>(
-    `/cards/${encodeURIComponent(cardId)}/references`,
-  );
+  return graceful<CategorizedReferences>(EMPTY_REFERENCES as CategorizedReferences, async () => {
+    const { data: refs } = await apiClient.get<CategorizedReferences>(
+      `/cards/${encodeURIComponent(cardId)}/references`,
+    );
 
-  if (!refs) {
+    if (!refs) {
+      return {
+        bidirectional: [],
+        outgoing: [],
+        incoming: [],
+      };
+    }
+
     return {
-      bidirectional: [],
-      outgoing: [],
-      incoming: [],
+      bidirectional: processPartialCards(refs.bidirectional),
+      outgoing: processPartialCards(refs.outgoing),
+      incoming: processPartialCards(refs.incoming),
     };
-  }
-
-  return {
-    bidirectional: processPartialCards(refs.bidirectional),
-    outgoing: processPartialCards(refs.outgoing),
-    incoming: processPartialCards(refs.incoming),
-  };
+  });
 }
-
 /**
- * Get the next root card ID
+ * Get the next root card ID. Desktop: computed from the local mirror.
  */
 export async function getNextRootId(): Promise<NextIdResponse> {
-  return getData(apiClient.get<NextIdResponse>('/cards/next-root-id'));
+  return getDataProvider().getNextRootId();
 }
 
 /**
@@ -407,48 +343,49 @@ export async function unstarCard(cardId: number): Promise<void> {
  * Get all starred cards
  */
 export async function getStarredCards(): Promise<Card[]> {
-  const { data: starredCards } = await apiClient.get<any[]>('/cards/starred');
+  return graceful<Card[]>([] as Card[], async () => {
+    const { data: starredCards } = await apiClient.get<any[]>('/cards/starred');
 
-  if (!starredCards) {
-    return [];
-  }
+    if (!starredCards) {
+      return [];
+    }
 
-  // Transform the response into Card objects
-  return starredCards.map((starredCard) => {
-    const card = starredCard.card;
+    // Transform the response into Card objects
+    return starredCards.map((starredCard) => {
+      const card = starredCard.card;
 
-    return {
-      ...card,
-      created_at: new Date(card.created_at),
-      updated_at: new Date(card.updated_at),
-      children:
-        card.children?.map((child: any) => ({
-          ...child,
-          created_at: new Date(child.created_at),
-          updated_at: new Date(child.updated_at),
-        })) || [],
-      references:
-        card.references?.map((ref: any) => ({
-          ...ref,
-          created_at: new Date(ref.created_at),
-          updated_at: new Date(ref.updated_at),
-        })) || [],
-      tasks:
-        card.tasks?.map((task: any) => ({
-          ...task,
-          scheduled_date: task.scheduled_date
-            ? new Date(task.scheduled_date)
-            : null,
-          due_date: task.due_date ? new Date(task.due_date) : null,
-          created_at: new Date(task.created_at),
-          updated_at: new Date(task.updated_at),
-          completed_at: task.completed_at ? new Date(task.completed_at) : null,
-        })) || [],
-      is_pinned: true, // Mark as starred since it's coming from the starred cards endpoint
-    };
+      return {
+        ...card,
+        created_at: new Date(card.created_at),
+        updated_at: new Date(card.updated_at),
+        children:
+          card.children?.map((child: any) => ({
+            ...child,
+            created_at: new Date(child.created_at),
+            updated_at: new Date(child.updated_at),
+          })) || [],
+        references:
+          card.references?.map((ref: any) => ({
+            ...ref,
+            created_at: new Date(ref.created_at),
+            updated_at: new Date(ref.updated_at),
+          })) || [],
+        tasks:
+          card.tasks?.map((task: any) => ({
+            ...task,
+            scheduled_date: task.scheduled_date
+              ? new Date(task.scheduled_date)
+              : null,
+            due_date: task.due_date ? new Date(task.due_date) : null,
+            created_at: new Date(task.created_at),
+            updated_at: new Date(task.updated_at),
+            completed_at: task.completed_at ? new Date(task.completed_at) : null,
+          })) || [],
+        is_pinned: true, // Mark as starred since it's coming from the starred cards endpoint
+      };
+    });
   });
 }
-
 /**
  * Suggest a title for a card based on its body content using AI
  */
@@ -469,26 +406,13 @@ interface UnsortedCardsResponse {
 }
 
 /**
- * Fetch unsorted cards (cards with empty card_id)
+ * Fetch unsorted cards (cards with empty card_id). Desktop: local mirror.
  */
 export async function getUnsortedCards(
   page = 1,
   perPage = 10,
 ): Promise<UnsortedCardsResponse> {
-  const { data } = await apiClient.get<UnsortedCardsResponse>(
-    `/cards/unsorted?page=${page}&per_page=${perPage}`,
-  );
-
-  const cards = data.cards.map((card) => ({
-    ...card,
-    created_at: new Date(card.created_at),
-    updated_at: new Date(card.updated_at),
-  }));
-
-  return {
-    ...data,
-    cards,
-  };
+  return getDataProvider().getUnsortedCards(page, perPage);
 }
 
 /**

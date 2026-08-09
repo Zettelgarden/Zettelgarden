@@ -13,7 +13,31 @@ import {
 import { getBillingStatus } from '../api/billing';
 import { getCurrentUser } from '../api/users';
 import { LoginResponse } from '../models/Auth';
-import { User, UserSubscription } from '../models/User';
+import { User, UserSubscription, defaultUser } from '../models/User';
+import { isDesktopApp } from '../data/tauriStorageAdapter';
+
+// Last-known profile cache so the desktop app can open instantly offline
+// (Phase 2b: the token lives in the OS keychain; the profile is not secret).
+const USER_PROFILE_KEY = 'zg_user_profile';
+
+function cacheUserProfile(user: User): void {
+  try {
+    localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(user));
+  } catch {
+    // Non-fatal: profile caching is a startup nicety.
+  }
+}
+
+function restoreUserProfile(): User | null {
+  try {
+    const raw = localStorage.getItem(USER_PROFILE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as User;
+    return parsed && typeof parsed.id === 'number' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -47,6 +71,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const response = await apiUpdateUser(updatedUser);
     setUser(response);
     setCurrentUser(response);
+    cacheUserProfile(response);
   };
 
   useEffect(() => {
@@ -61,6 +86,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           const currentUser = await getCurrentUser();
           setCurrentUser(currentUser);
           setUser(currentUser);
+          cacheUserProfile(currentUser);
           if (currentUser && currentUser.id) {
             const subscription = await getUserSubscription(currentUser.id);
             const billing = await getBillingStatus();
@@ -75,8 +101,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           }
         } catch (error) {
           console.error('Failed to initialize auth:', error);
-          // Gently handle auth initialization failure
-          logoutUser();
+          if (isDesktopApp()) {
+            // Offline startup: keep the keychain session and restore the
+            // last-known profile so the app opens into its data (the local
+            // mirror serves cards/tasks/tags). Subscription status is
+            // unknown until online — default to subscribed so the self-hosted
+            // offline app never dead-ends on a paywall.
+            const cached = restoreUserProfile();
+            if (cached) {
+              setCurrentUser(cached);
+              setUser(cached);
+              setIsAdmin(cached.is_admin);
+              setHasSubscription(true);
+            } else {
+              setCurrentUser(defaultUser);
+              setUser(defaultUser);
+              setHasSubscription(true);
+            }
+          } else {
+            logoutUser();
+          }
         }
       }
       setIsLoading(false);
@@ -87,6 +131,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const loginUser = async (data: LoginResponse) => {
     localStorage.setItem('token', data['access_token']);
     localStorage.setItem('username', data['user']['username']);
+    cacheUserProfile(data['user']);
     const billing = await getBillingStatus();
     // When billing is disabled on this instance, everyone is treated as
     // subscribed (paywalls off) — there is nothing to upgrade to.
@@ -109,6 +154,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const currentUser = await getCurrentUser();
       setCurrentUser(currentUser);
       setUser(currentUser);
+      cacheUserProfile(currentUser);
 
       // Set username in localStorage like regular login
       if (currentUser && currentUser.username) {

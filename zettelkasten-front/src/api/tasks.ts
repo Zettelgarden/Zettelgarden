@@ -1,130 +1,45 @@
 import { Task, TaskAuditEvent, TasksResponse } from 'src/models/Task';
 import { apiClient, getData } from './client';
 import { processTaskFromAPI } from '../utils/taskDataProcessing';
-
-export interface FetchTasksParams {
-  showCompleted?: boolean;
-  scheduledDate?: Date | null;
-  completedDate?: Date | null;
-  status?: string | null;
-}
+import { getDataProvider } from '../data/provider';
+import type { FetchTasksParams } from '../data/provider';
 
 /**
- * Fetch tasks with optional filters
- * Handles pagination automatically to fetch all tasks
+ * Fetch tasks with optional filters. Desktop: filtered from the local
+ * mirror (instant, offline). Web: paginated GET /tasks.
  */
 export async function fetchTasks(
   params: FetchTasksParams = {},
 ): Promise<Task[]> {
-  const {
-    showCompleted = false,
-    scheduledDate = null,
-    completedDate = null,
-    status = null,
-  } = params;
-
-  const fetchAllTasks = async (
-    offset = 0,
-    allTasks: Task[] = [],
-  ): Promise<Task[]> => {
-    const requestParams: Record<string, string | number | boolean | undefined> =
-      {
-        limit: 100,
-        offset,
-        completed: showCompleted,
-      };
-
-    if (scheduledDate) {
-      requestParams.scheduled_date = scheduledDate.toISOString().split('T')[0];
-    }
-    if (completedDate) {
-      requestParams.completed_date = completedDate.toISOString().split('T')[0];
-    }
-    if (status) {
-      requestParams.status = status;
-    }
-
-    const { data: tasksResponse } = await apiClient.get<TasksResponse>(
-      '/tasks',
-      {
-        params: requestParams,
-      },
-    );
-
-    if (!tasksResponse.tasks) {
-      return allTasks;
-    }
-
-    const formattedTasks = tasksResponse.tasks.map((task) =>
-      processTaskFromAPI(task),
-    );
-    const combinedTasks = [...allTasks, ...formattedTasks];
-
-    // If we got fewer tasks than the limit, we've reached the end
-    if (tasksResponse.tasks.length < tasksResponse.limit) {
-      return combinedTasks;
-    }
-
-    // If there are more tasks to fetch, make another request
-    return fetchAllTasks(offset + tasksResponse.limit, combinedTasks);
-  };
-
-  return fetchAllTasks();
+  return getDataProvider().fetchTasks(params);
 }
 
 /**
- * Fetch a single task by ID
+ * Fetch a single task by ID. Desktop: local mirror.
  */
 export async function fetchTask(id: string): Promise<Task> {
-  const encoded = encodeURIComponent(id);
-  const { data: rawTask } = await apiClient.get<Task>(`/tasks/${encoded}`);
-  return processTaskFromAPI(rawTask);
+  return getDataProvider().fetchTask(id);
 }
 
 /**
- * Save a new task
+ * Save a new task. Desktop: local mirror + outbox (offline-safe).
  */
 export async function saveNewTask(task: Task): Promise<Task> {
-  return saveTask('/tasks', 'POST', task);
+  return getDataProvider().saveNewTask(task);
 }
 
 /**
- * Save an existing task
+ * Save an existing task. Desktop: local mirror + outbox (offline-safe).
  */
 export async function saveExistingTask(task: Task): Promise<Task> {
-  return saveTask(`/tasks/${encodeURIComponent(task.id)}`, 'PUT', task);
+  return getDataProvider().saveExistingTask(task);
 }
 
 /**
- * Save task (internal function)
- */
-async function saveTask(
-  url: string,
-  method: string,
-  task: Task,
-): Promise<Task> {
-  if (method === 'POST') {
-    const { data } = await apiClient.post<Task>(url, task);
-    return data;
-  } else {
-    const { data } = await apiClient.put<Task>(url, task);
-    return data;
-  }
-}
-
-/**
- * Delete a task
+ * Delete a task. Desktop: queues a local delete, reconciles on reconnect.
  */
 export async function deleteTask(id: number): Promise<Task | null> {
-  const encodedId = encodeURIComponent(id);
-  const { response, data } = await apiClient.delete<Task>(
-    `/tasks/${encodedId}`,
-  );
-
-  if (response.status === 204) {
-    return null;
-  }
-  return data;
+  return getDataProvider().deleteTask(id);
 }
 
 /**

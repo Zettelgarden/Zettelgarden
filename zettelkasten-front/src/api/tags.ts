@@ -1,12 +1,19 @@
 import { Tag } from '../models/Tags';
 import { apiClient, getData } from './client';
+import { getDataProvider } from '../data/provider';
 
+/**
+ * Fetch all user tags. Desktop: from the local mirror (instant, offline).
+ */
 export function fetchUserTags(): Promise<Tag[]> {
-  return getData(apiClient.get<Tag[]>(`/tags`));
+  return getDataProvider().fetchUserTags();
 }
 
+/**
+ * Delete a tag. Desktop: queues a local delete, reconciles on reconnect.
+ */
 export function deleteTag(id: number): Promise<Tag | null> {
-  return getData(apiClient.delete<Tag>(`/tags/id/${id}`));
+  return getDataProvider().deleteTag(id);
 }
 
 export interface CreateTagParams {
@@ -14,6 +21,10 @@ export interface CreateTagParams {
   color: string;
 }
 
+/**
+ * Create a tag. Desktop: writes the local mirror + outbox; the server
+ * name-merges on push (two devices creating "Work" converge to one row).
+ */
 export function createTag(params: CreateTagParams): Promise<Tag> {
-  return getData(apiClient.post<Tag>(`/tags`, params));
+  return getDataProvider().createTag(params);
 }

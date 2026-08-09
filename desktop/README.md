@@ -1,9 +1,12 @@
 # Zettelgarden Desktop (Tauri v2)
 
 Native desktop shell for Zettelgarden (epic Zettelgarden-v5b, Phase 2a — issue
-c5b). Wraps the existing React web app (`zettelkasten-front`) in a Tauri v2
-window. Today it packages the web app as-is; the local-first sync engine
-(`sync-engine/`) gets wired in during Phase 2b.
+c5b; Phase 2b — issue fv3). Wraps the existing React web app
+(`zettelkasten-front`) in a Tauri v2 window with the local-first sync engine
+(`sync-engine/`) as the data layer: cards/tasks/tags read and write a local
+SQLite mirror + outbox (offline-capable) and reconcile with the server on
+reconnect. Everything else (entities, files, RSS, search, …) is available
+online-only and degrades gracefully offline.
 
 ## Layout
 
@@ -11,27 +14,40 @@ window. Today it packages the web app as-is; the local-first sync engine
 desktop/
 ├── package.json          # npm shell: tauri CLI scripts
 ├── src-tauri/
-│   ├── Cargo.toml        # Rust: tauri 2, tauri-plugin-store, keyring
+│   ├── Cargo.toml        # Rust: tauri 2, tauri-plugin-store, keyring, rusqlite
 │   ├── tauri.conf.json   # points frontendDist at zettelkasten-front/dist
 │   ├── preload.js        # localStorage->keychain shim + window.zgDesktop API
 │   ├── capabilities/     # IPC permissions (window controls, store)
 │   └── src/
-│       ├── lib.rs        # builder: window + init script + commands
+│       ├── lib.rs        # builder: window + init script + commands + SyncDb
 │       ├── main.rs
-│       └── commands.rs   # keychain get/set/delete, settings, window controls
+│       ├── commands.rs   # keychain get/set/delete, settings, window controls
+│       └── sync_db.rs    # local mirror SQLite (rusqlite): sync_exec/query/begin/commit/rollback
 ```
 
-## What the scaffold does
+## What the shell does
 
 - **Keychain auth** — the web app's `localStorage` `token`/`username` keys are
   intercepted by `preload.js` and stored in the OS keychain (macOS Keychain /
   Windows Credential Manager / Linux Secret Service via the `keyring` crate).
-  The web app is untouched.
 - **Settings** — server URL + account persisted to the app data dir
-  (`settings.json` via `tauri-plugin-store` + a `save_settings` command).
-- **Shell API** — `window.zgDesktop` exposes token access, settings, window
-  controls, and (stubbed) sync status for Phase 2b's offline/pending-change
-  indicators.
+  (`settings.json` via `tauri-plugin-store` + a `save_settings` command). The
+  sync transport uses the configured server URL (fallback: build-time
+  `VITE_URL`).
+- **Local mirror** — `sync_db.rs` opens `app_data_dir/sync/mirror.db` (WAL,
+  single connection behind a mutex) and exposes the engine's storage surface
+  as origin-gated commands. The mirror schema lives in the TS adapter
+  (`zettelkasten-front/src/data/tauriStorageAdapter.ts`), which implements
+  the engine's async `StorageAdapter` over those commands.
+- **Data layer** — the web UI's card/task/tag reads and writes route through
+  `src/data/provider.ts`: in the desktop app the `SyncDataProvider` serves
+  the local mirror + outbox; online-only reads degrade to empty on network
+  failure (`src/data/offline.ts`). React Query hooks and `queryKeys` are
+  unchanged — they now query local SQLite (instant, offline).
+- **Indicators** — `SyncContext` exposes engine progress; the
+  `SyncStatusIndicator` (sidebar footer) shows online/offline + pending
+  changes. Offline startup keeps the keychain session and restores the cached
+  user profile (`AuthContext`).
 - **CI** — `.github/workflows/desktop.yml` builds per OS; dispatch/tag builds
   bundle + sign (secrets commented in for macOS/Windows).
 
@@ -48,7 +64,7 @@ cd desktop && npm install && npm run dev
 ## Build
 
 ```bash
-# Frontend dist first
+# Frontend dist first (sync-engine is imported by source — no separate build)
 cd zettelkasten-front && npm ci && npm run build
 # Then the desktop bundle
 cd desktop && npm run build
@@ -60,7 +76,8 @@ cd desktop && npm run build
 
 ## Verified
 
-- `cargo build` (dev + release) clean; `cargo test` green (settings round-trip).
+- `cargo build` (dev + release) clean; `cargo test` green (settings round-trip
+  + sync_db exec/query + transaction isolation).
 - App launches under `xvfb` with the embedded `dist`, event loop stays alive,
   no panics.
 - Release binary embeds the web app; keyring/signing are exercised in the

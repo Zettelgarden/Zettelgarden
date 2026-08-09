@@ -4,6 +4,7 @@ import './index.css';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { SyncProvider } from './contexts/SyncContext';
 import { HashRouter } from 'react-router-dom';
 import { Buffer } from 'buffer';
 globalThis.Buffer = Buffer;
@@ -15,11 +16,13 @@ if (rootElement) {
   root.render(
     <React.StrictMode>
       <HashRouter>
-        <SettingsProvider>
-          <AuthProvider>
-            <App />
-          </AuthProvider>
-        </SettingsProvider>
+        <SyncProvider>
+          <SettingsProvider>
+            <AuthProvider>
+              <App />
+            </AuthProvider>
+          </SettingsProvider>
+        </SyncProvider>
       </HashRouter>
     </React.StrictMode>,
   );

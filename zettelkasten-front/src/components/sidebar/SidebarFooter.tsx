@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { BookOpenIcon } from '../../assets/icons/BookOpenIcon';
 import { SettingsIcon } from '../../assets/icons/SettingsIcon';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { SyncStatusIndicator } from '../SyncStatusIndicator';
 
 interface SidebarFooterProps {
   isCollapsed: boolean;
@@ -117,6 +118,7 @@ export function SidebarFooter({
           isCollapsed ? 'flex-col gap-2' : 'justify-end space-x-4 pr-2'
         }`}
       >
+        <SyncStatusIndicator collapsed={isCollapsed} />
         <CollapsibleLink
           to="/app/help"
           icon={<BookOpenIcon />}
