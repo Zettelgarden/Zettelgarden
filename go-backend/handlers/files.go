@@ -664,6 +664,13 @@ func (s *Handler) EditFileMetadataRoute(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	// Keep the Typesense index in sync with name/description/card_pk changes
+	// (Zettelgarden-pvr). Non-fatal: search falls back to SQL on failure.
+	if err := s.IndexFileInTypesense(r.Context(), filePK); err != nil {
+		log.Printf("Failed to re-index file %d in Typesense: %v", filePK, err)
+	}
+
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(file)
@@ -798,6 +805,13 @@ func (s *Handler) UploadFileRoute(w http.ResponseWriter, r *http.Request) {
 	// user_stats was trigger-maintained (0093); now maintained in Go (Phase 5).
 	services.IncrementUserFileCount(s.GetDB(), userID)
 
+	// Index the new file in Typesense so file search (name/description/
+	// extracted_text/tags) finds it immediately. Errors are non-fatal: search
+	// falls back to SQL until the index catches up (Zettelgarden-pvr).
+	if err := s.IndexFileInTypesense(r.Context(), lastInsertId); err != nil {
+		log.Printf("Failed to index new file %d in Typesense: %v", lastInsertId, err)
+	}
+
 	// Start text extraction inline (audited in llm_jobs)
 	_, err = s.JobRunner.Run(r.Context(), models.CreateJobParams{
 		UserID:      userID,
@@ -913,6 +927,13 @@ func (s *Handler) DeleteFileRoute(w http.ResponseWriter, r *http.Request) {
 	// path (beads Zettelgarden-y6s) — after the storage delete succeeds, to
 	// stay consistent with the is_deleted rollback above.
 	services.DecrementUserFileCount(s.GetDB(), userID)
+
+	// Remove the file from the Typesense index so deleted files never surface
+	// in search results (Zettelgarden-pvr). DeleteFileFromTypesense treats a
+	// missing client as a no-op.
+	if err := s.DeleteFileFromTypesense(r.Context(), cardPK); err != nil {
+		log.Printf("Failed to delete file %d from Typesense: %v", cardPK, err)
+	}
 }
 
 // Tag management endpoints
@@ -1045,7 +1066,10 @@ func (s *Handler) TagFileRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
-	defer tx.Rollback()
+	// Only roll back in production; the test framework manages the shared tx.
+	if s.ShouldCommitTx() {
+		defer tx.Rollback()
+	}
 
 	for _, tagName := range req.TagNames {
 		// Sanitize
@@ -1079,13 +1103,18 @@ func (s *Handler) TagFileRoute(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		http.Error(w, "Failed to save tags", http.StatusInternalServerError)
-		return
+	if s.ShouldCommitTx() {
+		if err := tx.Commit(); err != nil {
+			http.Error(w, "Failed to save tags", http.StatusInternalServerError)
+			return
+		}
 	}
 
-	// Reindex file in Typesense (placeholder - will be implemented in Task 9)
-	// go s.reindexFile(fileID)
+	// Reindex the file so tag changes are reflected in Typesense search
+	// (Zettelgarden-pvr). Non-fatal: search falls back to SQL on failure.
+	if err := s.IndexFileInTypesense(r.Context(), fileID); err != nil {
+		log.Printf("Failed to re-index file %d in Typesense after tagging: %v", fileID, err)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -1133,8 +1162,11 @@ func (s *Handler) UntagFileRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Reindex file (placeholder - will be implemented in Task 9)
-	// go s.reindexFile(fileID)
+	// Reindex the file so the removed tag is reflected in Typesense search
+	// (Zettelgarden-pvr). Non-fatal: search falls back to SQL on failure.
+	if err := s.IndexFileInTypesense(r.Context(), fileID); err != nil {
+		log.Printf("Failed to re-index file %d in Typesense after untagging: %v", fileID, err)
+	}
 
 	w.WriteHeader(http.StatusOK)
 }

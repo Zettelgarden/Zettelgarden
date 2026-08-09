@@ -52,6 +52,33 @@ func (s *Handler) InitFilesCollection() error {
 	}
 
 	log.Printf("Created files collection in Typesense")
+
+	// Backfill: index every existing (non-deleted) file so the collection is
+	// usable immediately after creation (Zettelgarden-pvr).
+	rows, err := s.GetDB().Query(`SELECT id FROM files WHERE is_deleted = FALSE`)
+	if err != nil {
+		return fmt.Errorf("failed to list files for backfill: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return fmt.Errorf("failed to scan file id for backfill: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("failed iterating files for backfill: %w", err)
+	}
+
+	for _, id := range ids {
+		if err := s.IndexFileInTypesense(context.Background(), id); err != nil {
+			log.Printf("WARNING: failed to backfill file %d into Typesense: %v", id, err)
+		}
+	}
+	log.Printf("Backfilled %d file(s) into Typesense files collection", len(ids))
 	return nil
 }
 

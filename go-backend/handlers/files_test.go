@@ -1109,3 +1109,79 @@ func TestGetAllFilesTagFilterUnknownTag(t *testing.T) {
 		t.Errorf("files must be an empty array, got nil")
 	}
 }
+
+// TestTagFileRoute verifies tagging a file works and the Typesense re-index
+// call (a logged no-op with a nil client) doesn't break the route
+// (Zettelgarden-pvr).
+func TestTagFileRoute(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+	body := bytes.NewBufferString(`{"tag_names": ["receipts", "taxes"]}`)
+	req, err := http.NewRequest("POST", "/api/files/3/tags", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("file_id", "3")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/files/{file_id}/tags", s.JwtMiddleware(s.TagFileRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v: %s", status, http.StatusOK, rr.Body.String())
+	}
+
+	var tagCount int
+	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM files_tags ft JOIN file_tags t ON t.id = ft.tag_id WHERE ft.file_id = 3 AND t.name IN ('receipts', 'taxes')`).Scan(&tagCount); err != nil {
+		t.Fatal(err)
+	}
+	if tagCount != 2 {
+		t.Errorf("tag links = %d, want 2", tagCount)
+	}
+}
+
+// TestUntagFileRoute verifies removing a tag works and the re-index call
+// doesn't break the route (Zettelgarden-pvr).
+func TestUntagFileRoute(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	var tagID int
+	if err := s.GetDB().QueryRow("INSERT INTO file_tags (user_id, name) VALUES (1, 'receipts') RETURNING id").Scan(&tagID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.GetDB().Exec("INSERT INTO files_tags (file_id, tag_id) VALUES (3, $1)", tagID); err != nil {
+		t.Fatal(err)
+	}
+
+	token, _ := tests.GenerateTestJWT(1)
+	req, err := http.NewRequest("DELETE", "/api/files/3/tags/receipts", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("file_id", "3")
+	req.SetPathValue("tag_name", "receipts")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/files/{file_id}/tags/{tag_name}", s.JwtMiddleware(s.UntagFileRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v: %s", status, http.StatusOK, rr.Body.String())
+	}
+
+	var tagCount int
+	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM files_tags WHERE file_id = 3`).Scan(&tagCount); err != nil {
+		t.Fatal(err)
+	}
+	if tagCount != 0 {
+		t.Errorf("tag links after untag = %d, want 0", tagCount)
+	}
+}

@@ -201,6 +201,10 @@ func run() error {
 		go safeGoroutine(func() {
 			log.Printf("Initializing search collection...")
 			h.InitSearchCollection()
+			log.Printf("Initializing files collection...")
+			if err := h.InitFilesCollection(); err != nil {
+				log.Printf("WARNING: failed to initialize Typesense files collection: %v", err)
+			}
 		})
 	} else {
 		log.Printf("WARNING: Typesense initialization failed - search functionality is disabled. Error: %v", err)
