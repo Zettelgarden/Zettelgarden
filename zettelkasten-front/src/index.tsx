@@ -48,6 +48,12 @@ async function boot() {
         </HashRouter>
       </React.StrictMode>,
     );
+
+    // Desktop E2E smoke (Zettelgarden-77j): the Tauri orchestrator injects
+    // window.__zgE2E; the scripted scenario runs against the real app.
+    if ((window as any).__zgE2E) {
+      void import('./e2e/smoke').then((m) => m.runE2E());
+    }
   } else {
     console.error('Root element not found');
   }
