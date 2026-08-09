@@ -25,19 +25,19 @@ export const tagRenameScenario: Scenario = {
       // ---- rename-vs-rename -----------------------------------------------
       // Seed "work" through A; B bootstraps.
       await a.engine.bootstrap();
-      const baselineTags = a.engine.query('tags').length;
-      a.engine.mutate('tags', { rowUuid: 'tag-w', data: { name: 'work', color: 'blue' } });
+      const baselineTags = (await a.engine.query('tags')).length;
+      await a.engine.mutate('tags', { rowUuid: 'tag-w', data: { name: 'work', color: 'blue' } });
       await a.engine.sync();
       await b.engine.bootstrap();
-      if (b.engine.getRow('tags', 'tag-w')?.data.name !== 'work') {
+      if ((await b.engine.getRow('tags', 'tag-w'))?.data.name !== 'work') {
         throw new Error('device B should bootstrap the seeded tag');
       }
 
       // Both rename the same row offline from base 1.
       a.engine.setOnline(false);
-      a.engine.mutate('tags', { rowUuid: 'tag-w', data: { name: 'tasks', color: 'blue' } });
+      await a.engine.mutate('tags', { rowUuid: 'tag-w', data: { name: 'tasks', color: 'blue' } });
       b.engine.setOnline(false);
-      b.engine.mutate('tags', { rowUuid: 'tag-w', data: { name: 'projects', color: 'blue' } });
+      await b.engine.mutate('tags', { rowUuid: 'tag-w', data: { name: 'projects', color: 'blue' } });
 
       const summaries = await settle([a, b], 2);
       const bPush = pushSummary(summaries, 'dev-b');
@@ -54,7 +54,7 @@ export const tagRenameScenario: Scenario = {
         throw new Error(`rename-vs-rename: expected A's 'tasks' to win, got ${JSON.stringify(winRow?.data)}`);
       }
       for (const dev of [a, b]) {
-        const tags = dev.engine.query('tags');
+        const tags = await dev.engine.query('tags');
         const mine = tags.filter((t) => t.rowUuid === 'tag-w');
         if (tags.length !== baselineTags + 1 || mine.length !== 1 || (mine[0]!.data as { name?: string }).name !== 'tasks') {
           throw new Error(`device ${dev.id} did not converge on the single winning tag`);
@@ -66,15 +66,15 @@ export const tagRenameScenario: Scenario = {
       // brand-new "work" tag offline.
       await withDevices(backend, 'tag-rename-create', ['dev-a', 'dev-b'], async ([a2, b2], auth2, baseUrl2) => {
         await a2.engine.bootstrap();
-        const baselineTags2 = a2.engine.query('tags').length;
-        a2.engine.mutate('tags', { rowUuid: 'tag-w', data: { name: 'work', color: 'blue' } });
+        const baselineTags2 = (await a2.engine.query('tags')).length;
+        await a2.engine.mutate('tags', { rowUuid: 'tag-w', data: { name: 'work', color: 'blue' } });
         await a2.engine.sync();
         await b2.engine.bootstrap();
 
         a2.engine.setOnline(false);
-        a2.engine.mutate('tags', { rowUuid: 'tag-w', data: { name: 'tasks', color: 'blue' } });
+        await a2.engine.mutate('tags', { rowUuid: 'tag-w', data: { name: 'tasks', color: 'blue' } });
         b2.engine.setOnline(false);
-        b2.engine.mutate('tags', { rowUuid: 'tag-w2', data: { name: 'work', color: 'blue' } });
+        await b2.engine.mutate('tags', { rowUuid: 'tag-w2', data: { name: 'work', color: 'blue' } });
 
         await settle([a2, b2], 2);
         const server2 = await convergeAndAssert('rename-vs-create', [a2, b2], auth2, baseUrl2);
@@ -89,7 +89,7 @@ export const tagRenameScenario: Scenario = {
           );
         }
         for (const dev of [a2, b2]) {
-          const local = dev.engine.query('tags').map((t) => (t.data as { name?: string }).name);
+          const local = (await dev.engine.query('tags')).map((t) => (t.data as { name?: string }).name);
           const lw = local.filter((n) => n === 'work').length;
           const lt = local.filter((n) => n === 'tasks').length;
           if (lw !== 1 || lt !== 1 || local.length !== baselineTags2 + 2) {

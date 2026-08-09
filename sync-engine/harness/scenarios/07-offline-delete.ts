@@ -20,18 +20,18 @@ export const offlineDeleteScenario: Scenario = {
     await withDevices(backend, 'delete-race', ['dev-a', 'dev-b'], async ([a, b], auth, baseUrl) => {
       // Seed the shared card through A; B bootstraps it.
       await a.engine.bootstrap();
-      a.engine.mutate('cards', { rowUuid: 'card-x', data: card('doomed', 'x1') });
+      await a.engine.mutate('cards', { rowUuid: 'card-x', data: card('doomed', 'x1') });
       await a.engine.sync();
       await b.engine.bootstrap();
-      if (!b.engine.getRow('cards', 'card-x')) {
+      if (!await b.engine.getRow('cards', 'card-x')) {
         throw new Error('device B should bootstrap the seeded card');
       }
 
       // Both offline: A deletes it, B edits it, both from base 1.
       a.engine.setOnline(false);
-      a.engine.deleteLocal('cards', 'card-x');
+      await a.engine.deleteLocal('cards', 'card-x');
       b.engine.setOnline(false);
-      b.engine.mutate('cards', { rowUuid: 'card-x', data: card('edited by B', 'x1') });
+      await b.engine.mutate('cards', { rowUuid: 'card-x', data: card('edited by B', 'x1') });
 
       const summaries = await settle([a, b], 2);
       const bPush = summaries.get('dev-b')?.find((s) => s.pushed + s.conflicts > 0);
@@ -47,7 +47,7 @@ export const offlineDeleteScenario: Scenario = {
         throw new Error('server still has the deleted card');
       }
       for (const dev of [a, b]) {
-        if (dev.engine.getRow('cards', 'card-x')) {
+        if (await dev.engine.getRow('cards', 'card-x')) {
           throw new Error(`device ${dev.id} keeps a ghost card-x after the delete won the LWW race`);
         }
       }

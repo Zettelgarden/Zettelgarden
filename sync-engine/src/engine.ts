@@ -14,6 +14,11 @@
  *    are never clobbered — so own writes are never double-applied or lost.
  *  - Scheduler: online/offline flag, exponential backoff, periodic sync,
  *    progress events surfaced in the UI (lastSynced, pendingChanges).
+ *
+ * The local API is async (Phase 2b): StorageAdapter implementations run over
+ * async IPC on the native shells (Tauri invoke / RN bridge), so every storage
+ * touch awaits. React Query queryFn/mutation handlers already consume async
+ * functions, so the UI sees no behavioral difference.
  */
 
 import type {
@@ -59,7 +64,8 @@ export interface SyncEngineOptions {
 export class SyncEngine {
   private storage: StorageAdapter;
   private transport: SyncTransport;
-  readonly deviceId: string;
+  private deviceIdValue: string;
+  private explicitDeviceId: boolean;
   private maxBackoffMs: number;
   private intervalMs = 0;
 
@@ -77,37 +83,51 @@ export class SyncEngine {
     this.storage = opts.storage;
     this.transport = opts.transport;
     this.maxBackoffMs = opts.maxBackoffMs ?? 5 * 60 * 1000;
-    this.deviceId =
-      opts.deviceId ?? this.storage.getMeta('device_id') ?? crypto.randomUUID();
-    this.storage.setMeta('device_id', this.deviceId);
+    this.explicitDeviceId = !!opts.deviceId;
+    // Generated eagerly (constructor is sync); the persisted id from a
+    // previous session is adopted on first push via ensureDeviceId().
+    this.deviceIdValue = opts.deviceId ?? crypto.randomUUID();
+  }
+
+  get deviceId(): string {
+    return this.deviceIdValue;
+  }
+
+  /** Adopts a persisted device id (stable across app restarts) unless an
+   * explicit one was provided, then persists it. Called before first push. */
+  private async ensureDeviceId(): Promise<void> {
+    if (this.explicitDeviceId) return;
+    const stored = await this.storage.getMeta('device_id');
+    if (stored && stored !== this.deviceIdValue) this.deviceIdValue = stored;
+    await this.storage.setMeta('device_id', this.deviceIdValue);
   }
 
   // ---- local-first API ----------------------------------------------------
 
-  getRow(collection: Collection, rowUuid: string): MirrorRow | undefined {
+  async getRow(collection: Collection, rowUuid: string): Promise<MirrorRow | undefined> {
     return this.storage.getRow(collection, rowUuid);
   }
 
-  query(collection: Collection): MirrorRow[] {
+  async query(collection: Collection): Promise<MirrorRow[]> {
     return this.storage.allRows(collection);
   }
 
-  pendingChanges(): number {
-    return this.storage.outbox().length;
+  async pendingChanges(): Promise<number> {
+    return (await this.storage.outbox()).length;
   }
 
   /** Local upsert: writes the mirror row and queues the change atomically. */
-  mutate(collection: Collection, row: { rowUuid: string; data: Record<string, unknown> }): void {
-    const existing = this.storage.getRow(collection, row.rowUuid);
+  async mutate(collection: Collection, row: { rowUuid: string; data: Record<string, unknown> }): Promise<void> {
+    const existing = await this.storage.getRow(collection, row.rowUuid);
     const baseVersion = existing?.version ?? 0;
-    this.storage.transaction(() => {
-      this.storage.putRow(collection, {
+    await this.storage.transaction(async () => {
+      await this.storage.putRow(collection, {
         collection,
         rowUuid: row.rowUuid,
         version: baseVersion,
         data: row.data,
       });
-      this.storage.enqueue({
+      await this.storage.enqueue({
         collection,
         rowUuid: row.rowUuid,
         op: 'upsert',
@@ -115,18 +135,18 @@ export class SyncEngine {
         data: row.data,
       });
     });
-    this.emitProgress();
+    void this.emitProgress();
   }
 
   /** Local delete: queues the deletion and drops the mirror row. */
-  deleteLocal(collection: Collection, rowUuid: string): void {
-    const existing = this.storage.getRow(collection, rowUuid);
+  async deleteLocal(collection: Collection, rowUuid: string): Promise<void> {
+    const existing = await this.storage.getRow(collection, rowUuid);
     const baseVersion = existing?.version ?? 0;
-    this.storage.transaction(() => {
-      this.storage.enqueue({ collection, rowUuid, op: 'delete', baseVersion });
-      this.storage.deleteRow(collection, rowUuid);
+    await this.storage.transaction(async () => {
+      await this.storage.enqueue({ collection, rowUuid, op: 'delete', baseVersion });
+      await this.storage.deleteRow(collection, rowUuid);
     });
-    this.emitProgress();
+    void this.emitProgress();
   }
 
   // ---- sync lifecycle -----------------------------------------------------
@@ -134,19 +154,19 @@ export class SyncEngine {
   /** One-time bootstrap: snapshot the server into the mirror and set cursor. */
   async bootstrap(): Promise<void> {
     const snap = await this.transport.snapshot(COLLECTIONS);
-    this.storage.transaction(() => {
+    await this.storage.transaction(async () => {
       for (const collection of COLLECTIONS) {
         // The snapshot is authoritative: drop mirror rows the server no
         // longer has (e.g. rows deleted inside a pruned feed window after a
         // reset re-bootstrap) unless a pending outbox edit is mid-flight.
         const snapshotUUIDs = new Set((snap.collections[collection] ?? []).map((r) => r.row_uuid));
-        for (const row of this.storage.allRows(collection)) {
-          if (!snapshotUUIDs.has(row.rowUuid) && !this.storage.hasPending(row.rowUuid)) {
-            this.storage.deleteRow(collection, row.rowUuid);
+        for (const row of await this.storage.allRows(collection)) {
+          if (!snapshotUUIDs.has(row.rowUuid) && !(await this.storage.hasPending(row.rowUuid))) {
+            await this.storage.deleteRow(collection, row.rowUuid);
           }
         }
         for (const row of snap.collections[collection] ?? []) {
-          this.storage.putRow(collection, {
+          await this.storage.putRow(collection, {
             collection,
             rowUuid: row.row_uuid,
             version: row.version,
@@ -154,10 +174,10 @@ export class SyncEngine {
           });
         }
       }
-      this.storage.setCursor(snap.cursor);
+      await this.storage.setCursor(snap.cursor);
     });
     this.lastSynced = new Date();
-    this.emitProgress();
+    void this.emitProgress();
   }
 
   /**
@@ -167,7 +187,7 @@ export class SyncEngine {
    */
   async sync(): Promise<SyncSummary> {
     if (!this.online) {
-      this.emitProgress();
+      void this.emitProgress();
       throw new Error('offline');
     }
     if (this.currentSync) {
@@ -184,7 +204,7 @@ export class SyncEngine {
 
   private async runSync(): Promise<SyncSummary> {
     this.syncing = true;
-    this.emitProgress();
+    void this.emitProgress();
     try {
       const pulled = await this.pull();
       const pushed = await this.push();
@@ -196,15 +216,15 @@ export class SyncEngine {
         pulled: pulled.applied,
         conflicts: pushed.conflicts,
         lostEdits: pushed.lostEdits,
-        cursor: this.storage.getCursor(),
-        pending: this.pendingChanges(),
+        cursor: await this.storage.getCursor(),
+        pending: await this.pendingChanges(),
         at: this.lastSynced,
       };
-      this.emitProgress();
+      void this.emitProgress();
       return summary;
     } catch (err) {
       this.lastError = err instanceof Error ? err.message : String(err);
-      this.emitProgress();
+      void this.emitProgress();
       throw err;
     } finally {
       this.syncing = false;
@@ -213,7 +233,7 @@ export class SyncEngine {
 
   /** Apply feed entries since the cursor; advance the cursor. */
   async pull(): Promise<{ applied: number }> {
-    let cursor = this.storage.getCursor();
+    let cursor = await this.storage.getCursor();
     let applied = 0;
     for (;;) {
       const page: ChangesResponse = await this.transport.changes(cursor);
@@ -224,18 +244,18 @@ export class SyncEngine {
         await this.bootstrap();
         return { applied: 0 };
       }
-      this.storage.transaction(() => {
+      await this.storage.transaction(async () => {
         for (const entry of page.rows) {
           const collection = entry.collection ?? inferCollection(entry.data);
           if (!collection) continue; // cannot apply without a collection
-          const pending = this.storage.hasPending(entry.row_uuid);
+          const pending = await this.storage.hasPending(entry.row_uuid);
           if (entry.op === 'delete') {
             if (!pending) {
-              this.storage.deleteRow(collection, entry.row_uuid);
+              await this.storage.deleteRow(collection, entry.row_uuid);
               applied++;
             }
           } else if (!pending) {
-            this.storage.putRow(collection, {
+            await this.storage.putRow(collection, {
               collection,
               rowUuid: entry.row_uuid,
               version: entry.version,
@@ -244,7 +264,7 @@ export class SyncEngine {
             applied++;
           }
         }
-        this.storage.setCursor(page.cursor);
+        await this.storage.setCursor(page.cursor);
       });
       // Advance the pull cursor for the next page fetch. Page cursors are
       // monotonic and constant across the page (setCursor above persists it),
@@ -257,7 +277,8 @@ export class SyncEngine {
 
   /** Drain the outbox through /push and apply the server's disposition. */
   async push(): Promise<{ applied: number; conflicts: number; lostEdits: number }> {
-    const outbox = this.storage.outbox();
+    await this.ensureDeviceId();
+    const outbox = await this.storage.outbox();
     if (outbox.length === 0) {
       return { applied: 0, conflicts: 0, lostEdits: 0 };
     }
@@ -272,13 +293,13 @@ export class SyncEngine {
       device_id: this.deviceId,
       // Retention heartbeat: report where this client's cursor is so the
       // server never prunes rows this device still needs (v5b.5).
-      cursor: this.storage.getCursor(),
+      cursor: await this.storage.getCursor(),
     });
 
-    this.storage.transaction(() => {
+    await this.storage.transaction(async () => {
       for (const result of resp.results) {
-        this.storage.dropOutbox(result.rowUuid);
-        this.reconcilePushResult(outbox, result);
+        await this.storage.dropOutbox(result.rowUuid);
+        await this.reconcilePushResult(outbox, result);
       }
     });
     return {
@@ -288,14 +309,14 @@ export class SyncEngine {
     };
   }
 
-  private reconcilePushResult(outbox: OutboxEntry[], result: {
+  private async reconcilePushResult(outbox: OutboxEntry[], result: {
     rowUuid: string;
     status: 'applied' | 'conflict' | 'merged' | 'ignored';
     serverId?: number;
     serverVersion: number;
     mappedToRowUuid?: string;
     data?: Record<string, unknown>;
-  }): void {
+  }): Promise<void> {
     const entry = outbox.find((e) => e.rowUuid === result.rowUuid);
     if (!entry) return;
 
@@ -303,19 +324,19 @@ export class SyncEngine {
       case 'applied': {
         if (entry.op === 'upsert' && result.serverId !== undefined) {
           // Adopt the server identity + version; carry the client's data.
-          const existing = this.storage.getRow(entry.collection, entry.rowUuid);
+          const existing = await this.storage.getRow(entry.collection, entry.rowUuid);
           const data = {
             ...(existing?.data ?? entry.data ?? {}),
             id: result.serverId,
           };
-          this.storage.putRow(entry.collection, {
+          await this.storage.putRow(entry.collection, {
             collection: entry.collection,
             rowUuid: entry.rowUuid,
             version: result.serverVersion,
             data,
           });
         } else if (entry.op === 'delete') {
-          this.storage.deleteRow(entry.collection, entry.rowUuid);
+          await this.storage.deleteRow(entry.collection, entry.rowUuid);
         }
         break;
       }
@@ -328,7 +349,7 @@ export class SyncEngine {
         // boolean compare never matched).
         const deleted = !!result.data && rowIsDeleted(result.data);
         if (entry.op === 'upsert' && result.data && !deleted) {
-          this.storage.putRow(entry.collection, {
+          await this.storage.putRow(entry.collection, {
             collection: entry.collection,
             rowUuid: entry.rowUuid,
             version: result.serverVersion,
@@ -337,24 +358,24 @@ export class SyncEngine {
         } else if (entry.op === 'delete' && result.data && !deleted) {
           // The server refused the delete (e.g. children/backlinks guard):
           // keep the row visible instead of flickering it out until the pull.
-          this.storage.putRow(entry.collection, {
+          await this.storage.putRow(entry.collection, {
             collection: entry.collection,
             rowUuid: entry.rowUuid,
             version: result.serverVersion,
             data: result.data,
           });
         } else {
-          this.storage.deleteRow(entry.collection, entry.rowUuid);
+          await this.storage.deleteRow(entry.collection, entry.rowUuid);
         }
         break;
       }
       case 'merged': {
         // Tag name-merge: the server reused another row. Rewrite THIS local
         // row to the surviving uuid, adopting the server's canonical state.
-        const existing = this.storage.getRow(entry.collection, entry.rowUuid);
+        const existing = await this.storage.getRow(entry.collection, entry.rowUuid);
         if (existing && result.mappedToRowUuid) {
-          this.storage.deleteRow(entry.collection, entry.rowUuid);
-          this.storage.putRow(entry.collection, {
+          await this.storage.deleteRow(entry.collection, entry.rowUuid);
+          await this.storage.putRow(entry.collection, {
             collection: entry.collection,
             rowUuid: result.mappedToRowUuid,
             version: result.serverVersion,
@@ -375,11 +396,11 @@ export class SyncEngine {
     return () => this.listeners.delete(cb);
   }
 
-  private emitProgress(): void {
+  private async emitProgress(): Promise<void> {
     const progress: SyncProgress = {
       state: this.syncing ? 'syncing' : this.online ? 'idle' : 'offline',
       lastSynced: this.lastSynced,
-      pendingChanges: this.pendingChanges(),
+      pendingChanges: await this.pendingChanges(),
       lastError: this.lastError,
     };
     for (const cb of this.listeners) cb(progress);
@@ -401,7 +422,7 @@ export class SyncEngine {
         this.timer = undefined;
       }
     }
-    this.emitProgress();
+    void this.emitProgress();
   }
 
   /** Start periodic auto-sync with exponential backoff on failure. */
@@ -440,7 +461,7 @@ export class SyncEngine {
           // Exponential backoff on repeated failure (errors surface via
           // progress.lastError).
           this.backoffMs = Math.min(this.backoffMs * 2, this.maxBackoffMs);
-          this.emitProgress();
+          void this.emitProgress();
         })
         .finally(() => this.scheduleNext());
     }, delay);

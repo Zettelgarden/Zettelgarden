@@ -8,28 +8,28 @@ import { InMemoryAdapter } from '../src/storage';
 // the engine tests stop exercising the real LWW path and a future adapter
 // copying the pattern silently loses data.
 describe('InMemoryAdapter', () => {
-  it('outbox coalesces by rowUuid, keeping the original base_version', () => {
+  it('outbox coalesces by rowUuid, keeping the original base_version', async () => {
     const a = new InMemoryAdapter();
-    a.enqueue({ collection: 'cards', rowUuid: 'c1', op: 'upsert', baseVersion: 4, data: { title: 'a' } });
-    a.enqueue({ collection: 'cards', rowUuid: 'c1', op: 'upsert', baseVersion: 4, data: { title: 'b' } });
-    a.enqueue({ collection: 'cards', rowUuid: 'c1', op: 'upsert', baseVersion: 4, data: { title: 'c' } });
+    await a.enqueue({ collection: 'cards', rowUuid: 'c1', op: 'upsert', baseVersion: 4, data: { title: 'a' } });
+    await a.enqueue({ collection: 'cards', rowUuid: 'c1', op: 'upsert', baseVersion: 4, data: { title: 'b' } });
+    await a.enqueue({ collection: 'cards', rowUuid: 'c1', op: 'upsert', baseVersion: 4, data: { title: 'c' } });
 
-    const outbox = a.outbox();
+    const outbox = await a.outbox();
     expect(outbox).toHaveLength(1);
     expect(outbox[0]!.data?.title).toBe('c');
     expect(outbox[0]!.baseVersion).toBe(4);
-    expect(a.hasPending('c1')).toBe(true);
+    expect(await a.hasPending('c1')).toBe(true);
 
-    a.dropOutbox('c1');
-    expect(a.outbox()).toHaveLength(0);
+    await a.dropOutbox('c1');
+    expect(await a.outbox()).toHaveLength(0);
   });
 
-  it('delete-then-recreate coalesces to an upsert that keeps the original base', () => {
+  it('delete-then-recreate coalesces to an upsert that keeps the original base', async () => {
     const a = new InMemoryAdapter();
-    a.enqueue({ collection: 'cards', rowUuid: 'dtr', op: 'delete', baseVersion: 1, data: undefined });
-    a.enqueue({ collection: 'cards', rowUuid: 'dtr', op: 'upsert', baseVersion: 0, data: { title: 'recreated' } });
+    await a.enqueue({ collection: 'cards', rowUuid: 'dtr', op: 'delete', baseVersion: 1, data: undefined });
+    await a.enqueue({ collection: 'cards', rowUuid: 'dtr', op: 'upsert', baseVersion: 0, data: { title: 'recreated' } });
 
-    const outbox = a.outbox();
+    const outbox = await a.outbox();
     expect(outbox).toHaveLength(1);
     expect(outbox[0]!.op).toBe('upsert');
     // The local mirror row was dropped by the delete, so the recreate starts
@@ -39,13 +39,13 @@ describe('InMemoryAdapter', () => {
     expect(outbox[0]!.baseVersion).toBe(1);
   });
 
-  it('transaction boundary is synchronous and atomic in order', () => {
+  it('transaction boundary is atomic and ordered', async () => {
     const a = new InMemoryAdapter();
-    a.transaction(() => {
-      a.putRow('cards', { collection: 'cards', rowUuid: 't1', version: 1, data: {} });
-      a.enqueue({ collection: 'cards', rowUuid: 't1', op: 'upsert', baseVersion: 0, data: {} });
+    await a.transaction(async () => {
+      await a.putRow('cards', { collection: 'cards', rowUuid: 't1', version: 1, data: {} });
+      await a.enqueue({ collection: 'cards', rowUuid: 't1', op: 'upsert', baseVersion: 0, data: {} });
     });
-    expect(a.getRow('cards', 't1')).toBeDefined();
-    expect(a.outbox()).toHaveLength(1);
+    expect(await a.getRow('cards', 't1')).toBeDefined();
+    expect(await a.outbox()).toHaveLength(1);
   });
 });

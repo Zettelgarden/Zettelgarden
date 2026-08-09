@@ -15,11 +15,11 @@ export interface DeviceMirror {
 }
 
 /** Build a normalized per-collection uuid -> row map from a device mirror. */
-export function deviceMirror(device: Device): DeviceMirror {
+export async function deviceMirror(device: Device): Promise<DeviceMirror> {
   const rows = {} as Record<Collection, Map<string, MirrorRow>>;
   for (const c of COLLECTIONS) {
     rows[c] = new Map<string, MirrorRow>();
-    for (const row of device.engine.query(c)) {
+    for (const row of await device.engine.query(c)) {
       rows[c]!.set(row.rowUuid, row);
     }
   }
@@ -53,14 +53,14 @@ export function serverMirror(snap: SnapshotResponse): DeviceMirror {
  * same row_uuids per collection, same version per row, same data per row
  * (semantic equality — key order and number formatting ignored).
  */
-export function assertConvergence(label: string, server: SnapshotResponse, devices: Device[]): void {
+export async function assertConvergence(label: string, server: SnapshotResponse, devices: Device[]): Promise<void> {
   const expected = serverMirror(server);
-  const mirrors = [expected, ...devices.map(deviceMirror)];
+  const mirrors = [expected, ...(await Promise.all(devices.map(deviceMirror)))];
   const problems: string[] = [];
 
   for (const device of devices) {
-    if (device.engine.pendingChanges() > 0) {
-      problems.push(`${label}: ${device.id} still has ${device.engine.pendingChanges()} pending outbox change(s) after settle`);
+    if (await device.engine.pendingChanges() > 0) {
+      problems.push(`${label}: ${device.id} still has ${await device.engine.pendingChanges()} pending outbox change(s) after settle`);
     }
   }
 

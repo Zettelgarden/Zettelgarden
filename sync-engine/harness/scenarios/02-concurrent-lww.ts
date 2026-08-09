@@ -20,15 +20,15 @@ export const concurrentLwwScenario: Scenario = {
       await a.engine.mutate('cards', { rowUuid: 'card-1', data: card('original', 'c1') });
       await a.engine.sync();
       await b.engine.bootstrap();
-      if (b.engine.getRow('cards', 'card-1')?.data.title !== 'original') {
+      if ((await b.engine.getRow('cards', 'card-1'))?.data.title !== 'original') {
         throw new Error('device B should bootstrap the seeded card');
       }
 
       // Both edit the same row offline from base version 1.
       a.engine.setOnline(false);
-      a.engine.mutate('cards', { rowUuid: 'card-1', data: card('edited by A', 'c1') });
+      await a.engine.mutate('cards', { rowUuid: 'card-1', data: card('edited by A', 'c1') });
       b.engine.setOnline(false);
-      b.engine.mutate('cards', { rowUuid: 'card-1', data: card('edited by B', 'c1') });
+      await b.engine.mutate('cards', { rowUuid: 'card-1', data: card('edited by B', 'c1') });
 
       // A pushes first (wins the LWW race), then B pushes against a stale base.
       const summaries = await settle([a, b], 2);
@@ -45,7 +45,7 @@ export const concurrentLwwScenario: Scenario = {
       if (!winner || (winner.data as { title?: string }).title !== 'edited by A') {
         throw new Error(`expected A's edit to win, got ${JSON.stringify(winner?.data)}`);
       }
-      if (b.engine.getRow('cards', 'card-1')?.data.title !== 'edited by A') {
+      if ((await b.engine.getRow('cards', 'card-1'))?.data.title !== 'edited by A') {
         throw new Error('device B should have adopted the server (winning) row');
       }
     });

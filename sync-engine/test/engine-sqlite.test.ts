@@ -33,16 +33,16 @@ describe('SyncEngine on SqliteStorageAdapter', () => {
     await engine.bootstrap();
 
     engine.setOnline(false);
-    engine.mutate('cards', { rowUuid: 'a1', data: cardData('card A') });
-    engine.mutate('tasks', { rowUuid: 't1', data: { title: 'task B' } });
-    engine.deleteLocal('cards', 'does-not-exist');
-    expect(engine.pendingChanges()).toBe(3);
+    await engine.mutate('cards', { rowUuid: 'a1', data: cardData('card A') });
+    await engine.mutate('tasks', { rowUuid: 't1', data: { title: 'task B' } });
+    await engine.deleteLocal('cards', 'does-not-exist');
+    expect(await engine.pendingChanges()).toBe(3);
 
     engine.setOnline(true);
     await engine.sync();
-    expect(engine.pendingChanges()).toBe(0);
-    expect(storage.getRow('cards', 'a1')?.data.title).toBe('card A');
-    expect(storage.getRow('tasks', 't1')?.data.title).toBe('task B');
+    expect(await engine.pendingChanges()).toBe(0);
+    expect((await storage.getRow('cards', 'a1'))?.data.title).toBe('card A');
+    expect((await storage.getRow('tasks', 't1'))?.data.title).toBe('task B');
   });
 
   it('dropped-response retry: re-push of the same entry is idempotent', async () => {
@@ -60,18 +60,18 @@ describe('SyncEngine on SqliteStorageAdapter', () => {
     };
     const engine1 = new SyncEngine({ storage, transport: failingTransport, deviceId: 'dev-a' });
     await engine1.bootstrap();
-    engine1.mutate('cards', { rowUuid: 'r1', data: cardData('retry me') });
+    await engine1.mutate('cards', { rowUuid: 'r1', data: cardData('retry me') });
     await expect(engine1.sync()).rejects.toThrow('network dropped');
 
-    expect(engine1.pendingChanges()).toBe(1); // entry retained for retry
+    expect(await engine1.pendingChanges()).toBe(1); // entry retained for retry
     expect((await server.snapshot(['cards'])).collections.cards!).toHaveLength(1);
 
     // Fresh engine on the same storage retries the same entry (base 0).
     const engine2 = new SyncEngine({ storage, transport: server, deviceId: 'dev-a' });
     await engine2.sync();
-    expect(engine2.pendingChanges()).toBe(0);
+    expect(await engine2.pendingChanges()).toBe(0);
     expect((await server.snapshot(['cards'])).collections.cards!).toHaveLength(1);
-    expect(storage.getRow('cards', 'r1')!.version).toBe(1);
+    expect((await storage.getRow('cards', 'r1'))!.version).toBe(1);
   });
 
   it('delete-then-recreate offline converges (coalesced outbox keeps original base)', async () => {
@@ -79,13 +79,13 @@ describe('SyncEngine on SqliteStorageAdapter', () => {
     server.seed('cards', 'dtr', cardData('v1'));
     const { engine, storage } = await makeEngine(server, 'dev-a');
     await engine.bootstrap();
-    expect(storage.getRow('cards', 'dtr')!.version).toBe(1);
+    expect((await storage.getRow('cards', 'dtr'))!.version).toBe(1);
 
     engine.setOnline(false);
-    engine.deleteLocal('cards', 'dtr');
-    engine.mutate('cards', { rowUuid: 'dtr', data: cardData('recreated') });
+    await engine.deleteLocal('cards', 'dtr');
+    await engine.mutate('cards', { rowUuid: 'dtr', data: cardData('recreated') });
 
-    const outbox = storage.outbox();
+    const outbox = await storage.outbox();
     expect(outbox).toHaveLength(1);
     expect(outbox[0]!.op).toBe('upsert');
     expect(outbox[0]!.baseVersion).toBe(1); // original base preserved
@@ -99,7 +99,7 @@ describe('SyncEngine on SqliteStorageAdapter', () => {
       (r) => r.row_uuid === 'dtr',
     )!;
     expect(serverRow.data?.title).toBe('recreated');
-    expect(storage.getRow('cards', 'dtr')!.data.title).toBe('recreated');
+    expect((await storage.getRow('cards', 'dtr'))!.data.title).toBe('recreated');
   });
 
   it('tag name-merge adopts the surviving uuid and counts the lost edit', async () => {
@@ -109,14 +109,14 @@ describe('SyncEngine on SqliteStorageAdapter', () => {
     await devA.engine.bootstrap();
     await devB.engine.bootstrap();
 
-    devA.engine.mutate('tags', { rowUuid: 'tag-a', data: { name: 'Work', color: 'black' } });
+    await devA.engine.mutate('tags', { rowUuid: 'tag-a', data: { name: 'Work', color: 'black' } });
     await devA.engine.sync();
 
-    devB.engine.mutate('tags', { rowUuid: 'tag-b', data: { name: 'Work', color: 'red' } });
+    await devB.engine.mutate('tags', { rowUuid: 'tag-b', data: { name: 'Work', color: 'red' } });
     const summary = await devB.engine.sync();
     expect(summary.lostEdits).toBe(1); // B's differing color was discarded
-    expect(devB.storage.getRow('tags', 'tag-a')).toBeDefined();
-    expect(devB.storage.getRow('tags', 'tag-b')).toBeUndefined();
+    expect(await devB.storage.getRow('tags', 'tag-a')).toBeDefined();
+    expect(await devB.storage.getRow('tags', 'tag-b')).toBeUndefined();
     expect((await server.snapshot(['tags'])).collections.tags!).toHaveLength(1);
   });
 });

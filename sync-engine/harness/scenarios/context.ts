@@ -83,6 +83,6 @@ export async function convergeAndAssert(
   baseUrl: string,
 ) {
   const server = await serverSnapshot(baseUrl, auth);
-  assertConvergence(label, server, devices);
+  await assertConvergence(label, server, devices);
   return server;
 }

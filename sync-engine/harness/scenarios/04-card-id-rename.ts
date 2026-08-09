@@ -18,16 +18,16 @@ export const cardIdRenameScenario: Scenario = {
     await withDevices(backend, 'card-id-rename', ['dev-a', 'dev-b'], async ([a, b], auth, baseUrl) => {
       // Seed a root card; both devices bootstrap it.
       await a.engine.bootstrap();
-      const baselineCards = a.engine.query('cards').length;
-      a.engine.mutate('cards', { rowUuid: 'card-root', data: card('root', 'root card') });
+      const baselineCards = (await a.engine.query('cards')).length;
+      await a.engine.mutate('cards', { rowUuid: 'card-root', data: card('root', 'root card') });
       await a.engine.sync();
       await b.engine.bootstrap();
 
       // Both devices rename the SAME card offline from base version 1.
       a.engine.setOnline(false);
-      a.engine.mutate('cards', { rowUuid: 'card-root', data: card('root.alpha', 'root card') });
+      await a.engine.mutate('cards', { rowUuid: 'card-root', data: card('root.alpha', 'root card') });
       b.engine.setOnline(false);
-      b.engine.mutate('cards', { rowUuid: 'card-root', data: card('root.beta', 'root card') });
+      await b.engine.mutate('cards', { rowUuid: 'card-root', data: card('root.beta', 'root card') });
 
       const summaries = await settle([a, b], 2);
       const bPush = pushSummary(summaries, 'dev-b');
@@ -49,7 +49,7 @@ export const cardIdRenameScenario: Scenario = {
         throw new Error(`expected A's rename (root.alpha) to win, got '${winner}'`);
       }
       for (const dev of [a, b]) {
-        const rows = dev.engine.query('cards').filter((r) => r.rowUuid === 'card-root');
+        const rows = (await dev.engine.query('cards')).filter((r) => r.rowUuid === 'card-root');
         if (rows.length !== 1) {
           throw new Error(`device ${dev.id} has ${rows.length} rows for card-root; the rename split the logical row`);
         }

@@ -15,22 +15,22 @@ export const linkedRowsScenario: Scenario = {
     await withDevices(backend, 'linked-rows', ['dev-a', 'dev-b'], async ([a, b], auth, baseUrl) => {
       await a.engine.bootstrap();
       await b.engine.bootstrap();
-      const baselineCards = a.engine.query('cards').length;
-      const baselineTags = a.engine.query('tags').length;
+      const baselineCards = (await a.engine.query('cards')).length;
+      const baselineTags = (await a.engine.query('tags')).length;
 
       // A goes offline: creates the card (body tags it #work) and the tag.
       a.engine.setOnline(false);
-      a.engine.mutate('cards', {
+      await a.engine.mutate('cards', {
         rowUuid: 'card-live',
         data: { card_id: 'live', title: 'live card', body: 'notes #work' },
       });
-      a.engine.mutate('tags', { rowUuid: 'tag-a', data: { name: 'work', color: 'blue' } });
+      await a.engine.mutate('tags', { rowUuid: 'tag-a', data: { name: 'work', color: 'blue' } });
 
       // B goes offline: creates the tag (same name, different color) and a
       // task linked to A's not-yet-created card via its sync_uuid.
       b.engine.setOnline(false);
-      b.engine.mutate('tags', { rowUuid: 'tag-b', data: { name: 'work', color: 'red' } });
-      b.engine.mutate('tasks', {
+      await b.engine.mutate('tags', { rowUuid: 'tag-b', data: { name: 'work', color: 'red' } });
+      await b.engine.mutate('tasks', {
         rowUuid: 'task-off',
         data: {
           title: 'offline task',
@@ -86,14 +86,14 @@ export const linkedRowsScenario: Scenario = {
       // (card_pk int, not the client's card_pk_uuid placeholder).
       const survivingTagUuid = tagRow.row_uuid;
       for (const dev of [a, b]) {
-        if (dev.engine.getRow('tags', 'tag-b') || dev.engine.getRow('tags', 'tag-a')) {
+        if (await dev.engine.getRow('tags', 'tag-b') || await dev.engine.getRow('tags', 'tag-a')) {
           throw new Error(`device ${dev.id} still holds a pre-merge tag uuid`);
         }
-        const merged = dev.engine.getRow('tags', survivingTagUuid);
+        const merged = await dev.engine.getRow('tags', survivingTagUuid);
         if (!merged || merged.data.name !== 'work') {
           throw new Error(`device ${dev.id} does not hold the surviving tag ${survivingTagUuid}`);
         }
-        const task = dev.engine.getRow('tasks', 'task-off');
+        const task = await dev.engine.getRow('tasks', 'task-off');
         if (task?.data.card_pk !== cardId) {
           throw new Error(`device ${dev.id} task.card_pk=${task?.data.card_pk} not remapped to ${cardId}`);
         }

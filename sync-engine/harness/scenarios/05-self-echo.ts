@@ -18,35 +18,35 @@ export const selfEchoScenario: Scenario = {
     await withDevices(backend, 'self-echo', ['dev-a', 'dev-b'], async ([a, b], auth, baseUrl) => {
       await a.engine.bootstrap();
       await b.engine.bootstrap();
-      const baselineCards = a.engine.query('cards').length;
+      const baselineCards = (await a.engine.query('cards')).length;
 
       // A creates a card offline and syncs: push applies it (v1), then the
       // next sync's pull echoes the same row back. Version must stay 1 and
       // exactly one row must exist on the server.
       a.engine.setOnline(false);
-      a.engine.mutate('cards', { rowUuid: 'echo-card', data: card('echo v1', 'e1') });
+      await a.engine.mutate('cards', { rowUuid: 'echo-card', data: card('echo v1', 'e1') });
       a.engine.setOnline(true);
       await a.engine.sync(); // push
       await a.engine.sync(); // pull echoes own change
 
-      if (a.engine.getRow('cards', 'echo-card')?.version !== 1) {
-        throw new Error(`self-echo double-bumped version: ${a.engine.getRow('cards', 'echo-card')?.version}`);
+      if ((await a.engine.getRow('cards', 'echo-card'))?.version !== 1) {
+        throw new Error(`self-echo double-bumped version: ${(await a.engine.getRow('cards', 'echo-card'))?.version}`);
       }
 
       // A edits the same card and syncs twice again.
       a.engine.setOnline(false);
-      a.engine.mutate('cards', { rowUuid: 'echo-card', data: card('echo v2', 'e1') });
+      await a.engine.mutate('cards', { rowUuid: 'echo-card', data: card('echo v2', 'e1') });
       a.engine.setOnline(true);
       await a.engine.sync();
       await a.engine.sync();
-      if (a.engine.getRow('cards', 'echo-card')?.version !== 2) {
-        throw new Error(`second self-echo double-bumped version: ${a.engine.getRow('cards', 'echo-card')?.version}`);
+      if ((await a.engine.getRow('cards', 'echo-card'))?.version !== 2) {
+        throw new Error(`second self-echo double-bumped version: ${(await a.engine.getRow('cards', 'echo-card'))?.version}`);
       }
 
       // B bootstraps after the fact and pulls the full history.
       await b.engine.bootstrap();
       await b.engine.sync();
-      if (b.engine.getRow('cards', 'echo-card')?.data.title !== 'echo v2') {
+      if ((await b.engine.getRow('cards', 'echo-card'))?.data.title !== 'echo v2') {
         throw new Error('device B should see the final state via the feed');
       }
 

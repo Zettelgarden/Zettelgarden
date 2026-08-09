@@ -19,21 +19,21 @@ export const offlineGapScenario: Scenario = {
       await b.engine.bootstrap();
       // New accounts seed a welcome card + 5 default tags; record the baseline
       // so expectations stay correct if the seed changes.
-      const baselineCards = a.engine.query('cards').length;
-      const baselineTags = a.engine.query('tags').length;
+      const baselineCards = (await a.engine.query('cards')).length;
+      const baselineTags = (await a.engine.query('tags')).length;
 
       // Both go offline and make unrelated edits.
       a.engine.setOnline(false);
-      a.engine.mutate('cards', { rowUuid: 'card-a', data: card('card from A', 'a1') });
-      a.engine.mutate('tasks', { rowUuid: 'task-a', data: { title: 'task from A' } });
-      a.engine.mutate('tags', { rowUuid: 'tag-a', data: { name: 'work-a', color: 'blue' } });
-      if (a.engine.pendingChanges() !== 3) {
-        throw new Error(`device A should queue 3 offline changes, has ${a.engine.pendingChanges()}`);
+      await a.engine.mutate('cards', { rowUuid: 'card-a', data: card('card from A', 'a1') });
+      await a.engine.mutate('tasks', { rowUuid: 'task-a', data: { title: 'task from A' } });
+      await a.engine.mutate('tags', { rowUuid: 'tag-a', data: { name: 'work-a', color: 'blue' } });
+      if (await a.engine.pendingChanges() !== 3) {
+        throw new Error(`device A should queue 3 offline changes, has ${await a.engine.pendingChanges()}`);
       }
 
       b.engine.setOnline(false);
-      b.engine.mutate('cards', { rowUuid: 'card-b', data: card('card from B', 'b1') });
-      b.engine.mutate('tags', { rowUuid: 'tag-b', data: { name: 'home-b', color: 'red' } });
+      await b.engine.mutate('cards', { rowUuid: 'card-b', data: card('card from B', 'b1') });
+      await b.engine.mutate('tags', { rowUuid: 'tag-b', data: { name: 'home-b', color: 'red' } });
 
       // Reconnect: A first, then B, then settle.
       await settle([a, b], 2);
@@ -59,10 +59,10 @@ export const offlineGapScenario: Scenario = {
       if (!byUuid(serverTags, 'tag-a') || !byUuid(serverTags, 'tag-b')) {
         throw new Error('server missing an offline-created tag');
       }
-      if (a.engine.getRow('cards', 'card-b')?.data.title !== 'card from B') {
+      if ((await a.engine.getRow('cards', 'card-b'))?.data.title !== 'card from B') {
         throw new Error('device A should have converged on device B\'s card');
       }
-      if (b.engine.getRow('cards', 'card-a')?.data.title !== 'card from A') {
+      if ((await b.engine.getRow('cards', 'card-a'))?.data.title !== 'card from A') {
         throw new Error('device B should have converged on device A\'s card');
       }
     });

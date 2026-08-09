@@ -1,7 +1,7 @@
 /**
  * SQLite StorageAdapter backed by better-sqlite3 (synchronous, transactional).
- * The desktop/mobile shells swap this for their own binding (tauri-plugin-sql,
- * op-sqlite) while keeping the same StorageAdapter contract.
+ * The desktop/mobile shells swap this for their own binding (Tauri invoke
+ * commands, op-sqlite) while keeping the same async StorageAdapter contract.
  */
 
 import Database from 'better-sqlite3';
@@ -11,6 +11,10 @@ import type { StorageAdapter } from './storage';
 export class SqliteStorageAdapter implements StorageAdapter {
   private db: Database.Database;
   private ready: Promise<void>;
+  /** Serializes concurrent transactions (better-sqlite3 is sync, but an
+   * async transaction body yields between awaits, so two overlapping
+   * transaction() calls could interleave BEGIN/COMMIT without this). */
+  private txQueue: Promise<void> = Promise.resolve();
 
   constructor(path: string) {
     this.db = new Database(path);
@@ -50,11 +54,29 @@ export class SqliteStorageAdapter implements StorageAdapter {
     this.db.close();
   }
 
-  transaction<T>(fn: () => T): T {
-    return this.db.transaction(fn)();
+  /** Runs fn inside BEGIN IMMEDIATE…COMMIT (ROLLBACK on throw). Serialized
+   * per adapter so async transaction bodies never interleave. */
+  async transaction<T>(fn: () => Promise<T>): Promise<T> {
+    const prev = this.txQueue;
+    let release!: () => void;
+    this.txQueue = new Promise((r) => (release = r));
+    await prev;
+    try {
+      this.db.exec('BEGIN IMMEDIATE');
+      try {
+        const result = await fn();
+        this.db.exec('COMMIT');
+        return result;
+      } catch (err) {
+        this.db.exec('ROLLBACK');
+        throw err;
+      }
+    } finally {
+      release();
+    }
   }
 
-  getRow(collection: Collection, rowUuid: string): MirrorRow | undefined {
+  async getRow(collection: Collection, rowUuid: string): Promise<MirrorRow | undefined> {
     const row = this.db
       .prepare('SELECT row_uuid, version, data FROM mirror_rows WHERE collection = ? AND row_uuid = ?')
       .get(collection, rowUuid) as
@@ -69,7 +91,7 @@ export class SqliteStorageAdapter implements StorageAdapter {
     };
   }
 
-  putRow(collection: Collection, row: MirrorRow): void {
+  async putRow(collection: Collection, row: MirrorRow): Promise<void> {
     this.db
       .prepare(
         `INSERT INTO mirror_rows (collection, row_uuid, version, data)
@@ -79,13 +101,13 @@ export class SqliteStorageAdapter implements StorageAdapter {
       .run(collection, row.rowUuid, row.version, JSON.stringify(row.data));
   }
 
-  deleteRow(collection: Collection, rowUuid: string): void {
+  async deleteRow(collection: Collection, rowUuid: string): Promise<void> {
     this.db
       .prepare('DELETE FROM mirror_rows WHERE collection = ? AND row_uuid = ?')
       .run(collection, rowUuid);
   }
 
-  allRows(collection: Collection): MirrorRow[] {
+  async allRows(collection: Collection): Promise<MirrorRow[]> {
     const rows = this.db
       .prepare('SELECT row_uuid, version, data FROM mirror_rows WHERE collection = ?')
       .all(collection) as Array<{ row_uuid: string; version: number; data: string }>;
@@ -97,7 +119,7 @@ export class SqliteStorageAdapter implements StorageAdapter {
     }));
   }
 
-  outbox(): OutboxEntry[] {
+  async outbox(): Promise<OutboxEntry[]> {
     const rows = this.db
       .prepare('SELECT collection, row_uuid, op, base_version, data FROM sync_outbox ORDER BY seq')
       .all() as Array<{
@@ -116,14 +138,14 @@ export class SqliteStorageAdapter implements StorageAdapter {
     }));
   }
 
-  hasPending(rowUuid: string): boolean {
+  async hasPending(rowUuid: string): Promise<boolean> {
     const row = this.db
       .prepare('SELECT 1 FROM sync_outbox WHERE row_uuid = ? LIMIT 1')
       .get(rowUuid);
     return row !== undefined;
   }
 
-  enqueue(entry: OutboxEntry): void {
+  async enqueue(entry: OutboxEntry): Promise<void> {
     // Coalesce: replace any existing pending entry for the same row, keeping
     // the first (original) base_version so the server LWW compares against the
     // version the client last confirmed, not the latest local edit.
@@ -151,31 +173,31 @@ export class SqliteStorageAdapter implements StorageAdapter {
       );
   }
 
-  dropOutbox(rowUuid: string): void {
+  async dropOutbox(rowUuid: string): Promise<void> {
     this.db.prepare('DELETE FROM sync_outbox WHERE row_uuid = ?').run(rowUuid);
   }
 
-  getCursor(): number {
+  async getCursor(): Promise<number> {
     const row = this.db.prepare('SELECT value FROM sync_meta WHERE key = ?').get('cursor') as
       | { value: string }
       | undefined;
     return row ? Number(row.value) : 0;
   }
 
-  setCursor(n: number): void {
+  async setCursor(n: number): Promise<void> {
     this.db
       .prepare('INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?, ?)')
       .run('cursor', String(n));
   }
 
-  getMeta(key: string): string | null {
+  async getMeta(key: string): Promise<string | null> {
     const row = this.db.prepare('SELECT value FROM sync_meta WHERE key = ?').get(key) as
       | { value: string }
       | undefined;
     return row ? row.value : null;
   }
 
-  setMeta(key: string, value: string): void {
+  async setMeta(key: string, value: string): Promise<void> {
     this.db
       .prepare('INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?, ?)')
       .run(key, value);
