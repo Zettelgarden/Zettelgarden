@@ -37,6 +37,13 @@ describe('parseFiletypeFilter', () => {
     });
   });
 
+  it('strips trailing punctuation from the token', () => {
+    expect(parseFiletypeFilter('filetype:pdf,')).toEqual({
+      searchText: '',
+      filetype: 'pdf',
+    });
+  });
+
   it('handles an empty input', () => {
     expect(parseFiletypeFilter('')).toEqual({ searchText: '', filetype: null });
   });

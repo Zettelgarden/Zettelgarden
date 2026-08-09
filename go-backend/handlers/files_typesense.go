@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"go-backend/models"
 	"log"
@@ -243,7 +244,12 @@ func (s *Handler) searchFilesInTypesenseNative(ctx context.Context, userID int, 
 		for _, hit := range *result.Hits {
 			doc := *hit.Document
 
-			fileID, _ := fileIDFromDocument(doc)
+			fileID, ok := fileIDFromDocument(doc)
+			if !ok {
+				// Malformed hit (missing file_id): skip instead of surfacing a
+				// broken row with id 0.
+				continue
+			}
 
 			var hitUserID int
 			switch v := doc["user_id"].(type) {
@@ -299,19 +305,31 @@ func (s *Handler) searchFilesInTypesenseNative(ctx context.Context, userID int, 
 			var updatedAt time.Time
 			err := s.GetDB().QueryRowContext(ctx, `
 				SELECT path, filename, card_pk, updated_at, thumbnail_path, description
-				FROM files WHERE id = $1
+				FROM files WHERE id = $1 AND is_deleted = FALSE
 			`, fileID).Scan(&path, &filename, &cardPK, &updatedAt, &thumbnailPath, &description)
+			if errors.Is(err, sql.ErrNoRows) {
+				// The row is missing or soft-deleted (stale index entry): don't
+				// surface it, matching the filtered/SQL path's is_deleted filter.
+				continue
+			}
 			if err == nil {
 				file.Path = path
 				file.Filename = filename
 				file.UpdatedAt = updatedAt.Format(time.RFC3339)
-				if cardPK.Valid && cardPK.Int32 > 0 {
+				// Mirror the SQL path: expose card_pk for any stored value
+				// (including -1 for unlinked files) so the frontend renders the
+				// correct menu actions and renames preserve the field.
+				if cardPK.Valid {
 					cardPKInt := int(cardPK.Int32)
 					file.CardPK = &cardPKInt
-					// Populate the linked card so the UI can render a link without
-					// crashing on a missing card object (Zettelgarden-72f.2).
-					if card, cardErr := s.QueryPartialCardByID(userID, cardPKInt); cardErr == nil {
-						file.Card = card
+					if cardPK.Int32 > 0 {
+						// Populate the linked card so the UI can render a link without
+						// crashing on a missing card object (Zettelgarden-72f.2).
+						if card, cardErr := s.QueryPartialCardByID(userID, cardPKInt); cardErr == nil {
+							file.Card = card
+						} else {
+							file.Card = models.PartialCard{}
+						}
 					} else {
 						file.Card = models.PartialCard{}
 					}
@@ -365,9 +383,10 @@ func (s *Handler) collectFileIDsFromTypesense(ctx context.Context, userID int, q
 	const (
 		perPage       = 250
 		maxCandidates = 2000
+		maxPages      = 20 // hard bound (20 * 250 = 5000) guaranteeing termination
 	)
 	page := 1
-	for {
+	for page <= maxPages {
 		includeFields := "file_id"
 		searchParams := &api.SearchCollectionParams{
 			Q:             query,

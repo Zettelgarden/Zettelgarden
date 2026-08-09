@@ -53,10 +53,16 @@ export function FileListItem({
     setNewName(file.name);
     setShowEditName(!showEditName);
   }
-  function handleTitleEdit() {
-    editFile(file['id'].toString(), { name: newName, card_pk: file.card_pk });
+  async function handleTitleEdit() {
     toggleEditName();
-    setRefreshFiles(true);
+    try {
+      await editFile(file['id'].toString(), {
+        name: newName,
+        card_pk: file.card_pk,
+      });
+    } finally {
+      setRefreshFiles(true);
+    }
   }
   function closeRenderImage() {
     setRenderImage(false);

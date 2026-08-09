@@ -12,12 +12,18 @@ export interface ParsedFiletypeQuery {
  * for "quarterly". The first token wins when multiple are present.
  */
 export function parseFiletypeFilter(input: string): ParsedFiletypeQuery {
-  const regex = /filetype:(\S+)/g;
+  const regex = /filetype:([^\s,;]+)/g;
   const matches = Array.from(input.matchAll(regex));
   if (matches.length === 0) {
     return { searchText: input.trim(), filetype: null };
   }
   const filetype = matches[0][1];
-  const searchText = input.replace(regex, '').trim();
+  // Drop leftover separator punctuation that the token class deliberately left
+  // out of the match (e.g. `filetype:pdf,` -> token `pdf`, no trailing comma).
+  const searchText = input
+    .replace(regex, '')
+    .replace(/^[\s,;]+/, '')
+    .replace(/[\s,;]+$/, '')
+    .trim();
   return { searchText, filetype };
 }
