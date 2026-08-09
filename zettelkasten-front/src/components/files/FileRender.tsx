@@ -1,40 +1,102 @@
 import React, { useEffect, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { File } from '../../models/File';
-import { downloadFile } from '../../api/files';
+import { downloadFile, renderFile } from '../../api/files';
+import { useToast } from '../toast/ToastContext';
 
 interface FileRenderProps {
   file: File;
 }
 
+const IMAGE_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/gif',
+  'image/webp',
+];
+
+function isImageType(filetype: string) {
+  return IMAGE_TYPES.includes(filetype);
+}
+
+function isMarkdown(file: File) {
+  return (
+    file.filetype === 'text/markdown' ||
+    file.filetype === 'text/x-markdown' ||
+    /\.(md|markdown)$/i.test(file.name)
+  );
+}
+
+/**
+ * Heuristic: binary blobs read as text contain NUL bytes and/or UTF-8
+ * replacement characters; treat those as non-previewable.
+ */
+function looksLikeText(text: string) {
+  return (
+    text.length > 0 && !text.includes('\u0000') && !text.includes('\ufffd')
+  );
+}
+
 export const FileRender = ({ file }: FileRenderProps) => {
   const [fileSrc, setFileSrc] = useState<string>('');
+  const [textContent, setTextContent] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { showToast } = useToast();
+
+  const isImage = isImageType(file.filetype);
+  const isPDF = file.filetype === 'application/pdf';
 
   useEffect(() => {
-    if (file.id) {
-      setIsLoading(true);
-      downloadFile(file.id.toString())
-        .then((blobUrl) => {
-          if (blobUrl) {
-            setFileSrc(blobUrl);
-          }
-        })
-        .catch((error) => {
-          console.error('Error fetching file:', error);
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    }
-  }, [file]);
+    if (!file.id) return;
+    setIsLoading(true);
+    setTextContent(null);
+    setFileSrc('');
 
-  const isImage =
-    file.filetype === 'image/png' ||
-    file.filetype === 'image/jpeg' ||
-    file.filetype === 'image/jpg' ||
-    file.filetype === 'image/gif' ||
-    file.filetype === 'image/webp';
-  const isPDF = file.filetype === 'application/pdf';
+    // Prefer the already-extracted text (avoids a download for text files).
+    if (file.extracted_text) {
+      setTextContent(file.extracted_text);
+      setIsLoading(false);
+      return;
+    }
+
+    downloadFile(file.id.toString())
+      .then(async (blobUrl) => {
+        if (!blobUrl) return;
+        // Keep the blob URL so the Download link works for every type.
+        setFileSrc(blobUrl);
+        if (isImage || isPDF) {
+          return;
+        }
+        // Everything else: try to read the blob as text (markdown, code, …).
+        try {
+          const res = await fetch(blobUrl);
+          const text = await res.text();
+          if (looksLikeText(text)) {
+            setTextContent(text);
+          }
+        } catch (error) {
+          console.error('Error reading file as text:', error);
+        }
+      })
+      .catch((error) => {
+        console.error('Error fetching file:', error);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [file.id, file.extracted_text, file.filetype, isImage, isPDF]);
+
+  const handleCopy = async () => {
+    if (textContent === null) return;
+    try {
+      await navigator.clipboard.writeText(textContent);
+      showToast('success', 'Copied', 'File text copied to clipboard');
+    } catch (error) {
+      console.error('Failed to copy text:', error);
+      showToast('error', 'Copy Failed', 'Could not copy file text');
+    }
+  };
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-[1000]">
@@ -59,26 +121,59 @@ export const FileRender = ({ file }: FileRenderProps) => {
               {file.name}
             </span>
           </div>
-          <a
-            href={fileSrc}
-            download={file.name}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {textContent !== null && (
+              <button
+                onClick={handleCopy}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+                Copy
+              </button>
+            )}
+            <a
+              href={fileSrc || undefined}
+              download={file.name}
+              onClick={
+                fileSrc
+                  ? undefined
+                  : (e) => {
+                      e.preventDefault();
+                      renderFile(file.id, file.name).catch((error) => {
+                        console.error('Error downloading file:', error);
+                      });
+                    }
+              }
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-              />
-            </svg>
-            Download
-          </a>
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                />
+              </svg>
+              Download
+            </a>
+          </div>
         </div>
 
         {/* Content */}
@@ -105,7 +200,19 @@ export const FileRender = ({ file }: FileRenderProps) => {
             />
           )}
 
-          {!isLoading && !isImage && !isPDF && (
+          {!isLoading && textContent !== null && isMarkdown(file) && (
+            <div className="prose prose-sm max-w-none">
+              <ReactMarkdown>{textContent}</ReactMarkdown>
+            </div>
+          )}
+
+          {!isLoading && textContent !== null && !isMarkdown(file) && (
+            <pre className="whitespace-pre-wrap break-words font-mono text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-md p-4">
+              {textContent}
+            </pre>
+          )}
+
+          {!isLoading && !isImage && !isPDF && textContent === null && (
             <div className="text-center py-12">
               <svg
                 className="mx-auto h-12 w-12 text-gray-400 mb-4"

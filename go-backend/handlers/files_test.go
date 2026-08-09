@@ -13,6 +13,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"os"
 	"strings"
 	"testing"
@@ -875,5 +876,145 @@ func TestGetAllFilesFiletypeFilter(t *testing.T) {
 	}
 	if len(response.Files) != 1 || response.Files[0].ID != 3 {
 		t.Errorf("expected only file 3, got %+v", response.Files)
+	}
+}
+
+// TestUploadFileExtractsText verifies inline text extraction on upload: a
+// text/plain file gets its content stored in extracted_text (Zettelgarden-72f.10).
+func TestUploadFileExtractsText(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	var buffer bytes.Buffer
+	writer := multipart.NewWriter(&buffer)
+
+	// Build the file part with an explicit text/plain content type.
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", `form-data; name="file"; filename="notes.txt"`)
+	header.Set("Content-Type", "text/plain")
+	part, err := writer.CreatePart(header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write([]byte("the quick brown fox\njumps over the lazy dog")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.WriteField("card_pk", "-1"); err != nil {
+		t.Fatal(err)
+	}
+	writer.Close()
+
+	token, _ := tests.GenerateTestJWT(1)
+	req, err := http.NewRequest("POST", "/api/files/upload", &buffer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.UploadFileRoute))
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusCreated {
+		t.Fatalf("handler returned wrong status code: got %v want %v: %s", status, http.StatusCreated, rr.Body.String())
+	}
+	var response models.UploadFileResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.File.ExtractedText == nil || !strings.Contains(*response.File.ExtractedText, "quick brown fox") {
+		t.Errorf("extracted_text = %v, want content containing %q", response.File.ExtractedText, "quick brown fox")
+	}
+}
+
+// TestRunFileListQuerySnippet verifies search results carry a server-computed
+// snippet + field around the match (Zettelgarden-72f.10).
+func TestRunFileListQuerySnippet(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Seed a name, description and extracted text on file 3. The name contains
+	// "budget" (so the SQL LIKE path returns it); the extracted text contains
+	// "quarterly" (so a Typesense content match would return it via FileIDs).
+	_, err := s.GetDB().Exec("UPDATE files SET name = 'budget-notes.md', description = 'a review doc', extracted_text = 'expense report for the quarterly planning meeting' WHERE id = 3")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// SQL path: match against the name.
+	files, _, _, _, err := s.runFileListQuery(fileListQuery{
+		UserID:        1,
+		SearchPattern: "%budget%",
+		SearchTerm:    "budget",
+		SortBy:        "date",
+		SortOrder:     "desc",
+		Page:          1,
+		PerPage:       20,
+	})
+	if err != nil {
+		t.Fatalf("runFileListQuery returned error: %v", err)
+	}
+	var matched *models.File
+	for i := range files {
+		if files[i].ID == 3 {
+			matched = &files[i]
+		}
+	}
+	if matched == nil {
+		t.Fatalf("file 3 not in results")
+	}
+	if matched.Snippet == nil || matched.SnippetField == nil {
+		t.Fatalf("file 3 snippet = %v / %v, want a match", matched.Snippet, matched.SnippetField)
+	}
+	if *matched.SnippetField != "name" {
+		t.Errorf("snippet_field = %q, want %q", *matched.SnippetField, "name")
+	}
+	if !strings.Contains(*matched.Snippet, "budget") {
+		t.Errorf("snippet %q should contain the match", *matched.Snippet)
+	}
+	if matched.ExtractedText == nil {
+		t.Errorf("extracted_text should be included on search results")
+	}
+
+	// Typesense-filtered path: the candidate ID came from a content match, so
+	// the snippet should come from extracted_text.
+	files, _, _, _, err = s.runFileListQuery(fileListQuery{
+		UserID:     1,
+		FileIDs:    []int{3},
+		SearchTerm: "quarterly",
+		SortBy:     "date",
+		SortOrder:  "desc",
+		Page:       1,
+		PerPage:    20,
+	})
+	if err != nil {
+		t.Fatalf("runFileListQuery returned error: %v", err)
+	}
+	if len(files) != 1 || files[0].ID != 3 {
+		t.Fatalf("expected file 3 only, got %+v", files)
+	}
+	if files[0].SnippetField == nil || *files[0].SnippetField != "content" {
+		t.Errorf("snippet_field = %v, want %q", files[0].SnippetField, "content")
+	}
+	if files[0].Snippet == nil || !strings.Contains(*files[0].Snippet, "quarterly") {
+		t.Errorf("snippet = %v, want content containing %q", files[0].Snippet, "quarterly")
+	}
+
+	// No match -> no snippet on any result.
+	files, _, _, _, err = s.runFileListQuery(fileListQuery{
+		UserID:        1,
+		SearchPattern: "%zzzznomatch%",
+		SearchTerm:    "zzzznomatch",
+		SortBy:        "date",
+		SortOrder:     "desc",
+		Page:          1,
+		PerPage:       20,
+	})
+	if err != nil {
+		t.Fatalf("runFileListQuery returned error: %v", err)
+	}
+	if len(files) != 0 {
+		t.Errorf("expected 0 results for non-matching search, got %d", len(files))
 	}
 }

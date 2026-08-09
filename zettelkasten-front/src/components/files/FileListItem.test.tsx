@@ -77,4 +77,23 @@ describe('FileListItem', () => {
 
     expect(screen.getByText('[card-7]')).toBeInTheDocument();
   });
+
+  it('renders a snippet with the matching field when present', () => {
+    const file = typesenseShapedFile();
+    file.snippet = '…quarterly budget review…';
+    file.snippet_field = 'content';
+
+    renderWithProviders(
+      <FileListItem
+        file={file}
+        onDelete={() => {}}
+        setRefreshFiles={() => {}}
+        filterString=""
+        setFilterString={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('Content')).toBeInTheDocument();
+    expect(screen.getByText('…quarterly budget review…')).toBeInTheDocument();
+  });
 });

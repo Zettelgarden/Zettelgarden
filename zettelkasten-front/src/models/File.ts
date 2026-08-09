@@ -18,6 +18,8 @@ export interface File {
   card: PartialCard;
   description?: string;
   extracted_text?: string;
+  snippet?: string;
+  snippet_field?: 'name' | 'description' | 'content' | 'tag';
   tags?: string[];
 }
 

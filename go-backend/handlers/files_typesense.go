@@ -181,6 +181,7 @@ func (s *Handler) searchFilesInTypesense(ctx context.Context, userID int, query,
 	files, total, storageUsed, maxStorage, err := s.runFileListQuery(fileListQuery{
 		UserID:         userID,
 		FileIDs:        fileIDs,
+		SearchTerm:     query,
 		FiletypeFilter: filetypeFilter,
 		UnlinkedOnly:   unlinkedOnly,
 		SortBy:         sortBy,
@@ -234,6 +235,9 @@ func (s *Handler) searchFilesInTypesenseNative(ctx context.Context, userID int, 
 		ThumbnailPath *string            `json:"thumbnail_path,omitempty"`
 		Tags          []string           `json:"tags,omitempty"`
 		Description   *string            `json:"description,omitempty"`
+		ExtractedText *string            `json:"extracted_text,omitempty"`
+		Snippet       *string            `json:"snippet,omitempty"`
+		SnippetField  *string            `json:"snippet_field,omitempty"`
 		Card          models.PartialCard `json:"card"`
 	}
 
@@ -302,11 +306,12 @@ func (s *Handler) searchFilesInTypesenseNative(ctx context.Context, userID int, 
 			var cardPK sql.NullInt32
 			var thumbnailPath sql.NullString
 			var description sql.NullString
+			var extractedText sql.NullString
 			var updatedAt time.Time
 			err := s.GetDB().QueryRowContext(ctx, `
-				SELECT path, filename, card_pk, updated_at, thumbnail_path, description
+				SELECT path, filename, card_pk, updated_at, thumbnail_path, description, extracted_text
 				FROM files WHERE id = $1 AND is_deleted = FALSE
-			`, fileID).Scan(&path, &filename, &cardPK, &updatedAt, &thumbnailPath, &description)
+			`, fileID).Scan(&path, &filename, &cardPK, &updatedAt, &thumbnailPath, &description, &extractedText)
 			if errors.Is(err, sql.ErrNoRows) {
 				// The row is missing or soft-deleted (stale index entry): don't
 				// surface it, matching the filtered/SQL path's is_deleted filter.
@@ -339,6 +344,14 @@ func (s *Handler) searchFilesInTypesenseNative(ctx context.Context, userID int, 
 				if description.Valid {
 					desc := description.String
 					file.Description = &desc
+				}
+				if extractedText.Valid {
+					file.ExtractedText = &extractedText.String
+				}
+				// Server-computed snippet around the match (Zettelgarden-72f.10)
+				if snippet, field := buildFileSnippet(query, name, description.String, extractedText.String, tags); snippet != "" {
+					file.Snippet = &snippet
+					file.SnippetField = &field
 				}
 				if thumbnailPath.Valid {
 					file.ThumbnailPath = &thumbnailPath.String

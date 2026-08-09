@@ -29,6 +29,21 @@ interface FileListItemProps {
   onEditDetails?: (file: File) => void;
 }
 
+function snippetFieldLabel(field?: string): string {
+  switch (field) {
+    case 'name':
+      return 'Name';
+    case 'description':
+      return 'Description';
+    case 'content':
+      return 'Content';
+    case 'tag':
+      return 'Tag';
+    default:
+      return 'Match';
+  }
+}
+
 export function FileListItem({
   file,
   onDelete,
@@ -270,6 +285,15 @@ export function FileListItem({
             </span>
             <span>{(file.size / 1024).toFixed(1)} KB</span>
           </div>
+
+          {file.snippet && (
+            <div className="mt-1 flex items-start gap-1.5 text-xs text-gray-500">
+              <span className="flex-shrink-0 px-1 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-medium uppercase">
+                {snippetFieldLabel(file.snippet_field)}
+              </span>
+              <span className="truncate">{file.snippet}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 ml-3 flex-shrink-0">

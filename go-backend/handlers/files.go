@@ -169,6 +169,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 			files, total, storageUsed, maxStorage, qErr := s.runFileListQuery(fileListQuery{
 				UserID:         userID,
 				SearchPattern:  "%" + searchTerm + "%",
+				SearchTerm:     searchTerm,
 				FiletypeFilter: filetypeFilter,
 				UnlinkedOnly:   unlinkedOnly,
 				SortBy:         sortBy,
@@ -195,6 +196,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 		}
 		if searchTerm != "" {
 			q.SearchPattern = "%" + searchTerm + "%"
+			q.SearchTerm = searchTerm
 		}
 		files, total, storageUsed, maxStorage, err := s.runFileListQuery(q)
 		if err != nil {
@@ -213,6 +215,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 type fileListQuery struct {
 	UserID         int
 	SearchPattern  string // SQL LIKE pattern from the fallback search ("" = none)
+	SearchTerm     string // raw search term; when set, results carry snippet + snippet_field
 	FileIDs        []int  // optional exact ID set (Typesense candidates); takes precedence over SearchPattern
 	FiletypeFilter string
 	UnlinkedOnly   bool
@@ -270,6 +273,14 @@ func (s *Handler) runFileListQuery(q fileListQuery) ([]models.File, int, int, in
 	}
 	if sortOrder == "" {
 		sortOrder = "desc"
+	}
+
+	// When a search term is active the response includes extracted_text (used
+	// by the frontend preview) and a server-computed snippet around the match.
+	withSearch := q.SearchTerm != ""
+	selectExtracted := ""
+	if withSearch {
+		selectExtracted = ", f.extracted_text"
 	}
 
 	// Build ORDER BY clause based on sort parameters
@@ -358,7 +369,7 @@ func (s *Handler) runFileListQuery(q fileListQuery) ([]models.File, int, int, in
 		SELECT
 		f.id, f.user_id, f.name, f.type, f.path, f.filename, f.size,
 		f.created_by, f.updated_by, f.card_pk, f.is_deleted,
-		f.created_at, f.updated_at, f.thumbnail_path, f.description
+		f.created_at, f.updated_at, f.thumbnail_path, f.description` + selectExtracted + `
 		FROM files as f
 		` + whereClause + ` ORDER BY ` + orderByClause + ` LIMIT $` + strconv.Itoa(argNum) + ` OFFSET $` + strconv.Itoa(argNum+1)
 
@@ -381,7 +392,8 @@ func (s *Handler) runFileListQuery(q fileListQuery) ([]models.File, int, int, in
 		var file models.File
 		var cardPK sql.NullInt32
 		var description sql.NullString
-		if err := rows.Scan(
+		var extractedText sql.NullString
+		scanTargets := []interface{}{
 			&file.ID,
 			&file.UserID,
 			&file.Name,
@@ -397,7 +409,11 @@ func (s *Handler) runFileListQuery(q fileListQuery) ([]models.File, int, int, in
 			&file.UpdatedAt,
 			&file.ThumbnailPath,
 			&description,
-		); err != nil {
+		}
+		if withSearch {
+			scanTargets = append(scanTargets, &extractedText)
+		}
+		if err := rows.Scan(scanTargets...); err != nil {
 			log.Printf("Error scanning file: %v", err)
 			return nil, 0, 0, 0, err
 		}
@@ -410,6 +426,17 @@ func (s *Handler) runFileListQuery(q fileListQuery) ([]models.File, int, int, in
 		if description.Valid {
 			desc := description.String
 			file.Description = &desc
+		}
+		if withSearch {
+			var extracted string
+			if extractedText.Valid {
+				extracted = extractedText.String
+				file.ExtractedText = &extractedText.String
+			}
+			if snippet, field := buildFileSnippet(q.SearchTerm, file.Name, description.String, extracted, file.Tags); snippet != "" {
+				file.Snippet = &snippet
+				file.SnippetField = &field
+			}
 		}
 		files = append(files, file)
 	}
@@ -449,13 +476,14 @@ func (s *Handler) queryFile(userID int, id int) (models.File, error) {
 
 	row := s.GetDB().QueryRow(`
 	SELECT files.id, files.user_id, files.name, files.type, files.path, files.filename, files.size, files.created_by, files.updated_by, files.card_pk, files.is_deleted,
-	files.created_at, files.updated_at, files.thumbnail_path, files.description
+	files.created_at, files.updated_at, files.thumbnail_path, files.description, files.extracted_text
 FROM files
 	WHERE files.is_deleted = FALSE and files.id = $1 AND files.user_id = $2`, id, userID)
 
 	var file models.File
 	var cardPK sql.NullInt32
 	var description sql.NullString
+	var extractedText sql.NullString
 
 	if err := row.Scan(
 		&file.ID,
@@ -473,6 +501,7 @@ FROM files
 		&file.UpdatedAt,
 		&file.ThumbnailPath,
 		&description,
+		&extractedText,
 	); err != nil {
 		log.Printf("err id %v %v", id, err)
 		return models.File{}, errors.New("unable to access file")
@@ -485,6 +514,9 @@ FROM files
 	if description.Valid {
 		desc := description.String
 		file.Description = &desc
+	}
+	if extractedText.Valid {
+		file.ExtractedText = &extractedText.String
 	}
 	if file.CardPK != nil {
 		card, err := s.QueryPartialCardByID(userID, *file.CardPK)
@@ -717,11 +749,24 @@ func (s *Handler) UploadFileRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unable to determine file size", http.StatusInternalServerError)
 		return
 	}
+	contentType := handler.Header.Get("Content-Type")
+
+	// Extract text inline while the temp file still exists (the extraction job
+	// is a placeholder; this is what actually populates extracted_text so
+	// content search + snippets work, Zettelgarden-72f.10).
+	var extractedValue interface{}
+	if _, err := tempFile.Seek(0, io.SeekStart); err != nil {
+		http.Error(w, "Unable to seek file", http.StatusInternalServerError)
+		return
+	}
+	if extracted := extractTextFromFile(contentType, tempFile); extracted != "" {
+		extractedValue = extracted
+	}
+
 	var lastInsertId int
 	query := `INSERT INTO files (name, user_id, type, path, filename,
-		size, card_pk, created_by, updated_by, updated_at) VALUES
-		($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP) RETURNING id;`
-	contentType := handler.Header.Get("Content-Type")
+		size, card_pk, created_by, updated_by, updated_at, extracted_text) VALUES
+		($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, $10) RETURNING id;`
 	err = s.GetDB().QueryRow(query,
 		handler.Filename,
 		userID,
@@ -731,7 +776,8 @@ func (s *Handler) UploadFileRoute(w http.ResponseWriter, r *http.Request) {
 		fileSize,
 		cardPK,
 		userID,
-		userID).Scan(&lastInsertId)
+		userID,
+		extractedValue).Scan(&lastInsertId)
 	if err != nil {
 		http.Error(w, "Unable to execute query", http.StatusInternalServerError)
 		return

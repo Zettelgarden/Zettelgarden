@@ -20,12 +20,14 @@ type File struct {
 	Card          PartialCard `json:"card"`
 	Description   *string     `json:"description,omitempty"`
 	ExtractedText *string     `json:"extracted_text,omitempty"`
-	Tags          []string    `json:"tags,omitempty"` // Populated on read
+	Snippet       *string     `json:"snippet,omitempty"`       // Populated on search: text around the match
+	SnippetField  *string     `json:"snippet_field,omitempty"` // name | description | content | tag
+	Tags          []string    `json:"tags,omitempty"`          // Populated on read
 }
 
 type EditFileMetadataParams struct {
-	Name        string `json:"name"`
-	CardPK      *int   `json:"card_pk,omitempty"`
+	Name        string  `json:"name"`
+	CardPK      *int    `json:"card_pk,omitempty"`
 	Description *string `json:"description,omitempty"`
 }
 
