@@ -29,17 +29,125 @@ fn trusted_origin(window: &tauri::WebviewWindow) -> bool {
     }
 }
 
+/// Credential store: the OS keychain (keyring crate) by default, or a JSON
+/// file when ZG_KEYCHAIN_FILE is set. The file backend exists for headless /
+/// container environments with no Secret Service daemon (and for the
+/// deterministic E2E smoke) — it is NOT encrypted, so it must only be used
+/// where the data directory is trusted (the flag is opt-in).
+enum CredentialStore {
+    Os,
+    File {
+        path: std::path::PathBuf,
+        cache: std::sync::Mutex<serde_json::Map<String, serde_json::Value>>,
+    },
+}
+
+fn credential_store() -> CredentialStore {
+    match std::env::var("ZG_KEYCHAIN_FILE") {
+        Ok(path) => CredentialStore::File {
+            path: std::path::PathBuf::from(path),
+            cache: std::sync::Mutex::new(serde_json::Map::new()),
+        },
+        Err(_) => CredentialStore::Os,
+    }
+}
+
+impl CredentialStore {
+    fn get(&self, key: &str) -> Result<Option<String>, String> {
+        match self {
+            CredentialStore::Os => {
+                let entry = keyring::Entry::new(SERVICE, key).map_err(|e| e.to_string())?;
+                match entry.get_password() {
+                    Ok(v) => Ok(Some(v)),
+                    Err(keyring::Error::NoEntry) => Ok(None),
+                    Err(e) => Err(e.to_string()),
+                }
+            }
+            CredentialStore::File { path, cache } => {
+                let map = self.load(path, cache)?;
+                Ok(map.get(key).and_then(|v| v.as_str()).map(String::from))
+            }
+        }
+    }
+
+    fn set(&self, key: &str, value: &str) -> Result<(), String> {
+        match self {
+            CredentialStore::Os => {
+                let entry = keyring::Entry::new(SERVICE, key).map_err(|e| e.to_string())?;
+                entry.set_password(value).map_err(|e| e.to_string())
+            }
+            CredentialStore::File { path, cache } => {
+                let mut map = self.load(path, cache)?;
+                map.insert(
+                    key.to_string(),
+                    serde_json::Value::String(value.to_string()),
+                );
+                self.store(path, cache, map)
+            }
+        }
+    }
+
+    fn delete(&self, key: &str) -> Result<(), String> {
+        match self {
+            CredentialStore::Os => {
+                let entry = keyring::Entry::new(SERVICE, key).map_err(|e| e.to_string())?;
+                match entry.delete_credential() {
+                    Ok(()) => Ok(()),
+                    Err(keyring::Error::NoEntry) => Ok(()),
+                    Err(e) => Err(e.to_string()),
+                }
+            }
+            CredentialStore::File { path, cache } => {
+                let mut map = self.load(path, cache)?;
+                map.remove(key);
+                self.store(path, cache, map)
+            }
+        }
+    }
+
+    fn load(
+        &self,
+        path: &std::path::Path,
+        cache: &std::sync::Mutex<serde_json::Map<String, serde_json::Value>>,
+    ) -> Result<serde_json::Map<String, serde_json::Value>, String> {
+        let mut cache = cache.lock().map_err(|e| e.to_string())?;
+        if !cache.is_empty() {
+            return Ok(cache.clone());
+        }
+        match std::fs::read_to_string(path) {
+            Ok(raw) => {
+                let parsed: serde_json::Map<String, serde_json::Value> =
+                    serde_json::from_str(&raw).map_err(|e| format!("keychain file parse: {e}"))?;
+                *cache = parsed.clone();
+                Ok(parsed)
+            }
+            Err(_) => Ok(serde_json::Map::new()),
+        }
+    }
+
+    fn store(
+        &self,
+        path: &std::path::Path,
+        cache: &std::sync::Mutex<serde_json::Map<String, serde_json::Value>>,
+        map: serde_json::Map<String, serde_json::Value>,
+    ) -> Result<(), String> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| format!("keychain mkdir: {e}"))?;
+        }
+        let raw = serde_json::to_string_pretty(&map).map_err(|e| e.to_string())?;
+        std::fs::write(path, raw).map_err(|e| format!("keychain write: {e}"))?;
+        let mut cache = cache.lock().map_err(|e| e.to_string())?;
+        *cache = map;
+        Ok(())
+    }
+}
+
 #[tauri::command]
 pub fn get_secret(window: tauri::WebviewWindow, key: String) -> Result<Option<String>, String> {
     if !trusted_origin(&window) {
         return Err("get_secret denied: untrusted webview origin".to_string());
     }
-    let entry = keyring::Entry::new(SERVICE, &key).map_err(|e| e.to_string())?;
-    match entry.get_password() {
-        Ok(v) => Ok(Some(v)),
-        Err(keyring::Error::NoEntry) => Ok(None),
-        Err(e) => Err(e.to_string()),
-    }
+    credential_store().get(&key)
 }
 
 #[tauri::command]
@@ -47,8 +155,7 @@ pub fn set_secret(window: tauri::WebviewWindow, key: String, value: String) -> R
     if !trusted_origin(&window) {
         return Err("set_secret denied: untrusted webview origin".to_string());
     }
-    let entry = keyring::Entry::new(SERVICE, &key).map_err(|e| e.to_string())?;
-    entry.set_password(&value).map_err(|e| e.to_string())
+    credential_store().set(&key, &value)
 }
 
 #[tauri::command]
@@ -56,12 +163,7 @@ pub fn delete_secret(window: tauri::WebviewWindow, key: String) -> Result<(), St
     if !trusted_origin(&window) {
         return Err("delete_secret denied: untrusted webview origin".to_string());
     }
-    let entry = keyring::Entry::new(SERVICE, &key).map_err(|e| e.to_string())?;
-    match entry.delete_credential() {
-        Ok(()) => Ok(()),
-        Err(keyring::Error::NoEntry) => Ok(()),
-        Err(e) => Err(e.to_string()),
-    }
+    credential_store().delete(&key)
 }
 
 /// App settings persisted to the app data dir (server URL, account, ui flags).
@@ -127,6 +229,36 @@ pub fn window_is_maximized(window: tauri::WebviewWindow) -> Result<bool, String>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn file_keychain_roundtrip_and_persistence() {
+        let dir = std::env::temp_dir().join(format!("zg-keychain-test-{}", std::process::id()));
+        let path = dir.join("secrets.json");
+        std::fs::remove_file(&path).ok();
+
+        // Process 1 writes.
+        {
+            let store = super::CredentialStore::File {
+                path: path.clone(),
+                cache: std::sync::Mutex::new(serde_json::Map::new()),
+            };
+            store.set("token", "jwt-abc").expect("set");
+            store.set("username", "nick").expect("set");
+            assert_eq!(store.get("token").unwrap().as_deref(), Some("jwt-abc"));
+        }
+        // A fresh store instance (new process) reads the same file.
+        {
+            let store = super::CredentialStore::File {
+                path: path.clone(),
+                cache: std::sync::Mutex::new(serde_json::Map::new()),
+            };
+            assert_eq!(store.get("token").unwrap().as_deref(), Some("jwt-abc"));
+            assert_eq!(store.get("username").unwrap().as_deref(), Some("nick"));
+            store.delete("token").expect("delete");
+            assert_eq!(store.get("token").unwrap(), None);
+        }
+        std::fs::remove_dir_all(&dir).ok();
+    }
 
     #[test]
     fn settings_roundtrip_via_filesystem() {

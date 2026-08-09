@@ -12,7 +12,13 @@ tauri = { version = "2", features = [] }
 tauri-plugin-store = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-keyring = "3"
+# Real OS credential stores. keyring v3 has NO default features — without an
+# explicit feature it falls back to an in-memory mock (tokens lost on every
+# restart), which silently broke "keychain auth" (Phase 2a) and the offline
+# session-preservation path. Linux = Secret Service (gnome-keyring/kwallet,
+# the design doc's intent; needs the session daemon, standard on desktops);
+# apple-native / windows-native = Keychain / Credential Manager.
+keyring = { version = "3", features = ["sync-secret-service", "apple-native", "windows-native"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
 
 [lib]

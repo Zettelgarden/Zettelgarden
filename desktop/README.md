@@ -77,8 +77,28 @@ cd desktop && npm run build
 ## Verified
 
 - `cargo build` (dev + release) clean; `cargo test` green (settings round-trip
-  + sync_db exec/query + transaction isolation).
+  + sync_db exec/query + transaction isolation + file-keychain round-trip).
 - App launches under `xvfb` with the embedded `dist`, event loop stays alive,
   no panics.
 - Release binary embeds the web app; keyring/signing are exercised in the
   per-platform CI builds.
+
+## E2E smoke (Zettelgarden-77j)
+
+`desktop/e2e/smoke.sh` runs the REAL release binary against a live Go backend
+under `xvfb`, driving a scripted scenario inside the webview via an env-gated
+bridge (`ZG_E2E=1`; the bridge is never injected in normal runs). It verifies:
+
+1. **fresh** — register + real login form; fresh-mirror bootstrap through the
+   real IPC (Rust sync_db + TauriStorageAdapter); online create+sync; then
+   OFFLINE create/edit/delete of a card and create/edit of a task, asserting
+   the sidebar indicator shows "Offline · N pending" and **zero `window.fetch`
+   calls on the hot path**; reconnect + reconciliation (server spot-check);
+   indicator returns to "Synced".
+2. **session** — relaunch with the same app-data dir + keychain file: the app
+   must boot authenticated from the keychain (no login form) and render the
+   offline-created card from the local mirror instantly.
+
+Run with `bash desktop/e2e/smoke.sh` (needs Go, Node, cargo, xvfb-run; uses
+port 18131 and a temp run dir). The file keychain (`ZG_KEYCHAIN_FILE`) stands
+in for the OS Secret Service daemon, which needs a desktop session.

@@ -1,4 +1,5 @@
 mod commands;
+mod e2e;
 mod sync_db;
 
 use tauri::Manager;
@@ -8,6 +9,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
+            e2e::e2e_report,
             sync_db::sync_ping,
             sync_db::sync_begin,
             sync_db::sync_commit,
@@ -30,7 +32,7 @@ pub fn run() {
             })?;
             app.manage(sync_db);
             let shim = include_str!("../preload.js");
-            let _window = tauri::WebviewWindowBuilder::new(
+            let mut builder = tauri::WebviewWindowBuilder::new(
                 app,
                 "main",
                 tauri::WebviewUrl::App("index.html".into()),
@@ -38,8 +40,20 @@ pub fn run() {
             .title("Zettelgarden")
             .inner_size(1400.0, 900.0)
             .min_inner_size(800.0, 600.0)
-            .initialization_script(shim)
-            .build()?;
+            .initialization_script(shim);
+            // E2E smoke (Zettelgarden-77j): inject the scripted-scenario
+            // bridge only when the orchestrator asks for it.
+            if std::env::var("ZG_E2E").as_deref() == Ok("1") {
+                let scenario =
+                    std::env::var("ZG_E2E_SCENARIO").unwrap_or_else(|_| "fresh".to_string());
+                let script = format!(
+                    "window.__ZG_E2E_SCENARIO__ = {};\n{}",
+                    serde_json::to_string(&scenario).unwrap_or_else(|_| "\"fresh\"".to_string()),
+                    e2e::E2E_INIT_SCRIPT,
+                );
+                builder = builder.initialization_script(&script);
+            }
+            let _window = builder.build()?;
             Ok(())
         })
         .run(tauri::generate_context!())
