@@ -18,6 +18,7 @@ package settings
 import (
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -36,6 +37,8 @@ const (
 	KindString Kind = iota
 	// KindBool is a boolean value stored as "true"/"false".
 	KindBool
+	// KindInt is a whole number stored in canonical decimal form.
+	KindInt
 )
 
 // Key describes one registry entry: how it is seeded from env and typed.
@@ -55,6 +58,9 @@ type Key struct {
 //     provisioning gates)
 //   - mail_enabled / email_auto_validate: 6er.10 / 6er.6
 //   - support_email: 6er.7
+//   - job_retention_days / rss_article_retention_days: 6er.16 (cleanup-job
+//     retention, formerly env-only JOB_RETENTION_DAYS /
+//     RSS_ARTICLE_RETENTION_DAYS)
 var Registry = []Key{
 	{Name: "admin_email", Env: "ZETTEL_ADMIN_EMAIL", Kind: KindString},
 	{Name: "site_name", Env: "ZETTEL_SITE_NAME", Kind: KindString, Default: "Zettelgarden"},
@@ -63,6 +69,8 @@ var Registry = []Key{
 	{Name: "mail_enabled", Env: "MAIL_ENABLED", Kind: KindBool},
 	{Name: "email_auto_validate", Env: "EMAIL_AUTO_VALIDATE", Kind: KindBool},
 	{Name: "support_email", Env: "ZETTEL_SUPPORT_EMAIL", Kind: KindString},
+	{Name: "job_retention_days", Env: "JOB_RETENTION_DAYS", Kind: KindInt, Default: "30"},
+	{Name: "rss_article_retention_days", Env: "RSS_ARTICLE_RETENTION_DAYS", Kind: KindInt, Default: "30"},
 }
 
 // registryByName indexes Registry for O(1) lookups.
@@ -231,6 +239,23 @@ func checkRaw(k Key, v any) error {
 		default:
 			return fmt.Errorf("settings: %s must be true or false, got %v", k.Name, v)
 		}
+	case KindInt:
+		switch t := v.(type) {
+		case int, int64:
+			return nil
+		case float64:
+			if t != math.Trunc(t) {
+				return fmt.Errorf("settings: %s must be a whole number, got %v", k.Name, v)
+			}
+			return nil
+		case string:
+			if _, err := strconv.Atoi(strings.TrimSpace(t)); err != nil {
+				return fmt.Errorf("settings: %s must be a whole number, got %q", k.Name, t)
+			}
+			return nil
+		default:
+			return fmt.Errorf("settings: %s must be a whole number, got %v", k.Name, v)
+		}
 	}
 	return nil
 }
@@ -240,6 +265,8 @@ func coerce(k Key, v any) string {
 	switch k.Kind {
 	case KindBool:
 		return strconv.FormatBool(toBool(v))
+	case KindInt:
+		return strconv.Itoa(toInt(v))
 	default:
 		switch t := v.(type) {
 		case string:
@@ -253,6 +280,28 @@ func coerce(k Key, v any) string {
 		default:
 			return fmt.Sprintf("%v", t)
 		}
+	}
+}
+
+// toInt parses a YAML value as a whole number (handles the scalar types
+// yaml.v3 may produce). Unparseable values fall back to 0; validateValues
+// reports them loudly before this is ever relied on.
+func toInt(v any) int {
+	switch t := v.(type) {
+	case int:
+		return t
+	case int64:
+		return int(t)
+	case float64:
+		return int(t)
+	case string:
+		n, err := strconv.Atoi(strings.TrimSpace(t))
+		if err != nil {
+			return 0
+		}
+		return n
+	default:
+		return 0
 	}
 }
 
@@ -289,6 +338,10 @@ func validateValues(values map[string]string) error {
 		case KindBool:
 			if _, err := strconv.ParseBool(strings.TrimSpace(v)); err != nil {
 				return fmt.Errorf("settings: %s must be true or false, got %q", k.Name, v)
+			}
+		case KindInt:
+			if _, err := strconv.Atoi(strings.TrimSpace(v)); err != nil {
+				return fmt.Errorf("settings: %s must be a whole number, got %q", k.Name, v)
 			}
 		}
 	}
@@ -347,6 +400,18 @@ func (m *Manager) GetBool(key string) bool {
 	return b
 }
 
+// GetInt returns the current value for an int registry key as a whole
+// number, falling back to def when the key is missing or unparseable
+// (validateValues prevents the latter from persisting).
+func (m *Manager) GetInt(key string, def int) int {
+	v := m.Get(key)
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil {
+		return def
+	}
+	return n
+}
+
 // All returns a copy of all registry values (non-secret by construction).
 func (m *Manager) All() map[string]string {
 	m.refreshIfStale()
@@ -385,6 +450,10 @@ func (m *Manager) SetMany(updates map[string]string) error {
 		case KindBool:
 			if _, err := strconv.ParseBool(strings.TrimSpace(value)); err != nil {
 				return fmt.Errorf("settings: %s must be true or false, got %q", key, value)
+			}
+		case KindInt:
+			if _, err := strconv.Atoi(strings.TrimSpace(value)); err != nil {
+				return fmt.Errorf("settings: %s must be a whole number, got %q", key, value)
 			}
 		case KindString:
 			if key == "admin_email" && value != "" && !strings.Contains(value, "@") {

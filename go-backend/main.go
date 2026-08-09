@@ -159,15 +159,21 @@ func run() error {
 	log.Printf("File storage initialized successfully")
 
 	// Initialize mail client for transactional emails (password resets,
-	// reminders). Mail is optional (6er.6): with mail_enabled=false (settings
-	// file; seeded from MAIL_ENABLED or the absence of SMTP_HOST), the client
-	// is a Disabled no-op so callers degrade gracefully. Delivery is direct
-	// SMTP (the python-mail service was retired, 6er.12).
-	mailEnabled := sm.GetBool("mail_enabled")
-	if mailEnabled {
+	// reminders). Mail is optional (6er.6): when no SMTP relay is configured
+	// the client is a Disabled no-op so callers degrade gracefully. Delivery
+	// is direct SMTP (the python-mail service was retired, 6er.12).
+	//
+	// Hot reload (6er.16): Disabled reflects SMTP *infrastructure* only
+	// (host + from configured); the operator toggle mail_enabled is checked
+	// per-send via EnabledFn so an admin UI toggle applies immediately,
+	// without a restart.
+	smtpConfigured := cfg.Services.Mail.SMTPHost != "" && cfg.Services.Mail.SMTPFrom != ""
+	if sm.GetBool("mail_enabled") && smtpConfigured {
 		log.Printf("Initializing mail client (smtp=%s:%d, from=%s)", cfg.Services.Mail.SMTPHost, cfg.Services.Mail.SMTPPort, cfg.Services.Mail.SMTPFrom)
+	} else if !smtpConfigured {
+		log.Printf("Mail disabled (no SMTP_HOST/SMTP_FROM configured; set them in the environment to enable)")
 	} else {
-		log.Printf("Mail disabled (set mail_enabled=true in config.yaml or configure SMTP_HOST to enable)")
+		log.Printf("Mail enabled but disabled via mail_enabled=false in config.yaml")
 	}
 	s.Mail = &mail.MailClient{
 		SMTPHost:     cfg.Services.Mail.SMTPHost,
@@ -179,9 +185,10 @@ func run() error {
 		Queue:        mail.NewEmailQueue(),
 		DB:           s.DB,
 		ShutdownChan: make(chan struct{}),
-		Disabled:     !mailEnabled,
+		Disabled:     !smtpConfigured,
+		EnabledFn:    func() bool { return sm.GetBool("mail_enabled") },
 	}
-	if mailEnabled {
+	if smtpConfigured {
 		log.Printf("Mail client initialized successfully")
 	}
 
@@ -235,11 +242,11 @@ func run() error {
 	scheduler := services.NewScheduler(s.DB)
 
 	// Register scheduled jobs with their required dependencies
-	scheduler.Register(jobs.NewCleanupJob(s.DB))
+	scheduler.Register(jobs.NewCleanupJob(s.DB, sm))
 	scheduler.Register(jobs.NewTaskRemindersJob(s.DB, s.Mail))
 	scheduler.Register(jobs.NewUptimeKumaPingJob())
 	scheduler.Register(jobs.NewRSSFetchJob(s.DB))
-	scheduler.Register(jobs.NewRSSArticleCleanupJob(s.DB))
+	scheduler.Register(jobs.NewRSSArticleCleanupJob(s.DB, sm))
 
 	scheduler.Start()
 	defer scheduler.Stop()

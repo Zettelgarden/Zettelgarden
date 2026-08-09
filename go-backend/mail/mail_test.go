@@ -92,3 +92,48 @@ func TestMailClientDisabledNoOp(t *testing.T) {
 		t.Errorf("disabled client must not count emails, got %d", client.TestingEmailsSent)
 	}
 }
+
+// TestMailClientEnabledFnHotReload verifies the mail_enabled toggle is
+// honored per-send (6er.16): flipping the func result stops sends immediately
+// (nothing queued/counted) and re-enabling resumes them — no restart needed.
+func TestMailClientEnabledFnHotReload(t *testing.T) {
+	enabled := false
+	client := &MailClient{
+		Queue:     NewEmailQueue(),
+		EnabledFn: func() bool { return enabled },
+	}
+
+	// Toggle off: sends are no-ops, nothing queued or counted.
+	if err := client.SendEmail("subject", "a@b.c", "body"); err != nil {
+		t.Fatalf("disabled-by-toggle SendEmail returned error: %v", err)
+	}
+	if client.Queue.Length() != 0 {
+		t.Errorf("toggle-off client must not queue emails, got %d", client.Queue.Length())
+	}
+
+	// Toggle on: sends resume immediately.
+	enabled = true
+	client.Testing = true
+	if err := client.SendEmail("subject", "a@b.c", "body"); err != nil {
+		t.Fatalf("enabled SendEmail returned error: %v", err)
+	}
+	if client.TestingEmailsSent != 1 {
+		t.Errorf("toggle-on client should count the send, got %d", client.TestingEmailsSent)
+	}
+}
+
+// TestMailClientNilEnabledFnDefaultsEnabled verifies that a client without an
+// EnabledFn (reminders command, tests) behaves as before: Disabled alone
+// governs.
+func TestMailClientNilEnabledFnDefaultsEnabled(t *testing.T) {
+	client := &MailClient{
+		Testing: true,
+		Queue:   NewEmailQueue(),
+	}
+	if err := client.SendEmail("subject", "a@b.c", "body"); err != nil {
+		t.Fatalf("SendEmail with nil EnabledFn returned error: %v", err)
+	}
+	if client.TestingEmailsSent != 1 {
+		t.Errorf("nil EnabledFn client should count the send, got %d", client.TestingEmailsSent)
+	}
+}

@@ -10,7 +10,7 @@ import (
 // TestCleanupJobImplementsInterface verifies that CleanupJob implements
 // the ScheduledJob interface with correct values.
 func TestCleanupJobImplementsInterface(t *testing.T) {
-	job := NewCleanupJob(nil)
+	job := NewCleanupJob(nil, nil)
 
 	// Verify Name returns expected value
 	if got, want := job.Name(), "daily-cleanup"; got != want {
@@ -34,7 +34,7 @@ func TestCleanupJobImplementsInterface(t *testing.T) {
 // TestCleanupJobHandler verifies that the handler executes correctly.
 func TestCleanupJobHandler(t *testing.T) {
 	t.Run("with nil DB should succeed", func(t *testing.T) {
-		job := NewCleanupJob(nil)
+		job := NewCleanupJob(nil, nil)
 		ctx := context.Background()
 
 		if err := job.Handler(ctx); err != nil {

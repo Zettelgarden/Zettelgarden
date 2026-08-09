@@ -39,7 +39,7 @@ func TestSchedulerIntegration(t *testing.T) {
 	scheduler := services.NewScheduler(h.DB)
 
 	// 3. Register cleanup job
-	cleanupJob := jobs.NewCleanupJob(h.DB)
+	cleanupJob := jobs.NewCleanupJob(h.DB, nil)
 	err := scheduler.Register(cleanupJob)
 	if err != nil {
 		t.Fatalf("Failed to register cleanup job: %v", err)

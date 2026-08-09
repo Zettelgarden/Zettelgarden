@@ -10,9 +10,12 @@ export interface AdminSettings {
   admin_email: string;
   site_name: string;
   signups_enabled: string;
+  oidc_auto_provision: string;
   mail_enabled: string;
   email_auto_validate: string;
   support_email: string;
+  job_retention_days: string;
+  rss_article_retention_days: string;
 }
 
 export function getAdminSettings(): Promise<AdminSettings> {

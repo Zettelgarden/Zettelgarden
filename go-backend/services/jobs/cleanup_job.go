@@ -3,38 +3,31 @@ package jobs
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/robfig/cron/v3"
 
 	"go-backend/models"
 	"go-backend/services"
+	"go-backend/settings"
 )
 
 // CleanupJob performs daily cleanup of old data
 type CleanupJob struct {
-	db               *sql.DB
-	schedule         string
-	llmRetentionDays int
+	db       *sql.DB
+	schedule string
+	settings *settings.Manager
 }
 
-// NewCleanupJob creates a new cleanup job
-func NewCleanupJob(db *sql.DB) *CleanupJob {
-	// Get retention days from environment or use default
-	retentionDays := 30
-	if val := os.Getenv("JOB_RETENTION_DAYS"); val != "" {
-		var days int
-		if _, err := fmt.Sscanf(val, "%d", &days); err == nil && days > 0 {
-			retentionDays = days
-		}
-	}
-
+// NewCleanupJob creates a new cleanup job. The settings manager is optional:
+// when nil, retention falls back to the registry default (30 days). Retention
+// is read per-run from the settings manager so admin UI edits hot-reload
+// without a restart.
+func NewCleanupJob(db *sql.DB, sm *settings.Manager) *CleanupJob {
 	return &CleanupJob{
-		db:               db,
-		llmRetentionDays: retentionDays,
+		db:       db,
+		settings: sm,
 	}
 }
 
@@ -84,13 +77,18 @@ func (j *CleanupJob) Handler(ctx context.Context) error {
 	scheduledRunsDeleted, _ := scheduledRunsResult.RowsAffected()
 	log.Printf("[cleanup-job] cleaned up %d old scheduled_job_runs (retention: 90 days)", scheduledRunsDeleted)
 
-	// Clean up old llm_jobs (keep last N days, default 30)
-	llmJobsDeleted, err := models.CleanupOldJobs(j.db, j.llmRetentionDays)
+	// Clean up old llm_jobs (keep last N days, default 30; admin-tunable via
+	// job_retention_days in config.yaml).
+	retentionDays := 30
+	if j.settings != nil {
+		retentionDays = j.settings.GetInt("job_retention_days", retentionDays)
+	}
+	llmJobsDeleted, err := models.CleanupOldJobs(j.db, retentionDays)
 	if err != nil {
 		log.Printf("[cleanup-job] failed to clean old llm_jobs: %v", err)
 		return err
 	}
-	log.Printf("[cleanup-job] cleaned up %d old llm_jobs (retention: %d days)", llmJobsDeleted, j.llmRetentionDays)
+	log.Printf("[cleanup-job] cleaned up %d old llm_jobs (retention: %d days)", llmJobsDeleted, retentionDays)
 
 	log.Println("[cleanup-job] completed successfully")
 	return nil

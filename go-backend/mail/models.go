@@ -21,7 +21,9 @@ import (
 // Disabled marks a no-op client for self-hosters without SMTP (6er.6):
 // SendEmail/SendHTMLEmail return nil immediately and nothing is queued, so
 // callers (validation mails, reminders, notifications) degrade gracefully
-// without nil checks.
+// without nil checks. Disabled reflects SMTP *infrastructure* availability
+// only (host + from configured at boot); the operator toggle mail_enabled is
+// checked per-send via EnabledFn (6er.16) so admin UI edits hot-reload.
 type MailClient struct {
 	SMTPHost          string
 	SMTPPort          int
@@ -30,6 +32,7 @@ type MailClient struct {
 	SMTPFrom          string
 	StartTLS          bool
 	Disabled          bool
+	EnabledFn         func() bool // nil => enabled (respects Disabled only)
 	Testing           bool
 	TestingEmailsSent int
 	Queue             *EmailQueue
@@ -42,6 +45,17 @@ type MailClient struct {
 	// insecureSkipTLSVerify is a test-only hook: the fake-SMTP tests present a
 	// self-signed certificate and must skip verification. Never set in prod.
 	insecureSkipTLSVerify bool
+}
+
+// enabled reports the runtime operator toggle (mail_enabled). A nil
+// EnabledFn means the caller didn't wire a settings lookup (e.g. the
+// reminders command or tests): behavior is then governed by Disabled alone,
+// matching pre-6er.16 semantics.
+func (m *MailClient) enabled() bool {
+	if m.EnabledFn == nil {
+		return true
+	}
+	return m.EnabledFn()
 }
 
 func (m *MailClient) db() models.Database {

@@ -48,6 +48,13 @@ func TestNewSeedsFileFromEnv(t *testing.T) {
 	if got := m.GetBool("mail_enabled"); !got {
 		t.Error("mail_enabled should auto-detect true when SMTP_HOST is set")
 	}
+	// Cleanup retention keys default to 30 days.
+	if got := m.GetInt("job_retention_days", -1); got != 30 {
+		t.Errorf("job_retention_days = %d, want default 30", got)
+	}
+	if got := m.GetInt("rss_article_retention_days", -1); got != 30 {
+		t.Errorf("rss_article_retention_days = %d, want default 30", got)
+	}
 
 	// The file should exist on disk with the seeded values.
 	data, err := os.ReadFile(path)
@@ -213,6 +220,82 @@ func TestSetRefusesToClobberBrokenFile(t *testing.T) {
 	}
 	if err := m.Set("signups_enabled", "false"); err == nil {
 		t.Fatal("Set over a broken file should refuse to write")
+	}
+}
+
+func TestRetentionKeysSeedFromEnv(t *testing.T) {
+	t.Setenv("ZETTEL_ADMIN_EMAIL", "admin@test.com")
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("JOB_RETENTION_DAYS", "14")
+	t.Setenv("RSS_ARTICLE_RETENTION_DAYS", "7")
+	dir := t.TempDir()
+
+	m, err := New(filepath.Join(dir, "config.yaml"))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if got := m.GetInt("job_retention_days", -1); got != 14 {
+		t.Errorf("job_retention_days = %d, want env-seeded 14", got)
+	}
+	if got := m.GetInt("rss_article_retention_days", -1); got != 7 {
+		t.Errorf("rss_article_retention_days = %d, want env-seeded 7", got)
+	}
+}
+
+func TestSetIntValidationAndPersistence(t *testing.T) {
+	testEnv(t)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+
+	m, err := New(path)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	if err := m.Set("job_retention_days", "not-a-number"); err == nil {
+		t.Error("Set of invalid int should fail")
+	}
+	if err := m.Set("job_retention_days", "90"); err != nil {
+		t.Fatalf("Set job_retention_days: %v", err)
+	}
+	if got := m.GetInt("job_retention_days", -1); got != 90 {
+		t.Errorf("job_retention_days after Set = %d, want 90", got)
+	}
+
+	// Persisted across reopen; GetInt without the key falls back to def.
+	m2, err := New(path)
+	if err != nil {
+		t.Fatalf("New (reopen): %v", err)
+	}
+	if got := m2.GetInt("job_retention_days", -1); got != 90 {
+		t.Errorf("job_retention_days persisted = %d, want 90", got)
+	}
+	if got := m2.GetInt("nonexistent_key", 42); got != 42 {
+		t.Errorf("GetInt unknown key = %d, want fallback 42", got)
+	}
+}
+
+func TestBootFailsLoudlyOnInvalidInt(t *testing.T) {
+	testEnv(t)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+
+	if _, err := New(path); err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := os.WriteFile(path, []byte("job_retention_days: \"thirty\"\nadmin_email: \"a@b.c\"\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if _, err := New(path); err == nil {
+		t.Fatal("New with invalid int value should fail loudly")
+	}
+
+	// A fractional number must also fail loudly rather than silently truncate.
+	if err := os.WriteFile(path, []byte("job_retention_days: 30.5\nadmin_email: \"a@b.c\"\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if _, err := New(path); err == nil {
+		t.Fatal("New with fractional int value should fail loudly")
 	}
 }
 

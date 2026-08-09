@@ -3,36 +3,28 @@ package jobs
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/robfig/cron/v3"
 
 	"go-backend/services"
+	"go-backend/settings"
 )
 
 // RSSArticleCleanupJob cleans up old RSS articles
 type RSSArticleCleanupJob struct {
-	db            *sql.DB
-	retentionDays int
+	db       *sql.DB
+	settings *settings.Manager
 }
 
-// NewRSSArticleCleanupJob creates a new RSS article cleanup job
-func NewRSSArticleCleanupJob(db *sql.DB) *RSSArticleCleanupJob {
-	// Get retention days from environment or use default (30 days)
-	retentionDays := 30
-	if val := os.Getenv("RSS_ARTICLE_RETENTION_DAYS"); val != "" {
-		var days int
-		if _, err := fmt.Sscanf(val, "%d", &days); err == nil && days > 0 {
-			retentionDays = days
-		}
-	}
-
+// NewRSSArticleCleanupJob creates a new RSS article cleanup job. The settings
+// manager is optional (nil falls back to the registry default, 30 days);
+// retention is read per-run so admin UI edits hot-reload without a restart.
+func NewRSSArticleCleanupJob(db *sql.DB, sm *settings.Manager) *RSSArticleCleanupJob {
 	return &RSSArticleCleanupJob{
-		db:            db,
-		retentionDays: retentionDays,
+		db:       db,
+		settings: sm,
 	}
 }
 
@@ -72,7 +64,12 @@ func (j *RSSArticleCleanupJob) Handler(ctx context.Context) error {
 
 	// Delete old articles that are not starred and not converted to cards.
 	// App-side cutoff because SQLite has no INTERVAL. See migration design P3.
-	articleCutoff := time.Now().UTC().AddDate(0, 0, -j.retentionDays)
+	// Retention is admin-tunable via rss_article_retention_days in config.yaml.
+	retentionDays := 30
+	if j.settings != nil {
+		retentionDays = j.settings.GetInt("rss_article_retention_days", retentionDays)
+	}
+	articleCutoff := time.Now().UTC().AddDate(0, 0, -retentionDays)
 
 	// Notifications were trigger-maintained (0122/0124); now maintained in Go
 	// (Phase 5). Remove notifications for the articles about to be deleted —
@@ -102,7 +99,7 @@ func (j *RSSArticleCleanupJob) Handler(ctx context.Context) error {
 	}
 
 	articlesDeleted, _ := result.RowsAffected()
-	log.Printf("[rss-article-cleanup] cleaned up %d old articles (retention: %d days)", articlesDeleted, j.retentionDays)
+	log.Printf("[rss-article-cleanup] cleaned up %d old articles (retention: %d days)", articlesDeleted, retentionDays)
 
 	return nil
 }

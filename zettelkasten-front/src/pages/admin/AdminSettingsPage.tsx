@@ -11,8 +11,11 @@ interface SettingsFormState {
   site_name: string;
   support_email: string;
   signups_enabled: boolean;
+  oidc_auto_provision: boolean;
   mail_enabled: boolean;
   email_auto_validate: boolean;
+  job_retention_days: string;
+  rss_article_retention_days: string;
 }
 
 const EMPTY_FORM: SettingsFormState = {
@@ -20,8 +23,11 @@ const EMPTY_FORM: SettingsFormState = {
   site_name: 'Zettelgarden',
   support_email: '',
   signups_enabled: true,
+  oidc_auto_provision: true,
   mail_enabled: true,
   email_auto_validate: true,
+  job_retention_days: '30',
+  rss_article_retention_days: '30',
 };
 
 export function AdminSettingsPage() {
@@ -39,8 +45,11 @@ export function AdminSettingsPage() {
           site_name: s.site_name,
           support_email: s.support_email,
           signups_enabled: s.signups_enabled !== 'false',
+          oidc_auto_provision: s.oidc_auto_provision !== 'false',
           mail_enabled: s.mail_enabled !== 'false',
           email_auto_validate: s.email_auto_validate !== 'false',
+          job_retention_days: s.job_retention_days || '30',
+          rss_article_retention_days: s.rss_article_retention_days || '30',
         }),
       )
       .catch((e) => setError(e.message))
@@ -67,8 +76,11 @@ export function AdminSettingsPage() {
         site_name: form.site_name,
         support_email: form.support_email,
         signups_enabled: String(form.signups_enabled),
+        oidc_auto_provision: String(form.oidc_auto_provision),
         mail_enabled: String(form.mail_enabled),
         email_auto_validate: String(form.email_auto_validate),
+        job_retention_days: form.job_retention_days,
+        rss_article_retention_days: form.rss_article_retention_days,
       });
       setSuccess('Settings saved and applied immediately.');
     } catch (e: any) {
@@ -100,6 +112,31 @@ export function AdminSettingsPage() {
         id={name}
         name={name}
         type="text"
+        value={String(form[name])}
+        onChange={handleText(name)}
+        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+      />
+      <p className="text-xs text-gray-500 mt-1">{hint}</p>
+    </div>
+  );
+
+  const numberField = (
+    name: 'job_retention_days' | 'rss_article_retention_days',
+    label: string,
+    hint: string,
+  ) => (
+    <div>
+      <label
+        htmlFor={name}
+        className="block text-sm font-medium text-gray-700 mb-1"
+      >
+        {label}
+      </label>
+      <input
+        id={name}
+        name={name}
+        type="number"
+        min={1}
         value={String(form[name])}
         onChange={handleText(name)}
         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
@@ -169,20 +206,48 @@ export function AdminSettingsPage() {
         )}
 
         <div className="border-t border-gray-200 pt-4 space-y-2">
+          <h2 className="text-sm font-semibold text-gray-800">
+            Registration &amp; SSO
+          </h2>
           {boolField(
             'signups_enabled',
             'Allow new user registration',
             'When off, the register link is hidden and public signup is rejected.',
           )}
           {boolField(
+            'oidc_auto_provision',
+            'Auto-provision accounts via OIDC/SSO',
+            'When off, OIDC only logs in accounts that already exist (same email or linked); unknown IdP users get an error.',
+          )}
+        </div>
+
+        <div className="border-t border-gray-200 pt-4 space-y-2">
+          <h2 className="text-sm font-semibold text-gray-800">Email</h2>
+          {boolField(
             'mail_enabled',
             'Send transactional email',
-            'When off, no SMTP mail is sent and the email-validation banner is hidden.',
+            'When off, no SMTP mail is sent and the email-validation banner is hidden. Applies immediately — no restart needed.',
           )}
           {boolField(
             'email_auto_validate',
             'Auto-validate new accounts',
             'Treat new accounts as email-validated without a confirmation email.',
+          )}
+        </div>
+
+        <div className="border-t border-gray-200 pt-4 space-y-3">
+          <h2 className="text-sm font-semibold text-gray-800">
+            Data retention
+          </h2>
+          {numberField(
+            'job_retention_days',
+            'LLM job history (days)',
+            'Completed/failed background jobs (summaries, imports) are purged after this many days. Applied on the next daily cleanup.',
+          )}
+          {numberField(
+            'rss_article_retention_days',
+            'RSS article retention (days)',
+            'Unstarred RSS articles not converted to cards are deleted after this many days. Applied on the next daily cleanup.',
           )}
         </div>
 
